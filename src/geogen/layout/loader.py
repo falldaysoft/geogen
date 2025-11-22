@@ -11,6 +11,7 @@ from ..core.transform import Transform
 from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator
 from ..materials.loader import MaterialLoader
 from .anchors import Anchor, resolve_anchor
+from .attachments import parse_attachment
 
 
 # Registry of available primitive generators
@@ -76,11 +77,18 @@ class LayoutLoader:
         container_size = np.array(data["size"], dtype=np.float64)
 
         root = SceneNode(name)
+        root.size = container_size
 
         parts = data.get("parts", {})
         for part_name, part_def in parts.items():
             part_node = self._create_part(part_name, part_def, container_size)
             root.add_child(part_node)
+
+        # Parse attachment points
+        attachments_data = data.get("attachments", {})
+        for attach_name, attach_def in attachments_data.items():
+            attachment = parse_attachment(attach_name, attach_def)
+            root.attachments[attach_name] = attachment
 
         return root
 

@@ -116,9 +116,17 @@ class Viewer:
         names = []
 
         for scene_node, world_mesh in node.iter_meshes():
+            # Generate unique name using hierarchy path to avoid collisions
+            path_parts = []
+            current = scene_node
+            while current is not None:
+                path_parts.append(current.name)
+                current = current.parent
+            unique_name = "/".join(reversed(path_parts))
+
             name = self._add_mesh(
                 mesh=world_mesh,
-                name=scene_node.name,
+                name=unique_name,
                 color=color,
             )
             names.append(name)

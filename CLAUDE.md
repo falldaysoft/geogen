@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Geogen is a procedural 3D geometry generator for game assets. It provides a scene graph system with hierarchical transformations and primitive mesh generators.
 
+This is in active development, with an eventual goal of being able to generate complex, nested geometry like cities that contain neighborhoods that contain road and houses and so on.
+
+Layout should work with a container system that can flow objects or stack them
+similar to how UI layout works in UI frameworks.
+
 ## Commands
 
 ```bash
@@ -70,3 +75,11 @@ pytest
 - Transformations follow standard game engine order: Scale -> Rotate -> Translate
 - Geometry is centered at origin by default
 - numpy arrays use `float64` for vertices/normals and `int64` for face indices
+
+# Testing
+
+Always test changes by: 
+- Rendering a png of the update into /tmp
+- Visually inspect the png
+- If it's too small to see clearly, iterate until you get a good view.
+

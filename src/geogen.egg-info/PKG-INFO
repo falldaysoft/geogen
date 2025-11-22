@@ -6,6 +6,10 @@ Requires-Python: >=3.10
 Requires-Dist: numpy>=1.24
 Requires-Dist: trimesh>=4.0
 Requires-Dist: pyglet<2,>=1.5
+Requires-Dist: scipy>=1.10
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: pyrender>=0.1.45
+Requires-Dist: Pillow>=9.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Provides-Extra: export

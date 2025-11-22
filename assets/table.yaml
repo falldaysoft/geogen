@@ -1,0 +1,68 @@
+# Simple table composed of primitives
+# Origin is at bottom_center of bounding box
+
+name: table
+origin: bottom_center
+size: [1.2, 0.75, 0.8]  # width (x), height (y), depth (z) in meters
+
+parts:
+  # Tabletop: flat cube at the top
+  # Position it so bottom of tabletop is at 95% height (top of legs)
+  top:
+    primitive: cube
+    size: [1.0, 0.05, 1.0]  # full width, 5% height, full depth
+    anchor: bottom_center
+    offset: [0, 0.95, 0]  # bottom of top sits at 95% height
+    material: wood
+
+  # Four legs: cylinders from floor to tabletop (95% of total height)
+  leg_front_left:
+    primitive: cylinder
+    size: [0.05, 0.95, 0.05]
+    anchor: bottom_front_left
+    offset: [0.08, 0, -0.08]  # inset from corner
+    material: wood
+
+  leg_front_right:
+    primitive: cylinder
+    size: [0.05, 0.95, 0.05]
+    anchor: bottom_front_right
+    offset: [-0.08, 0, -0.08]
+    material: wood
+
+  leg_back_left:
+    primitive: cylinder
+    size: [0.05, 0.95, 0.05]
+    anchor: bottom_back_left
+    offset: [0.08, 0, 0.08]
+    material: wood
+
+  leg_back_right:
+    primitive: cylinder
+    size: [0.05, 0.95, 0.05]
+    anchor: bottom_back_right
+    offset: [-0.08, 0, 0.08]
+    material: wood
+
+# Attachment points for chairs around the table
+# Chairs face inward toward the table center
+attachments:
+  seat_front:
+    anchor: bottom_front_center
+    offset: [0, 0, 0.4]  # Push chair out from table edge
+    facing: center
+
+  seat_back:
+    anchor: bottom_back_center
+    offset: [0, 0, -0.4]
+    facing: center
+
+  seat_left:
+    anchor: left_center
+    offset: [-0.4, -0.5, 0]  # Push out from left side, lower to floor
+    facing: center
+
+  seat_right:
+    anchor: right_center
+    offset: [0.4, -0.5, 0]
+    facing: center

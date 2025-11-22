@@ -1,0 +1,13 @@
+# Dining set: table with 4 chairs
+# Chairs are attached at the table's seat attachment points
+
+name: dining_set
+
+compose:
+  table:
+    asset: table.yaml
+
+  chairs:
+    asset: chair.yaml
+    attach_to: table
+    at: [seat_front, seat_back, seat_left, seat_right]

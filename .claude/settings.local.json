@@ -7,7 +7,8 @@
       "Bash(source .venv/bin/activate)",
       "Bash(python -m geogen.main:*)",
       "WebFetch(domain:trimesh.org)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(pytest:*)"
     ],
     "deny": [],
     "ask": []

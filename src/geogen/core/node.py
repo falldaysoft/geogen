@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 import numpy as np
 from numpy.typing import NDArray
 
 from .mesh import Mesh
 from .transform import Transform
+
+if TYPE_CHECKING:
+    from ..layout.attachments import AttachmentPoint
 
 
 @dataclass
@@ -19,6 +22,10 @@ class SceneNode:
     Each node has a local transform, optional mesh, and can have children.
     This enables hierarchical composition where child transforms are relative
     to their parent.
+
+    Attachment points can be defined on nodes to specify where other objects
+    can be connected. Use get_attachment() to resolve attachment points to
+    world-space transforms.
 
     Example:
         # Create a chair from components
@@ -36,6 +43,8 @@ class SceneNode:
     mesh: Mesh | None = None
     children: list[SceneNode] = field(default_factory=list)
     parent: SceneNode | None = field(default=None, repr=False)
+    attachments: dict[str, AttachmentPoint] = field(default_factory=dict)
+    size: NDArray[np.float64] | None = field(default=None, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -162,6 +171,56 @@ class SceneNode:
         if self.parent is None:
             return self
         return self.parent.root
+
+    def get_attachment(self, name: str) -> Transform | None:
+        """Get the world-space transform for a named attachment point.
+
+        Args:
+            name: Name of the attachment point
+
+        Returns:
+            Transform in world space, or None if attachment not found
+        """
+        attachment = self.attachments.get(name)
+        if attachment is None:
+            return None
+
+        if self.size is None:
+            raise ValueError(
+                f"Cannot resolve attachment '{name}': node '{self.name}' has no size"
+            )
+
+        # Get local attachment transform
+        local_transform = attachment.resolve(self.size)
+
+        # Combine with node's world transform
+        world_matrix = self.world_transform() @ local_transform.to_matrix()
+        return Transform.from_matrix(world_matrix)
+
+    def list_attachments(self) -> list[str]:
+        """List all attachment point names on this node."""
+        return list(self.attachments.keys())
+
+    def copy(self, deep: bool = True) -> SceneNode:
+        """Create a copy of this node.
+
+        Args:
+            deep: If True, recursively copy children
+
+        Returns:
+            New SceneNode with copied data
+        """
+        new_node = SceneNode(
+            name=self.name,
+            transform=self.transform.copy(),
+            mesh=self.mesh,  # Meshes are typically shared, not copied
+            attachments=self.attachments.copy(),
+            size=self.size.copy() if self.size is not None else None,
+        )
+        if deep:
+            for child in self.children:
+                new_node.add_child(child.copy(deep=True))
+        return new_node
 
     def __repr__(self) -> str:
         mesh_str = f", mesh={self.mesh.face_count}f" if self.mesh else ""

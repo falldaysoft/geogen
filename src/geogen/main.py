@@ -7,7 +7,7 @@ import numpy as np
 import pyrender
 from PIL import Image
 
-from .scenes import create_chair_scene
+from .scenes import create_chair_scene, create_dining_set_scene, create_table_scene
 from .viewer import Viewer
 
 
@@ -28,14 +28,27 @@ def parse_args() -> argparse.Namespace:
         default="1920x1080",
         help="Render resolution (default: 1920x1080)",
     )
+    parser.add_argument(
+        "-s", "--scene",
+        choices=["chair", "table", "dining_set"],
+        default="chair",
+        help="Scene to display (default: chair)",
+    )
     return parser.parse_args()
+
+
+SCENES = {
+    "chair": create_chair_scene,
+    "table": create_table_scene,
+    "dining_set": create_dining_set_scene,
+}
 
 
 def main() -> None:
     """Run the geogen demo."""
     args = parse_args()
 
-    root = create_chair_scene()
+    root = SCENES[args.scene]()
 
     # Display scene info
     print("Geogen - Procedural 3D Geometry Generator")
