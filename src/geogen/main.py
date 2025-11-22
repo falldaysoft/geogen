@@ -7,9 +7,7 @@ import numpy as np
 import pyrender
 from PIL import Image
 
-from .core.node import SceneNode
-from .generators import CubeGenerator, SphereGenerator, CylinderGenerator, ConeGenerator
-from .layout import LayoutLoader
+from .scenes import create_chair_scene
 from .viewer import Viewer
 
 
@@ -37,19 +35,7 @@ def main() -> None:
     """Run the geogen demo."""
     args = parse_args()
 
-    root = SceneNode("root")
-
-    # Load chair from YAML definition
-    assets_dir = Path(__file__).parent.parent.parent / "assets"
-    loader = LayoutLoader()
-    chair = loader.load(assets_dir / "chair.yaml")
-    root.add_child(chair)
-
-    # Add primitives for reference (offset to the side)
-    cube = CubeGenerator(size_x=1.0, size_y=1.0, size_z=1.0)
-    cube_node = cube.to_node("cube")
-    cube_node.transform.translation = np.array([2.0, 0.5, 0.0])
-    root.add_child(cube_node)
+    root = create_chair_scene()
 
     # Display scene info
     print("Geogen - Procedural 3D Geometry Generator")
@@ -60,8 +46,7 @@ def main() -> None:
         mesh_info = f" ({node.mesh.face_count} faces)" if node.mesh else ""
         print(f"{indent}- {node.name}{mesh_info}")
 
-    viewer = Viewer()
-    viewer.add_scene_node(root, color=(0.7, 0.7, 0.8))
+    viewer = Viewer(root, color=(0.7, 0.7, 0.8))
 
     if args.render:
         # Render to file using pyrender for reliable offscreen rendering

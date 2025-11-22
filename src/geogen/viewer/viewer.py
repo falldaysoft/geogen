@@ -20,11 +20,22 @@ class Viewer:
     Uses trimesh's built-in viewer (pyglet-based) to display meshes and scenes.
     """
 
-    def __init__(self) -> None:
-        """Initialize the viewer."""
-        self._scene = trimesh.Scene()
+    def __init__(
+        self,
+        root: SceneNode,
+        color: NDArray[np.float64] | tuple[float, ...] | None = None,
+    ) -> None:
+        """Initialize the viewer with a scene.
 
-    def add_mesh(
+        Args:
+            root: The root SceneNode to display
+            color: Optional default color for all meshes
+        """
+        self._scene = trimesh.Scene()
+        self._root = root
+        self._add_scene_node(root, color)
+
+    def _add_mesh(
         self,
         mesh: Mesh,
         name: str | None = None,
@@ -56,7 +67,7 @@ class Viewer:
 
         return geom_name
 
-    def add_scene_node(
+    def _add_scene_node(
         self,
         node: SceneNode,
         color: NDArray[np.float64] | tuple[float, ...] | None = None,
@@ -73,7 +84,7 @@ class Viewer:
         names = []
 
         for scene_node, world_mesh in node.iter_meshes():
-            name = self.add_mesh(
+            name = self._add_mesh(
                 mesh=world_mesh,
                 name=scene_node.name,
                 color=color,
@@ -81,10 +92,6 @@ class Viewer:
             names.append(name)
 
         return names
-
-    def clear(self) -> None:
-        """Remove all geometry from the scene."""
-        self._scene = trimesh.Scene()
 
     def show(self, **kwargs) -> None:
         """Display the scene in an interactive viewer window.
@@ -111,8 +118,9 @@ def show_mesh(mesh: Mesh, **kwargs) -> None:
         mesh: The Mesh to display
         **kwargs: Additional arguments passed to the viewer
     """
-    viewer = Viewer()
-    viewer.add_mesh(mesh)
+    node = SceneNode("root")
+    node.mesh = mesh
+    viewer = Viewer(node)
     viewer.show(**kwargs)
 
 
@@ -123,6 +131,5 @@ def show_node(node: SceneNode, **kwargs) -> None:
         node: The root SceneNode to display
         **kwargs: Additional arguments passed to the viewer
     """
-    viewer = Viewer()
-    viewer.add_scene_node(node)
+    viewer = Viewer(node)
     viewer.show(**kwargs)
