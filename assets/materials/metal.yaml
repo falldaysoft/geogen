@@ -1,0 +1,15 @@
+# Brushed steel material for chair legs
+name: metal
+texture:
+  type: metal
+  params:
+    base_color: [160, 165, 170]      # Steel gray
+    highlight_color: [220, 225, 230]  # Bright highlights
+    metal_type: brushed
+    brush_direction: 90.0  # Vertical brushing (along leg length)
+    brush_density: 50.0
+    scratch_amount: 0.2
+    roughness: 0.4
+    seed: 42
+size: [256, 256]
+shininess: 0.7

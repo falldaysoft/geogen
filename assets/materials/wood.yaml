@@ -1,0 +1,15 @@
+# Oak wood material for chair seat and back
+name: wood
+texture:
+  type: wood
+  params:
+    color_light: [210, 170, 120]  # Light oak color
+    color_dark: [140, 90, 50]     # Dark grain color
+    ring_scale: 12.0
+    ring_count: 8.0
+    grain_scale: 4.0
+    grain_strength: 0.3
+    color_variation: 0.15
+    seed: 42
+size: [512, 512]
+shininess: 0.2

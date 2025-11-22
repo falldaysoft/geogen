@@ -34,6 +34,30 @@ class Viewer:
         self._scene = trimesh.Scene()
         self._root = root
         self._add_scene_node(root, color)
+        self._set_default_camera()
+
+    def _set_default_camera(self) -> None:
+        """Set up default camera position - zoomed out and rotated 20 degrees."""
+        angle = np.radians(20)
+        distance = 5.0
+        cam_pos = np.array([np.sin(angle) * distance, 2.0, np.cos(angle) * distance])
+        target = np.array([0.0, 0.4, 0.0])
+        up = np.array([0.0, 1.0, 0.0])
+
+        # Build look-at matrix
+        forward = target - cam_pos
+        forward = forward / np.linalg.norm(forward)
+        right = np.cross(forward, up)
+        right = right / np.linalg.norm(right)
+        up = np.cross(right, forward)
+
+        camera_transform = np.eye(4)
+        camera_transform[:3, 0] = right
+        camera_transform[:3, 1] = up
+        camera_transform[:3, 2] = -forward
+        camera_transform[:3, 3] = cam_pos
+
+        self._scene.camera_transform = camera_transform
 
     def _add_mesh(
         self,
@@ -47,15 +71,23 @@ class Viewer:
         Args:
             mesh: The Mesh to add
             name: Optional name for the geometry
-            color: Optional RGBA color (0-1 range) or RGB tuple
+            color: Optional RGBA color (0-1 range) or RGB tuple (fallback if no material)
             transform: Optional 4x4 transformation matrix
 
         Returns:
             The name assigned to the geometry in the scene
         """
+        # to_trimesh() will apply material texture if available
         tm_mesh = mesh.to_trimesh()
 
-        if color is not None:
+        # Only apply color if mesh doesn't have a material with texture
+        has_texture = (
+            mesh.material is not None
+            and mesh.uvs is not None
+            and hasattr(tm_mesh.visual, 'uv')
+        )
+
+        if color is not None and not has_texture:
             color_array = np.asarray(color)
             if len(color_array) == 3:
                 color_array = np.append(color_array, 1.0)

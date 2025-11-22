@@ -46,6 +46,20 @@ pytest
 
 - **Primitives** (`primitives.py`): Dataclass-based generators for Cube, Sphere, Cylinder, Cone. All use the geometry helpers to ensure correct face winding.
 
+### Layout System (`src/geogen/layout/`)
+
+- **Anchor** (`anchors.py`): Named anchor points for positioning objects within bounding boxes. Uses normalized coordinates (0-1) for X/Y/Z. Key function: `resolve_anchor()` converts anchors to world coordinates.
+
+- **LayoutLoader** (`loader.py`): Loads composite objects from YAML files. YAML format specifies a bounding box size and parts with fractional positioning using anchors. Parts are positioned relative to parent container.
+
+### Scenes (`src/geogen/scenes/`)
+
+- Scene factory functions that assemble complete scenes using generators and the layout system. Example: `create_chair_scene()` loads `assets/chair.yaml`.
+
+### Asset Definitions (`assets/`)
+
+- YAML files defining composite objects using the layout system. Parts use fractional sizes (0-1) relative to the parent bounding box.
+
 ### Viewer (`src/geogen/viewer/`)
 
 - **Viewer** (`viewer.py`): Wraps trimesh's pyglet-based viewer. `add_scene_node()` iterates the hierarchy and adds world-transformed meshes.

@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     import trimesh
+    from ..materials.material import Material
 
 
 class Mesh:
@@ -24,6 +25,7 @@ class Mesh:
         faces: NDArray[np.int64],
         normals: NDArray[np.float64] | None = None,
         uvs: NDArray[np.float64] | None = None,
+        material: Material | None = None,
     ) -> None:
         """Create a mesh from geometry data.
 
@@ -32,6 +34,7 @@ class Mesh:
             faces: Mx3 array of triangle indices
             normals: Optional Nx3 array of vertex normals
             uvs: Optional Nx2 array of texture coordinates
+            material: Optional material for texturing
         """
         self.vertices = np.asarray(vertices, dtype=np.float64)
         self.faces = np.asarray(faces, dtype=np.int64)
@@ -39,6 +42,7 @@ class Mesh:
             np.asarray(normals, dtype=np.float64) if normals is not None else None
         )
         self.uvs = np.asarray(uvs, dtype=np.float64) if uvs is not None else None
+        self.material = material
 
         self._trimesh_cache: trimesh.Trimesh | None = None
 
@@ -52,8 +56,15 @@ class Mesh:
         """Number of faces (triangles) in the mesh."""
         return len(self.faces)
 
-    def to_trimesh(self) -> trimesh.Trimesh:
-        """Convert to a trimesh.Trimesh object for rendering/export."""
+    def to_trimesh(self, apply_material: bool = True) -> trimesh.Trimesh:
+        """Convert to a trimesh.Trimesh object for rendering/export.
+
+        Args:
+            apply_material: If True and mesh has material+UVs, apply texture
+
+        Returns:
+            trimesh.Trimesh object with optional texture applied
+        """
         import trimesh as tm
 
         if self._trimesh_cache is not None:
@@ -67,6 +78,14 @@ class Mesh:
 
         if self.normals is not None:
             mesh.vertex_normals = self.normals
+
+        # Apply material texture if available
+        if apply_material and self.material is not None and self.uvs is not None:
+            texture_image = self.material.get_texture()
+            mesh.visual = tm.visual.TextureVisuals(
+                uv=self.uvs,
+                image=texture_image,
+            )
 
         self._trimesh_cache = mesh
         return mesh
@@ -111,6 +130,7 @@ class Mesh:
             faces=self.faces.copy(),
             normals=new_normals,
             uvs=self.uvs.copy() if self.uvs is not None else None,
+            material=self.material,  # Material is preserved through transform
         )
 
     def copy(self) -> Mesh:
@@ -120,6 +140,7 @@ class Mesh:
             faces=self.faces.copy(),
             normals=self.normals.copy() if self.normals is not None else None,
             uvs=self.uvs.copy() if self.uvs is not None else None,
+            material=self.material,  # Material reference is shared (not deep copied)
         )
 
     @staticmethod

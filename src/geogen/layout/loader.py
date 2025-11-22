@@ -9,6 +9,7 @@ import yaml
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator
+from ..materials.loader import MaterialLoader
 from .anchors import Anchor, resolve_anchor
 
 
@@ -35,7 +36,12 @@ class LayoutLoader:
             size: [x, y, z]  # fractions of parent size (0-1)
             anchor: anchor_name  # where in parent to position
             offset: [x, y, z]  # offset from anchor in fractions of parent size
+            material: material_name  # optional material reference
     """
+
+    def __init__(self) -> None:
+        """Initialize the layout loader with a material loader."""
+        self._material_loader = MaterialLoader()
 
     def load(self, path: str | Path) -> SceneNode:
         """Load a composite object definition from a YAML file.
@@ -103,6 +109,16 @@ class LayoutLoader:
         # Create the appropriate generator with computed size
         generator = self._create_generator(primitive_type, actual_size)
         node = generator.to_node(name)
+
+        # Apply material if specified
+        material_name = part_def.get("material")
+        if material_name is not None and node.mesh is not None:
+            try:
+                material = self._material_loader.load(material_name)
+                node.mesh.material = material
+            except FileNotFoundError:
+                # Material not found, continue without it
+                pass
 
         # Calculate position from anchor + offset
         anchor_name = part_def.get("anchor", "center")

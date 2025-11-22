@@ -46,6 +46,7 @@ def main() -> None:
         mesh_info = f" ({node.mesh.face_count} faces)" if node.mesh else ""
         print(f"{indent}- {node.name}{mesh_info}")
 
+    # Use textures from materials; fallback color only for untextured meshes
     viewer = Viewer(root, color=(0.7, 0.7, 0.8))
 
     if args.render:
@@ -65,10 +66,11 @@ def main() -> None:
 
         # Add camera with good default positioning
         camera = pyrender.PerspectiveCamera(yfov=np.pi / 4.0)
-        # Position camera to see the scene - looking at origin from front-right-above
-        # Camera at (3, 2, 4), looking toward origin
-        cam_pos = np.array([3.0, 2.0, 4.0])
-        target = np.array([0.5, 0.4, 0.0])  # Look at chair center
+        # Position camera zoomed out and rotated ~20 degrees from straight-on
+        angle = np.radians(20)
+        distance = 5.0
+        cam_pos = np.array([np.sin(angle) * distance, 2.0, np.cos(angle) * distance])
+        target = np.array([0.0, 0.4, 0.0])  # Look at chair center
         up = np.array([0.0, 1.0, 0.0])
 
         # Build look-at matrix
