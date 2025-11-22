@@ -1,0 +1,29 @@
+[project]
+name = "geogen"
+version = "0.1.0"
+description = "Procedural 3D geometry generator for game assets"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "trimesh>=4.0",
+    "pyglet>=1.5,<2",
+    "scipy>=1.10",  # For trimesh graph operations
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+export = [
+    "pygltflib>=1.16",  # For glTF export enhancements
+]
+
+[project.scripts]
+geogen = "geogen.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: geogen
+Version: 0.1.0
+Summary: Procedural 3D geometry generator for game assets
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.24
+Requires-Dist: trimesh>=4.0
+Requires-Dist: pyglet<2,>=1.5
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Provides-Extra: export
+Requires-Dist: pygltflib>=1.16; extra == "export"
