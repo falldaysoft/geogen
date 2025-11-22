@@ -3,7 +3,11 @@
     "allow": [
       "WebSearch",
       "Bash(pip install:*)",
-      "Bash(python3 -m pip install:*)"
+      "Bash(python3 -m pip install:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(python -m geogen.main:*)",
+      "WebFetch(domain:trimesh.org)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

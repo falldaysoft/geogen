@@ -1,0 +1,46 @@
+# Simple chair composed of primitives
+# Origin is at bottom_center of bounding box
+
+name: chair
+origin: bottom_center
+size: [0.5, 0.9, 0.5]  # width (x), height (y), depth (z) in meters
+
+parts:
+  # Seat: a flat cube near the middle height
+  seat:
+    primitive: cube
+    size: [0.9, 0.08, 0.9]  # 90% width, 8% height, 90% depth
+    anchor: bottom_center
+    offset: [0, 0.42, 0]  # seat at ~42% up from bottom
+
+  # Back: tall thin cube at the back
+  back:
+    primitive: cube
+    size: [0.9, 0.5, 0.08]  # 90% width, 50% height, 8% depth
+    anchor: bottom_back_center
+    offset: [0, 0.5, 0.04]  # starts at 50% height, slightly forward
+
+  # Four legs: cylinders at each corner
+  leg_front_left:
+    primitive: cylinder
+    size: [0.06, 0.42, 0.06]  # 6% width, 42% height, 6% depth
+    anchor: bottom_front_left
+    offset: [0.08, 0, -0.08]  # inset from corner
+
+  leg_front_right:
+    primitive: cylinder
+    size: [0.06, 0.42, 0.06]
+    anchor: bottom_front_right
+    offset: [-0.08, 0, -0.08]
+
+  leg_back_left:
+    primitive: cylinder
+    size: [0.06, 0.42, 0.06]
+    anchor: bottom_back_left
+    offset: [0.08, 0, 0.08]
+
+  leg_back_right:
+    primitive: cylinder
+    size: [0.06, 0.42, 0.06]
+    anchor: bottom_back_right
+    offset: [-0.08, 0, 0.08]

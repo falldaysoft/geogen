@@ -9,8 +9,12 @@ Geogen is a procedural 3D geometry generator for game assets. It provides a scen
 ## Commands
 
 ```bash
-# Run the demo (opens viewer with primitives)
-source .venv/bin/activate && python -m geogen.main
+# Run the demo (opens interactive viewer)
+python -m geogen.main
+
+# Render to file and quit (for testing)
+python -m geogen.main -r output.png
+python -m geogen.main -r output.png --resolution 1280x720
 
 # Install dependencies
 pip install -e .
