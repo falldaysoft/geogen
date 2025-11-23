@@ -12,6 +12,7 @@ dependencies = [
     "pyrender>=0.1.45",  # For offscreen rendering
     "PyOpenGL>=3.1.7",  # Fix numpy 2.x ctypes compatibility
     "Pillow>=9.0",  # For image saving
+    "PyQt6>=6.5",  # For interactive viewer UI
 ]
 
 [project.optional-dependencies]

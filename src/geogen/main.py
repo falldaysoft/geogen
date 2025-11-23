@@ -8,7 +8,7 @@ import pyrender
 from PIL import Image
 
 from .scenes import create_chair_scene, create_dining_set_scene, create_room_scene, create_table_scene
-from .viewer import Viewer
+from .viewer import Viewer, run_viewer
 
 
 def parse_args() -> argparse.Namespace:
@@ -115,11 +115,10 @@ def main() -> None:
         img.save(str(output_path))
         print(f"Saved render to {output_path}")
     else:
-        # Show interactive viewer
+        # Show interactive viewer with scene selection menu
         print("\nOpening viewer...")
         print("Controls: Left-drag to rotate, scroll to zoom, right-drag to pan")
-        # Pass a callback to force initial render (workaround for pyglet black screen)
-        viewer.show(callback=lambda scene: None)
+        run_viewer(scenes=SCENES, default_scene=args.scene)
 
 
 if __name__ == "__main__":

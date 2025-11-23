@@ -15,14 +15,19 @@ src/geogen/core/transform.py
 src/geogen/generators/__init__.py
 src/geogen/generators/base.py
 src/geogen/generators/primitives.py
+src/geogen/generators/room.py
 src/geogen/layout/__init__.py
 src/geogen/layout/anchors.py
+src/geogen/layout/attachments.py
+src/geogen/layout/composer.py
 src/geogen/layout/loader.py
 src/geogen/materials/__init__.py
 src/geogen/materials/loader.py
 src/geogen/materials/material.py
 src/geogen/scenes/__init__.py
 src/geogen/scenes/chair.py
+src/geogen/scenes/dining_set.py
+src/geogen/scenes/room.py
 src/geogen/scenes/table.py
 src/geogen/textures/__init__.py
 src/geogen/textures/base.py
@@ -31,3 +36,4 @@ src/geogen/textures/noise.py
 src/geogen/textures/wood.py
 src/geogen/viewer/__init__.py
 src/geogen/viewer/viewer.py
+tests/test_scenes.py
