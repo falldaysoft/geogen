@@ -7,7 +7,7 @@ import numpy as np
 import pyrender
 from PIL import Image
 
-from .scenes import create_chair_scene, create_dining_set_scene, create_table_scene
+from .scenes import create_chair_scene, create_dining_set_scene, create_room_scene, create_table_scene
 from .viewer import Viewer
 
 
@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-s", "--scene",
-        choices=["chair", "table", "dining_set"],
+        choices=["chair", "table", "dining_set", "room"],
         default="chair",
         help="Scene to display (default: chair)",
     )
@@ -41,6 +41,7 @@ SCENES = {
     "chair": create_chair_scene,
     "table": create_table_scene,
     "dining_set": create_dining_set_scene,
+    "room": create_room_scene,
 }
 
 

@@ -9,6 +9,7 @@ import yaml
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator
+from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import Anchor, resolve_anchor
 from .attachments import parse_attachment
@@ -20,6 +21,7 @@ PRIMITIVE_REGISTRY = {
     "cylinder": CylinderGenerator,
     "sphere": SphereGenerator,
     "cone": ConeGenerator,
+    "room": RoomGenerator,
 }
 
 
@@ -79,6 +81,12 @@ class LayoutLoader:
         root = SceneNode(name)
         root.size = container_size
 
+        # Check if this is a room definition (has 'room' key with openings)
+        room_config = data.get("room")
+        if room_config is not None:
+            room_node = self._create_room_node(name, container_size, room_config)
+            root.add_child(room_node)
+
         parts = data.get("parts", {})
         for part_name, part_def in parts.items():
             part_node = self._create_part(part_name, part_def, container_size)
@@ -91,6 +99,22 @@ class LayoutLoader:
             root.attachments[attach_name] = attachment
 
         return root
+
+    def _create_room_node(
+        self, name: str, size: np.ndarray, room_config: dict[str, Any]
+    ) -> SceneNode:
+        """Create a room node from room configuration.
+
+        Args:
+            name: Name for the room node
+            size: Room size [width, height, depth]
+            room_config: Room configuration dict from YAML
+
+        Returns:
+            SceneNode containing the room mesh
+        """
+        generator = self._create_room_generator(size, room_config)
+        return generator.to_node(f"{name}_geometry")
 
     def _create_part(
         self, name: str, part_def: dict[str, Any], container_size: np.ndarray
@@ -151,12 +175,15 @@ class LayoutLoader:
 
         return node
 
-    def _create_generator(self, primitive_type: str, size: np.ndarray):
+    def _create_generator(
+        self, primitive_type: str, size: np.ndarray, extra_config: dict[str, Any] | None = None
+    ):
         """Create a generator instance with the given size.
 
         Args:
             primitive_type: Type of primitive (cube, cylinder, etc.)
             size: Actual size [width, height, depth]
+            extra_config: Additional configuration for complex generators (e.g., room)
 
         Returns:
             Generator instance configured with the size
@@ -175,5 +202,39 @@ class LayoutLoader:
             # Cone uses radius and height
             radius = min(size[0], size[2]) / 2
             return ConeGenerator(radius=radius, height=size[1])
+        elif primitive_type == "room":
+            return self._create_room_generator(size, extra_config or {})
         else:
             raise ValueError(f"Unknown primitive type: {primitive_type}")
+
+    def _create_room_generator(
+        self, size: np.ndarray, config: dict[str, Any]
+    ) -> RoomGenerator:
+        """Create a room generator with the given configuration.
+
+        Args:
+            size: Room size [width, height, depth]
+            config: Room configuration from YAML
+
+        Returns:
+            RoomGenerator instance
+        """
+        openings = []
+        for opening_def in config.get("openings", []):
+            openings.append(Opening(
+                wall=opening_def["wall"],
+                position=opening_def.get("position", 0.5),
+                bottom=opening_def.get("bottom", 0.0),
+                width=opening_def.get("width", 0.2),
+                height=opening_def.get("height", 0.8),
+            ))
+
+        return RoomGenerator(
+            size_x=size[0],
+            size_y=size[1],
+            size_z=size[2],
+            wall_thickness=config.get("wall_thickness", 0.1),
+            has_floor=config.get("has_floor", True),
+            has_ceiling=config.get("has_ceiling", True),
+            openings=openings,
+        )

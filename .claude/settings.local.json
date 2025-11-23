@@ -8,7 +8,11 @@
       "Bash(python -m geogen.main:*)",
       "WebFetch(domain:trimesh.org)",
       "Bash(python3:*)",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Bash(PYOPENGL_PLATFORM=osmesa python -m geogen.main:*)",
+      "Bash(DISPLAY=:0 python:*)",
+      "Bash(PYOPENGL_PLATFORM=egl python:*)",
+      "Bash(DISPLAY=:0 python3:*)"
     ],
     "deny": [],
     "ask": []

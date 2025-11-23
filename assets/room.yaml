@@ -1,0 +1,53 @@
+# Room with doors and windows
+# Origin is at center of floor
+
+name: room
+origin: center
+size: [4.0, 2.5, 4.0]  # width (x), height (y), depth (z) in meters
+
+# Room configuration
+room:
+  wall_thickness: 0.2
+  has_floor: true
+  has_ceiling: true
+
+  # Openings (doors and windows)
+  openings:
+    # Front door on the south wall
+    - wall: south
+      type: door
+      position: 0.5       # Centered horizontally (0-1)
+      bottom: 0.0         # Starts at floor
+      width: 0.25         # 25% of wall width (1m door in 4m wall)
+      height: 0.8         # 80% of wall height (2m door in 2.5m wall)
+
+    # Window on east wall
+    - wall: east
+      type: window
+      position: 0.5       # Centered
+      bottom: 0.35        # Starts at ~35% up (sill height)
+      width: 0.3          # 30% of wall width
+      height: 0.4         # 40% of wall height
+
+    # Window on west wall
+    - wall: west
+      type: window
+      position: 0.5
+      bottom: 0.35
+      width: 0.3
+      height: 0.4
+
+    # Window on north wall
+    - wall: north
+      type: window
+      position: 0.3       # Left side
+      bottom: 0.35
+      width: 0.2
+      height: 0.4
+
+    - wall: north
+      type: window
+      position: 0.7       # Right side
+      bottom: 0.35
+      width: 0.2
+      height: 0.4
