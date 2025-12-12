@@ -1,5 +1,5 @@
 # House plot - a yard with a house
-# The plot is oriented with "front" facing +Z (toward the street)
+# The plot is oriented with "front" facing +X (toward the street/road)
 # Contains a yard (ground) and a house
 
 name: house_plot
@@ -9,8 +9,8 @@ slots:
   # House sits in the back half of the plot, centered
   # Set back from front edge so there's a front yard
   house:
-    position: [0, 0, -1]  # Back from center, leaving front yard space
-    facing: north  # Front door faces +Z (default direction)
+    position: [-1, 0, 0]  # Back from center (away from road), leaving front yard space
+    facing: east  # Front door faces toward road (+X)
 
 place:
   house:

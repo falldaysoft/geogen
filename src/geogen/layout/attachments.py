@@ -98,10 +98,10 @@ class AttachmentPoint:
             return np.pi  # -Z direction
 
         elif self.facing == "east":
-            return -np.pi / 2  # +X direction
+            return np.pi / 2  # +X direction
 
         elif self.facing == "west":
-            return np.pi / 2  # -X direction
+            return -np.pi / 2  # -X direction
 
         return 0.0
 

@@ -257,8 +257,8 @@ class SceneComposer:
         elif facing == "south":
             return float(np.pi)
         elif facing == "east":
-            return float(-np.pi / 2)
-        elif facing == "west":
             return float(np.pi / 2)
+        elif facing == "west":
+            return float(-np.pi / 2)
         else:
             return 0.0

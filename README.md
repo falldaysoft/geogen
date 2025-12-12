@@ -16,7 +16,7 @@ Procedural 3D geometry generator for game assets. Provides a scene graph system 
 
 ![Room](docs/images/geogen_room.png)
 
-**Street Scene** - Street furniture: fire hydrant, mailbox, trashcan, bench, and lamp:
+**Street Scene** - Road with house plots on both sides + street furniture:
 
 ![Street](docs/images/geogen_street.png)
 
