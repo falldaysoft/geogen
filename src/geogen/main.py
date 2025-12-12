@@ -63,6 +63,11 @@ def create_house_scene() -> SceneNode:
     return _create_asset_scene("house_simple")
 
 
+def create_house_peaked_scene() -> SceneNode:
+    """Create a scene containing a house with peaked roof."""
+    return _create_asset_scene("house_peaked")
+
+
 def create_road_scene() -> SceneNode:
     """Create a scene containing a road section."""
     return _create_asset_scene("road")
@@ -105,6 +110,7 @@ SCENES = {
     "trashcan": create_trashcan_scene,
     # Buildings
     "house": create_house_scene,
+    "house_peaked": create_house_peaked_scene,
     "room": create_room_scene,
     # Infrastructure
     "road": create_road_scene,

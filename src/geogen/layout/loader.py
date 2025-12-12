@@ -318,6 +318,11 @@ class LayoutLoader:
                 # Both offsets are relative to each primitive's center (origin)
                 node.transform.translation = parent_offset - child_offset
 
+                # Apply additional offset if specified (in world units)
+                extra_offset = part_def.get("offset")
+                if extra_offset is not None:
+                    node.transform.translation += np.array(extra_offset, dtype=np.float64)
+
                 # Add as child of the parent node (hierarchical)
                 parent_node.add_child(node)
 

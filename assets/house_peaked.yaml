@@ -1,0 +1,79 @@
+# House with peaked/gable roof
+# Front of house is +Z direction
+# Origin is at bottom_center
+
+name: house_peaked
+origin: bottom_center
+size: [8, 5, 6]  # 8m wide, 5m tall (with roof peak), 6m deep
+
+parts:
+  # Main structure (walls)
+  walls:
+    primitive: cube
+    size: [0.95, 0.65, 0.95]  # Main box - about 2.6m tall
+    anchor: bottom_center
+    material: wall
+
+  # Front door (on +Z face)
+  door:
+    primitive: cube
+    size: [0.12, 0.40, 0.02]  # ~1m wide, 1.6m tall door
+    attach_to: walls
+    at: front
+    from: back
+    offset: [0, -0.125, 0.01]
+    material: wood
+
+  # Left front window
+  window_left:
+    primitive: cube
+    size: [0.12, 0.12, 0.02]
+    attach_to: walls
+    at: front
+    from: back
+    offset: [-0.28, 0.05, 0.01]
+    material: metal
+
+  # Right front window
+  window_right:
+    primitive: cube
+    size: [0.12, 0.12, 0.02]
+    attach_to: walls
+    at: front
+    from: back
+    offset: [0.28, 0.05, 0.01]
+    material: metal
+
+  # Roof - left slope
+  # Panel width 0.58 with 35° angle gives proper coverage
+  # Position so outer (left) edge sits at wall top edge
+  roof_left:
+    primitive: cube
+    size: [0.58, 0.04, 1.08]
+    attach_to: walls
+    at: top
+    from: bottom
+    offset: [-0.25, 0.165, 0]
+    rotation: [0, 0, 35]
+    material: wood
+
+  # Roof - right slope
+  roof_right:
+    primitive: cube
+    size: [0.58, 0.04, 1.08]
+    attach_to: walls
+    at: top
+    from: bottom
+    offset: [0.25, 0.165, 0]
+    rotation: [0, 0, -35]
+    material: wood
+
+  # Chimney (on roof)
+  chimney:
+    primitive: cube
+    size: [0.08, 0.35, 0.08]
+    attach_to: walls
+    at: top
+    from: bottom
+    offset: [0.20, 0.30, -0.20]
+    material: wall

@@ -32,12 +32,12 @@ slots:
   # Position the street_side so its sidewalk is next to the road
   left_side:
     position: [-9, 0, 0]  # Center of left side area
-    facing: west  # Rotate so houses face the road (+X direction)
+    facing: east  # Rotate so houses face the road (+X direction)
 
   # Right side: sidewalk + plots on +X side
   right_side:
     position: [9, 0, 0]   # Center of right side area
-    facing: east  # Rotate so houses face the road (-X direction)
+    facing: west  # Rotate so houses face the road (-X direction)
 
   # Street furniture directly on the scene
   lamp_front_left:

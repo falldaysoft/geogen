@@ -10,7 +10,7 @@ slots:
   # Set back from front edge so there's a front yard
   house:
     position: [0, 0, -1]  # Back from center, leaving front yard space
-    facing: north  # Front door faces +Z (toward street)
+    facing: north  # Front door faces +Z (default direction)
 
 place:
   house:

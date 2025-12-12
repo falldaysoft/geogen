@@ -16,11 +16,11 @@ slots:
   # Two plots, each 10m wide, spaced along the length
   plot_front:
     position: [-1, 0, -6]  # Back from sidewalk, front half of length
-    facing: east  # Houses face +X (toward road/sidewalk)
+    facing: north  # No rotation; house within plot already faces +X
 
   plot_back:
     position: [-1, 0, 6]   # Back from sidewalk, back half of length
-    facing: east  # Houses face +X (toward road/sidewalk)
+    facing: north  # No rotation; house within plot already faces +X
 
   # Street furniture on the sidewalk
   furniture_front:

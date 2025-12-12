@@ -1,79 +1,89 @@
 # Classic street lamp post
 # Tall post with decorative lantern on top
 # Origin is at bottom_center
+# Using size [1, 1, 1] so all dimensions are in meters
 
 name: street_lamp
 origin: bottom_center
-size: [0.3, 2.5, 0.3]  # width, height (tall!), depth
+size: [1, 1, 1]  # 1m cube so sizes are direct meters
 
 parts:
-  # Base plate
+  # Base plate (0.3m diameter, 0.02m thick)
   base_plate:
     primitive: cylinder
-    size: [0.6, 0.6, 0.02]
+    size: [0.30, 0.30, 0.02]
     anchor: bottom_center
-    offset: [0, 0, 0]
     material: metal
 
-  # Decorative base
+  # Decorative base lower
   base_lower:
     primitive: cylinder
-    size: [0.5, 0.5, 0.05]
-    anchor: bottom_center
-    offset: [0, 0.02, 0]
+    size: [0.25, 0.25, 0.05]
+    attach_to: base_plate
+    at: top
+    from: bottom
     material: metal
 
+  # Decorative base middle
   base_middle:
     primitive: cylinder
-    size: [0.35, 0.35, 0.06]
-    anchor: bottom_center
-    offset: [0, 0.07, 0]
+    size: [0.18, 0.18, 0.06]
+    attach_to: base_lower
+    at: top
+    from: bottom
     material: metal
 
-  # Main post (tall and thin)
+  # Main post (tall and thin - 0.08m diameter, 2.0m tall)
   post:
     primitive: cylinder
-    size: [0.12, 0.12, 0.62]
-    anchor: bottom_center
-    offset: [0, 0.13, 0]
+    size: [0.08, 0.08, 2.0]
+    attach_to: base_middle
+    at: top
+    from: bottom
     material: metal
 
   # Upper collar
   collar:
     primitive: cylinder
-    size: [0.18, 0.18, 0.04]
-    anchor: bottom_center
-    offset: [0, 0.75, 0]
+    size: [0.12, 0.12, 0.04]
+    attach_to: post
+    at: top
+    from: bottom
     material: metal
 
   # Lamp bracket base
   bracket:
     primitive: cylinder
-    size: [0.25, 0.25, 0.03]
-    anchor: bottom_center
-    offset: [0, 0.79, 0]
+    size: [0.15, 0.15, 0.03]
+    attach_to: collar
+    at: top
+    from: bottom
     material: metal
 
-  # Lantern body (glass housing)
+  # Lantern body (glass housing - 0.25m cube)
   lantern_body:
     primitive: cube
-    size: [0.65, 0.10, 0.65]
-    anchor: bottom_center
-    offset: [0, 0.82, 0]
+    size: [0.25, 0.20, 0.25]
+    attach_to: bracket
+    at: top
+    from: bottom
     material: metal
 
-  # Lantern roof
+  # Lantern roof - sits directly on lantern body
+  # Size is [diameter_x, height, diameter_z]
   lantern_roof:
     primitive: cone
-    size: [0.75, 0.06, 0.75]
-    anchor: bottom_center
-    offset: [0, 0.92, 0]
+    size: [0.30, 0.10, 0.30]
+    attach_to: lantern_body
+    at: top
+    from: bottom
     material: metal
 
-  # Top finial
+  # Top finial - sits on cone tip
   finial:
     primitive: sphere
-    size: [0.12, 0.06, 0.12]
-    anchor: bottom_center
-    offset: [0, 0.98, 0]
+    size: [0.06, 0.06, 0.06]
+    attach_to: lantern_roof
+    at: top
+    from: bottom
     material: metal
