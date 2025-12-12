@@ -1,0 +1,10 @@
+# White ceiling material
+name: ceiling_white
+texture:
+  type: painted_wall
+  params:
+    base_color: [250, 250, 250]    # Bright white
+    sheen: 0.1                     # Matte finish
+    seed: 456
+size: [512, 512]
+shininess: 0.05

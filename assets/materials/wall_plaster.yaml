@@ -1,0 +1,12 @@
+# Plaster wall material for room walls
+name: wall_plaster
+texture:
+  type: plaster
+  params:
+    base_color: [235, 230, 220]    # Warm off-white
+    texture_scale: 15.0            # Slightly coarser texture
+    texture_strength: 0.25         # More visible texture
+    color_variation: 0.08          # Slightly more variation
+    seed: 123
+size: [512, 512]
+shininess: 0.1

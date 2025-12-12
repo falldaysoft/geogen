@@ -11,6 +11,12 @@ room:
   has_floor: true
   has_ceiling: true
 
+  # Materials for room surfaces
+  materials:
+    floor: hardwood_floor
+    walls: wall_plaster
+    ceiling: ceiling_white
+
   # Openings (doors and windows)
   openings:
     # Front door on the south wall

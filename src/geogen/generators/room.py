@@ -1,13 +1,17 @@
 """Room generator with doors and windows."""
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
-from .base import MeshGenerator
+from .base import MeshGenerator, CompositeGenerator
+
+if TYPE_CHECKING:
+    from ..materials.material import Material
 
 
 @dataclass
@@ -53,7 +57,7 @@ class RoomGenerator(MeshGenerator):
     openings: list[Opening] = field(default_factory=list)
 
     def generate(self) -> Mesh:
-        """Generate the room mesh."""
+        """Generate the room mesh as a single merged mesh."""
         meshes = []
 
         # Generate floor
@@ -73,6 +77,81 @@ class RoomGenerator(MeshGenerator):
             meshes.append(wall)
 
         return Mesh.merge(meshes)
+
+    def generate_parts(self) -> dict[str, Mesh]:
+        """Generate room as separate meshes for floor, walls, and ceiling.
+
+        Returns:
+            Dictionary mapping part names to meshes:
+            - 'floor': Floor mesh (if has_floor)
+            - 'ceiling': Ceiling mesh (if has_ceiling)
+            - 'walls': Combined wall mesh
+        """
+        parts = {}
+
+        if self.has_floor:
+            parts['floor'] = self._make_floor()
+
+        if self.has_ceiling:
+            parts['ceiling'] = self._make_ceiling()
+
+        # Combine all walls into one mesh
+        wall_meshes = []
+        for wall_name in ['north', 'south', 'east', 'west']:
+            wall_openings = [o for o in self.openings if o.wall == wall_name]
+            wall = self._make_wall(wall_name, wall_openings)
+            wall_meshes.append(wall)
+
+        if wall_meshes:
+            parts['walls'] = Mesh.merge(wall_meshes)
+
+        return parts
+
+    def to_composite_node(
+        self,
+        name: str = "room",
+        floor_material: "Material | None" = None,
+        wall_material: "Material | None" = None,
+        ceiling_material: "Material | None" = None,
+    ) -> SceneNode:
+        """Generate room as a scene node with separate child nodes for each surface.
+
+        This allows different materials to be applied to floor, walls, and ceiling.
+
+        Args:
+            name: Name for the root node
+            floor_material: Material to apply to the floor
+            wall_material: Material to apply to the walls
+            ceiling_material: Material to apply to the ceiling
+
+        Returns:
+            SceneNode with children for each room part
+        """
+        root = SceneNode(name=name)
+        parts = self.generate_parts()
+
+        if 'floor' in parts:
+            floor_mesh = parts['floor']
+            if floor_material is not None:
+                floor_mesh.material = floor_material
+            floor_node = SceneNode(name=f"{name}_floor", mesh=floor_mesh)
+            root.add_child(floor_node)
+
+        if 'ceiling' in parts:
+            ceiling_mesh = parts['ceiling']
+            if ceiling_material is not None:
+                ceiling_mesh.material = ceiling_material
+            ceiling_node = SceneNode(name=f"{name}_ceiling", mesh=ceiling_mesh)
+            root.add_child(ceiling_node)
+
+        if 'walls' in parts:
+            walls_mesh = parts['walls']
+            if wall_material is not None:
+                walls_mesh.material = wall_material
+            walls_node = SceneNode(name=f"{name}_walls", mesh=walls_mesh)
+            root.add_child(walls_node)
+
+        return root
 
     def _make_floor(self) -> Mesh:
         """Generate the floor as a flat quad."""

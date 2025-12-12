@@ -10,12 +10,18 @@ import yaml
 from .material import Material
 from ..textures.wood import WoodTextureGenerator
 from ..textures.metal import MetalTextureGenerator, MetalType
+from ..textures.wall import PlasterTextureGenerator, PaintedWallTextureGenerator
+from ..textures.floor import HardwoodFloorTextureGenerator, CarpetTextureGenerator
 
 
 # Registry of texture generator types
 TEXTURE_GENERATORS = {
     "wood": WoodTextureGenerator,
     "metal": MetalTextureGenerator,
+    "plaster": PlasterTextureGenerator,
+    "painted_wall": PaintedWallTextureGenerator,
+    "hardwood_floor": HardwoodFloorTextureGenerator,
+    "carpet": CarpetTextureGenerator,
 }
 
 

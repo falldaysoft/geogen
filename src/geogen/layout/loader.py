@@ -111,10 +111,45 @@ class LayoutLoader:
             room_config: Room configuration dict from YAML
 
         Returns:
-            SceneNode containing the room mesh
+            SceneNode containing the room mesh(es)
         """
         generator = self._create_room_generator(size, room_config)
-        return generator.to_node(f"{name}_geometry")
+
+        # Check if materials are specified for room surfaces
+        materials_config = room_config.get("materials", {})
+        if materials_config:
+            # Use composite node with separate materials
+            floor_material = None
+            wall_material = None
+            ceiling_material = None
+
+            if "floor" in materials_config:
+                try:
+                    floor_material = self._material_loader.load(materials_config["floor"])
+                except FileNotFoundError:
+                    pass
+
+            if "walls" in materials_config:
+                try:
+                    wall_material = self._material_loader.load(materials_config["walls"])
+                except FileNotFoundError:
+                    pass
+
+            if "ceiling" in materials_config:
+                try:
+                    ceiling_material = self._material_loader.load(materials_config["ceiling"])
+                except FileNotFoundError:
+                    pass
+
+            return generator.to_composite_node(
+                name=f"{name}_geometry",
+                floor_material=floor_material,
+                wall_material=wall_material,
+                ceiling_material=ceiling_material,
+            )
+        else:
+            # No materials, use single merged mesh
+            return generator.to_node(f"{name}_geometry")
 
     def _create_part(
         self, name: str, part_def: dict[str, Any], container_size: np.ndarray

@@ -1,0 +1,16 @@
+# Hardwood floor material for room floor
+name: hardwood_floor
+texture:
+  type: hardwood_floor
+  params:
+    color_light: [180, 140, 90]    # Medium oak
+    color_dark: [120, 80, 45]
+    plank_width: 0.1               # 10% of texture width per plank
+    plank_length: 0.5              # Planks stagger at 50%
+    grain_scale: 8.0
+    color_variation: 0.2
+    gap_width: 2
+    gap_color: [40, 30, 20]
+    seed: 42
+size: [512, 512]
+shininess: 0.4
