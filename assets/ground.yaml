@@ -1,0 +1,14 @@
+# Ground plane - flat grass surface
+# Sized to cover the street scene
+
+name: ground
+origin: bottom_center
+size: [30, 0.05, 24]  # Matches street scene size
+
+parts:
+  surface:
+    primitive: cube
+    size: [1.0, 1.0, 1.0]
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: floor  # Grass/ground texture

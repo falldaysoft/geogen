@@ -1,0 +1,154 @@
+# Park bench with metal frame and wood slats
+# Origin is at bottom_center
+# All measurements carefully calculated so parts connect
+
+name: bench
+origin: bottom_center
+size: [1.2, 0.85, 0.65]  # width, height, depth in meters
+
+parts:
+  # === LEFT SIDE FRAME ===
+  # Front leg at x=-0.52, z=0.25 (inset from edge)
+  leg_left_front:
+    primitive: cube
+    size: [0.05, 0.45, 0.05]
+    anchor: bottom_center
+    offset: [-0.52, 0, 0.25]
+    material: metal
+
+  # Back leg at x=-0.52, z=-0.25
+  leg_left_back:
+    primitive: cube
+    size: [0.05, 0.85, 0.05]
+    anchor: bottom_center
+    offset: [-0.52, 0, -0.25]
+    material: metal
+
+  # Left side rail - connects front and back legs at seat height
+  # Spans from front leg to back leg: 0.55 length
+  left_side_rail_upper:
+    primitive: cube
+    size: [0.05, 0.05, 0.55]
+    anchor: bottom_center
+    offset: [-0.52, 0.40, 0]
+    material: metal
+
+  # Left lower rail
+  left_side_rail_lower:
+    primitive: cube
+    size: [0.05, 0.05, 0.55]
+    anchor: bottom_center
+    offset: [-0.52, 0.10, 0]
+    material: metal
+
+  # === RIGHT SIDE FRAME ===
+  leg_right_front:
+    primitive: cube
+    size: [0.05, 0.45, 0.05]
+    anchor: bottom_center
+    offset: [0.52, 0, 0.25]
+    material: metal
+
+  leg_right_back:
+    primitive: cube
+    size: [0.05, 0.85, 0.05]
+    anchor: bottom_center
+    offset: [0.52, 0, -0.25]
+    material: metal
+
+  right_side_rail_upper:
+    primitive: cube
+    size: [0.05, 0.05, 0.55]
+    anchor: bottom_center
+    offset: [0.52, 0.40, 0]
+    material: metal
+
+  right_side_rail_lower:
+    primitive: cube
+    size: [0.05, 0.05, 0.55]
+    anchor: bottom_center
+    offset: [0.52, 0.10, 0]
+    material: metal
+
+  # === CROSS SUPPORTS (connect left and right frames) ===
+  front_cross_bar:
+    primitive: cube
+    size: [0.99, 0.04, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.10, 0.25]
+    material: metal
+
+  back_cross_bar:
+    primitive: cube
+    size: [0.99, 0.04, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.10, -0.25]
+    material: metal
+
+  # === SEAT SLATS ===
+  # 4 slats to cover the wider seat depth
+
+  seat_slat_1:
+    primitive: cube
+    size: [0.99, 0.03, 0.11]
+    anchor: bottom_center
+    offset: [0, 0.45, 0.18]
+    material: wood
+
+  seat_slat_2:
+    primitive: cube
+    size: [0.99, 0.03, 0.11]
+    anchor: bottom_center
+    offset: [0, 0.45, 0.06]
+    material: wood
+
+  seat_slat_3:
+    primitive: cube
+    size: [0.99, 0.03, 0.11]
+    anchor: bottom_center
+    offset: [0, 0.45, -0.06]
+    material: wood
+
+  seat_slat_4:
+    primitive: cube
+    size: [0.99, 0.03, 0.11]
+    anchor: bottom_center
+    offset: [0, 0.45, -0.18]
+    material: wood
+
+  # === BACK SLATS ===
+  back_slat_1:
+    primitive: cube
+    size: [0.99, 0.08, 0.025]
+    anchor: bottom_center
+    offset: [0, 0.52, -0.27]
+    material: wood
+
+  back_slat_2:
+    primitive: cube
+    size: [0.99, 0.08, 0.025]
+    anchor: bottom_center
+    offset: [0, 0.64, -0.27]
+    material: wood
+
+  back_slat_3:
+    primitive: cube
+    size: [0.99, 0.08, 0.025]
+    anchor: bottom_center
+    offset: [0, 0.76, -0.27]
+    material: wood
+
+  # === ARMRESTS ===
+  armrest_left:
+    primitive: cube
+    size: [0.06, 0.03, 0.55]
+    anchor: bottom_center
+    offset: [-0.52, 0.45, 0]
+    material: wood
+
+  armrest_right:
+    primitive: cube
+    size: [0.06, 0.03, 0.55]
+    anchor: bottom_center
+    offset: [0.52, 0.45, 0]
+    material: wood

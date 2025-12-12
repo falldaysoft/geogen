@@ -16,6 +16,10 @@ Procedural 3D geometry generator for game assets. Provides a scene graph system 
 
 ![Room](docs/images/geogen_room.png)
 
+**Street Scene** - Street furniture: fire hydrant, mailbox, trashcan, bench, and lamp:
+
+![Street](docs/images/geogen_street.png)
+
 ## Installation
 
 ```bash
@@ -38,7 +42,7 @@ python -m geogen.main -s dining_set
 python -m geogen.main -s room -r output.png --resolution 1920x1080
 ```
 
-Available scenes: `chair`, `table`, `dining_set`, `room`
+Available scenes: `chair`, `table`, `dining_set`, `room`, `street`
 
 ## Defining Assets
 

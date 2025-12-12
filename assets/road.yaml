@@ -1,0 +1,14 @@
+# Road surface - just the asphalt
+# Sized by parent scene
+
+name: road
+origin: bottom_center
+size: [6, 0.1, 24]  # 6m wide road, runs 24m
+
+parts:
+  surface:
+    primitive: cube
+    size: [1.0, 1.0, 1.0]
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: metal  # Dark asphalt color

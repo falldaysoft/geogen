@@ -1,0 +1,14 @@
+# Sidewalk - concrete walkway
+# Runs parallel to road
+
+name: sidewalk
+origin: bottom_center
+size: [2, 0.12, 24]  # 2m wide, runs 24m, slightly raised
+
+parts:
+  surface:
+    primitive: cube
+    size: [1.0, 1.0, 1.0]
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: floor  # Concrete color

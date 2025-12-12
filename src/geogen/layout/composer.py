@@ -3,41 +3,88 @@
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import yaml
 
 from ..core.node import SceneNode
+from ..core.transform import Transform
 from .loader import LayoutLoader
+from .anchors import resolve_anchor
 
 
 class SceneComposer:
     """Composes scenes by loading and connecting multiple assets.
 
     The composer reads a composition YAML file that specifies which assets
-    to load and how to connect them via attachment points.
+    to load and how to position them. Supports three positioning modes:
+
+    1. **Slots**: Named positions defined in the scene with semantic meaning.
+       Objects are placed at slots by name.
+
+    2. **Attachments**: Objects attached to other objects' attachment points
+       (e.g., chairs attached to table's seat points).
+
+    3. **Nested scenes**: Composed scenes can reference other composed scenes,
+       enabling hierarchical composition (street -> house -> dining_set).
 
     YAML format:
         name: scene_name
+        size: [width, height, depth]  # Optional, for slot positioning
 
-        compose:
-          base_object:
-            asset: path/to/asset.yaml
+        # Define named slots for semantic positioning
+        slots:
+          slot_name:
+            anchor: bottom_center      # Base anchor within scene bounds
+            offset: [x, y, z]          # Offset in scene units (optional)
+            facing: center|outward|north|south|east|west  # Direction (optional)
 
-          attached_objects:
-            asset: path/to/other.yaml
-            attach_to: base_object
-            at: [attachment_name1, attachment_name2, ...]
+        # Place objects into the scene
+        place:
+          object_name:
+            asset: path/to/asset.yaml  # Primitive asset
+            # OR
+            scene: path/to/scene.yaml  # Composed scene (nested)
 
-    Example:
-        name: dining_set
+            slot: slot_name            # Place at a named slot
+            # OR
+            attach_to: other_object    # Attach to another object
+            at: attachment_point       # At this attachment point (or list of points)
 
-        compose:
-          table:
-            asset: table.yaml
+    Example - Street scene:
+        name: street
+        size: [20, 0, 10]
 
-          chairs:
-            asset: chair.yaml
-            attach_to: table
-            at: [seat_1, seat_2, seat_3, seat_4]
+        slots:
+          sidewalk_lamp:
+            anchor: bottom_front_left
+            offset: [0.1, 0, 0.1]
+          sidewalk_bench:
+            anchor: bottom_front_center
+            offset: [0, 0, 0.1]
+            facing: south
+          plot_left:
+            anchor: bottom_back_left
+            offset: [0.25, 0, 0.25]
+          plot_right:
+            anchor: bottom_back_right
+            offset: [-0.25, 0, 0.25]
+
+        place:
+          lamp:
+            asset: street_lamp.yaml
+            slot: sidewalk_lamp
+
+          bench:
+            asset: bench.yaml
+            slot: sidewalk_bench
+
+          house_left:
+            scene: house.yaml
+            slot: plot_left
+
+          house_right:
+            scene: house.yaml
+            slot: plot_right
     """
 
     def __init__(self, assets_dir: str | Path | None = None) -> None:
@@ -85,41 +132,55 @@ class SceneComposer:
         name = data.get("name", "composed_scene")
         root = SceneNode(name)
 
+        # Get scene size for slot positioning
+        size = np.array(data.get("size", [1.0, 1.0, 1.0]), dtype=np.float64)
+
+        # Parse slot definitions
+        slots = self._parse_slots(data.get("slots", {}), size)
+
+        # Handle old 'compose' format for backwards compatibility
         compose_data = data.get("compose", {})
+        place_data = data.get("place", {})
 
-        # First pass: load all base assets (those without attach_to)
-        loaded_assets: dict[str, SceneNode] = {}
+        # Merge compose into place for unified handling
+        all_placements = {**compose_data, **place_data}
 
-        for obj_name, obj_def in compose_data.items():
+        # First pass: load all objects that don't depend on others
+        loaded_objects: dict[str, SceneNode] = {}
+
+        for obj_name, obj_def in all_placements.items():
             if "attach_to" not in obj_def:
-                asset_path = self._assets_dir / obj_def["asset"]
-                node = self._loader.load(asset_path)
+                node = self._load_object(obj_def)
                 node.name = obj_name
+
+                # Position the object
+                if "slot" in obj_def:
+                    slot_name = obj_def["slot"]
+                    if slot_name not in slots:
+                        raise ValueError(f"Slot '{slot_name}' not defined")
+                    node.transform = slots[slot_name]
+
                 root.add_child(node)
-                loaded_assets[obj_name] = node
+                loaded_objects[obj_name] = node
 
         # Second pass: attach objects to their targets
-        for obj_name, obj_def in compose_data.items():
+        for obj_name, obj_def in all_placements.items():
             if "attach_to" in obj_def:
                 target_name = obj_def["attach_to"]
-                target = loaded_assets.get(target_name)
+                target = loaded_objects.get(target_name)
                 if target is None:
                     raise ValueError(
                         f"Cannot attach '{obj_name}': target '{target_name}' not found"
                     )
 
-                asset_path = self._assets_dir / obj_def["asset"]
                 attachment_names = obj_def.get("at", [])
-
                 if isinstance(attachment_names, str):
                     attachment_names = [attachment_names]
 
                 for i, attach_name in enumerate(attachment_names):
-                    # Load a fresh copy for each attachment
-                    node = self._loader.load(asset_path)
+                    node = self._load_object(obj_def)
                     node.name = f"{obj_name}_{i}" if len(attachment_names) > 1 else obj_name
 
-                    # Get the attachment transform
                     attach_transform = target.get_attachment(attach_name)
                     if attach_transform is None:
                         raise ValueError(
@@ -130,3 +191,74 @@ class SceneComposer:
                     root.add_child(node)
 
         return root
+
+    def _load_object(self, obj_def: dict[str, Any]) -> SceneNode:
+        """Load an object from asset or scene definition."""
+        if "asset" in obj_def:
+            asset_path = self._assets_dir / obj_def["asset"]
+            return self._loader.load(asset_path)
+        elif "scene" in obj_def:
+            scene_path = self._assets_dir / obj_def["scene"]
+            return self.compose(scene_path)
+        else:
+            raise ValueError("Object must have 'asset' or 'scene' specified")
+
+    def _parse_slots(
+        self, slots_data: dict[str, Any], size: np.ndarray
+    ) -> dict[str, Transform]:
+        """Parse slot definitions into transforms.
+
+        Slots can specify position in two ways:
+        1. anchor + offset: offset is in ABSOLUTE units (meters), not fractions
+        2. position: direct [x, y, z] coordinates relative to scene center
+        """
+        slots = {}
+
+        for slot_name, slot_def in slots_data.items():
+            facing = slot_def.get("facing", "north")
+
+            if "position" in slot_def:
+                # Direct position in local coordinates (meters from center)
+                position = np.array(slot_def["position"], dtype=np.float64)
+            else:
+                # Anchor-based positioning
+                anchor = slot_def.get("anchor", "center")
+                offset = np.array(slot_def.get("offset", [0, 0, 0]), dtype=np.float64)
+
+                # Resolve anchor to position
+                position = resolve_anchor(anchor, size)
+                # Apply offset in ABSOLUTE units (meters), not fractions
+                position += offset
+
+            # Compute rotation from facing direction
+            rotation = self._facing_to_rotation(facing, position)
+
+            slots[slot_name] = Transform(
+                translation=position,
+                rotation=np.array([0.0, rotation, 0.0], dtype=np.float64),
+            )
+
+        return slots
+
+    def _facing_to_rotation(self, facing: str, position: np.ndarray) -> float:
+        """Convert facing direction to Y-axis rotation in radians."""
+        if facing == "center":
+            # Face toward origin
+            dx = -position[0]
+            dz = -position[2]
+            return float(np.arctan2(dx, dz))
+        elif facing == "outward":
+            # Face away from origin
+            dx = position[0]
+            dz = position[2]
+            return float(np.arctan2(dx, dz))
+        elif facing == "north":
+            return 0.0
+        elif facing == "south":
+            return float(np.pi)
+        elif facing == "east":
+            return float(-np.pi / 2)
+        elif facing == "west":
+            return float(np.pi / 2)
+        else:
+            return 0.0

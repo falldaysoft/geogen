@@ -1,0 +1,79 @@
+# Classic street lamp post
+# Tall post with decorative lantern on top
+# Origin is at bottom_center
+
+name: street_lamp
+origin: bottom_center
+size: [0.3, 2.5, 0.3]  # width, height (tall!), depth
+
+parts:
+  # Base plate
+  base_plate:
+    primitive: cylinder
+    size: [0.6, 0.6, 0.02]
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: metal
+
+  # Decorative base
+  base_lower:
+    primitive: cylinder
+    size: [0.5, 0.5, 0.05]
+    anchor: bottom_center
+    offset: [0, 0.02, 0]
+    material: metal
+
+  base_middle:
+    primitive: cylinder
+    size: [0.35, 0.35, 0.06]
+    anchor: bottom_center
+    offset: [0, 0.07, 0]
+    material: metal
+
+  # Main post (tall and thin)
+  post:
+    primitive: cylinder
+    size: [0.12, 0.12, 0.62]
+    anchor: bottom_center
+    offset: [0, 0.13, 0]
+    material: metal
+
+  # Upper collar
+  collar:
+    primitive: cylinder
+    size: [0.18, 0.18, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.75, 0]
+    material: metal
+
+  # Lamp bracket base
+  bracket:
+    primitive: cylinder
+    size: [0.25, 0.25, 0.03]
+    anchor: bottom_center
+    offset: [0, 0.79, 0]
+    material: metal
+
+  # Lantern body (glass housing)
+  lantern_body:
+    primitive: cube
+    size: [0.65, 0.10, 0.65]
+    anchor: bottom_center
+    offset: [0, 0.82, 0]
+    material: metal
+
+  # Lantern roof
+  lantern_roof:
+    primitive: cone
+    size: [0.75, 0.06, 0.75]
+    anchor: bottom_center
+    offset: [0, 0.92, 0]
+    material: metal
+
+  # Top finial
+  finial:
+    primitive: sphere
+    size: [0.12, 0.06, 0.12]
+    anchor: bottom_center
+    offset: [0, 0.98, 0]
+    material: metal

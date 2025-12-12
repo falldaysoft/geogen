@@ -1,0 +1,129 @@
+# Fire hydrant - classic American style
+# Uses hierarchical attachment: barrel -> sphere -> outlets
+# Origin is at bottom_center
+# Size fractions are [x, y, z] relative to container [0.3, 0.8, 0.3]
+
+name: fire_hydrant
+origin: bottom_center
+size: [0.3, 0.8, 0.3]
+
+parts:
+  # Base - the foundation flange (root part, uses coordinate positioning)
+  # Want: 0.27m wide, 0.05m tall, 0.27m deep
+  base:
+    primitive: cylinder
+    size: [0.9, 0.0625, 0.9]  # x=0.27, y=0.05, z=0.27
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: red_metal
+
+  # Main barrel - the stocky body
+  # Want: 0.21m wide, 0.30m tall, 0.21m deep
+  barrel:
+    primitive: cylinder
+    size: [0.7, 0.375, 0.7]  # x=0.21, y=0.30, z=0.21
+    attach_to: base
+    at: top
+    from: bottom
+    material: red_metal
+
+  # Middle bulge (sphere) where outlets connect
+  # Make it wide enough that the side outlets connect properly
+  bulge:
+    primitive: sphere
+    size: [1.0, 0.25, 1.0]  # x=0.30, y=0.20, z=0.30 - wider to reach outlets
+    attach_to: barrel
+    at: top
+    from: bottom
+    material: red_metal
+
+  # Upper neck section
+  # Want: 0.15m wide, 0.10m tall, 0.15m deep
+  neck:
+    primitive: cylinder
+    size: [0.5, 0.125, 0.5]  # x=0.15, y=0.10, z=0.15
+    attach_to: bulge
+    at: top
+    from: bottom
+    material: red_metal
+
+  # Bonnet (domed top)
+  # Want: 0.16m wide, 0.08m tall, 0.16m deep
+  bonnet:
+    primitive: sphere
+    size: [0.533, 0.1, 0.533]  # x=0.16, y=0.08, z=0.16
+    attach_to: neck
+    at: top
+    from: bottom
+    material: red_metal
+
+  # Operating nut on top
+  # Want: 0.06m wide, 0.04m tall
+  top_nut:
+    primitive: cylinder
+    size: [0.2, 0.05, 0.2]  # x=0.06, y=0.04, z=0.06
+    attach_to: bonnet
+    at: top
+    from: bottom
+    material: metal
+
+  # Left pumper outlet - cylinder rotated 90 degrees around Z
+  # Attach from center so half penetrates into bulge
+  left_outlet:
+    primitive: cylinder
+    size: [0.267, 0.15, 0.267]  # x=0.08, y=0.12, z=0.08
+    attach_to: bulge
+    at: left
+    from: center  # center the outlet on the attachment point
+    rotation: [0, 0, 90]
+    material: red_metal
+
+  # Left cap - attaches to outer end of left outlet
+  left_cap:
+    primitive: cylinder
+    size: [0.3, 0.025, 0.3]
+    attach_to: left_outlet
+    at: top  # outlet's "top" rotated to point left (outward)
+    from: top  # cap's "top" also points left after rotation
+    rotation: [0, 0, 90]
+    material: metal
+
+  # Right pumper outlet - attach from center so half penetrates
+  right_outlet:
+    primitive: cylinder
+    size: [0.267, 0.15, 0.267]
+    attach_to: bulge
+    at: right
+    from: center  # center the outlet on the attachment point
+    rotation: [0, 0, -90]
+    material: red_metal
+
+  # Right cap - attaches to outer end of right outlet
+  right_cap:
+    primitive: cylinder
+    size: [0.3, 0.025, 0.3]
+    attach_to: right_outlet
+    at: top  # outlet's "top" rotated to point right (outward)
+    from: top  # cap's "top" also points right after rotation
+    rotation: [0, 0, -90]
+    material: metal
+
+  # Front steamer outlet (smaller)
+  front_outlet:
+    primitive: cylinder
+    size: [0.2, 0.0625, 0.2]  # 0.06m diameter, 0.05m length
+    attach_to: neck
+    at: front
+    from: bottom  # "bottom" will be rotated to point back
+    rotation: [90, 0, 0]
+    material: red_metal
+
+  # Front cap - attaches to outer end of front outlet
+  front_cap:
+    primitive: cylinder
+    size: [0.233, 0.02, 0.233]
+    attach_to: front_outlet
+    at: top  # outlet's "top" rotated to point forward (outward)
+    from: top  # cap's "top" also points forward after rotation
+    rotation: [90, 0, 0]
+    material: metal

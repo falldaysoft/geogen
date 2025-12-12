@@ -1,0 +1,45 @@
+# One side of a street - sidewalk with house plots behind it
+# Oriented with sidewalk along the front (+Z edge), plots behind
+# This scene is meant to be placed and rotated by the parent street
+
+name: street_side
+size: [12, 4, 24]  # 12m deep (sidewalk + plots), 24m long
+
+slots:
+  # Sidewalk runs along the front edge (closest to road)
+  # Sidewalk is 2m wide, positioned at front
+  sidewalk:
+    position: [5, 0.02, 0]  # Near +X edge (front, toward road)
+    facing: north
+
+  # House plots are behind the sidewalk
+  # Two plots, each 10m wide, spaced along the length
+  plot_front:
+    position: [-1, 0, -6]  # Back from sidewalk, front half of length
+    facing: east  # Houses face +X (toward road/sidewalk)
+
+  plot_back:
+    position: [-1, 0, 6]   # Back from sidewalk, back half of length
+    facing: east  # Houses face +X (toward road/sidewalk)
+
+  # Street furniture on the sidewalk
+  furniture_front:
+    position: [5, 0.12, -8]  # On sidewalk, near front
+    facing: west  # Face the street
+
+  furniture_back:
+    position: [5, 0.12, 8]   # On sidewalk, near back
+    facing: west
+
+place:
+  sidewalk:
+    asset: sidewalk.yaml
+    slot: sidewalk
+
+  plot_1:
+    scene: scenes/house_plot.yaml
+    slot: plot_front
+
+  plot_2:
+    scene: scenes/house_plot.yaml
+    slot: plot_back

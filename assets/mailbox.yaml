@@ -1,0 +1,64 @@
+# US rural-style mailbox on a post
+# Tunnel-shaped box on wooden post
+# Origin is at bottom_center
+
+name: mailbox
+origin: bottom_center
+size: [0.25, 1.2, 0.5]  # width, height, depth
+
+parts:
+  # Wooden post (4x4)
+  post:
+    primitive: cube
+    size: [0.4, 0.75, 0.4]
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: wood
+
+  # Post cap
+  post_cap:
+    primitive: cube
+    size: [0.5, 0.04, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.75, 0]
+    material: wood
+
+  # Mailbox base (flat bottom)
+  box_base:
+    primitive: cube
+    size: [0.75, 0.12, 0.9]
+    anchor: bottom_center
+    offset: [0, 0.79, 0.05]
+    material: metal
+
+  # Mailbox body (curved top - using cylinder on its side)
+  box_body:
+    primitive: cylinder
+    size: [0.75, 0.9, 0.20]
+    anchor: bottom_center
+    offset: [0, 0.91, 0.05]
+    material: metal
+
+  # Front door (flat circle)
+  door:
+    primitive: cylinder
+    size: [0.70, 0.70, 0.02]
+    anchor: bottom_front_center
+    offset: [0, 0.91, 0.50]
+    material: metal
+
+  # Flag arm
+  flag_arm:
+    primitive: cube
+    size: [0.04, 0.15, 0.04]
+    anchor: bottom_center
+    offset: [0.42, 0.85, 0.25]
+    material: metal
+
+  # Flag
+  flag:
+    primitive: cube
+    size: [0.10, 0.08, 0.02]
+    anchor: bottom_center
+    offset: [0.42, 1.00, 0.25]
+    material: metal

@@ -1,0 +1,18 @@
+# House plot - a yard with a house
+# The plot is oriented with "front" facing +Z (toward the street)
+# Contains a yard (ground) and a house
+
+name: house_plot
+size: [10, 4, 8]  # 10m wide, 8m deep (front to back)
+
+slots:
+  # House sits in the back half of the plot, centered
+  # Set back from front edge so there's a front yard
+  house:
+    position: [0, 0, -1]  # Back from center, leaving front yard space
+    facing: north  # Front door faces +Z (toward street)
+
+place:
+  house:
+    asset: house_simple.yaml
+    slot: house

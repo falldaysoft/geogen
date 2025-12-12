@@ -1,0 +1,14 @@
+# Dining set: table with 4 chairs
+# Chairs are attached at the table's seat attachment points
+# This scene can be placed into larger scenes (rooms, houses)
+
+name: dining_set
+
+place:
+  table:
+    asset: table.yaml
+
+  chairs:
+    asset: chair.yaml
+    attach_to: table
+    at: [seat_front, seat_back, seat_left, seat_right]

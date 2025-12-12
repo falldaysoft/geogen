@@ -12,7 +12,7 @@ from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGene
 from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import Anchor, resolve_anchor
-from .attachments import parse_attachment
+from .attachments import parse_attachment, AttachmentPoint
 
 
 # Registry of available primitive generators
@@ -25,21 +25,175 @@ PRIMITIVE_REGISTRY = {
 }
 
 
+def get_primitive_attachment_points(primitive_type: str, size: np.ndarray) -> dict[str, AttachmentPoint]:
+    """Generate standard attachment points for a primitive based on its type and size.
+
+    For cylinders/cones: top, bottom, and radial points (left, right, front, back)
+    For spheres: top, bottom, and radial points at equator
+    For cubes: center of each face
+
+    Args:
+        primitive_type: Type of primitive (cube, cylinder, sphere, cone)
+        size: Actual size [width, height, depth]
+
+    Returns:
+        Dictionary of attachment point name -> AttachmentPoint
+    """
+    attachments = {}
+    half_x = size[0] / 2
+    half_y = size[1] / 2
+    half_z = size[2] / 2
+
+    if primitive_type == "cylinder" or primitive_type == "cone":
+        radius = min(size[0], size[2]) / 2
+        # Top and bottom (along Y axis)
+        attachments["top"] = AttachmentPoint(
+            name="top",
+            anchor="center",
+            offset=np.array([0, half_y, 0]),
+            facing="north",
+        )
+        attachments["bottom"] = AttachmentPoint(
+            name="bottom",
+            anchor="center",
+            offset=np.array([0, -half_y, 0]),
+            facing="north",
+        )
+        # Radial points at mid-height
+        attachments["left"] = AttachmentPoint(
+            name="left",
+            anchor="center",
+            offset=np.array([-radius, 0, 0]),
+            facing="west",
+        )
+        attachments["right"] = AttachmentPoint(
+            name="right",
+            anchor="center",
+            offset=np.array([radius, 0, 0]),
+            facing="east",
+        )
+        attachments["front"] = AttachmentPoint(
+            name="front",
+            anchor="center",
+            offset=np.array([0, 0, radius]),
+            facing="south",
+        )
+        attachments["back"] = AttachmentPoint(
+            name="back",
+            anchor="center",
+            offset=np.array([0, 0, -radius]),
+            facing="north",
+        )
+
+    elif primitive_type == "sphere":
+        radius_x = size[0] / 2
+        radius_y = size[1] / 2
+        radius_z = size[2] / 2
+        # Top and bottom
+        attachments["top"] = AttachmentPoint(
+            name="top",
+            anchor="center",
+            offset=np.array([0, radius_y, 0]),
+            facing="north",
+        )
+        attachments["bottom"] = AttachmentPoint(
+            name="bottom",
+            anchor="center",
+            offset=np.array([0, -radius_y, 0]),
+            facing="north",
+        )
+        # Equator points
+        attachments["left"] = AttachmentPoint(
+            name="left",
+            anchor="center",
+            offset=np.array([-radius_x, 0, 0]),
+            facing="west",
+        )
+        attachments["right"] = AttachmentPoint(
+            name="right",
+            anchor="center",
+            offset=np.array([radius_x, 0, 0]),
+            facing="east",
+        )
+        attachments["front"] = AttachmentPoint(
+            name="front",
+            anchor="center",
+            offset=np.array([0, 0, radius_z]),
+            facing="south",
+        )
+        attachments["back"] = AttachmentPoint(
+            name="back",
+            anchor="center",
+            offset=np.array([0, 0, -radius_z]),
+            facing="north",
+        )
+
+    elif primitive_type == "cube":
+        # Face centers
+        attachments["top"] = AttachmentPoint(
+            name="top",
+            anchor="center",
+            offset=np.array([0, half_y, 0]),
+            facing="north",
+        )
+        attachments["bottom"] = AttachmentPoint(
+            name="bottom",
+            anchor="center",
+            offset=np.array([0, -half_y, 0]),
+            facing="north",
+        )
+        attachments["left"] = AttachmentPoint(
+            name="left",
+            anchor="center",
+            offset=np.array([-half_x, 0, 0]),
+            facing="west",
+        )
+        attachments["right"] = AttachmentPoint(
+            name="right",
+            anchor="center",
+            offset=np.array([half_x, 0, 0]),
+            facing="east",
+        )
+        attachments["front"] = AttachmentPoint(
+            name="front",
+            anchor="center",
+            offset=np.array([0, 0, half_z]),
+            facing="south",
+        )
+        attachments["back"] = AttachmentPoint(
+            name="back",
+            anchor="center",
+            offset=np.array([0, 0, -half_z]),
+            facing="north",
+        )
+
+    return attachments
+
+
 class LayoutLoader:
     """Loads composite object definitions from YAML files.
 
-    YAML format:
-        name: object_name
-        origin: bottom_center  # where the object's origin is
-        size: [width, height, depth]  # bounding box in world units
+    YAML format supports two modes:
 
+    1. Coordinate-based (legacy):
         parts:
           part_name:
             primitive: cube|cylinder|sphere|cone
             size: [x, y, z]  # fractions of parent size (0-1)
-            anchor: anchor_name  # where in parent to position
-            offset: [x, y, z]  # offset from anchor in fractions of parent size
-            material: material_name  # optional material reference
+            anchor: anchor_name
+            offset: [x, y, z]
+
+    2. Hierarchical attachment (preferred):
+        parts:
+          base_part:
+            primitive: cylinder
+            size: [x, y, z]
+
+          child_part:
+            primitive: sphere
+            size: [x, y, z]
+            attach_to: base_part
+            at: top  # attachment point name (top, bottom, left, right, front, back)
     """
 
     def __init__(self) -> None:
@@ -88,11 +242,111 @@ class LayoutLoader:
             root.add_child(room_node)
 
         parts = data.get("parts", {})
-        for part_name, part_def in parts.items():
-            part_node = self._create_part(part_name, part_def, container_size)
-            root.add_child(part_node)
 
-        # Parse attachment points
+        # First pass: create all parts and track which have attachments
+        part_nodes: dict[str, SceneNode] = {}
+        part_sizes: dict[str, np.ndarray] = {}
+        part_types: dict[str, str] = {}
+
+        for part_name, part_def in parts.items():
+            primitive_type = part_def["primitive"]
+            frac_size = np.array(part_def["size"], dtype=np.float64)
+            actual_size = frac_size * container_size
+
+            generator = self._create_generator(primitive_type, actual_size)
+            node = generator.to_node(part_name)
+
+            # Apply material if specified
+            material_name = part_def.get("material")
+            if material_name is not None and node.mesh is not None:
+                try:
+                    material = self._material_loader.load(material_name)
+                    node.mesh.material = material
+                except FileNotFoundError:
+                    pass
+
+            # Store the node's actual size for attachment calculations
+            node.size = actual_size
+
+            # Generate automatic attachment points for this primitive
+            auto_attachments = get_primitive_attachment_points(primitive_type, actual_size)
+            for attach_name, attach_point in auto_attachments.items():
+                node.attachments[attach_name] = attach_point
+
+            part_nodes[part_name] = node
+            part_sizes[part_name] = actual_size
+            part_types[part_name] = primitive_type
+
+        # Second pass: position parts (either by attachment or coordinate)
+        for part_name, part_def in parts.items():
+            node = part_nodes[part_name]
+            actual_size = part_sizes[part_name]
+
+            if "attach_to" in part_def:
+                # Hierarchical attachment mode
+                parent_name = part_def["attach_to"]
+                attach_point = part_def.get("at", "top")
+                child_attach = part_def.get("from", "bottom")  # Which point on child to attach
+
+                if parent_name not in part_nodes:
+                    raise ValueError(f"Part '{part_name}' cannot attach to unknown part '{parent_name}'")
+
+                parent_node = part_nodes[parent_name]
+
+                # Get the attachment point on the parent
+                if attach_point not in parent_node.attachments:
+                    raise ValueError(f"Attachment point '{attach_point}' not found on '{parent_name}'")
+
+                parent_attach = parent_node.attachments[attach_point]
+                parent_offset = parent_attach.offset.copy()
+
+                # Get the child's attachment point offset (to align properly)
+                child_offset = np.zeros(3)
+                if child_attach in node.attachments:
+                    child_offset = node.attachments[child_attach].offset.copy()
+
+                # If the child has rotation, we need to rotate the child offset
+                # because the attachment point moves with the rotation
+                rotation = part_def.get("rotation")
+                if rotation is not None:
+                    rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
+                    node.transform.rotation = rotation_rad
+                    # Rotate the child offset to match the applied rotation
+                    child_offset = self._rotate_point(child_offset, rotation_rad)
+
+                # Position child so its attachment point aligns with parent's attachment point
+                # Both offsets are relative to each primitive's center (origin)
+                node.transform.translation = parent_offset - child_offset
+
+                # Add as child of the parent node (hierarchical)
+                parent_node.add_child(node)
+
+            else:
+                # Coordinate-based positioning (legacy/root mode)
+                # For parts with anchor "bottom_center", this places the part's bottom at that anchor
+                anchor_name = part_def.get("anchor", "center")
+                anchor_pos = resolve_anchor(anchor_name, container_size)
+
+                offset = np.array(part_def.get("offset", [0, 0, 0]), dtype=np.float64)
+                offset_world = offset * container_size
+
+                position = anchor_pos + offset_world
+
+                # If anchor is a "bottom" anchor, shift up so bottom of part is at anchor
+                if "bottom" in anchor_name:
+                    position[1] += actual_size[1] / 2
+
+                node.transform.translation = position
+
+                # Apply rotation if specified
+                rotation = part_def.get("rotation")
+                if rotation is not None:
+                    rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
+                    node.transform.rotation = rotation_rad
+
+                root.add_child(node)
+
+        # Parse explicit attachment points for the composite object
         attachments_data = data.get("attachments", {})
         for attach_name, attach_def in attachments_data.items():
             attachment = parse_attachment(attach_name, attach_def)
@@ -151,65 +405,6 @@ class LayoutLoader:
             # No materials, use single merged mesh
             return generator.to_node(f"{name}_geometry")
 
-    def _create_part(
-        self, name: str, part_def: dict[str, Any], container_size: np.ndarray
-    ) -> SceneNode:
-        """Create a part node from its definition.
-
-        Args:
-            name: Name for the part node
-            part_def: Part definition dict from YAML
-            container_size: Size of the parent container [width, height, depth]
-
-        Returns:
-            SceneNode for the part with correct transform
-        """
-        primitive_type = part_def["primitive"]
-        generator_class = PRIMITIVE_REGISTRY.get(primitive_type)
-        if generator_class is None:
-            raise ValueError(f"Unknown primitive type: {primitive_type}")
-
-        # Calculate actual size from fractional size
-        frac_size = np.array(part_def["size"], dtype=np.float64)
-        actual_size = frac_size * container_size
-
-        # Create the appropriate generator with computed size
-        generator = self._create_generator(primitive_type, actual_size)
-        node = generator.to_node(name)
-
-        # Apply material if specified
-        material_name = part_def.get("material")
-        if material_name is not None and node.mesh is not None:
-            try:
-                material = self._material_loader.load(material_name)
-                node.mesh.material = material
-            except FileNotFoundError:
-                # Material not found, continue without it
-                pass
-
-        # Calculate position from anchor + offset
-        anchor_name = part_def.get("anchor", "center")
-        anchor_pos = resolve_anchor(anchor_name, container_size)
-
-        offset = np.array(part_def.get("offset", [0, 0, 0]), dtype=np.float64)
-        # Offset is in fractions of container size
-        offset_world = offset * container_size
-
-        # Position is anchor + offset
-        # But primitives are centered at origin, so for Y we need to account
-        # for the primitive's own height (shift up by half its height)
-        position = anchor_pos + offset_world
-
-        # Primitives are centered at origin. For bottom_center origin containers,
-        # a part at anchor "bottom_center" with the primitive's center should
-        # be shifted up by half its height to sit on the floor.
-        # We add half the part's Y size to lift it so its bottom is at anchor.
-        position[1] += actual_size[1] / 2
-
-        node.transform.translation = position
-
-        return node
-
     def _create_generator(
         self, primitive_type: str, size: np.ndarray, extra_config: dict[str, Any] | None = None
     ):
@@ -230,7 +425,8 @@ class LayoutLoader:
             radius = min(size[0], size[2]) / 2
             return CylinderGenerator(radius=radius, height=size[1])
         elif primitive_type == "sphere":
-            # Sphere uses radius (half of smallest dimension)
+            # Use the minimum dimension as the base radius
+            # Scaling will be handled by transforming the mesh
             radius = min(size) / 2
             return SphereGenerator(radius=radius)
         elif primitive_type == "cone":
@@ -241,6 +437,20 @@ class LayoutLoader:
             return self._create_room_generator(size, extra_config or {})
         else:
             raise ValueError(f"Unknown primitive type: {primitive_type}")
+
+    def _rotate_point(self, point: np.ndarray, rotation: np.ndarray) -> np.ndarray:
+        """Rotate a point by XYZ Euler angles.
+
+        Args:
+            point: The point to rotate [x, y, z]
+            rotation: Euler angles in radians [rx, ry, rz]
+
+        Returns:
+            Rotated point
+        """
+        from scipy.spatial.transform import Rotation
+        r = Rotation.from_euler('xyz', rotation)
+        return r.apply(point)
 
     def _create_room_generator(
         self, size: np.ndarray, config: dict[str, Any]

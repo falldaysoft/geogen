@@ -1,0 +1,13 @@
+# Red painted metal for fire hydrants
+name: red_metal
+texture:
+  type: metal
+  params:
+    base_color: [180, 25, 25]        # Fire hydrant red
+    highlight_color: [220, 80, 80]   # Brighter red highlights
+    metal_type: polished
+    scratch_amount: 0.15
+    roughness: 0.3
+    seed: 42
+size: [256, 256]
+shininess: 0.6

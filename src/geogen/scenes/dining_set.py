@@ -14,4 +14,4 @@ def create_dining_set_scene() -> SceneNode:
     """
     assets_dir = Path(__file__).parent.parent.parent.parent / "assets"
     composer = SceneComposer(assets_dir)
-    return composer.compose(assets_dir / "dining_set.yaml")
+    return composer.compose(assets_dir / "scenes" / "dining_set.yaml")

@@ -1,0 +1,36 @@
+# Room with furniture - demonstrates nested scene composition
+# A room containing a dining set
+
+name: room_with_furniture
+size: [4, 2.5, 4]  # Room interior dimensions
+
+# Semantic slots within the room
+slots:
+  # Center of the room for dining
+  room_center:
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    facing: north
+
+  # Against the back wall
+  back_wall_center:
+    anchor: bottom_back_center
+    offset: [0, 0, 0.1]
+    facing: south
+
+  # Corners
+  corner_back_left:
+    anchor: bottom_back_left
+    offset: [0.15, 0, 0.15]
+    facing: center
+
+  corner_back_right:
+    anchor: bottom_back_right
+    offset: [-0.15, 0, 0.15]
+    facing: center
+
+place:
+  # The dining set is itself a composed scene
+  dining_set:
+    scene: scenes/dining_set.yaml
+    slot: room_center

@@ -1,0 +1,106 @@
+# Street scene - hierarchical composition
+# A residential street with houses on both sides
+#
+# Structure:
+#   street
+#   ├── road (center)
+#   ├── left_side (street_side scene, mirrored)
+#   │   ├── sidewalk
+#   │   ├── plot_1 → house_plot → house
+#   │   └── plot_2 → house_plot → house
+#   ├── right_side (street_side scene)
+#   │   ├── sidewalk
+#   │   ├── plot_1 → house_plot → house
+#   │   └── plot_2 → house_plot → house
+#   └── street_furniture
+
+name: street
+size: [30, 5, 24]  # 30m wide total, 24m long
+
+slots:
+  # Ground plane covers everything
+  ground:
+    position: [0, -0.02, 0]
+    facing: north
+
+  # Road runs down the center (slightly raised above ground)
+  road:
+    position: [0, 0, 0]
+    facing: north
+
+  # Left side: sidewalk + plots on -X side
+  # Position the street_side so its sidewalk is next to the road
+  left_side:
+    position: [-9, 0, 0]  # Center of left side area
+    facing: west  # Rotate so houses face the road (+X direction)
+
+  # Right side: sidewalk + plots on +X side
+  right_side:
+    position: [9, 0, 0]   # Center of right side area
+    facing: east  # Rotate so houses face the road (-X direction)
+
+  # Street furniture directly on the scene
+  lamp_front_left:
+    position: [-4, 0.12, -10]
+    facing: east
+
+  lamp_front_right:
+    position: [4, 0.12, -10]
+    facing: west
+
+  lamp_back_left:
+    position: [-4, 0.12, 10]
+    facing: east
+
+  lamp_back_right:
+    position: [4, 0.12, 10]
+    facing: west
+
+  hydrant:
+    position: [-4, 0.12, 0]
+    facing: east
+
+  bench:
+    position: [4, 0.12, 0]
+    facing: west
+
+place:
+  ground_plane:
+    asset: ground.yaml
+    slot: ground
+
+  road:
+    asset: road.yaml
+    slot: road
+
+  left_side:
+    scene: scenes/street_side.yaml
+    slot: left_side
+
+  right_side:
+    scene: scenes/street_side.yaml
+    slot: right_side
+
+  lamp_1:
+    asset: street_lamp.yaml
+    slot: lamp_front_left
+
+  lamp_2:
+    asset: street_lamp.yaml
+    slot: lamp_front_right
+
+  lamp_3:
+    asset: street_lamp.yaml
+    slot: lamp_back_left
+
+  lamp_4:
+    asset: street_lamp.yaml
+    slot: lamp_back_right
+
+  fire_hydrant:
+    asset: fire_hydrant.yaml
+    slot: hydrant
+
+  park_bench:
+    asset: bench.yaml
+    slot: bench
