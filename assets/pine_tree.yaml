@@ -1,0 +1,49 @@
+# Pine tree - trunk + stacked cones
+# Origin is at bottom_center
+
+name: pine_tree
+origin: bottom_center
+size: [1, 1, 1]
+
+parts:
+  trunk:
+    primitive: cylinder
+    # [diameter_x, height, diameter_z] in meters (container size is 1)
+    size: [0.28, 2.0, 0.28]
+    anchor: bottom_center
+    material: wood
+
+  foliage_bottom:
+    primitive: cone
+    size: [1.60, 1.25, 1.60]
+    attach_to: trunk
+    at: top
+    from: bottom
+    offset: [0, -0.15, 0]
+    material: foliage_green
+
+  foliage_mid:
+    primitive: cone
+    size: [1.20, 1.05, 1.20]
+    attach_to: foliage_bottom
+    at: top
+    from: bottom
+    offset: [0, -0.20, 0]
+    material: foliage_green
+
+  foliage_top:
+    primitive: cone
+    size: [0.85, 0.85, 0.85]
+    attach_to: foliage_mid
+    at: top
+    from: bottom
+    offset: [0, -0.20, 0]
+    material: foliage_green
+
+  tip:
+    primitive: sphere
+    size: [0.18, 0.18, 0.18]
+    attach_to: foliage_top
+    at: top
+    from: bottom
+    material: foliage_green

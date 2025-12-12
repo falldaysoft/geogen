@@ -1,0 +1,30 @@
+# Tree demo scene
+
+name: trees
+size: [12, 5, 12]
+
+slots:
+  ground:
+    position: [0, -0.02, 0]
+    facing: north
+
+  pine:
+    position: [-2.5, 0, 0]
+    facing: north
+
+  maple:
+    position: [2.5, 0, 0]
+    facing: north
+
+place:
+  ground_plane:
+    asset: ground.yaml
+    slot: ground
+
+  pine_tree:
+    asset: pine_tree.yaml
+    slot: pine
+
+  maple_tree:
+    asset: maple_tree.yaml
+    slot: maple

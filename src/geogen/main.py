@@ -53,6 +53,21 @@ def create_street_lamp_scene() -> SceneNode:
     return _create_asset_scene("street_lamp")
 
 
+def create_pine_tree_scene() -> SceneNode:
+    """Create a scene containing a pine tree."""
+    return _create_asset_scene("pine_tree")
+
+
+def create_maple_tree_scene() -> SceneNode:
+    """Create a scene containing a maple tree."""
+    return _create_asset_scene("maple_tree")
+
+
+def create_trees_scene() -> SceneNode:
+    """Create a scene containing both trees."""
+    return _create_composed_scene("scenes/trees.yaml")
+
+
 def create_trashcan_scene() -> SceneNode:
     """Create a scene containing a trash can."""
     return _create_asset_scene("trashcan")
@@ -107,6 +122,9 @@ SCENES = {
     "fire_hydrant": create_fire_hydrant_scene,
     "mailbox": create_mailbox_scene,
     "street_lamp": create_street_lamp_scene,
+    "pine_tree": create_pine_tree_scene,
+    "maple_tree": create_maple_tree_scene,
+    "trees": create_trees_scene,
     "trashcan": create_trashcan_scene,
     # Buildings
     "house": create_house_scene,

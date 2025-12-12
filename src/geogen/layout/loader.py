@@ -44,7 +44,23 @@ def get_primitive_attachment_points(primitive_type: str, size: np.ndarray) -> di
     half_y = size[1] / 2
     half_z = size[2] / 2
 
-    if primitive_type == "cylinder" or primitive_type == "cone":
+    if primitive_type == "cylinder":
+        radius = min(size[0], size[2]) / 2
+        # Top and bottom (along Y axis)
+        attachments["top"] = AttachmentPoint(
+            name="top",
+            anchor="center",
+            offset=np.array([0, half_y, 0]),
+            facing="north",
+        )
+        attachments["bottom"] = AttachmentPoint(
+            name="bottom",
+            anchor="center",
+            offset=np.array([0, -half_y, 0]),
+            facing="north",
+        )
+
+    elif primitive_type == "cone":
         radius = min(size[0], size[2]) / 2
         # Top and bottom (along Y axis)
         attachments["top"] = AttachmentPoint(

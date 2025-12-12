@@ -1,0 +1,67 @@
+# Maple tree - trunk + leafy canopy spheres
+# Origin is at bottom_center
+
+name: maple_tree
+origin: bottom_center
+size: [1, 1, 1]
+
+parts:
+  trunk:
+    primitive: cylinder
+    size: [0.35, 2.2, 0.35]
+    anchor: bottom_center
+    material: wood
+
+  canopy_center:
+    primitive: sphere
+    size: [2.10, 2.10, 2.10]
+    attach_to: trunk
+    at: top
+    from: bottom
+    offset: [0, -0.25, 0]
+    material: foliage_green
+
+  canopy_left:
+    primitive: sphere
+    size: [1.50, 1.50, 1.50]
+    attach_to: canopy_center
+    at: left
+    from: center
+    offset: [0.15, 0.25, 0]
+    material: foliage_green
+
+  canopy_right:
+    primitive: sphere
+    size: [1.50, 1.50, 1.50]
+    attach_to: canopy_center
+    at: right
+    from: center
+    offset: [-0.15, 0.25, 0]
+    material: foliage_green
+
+  canopy_front:
+    primitive: sphere
+    size: [1.45, 1.45, 1.45]
+    attach_to: canopy_center
+    at: front
+    from: center
+    offset: [0, 0.20, -0.10]
+    material: foliage_green
+
+  canopy_back:
+    primitive: sphere
+    size: [1.45, 1.45, 1.45]
+    attach_to: canopy_center
+    at: back
+    from: center
+    offset: [0, 0.20, 0.10]
+    material: foliage_green
+
+  canopy_top:
+    primitive: sphere
+    size: [1.25, 1.25, 1.25]
+    attach_to: canopy_center
+    at: top
+    from: center
+    offset: [0, 0.10, 0]
+    material: foliage_green

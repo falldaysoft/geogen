@@ -1,0 +1,15 @@
+# Simple green foliage material (works for leaves and pine needles)
+name: foliage_green
+texture:
+  type: painted_wall
+  params:
+    base_color: [45, 120, 55]
+    sheen: 0.1
+    seed: 7
+size: [512, 512]
+shininess: 0.05
+pbr:
+  roughness: 0.95
+  metallic: 0.0
+  normal_strength: 0.2
+  ao_strength: 1.0

@@ -275,16 +275,18 @@ class ConeGenerator(MeshGenerator):
     segments: int = 32
 
     def generate(self) -> Mesh:
-        """Generate a cone mesh with base at y=0 and apex at y=height, with UV coordinates."""
+        """Generate a cone mesh centered at the origin, with UV coordinates."""
         vertices = []
         uvs = []
         faces = []
+
+        half_height = self.height / 2
 
         # === Side vertices ===
         # Apex vertices (one per segment for proper UV seam)
         apex_start = 0
         for seg in range(self.segments + 1):
-            vertices.append([0.0, self.height, 0.0])
+            vertices.append([0.0, half_height, 0.0])
             uvs.append([(seg + 0.5) / self.segments, 1.0])
 
         # Base ring for sides
@@ -293,7 +295,7 @@ class ConeGenerator(MeshGenerator):
             theta = 2 * np.pi * seg / self.segments
             x = self.radius * np.cos(theta)
             z = self.radius * np.sin(theta)
-            vertices.append([x, 0.0, z])
+            vertices.append([x, -half_height, z])
             uvs.append([seg / self.segments, 0.0])
 
         # === Base cap vertices ===
@@ -302,7 +304,7 @@ class ConeGenerator(MeshGenerator):
             theta = 2 * np.pi * seg / self.segments
             x = self.radius * np.cos(theta)
             z = self.radius * np.sin(theta)
-            vertices.append([x, 0.0, z])
+            vertices.append([x, -half_height, z])
             # Radial UV for cap
             u = 0.5 + 0.5 * np.cos(theta)
             v = 0.5 - 0.5 * np.sin(theta)
@@ -310,7 +312,7 @@ class ConeGenerator(MeshGenerator):
 
         # Base center vertex
         base_center = len(vertices)
-        vertices.append([0.0, 0.0, 0.0])
+        vertices.append([0.0, -half_height, 0.0])
         uvs.append([0.5, 0.5])
 
         vertices = np.array(vertices, dtype=np.float64)
