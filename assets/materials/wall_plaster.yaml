@@ -10,3 +10,8 @@ texture:
     seed: 123
 size: [512, 512]
 shininess: 0.1
+pbr:
+  roughness: 0.85       # Matte plaster
+  metallic: 0.0
+  normal_strength: 0.5  # Subtle surface bumps
+  ao_strength: 1.0

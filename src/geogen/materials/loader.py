@@ -130,10 +130,21 @@ class MaterialLoader:
         if tint is not None:
             tint = tuple(tint)
 
+        # Parse PBR properties (with fallback to legacy shininess)
+        pbr = data.get("pbr", {})
+        roughness = pbr.get("roughness", 1.0 - shininess)  # Convert shininess to roughness
+        metallic = pbr.get("metallic", 0.0)
+        normal_strength = pbr.get("normal_strength", 1.0)
+        ao_strength = pbr.get("ao_strength", 1.0)
+
         return Material(
             name=name,
             texture_generator=generator,
             texture_size=tuple(size),
+            roughness=roughness,
+            metallic=metallic,
+            normal_strength=normal_strength,
+            ao_strength=ao_strength,
             shininess=shininess,
             tint=tint,
         )

@@ -86,6 +86,28 @@ class PlasterTextureGenerator(TextureGenerator):
 
         return Image.fromarray(rgb, mode='RGB')
 
+    def generate_normal_map(self) -> Image.Image:
+        """Generate normal map from plaster surface texture."""
+        # Regenerate texture noise for height
+        texture_noise = fractal_noise(
+            self.width, self.height,
+            octaves=4,
+            persistence=0.5,
+            scale=self.texture_scale,
+            seed=self.seed,
+        )
+
+        fine_noise = fractal_noise(
+            self.width, self.height,
+            octaves=3,
+            persistence=0.6,
+            scale=self.texture_scale * 2,
+            seed=(self.seed + 100) if self.seed else 100,
+        )
+
+        height = (texture_noise * 0.7 + fine_noise * 0.3) * 0.5 + 0.5
+        return self._height_to_normal(height, strength=0.3)
+
 
 @dataclass
 class PaintedWallTextureGenerator(TextureGenerator):

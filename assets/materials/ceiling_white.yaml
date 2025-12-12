@@ -8,3 +8,8 @@ texture:
     seed: 456
 size: [512, 512]
 shininess: 0.05
+pbr:
+  roughness: 0.95       # Very matte ceiling
+  metallic: 0.0
+  normal_strength: 0.2  # Very subtle texture
+  ao_strength: 1.0

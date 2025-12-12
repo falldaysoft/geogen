@@ -1,8 +1,9 @@
 """Floor texture generators for hardwood, tile, and carpet."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
 from .base import TextureGenerator
@@ -101,6 +102,97 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
         # Clamp and convert
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode='RGB')
+
+    def generate_ao_map(self) -> Image.Image:
+        """Generate AO map that darkens plank gaps."""
+        ao = np.ones((self.height, self.width), dtype=np.float64)
+
+        # Calculate plank dimensions in pixels
+        plank_w_px = int(self.width * self.plank_width)
+        plank_h_px = int(self.height * self.plank_length)
+
+        if plank_w_px < 1:
+            plank_w_px = 1
+        if plank_h_px < 1:
+            plank_h_px = 1
+
+        n_planks_x = int(np.ceil(self.width / plank_w_px))
+        n_planks_y = int(np.ceil(self.height / plank_h_px))
+
+        # AO settings
+        gap_ao = 0.4  # How dark the gaps are (0 = black, 1 = white)
+        falloff = 3  # Pixels of falloff around gaps
+
+        # Vertical gaps
+        for px in range(1, n_planks_x):
+            x = px * plank_w_px
+            for offset in range(-falloff, falloff + 1):
+                xo = x + offset
+                if 0 <= xo < self.width:
+                    # Smooth falloff
+                    t = 1.0 - abs(offset) / (falloff + 1)
+                    darken = t * (1.0 - gap_ao)
+                    ao[:, xo] = np.minimum(ao[:, xo], 1.0 - darken)
+
+        # Horizontal gaps with stagger
+        for px in range(n_planks_x):
+            y_offset = (plank_h_px // 2) if px % 2 == 1 else 0
+            x_start = px * plank_w_px
+            x_end = min((px + 1) * plank_w_px, self.width)
+
+            for py in range(n_planks_y + 2):
+                y = py * plank_h_px + y_offset
+                for offset in range(-falloff, falloff + 1):
+                    yo = y + offset
+                    if 0 <= yo < self.height:
+                        t = 1.0 - abs(offset) / (falloff + 1)
+                        darken = t * (1.0 - gap_ao)
+                        ao[yo, x_start:x_end] = np.minimum(
+                            ao[yo, x_start:x_end], 1.0 - darken
+                        )
+
+        return Image.fromarray((ao * 255).astype(np.uint8), mode='L')
+
+    def generate_normal_map(self) -> Image.Image:
+        """Generate normal map with wood grain relief and gap edges."""
+        # Generate height map from wood grain
+        albedo = self.generate_array()
+        height = np.mean(albedo, axis=2).astype(np.float64) / 255.0
+
+        # Add depth at gaps
+        plank_w_px = int(self.width * self.plank_width)
+        plank_h_px = int(self.height * self.plank_length)
+
+        if plank_w_px < 1:
+            plank_w_px = 1
+        if plank_h_px < 1:
+            plank_h_px = 1
+
+        n_planks_x = int(np.ceil(self.width / plank_w_px))
+        n_planks_y = int(np.ceil(self.height / plank_h_px))
+
+        half_gap = self.gap_width // 2
+
+        # Lower height at gaps
+        for px in range(1, n_planks_x):
+            x = px * plank_w_px
+            x_start = max(0, x - half_gap)
+            x_end = min(self.width, x + half_gap + 1)
+            height[:, x_start:x_end] -= 0.2
+
+        for px in range(n_planks_x):
+            y_offset = (plank_h_px // 2) if px % 2 == 1 else 0
+            x_start = px * plank_w_px
+            x_end = min((px + 1) * plank_w_px, self.width)
+
+            for py in range(n_planks_y + 2):
+                y = py * plank_h_px + y_offset
+                if 0 <= y < self.height:
+                    y_start = max(0, y - half_gap)
+                    y_end = min(self.height, y + half_gap + 1)
+                    height[y_start:y_end, x_start:x_end] -= 0.2
+
+        return self._height_to_normal(height, strength=1.5)
 
     def _render_plank(
         self,

@@ -14,3 +14,8 @@ texture:
     seed: 42
 size: [512, 512]
 shininess: 0.4
+pbr:
+  roughness: 0.45       # Semi-glossy finished wood
+  metallic: 0.0
+  normal_strength: 1.0
+  ao_strength: 1.0
