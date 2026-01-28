@@ -8,10 +8,13 @@ from typing import Any
 import yaml
 
 from .material import Material
-from ..textures.wood import WoodTextureGenerator
-from ..textures.metal import MetalTextureGenerator, MetalType
-from ..textures.wall import PlasterTextureGenerator, PaintedWallTextureGenerator
+from ..textures.dirt import DirtTextureGenerator
 from ..textures.floor import HardwoodFloorTextureGenerator, CarpetTextureGenerator
+from ..textures.grass import GrassTextureGenerator
+from ..textures.metal import MetalTextureGenerator, MetalType
+from ..textures.rock import RockTextureGenerator
+from ..textures.wall import PlasterTextureGenerator, PaintedWallTextureGenerator
+from ..textures.wood import WoodTextureGenerator
 
 
 # Registry of texture generator types
@@ -22,6 +25,9 @@ TEXTURE_GENERATORS = {
     "painted_wall": PaintedWallTextureGenerator,
     "hardwood_floor": HardwoodFloorTextureGenerator,
     "carpet": CarpetTextureGenerator,
+    "grass": GrassTextureGenerator,
+    "rock": RockTextureGenerator,
+    "dirt": DirtTextureGenerator,
 }
 
 
@@ -154,7 +160,11 @@ class MaterialLoader:
         converted = dict(params)
 
         # Convert color lists to tuples
-        for key in ["color_light", "color_dark", "base_color", "highlight_color"]:
+        color_keys = [
+            "color_light", "color_dark", "color_base", "color_variation",
+            "base_color", "highlight_color"
+        ]
+        for key in color_keys:
             if key in converted and isinstance(converted[key], list):
                 converted[key] = tuple(converted[key])
 

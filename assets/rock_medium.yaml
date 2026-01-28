@@ -1,0 +1,13 @@
+# Medium rock - larger irregular boulder
+# Origin at bottom_center
+name: rock_medium
+origin: bottom_center
+size: [0.6, 0.45, 0.55]  # Larger, still irregular
+
+parts:
+  body:
+    primitive: sphere
+    size: [1.0, 0.75, 0.9]  # Irregular proportions
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: rock

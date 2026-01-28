@@ -1,0 +1,13 @@
+# Small rock - irregular boulder
+# Origin at bottom_center
+name: rock_small
+origin: bottom_center
+size: [0.3, 0.2, 0.25]  # Irregular, somewhat flat
+
+parts:
+  body:
+    primitive: sphere
+    size: [1.0, 0.7, 0.9]  # Irregular proportions
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: rock

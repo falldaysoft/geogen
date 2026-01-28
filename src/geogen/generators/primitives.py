@@ -334,3 +334,61 @@ class ConeGenerator(MeshGenerator):
         faces = np.array(faces, dtype=np.int64)
 
         return Mesh(vertices=vertices, faces=faces, uvs=uvs)
+
+
+@dataclass
+class PlaneGenerator(MeshGenerator):
+    """Generates a plane mesh (flat rectangular surface).
+
+    Attributes:
+        size_x: Width of the plane (X axis)
+        size_z: Depth of the plane (Z axis)
+        subdivisions_x: Number of subdivisions along X (for terrain)
+        subdivisions_z: Number of subdivisions along Z (for terrain)
+    """
+
+    size_x: float = 1.0
+    size_z: float = 1.0
+    subdivisions_x: int = 1
+    subdivisions_z: int = 1
+
+    def generate(self) -> Mesh:
+        """Generate a plane mesh at Y=0 with UV coordinates."""
+        hx = self.size_x / 2
+        hz = self.size_z / 2
+
+        vertices = []
+        uvs = []
+        faces = []
+
+        # Generate grid of vertices
+        for z_idx in range(self.subdivisions_z + 1):
+            for x_idx in range(self.subdivisions_x + 1):
+                # Position
+                x = -hx + (x_idx / self.subdivisions_x) * self.size_x
+                z = -hz + (z_idx / self.subdivisions_z) * self.size_z
+                vertices.append([x, 0.0, z])
+
+                # UVs
+                u = x_idx / self.subdivisions_x
+                v = z_idx / self.subdivisions_z
+                uvs.append([u, v])
+
+        # Generate faces (two triangles per quad)
+        for z_idx in range(self.subdivisions_z):
+            for x_idx in range(self.subdivisions_x):
+                # Vertex indices for this quad
+                tl = z_idx * (self.subdivisions_x + 1) + x_idx
+                tr = tl + 1
+                bl = (z_idx + 1) * (self.subdivisions_x + 1) + x_idx
+                br = bl + 1
+
+                # Two triangles, CCW winding (normal points +Y)
+                faces.append([tl, bl, tr])
+                faces.append([tr, bl, br])
+
+        return Mesh(
+            vertices=np.array(vertices, dtype=np.float64),
+            faces=np.array(faces, dtype=np.int64),
+            uvs=np.array(uvs, dtype=np.float64),
+        )

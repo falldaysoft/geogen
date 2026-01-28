@@ -1,0 +1,46 @@
+# Bush/shrub - cluster of overlapping spheres
+# Origin at bottom_center
+name: bush
+origin: bottom_center
+size: [0.8, 0.6, 0.8]
+
+parts:
+  # Central mass
+  center:
+    primitive: sphere
+    size: [0.65, 0.55, 0.65]
+    anchor: bottom_center
+    offset: [0, 0.1, 0]
+    material: foliage_green
+
+  # Left side
+  left:
+    primitive: sphere
+    size: [0.45, 0.4, 0.45]
+    anchor: bottom_center
+    offset: [-0.25, 0.05, -0.1]
+    material: foliage_green
+
+  # Right side
+  right:
+    primitive: sphere
+    size: [0.5, 0.45, 0.5]
+    anchor: bottom_center
+    offset: [0.3, 0.08, 0.1]
+    material: foliage_green
+
+  # Top
+  top:
+    primitive: sphere
+    size: [0.4, 0.4, 0.4]
+    anchor: bottom_center
+    offset: [0, 0.35, 0]
+    material: foliage_green
+
+  # Back
+  back:
+    primitive: sphere
+    size: [0.5, 0.45, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.1, -0.2]
+    material: foliage_green

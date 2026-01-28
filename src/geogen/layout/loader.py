@@ -8,7 +8,7 @@ import yaml
 
 from ..core.node import SceneNode
 from ..core.transform import Transform
-from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator
+from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator, PlaneGenerator
 from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import Anchor, resolve_anchor
@@ -21,6 +21,7 @@ PRIMITIVE_REGISTRY = {
     "cylinder": CylinderGenerator,
     "sphere": SphereGenerator,
     "cone": ConeGenerator,
+    "plane": PlaneGenerator,
     "room": RoomGenerator,
 }
 
@@ -156,6 +157,39 @@ def get_primitive_attachment_points(primitive_type: str, size: np.ndarray) -> di
             name="bottom",
             anchor="center",
             offset=np.array([0, -half_y, 0]),
+            facing="north",
+        )
+        attachments["left"] = AttachmentPoint(
+            name="left",
+            anchor="center",
+            offset=np.array([-half_x, 0, 0]),
+            facing="west",
+        )
+        attachments["right"] = AttachmentPoint(
+            name="right",
+            anchor="center",
+            offset=np.array([half_x, 0, 0]),
+            facing="east",
+        )
+        attachments["front"] = AttachmentPoint(
+            name="front",
+            anchor="center",
+            offset=np.array([0, 0, half_z]),
+            facing="south",
+        )
+        attachments["back"] = AttachmentPoint(
+            name="back",
+            anchor="center",
+            offset=np.array([0, 0, -half_z]),
+            facing="north",
+        )
+
+    elif primitive_type == "plane":
+        # Plane at Y=0, attachments at edges and center
+        attachments["center"] = AttachmentPoint(
+            name="center",
+            anchor="center",
+            offset=np.array([0, 0, 0]),
             facing="north",
         )
         attachments["left"] = AttachmentPoint(
@@ -454,6 +488,17 @@ class LayoutLoader:
             # Cone uses radius and height
             radius = min(size[0], size[2]) / 2
             return ConeGenerator(radius=radius, height=size[1])
+        elif primitive_type == "plane":
+            # Plane uses width (X) and depth (Z), ignores Y
+            # Get subdivisions from extra_config if available
+            subdivisions_x = (extra_config or {}).get("subdivisions_x", 1)
+            subdivisions_z = (extra_config or {}).get("subdivisions_z", 1)
+            return PlaneGenerator(
+                size_x=size[0],
+                size_z=size[2],
+                subdivisions_x=subdivisions_x,
+                subdivisions_z=subdivisions_z,
+            )
         elif primitive_type == "room":
             return self._create_room_generator(size, extra_config or {})
         else:

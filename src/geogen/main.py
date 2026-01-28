@@ -10,6 +10,7 @@ from PIL import Image
 from .core.node import SceneNode
 from .layout import LayoutLoader, SceneComposer
 from .scenes import create_chair_scene, create_dining_set_scene, create_room_scene, create_street_scene, create_table_scene
+from .scenes.nature import create_nature_scene
 
 
 def _get_assets_dir() -> Path:
@@ -138,6 +139,8 @@ SCENES = {
     "house_plot": create_house_plot_scene,
     "street_side": create_street_side_scene,
     "street": create_street_scene,
+    # Nature
+    "nature": create_nature_scene,
 }
 
 

@@ -1,11 +1,14 @@
 """Procedural texture generation module."""
 
 from .base import TextureGenerator
-from .noise import perlin_noise, fractal_noise
-from .wood import WoodTextureGenerator
-from .metal import MetalTextureGenerator
-from .wall import PlasterTextureGenerator, PaintedWallTextureGenerator
+from .dirt import DirtTextureGenerator
 from .floor import HardwoodFloorTextureGenerator, CarpetTextureGenerator
+from .grass import GrassTextureGenerator
+from .metal import MetalTextureGenerator
+from .noise import perlin_noise, fractal_noise
+from .rock import RockTextureGenerator
+from .wall import PlasterTextureGenerator, PaintedWallTextureGenerator
+from .wood import WoodTextureGenerator
 
 __all__ = [
     "TextureGenerator",
@@ -17,4 +20,7 @@ __all__ = [
     "PaintedWallTextureGenerator",
     "HardwoodFloorTextureGenerator",
     "CarpetTextureGenerator",
+    "GrassTextureGenerator",
+    "RockTextureGenerator",
+    "DirtTextureGenerator",
 ]

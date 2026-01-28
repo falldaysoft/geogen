@@ -1,0 +1,13 @@
+# Large rock - big boulder
+# Origin at bottom_center
+name: rock_large
+origin: bottom_center
+size: [1.2, 0.9, 1.0]  # Large irregular boulder
+
+parts:
+  body:
+    primitive: sphere
+    size: [1.0, 0.75, 0.85]  # Irregular proportions
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    material: rock
