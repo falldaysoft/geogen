@@ -1,12 +1,18 @@
 """Primitive geometry generators."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from ..core.mesh import Mesh
 from ..core.geometry import make_cap_faces, make_tube_faces, make_cone_side_faces
 from .base import MeshGenerator
+
+if TYPE_CHECKING:
+    from ..layout.attachments import AttachmentPoint
 
 
 @dataclass
@@ -22,6 +28,41 @@ class CubeGenerator(MeshGenerator):
     size_x: float = 1.0
     size_y: float = 1.0
     size_z: float = 1.0
+
+    def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
+        """Generate attachment points at the center of each face."""
+        from ..layout.attachments import AttachmentPoint
+
+        half_x = size[0] / 2
+        half_y = size[1] / 2
+        half_z = size[2] / 2
+
+        return {
+            "top": AttachmentPoint(
+                name="top", anchor="center",
+                offset=np.array([0, half_y, 0]), facing="north",
+            ),
+            "bottom": AttachmentPoint(
+                name="bottom", anchor="center",
+                offset=np.array([0, -half_y, 0]), facing="north",
+            ),
+            "left": AttachmentPoint(
+                name="left", anchor="center",
+                offset=np.array([-half_x, 0, 0]), facing="west",
+            ),
+            "right": AttachmentPoint(
+                name="right", anchor="center",
+                offset=np.array([half_x, 0, 0]), facing="east",
+            ),
+            "front": AttachmentPoint(
+                name="front", anchor="center",
+                offset=np.array([0, 0, half_z]), facing="south",
+            ),
+            "back": AttachmentPoint(
+                name="back", anchor="center",
+                offset=np.array([0, 0, -half_z]), facing="north",
+            ),
+        }
 
     def generate(self) -> Mesh:
         """Generate a cube mesh centered at the origin with UV coordinates."""
@@ -82,6 +123,41 @@ class SphereGenerator(MeshGenerator):
     radius: float = 0.5
     segments: int = 32
     rings: int = 16
+
+    def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
+        """Generate attachment points at poles and equator."""
+        from ..layout.attachments import AttachmentPoint
+
+        radius_x = size[0] / 2
+        radius_y = size[1] / 2
+        radius_z = size[2] / 2
+
+        return {
+            "top": AttachmentPoint(
+                name="top", anchor="center",
+                offset=np.array([0, radius_y, 0]), facing="north",
+            ),
+            "bottom": AttachmentPoint(
+                name="bottom", anchor="center",
+                offset=np.array([0, -radius_y, 0]), facing="north",
+            ),
+            "left": AttachmentPoint(
+                name="left", anchor="center",
+                offset=np.array([-radius_x, 0, 0]), facing="west",
+            ),
+            "right": AttachmentPoint(
+                name="right", anchor="center",
+                offset=np.array([radius_x, 0, 0]), facing="east",
+            ),
+            "front": AttachmentPoint(
+                name="front", anchor="center",
+                offset=np.array([0, 0, radius_z]), facing="south",
+            ),
+            "back": AttachmentPoint(
+                name="back", anchor="center",
+                offset=np.array([0, 0, -radius_z]), facing="north",
+            ),
+        }
 
     def generate(self) -> Mesh:
         """Generate a UV sphere mesh centered at the origin with UV coordinates."""
@@ -167,6 +243,40 @@ class CylinderGenerator(MeshGenerator):
     radius: float = 0.5
     height: float = 1.0
     segments: int = 32
+
+    def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
+        """Generate attachment points at top, bottom, and radial mid-height."""
+        from ..layout.attachments import AttachmentPoint
+
+        radius = min(size[0], size[2]) / 2
+        half_y = size[1] / 2
+
+        return {
+            "top": AttachmentPoint(
+                name="top", anchor="center",
+                offset=np.array([0, half_y, 0]), facing="north",
+            ),
+            "bottom": AttachmentPoint(
+                name="bottom", anchor="center",
+                offset=np.array([0, -half_y, 0]), facing="north",
+            ),
+            "left": AttachmentPoint(
+                name="left", anchor="center",
+                offset=np.array([-radius, 0, 0]), facing="west",
+            ),
+            "right": AttachmentPoint(
+                name="right", anchor="center",
+                offset=np.array([radius, 0, 0]), facing="east",
+            ),
+            "front": AttachmentPoint(
+                name="front", anchor="center",
+                offset=np.array([0, 0, radius]), facing="south",
+            ),
+            "back": AttachmentPoint(
+                name="back", anchor="center",
+                offset=np.array([0, 0, -radius]), facing="north",
+            ),
+        }
 
     def generate(self) -> Mesh:
         """Generate a cylinder mesh centered at the origin with UV coordinates."""
@@ -274,6 +384,40 @@ class ConeGenerator(MeshGenerator):
     height: float = 1.0
     segments: int = 32
 
+    def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
+        """Generate attachment points at top, bottom, and radial mid-height."""
+        from ..layout.attachments import AttachmentPoint
+
+        radius = min(size[0], size[2]) / 2
+        half_y = size[1] / 2
+
+        return {
+            "top": AttachmentPoint(
+                name="top", anchor="center",
+                offset=np.array([0, half_y, 0]), facing="north",
+            ),
+            "bottom": AttachmentPoint(
+                name="bottom", anchor="center",
+                offset=np.array([0, -half_y, 0]), facing="north",
+            ),
+            "left": AttachmentPoint(
+                name="left", anchor="center",
+                offset=np.array([-radius, 0, 0]), facing="west",
+            ),
+            "right": AttachmentPoint(
+                name="right", anchor="center",
+                offset=np.array([radius, 0, 0]), facing="east",
+            ),
+            "front": AttachmentPoint(
+                name="front", anchor="center",
+                offset=np.array([0, 0, radius]), facing="south",
+            ),
+            "back": AttachmentPoint(
+                name="back", anchor="center",
+                offset=np.array([0, 0, -radius]), facing="north",
+            ),
+        }
+
     def generate(self) -> Mesh:
         """Generate a cone mesh centered at the origin, with UV coordinates."""
         vertices = []
@@ -351,6 +495,36 @@ class PlaneGenerator(MeshGenerator):
     size_z: float = 1.0
     subdivisions_x: int = 1
     subdivisions_z: int = 1
+
+    def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
+        """Generate attachment points at edges and center of the plane."""
+        from ..layout.attachments import AttachmentPoint
+
+        half_x = size[0] / 2
+        half_z = size[2] / 2
+
+        return {
+            "center": AttachmentPoint(
+                name="center", anchor="center",
+                offset=np.array([0, 0, 0]), facing="north",
+            ),
+            "left": AttachmentPoint(
+                name="left", anchor="center",
+                offset=np.array([-half_x, 0, 0]), facing="west",
+            ),
+            "right": AttachmentPoint(
+                name="right", anchor="center",
+                offset=np.array([half_x, 0, 0]), facing="east",
+            ),
+            "front": AttachmentPoint(
+                name="front", anchor="center",
+                offset=np.array([0, 0, half_z]), facing="south",
+            ),
+            "back": AttachmentPoint(
+                name="back", anchor="center",
+                offset=np.array([0, 0, -half_z]), facing="north",
+            ),
+        }
 
     def generate(self) -> Mesh:
         """Generate a plane mesh at Y=0 with UV coordinates."""

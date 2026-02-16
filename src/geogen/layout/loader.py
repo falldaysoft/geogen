@@ -1,5 +1,7 @@
 """YAML loader for composite object definitions."""
 
+import logging
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -7,12 +9,14 @@ import numpy as np
 import yaml
 
 from ..core.node import SceneNode
-from ..core.transform import Transform
 from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator, PlaneGenerator
 from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
-from .anchors import Anchor, resolve_anchor
-from .attachments import parse_attachment, AttachmentPoint
+from .anchors import resolve_anchor
+from .attachments import parse_attachment
+from .validation import validate_asset_yaml, pre_validate_asset_references
+
+logger = logging.getLogger("geogen.layout")
 
 
 # Registry of available primitive generators
@@ -24,200 +28,6 @@ PRIMITIVE_REGISTRY = {
     "plane": PlaneGenerator,
     "room": RoomGenerator,
 }
-
-
-def get_primitive_attachment_points(primitive_type: str, size: np.ndarray) -> dict[str, AttachmentPoint]:
-    """Generate standard attachment points for a primitive based on its type and size.
-
-    For cylinders/cones: top, bottom, and radial points (left, right, front, back)
-    For spheres: top, bottom, and radial points at equator
-    For cubes: center of each face
-
-    Args:
-        primitive_type: Type of primitive (cube, cylinder, sphere, cone)
-        size: Actual size [width, height, depth]
-
-    Returns:
-        Dictionary of attachment point name -> AttachmentPoint
-    """
-    attachments = {}
-    half_x = size[0] / 2
-    half_y = size[1] / 2
-    half_z = size[2] / 2
-
-    if primitive_type == "cylinder":
-        radius = min(size[0], size[2]) / 2
-        # Top and bottom (along Y axis)
-        attachments["top"] = AttachmentPoint(
-            name="top",
-            anchor="center",
-            offset=np.array([0, half_y, 0]),
-            facing="north",
-        )
-        attachments["bottom"] = AttachmentPoint(
-            name="bottom",
-            anchor="center",
-            offset=np.array([0, -half_y, 0]),
-            facing="north",
-        )
-
-    elif primitive_type == "cone":
-        radius = min(size[0], size[2]) / 2
-        # Top and bottom (along Y axis)
-        attachments["top"] = AttachmentPoint(
-            name="top",
-            anchor="center",
-            offset=np.array([0, half_y, 0]),
-            facing="north",
-        )
-        attachments["bottom"] = AttachmentPoint(
-            name="bottom",
-            anchor="center",
-            offset=np.array([0, -half_y, 0]),
-            facing="north",
-        )
-        # Radial points at mid-height
-        attachments["left"] = AttachmentPoint(
-            name="left",
-            anchor="center",
-            offset=np.array([-radius, 0, 0]),
-            facing="west",
-        )
-        attachments["right"] = AttachmentPoint(
-            name="right",
-            anchor="center",
-            offset=np.array([radius, 0, 0]),
-            facing="east",
-        )
-        attachments["front"] = AttachmentPoint(
-            name="front",
-            anchor="center",
-            offset=np.array([0, 0, radius]),
-            facing="south",
-        )
-        attachments["back"] = AttachmentPoint(
-            name="back",
-            anchor="center",
-            offset=np.array([0, 0, -radius]),
-            facing="north",
-        )
-
-    elif primitive_type == "sphere":
-        radius_x = size[0] / 2
-        radius_y = size[1] / 2
-        radius_z = size[2] / 2
-        # Top and bottom
-        attachments["top"] = AttachmentPoint(
-            name="top",
-            anchor="center",
-            offset=np.array([0, radius_y, 0]),
-            facing="north",
-        )
-        attachments["bottom"] = AttachmentPoint(
-            name="bottom",
-            anchor="center",
-            offset=np.array([0, -radius_y, 0]),
-            facing="north",
-        )
-        # Equator points
-        attachments["left"] = AttachmentPoint(
-            name="left",
-            anchor="center",
-            offset=np.array([-radius_x, 0, 0]),
-            facing="west",
-        )
-        attachments["right"] = AttachmentPoint(
-            name="right",
-            anchor="center",
-            offset=np.array([radius_x, 0, 0]),
-            facing="east",
-        )
-        attachments["front"] = AttachmentPoint(
-            name="front",
-            anchor="center",
-            offset=np.array([0, 0, radius_z]),
-            facing="south",
-        )
-        attachments["back"] = AttachmentPoint(
-            name="back",
-            anchor="center",
-            offset=np.array([0, 0, -radius_z]),
-            facing="north",
-        )
-
-    elif primitive_type == "cube":
-        # Face centers
-        attachments["top"] = AttachmentPoint(
-            name="top",
-            anchor="center",
-            offset=np.array([0, half_y, 0]),
-            facing="north",
-        )
-        attachments["bottom"] = AttachmentPoint(
-            name="bottom",
-            anchor="center",
-            offset=np.array([0, -half_y, 0]),
-            facing="north",
-        )
-        attachments["left"] = AttachmentPoint(
-            name="left",
-            anchor="center",
-            offset=np.array([-half_x, 0, 0]),
-            facing="west",
-        )
-        attachments["right"] = AttachmentPoint(
-            name="right",
-            anchor="center",
-            offset=np.array([half_x, 0, 0]),
-            facing="east",
-        )
-        attachments["front"] = AttachmentPoint(
-            name="front",
-            anchor="center",
-            offset=np.array([0, 0, half_z]),
-            facing="south",
-        )
-        attachments["back"] = AttachmentPoint(
-            name="back",
-            anchor="center",
-            offset=np.array([0, 0, -half_z]),
-            facing="north",
-        )
-
-    elif primitive_type == "plane":
-        # Plane at Y=0, attachments at edges and center
-        attachments["center"] = AttachmentPoint(
-            name="center",
-            anchor="center",
-            offset=np.array([0, 0, 0]),
-            facing="north",
-        )
-        attachments["left"] = AttachmentPoint(
-            name="left",
-            anchor="center",
-            offset=np.array([-half_x, 0, 0]),
-            facing="west",
-        )
-        attachments["right"] = AttachmentPoint(
-            name="right",
-            anchor="center",
-            offset=np.array([half_x, 0, 0]),
-            facing="east",
-        )
-        attachments["front"] = AttachmentPoint(
-            name="front",
-            anchor="center",
-            offset=np.array([0, 0, half_z]),
-            facing="south",
-        )
-        attachments["back"] = AttachmentPoint(
-            name="back",
-            anchor="center",
-            offset=np.array([0, 0, -half_z]),
-            facing="north",
-        )
-
-    return attachments
 
 
 class LayoutLoader:
@@ -260,8 +70,20 @@ class LayoutLoader:
             SceneNode hierarchy representing the composite object
         """
         path = Path(path)
+        logger.debug("Loading asset: %s", path)
         with open(path) as f:
             data = yaml.safe_load(f)
+
+        # Validate YAML structure
+        for warning in validate_asset_yaml(data):
+            warnings.warn(warning, stacklevel=2)
+
+        # Pre-validate references
+        ref_errors = pre_validate_asset_references(data)
+        if ref_errors:
+            raise ValueError(
+                f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
+            )
 
         return self._build_hierarchy(data)
 
@@ -281,6 +103,7 @@ class LayoutLoader:
         """Build scene hierarchy from parsed YAML data."""
         name = data.get("name", "composite")
         container_size = np.array(data["size"], dtype=np.float64)
+        logger.debug("Building hierarchy: %s (size=%s)", name, container_size)
 
         root = SceneNode(name)
         root.size = container_size
@@ -313,13 +136,16 @@ class LayoutLoader:
                     material = self._material_loader.load(material_name)
                     node.mesh.material = material
                 except FileNotFoundError:
-                    pass
+                    warnings.warn(
+                        f"Material '{material_name}' not found for part '{part_name}'",
+                        stacklevel=2,
+                    )
 
             # Store the node's actual size for attachment calculations
             node.size = actual_size
 
-            # Generate automatic attachment points for this primitive
-            auto_attachments = get_primitive_attachment_points(primitive_type, actual_size)
+            # Generate automatic attachment points from the generator
+            auto_attachments = generator.get_attachment_points(actual_size)
             for attach_name, attach_point in auto_attachments.items():
                 node.attachments[attach_name] = attach_point
 
@@ -339,13 +165,27 @@ class LayoutLoader:
                 child_attach = part_def.get("from", "bottom")  # Which point on child to attach
 
                 if parent_name not in part_nodes:
-                    raise ValueError(f"Part '{part_name}' cannot attach to unknown part '{parent_name}'")
+                    import difflib
+                    suggestion = difflib.get_close_matches(parent_name, part_nodes.keys(), n=1, cutoff=0.5)
+                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+                    raise ValueError(
+                        f"Part '{part_name}' cannot attach to unknown part '{parent_name}'.{hint}"
+                        f" Available parts: {sorted(part_nodes.keys())}"
+                    )
 
                 parent_node = part_nodes[parent_name]
+                logger.debug("Attaching '%s' to '%s' at '%s'", part_name, parent_name, attach_point)
 
                 # Get the attachment point on the parent
                 if attach_point not in parent_node.attachments:
-                    raise ValueError(f"Attachment point '{attach_point}' not found on '{parent_name}'")
+                    import difflib
+                    available = sorted(parent_node.attachments.keys())
+                    suggestion = difflib.get_close_matches(attach_point, available, n=1, cutoff=0.5)
+                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+                    raise ValueError(
+                        f"Attachment point '{attach_point}' not found on '{parent_name}'.{hint}"
+                        f" Available: {available}"
+                    )
 
                 parent_attach = parent_node.attachments[attach_point]
                 parent_offset = parent_attach.offset.copy()
@@ -436,19 +276,28 @@ class LayoutLoader:
                 try:
                     floor_material = self._material_loader.load(materials_config["floor"])
                 except FileNotFoundError:
-                    pass
+                    warnings.warn(
+                        f"Floor material '{materials_config['floor']}' not found",
+                        stacklevel=2,
+                    )
 
             if "walls" in materials_config:
                 try:
                     wall_material = self._material_loader.load(materials_config["walls"])
                 except FileNotFoundError:
-                    pass
+                    warnings.warn(
+                        f"Wall material '{materials_config['walls']}' not found",
+                        stacklevel=2,
+                    )
 
             if "ceiling" in materials_config:
                 try:
                     ceiling_material = self._material_loader.load(materials_config["ceiling"])
                 except FileNotFoundError:
-                    pass
+                    warnings.warn(
+                        f"Ceiling material '{materials_config['ceiling']}' not found",
+                        stacklevel=2,
+                    )
 
             return generator.to_composite_node(
                 name=f"{name}_geometry",
@@ -502,7 +351,14 @@ class LayoutLoader:
         elif primitive_type == "room":
             return self._create_room_generator(size, extra_config or {})
         else:
-            raise ValueError(f"Unknown primitive type: {primitive_type}")
+            import difflib
+            known = list(PRIMITIVE_REGISTRY.keys())
+            suggestion = difflib.get_close_matches(primitive_type, known, n=1, cutoff=0.5)
+            hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+            raise ValueError(
+                f"Unknown primitive type: '{primitive_type}'.{hint}"
+                f" Available: {known}"
+            )
 
     def _rotate_point(self, point: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Rotate a point by XYZ Euler angles.

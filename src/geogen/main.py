@@ -7,144 +7,21 @@ import numpy as np
 import pyrender
 from PIL import Image
 
-from .core.node import SceneNode
-from .layout import LayoutLoader, SceneComposer
-from .scenes import create_chair_scene, create_dining_set_scene, create_room_scene, create_street_scene, create_table_scene
+from .registry import SceneRegistry
 from .scenes.nature import create_nature_scene
-
-
-def _get_assets_dir() -> Path:
-    """Get the assets directory path."""
-    return Path(__file__).parent.parent.parent / "assets"
-
-
-def _create_asset_scene(asset_name: str) -> SceneNode:
-    """Create a scene from a single asset YAML file."""
-    root = SceneNode("root")
-    loader = LayoutLoader()
-    asset = loader.load(_get_assets_dir() / f"{asset_name}.yaml")
-    root.add_child(asset)
-    return root
-
-
-def _create_composed_scene(scene_path: str) -> SceneNode:
-    """Create a scene from a composed scene YAML file."""
-    assets_dir = _get_assets_dir()
-    composer = SceneComposer(assets_dir)
-    return composer.compose(assets_dir / scene_path)
-
-
-def create_bench_scene() -> SceneNode:
-    """Create a scene containing a park bench."""
-    return _create_asset_scene("bench")
-
-
-def create_fire_hydrant_scene() -> SceneNode:
-    """Create a scene containing a fire hydrant."""
-    return _create_asset_scene("fire_hydrant")
-
-
-def create_mailbox_scene() -> SceneNode:
-    """Create a scene containing a mailbox."""
-    return _create_asset_scene("mailbox")
-
-
-def create_street_lamp_scene() -> SceneNode:
-    """Create a scene containing a street lamp."""
-    return _create_asset_scene("street_lamp")
-
-
-def create_pine_tree_scene() -> SceneNode:
-    """Create a scene containing a pine tree."""
-    return _create_asset_scene("pine_tree")
-
-
-def create_maple_tree_scene() -> SceneNode:
-    """Create a scene containing a maple tree."""
-    return _create_asset_scene("maple_tree")
-
-
-def create_trees_scene() -> SceneNode:
-    """Create a scene containing both trees."""
-    return _create_composed_scene("scenes/trees.yaml")
-
-
-def create_trashcan_scene() -> SceneNode:
-    """Create a scene containing a trash can."""
-    return _create_asset_scene("trashcan")
-
-
-def create_house_scene() -> SceneNode:
-    """Create a scene containing a simple house."""
-    return _create_asset_scene("house_simple")
-
-
-def create_house_peaked_scene() -> SceneNode:
-    """Create a scene containing a house with peaked roof."""
-    return _create_asset_scene("house_peaked")
-
-
-def create_road_scene() -> SceneNode:
-    """Create a scene containing a road section."""
-    return _create_asset_scene("road")
-
-
-def create_sidewalk_scene() -> SceneNode:
-    """Create a scene containing a sidewalk."""
-    return _create_asset_scene("sidewalk")
-
-
-def create_ground_scene() -> SceneNode:
-    """Create a scene containing a ground plane."""
-    return _create_asset_scene("ground")
-
-
-def create_house_plot_scene() -> SceneNode:
-    """Create a scene containing a house plot."""
-    return _create_composed_scene("scenes/house_plot.yaml")
-
-
-def create_street_side_scene() -> SceneNode:
-    """Create a scene containing one side of a street."""
-    return _create_composed_scene("scenes/street_side.yaml")
-
-
 from .viewer import Viewer, run_viewer
 
 
-# Scene registry - maps scene names to factory functions
-SCENES = {
-    # Furniture
-    "chair": create_chair_scene,
-    "table": create_table_scene,
-    "dining_set": create_dining_set_scene,
-    "bench": create_bench_scene,
-    # Street furniture
-    "fire_hydrant": create_fire_hydrant_scene,
-    "mailbox": create_mailbox_scene,
-    "street_lamp": create_street_lamp_scene,
-    "pine_tree": create_pine_tree_scene,
-    "maple_tree": create_maple_tree_scene,
-    "trees": create_trees_scene,
-    "trashcan": create_trashcan_scene,
-    # Buildings
-    "house": create_house_scene,
-    "house_peaked": create_house_peaked_scene,
-    "room": create_room_scene,
-    # Infrastructure
-    "road": create_road_scene,
-    "sidewalk": create_sidewalk_scene,
-    "ground": create_ground_scene,
-    # Composed scenes
-    "house_plot": create_house_plot_scene,
-    "street_side": create_street_side_scene,
-    "street": create_street_scene,
-    # Nature
-    "nature": create_nature_scene,
-}
+def _build_registry() -> SceneRegistry:
+    """Build the scene registry with auto-discovered and Python-coded scenes."""
+    registry = SceneRegistry()
+    registry.discover()
+    # Python-coded scenes (not representable as pure YAML)
+    registry.register("nature", create_nature_scene)
+    return registry
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="Geogen - Procedural 3D Geometry Generator",
@@ -163,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-s", "--scene",
-        choices=list(SCENES.keys()),
+        choices=registry.names(),
         default="chair",
         help="Scene to display (default: chair)",
     )
@@ -188,9 +65,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     """Run the geogen demo."""
-    args = parse_args()
+    registry = _build_registry()
+    args = parse_args(registry)
 
-    root = SCENES[args.scene]()
+    root = registry[args.scene]()
 
     # Display scene info
     print("Geogen - Procedural 3D Geometry Generator")
@@ -280,7 +158,7 @@ def main() -> None:
         # Show interactive viewer with scene selection menu
         print("\nOpening viewer...")
         print("Controls: Left-drag to rotate, scroll to zoom, right-drag to pan")
-        run_viewer(scenes=SCENES, default_scene=args.scene)
+        run_viewer(scenes=registry.scenes, default_scene=args.scene)
 
 
 if __name__ == "__main__":

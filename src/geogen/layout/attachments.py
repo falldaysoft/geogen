@@ -13,6 +13,9 @@ from .anchors import Anchor, resolve_anchor
 FacingDirection = Literal["center", "outward", "north", "south", "east", "west"]
 
 
+OffsetMode = Literal["fractional", "absolute"]
+
+
 @dataclass
 class AttachmentPoint:
     """A named point where another object can be attached.
@@ -25,9 +28,11 @@ class AttachmentPoint:
     Attributes:
         name: Unique name for this attachment point
         anchor: Base anchor position within the container
-        offset: Additional offset in fractions of container size [x, y, z]
+        offset: Additional offset [x, y, z]. Interpretation depends on offset_mode.
         facing: Semantic direction the attached object should face
         rotation: Explicit Y rotation in degrees (overrides facing if set)
+        offset_mode: "fractional" multiplies offset by container_size (default),
+                     "absolute" uses offset directly in world units
     """
 
     name: str
@@ -35,6 +40,7 @@ class AttachmentPoint:
     offset: NDArray[np.float64] | None = None
     facing: FacingDirection = "center"
     rotation: float | None = None  # degrees, Y-axis rotation
+    offset_mode: OffsetMode = "absolute"
 
     def __post_init__(self) -> None:
         if self.offset is None:
@@ -53,7 +59,11 @@ class AttachmentPoint:
         """
         # Calculate position from anchor + offset
         anchor_pos = resolve_anchor(self.anchor, container_size)
-        offset_world = self.offset * container_size
+        offset = self.offset if self.offset is not None else np.zeros(3, dtype=np.float64)
+        if self.offset_mode == "fractional":
+            offset_world = offset * container_size
+        else:
+            offset_world = offset
         position = anchor_pos + offset_world
 
         # Calculate rotation

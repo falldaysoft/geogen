@@ -86,8 +86,13 @@ class MaterialLoader:
         # Find the YAML file
         yaml_path = self._find_yaml(name)
         if yaml_path is None:
+            available = self._list_available()
+            import difflib
+            suggestion = difflib.get_close_matches(name, available, n=1, cutoff=0.5)
+            hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
             raise FileNotFoundError(
-                f"Material '{name}' not found in search paths: {self.search_paths}"
+                f"Material '{name}' not found.{hint}"
+                f" Available materials: {available}"
             )
 
         # Load and parse
@@ -173,6 +178,15 @@ class MaterialLoader:
             converted["metal_type"] = MetalType(converted["metal_type"])
 
         return converted
+
+    def _list_available(self) -> list[str]:
+        """List all available material names from search paths."""
+        names = []
+        for search_path in self.search_paths:
+            if search_path.exists():
+                for yaml_path in search_path.glob("*.yaml"):
+                    names.append(yaml_path.stem)
+        return sorted(names)
 
     def clear_cache(self) -> None:
         """Clear the material cache."""

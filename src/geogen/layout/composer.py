@@ -1,5 +1,7 @@
 """Scene composer for assembling multi-asset scenes from YAML definitions."""
 
+import logging
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +12,10 @@ from ..core.node import SceneNode
 from ..core.transform import Transform
 from .loader import LayoutLoader
 from .anchors import resolve_anchor
+from .attachments import parse_attachment
+from .validation import validate_scene_yaml, pre_validate_scene_references
+
+logger = logging.getLogger("geogen.layout")
 
 
 class SceneComposer:
@@ -110,8 +116,20 @@ class SceneComposer:
             Root SceneNode of the composed scene
         """
         path = Path(path)
+        logger.debug("Composing scene: %s", path)
         with open(path) as f:
             data = yaml.safe_load(f)
+
+        # Validate YAML structure
+        for warning in validate_scene_yaml(data):
+            warnings.warn(warning, stacklevel=2)
+
+        # Pre-validate references
+        ref_errors = pre_validate_scene_references(data)
+        if ref_errors:
+            raise ValueError(
+                f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
+            )
 
         return self._build_scene(data)
 
@@ -132,8 +150,10 @@ class SceneComposer:
         name = data.get("name", "composed_scene")
         root = SceneNode(name)
 
-        # Get scene size for slot positioning
+        # Get scene size for slot positioning and propagate to root node
         size = np.array(data.get("size", [1.0, 1.0, 1.0]), dtype=np.float64)
+        root.size = size
+        logger.debug("Building scene: %s (size=%s)", name, size)
 
         # Parse slot definitions
         slots = self._parse_slots(data.get("slots", {}), size)
@@ -157,7 +177,15 @@ class SceneComposer:
                 if "slot" in obj_def:
                     slot_name = obj_def["slot"]
                     if slot_name not in slots:
-                        raise ValueError(f"Slot '{slot_name}' not defined")
+                        import difflib
+                        available = sorted(slots.keys())
+                        suggestion = difflib.get_close_matches(slot_name, available, n=1, cutoff=0.5)
+                        hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+                        raise ValueError(
+                            f"Slot '{slot_name}' not defined.{hint}"
+                            f" Available slots: {available}"
+                        )
+                    logger.debug("Placing '%s' at slot '%s'", obj_name, slot_name)
                     node.transform = slots[slot_name]
 
                 root.add_child(node)
@@ -169,8 +197,13 @@ class SceneComposer:
                 target_name = obj_def["attach_to"]
                 target = loaded_objects.get(target_name)
                 if target is None:
+                    import difflib
+                    available = sorted(loaded_objects.keys())
+                    suggestion = difflib.get_close_matches(target_name, available, n=1, cutoff=0.5)
+                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
                     raise ValueError(
-                        f"Cannot attach '{obj_name}': target '{target_name}' not found"
+                        f"Cannot attach '{obj_name}': target '{target_name}' not found.{hint}"
+                        f" Available objects: {available}"
                     )
 
                 attachment_names = obj_def.get("at", [])
@@ -183,12 +216,24 @@ class SceneComposer:
 
                     attach_transform = target.get_attachment(attach_name)
                     if attach_transform is None:
+                        import difflib
+                        available = target.list_attachments()
+                        suggestion = difflib.get_close_matches(attach_name, available, n=1, cutoff=0.5)
+                        hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
                         raise ValueError(
-                            f"Attachment point '{attach_name}' not found on '{target_name}'"
+                            f"Attachment point '{attach_name}' not found on '{target_name}'.{hint}"
+                            f" Available: {available}"
                         )
+                    logger.debug("Attaching '%s' to '%s' at '%s'", obj_name, target_name, attach_name)
 
                     node.transform = attach_transform
                     root.add_child(node)
+
+        # Parse explicit attachment points for the composed scene
+        attachments_data = data.get("attachments", {})
+        for attach_name, attach_def in attachments_data.items():
+            attachment = parse_attachment(attach_name, attach_def)
+            root.attachments[attach_name] = attachment
 
         return root
 

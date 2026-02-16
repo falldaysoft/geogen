@@ -1,5 +1,7 @@
 """Nature scene with terrain, rocks, and vegetation."""
 
+import warnings
+
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from ..generators.terrain import TerrainGenerator
@@ -31,7 +33,7 @@ def create_nature_scene() -> SceneNode:
         grass_material = material_loader.load("grass")
         terrain_mesh.material = grass_material
     except FileNotFoundError:
-        pass
+        warnings.warn("Grass material not found for terrain", stacklevel=2)
 
     terrain_node = SceneNode("terrain", mesh=terrain_mesh)
     terrain_node.transform.translation = np.array([0, 0, 0], dtype=np.float64)
@@ -56,7 +58,7 @@ def create_nature_scene() -> SceneNode:
             rock.transform.translation = np.array(pos, dtype=np.float64)
             root.add_child(rock)
         except FileNotFoundError:
-            pass
+            warnings.warn(f"Asset '{rock_type}' not found", stacklevel=2)
 
     # Place bushes
     bush_positions = [
@@ -73,6 +75,6 @@ def create_nature_scene() -> SceneNode:
             bush.transform.translation = np.array(pos, dtype=np.float64)
             root.add_child(bush)
         except FileNotFoundError:
-            pass
+            warnings.warn("Asset 'bush' not found", stacklevel=2)
 
     return root

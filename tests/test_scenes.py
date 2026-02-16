@@ -8,14 +8,21 @@ import pyrender
 import pytest
 from PIL import Image
 
-from geogen.scenes import create_chair_scene, create_table_scene
+from geogen.registry import SceneRegistry
+from geogen.scenes.nature import create_nature_scene
 from geogen.viewer import Viewer
 
-# All available scenes
-SCENES = {
-    "chair": create_chair_scene,
-    "table": create_table_scene,
-}
+
+def _build_registry() -> SceneRegistry:
+    """Build the full scene registry for testing."""
+    registry = SceneRegistry()
+    registry.discover()
+    registry.register("nature", create_nature_scene)
+    return registry
+
+
+_registry = _build_registry()
+SCENES = list(_registry.scenes.items())
 
 # Module-level renderer to avoid macOS pyglet context issues
 _renderer = None
@@ -85,7 +92,7 @@ def render_scene(root, width: int = 640, height: int = 480) -> np.ndarray:
     return color
 
 
-@pytest.mark.parametrize("scene_name,scene_factory", list(SCENES.items()))
+@pytest.mark.parametrize("scene_name,scene_factory", SCENES)
 def test_scene_loads(scene_name, scene_factory):
     """Test that each scene loads without errors."""
     root = scene_factory()
@@ -97,7 +104,7 @@ def test_scene_loads(scene_name, scene_factory):
     assert len(nodes) > 0, f"Scene '{scene_name}' should have at least one node"
 
 
-@pytest.mark.parametrize("scene_name,scene_factory", list(SCENES.items()))
+@pytest.mark.parametrize("scene_name,scene_factory", SCENES)
 def test_scene_renders(scene_name, scene_factory):
     """Test that each scene renders without errors."""
     root = scene_factory()
@@ -112,7 +119,7 @@ def test_scene_renders(scene_name, scene_factory):
     assert color.max() > 0, f"Scene '{scene_name}' rendered as completely black"
 
 
-@pytest.mark.parametrize("scene_name,scene_factory", list(SCENES.items()))
+@pytest.mark.parametrize("scene_name,scene_factory", SCENES)
 def test_scene_renders_to_file(scene_name, scene_factory):
     """Test that each scene can be saved to a file."""
     root = scene_factory()
@@ -130,3 +137,30 @@ def test_scene_renders_to_file(scene_name, scene_factory):
         # Verify it's a valid image by re-loading it
         loaded = Image.open(output_path)
         assert loaded.size == (640, 480)
+
+
+def test_registry_discovers_all_yaml():
+    """Test that the registry discovers all YAML files."""
+    registry = SceneRegistry()
+    registry.discover()
+
+    # Should find all individual assets
+    for asset in ["chair", "table", "bench", "fire_hydrant", "mailbox",
+                  "street_lamp", "pine_tree", "maple_tree", "trashcan",
+                  "house_simple", "house_peaked", "road", "sidewalk", "ground",
+                  "rock_small", "rock_medium", "rock_large", "bush"]:
+        assert asset in registry, f"Expected asset '{asset}' to be discovered"
+
+    # Should find all composed scenes
+    for scene in ["dining_set", "street", "street_side", "house_plot", "trees",
+                  "room_with_furniture"]:
+        assert scene in registry, f"Expected scene '{scene}' to be discovered"
+
+
+def test_registry_register_python_scene():
+    """Test that Python-coded scenes can be registered."""
+    registry = SceneRegistry()
+    registry.register("nature", create_nature_scene)
+    assert "nature" in registry
+    root = registry["nature"]()
+    assert root is not None

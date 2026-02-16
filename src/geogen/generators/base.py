@@ -1,10 +1,15 @@
 """Base classes and protocols for geometry generators."""
 
 from abc import ABC, abstractmethod
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+import numpy as np
 
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
+
+if TYPE_CHECKING:
+    from ..layout.attachments import AttachmentPoint
 
 
 @runtime_checkable
@@ -34,6 +39,20 @@ class MeshGenerator(ABC):
             A Mesh object containing the generated geometry.
         """
         pass
+
+    def get_attachment_points(self, size: np.ndarray) -> dict[str, "AttachmentPoint"]:
+        """Generate standard attachment points for this primitive given its actual size.
+
+        Subclasses should override to provide shape-specific attachment points.
+        Default implementation returns an empty dict.
+
+        Args:
+            size: Actual size [width, height, depth]
+
+        Returns:
+            Dictionary of attachment point name -> AttachmentPoint
+        """
+        return {}
 
     def to_node(self, name: str | None = None) -> SceneNode:
         """Generate geometry and wrap it in a SceneNode.

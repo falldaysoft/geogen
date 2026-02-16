@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -162,3 +163,135 @@ class TextureGenerator(ABC):
             path: Output file path (e.g., 'texture.png')
         """
         self.generate().save(path)
+
+
+@dataclass
+class NoiseLayer:
+    """Configuration for a single noise layer in a NoiseTextureGenerator.
+
+    Attributes:
+        name: Identifier for this layer (used for caching/access)
+        octaves: Number of fractal noise octaves
+        persistence: Amplitude falloff per octave (0-1)
+        scale: Base noise frequency
+        seed_offset: Offset added to base seed for this layer
+        weight: Contribution weight when combining layers
+    """
+    name: str
+    octaves: int = 4
+    persistence: float = 0.5
+    scale: float = 4.0
+    seed_offset: int = 0
+    weight: float = 1.0
+
+
+@dataclass
+class NoiseTextureGenerator(TextureGenerator):
+    """Base class for noise-based procedural textures.
+
+    Extracts the common noise-to-color pattern shared by most texture generators:
+    1. Generate multiple noise layers (via _get_noise_layers)
+    2. Combine them into a 0-1 pattern (via _compute_pattern)
+    3. Map pattern to colors via interpolation between color_a and color_b
+    4. Add optional color shift noise
+
+    Subclasses must define:
+        color_a: First color (mapped to low pattern values)
+        color_b: Second color (mapped to high pattern values)
+
+    Subclasses override:
+        _get_noise_layers() -> list of NoiseLayer configs
+        _compute_pattern(layers) -> 0-1 pattern array (optional)
+        _apply_color_shift(rgb) -> rgb with color modifications (optional)
+    """
+
+    color_a: tuple[int, int, int] = (100, 100, 100)
+    color_b: tuple[int, int, int] = (200, 200, 200)
+    color_shift_scale: float = 2.0
+    color_shift_strength: float = 0.0  # 0 = no shift
+
+    def _get_noise_layers(self) -> list[NoiseLayer]:
+        """Define noise layers for this texture.
+
+        Subclasses override to specify their noise configuration.
+        """
+        return [NoiseLayer(name="base", octaves=4, scale=4.0, weight=1.0)]
+
+    def _generate_noise_layers(self) -> dict[str, NDArray[np.float64]]:
+        """Generate all noise layers and cache them.
+
+        Returns:
+            Dict mapping layer name to noise array (values in [-1, 1])
+        """
+        from .noise import fractal_noise
+
+        layers = {}
+        for layer_cfg in self._get_noise_layers():
+            seed = (self.seed + layer_cfg.seed_offset) if self.seed else layer_cfg.seed_offset
+            noise = fractal_noise(
+                self.width, self.height,
+                octaves=layer_cfg.octaves,
+                persistence=layer_cfg.persistence,
+                scale=layer_cfg.scale,
+                seed=seed,
+            )
+            layers[layer_cfg.name] = noise
+        return layers
+
+    def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+        """Combine noise layers into a 0-1 pattern.
+
+        Default: weighted sum of normalized layers.
+        Subclasses override for custom combination logic.
+        """
+        configs = self._get_noise_layers()
+        total_weight = sum(c.weight for c in configs)
+        pattern = np.zeros((self.height, self.width), dtype=np.float64)
+        for cfg in configs:
+            normalized = (layers[cfg.name] + 1.0) / 2.0  # [-1,1] -> [0,1]
+            pattern += normalized * (cfg.weight / total_weight)
+        return np.clip(pattern, 0, 1)
+
+    def _apply_color_shift(
+        self, rgb: NDArray[np.float64], layers: dict[str, NDArray[np.float64]]
+    ) -> NDArray[np.float64]:
+        """Apply color shift noise to the RGB image.
+
+        Default: adds fractal noise-based color variation.
+        """
+        if self.color_shift_strength <= 0:
+            return rgb
+
+        from .noise import fractal_noise
+        color_noise = fractal_noise(
+            self.width, self.height,
+            octaves=2,
+            scale=self.color_shift_scale,
+            seed=(self.seed + 900) if self.seed else 900,
+        )
+        shift = color_noise * self.color_shift_strength
+        for i in range(3):
+            rgb[:, :, i] = rgb[:, :, i] + shift
+        return rgb
+
+    def generate(self) -> Image.Image:
+        """Generate texture using the noise pipeline."""
+        # Generate noise layers
+        layers = self._generate_noise_layers()
+
+        # Compute pattern
+        pattern = self._compute_pattern(layers)
+
+        # Map to colors
+        a = np.array(self.color_a, dtype=np.float64)
+        b = np.array(self.color_b, dtype=np.float64)
+        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
+        for i in range(3):
+            rgb[:, :, i] = a[i] + (b[i] - a[i]) * pattern
+
+        # Apply color shift
+        rgb = self._apply_color_shift(rgb, layers)
+
+        # Clip and convert
+        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
+        return Image.fromarray(rgb, mode='RGB')

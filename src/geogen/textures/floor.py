@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import TextureGenerator
+from .base import TextureGenerator, NoiseTextureGenerator, NoiseLayer
 from .noise import fractal_noise, perlin_noise
 
 
@@ -277,7 +277,7 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
 
 
 @dataclass
-class CarpetTextureGenerator(TextureGenerator):
+class CarpetTextureGenerator(NoiseTextureGenerator):
     """Generates procedural carpet textures.
 
     Creates carpet-like surfaces with:
@@ -285,9 +285,6 @@ class CarpetTextureGenerator(TextureGenerator):
     - Subtle pattern/weave
 
     Attributes:
-        width: Texture width in pixels
-        height: Texture height in pixels
-        seed: Random seed for reproducibility
         base_color: Carpet color as (R, G, B) tuple, 0-255
         fiber_scale: Scale of fiber texture
         pattern_strength: How visible the pattern is (0-1)
@@ -297,34 +294,29 @@ class CarpetTextureGenerator(TextureGenerator):
     fiber_scale: float = 50.0
     pattern_strength: float = 0.15
 
+    def __post_init__(self) -> None:
+        self.color_a = self.base_color
+        self.color_b = self.base_color
+        self.color_shift_strength = 0.0
+        super().__post_init__()
+
+    def _get_noise_layers(self) -> list[NoiseLayer]:
+        return [
+            NoiseLayer(name="fiber", octaves=4, persistence=0.6,
+                       scale=self.fiber_scale, seed_offset=0, weight=0.7),
+            NoiseLayer(name="pattern", octaves=2, persistence=0.5,
+                       scale=10.0, seed_offset=100, weight=0.3),
+        ]
+
     def generate(self) -> Image.Image:
         """Generate a carpet texture."""
-        # Fine fiber noise
-        fiber_noise = fractal_noise(
-            self.width, self.height,
-            octaves=4,
-            persistence=0.6,
-            scale=self.fiber_scale,
-            seed=self.seed,
-        )
+        layers = self._generate_noise_layers()
+        combined = layers["fiber"] * 0.7 + layers["pattern"] * 0.3
 
-        # Coarser pattern
-        pattern_noise = fractal_noise(
-            self.width, self.height,
-            octaves=2,
-            scale=10.0,
-            seed=(self.seed + 100) if self.seed else 100,
-        )
-
-        # Combine
-        combined = fiber_noise * 0.7 + pattern_noise * 0.3
-
-        # Create RGB
         base = np.array(self.base_color, dtype=np.float64)
         rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
 
         brightness = combined * self.pattern_strength * 60
-
         for i in range(3):
             rgb[:, :, i] = base[i] + brightness
 
