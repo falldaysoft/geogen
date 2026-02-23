@@ -22,6 +22,7 @@ uniform float uRoughness;
 uniform float uMetallic;
 uniform float uNormalStrength;
 uniform float uAOStrength;
+uniform vec2 uUVScale;
 
 // Camera
 uniform vec3 uCameraPos;
@@ -84,20 +85,20 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 }
 
 // Get normal from normal map (tangent space to world space)
-vec3 getNormalFromMap(vec3 worldNormal) {
+vec3 getNormalFromMap(vec3 worldNormal, vec2 texCoord) {
     if (!uHasNormalMap) {
         return normalize(worldNormal);
     }
 
-    vec3 tangentNormal = texture(uNormalMap, vTexCoord).xyz * 2.0 - 1.0;
+    vec3 tangentNormal = texture(uNormalMap, texCoord).xyz * 2.0 - 1.0;
     tangentNormal.xy *= uNormalStrength;
     tangentNormal = normalize(tangentNormal);
 
     // Compute TBN matrix from derivatives
     vec3 Q1 = dFdx(vWorldPos);
     vec3 Q2 = dFdy(vWorldPos);
-    vec2 st1 = dFdx(vTexCoord);
-    vec2 st2 = dFdy(vTexCoord);
+    vec2 st1 = dFdx(texCoord);
+    vec2 st2 = dFdy(texCoord);
 
     vec3 N = normalize(worldNormal);
     vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
@@ -108,10 +109,13 @@ vec3 getNormalFromMap(vec3 worldNormal) {
 }
 
 void main() {
+    // Apply UV tiling
+    vec2 texCoord = vTexCoord * uUVScale;
+
     // Sample textures or use fallbacks
     vec3 albedo;
     if (uHasAlbedoMap) {
-        albedo = texture(uAlbedoMap, vTexCoord).rgb;
+        albedo = texture(uAlbedoMap, texCoord).rgb;
     } else {
         albedo = uBaseColor.rgb;
     }
@@ -120,7 +124,7 @@ void main() {
 
     float roughness;
     if (uHasRoughnessMap) {
-        roughness = texture(uRoughnessMap, vTexCoord).r;
+        roughness = texture(uRoughnessMap, texCoord).r;
     } else {
         roughness = uRoughness;
     }
@@ -128,7 +132,7 @@ void main() {
 
     float ao;
     if (uHasAOMap) {
-        ao = mix(1.0, texture(uAOMap, vTexCoord).r, uAOStrength);
+        ao = mix(1.0, texture(uAOMap, texCoord).r, uAOStrength);
     } else {
         ao = 1.0;
     }
@@ -136,7 +140,7 @@ void main() {
     float metallic = uMetallic;
 
     // Get normal
-    vec3 N = getNormalFromMap(vNormal);
+    vec3 N = getNormalFromMap(vNormal, texCoord);
     vec3 V = normalize(uCameraPos - vWorldPos);
 
     // Calculate reflectance at normal incidence

@@ -17,17 +17,19 @@ if TYPE_CHECKING:
 
 @dataclass
 class CubeGenerator(MeshGenerator):
-    """Generates a cube/box mesh.
+    """Generates a cube/box mesh with optional edge beveling.
 
     Attributes:
         size_x: Width of the cube (X axis)
         size_y: Height of the cube (Y axis)
         size_z: Depth of the cube (Z axis)
+        bevel: Bevel/chamfer size (0 = sharp edges, default 0.02)
     """
 
     size_x: float = 1.0
     size_y: float = 1.0
     size_z: float = 1.0
+    bevel: float = 0.02
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
         """Generate attachment points at the center of each face."""
@@ -68,30 +70,29 @@ class CubeGenerator(MeshGenerator):
         """Generate a cube mesh centered at the origin with UV coordinates."""
         hx, hy, hz = self.size_x / 2, self.size_y / 2, self.size_z / 2
 
-        # 24 vertices (4 per face) for proper UV mapping
-        # Each face needs its own vertices so UVs can be independent
+        # Clamp bevel to half the smallest dimension
+        max_bevel = min(hx, hy, hz) * 0.5
+        b = min(self.bevel, max_bevel)
+
+        if b <= 0.0001:
+            return self._generate_sharp(hx, hy, hz)
+        return self._generate_beveled(hx, hy, hz, b)
+
+    def _generate_sharp(self, hx: float, hy: float, hz: float) -> Mesh:
+        """Generate a sharp-edged cube (no bevel)."""
         vertices = []
         uvs = []
         faces = []
 
-        # Face definitions: (normal_axis, sign, corners in CCW order when viewed from outside)
-        # Each corner is defined by which of the 3 axes are positive (+1) or negative (-1)
         face_defs = [
-            # Back face (-Z)
             ([-hx, -hy, -hz], [-hx, +hy, -hz], [+hx, +hy, -hz], [+hx, -hy, -hz]),
-            # Front face (+Z)
             ([+hx, -hy, +hz], [+hx, +hy, +hz], [-hx, +hy, +hz], [-hx, -hy, +hz]),
-            # Left face (-X)
             ([-hx, -hy, +hz], [-hx, +hy, +hz], [-hx, +hy, -hz], [-hx, -hy, -hz]),
-            # Right face (+X)
             ([+hx, -hy, -hz], [+hx, +hy, -hz], [+hx, +hy, +hz], [+hx, -hy, +hz]),
-            # Bottom face (-Y)
             ([-hx, -hy, +hz], [-hx, -hy, -hz], [+hx, -hy, -hz], [+hx, -hy, +hz]),
-            # Top face (+Y)
             ([-hx, +hy, -hz], [-hx, +hy, +hz], [+hx, +hy, +hz], [+hx, +hy, -hz]),
         ]
 
-        # UV corners for each face (CCW from bottom-left)
         uv_corners = [[0, 0], [0, 1], [1, 1], [1, 0]]
 
         for face_idx, corners in enumerate(face_defs):
@@ -99,9 +100,225 @@ class CubeGenerator(MeshGenerator):
             for corner, uv in zip(corners, uv_corners):
                 vertices.append(corner)
                 uvs.append(uv)
-            # Two triangles per face (CCW winding)
             faces.append([base_idx, base_idx + 1, base_idx + 2])
             faces.append([base_idx, base_idx + 2, base_idx + 3])
+
+        return Mesh(
+            vertices=np.array(vertices, dtype=np.float64),
+            faces=np.array(faces, dtype=np.int64),
+            uvs=np.array(uvs, dtype=np.float64),
+        )
+
+    def _generate_beveled(self, hx: float, hy: float, hz: float, b: float) -> Mesh:
+        """Generate a beveled cube with chamfered edges."""
+        vertices = []
+        uvs = []
+        faces = []
+
+        # Inset amounts for each axis
+        bx = b
+        by = b
+        bz = b
+
+        # Inner extents (face centers are inset by bevel)
+        ix = hx - bx  # inner x half
+        iy = hy - by  # inner y half
+        iz = hz - bz  # inner z half
+
+        def add_vert(pos, uv):
+            idx = len(vertices)
+            vertices.append(pos)
+            uvs.append(uv)
+            return idx
+
+        def add_quad(a, b_, c, d):
+            faces.append([a, b_, c])
+            faces.append([a, c, d])
+
+        # === 6 main faces (inset by bevel) ===
+
+        # Back face (-Z): normal points -Z
+        v0 = add_vert([-ix, -iy, -hz], [0, 0])
+        v1 = add_vert([-ix, +iy, -hz], [0, 1])
+        v2 = add_vert([+ix, +iy, -hz], [1, 1])
+        v3 = add_vert([+ix, -iy, -hz], [1, 0])
+        add_quad(v0, v1, v2, v3)
+
+        # Front face (+Z)
+        v4 = add_vert([+ix, -iy, +hz], [0, 0])
+        v5 = add_vert([+ix, +iy, +hz], [0, 1])
+        v6 = add_vert([-ix, +iy, +hz], [1, 1])
+        v7 = add_vert([-ix, -iy, +hz], [1, 0])
+        add_quad(v4, v5, v6, v7)
+
+        # Left face (-X)
+        v8 = add_vert([-hx, -iy, +iz], [0, 0])
+        v9 = add_vert([-hx, +iy, +iz], [0, 1])
+        v10 = add_vert([-hx, +iy, -iz], [1, 1])
+        v11 = add_vert([-hx, -iy, -iz], [1, 0])
+        add_quad(v8, v9, v10, v11)
+
+        # Right face (+X)
+        v12 = add_vert([+hx, -iy, -iz], [0, 0])
+        v13 = add_vert([+hx, +iy, -iz], [0, 1])
+        v14 = add_vert([+hx, +iy, +iz], [1, 1])
+        v15 = add_vert([+hx, -iy, +iz], [1, 0])
+        add_quad(v12, v13, v14, v15)
+
+        # Bottom face (-Y)
+        v16 = add_vert([-ix, -hy, +iz], [0, 0])
+        v17 = add_vert([-ix, -hy, -iz], [0, 1])
+        v18 = add_vert([+ix, -hy, -iz], [1, 1])
+        v19 = add_vert([+ix, -hy, +iz], [1, 0])
+        add_quad(v16, v17, v18, v19)
+
+        # Top face (+Y)
+        v20 = add_vert([-ix, +hy, -iz], [0, 0])
+        v21 = add_vert([-ix, +hy, +iz], [0, 1])
+        v22 = add_vert([+ix, +hy, +iz], [1, 1])
+        v23 = add_vert([+ix, +hy, -iz], [1, 0])
+        add_quad(v20, v21, v22, v23)
+
+        # === 12 edge bevels ===
+        # Each edge connects two face corners with a quad strip
+
+        # 4 edges along X (top/bottom × front/back)
+        # Top-front edge: connects top face front-left/right to front face top-left/right
+        e0 = add_vert([-ix, +hy, +iz], [0, 1])
+        e1 = add_vert([+ix, +hy, +iz], [1, 1])
+        e2 = add_vert([+ix, +iy, +hz], [1, 0])
+        e3 = add_vert([-ix, +iy, +hz], [0, 0])
+        add_quad(e0, e1, e2, e3)
+
+        # Top-back edge
+        e4 = add_vert([+ix, +hy, -iz], [0, 1])
+        e5 = add_vert([-ix, +hy, -iz], [1, 1])
+        e6 = add_vert([-ix, +iy, -hz], [1, 0])
+        e7 = add_vert([+ix, +iy, -hz], [0, 0])
+        add_quad(e4, e5, e6, e7)
+
+        # Bottom-front edge
+        e8 = add_vert([+ix, -hy, +iz], [0, 1])
+        e9 = add_vert([-ix, -hy, +iz], [1, 1])
+        e10 = add_vert([-ix, -iy, +hz], [1, 0])
+        e11 = add_vert([+ix, -iy, +hz], [0, 0])
+        add_quad(e8, e9, e10, e11)
+
+        # Bottom-back edge
+        e12 = add_vert([-ix, -hy, -iz], [0, 1])
+        e13 = add_vert([+ix, -hy, -iz], [1, 1])
+        e14 = add_vert([+ix, -iy, -hz], [1, 0])
+        e15 = add_vert([-ix, -iy, -hz], [0, 0])
+        add_quad(e12, e13, e14, e15)
+
+        # 4 edges along Y (left/right × front/back)
+        # Left-front edge
+        e16 = add_vert([-ix, -iy, +hz], [0, 0])
+        e17 = add_vert([-ix, +iy, +hz], [0, 1])
+        e18 = add_vert([-hx, +iy, +iz], [1, 1])
+        e19 = add_vert([-hx, -iy, +iz], [1, 0])
+        add_quad(e16, e17, e18, e19)
+
+        # Left-back edge
+        e20 = add_vert([-hx, -iy, -iz], [0, 0])
+        e21 = add_vert([-hx, +iy, -iz], [0, 1])
+        e22 = add_vert([-ix, +iy, -hz], [1, 1])
+        e23 = add_vert([-ix, -iy, -hz], [1, 0])
+        add_quad(e20, e21, e22, e23)
+
+        # Right-front edge
+        e24 = add_vert([+hx, -iy, +iz], [0, 0])
+        e25 = add_vert([+hx, +iy, +iz], [0, 1])
+        e26 = add_vert([+ix, +iy, +hz], [1, 1])
+        e27 = add_vert([+ix, -iy, +hz], [1, 0])
+        add_quad(e27, e26, e25, e24)
+
+        # Right-back edge
+        e28 = add_vert([+ix, -iy, -hz], [0, 0])
+        e29 = add_vert([+ix, +iy, -hz], [0, 1])
+        e30 = add_vert([+hx, +iy, -iz], [1, 1])
+        e31 = add_vert([+hx, -iy, -iz], [1, 0])
+        add_quad(e28, e29, e30, e31)
+
+        # 4 edges along Z (left/right × top/bottom)
+        # Top-left edge
+        e32 = add_vert([-ix, +hy, -iz], [0, 0])
+        e33 = add_vert([-ix, +hy, +iz], [0, 1])
+        e34 = add_vert([-hx, +iy, +iz], [1, 1])
+        e35 = add_vert([-hx, +iy, -iz], [1, 0])
+        add_quad(e32, e33, e34, e35)
+
+        # Top-right edge
+        e36 = add_vert([+ix, +hy, +iz], [0, 0])
+        e37 = add_vert([+ix, +hy, -iz], [0, 1])
+        e38 = add_vert([+hx, +iy, -iz], [1, 1])
+        e39 = add_vert([+hx, +iy, +iz], [1, 0])
+        add_quad(e36, e37, e38, e39)
+
+        # Bottom-left edge
+        e40 = add_vert([-hx, -iy, +iz], [0, 0])
+        e41 = add_vert([-hx, -iy, -iz], [0, 1])
+        e42 = add_vert([-ix, -hy, -iz], [1, 1])
+        e43 = add_vert([-ix, -hy, +iz], [1, 0])
+        add_quad(e40, e41, e42, e43)
+
+        # Bottom-right edge
+        e44 = add_vert([+hx, -iy, -iz], [0, 0])
+        e45 = add_vert([+hx, -iy, +iz], [0, 1])
+        e46 = add_vert([+ix, -hy, +iz], [1, 1])
+        e47 = add_vert([+ix, -hy, -iz], [1, 0])
+        add_quad(e44, e45, e46, e47)
+
+        # === 8 corner triangles ===
+        # Each corner connects 3 edges meeting at that corner
+
+        # Top-left-front (+Y, -X, +Z)
+        c0 = add_vert([-ix, +hy, +iz], [0, 1])
+        c1 = add_vert([-hx, +iy, +iz], [0, 0])
+        c2 = add_vert([-ix, +iy, +hz], [1, 0])
+        faces.append([c0, c1, c2])
+
+        # Top-right-front (+Y, +X, +Z)
+        c3 = add_vert([+ix, +hy, +iz], [0, 1])
+        c4 = add_vert([+ix, +iy, +hz], [0, 0])
+        c5 = add_vert([+hx, +iy, +iz], [1, 0])
+        faces.append([c3, c4, c5])
+
+        # Top-left-back (+Y, -X, -Z)
+        c6 = add_vert([-ix, +hy, -iz], [0, 1])
+        c7 = add_vert([-ix, +iy, -hz], [0, 0])
+        c8 = add_vert([-hx, +iy, -iz], [1, 0])
+        faces.append([c6, c7, c8])
+
+        # Top-right-back (+Y, +X, -Z)
+        c9 = add_vert([+ix, +hy, -iz], [0, 1])
+        c10 = add_vert([+hx, +iy, -iz], [0, 0])
+        c11 = add_vert([+ix, +iy, -hz], [1, 0])
+        faces.append([c9, c10, c11])
+
+        # Bottom-left-front (-Y, -X, +Z)
+        c12 = add_vert([-ix, -hy, +iz], [0, 1])
+        c13 = add_vert([-ix, -iy, +hz], [0, 0])
+        c14 = add_vert([-hx, -iy, +iz], [1, 0])
+        faces.append([c12, c13, c14])
+
+        # Bottom-right-front (-Y, +X, +Z)
+        c15 = add_vert([+ix, -hy, +iz], [0, 1])
+        c16 = add_vert([+hx, -iy, +iz], [0, 0])
+        c17 = add_vert([+ix, -iy, +hz], [1, 0])
+        faces.append([c15, c16, c17])
+
+        # Bottom-left-back (-Y, -X, -Z)
+        c18 = add_vert([-ix, -hy, -iz], [0, 1])
+        c19 = add_vert([-hx, -iy, -iz], [0, 0])
+        c20 = add_vert([-ix, -iy, -hz], [1, 0])
+        faces.append([c18, c19, c20])
+
+        # Bottom-right-back (-Y, +X, -Z)
+        c21 = add_vert([+ix, -hy, -iz], [0, 1])
+        c22 = add_vert([+ix, -iy, -hz], [0, 0])
+        c23 = add_vert([+hx, -iy, -iz], [1, 0])
+        faces.append([c21, c22, c23])
 
         return Mesh(
             vertices=np.array(vertices, dtype=np.float64),

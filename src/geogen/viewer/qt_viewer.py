@@ -53,7 +53,7 @@ class GLWidget(QOpenGLWidget):
         # Rendering
         self._default_color = (0.7, 0.7, 0.8, 1.0)
         self._shader = None
-        self._lighting = SceneLighting.room_lighting()
+        self._lighting = SceneLighting.outdoor_lighting()
         self._aspect = 1.0
         self._use_pbr = False
 
@@ -101,12 +101,15 @@ class GLWidget(QOpenGLWidget):
             normal_strength = 1.0
             ao_strength = 1.0
 
+            uv_scale = (1.0, 1.0)
+
             if world_mesh.material is not None:
                 mat = world_mesh.material
                 roughness = mat.roughness
                 metallic = mat.metallic
                 normal_strength = mat.normal_strength
                 ao_strength = mat.ao_strength
+                uv_scale = mat.uv_scale
 
                 try:
                     # Albedo texture
@@ -118,6 +121,11 @@ class GLWidget(QOpenGLWidget):
                     normal_data = mat.get_normal_array()
                     if normal_data is not None and len(normal_data.shape) >= 2:
                         normal_id = self._create_texture(normal_data)
+
+                    # Roughness map
+                    roughness_data = mat.get_roughness_array()
+                    if roughness_data is not None:
+                        roughness_id = self._create_texture(roughness_data)
 
                     # AO map
                     ao_data = mat.get_ao_array()
@@ -141,6 +149,7 @@ class GLWidget(QOpenGLWidget):
                 "metallic": metallic,
                 "normal_strength": normal_strength,
                 "ao_strength": ao_strength,
+                "uv_scale": uv_scale,
                 "name": scene_node.name,
                 "vao": None,
                 "vbo_vertices": None,
@@ -291,7 +300,7 @@ class GLWidget(QOpenGLWidget):
 
     def initializeGL(self) -> None:
         """Initialize OpenGL state."""
-        GL.glClearColor(0.2, 0.2, 0.2, 1.0)
+        GL.glClearColor(0.55, 0.70, 0.85, 1.0)
         GL.glEnable(GL.GL_DEPTH_TEST)
 
         # Try to initialize modern shaders
@@ -450,6 +459,10 @@ class GLWidget(QOpenGLWidget):
 
         # Common uniforms
         self._shader.set_uniform("uBaseColor", mesh_data["color"])
+
+        # UV tiling
+        uv_scale = mesh_data.get("uv_scale", (1.0, 1.0))
+        self._shader.set_uniform("uUVScale", np.array(uv_scale, dtype=np.float32))
 
         if getattr(self, "_use_pbr", False):
             # PBR shader uniforms

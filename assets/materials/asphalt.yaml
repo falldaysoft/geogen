@@ -1,0 +1,16 @@
+# Dark asphalt road surface
+name: asphalt
+texture:
+  type: asphalt
+  params:
+    color_base: [65, 65, 68]
+    color_dark: [35, 35, 38]
+    aggregate_scale: 25.0
+    seed: 42
+size: [512, 512]
+uv_scale: [4, 4]
+pbr:
+  roughness: 0.9
+  metallic: 0.0
+  normal_strength: 0.6
+  ao_strength: 1.0

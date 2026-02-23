@@ -11,7 +11,7 @@ ASSET_KNOWN_KEYS = {
 
 PART_KNOWN_KEYS = {
     "primitive", "size", "anchor", "offset", "material",
-    "attach_to", "at", "from", "rotation",
+    "attach_to", "at", "from", "rotation", "bevel",
 }
 
 # Known keys for scene YAML files

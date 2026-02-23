@@ -41,6 +41,9 @@ class Material:
     normal_strength: float = 1.0
     ao_strength: float = 1.0
 
+    # UV tiling
+    uv_scale: tuple[float, float] = (1.0, 1.0)
+
     # Legacy property (converted to roughness if roughness not explicitly set)
     shininess: float = 0.3
     tint: tuple[float, float, float] | None = None

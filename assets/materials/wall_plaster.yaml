@@ -9,7 +9,7 @@ texture:
     color_variation: 0.08          # Slightly more variation
     seed: 123
 size: [512, 512]
-shininess: 0.1
+uv_scale: [2, 2]
 pbr:
   roughness: 0.85       # Matte plaster
   metallic: 0.0

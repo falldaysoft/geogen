@@ -111,6 +111,31 @@ class SceneLighting:
             ],
         )
 
+    @classmethod
+    def outdoor_lighting(cls) -> SceneLighting:
+        """Create lighting setup optimized for outdoor scenes.
+
+        Features a strong directional sun, blue-tinted sky fill light,
+        and higher blue ambient to simulate sky contribution.
+        """
+        return cls(
+            ambient_color=(0.35, 0.37, 0.42),  # Blue-tinted sky ambient
+            lights=[
+                # Main sun light from above-right
+                DirectionalLight(
+                    direction=(0.4, -0.7, 0.3),
+                    color=(1.0, 0.95, 0.85),
+                    intensity=3.0,
+                ),
+                # Sky fill from opposite side
+                DirectionalLight(
+                    direction=(-0.5, -0.3, -0.6),
+                    color=(0.6, 0.7, 1.0),
+                    intensity=1.0,
+                ),
+            ],
+        )
+
     def get_shader_data(self) -> dict:
         """Get lighting data formatted for shader uniforms."""
         max_lights = 4

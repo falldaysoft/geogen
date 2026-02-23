@@ -9,6 +9,7 @@ uniform sampler2D uAlbedoMap;
 uniform bool uHasTexture;
 uniform vec4 uBaseColor;
 uniform float uShininess;
+uniform vec2 uUVScale;
 
 // Camera
 uniform vec3 uCameraPos;
@@ -58,10 +59,13 @@ vec3 calculateLight(int index, vec3 normal, vec3 viewDir, vec3 albedo) {
 }
 
 void main() {
+    // Apply UV tiling
+    vec2 texCoord = vTexCoord * uUVScale;
+
     // Get albedo color
     vec3 albedo;
     if (uHasTexture) {
-        albedo = texture(uAlbedoMap, vTexCoord).rgb;
+        albedo = texture(uAlbedoMap, texCoord).rgb;
     } else {
         albedo = uBaseColor.rgb;
     }

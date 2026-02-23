@@ -1,0 +1,16 @@
+# Light gray concrete for sidewalks and foundations
+name: concrete
+texture:
+  type: concrete
+  params:
+    color_base: [190, 188, 183]
+    color_dark: [155, 152, 148]
+    surface_scale: 8.0
+    seed: 42
+size: [512, 512]
+uv_scale: [3, 3]
+pbr:
+  roughness: 0.85
+  metallic: 0.0
+  normal_strength: 0.4
+  ao_strength: 1.0

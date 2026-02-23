@@ -13,18 +13,18 @@ from .base import NoiseTextureGenerator, NoiseLayer
 class WoodTextureGenerator(NoiseTextureGenerator):
     """Generates procedural wood grain textures.
 
-    Creates realistic wood patterns using layered noise for:
-    - Ring structure (annual growth rings)
-    - Grain variation (natural wood grain waviness)
-    - Color variation (subtle color changes)
+    Creates realistic lengthwise plank grain using layered noise for:
+    - Parallel grain lines running along the plank
+    - Subtle waviness and variation in grain direction
+    - Color variation between early/late wood
 
     Attributes:
         color_light: Light wood color as (R, G, B) tuple, 0-255
         color_dark: Dark wood color (grain lines) as (R, G, B) tuple
-        ring_scale: Scale of wood rings (higher = more rings)
-        ring_count: Approximate number of visible rings
-        grain_scale: Scale of grain distortion noise
-        grain_strength: How much the grain distorts the rings
+        ring_scale: Density of grain lines (higher = more lines)
+        ring_count: Not used directly; kept for YAML compat
+        grain_scale: Scale of grain waviness noise
+        grain_strength: How much the grain lines wobble
         color_variation: Amount of random color variation (0-1)
     """
 
@@ -44,10 +44,8 @@ class WoodTextureGenerator(NoiseTextureGenerator):
 
     def _get_noise_layers(self) -> list[NoiseLayer]:
         return [
-            NoiseLayer(name="grain_x", octaves=3, scale=self.grain_scale,
+            NoiseLayer(name="grain_warp", octaves=3, scale=self.grain_scale,
                        seed_offset=0, weight=0.0),
-            NoiseLayer(name="grain_y", octaves=3, scale=self.grain_scale,
-                       seed_offset=100, weight=0.0),
             NoiseLayer(name="fine", octaves=4, persistence=0.6,
                        scale=self.ring_scale, seed_offset=200, weight=0.0),
             NoiseLayer(name="fine_stretched", octaves=4, persistence=0.6,
@@ -60,26 +58,25 @@ class WoodTextureGenerator(NoiseTextureGenerator):
         # Create coordinate grids
         x = np.linspace(0, 1, self.width)
         y = np.linspace(0, 1, self.height)
-        xv, yv = np.meshgrid(x, y)
+        xv, _ = np.meshgrid(x, y)
 
-        # Center coordinates for ring pattern
-        dx = xv - 0.5
-        dy = yv - 0.5
+        # Lengthwise plank grain: lines run vertically (along Y axis)
+        # Use X coordinate as the base for grain lines, with noise warp
+        grain_coord = xv + layers["grain_warp"] * self.grain_strength * 0.3
 
-        # Apply grain distortion
-        dx_distorted = dx + layers["grain_x"] * self.grain_strength
-        dy_distorted = dy + layers["grain_y"] * self.grain_strength
+        # Create parallel grain lines using sine waves at multiple frequencies
+        grain_primary = np.sin(grain_coord * self.ring_count * np.pi * 2) * 0.5 + 0.5
+        grain_secondary = np.sin(grain_coord * self.ring_count * np.pi * 4.7 + 1.3) * 0.5 + 0.5
 
-        # Calculate distance from center (for rings)
-        dist = np.sqrt(dx_distorted**2 + dy_distorted**2)
+        # Combine: primary grain dominates, secondary adds detail
+        grain_value = grain_primary * 0.7 + grain_secondary * 0.3
 
-        # Create ring pattern
-        ring_value = np.sin(dist * self.ring_count * np.pi * 2) * 0.5 + 0.5
+        # Reduce contrast compared to the old radial pattern
+        grain_value = 0.3 + grain_value * 0.5
 
-        # Combine ring pattern with fine grain
-        fine_grain = (layers["fine"] * 0.5 + 0.5)
+        # Add subtle fine detail stretched along the grain direction
         fine_stretched = (layers["fine_stretched"] * 0.5 + 0.5)
-        wood_pattern = ring_value * 0.7 + fine_grain * 0.2 + fine_stretched * 0.1
+        wood_pattern = grain_value * 0.85 + fine_stretched * 0.15
 
         return np.clip(wood_pattern, 0, 1)
 
@@ -101,10 +98,31 @@ class WoodTextureGenerator(NoiseTextureGenerator):
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode='RGB')
 
+    def generate_roughness_map(self) -> Image.Image | None:
+        """Generate roughness map based on wood grain pattern.
+
+        Grain valleys are smoother, ridges are rougher.
+        """
+        layers = self._generate_noise_layers()
+        wood_pattern = self._compute_pattern(layers)
+        # Invert: grain valleys (low pattern) -> smoother (lower roughness)
+        # Ridges (high pattern) -> rougher (higher roughness)
+        variation = wood_pattern
+        return self._create_roughness_from_variation(0.7, variation, variation_strength=0.25)
+
+    def generate_ao_map(self) -> Image.Image | None:
+        """Generate AO map with subtle darkening in grain valleys."""
+        layers = self._generate_noise_layers()
+        wood_pattern = self._compute_pattern(layers)
+        # Grain valleys (low values) are slightly occluded
+        ao = 0.85 + wood_pattern * 0.15
+        ao = np.clip(ao, 0.0, 1.0)
+        return Image.fromarray((ao * 255).astype(np.uint8), mode='L')
+
     def _apply_color_shift(
         self, rgb: NDArray[np.float64], layers: dict[str, NDArray[np.float64]]
     ) -> NDArray[np.float64]:
-        color_var = layers["color"] * self.color_variation * 30
+        color_var = layers["color"] * self.color_variation * 20
         for i in range(3):
             rgb[:, :, i] = np.clip(rgb[:, :, i] + color_var, 0, 255)
         return rgb

@@ -1,0 +1,16 @@
+# Generic floor material (concrete-like)
+name: floor
+texture:
+  type: concrete
+  params:
+    color_base: [180, 178, 173]
+    color_dark: [145, 142, 138]
+    surface_scale: 10.0
+    seed: 55
+size: [512, 512]
+uv_scale: [3, 3]
+pbr:
+  roughness: 0.8
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 1.0

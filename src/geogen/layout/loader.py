@@ -126,7 +126,7 @@ class LayoutLoader:
             frac_size = np.array(part_def["size"], dtype=np.float64)
             actual_size = frac_size * container_size
 
-            generator = self._create_generator(primitive_type, actual_size)
+            generator = self._create_generator(primitive_type, actual_size, part_def)
             node = generator.to_node(part_name)
 
             # Apply material if specified
@@ -323,7 +323,8 @@ class LayoutLoader:
             Generator instance configured with the size
         """
         if primitive_type == "cube":
-            return CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2])
+            bevel = (extra_config or {}).get("bevel", 0.02)
+            return CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=bevel)
         elif primitive_type == "cylinder":
             # Cylinder uses radius (half of x/z) and height
             radius = min(size[0], size[2]) / 2

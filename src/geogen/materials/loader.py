@@ -8,11 +8,15 @@ from typing import Any
 import yaml
 
 from .material import Material
+from ..textures.asphalt import AsphaltTextureGenerator
+from ..textures.brick import BrickTextureGenerator
+from ..textures.concrete import ConcreteTextureGenerator
 from ..textures.dirt import DirtTextureGenerator
 from ..textures.floor import HardwoodFloorTextureGenerator, CarpetTextureGenerator
 from ..textures.grass import GrassTextureGenerator
 from ..textures.metal import MetalTextureGenerator, MetalType
 from ..textures.rock import RockTextureGenerator
+from ..textures.roof import RoofTextureGenerator
 from ..textures.wall import PlasterTextureGenerator, PaintedWallTextureGenerator
 from ..textures.wood import WoodTextureGenerator
 
@@ -28,6 +32,10 @@ TEXTURE_GENERATORS = {
     "grass": GrassTextureGenerator,
     "rock": RockTextureGenerator,
     "dirt": DirtTextureGenerator,
+    "asphalt": AsphaltTextureGenerator,
+    "brick": BrickTextureGenerator,
+    "concrete": ConcreteTextureGenerator,
+    "roof": RoofTextureGenerator,
 }
 
 
@@ -148,6 +156,10 @@ class MaterialLoader:
         normal_strength = pbr.get("normal_strength", 1.0)
         ao_strength = pbr.get("ao_strength", 1.0)
 
+        # UV tiling
+        uv_scale_raw = data.get("uv_scale", [1.0, 1.0])
+        uv_scale = tuple(uv_scale_raw)
+
         return Material(
             name=name,
             texture_generator=generator,
@@ -156,6 +168,7 @@ class MaterialLoader:
             metallic=metallic,
             normal_strength=normal_strength,
             ao_strength=ao_strength,
+            uv_scale=uv_scale,
             shininess=shininess,
             tint=tint,
         )
@@ -167,7 +180,7 @@ class MaterialLoader:
         # Convert color lists to tuples
         color_keys = [
             "color_light", "color_dark", "color_base", "color_variation",
-            "base_color", "highlight_color"
+            "base_color", "highlight_color", "mortar_color",
         ]
         for key in color_keys:
             if key in converted and isinstance(converted[key], list):

@@ -12,7 +12,7 @@
 #   │   ├── sidewalk
 #   │   ├── plot_1 → house_plot → house
 #   │   └── plot_2 → house_plot → house
-#   └── street_furniture
+#   └── street_furniture + trees
 
 name: street
 size: [30, 5, 24]  # 30m wide total, 24m long
@@ -29,14 +29,13 @@ slots:
     facing: north
 
   # Left side: sidewalk + plots on -X side
-  # street_side is authored with sidewalk at +X, houses toward -X
   left_side:
-    position: [-9, 0, 0]  # Center of left side area
+    position: [-9, 0, 0]
     facing: north
 
   # Right side: mirrored copy
   right_side:
-    position: [9, 0, 0]   # Center of right side area
+    position: [9, 0, 0]
     facing: south
 
   # Street furniture directly on the scene
@@ -63,6 +62,23 @@ slots:
   bench:
     position: [4, 0.12, 0]
     facing: west
+
+  # Trees along sidewalks
+  tree_left_1:
+    position: [-4.5, 0.12, -7]
+    facing: north
+
+  tree_left_2:
+    position: [-4.5, 0.12, 5]
+    facing: north
+
+  tree_right_1:
+    position: [4.5, 0.12, -3]
+    facing: north
+
+  tree_right_2:
+    position: [4.5, 0.12, 8]
+    facing: north
 
 place:
   ground_plane:
@@ -104,3 +120,19 @@ place:
   park_bench:
     asset: bench.yaml
     slot: bench
+
+  maple_1:
+    asset: maple_tree.yaml
+    slot: tree_left_1
+
+  maple_2:
+    asset: maple_tree.yaml
+    slot: tree_left_2
+
+  pine_1:
+    asset: pine_tree.yaml
+    slot: tree_right_1
+
+  maple_3:
+    asset: maple_tree.yaml
+    slot: tree_right_2

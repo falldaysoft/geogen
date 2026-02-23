@@ -12,4 +12,7 @@ texture:
     color_variation: 0.15
     seed: 42
 size: [512, 512]
-shininess: 0.2
+uv_scale: [3, 3]
+pbr:
+  roughness: 0.7
+  metallic: 0.0

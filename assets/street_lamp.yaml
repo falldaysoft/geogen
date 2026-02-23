@@ -33,7 +33,7 @@ parts:
     from: bottom
     material: metal
 
-  # Main post (tall and thin - 0.08m diameter, 2.0m tall)
+  # Main post (tall and thin)
   post:
     primitive: cylinder
     size: [0.08, 0.08, 2.0]
@@ -60,26 +60,34 @@ parts:
     from: bottom
     material: metal
 
-  # Lantern body (glass housing - 0.25m cube)
+  # Lantern body (cylindrical glass housing)
   lantern_body:
-    primitive: cube
-    size: [0.25, 0.20, 0.25]
+    primitive: cylinder
+    size: [0.22, 0.22, 0.25]
     attach_to: bracket
     at: top
     from: bottom
     material: metal
 
-  # Lantern roof - sits directly on lantern body
-  # Size is [diameter_x, height, diameter_z]
-  lantern_roof:
-    primitive: cone
-    size: [0.30, 0.10, 0.30]
+  # Lantern top ring
+  lantern_ring:
+    primitive: cylinder
+    size: [0.24, 0.24, 0.02]
     attach_to: lantern_body
     at: top
     from: bottom
     material: metal
 
-  # Top finial - sits on cone tip
+  # Lantern roof
+  lantern_roof:
+    primitive: cone
+    size: [0.30, 0.12, 0.30]
+    attach_to: lantern_ring
+    at: top
+    from: bottom
+    material: metal
+
+  # Top finial
   finial:
     primitive: sphere
     size: [0.06, 0.06, 0.06]

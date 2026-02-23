@@ -7,20 +7,39 @@ origin: bottom_center
 size: [8, 4, 6]  # 8m wide, 4m tall, 6m deep
 
 parts:
+  # Foundation strip (concrete base)
+  foundation:
+    primitive: cube
+    size: [0.98, 0.06, 0.98]
+    anchor: bottom_center
+    offset: [0, 0, 0]
+    bevel: 0.005
+    material: concrete
+
   # Main structure (walls)
   walls:
     primitive: cube
-    size: [0.95, 0.65, 0.95]  # Main box - about 2.6m tall
+    size: [0.95, 0.60, 0.95]
     anchor: bottom_center
-    offset: [0, 0, 0]
-    material: wall
+    offset: [0, 0.06, 0]
+    material: brick
 
   # Front door (on +Z face)
   door:
     primitive: cube
-    size: [0.12, 0.40, 0.02]  # ~1m wide, 1.6m tall door
+    size: [0.12, 0.40, 0.02]
     anchor: bottom_front_center
-    offset: [0, 0, 0.01]
+    offset: [0, 0.06, 0.01]
+    bevel: 0.005
+    material: wood
+
+  # Door frame
+  door_frame_top:
+    primitive: cube
+    size: [0.14, 0.015, 0.025]
+    anchor: bottom_front_center
+    offset: [0, 0.46, 0.01]
+    bevel: 0
     material: wood
 
   # Left front window
@@ -29,7 +48,17 @@ parts:
     size: [0.12, 0.12, 0.02]
     anchor: bottom_front_center
     offset: [-0.28, 0.30, 0.01]
+    bevel: 0.003
     material: metal
+
+  # Window sill left
+  sill_left:
+    primitive: cube
+    size: [0.14, 0.015, 0.03]
+    anchor: bottom_front_center
+    offset: [-0.28, 0.29, 0.015]
+    bevel: 0
+    material: concrete
 
   # Right front window
   window_right:
@@ -37,28 +66,40 @@ parts:
     size: [0.12, 0.12, 0.02]
     anchor: bottom_front_center
     offset: [0.28, 0.30, 0.01]
+    bevel: 0.003
     material: metal
 
-  # Roof - flat with slight overhang
+  # Window sill right
+  sill_right:
+    primitive: cube
+    size: [0.14, 0.015, 0.03]
+    anchor: bottom_front_center
+    offset: [0.28, 0.29, 0.015]
+    bevel: 0
+    material: concrete
+
+  # Roof - flat with overhang
   roof:
     primitive: cube
-    size: [1.05, 0.08, 1.05]
+    size: [1.08, 0.06, 1.08]
     anchor: bottom_center
-    offset: [0, 0.65, 0]
-    material: wood
+    offset: [0, 0.66, 0]
+    bevel: 0.01
+    material: roof_shingle
 
   # Roof cap (slightly raised center)
   roof_cap:
     primitive: cube
-    size: [0.85, 0.05, 0.85]
+    size: [0.88, 0.04, 0.88]
     anchor: bottom_center
-    offset: [0, 0.73, 0]
-    material: wood
+    offset: [0, 0.72, 0]
+    bevel: 0.008
+    material: roof_shingle
 
   # Chimney
   chimney:
     primitive: cube
     size: [0.08, 0.18, 0.08]
     anchor: bottom_center
-    offset: [0.30, 0.73, -0.25]
-    material: wall
+    offset: [0.30, 0.72, -0.25]
+    material: brick

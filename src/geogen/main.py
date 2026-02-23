@@ -89,7 +89,11 @@ def main() -> None:
         print(f"\nRendering to {output_path} ({width}x{height})...")
 
         # Build pyrender scene manually for better control
-        pr_scene = pyrender.Scene(ambient_light=[0.3, 0.3, 0.3])
+        # Sky-blue background color
+        pr_scene = pyrender.Scene(
+            ambient_light=[0.3, 0.3, 0.3],
+            bg_color=[0.55, 0.7, 0.85, 1.0],
+        )
 
         # Add each mesh from the trimesh scene
         for name, geom in viewer.scene.geometry.items():
@@ -106,12 +110,16 @@ def main() -> None:
         if args.camera:
             cam_pos = np.array([float(x) for x in args.camera.split(",")])
         else:
-            # Auto-fit: position camera at 45 degrees, distance based on scene size
-            distance = scene_size * 0.8
-            angle = np.radians(30)
+            # Auto-fit: distance based on scene size and FOV
+            # Use the FOV to compute the distance needed to frame the scene
+            half_fov = np.radians(args.fov) / 2
+            distance = (scene_size * 0.5) / np.tan(half_fov) * 0.85
+            distance = max(distance, scene_size * 0.6)
+
+            angle = np.radians(35)
             cam_pos = scene_center + np.array([
                 np.sin(angle) * distance,
-                distance * 0.5,
+                distance * 0.4,
                 np.cos(angle) * distance
             ])
 
@@ -120,7 +128,8 @@ def main() -> None:
             target = np.array([float(x) for x in args.target.split(",")])
         else:
             target = scene_center.copy()
-            target[1] = scene_center[1] + scene_size * 0.1  # Slightly above center
+            # Look slightly above the bottom of the scene
+            target[1] = scene_bounds[0][1] + (scene_bounds[1][1] - scene_bounds[0][1]) * 0.35
 
         up = np.array([0.0, 1.0, 0.0])
 
@@ -141,9 +150,22 @@ def main() -> None:
         camera_pose[:3, 3] = cam_pos
         pr_scene.add(camera, pose=camera_pose)
 
-        # Add lighting
-        light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
-        pr_scene.add(light, pose=camera_pose)
+        # Add lighting - key light from camera direction
+        key_light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
+        pr_scene.add(key_light, pose=camera_pose)
+
+        # Fill light from above-behind to soften shadows
+        fill_pose = np.eye(4)
+        fill_dir = np.array([0.3, -0.8, -0.5])
+        fill_dir = fill_dir / np.linalg.norm(fill_dir)
+        fill_right = np.cross(fill_dir, np.array([0, 1, 0]))
+        fill_right = fill_right / np.linalg.norm(fill_right)
+        fill_up = np.cross(fill_right, fill_dir)
+        fill_pose[:3, 0] = fill_right
+        fill_pose[:3, 1] = fill_up
+        fill_pose[:3, 2] = -fill_dir
+        fill_light = pyrender.DirectionalLight(color=np.ones(3), intensity=1.5)
+        pr_scene.add(fill_light, pose=fill_pose)
 
         # Render offscreen
         renderer = pyrender.OffscreenRenderer(width, height)

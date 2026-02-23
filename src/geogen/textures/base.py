@@ -58,7 +58,7 @@ class TextureGenerator(ABC):
         albedo = self.generate_array()
         # Convert to grayscale as height map
         height = np.mean(albedo, axis=2).astype(np.float64) / 255.0
-        return self._height_to_normal(height, strength=0.5)
+        return self._height_to_normal(height, strength=1.0)
 
     def generate_roughness_map(self) -> Image.Image | None:
         """Generate a roughness map.

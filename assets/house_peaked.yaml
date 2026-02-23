@@ -7,21 +7,42 @@ origin: bottom_center
 size: [8, 5, 6]  # 8m wide, 5m tall (with roof peak), 6m deep
 
 parts:
+  # Foundation strip (concrete base)
+  foundation:
+    primitive: cube
+    size: [0.98, 0.05, 0.98]
+    anchor: bottom_center
+    bevel: 0.005
+    material: concrete
+
   # Main structure (walls)
   walls:
     primitive: cube
-    size: [0.95, 0.65, 0.95]  # Main box - about 2.6m tall
+    size: [0.95, 0.55, 0.95]
     anchor: bottom_center
-    material: wall
+    offset: [0, 0.05, 0]
+    material: brick
 
   # Front door (on +Z face)
   door:
     primitive: cube
-    size: [0.12, 0.40, 0.02]  # ~1m wide, 1.6m tall door
+    size: [0.12, 0.35, 0.02]
     attach_to: walls
     at: front
     from: back
-    offset: [0, -0.125, 0.01]
+    offset: [0, -0.5, 0.01]
+    bevel: 0.005
+    material: wood
+
+  # Door frame top
+  door_frame:
+    primitive: cube
+    size: [0.14, 0.012, 0.025]
+    attach_to: walls
+    at: front
+    from: back
+    offset: [0, 0.4, 0.01]
+    bevel: 0
     material: wood
 
   # Left front window
@@ -31,8 +52,20 @@ parts:
     attach_to: walls
     at: front
     from: back
-    offset: [-0.28, 0.05, 0.01]
+    offset: [-2.24, 0.25, 0.01]
+    bevel: 0.003
     material: metal
+
+  # Window sill left
+  sill_left:
+    primitive: cube
+    size: [0.14, 0.012, 0.03]
+    attach_to: walls
+    at: front
+    from: back
+    offset: [-2.24, -0.05, 0.02]
+    bevel: 0
+    material: concrete
 
   # Right front window
   window_right:
@@ -41,21 +74,32 @@ parts:
     attach_to: walls
     at: front
     from: back
-    offset: [0.28, 0.05, 0.01]
+    offset: [2.24, 0.25, 0.01]
+    bevel: 0.003
     material: metal
 
+  # Window sill right
+  sill_right:
+    primitive: cube
+    size: [0.14, 0.012, 0.03]
+    attach_to: walls
+    at: front
+    from: back
+    offset: [2.24, -0.05, 0.02]
+    bevel: 0
+    material: concrete
+
   # Roof - left slope
-  # Panel width 0.58 with 35° angle gives proper coverage
-  # Position so outer (left) edge sits at wall top edge
   roof_left:
     primitive: cube
     size: [0.58, 0.04, 1.08]
     attach_to: walls
     at: top
     from: bottom
-    offset: [-0.25, 0.165, 0]
+    offset: [-1.84, 1.25, 0]
     rotation: [0, 0, 35]
-    material: wood
+    bevel: 0.008
+    material: roof_shingle
 
   # Roof - right slope
   roof_right:
@@ -64,16 +108,17 @@ parts:
     attach_to: walls
     at: top
     from: bottom
-    offset: [0.25, 0.165, 0]
+    offset: [1.84, 1.25, 0]
     rotation: [0, 0, -35]
-    material: wood
+    bevel: 0.008
+    material: roof_shingle
 
-  # Chimney (on roof)
+  # Chimney (on roof, poking above right slope)
   chimney:
     primitive: cube
     size: [0.08, 0.35, 0.08]
     attach_to: walls
     at: top
     from: bottom
-    offset: [0.20, 0.30, -0.20]
-    material: wall
+    offset: [1.6, 1.5, -1.2]
+    material: brick

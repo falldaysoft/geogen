@@ -11,4 +11,5 @@ parts:
     size: [1.0, 1.0, 1.0]
     anchor: bottom_center
     offset: [0, 0, 0]
-    material: metal  # Dark asphalt color
+    bevel: 0
+    material: asphalt

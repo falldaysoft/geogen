@@ -1,0 +1,20 @@
+# Red brick wall material
+name: brick
+texture:
+  type: brick
+  params:
+    color_base: [160, 75, 55]
+    color_dark: [120, 55, 40]
+    mortar_color: [200, 195, 185]
+    bricks_x: 6
+    bricks_y: 12
+    mortar_width: 0.06
+    color_variation: 0.3
+    seed: 42
+size: [512, 512]
+uv_scale: [2, 2]
+pbr:
+  roughness: 0.8
+  metallic: 0.0
+  normal_strength: 1.5
+  ao_strength: 1.0

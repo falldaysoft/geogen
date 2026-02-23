@@ -1,0 +1,19 @@
+# Dark roof shingle material
+name: roof_shingle
+texture:
+  type: roof
+  params:
+    color_base: [90, 85, 80]
+    color_dark: [55, 50, 48]
+    shingles_x: 8
+    shingles_y: 16
+    color_variation: 0.3
+    edge_width: 0.08
+    seed: 42
+size: [512, 512]
+uv_scale: [3, 3]
+pbr:
+  roughness: 0.8
+  metallic: 0.0
+  normal_strength: 1.5
+  ao_strength: 1.0

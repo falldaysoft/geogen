@@ -7,49 +7,83 @@ size: [1.2, 0.75, 0.8]  # width (x), height (y), depth (z) in meters
 
 parts:
   # Tabletop: flat cube at the top
-  # Position it so bottom of tabletop is at 95% height (top of legs)
   top:
     primitive: cube
     size: [1.0, 0.05, 1.0]  # full width, 5% height, full depth
     anchor: bottom_center
-    offset: [0, 0.95, 0]  # bottom of top sits at 95% height
+    offset: [0, 0.95, 0]
+    material: wood
+
+  # Apron/skirt under tabletop - front
+  apron_front:
+    primitive: cube
+    size: [0.85, 0.08, 0.025]
+    anchor: bottom_front_center
+    offset: [0, 0.87, -0.06]
+    bevel: 0.005
+    material: wood
+
+  # Apron/skirt - back
+  apron_back:
+    primitive: cube
+    size: [0.85, 0.08, 0.025]
+    anchor: bottom_back_center
+    offset: [0, 0.87, 0.06]
+    bevel: 0.005
+    material: wood
+
+  # Apron/skirt - left
+  apron_left:
+    primitive: cube
+    size: [0.025, 0.08, 0.75]
+    anchor: bottom_front_left
+    offset: [0.06, 0.87, 0]
+    bevel: 0.005
+    material: wood
+
+  # Apron/skirt - right
+  apron_right:
+    primitive: cube
+    size: [0.025, 0.08, 0.75]
+    anchor: bottom_front_right
+    offset: [-0.06, 0.87, 0]
+    bevel: 0.005
     material: wood
 
   # Four legs: cylinders from floor to tabletop (95% of total height)
   leg_front_left:
     primitive: cylinder
-    size: [0.05, 0.95, 0.05]
+    size: [0.05, 0.87, 0.05]
     anchor: bottom_front_left
-    offset: [0.08, 0, -0.08]  # inset from corner
+    offset: [0.08, 0, -0.08]
     material: wood
 
   leg_front_right:
     primitive: cylinder
-    size: [0.05, 0.95, 0.05]
+    size: [0.05, 0.87, 0.05]
     anchor: bottom_front_right
     offset: [-0.08, 0, -0.08]
     material: wood
 
   leg_back_left:
     primitive: cylinder
-    size: [0.05, 0.95, 0.05]
+    size: [0.05, 0.87, 0.05]
     anchor: bottom_back_left
     offset: [0.08, 0, 0.08]
     material: wood
 
   leg_back_right:
     primitive: cylinder
-    size: [0.05, 0.95, 0.05]
+    size: [0.05, 0.87, 0.05]
     anchor: bottom_back_right
     offset: [-0.08, 0, 0.08]
     material: wood
 
 # Attachment points for chairs around the table
-# Chairs face inward toward the table center
 attachments:
   seat_front:
     anchor: bottom_front_center
-    offset: [0, 0, 0.4]  # Push chair out from table edge
+    offset: [0, 0, 0.4]
     facing: center
 
   seat_back:
@@ -59,7 +93,7 @@ attachments:
 
   seat_left:
     anchor: left_center
-    offset: [-0.4, -0.5, 0]  # Push out from left side, lower to floor
+    offset: [-0.4, -0.5, 0]
     facing: center
 
   seat_right:
