@@ -11,6 +11,7 @@ from ..core.node import SceneNode
 from .base import MeshGenerator, CompositeGenerator
 
 if TYPE_CHECKING:
+    from ..layout.surfaces import Surface
     from ..materials.material import Material
 
 
@@ -55,6 +56,83 @@ class RoomGenerator(MeshGenerator):
     has_floor: bool = True
     has_ceiling: bool = True
     openings: list[Opening] = field(default_factory=list)
+
+    def get_surfaces(self, size: np.ndarray) -> dict[str, "Surface"]:
+        """Expose the interior faces of the room as placement surfaces.
+
+        Walls are addressed from *inside* the room: u is "left → right when
+        facing the wall from inside", v is vertical (floor → ceiling).
+        Normals point inward (into the room).
+
+        Note: `size` is the interior size [x, y, z], matching size_x/y/z.
+        Walls here are at the interior face (they ignore wall_thickness; the
+        wall thickness matters for clearance but not for surface addressing).
+        """
+        from ..layout.surfaces import Surface
+
+        sx, sy, sz = float(size[0]), float(size[1]), float(size[2])
+        hx, hz = sx / 2, sz / 2
+
+        return {
+            # North wall: interior face at z = +hz, normal points -Z (into room).
+            # Facing -Z from inside, right is -X.
+            "north_wall": Surface(
+                name="north_wall",
+                origin=np.array([hx, 0.0, hz]),
+                u_axis=np.array([-1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([0.0, 0.0, -1.0]),
+                u_extent=sx, v_extent=sy,
+            ),
+            # South wall: interior face at z = -hz, normal +Z.
+            # Facing +Z from inside, right is +X.
+            "south_wall": Surface(
+                name="south_wall",
+                origin=np.array([-hx, 0.0, -hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([0.0, 0.0, 1.0]),
+                u_extent=sx, v_extent=sy,
+            ),
+            # East wall: interior face at x = +hx, normal -X.
+            # Facing -X from inside, right is +Z.
+            "east_wall": Surface(
+                name="east_wall",
+                origin=np.array([hx, 0.0, -hz]),
+                u_axis=np.array([0.0, 0.0, 1.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([-1.0, 0.0, 0.0]),
+                u_extent=sz, v_extent=sy,
+            ),
+            # West wall: interior face at x = -hx, normal +X.
+            # Facing +X from inside, right is -Z.
+            "west_wall": Surface(
+                name="west_wall",
+                origin=np.array([-hx, 0.0, hz]),
+                u_axis=np.array([0.0, 0.0, -1.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([1.0, 0.0, 0.0]),
+                u_extent=sz, v_extent=sy,
+            ),
+            # Floor: y = 0, normal +Y. u along +X, v along +Z (back → front).
+            "floor": Surface(
+                name="floor",
+                origin=np.array([-hx, 0.0, -hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 0.0, 1.0]),
+                normal=np.array([0.0, 1.0, 0.0]),
+                u_extent=sx, v_extent=sz,
+            ),
+            # Ceiling: y = size_y, normal -Y (into room).
+            "ceiling": Surface(
+                name="ceiling",
+                origin=np.array([-hx, sy, -hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 0.0, 1.0]),
+                normal=np.array([0.0, -1.0, 0.0]),
+                u_extent=sx, v_extent=sz,
+            ),
+        }
 
     def generate(self) -> Mesh:
         """Generate the room mesh as a single merged mesh."""

@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
 from ..core.node import SceneNode
 from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator, PlaneGenerator
@@ -14,7 +13,9 @@ from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import resolve_anchor
 from .attachments import parse_attachment
+from .expressions import resolve_params, resolve_value
 from .validation import validate_asset_yaml, pre_validate_asset_references
+from .yaml_utils import safe_load, safe_load_path
 
 logger = logging.getLogger("geogen.layout")
 
@@ -60,21 +61,23 @@ class LayoutLoader:
         """Initialize the layout loader with a material loader."""
         self._material_loader = MaterialLoader()
 
-    def load(self, path: str | Path) -> SceneNode:
+    def load(
+        self, path: str | Path, params: dict[str, float] | None = None
+    ) -> SceneNode:
         """Load a composite object definition from a YAML file.
 
         Args:
             path: Path to the YAML file
+            params: Optional parameter overrides for parametric assets
 
         Returns:
             SceneNode hierarchy representing the composite object
         """
         path = Path(path)
         logger.debug("Loading asset: %s", path)
-        with open(path) as f:
-            data = yaml.safe_load(f)
+        data = safe_load_path(path)
 
-        # Validate YAML structure
+        # Validate YAML structure (pre-resolve; catches unknown keys)
         for warning in validate_asset_yaml(data):
             warnings.warn(warning, stacklevel=2)
 
@@ -85,19 +88,44 @@ class LayoutLoader:
                 f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
             )
 
+        data = self._resolve_params(data, params)
         return self._build_hierarchy(data)
 
-    def load_string(self, yaml_string: str) -> SceneNode:
+    def load_string(
+        self, yaml_string: str, params: dict[str, float] | None = None
+    ) -> SceneNode:
         """Load a composite object definition from a YAML string.
 
         Args:
             yaml_string: YAML content as a string
+            params: Optional parameter overrides for parametric assets
 
         Returns:
             SceneNode hierarchy representing the composite object
         """
-        data = yaml.safe_load(yaml_string)
+        data = safe_load(yaml_string)
+        data = self._resolve_params(data, params)
         return self._build_hierarchy(data)
+
+    def _resolve_params(
+        self, data: dict[str, Any], overrides: dict[str, float] | None
+    ) -> dict[str, Any]:
+        """Resolve `params:` + `{…}` interpolations throughout the YAML tree.
+
+        The `params:` block itself and the `name` field are not interpolated
+        (names are metadata, params are input). Everything else is walked
+        recursively.
+        """
+        declared = data.get("params")
+        resolved_params = resolve_params(declared, overrides)
+
+        out: dict[str, Any] = {}
+        for key, value in data.items():
+            if key in ("params", "name"):
+                out[key] = value
+                continue
+            out[key] = resolve_value(value, resolved_params)
+        return out
 
     def _build_hierarchy(self, data: dict[str, Any]) -> SceneNode:
         """Build scene hierarchy from parsed YAML data."""
@@ -148,6 +176,11 @@ class LayoutLoader:
             auto_attachments = generator.get_attachment_points(actual_size)
             for attach_name, attach_point in auto_attachments.items():
                 node.attachments[attach_name] = attach_point
+
+            # Generate automatic surfaces from the generator
+            auto_surfaces = generator.get_surfaces(actual_size)
+            for surf_name, surf in auto_surfaces.items():
+                node.surfaces[surf_name] = surf
 
             part_nodes[part_name] = node
             part_sizes[part_name] = actual_size
@@ -247,7 +280,71 @@ class LayoutLoader:
             attachment = parse_attachment(attach_name, attach_def)
             root.attachments[attach_name] = attachment
 
+        # Parse surface re-exports ("surfaces:" at asset root).
+        # Each entry re-exports a part's surface under a (possibly renamed)
+        # name on the root node, so scenes can address house.north_wall
+        # rather than house.shell.north_wall.
+        self._resolve_surface_exports(data.get("surfaces", {}), root, part_nodes)
+
         return root
+
+    def _resolve_surface_exports(
+        self,
+        surfaces_data: dict[str, Any],
+        root: SceneNode,
+        part_nodes: dict[str, SceneNode],
+    ) -> None:
+        """Copy surfaces from part nodes onto the root node.
+
+        Transforms the surface into the root's local frame so
+        root.get_surface() resolves correctly. YAML format:
+
+            surfaces:
+              north_wall: { from: shell.north_wall }
+              floor: { from: shell.floor }
+        """
+        from .surfaces import Surface
+
+        for export_name, spec in surfaces_data.items():
+            if not isinstance(spec, dict) or "from" not in spec:
+                raise ValueError(
+                    f"Surface export '{export_name}' must specify 'from: <part>.<surface>'"
+                )
+            source = spec["from"]
+            if "." not in source:
+                raise ValueError(
+                    f"Surface export '{export_name}' source must be 'part.surface', got {source!r}"
+                )
+            part_name, surface_name = source.split(".", 1)
+            if part_name not in part_nodes:
+                raise ValueError(
+                    f"Surface export '{export_name}' references unknown part '{part_name}'."
+                    f" Available parts: {sorted(part_nodes)}"
+                )
+            part_node = part_nodes[part_name]
+            if surface_name not in part_node.surfaces:
+                raise ValueError(
+                    f"Surface export '{export_name}' references unknown surface"
+                    f" '{surface_name}' on part '{part_name}'."
+                    f" Available: {sorted(part_node.surfaces)}"
+                )
+            src = part_node.surfaces[surface_name]
+
+            # Transform surface from part's local frame into root's local frame.
+            # Surfaces store positions (origin) and directions (axes, normal).
+            part_matrix = part_node.transform.to_matrix()
+            rotation = part_matrix[:3, :3]
+            translation = part_matrix[:3, 3]
+
+            root.surfaces[export_name] = Surface(
+                name=export_name,
+                origin=rotation @ src.origin + translation,
+                u_axis=rotation @ src.u_axis,
+                v_axis=rotation @ src.v_axis,
+                normal=rotation @ src.normal,
+                u_extent=src.u_extent,
+                v_extent=src.v_extent,
+            )
 
     def _create_room_node(
         self, name: str, size: np.ndarray, room_config: dict[str, Any]

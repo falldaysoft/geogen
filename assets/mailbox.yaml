@@ -4,7 +4,13 @@
 
 name: mailbox
 origin: bottom_center
-size: [0.5, 1.2, 0.5]  # width, height, depth
+
+params:
+  width:  { default: 0.5 }
+  height: { default: 1.2 }
+  depth:  { default: 0.5 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   # Wooden post

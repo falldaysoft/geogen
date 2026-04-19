@@ -13,6 +13,7 @@ from .base import MeshGenerator
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
+    from ..layout.surfaces import Surface
 
 
 @dataclass
@@ -63,6 +64,75 @@ class CubeGenerator(MeshGenerator):
             "back": AttachmentPoint(
                 name="back", anchor="center",
                 offset=np.array([0, 0, -half_z]), facing="north",
+            ),
+        }
+
+    def get_surfaces(self, size: np.ndarray) -> dict[str, "Surface"]:
+        """Expose the six faces of the cube as surfaces.
+
+        For each wall-like face, u is horizontal (left → right when viewed
+        from outside) and v is vertical (+Y is up). Normals point outward.
+        For top/bottom, u follows +X and v follows the remaining horizontal.
+        """
+        from ..layout.surfaces import Surface
+
+        hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
+        sx, sy, sz = float(size[0]), float(size[1]), float(size[2])
+
+        return {
+            # Front (+Z). Viewed from +Z, right is +X.
+            "front": Surface(
+                name="front",
+                origin=np.array([-hx, -hy, hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([0.0, 0.0, 1.0]),
+                u_extent=sx, v_extent=sy,
+            ),
+            # Back (-Z). Viewed from -Z, right is -X.
+            "back": Surface(
+                name="back",
+                origin=np.array([hx, -hy, -hz]),
+                u_axis=np.array([-1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([0.0, 0.0, -1.0]),
+                u_extent=sx, v_extent=sy,
+            ),
+            # Left (-X). Viewed from -X, right is -Z.
+            "left": Surface(
+                name="left",
+                origin=np.array([-hx, -hy, hz]),
+                u_axis=np.array([0.0, 0.0, -1.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([-1.0, 0.0, 0.0]),
+                u_extent=sz, v_extent=sy,
+            ),
+            # Right (+X). Viewed from +X, right is +Z.
+            "right": Surface(
+                name="right",
+                origin=np.array([hx, -hy, -hz]),
+                u_axis=np.array([0.0, 0.0, 1.0]),
+                v_axis=np.array([0.0, 1.0, 0.0]),
+                normal=np.array([1.0, 0.0, 0.0]),
+                u_extent=sz, v_extent=sy,
+            ),
+            # Top (+Y). u along +X, v along +Z (back → front).
+            "top": Surface(
+                name="top",
+                origin=np.array([-hx, hy, -hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 0.0, 1.0]),
+                normal=np.array([0.0, 1.0, 0.0]),
+                u_extent=sx, v_extent=sz,
+            ),
+            # Bottom (-Y). u along +X, v along +Z.
+            "bottom": Surface(
+                name="bottom",
+                origin=np.array([-hx, -hy, -hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 0.0, 1.0]),
+                normal=np.array([0.0, -1.0, 0.0]),
+                u_extent=sx, v_extent=sz,
             ),
         }
 
@@ -740,6 +810,27 @@ class PlaneGenerator(MeshGenerator):
             "back": AttachmentPoint(
                 name="back", anchor="center",
                 offset=np.array([0, 0, -half_z]), facing="north",
+            ),
+        }
+
+    def get_surfaces(self, size: np.ndarray) -> dict[str, "Surface"]:
+        """Expose the plane's top face as a surface.
+
+        u along +X, v along +Z (back → front), normal +Y.
+        """
+        from ..layout.surfaces import Surface
+
+        hx = size[0] / 2
+        hz = size[2] / 2
+        return {
+            "top": Surface(
+                name="top",
+                origin=np.array([-hx, 0.0, -hz]),
+                u_axis=np.array([1.0, 0.0, 0.0]),
+                v_axis=np.array([0.0, 0.0, 1.0]),
+                normal=np.array([0.0, 1.0, 0.0]),
+                u_extent=float(size[0]),
+                v_extent=float(size[2]),
             ),
         }
 

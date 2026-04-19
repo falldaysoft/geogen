@@ -3,7 +3,13 @@
 
 name: sidewalk
 origin: bottom_center
-size: [2, 0.12, 24]  # 2m wide, runs 24m, slightly raised
+
+params:
+  width:     { default: 2 }
+  thickness: { default: 0.12 }
+  length:    { default: 24 }
+
+size: ["{width}", "{thickness}", "{length}"]
 
 parts:
   surface:

@@ -4,7 +4,13 @@
 
 name: trashcan
 origin: bottom_center
-size: [0.45, 1.0, 0.45]  # width, height, depth
+
+params:
+  width:  { default: 0.45 }
+  height: { default: 1.0 }
+  depth:  { default: 0.45 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   # Base (slightly wider)

@@ -1,11 +1,16 @@
 # Fire hydrant - classic American style
 # Uses hierarchical attachment: barrel -> sphere -> outlets
 # Origin is at bottom_center
-# Size fractions are [x, y, z] relative to container [0.3, 0.8, 0.3]
+# Size fractions are [x, y, z] relative to container [width, height, width]
 
 name: fire_hydrant
 origin: bottom_center
-size: [0.3, 0.8, 0.3]
+
+params:
+  width:  { default: 0.3 }
+  height: { default: 0.8 }
+
+size: ["{width}", "{height}", "{width}"]
 
 parts:
   # Base - the foundation flange (root part, uses coordinate positioning)

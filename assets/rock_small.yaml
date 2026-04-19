@@ -2,7 +2,13 @@
 # Origin at bottom_center
 name: rock_small
 origin: bottom_center
-size: [0.3, 0.2, 0.25]  # Irregular, somewhat flat
+
+params:
+  width:  { default: 0.3 }
+  height: { default: 0.2 }
+  depth:  { default: 0.25 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:

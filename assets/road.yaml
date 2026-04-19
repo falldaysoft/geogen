@@ -1,9 +1,14 @@
 # Road surface - just the asphalt
-# Sized by parent scene
 
 name: road
 origin: bottom_center
-size: [6, 0.1, 24]  # 6m wide road, runs 24m
+
+params:
+  width:     { default: 6 }     # across the road
+  thickness: { default: 0.1 }   # asphalt slab height
+  length:    { default: 24 }    # along the road
+
+size: ["{width}", "{thickness}", "{length}"]
 
 parts:
   surface:

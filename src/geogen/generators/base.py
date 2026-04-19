@@ -10,6 +10,7 @@ from ..core.node import SceneNode
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
+    from ..layout.surfaces import Surface
 
 
 @runtime_checkable
@@ -51,6 +52,23 @@ class MeshGenerator(ABC):
 
         Returns:
             Dictionary of attachment point name -> AttachmentPoint
+        """
+        return {}
+
+    def get_surfaces(self, size: np.ndarray) -> dict[str, "Surface"]:
+        """Generate named surfaces (2D regions) for this primitive.
+
+        Surfaces expose 2D regions of a primitive (walls, floors, etc.)
+        that other objects can be placed on with (u, v) coordinates.
+
+        Subclasses should override to provide shape-specific surfaces.
+        Default implementation returns an empty dict.
+
+        Args:
+            size: Actual size [width, height, depth]
+
+        Returns:
+            Dictionary of surface name -> Surface
         """
         return {}
 

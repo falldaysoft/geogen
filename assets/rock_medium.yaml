@@ -2,7 +2,13 @@
 # Origin at bottom_center
 name: rock_medium
 origin: bottom_center
-size: [0.6, 0.45, 0.55]  # Larger, still irregular
+
+params:
+  width:  { default: 0.6 }
+  height: { default: 0.45 }
+  depth:  { default: 0.55 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:

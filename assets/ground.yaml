@@ -1,9 +1,14 @@
 # Ground plane - flat grass surface
-# Sized to cover the street scene
 
 name: ground
 origin: bottom_center
-size: [30, 0.05, 24]  # Matches street scene size
+
+params:
+  width:     { default: 30 }
+  thickness: { default: 0.05 }
+  depth:     { default: 24 }
+
+size: ["{width}", "{thickness}", "{depth}"]
 
 parts:
   surface:
@@ -13,3 +18,7 @@ parts:
     offset: [0, 0, 0]
     bevel: 0
     material: grass
+
+# Scenes can place objects directly on the ground with on: ground.top.
+surfaces:
+  top: { from: surface.top }

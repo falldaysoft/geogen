@@ -4,7 +4,13 @@
 
 name: house_peaked
 origin: bottom_center
-size: [8, 5, 6]  # 8m wide, 5m tall (with roof peak), 6m deep
+
+params:
+  width:  { default: 8 }
+  height: { default: 5 }   # includes roof peak
+  depth:  { default: 6 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   # Foundation strip (concrete base)
@@ -122,3 +128,10 @@ parts:
     from: bottom
     offset: [1.6, 1.5, -1.2]
     material: brick
+
+# Re-export useful wall surfaces for scene-level composition.
+surfaces:
+  front_wall: { from: walls.front }
+  back_wall:  { from: walls.back }
+  left_wall:  { from: walls.left }
+  right_wall: { from: walls.right }

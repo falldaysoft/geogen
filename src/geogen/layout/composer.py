@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
 from ..core.node import SceneNode
 from ..core.transform import Transform
@@ -14,6 +13,7 @@ from .loader import LayoutLoader
 from .anchors import resolve_anchor
 from .attachments import parse_attachment
 from .validation import validate_scene_yaml, pre_validate_scene_references
+from .yaml_utils import safe_load, safe_load_path
 
 logger = logging.getLogger("geogen.layout")
 
@@ -117,8 +117,7 @@ class SceneComposer:
         """
         path = Path(path)
         logger.debug("Composing scene: %s", path)
-        with open(path) as f:
-            data = yaml.safe_load(f)
+        data = safe_load_path(path)
 
         # Validate YAML structure
         for warning in validate_scene_yaml(data):
@@ -142,7 +141,7 @@ class SceneComposer:
         Returns:
             Root SceneNode of the composed scene
         """
-        data = yaml.safe_load(yaml_string)
+        data = safe_load(yaml_string)
         return self._build_scene(data)
 
     def _build_scene(self, data: dict[str, Any]) -> SceneNode:
@@ -165,34 +164,56 @@ class SceneComposer:
         # Merge compose into place for unified handling
         all_placements = {**compose_data, **place_data}
 
-        # First pass: load all objects that don't depend on others
+        # First pass: load all objects that don't depend on others.
+        # Surface-based placements (`on:`) depend on the root's own surfaces
+        # (defined by the scene's `size` and any composed parts) so they can
+        # resolve in pass 1 too. Object-to-object surface placements run in
+        # pass 2 alongside attach_to.
         loaded_objects: dict[str, SceneNode] = {}
 
         for obj_name, obj_def in all_placements.items():
-            if "attach_to" not in obj_def:
-                node = self._load_object(obj_def)
-                node.name = obj_name
+            if "attach_to" in obj_def:
+                continue
+            if "on" in obj_def and self._surface_target_is_object(obj_def["on"]):
+                continue
+            node = self._load_object(obj_def)
+            node.name = obj_name
 
-                # Position the object
-                if "slot" in obj_def:
-                    slot_name = obj_def["slot"]
-                    if slot_name not in slots:
-                        import difflib
-                        available = sorted(slots.keys())
-                        suggestion = difflib.get_close_matches(slot_name, available, n=1, cutoff=0.5)
-                        hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                        raise ValueError(
-                            f"Slot '{slot_name}' not defined.{hint}"
-                            f" Available slots: {available}"
-                        )
-                    logger.debug("Placing '%s' at slot '%s'", obj_name, slot_name)
-                    node.transform = slots[slot_name]
+            # Position the object
+            if "slot" in obj_def:
+                slot_name = obj_def["slot"]
+                if slot_name not in slots:
+                    import difflib
+                    available = sorted(slots.keys())
+                    suggestion = difflib.get_close_matches(slot_name, available, n=1, cutoff=0.5)
+                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+                    raise ValueError(
+                        f"Slot '{slot_name}' not defined.{hint}"
+                        f" Available slots: {available}"
+                    )
+                logger.debug("Placing '%s' at slot '%s'", obj_name, slot_name)
+                node.transform = slots[slot_name]
+            elif "on" in obj_def:
+                # Placement on a scene-level (root) surface.
+                node.transform = self._resolve_surface_placement(
+                    obj_def, root, loaded_objects
+                )
 
-                root.add_child(node)
-                loaded_objects[obj_name] = node
+            root.add_child(node)
+            loaded_objects[obj_name] = node
 
         # Second pass: attach objects to their targets
         for obj_name, obj_def in all_placements.items():
+            if "on" in obj_def and self._surface_target_is_object(obj_def["on"]):
+                node = self._load_object(obj_def)
+                node.name = obj_name
+                node.transform = self._resolve_surface_placement(
+                    obj_def, root, loaded_objects
+                )
+                root.add_child(node)
+                loaded_objects[obj_name] = node
+                continue
+
             if "attach_to" in obj_def:
                 target_name = obj_def["attach_to"]
                 target = loaded_objects.get(target_name)
@@ -247,6 +268,66 @@ class SceneComposer:
             return self.compose(scene_path)
         else:
             raise ValueError("Object must have 'asset' or 'scene' specified")
+
+    def _surface_target_is_object(self, spec: str) -> bool:
+        """Return True when `on: <spec>` refers to `<object>.<surface>`."""
+        return "." in spec
+
+    def _resolve_surface_placement(
+        self,
+        obj_def: dict[str, Any],
+        root: SceneNode,
+        loaded_objects: dict[str, SceneNode],
+    ) -> Transform:
+        """Resolve an `on: <surface>` + `at: {u,v,depth}` placement to a Transform.
+
+        Forms:
+          on: floor            # root-level surface
+          on: house.floor      # surface on a placed object
+        """
+        spec = obj_def["on"]
+        at = obj_def.get("at", {})
+        if not isinstance(at, dict):
+            raise ValueError(
+                f"`at:` for surface placement must be a mapping (u/v/depth), got {type(at).__name__}"
+            )
+        u = at.get("u", 0.5)
+        v = at.get("v", 0.5)
+        depth = at.get("depth", 0.0)
+
+        if "." in spec:
+            target_name, surface_name = spec.split(".", 1)
+            target = loaded_objects.get(target_name)
+            if target is None:
+                import difflib
+                available = sorted(loaded_objects)
+                suggestion = difflib.get_close_matches(target_name, available, n=1, cutoff=0.5)
+                hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+                raise ValueError(
+                    f"Placement references unknown object '{target_name}' in `on:`.{hint}"
+                    f" Available: {available}"
+                )
+            transform = target.get_surface(surface_name, u=u, v=v, depth=depth)
+            if transform is None:
+                import difflib
+                available = target.list_surfaces()
+                suggestion = difflib.get_close_matches(surface_name, available, n=1, cutoff=0.5)
+                hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
+                raise ValueError(
+                    f"Surface '{surface_name}' not found on '{target_name}'.{hint}"
+                    f" Available: {available}"
+                )
+            return transform
+
+        # Root-level surface
+        transform = root.get_surface(spec, u=u, v=v, depth=depth)
+        if transform is None:
+            available = root.list_surfaces()
+            raise ValueError(
+                f"Surface '{spec}' not defined on scene root."
+                f" Available: {available}"
+            )
+        return transform
 
     def _parse_slots(
         self, slots_data: dict[str, Any], size: np.ndarray

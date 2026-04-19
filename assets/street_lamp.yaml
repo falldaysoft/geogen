@@ -1,11 +1,16 @@
 # Classic street lamp post
 # Tall post with decorative lantern on top
 # Origin is at bottom_center
-# Using size [1, 1, 1] so all dimensions are in meters
+# `scale` multiplies every dimension. Part sizes below are in metres
+# (container is [scale, scale, scale]).
 
 name: street_lamp
 origin: bottom_center
-size: [1, 1, 1]  # 1m cube so sizes are direct meters
+
+params:
+  scale: { default: 1 }
+
+size: ["{scale}", "{scale}", "{scale}"]
 
 parts:
   # Base plate (0.3m diameter, 0.02m thick)

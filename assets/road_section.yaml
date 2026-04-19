@@ -4,7 +4,13 @@
 
 name: road_section
 origin: bottom_center
-size: [12, 0.15, 10]  # 12m wide (sidewalk + road + sidewalk), 10m long
+
+params:
+  width:     { default: 12 }    # across the whole section (sidewalk + road + sidewalk)
+  thickness: { default: 0.15 }  # vertical slab height
+  length:    { default: 10 }    # along the road
+
+size: ["{width}", "{thickness}", "{length}"]
 
 parts:
   # Left sidewalk

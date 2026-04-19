@@ -13,6 +13,7 @@ from .transform import Transform
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
+    from ..layout.surfaces import Surface
 
 
 @dataclass
@@ -44,6 +45,7 @@ class SceneNode:
     children: list[SceneNode] = field(default_factory=list)
     parent: SceneNode | None = field(default=None, repr=False)
     attachments: dict[str, AttachmentPoint] = field(default_factory=dict)
+    surfaces: dict[str, Surface] = field(default_factory=dict)
     size: NDArray[np.float64] | None = field(default=None, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
@@ -201,6 +203,35 @@ class SceneNode:
         """List all attachment point names on this node."""
         return list(self.attachments.keys())
 
+    def get_surface(
+        self,
+        name: str,
+        u: float | str | dict = 0.5,
+        v: float | str | dict = 0.5,
+        depth: float | str | dict = 0.0,
+    ) -> Transform | None:
+        """Resolve a (u, v, depth) point on a named surface to a world Transform.
+
+        Args:
+            name: Name of the surface (e.g., "north_wall", "floor")
+            u, v: Coordinates on the surface; bare floats are fractional (0-1),
+                dicts {"abs": x} or {"frac": x} disambiguate explicitly.
+            depth: Offset along the surface normal in meters (absolute).
+
+        Returns:
+            Transform in world space, or None if the surface is not found.
+        """
+        surface = self.surfaces.get(name)
+        if surface is None:
+            return None
+        local_transform = surface.resolve(u=u, v=v, depth=depth)
+        world_matrix = self.world_transform() @ local_transform.to_matrix()
+        return Transform.from_matrix(world_matrix)
+
+    def list_surfaces(self) -> list[str]:
+        """List all surface names on this node."""
+        return list(self.surfaces.keys())
+
     def copy(self, deep: bool = True) -> SceneNode:
         """Create a copy of this node.
 
@@ -215,6 +246,7 @@ class SceneNode:
             transform=self.transform.copy(),
             mesh=self.mesh,  # Meshes are typically shared, not copied
             attachments=self.attachments.copy(),
+            surfaces=self.surfaces.copy(),
             size=self.size.copy() if self.size is not None else None,
         )
         if deep:

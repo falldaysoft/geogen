@@ -16,9 +16,12 @@ Layout uses a container system that can position objects using anchors (like UI 
 # Run the demo (opens Qt-based interactive viewer)
 python -m geogen.main
 
+# Select a specific scene (available: chair, table, dining_set, room, street, nature, plus any YAML asset)
+python -m geogen.main -s dining_set
+
 # Render to file and quit (for testing)
 python -m geogen.main -r output.png
-python -m geogen.main -r output.png --resolution 1280x720
+python -m geogen.main -s room -r output.png --resolution 1280x720
 
 # Install dependencies
 pip install -e .
@@ -51,7 +54,7 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **CompositeGenerator** (`base.py`): Abstract base for generators producing scene hierarchies.
 
-- **Primitives** (`primitives.py`): Dataclass-based generators for Cube, Sphere, Cylinder, Cone.
+- **Primitives** (`primitives.py`): Dataclass-based generators for Cube, Sphere, Cylinder, Cone. Each declares its own attachment points via `get_attachment_points(size)`. `CubeGenerator` has a `bevel` param (default 0.02) for chamfered edges; set `bevel: 0` in YAML for sharp cubes (do this for thin flat surfaces like roads/sidewalks to avoid disproportionate bevels).
 
 - **RoomGenerator** (`room.py`): Generates rooms with walls, floor, ceiling, and openings (doors/windows). Supports `generate_parts()` for separate surface meshes with different materials. Uses `Opening` dataclass for doors/windows with wall position, size, and bottom offset.
 
@@ -59,7 +62,9 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **TextureGenerator** (`base.py`): Abstract base class for procedural textures. Generates PIL Images and optional PBR maps (normal, roughness, AO). Uses numpy RNG with optional seed.
 
-- Implementations: `WoodTexture`, `MetalTexture`, `FloorTexture`, `WallTexture`, plus noise utilities.
+- **NoiseTextureGenerator**: Shared base for noise-based textures. Subclass implements `_get_noise_layers()`, `_compute_pattern()`, `_apply_color_shift()`. `BrickTextureGenerator` breaks this contract (returns a `(pattern, is_mortar)` tuple) and overrides `generate()`.
+
+- Implementations: `wood`, `metal`, `floor`, `wall`, `asphalt`, `brick`, `concrete`, `dirt`, `grass`, `rock`, `roof` — each in its own module.
 
 ### Materials (`src/geogen/materials/`)
 
@@ -140,6 +145,14 @@ pytest tests/test_scenes.py -k "test_name"
       attach_to: table
       at: [seat_front, seat_back, seat_left, seat_right]
   ```
+
+### Scenes & Registry
+
+- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans both `src/geogen/scenes/*.py` (Python-coded scenes) and `assets/**/*.yaml` to build the viewer's scene list. It peeks at each YAML and classifies as a composed scene when a `place:` or `compose:` key is present, otherwise as an asset. Both keys are treated equivalently.
+
+- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Currently only `nature.py` uses this; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are thin wrappers that delegate to their YAML counterparts.
+
+- **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`/`compose:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` uses `compose:` and is a scene, not an asset.)
 
 ### Viewer (`src/geogen/viewer/`)
 
@@ -275,6 +288,78 @@ place:
 2. **Self-describing objects**: Assets declare their own attachment points based on their semantics
 3. **Composability**: Objects don't know about their containers; containers know about objects' attachment points
 4. **Hierarchical transforms**: Child transforms are relative to parent, enabling grouped movement
+
+## Parametric Assets, Surfaces, and Surface Placement
+
+### Parameters and `{expr}` interpolation
+
+Assets can declare parameters that control their geometry. Loaders resolve parameters before the hierarchy is built, so every part size/offset sees the post-substitution values.
+
+```yaml
+name: house
+params:
+  width:  { default: 8 }
+  depth:  { default: 6 }
+  height: { default: 4 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+parts:
+  shell:
+    primitive: cube
+    size: ["{1 - 0.05}", 0.6, 1]   # expressions allowed anywhere
+    anchor: bottom_center
+```
+
+Overrides come in through `LayoutLoader.load(path, params={"width": 12})`. Unknown params raise. The expression evaluator is AST-restricted — only numeric literals, param references, `+ - * /`, parens, and unit literals (`50cm`, `2m`, `20%`). No function calls, no attribute access.
+
+Relevant module: `src/geogen/layout/expressions.py`.
+
+### Surfaces (2D regions on assets)
+
+Where an `AttachmentPoint` is a single spot, a `Surface` is a 2D region with its own (u, v) coordinate system — a wall, a floor, the top of a table. Primitives expose surfaces automatically:
+- **CubeGenerator** → `front`, `back`, `left`, `right`, `top`, `bottom`
+- **PlaneGenerator** → `top`
+- **RoomGenerator** → `north_wall`, `south_wall`, `east_wall`, `west_wall`, `floor`, `ceiling` (all interior-facing, normals point *into* the room)
+
+For walls, `u` runs horizontally "left → right when facing the wall from outside" (or from inside, for room interior walls) and `v` runs vertical (+Y). Each surface's `normal` points outward from its home object.
+
+Assets can re-export part surfaces at their root with a `surfaces:` block:
+
+```yaml
+surfaces:
+  front_wall: { from: walls.front }
+  roof:       { from: roof.top }
+```
+
+The re-export bakes the part's local-to-root transform into the surface so scene-level callers see surfaces in the asset's root frame.
+
+Relevant module: `src/geogen/layout/surfaces.py`. Runtime storage: `SceneNode.surfaces: dict[str, Surface]`, resolved via `SceneNode.get_surface(name, u, v, depth)`.
+
+### Surface-based placement in scenes
+
+Scenes can place assets on a surface of another placed object with `on:` + `at:`:
+
+```yaml
+place:
+  house:
+    asset: house.yaml
+  mailbox:
+    asset: mailbox.yaml
+    on: house.front_wall          # <object>.<surface>
+    at: { u: 0.25, v: 0.3 }       # fractional 0-1 by default
+```
+
+Coordinate forms for `u`/`v`/`depth`:
+- Plain float (e.g. `0.5`): fractional for `u`/`v`, absolute metres for `depth`
+- `{abs: 0.5}`: absolute metres
+- `{frac: 0.25}`: explicit fractional
+
+`depth` offsets along the surface normal (useful for pushing an object slightly off a wall so it's not z-fighting).
+
+### YAML loader quirk
+
+`yaml_utils.GeogenSafeLoader` disables YAML 1.1's `on`/`off`/`yes`/`no` boolean resolution so keys like `on:` parse as strings. Always load asset/scene YAML through `LayoutLoader` or `SceneComposer` — using `yaml.safe_load` directly will mangle `on:` into `True`.
 
 ## Key Conventions
 

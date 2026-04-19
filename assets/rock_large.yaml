@@ -2,7 +2,13 @@
 # Origin at bottom_center
 name: rock_large
 origin: bottom_center
-size: [1.2, 0.9, 1.0]  # Large irregular boulder
+
+params:
+  width:  { default: 1.2 }
+  height: { default: 0.9 }
+  depth:  { default: 1.0 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:

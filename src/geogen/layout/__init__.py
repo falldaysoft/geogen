@@ -4,6 +4,7 @@ from .anchors import Anchor, resolve_anchor
 from .attachments import AttachmentPoint, parse_attachment
 from .composer import SceneComposer
 from .loader import LayoutLoader
+from .surfaces import Surface
 
 __all__ = [
     "Anchor",
@@ -12,4 +13,5 @@ __all__ = [
     "parse_attachment",
     "LayoutLoader",
     "SceneComposer",
+    "Surface",
 ]

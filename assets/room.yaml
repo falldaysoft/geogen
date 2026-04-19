@@ -3,7 +3,13 @@
 
 name: room
 origin: center
-size: [4.0, 2.5, 4.0]  # width (x), height (y), depth (z) in meters
+
+params:
+  width:  { default: 4.0 }
+  height: { default: 2.5 }
+  depth:  { default: 4.0 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 # Room configuration
 room:

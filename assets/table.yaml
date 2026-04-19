@@ -3,7 +3,13 @@
 
 name: table
 origin: bottom_center
-size: [1.2, 0.75, 0.8]  # width (x), height (y), depth (z) in meters
+
+params:
+  width:  { default: 1.2 }
+  height: { default: 0.75 }
+  depth:  { default: 0.8 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   # Tabletop: flat cube at the top
@@ -78,6 +84,10 @@ parts:
     anchor: bottom_back_right
     offset: [-0.08, 0, 0.08]
     material: wood
+
+# Table-top surface: place things on the table with u/v.
+surfaces:
+  top: { from: top.top }
 
 # Attachment points for chairs around the table
 attachments:

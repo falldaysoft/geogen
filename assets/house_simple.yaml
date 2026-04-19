@@ -1,10 +1,25 @@
-# Simple house - rectangular house with flat/hip roof
-# Front of house is +Z direction
-# Origin is at bottom_center
+# Simple house — parametric rectangular house with flat roof.
+# Front of house faces +Z. Origin is at bottom_center.
+#
+# Parameters:
+#   width:  house width in metres (default 8)
+#   depth:  house depth in metres (default 6)
+#   height: wall height in metres (default 4, incl. foundation)
+#
+# All part sizes use fractions of the top-level `size`, so the visible model
+# at default params is identical to the pre-parametric version. Override
+# params at load time (LayoutLoader.load(path, params={"width": 12}) ...)
+# to generate a different-sized house.
 
 name: house_simple
 origin: bottom_center
-size: [8, 4, 6]  # 8m wide, 4m tall, 6m deep
+
+params:
+  width:  { default: 8 }
+  depth:  { default: 6 }
+  height: { default: 4 }
+
+size: ["{width}", "{height}", "{depth}"]
 
 parts:
   # Foundation strip (concrete base)
@@ -103,3 +118,12 @@ parts:
     anchor: bottom_center
     offset: [0.30, 0.72, -0.25]
     material: brick
+
+# Re-export useful surfaces for scene-level placement (e.g. placing a
+# doormat, lamp, or decoration on the front wall or roof).
+surfaces:
+  front_wall: { from: walls.front }
+  back_wall:  { from: walls.back }
+  left_wall:  { from: walls.left }
+  right_wall: { from: walls.right }
+  roof:       { from: roof.top }

@@ -1,9 +1,15 @@
 # Maple tree - trunk + leafy canopy spheres
 # Origin is at bottom_center
+# `scale` multiplies every dimension. All part sizes below are in metres
+# (container size is [scale, scale, scale] so fractional * container = metres * scale).
 
 name: maple_tree
 origin: bottom_center
-size: [1, 1, 1]
+
+params:
+  scale: { default: 1 }
+
+size: ["{scale}", "{scale}", "{scale}"]
 
 parts:
   trunk:
