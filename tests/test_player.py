@@ -56,44 +56,18 @@ def test_player_yaml_is_not_a_scene():
     assert "player" not in _build_registry()
 
 
-def _godot_binary() -> str | None:
-    import os
-    import shutil
-    from pathlib import Path
 
-    for candidate in (os.environ.get("GODOT"), shutil.which("godot"), shutil.which("godot4"),
-                      "/Applications/Godot.app/Contents/MacOS/Godot"):
-        if candidate and Path(candidate).exists():
-            return candidate
-    return None
-
-
-@pytest.mark.skipif(_godot_binary() is None, reason="Godot not installed (set $GODOT)")
-def test_godot_reads_manifest(tmp_path):
+def test_godot_reads_manifest(tmp_path, run_godot):
     """The runtime's PlayerSpec parses exactly what the exporter wrote."""
     import json
-    import subprocess
-    from pathlib import Path
 
     from geogen.export import export_scene, manifest_path
 
-    project = Path(__file__).parent.parent / "runtime" / "godot"
-    godot = _godot_binary()
     # Non-default values so a silent fallback to defaults would fail.
     spec = PlayerSpec(radius=0.25, height=1.7, eye_height=1.55, step_height=0.25,
                       max_slope_deg=35, door_min_width=0.8, door_min_height=1.9,
                       corridor_min_width=1.0, reach=1.2)
     path = export_scene(_build_registry()["chair"](), tmp_path / "chair.glb", player=spec)
-
-    # class_name scripts need the import cache; building it is idempotent.
-    subprocess.run([godot, "--headless", "--path", str(project), "--import"],
-                   capture_output=True, timeout=180)
-    result = subprocess.run(
-        [godot, "--headless", "--path", str(project), "--",
-         "--quit-after=2", f"--manifest={manifest_path(path)}"],
-        capture_output=True, text=True, timeout=120,
-    )
-    assert result.returncode == 0, result.stderr
-    line = next(l for l in result.stdout.splitlines() if l.startswith("player spec: "))
-    read_back = json.loads(line.removeprefix("player spec: "))
-    assert PlayerSpec.from_dict(read_back) == spec
+    out = run_godot("--quit-after=2", f"--generated={tmp_path}", f"--manifest={manifest_path(path)}")
+    line = next(l for l in out.splitlines() if l.startswith("player spec: "))
+    assert PlayerSpec.from_dict(json.loads(line.removeprefix("player spec: "))) == spec

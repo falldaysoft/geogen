@@ -117,7 +117,10 @@ def write_manifest(model_path: str | Path, player: PlayerSpec | None = None) -> 
         "player": (player or load_player_spec()).to_dict(),
     }
     out = manifest_path(model_path)
-    out.write_text(json.dumps(manifest, indent=2) + "\n")
+    # Written last and atomically: runtimes watch the manifest to know an export finished.
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_text(json.dumps(manifest, indent=2) + "\n")
+    tmp.replace(out)
     return out
 
 
@@ -137,6 +140,12 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         # OBJ has no hierarchy: bake world transforms. trimesh writes the
         # .mtl and texture images alongside the .obj.
         scene.export(str(path), file_type="obj", include_normals=True, include_texture=True)
+    elif suffix == ".glb":
+        # Write-then-rename so a runtime watching the file never reads half a GLB.
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_bytes(scene.export(file_type="glb"))
+        tmp.replace(path)
+        write_manifest(path, player)
     else:
         scene.export(str(path), file_type=suffix[1:])
         write_manifest(path, player)

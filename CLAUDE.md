@@ -28,6 +28,7 @@ python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
 
 # Export for game engines (hierarchy + PBR textures)
 python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj
+python -m geogen.main -s cottage --export-godot               # into runtime/godot/generated/
 
 # Screenshot the interactive Qt viewer (display: lit|clay|normals|uv)
 python -m geogen.main -s street --viewer-screenshot shot.png --display uv
@@ -206,7 +207,7 @@ pytest tests/test_scenes.py -k "test_name"
 
 ### Godot runtime (`runtime/godot/`)
 
-Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). `scenes/main.tscn` is sky/sun/ground plus an empty `World` node; `scripts/player_spec.gd` (`PlayerSpec`) reads the player block from an export manifest. User args after `--`: `--quit-after=N`, `--screenshot=out.png`, `--manifest=path`. Exports go in `generated/` (git-ignored). See `runtime/godot/README.md`; on macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT`).
+Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). `python -m geogen.main -s cottage --export-godot` writes `.glb` + manifest into `runtime/godot/generated/`; `godot --path runtime/godot -- --scene cottage` walks it in first person. `WorldLoader` loads exports at runtime (GLTFDocument, trimesh colliders, mipmaps) and hot-reloads when a manifest changes; `Player` is a cylinder `CharacterBody3D` sized from `PlayerSpec` with step-up. Useful args after `--`: `--generated=DIR`, `--spawn=X,Y,Z`, `--walk=SECONDS` (prints the end position; used by `tests/test_godot_runtime.py`), `--screenshot=out.png`, `--camera=overview`, `--colliders`. See `runtime/godot/README.md`. On macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT` and skip without it). Wrap ad-hoc Godot runs in a timeout: a GDScript parse error leaves the process running instead of exiting.
 
 ## Hierarchical Layout System - Semantic Connections
 

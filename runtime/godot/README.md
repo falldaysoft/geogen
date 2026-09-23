@@ -7,15 +7,40 @@ under epic `geogen-3cc` for the roadmap (player, world loader, import plugin).
 - **Renderer:** Forward+
 - **Units:** 1 unit = 1 metre, +Y up (same as geogen and glTF)
 
+## Quick start
+
+```bash
+# 1. Export a scene into runtime/godot/generated/ (.glb + manifest)
+python -m geogen.main -s cottage --export-godot
+
+# 2. Walk around it
+godot --path runtime/godot -- --scene cottage
+```
+
+Leave the game running and re-export: the runtime watches the manifests and
+reloads the model within half a second (the player keeps their position).
+
+Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
+capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
+(Space/Ctrl up/down), F4 overview camera.
+
 ## Layout
 
 | Path | Purpose |
 |---|---|
 | `project.godot` | Project settings; main scene is `scenes/main.tscn` |
-| `scenes/main.tscn` | Sky, sun (shadows), fog, 400 m ground with collision, 1 m scale-reference cube, empty `World` node for loaded content, camera |
-| `scripts/main.gd` | Root script; parses user args after `--` |
-| `scripts/player_spec.gd` | `PlayerSpec`: player capsule/step/slope/reach read from a geogen manifest |
-| `generated/` | Geogen exports land here (git-ignored except `.gitkeep`) |
+| `scenes/main.tscn` | Sky, sun, fog, 400 m ground with collision, `World` loader, overview camera, overlay |
+| `scripts/main.gd` | Root: parses user args, spawns the player, debug overlay |
+| `scripts/world_loader.gd` | `WorldLoader`: loads `.glb` exports at runtime via `GLTFDocument`, adds trimesh colliders and texture mipmaps, hot-reloads |
+| `scripts/player.gd` | `Player`: first-person `CharacterBody3D` sized from the player spec, with step-up |
+| `scripts/player_spec.gd` | `PlayerSpec`: player radius/height/eye/step/slope/reach read from a geogen manifest |
+| `generated/` | Exports land here (git-ignored; `.gdignore` keeps the editor from importing them, the runtime loads them directly) |
+
+Exports are loaded at runtime rather than imported by the editor so a
+running game can reload them. Until geogen exports explicit colliders
+(geogen-3cc.17), every mesh gets a trimesh collider. The player body is a
+cylinder, not a capsule: a capsule's rounded bottom slides off the edge of
+a step exactly `step_height` tall.
 
 ## Running
 
@@ -23,25 +48,28 @@ On macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot`; below it
 is written as `godot`.
 
 ```bash
-# Open in the editor
-godot --editor --path runtime/godot
-
-# Run the main scene
-godot --path runtime/godot
-
-# First-time / CI: build the .godot import cache
-godot --headless --path runtime/godot --import
-
-# Smoke test: boot headless and quit after 10 frames
-godot --headless --path runtime/godot -- --quit-after=10
-
-# Screenshot the main scene and quit (needs a GPU, not --headless)
-godot --path runtime/godot -- --screenshot=/tmp/godot_main.png
-
-# Load the player spec from an export manifest (prints it)
-python -m geogen.main -s chair -e runtime/godot/generated/chair.glb
-godot --headless --path runtime/godot -- --quit-after=2 --manifest=res://generated/chair.manifest.json
+godot --editor --path runtime/godot                 # open in the editor
+godot --path runtime/godot -- --scene cottage       # play one export
+godot --path runtime/godot                          # play every export in generated/
+godot --headless --path runtime/godot --import      # first run / CI: build the import cache
 ```
+
+User args (after `--`):
+
+| Arg | Effect |
+|---|---|
+| `--scene NAME` / `--scene=NAME` | Load `generated/NAME.glb` (default: every export) |
+| `--generated=DIR` | Read exports from `DIR` instead of `res://generated` |
+| `--spawn=X,Y,Z`, `--yaw=DEG` | Player start (default: 3 m in front (+Z) of the model, facing it) |
+| `--camera=overview` | Start on the overview camera |
+| `--colliders` | Show collider wireframes |
+| `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
+| `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
+| `--quit-after=N` | Quit after N frames |
+| `--manifest=PATH` | Use the player spec from this manifest |
+
+`tests/test_godot_runtime.py` exports the cottage and walks the player into
+it headless (wall blocks, door step is climbed, closed door blocks).
 
 ## Manifest
 

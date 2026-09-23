@@ -10,6 +10,8 @@ from .scenes.nature import create_nature_scene
 from .render import VIEWS, RenderOptions, render_scene, render_views
 from .viewer import run_viewer
 
+GODOT_GENERATED = Path(__file__).parent.parent.parent / "runtime" / "godot" / "generated"
+
 
 def _build_registry() -> SceneRegistry:
     """Build the scene registry with auto-discovered and Python-coded scenes."""
@@ -78,6 +80,11 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
         help="Export the scene to .glb/.gltf/.obj and quit",
     )
     parser.add_argument(
+        "--export-godot",
+        action="store_true",
+        help=f"Export the scene as <scene>.glb + manifest into {GODOT_GENERATED} and quit",
+    )
+    parser.add_argument(
         "--viewer-screenshot",
         metavar="PATH",
         help="Open the interactive viewer, save one frame to PATH and quit",
@@ -110,11 +117,15 @@ def main() -> None:
         mesh_info = f" ({node.mesh.face_count} faces)" if node.mesh else ""
         print(f"{indent}- {node.name}{mesh_info}")
 
-    if args.export:
+    if args.export or args.export_godot:
         from .export import export_scene
 
-        path = export_scene(root, args.export)
-        print(f"\nExported {args.scene} to {path}")
+        targets = [args.export] if args.export else []
+        if args.export_godot:
+            targets.append(GODOT_GENERATED / f"{args.scene}.glb")
+        for target in targets:
+            path = export_scene(root, target)
+            print(f"\nExported {args.scene} to {path}")
         if not args.render:
             return
 

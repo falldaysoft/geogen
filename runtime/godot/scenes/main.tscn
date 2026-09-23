@@ -1,6 +1,7 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world_loader.gd" id="2_world"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_horizon_color = Color(0.66, 0.72, 0.8, 1)
@@ -56,12 +57,25 @@ surface_material_override/0 = SubResource("ground_mat")
 shape = SubResource("ground_shape")
 
 [node name="World" type="Node3D" parent="."]
+script = ExtResource("2_world")
 
 [node name="ScaleReference" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("ref_mesh")
 surface_material_override/0 = SubResource("ref_mat")
 
-[node name="Camera" type="Camera3D" parent="."]
+[node name="OverviewCamera" type="Camera3D" parent="."]
 transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 6, 5, 6)
-current = true
+
+[node name="Overlay" type="CanvasLayer" parent="."]
+
+[node name="Label" type="Label" parent="Overlay"]
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 900.0
+offset_bottom = 80.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 14
