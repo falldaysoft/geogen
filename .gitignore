@@ -8,3 +8,4 @@ __pycache__/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+.beads/issues.jsonl
