@@ -24,13 +24,15 @@ class CubeGenerator(MeshGenerator):
         size_x: Width of the cube (X axis)
         size_y: Height of the cube (Y axis)
         size_z: Depth of the cube (Z axis)
-        bevel: Bevel/chamfer size (0 = sharp edges, default 0.02)
+        bevel: Edge rounding radius (0 = sharp edges, default 0.02)
+        bevel_segments: Arc segments per 45 degrees of each rounded edge
     """
 
     size_x: float = 1.0
     size_y: float = 1.0
     size_z: float = 1.0
     bevel: float = 0.02
+    bevel_segments: int = 2
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
         """Generate attachment points at the center of each face."""
@@ -137,264 +139,94 @@ class CubeGenerator(MeshGenerator):
         }
 
     def generate(self) -> Mesh:
-        """Generate a cube mesh centered at the origin with UV coordinates."""
-        hx, hy, hz = self.size_x / 2, self.size_y / 2, self.size_z / 2
+        """Generate a box centred at the origin with rounded (beveled) edges.
 
+        Each face is a grid projected onto an inner box of half-extents
+        ``h - bevel``: every vertex is ``inner + bevel * dir`` where ``dir`` is
+        the unit vector from the nearest inner-box point. Flat regions keep
+        the face normal; edge and corner bands become circular arcs with
+        analytic normals, so shading is smooth and seam-free.
+        """
+        half = np.array([self.size_x, self.size_y, self.size_z], dtype=np.float64) / 2
         # Clamp bevel to half the smallest dimension
-        max_bevel = min(hx, hy, hz) * 0.5
-        b = min(self.bevel, max_bevel)
+        r = min(self.bevel, float(half.min()) * 0.5)
+        if r <= 1e-4:
+            r = 0.0
+        return _rounded_box(half, r, max(1, int(self.bevel_segments)))
 
-        if b <= 0.0001:
-            return self._generate_sharp(hx, hy, hz)
-        return self._generate_beveled(hx, hy, hz, b)
 
-    def _generate_sharp(self, hx: float, hy: float, hz: float) -> Mesh:
-        """Generate a sharp-edged cube (no bevel)."""
-        vertices = []
-        uvs = []
-        faces = []
+# (normal, u axis, v axis) per face, with u x v == normal so quads wind CCW.
+_BOX_FACES = (
+    ((0, 0, 1), (1, 0, 0), (0, 1, 0)),     # front (+Z)
+    ((0, 0, -1), (-1, 0, 0), (0, 1, 0)),   # back (-Z)
+    ((1, 0, 0), (0, 0, -1), (0, 1, 0)),    # right (+X)
+    ((-1, 0, 0), (0, 0, 1), (0, 1, 0)),    # left (-X)
+    ((0, 1, 0), (1, 0, 0), (0, 0, -1)),    # top (+Y)
+    ((0, -1, 0), (1, 0, 0), (0, 0, 1)),    # bottom (-Y)
+)
 
-        face_defs = [
-            ([-hx, -hy, -hz], [-hx, +hy, -hz], [+hx, +hy, -hz], [+hx, -hy, -hz]),
-            ([+hx, -hy, +hz], [+hx, +hy, +hz], [-hx, +hy, +hz], [-hx, -hy, +hz]),
-            ([-hx, -hy, +hz], [-hx, +hy, +hz], [-hx, +hy, -hz], [-hx, -hy, -hz]),
-            ([+hx, -hy, -hz], [+hx, +hy, -hz], [+hx, +hy, +hz], [+hx, -hy, +hz]),
-            ([-hx, -hy, +hz], [-hx, -hy, -hz], [+hx, -hy, -hz], [+hx, -hy, +hz]),
-            ([-hx, +hy, -hz], [-hx, +hy, +hz], [+hx, +hy, +hz], [+hx, +hy, -hz]),
-        ]
 
-        uv_corners = [[0, 0], [0, 1], [1, 1], [1, 0]]
+def _rounded_box_coords(h: float, r: float, segments: int) -> np.ndarray:
+    """Face-plane sample positions along one axis of a rounded box face.
 
-        for face_idx, corners in enumerate(face_defs):
-            base_idx = face_idx * 4
-            for corner, uv in zip(corners, uv_corners):
-                vertices.append(corner)
-                uvs.append(uv)
-            faces.append([base_idx, base_idx + 1, base_idx + 2])
-            faces.append([base_idx, base_idx + 2, base_idx + 3])
+    A face covers 45 degrees of each adjoining edge arc; sampling at
+    ``tan(theta)`` gives evenly spaced angles once projected onto the arc.
+    """
+    inner = h - r
+    if r <= 0.0:
+        return np.array([-h, h])
+    theta = np.linspace(0.0, np.pi / 4, segments + 1)[1:]
+    band = inner + r * np.tan(theta)
+    coords = np.concatenate([-band[::-1], [-inner, inner], band])
+    return np.unique(np.round(coords, 12))
 
-        return Mesh(
-            vertices=np.array(vertices, dtype=np.float64),
-            faces=np.array(faces, dtype=np.int64),
-            uvs=np.array(uvs, dtype=np.float64),
-        )
 
-    def _generate_beveled(self, hx: float, hy: float, hz: float, b: float) -> Mesh:
-        """Generate a beveled cube with chamfered edges."""
-        vertices = []
-        uvs = []
-        faces = []
+def _arc_length(coord: np.ndarray, h: float, r: float) -> np.ndarray:
+    """Metric UV coordinate for a face-plane coordinate, following the edge arc."""
+    inner = h - r
+    mag = np.abs(coord)
+    over = np.maximum(mag - inner, 0.0)
+    band = r * np.arctan(over / r) if r > 0 else over
+    return np.sign(coord) * (np.minimum(mag, inner) + band) + h
 
-        # Inset amounts for each axis
-        bx = b
-        by = b
-        bz = b
 
-        # Inner extents (face centers are inset by bevel)
-        ix = hx - bx  # inner x half
-        iy = hy - by  # inner y half
-        iz = hz - bz  # inner z half
+def _rounded_box(half: np.ndarray, r: float, segments: int) -> Mesh:
+    inner = half - r
+    vertices, normals, uvs, faces = [], [], [], []
+    offset = 0
+    for n, u, v in _BOX_FACES:
+        n, u, v = (np.array(a, dtype=np.float64) for a in (n, u, v))
+        hn = float(np.abs(n) @ half)
+        hu = float(np.abs(u) @ half)
+        hv = float(np.abs(v) @ half)
+        us = _rounded_box_coords(hu, r, segments)
+        vs = _rounded_box_coords(hv, r, segments)
+        a, b = np.meshgrid(us, vs, indexing="xy")  # (len(vs), len(us))
+        p = n * hn + a.reshape(-1, 1) * u + b.reshape(-1, 1) * v
+        core = np.clip(p, -inner, inner)
+        d = p - core
+        length = np.linalg.norm(d, axis=1, keepdims=True)
+        dirs = np.where(length > 1e-12, d / np.maximum(length, 1e-12), n)
+        pos = core + dirs * r if r > 0 else p
 
-        def add_vert(pos, uv):
-            idx = len(vertices)
-            vertices.append(pos)
-            uvs.append(uv)
-            return idx
+        vertices.append(pos)
+        normals.append(dirs)
+        uvs.append(np.column_stack([_arc_length(a.reshape(-1), hu, r), _arc_length(b.reshape(-1), hv, r)]))
 
-        def add_quad(a, b_, c, d):
-            faces.append([a, b_, c])
-            faces.append([a, c, d])
+        nu, nv = len(us), len(vs)
+        idx = np.arange(nu * nv).reshape(nv, nu) + offset
+        q00, q10 = idx[:-1, :-1].reshape(-1), idx[:-1, 1:].reshape(-1)
+        q01, q11 = idx[1:, :-1].reshape(-1), idx[1:, 1:].reshape(-1)
+        faces.append(np.column_stack([q00, q10, q11]))
+        faces.append(np.column_stack([q00, q11, q01]))
+        offset += nu * nv
 
-        # === 6 main faces (inset by bevel) ===
-
-        # Back face (-Z): normal points -Z
-        v0 = add_vert([-ix, -iy, -hz], [0, 0])
-        v1 = add_vert([-ix, +iy, -hz], [0, 1])
-        v2 = add_vert([+ix, +iy, -hz], [1, 1])
-        v3 = add_vert([+ix, -iy, -hz], [1, 0])
-        add_quad(v0, v1, v2, v3)
-
-        # Front face (+Z)
-        v4 = add_vert([+ix, -iy, +hz], [0, 0])
-        v5 = add_vert([+ix, +iy, +hz], [0, 1])
-        v6 = add_vert([-ix, +iy, +hz], [1, 1])
-        v7 = add_vert([-ix, -iy, +hz], [1, 0])
-        add_quad(v4, v5, v6, v7)
-
-        # Left face (-X)
-        v8 = add_vert([-hx, -iy, +iz], [0, 0])
-        v9 = add_vert([-hx, +iy, +iz], [0, 1])
-        v10 = add_vert([-hx, +iy, -iz], [1, 1])
-        v11 = add_vert([-hx, -iy, -iz], [1, 0])
-        add_quad(v8, v9, v10, v11)
-
-        # Right face (+X)
-        v12 = add_vert([+hx, -iy, -iz], [0, 0])
-        v13 = add_vert([+hx, +iy, -iz], [0, 1])
-        v14 = add_vert([+hx, +iy, +iz], [1, 1])
-        v15 = add_vert([+hx, -iy, +iz], [1, 0])
-        add_quad(v12, v13, v14, v15)
-
-        # Bottom face (-Y)
-        v16 = add_vert([-ix, -hy, +iz], [0, 0])
-        v17 = add_vert([-ix, -hy, -iz], [0, 1])
-        v18 = add_vert([+ix, -hy, -iz], [1, 1])
-        v19 = add_vert([+ix, -hy, +iz], [1, 0])
-        add_quad(v16, v17, v18, v19)
-
-        # Top face (+Y)
-        v20 = add_vert([-ix, +hy, -iz], [0, 0])
-        v21 = add_vert([-ix, +hy, +iz], [0, 1])
-        v22 = add_vert([+ix, +hy, +iz], [1, 1])
-        v23 = add_vert([+ix, +hy, -iz], [1, 0])
-        add_quad(v20, v21, v22, v23)
-
-        # === 12 edge bevels ===
-        # Each edge connects two face corners with a quad strip
-
-        # 4 edges along X (top/bottom × front/back)
-        # Top-front edge: connects top face front-left/right to front face top-left/right
-        e0 = add_vert([-ix, +hy, +iz], [0, 1])
-        e1 = add_vert([+ix, +hy, +iz], [1, 1])
-        e2 = add_vert([+ix, +iy, +hz], [1, 0])
-        e3 = add_vert([-ix, +iy, +hz], [0, 0])
-        add_quad(e0, e1, e2, e3)
-
-        # Top-back edge
-        e4 = add_vert([+ix, +hy, -iz], [0, 1])
-        e5 = add_vert([-ix, +hy, -iz], [1, 1])
-        e6 = add_vert([-ix, +iy, -hz], [1, 0])
-        e7 = add_vert([+ix, +iy, -hz], [0, 0])
-        add_quad(e4, e5, e6, e7)
-
-        # Bottom-front edge
-        e8 = add_vert([+ix, -hy, +iz], [0, 1])
-        e9 = add_vert([-ix, -hy, +iz], [1, 1])
-        e10 = add_vert([-ix, -iy, +hz], [1, 0])
-        e11 = add_vert([+ix, -iy, +hz], [0, 0])
-        add_quad(e8, e9, e10, e11)
-
-        # Bottom-back edge
-        e12 = add_vert([-ix, -hy, -iz], [0, 1])
-        e13 = add_vert([+ix, -hy, -iz], [1, 1])
-        e14 = add_vert([+ix, -iy, -hz], [1, 0])
-        e15 = add_vert([-ix, -iy, -hz], [0, 0])
-        add_quad(e12, e13, e14, e15)
-
-        # 4 edges along Y (left/right × front/back)
-        # Left-front edge
-        e16 = add_vert([-ix, -iy, +hz], [0, 0])
-        e17 = add_vert([-ix, +iy, +hz], [0, 1])
-        e18 = add_vert([-hx, +iy, +iz], [1, 1])
-        e19 = add_vert([-hx, -iy, +iz], [1, 0])
-        add_quad(e16, e17, e18, e19)
-
-        # Left-back edge
-        e20 = add_vert([-hx, -iy, -iz], [0, 0])
-        e21 = add_vert([-hx, +iy, -iz], [0, 1])
-        e22 = add_vert([-ix, +iy, -hz], [1, 1])
-        e23 = add_vert([-ix, -iy, -hz], [1, 0])
-        add_quad(e20, e21, e22, e23)
-
-        # Right-front edge
-        e24 = add_vert([+hx, -iy, +iz], [0, 0])
-        e25 = add_vert([+hx, +iy, +iz], [0, 1])
-        e26 = add_vert([+ix, +iy, +hz], [1, 1])
-        e27 = add_vert([+ix, -iy, +hz], [1, 0])
-        add_quad(e27, e26, e25, e24)
-
-        # Right-back edge
-        e28 = add_vert([+ix, -iy, -hz], [0, 0])
-        e29 = add_vert([+ix, +iy, -hz], [0, 1])
-        e30 = add_vert([+hx, +iy, -iz], [1, 1])
-        e31 = add_vert([+hx, -iy, -iz], [1, 0])
-        add_quad(e28, e29, e30, e31)
-
-        # 4 edges along Z (left/right × top/bottom)
-        # Top-left edge
-        e32 = add_vert([-ix, +hy, -iz], [0, 0])
-        e33 = add_vert([-ix, +hy, +iz], [0, 1])
-        e34 = add_vert([-hx, +iy, +iz], [1, 1])
-        e35 = add_vert([-hx, +iy, -iz], [1, 0])
-        add_quad(e32, e33, e34, e35)
-
-        # Top-right edge
-        e36 = add_vert([+ix, +hy, +iz], [0, 0])
-        e37 = add_vert([+ix, +hy, -iz], [0, 1])
-        e38 = add_vert([+hx, +iy, -iz], [1, 1])
-        e39 = add_vert([+hx, +iy, +iz], [1, 0])
-        add_quad(e36, e37, e38, e39)
-
-        # Bottom-left edge
-        e40 = add_vert([-hx, -iy, +iz], [0, 0])
-        e41 = add_vert([-hx, -iy, -iz], [0, 1])
-        e42 = add_vert([-ix, -hy, -iz], [1, 1])
-        e43 = add_vert([-ix, -hy, +iz], [1, 0])
-        add_quad(e40, e41, e42, e43)
-
-        # Bottom-right edge
-        e44 = add_vert([+hx, -iy, -iz], [0, 0])
-        e45 = add_vert([+hx, -iy, +iz], [0, 1])
-        e46 = add_vert([+ix, -hy, +iz], [1, 1])
-        e47 = add_vert([+ix, -hy, -iz], [1, 0])
-        add_quad(e44, e45, e46, e47)
-
-        # === 8 corner triangles ===
-        # Each corner connects 3 edges meeting at that corner
-
-        # Top-left-front (+Y, -X, +Z)
-        c0 = add_vert([-ix, +hy, +iz], [0, 1])
-        c1 = add_vert([-hx, +iy, +iz], [0, 0])
-        c2 = add_vert([-ix, +iy, +hz], [1, 0])
-        faces.append([c0, c1, c2])
-
-        # Top-right-front (+Y, +X, +Z)
-        c3 = add_vert([+ix, +hy, +iz], [0, 1])
-        c4 = add_vert([+ix, +iy, +hz], [0, 0])
-        c5 = add_vert([+hx, +iy, +iz], [1, 0])
-        faces.append([c3, c4, c5])
-
-        # Top-left-back (+Y, -X, -Z)
-        c6 = add_vert([-ix, +hy, -iz], [0, 1])
-        c7 = add_vert([-ix, +iy, -hz], [0, 0])
-        c8 = add_vert([-hx, +iy, -iz], [1, 0])
-        faces.append([c6, c7, c8])
-
-        # Top-right-back (+Y, +X, -Z)
-        c9 = add_vert([+ix, +hy, -iz], [0, 1])
-        c10 = add_vert([+hx, +iy, -iz], [0, 0])
-        c11 = add_vert([+ix, +iy, -hz], [1, 0])
-        faces.append([c9, c10, c11])
-
-        # Bottom-left-front (-Y, -X, +Z)
-        c12 = add_vert([-ix, -hy, +iz], [0, 1])
-        c13 = add_vert([-ix, -iy, +hz], [0, 0])
-        c14 = add_vert([-hx, -iy, +iz], [1, 0])
-        faces.append([c12, c13, c14])
-
-        # Bottom-right-front (-Y, +X, +Z)
-        c15 = add_vert([+ix, -hy, +iz], [0, 1])
-        c16 = add_vert([+hx, -iy, +iz], [0, 0])
-        c17 = add_vert([+ix, -iy, +hz], [1, 0])
-        faces.append([c15, c16, c17])
-
-        # Bottom-left-back (-Y, -X, -Z)
-        c18 = add_vert([-ix, -hy, -iz], [0, 1])
-        c19 = add_vert([-hx, -iy, -iz], [0, 0])
-        c20 = add_vert([-ix, -iy, -hz], [1, 0])
-        faces.append([c18, c19, c20])
-
-        # Bottom-right-back (-Y, +X, -Z)
-        c21 = add_vert([+ix, -hy, -iz], [0, 1])
-        c22 = add_vert([+ix, -iy, -hz], [0, 0])
-        c23 = add_vert([+hx, -iy, -iz], [1, 0])
-        faces.append([c21, c22, c23])
-
-        return Mesh(
-            vertices=np.array(vertices, dtype=np.float64),
-            faces=np.array(faces, dtype=np.int64),
-            uvs=np.array(uvs, dtype=np.float64),
-        )
+    return Mesh(
+        vertices=np.vstack(vertices),
+        faces=np.vstack(faces).astype(np.int64),
+        normals=np.vstack(normals),
+        uvs=np.vstack(uvs),
+    )
 
 
 @dataclass
@@ -513,8 +345,31 @@ class SphereGenerator(MeshGenerator):
             faces.append([ring_idx, ring_next, pole_idx])
 
         faces = np.array(faces, dtype=np.int64)
+        uvs *= [2 * np.pi * self.radius, np.pi * self.radius]  # metres
 
         return Mesh(vertices=vertices, faces=faces, uvs=uvs)
+
+
+@dataclass
+class EllipsoidGenerator(SphereGenerator):
+    """A sphere stretched to fill an arbitrary (x, y, z) box.
+
+    Unlike ``sphere`` (which uses the smallest size component), every axis
+    is honoured. Normals are left for the crease-angle pass so they stay
+    correct after the non-uniform stretch.
+    """
+
+    size_x: float = 1.0
+    size_y: float = 1.0
+    size_z: float = 1.0
+
+    def generate(self) -> Mesh:
+        self.radius = 0.5
+        unit = super().generate()
+        scale = np.array([self.size_x, self.size_y, self.size_z])
+        # Rescale metric UVs by the mean equatorial / vertical stretch.
+        uvs = unit.uvs * [(self.size_x + self.size_z) / 2, self.size_y]
+        return Mesh(unit.vertices * scale, unit.faces, uvs=uvs)
 
 
 @dataclass
@@ -572,12 +427,13 @@ class CylinderGenerator(MeshGenerator):
         faces = []
 
         half_height = self.height / 2
+        circumference = 2 * np.pi * self.radius
 
         # === Top cap vertices ===
         # Center vertex
         top_center = len(vertices)
         vertices.append([0.0, half_height, 0.0])
-        uvs.append([0.5, 0.5])
+        uvs.append([self.radius, self.radius])
 
         # Top cap ring (for cap faces)
         top_cap_ring_start = len(vertices)
@@ -587,8 +443,8 @@ class CylinderGenerator(MeshGenerator):
             z = self.radius * np.sin(theta)
             vertices.append([x, half_height, z])
             # Radial UV for cap
-            u = 0.5 + 0.5 * np.cos(theta)
-            v = 0.5 + 0.5 * np.sin(theta)
+            u = self.radius * (1 + np.cos(theta))
+            v = self.radius * (1 + np.sin(theta))
             uvs.append([u, v])
 
         # === Side vertices (separate for different UVs) ===
@@ -599,7 +455,7 @@ class CylinderGenerator(MeshGenerator):
             x = self.radius * np.cos(theta)
             z = self.radius * np.sin(theta)
             vertices.append([x, half_height, z])
-            uvs.append([seg / self.segments, 1.0])
+            uvs.append([seg / self.segments * circumference, self.height])
 
         # Bottom ring for sides
         side_bottom_start = len(vertices)
@@ -608,7 +464,7 @@ class CylinderGenerator(MeshGenerator):
             x = self.radius * np.cos(theta)
             z = self.radius * np.sin(theta)
             vertices.append([x, -half_height, z])
-            uvs.append([seg / self.segments, 0.0])
+            uvs.append([seg / self.segments * circumference, 0.0])
 
         # === Bottom cap vertices ===
         # Bottom cap ring
@@ -619,14 +475,14 @@ class CylinderGenerator(MeshGenerator):
             z = self.radius * np.sin(theta)
             vertices.append([x, -half_height, z])
             # Radial UV for cap (flipped for bottom view)
-            u = 0.5 + 0.5 * np.cos(theta)
-            v = 0.5 - 0.5 * np.sin(theta)
+            u = self.radius * (1 + np.cos(theta))
+            v = self.radius * (1 - np.sin(theta))
             uvs.append([u, v])
 
         # Center vertex
         bottom_center = len(vertices)
         vertices.append([0.0, -half_height, 0.0])
-        uvs.append([0.5, 0.5])
+        uvs.append([self.radius, self.radius])
 
         vertices = np.array(vertices, dtype=np.float64)
         uvs = np.array(uvs, dtype=np.float64)
@@ -712,13 +568,15 @@ class ConeGenerator(MeshGenerator):
         faces = []
 
         half_height = self.height / 2
+        circumference = 2 * np.pi * self.radius
+        slant = float(np.hypot(self.radius, self.height))
 
         # === Side vertices ===
         # Apex vertices (one per segment for proper UV seam)
         apex_start = 0
         for seg in range(self.segments + 1):
             vertices.append([0.0, half_height, 0.0])
-            uvs.append([(seg + 0.5) / self.segments, 1.0])
+            uvs.append([(seg + 0.5) / self.segments * circumference, slant])
 
         # Base ring for sides
         side_base_start = len(vertices)
@@ -727,7 +585,7 @@ class ConeGenerator(MeshGenerator):
             x = self.radius * np.cos(theta)
             z = self.radius * np.sin(theta)
             vertices.append([x, -half_height, z])
-            uvs.append([seg / self.segments, 0.0])
+            uvs.append([seg / self.segments * circumference, 0.0])
 
         # === Base cap vertices ===
         base_cap_ring_start = len(vertices)
@@ -737,14 +595,14 @@ class ConeGenerator(MeshGenerator):
             z = self.radius * np.sin(theta)
             vertices.append([x, -half_height, z])
             # Radial UV for cap
-            u = 0.5 + 0.5 * np.cos(theta)
-            v = 0.5 - 0.5 * np.sin(theta)
+            u = self.radius * (1 + np.cos(theta))
+            v = self.radius * (1 - np.sin(theta))
             uvs.append([u, v])
 
         # Base center vertex
         base_center = len(vertices)
         vertices.append([0.0, -half_height, 0.0])
-        uvs.append([0.5, 0.5])
+        uvs.append([self.radius, self.radius])
 
         vertices = np.array(vertices, dtype=np.float64)
         uvs = np.array(uvs, dtype=np.float64)
@@ -852,9 +710,7 @@ class PlaneGenerator(MeshGenerator):
                 vertices.append([x, 0.0, z])
 
                 # UVs
-                u = x_idx / self.subdivisions_x
-                v = z_idx / self.subdivisions_z
-                uvs.append([u, v])
+                uvs.append([x + hx, z + hz])  # metres
 
         # Generate faces (two triangles per quad)
         for z_idx in range(self.subdivisions_z):

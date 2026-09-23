@@ -13,6 +13,9 @@ dependencies = [
     "PyOpenGL>=3.1.7",  # Fix numpy 2.x ctypes compatibility
     "Pillow>=9.0",  # For image saving
     "PyQt6>=6.5",  # For interactive viewer UI
+    "mapbox-earcut>=1.0",  # Polygon triangulation (extrude caps)
+    "shapely>=2.0",  # 2D offsets and boolean ops on profiles
+    "manifold3d>=2.4",  # Robust 3D booleans (CSG)
 ]
 
 [project.optional-dependencies]

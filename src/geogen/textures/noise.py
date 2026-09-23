@@ -55,20 +55,27 @@ def perlin_noise(
 
     Returns:
         2D array of noise values in range [-1, 1]
+
+    The noise is seamlessly tileable: the lattice wraps with an integer
+    period (``scale`` rounded to the nearest whole number of cells), and
+    samples exclude the end point so the right edge flows into the left.
     """
     rng = np.random.default_rng(seed if seed is not None else 0)
     perm = _generate_permutation(rng)
+    period = max(1, int(round(scale)))
 
-    # Generate coordinate grids
-    x = np.linspace(offset_x, offset_x + scale, width, dtype=np.float64)
-    y = np.linspace(offset_y, offset_y + scale, height, dtype=np.float64)
+    # Generate coordinate grids (endpoint excluded so the texture tiles)
+    x = np.linspace(offset_x, offset_x + period, width, endpoint=False, dtype=np.float64)
+    y = np.linspace(offset_y, offset_y + period, height, endpoint=False, dtype=np.float64)
     xv, yv = np.meshgrid(x, y)
 
-    # Integer and fractional parts
-    xi = xv.astype(np.int32) & 255
-    yi = yv.astype(np.int32) & 255
-    xf = xv - np.floor(xv)
-    yf = yv - np.floor(yv)
+    # Integer and fractional parts; lattice indices wrap every `period` cells
+    x0 = np.floor(xv).astype(np.int64)
+    y0 = np.floor(yv).astype(np.int64)
+    xf = xv - x0
+    yf = yv - y0
+    xi, xi1 = (x0 % period) & 255, ((x0 + 1) % period) & 255
+    yi, yi1 = (y0 % period) & 255, ((y0 + 1) % period) & 255
 
     # Fade curves
     u = _fade(xf)
@@ -76,9 +83,9 @@ def perlin_noise(
 
     # Hash coordinates of cube corners
     aa = perm[perm[xi] + yi]
-    ab = perm[perm[xi] + yi + 1]
-    ba = perm[perm[xi + 1] + yi]
-    bb = perm[perm[xi + 1] + yi + 1]
+    ab = perm[perm[xi] + yi1]
+    ba = perm[perm[xi1] + yi]
+    bb = perm[perm[xi1] + yi1]
 
     # Gradient dot products
     g_aa = _grad2d(aa, xf, yf)

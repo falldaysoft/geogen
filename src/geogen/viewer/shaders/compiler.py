@@ -49,7 +49,9 @@ class ShaderProgram:
             elif len(value) == 4:
                 GL.glUniform4f(loc, *value)
         elif isinstance(value, np.ndarray):
-            if value.shape == (3,):
+            if value.shape == (2,):
+                GL.glUniform2fv(loc, 1, value.astype(np.float32))
+            elif value.shape == (3,):
                 GL.glUniform3fv(loc, 1, value.astype(np.float32))
             elif value.shape == (4,):
                 GL.glUniform4fv(loc, 1, value.astype(np.float32))

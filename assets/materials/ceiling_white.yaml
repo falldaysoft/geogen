@@ -7,6 +7,7 @@ texture:
     sheen: 0.1                     # Matte finish
     seed: 456
 size: [512, 512]
+tile_size: 2.0  # metres per texture repeat
 shininess: 0.05
 pbr:
   roughness: 0.95       # Very matte ceiling

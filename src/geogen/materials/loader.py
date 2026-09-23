@@ -157,8 +157,9 @@ class MaterialLoader:
         ao_strength = pbr.get("ao_strength", 1.0)
 
         # UV tiling
-        uv_scale_raw = data.get("uv_scale", [1.0, 1.0])
-        uv_scale = tuple(uv_scale_raw)
+        uv_scale = tuple(data.get("uv_scale", [1.0, 1.0]))
+        tile_raw = data.get("tile_size", 1.0)
+        tile_size = (float(tile_raw), float(tile_raw)) if isinstance(tile_raw, (int, float)) else tuple(tile_raw)
 
         return Material(
             name=name,
@@ -169,6 +170,7 @@ class MaterialLoader:
             normal_strength=normal_strength,
             ao_strength=ao_strength,
             uv_scale=uv_scale,
+            tile_size=tile_size,
             shininess=shininess,
             tint=tint,
         )

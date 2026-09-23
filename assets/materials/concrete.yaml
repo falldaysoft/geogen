@@ -8,7 +8,7 @@ texture:
     surface_scale: 8.0
     seed: 42
 size: [512, 512]
-uv_scale: [3, 3]
+tile_size: 2.5  # metres per texture repeat
 pbr:
   roughness: 0.85
   metallic: 0.0

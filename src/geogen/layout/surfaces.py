@@ -15,7 +15,8 @@ Key operations:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 from typing import Any
 
 import numpy as np
@@ -47,6 +48,9 @@ class Surface:
     normal: NDArray[np.float64]
     u_extent: float
     v_extent: float
+    # Part node whose geometry this surface lies on (set by the loader), so
+    # objects placed on the surface can cut openings into that part.
+    source: Any = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         self.origin = np.asarray(self.origin, dtype=np.float64)

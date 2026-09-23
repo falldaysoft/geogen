@@ -12,7 +12,14 @@ ASSET_KNOWN_KEYS = {
 
 PART_KNOWN_KEYS = {
     "primitive", "size", "anchor", "offset", "material",
-    "attach_to", "at", "from", "rotation", "bevel",
+    "attach_to", "at", "from", "rotation", "bevel", "bevel_segments",
+    # extrude / lathe
+    "shape", "profile", "axis", "fit", "crease_angle", "caps", "segments", "sweep",
+    "cap_bottom", "cap_top",
+    # booleans
+    "subtract", "cutter", "cut_host",
+    # roof / prism
+    "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
 }
 
 # Known keys for scene YAML files
@@ -29,7 +36,7 @@ PLACEMENT_KNOWN_KEYS = {
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}

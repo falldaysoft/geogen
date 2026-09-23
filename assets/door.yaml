@@ -1,0 +1,95 @@
+# Four-panel front door with frame, knob and step.
+#
+# Place it on a wall surface; it cuts its own opening into the wall:
+#   door: { asset: door.yaml, on: house.front_wall, at: {u: 0.5, v: {abs: 0}} }
+#
+# Origin is the bottom-centre of the opening on the wall face; +Z points out.
+
+name: door
+origin: bottom_center
+
+params:
+  width:  { default: 0.95 }
+  height: { default: 2.1 }
+  frame:  { default: 0.07 }
+  recess: { default: 0.1 }
+  step_height: { default: 0.3 }   # match the host's foundation so the step meets the ground
+
+size: ["{width}", "{height}", 1]
+
+parts:
+  opening:
+    primitive: cube
+    size: [1, 1, 1.2]
+    anchor: bottom_center
+    offset: [0, 0, -0.5]
+    bevel: 0
+    cut_host: true
+
+  # U-shaped frame: jambs and head, open at the threshold.
+  frame:
+    primitive: extrude
+    shape:
+      polygon:
+        - ["{-width / 2}", 0]
+        - ["{-width / 2 + frame}", 0]
+        - ["{-width / 2 + frame}", "{height - frame}"]
+        - ["{width / 2 - frame}", "{height - frame}"]
+        - ["{width / 2 - frame}", 0]
+        - ["{width / 2}", 0]
+        - ["{width / 2}", "{height}"]
+        - ["{-width / 2}", "{height}"]
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: [1, 1, 0.09]
+    anchor: bottom_center
+    offset: [0, 0, "{-recess}"]
+    material: trim_white
+
+  leaf:
+    primitive: extrude
+    shape: { rect: ["{width - 2 * frame}", "{height - frame}"] }
+    fit: none
+    axis: z
+    bevel: 0.004
+    size: ["{(width - 2 * frame) / width}", "{(height - frame) / height}", 0.045]
+    anchor: bottom_center
+    offset: [0, 0, "{-recess}"]
+    subtract: [panel_top_left, panel_top_right, panel_bottom_left, panel_bottom_right]
+    material: door_paint
+
+  # Rounded-box cutters give the recessed panels soft edges.
+  panel_top_left: &panel
+    primitive: cube
+    size: ["{(width - 2 * frame) * 0.34 / width}", 0.36, 0.03]
+    anchor: bottom_center
+    offset: ["{-(width - 2 * frame) * 0.22 / width}", 0.52, "{-recess + 0.0165}"]
+    bevel: 0.012
+    cutter: true
+  panel_top_right:
+    <<: *panel
+    offset: ["{(width - 2 * frame) * 0.22 / width}", 0.52, "{-recess + 0.0165}"]
+  panel_bottom_left:
+    <<: *panel
+    size: ["{(width - 2 * frame) * 0.34 / width}", 0.3, 0.03]
+    offset: ["{-(width - 2 * frame) * 0.22 / width}", 0.1, "{-recess + 0.0165}"]
+  panel_bottom_right:
+    <<: *panel
+    size: ["{(width - 2 * frame) * 0.34 / width}", 0.3, 0.03]
+    offset: ["{(width - 2 * frame) * 0.22 / width}", 0.1, "{-recess + 0.0165}"]
+
+  knob:
+    primitive: sphere
+    size: ["{0.065 / width}", "{0.065 / height}", 0.065]
+    anchor: bottom_center
+    offset: ["{(width / 2 - frame - 0.09) / width}", "{1.0 / height}", "{-recess + 0.045}"]
+    material: metal
+
+  step:
+    primitive: cube
+    size: ["{(width + 0.25) / width}", "{step_height / height}", 0.45]
+    anchor: bottom_center
+    offset: [0, "{-step_height / height}", 0.12]
+    bevel: 0.015
+    material: concrete

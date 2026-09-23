@@ -1,5 +1,5 @@
-# Simple table composed of primitives
-# Origin is at bottom_center of bounding box
+# Dining table: rounded tabletop, apron frame and turned legs.
+# Origin is at bottom_center of bounding box. Front of the table is +Z.
 
 name: table
 origin: bottom_center
@@ -8,82 +8,85 @@ params:
   width:  { default: 1.2 }
   height: { default: 0.75 }
   depth:  { default: 0.8 }
+  top_thickness: { default: 0.035 }
+  apron_height:  { default: 0.09 }
+  leg_width:     { default: 0.06 }
+  leg_inset:     { default: 0.07 }   # leg centre distance from the tabletop edge
 
 size: ["{width}", "{height}", "{depth}"]
 
 parts:
-  # Tabletop: flat cube at the top
+  # Tabletop: rounded-corner slab with softened edges (profile in metres).
   top:
-    primitive: cube
-    size: [1.0, 0.05, 1.0]  # full width, 5% height, full depth
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.05 }
+    fit: none
+    axis: y
+    bevel: 0.008
+    size: [1.0, "{top_thickness / height}", 1.0]
     anchor: bottom_center
-    offset: [0, 0.95, 0]
+    offset: [0, "{1 - top_thickness / height}", 0]
     material: wood
 
-  # Apron/skirt under tabletop - front
+  # Apron: four boards set back under the top, joining the legs.
   apron_front:
     primitive: cube
-    size: [0.85, 0.08, 0.025]
-    anchor: bottom_front_center
-    offset: [0, 0.87, -0.06]
-    bevel: 0.005
+    size: ["{(width - 2 * leg_inset) / width}", "{apron_height / height}", "{0.022 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{1 - (top_thickness + apron_height) / height}", "{(depth / 2 - leg_inset + leg_width / 2 - 0.016) / depth}"]
+    bevel: 0.004
     material: wood
 
-  # Apron/skirt - back
   apron_back:
     primitive: cube
-    size: [0.85, 0.08, 0.025]
-    anchor: bottom_back_center
-    offset: [0, 0.87, 0.06]
-    bevel: 0.005
+    size: ["{(width - 2 * leg_inset) / width}", "{apron_height / height}", "{0.022 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{1 - (top_thickness + apron_height) / height}", "{-(depth / 2 - leg_inset + leg_width / 2 - 0.016) / depth}"]
+    bevel: 0.004
     material: wood
 
-  # Apron/skirt - left
   apron_left:
     primitive: cube
-    size: [0.025, 0.08, 0.75]
-    anchor: bottom_front_left
-    offset: [0.06, 0.87, 0]
-    bevel: 0.005
+    size: ["{0.022 / width}", "{apron_height / height}", "{(depth - 2 * leg_inset) / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - leg_inset + leg_width / 2 - 0.016) / width}", "{1 - (top_thickness + apron_height) / height}", 0]
+    bevel: 0.004
     material: wood
 
-  # Apron/skirt - right
   apron_right:
     primitive: cube
-    size: [0.025, 0.08, 0.75]
-    anchor: bottom_front_right
-    offset: [-0.06, 0.87, 0]
-    bevel: 0.005
+    size: ["{0.022 / width}", "{apron_height / height}", "{(depth - 2 * leg_inset) / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 2 - leg_inset + leg_width / 2 - 0.016) / width}", "{1 - (top_thickness + apron_height) / height}", 0]
+    bevel: 0.004
     material: wood
 
-  # Four legs: cylinders from floor to tabletop (95% of total height)
-  leg_front_left:
-    primitive: cylinder
-    size: [0.05, 0.87, 0.05]
-    anchor: bottom_front_left
-    offset: [0.08, 0, -0.08]
+  # Turned legs: foot, tapering shaft with a bead, and a full-width pommel
+  # block at the top where the apron joins.
+  leg_front_left: &leg
+    primitive: lathe
+    profile:
+      segments:
+        - spline: [[0.62, 0.0], [0.78, 0.025], [0.55, 0.07], [0.42, 0.3], [0.5, 0.52], [0.72, 0.6], [0.55, 0.64]]
+          samples: 8
+        - [[0.9, 0.665], [1.0, 0.68], [1.0, 1.0]]
+    segments: 40
+    size: ["{leg_width / width}", "{1 - top_thickness / height}", "{leg_width / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - leg_inset) / width}", 0, "{(depth / 2 - leg_inset) / depth}"]
     material: wood
 
   leg_front_right:
-    primitive: cylinder
-    size: [0.05, 0.87, 0.05]
-    anchor: bottom_front_right
-    offset: [-0.08, 0, -0.08]
-    material: wood
+    <<: *leg
+    offset: ["{(width / 2 - leg_inset) / width}", 0, "{(depth / 2 - leg_inset) / depth}"]
 
   leg_back_left:
-    primitive: cylinder
-    size: [0.05, 0.87, 0.05]
-    anchor: bottom_back_left
-    offset: [0.08, 0, 0.08]
-    material: wood
+    <<: *leg
+    offset: ["{-(width / 2 - leg_inset) / width}", 0, "{-(depth / 2 - leg_inset) / depth}"]
 
   leg_back_right:
-    primitive: cylinder
-    size: [0.05, 0.87, 0.05]
-    anchor: bottom_back_right
-    offset: [-0.08, 0, 0.08]
-    material: wood
+    <<: *leg
+    offset: ["{(width / 2 - leg_inset) / width}", 0, "{-(depth / 2 - leg_inset) / depth}"]
 
 # Table-top surface: place things on the table with u/v.
 surfaces:

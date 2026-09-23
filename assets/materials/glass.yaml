@@ -1,0 +1,18 @@
+# Window glass: dark, smooth and reflective so it reads as glazing from outside.
+name: glass
+texture:
+  type: metal
+  params:
+    base_color: [38, 52, 64]
+    highlight_color: [70, 90, 105]
+    metal_type: polished
+    scratch_amount: 0.0
+    roughness: 0.05
+    seed: 7
+size: [256, 256]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.06
+  metallic: 0.6
+  normal_strength: 0.0
+  ao_strength: 0.0

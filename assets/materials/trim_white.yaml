@@ -1,0 +1,15 @@
+# Painted white timber for window frames, door frames and fascia boards.
+name: trim_white
+texture:
+  type: painted_wall
+  params:
+    base_color: [236, 234, 228]
+    sheen: 0.35
+    seed: 21
+size: [256, 256]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.45
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 1.0

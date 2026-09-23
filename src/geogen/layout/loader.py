@@ -8,7 +8,17 @@ from typing import Any
 import numpy as np
 
 from ..core.node import SceneNode
-from ..generators.primitives import CubeGenerator, CylinderGenerator, SphereGenerator, ConeGenerator, PlaneGenerator
+from ..core.profile import Shape, polyline_from_spec, shape_from_spec
+from ..generators.primitives import (
+    ConeGenerator,
+    CubeGenerator,
+    CylinderGenerator,
+    EllipsoidGenerator,
+    PlaneGenerator,
+    SphereGenerator,
+)
+from ..generators.architecture import PrismGenerator, RoofGenerator
+from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
 from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import resolve_anchor
@@ -28,6 +38,11 @@ PRIMITIVE_REGISTRY = {
     "cone": ConeGenerator,
     "plane": PlaneGenerator,
     "room": RoomGenerator,
+    "ellipsoid": EllipsoidGenerator,
+    "extrude": ExtrudeGenerator,
+    "lathe": LatheGenerator,
+    "roof": RoofGenerator,
+    "prism": PrismGenerator,
 }
 
 
@@ -180,6 +195,7 @@ class LayoutLoader:
             # Generate automatic surfaces from the generator
             auto_surfaces = generator.get_surfaces(actual_size)
             for surf_name, surf in auto_surfaces.items():
+                surf.source = node
                 node.surfaces[surf_name] = surf
 
             part_nodes[part_name] = node
@@ -274,6 +290,8 @@ class LayoutLoader:
 
                 root.add_child(node)
 
+        self._apply_booleans(parts, part_nodes, root)
+
         # Parse explicit attachment points for the composite object
         attachments_data = data.get("attachments", {})
         for attach_name, attach_def in attachments_data.items():
@@ -344,6 +362,7 @@ class LayoutLoader:
                 normal=rotation @ src.normal,
                 u_extent=src.u_extent,
                 v_extent=src.v_extent,
+                source=part_node,
             )
 
     def _create_room_node(
@@ -420,8 +439,12 @@ class LayoutLoader:
             Generator instance configured with the size
         """
         if primitive_type == "cube":
-            bevel = (extra_config or {}).get("bevel", 0.02)
-            return CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=bevel)
+            config = extra_config or {}
+            return CubeGenerator(
+                size_x=size[0], size_y=size[1], size_z=size[2],
+                bevel=config.get("bevel", 0.02),
+                bevel_segments=config.get("bevel_segments", 2),
+            )
         elif primitive_type == "cylinder":
             # Cylinder uses radius (half of x/z) and height
             radius = min(size[0], size[2]) / 2
@@ -448,6 +471,27 @@ class LayoutLoader:
             )
         elif primitive_type == "room":
             return self._create_room_generator(size, extra_config or {})
+        elif primitive_type == "ellipsoid":
+            return EllipsoidGenerator(size_x=size[0], size_y=size[1], size_z=size[2])
+        elif primitive_type == "extrude":
+            return self._create_extrude_generator(size, extra_config or {})
+        elif primitive_type == "lathe":
+            return self._create_lathe_generator(size, extra_config or {})
+        elif primitive_type == "roof":
+            config = extra_config or {}
+            return RoofGenerator(
+                width=size[0], height=size[1], depth=size[2],
+                style=config.get("style", "gable"),
+                overhang=float(config.get("overhang", 0.35)),
+                thickness=float(config.get("thickness", 0.12)),
+                ridge_axis=config.get("ridge_axis", "auto"),
+                ridge_cap=bool(config.get("ridge_cap", True)),
+            )
+        elif primitive_type == "prism":
+            return PrismGenerator(
+                width=size[0], height=size[1], depth=size[2],
+                apex=(extra_config or {}).get("apex", "center"),
+            )
         else:
             import difflib
             known = list(PRIMITIVE_REGISTRY.keys())
@@ -457,6 +501,104 @@ class LayoutLoader:
                 f"Unknown primitive type: '{primitive_type}'.{hint}"
                 f" Available: {known}"
             )
+
+    @staticmethod
+    def _apply_booleans(parts: dict[str, Any], part_nodes: dict[str, SceneNode], root: SceneNode) -> None:
+        """Cut ``subtract:`` parts out of their targets, then drop cutter parts.
+
+        Cutters are positioned like any other part (anchor/offset or
+        attach_to), so openings can be laid out semantically; the boolean
+        happens in the target's local frame.
+
+        Parts with ``cut_host: true`` are cutters for the *host* this asset
+        gets placed on (e.g. a window's opening): they are removed from the
+        asset and stored on ``root.host_cutters`` for the scene composer.
+        """
+        from ..core import csg
+
+        for part_name, part_def in parts.items():
+            cutter_names = part_def.get("subtract")
+            if not cutter_names:
+                continue
+            if isinstance(cutter_names, str):
+                cutter_names = [cutter_names]
+            target = part_nodes[part_name]
+            to_local = np.linalg.inv(target.world_transform())
+            cutters = []
+            for name in cutter_names:
+                if name not in part_nodes:
+                    raise ValueError(f"Part '{part_name}' subtracts unknown part '{name}'")
+                cutter = part_nodes[name]
+                cutters.append(cutter.mesh.transform(to_local @ cutter.world_transform()))
+            try:
+                target.mesh = csg.difference(target.mesh, *cutters)
+            except csg.CSGError as exc:
+                raise ValueError(f"Boolean on part '{part_name}' failed: {exc}") from exc
+
+        root_inv = np.linalg.inv(root.world_transform())
+        for part_name, part_def in parts.items():
+            if part_def.get("cut_host"):
+                node = part_nodes[part_name]
+                root.host_cutters.append(node.mesh.transform(root_inv @ node.world_transform()))
+            if part_def.get("cutter") or part_def.get("cut_host"):
+                node = part_nodes[part_name]
+                if node.children:
+                    raise ValueError(f"Cutter part '{part_name}' cannot have attached children")
+                if node.parent is not None:
+                    node.parent.remove_child(node)
+
+    @staticmethod
+    def _create_extrude_generator(size: np.ndarray, config: dict[str, Any]) -> ExtrudeGenerator:
+        """Extrude ``config['shape']`` so it fills the part's size.
+
+        With ``fit: stretch`` (default) the profile is scaled to the part's
+        extent in the profile plane; with ``fit: none`` the profile is taken
+        in metres. Either way it is centred on the part origin.
+        """
+        if "shape" not in config:
+            raise ValueError("extrude parts require a 'shape' (e.g. shape: {rect: [1, 1], radius: 0.1})")
+        axis = config.get("axis", "y")
+        if axis not in _AXIS_FRAMES:
+            raise ValueError(f"extrude axis must be one of {sorted(_AXIS_FRAMES)}, got '{axis}'")
+        u, v, a = _AXIS_FRAMES[axis]
+        shape = shape_from_spec(config["shape"])
+        lo, hi = shape.bounds
+        center = (lo + hi) / 2
+        scale = np.ones(2)
+        if config.get("fit", "stretch") == "stretch":
+            target = np.array([float(np.abs(u) @ size), float(np.abs(v) @ size)])
+            scale = target / np.maximum(hi - lo, 1e-12)
+        shape = Shape((shape.outer - center) * scale, [(h - center) * scale for h in shape.holes])
+        return ExtrudeGenerator(
+            shape=shape,
+            depth=float(np.abs(a) @ size),
+            axis=axis,
+            bevel=float(config.get("bevel", 0.0)),
+            bevel_segments=int(config.get("bevel_segments", 3)),
+            crease_angle=float(config.get("crease_angle", 40.0)),
+            caps=bool(config.get("caps", True)),
+        )
+
+    @staticmethod
+    def _create_lathe_generator(size: np.ndarray, config: dict[str, Any]) -> LatheGenerator:
+        """Revolve ``config['profile']`` ((r, y) points) to fill the part's size."""
+        if "profile" not in config:
+            raise ValueError("lathe parts require a 'profile' list of [radius, y] points")
+        prof = polyline_from_spec(config["profile"]).copy()
+        if config.get("fit", "stretch") == "stretch":
+            radius = min(size[0], size[2]) / 2
+            prof[:, 0] *= radius / max(prof[:, 0].max(), 1e-12)
+            y_range = max(np.ptp(prof[:, 1]), 1e-12)
+            prof[:, 1] = (prof[:, 1] - prof[:, 1].min()) * (size[1] / y_range)
+        prof[:, 1] -= (prof[:, 1].min() + prof[:, 1].max()) / 2
+        return LatheGenerator(
+            profile=prof,
+            segments=int(config.get("segments", 48)),
+            sweep=float(config.get("sweep", 360.0)),
+            cap_bottom=bool(config.get("cap_bottom", True)),
+            cap_top=bool(config.get("cap_top", True)),
+            crease_angle=float(config.get("crease_angle", 40.0)),
+        )
 
     def _rotate_point(self, point: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Rotate a point by XYZ Euler angles.

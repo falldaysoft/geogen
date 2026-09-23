@@ -1,0 +1,40 @@
+# Brick cottage: house shell with a front door and windows on every side.
+# Each window/door cuts its own opening into the wall it is placed on.
+
+name: cottage
+
+place:
+  house:
+    asset: house_peaked.yaml
+
+  door:
+    asset: door.yaml
+    on: house.front_wall
+    at: { u: 0.5, v: { abs: 0 } }
+
+  window_front_left:
+    asset: window.yaml
+    on: house.front_wall
+    at: { u: 0.2, v: { abs: 0.85 } }
+  window_front_right:
+    asset: window.yaml
+    on: house.front_wall
+    at: { u: 0.8, v: { abs: 0.85 } }
+
+  window_left:
+    asset: window.yaml
+    on: house.left_wall
+    at: { u: 0.5, v: { abs: 0.85 } }
+  window_right:
+    asset: window.yaml
+    on: house.right_wall
+    at: { u: 0.5, v: { abs: 0.85 } }
+
+  window_back_left:
+    asset: window.yaml
+    on: house.back_wall
+    at: { u: 0.3, v: { abs: 0.85 } }
+  window_back_right:
+    asset: window.yaml
+    on: house.back_wall
+    at: { u: 0.7, v: { abs: 0.85 } }

@@ -47,6 +47,9 @@ class SceneNode:
     attachments: dict[str, AttachmentPoint] = field(default_factory=dict)
     surfaces: dict[str, Surface] = field(default_factory=dict)
     size: NDArray[np.float64] | None = field(default=None, repr=False)
+    # Closed meshes (in this node's frame) that cut an opening into whatever
+    # surface this object is placed on, e.g. the hole a window needs.
+    host_cutters: list[Mesh] = field(default_factory=list, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -248,6 +251,7 @@ class SceneNode:
             attachments=self.attachments.copy(),
             surfaces=self.surfaces.copy(),
             size=self.size.copy() if self.size is not None else None,
+            host_cutters=list(self.host_cutters),
         )
         if deep:
             for child in self.children:

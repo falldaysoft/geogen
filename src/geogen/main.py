@@ -4,12 +4,11 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-import pyrender
-from PIL import Image
 
 from .registry import SceneRegistry
 from .scenes.nature import create_nature_scene
-from .viewer import Viewer, run_viewer
+from .render import VIEWS, RenderOptions, render_scene, render_views
+from .viewer import run_viewer
 
 
 def _build_registry() -> SceneRegistry:
@@ -60,6 +59,38 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
         default=45.0,
         help="Camera field of view in degrees (default: 45)",
     )
+    parser.add_argument(
+        "--view",
+        choices=sorted(VIEWS),
+        default="iso",
+        help="Camera view preset for --render (default: iso)",
+    )
+    parser.add_argument(
+        "--views",
+        metavar="V1,V2,...",
+        nargs="?",
+        const="iso,front,side,top",
+        help="Render a contact sheet of several views (default set: iso,front,side,top)",
+    )
+    parser.add_argument(
+        "-e", "--export",
+        metavar="PATH",
+        help="Export the scene to .glb/.gltf/.obj and quit",
+    )
+    parser.add_argument(
+        "--viewer-screenshot",
+        metavar="PATH",
+        help="Open the interactive viewer, save one frame to PATH and quit",
+    )
+    parser.add_argument(
+        "--display",
+        choices=["lit", "clay", "normals", "uv"],
+        default="lit",
+        help="Viewer display mode (default: lit)",
+    )
+    parser.add_argument("--zoom", type=float, default=1.0, help="Camera zoom factor for --render")
+    parser.add_argument("--no-shadows", action="store_true", help="Disable shadows in --render")
+    parser.add_argument("--no-ground", action="store_true", help="Don't add a ground plane in --render")
     return parser.parse_args()
 
 
@@ -79,108 +110,47 @@ def main() -> None:
         mesh_info = f" ({node.mesh.face_count} faces)" if node.mesh else ""
         print(f"{indent}- {node.name}{mesh_info}")
 
-    # Use textures from materials; fallback color only for untextured meshes
-    viewer = Viewer(root, color=(0.7, 0.7, 0.8))
+    if args.export:
+        from .export import export_scene
+
+        path = export_scene(root, args.export)
+        print(f"\nExported {args.scene} to {path}")
+        if not args.render:
+            return
 
     if args.render:
-        # Render to file using pyrender for reliable offscreen rendering
         width, height = map(int, args.resolution.split("x"))
         output_path = Path(args.render)
-        print(f"\nRendering to {output_path} ({width}x{height})...")
-
-        # Build pyrender scene manually for better control
-        # Sky-blue background color
-        pr_scene = pyrender.Scene(
-            ambient_light=[0.3, 0.3, 0.3],
-            bg_color=[0.55, 0.7, 0.85, 1.0],
+        options = RenderOptions(
+            width=width,
+            height=height,
+            fov=args.fov,
+            shadows=not args.no_shadows,
+            ground=not args.no_ground,
+            camera=np.array([float(x) for x in args.camera.split(",")]) if args.camera else None,
+            target=np.array([float(x) for x in args.target.split(",")]) if args.target else None,
+            zoom=args.zoom,
         )
-
-        # Add each mesh from the trimesh scene
-        for name, geom in viewer.scene.geometry.items():
-            # Convert trimesh geometry to pyrender mesh (smooth=False for face colors)
-            pr_mesh = pyrender.Mesh.from_trimesh(geom, smooth=False)
-            pr_scene.add(pr_mesh)
-
-        # Compute scene bounds for auto-fitting camera
-        scene_bounds = viewer.scene.bounds
-        scene_center = (scene_bounds[0] + scene_bounds[1]) / 2
-        scene_size = np.linalg.norm(scene_bounds[1] - scene_bounds[0])
-
-        # Parse camera position (or auto-fit)
-        if args.camera:
-            cam_pos = np.array([float(x) for x in args.camera.split(",")])
+        if args.views:
+            views = [v.strip() for v in args.views.split(",")]
+            print(f"\nRendering {len(views)} views to {output_path} ({width}x{height} each)...")
+            image = render_views(root, views, options)
         else:
-            # Auto-fit: distance based on scene size and FOV
-            # Use the FOV to compute the distance needed to frame the scene
-            half_fov = np.radians(args.fov) / 2
-            distance = (scene_size * 0.5) / np.tan(half_fov) * 0.85
-            distance = max(distance, scene_size * 0.6)
-
-            angle = np.radians(35)
-            cam_pos = scene_center + np.array([
-                np.sin(angle) * distance,
-                distance * 0.4,
-                np.cos(angle) * distance
-            ])
-
-        # Parse target (or use scene center)
-        if args.target:
-            target = np.array([float(x) for x in args.target.split(",")])
-        else:
-            target = scene_center.copy()
-            # Look slightly above the bottom of the scene
-            target[1] = scene_bounds[0][1] + (scene_bounds[1][1] - scene_bounds[0][1]) * 0.35
-
-        up = np.array([0.0, 1.0, 0.0])
-
-        # Camera FOV
-        camera = pyrender.PerspectiveCamera(yfov=np.radians(args.fov))
-
-        # Build look-at matrix
-        forward = target - cam_pos
-        forward = forward / np.linalg.norm(forward)
-        right = np.cross(forward, up)
-        right = right / np.linalg.norm(right)
-        up = np.cross(right, forward)
-
-        camera_pose = np.eye(4)
-        camera_pose[:3, 0] = right
-        camera_pose[:3, 1] = up
-        camera_pose[:3, 2] = -forward  # Camera looks down -Z
-        camera_pose[:3, 3] = cam_pos
-        pr_scene.add(camera, pose=camera_pose)
-
-        # Add lighting - key light from camera direction
-        key_light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
-        pr_scene.add(key_light, pose=camera_pose)
-
-        # Fill light from above-behind to soften shadows
-        fill_pose = np.eye(4)
-        fill_dir = np.array([0.3, -0.8, -0.5])
-        fill_dir = fill_dir / np.linalg.norm(fill_dir)
-        fill_right = np.cross(fill_dir, np.array([0, 1, 0]))
-        fill_right = fill_right / np.linalg.norm(fill_right)
-        fill_up = np.cross(fill_right, fill_dir)
-        fill_pose[:3, 0] = fill_right
-        fill_pose[:3, 1] = fill_up
-        fill_pose[:3, 2] = -fill_dir
-        fill_light = pyrender.DirectionalLight(color=np.ones(3), intensity=1.5)
-        pr_scene.add(fill_light, pose=fill_pose)
-
-        # Render offscreen
-        renderer = pyrender.OffscreenRenderer(width, height)
-        color, _ = renderer.render(pr_scene)
-        renderer.delete()
-
-        # Save image
-        img = Image.fromarray(color)
-        img.save(str(output_path))
+            print(f"\nRendering to {output_path} ({width}x{height})...")
+            image = render_scene(root, options, view=args.view)
+        image.save(str(output_path))
         print(f"Saved render to {output_path}")
     else:
         # Show interactive viewer with scene selection menu
         print("\nOpening viewer...")
         print("Controls: Left-drag to rotate, scroll to zoom, right-drag to pan")
-        run_viewer(scenes=registry.scenes, default_scene=args.scene)
+        run_viewer(
+            scenes=registry.scenes,
+            default_scene=args.scene,
+            screenshot=args.viewer_screenshot,
+            view=None if args.view == "iso" else {"side": "right"}.get(args.view, args.view),
+            display_mode=["lit", "clay", "normals", "uv"].index(args.display),
+        )
 
 
 if __name__ == "__main__":

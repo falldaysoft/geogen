@@ -14,5 +14,5 @@ slots:
 
 place:
   house:
-    asset: house_simple.yaml
+    scene: scenes/cottage.yaml
     slot: house

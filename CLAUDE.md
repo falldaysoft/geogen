@@ -19,9 +19,18 @@ python -m geogen.main
 # Select a specific scene (available: chair, table, dining_set, room, street, nature, plus any YAML asset)
 python -m geogen.main -s dining_set
 
-# Render to file and quit (for testing)
+# Render to file and quit (for testing) — shadows + PBR maps, auto-framed
 python -m geogen.main -r output.png
 python -m geogen.main -s room -r output.png --resolution 1280x720
+python -m geogen.main -s chair -r sheet.png --views            # iso/front/side/top contact sheet
+python -m geogen.main -s chair -r sheet.png --views iso,back,top --resolution 700x700
+python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
+
+# Export for game engines (hierarchy + PBR textures)
+python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj
+
+# Screenshot the interactive Qt viewer (display: lit|clay|normals|uv)
+python -m geogen.main -s street --viewer-screenshot shot.png --display uv
 
 # Install dependencies
 pip install -e .
@@ -48,13 +57,27 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **geometry** (`geometry.py`): Helper functions for face winding and normal computation. Uses CCW winding convention.
 
+- **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding). Use `validate` whenever you touch a generator.
+
+- **uvmap** (`uvmap.py`): Metric UV projection — `box_project`, `planar_project`, `cylindrical_project`, and `texel_density` (1.0 == metric).
+
+- **profile** (`profile.py`): 2D shapes for extrude/lathe: `Shape(outer, holes)` (auto CCW/CW), `rect(w, h, radius)`, `circle`, `ellipse`, `regular_polygon`, `fillet`, `arc`, `bezier`, `catmull_rom`, `offset`/`Shape.difference` (shapely), `triangulate` (earcut), and YAML builders `loop_from_spec`/`shape_from_spec`/`polyline_from_spec`.
+
 ### Generators (`src/geogen/generators/`)
 
 - **MeshGenerator** (`base.py`): Abstract base class for generators producing single meshes. Implement `generate() -> Mesh`.
 
 - **CompositeGenerator** (`base.py`): Abstract base for generators producing scene hierarchies.
 
-- **Primitives** (`primitives.py`): Dataclass-based generators for Cube, Sphere, Cylinder, Cone. Each declares its own attachment points via `get_attachment_points(size)`. `CubeGenerator` has a `bevel` param (default 0.02) for chamfered edges; set `bevel: 0` in YAML for sharp cubes (do this for thin flat surfaces like roads/sidewalks to avoid disproportionate bevels).
+- **Primitives** (`primitives.py`): Dataclass-based generators for Cube, Sphere, Cylinder, Cone. Each declares its own attachment points via `get_attachment_points(size)`. `CubeGenerator` is a rounded box: `bevel` is the edge radius (default 0.02) and `bevel_segments` the arc steps per 45° (default 2), with analytic normals. Set `bevel: 0` in YAML for sharp cubes (do this for thin flat surfaces like roads/sidewalks to avoid disproportionate bevels).
+
+- **ExtrudeGenerator / LatheGenerator** (`profiles.py`): Extrude a `Shape` (with holes) along x/y/z with an optional rounded cap bevel; revolve an (r, y) profile around Y (partial `sweep` supported, r=0 closes at the axis). Both are watertight, metric-UV'd, and use a crease angle (default 40°) for normals.
+
+- **RoofGenerator / PrismGenerator** (`architecture.py`): `primitive: roof` with `style: gable|hip|shed|flat`, `overhang`, `thickness`, `ridge_axis: auto|x|z`, `ridge_cap`. Size = wall-top footprint + rise; the part's bottom is the wall-top plane, eaves overhang beyond it. UVs are face-planar (shingle rows parallel to eaves). `primitive: prism` fills gable ends (`apex: center|back|front` for wedges/ramps).
+
+- **CSG** (`core/csg.py`): `difference`, `union`, `intersection` on closed meshes via manifold3d; UVs survive, normals are recomputed. In YAML: `subtract: [part, ...]` on a target and `cutter: true` on helper parts (removed after cutting). `cut_host: true` marks an opening cutter that is applied to *whatever surface the asset is placed on* — `window.yaml` / `door.yaml` use this so `on: house.front_wall` cuts a real opening into the wall part (surfaces remember their `source` part).
+
+- **EllipsoidGenerator** (`primitives.py`): Sphere stretched to all three size components (`sphere` keeps using `min(size)` for back-compat).
 
 - **RoomGenerator** (`room.py`): Generates rooms with walls, floor, ceiling, and openings (doors/windows). Supports `generate_parts()` for separate surface meshes with different materials. Uses `Opening` dataclass for doors/windows with wall position, size, and bottom offset.
 
@@ -68,7 +91,7 @@ pytest tests/test_scenes.py -k "test_name"
 
 ### Materials (`src/geogen/materials/`)
 
-- **Material** (`material.py`): Combines a TextureGenerator with PBR properties (roughness, metallic, normal_strength, ao_strength). Caches generated textures. Meshes reference materials for rendering.
+- **Material** (`material.py`): Combines a TextureGenerator with PBR properties (roughness, metallic, normal_strength, ao_strength). Caches generated textures. `tile_size` (metres per texture repeat, YAML scalar or `[u, v]`) converts metric mesh UVs to texture space via `texture_uv_scale`; `gltf_images()` packs base colour / metallic-roughness / normal / occlusion for both the renderer and exporter.
 
 - **MaterialLoader** (`loader.py`): Loads material definitions from YAML files in `assets/materials/`.
 
@@ -84,7 +107,20 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **AttachmentPoint** (`attachments.py`): Named points for connecting objects. Specifies position via anchor + offset, and orientation via `facing` direction (`center`, `outward`, compass directions) or explicit rotation.
 
-- **LayoutLoader** (`loader.py`): Loads composite objects from YAML. Format:
+- **LayoutLoader** (`loader.py`): Loads composite objects from YAML. Profile primitives:
+  ```yaml
+  top:
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.05 }   # or {outer: ..., holes: [...]}
+    fit: none          # profile in metres (default 'stretch' scales it to the part size)
+    axis: y            # y: profile in XZ (slabs), z: profile in XY (panels), x
+    bevel: 0.008
+  leg:
+    primitive: lathe
+    profile: { spline: [[0.6, 0], [0.4, 0.5], [0.7, 1.0]] }  # (r, y); or [[r, y], ...] / {segments: [...]}
+    segments: 40
+  ```
+  Base format:
   ```yaml
   name: object_name
   origin: bottom_center
@@ -156,9 +192,16 @@ pytest tests/test_scenes.py -k "test_name"
 
 ### Viewer (`src/geogen/viewer/`)
 
-- **qt_viewer.py**: PyQt6/OpenGL viewer with scene selection, node tree, and orbit camera. Uses modern shaders (PBR when available, Blinn-Phong fallback). `GLWidget` handles mesh rendering with VAOs/VBOs and texture binding. `ViewerWindow` provides scene selector UI.
+- **qt_viewer.py**: `ViewerWindow` — filterable scene list, node tree synced with viewport picking, inspector (size, tris, materials, attachments, surfaces, mesh validation), toolbar (reload, views, display mode, wireframe/grid/shadows/ground, screenshot), hot reload of `assets/**/*.yaml` via QFileSystemWatcher, errors shown in the status bar instead of crashing. Keys: 1/2/3/4/7/0 views, F frame selection, A frame all, W/G/S/H toggles, M display mode, Ctrl+R/S/F.
+- **gl_view.py**: `GLView` QOpenGLWidget — sun shadow map (PCF), hemisphere ambient + ACES tonemap, display modes Lit/Clay/Normals/UV checker (1 checker cell = 25 cm), selection highlight, CPU ray picking, zoom-to-cursor.
+- **camera.py**: Pure-numpy `OrbitCamera` (framing, presets, pan/orbit/zoom, adaptive clip planes, pick rays) and `ray_mesh_intersect` — unit tested without GL.
+- **shaders/**: `scene.vert/.frag` (PBR + shadows + debug modes), `depth.*` (shadow pass), `line.*` (grid/axes/wireframe).
+- **viewer.py**: Legacy trimesh-based `Viewer` (still used by tests for trimesh scene conversion).
 
-- **shaders/**: GLSL vertex and fragment shaders. PBR shader supports albedo, normal, roughness, and AO maps.
+### Rendering & Export
+
+- **render.py**: Offscreen pyrender renderer used by `-r`: `SceneRenderer`, `render_scene`, `render_views` (contact sheet), `RenderOptions`, `VIEWS` presets. Shares one offscreen context per process (macOS). Contains a `np.infty` shim for pyrender 0.1.45 on NumPy 2.
+- **export.py**: `export_scene(root, path)` → GLB/glTF (node hierarchy with local transforms, PBR textures, texture-space UVs) or OBJ+MTL+PNG.
 
 ## Hierarchical Layout System - Semantic Connections
 
@@ -282,6 +325,10 @@ place:
     slot: left_side
 ```
 
+### Buildings
+
+`house_peaked.yaml` is a hollow brick shell (walls minus an `interior` cutter) with a gable `roof`, brick `prism` gables and a chimney. `scenes/cottage.yaml` places `door.yaml` and `window.yaml` on its wall surfaces; each cuts its own opening. Opening assets are authored with the origin at the bottom-centre of the opening on the wall face, +Z out of the wall, and a 1 m container depth so z offsets read as metres. `scenes/house_plot.yaml` (used by the street) places the cottage scene.
+
 ### Design Principles
 
 1. **No magic numbers in connections**: Parts connect via named points (`top`, `bottom`, `seat_front`), not coordinates
@@ -362,6 +409,11 @@ Coordinate forms for `u`/`v`/`depth`:
 `yaml_utils.GeogenSafeLoader` disables YAML 1.1's `on`/`off`/`yes`/`no` boolean resolution so keys like `on:` parse as strings. Always load asset/scene YAML through `LayoutLoader` or `SceneComposer` — using `yaml.safe_load` directly will mangle `on:` into `True`.
 
 ## Key Conventions
+
+- **UVs are metric** (1 UV unit = 1 m of surface). Generators must emit metric UVs (or run `uvmap.box_project`); materials set `tile_size`. Never emit 0–1-per-face UVs — texture density would vary with object size.
+- **Procedural textures must tile**: noise is periodic (`perlin_noise` wraps its lattice); `tests/test_textures_tile.py` checks every material.
+- Generators should produce closed meshes that pass `meshops.validate`; `tests/test_asset_quality.py` checks every registered asset/scene.
+- For turned/curved/filleted parts prefer `lathe`/`extrude` over stacking primitives. YAML anchors+merge keys (`&leg` / `<<: *leg`) work for repeated parts.
 
 - All meshes use counter-clockwise face winding for outward normals
 - Transformations follow order: Scale -> Rotate -> Translate

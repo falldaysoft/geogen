@@ -10,6 +10,7 @@ texture:
     variation_strength: 0.6
     seed: 123
 size: [512, 512]
+tile_size: 2.0  # metres per texture repeat
 pbr:
   roughness: 0.8
   metallic: 0.0

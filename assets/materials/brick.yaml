@@ -12,7 +12,7 @@ texture:
     color_variation: 0.3
     seed: 42
 size: [512, 512]
-uv_scale: [2, 2]
+tile_size: [1.35, 0.9]  # metres per texture repeat
 pbr:
   roughness: 0.8
   metallic: 0.0

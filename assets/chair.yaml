@@ -1,61 +1,126 @@
-# Simple chair composed of primitives
-# Origin is at bottom_center of bounding box
+# Dining chair: filleted seat, turned front legs, back posts with rails and
+# spindles, and side stretchers.
+# Origin is at bottom_center of bounding box. The chair faces +Z.
 
 name: chair
 origin: bottom_center
 
 params:
-  width:  { default: 0.5 }
-  height: { default: 0.9 }
-  depth:  { default: 0.5 }
+  width:  { default: 0.46 }
+  height: { default: 0.92 }
+  depth:  { default: 0.48 }
+  seat_height:    { default: 0.46 }
+  seat_thickness: { default: 0.035 }
+  leg_width:      { default: 0.038 }
+  leg_inset:      { default: 0.035 }   # leg centre distance from the seat edge
 
 size: ["{width}", "{height}", "{depth}"]
 
 parts:
-  # Seat: a flat cube near the middle height
   seat:
-    primitive: cube
-    size: [0.9, 0.08, 0.9]  # 90% width, 8% height, 90% depth
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.035 }
+    fit: none
+    axis: y
+    bevel: 0.009
+    size: [1.0, "{seat_thickness / height}", 1.0]
     anchor: bottom_center
-    offset: [0, 0.42, 0]  # seat at ~42% up from bottom
+    offset: [0, "{(seat_height - seat_thickness) / height}", 0]
     material: wood
 
-  # Back: tall thin cube at the back
-  back:
-    primitive: cube
-    size: [0.9, 0.5, 0.08]  # 90% width, 50% height, 8% depth
-    anchor: bottom_back_center
-    offset: [0, 0.5, 0.04]  # starts at 50% height, slightly forward
+  # Turned front legs, full-width block at the top where the seat rails join.
+  leg_front_left: &front_leg
+    primitive: lathe
+    profile:
+      segments:
+        - spline: [[0.55, 0.0], [0.7, 0.03], [0.5, 0.09], [0.4, 0.35], [0.52, 0.6], [0.72, 0.68], [0.55, 0.72]]
+          samples: 8
+        - [[0.9, 0.76], [1.0, 0.78], [1.0, 1.0]]
+    segments: 36
+    size: ["{leg_width / width}", "{(seat_height - seat_thickness) / height}", "{leg_width / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - leg_inset) / width}", 0, "{(depth / 2 - leg_inset) / depth}"]
     material: wood
-
-  # Four legs: cylinders at each corner
-  leg_front_left:
-    primitive: cylinder
-    size: [0.06, 0.42, 0.06]  # 6% width, 42% height, 6% depth
-    anchor: bottom_front_left
-    offset: [0.08, 0, -0.08]  # inset from corner
-    material: metal
 
   leg_front_right:
-    primitive: cylinder
-    size: [0.06, 0.42, 0.06]
-    anchor: bottom_front_right
-    offset: [-0.08, 0, -0.08]
-    material: metal
+    <<: *front_leg
+    offset: ["{(width / 2 - leg_inset) / width}", 0, "{(depth / 2 - leg_inset) / depth}"]
 
-  leg_back_left:
-    primitive: cylinder
-    size: [0.06, 0.42, 0.06]
-    anchor: bottom_back_left
-    offset: [0.08, 0, 0.08]
-    material: metal
+  # Back posts run from the floor to the top of the backrest.
+  post_left: &post
+    primitive: extrude
+    shape: { rect: ["{leg_width}", "{leg_width}"], radius: 0.008 }
+    fit: none
+    axis: y
+    bevel: 0.004
+    size: ["{leg_width / width}", 1.0, "{leg_width / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - leg_inset) / width}", 0, "{-(depth / 2 - leg_inset) / depth}"]
+    material: wood
 
-  leg_back_right:
+  post_right:
+    <<: *post
+    offset: ["{(width / 2 - leg_inset) / width}", 0, "{-(depth / 2 - leg_inset) / depth}"]
+
+  # Backrest: curved-edged top rail, a lower rail, and turned spindles between.
+  top_rail:
+    primitive: extrude
+    shape: { rect: ["{width - 2 * leg_inset}", 0.085], radius: 0.02 }
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: ["{(width - 2 * leg_inset) / width}", "{0.085 / height}", "{0.024 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - 0.1) / height}", "{-(depth / 2 - leg_inset) / depth}"]
+    material: wood
+
+  mid_rail:
+    primitive: cube
+    size: ["{(width - 2 * leg_inset) / width}", "{0.03 / height}", "{0.022 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(seat_height + 0.07) / height}", "{-(depth / 2 - leg_inset) / depth}"]
+    bevel: 0.005
+    material: wood
+
+  spindle_left: &spindle
+    primitive: lathe
+    profile:
+      spline: [[0.7, 0.0], [0.45, 0.15], [0.8, 0.5], [0.45, 0.85], [0.7, 1.0]]
+      samples: 8
+    segments: 24
+    size: ["{0.022 / width}", "{(height - 0.1 - seat_height - 0.1) / height}", "{0.022 / depth}"]
+    anchor: bottom_center
+    offset: ["{-0.09 / width}", "{(seat_height + 0.1) / height}", "{-(depth / 2 - leg_inset) / depth}"]
+    material: wood
+
+  spindle_center:
+    <<: *spindle
+    offset: [0, "{(seat_height + 0.1) / height}", "{-(depth / 2 - leg_inset) / depth}"]
+
+  spindle_right:
+    <<: *spindle
+    offset: ["{0.09 / width}", "{(seat_height + 0.1) / height}", "{-(depth / 2 - leg_inset) / depth}"]
+
+  # Seat apron under the front edge, and side stretchers low between the legs.
+  apron_front:
+    primitive: cube
+    size: ["{(width - 2 * leg_inset) / width}", "{0.05 / height}", "{0.02 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(seat_height - seat_thickness - 0.05) / height}", "{(depth / 2 - leg_inset) / depth}"]
+    bevel: 0.004
+    material: wood
+
+  stretcher_left: &stretcher
     primitive: cylinder
-    size: [0.06, 0.42, 0.06]
-    anchor: bottom_back_right
-    offset: [-0.08, 0, 0.08]
-    material: metal
+    size: ["{0.018 / width}", "{(depth - 2 * leg_inset) / height}", "{0.018 / depth}"]
+    rotation: [90, 0, 0]
+    anchor: center
+    offset: ["{-(width / 2 - leg_inset) / width}", "{(0.14 - height / 2) / height}", 0]
+    material: wood
+
+  stretcher_right:
+    <<: *stretcher
+    offset: ["{(width / 2 - leg_inset) / width}", "{(0.14 - height / 2) / height}", 0]
 
 # Surfaces that scenes can target (e.g. placing something on the seat).
 surfaces:

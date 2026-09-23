@@ -13,6 +13,7 @@ texture:
     gap_color: [40, 30, 20]
     seed: 42
 size: [512, 512]
+tile_size: [0.9, 2.4]  # metres per texture repeat
 shininess: 0.4
 pbr:
   roughness: 0.45       # Semi-glossy finished wood

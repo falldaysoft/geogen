@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
+from ..core import uvmap
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from .base import MeshGenerator, CompositeGenerator
@@ -154,7 +155,7 @@ class RoomGenerator(MeshGenerator):
             wall = self._make_wall(wall_name, wall_openings)
             meshes.append(wall)
 
-        return Mesh.merge(meshes)
+        return _metric_uvs(Mesh.merge(meshes))
 
     def generate_parts(self) -> dict[str, Mesh]:
         """Generate room as separate meshes for floor, walls, and ceiling.
@@ -183,7 +184,7 @@ class RoomGenerator(MeshGenerator):
         if wall_meshes:
             parts['walls'] = Mesh.merge(wall_meshes)
 
-        return parts
+        return {name: _metric_uvs(mesh) for name, mesh in parts.items()}
 
     def to_composite_node(
         self,
@@ -836,3 +837,8 @@ class RoomGenerator(MeshGenerator):
         """Generate geometry and wrap it in a SceneNode."""
         node_name = name or "room"
         return SceneNode(name=node_name, mesh=self.generate())
+
+
+def _metric_uvs(mesh: Mesh) -> Mesh:
+    """Replace per-panel 0-1 UVs with metric box-projected UVs from the room corner."""
+    return uvmap.box_project(mesh, origin=mesh.vertices.min(axis=0))

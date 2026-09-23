@@ -41,8 +41,10 @@ class Material:
     normal_strength: float = 1.0
     ao_strength: float = 1.0
 
-    # UV tiling
+    # UV tiling. Mesh UVs are metric, so tile_size is the size in metres that
+    # one repeat of the texture covers; uv_scale is an extra multiplier.
     uv_scale: tuple[float, float] = (1.0, 1.0)
+    tile_size: tuple[float, float] = (1.0, 1.0)
 
     # Legacy property (converted to roughness if roughness not explicitly set)
     shininess: float = 0.3
@@ -53,6 +55,14 @@ class Material:
     _cached_normal: Image.Image | None = field(default=None, repr=False)
     _cached_roughness: Image.Image | None = field(default=None, repr=False)
     _cached_ao: Image.Image | None = field(default=None, repr=False)
+
+    @property
+    def texture_uv_scale(self) -> tuple[float, float]:
+        """Multiplier from mesh (metric) UVs to texture-space UVs."""
+        return (
+            self.uv_scale[0] / self.tile_size[0],
+            self.uv_scale[1] / self.tile_size[1],
+        )
 
     def get_texture(self) -> Image.Image:
         """Generate or return cached albedo texture image.
@@ -121,6 +131,43 @@ class Material:
             'roughness': self.get_roughness_map(),
             'ao': self.get_ao_map(),
         }
+
+    def gltf_images(self) -> dict[str, Image.Image]:
+        """Texture images packed the way glTF metallic-roughness expects.
+
+        Returns a dict with ``base_color`` (RGB), ``metallic_roughness``
+        (G = roughness, B = metallic, absolute values so factors can be 1.0),
+        and optionally ``normal`` (strength baked in) and ``occlusion``.
+        Shared by the offscreen renderer and the glTF exporter.
+        """
+        albedo = self.get_texture().convert("RGB")
+        width, height = albedo.size
+        images: dict[str, Image.Image] = {"base_color": albedo}
+
+        rough = self.get_roughness_map()
+        if rough is not None:
+            rough_arr = np.asarray(rough.convert("L").resize((width, height)), dtype=np.float64) / 255.0
+            rough_arr = rough_arr * (self.roughness / max(rough_arr.mean(), 1e-3))
+        else:
+            rough_arr = np.full((height, width), self.roughness)
+        mr = np.zeros((height, width, 3), dtype=np.uint8)
+        mr[..., 1] = np.clip(rough_arr * 255, 0, 255).astype(np.uint8)
+        mr[..., 2] = int(np.clip(self.metallic, 0, 1) * 255)
+        images["metallic_roughness"] = Image.fromarray(mr)
+
+        normal = self.get_normal_map()
+        if normal is not None and self.normal_strength > 0:
+            n = np.asarray(normal.convert("RGB"), dtype=np.float64) / 127.5 - 1.0
+            n[..., :2] *= self.normal_strength
+            n /= np.maximum(np.linalg.norm(n, axis=2, keepdims=True), 1e-6)
+            images["normal"] = Image.fromarray(np.clip((n + 1.0) * 127.5, 0, 255).astype(np.uint8))
+
+        ao = self.get_ao_map()
+        if ao is not None and self.ao_strength > 0:
+            ao_arr = np.asarray(ao.convert("L"), dtype=np.float64) / 255.0
+            ao_arr = 1.0 - (1.0 - ao_arr) * self.ao_strength
+            images["occlusion"] = Image.fromarray(np.clip(ao_arr * 255, 0, 255).astype(np.uint8)).convert("RGB")
+        return images
 
     def _apply_tint(self, image: Image.Image) -> Image.Image:
         """Apply color tint to texture."""

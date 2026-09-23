@@ -1,0 +1,15 @@
+# Deep green gloss paint for front doors.
+name: door_paint
+texture:
+  type: painted_wall
+  params:
+    base_color: [48, 104, 84]
+    sheen: 0.5
+    seed: 33
+size: [256, 256]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.35
+  metallic: 0.0
+  normal_strength: 0.2
+  ao_strength: 1.0

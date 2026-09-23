@@ -212,6 +212,7 @@ class SceneComposer:
                 )
                 root.add_child(node)
                 loaded_objects[obj_name] = node
+                self._cut_host(node, obj_name, obj_def["on"], loaded_objects)
                 continue
 
             if "attach_to" in obj_def:
@@ -268,6 +269,26 @@ class SceneComposer:
             return self.compose(scene_path)
         else:
             raise ValueError("Object must have 'asset' or 'scene' specified")
+
+    @staticmethod
+    def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:
+        """Subtract ``node``'s host cutters from the part that owns surface ``spec``."""
+        if not node.host_cutters:
+            return
+        from ..core import csg
+
+        target_name, surface_name = spec.split(".", 1)
+        surface = loaded_objects[target_name].surfaces.get(surface_name)
+        host = surface.source if surface is not None else None
+        if host is None or host.mesh is None:
+            logger.warning("'%s' has openings but surface '%s' has no source part to cut", obj_name, spec)
+            return
+        to_host = np.linalg.inv(host.world_transform()) @ node.world_transform()
+        cutters = [m.transform(to_host) for m in node.host_cutters]
+        try:
+            host.mesh = csg.difference(host.mesh, *cutters)
+        except csg.CSGError as exc:
+            raise ValueError(f"Cutting opening for '{obj_name}' into '{spec}' failed: {exc}") from exc
 
     def _surface_target_is_object(self, spec: str) -> bool:
         """Return True when `on: <spec>` refers to `<object>.<surface>`."""

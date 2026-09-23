@@ -1,135 +1,84 @@
-# House with peaked/gable roof
-# Front of house is +Z direction
-# Origin is at bottom_center
+# Brick cottage shell with a pitched (gable) roof.
+#
+# The walls are a hollow shell, so windows and doors placed on its wall
+# surfaces cut real openings (see scenes/cottage.yaml). Front faces +Z,
+# origin at bottom_center.
 
 name: house_peaked
 origin: bottom_center
 
 params:
-  width:  { default: 8 }
-  height: { default: 5 }   # includes roof peak
-  depth:  { default: 6 }
+  width:          { default: 8 }
+  depth:          { default: 6 }
+  wall_height:    { default: 2.8 }
+  roof_height:    { default: 2.1 }   # ridge rise above the wall top
+  foundation:     { default: 0.3 }
+  wall_thickness: { default: 0.3 }
+  overhang:       { default: 0.4 }
 
-size: ["{width}", "{height}", "{depth}"]
+size: ["{width}", "{foundation + wall_height + roof_height}", "{depth}"]
 
 parts:
-  # Foundation strip (concrete base)
   foundation:
     primitive: cube
-    size: [0.98, 0.05, 0.98]
+    size: ["{(width + 0.1) / width}", "{foundation / (foundation + wall_height + roof_height)}", "{(depth + 0.1) / depth}"]
     anchor: bottom_center
-    bevel: 0.005
+    bevel: 0.01
     material: concrete
 
-  # Main structure (walls)
   walls:
     primitive: cube
-    size: [0.95, 0.55, 0.95]
+    size: [1, "{wall_height / (foundation + wall_height + roof_height)}", 1]
     anchor: bottom_center
-    offset: [0, 0.05, 0]
+    offset: [0, "{foundation / (foundation + wall_height + roof_height)}", 0]
+    bevel: 0
+    subtract: [interior]
     material: brick
 
-  # Front door (on +Z face)
-  door:
+  # Hollows out the walls (open top, 5 cm floor slab left at the bottom).
+  interior:
     primitive: cube
-    size: [0.12, 0.35, 0.02]
-    attach_to: walls
-    at: front
-    from: back
-    offset: [0, -0.5, 0.01]
-    bevel: 0.005
-    material: wood
-
-  # Door frame top
-  door_frame:
-    primitive: cube
-    size: [0.14, 0.012, 0.025]
-    attach_to: walls
-    at: front
-    from: back
-    offset: [0, 0.4, 0.01]
+    size: ["{(width - 2 * wall_thickness) / width}", "{(wall_height + 1) / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(foundation + 0.05) / (foundation + wall_height + roof_height)}", 0]
     bevel: 0
-    material: wood
+    cutter: true
 
-  # Left front window
-  window_left:
-    primitive: cube
-    size: [0.12, 0.12, 0.02]
-    attach_to: walls
-    at: front
-    from: back
-    offset: [-2.24, 0.25, 0.01]
-    bevel: 0.003
-    material: metal
+  # Brick gable ends under the roof (slightly under the roof's underside).
+  gables:
+    primitive: prism
+    size: [1, "{(roof_height - 0.03) / (foundation + wall_height + roof_height)}", 1]
+    anchor: bottom_center
+    offset: [0, "{(foundation + wall_height) / (foundation + wall_height + roof_height)}", 0]
+    material: brick
 
-  # Window sill left
-  sill_left:
-    primitive: cube
-    size: [0.14, 0.012, 0.03]
-    attach_to: walls
-    at: front
-    from: back
-    offset: [-2.24, -0.05, 0.02]
-    bevel: 0
-    material: concrete
-
-  # Right front window
-  window_right:
-    primitive: cube
-    size: [0.12, 0.12, 0.02]
-    attach_to: walls
-    at: front
-    from: back
-    offset: [2.24, 0.25, 0.01]
-    bevel: 0.003
-    material: metal
-
-  # Window sill right
-  sill_right:
-    primitive: cube
-    size: [0.14, 0.012, 0.03]
-    attach_to: walls
-    at: front
-    from: back
-    offset: [2.24, -0.05, 0.02]
-    bevel: 0
-    material: concrete
-
-  # Roof - left slope
-  roof_left:
-    primitive: cube
-    size: [0.58, 0.04, 1.08]
-    attach_to: walls
-    at: top
-    from: bottom
-    offset: [-1.84, 1.25, 0]
-    rotation: [0, 0, 35]
-    bevel: 0.008
+  roof:
+    primitive: roof
+    style: gable
+    overhang: "{overhang}"
+    thickness: 0.14
+    size: [1, "{roof_height / (foundation + wall_height + roof_height)}", 1]
+    anchor: bottom_center
+    offset: [0, "{(foundation + wall_height) / (foundation + wall_height + roof_height)}", 0]
     material: roof_shingle
 
-  # Roof - right slope
-  roof_right:
-    primitive: cube
-    size: [0.58, 0.04, 1.08]
-    attach_to: walls
-    at: top
-    from: bottom
-    offset: [1.84, 1.25, 0]
-    rotation: [0, 0, -35]
-    bevel: 0.008
-    material: roof_shingle
-
-  # Chimney (on roof, poking above right slope)
   chimney:
     primitive: cube
-    size: [0.08, 0.35, 0.08]
-    attach_to: walls
-    at: top
-    from: bottom
-    offset: [1.6, 1.5, -1.2]
+    size: ["{0.6 / width}", "{(roof_height + 0.9) / (foundation + wall_height + roof_height)}", "{0.6 / depth}"]
+    anchor: bottom_center
+    offset: [0.28, "{(foundation + wall_height) / (foundation + wall_height + roof_height)}", -0.18]
+    bevel: 0.01
     material: brick
 
-# Re-export useful wall surfaces for scene-level composition.
+  chimney_cap:
+    primitive: cube
+    size: ["{0.72 / width}", "{0.08 / (foundation + wall_height + roof_height)}", "{0.72 / depth}"]
+    anchor: bottom_center
+    offset: [0.28, "{(foundation + wall_height + roof_height + 0.9) / (foundation + wall_height + roof_height)}", -0.18]
+    bevel: 0.01
+    material: concrete
+
+# Wall surfaces (v = 0 at the top of the foundation) for placing openings.
 surfaces:
   front_wall: { from: walls.front }
   back_wall:  { from: walls.back }

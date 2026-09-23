@@ -11,6 +11,7 @@ texture:
     color_variation: 0.4
     seed: 789
 size: [512, 512]
+tile_size: 2.0  # metres per texture repeat
 pbr:
   roughness: 0.75
   metallic: 0.0
