@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "geogen",
+  "project_id": "96459aaa-1e1a-494c-b613-3f8784bc9bc3"
+}
