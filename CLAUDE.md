@@ -16,7 +16,7 @@ Layout uses a container system that can position objects using anchors (like UI 
 # Run the demo (opens Qt-based interactive viewer)
 python -m geogen.main
 
-# Select a specific scene (available: chair, table, dining_set, room, street, nature, plus any YAML asset)
+# Select a specific scene (any YAML in assets/ or assets/scenes/, plus nature; see --help)
 python -m geogen.main -s dining_set
 
 # Render to file and quit (for testing) — shadows + PBR maps, auto-framed
@@ -29,6 +29,12 @@ python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
 # Export for game engines (hierarchy + PBR textures)
 python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj
 python -m geogen.main -s cottage --export-godot               # into runtime/godot/generated/
+
+# Walk an export in the Godot runtime (macOS binary: /Applications/Godot.app/Contents/MacOS/Godot)
+godot --path runtime/godot -- --scene cottage
+
+# Regenerate the README screenshots (docs/images/)
+docs/make_screenshots.sh
 
 # Screenshot the interactive Qt viewer (display: lit|clay|normals|uv)
 python -m geogen.main -s street --viewer-screenshot shot.png --display uv
@@ -185,9 +191,9 @@ pytest tests/test_scenes.py -k "test_name"
 
 ### Scenes & Registry
 
-- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans both `src/geogen/scenes/*.py` (Python-coded scenes) and `assets/**/*.yaml` to build the viewer's scene list. It peeks at each YAML and classifies as a composed scene when a `place:` or `compose:` key is present, otherwise as an asset. Both keys are treated equivalently.
+- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (only `nature`).
 
-- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Currently only `nature.py` uses this; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are thin wrappers that delegate to their YAML counterparts.
+- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Only `nature.py` is registered; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are legacy thin wrappers around their YAML counterparts and aren't used by the registry.
 
 - **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`/`compose:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` uses `compose:` and is a scene, not an asset.)
 
@@ -364,7 +370,7 @@ parts:
     anchor: bottom_center
 ```
 
-Overrides come in through `LayoutLoader.load(path, params={"width": 12})`. Unknown params raise. The expression evaluator is AST-restricted — only numeric literals, param references, `+ - * /`, parens, and unit literals (`50cm`, `2m`, `20%`). No function calls, no attribute access.
+Overrides come in through `LayoutLoader.load(path, params={"width": 12})`. Unknown params raise. Scenes can't yet override params per placement (`SceneComposer` loads assets with defaults). The expression evaluator is AST-restricted — only numeric literals, param references, `+ - * /`, parens, and unit literals (`50cm`, `2m`, `20%`). No function calls, no attribute access.
 
 Relevant module: `src/geogen/layout/expressions.py`.
 
@@ -434,6 +440,8 @@ Always test changes by:
 - Visually inspect the png
 - If it's too small to see clearly, iterate until you get a good view.
 - When you generate or update an object, render it from the front and side and make sure it looks correct and consistent.
+- For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn`/`--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
+- `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker
