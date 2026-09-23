@@ -55,7 +55,7 @@ class SceneRegistry:
         # Discover assets and composed scenes in root assets dir
         for yaml_path in sorted(self._assets_dir.glob("*.yaml")):
             name = yaml_path.stem
-            if name not in self._factories:
+            if name not in self._factories and not self._is_spec(yaml_path):
                 if self._is_composed_scene(yaml_path):
                     self._register_composed_scene(name, yaml_path)
                 else:
@@ -68,6 +68,13 @@ class SceneRegistry:
                 name = yaml_path.stem
                 if name not in self._factories:
                     self._register_composed_scene(name, yaml_path)
+
+    @staticmethod
+    def _is_spec(yaml_path: Path) -> bool:
+        """Data files such as ``player.yaml`` declare a ``kind:`` and aren't scenes."""
+        with open(yaml_path) as f:
+            data = yaml.safe_load(f)
+        return isinstance(data, dict) and "kind" in data
 
     def _is_composed_scene(self, yaml_path: Path) -> bool:
         """Check if a YAML file is a composed scene (has place: or compose:)."""

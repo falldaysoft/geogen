@@ -201,7 +201,12 @@ pytest tests/test_scenes.py -k "test_name"
 ### Rendering & Export
 
 - **render.py**: Offscreen pyrender renderer used by `-r`: `SceneRenderer`, `render_scene`, `render_views` (contact sheet), `RenderOptions`, `VIEWS` presets. Shares one offscreen context per process (macOS). Contains a `np.infty` shim for pyrender 0.1.45 on NumPy 2.
-- **export.py**: `export_scene(root, path)` → GLB/glTF (node hierarchy with local transforms, PBR textures, texture-space UVs) or OBJ+MTL+PNG.
+- **export.py**: `export_scene(root, path, player=None)` → GLB/glTF (node hierarchy with local transforms, PBR textures, texture-space UVs) or OBJ+MTL+PNG. glTF exports also write `<name>.manifest.json` (format `geogen-manifest` v1: model file, units, up axis, player spec) — the contract the Godot runtime reads.
+- **player.py**: `PlayerSpec` / `load_player_spec()` — player-scale constraints (capsule radius/height, eye and step height, max slope, min door opening, corridor width, reach) from `assets/player.yaml`. Use it for defaults instead of hard-coding clearances. YAML files with a top-level `kind:` (like `player.yaml`) are data, not assets; the registry skips them.
+
+### Godot runtime (`runtime/godot/`)
+
+Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). `scenes/main.tscn` is sky/sun/ground plus an empty `World` node; `scripts/player_spec.gd` (`PlayerSpec`) reads the player block from an export manifest. User args after `--`: `--quit-after=N`, `--screenshot=out.png`, `--manifest=path`. Exports go in `generated/` (git-ignored). See `runtime/godot/README.md`; on macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT`).
 
 ## Hierarchical Layout System - Semantic Connections
 

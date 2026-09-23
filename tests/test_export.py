@@ -1,11 +1,14 @@
 """Round-trip tests for glTF/GLB and OBJ export."""
 
+import json
+
 import numpy as np
 import pytest
 import trimesh
 
-from geogen.export import export_scene
+from geogen.export import export_scene, manifest_path
 from geogen.main import _build_registry
+from geogen.player import PlayerSpec, load_player_spec
 from geogen.render import scene_bounds
 
 REGISTRY = _build_registry()
@@ -45,3 +48,17 @@ def test_obj_export_writes_material_and_textures(tmp_path):
 def test_unknown_format_rejected(tmp_path):
     with pytest.raises(ValueError):
         export_scene(REGISTRY["chair"](), tmp_path / "chair.fbx")
+
+
+def test_glb_export_writes_manifest_with_player_spec(tmp_path):
+    path = export_scene(REGISTRY["chair"](), tmp_path / "chair.glb")
+    manifest = json.loads(manifest_path(path).read_text())
+    assert manifest["format"] == "geogen-manifest"
+    assert manifest["model"] == "chair.glb"
+    assert manifest["units"] == "m"
+    assert PlayerSpec.from_dict(manifest["player"]) == load_player_spec()
+
+
+def test_obj_export_has_no_manifest(tmp_path):
+    path = export_scene(REGISTRY["chair"](), tmp_path / "chair.obj")
+    assert not manifest_path(path).exists()

@@ -1,0 +1,15 @@
+# Player-scale constraints shared by generation and the Godot runtime.
+# Loaded by geogen.player; written into every export manifest so "enterable"
+# means the same thing on both sides. All lengths in metres.
+kind: player_spec
+version: 1
+
+radius: 0.3               # collision capsule radius
+height: 1.8               # collision capsule total height (feet to crown)
+eye_height: 1.65          # camera height above the feet
+step_height: 0.3          # tallest ledge the controller walks up without jumping
+max_slope_deg: 40         # steepest walkable floor
+door_min_width: 0.85      # minimum clear door opening
+door_min_height: 2.0
+corridor_min_width: 1.2   # narrowest comfortable passage
+reach: 1.5                # interaction distance from the eye

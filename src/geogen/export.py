@@ -6,10 +6,14 @@ crease-angle normals, and PBR metallic-roughness materials with base colour,
 metallic-roughness, normal and occlusion textures. Metric UVs are converted
 to texture space using each material's ``tile_size`` so textures repeat at
 the right real-world scale (samplers use REPEAT wrapping).
+
+glTF exports also write ``<name>.manifest.json`` alongside the model: the
+contract the Godot runtime reads (units, up axis, model file, player spec).
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -19,8 +23,11 @@ from .core import meshops
 from .core.mesh import Mesh
 from .core.node import SceneNode
 from .materials.material import Material
+from .player import PlayerSpec, load_player_spec
 
 FORMATS = {".glb", ".gltf", ".obj"}
+MANIFEST_FORMAT = "geogen-manifest"
+MANIFEST_VERSION = 1
 
 
 def _pbr_material(material: Material, cache: dict[int, trimesh.visual.material.PBRMaterial]):
@@ -91,8 +98,35 @@ def to_trimesh_scene(root: SceneNode) -> trimesh.Scene:
     return scene
 
 
-def export_scene(root: SceneNode, path: str | Path) -> Path:
-    """Export ``root`` to ``path``; the format is chosen by the file extension."""
+def manifest_path(model_path: str | Path) -> Path:
+    """Where the manifest for an exported model lives (``chair.glb`` -> ``chair.manifest.json``)."""
+    model_path = Path(model_path)
+    return model_path.with_name(f"{model_path.stem}.manifest.json")
+
+
+def write_manifest(model_path: str | Path, player: PlayerSpec | None = None) -> Path:
+    """Write the runtime manifest next to an exported glTF model."""
+    model_path = Path(model_path)
+    manifest = {
+        "format": MANIFEST_FORMAT,
+        "version": MANIFEST_VERSION,
+        "name": model_path.stem,
+        "model": model_path.name,
+        "units": "m",
+        "up": "+Y",
+        "player": (player or load_player_spec()).to_dict(),
+    }
+    out = manifest_path(model_path)
+    out.write_text(json.dumps(manifest, indent=2) + "\n")
+    return out
+
+
+def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None) -> Path:
+    """Export ``root`` to ``path``; the format is chosen by the file extension.
+
+    glTF/GLB exports also get a manifest (see ``write_manifest``); ``player``
+    overrides the project's default player spec in it.
+    """
     path = Path(path)
     suffix = path.suffix.lower()
     if suffix not in FORMATS:
@@ -105,4 +139,5 @@ def export_scene(root: SceneNode, path: str | Path) -> Path:
         scene.export(str(path), file_type="obj", include_normals=True, include_texture=True)
     else:
         scene.export(str(path), file_type=suffix[1:])
+        write_manifest(path, player)
     return path
