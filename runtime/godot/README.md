@@ -45,7 +45,11 @@ exports without collider nodes get a trimesh collider per mesh). Node extras
 (`extras.geogen`, schema in `docs/schema/geogen-extras.v1.schema.json`) arrive
 as `get_meta("extras")`; room volumes drive the overlay's `room:` readout and
 the `room` field of `--walk` results. Without `--spawn`, the player starts at
-the manifest's first spawn point. The player body is a
+the manifest's first spawn point. Interactions in node extras (e.g. the
+cottage door's `swing`) become `GeogenInteraction` nodes (`scripts/interaction.gd`):
+look at the door within reach and press E to open or close it; colliders on
+moving parts are `AnimatableBody3D`s so the open door lets you through. The
+player body is a
 cylinder, not a capsule: a capsule's rounded bottom slides off the edge of
 a step exactly `step_height` tall.
 
@@ -71,6 +75,8 @@ User args (after `--`):
 | `--camera=overview` | Start on the overview camera |
 | `--colliders` | Show collider wireframes |
 | `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
+| `--use=ASSET`, `--use=@aim` | Use an asset's interactions (e.g. `door`) or whatever the player looks at, at start |
+| `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
 | `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
 | `--quit-after=N` | Quit after N frames |
 | `--manifest=PATH` | Use the player spec from this manifest |

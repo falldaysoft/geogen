@@ -59,6 +59,8 @@ class SceneNode:
     # {"room": {"id": ..., "type": ...}, "collider": "box", "walkable": True,
     #  "type": "room_volume" | "spawn", "size": [...]}.
     meta: dict[str, object] = field(default_factory=dict, repr=False)
+    # Interactions (layout.interactions.Interaction) whose parts are below this node.
+    interactions: list = field(default_factory=list, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -264,6 +266,7 @@ class SceneNode:
             host_reveals=list(self.host_reveals),
             tags=list(self.tags),
             meta=dict(self.meta),
+            interactions=list(self.interactions),
         )
         if deep:
             for child in self.children:

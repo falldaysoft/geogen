@@ -320,6 +320,13 @@ class LayoutLoader:
         # rather than house.shell.north_wall.
         self._resolve_surface_exports(data.get("surfaces", {}), root, part_nodes)
 
+        if data.get("interactions"):
+            from .interactions import apply_state, parse_interactions
+
+            root.interactions = parse_interactions(data["interactions"], root, part_nodes)
+            for interaction in root.interactions:
+                apply_state(root, interaction, interaction.initial)
+
         return root
 
     def _resolve_surface_exports(

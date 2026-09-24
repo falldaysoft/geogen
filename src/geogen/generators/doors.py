@@ -140,8 +140,27 @@ class DoorGenerator(CompositeGenerator):
                             _u_frame(outer_w, outer_h, w, h, self.casing_depth, -zc, bevel=0.004), frame_mat))
 
         if self.style == "door":
-            root.add_child(self._leaf(loader, part))
+            pivot = self._leaf(loader, part)
+            root.add_child(pivot)
+            root.interactions = [self._swing(pivot)]
         return root
+
+    def _swing(self, pivot: SceneNode):
+        """Open/close interaction rotating the leaf pivot (initial state = current pose)."""
+        from ..layout.interactions import Interaction, Motion, State
+
+        sign = 1.0 if self.hinge == "left" else -1.0
+        opened = self.open_deg if self.open_deg > 0 else 95.0
+        return Interaction(
+            name="swing",
+            states={"closed": State(next="open", prompt="Open"), "open": State(next="closed", prompt="Close")},
+            motions=[Motion([pivot], "rotate", np.array([0.0, -sign, 0.0]),
+                            pivot.transform.translation.copy(), {"open": opened},
+                            applied=self.open_deg)],
+            targets=[pivot.children[0]],
+            initial="open" if self.open_deg > 0 else "closed",
+            duration=0.9,
+        )
 
     def _leaf(self, loader, part) -> SceneNode:
         lw, lh, lt = self.leaf_width, self.leaf_height, self.leaf_thickness

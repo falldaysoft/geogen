@@ -64,6 +64,46 @@
             "max_deg": { "type": "number" }
           }
         },
+        "interactions": {
+          "description": "Asset nodes: state machines that move descendant nodes (by exported node name). Exported transforms show the 'initial' state; a part's rest pose is M(initial value)^-1 * its exported transform, and its pose for value v is asset * M(v) * rest, where M rotates by v degrees about 'axis' through 'pivot' (asset frame) or translates v metres along 'axis'. use() goes to states[target].next; 'then' auto-advances on arrival; 'emit' names an event raised on arrival.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["targets", "initial", "duration", "states", "motions"],
+            "properties": {
+              "targets": { "type": "array", "items": { "type": "string" } },
+              "initial": { "type": "string" },
+              "duration": { "type": "number", "minimum": 0 },
+              "states": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "next": { "type": "string" },
+                    "then": { "type": "string" },
+                    "emit": { "type": "string" },
+                    "prompt": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "motions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["nodes", "type", "axis", "pivot", "values"],
+                  "properties": {
+                    "nodes": { "type": "array", "items": { "type": "string" } },
+                    "type": { "enum": ["rotate", "translate"] },
+                    "axis": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+                    "pivot": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+                    "values": { "type": "object", "additionalProperties": { "type": "number" } }
+                  }
+                }
+              }
+            }
+          }
+        },
         "door_swings": {
           "description": "Room nodes: door leaf swing arcs in the room's frame (hinge point, radius, sweep in degrees in the XZ plane, 0 = +X, 90 = +Z), for furnishing to keep clear.",
           "type": "array",

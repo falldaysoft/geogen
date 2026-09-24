@@ -8,6 +8,8 @@ extends Node3D
 ## (written last by the exporter) and reloads a model when it is re-exported.
 
 signal world_loaded(aabb: AABB)
+## An interaction reached a state: (asset name, interaction name, state, emitted event or "").
+signal interaction_event(asset: String, interaction: String, state: String, event: String)
 
 const DEFAULT_GENERATED_DIR := "res://generated"
 const POLL_SECONDS := 0.5
@@ -28,6 +30,10 @@ var _mtimes := {}  # manifest path -> modified time at last load
 var rooms: Array[Dictionary] = []
 ## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
 var spawns: Array[Dictionary] = []
+## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
+var interactions: Array[GeogenInteraction] = []
+var _moving := {}     # Node3D driven by an interaction -> true
+var _target_of := {}  # Node3D aimed at -> GeogenInteraction
 var _poll := 0.0
 var _collider_material: StandardMaterial3D
 
@@ -47,6 +53,9 @@ func load_all() -> AABB:
 	_mtimes.clear()
 	rooms.clear()
 	spawns.clear()
+	interactions.clear()
+	_moving.clear()
+	_target_of.clear()
 	for manifest in _manifests():
 		_load_model(manifest)
 	var aabb := world_aabb()
@@ -119,6 +128,7 @@ func _load_model(manifest_path: String) -> void:
 	root.name = manifest.get("name", model_path.get_file().get_basename())
 	add_child(root)
 	_prepare_materials(root)
+	_collect_interactions(root)
 	var count := _add_collision(root)
 	_collect_rooms(root)
 	for s in manifest.get("spawns", []):
@@ -147,6 +157,44 @@ func _collect_rooms(root: Node) -> void:
 			var room: Dictionary = g.get("room", {})
 			rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""),
 				"xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2])})
+
+
+func _collect_interactions(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		var data = geogen_extras(node).get("interactions")
+		if not data is Dictionary:
+			continue
+		for iname in data:
+			var it := GeogenInteraction.from_extras(node, iname, data[iname])
+			add_child(it)
+			interactions.append(it)
+			var asset_name := String(node.name)
+			it.state_entered.connect(func(state: String, event: String):
+				interaction_event.emit(asset_name, iname, state, event))
+			for part in it.moving_nodes():
+				_moving[part] = true
+			for t in it.targets:
+				_target_of[t] = it
+
+
+## The interaction whose target contains ``node`` (a hit collider), or null.
+func interaction_for(node: Node) -> GeogenInteraction:
+	while node != null and node != self:
+		if node.has_meta("geogen_interaction"):
+			return node.get_meta("geogen_interaction")
+		if _target_of.has(node):
+			return _target_of[node]
+		node = node.get_parent()
+	return null
+
+
+## Interactions of the asset node named ``asset_name``.
+func interactions_of(asset_name: String) -> Array[GeogenInteraction]:
+	var result: Array[GeogenInteraction] = []
+	for it in interactions:
+		if String(it.asset.name) == asset_name:
+			result.append(it)
+	return result
 
 
 ## Id of the room volume containing ``pos`` (world space), or "".
@@ -213,13 +261,29 @@ func _add_collision(root: Node) -> int:
 	return meshes.size() - colliders.size()
 
 
+func _is_moving(node: Node) -> bool:
+	while node != null and node != self:
+		if _moving.has(node):
+			return true
+		node = node.get_parent()
+	return false
+
+
 static func _is_collider(mi: MeshInstance3D) -> bool:
 	var n := String(mi.name)
 	return n.ends_with("-colonly") or n.ends_with("-convcolonly") or geogen_extras(mi).get("type") == "collider"
 
 
 func _add_body(parent: Node, shape: Shape3D, xform: Transform3D) -> void:
-	var body := StaticBody3D.new()
+	# Bodies under a part an interaction moves must be animatable so they
+	# push the player and carry their new pose into physics.
+	var body: PhysicsBody3D = StaticBody3D.new()
+	if _is_moving(parent):
+		var animatable := AnimatableBody3D.new()
+		# Moved by its parent part, not by itself: sync_to_physics would only
+		# track the body's own transform and leave the collider behind.
+		animatable.sync_to_physics = false
+		body = animatable
 	body.name = "Collider"
 	body.transform = xform
 	var col := CollisionShape3D.new()

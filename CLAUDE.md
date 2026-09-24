@@ -193,6 +193,10 @@ pytest tests/test_scenes.py -k "test_name"
       at: [seat_front, seat_back, seat_left, seat_right]
   ```
 
+### Interactions
+
+`layout/interactions.py`: asset-level `interactions:` state machines (states with `next`/`then`/`emit`/`prompt`, `motions` that `rotate`/`translate` parts about a `pivot` in the asset frame, per-state `values`, `targets` the player aims at). `SceneNode.interactions` holds them; the loader poses parts for `initial`, `apply_state()` re-poses (absolute). Exported in the asset node's `extras.geogen.interactions` with exported node names (see the schema). `door.yaml` has a `swing`; floor-plan doors (`DoorGenerator`) get one on `leaf_pivot`. Godot: `GeogenInteraction` (`runtime/godot/scripts/interaction.gd`) animates parts; colliders under moving parts are `AnimatableBody3D`; look at a target within `reach` and press E; `--use=<asset>` / `--use=@aim` + `--wait=S` for headless tests; state arrivals print `interaction event: {...}`.
+
 ### Scenes & Registry
 
 - **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (only `nature`).

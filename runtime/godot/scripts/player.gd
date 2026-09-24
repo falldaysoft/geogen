@@ -119,8 +119,13 @@ func _try_step_up(motion: Vector3) -> bool:
 	if not test_move(from, motion):
 		return false
 	var up := Vector3.UP * (spec.step_height + STEP_PROBE_MARGIN)
-	if test_move(from, up):
-		return false  # no headroom
+	# Rise only as far as the headroom allows (e.g. under a door head), so
+	# low lips like a threshold are still climbable where a full step isn't.
+	var ceiling := KinematicCollision3D.new()
+	if test_move(from, up, ceiling):
+		up = ceiling.get_travel() - Vector3.UP * 0.005
+		if up.y < 0.01:
+			return false  # no headroom
 	var raised := from.translated(up)
 	if test_move(raised, motion):
 		return false  # a wall, not a step

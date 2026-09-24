@@ -149,12 +149,22 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True) -> trimesh.Scene:
         used.add(candidate)
         return candidate
 
+    # Name every node up front so interactions can refer to exported names.
+    names: dict[int, str] = {id(n): unique(n.name) for n in root.iter_nodes()}
+
+    def name_of(node: SceneNode) -> str:
+        return names[id(node)]
+
     def visit(node: SceneNode, parent_name: str) -> None:
-        name = unique(node.name)
+        name = name_of(node)
         matrix = node.transform.to_matrix()
         has_mesh = node.mesh is not None and len(node.mesh.faces) > 0
         collider = resolve_collider(node) if has_mesh else None
         extras = node_extras(node, collider)
+        if node.interactions:
+            extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = {
+                i.name: i.to_extras(name_of) for i in node.interactions
+            }
         if has_mesh:
             scene.add_geometry(
                 to_trimesh(node.mesh, cache),
