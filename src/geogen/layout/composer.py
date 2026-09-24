@@ -276,7 +276,13 @@ class SceneComposer:
         """Load an object from asset or scene definition."""
         if "asset" in obj_def:
             asset_path = self._assets_dir / obj_def["asset"]
-            return self._loader.load(asset_path)
+            node = self._loader.load(asset_path)
+            if obj_def.get("furnish"):
+                from .furnish import furnish_plan
+
+                seed = obj_def["furnish"] if isinstance(obj_def["furnish"], int) and obj_def["furnish"] is not True else 0
+                furnish_plan(node, self._assets_dir, seed=seed, loader=self._loader)
+            return node
         elif "scene" in obj_def:
             scene_path = self._assets_dir / obj_def["scene"]
             return self.compose(scene_path)

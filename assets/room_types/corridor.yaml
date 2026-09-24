@@ -1,0 +1,9 @@
+# Suite entry corridor: a luggage rack if there's room.
+
+name: corridor
+items:
+  luggage_rack:
+    asset: luggage_rack.yaml
+    against: wall
+    prefer: [no_door_wall, centered]
+    optional: true

@@ -1,0 +1,63 @@
+# Hotel bedroom archetype: items in priority order, placed by the furnishing
+# solver (geogen/layout/furnish.py) inside any floor-plan room of this type.
+
+name: hotel_bedroom
+items:
+  bed:
+    asset: bed.yaml
+    against: wall
+    prefer: [longest_wall, no_door_wall, no_window_wall, centered]
+  nightstand:
+    asset: nightstand.yaml
+    flank: bed
+    count: 2
+  lamp:
+    asset: table_lamp.yaml
+    on: nightstand
+  art:
+    asset: wall_art.yaml
+    mount: wall
+    above: bed
+    height: 1.35
+  rug:
+    asset: rug.yaml
+    under: bed
+    offset: 0.75
+  wardrobe:
+    asset: wardrobe.yaml
+    against: wall
+    prefer: [near_door]
+  tv_console:
+    asset: tv_console.yaml
+    against: wall
+    prefer: [{opposite: bed}]
+  tv:
+    asset: tv.yaml
+    mount: wall
+    above: tv_console
+    height: 0.95
+  desk:
+    asset: desk.yaml
+    against: wall
+    prefer: [{far: bed}]
+    optional: true
+  desk_chair:
+    asset: desk_chair.yaml
+    front_of: desk
+    distance: -0.2
+    optional: true
+  armchair:
+    asset: armchair.yaml
+    against: none
+    facing: center
+    prefer: [near_window]
+    optional: true
+  floor_lamp:
+    asset: floor_lamp.yaml
+    against: wall
+    prefer: [corner, {near: armchair}]
+    optional: true
+  curtains:
+    asset: curtains.yaml
+    mount: window
+    fit: window

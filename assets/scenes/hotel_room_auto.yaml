@@ -1,0 +1,15 @@
+# The hotel suite furnished automatically from its rooms' archetypes
+# (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand).
+
+name: hotel_room_auto
+tags: [level.hotel_room]
+
+place:
+  suite:
+    asset: hotel_suite.yaml
+    furnish: true        # or a seed number for a different arrangement
+
+spawns:
+  entry:
+    position: [4.2, 0, 1.3]
+    facing: west

@@ -431,6 +431,21 @@ class FloorPlan:
             for surf_name, surf in node.surfaces.items():
                 root.surfaces[f"{room.name}.{surf_name}"] = _transformed(surf, to_root)
 
+        # Openings per room, in the room's frame (for furnishing): which wall,
+        # the interval along it and the vertical extent.
+        for o in [*self.doors, *self.windows]:
+            seg, centre = self._opening_frame(o, segments)
+            for room_name, side in seg.rooms.items():
+                room_node = room_nodes[room_name]
+                origin = room_node.transform.translation + offset  # plan coords of the room centre
+                along0 = origin[0] if seg.axis == "z" else origin[2]
+                room_node.meta.setdefault("openings", []).append({
+                    "kind": o.kind, "side": side,
+                    "lo": round(float(centre - o.width / 2 - along0), 6),
+                    "hi": round(float(centre + o.width / 2 - along0), 6),
+                    "sill": o.sill, "top": o.sill + o.height,
+                })
+
         for index, door in enumerate(self.doors):
             if door.style != "opening":
                 root.add_child(self._door_node(door, index, segments, offset, loader, room_nodes))

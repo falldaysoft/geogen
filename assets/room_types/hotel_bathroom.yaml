@@ -1,0 +1,27 @@
+# Hotel ensuite bathroom archetype.
+
+name: hotel_bathroom
+items:
+  shower:
+    asset: shower.yaml
+    against: wall
+    prefer: [corner, far_door]
+  toilet:
+    asset: toilet.yaml
+    against: wall
+    prefer: [{near: shower}, no_door_wall]
+  vanity:
+    asset: vanity.yaml
+    against: wall
+    prefer: [near_door]
+  mirror:
+    asset: wall_mirror.yaml
+    mount: wall
+    above: vanity
+    height: 1.2
+  towel_rail:
+    asset: towel_rail.yaml
+    mount: wall
+    height: 1.1
+    prefer: [{near: shower}]
+    optional: true

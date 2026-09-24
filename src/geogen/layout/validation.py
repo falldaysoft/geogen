@@ -34,7 +34,7 @@ SLOT_KNOWN_KEYS = {
 }
 
 PLACEMENT_KNOWN_KEYS = {
-    "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw",
+    "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish",
 }
 
 # Known primitive types
