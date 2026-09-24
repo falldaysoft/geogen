@@ -50,6 +50,7 @@ directional_shadow_max_distance = 60.0
 [node name="Ground" type="StaticBody3D" parent="."]
 
 [node name="Mesh" type="MeshInstance3D" parent="Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03, 0)
 mesh = SubResource("ground_mesh")
 surface_material_override/0 = SubResource("ground_mat")
 
