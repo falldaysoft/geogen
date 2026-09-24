@@ -132,9 +132,12 @@ func _on_world_loaded(aabb: AABB) -> void:
 func _place_player(aabb: AABB) -> void:
     var pos := Vector3(0, 0, 5)
     var yaw := 0.0
+    if not world.model_aabbs.is_empty():
+        aabb = world.model_aabbs[0]  # several exports load in a row: start at the first
     if aabb.size != Vector3.ZERO:
         pos = Vector3(aabb.get_center().x, 0, aabb.end.z + 3.0)
-    if _spawn_override == null and not world.spawns.is_empty():
+    # Manifest spawns only make sense when a single export is loaded.
+    if _spawn_override == null and world.model_aabbs.size() == 1 and not world.spawns.is_empty():
         pos = world.spawns[0]["position"]
         yaw = world.spawns[0]["yaw_deg"]
     if _spawn_override != null:

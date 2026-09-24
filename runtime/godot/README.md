@@ -37,7 +37,9 @@ capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 | `generated/` | Exports land here (git-ignored; `.gdignore` keeps the editor from importing them, the runtime loads them directly) |
 
 Exports are loaded at runtime rather than imported by the editor so a
-running game can reload them. geogen exports a collider child per mesh named
+running game can reload them. Without `--scene` (e.g. pressing Play in the
+editor) every export in `generated/` loads, laid out in a row along +X so
+they don't overlap, and the player starts in front of the first one. geogen exports a collider child per mesh named
 with Godot's import suffixes (`<name>-colonly` = trimesh, `<name>-convcolonly`
 = box/convex hull); runtime glTF loading doesn't apply those suffixes, so
 `WorldLoader` turns them into `StaticBody3D`s and drops their meshes (older

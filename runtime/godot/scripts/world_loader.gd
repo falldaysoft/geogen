@@ -26,6 +26,11 @@ var show_colliders := false:
 			node.visible = value
 
 var _mtimes := {}  # manifest path -> modified time at last load
+## Gap between models when several exports load at once.
+const MODEL_SPACING := 6.0
+var _next_x := 0.0    # where the next model's -X edge goes when loading several
+## Bounds of each loaded model, in load order.
+var model_aabbs: Array[AABB] = []
 ## Room volumes: [{id, type, xform: Transform3D (global), size: Vector3}]
 var rooms: Array[Dictionary] = []
 ## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
@@ -51,6 +56,8 @@ func load_all() -> AABB:
 	for child in get_children():
 		child.free()
 	_mtimes.clear()
+	_next_x = 0.0
+	model_aabbs.clear()
 	rooms.clear()
 	spawns.clear()
 	interactions.clear()
@@ -71,9 +78,13 @@ func player_spec() -> PlayerSpec:
 
 
 func world_aabb() -> AABB:
+	return _aabb(self)
+
+
+static func _aabb(root: Node) -> AABB:
 	var aabb := AABB()
 	var first := true
-	for mi in find_children("*", "MeshInstance3D", true, false):
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		if mi.is_in_group("geogen_collider_debug"):
 			continue
 		var box: AABB = mi.global_transform * mi.get_aabb()
@@ -127,6 +138,16 @@ func _load_model(manifest_path: String) -> void:
 	var root := doc.generate_scene(state)
 	root.name = manifest.get("name", model_path.get_file().get_basename())
 	add_child(root)
+	# Every export is authored around the origin, so when several load at once
+	# (no --scene) lay them out in a row along X instead of on top of each other.
+	var offset := Vector3.ZERO
+	if scene_name == "":
+		var box := _aabb(root)
+		if box.size != Vector3.ZERO:
+			offset.x = _next_x - box.position.x
+			_next_x += box.size.x + MODEL_SPACING
+		root.position = offset
+	model_aabbs.append(_aabb(root))
 	_prepare_materials(root)
 	_collect_interactions(root)
 	var count := _add_collision(root)
@@ -134,7 +155,7 @@ func _load_model(manifest_path: String) -> void:
 	for s in manifest.get("spawns", []):
 		var f: Array = s.get("forward", [0, 0, -1])
 		var p: Array = s.get("position", [0, 0, 0])
-		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]),
+		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]) + offset,
 			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
 	print("geogen: loaded %s (%d meshes, %d rooms)" % [model_path.get_file(), count, rooms.size()])
 

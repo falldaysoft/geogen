@@ -106,3 +106,17 @@ def test_player_starts_at_manifest_spawn(run_godot, suite_dir):
                      .removeprefix("walk result: "))
     assert end["x"] < 2.2 and end["z"] == pytest.approx(1.3, abs=0.05)
     assert end["room"] == "corridor"
+
+
+def test_all_exports_load_side_by_side(run_godot, tmp_path):
+    # Without --scene every export loads; they must not overlap (the hotel
+    # suite's walls used to sit inside the cottage) so the cottage stays
+    # enterable. The player starts in front of the first model (cottage).
+    from geogen.layout import LayoutLoader
+    export_scene(_build_registry()["cottage"](), tmp_path / "cottage.glb")
+    export_scene(LayoutLoader().load("assets/hotel_suite.yaml"), tmp_path / "hotel_suite.glb")
+    out = run_godot(f"--generated={tmp_path}", "--use=door", "--wait=1.2", "--walk=1.5")
+    assert "loaded cottage.glb" in out and "loaded hotel_suite.glb" in out
+    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                     .removeprefix("walk result: "))
+    assert end["z"] < 2.0  # walked through the door into the cottage
