@@ -236,6 +236,25 @@ class SceneRenderer:
         return Image.fromarray(color[..., :3])
 
 
+CUTAWAY_TAGS = ("ceiling", "light.ceiling")
+CUTAWAY_NAMES = ("ceiling", "roof", "gables", "chimney", "chimney_cap", "cornice")
+
+
+def cutaway(root: SceneNode) -> SceneNode:
+    """Copy of ``root`` without ceilings, roofs and ceiling fixtures (to look inside)."""
+    copy = root.copy(deep=True)
+
+    def prune(node: SceneNode) -> None:
+        node.children = [c for c in node.children
+                         if c.name not in CUTAWAY_NAMES and not any(t in CUTAWAY_TAGS for t in c.tags)]
+        for child in node.children:
+            child.parent = node
+            prune(child)
+
+    prune(copy)
+    return copy
+
+
 def render_scene(root: SceneNode, options: RenderOptions | None = None, view: str = "iso") -> Image.Image:
     return SceneRenderer(root, options).render(view)
 

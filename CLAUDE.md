@@ -25,6 +25,7 @@ python -m geogen.main -s room -r output.png --resolution 1280x720
 python -m geogen.main -s chair -r sheet.png --views            # iso/front/side/top contact sheet
 python -m geogen.main -s chair -r sheet.png --views iso,back,top --resolution 700x700
 python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
+python -m geogen.main -s hotel_room_auto -r out.png --views iso,top --cutaway   # hide ceilings/roofs to see inside
 
 # Export for game engines (hierarchy + PBR textures)
 python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj

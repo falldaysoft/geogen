@@ -89,3 +89,12 @@ def test_furnished_items_stand_clear_of_skirting():
         pts = np.concatenate([_world(n) for n in node.iter_nodes() if n.mesh is not None])
         local = pts - bedroom.world_transform()[:3, 3]
         assert np.all(np.abs(local[:, [0, 2]]) <= half - 0.024 + 1e-6), item
+
+
+def test_cutaway_removes_ceilings_and_fixtures():
+    from geogen.render import cutaway
+    root = FloorPlan.from_spec(SPEC).build("suite")
+    cut = cutaway(root)
+    names = {n.name for n in cut.iter_nodes()}
+    assert "ceiling" not in names and "bedroom_light" not in names and "cornice" not in names
+    assert "skirting" in names and root.find("ceiling") is not None  # original untouched

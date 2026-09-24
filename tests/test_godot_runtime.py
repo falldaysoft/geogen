@@ -120,3 +120,19 @@ def test_all_exports_load_side_by_side(run_godot, tmp_path):
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
                      .removeprefix("walk result: "))
     assert end["z"] < 2.0  # walked through the door into the cottage
+
+
+def test_m1_furnished_hotel_room_walkthrough(run_godot, tmp_path):
+    # Milestone M1: floor plan + archetype furnishing, exported with metadata.
+    # From the entry spawn (facing west) the player walks through the
+    # corridor and the bedroom door and is stopped by a nightstand.
+    from geogen.layout import SceneComposer
+    scene = SceneComposer().compose("assets/scenes/hotel_room_auto.yaml")
+    nightstand = scene.find("nightstand_2").world_transform()[:3, 3]
+    export_scene(scene, tmp_path / "hotel_room_auto.glb")
+    out = run_godot("--scene", "hotel_room_auto", f"--generated={tmp_path}", "--walk=4")
+    assert "3 rooms" in out
+    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                     .removeprefix("walk result: "))
+    assert end["room"] == "bedroom"
+    assert end["x"] == pytest.approx(nightstand[0] + 0.2 + RADIUS, abs=0.05)  # against its front

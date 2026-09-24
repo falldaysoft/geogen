@@ -98,6 +98,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--zoom", type=float, default=1.0, help="Camera zoom factor for --render")
     parser.add_argument("--no-shadows", action="store_true", help="Disable shadows in --render")
     parser.add_argument("--no-ground", action="store_true", help="Don't add a ground plane in --render")
+    parser.add_argument("--cutaway", action="store_true",
+                        help="--render with ceilings, roofs and ceiling lights removed to see inside")
     return parser.parse_args()
 
 
@@ -130,6 +132,10 @@ def main() -> None:
             return
 
     if args.render:
+        if args.cutaway:
+            from .render import cutaway
+
+            root = cutaway(root)
         width, height = map(int, args.resolution.split("x"))
         output_path = Path(args.render)
         options = RenderOptions(
