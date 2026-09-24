@@ -107,10 +107,10 @@ attachments:
 
   seat_left:
     anchor: left_center
-    offset: [-0.4, -0.5, 0]
+    offset: [-0.4, "{-height / 2}", 0]   # down to the floor
     facing: center
 
   seat_right:
     anchor: right_center
-    offset: [0.4, -0.5, 0]
+    offset: [0.4, "{-height / 2}", 0]
     facing: center
