@@ -152,6 +152,7 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
     scene = trimesh.Scene(base_frame="world")
     cache: dict = {}
     shared: dict[tuple, str] = {}           # (kind, id(mesh), ...) -> geometry name
+    colors: dict[str, np.ndarray] = {}      # geometry name -> vertex colours (COLOR_0)
     collider_kinds: dict[tuple, str] = {}
     lod_sizes: dict[tuple, tuple] = {}
     used: set[str] = {"world"}
@@ -182,6 +183,21 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
                                matrix=matrix if matrix is not None else np.eye(4), geometry=geom,
                                **({"metadata": metadata} if metadata else {}))
 
+    def add_mesh(key: tuple, mesh: Mesh, node_name: str, parent: str, matrix=None, metadata=None) -> None:
+        """A mesh node; extra material groups become ``material_group`` children, folded into the
+        node's glTF mesh as extra primitives after export (``merge_material_groups``)."""
+        groups = mesh.groups()
+        first = groups[0][1]
+        add(key, lambda: to_trimesh(first, cache), node_name, parent, matrix, metadata)
+        if first.colors is not None:
+            colors[shared[key]] = first.colors
+        for k, (_, sub) in enumerate(groups[1:], start=1):
+            gkey = (*key, "group", k)
+            add(gkey, lambda sub=sub: to_trimesh(sub, cache), unique(f"{node_name}__group{k}"), node_name,
+                metadata={"geogen": {"version": EXTRAS_VERSION, "type": "material_group"}})
+            if sub.colors is not None:
+                colors[shared[gkey]] = sub.colors
+
     def collider_of(node: SceneNode) -> str:
         key = (id(node.mesh), str(node.meta.get("collider", "auto")))
         if key not in collider_kinds:
@@ -206,7 +222,7 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
                 extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = exported
         if has_mesh:
             mesh = node.mesh
-            add(("mesh", id(mesh)), lambda: to_trimesh(mesh, cache), name, parent_name, matrix, extras or None)
+            add_mesh(("mesh", id(mesh)), mesh, name, parent_name, matrix, extras or None)
             if lods and len(mesh.faces) >= LOD_MIN_TRIANGLES:
                 for level, ratio in enumerate(lods, start=1):
                     key = ("lod", id(mesh), ratio)
@@ -217,9 +233,9 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
                     if faces >= len(mesh.faces):
                         continue
                     lod_name = unique(f"{name}_LOD{level}")
-                    add(key, lambda reduced=reduced: to_trimesh(reduced, cache), lod_name, name,
-                        metadata={"geogen": {"version": EXTRAS_VERSION, "type": "lod", "level": level,
-                                             "ratio": ratio}})
+                    add_mesh(key, reduced, lod_name, name,
+                             metadata={"geogen": {"version": EXTRAS_VERSION, "type": "lod", "level": level,
+                                                  "ratio": ratio}})
             if colliders and collider in COLLIDER_SUFFIX:
                 col_name = unique(f"{name}{COLLIDER_SUFFIX[collider]}")
                 add(("collider", id(mesh), collider), lambda: collider_mesh(mesh, collider), col_name, name,
@@ -232,6 +248,7 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
 
     visit(root, "world")
     scene.metadata["geogen_names"] = names      # node id -> exported name (for animations)
+    scene.metadata["geogen_colors"] = colors    # geometry name -> COLOR_0
     return scene
 
 
@@ -431,6 +448,58 @@ def _to_trs(node: dict, scale: np.ndarray) -> None:
         node["scale"] = [float(v) for v in s]
 
 
+def add_vertex_colors(glb: bytes, colors: dict[str, np.ndarray]) -> bytes:
+    """Add COLOR_0 (float RGBA) to the primitives of the named glTF meshes."""
+    import struct
+
+    if not colors:
+        return glb
+    gltf, rest, header = _split_glb(glb)
+    bin_len, bin_type = struct.unpack("<II", rest[:8])
+    data = bytearray(rest[8:8 + bin_len])
+    for mesh in gltf.get("meshes", []):
+        values = colors.get(mesh.get("name"))
+        if values is None:
+            continue
+        blob = np.ascontiguousarray(np.clip(values, 0, 1), dtype="<f4").tobytes()
+        data.extend(b"\0" * (-len(data) % 4))
+        gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
+                                    "target": 34962})
+        data.extend(blob)
+        gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
+                                  "count": int(len(values)), "type": "VEC4"})
+        for primitive in mesh.get("primitives", []):
+            primitive.setdefault("attributes", {})["COLOR_0"] = len(gltf["accessors"]) - 1
+    data.extend(b"\0" * (-len(data) % 4))
+    gltf["buffers"][0]["byteLength"] = len(data)
+    return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
+
+
+def merge_material_groups(glb: bytes) -> bytes:
+    """Fold ``material_group`` child nodes into their parent's glTF mesh as extra primitives.
+
+    The child nodes are detached (left unreferenced); shared meshes are extended once.
+    """
+    gltf, rest, header = _split_glb(glb)
+    nodes = gltf.get("nodes", [])
+    parent_of = {c: i for i, n in enumerate(nodes) for c in n.get("children", [])}
+    done: set[tuple[int, int]] = set()
+    changed = False
+    for index, node in enumerate(nodes):
+        extras = (node.get("extras") or {}).get("geogen") or {}
+        if extras.get("type") != "material_group" or index not in parent_of:
+            continue
+        parent = nodes[parent_of[index]]
+        if "mesh" in parent and "mesh" in node and (parent["mesh"], node["mesh"]) not in done:
+            gltf["meshes"][parent["mesh"]]["primitives"].extend(gltf["meshes"][node["mesh"]]["primitives"])
+            done.add((parent["mesh"], node["mesh"]))
+        parent["children"] = [c for c in parent["children"] if c != index]
+        if not parent["children"]:
+            del parent["children"]
+        changed = True
+    return _join_glb(gltf, rest, header) if changed else glb
+
+
 def add_lod_extension(glb: bytes) -> bytes:
     """Turn ``<name>_LOD<n>`` child nodes (extras type lod) into MSFT_lod on their base node.
 
@@ -605,6 +674,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
         glb = add_lod_extension(add_punctual_lights(scene.export(file_type="glb")))
+        glb = merge_material_groups(add_vertex_colors(glb, scene.metadata.get("geogen_colors", {})))
         if animations:
             glb = add_animations(glb, interaction_animations(root, scene.metadata["geogen_names"]))
         if textures_dir is not None:

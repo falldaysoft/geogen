@@ -39,7 +39,7 @@ def _split_corners(mesh: Mesh, corner_uv: np.ndarray) -> Mesh:
         normals=mesh.normals[src] if mesh.normals is not None else None,
         uvs=corner_uv[first],
         material=mesh.material,
-    )
+    ).with_attributes_of(mesh, vertex_index=src)
 
 
 def box_project(mesh: Mesh, origin: np.ndarray | None = None, directions: np.ndarray | None = None) -> Mesh:

@@ -4,6 +4,7 @@ in vec3 vWorldPos;
 in vec3 vNormal;
 in vec2 vTexCoord;
 in vec4 vLightSpacePos;
+in vec4 vColor;
 
 // Material textures
 uniform sampler2D uAlbedoMap;
@@ -149,6 +150,9 @@ void main() {
         albedo = texture(uAlbedoMap, texCoord).rgb;
     } else {
         albedo = uBaseColor.rgb;
+    }
+    if (uDisplayMode == 0) {
+        albedo *= vColor.rgb;   // vertex colour tint (white when a mesh has none)
     }
     albedo = pow(albedo, vec3(2.2));
 

@@ -17,8 +17,8 @@
           "items": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" }
         },
         "type": {
-          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render.",
-          "enum": ["room_volume", "spawn", "collider", "light", "lod"]
+          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced).",
+          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group"]
         },
         "shape": {
           "description": "Collider nodes only: how the collision geometry was made.",

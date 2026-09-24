@@ -120,6 +120,7 @@ def _primitive(mesh: Mesh, materials: _MaterialCache) -> pyrender.Primitive:
         normals=mesh.normals.astype(np.float32),
         tangents=tangents.astype(np.float32) if tangents is not None else None,
         texcoord_0=texcoords.astype(np.float32) if texcoords is not None else None,
+        color_0=mesh.colors.astype(np.float32) if mesh.colors is not None else None,
         indices=mesh.faces.astype(np.uint32),
         material=material,
     )
@@ -193,7 +194,9 @@ class SceneRenderer:
         materials = _MaterialCache()
         for _, mesh in root.iter_meshes():
             if len(mesh.faces):
-                self.scene.add(pyrender.Mesh([_primitive(mesh, materials)]))
+                # One primitive per material group.
+                self.scene.add(pyrender.Mesh([_primitive(sub, materials)
+                                              for _, sub in meshops.ensure_normals(mesh).groups()]))
         if self.options.ground:
             self.scene.add(_ground_mesh(self.bounds))
 

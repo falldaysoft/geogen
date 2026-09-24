@@ -49,6 +49,8 @@ def weld_vertices(mesh: Mesh, tol: float = 1e-6) -> Mesh:
         keys.append(_quantize(mesh.normals, 1e-4))
     if mesh.uvs is not None:
         keys.append(_quantize(mesh.uvs, 1e-5))
+    if mesh.colors is not None:
+        keys.append(_quantize(mesh.colors, 1e-3))
     key = np.hstack(keys)
 
     _, first, inverse = np.unique(key, axis=0, return_index=True, return_inverse=True)
@@ -63,7 +65,7 @@ def weld_vertices(mesh: Mesh, tol: float = 1e-6) -> Mesh:
         normals=mesh.normals[first] if mesh.normals is not None else None,
         uvs=mesh.uvs[first] if mesh.uvs is not None else None,
         material=mesh.material,
-    )
+    ).with_attributes_of(mesh, vertex_index=first, face_keep=keep)
 
 
 def compute_normals(
@@ -130,7 +132,7 @@ def compute_normals(
         normals=corner_normals[first],
         uvs=mesh.uvs[src] if mesh.uvs is not None else None,
         material=mesh.material,
-    )
+    ).with_attributes_of(mesh, vertex_index=src)
 
 
 def ensure_normals(mesh: Mesh, crease_angle: float = DEFAULT_CREASE_ANGLE) -> Mesh:
@@ -269,8 +271,9 @@ def decimate(mesh: Mesh, ratio: float, crease_angle: float = 40.0) -> Mesh:
 
     if ratio >= 1.0 or len(mesh.faces) < 8:
         return mesh
+    slots = mesh.face_materials if mesh.multi_material else None
     try:
-        man = _to_manifold(mesh)
+        man = _to_manifold(mesh, slots)
     except CSGError:
         return mesh
     target = max(4, int(len(mesh.faces) * ratio))
@@ -290,4 +293,4 @@ def decimate(mesh: Mesh, ratio: float, crease_angle: float = 40.0) -> Mesh:
             break
     if best.num_tri() == 0:
         return mesh
-    return _from_manifold(best, mesh.material, crease_angle)
+    return _from_manifold(best, mesh.material, crease_angle, mesh.materials if slots is not None else None)

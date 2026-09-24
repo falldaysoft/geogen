@@ -11,8 +11,9 @@
   ``scale`` metres. Vertices sharing a position move together, so closed
   meshes stay closed.
 
-Both work on the position-welded mesh and drop UVs and normals; callers
-re-project metric UVs (``uvmap.box_project``) and recompute normals.
+Both work on the position-welded mesh and drop UVs, normals and vertex
+colours (material slots are kept); callers re-project metric UVs
+(``uvmap.box_project``) and recompute normals.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from .mesh import Mesh
 from .meshops import _position_ids, face_normals
 
 
-def _weld_positions(mesh: Mesh, tol: float = 1e-6) -> tuple[NDArray, NDArray]:
+def _weld_positions(mesh: Mesh, tol: float = 1e-6, with_keep: bool = False):
     ids = _position_ids(mesh.vertices, tol)
     n = int(ids.max()) + 1 if len(ids) else 0
     verts = np.zeros((n, 3))
@@ -33,6 +34,8 @@ def _weld_positions(mesh: Mesh, tol: float = 1e-6) -> tuple[NDArray, NDArray]:
     keep = (faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 0] != faces[:, 2])
     faces = faces[keep]
     used, faces = np.unique(faces, return_inverse=True)   # drop unreferenced positions
+    if with_keep:
+        return verts[used], faces.reshape(-1, 3), keep
     return verts[used], faces.reshape(-1, 3)
 
 
@@ -119,7 +122,7 @@ def subdivide(mesh: Mesh, levels: int = 1, crease_angle: float | None = None) ->
     Edges whose dihedral angle exceeds ``crease_angle`` degrees stay creased;
     ``None`` smooths everything (open boundaries are always creases).
     """
-    verts, faces = _weld_positions(mesh)
+    verts, faces, keep = _weld_positions(mesh, with_keep=True)
     edges, face_edge = _edges(faces)
     sharp = np.zeros(len(edges), dtype=bool)
     if crease_angle is not None and len(faces):
@@ -132,9 +135,15 @@ def subdivide(mesh: Mesh, levels: int = 1, crease_angle: float | None = None) ->
         pair = np.flatnonzero((fe_sorted[1:] == fe_sorted[:-1]))
         cos = np.einsum("ij,ij->i", fn[faces_sorted[pair]], fn[faces_sorted[pair + 1]])
         sharp[fe_sorted[pair]] = cos < np.cos(np.radians(crease_angle))
+    slots = mesh.face_materials[keep] if mesh.face_materials is not None else None
     for _ in range(max(0, int(levels))):
         verts, faces, sharp = _subdivide_once(verts, faces, sharp)
-    return Mesh(vertices=verts, faces=faces.astype(np.int64), material=mesh.material)
+        if slots is not None:
+            slots = np.tile(slots, 4)          # children come in four blocks of the parent order
+    out = Mesh(vertices=verts, faces=faces.astype(np.int64), material=mesh.material)
+    if slots is not None:
+        out.face_materials, out.materials = slots, list(mesh.materials)
+    return out
 
 
 # --- noise ---------------------------------------------------------------------------------------
@@ -187,7 +196,7 @@ def displace(mesh: Mesh, amplitude: float, scale: float = 0.3, octaves: int = 3,
     metres. ``ridged`` folds the noise (``1 - 2|n|``) for chipped, rocky
     ridges instead of soft lumps.
     """
-    verts, faces = _weld_positions(mesh)
+    verts, faces, keep = _weld_positions(mesh, with_keep=True)
     fn, area = face_normals(verts, faces)
     normals = np.zeros_like(verts)
     for k in range(3):
@@ -197,5 +206,6 @@ def displace(mesh: Mesh, amplitude: float, scale: float = 0.3, octaves: int = 3,
     noise = fractal_noise3(verts / max(float(scale), 1e-6), octaves, int(seed))
     if ridged:
         noise = 1.0 - 2.0 * np.abs(np.clip(noise, -1, 1))
-    return Mesh(vertices=verts + normals * (float(amplitude) * noise)[:, None], faces=faces.astype(np.int64),
-                material=mesh.material)
+    out = Mesh(vertices=verts + normals * (float(amplitude) * noise)[:, None], faces=faces.astype(np.int64),
+               material=mesh.material)
+    return out.with_attributes_of(mesh, face_keep=keep)

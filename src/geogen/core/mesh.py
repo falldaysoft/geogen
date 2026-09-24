@@ -17,6 +17,11 @@ class Mesh:
 
     Stores vertices, faces, and optional normals/UVs as numpy arrays.
     Can convert to/from trimesh for rendering and export.
+
+    Multi-material meshes carry ``face_materials`` (one index per face) into
+    ``materials``; a ``None`` entry falls back to ``material``. ``groups()``
+    splits them for renderers and exporters (one glTF primitive each).
+    ``colors`` are optional per-vertex RGBA (0-1) tints, exported as COLOR_0.
     """
 
     def __init__(
@@ -26,6 +31,9 @@ class Mesh:
         normals: NDArray[np.float64] | None = None,
         uvs: NDArray[np.float64] | None = None,
         material: Material | None = None,
+        face_materials: NDArray[np.int64] | None = None,
+        materials: list[Material | None] | None = None,
+        colors: NDArray[np.float64] | None = None,
     ) -> None:
         """Create a mesh from geometry data.
 
@@ -43,8 +51,59 @@ class Mesh:
         )
         self.uvs = np.asarray(uvs, dtype=np.float64) if uvs is not None else None
         self.material = material
+        self.face_materials = np.asarray(face_materials, dtype=np.int64) if face_materials is not None else None
+        self.materials = list(materials) if materials is not None else None
+        self.colors = np.asarray(colors, dtype=np.float64) if colors is not None else None
 
         self._trimesh_cache: trimesh.Trimesh | None = None
+
+    @property
+    def multi_material(self) -> bool:
+        return self.face_materials is not None and self.materials is not None and len(self.materials) > 1
+
+    def face_material(self, index: int) -> Material | None:
+        """Effective material of material slot ``index``."""
+        if self.materials is None or not (0 <= index < len(self.materials)):
+            return self.material
+        return self.materials[index] if self.materials[index] is not None else self.material
+
+    def effective_face_materials(self) -> tuple[NDArray[np.int64], list[Material | None]]:
+        """(slot per face, material per slot), for single- and multi-material meshes alike."""
+        if self.face_materials is None or self.materials is None:
+            return np.zeros(len(self.faces), dtype=np.int64), [self.material]
+        return self.face_materials, [self.face_material(i) for i in range(len(self.materials))]
+
+    def with_attributes_of(self, source: Mesh, vertex_index=None, face_keep=None, face_repeat: int = 1) -> Mesh:
+        """Carry ``source``'s material slots and colours onto this derived mesh.
+
+        ``vertex_index`` maps this mesh's vertices to source vertices (for
+        colours); ``face_keep`` is a mask/index of source faces kept, in order;
+        ``face_repeat`` tiles face slots (subdivision makes faces in blocks).
+        """
+        self.material = source.material if self.material is None else self.material
+        if source.face_materials is not None:
+            slots = source.face_materials if face_keep is None else source.face_materials[face_keep]
+            self.face_materials = np.tile(slots, face_repeat)
+            self.materials = list(source.materials) if source.materials is not None else None
+        if source.colors is not None and vertex_index is not None:
+            self.colors = source.colors[vertex_index]
+        return self
+
+    def groups(self) -> list[tuple[Material | None, Mesh]]:
+        """One (material, sub-mesh) per material slot in use (vertices compacted)."""
+        if not self.multi_material:
+            return [(self.material, self)]
+        out = []
+        for slot in np.unique(self.face_materials):
+            faces = self.faces[self.face_materials == slot]
+            used, remap = np.unique(faces, return_inverse=True)
+            sub = Mesh(vertices=self.vertices[used], faces=remap.reshape(-1, 3),
+                       normals=self.normals[used] if self.normals is not None else None,
+                       uvs=self.uvs[used] if self.uvs is not None else None,
+                       material=self.face_material(int(slot)),
+                       colors=self.colors[used] if self.colors is not None else None)
+            out.append((sub.material, sub))
+        return out
 
     @property
     def vertex_count(self) -> int:
@@ -131,6 +190,7 @@ class Mesh:
             normals=new_normals,
             uvs=self.uvs.copy() if self.uvs is not None else None,
             material=self.material,  # Material is preserved through transform
+            face_materials=self.face_materials, materials=self.materials, colors=self.colors,
         )
 
     def copy(self) -> Mesh:
@@ -141,11 +201,18 @@ class Mesh:
             normals=self.normals.copy() if self.normals is not None else None,
             uvs=self.uvs.copy() if self.uvs is not None else None,
             material=self.material,  # Material reference is shared (not deep copied)
+            face_materials=self.face_materials.copy() if self.face_materials is not None else None,
+            materials=self.materials,
+            colors=self.colors.copy() if self.colors is not None else None,
         )
 
     @staticmethod
     def merge(meshes: list[Mesh]) -> Mesh:
         """Merge multiple meshes into a single mesh.
+
+        Meshes with different materials become material groups of the
+        result (``face_materials``); if all share one material (or none),
+        the result has that single material.
 
         Args:
             meshes: List of Mesh objects to merge
@@ -176,9 +243,31 @@ class Mesh:
                 all_uvs.append(mesh.uvs)
             vertex_offset += len(mesh.vertices)
 
+        # Material slots: the distinct effective materials, in order of appearance.
+        slots: list = []
+        face_slots = []
+        for mesh in meshes:
+            per_face, mats = mesh.effective_face_materials()
+            local = []
+            for m in mats:
+                index = next((i for i, existing in enumerate(slots) if existing is m), None)
+                if index is None:
+                    slots.append(m)
+                    index = len(slots) - 1
+                local.append(index)
+            face_slots.append(np.asarray(local, dtype=np.int64)[per_face] if len(per_face) else per_face)
+        colors = None
+        if any(m.colors is not None for m in meshes):
+            colors = np.vstack([m.colors if m.colors is not None else np.ones((len(m.vertices), 4))
+                                for m in meshes])
+        grouped = len(slots) > 1
         return Mesh(
             vertices=np.vstack(all_vertices),
             faces=np.vstack(all_faces),
             normals=np.vstack(all_normals) if has_normals else None,
             uvs=np.vstack(all_uvs) if has_uvs else None,
+            material=slots[0] if slots else None,
+            face_materials=np.concatenate(face_slots) if grouped else None,
+            materials=slots if grouped else None,
+            colors=colors,
         )

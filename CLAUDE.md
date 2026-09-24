@@ -63,6 +63,9 @@ pytest tests/test_scenes.py -k "test_name"
 - **SceneNode** (`node.py`): Hierarchical scene graph with parent-child relationships. Each node has a local Transform, optional Mesh, and children. Provides `world_transform()` for combined transformation matrices, `flatten()` to merge all geometry, and `iter_meshes()` for traversal. Supports attachment points via `get_attachment()`.
 
 - **Mesh** (`mesh.py`): Geometry container storing vertices, faces, normals, UVs, and optional Material. Has `transform()` method, `merge()` classmethod for combining meshes, and conversion to/from trimesh.
+  - **Material groups:** optional per-face `face_materials` index into `materials`, and `merge()` of differently-materialled meshes produces these groups. `groups()` splits them for the renderers, and the exporter writes one glTF primitive each.
+  - **Vertex colours:** optional per-vertex RGBA `colors`, which tint the albedo in both renderers and export as `COLOR_0`.
+  - **Propagation:** weld, normals, UV projection, subdivision, displacement and CSG/decimation all carry groups (CSG through a manifold vertex property); a difference's cut faces take the target's primary material. Derived meshes copy them with `with_attributes_of`.
 
 - **Transform** (`transform.py`): TRS (Translation-Rotation-Scale) transformation. Rotation uses XYZ Euler angles in radians. Matrix order is Scale -> Rotate -> Translate.
 

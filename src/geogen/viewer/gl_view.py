@@ -194,21 +194,22 @@ class GLView(QOpenGLWidget):
         for node, world_mesh in root.iter_meshes():
             if len(world_mesh.faces) == 0:
                 continue
-            mesh = meshops.ensure_normals(world_mesh)
-            gpu = _GpuMesh(
-                node=node,
-                vertices=mesh.vertices,
-                faces=mesh.faces,
-                bounds=np.array([mesh.vertices.min(axis=0), mesh.vertices.max(axis=0)]),
-                material=mesh.material,
-            )
-            gpu.vao, gpu.buffers = self._create_vao(mesh)
+            # One draw per material group (a single one for ordinary meshes).
+            for material, mesh in meshops.ensure_normals(world_mesh).groups():
+                gpu = _GpuMesh(
+                    node=node,
+                    vertices=mesh.vertices,
+                    faces=mesh.faces,
+                    bounds=np.array([mesh.vertices.min(axis=0), mesh.vertices.max(axis=0)]),
+                    material=material,
+                )
+                gpu.vao, gpu.buffers = self._create_vao(mesh)
 
-            if mesh.material is not None and id(mesh.material) not in self._textures:
-                self._textures[id(mesh.material)] = self._upload_material(mesh.material)
-            self._meshes.append(gpu)
-            lo = np.minimum(lo, gpu.bounds[0])
-            hi = np.maximum(hi, gpu.bounds[1])
+                if material is not None and id(material) not in self._textures:
+                    self._textures[id(material)] = self._upload_material(material)
+                self._meshes.append(gpu)
+                lo = np.minimum(lo, gpu.bounds[0])
+                hi = np.maximum(hi, gpu.bounds[1])
 
         self._bounds = np.array([lo, hi]) if np.all(np.isfinite(lo)) else np.array([[-1.0] * 3, [1.0] * 3])
         self.camera.scene_radius = float(np.linalg.norm(self._bounds[1] - self._bounds[0])) / 2
@@ -221,10 +222,13 @@ class GLView(QOpenGLWidget):
     def _create_vao(mesh) -> tuple[int, list[int]]:
         vertices = mesh.vertices.astype(np.float32)
         uvs = mesh.uvs.astype(np.float32) if mesh.uvs is not None else np.zeros((len(vertices), 2), np.float32)
+        colors = mesh.colors.astype(np.float32) if getattr(mesh, "colors", None) is not None \
+            else np.ones((len(vertices), 4), np.float32)
         vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(vao)
         buffers = []
-        for location, data, width in ((0, vertices, 3), (1, mesh.normals.astype(np.float32), 3), (2, uvs, 2)):
+        for location, data, width in ((0, vertices, 3), (1, mesh.normals.astype(np.float32), 3), (2, uvs, 2),
+                                      (3, colors, 4)):
             vbo = GL.glGenBuffers(1)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
             GL.glBufferData(GL.GL_ARRAY_BUFFER, data.nbytes, data, GL.GL_STATIC_DRAW)
