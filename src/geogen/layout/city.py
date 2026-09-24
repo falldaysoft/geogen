@@ -274,6 +274,7 @@ class CityBuilder:
         entries = [self.landmarks[lot.block]] if lot.zone == "landmark" else list(self.catalogue.get(lot.zone, []))
         building = self._fit(entries, lot)
         if building is not None:
+            building.name = f"{node.name}_{building.name.removeprefix('building_')}"   # unique per lot
             node.add_child(building)
         return node
 

@@ -30,7 +30,7 @@ static func from_manifest(path: String) -> PlayerSpec:
 		push_error("PlayerSpec: cannot read manifest %s" % path)
 		return null
 	var manifest = JSON.parse_string(text)
-	if not manifest is Dictionary or manifest.get("format") != MANIFEST_FORMAT:
+	if not manifest is Dictionary or not manifest.get("format") in [MANIFEST_FORMAT, "geogen-chunks"]:
 		push_error("PlayerSpec: %s is not a geogen manifest" % path)
 		return null
 	return from_dict(manifest.get("player", {}))

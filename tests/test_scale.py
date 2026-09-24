@@ -153,3 +153,18 @@ def test_disk_cache_key_includes_params(tmp_path):
     composer._load_object({"asset": "house_simple.yaml", "params": {"width": 7}})
     composer._load_object({"asset": "house_simple.yaml", "params": {"width": 9}})
     assert len(list(tmp_path.glob("*.pickle"))) == 2
+
+
+def test_reexport_removes_stale_chunks(tmp_path):
+    root = SceneNode("root")
+    for i in range(2):
+        building = SceneNode(f"b{i}", tags=["building"])
+        building.add_child(SceneNode("wall", mesh=Mesh(
+            vertices=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1.0]]) + i * 3,
+            faces=np.array([[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]]))))
+        root.add_child(building)
+    export_chunks(root, tmp_path, name="x")
+    assert (tmp_path / "b1.glb").exists()
+    root.children.pop()
+    export_chunks(root, tmp_path, name="x")
+    assert (tmp_path / "b0.glb").exists() and not (tmp_path / "b1.glb").exists()

@@ -53,6 +53,14 @@ var _gates: Array[Dictionary] = []
 var _target_of := {}  # Node3D aimed at -> GeogenInteraction
 var _poll := 0.0
 var _collider_material: StandardMaterial3D
+## Prefer a chunked export (<scene>_chunks/<scene>.chunks.json) over a single .glb.
+var prefer_chunks := false
+## Where streamed exports load around (main.gd keeps it on the player).
+var stream_focus := Vector3.ZERO
+## The streamer of a chunked export, or null.
+var streamer: GeogenChunkStreamer = null
+## Optional [full, lod, interior] radii for the streamer (metres).
+var stream_radii := PackedFloat64Array()
 
 
 func _ready() -> void:
@@ -67,6 +75,7 @@ func _ready() -> void:
 func load_all() -> AABB:
 	for child in get_children():
 		child.free()
+	streamer = null
 	_mtimes.clear()
 	_next_x = 0.0
 	model_aabbs.clear()
@@ -124,7 +133,10 @@ func _manifests() -> Array[String]:
 	var result: Array[String] = []
 	if scene_name != "":
 		var path := "%s/%s.manifest.json" % [generated_dir, scene_name]
-		if FileAccess.file_exists(path):
+		var chunks := "%s/%s_chunks/%s.chunks.json" % [generated_dir, scene_name, scene_name]
+		if FileAccess.file_exists(chunks) and (prefer_chunks or not FileAccess.file_exists(path)):
+			result.append(chunks)
+		elif FileAccess.file_exists(path):
 			result.append(path)
 		return result
 	var dir := DirAccess.open(generated_dir)
@@ -142,6 +154,9 @@ func _load_model(manifest_path: String) -> void:
 	var manifest = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
 	if not manifest is Dictionary:
 		push_error("geogen: bad manifest %s" % manifest_path)
+		return
+	if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
+		_load_chunked(manifest_path, manifest)
 		return
 	var model_path: String = manifest_path.get_base_dir().path_join(manifest.get("model", ""))
 	var doc := GLTFDocument.new()
@@ -164,19 +179,8 @@ func _load_model(manifest_path: String) -> void:
 		root.position = offset
 	model_aabbs.append(_aabb(root))
 	_prepare_materials(root)
-	# MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
-	for node in root.find_children("*", "Node3D", true, false):
-		if geogen_extras(node).get("type") == "lod":
-			node.get_parent().remove_child(node)
-			node.queue_free()
-	_collect_interactions(root)
-	_add_lights(root)
-	_wire_switches()
-	_collect_affordances(root)
-	var count := _add_collision(root)
-	_collect_gates(root)
-	_collect_rooms(root)
-	var summary := GeogenSceneBuilder.build(root)
+	var summary := setup_root(root)
+	var count: int = summary["meshes"]
 	if open_before_bake:
 		for it in interactions:
 			if it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset):
@@ -192,6 +196,77 @@ func _load_model(manifest_path: String) -> void:
 			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
 	print("geogen: loaded %s (%d meshes, %d rooms, %d spawns, %d tagged)" % [
 		model_path.get_file(), count, summary["rooms"], summary["spawns"], summary["tagged"]])
+
+
+## Gameplay setup for a freshly loaded export (or streamed chunk) already in
+## the tree: LOD levels dropped, interactions, lights, switches, seats,
+## colliders, gates, rooms, then the scene builder (Areas, spawns, groups).
+func setup_root(root: Node) -> Dictionary:
+	# MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
+	for node in root.find_children("*", "Node3D", true, false):
+		if geogen_extras(node).get("type") == "lod":
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	_collect_interactions(root)
+	_add_lights(root)
+	_wire_switches(root)
+	_collect_affordances(root)
+	var count := _add_collision(root)
+	_collect_gates(root)
+	_collect_rooms(root)
+	var summary := GeogenSceneBuilder.build(root)
+	summary["meshes"] = count
+	return summary
+
+
+## Unregister everything ``root`` contributed (before freeing a streamed chunk).
+func forget(root: Node) -> void:
+	var inside := func(node) -> bool:
+		return node is Node and is_instance_valid(node) and (node == root or root.is_ancestor_of(node))
+	for it in interactions.duplicate():
+		if inside.call(it.asset):
+			interactions.erase(it)
+			it.queue_free()
+	rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
+	affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
+	_gates = _gates.filter(func(g): return not inside.call(g.get("node")))
+	for key in lights_by_name.keys():
+		if inside.call(lights_by_name[key]):
+			lights_by_name.erase(key)
+	for key in _moving.keys():
+		if inside.call(key):
+			_moving.erase(key)
+	for key in _target_of.keys():
+		if inside.call(key):
+			_target_of.erase(key)
+
+
+func _load_chunked(index_path: String, index: Dictionary) -> void:
+	streamer = GeogenChunkStreamer.new()
+	streamer.name = "ChunkStreamer"
+	streamer.world = self
+	if stream_radii.size() >= 3:
+		streamer.full_radius = stream_radii[0]
+		streamer.lod_radius = stream_radii[1]
+		streamer.interior_radius = stream_radii[2]
+	add_child(streamer)
+	streamer.open(index_path, index)
+	if not index.get("spawns", []).is_empty():
+		var p: Array = index["spawns"][0].get("position", [0, 0, 0])
+		stream_focus = Vector3(p[0], p[1], p[2])
+	streamer.prime(stream_focus)
+	model_aabbs.append(streamer.bounds)
+	for s in index.get("spawns", []):
+		var f: Array = s.get("forward", [0, 0, -1])
+		var p: Array = s.get("position", [0, 0, 0])
+		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]),
+			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
+	print("geogen: streaming %s (%d chunks)" % [index_path.get_file(), streamer.chunks.size()])
+
+
+## Report of what the streamer has loaded, or {} for single-file exports.
+func stream_report() -> Dictionary:
+	return streamer.report() if streamer != null else {}
 
 
 ## extras.geogen of a node imported from glTF, or {}.
@@ -242,8 +317,10 @@ func _add_lights(root: Node) -> void:
 
 
 ## Light switches: their interaction's on/off state shows or hides the named light.
-func _wire_switches() -> void:
+func _wire_switches(root: Node) -> void:
 	for it in interactions:
+		if not root.is_ancestor_of(it.asset):
+			continue   # wired when its own export loaded
 		var spec = geogen_extras(it.asset).get("switch")
 		if not spec is Dictionary:
 			continue
@@ -321,7 +398,8 @@ func _collect_rooms(root: Node) -> void:
 			var size: Array = g.get("size", [0, 0, 0])
 			var room: Dictionary = g.get("room", {})
 			rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""), "nav": g.get("nav", true),
-				"xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2])})
+				"xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2]),
+				"node": node})
 
 
 func _collect_interactions(root: Node) -> void:

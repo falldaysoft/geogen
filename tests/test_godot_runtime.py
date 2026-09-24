@@ -434,3 +434,62 @@ def test_m4_interactive_hotel_room(run_godot, tmp_path):
     out = run_godot(*base, "--spawn=-1.9,0,-1.55", "--yaw=180", "--pitch=-50", "--use=@aim", "--quit-after=20", "--status")
     status = _lines(out, "status: ")[0]
     assert (status["pose"], status["pose_asset"]) == ("lie", "bed")
+
+
+STRIP = """
+name: strip
+city:
+  seed: 3
+  blocks: [5, 1]
+  block_size: [30, 32]
+  avenues: { ew: [0] }
+  lot_width: [11, 14]
+  buildings:
+    residential: [{ recipe: detached_house, storeys: 1, interior: full }]
+    commercial: [{ recipe: shop_row, storeys: 2, interior: lobby }]
+spawns:
+  start: { position: [-75, 0, -20], facing: east }
+"""
+
+
+@pytest.fixture(scope="module")
+def strip_dir(tmp_path_factory):
+    """A 5-block street exported as chunks (generated/strip_chunks/)."""
+    from geogen.chunks import export_chunks
+    from geogen.layout.composer import SceneComposer
+
+    out = tmp_path_factory.mktemp("generated")
+    export_chunks(SceneComposer().compose_string(STRIP), out / "strip_chunks", name="strip")
+    return out
+
+
+def _stream_walk(run_godot, generated, seconds, *extra):
+    out = run_godot("--scene", "strip", f"--generated={generated}", "--stream-radius=20,1000,6",
+                    f"--walk={seconds}", *extra)
+    assert "geogen: streaming strip.chunks.json (6 chunks)" in out
+    line = next(l for l in out.splitlines() if l.startswith("walk result: "))
+    return json.loads(line.removeprefix("walk result: "))
+
+
+def test_stream_loads_near_chunks_full_and_far_ones_as_lod(run_godot, strip_dir):
+    end = _stream_walk(run_godot, strip_dir, 0.3)
+    stream = end["stream"]
+    assert "base" in stream["full"] and "block_0_0" in stream["full"]
+    assert {"block_2_0", "block_3_0", "block_4_0"} <= set(stream["lod"])
+    assert not set(stream["full"]) & set(stream["lod"])
+    assert end["on_floor"]                      # the street loaded under the spawn
+
+
+def test_stream_swaps_detail_as_the_player_walks(run_godot, strip_dir):
+    end = _stream_walk(run_godot, strip_dir, 12)
+    assert end["x"] > -35                       # walked east along the avenue
+    stream = end["stream"]
+    assert "block_1_0" in stream["full"] and "block_0_0" in stream["lod"]
+    assert stream["unloads"] > 0
+
+
+def test_stream_loads_interiors_next_to_buildings(run_godot, strip_dir):
+    out = run_godot("--scene", "strip", f"--generated={strip_dir}", "--stream-radius=20,1000,6",
+                    "--spawn=-80,0.2,-12.5", "--quit-after=90", "--status")
+    status = json.loads(next(l for l in out.splitlines() if l.startswith("status: ")).removeprefix("status: "))
+    assert status["stream"]["interiors"] and all(i.startswith("block_0_0/") for i in status["stream"]["interiors"])

@@ -108,6 +108,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--cache", nargs="?", const=".cache/geogen", default=None, metavar="DIR",
                         help="Cache generated assets on disk (default dir .cache/geogen); any source or asset "
                              "change invalidates it")
+    parser.add_argument("--stream", action="store_true",
+                        help="With --export-godot: write a chunked export (<scene>_chunks/) the runtime streams")
     parser.add_argument("--chunks", default=None, metavar="DIR",
                         help="Export as streamable chunks (per block/building, exterior LODs, interiors) into DIR")
     parser.add_argument("--state", default=None,
@@ -141,6 +143,14 @@ def main() -> None:
         index = export_chunks(root, args.chunks, name=args.scene)
         print(f"\nExported {args.scene} chunks; index {index}")
         if not (args.render or args.export or args.export_godot):
+            return
+
+    if args.export_godot and args.stream:
+        from .chunks import export_chunks
+
+        index = export_chunks(root, GODOT_GENERATED / f"{args.scene}_chunks", name=args.scene)
+        print(f"\nExported {args.scene} chunks for Godot; index {index}")
+        if not (args.render or args.export):
             return
 
     if args.export or args.export_godot:

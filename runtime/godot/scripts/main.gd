@@ -3,7 +3,10 @@ extends Node3D
 ## first-person player sized from the manifest, and shows a debug overlay.
 ##
 ## User args (after `--`):
-##   --scene NAME | --scene=NAME   load generated/NAME.glb (default: every export)
+##   --scene NAME | --scene=NAME   load generated/NAME.glb (default: every export); a
+##                                 chunked export (generated/NAME_chunks/) streams around the player
+##   --stream                      prefer NAME's chunked export when both exist
+##   --stream-radius=F,L,I         streaming radii: full exterior, LOD, interiors (m)
 ##   --generated=DIR               read exports from DIR instead of res://generated
 ##   --spawn=X,Y,Z  --yaw=DEG      player start (default: the export's first spawn
 ##                                 point, else in front of the model)
@@ -76,6 +79,10 @@ func _ready() -> void:
             world.scene_name = args[i]
         elif arg.begins_with("--scene="):
             world.scene_name = value
+        elif arg == "--stream":
+            world.prefer_chunks = true
+        elif arg.begins_with("--stream-radius="):
+            world.stream_radii = value.split_floats(",")
         elif arg.begins_with("--generated="):
             world.generated_dir = value
         elif arg.begins_with("--spawn="):
@@ -230,6 +237,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+    if player != null:
+        world.stream_focus = player.global_position
     _update_focus()
     if _nav_query.size() == 2:
         _frames_nav += 1
@@ -260,8 +269,11 @@ func _physics_process(delta: float) -> void:
     if _walk_left <= 0.0:
         player.scripted_move = null
         var p := player.global_position
-        print("walk result: %s" % JSON.stringify({"x": p.x, "y": p.y, "z": p.z,
-            "on_floor": player.is_on_floor(), "room": world.room_at(p + Vector3(0, 0.5, 0))}))
+        var result := {"x": p.x, "y": p.y, "z": p.z,
+            "on_floor": player.is_on_floor(), "room": world.room_at(p + Vector3(0, 0.5, 0))}
+        if world.streamer != null:
+            result["stream"] = world.stream_report()
+        print("walk result: %s" % JSON.stringify(result))
         get_tree().quit()
 
 
@@ -269,9 +281,13 @@ func _process(_delta: float) -> void:
     if overlay.visible:
         var p := player.global_position
         var room := world.room_at(p + Vector3(0, 0.5, 0))
-        overlay.text = "%d fps   %s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
+        var stream := world.stream_report()
+        var chunk_info := "" if stream.is_empty() else "   chunks %d full / %d lod / %d interiors%s" % [
+            stream["full"].size(), stream["lod"].size(), stream["interiors"].size(),
+            " (+%d loading)" % stream["pending"] if stream["pending"] > 0 else ""]
+        overlay.text = "%d fps   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
             Engine.get_frames_per_second(),
-            world.scene_name if world.scene_name != "" else "all exports",
+            world.scene_name if world.scene_name != "" else "all exports", chunk_info,
             p.x, p.y, p.z, room if room != "" else "-",
             "   [fly]" if player.flying else "",
             "   [colliders]" if world.show_colliders else ""]
@@ -288,7 +304,7 @@ func _process(_delta: float) -> void:
             print("status: %s" % JSON.stringify({"pose": player.pose.get("type", "stand"),
                 "pose_asset": player.pose.get("asset", ""), "x": p.x, "y": p.y, "z": p.z,
                 "room": world.room_at(p + Vector3(0, 0.5, 0)), "eye_y": player.camera.global_position.y,
-                "states": world.save_state()}))
+                "states": world.save_state(), "stream": world.stream_report()}))
         if _print_lights:
             var report := {}
             for name in world.lights_by_name:

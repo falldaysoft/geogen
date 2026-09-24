@@ -32,6 +32,7 @@ capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 | `scenes/main.tscn` | Sky, sun, fog, 400 m ground with collision, `World` loader, overview camera, overlay |
 | `scripts/main.gd` | Root: parses user args, spawns the player, debug overlay |
 | `scripts/world_loader.gd` | `WorldLoader`: loads `.glb` exports at runtime via `GLTFDocument`, builds static bodies from the exported collider nodes, collects room volumes (`room_at()`) and manifest spawns, adds texture mipmaps, hot-reloads |
+| `scripts/chunk_streamer.gd` | `GeogenChunkStreamer`: streams a chunked export around the player (see below) |
 | `scripts/player.gd` | `Player`: first-person `CharacterBody3D` sized from the player spec, with step-up |
 | `scripts/player_spec.gd` | `PlayerSpec`: player radius/height/eye/step/slope/reach read from a geogen manifest |
 | `addons/geogen/` | Editor plugin + `GeogenSceneBuilder`: turns `extras.geogen` into room `Area3D`s (`RoomArea`, group `geogen_room`), spawn `Marker3D`s (group `geogen_spawn`), tag groups (`furniture.bed` → `furniture.bed` + `furniture`) and a baked `NavigationRegion3D`; applied on editor import (post-import plugin) and by `WorldLoader` at runtime |
@@ -74,6 +75,8 @@ User args (after `--`):
 |---|---|
 | `--scene NAME` / `--scene=NAME` | Load `generated/NAME.glb` (default: every export) |
 | `--generated=DIR` | Read exports from `DIR` instead of `res://generated` |
+| `--stream` | Prefer the scene's chunked export (`generated/NAME_chunks/`) when a single-file one exists too |
+| `--stream-radius=F,L,I` | Streaming radii in metres: full exterior, LOD, interiors (default 60, 400, 14) |
 | `--spawn=X,Y,Z`, `--yaw=DEG` | Player start (default: 3 m in front (+Z) of the model, facing it) |
 | `--camera=overview` | Start on the overview camera |
 | `--colliders` | Show collider wireframes |
@@ -93,6 +96,30 @@ User args (after `--`):
 
 `tests/test_godot_runtime.py` exports the cottage and walks the player into
 it headless (wall blocks, door step is climbed, closed door blocks).
+
+## Streaming large scenes
+
+`python -m geogen.main -s town --export-godot --stream` writes a chunked
+export to `generated/town_chunks/`:
+- one GLB per city block or building;
+- a decimated `_lod` stand-in for each;
+- one `_interior` GLB per building;
+- `base.glb`, holding the streets and everything else;
+- a shared `textures/` folder;
+- the `town.chunks.json` index (`geogen-chunks` v1).
+
+`--scene town` loads it through `GeogenChunkStreamer`:
+- `base` stays loaded.
+- A chunk's full exterior loads within the full radius of its bounds, and its LOD out to the LOD radius. The LOD stays until the full version is in, so nothing pops.
+- A building's interior loads when the player is within the interior radius of it.
+- Pieces unload 10 m further out than they load.
+
+Loading runs as follows:
+- `prime()` loads what the spawn needs synchronously.
+- After that, GLB parsing and mipmap generation run on the `WorkerThreadPool`; the main thread adds the nodes and runs `WorldLoader.setup_root`.
+- An unloaded chunk is unregistered with `WorldLoader.forget`.
+
+The overlay shows full / LOD / interior counts, and `--walk` / `--status` results carry a `stream` report. Navigation isn't baked for streamed chunks, so `--playtest` needs a single-file export.
 
 ## Manifest
 

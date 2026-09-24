@@ -225,5 +225,22 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
         "chunks": chunks,
     }
     path = out_dir / f"{_safe(name)}.chunks.json"
-    path.write_text(json.dumps(index, indent=2) + "\n")
+    previous = _index_files(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(index, indent=2) + "\n")
+    tmp.replace(path)      # written last and atomically: runtimes watch the index
+    for stale in previous - _index_files(path):
+        (out_dir / stale).unlink(missing_ok=True)
     return path
+
+
+def _index_files(index_path: Path) -> set[str]:
+    """Chunk files an index lists (empty if there is no readable index)."""
+    try:
+        index = json.loads(index_path.read_text())
+    except (OSError, ValueError):
+        return set()
+    files = set()
+    for chunk in index.get("chunks", []):
+        files |= {chunk.get("file"), chunk.get("lod")} | {i.get("file") for i in chunk.get("interiors", [])}
+    return {f for f in files if f}

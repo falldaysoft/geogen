@@ -178,7 +178,17 @@
           "items": { "type": "number", "minimum": 0 },
           "minItems": 3,
           "maxItems": 3
-        }
+        },
+        "city": { "description": "City district root: {blocks: [nx, nz], extent: [x, z]}.", "type": "object" },
+        "block": { "description": "City block: {index: [i, j]}.", "type": "object" },
+        "lot": { "description": "City lot: {block, zone, side, rect: [x0, z0, x1, z1], frontage, depth}.", "type": "object" },
+        "building": { "description": "Building root {storeys, height}, or a placed city building {entry, zone, params?}.", "type": "object" },
+        "street_furniture": { "description": "Kind of street furniture: lamp, tree, bench, hydrant, ...", "type": "string" },
+        "recipe": { "description": "Building recipe name and the params it was built with.", "type": "object" },
+        "roof": { "description": "Pitched roof: {style, rise}.", "type": "object" },
+        "lod": { "description": "Exterior LOD stand-in of a chunk: {ratio, min_size}.", "type": "object" },
+        "interior": { "description": "Root of a streamed building interior chunk: {building}.", "type": "object" },
+        "scatter": { "description": "Scattered copy: {group, index, seed}.", "type": "object" }
       },
       "allOf": [
         { "if": { "properties": { "type": { "const": "room_volume" } }, "required": ["type"] },
