@@ -164,6 +164,11 @@ func _load_model(manifest_path: String) -> void:
 		root.position = offset
 	model_aabbs.append(_aabb(root))
 	_prepare_materials(root)
+	# MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
+	for node in root.find_children("*", "Node3D", true, false):
+		if geogen_extras(node).get("type") == "lod":
+			node.get_parent().remove_child(node)
+			node.queue_free()
 	_collect_interactions(root)
 	_add_lights(root)
 	_wire_switches()

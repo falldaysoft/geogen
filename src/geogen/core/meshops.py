@@ -255,3 +255,39 @@ def validate(mesh: Mesh, tol: float = 1e-6, area_eps: float = 1e-12) -> MeshRepo
     if report.inconsistent_winding_edges:
         report.issues.append(f"{report.inconsistent_winding_edges} edges with inconsistent winding")
     return report
+
+
+def decimate(mesh: Mesh, ratio: float, crease_angle: float = 40.0) -> Mesh:
+    """Reduce ``mesh`` to about ``ratio`` of its triangles, keeping UVs and hard edges.
+
+    Uses manifold3d's edge-collapse simplification (UV seams and material
+    boundaries are preserved because UVs ride along as vertex properties),
+    binary-searching the collapse tolerance for the target triangle count.
+    Meshes that aren't closed manifolds are returned unchanged.
+    """
+    from .csg import CSGError, _from_manifold, _to_manifold
+
+    if ratio >= 1.0 or len(mesh.faces) < 8:
+        return mesh
+    try:
+        man = _to_manifold(mesh)
+    except CSGError:
+        return mesh
+    target = max(4, int(len(mesh.faces) * ratio))
+    extent = float(np.ptp(mesh.vertices, axis=0).max()) or 1.0
+    lo, hi = 0.0, extent * 0.25
+    best = man
+    for _ in range(18):
+        mid = (lo + hi) / 2
+        candidate = man.simplify(mid)
+        tris = candidate.num_tri()
+        if tris > target:
+            lo = mid
+        else:
+            hi, best = mid, candidate
+        if abs(tris - target) <= max(2, target * 0.05):
+            best = candidate
+            break
+    if best.num_tri() == 0:
+        return mesh
+    return _from_manifold(best, mesh.material, crease_angle)

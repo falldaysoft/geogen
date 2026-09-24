@@ -82,9 +82,15 @@ class LayoutLoader:
             at: top  # attachment point name (top, bottom, left, right, front, back)
     """
 
-    def __init__(self) -> None:
-        """Initialize the layout loader with a material loader."""
+    def __init__(self, detail: float = 1.0) -> None:
+        """Initialize the layout loader with a material loader.
+
+        ``detail`` scales the tessellation of curved primitives (segments,
+        rings, tube/cap/bevel steps): 0.5 halves them for a cheap level of
+        detail, 2 doubles them for close-ups.
+        """
         self._material_loader = MaterialLoader()
+        self.detail = float(detail)
 
     def load(
         self, path: str | Path, params: dict[str, float] | None = None
@@ -208,6 +214,8 @@ class LayoutLoader:
                 actual_size = np.zeros(3)
 
             generator = self._create_generator(primitive_type, actual_size, part_def)
+            if self.detail != 1.0:
+                _apply_detail(generator, self.detail)
             node = generator.to_node(part_name)
             if "size" not in part_def and node.mesh is not None:
                 actual_size = node.mesh.vertices.max(axis=0) - node.mesh.vertices.min(axis=0)
@@ -935,4 +943,15 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
         if key in spec:
             out[key] = float(spec[key]) if key == "height" else str(spec[key])
     return out
+
+
+# Tessellation attributes scaled by LayoutLoader(detail=...) (minimums keep shapes valid).
+_DETAIL_ATTRS = {"segments": 6, "rings": 4, "tube_segments": 6, "cap_segments": 3}
+
+
+def _apply_detail(generator, detail: float) -> None:
+    for attr, minimum in _DETAIL_ATTRS.items():
+        value = getattr(generator, attr, None)
+        if isinstance(value, int):
+            setattr(generator, attr, max(minimum, int(round(value * detail))))
 

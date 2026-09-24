@@ -135,7 +135,10 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     return {"geogen": {"version": EXTRAS_VERSION, **data}}
 
 
-def to_trimesh_scene(root: SceneNode, colliders: bool = True) -> trimesh.Scene:
+LOD_MIN_TRIANGLES = 200   # meshes smaller than this don't get LODs
+
+
+def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] | None = None) -> trimesh.Scene:
     """Build a trimesh Scene mirroring the SceneNode hierarchy.
 
     Nodes carry ``extras.geogen``; with ``colliders`` each mesh node that gets
@@ -178,6 +181,17 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True) -> trimesh.Scene:
                 transform=matrix,
                 metadata=extras or None,
             )
+            if lods and len(node.mesh.faces) >= LOD_MIN_TRIANGLES:
+                for level, ratio in enumerate(lods, start=1):
+                    reduced = meshops.decimate(node.mesh, ratio)
+                    if len(reduced.faces) >= len(node.mesh.faces):
+                        continue
+                    lod_name = unique(f"{name}_LOD{level}")
+                    scene.add_geometry(
+                        to_trimesh(reduced, cache), node_name=lod_name, geom_name=lod_name, parent_node_name=name,
+                        metadata={"geogen": {"version": EXTRAS_VERSION, "type": "lod", "level": level,
+                                             "ratio": ratio}},
+                    )
             if colliders and collider in COLLIDER_SUFFIX:
                 col_name = unique(f"{name}{COLLIDER_SUFFIX[collider]}")
                 scene.add_geometry(
@@ -260,6 +274,59 @@ def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,
 CANDELA_PER_ENERGY = 12.0
 
 
+def add_lod_extension(glb: bytes) -> bytes:
+    """Turn ``<name>_LOD<n>`` child nodes (extras type lod) into MSFT_lod on their base node.
+
+    The LOD nodes are detached from the hierarchy (MSFT_lod references them
+    by index) so engines without the extension simply show the full mesh.
+    """
+    gltf, rest, header = _split_glb(glb)
+    nodes = gltf.get("nodes", [])
+    used = False
+    for base in nodes:
+        lod_ids = [i for i in base.get("children", [])
+                   if nodes[i].get("extras", {}).get("geogen", {}).get("type") == "lod"]
+        if not lod_ids:
+            continue
+        lod_ids.sort(key=lambda i: nodes[i]["extras"]["geogen"]["level"])
+        base["children"] = [i for i in base["children"] if i not in lod_ids]
+        if not base["children"]:
+            del base["children"]
+        # Detached LOD nodes sit at the base's origin: give them its transform.
+        for i in lod_ids:
+            for key in ("matrix", "translation", "rotation", "scale"):
+                if key in base:
+                    nodes[i][key] = base[key]
+        base.setdefault("extensions", {})["MSFT_lod"] = {"ids": lod_ids}
+        coverage = [0.5 ** (2 * (k + 1)) for k in range(len(lod_ids) + 1)]
+        base.setdefault("extras", {})["MSFT_screencoverage"] = coverage
+        used = True
+    if not used:
+        return glb
+    gltf.setdefault("extensionsUsed", [])
+    if "MSFT_lod" not in gltf["extensionsUsed"]:
+        gltf["extensionsUsed"].append("MSFT_lod")
+    return _join_glb(gltf, rest, header)
+
+
+def _split_glb(glb: bytes):
+    import struct
+
+    magic, version, _ = struct.unpack("<III", glb[:12])
+    json_len, json_type = struct.unpack("<II", glb[12:20])
+    return json.loads(glb[20:20 + json_len]), glb[20 + json_len:], (magic, version, json_type)
+
+
+def _join_glb(gltf: dict, rest: bytes, header) -> bytes:
+    import struct
+
+    magic, version, json_type = header
+    payload = json.dumps(gltf, separators=(",", ":")).encode()
+    payload += b" " * (-len(payload) % 4)
+    body = struct.pack("<II", len(payload), json_type) + payload + rest
+    return struct.pack("<III", magic, version, 12 + len(body)) + body
+
+
 def add_punctual_lights(glb: bytes) -> bytes:
     """Add KHR_lights_punctual lights for nodes whose extras.geogen has a ``light``.
 
@@ -303,11 +370,13 @@ def add_punctual_lights(glb: bytes) -> bytes:
     return struct.pack("<III", magic, version, 12 + len(body)) + body
 
 
-def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None) -> Path:
+def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None,
+                 lods: list[float] | None = None) -> Path:
     """Export ``root`` to ``path``; the format is chosen by the file extension.
 
     glTF/GLB exports also get a manifest (see ``write_manifest``); ``player``
-    overrides the project's default player spec in it.
+    overrides the project's default player spec in it. ``lods`` (GLB only),
+    e.g. ``[0.5, 0.25]``, adds decimated levels per mesh as MSFT_lod.
     """
     path = Path(path)
     suffix = path.suffix.lower()
@@ -315,7 +384,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         raise ValueError(f"Unsupported export format '{suffix}'. Use one of {sorted(FORMATS)}")
     path.parent.mkdir(parents=True, exist_ok=True)
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
-    scene = to_trimesh_scene(root, colliders=suffix != ".obj")
+    scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
     if suffix == ".obj":
         # OBJ has no hierarchy: bake world transforms. trimesh writes the
         # .mtl and texture images alongside the .obj.
@@ -323,7 +392,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     elif suffix == ".glb":
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
-        tmp.write_bytes(add_punctual_lights(scene.export(file_type="glb")))
+        tmp.write_bytes(add_lod_extension(add_punctual_lights(scene.export(file_type="glb"))))
         tmp.replace(path)
         write_manifest(path, player, root)
     else:

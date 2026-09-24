@@ -103,6 +103,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--storey", type=int, default=None,
                         help="Viewer: show building storeys up to this index")
     parser.add_argument("--night", action="store_true", help="Viewer: night lighting (scene fixtures)")
+    parser.add_argument("--lods", default=None, metavar="R1,R2",
+                        help="Export: add decimated LODs at these triangle ratios (GLB, MSFT_lod), e.g. 0.5,0.25")
     parser.add_argument("--state", default=None,
                         help="Viewer: pose every interaction in this state (e.g. open)")
     return parser.parse_args()
@@ -131,7 +133,8 @@ def main() -> None:
         if args.export_godot:
             targets.append(GODOT_GENERATED / f"{args.scene}.glb")
         for target in targets:
-            path = export_scene(root, target)
+            lods = [float(v) for v in args.lods.split(",")] if args.lods else None
+            path = export_scene(root, target, lods=lods)
             print(f"\nExported {args.scene} to {path}")
         if not args.render:
             return
