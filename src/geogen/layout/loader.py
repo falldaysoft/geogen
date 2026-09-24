@@ -172,6 +172,10 @@ class LayoutLoader:
         root.tags = list(data.get("tags", []))
         if data.get("light"):
             root.meta["light"] = light_spec(data["light"])
+        if data.get("container"):
+            spec = data["container"]
+            root.meta["container"] = {"capacity": int(spec.get("capacity", 1)),
+                                      **({"part": str(spec["part"])} if "part" in spec else {})}
         # Furniture: footprint (x, z) and the free space needed around it
         # (front = +Z) for furnishing solvers and navigation.
         if "clearance" in data:
@@ -362,6 +366,9 @@ class LayoutLoader:
             root.interactions = parse_interactions(interactions, root, part_nodes)
             for interaction in root.interactions:
                 apply_state(root, interaction, interaction.initial)
+
+        if data.get("affordances"):
+            root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
 
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,
@@ -860,8 +867,11 @@ def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
             "initial": joint.get("initial", "closed"),
             "duration": float(joint.get("duration", 0.8 if kind == "hinge" else 0.4)),
             "states": {"closed": {"prompt": joint.get("open_prompt", "Open"), "next": "open"},
-                       "open": {"prompt": joint.get("close_prompt", "Close"), "next": "closed"}},
+                       "open": {"prompt": joint.get("close_prompt", "Close"), "next": "closed",
+                                **({"then": "closed", "after": float(joint["auto_close"])}
+                                   if joint.get("auto_close") else {})}},
             "motions": [motion],
+            **({"lock": joint["lock"]} if joint.get("lock") else {}),
         }
     return result
 
@@ -893,4 +903,36 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
     light["color"] = [float(c) for c in light["color"]]
     light["energy"], light["range"] = float(light["energy"]), float(light["range"])
     return light
+
+
+AFFORDANCE_TYPES = ("sit", "lie", "use", "stand")
+
+
+def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
+    """An actor pose on an asset: ``{type: sit, at: <attachment> | [x, y, z], facing: <deg>, height: <m>}``.
+
+    Position/yaw are in the asset frame; for attachments the attachment's own
+    facing is used unless ``facing`` (degrees about +Y, 0 = +Z) is given.
+    ``height`` is the seat/mattress height the actor's hips rest at.
+    """
+    kind = spec.get("type")
+    if kind not in AFFORDANCE_TYPES:
+        raise ValueError(f"affordance type must be one of {AFFORDANCE_TYPES}, got {kind!r}")
+    at = spec.get("at", [0.0, 0.0, 0.0])
+    yaw = float(spec["facing"]) if "facing" in spec else 0.0
+    if isinstance(at, str):
+        transform = root.get_attachment(at)
+        if transform is None:
+            raise ValueError(f"affordance at unknown attachment '{at}'. Available: {root.list_attachments()}")
+        m = np.linalg.inv(root.world_transform()) @ transform.to_matrix()
+        position = m[:3, 3]
+        if "facing" not in spec:
+            yaw = float(np.degrees(np.arctan2(m[0, 2], m[2, 2])))
+    else:
+        position = np.asarray(at, dtype=np.float64)
+    out = {"type": kind, "position": [round(float(v), 4) for v in position], "yaw": round(yaw, 3)}
+    for key in ("height", "prompt"):
+        if key in spec:
+            out[key] = float(spec[key]) if key == "height" else str(spec[key])
+    return out
 

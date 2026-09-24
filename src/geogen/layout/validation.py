@@ -8,6 +8,7 @@ from typing import Any
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
     "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds", "light",
+    "affordances", "container",
 }
 
 PART_KNOWN_KEYS = {

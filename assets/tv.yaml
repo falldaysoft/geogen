@@ -35,3 +35,14 @@ parts:
     bevel: 0
     material: screen
     collider: none
+
+# Power toggle (no moving parts; runtimes react to the emitted events).
+interactions:
+  power:
+    targets: [screen, body]
+    initial: "off"
+    states:
+      "off": { prompt: Turn on TV, next: "on", emit: tv_off }
+      "on":  { prompt: Turn off TV, next: "off", emit: tv_on }
+    motions: []
+

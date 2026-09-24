@@ -74,3 +74,8 @@ parts:
 
 surfaces:
   seat: { from: seat_cushions.top }
+
+affordances:
+  - { type: sit, at: ["{-width / 3}", 0.5, 0.1], facing: 0, height: 0.5 }
+  - { type: sit, at: [0, 0.5, 0.1], facing: 0, height: 0.5 }
+  - { type: sit, at: ["{width / 3}", 0.5, 0.1], facing: 0, height: 0.5 }

@@ -63,3 +63,6 @@ attachments:
     anchor: bottom_front_center
     offset: [0, 0, 0.3]
     facing: outward
+
+affordances:
+  - { type: sit, at: [0, "{seat}", 0.03], facing: 0, height: "{seat}" }

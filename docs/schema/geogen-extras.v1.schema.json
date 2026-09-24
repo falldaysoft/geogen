@@ -74,6 +74,11 @@
               "targets": { "type": "array", "items": { "type": "string" } },
               "initial": { "type": "string" },
               "duration": { "type": "number", "minimum": 0 },
+              "lock": {
+                "description": "While locked, use() fails; holders of 'key' can lock/unlock.",
+                "type": "object", "required": ["key", "locked"],
+                "properties": { "key": { "type": "string" }, "locked": { "type": "boolean" } }
+              },
               "states": {
                 "type": "object",
                 "additionalProperties": {
@@ -82,7 +87,8 @@
                     "next": { "type": "string" },
                     "then": { "type": "string" },
                     "emit": { "type": "string" },
-                    "prompt": { "type": "string" }
+                    "prompt": { "type": "string" },
+                    "after": { "type": "number", "minimum": 0, "description": "Dwell before 'then' (auto-close)." }
                   },
                   "additionalProperties": false
                 }
@@ -138,6 +144,23 @@
         "switch": {
           "description": "Light switches: the light node (by name, in the same model) this switch's interaction turns on/off.",
           "type": "object", "required": ["light"], "properties": { "light": { "type": "string" } }
+        },
+        "affordances": {
+          "description": "Actor poses on an asset (asset frame): sit/lie/use/stand at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest.",
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["type", "position", "yaw"],
+            "properties": {
+              "type": { "enum": ["sit", "lie", "use", "stand"] },
+              "position": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+              "yaw": { "type": "number" }, "height": { "type": "number" }, "prompt": { "type": "string" }
+            }
+          }
+        },
+        "container": {
+          "description": "Storage: how many items it holds, and which part is the storage volume.",
+          "type": "object", "required": ["capacity"],
+          "properties": { "capacity": { "type": "integer", "minimum": 0 }, "part": { "type": "string" } }
         },
         "gate": {
           "description": "A barrier that is solid (collider on, visible) except while the named interaction on an ancestor node has arrived at state open_in (e.g. a lift shaft door that opens when the car is at that floor).",

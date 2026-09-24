@@ -95,3 +95,5 @@ interactions:
         rotate: y
         pivot: ["{width / 2}", 0, "{depth / 2}"]
         values: { open: 100 }
+
+container: { capacity: 20, part: carcass }

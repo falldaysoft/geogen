@@ -18,8 +18,12 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
 
 State keys: ``next`` (the state ``use`` heads to when this is the target
 state; absent = not usable, e.g. a latched button), ``then`` (auto-advance on
-arrival, for momentary buttons), ``emit`` (event name raised on arrival),
-``prompt`` (UI text). ``use`` applies ``next`` of the *target* state, so a
+arrival, for momentary buttons; with ``after: <seconds>`` it waits first,
+e.g. a door that closes itself), ``emit`` (event name raised on arrival),
+``prompt`` (UI text). ``lock: {key: <id>, locked: true}`` makes the
+interaction refuse ``use`` while locked; users holding the key can lock and
+unlock it. Motions may be empty for pure state toggles (a TV's power) as
+long as ``targets`` says what to aim at. ``use`` applies ``next`` of the *target* state, so a
 moving door reverses mid-swing.
 
 Exported node transforms show the ``initial`` state; runtimes recover each
@@ -45,10 +49,14 @@ class State:
     then: str | None = None
     emit: str | None = None
     prompt: str | None = None
+    after: float | None = None     # with ``then``: dwell this many seconds first (auto-close)
 
-    def to_dict(self) -> dict[str, str]:
-        return {k: v for k, v in (("next", self.next), ("then", self.then),
-                                  ("emit", self.emit), ("prompt", self.prompt)) if v is not None}
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {k: v for k, v in (("next", self.next), ("then", self.then),
+                                                 ("emit", self.emit), ("prompt", self.prompt)) if v is not None}
+        if self.after is not None:
+            out["after"] = float(self.after)
+        return out
 
 
 @dataclass
@@ -86,13 +94,15 @@ class Interaction:
     targets: list[SceneNode] = field(default_factory=list)
     initial: str = ""
     duration: float = 0.9
+    # {"key": id, "locked": bool}: while locked, use() fails unless the user holds the key.
+    lock: dict[str, Any] | None = None
 
     def value(self, motion: Motion, state: str) -> float:
         return float(motion.values.get(state, 0.0))
 
     def to_extras(self, name_of: Callable[[SceneNode], str]) -> dict[str, Any]:
         """JSON for extras.geogen.interactions[name], nodes by exported name."""
-        return {
+        out = {
             "targets": [name_of(n) for n in self.targets],
             "initial": self.initial,
             "duration": self.duration,
@@ -105,6 +115,9 @@ class Interaction:
                 "values": {s: self.value(m, s) for s in self.states},
             } for m in self.motions],
         }
+        if self.lock:
+            out["lock"] = dict(self.lock)
+        return out
 
 
 def apply_state(root: SceneNode, interaction: Interaction, state: str) -> None:
@@ -166,10 +179,15 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
         states = {}
         for sname, sdef in states_spec.items():
             sdef = sdef or {}
-            unknown = set(sdef) - {"next", "then", "emit", "prompt"}
+            unknown = set(sdef) - {"next", "then", "emit", "prompt", "after"}
             if unknown:
                 raise ValueError(f"Interaction '{name}' state '{sname}': unknown keys {sorted(unknown)}")
-            states[sname] = State(**{k: (str(v) if v is not None else None) for k, v in sdef.items()})
+            fields = {k: (str(v) if v is not None else None) for k, v in sdef.items() if k != "after"}
+            if "after" in sdef:
+                if "then" not in sdef:
+                    raise ValueError(f"Interaction '{name}' state '{sname}': 'after' needs 'then'")
+                fields["after"] = float(sdef["after"])
+            states[sname] = State(**fields)
         for sname, state in states.items():
             for ref in (state.next, state.then):
                 if ref is not None and ref not in states:
@@ -202,12 +220,17 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
                     raise ValueError(f"Interaction '{name}' motion value for unknown state '{sname}'")
             motions.append(Motion([part(p) for p in mspec.get("parts", [])], kind,
                                   _axis(mspec[kind]), pivot, values))
-        if not motions:
-            raise ValueError(f"Interaction '{name}' needs at least one motion")
-
         targets = [part(p) for p in spec.get("targets", [])] or [p for m in motions for p in m.parts]
+        if not targets:
+            raise ValueError(f"Interaction '{name}' needs motions or targets (what the user aims at)")
+        lock = spec.get("lock")
+        if lock is not None:
+            if not isinstance(lock, dict) or "key" not in lock:
+                raise ValueError(f"Interaction '{name}': lock must be {{key: <id>, locked: true|false}}")
+            lock = {"key": str(lock["key"]), "locked": bool(lock.get("locked", True))}
         initial = str(spec.get("initial", next(iter(states))))
         if initial not in states:
             raise ValueError(f"Interaction '{name}' initial state '{initial}' is not a state")
-        result.append(Interaction(name, states, motions, targets, initial, float(spec.get("duration", 0.9))))
+        result.append(Interaction(name, states, motions, targets, initial, float(spec.get("duration", 0.9)),
+                                  lock=lock))
     return result

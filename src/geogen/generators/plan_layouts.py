@@ -94,13 +94,14 @@ def hotel_corridor(length: float = 30.0, depth: float = 16.0, corridor: float = 
                 hinge = ("left" if hinge_west else "right") if side == "north" else \
                     ("right" if hinge_west else "left")
                 doors.append({"name": f"door_{rid}", "between": ["corridor", f"{rid}_entry"], "width": 0.9,
-                              "hinge": hinge})
+                              "hinge": hinge, "lock": f"key_{rid}", "auto_close": 6.0})
                 doors.append({"between": [f"{rid}_entry", rid], "width": 0.9})
                 doors.append({"between": [f"{rid}_entry", f"{rid}_bath"], "width": 0.9})
             else:
                 z = z_bath if side == "north" else 0.0
                 rooms[rid] = {"rect": _rect(x, z, module, side_depth), "type": "hotel_bedroom"}
-                doors.append({"name": f"door_{rid}", "between": ["corridor", rid], "width": 0.9})
+                doors.append({"name": f"door_{rid}", "between": ["corridor", rid], "width": 0.9,
+                              "lock": f"key_{rid}", "auto_close": 6.0})
             windows.append({"room": rid, "side": window_side, "width": _snap(min(1.8, module - 1.2)),
                             "height": 1.5, "sill": 0.7})
     # Stair windows light the landings.

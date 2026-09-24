@@ -142,3 +142,57 @@ def test_joint_shorthand_makes_interactions():
 def test_bad_joint_type():
     with pytest.raises(ValueError, match="joint type"):
         LayoutLoader().load_string(CABINET.replace("type: slide", "type: ball"))
+
+
+def test_auto_close_and_lock_in_yaml(tmp_path):
+    root = LayoutLoader().load_string(CABINET.replace(
+        "joint: { type: hinge, pivot: left, limits: [0, 110], with: [knob] }",
+        "joint: { type: hinge, pivot: left, limits: [0, 110], with: [knob], auto_close: 4, lock: { key: k1 } }"))
+    door = next(i for i in root.interactions if i.name == "door")
+    assert door.states["open"].then == "closed" and door.states["open"].after == 4.0
+    assert door.lock == {"key": "k1", "locked": True}
+    extras = door.to_extras(lambda n: n.name)
+    assert extras["lock"] == {"key": "k1", "locked": True}
+    assert extras["states"]["open"]["after"] == 4.0
+    with pytest.raises(ValueError, match="'after' needs 'then'"):
+        LayoutLoader().load_string(CABINET.replace("type: slide, range: [0, 0.3]",
+                                                   "type: slide, range: [0, 0.3]") + """
+interactions:
+  bad:
+    targets: [body]
+    states: { a: { after: 2 } }
+    motions: []
+""")
+
+
+def test_motionless_usable_interaction():
+    tv = LayoutLoader().load("assets/tv.yaml")
+    (power,) = tv.interactions
+    assert power.motions == [] and power.initial == "off"
+    assert [t.name for t in power.targets] == ["screen", "body"]
+    assert power.states["off"].emit == "tv_off" and power.states["on"].next == "off"
+
+
+def test_generated_guest_doors_lock_and_close_themselves():
+    floor = LayoutLoader().load("assets/hotel_floor.yaml")
+    (swing,) = floor.find("door_room_101").interactions
+    assert swing.lock == {"key": "key_room_101", "locked": True}
+    assert swing.states["open"].after == 6.0
+
+
+def test_affordances_and_containers_export(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    from geogen.core.node import SceneNode
+    root = SceneNode("r")
+    for name in ("bed", "armchair", "nightstand", "tv"):
+        root.add_child(LayoutLoader().load(f"assets/{name}.yaml"))
+    gltf = _gltf_json(export_scene(root, tmp_path / "f.glb"))
+    by_name = {n["name"]: n.get("extras", {}).get("geogen", {}) for n in gltf["nodes"]}
+    assert [a["type"] for a in by_name["bed"]["affordances"]] == ["lie", "lie", "sit"]
+    assert by_name["armchair"]["affordances"][0]["height"] == pytest.approx(0.47)
+    assert by_name["nightstand"]["container"] == {"capacity": 4, "part": "drawer_box"}
+    assert by_name["tv"]["interactions"]["power"]["motions"] == []
+    schema = json.loads(SCHEMA.read_text())
+    for n in gltf["nodes"]:
+        if "extras" in n:
+            jsonschema.validate(n["extras"], schema)

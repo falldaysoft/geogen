@@ -126,3 +126,6 @@ parts:
 # Surfaces that scenes can target (e.g. placing something on the seat).
 surfaces:
   seat: { from: seat.top }
+
+affordances:
+  - { type: sit, at: [0, 0.45, 0.03], facing: 0, height: 0.45 }

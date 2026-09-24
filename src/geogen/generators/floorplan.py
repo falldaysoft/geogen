@@ -126,6 +126,8 @@ class PlanOpening:
     swing: str | None = None
     hinge: str = "left"
     open_deg: float = 0.0
+    lock: str | None = None          # key id: the door starts locked and needs that key
+    auto_close: float | None = None  # seconds an opened door stays open
 
 
 @dataclass
@@ -199,6 +201,8 @@ class FloorPlan:
                 at=float(at), at_abs=at_abs, name=o.get("name"),
                 style=o.get("style", "door"), swing=o.get("swing"),
                 hinge=o.get("hinge", "left"), open_deg=float(o.get("open", 0.0)),
+                lock=str(o["lock"]) if o.get("lock") else None,
+                auto_close=float(o["auto_close"]) if o.get("auto_close") else None,
             )
 
         materials = {"walls": "wall_plaster", "floor": "hardwood_floor", "ceiling": "ceiling_white"}
@@ -507,6 +511,13 @@ class FloorPlan:
             leaf_material=self.materials.get("door_leaf", "wood"),
         )
         node = gen.generate(loader)
+        for interaction in node.interactions:
+            if o.lock:
+                interaction.lock = {"key": o.lock, "locked": o.open_deg <= 0}
+            if o.auto_close:
+                opened = interaction.states.get("open")
+                if opened is not None:
+                    opened.then, opened.after = "closed", o.auto_close
         node.transform = Transform(translation=position - offset, rotation=np.array([0.0, np.radians(yaw), 0.0]))
         kind = "door" if o.style == "door" else "opening"
         node.tags = [kind, f"{kind}.{o.style if o.style != 'door' else ('exterior' if exterior else 'interior')}"]

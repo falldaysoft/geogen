@@ -102,3 +102,5 @@ interactions:
 
 surfaces:
   top: { from: top.top }
+
+container: { capacity: 4, part: drawer_box }

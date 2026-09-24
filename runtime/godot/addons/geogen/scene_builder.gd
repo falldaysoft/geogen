@@ -18,7 +18,7 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable", "room", "size", "door",
 	"joint", "door_swings", "footprint", "clearance", "interactions", "light", "switch", "openings",
 	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan", "gate", "nav", "stairs",
-	"storey", "building", "facade", "walkable"]
+	"storey", "building", "facade", "walkable", "affordances", "container", "switch"]
 
 
 static func extras(node: Node) -> Dictionary:
