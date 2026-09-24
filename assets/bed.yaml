@@ -74,7 +74,9 @@ parts:
     collider: none
 
   pillow_left: &pillow
-    primitive: ellipsoid
+    primitive: cube            # a box cage smoothed into a puffy pillow
+    bevel: 0
+    subdivide: 3
     size: ["{(width / 2 - 0.1) / (width + 0.06)}", "{0.16 / headboard}", "{0.42 / (length + hb_depth + 0.04)}"]
     anchor: bottom_center
     offset: ["{-(width / 4) / (width + 0.06)}", "{(leg + base + mattress - 0.01) / headboard}", "{(0.28 + hb_depth - (length + hb_depth + 0.04) / 2) / (length + hb_depth + 0.04)}"]

@@ -217,6 +217,8 @@ class LayoutLoader:
             if self.detail != 1.0:
                 _apply_detail(generator, self.detail)
             node = generator.to_node(part_name)
+            if node.mesh is not None and ("subdivide" in part_def or "displace" in part_def):
+                node.mesh = _smooth_part(node.mesh, part_def, self.detail, part_name)
             if "size" not in part_def and node.mesh is not None:
                 actual_size = node.mesh.vertices.max(axis=0) - node.mesh.vertices.min(axis=0)
 
@@ -955,3 +957,53 @@ def _apply_detail(generator, detail: float) -> None:
         if isinstance(value, int):
             setattr(generator, attr, max(minimum, int(round(value * detail))))
 
+
+
+def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
+    """Apply a part's ``subdivide:`` / ``displace:`` (see core/subdiv.py), then metric UVs and normals.
+
+    ``subdivide: 2`` or ``{levels: 2, crease: 60}`` (edges sharper than
+    ``crease`` degrees stay creased; omitted = fully smooth); the smoothed
+    mesh is stretched back to fill the part's box. ``detail``
+    adds or removes levels (x2 detail = +1 level). ``displace: {amplitude,
+    scale, octaves, seed, ridged}`` pushes the surface along its normals.
+    """
+    from ..core import meshops, subdiv, uvmap
+
+    material = mesh.material
+    sub = part_def.get("subdivide")
+    crease = None
+    if sub is not None:
+        spec = sub if isinstance(sub, dict) else {"levels": sub}
+        unknown = set(spec) - {"levels", "crease"}
+        if unknown:
+            raise ValueError(f"Part '{part_name}' subdivide: unknown keys {sorted(unknown)} (levels, crease)")
+        crease = float(spec["crease"]) if spec.get("crease") is not None else None
+        levels = int(spec.get("levels", 1))
+        if detail != 1.0 and levels > 0:
+            levels += int(round(np.log2(max(detail, 1e-3))))
+        lo, hi = mesh.vertices.min(axis=0), mesh.vertices.max(axis=0)
+        mesh = subdiv.subdivide(mesh, max(0, min(levels, 5)), crease)
+        # Smoothing shrinks the cage; stretch the result back to the part's box.
+        new_lo, new_hi = mesh.vertices.min(axis=0), mesh.vertices.max(axis=0)
+        span = np.where(new_hi - new_lo > 1e-9, new_hi - new_lo, 1.0)
+        mesh.vertices = lo + (mesh.vertices - new_lo) * np.where(hi - lo > 1e-9, (hi - lo) / span, 1.0)
+    disp = part_def.get("displace")
+    directions = None
+    if disp is not None:
+        unknown = set(disp) - {"amplitude", "scale", "octaves", "seed", "ridged"}
+        if unknown:
+            raise ValueError(
+                f"Part '{part_name}' displace: unknown keys {sorted(unknown)} (amplitude, scale, octaves, seed, ridged)"
+            )
+        # Project UVs by the undisplaced shape's normals: clean seams, no noise islands.
+        base = subdiv.subdivide(mesh, 0)   # position-welded, same faces as the displaced result
+        directions = meshops.face_normals(base.vertices, base.faces)[0]
+        mesh = subdiv.displace(base, float(disp.get("amplitude", 0.02)), float(disp.get("scale", 0.3)),
+                               int(disp.get("octaves", 3)), int(round(float(disp.get("seed", 0)))),
+                               bool(disp.get("ridged", False)))
+        if len(directions) != len(mesh.faces):
+            directions = None
+    mesh = meshops.compute_normals(uvmap.box_project(mesh, directions=directions), crease if crease is not None else 75.0)
+    mesh.material = material
+    return mesh

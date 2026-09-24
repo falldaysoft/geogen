@@ -1,5 +1,5 @@
-# Medium rock - larger irregular boulder
-# Origin at bottom_center
+# Medium rock - a subdivided box cage with ridged noise displacement
+# Origin at bottom_center; sunk slightly into the ground
 name: rock_medium
 tags: [terrain.rock]
 origin: bottom_center
@@ -8,13 +8,17 @@ params:
   width:  { default: 0.6 }
   height: { default: 0.45 }
   depth:  { default: 0.55 }
+  seed:   { default: 3 }
 
 size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:
-    primitive: sphere
-    size: [1.0, 0.75, 0.9]  # Irregular proportions
+    primitive: cube
+    bevel: 0
+    size: [1.0, 1.0, 0.9]
     anchor: bottom_center
-    offset: [0, 0, 0]
+    offset: [0, -0.08, 0]
+    subdivide: 4
+    displace: { amplitude: "{0.2 * height}", scale: "{0.8 * width}", octaves: 4, seed: "{seed}" }
     material: rock

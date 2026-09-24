@@ -1,5 +1,5 @@
-# Large rock - big boulder
-# Origin at bottom_center
+# Large rock - a subdivided box cage with noise displacement
+# Origin at bottom_center; sunk slightly into the ground
 name: rock_large
 tags: [terrain.rock]
 origin: bottom_center
@@ -8,13 +8,17 @@ params:
   width:  { default: 1.2 }
   height: { default: 0.9 }
   depth:  { default: 1.0 }
+  seed:   { default: 11 }
 
 size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:
-    primitive: sphere
-    size: [1.0, 0.75, 0.85]  # Irregular proportions
+    primitive: cube
+    bevel: 0
+    size: [1.0, 0.85, 0.8]
     anchor: bottom_center
-    offset: [0, 0, 0]
+    offset: [0, -0.08, 0]
+    subdivide: 4
+    displace: { amplitude: "{0.2 * height}", scale: "{0.8 * width}", octaves: 4, seed: "{seed}" }
     material: rock

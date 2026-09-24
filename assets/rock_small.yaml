@@ -1,5 +1,5 @@
-# Small rock - irregular boulder
-# Origin at bottom_center
+# Small rock - a subdivided box cage with noise displacement
+# Origin at bottom_center; sunk slightly into the ground
 name: rock_small
 tags: [terrain.rock]
 origin: bottom_center
@@ -8,13 +8,17 @@ params:
   width:  { default: 0.3 }
   height: { default: 0.2 }
   depth:  { default: 0.25 }
+  seed:   { default: 5 }
 
 size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:
-    primitive: sphere
-    size: [1.0, 0.7, 0.9]  # Irregular proportions
+    primitive: cube
+    bevel: 0
+    size: [1.0, 0.9, 0.85]
     anchor: bottom_center
-    offset: [0, 0, 0]
+    offset: [0, -0.08, 0]
+    subdivide: 4
+    displace: { amplitude: "{0.2 * height}", scale: "{0.8 * width}", octaves: 4, seed: "{seed}" }
     material: rock

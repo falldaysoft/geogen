@@ -30,6 +30,8 @@ PART_KNOWN_KEYS = {
     "tags", "collider", "walkable", "joint",
     # roof / prism
     "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
+    # subdivision / displacement
+    "subdivide", "displace",
 }
 
 # Known keys for scene YAML files

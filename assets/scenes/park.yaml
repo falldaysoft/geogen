@@ -42,6 +42,7 @@ place:
     scatter: { seed: 9, rect: [-19, -19, 19, 19], spacing: 2.5, count: 30, avoid: [cottage, path], margin: 0.8 }
   rocks:
     asset: rock_medium.yaml
+    params: { seed: { random: [0, 1000] } }
     scatter: { seed: 10, rect: [-19, -19, 19, 19], spacing: 3, count: 12, avoid: [cottage, path], margin: 0.5,
                scale: [0.7, 1.5] }
 

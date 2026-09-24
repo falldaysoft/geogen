@@ -4,14 +4,14 @@ texture:
   type: rock
   params:
     color_base: [120, 115, 110]
-    color_dark: [70, 68, 65]
-    color_light: [160, 155, 145]
+    color_dark: [92, 89, 85]
+    color_light: [148, 143, 135]
     crack_scale: 4.0
     roughness_scale: 15.0
     color_variation: 0.5
     seed: 456
 size: [512, 512]
-tile_size: 1.5  # metres per texture repeat
+tile_size: 0.8  # metres per texture repeat (small: seams on organic shapes stay subtle)
 pbr:
   roughness: 0.85
   metallic: 0.0

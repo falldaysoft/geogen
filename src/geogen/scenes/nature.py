@@ -53,10 +53,10 @@ def create_nature_scene() -> SceneNode:
     for i, (x, y, z, scale) in enumerate(rock_positions):
         try:
             rock_type = ["rock_small", "rock_medium", "rock_large"][i % 3]
-            rock = loader.load(f"assets/{rock_type}.yaml")
+            rock = loader.load(f"assets/{rock_type}.yaml", params=_scaled_size(loader, f"assets/{rock_type}.yaml",
+                                                                             scale, seed=i))
             rock.name = f"rock_{i}"
             rock.transform.translation = np.array([x, y, z], dtype=np.float64)
-            rock.transform.scale = np.array([scale, scale, scale], dtype=np.float64)
             root.add_child(rock)
         except FileNotFoundError:
             warnings.warn(f"Asset '{rock_type}' not found", stacklevel=2)
@@ -73,10 +73,9 @@ def create_nature_scene() -> SceneNode:
 
     for i, (x, y, z, scale) in enumerate(bush_positions):
         try:
-            bush = loader.load("assets/bush.yaml")
+            bush = loader.load("assets/bush.yaml", params=_scaled_size(loader, "assets/bush.yaml", scale))
             bush.name = f"bush_{i}"
             bush.transform.translation = np.array([x, y, z], dtype=np.float64)
-            bush.transform.scale = np.array([scale, scale, scale], dtype=np.float64)
             root.add_child(bush)
         except FileNotFoundError:
             warnings.warn("Asset 'bush' not found", stacklevel=2)
@@ -100,3 +99,13 @@ def create_nature_scene() -> SceneNode:
             warnings.warn(f"Asset '{tree_type}' not found", stacklevel=2)
 
     return root
+
+
+def _scaled_size(loader: LayoutLoader, path: str, scale: float, **extra) -> dict:
+    """Size params scaled up from the asset's defaults (keeps UVs metric, unlike a scale transform)."""
+    from ..layout.yaml_utils import safe_load_path
+
+    params = safe_load_path(path).get("params", {})
+    out = {k: float(params[k]["default"]) * scale for k in ("width", "height", "depth") if k in params}
+    out.update({k: v for k, v in extra.items() if k in params})
+    return out

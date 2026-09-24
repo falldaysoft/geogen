@@ -67,6 +67,8 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding). Use `validate` whenever you touch a generator.
 
+- **subdiv** (`subdiv.py`): `subdivide(mesh, levels, crease_angle)` (Loop, crease/boundary rules, sharp crease turns stay corners) and `displace(mesh, amplitude, scale, octaves, seed, ridged)` (fractal 3D gradient noise along smoothed normals; closed meshes stay closed). In YAML any part takes `subdivide: 3` / `{levels, crease}` (result is stretched back to the part box; `LayoutLoader(detail)` adds/removes levels) and `displace: {amplitude, scale, octaves, seed, ridged}`; UVs are box-projected by the undisplaced normals so noisy surfaces get clean seams. Used by rocks (`seed` param), bushes and bed pillows.
+
 - **uvmap** (`uvmap.py`): Metric UV projection — `box_project`, `planar_project`, `cylindrical_project`, and `texel_density` (1.0 == metric).
 
 - **profile** (`profile.py`): 2D shapes for extrude/lathe: `Shape(outer, holes)` (auto CCW/CW), `rect(w, h, radius)`, `circle`, `ellipse`, `regular_polygon`, `fillet`, `arc`, `bezier`, `catmull_rom`, `offset`/`Shape.difference` (shapely), `triangulate` (earcut), and YAML builders `loop_from_spec`/`shape_from_spec`/`polyline_from_spec`.

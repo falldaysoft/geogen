@@ -42,16 +42,20 @@ def _split_corners(mesh: Mesh, corner_uv: np.ndarray) -> Mesh:
     )
 
 
-def box_project(mesh: Mesh, origin: np.ndarray | None = None) -> Mesh:
+def box_project(mesh: Mesh, origin: np.ndarray | None = None, directions: np.ndarray | None = None) -> Mesh:
     """Assign metric UVs by projecting each face onto its dominant axis plane.
 
     Faces are grouped by the sign and axis of their largest normal
     component (like a cube map); vertices shared between groups are split.
     ``origin`` shifts the projection so textures start at a chosen corner.
+    ``directions`` (one vector per face) replaces the face normals for
+    grouping, e.g. the normals of a smooth base shape so a noisy surface gets
+    clean seams instead of speckled islands.
     """
     if len(mesh.faces) == 0:
         return mesh.copy()
-    fn, _ = face_normals(mesh.vertices, mesh.faces)
+    fn = np.asarray(directions, dtype=np.float64) if directions is not None else \
+        face_normals(mesh.vertices, mesh.faces)[0]
     axis = np.argmax(np.abs(fn), axis=1)
     sign = np.where(fn[np.arange(len(fn)), axis] >= 0, 1, -1)
     points = mesh.vertices[mesh.faces] - (origin if origin is not None else 0.0)  # (F, 3, 3)
