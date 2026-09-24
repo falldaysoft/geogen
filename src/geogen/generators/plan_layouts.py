@@ -99,23 +99,32 @@ def hotel_corridor(length: float = 30.0, depth: float = 16.0, corridor: float = 
 
 def hotel_lobby(length: float = 30.0, depth: float = 16.0, entrance_width: float = 6.0,
                 reception_depth: float = 5.0, restroom_width: float = 3.0,
-                back_of_house: float = 7.0) -> dict[str, Any]:
+                back_of_house: float = 7.0, stair_width: float = 3.0) -> dict[str, Any]:
     """Ground floor: entrance lobby off the street (south), reception behind
     it, lounge and restaurant either side, restrooms and back-of-house to
-    the north. Entry doors on the south façade."""
+    the north. Entry doors on the south façade. With ``stair_width`` > 0,
+    full-depth stair rooms at both ends line up with ``hotel_corridor``
+    floors of the same length (see building.py)."""
     front = _snap(depth - reception_depth)
-    side_w = _snap((length - entrance_width) / 2)
+    x0 = stair_width
+    side_w = _snap((length - 2 * stair_width - entrance_width) / 2)
     rooms: dict[str, dict] = {
-        "lobby": {"rect": _rect(side_w, 0, entrance_width, front), "type": "lobby"},
-        "lounge": {"rect": _rect(0, 0, side_w, front), "type": "lounge"},
-        "restaurant": {"rect": _rect(side_w + entrance_width, 0, side_w, front), "type": "restaurant"},
-        "reception": {"rect": _rect(side_w, front, entrance_width, reception_depth), "type": "reception"},
-        "restroom_a": {"rect": _rect(side_w - restroom_width, front, restroom_width, reception_depth),
+        "lobby": {"rect": _rect(x0 + side_w, 0, entrance_width, front), "type": "lobby"},
+        "lounge": {"rect": _rect(x0, 0, side_w, front), "type": "lounge"},
+        "restaurant": {"rect": _rect(x0 + side_w + entrance_width, 0, side_w, front), "type": "restaurant"},
+        "reception": {"rect": _rect(x0 + side_w, front, entrance_width, reception_depth), "type": "reception"},
+        "restroom_a": {"rect": _rect(x0 + side_w - restroom_width, front, restroom_width, reception_depth),
                        "type": "restroom"},
-        "restroom_b": {"rect": _rect(0, front, side_w - restroom_width, reception_depth), "type": "restroom"},
-        "back_of_house": {"rect": _rect(side_w + entrance_width, front, side_w, reception_depth),
+        "restroom_b": {"rect": _rect(x0, front, side_w - restroom_width, reception_depth), "type": "restroom"},
+        "back_of_house": {"rect": _rect(x0 + side_w + entrance_width, front, side_w, reception_depth),
                           "type": "back_of_house"},
     }
+    stair_doors = []
+    if stair_width > 0:
+        rooms["stair_west"] = {"rect": _rect(0, 0, stair_width, depth), "type": "stair"}
+        rooms["stair_east"] = {"rect": _rect(length - stair_width, 0, stair_width, depth), "type": "stair"}
+        stair_doors = [{"between": ["stair_west", "lounge"], "width": 1.0},
+                       {"between": ["restaurant", "stair_east"], "width": 1.0}]
     if back_of_house <= 0:
         rooms["back_of_house"]["type"] = "office"
     doors = [
@@ -126,13 +135,15 @@ def hotel_lobby(length: float = 30.0, depth: float = 16.0, entrance_width: float
         {"between": ["lounge", "restroom_a"], "width": 0.9},
         {"between": ["lounge", "restroom_b"], "width": 0.9},
         {"between": ["restaurant", "back_of_house"], "width": 1.2},
+        *stair_doors,
     ]
     windows = [
         {"room": "lounge", "side": "south", "width": _snap(side_w - 2.0), "height": 2.0, "sill": 0.4},
         {"room": "restaurant", "side": "south", "width": _snap(side_w - 2.0), "height": 2.0, "sill": 0.4},
-        {"room": "lounge", "side": "west", "width": 3.0, "height": 2.0, "sill": 0.4},
-        {"room": "restaurant", "side": "east", "width": 3.0, "height": 2.0, "sill": 0.4},
     ]
+    if stair_width <= 0:
+        windows += [{"room": "lounge", "side": "west", "width": 3.0, "height": 2.0, "sill": 0.4},
+                    {"room": "restaurant", "side": "east", "width": 3.0, "height": 2.0, "sill": 0.4}]
     return {"rooms": rooms, "doors": doors, "windows": windows}
 
 

@@ -1,0 +1,24 @@
+# A generated hotel: lobby level plus three guest floors, stair cores at
+# both ends, flat roof with a parapet. Guest rooms are furnished from their
+# room archetypes.
+
+name: hotel
+tags: [building.hotel]
+
+building:
+  storeys:
+    - floorplan:
+        generate: hotel_lobby
+        length: 30
+        depth: 15
+        wall_height: 3.6
+        materials: { walls: paint_white, floor: tile_floor_grey, ceiling: ceiling_white }
+    - floorplan:
+        generate: hotel_corridor
+        length: 30
+        depth: 15
+        module: 3.8
+        materials: { walls: paint_white, floor: carpet, ceiling: ceiling_white }
+      repeat: 3
+      furnish: true
+  roof: { parapet: 1.0, material: concrete }

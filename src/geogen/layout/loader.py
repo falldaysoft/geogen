@@ -154,6 +154,13 @@ class LayoutLoader:
         name = data.get("name", "composite")
         if "floorplan" in data:
             return self._build_floorplan(name, data)
+        if "building" in data:
+            from ..generators.building import build_building
+
+            root = build_building(data["building"], name, self._material_loader,
+                                  assets_dir=Path(__file__).parents[3] / "assets", layout_loader=self)
+            root.tags = [*root.tags, *data.get("tags", [])]
+            return root
         container_size = np.array(data["size"], dtype=np.float64)
         logger.debug("Building hierarchy: %s (size=%s)", name, container_size)
 

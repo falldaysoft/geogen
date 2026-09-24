@@ -221,3 +221,19 @@ def test_player_climbs_stairs(run_godot, tmp_path):
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
                      .removeprefix("walk result: "))
     assert end["y"] == pytest.approx(3.0, abs=0.02) and end["on_floor"]
+
+
+def test_player_climbs_building_stairs_to_next_storey(run_godot, tmp_path):
+    from geogen.layout import LayoutLoader
+    from test_building import SMALL
+    building = LayoutLoader().load_string(SMALL)
+    stairs = building.find("storey_0").find("stair_west").find("stairs").world_transform()
+    forward = -stairs[:3, 2]                    # stairs climb along their local -Z
+    start = stairs[:3, 3] - forward * (3.2 + 0.6)
+    yaw = float(np.degrees(np.arctan2(-forward[0], -forward[2])))
+    export_scene(building, tmp_path / "small_building.glb")
+    out = run_godot("--scene", "small_building", f"--generated={tmp_path}",
+                    f"--spawn={start[0]},0,{start[2]}", f"--yaw={yaw}", "--walk=2.2")
+    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                     .removeprefix("walk result: "))
+    assert end["y"] == pytest.approx(3.65, abs=0.03) and end["on_floor"]

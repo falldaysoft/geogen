@@ -166,7 +166,12 @@ def check_layout(scene: SceneNode, player=None) -> list[Issue]:
     issues: list[Issue] = []
     for room in rooms:
         issues += _check_room(room, player)
-    issues += _check_reachability(rooms, player)
+    # Reachability per floor level: rooms of different storeys overlap in plan.
+    levels: dict[float, list[_Room]] = {}
+    for room in rooms:
+        levels.setdefault(round(float(room.node.world_transform()[1, 3]), 2), []).append(room)
+    for level_rooms in levels.values():
+        issues += _check_reachability(level_rooms, player)
     return issues
 
 
