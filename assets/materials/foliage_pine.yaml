@@ -1,0 +1,15 @@
+# Dark blue-green conifer needles.
+name: foliage_pine
+texture:
+  type: painted_wall
+  params:
+    base_color: [28, 78, 48]
+    sheen: 0.05
+    seed: 17
+size: [512, 512]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.95
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 1.0

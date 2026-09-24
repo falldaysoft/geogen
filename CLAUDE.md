@@ -106,6 +106,12 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **Plan layouts** (`plan_layouts.py`): `floorplan: {generate: hotel_corridor | hotel_lobby, ...params}` expands to rooms/doors/windows (plan keys like `wall_height`, `materials`, `finishes` pass through). `hotel_corridor`: stairs at the ends, lift lobby + service core mid-floor, double-loaded guest modules (`module`, `ensuite`, `bath_width`, ...). `hotel_lobby`: street entrance, lobby, reception, lounge, restaurant, restrooms, back-of-house. Assets `hotel_floor.yaml`, `hotel_lobby.yaml`; `scenes/hotel_floor_furnished.yaml` furnishes a whole floor. Public-room archetypes (`lobby`, `reception`, `lounge`, `restaurant`, `restroom`, `back_of_house`, `lift_lobby`) furnish the ground floor with `sofa`, `coffee_table`, `reception_desk`, `planter`, tables with chairs (`around: table`), etc.
 
+- **Nature** (`nature.py`):
+  - `primitive: tree` grows a space-colonisation skeleton in the part box: `style: deciduous` (ellipsoid crown) or `conifer` (cone, drooping boughs), with `seed`, `trunk_height`, `trunk_radius`, `attractors`, `step`, `leaf_size` and `foliage_material`.
+  - Branch radii use the pipe model. The trunk mesh gets a hull collider; the `branches` and `foliage` children (noise-displaced leaf clusters on the twigs) have no collider.
+  - `primitive: rock` is a random convex cage (`seed`, `points`, `levels`, `roughness`, `crease`), subdivided, displaced and flat-bottomed.
+  - Generated child meshes inherit the part's `material` (bark).
+
 - **RoomGenerator** (`room.py`): Generates rooms with walls, floor, ceiling, and openings (doors/windows). Supports `generate_parts()` for separate surface meshes with different materials. Uses `Opening` dataclass for doors/windows with wall position, size, and bottom offset.
 
 ### Textures (`src/geogen/textures/`)

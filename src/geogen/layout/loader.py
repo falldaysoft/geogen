@@ -9,6 +9,7 @@ import numpy as np
 
 from ..core.node import SceneNode
 from ..core.profile import Shape, polyline_from_spec, shape_from_spec
+from ..generators.nature import RockGenerator, TreeGenerator
 from ..generators.primitives import (
     ConeGenerator,
     CubeGenerator,
@@ -53,6 +54,8 @@ PRIMITIVE_REGISTRY = {
     "stairs": StairsGenerator,
     "torus": TorusGenerator,
     "capsule": CapsuleGenerator,
+    "tree": TreeGenerator,
+    "rock": RockGenerator,
 }
 
 
@@ -238,6 +241,10 @@ class LayoutLoader:
                 try:
                     material = self._material_loader.load(material_name)
                     node.mesh.material = material
+                    # Generated child meshes (a tree's branches) inherit the part's material.
+                    for child in node.iter_nodes():
+                        if child.mesh is not None and child.mesh.material is None:
+                            child.mesh.material = material
                 except FileNotFoundError:
                     warnings.warn(
                         f"Material '{material_name}' not found for part '{part_name}'",
@@ -644,6 +651,19 @@ class LayoutLoader:
                 ridge_axis=config.get("ridge_axis", "auto"),
                 ridge_cap=bool(config.get("ridge_cap", True)),
             )
+        elif primitive_type in ("tree", "rock"):
+            config = extra_config or {}
+            seed = int(round(float(config.get("seed", 0))))
+            if primitive_type == "tree":
+                keys = {"style": str, "trunk_height": float, "trunk_radius": float, "attractors": int,
+                        "step": float, "leaf_size": float, "segments": int, "foliage_material": str}
+                args = {k: cast(config[k]) for k, cast in keys.items() if k in config}
+                return TreeGenerator(width=size[0], height=size[1], depth=size[2], seed=seed, **args)
+            keys = {"points": int, "levels": int, "roughness": float}
+            args = {k: cast(config[k]) for k, cast in keys.items() if k in config}
+            if "crease" in config:
+                args["crease"] = None if config["crease"] is None else float(config["crease"])
+            return RockGenerator(width=size[0], height=size[1], depth=size[2], seed=seed, **args)
         elif primitive_type == "prism":
             return PrismGenerator(
                 width=size[0], height=size[1], depth=size[2],

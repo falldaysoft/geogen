@@ -32,6 +32,9 @@ PART_KNOWN_KEYS = {
     "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
     # subdivision / displacement
     "subdivide", "displace",
+    # tree / rock
+    "seed", "trunk_height", "trunk_radius", "attractors", "step", "leaf_size", "foliage_material",
+    "points", "levels", "roughness", "crease",
 }
 
 # Known keys for scene YAML files
@@ -48,7 +51,7 @@ PLACEMENT_KNOWN_KEYS = {
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}

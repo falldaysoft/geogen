@@ -15,5 +15,5 @@ tile_size: 0.8  # metres per texture repeat (small: seams on organic shapes stay
 pbr:
   roughness: 0.85
   metallic: 0.0
-  normal_strength: 1.2
+  normal_strength: 0.8
   ao_strength: 0.8

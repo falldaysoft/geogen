@@ -24,7 +24,7 @@ place:
     scatter: { seed: 2, path: [[-12, 8], [12, 8]], spacing: 8, offset: -1.5, yaw: 0 }
   pines:
     asset: pine_tree.yaml
-    params: { scale: { random: [0.9, 1.6] } }
+    params: { scale: { random: [0.9, 1.6] }, seed: { choice: [1, 2, 3, 4, 5] } }
     scatter:
       seed: 7
       rect: [-19, -19, 19, 19]
@@ -34,7 +34,7 @@ place:
       margin: 1.5
   maples:
     asset: maple_tree.yaml
-    params: { scale: { random: [0.8, 1.2] } }
+    params: { scale: { random: [0.8, 1.2] }, seed: { choice: [1, 2, 3, 4, 5] } }
     scatter: { seed: 8, rect: [-19, -19, 19, 19], spacing: 5, count: 12, avoid: [cottage, path], margin: 1.5 }
   bushes:
     asset: bush.yaml

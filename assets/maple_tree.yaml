@@ -1,7 +1,6 @@
-# Maple tree - trunk + leafy canopy spheres
-# Origin is at bottom_center
-# `scale` multiplies every dimension. All part sizes below are in metres
-# (container size is [scale, scale, scale] so fractional * container = metres * scale).
+# Maple tree - a space-colonisation branch skeleton with leaf clusters
+# (generators/nature.py). Origin is at bottom_center.
+# `scale` multiplies every dimension; `seed` grows a different tree.
 
 name: maple_tree
 tags: [vegetation.tree]
@@ -9,67 +8,20 @@ origin: bottom_center
 
 params:
   scale: { default: 1 }
+  seed:  { default: 1 }
 
 size: ["{scale}", "{scale}", "{scale}"]
 bounds: geometry     # declared size = the real extent (the container above is a unit)
 
 parts:
-  trunk:
-    primitive: cylinder
-    size: [0.35, 2.2, 0.35]
+  tree:
+    primitive: tree
+    style: deciduous
+    size: [4.0, 5.2, 4.0]          # crown width, height, depth (m, times scale)
     anchor: bottom_center
-    material: wood
-
-  canopy_center:
-    primitive: sphere
-    size: [2.10, 2.10, 2.10]
-    attach_to: trunk
-    at: top
-    from: bottom
-    offset: [0, -0.25, 0]
-    material: foliage_green
-
-  canopy_left:
-    primitive: sphere
-    size: [1.50, 1.50, 1.50]
-    attach_to: canopy_center
-    at: left
-    from: center
-    offset: [0.15, 0.25, 0]
-    material: foliage_green
-
-  canopy_right:
-    primitive: sphere
-    size: [1.50, 1.50, 1.50]
-    attach_to: canopy_center
-    at: right
-    from: center
-    offset: [-0.15, 0.25, 0]
-    material: foliage_green
-
-  canopy_front:
-    primitive: sphere
-    size: [1.45, 1.45, 1.45]
-    attach_to: canopy_center
-    at: front
-    from: center
-    offset: [0, 0.20, -0.10]
-    material: foliage_green
-
-  canopy_back:
-    primitive: sphere
-    size: [1.45, 1.45, 1.45]
-    attach_to: canopy_center
-    at: back
-    from: center
-    offset: [0, 0.20, 0.10]
-    material: foliage_green
-
-  canopy_top:
-    primitive: sphere
-    size: [1.25, 1.25, 1.25]
-    attach_to: canopy_center
-    at: top
-    from: center
-    offset: [0, 0.10, 0]
-    material: foliage_green
+    seed: "{seed}"
+    trunk_height: 0.38
+    trunk_radius: "{0.17 * scale}"
+    step: "{0.34 * scale}"
+    leaf_size: "{0.5 * scale}"
+    material: bark

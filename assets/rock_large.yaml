@@ -1,5 +1,6 @@
-# Large rock - a subdivided box cage with noise displacement
-# Origin at bottom_center; sunk slightly into the ground
+# large rock - a random convex cage, subdivided with creases and noise-displaced
+# (primitive: rock, generators/nature.py). Origin at bottom_center, sunk a little
+# into the ground; `seed` gives a different stone.
 name: rock_large
 tags: [terrain.rock]
 origin: bottom_center
@@ -14,11 +15,10 @@ size: ["{width}", "{height}", "{depth}"]
 
 parts:
   body:
-    primitive: cube
-    bevel: 0
-    size: [1.0, 0.85, 0.8]
+    primitive: rock
+    size: [1.0, 1.0, 1.0]
     anchor: bottom_center
-    offset: [0, -0.08, 0]
-    subdivide: 4
-    displace: { amplitude: "{0.2 * height}", scale: "{0.8 * width}", octaves: 4, seed: "{seed}" }
+    offset: [0, -0.06, 0]
+    seed: "{seed}"
+    roughness: 0.1
     material: rock

@@ -1,6 +1,7 @@
-# Pine tree - trunk + stacked cones
-# Origin is at bottom_center
-# `scale` multiplies every dimension.
+# Pine tree - a conifer grown by space colonisation (generators/nature.py):
+# a straight leader with drooping boughs and flattened needle clusters.
+# Origin is at bottom_center. `scale` multiplies every dimension; `seed`
+# grows a different tree.
 
 name: pine_tree
 tags: [vegetation.tree]
@@ -8,49 +9,20 @@ origin: bottom_center
 
 params:
   scale: { default: 1 }
+  seed:  { default: 2 }
 
 size: ["{scale}", "{scale}", "{scale}"]
 bounds: geometry     # declared size = the real extent (the container above is a unit)
 
 parts:
-  trunk:
-    primitive: cylinder
-    # [diameter_x, height, diameter_z] in meters (container size is 1)
-    size: [0.28, 2.0, 0.28]
+  tree:
+    primitive: tree
+    style: conifer
+    size: [3.4, 6.0, 3.4]
     anchor: bottom_center
-    material: wood
-
-  foliage_bottom:
-    primitive: cone
-    size: [1.60, 1.25, 1.60]
-    attach_to: trunk
-    at: top
-    from: bottom
-    offset: [0, -0.15, 0]
-    material: foliage_green
-
-  foliage_mid:
-    primitive: cone
-    size: [1.20, 1.05, 1.20]
-    attach_to: foliage_bottom
-    at: top
-    from: bottom
-    offset: [0, -0.20, 0]
-    material: foliage_green
-
-  foliage_top:
-    primitive: cone
-    size: [0.85, 0.85, 0.85]
-    attach_to: foliage_mid
-    at: top
-    from: bottom
-    offset: [0, -0.20, 0]
-    material: foliage_green
-
-  tip:
-    primitive: sphere
-    size: [0.18, 0.18, 0.18]
-    attach_to: foliage_top
-    at: top
-    from: bottom
-    material: foliage_green
+    seed: "{seed}"
+    trunk_radius: "{0.15 * scale}"
+    step: "{0.3 * scale}"
+    leaf_size: "{0.36 * scale}"
+    attractors: 650
+    material: bark
