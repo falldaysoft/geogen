@@ -7,6 +7,7 @@
 # origin at bottom_center.
 
 name: house_peaked
+tags: [building.house]
 origin: bottom_center
 
 params:
@@ -52,6 +53,7 @@ parts:
   # Interior finish: floorboards on the foundation, a plaster lining inside
   # the brick, and a ceiling at the wall top hiding the roof structure.
   floor:
+    walkable: true
     primitive: cube
     size: ["{(width - 2 * wall_thickness) / width}", "{floor_thickness / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness) / depth}"]
     anchor: bottom_center

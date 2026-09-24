@@ -3,6 +3,7 @@
 # Origin is at bottom_center
 
 name: road_section
+tags: [street.road]
 origin: bottom_center
 
 params:
@@ -15,6 +16,7 @@ size: ["{width}", "{thickness}", "{length}"]
 parts:
   # Left sidewalk
   sidewalk_left:
+    walkable: true
     primitive: cube
     size: [0.20, 0.65, 1.0]  # 2.4m wide sidewalk
     anchor: left_center
@@ -23,6 +25,7 @@ parts:
 
   # Road surface
   road:
+    walkable: true
     primitive: cube
     size: [0.60, 0.30, 1.0]  # 7.2m wide road
     anchor: bottom_center
@@ -31,6 +34,7 @@ parts:
 
   # Right sidewalk
   sidewalk_right:
+    walkable: true
     primitive: cube
     size: [0.20, 0.65, 1.0]  # 2.4m wide sidewalk
     anchor: right_center

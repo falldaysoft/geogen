@@ -50,3 +50,40 @@ def test_player_climbs_door_step_and_stops_at_door(run_godot, cottage_dir):
     assert end["y"] == pytest.approx(0.3, abs=0.02)  # up on the step
     assert end["z"] == pytest.approx(2.923 + RADIUS, abs=0.05)  # against the closed leaf
     assert end["on_floor"]
+
+
+@pytest.fixture(scope="module")
+def suite_dir(tmp_path_factory):
+    from geogen.layout import SceneComposer
+    out = tmp_path_factory.mktemp("generated_suite")
+    root = SceneComposer().compose_string("""
+name: suite_level
+place:
+  suite: { asset: hotel_suite.yaml }
+spawns:
+  hallway: { position: [2.2, 0, 1.3], facing: west }
+""")
+    export_scene(root, out / "suite_level.glb")
+    return out
+
+
+def test_walk_through_floorplan_doors_into_room(run_godot, suite_dir):
+    # From outside the entry door (east), through the corridor and the
+    # bedroom door, to the bedroom's west wall (inner face x = -3.25).
+    out = run_godot("--scene", "suite_level", f"--generated={suite_dir}",
+                    "--spawn=4,0,1.3", "--yaw=90", "--walk=3")
+    assert "3 rooms" in out
+    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                     .removeprefix("walk result: "))
+    assert end["x"] == pytest.approx(-3.25 + RADIUS, abs=0.05)
+    assert end["room"] == "bedroom"
+    assert end["on_floor"]
+
+
+def test_player_starts_at_manifest_spawn(run_godot, suite_dir):
+    # The spawn faces west, so walking forward leads into the bedroom.
+    out = run_godot("--scene", "suite_level", f"--generated={suite_dir}", "--walk=0.2")
+    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                     .removeprefix("walk result: "))
+    assert end["x"] < 2.2 and end["z"] == pytest.approx(1.3, abs=0.05)
+    assert end["room"] == "corridor"

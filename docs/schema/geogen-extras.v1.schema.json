@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geogen.dev/schema/geogen-extras.v1.schema.json",
+  "title": "geogen glTF node extras, version 1",
+  "description": "Gameplay metadata geogen writes to glTF node extras under the 'geogen' key. Unknown keys are allowed so newer exporters stay readable; runtimes check 'version'.",
+  "type": "object",
+  "required": ["geogen"],
+  "properties": {
+    "geogen": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {
+        "version": { "const": 1 },
+        "tags": {
+          "description": "Semantic tags, dotted from general to specific (room, room.hotel_bedroom, furniture.bed, door.interior).",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" }
+        },
+        "type": {
+          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render.",
+          "enum": ["room_volume", "spawn", "collider"]
+        },
+        "shape": {
+          "description": "Collider nodes only: how the collision geometry was made.",
+          "enum": ["box", "hull", "mesh"]
+        },
+        "collider": {
+          "description": "Mesh nodes: the collider chosen for this mesh (none = no collision). The collider itself is a child node.",
+          "enum": ["none", "box", "hull", "mesh"]
+        },
+        "walkable": {
+          "description": "Surface meant to be walked on (navmesh input).",
+          "type": "boolean"
+        },
+        "room": {
+          "description": "Room identity, on room nodes and their room_volume.",
+          "type": "object",
+          "required": ["id", "type"],
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "type": "string" }
+          }
+        },
+        "size": {
+          "description": "room_volume only: box size in metres [x, y, z].",
+          "type": "array",
+          "items": { "type": "number", "minimum": 0 },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "room_volume" } }, "required": ["type"] },
+          "then": { "required": ["room", "size"] } },
+        { "if": { "properties": { "type": { "const": "collider" } }, "required": ["type"] },
+          "then": { "required": ["shape"] } }
+      ]
+    }
+  }
+}

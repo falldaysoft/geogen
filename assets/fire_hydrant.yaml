@@ -4,6 +4,7 @@
 # Size fractions are [x, y, z] relative to container [width, height, width]
 
 name: fire_hydrant
+tags: [street.fire_hydrant]
 origin: bottom_center
 
 params:

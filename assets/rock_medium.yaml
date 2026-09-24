@@ -1,6 +1,7 @@
 # Medium rock - larger irregular boulder
 # Origin at bottom_center
 name: rock_medium
+tags: [terrain.rock]
 origin: bottom_center
 
 params:

@@ -1,6 +1,7 @@
 # Bush/shrub - cluster of overlapping spheres
 # Origin at bottom_center
 name: bush
+tags: [vegetation.bush]
 origin: bottom_center
 
 params:

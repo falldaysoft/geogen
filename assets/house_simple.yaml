@@ -12,6 +12,7 @@
 # to generate a different-sized house.
 
 name: house_simple
+tags: [building.house]
 origin: bottom_center
 
 params:

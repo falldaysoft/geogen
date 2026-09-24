@@ -2,6 +2,7 @@
 # Runs parallel to road
 
 name: sidewalk
+tags: [street.sidewalk]
 origin: bottom_center
 
 params:
@@ -13,6 +14,7 @@ size: ["{width}", "{thickness}", "{length}"]
 
 parts:
   surface:
+    walkable: true
     primitive: cube
     size: [1.0, 1.0, 1.0]
     anchor: bottom_center

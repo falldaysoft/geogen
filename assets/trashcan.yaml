@@ -3,6 +3,7 @@
 # Origin is at bottom_center
 
 name: trashcan
+tags: [street.trashcan]
 origin: bottom_center
 
 params:

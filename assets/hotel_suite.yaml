@@ -7,6 +7,7 @@
 # and <side>_exterior on outside walls).
 
 name: hotel_suite
+tags: [building.hotel_suite]
 
 floorplan:
   grid: 0.1

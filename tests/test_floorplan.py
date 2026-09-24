@@ -60,8 +60,12 @@ def test_walls_are_watertight_with_openings():
 def test_room_nodes_have_slabs_surfaces_and_tags():
     root = FloorPlan.from_spec(SUITE).build("suite")
     bedroom = root.find("bedroom")
-    assert bedroom.tags == {"room": "bedroom", "room_type": "hotel_bedroom"}
-    assert {c.name for c in bedroom.children} == {"floor", "ceiling"}
+    assert bedroom.tags == ["room", "room.hotel_bedroom"]
+    assert bedroom.meta["room"] == {"id": "bedroom", "type": "hotel_bedroom"}
+    assert {c.name for c in bedroom.children} == {"floor", "ceiling", "bedroom_volume"}
+    volume = bedroom.find("bedroom_volume")
+    assert volume.meta["type"] == "room_volume"
+    assert volume.meta["size"] == pytest.approx([4.4 - 0.15 - 0.06, 2.5, 4.6 - 0.3])
     assert {"floor", "ceiling", "north_wall", "west_exterior"} <= set(bedroom.surfaces)
     assert "east_exterior" not in bedroom.surfaces  # east side is shared with other rooms
     floor = root.surfaces["bedroom.floor"]

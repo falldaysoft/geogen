@@ -1,6 +1,7 @@
 # Large rock - big boulder
 # Origin at bottom_center
 name: rock_large
+tags: [terrain.rock]
 origin: bottom_center
 
 params:

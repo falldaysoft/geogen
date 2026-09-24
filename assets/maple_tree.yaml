@@ -4,6 +4,7 @@
 # (container size is [scale, scale, scale] so fractional * container = metres * scale).
 
 name: maple_tree
+tags: [vegetation.tree]
 origin: bottom_center
 
 params:

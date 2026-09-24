@@ -388,7 +388,7 @@ class FloorPlan:
 
         root = SceneNode(name=name)
         root.size = self.size
-        root.tags = {"floorplan": True}
+        root.tags = ["floorplan"]
 
         walls_mesh = self._wall_mesh(segments, offset)
         cutters = [self._opening_box(o, segments, offset) for o in [*self.doors, *self.windows]]
@@ -396,7 +396,7 @@ class FloorPlan:
             walls_mesh = csg.difference(walls_mesh, *cutters, crease_angle=30.0)
         walls_mesh = uvmap.box_project(walls_mesh)
         walls_mesh.material = loader.load(self.materials["walls"])
-        walls = SceneNode(name="walls", mesh=walls_mesh)
+        walls = SceneNode(name="walls", mesh=walls_mesh, tags=["wall"])
         root.add_child(walls)
 
         for room in self.rooms.values():
@@ -424,7 +424,9 @@ class FloorPlan:
 
         node = SceneNode(name=room.name, transform=Transform(translation=centre))
         node.size = np.array([sx, self.wall_height, sz])
-        node.tags = {"room": room.name, "room_type": room.type or "room"}
+        room_type = room.type or "room"
+        node.tags = ["room", f"room.{room_type}"]
+        node.meta = {"room": {"id": room.name, "type": room_type}}
 
         # Slabs tuck under/into the walls so no light leaks through the seam.
         tuck = min(0.04, 0.8 * min(hw.values()))
@@ -435,15 +437,24 @@ class FloorPlan:
             move[1, 3] = y + height / 2
             mesh = mesh.transform(move)
             mesh.material = loader.load(material)
-            return SceneNode(name=part, mesh=mesh)
+            return SceneNode(name=part, mesh=mesh, tags=[part])
 
-        node.add_child(slab("floor", self.floor_thickness, -self.floor_thickness,
-                            room.floor or self.materials["floor"]))
+        floor = slab("floor", self.floor_thickness, -self.floor_thickness, room.floor or self.materials["floor"])
+        floor.meta["walkable"] = True
+        node.add_child(floor)
         clear_height = self.wall_height
         if self.ceiling:
             clear_height = self.wall_height - self.ceiling_thickness
             node.add_child(slab("ceiling", self.ceiling_thickness, clear_height,
                                 room.ceiling or self.materials["ceiling"]))
+
+        # Trigger volume filling the room's clear space (for "which room am I in").
+        volume = SceneNode(name=f"{room.name}_volume",
+                           transform=Transform(translation=np.array([0.0, clear_height / 2, 0.0])),
+                           tags=["room_volume"])
+        volume.meta = {"type": "room_volume", "room": dict(node.meta["room"]),
+                       "size": [sx, clear_height, sz]}
+        node.add_child(volume)
 
         hx, hz = sx / 2, sz / 2
         surfaces = {

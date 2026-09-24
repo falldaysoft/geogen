@@ -1,6 +1,7 @@
 # Road surface - just the asphalt
 
 name: road
+tags: [street.road]
 origin: bottom_center
 
 params:
@@ -12,6 +13,7 @@ size: ["{width}", "{thickness}", "{length}"]
 
 parts:
   surface:
+    walkable: true
     primitive: cube
     size: [1.0, 1.0, 1.0]
     anchor: bottom_center

@@ -4,6 +4,7 @@
 # (Scales proportionally — a 2m-long bench keeps the same slat count.)
 
 name: bench
+tags: [furniture.bench]
 origin: bottom_center
 
 params:

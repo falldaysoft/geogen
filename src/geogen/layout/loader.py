@@ -30,6 +30,9 @@ from .yaml_utils import safe_load, safe_load_path
 logger = logging.getLogger("geogen.layout")
 
 
+# Collision shapes a part can request (``collider:``); see export.py.
+COLLIDER_TYPES = {"auto", "none", "box", "hull", "mesh"}
+
 # Registry of available primitive generators
 PRIMITIVE_REGISTRY = {
     "cube": CubeGenerator,
@@ -152,6 +155,7 @@ class LayoutLoader:
 
         root = SceneNode(name)
         root.size = container_size
+        root.tags = list(data.get("tags", []))
 
         # Check if this is a room definition (has 'room' key with openings)
         room_config = data.get("room")
@@ -188,6 +192,16 @@ class LayoutLoader:
 
             # Store the node's actual size for attachment calculations
             node.size = actual_size
+            node.tags = list(part_def.get("tags", []))
+            collider = part_def.get("collider")
+            if collider is not None:
+                if collider not in COLLIDER_TYPES:
+                    raise ValueError(
+                        f"Part '{part_name}' collider must be one of {sorted(COLLIDER_TYPES)}, got {collider!r}"
+                    )
+                node.meta["collider"] = collider
+            if part_def.get("walkable"):
+                node.meta["walkable"] = True
 
             # Generate automatic attachment points from the generator
             auto_attachments = generator.get_attachment_points(actual_size)
@@ -408,7 +422,9 @@ class LayoutLoader:
         if data.get("parts"):
             raise ValueError(f"'{name}': a floorplan asset can't also define parts")
         plan = FloorPlan.from_spec(data["floorplan"])
-        return plan.build(name, self._material_loader)
+        root = plan.build(name, self._material_loader)
+        root.tags = [*root.tags, *data.get("tags", [])]
+        return root
 
     def _create_room_node(
         self, name: str, size: np.ndarray, room_config: dict[str, Any]

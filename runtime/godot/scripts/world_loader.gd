@@ -1,8 +1,11 @@
 class_name WorldLoader
 extends Node3D
-## Loads geogen exports (.glb + .manifest.json) from generated/ at runtime and
-## gives every mesh trimesh collision. Watches the manifests (written last by
-## the exporter) and reloads a model when it is re-exported.
+## Loads geogen exports (.glb + .manifest.json) from generated/ at runtime.
+## Collision comes from the exporter's collider nodes (Godot import suffixes
+## -colonly = trimesh, -convcolonly = convex), which runtime glTF loading
+## doesn't process, so they are turned into static bodies here. Room volumes
+## and spawns come from node extras / the manifest. Watches the manifests
+## (written last by the exporter) and reloads a model when it is re-exported.
 
 signal world_loaded(aabb: AABB)
 
@@ -21,6 +24,10 @@ var show_colliders := false:
 			node.visible = value
 
 var _mtimes := {}  # manifest path -> modified time at last load
+## Room volumes: [{id, type, xform: Transform3D (global), size: Vector3}]
+var rooms: Array[Dictionary] = []
+## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
+var spawns: Array[Dictionary] = []
 var _poll := 0.0
 var _collider_material: StandardMaterial3D
 
@@ -38,6 +45,8 @@ func load_all() -> AABB:
 	for child in get_children():
 		child.free()
 	_mtimes.clear()
+	rooms.clear()
+	spawns.clear()
 	for manifest in _manifests():
 		_load_model(manifest)
 	var aabb := world_aabb()
@@ -111,7 +120,43 @@ func _load_model(manifest_path: String) -> void:
 	add_child(root)
 	_prepare_materials(root)
 	var count := _add_collision(root)
-	print("geogen: loaded %s (%d meshes)" % [model_path.get_file(), count])
+	_collect_rooms(root)
+	for s in manifest.get("spawns", []):
+		var f: Array = s.get("forward", [0, 0, -1])
+		var p: Array = s.get("position", [0, 0, 0])
+		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]),
+			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
+	print("geogen: loaded %s (%d meshes, %d rooms)" % [model_path.get_file(), count, rooms.size()])
+
+
+## extras.geogen of a node imported from glTF, or {}.
+static func geogen_extras(node: Node) -> Dictionary:
+	if not node.has_meta("extras"):
+		return {}
+	var extras = node.get_meta("extras")
+	if extras is Dictionary and extras.get("geogen") is Dictionary:
+		return extras["geogen"]
+	return {}
+
+
+func _collect_rooms(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		var g := geogen_extras(node)
+		if g.get("type") == "room_volume":
+			var size: Array = g.get("size", [0, 0, 0])
+			var room: Dictionary = g.get("room", {})
+			rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""),
+				"xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2])})
+
+
+## Id of the room volume containing ``pos`` (world space), or "".
+func room_at(pos: Vector3) -> String:
+	for room in rooms:
+		var local: Vector3 = room["xform"].affine_inverse() * pos
+		var half: Vector3 = room["size"] / 2.0
+		if absf(local.x) <= half.x and absf(local.y) <= half.y and absf(local.z) <= half.z:
+			return room["id"]
+	return ""
 
 
 ## Runtime-loaded glTF textures have no mipmaps, so fine patterns (brick,
@@ -144,40 +189,46 @@ func _prepare_materials(root: Node) -> void:
 				mat.set_texture(param, mipped)
 
 
-## Give every mesh a static trimesh collider (until geogen exports explicit
-## -col/-colonly colliders, geogen-3cc.17).
+## Turn exported collider nodes (<name>-colonly / -convcolonly) into static
+## bodies and drop their meshes. Exports without collider nodes (older
+## geogen) fall back to a trimesh collider on every mesh.
 func _add_collision(root: Node) -> int:
 	var meshes := root.find_children("*", "MeshInstance3D", true, false)
+	var colliders: Array[MeshInstance3D] = []
 	for mi: MeshInstance3D in meshes:
-		if mi.mesh == null:
-			continue
-		var shape := mi.mesh.create_trimesh_shape()
-		var body := StaticBody3D.new()
-		body.name = "Collider"
-		var col := CollisionShape3D.new()
-		col.shape = shape
-		body.add_child(col)
-		mi.add_child(body)
-		var debug := MeshInstance3D.new()
-		debug.mesh = _wireframe(shape.get_faces())
-		debug.material_override = _collider_material
-		debug.visible = show_colliders
-		debug.add_to_group("geogen_collider_debug")
-		body.add_child(debug)
-	return meshes.size()
+		if _is_collider(mi):
+			colliders.append(mi)
+	if colliders.is_empty():
+		for mi: MeshInstance3D in meshes:
+			if mi.mesh != null:
+				_add_body(mi, mi.mesh.create_trimesh_shape(), Transform3D.IDENTITY)
+		return meshes.size()
+	for mi in colliders:
+		if mi.mesh != null:
+			var convex: bool = String(mi.name).ends_with("-convcolonly") or geogen_extras(mi).get("shape") in ["box", "hull"]
+			var shape: Shape3D = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
+			_add_body(mi.get_parent(), shape, mi.transform)
+		mi.get_parent().remove_child(mi)
+		mi.free()
+	return meshes.size() - colliders.size()
 
 
-## Line mesh of every triangle edge, for the collider overlay.
-static func _wireframe(faces: PackedVector3Array) -> ArrayMesh:
-	var lines := PackedVector3Array()
-	lines.resize(faces.size() * 2)
-	for t in range(0, faces.size(), 3):
-		for e in 3:
-			lines[(t + e) * 2] = faces[t + e]
-			lines[(t + e) * 2 + 1] = faces[t + (e + 1) % 3]
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = lines
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
-	return mesh
+static func _is_collider(mi: MeshInstance3D) -> bool:
+	var n := String(mi.name)
+	return n.ends_with("-colonly") or n.ends_with("-convcolonly") or geogen_extras(mi).get("type") == "collider"
+
+
+func _add_body(parent: Node, shape: Shape3D, xform: Transform3D) -> void:
+	var body := StaticBody3D.new()
+	body.name = "Collider"
+	body.transform = xform
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	body.add_child(col)
+	parent.add_child(body)
+	var debug := MeshInstance3D.new()
+	debug.mesh = shape.get_debug_mesh()
+	debug.material_override = _collider_material
+	debug.visible = show_colliders
+	debug.add_to_group("geogen_collider_debug")
+	body.add_child(debug)

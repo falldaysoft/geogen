@@ -251,6 +251,19 @@ class SceneComposer:
                     node.transform = attach_transform
                     root.add_child(node)
 
+        # Extra semantic tags per placement (e.g. tags: [door.interior]).
+        for obj_name, obj_def in all_placements.items():
+            node = loaded_objects.get(obj_name)
+            if node is not None and obj_def.get("tags"):
+                node.tags = [*node.tags, *[t for t in obj_def["tags"] if t not in node.tags]]
+
+        root.tags = list(data.get("tags", []))
+
+        # Spawn points: slot-style positions exported as empty nodes.
+        for spawn_name, transform in self._parse_slots(data.get("spawns", {}), size).items():
+            root.add_child(SceneNode(name=spawn_name, transform=transform, tags=["spawn"],
+                                     meta={"type": "spawn"}))
+
         # Parse explicit attachment points for the composed scene
         attachments_data = data.get("attachments", {})
         for attach_name, attach_def in attachments_data.items():

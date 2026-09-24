@@ -1,6 +1,7 @@
 # Ground plane - flat grass surface
 
 name: ground
+tags: [terrain.ground]
 origin: bottom_center
 
 params:
@@ -12,6 +13,7 @@ size: ["{width}", "{thickness}", "{depth}"]
 
 parts:
   surface:
+    walkable: true
     primitive: cube
     size: [1.0, 1.0, 1.0]
     anchor: bottom_center

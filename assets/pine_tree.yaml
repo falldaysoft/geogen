@@ -3,6 +3,7 @@
 # `scale` multiplies every dimension.
 
 name: pine_tree
+tags: [vegetation.tree]
 origin: bottom_center
 
 params:

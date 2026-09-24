@@ -31,14 +31,21 @@ capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 | `project.godot` | Project settings; main scene is `scenes/main.tscn` |
 | `scenes/main.tscn` | Sky, sun, fog, 400 m ground with collision, `World` loader, overview camera, overlay |
 | `scripts/main.gd` | Root: parses user args, spawns the player, debug overlay |
-| `scripts/world_loader.gd` | `WorldLoader`: loads `.glb` exports at runtime via `GLTFDocument`, adds trimesh colliders and texture mipmaps, hot-reloads |
+| `scripts/world_loader.gd` | `WorldLoader`: loads `.glb` exports at runtime via `GLTFDocument`, builds static bodies from the exported collider nodes, collects room volumes (`room_at()`) and manifest spawns, adds texture mipmaps, hot-reloads |
 | `scripts/player.gd` | `Player`: first-person `CharacterBody3D` sized from the player spec, with step-up |
 | `scripts/player_spec.gd` | `PlayerSpec`: player radius/height/eye/step/slope/reach read from a geogen manifest |
 | `generated/` | Exports land here (git-ignored; `.gdignore` keeps the editor from importing them, the runtime loads them directly) |
 
 Exports are loaded at runtime rather than imported by the editor so a
-running game can reload them. Until geogen exports explicit colliders
-(geogen-3cc.17), every mesh gets a trimesh collider. The player body is a
+running game can reload them. geogen exports a collider child per mesh named
+with Godot's import suffixes (`<name>-colonly` = trimesh, `<name>-convcolonly`
+= box/convex hull); runtime glTF loading doesn't apply those suffixes, so
+`WorldLoader` turns them into `StaticBody3D`s and drops their meshes (older
+exports without collider nodes get a trimesh collider per mesh). Node extras
+(`extras.geogen`, schema in `docs/schema/geogen-extras.v1.schema.json`) arrive
+as `get_meta("extras")`; room volumes drive the overlay's `room:` readout and
+the `room` field of `--walk` results. Without `--spawn`, the player starts at
+the manifest's first spawn point. The player body is a
 cylinder, not a capsule: a capsule's rounded bottom slides off the edge of
 a step exactly `step_height` tall.
 

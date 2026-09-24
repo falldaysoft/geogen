@@ -5,6 +5,7 @@
 # (container is [scale, scale, scale]).
 
 name: street_lamp
+tags: [street.lamp]
 origin: bottom_center
 
 params:

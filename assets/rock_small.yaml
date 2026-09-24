@@ -1,6 +1,7 @@
 # Small rock - irregular boulder
 # Origin at bottom_center
 name: rock_small
+tags: [terrain.rock]
 origin: bottom_center
 
 params:

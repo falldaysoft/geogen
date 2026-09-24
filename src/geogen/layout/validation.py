@@ -7,7 +7,7 @@ from typing import Any
 # Known keys for asset YAML files
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
-    "surfaces", "floorplan",
+    "surfaces", "floorplan", "tags",
 }
 
 PART_KNOWN_KEYS = {
@@ -18,13 +18,15 @@ PART_KNOWN_KEYS = {
     "cap_bottom", "cap_top",
     # booleans
     "subtract", "cutter", "cut_host", "reveal",
+    # gameplay metadata
+    "tags", "collider", "walkable",
     # roof / prism
     "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
 }
 
 # Known keys for scene YAML files
 SCENE_KNOWN_KEYS = {
-    "name", "size", "slots", "place", "compose", "attachments",
+    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns",
 }
 
 SLOT_KNOWN_KEYS = {
@@ -32,7 +34,7 @@ SLOT_KNOWN_KEYS = {
 }
 
 PLACEMENT_KNOWN_KEYS = {
-    "asset", "scene", "slot", "attach_to", "at", "on",
+    "asset", "scene", "slot", "attach_to", "at", "on", "tags",
 }
 
 # Known primitive types

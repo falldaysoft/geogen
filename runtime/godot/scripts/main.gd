@@ -5,7 +5,8 @@ extends Node3D
 ## User args (after `--`):
 ##   --scene NAME | --scene=NAME   load generated/NAME.glb (default: every export)
 ##   --generated=DIR               read exports from DIR instead of res://generated
-##   --spawn=X,Y,Z  --yaw=DEG      player start (default: in front of the model)
+##   --spawn=X,Y,Z  --yaw=DEG      player start (default: the export's first spawn
+##                                 point, else in front of the model)
 ##   --camera=overview             start from the overview camera (F4 toggles)
 ##   --colliders                   show collision shapes (F2 toggles)
 ##   --walk=SECONDS                walk forward, print the final position, quit
@@ -99,11 +100,15 @@ func _on_world_loaded(aabb: AABB) -> void:
 ## Spawn in front (+Z) of whatever was loaded, facing it.
 func _place_player(aabb: AABB) -> void:
 	var pos := Vector3(0, 0, 5)
+	var yaw := 0.0
 	if aabb.size != Vector3.ZERO:
 		pos = Vector3(aabb.get_center().x, 0, aabb.end.z + 3.0)
+	if _spawn_override == null and not world.spawns.is_empty():
+		pos = world.spawns[0]["position"]
+		yaw = world.spawns[0]["yaw_deg"]
 	if _spawn_override != null:
 		pos = _spawn_override
-	player.spawn(pos, _yaw_override if _yaw_override != null else 0.0)
+	player.spawn(pos, _yaw_override if _yaw_override != null else yaw)
 
 
 func _frame_overview(aabb: AABB) -> void:
@@ -134,17 +139,18 @@ func _physics_process(delta: float) -> void:
 		player.scripted_move = null
 		var p := player.global_position
 		print("walk result: %s" % JSON.stringify({"x": p.x, "y": p.y, "z": p.z,
-			"on_floor": player.is_on_floor()}))
+			"on_floor": player.is_on_floor(), "room": world.room_at(p + Vector3(0, 0.5, 0))}))
 		get_tree().quit()
 
 
 func _process(_delta: float) -> void:
 	if overlay.visible:
 		var p := player.global_position
-		overlay.text = "%d fps   %s\npos %.2f, %.2f, %.2f   room: -%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
+		var room := world.room_at(p + Vector3(0, 0.5, 0))
+		overlay.text = "%d fps   %s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
 			Engine.get_frames_per_second(),
 			world.scene_name if world.scene_name != "" else "all exports",
-			p.x, p.y, p.z,
+			p.x, p.y, p.z, room if room != "" else "-",
 			"   [fly]" if player.flying else "",
 			"   [colliders]" if world.show_colliders else ""]
 	if quit_after_frames <= 0:

@@ -2,6 +2,7 @@
 # Origin is at center of floor
 
 name: room
+tags: [room]
 origin: center
 
 params:

@@ -2,6 +2,7 @@
 # Origin is at bottom_center of bounding box. Front of the table is +Z.
 
 name: table
+tags: [furniture.table]
 origin: bottom_center
 
 params:
