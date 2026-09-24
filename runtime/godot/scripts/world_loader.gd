@@ -150,6 +150,7 @@ func _load_model(manifest_path: String) -> void:
 	model_aabbs.append(_aabb(root))
 	_prepare_materials(root)
 	_collect_interactions(root)
+	_add_lights(root)
 	var count := _add_collision(root)
 	_collect_rooms(root)
 	for s in manifest.get("spawns", []):
@@ -168,6 +169,26 @@ static func geogen_extras(node: Node) -> Dictionary:
 	if extras is Dictionary and extras.get("geogen") is Dictionary:
 		return extras["geogen"]
 	return {}
+
+
+## Ceiling fixtures etc. carry extras.geogen.light: add a light just below them.
+func _add_lights(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		var spec = geogen_extras(node).get("light")
+		if not spec is Dictionary:
+			continue
+		var light := OmniLight3D.new()
+		light.name = "Light"
+		var c: Array = spec.get("color", [1, 1, 1])
+		light.light_color = Color(c[0], c[1], c[2])
+		light.light_energy = float(spec.get("energy", 1.0))
+		light.omni_range = float(spec.get("range", 5.0))
+		light.shadow_enabled = true
+		light.position = Vector3(0, float(spec.get("offset", -0.5)), 0)
+		node.add_child(light)
+		# The fixture itself mustn't shadow its own light.
+		for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _collect_rooms(root: Node) -> void:

@@ -1,6 +1,9 @@
 # Hotel ensuite bathroom archetype.
 
 name: hotel_bathroom
+# Surface materials for rooms of this type (floor-plan room keys override).
+finishes: { walls: tile_white, floor: tile_floor_grey }
+
 items:
   shower:
     asset: shower.yaml

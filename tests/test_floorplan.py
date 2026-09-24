@@ -62,7 +62,8 @@ def test_room_nodes_have_slabs_surfaces_and_tags():
     bedroom = root.find("bedroom")
     assert bedroom.tags == ["room", "room.hotel_bedroom"]
     assert bedroom.meta["room"] == {"id": "bedroom", "type": "hotel_bedroom"}
-    assert {c.name for c in bedroom.children} == {"floor", "ceiling", "bedroom_volume"}
+    assert {"floor", "ceiling", "bedroom_volume", "lining", "skirting", "cornice", "bedroom_light"} <= {
+        c.name for c in bedroom.children}
     volume = bedroom.find("bedroom_volume")
     assert volume.meta["type"] == "room_volume"
     assert volume.meta["size"] == pytest.approx([4.4 - 0.15 - 0.06, 2.5, 4.6 - 0.3])
@@ -70,10 +71,10 @@ def test_room_nodes_have_slabs_surfaces_and_tags():
     assert "east_exterior" not in bedroom.surfaces  # east side is shared with other rooms
     floor = root.surfaces["bedroom.floor"]
     assert floor.u_extent == pytest.approx(4.4 - 0.15 - 0.06)
-    # Interior wall surface sits on the wall face, normal into the room.
+    # Interior wall surface sits on the finish lining (1 cm), normal into the room.
     north = root.surfaces["bedroom.north_wall"]
     assert north.normal == pytest.approx([0, 0, -1])
-    assert north.origin[2] == pytest.approx(4.6 - 0.15 - 2.3)
+    assert north.origin[2] == pytest.approx(4.6 - 0.15 - 2.3 - 0.01)
 
 
 @pytest.mark.parametrize("spec, match", [

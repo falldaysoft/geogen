@@ -149,7 +149,12 @@ class _RoomSolver:
         self.assets_dir = assets_dir
         self.loader = loader
         self.rng = np.random.default_rng(seed + zlib.crc32(self.name.encode()))
-        self.hx, self.hz = float(room.size[0]) / 2, float(room.size[2]) / 2
+        inset = room.meta.get("wall_inset", {})
+        self.floor_inset = float(inset.get("floor", 0.0))
+        self.mount_inset = float(inset.get("mount", 0.0))
+        # Floor items plan on the rectangle inside the lining and skirting.
+        self.hx = float(room.size[0]) / 2 - self.floor_inset
+        self.hz = float(room.size[2]) / 2 - self.floor_inset
         self.bounds = Rect(-self.hx, -self.hz, self.hx, self.hz)
         self.placed: dict[str, list[Placed]] = {}
         self.report: list[Unsatisfied] = []
@@ -495,6 +500,7 @@ class _RoomSolver:
         if best is None:
             return 0
         _, side, along, center = best
+        center = center - _WALLS[side][2] * (self.floor_inset - self.mount_inset)
         self.add(name, 0, node, center, _WALLS[side][2].copy(), height, None, [], side, along)
         return 1
 
@@ -508,7 +514,7 @@ class _RoomSolver:
             side = window["side"]
             if abs(along) + node.size[0] / 2 > self.wall_length(side) / 2 + 1e-6:
                 node = self.load(spec, {"width": width + 0.1} if params else None)
-            self.add(name, placed, node, self.wall_point(side, along), _WALLS[side][2].copy(), 0.0, None, [],
-                     side, along)
+            wall_face = self.wall_point(side, along) - _WALLS[side][2] * (self.floor_inset - self.mount_inset)
+            self.add(name, placed, node, wall_face, _WALLS[side][2].copy(), 0.0, None, [], side, along)
             placed += 1
         return placed

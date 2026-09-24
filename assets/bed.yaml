@@ -24,6 +24,7 @@ parts:
     primitive: cube
     size: [1, 1, "{hb_depth / (length + hb_depth + 0.04)}"]
     anchor: bottom_back_center
+    offset: [0, 0, "{hb_depth / 2 / (length + hb_depth + 0.04)}"]   # anchors place the part centre
     bevel: 0.03
     material: fabric_linen
 

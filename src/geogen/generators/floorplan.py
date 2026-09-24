@@ -23,6 +23,7 @@ surfaces face out of the building (for placing window/door assets).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -55,7 +56,8 @@ class PlanRoom:
     w: float
     d: float
     type: str | None = None
-    floor: str | None = None      # material names (default: plan materials)
+    floor: str | None = None      # material names (default: room type finishes, then plan materials)
+    walls: str | None = None
     ceiling: str | None = None
 
     @property
@@ -144,6 +146,11 @@ class FloorPlan:
     materials: dict[str, str] = field(default_factory=lambda: {
         "walls": "wall_plaster", "floor": "hardwood_floor", "ceiling": "ceiling_white",
     })
+    # Interior finishes per room (see finishes.py): lining, skirting, cornice,
+    # light, switches. False turns them all off.
+    finishes: dict[str, bool] | bool = True
+    # Where room archetypes live (their ``finishes:`` give per-type materials).
+    room_types_dir: Path | None = None
 
     # ------------------------------------------------------------------ parsing
 
@@ -151,7 +158,7 @@ class FloorPlan:
     def from_spec(cls, spec: dict[str, Any]) -> FloorPlan:
         """Build from the YAML ``floorplan:`` mapping."""
         known = {"grid", "wall_height", "exterior_wall", "interior_wall", "floor_thickness",
-                 "ceiling_thickness", "ceiling", "materials", "rooms", "doors", "windows"}
+                 "ceiling_thickness", "ceiling", "materials", "rooms", "doors", "windows", "finishes"}
         unknown = set(spec) - known
         if unknown:
             raise ValueError(f"Unknown floorplan keys: {sorted(unknown)}. Known: {sorted(known)}")
@@ -166,11 +173,11 @@ class FloorPlan:
             x, z, w, d = (float(v) for v in r["rect"])
             if w <= 0 or d <= 0:
                 raise ValueError(f"Room '{name}' has non-positive size {w} x {d}")
-            extra = set(r) - {"rect", "type", "floor", "ceiling"}
+            extra = set(r) - {"rect", "type", "floor", "walls", "ceiling"}
             if extra:
                 raise ValueError(f"Unknown keys in room '{name}': {sorted(extra)}")
             rooms[name] = PlanRoom(name, x, z, w, d, type=r.get("type"),
-                                   floor=r.get("floor"), ceiling=r.get("ceiling"))
+                                   floor=r.get("floor"), walls=r.get("walls"), ceiling=r.get("ceiling"))
 
         def opening(kind: str, o: dict[str, Any]) -> PlanOpening:
             between = o.get("between")
@@ -205,6 +212,7 @@ class FloorPlan:
             ceiling_thickness=float(spec.get("ceiling_thickness", 0.2)),
             ceiling=bool(spec.get("ceiling", True)),
             materials=materials,
+            finishes=spec.get("finishes", True),
         )
         plan.validate()
         return plan
@@ -449,6 +457,18 @@ class FloorPlan:
         for index, door in enumerate(self.doors):
             if door.style != "opening":
                 root.add_child(self._door_node(door, index, segments, offset, loader, room_nodes))
+
+        if self.finishes:
+            from .finishes import add_room_finishes
+
+            options = self.finishes if isinstance(self.finishes, dict) else {}
+            for room in self.rooms.values():
+                node = room_nodes[room.name]
+                to_room = np.eye(4)
+                to_room[:3, 3] = -node.transform.translation
+                add_room_finishes(node, float(node.meta.get("clear_height", self.wall_height)),
+                                  self.room_materials(room), [c.transform(to_room) for c in cutters],
+                                  options, loader)
         return root
 
     def _door_node(self, o: PlanOpening, index: int, segments: list[WallSegment], offset: np.ndarray,
@@ -507,6 +527,29 @@ class FloorPlan:
             })
         return node
 
+    def _lining_thickness(self) -> float:
+        from .finishes import LINING
+
+        if not self.finishes:
+            return 0.0
+        options = self.finishes if isinstance(self.finishes, dict) else {}
+        return LINING if options.get("lining", True) else 0.0
+
+    def room_materials(self, room: PlanRoom) -> dict[str, str]:
+        """floor/walls/ceiling materials: room keys, then its type's finishes, then the plan's."""
+        result = dict(self.materials)
+        if room.type:
+            from ..layout.yaml_utils import safe_load_path
+
+            types_dir = self.room_types_dir or Path(__file__).parents[3] / "assets" / "room_types"
+            path = types_dir / f"{room.type}.yaml"
+            if path.exists():
+                result.update((safe_load_path(path) or {}).get("finishes") or {})
+        for key in ("floor", "walls", "ceiling"):
+            if getattr(room, key):
+                result[key] = getattr(room, key)
+        return result
+
     def _half(self, room: PlanRoom, side: str, segments: list[WallSegment]) -> float:
         """Half-thickness of the thickest wall along one side of a room."""
         axis, line, _, _ = room.edge(side)
@@ -541,14 +584,15 @@ class FloorPlan:
             mesh.material = loader.load(material)
             return SceneNode(name=part, mesh=mesh, tags=[part])
 
-        floor = slab("floor", self.floor_thickness, -self.floor_thickness, room.floor or self.materials["floor"])
+        mats = self.room_materials(room)
+        floor = slab("floor", self.floor_thickness, -self.floor_thickness, mats["floor"])
         floor.meta["walkable"] = True
         node.add_child(floor)
         clear_height = self.wall_height
         if self.ceiling:
             clear_height = self.wall_height - self.ceiling_thickness
-            node.add_child(slab("ceiling", self.ceiling_thickness, clear_height,
-                                room.ceiling or self.materials["ceiling"], tuck_ceiling))
+            node.add_child(slab("ceiling", self.ceiling_thickness, clear_height, mats["ceiling"], tuck_ceiling))
+        node.meta["clear_height"] = clear_height
 
         # Trigger volume filling the room's clear space (for "which room am I in").
         volume = SceneNode(name=f"{room.name}_volume",
@@ -587,6 +631,12 @@ class FloorPlan:
                 u_axis=-inner.u_axis, v_axis=inner.v_axis, normal=-inner.normal,
                 u_extent=inner.u_extent, v_extent=clear_height,
             )
+        # Interior wall surfaces sit on the finish lining when there is one.
+        lining = self._lining_thickness()
+        if lining:
+            for side in SIDES:
+                surf = surfaces[f"{side}_wall"]
+                surf.origin = surf.origin + surf.normal * lining
         for surf in surfaces.values():
             surf.source = walls if surf.name.endswith(("_wall", "_exterior")) else node.children[0]
         node.surfaces = surfaces

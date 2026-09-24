@@ -2,6 +2,9 @@
 # solver (geogen/layout/furnish.py) inside any floor-plan room of this type.
 
 name: hotel_bedroom
+# Surface materials for rooms of this type (floor-plan room keys override).
+finishes: { walls: paint_greige, floor: carpet }
+
 items:
   bed:
     asset: bed.yaml

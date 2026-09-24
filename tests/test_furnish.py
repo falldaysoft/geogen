@@ -70,9 +70,9 @@ def test_bed_rules_hold():
     bed = room.find("bed")
     # Headboard against a wall with no door and no window; nightstands flank it.
     back = -np.array([np.sin(bed.transform.rotation[1]), np.cos(bed.transform.rotation[1])])
-    half = room.size[[0, 2]] / 2
+    half = room.size[[0, 2]] / 2 - room.meta["wall_inset"]["floor"]  # in front of lining + skirting
     head = bed.transform.translation[[0, 2]] + back * bed.size[2] / 2
-    assert np.isclose(np.abs(head), half, atol=0.02).any()
+    assert np.isclose(np.abs(head), half, atol=0.01).any()
     tv = room.find("tv_console")
     facing_tv = np.array([np.sin(tv.transform.rotation[1]), np.cos(tv.transform.rotation[1])])
     facing_bed = np.array([np.sin(bed.transform.rotation[1]), np.cos(bed.transform.rotation[1])])

@@ -1,6 +1,9 @@
 # Suite entry corridor: a luggage rack if there's room.
 
 name: corridor
+# Surface materials for rooms of this type (floor-plan room keys override).
+finishes: { walls: paint_white, floor: laminate }
+
 items:
   luggage_rack:
     asset: luggage_rack.yaml
