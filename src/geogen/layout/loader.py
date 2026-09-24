@@ -320,6 +320,7 @@ class LayoutLoader:
             surfaces:
               north_wall: { from: shell.north_wall }
               floor: { from: shell.floor }
+              front_wall: { from: walls.front, cut: [lining] }  # openings also cut 'lining'
         """
         from .surfaces import Surface
 
@@ -348,6 +349,15 @@ class LayoutLoader:
                 )
             src = part_node.surfaces[surface_name]
 
+            also_cut = []
+            for cut_name in spec.get("cut", []):
+                if cut_name not in part_nodes:
+                    raise ValueError(
+                        f"Surface export '{export_name}' cuts unknown part '{cut_name}'."
+                        f" Available parts: {sorted(part_nodes)}"
+                    )
+                also_cut.append(part_nodes[cut_name])
+
             # Transform surface from part's local frame into root's local frame.
             # Surfaces store positions (origin) and directions (axes, normal).
             part_matrix = part_node.transform.to_matrix()
@@ -363,6 +373,7 @@ class LayoutLoader:
                 u_extent=src.u_extent,
                 v_extent=src.v_extent,
                 source=part_node,
+                also_cut=also_cut,
             )
 
     def _create_room_node(

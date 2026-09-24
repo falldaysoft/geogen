@@ -341,7 +341,7 @@ place:
 
 ### Buildings
 
-`house_peaked.yaml` is a hollow brick shell (walls minus an `interior` cutter) with a gable `roof`, brick `prism` gables and a chimney. `scenes/cottage.yaml` places `door.yaml` and `window.yaml` on its wall surfaces; each cuts its own opening. Opening assets are authored with the origin at the bottom-centre of the opening on the wall face, +Z out of the wall, and a 1 m container depth so z offsets read as metres. `scenes/house_plot.yaml` (used by the street) places the cottage scene.
+`house_peaked.yaml` is a hollow brick shell (walls minus an `interior` cutter) with a gable `roof`, brick `prism` gables and a chimney. Inside it has a separate finish: `floor` (hardwood_floor), a hollow `lining` (wall_plaster, 1.5 cm) and a `ceiling` at the wall top. Its wall surfaces are exported with `cut: [lining]`, so openings cut through the brick and the lining. `scenes/cottage.yaml` places `door.yaml` and `window.yaml` on its wall surfaces; each cuts its own opening. Opening assets are authored with the origin at the bottom-centre of the opening on the wall face, +Z out of the wall, and a 1 m container depth so z offsets read as metres. `scenes/house_plot.yaml` (used by the street) places the cottage scene.
 
 ### Design Principles
 
@@ -393,7 +393,7 @@ surfaces:
   roof:       { from: roof.top }
 ```
 
-The re-export bakes the part's local-to-root transform into the surface so scene-level callers see surfaces in the asset's root frame.
+The re-export bakes the part's local-to-root transform into the surface so scene-level callers see surfaces in the asset's root frame. Add `cut: [part, ...]` to a surface export (`front_wall: { from: walls.front, cut: [lining] }`) so `cut_host` openings placed on it also cut those parts (`Surface.also_cut`).
 
 Relevant module: `src/geogen/layout/surfaces.py`. Runtime storage: `SceneNode.surfaces: dict[str, Surface]`, resolved via `SceneNode.get_surface(name, u, v, depth)`.
 

@@ -116,3 +116,19 @@ place:
     removed = _volume(walls_before) - _volume(walls_after)
     assert removed == pytest.approx(1.0 * 1.3 * 0.3, rel=0.02)  # window opening through a 0.3 m wall
     assert "opening" not in [n.name for n in with_window.iter_nodes()]
+
+    # The interior lining behind the wall is cut by the same opening.
+    lining_before = plain.find("lining").mesh
+    lining_after = with_window.find("lining").mesh
+    assert meshops.validate(lining_after).watertight
+    removed = _volume(lining_before) - _volume(lining_after)
+    assert removed == pytest.approx(1.0 * 1.3 * 0.015, rel=0.05)
+
+
+def test_house_has_interior_finish():
+    house = LayoutLoader().load("assets/house_peaked.yaml")
+    materials = {n.name: n.mesh.material.name for n in house.iter_nodes() if n.mesh is not None and n.mesh.material}
+    assert materials["floor"] == "hardwood_floor"
+    assert materials["lining"] == "wall_plaster"
+    assert materials["ceiling"] == "ceiling_white"
+    assert "lining_void" not in materials

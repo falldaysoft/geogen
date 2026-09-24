@@ -1,7 +1,9 @@
 # Brick cottage shell with a pitched (gable) roof.
 #
-# The walls are a hollow shell, so windows and doors placed on its wall
-# surfaces cut real openings (see scenes/cottage.yaml). Front faces +Z,
+# The walls are a hollow brick shell, so windows and doors placed on its wall
+# surfaces cut real openings (see scenes/cottage.yaml). Inside there is an
+# interior finish: floorboards, a plaster lining (cut by the same openings)
+# and a ceiling at the wall top. Front faces +Z,
 # origin at bottom_center.
 
 name: house_peaked
@@ -15,6 +17,9 @@ params:
   foundation:     { default: 0.3 }
   wall_thickness: { default: 0.3 }
   overhang:       { default: 0.4 }
+  floor_thickness:   { default: 0.02 }
+  lining_thickness:  { default: 0.015 }
+  ceiling_thickness: { default: 0.03 }
 
 size: ["{width}", "{foundation + wall_height + roof_height}", "{depth}"]
 
@@ -35,14 +40,49 @@ parts:
     subtract: [interior]
     material: brick
 
-  # Hollows out the walls (open top, 5 cm floor slab left at the bottom).
+  # Hollows out the walls down to the foundation (open top).
   interior:
     primitive: cube
     size: ["{(width - 2 * wall_thickness) / width}", "{(wall_height + 1) / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness) / depth}"]
     anchor: bottom_center
-    offset: [0, "{(foundation + 0.05) / (foundation + wall_height + roof_height)}", 0]
+    offset: [0, "{(foundation - 0.01) / (foundation + wall_height + roof_height)}", 0]
     bevel: 0
     cutter: true
+
+  # Interior finish: floorboards on the foundation, a plaster lining inside
+  # the brick, and a ceiling at the wall top hiding the roof structure.
+  floor:
+    primitive: cube
+    size: ["{(width - 2 * wall_thickness) / width}", "{floor_thickness / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{foundation / (foundation + wall_height + roof_height)}", 0]
+    bevel: 0
+    material: hardwood_floor
+
+  lining:
+    primitive: cube
+    size: ["{(width - 2 * wall_thickness) / width}", "{(wall_height - floor_thickness - ceiling_thickness) / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(foundation + floor_thickness) / (foundation + wall_height + roof_height)}", 0]
+    bevel: 0
+    subtract: [lining_void]
+    material: wall_plaster
+
+  lining_void:
+    primitive: cube
+    size: ["{(width - 2 * wall_thickness - 2 * lining_thickness) / width}", "{(wall_height + 1) / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness - 2 * lining_thickness) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{foundation / (foundation + wall_height + roof_height)}", 0]
+    bevel: 0
+    cutter: true
+
+  ceiling:
+    primitive: cube
+    size: ["{(width - 2 * wall_thickness) / width}", "{ceiling_thickness / (foundation + wall_height + roof_height)}", "{(depth - 2 * wall_thickness) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(foundation + wall_height - ceiling_thickness) / (foundation + wall_height + roof_height)}", 0]
+    bevel: 0
+    material: ceiling_white
 
   # Brick gable ends under the roof (slightly under the roof's underside).
   gables:
@@ -79,8 +119,9 @@ parts:
     material: concrete
 
 # Wall surfaces (v = 0 at the top of the foundation) for placing openings.
+# Openings cut through the brick and the interior lining behind it.
 surfaces:
-  front_wall: { from: walls.front }
-  back_wall:  { from: walls.back }
-  left_wall:  { from: walls.left }
-  right_wall: { from: walls.right }
+  front_wall: { from: walls.front, cut: [lining] }
+  back_wall:  { from: walls.back,  cut: [lining] }
+  left_wall:  { from: walls.left,  cut: [lining] }
+  right_wall: { from: walls.right, cut: [lining] }

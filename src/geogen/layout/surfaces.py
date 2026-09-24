@@ -51,6 +51,9 @@ class Surface:
     # Part node whose geometry this surface lies on (set by the loader), so
     # objects placed on the surface can cut openings into that part.
     source: Any = field(default=None, repr=False, compare=False)
+    # Further part nodes that openings on this surface also cut through
+    # (e.g. an interior lining behind an exterior wall).
+    also_cut: list[Any] = field(default_factory=list, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         self.origin = np.asarray(self.origin, dtype=np.float64)

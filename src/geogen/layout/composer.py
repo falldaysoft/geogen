@@ -272,7 +272,8 @@ class SceneComposer:
 
     @staticmethod
     def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:
-        """Subtract ``node``'s host cutters from the part that owns surface ``spec``."""
+        """Subtract ``node``'s host cutters from the part that owns surface ``spec``
+        (and any parts the surface export lists under ``cut:``)."""
         if not node.host_cutters:
             return
         from ..core import csg
@@ -283,12 +284,17 @@ class SceneComposer:
         if host is None or host.mesh is None:
             logger.warning("'%s' has openings but surface '%s' has no source part to cut", obj_name, spec)
             return
-        to_host = np.linalg.inv(host.world_transform()) @ node.world_transform()
-        cutters = [m.transform(to_host) for m in node.host_cutters]
-        try:
-            host.mesh = csg.difference(host.mesh, *cutters)
-        except csg.CSGError as exc:
-            raise ValueError(f"Cutting opening for '{obj_name}' into '{spec}' failed: {exc}") from exc
+        for part in [host, *surface.also_cut]:
+            if part.mesh is None:
+                continue
+            to_part = np.linalg.inv(part.world_transform()) @ node.world_transform()
+            cutters = [m.transform(to_part) for m in node.host_cutters]
+            try:
+                part.mesh = csg.difference(part.mesh, *cutters)
+            except csg.CSGError as exc:
+                raise ValueError(
+                    f"Cutting opening for '{obj_name}' into '{spec}' ({part.name}) failed: {exc}"
+                ) from exc
 
     def _surface_target_is_object(self, spec: str) -> bool:
         """Return True when `on: <spec>` refers to `<object>.<surface>`."""
