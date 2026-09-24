@@ -116,6 +116,14 @@ class PlanOpening:
     at: float = 0.5
     at_abs: float | None = None
     name: str | None = None
+    # Doors only: 'door' (lining, architraves, leaf), 'archway' (no leaf) or
+    # 'opening' (bare hole); which room the leaf swings into (default: the
+    # second room of 'between', or the room itself for outside doors; 'out'
+    # swings an outside door outward); hinge side seen from the swing side.
+    style: str = "door"
+    swing: str | None = None
+    hinge: str = "left"
+    open_deg: float = 0.0
 
 
 @dataclass
@@ -179,6 +187,8 @@ class FloorPlan:
                 between=tuple(between) if between else None,
                 room=o.get("room"), side=o.get("side"),
                 at=float(at), at_abs=at_abs, name=o.get("name"),
+                style=o.get("style", "door"), swing=o.get("swing"),
+                hinge=o.get("hinge", "left"), open_deg=float(o.get("open", 0.0)),
             )
 
         materials = {"walls": "wall_plaster", "floor": "hardwood_floor", "ceiling": "ceiling_white"}
@@ -224,6 +234,14 @@ class FloorPlan:
                     raise ValueError(f"{o.kind} references unknown room '{r}'. Rooms: {sorted(self.rooms)}")
             if o.room and o.side not in SIDES:
                 raise ValueError(f"{o.kind} in '{o.room}' needs side: one of {SIDES}")
+            if o.kind == "door":
+                if o.style not in ("door", "archway", "opening"):
+                    raise ValueError(f"door style must be door|archway|opening, got {o.style!r}")
+                if o.hinge not in ("left", "right"):
+                    raise ValueError(f"door hinge must be left|right, got {o.hinge!r}")
+                allowed = set(o.between or []) | ({"out"} if o.room else set()) | ({o.room} if o.room else set())
+                if o.swing is not None and o.swing not in allowed:
+                    raise ValueError(f"door swing must be one of {sorted(allowed)}, got {o.swing!r}")
 
     # ---------------------------------------------------------------- geometry
 
@@ -328,10 +346,8 @@ class FloorPlan:
             meshes.append(mesh.transform(shift))
         return meshes[0] if len(meshes) == 1 else Mesh.merge(meshes)
 
-    def _opening_box(self, o: PlanOpening, segments: list[WallSegment], offset: np.ndarray) -> Mesh:
-        """Cutter box for one opening, in plan-root coordinates."""
-        from .primitives import CubeGenerator
-
+    def _opening_frame(self, o: PlanOpening, segments: list[WallSegment]) -> tuple[WallSegment, float]:
+        """The wall segment an opening sits in and its centre along the wall line."""
         if o.between:
             a, b = o.between
             candidates = [s for s in segments if a in s.rooms and b in s.rooms]
@@ -362,6 +378,13 @@ class FloorPlan:
         if along - o.width / 2 < -_EPS or along + o.width / 2 > length + _EPS:
             raise ValueError(f"{o.kind} ({o.width} m wide at {along:.2f} m) doesn't fit its {length:.2f} m wall")
 
+        return seg, centre
+
+    def _opening_box(self, o: PlanOpening, segments: list[WallSegment], offset: np.ndarray) -> Mesh:
+        """Cutter box for one opening, in plan-root coordinates."""
+        from .primitives import CubeGenerator
+
+        seg, centre = self._opening_frame(o, segments)
         depth = seg.thickness + 0.2
         if seg.axis == "z":
             size = (o.width, o.height, depth)
@@ -399,13 +422,75 @@ class FloorPlan:
         walls = SceneNode(name="walls", mesh=walls_mesh, tags=["wall"])
         root.add_child(walls)
 
+        room_nodes = {}
         for room in self.rooms.values():
             root.add_child(self._room_node(room, segments, offset, walls, loader, CubeGenerator))
             node = root.children[-1]
+            room_nodes[room.name] = node
             to_root = node.transform.to_matrix()
             for surf_name, surf in node.surfaces.items():
                 root.surfaces[f"{room.name}.{surf_name}"] = _transformed(surf, to_root)
+
+        for index, door in enumerate(self.doors):
+            if door.style != "opening":
+                root.add_child(self._door_node(door, index, segments, offset, loader, room_nodes))
         return root
+
+    def _door_node(self, o: PlanOpening, index: int, segments: list[WallSegment], offset: np.ndarray,
+                   loader, room_nodes: dict[str, SceneNode]) -> SceneNode:
+        """Place a DoorGenerator in an opening, +Z toward the room it swings into."""
+        from .doors import DoorGenerator
+
+        seg, centre = self._opening_frame(o, segments)
+        exterior = o.between is None
+        if o.between:
+            swing_room = o.swing or o.between[1]
+        else:
+            swing_room = o.room if o.swing in (None, o.room) else None  # None: swings outside
+        # Which way is the swing side? A room on its north edge lies toward -Z, etc.
+        toward = {"north": -1.0, "south": 1.0, "east": -1.0, "west": 1.0}
+        if swing_room is not None:
+            direction = toward[seg.rooms[swing_room]]
+        else:
+            direction = -toward[seg.rooms[o.room]]
+        if seg.axis == "z":
+            position = np.array([centre, o.sill, seg.line])
+            yaw = 0.0 if direction > 0 else 180.0
+        else:
+            position = np.array([seg.line, o.sill, centre])
+            yaw = 90.0 if direction > 0 else -90.0
+
+        name = o.name or (f"door_{o.between[0]}_{o.between[1]}" if o.between else f"door_{o.room}_{o.side}")
+        gen = DoorGenerator(
+            width=o.width, height=o.height, wall=seg.thickness, style=o.style, hinge=o.hinge,
+            open_deg=o.open_deg, name=name,
+            frame_material=self.materials.get("door_frame", "trim_white"),
+            leaf_material=self.materials.get("door_leaf", "wood"),
+        )
+        node = gen.generate(loader)
+        node.transform = Transform(translation=position - offset, rotation=np.array([0.0, np.radians(yaw), 0.0]))
+        kind = "door" if o.style == "door" else "opening"
+        node.tags = [kind, f"{kind}.{o.style if o.style != 'door' else ('exterior' if exterior else 'interior')}"]
+        node.meta["door"] = {
+            "style": o.style, "hinge": o.hinge, "width": o.width, "height": o.height,
+            "rooms": list(o.between) if o.between else [o.room], "swing_room": swing_room,
+        }
+
+        # Record the leaf's swing arc in the swing room's frame so furnishing avoids it.
+        if o.style == "door" and swing_room is not None:
+            room_node = room_nodes[swing_room]
+            swing = gen.swing()
+            r = np.radians(yaw)
+            rot = np.array([[np.cos(r), 0, np.sin(r)], [0, 1, 0], [-np.sin(r), 0, np.cos(r)]])
+            hinge = rot @ np.array(swing["hinge"]) + node.transform.translation - room_node.transform.translation
+            room_node.meta.setdefault("door_swings", []).append({
+                "door": name,
+                "hinge": [round(float(v), 6) for v in hinge],
+                "radius": swing["radius"],
+                "from_deg": swing["from_deg"] - yaw,
+                "to_deg": swing["to_deg"] - yaw,
+            })
+        return node
 
     def _half(self, room: PlanRoom, side: str, segments: list[WallSegment]) -> float:
         """Half-thickness of the thickest wall along one side of a room."""
@@ -428,10 +513,12 @@ class FloorPlan:
         node.tags = ["room", f"room.{room_type}"]
         node.meta = {"room": {"id": room.name, "type": room_type}}
 
-        # Slabs tuck under/into the walls so no light leaks through the seam.
-        tuck = min(0.04, 0.8 * min(hw.values()))
+        # Ceilings tuck into the walls so shadow maps don't leak light through
+        # the seam; floors stop at the wall face so doorway thresholds (the
+        # wall's top between two rooms) don't z-fight with them.
+        tuck_ceiling = min(0.04, 0.8 * min(hw.values()))
 
-        def slab(part: str, height: float, y: float, material: str) -> SceneNode:
+        def slab(part: str, height: float, y: float, material: str, tuck: float = 0.0) -> SceneNode:
             mesh = CubeGenerator(size_x=sx + 2 * tuck, size_y=height, size_z=sz + 2 * tuck, bevel=0).generate()
             move = np.eye(4)
             move[1, 3] = y + height / 2
@@ -446,7 +533,7 @@ class FloorPlan:
         if self.ceiling:
             clear_height = self.wall_height - self.ceiling_thickness
             node.add_child(slab("ceiling", self.ceiling_thickness, clear_height,
-                                room.ceiling or self.materials["ceiling"]))
+                                room.ceiling or self.materials["ceiling"], tuck_ceiling))
 
         # Trigger volume filling the room's clear space (for "which room am I in").
         volume = SceneNode(name=f"{room.name}_volume",

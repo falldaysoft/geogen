@@ -106,3 +106,51 @@ place:
     assert meshops.validate(walls).watertight
     removed = _volume(plain.find("walls").mesh) - _volume(walls)
     assert removed == pytest.approx(1.0 * 1.3 * 0.3, rel=1e-3)
+
+
+def test_doors_get_frames_leaves_and_swing_metadata():
+    spec = dict(SUITE, doors=[
+        {"between": ["corridor", "bedroom"], "width": 0.9},
+        {"between": ["corridor", "bathroom"], "width": 0.9, "hinge": "right", "style": "archway"},
+        {"room": "corridor", "side": "east", "width": 1.0, "name": "entry", "style": "opening"},
+    ])
+    root = FloorPlan.from_spec(spec).build("suite")
+    door = root.find("door_corridor_bedroom")
+    assert door.tags == ["door", "door.interior"]
+    assert {c.name for c in door.children} == {"lining", "architrave_front", "architrave_back", "leaf_pivot"}
+    pivot = door.find("leaf_pivot")
+    assert pivot.meta["joint"]["type"] == "hinge"
+    assert pivot.find("leaf").find("handles").meta["collider"] == "none"
+    for node in door.iter_nodes():
+        if node.mesh is not None:
+            assert meshops.validate(node.mesh).watertight, node.name
+    # The door's +Z faces the bedroom (west of the shared wall at plan x = 4.4).
+    world_z = door.world_transform()[:3, 2]
+    assert world_z == pytest.approx([-1, 0, 0], abs=1e-9)
+
+    arch = root.find("door_corridor_bathroom")
+    assert arch.tags == ["opening", "opening.archway"] and arch.find("leaf_pivot") is None
+    assert root.find("entry") is None  # bare opening: hole only
+
+    swings = root.find("bedroom").meta["door_swings"]
+    assert swings[0]["door"] == "door_corridor_bedroom"
+    assert swings[0]["radius"] == pytest.approx(0.9 - 2 * 0.025 - 0.006)
+    assert "door_swings" not in root.find("bathroom").meta  # archways don't swing
+
+
+def test_open_door_leaf_swings_into_room():
+    spec = dict(SUITE, doors=[{"between": ["corridor", "bedroom"], "width": 0.9, "open": 90}])
+    root = FloorPlan.from_spec(spec).build("suite")
+    leaf = root.find("leaf")
+    verts = (leaf.world_transform() @ np.c_[leaf.mesh.vertices, np.ones(len(leaf.mesh.vertices))].T).T
+    # Opened 90 degrees, the leaf sticks out of the wall into the bedroom (-X).
+    wall_x = 4.4 - 3.4
+    assert verts[:, 0].min() < wall_x - 0.8
+    assert verts[:, 0].max() < wall_x + 0.1
+
+
+def test_bad_door_options_raise():
+    with pytest.raises(ValueError, match="swing"):
+        FloorPlan.from_spec(dict(SUITE, doors=[{"between": ["corridor", "bedroom"], "swing": "bathroom"}]))
+    with pytest.raises(ValueError, match="style"):
+        FloorPlan.from_spec(dict(SUITE, doors=[{"between": ["corridor", "bedroom"], "style": "revolving"}]))
