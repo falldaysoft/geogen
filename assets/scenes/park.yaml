@@ -1,0 +1,49 @@
+# A park generated with seeded scatter placement: a cottage in a clearing,
+# a lamp-lit footpath, and trees, bushes and rocks scattered around them
+# without overlapping anything. Change the seeds for a different park.
+
+name: park
+size: [40, 6, 40]
+
+place:
+  lawn:
+    asset: ground.yaml
+    params: { width: 40, depth: 40 }
+  cottage:
+    asset: house_peaked.yaml
+  path:
+    asset: sidewalk.yaml
+    params: { length: 30, width: 1.8 }
+    slot: path_slot
+  lamps:
+    asset: street_lamp.yaml
+    scatter: { seed: 1, path: [[-15, 8], [15, 8]], spacing: 6, offset: 1.4 }
+  benches:
+    asset: bench.yaml
+    yaw: 0
+    scatter: { seed: 2, path: [[-12, 8], [12, 8]], spacing: 8, offset: -1.5, yaw: 0 }
+  pines:
+    asset: pine_tree.yaml
+    params: { scale: { random: [0.9, 1.6] } }
+    scatter:
+      seed: 7
+      rect: [-19, -19, 19, 19]
+      spacing: 5
+      count: 16
+      avoid: [cottage, path]
+      margin: 1.5
+  maples:
+    asset: maple_tree.yaml
+    params: { scale: { random: [0.8, 1.2] } }
+    scatter: { seed: 8, rect: [-19, -19, 19, 19], spacing: 5, count: 12, avoid: [cottage, path], margin: 1.5 }
+  bushes:
+    asset: bush.yaml
+    params: { width: { random: [0.6, 1.2] }, height: { random: [0.4, 0.9] } }
+    scatter: { seed: 9, rect: [-19, -19, 19, 19], spacing: 2.5, count: 30, avoid: [cottage, path], margin: 0.8 }
+  rocks:
+    asset: rock_medium.yaml
+    scatter: { seed: 10, rect: [-19, -19, 19, 19], spacing: 3, count: 12, avoid: [cottage, path], margin: 0.5,
+               scale: [0.7, 1.5] }
+
+slots:
+  path_slot: { position: [0, 0, 8], facing: east }   # sidewalk runs along its length (z) -> x

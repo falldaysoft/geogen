@@ -175,6 +175,9 @@ class SceneComposer:
 
         # Merge compose into place for unified handling
         all_placements = {**compose_data, **place_data}
+        # Scatter placements run last, once the objects they avoid exist.
+        scatters = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "scatter" in v}
+        all_placements = {k: v for k, v in all_placements.items() if k not in scatters}
 
         # First pass: load all objects that don't depend on others.
         # Surface-based placements (`on:`) depend on the root's own surfaces
@@ -262,6 +265,14 @@ class SceneComposer:
 
                     node.transform = attach_transform
                     root.add_child(node)
+
+        if scatters:
+            from .scatter import scatter
+
+            occupied: list = []
+            for obj_name, obj_def in scatters.items():
+                scatter(root, obj_name, obj_def, loaded_objects,
+                        lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied)
 
         # Extra semantic tags per placement (e.g. tags: [door.interior]).
         for obj_name, obj_def in all_placements.items():
