@@ -7,6 +7,12 @@ from .concrete import ConcreteTextureGenerator
 from .dirt import DirtTextureGenerator
 from .floor import HardwoodFloorTextureGenerator, CarpetTextureGenerator
 from .grass import GrassTextureGenerator
+from .interior import (
+    CutPileCarpetTextureGenerator,
+    FabricTextureGenerator,
+    MarbleTextureGenerator,
+    TileTextureGenerator,
+)
 from .metal import MetalTextureGenerator
 from .noise import perlin_noise, fractal_noise
 from .rock import RockTextureGenerator
@@ -31,4 +37,8 @@ __all__ = [
     "RockTextureGenerator",
     "RoofTextureGenerator",
     "DirtTextureGenerator",
+    "FabricTextureGenerator",
+    "CutPileCarpetTextureGenerator",
+    "TileTextureGenerator",
+    "MarbleTextureGenerator",
 ]

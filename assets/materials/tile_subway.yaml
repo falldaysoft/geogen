@@ -1,0 +1,20 @@
+# Offset (running bond) subway tile, 15 x 7.5 cm, for bathroom walls.
+name: tile_subway
+texture:
+  type: tile
+  params:
+    tile_color: [240, 240, 236]
+    grout_color: [196, 194, 188]
+    tiles_x: 4
+    tiles_y: 8
+    grout_width: 0.04
+    layout: offset
+    color_variation: 0.03
+    seed: 92
+size: [512, 512]
+tile_size: 0.6  # 4 x 8 tiles = 15 x 7.5 cm
+pbr:
+  roughness: 0.1
+  metallic: 0.0
+  normal_strength: 1.0
+  ao_strength: 1.0

@@ -96,6 +96,8 @@ pytest tests/test_scenes.py -k "test_name"
 
 - Implementations: `wood`, `metal`, `floor`, `wall`, `asphalt`, `brick`, `concrete`, `dirt`, `grass`, `rock`, `roof` — each in its own module.
 
+- **Interior pack** (`interior.py`): `fabric` (plain/twill weave, `threads` per repeat), `cut_pile_carpet`, `tile` (`tiles_x`/`tiles_y` per repeat, `grout_width`, `layout: grid|offset`), `marble`. Materials: `fabric_linen`, `fabric_velvet`, `bedding_white`, `carpet`, `tile_white`, `tile_subway`, `tile_floor_grey`, `marble`, `chrome`, `mirror`, `laminate`, `paint_{white,sage,navy,terracotta,greige}`. Any colour param in a material YAML may name a `PAINT_PALETTE` colour (`materials/loader.py`) instead of `[r, g, b]`.
+
 ### Materials (`src/geogen/materials/`)
 
 - **Material** (`material.py`): Combines a TextureGenerator with PBR properties (roughness, metallic, normal_strength, ao_strength). Caches generated textures. `tile_size` (metres per texture repeat, YAML scalar or `[u, v]`) converts metric mesh UVs to texture space via `texture_uv_scale`; `gltf_images()` packs base colour / metallic-roughness / normal / occlusion for both the renderer and exporter.

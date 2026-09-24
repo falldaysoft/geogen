@@ -1,0 +1,20 @@
+# Matt grey porcelain floor tile, 60 x 60 cm.
+name: tile_floor_grey
+texture:
+  type: tile
+  params:
+    tile_color: [150, 148, 144]
+    grout_color: [110, 108, 104]
+    tiles_x: 2
+    tiles_y: 2
+    grout_width: 0.008
+    color_variation: 0.05
+    glaze_noise: 1.0
+    seed: 93
+size: [512, 512]
+tile_size: 1.2  # 2 x 2 tiles = 60 cm tiles
+pbr:
+  roughness: 0.45
+  metallic: 0.0
+  normal_strength: 1.0
+  ao_strength: 1.0

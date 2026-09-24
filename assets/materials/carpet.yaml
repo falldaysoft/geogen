@@ -1,0 +1,17 @@
+# Hotel cut-pile carpet in a warm taupe.
+name: carpet
+texture:
+  type: cut_pile_carpet
+  params:
+    base_color: [118, 100, 88]
+    tufts: 160
+    pile_contrast: 0.35
+    shading: 0.12
+    seed: 81
+size: [512, 512]
+tile_size: 0.5  # tufts about 3 mm apart
+pbr:
+  roughness: 1.0
+  metallic: 0.0
+  normal_strength: 0.6
+  ao_strength: 0.8

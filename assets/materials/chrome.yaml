@@ -1,0 +1,18 @@
+# Polished chrome for taps, shower fittings, handles.
+name: chrome
+texture:
+  type: metal
+  params:
+    base_color: [212, 216, 222]
+    highlight_color: [245, 247, 250]
+    metal_type: polished
+    scratch_amount: 0.0
+    roughness: 0.05
+    seed: 111
+size: [256, 256]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.08
+  metallic: 1.0
+  normal_strength: 0.0
+  ao_strength: 0.0

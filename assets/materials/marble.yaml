@@ -1,0 +1,18 @@
+# Polished white Carrara-style marble for vanities and counter tops.
+name: marble
+texture:
+  type: marble
+  params:
+    base_color: [234, 232, 228]
+    vein_color: [118, 116, 118]
+    vein_frequency: 3
+    vein_sharpness: 6.0
+    turbulence_strength: 1.2
+    seed: 101
+size: [512, 512]
+tile_size: 1.2  # metres per texture repeat
+pbr:
+  roughness: 0.12
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 0.0

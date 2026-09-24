@@ -14,6 +14,12 @@ from ..textures.concrete import ConcreteTextureGenerator
 from ..textures.dirt import DirtTextureGenerator
 from ..textures.floor import HardwoodFloorTextureGenerator, CarpetTextureGenerator
 from ..textures.grass import GrassTextureGenerator
+from ..textures.interior import (
+    CutPileCarpetTextureGenerator,
+    FabricTextureGenerator,
+    MarbleTextureGenerator,
+    TileTextureGenerator,
+)
 from ..textures.metal import MetalTextureGenerator, MetalType
 from ..textures.rock import RockTextureGenerator
 from ..textures.roof import RoofTextureGenerator
@@ -36,6 +42,26 @@ TEXTURE_GENERATORS = {
     "brick": BrickTextureGenerator,
     "concrete": ConcreteTextureGenerator,
     "roof": RoofTextureGenerator,
+    "fabric": FabricTextureGenerator,
+    "cut_pile_carpet": CutPileCarpetTextureGenerator,
+    "tile": TileTextureGenerator,
+    "marble": MarbleTextureGenerator,
+}
+
+# Named paint colours; any colour param may use one of these instead of [r, g, b].
+PAINT_PALETTE: dict[str, tuple[int, int, int]] = {
+    "white": (244, 242, 236),
+    "warm_white": (240, 234, 222),
+    "greige": (200, 190, 175),
+    "stone": (184, 178, 166),
+    "sage": (158, 172, 148),
+    "duck_egg": (170, 196, 196),
+    "navy": (46, 58, 84),
+    "charcoal": (62, 64, 66),
+    "terracotta": (190, 110, 80),
+    "mustard": (206, 160, 60),
+    "blush": (222, 186, 176),
+    "forest": (52, 84, 64),
 }
 
 
@@ -183,10 +209,18 @@ class MaterialLoader:
         color_keys = [
             "color_light", "color_dark", "color_base", "color_variation",
             "base_color", "highlight_color", "mortar_color",
+            "weft_color", "tile_color", "grout_color", "vein_color", "gap_color",
         ]
         for key in color_keys:
-            if key in converted and isinstance(converted[key], list):
-                converted[key] = tuple(converted[key])
+            value = converted.get(key)
+            if isinstance(value, list):
+                converted[key] = tuple(value)
+            elif isinstance(value, str):
+                if value not in PAINT_PALETTE:
+                    raise ValueError(
+                        f"Unknown colour '{value}' for {key}; palette: {sorted(PAINT_PALETTE)}"
+                    )
+                converted[key] = PAINT_PALETTE[value]
 
         # Convert metal_type string to enum
         if texture_type == "metal" and "metal_type" in converted:
