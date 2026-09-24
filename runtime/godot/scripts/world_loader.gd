@@ -43,6 +43,8 @@ var spawns: Array[Dictionary] = []
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
 var _moving := {}     # Node3D driven by an interaction -> true
+## Gates: [{node: Node3D, interaction: GeogenInteraction, open_in: String, open: bool}]
+var _gates: Array[Dictionary] = []
 var _target_of := {}  # Node3D aimed at -> GeogenInteraction
 var _poll := 0.0
 var _collider_material: StandardMaterial3D
@@ -66,6 +68,7 @@ func load_all() -> AABB:
 	rooms.clear()
 	spawns.clear()
 	interactions.clear()
+	_gates.clear()
 	_moving.clear()
 	_target_of.clear()
 	for manifest in _manifests():
@@ -157,6 +160,7 @@ func _load_model(manifest_path: String) -> void:
 	_collect_interactions(root)
 	_add_lights(root)
 	var count := _add_collision(root)
+	_collect_gates(root)
 	_collect_rooms(root)
 	var summary := GeogenSceneBuilder.build(root)
 	if open_before_bake:
@@ -211,7 +215,7 @@ func _collect_rooms(root: Node) -> void:
 		if g.get("type") == "room_volume":
 			var size: Array = g.get("size", [0, 0, 0])
 			var room: Dictionary = g.get("room", {})
-			rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""),
+			rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""), "nav": g.get("nav", true),
 				"xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2])})
 
 
@@ -251,6 +255,44 @@ func interactions_of(asset_name: String) -> Array[GeogenInteraction]:
 		if String(it.asset.name) == asset_name:
 			result.append(it)
 	return result
+
+
+## Nodes with extras.geogen.gate: solid unless their interaction has arrived at open_in.
+func _collect_gates(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		var gate = geogen_extras(node).get("gate")
+		if not gate is Dictionary:
+			continue
+		var it: GeogenInteraction = null
+		var ancestor := node.get_parent()
+		while ancestor != null and it == null:
+			for candidate in interactions:
+				if candidate.asset == ancestor and candidate.interaction_name == gate.get("interaction", ""):
+					it = candidate
+			ancestor = ancestor.get_parent()
+		if it == null:
+			push_warning("geogen: gate %s: no interaction '%s'" % [node.name, gate.get("interaction", "")])
+			continue
+		var entry := {"node": node, "interaction": it, "open_in": str(gate.get("open_in", "")), "open": null}
+		_gates.append(entry)
+		_update_gate(entry)
+
+
+func _update_gate(gate: Dictionary) -> void:
+	var it: GeogenInteraction = gate["interaction"]
+	var open: bool = it.state == gate["open_in"] and it.target == it.state
+	if gate["open"] == open:
+		return
+	gate["open"] = open
+	var node: Node3D = gate["node"]
+	node.visible = not open
+	for shape: CollisionShape3D in node.find_children("*", "CollisionShape3D", true, false):
+		shape.set_deferred("disabled", open)
+
+
+func _physics_process(_delta: float) -> void:
+	for gate in _gates:
+		_update_gate(gate)
 
 
 ## Id of the room volume containing ``pos`` (world space), or "".

@@ -125,6 +125,16 @@
             "required": ["door", "hinge", "radius", "from_deg", "to_deg"]
           }
         },
+        "gate": {
+          "description": "A barrier that is solid (collider on, visible) except while the named interaction on an ancestor node has arrived at state open_in (e.g. a lift shaft door that opens when the car is at that floor).",
+          "type": "object",
+          "required": ["interaction", "open_in"],
+          "properties": { "interaction": { "type": "string" }, "open_in": { "type": "string" } }
+        },
+        "nav": {
+          "description": "false on rooms/room volumes that aren't meant to be walked (lift shafts); playtests skip them.",
+          "type": "boolean"
+        },
         "size": {
           "description": "room_volume only: box size in metres [x, y, z].",
           "type": "array",

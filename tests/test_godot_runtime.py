@@ -293,4 +293,28 @@ def test_m2_hotel_playtest_from_street(run_godot, tmp_path):
     export_scene(LayoutLoader().load("assets/hotel.yaml"), tmp_path / "hotel.glb")
     code, report = _playtest(run_godot, tmp_path, "hotel", walks=8)
     assert report["ok"] and code == 0, {k: v for k, v in report.items() if k != "reachable"}
-    assert report["rooms"] == 96 and report["targets"] > 200
+    assert report["rooms"] == 104 and report["targets"] > 200  # lift shafts are excluded (nav: false)
+
+
+def test_ride_lift_and_gates(run_godot, tmp_path):
+    from geogen.layout import LayoutLoader
+    from test_building import SMALL
+    building = LayoutLoader().load_string(SMALL)
+    car = building.find("lift_lift_shaft").world_transform()[:3, 3]
+    export_scene(building, tmp_path / "small_building.glb")
+    args = ("--scene", "small_building", f"--generated={tmp_path}")
+
+    def walk_result(out):
+        return json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                          .removeprefix("walk result: "))
+
+    # Stand in the car, press the button, ride up one floor and walk out (-Z).
+    out = run_godot(*args, f"--spawn={car[0]},0,{car[2] + 0.2}", "--yaw=0", "--use=lift_lift_shaft",
+                    "--wait=3.6", "--walk=1.2")
+    assert '"state":"floor_1"' in out
+    end = walk_result(out)
+    assert end["y"] == pytest.approx(3.65, abs=0.03) and end["room"] == "lift_lobby"
+    # With the car down at the lobby, floor 1's gate blocks the empty shaft.
+    out = run_godot(*args, f"--spawn={car[0]},3.65,{car[2] - 2.4}", "--yaw=180", "--walk=1.5")
+    end = walk_result(out)
+    assert end["y"] == pytest.approx(3.65, abs=0.03) and end["z"] < car[2] - 1.0

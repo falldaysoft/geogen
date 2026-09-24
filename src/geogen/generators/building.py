@@ -105,6 +105,7 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
             elevation += plan.wall_height + plans[index + 1].floor_thickness
 
     _connect_all_stairs([s for s, _ in storeys], material_loader)
+    _add_lifts(root, [s for s, _ in storeys], material_loader)
     _add_entrance_spawn(root, storeys[0][0])
 
     if facade:
@@ -123,6 +124,128 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
     root.size = np.array([x1 - x0 + t, top_y + (roof or {}).get("parapet", 1.0), z1 - z0 + t])
     root.meta["building"] = {"storeys": len(storeys), "height": round(top_y, 6)}
     return root
+
+
+LIFT_SPEED = 1.2      # m/s
+CAR_HEIGHT = 2.3
+
+
+def _shaft_rooms(storey: SceneNode) -> dict[str, SceneNode]:
+    return {n.meta["room"]["id"]: n for n in storey.iter_nodes()
+            if isinstance(n.meta.get("room"), dict) and n.meta.get("type") != "room_volume"
+            and n.meta["room"]["type"] == "lift_shaft"}
+
+
+def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> None:
+    """Turn lift shafts stacked over storeys into a working lift.
+
+    The shaft is opened up (no floors above the bottom, no ceilings below
+    the top, no fittings), a car rides it as a ``lift`` interaction whose
+    states are the floors (using it goes to the next floor, wrapping to the
+    bottom), and each floor's shaft doorway gets a gate that's solid unless
+    the car is standing at that floor (``meta.gate``; see the Godot runtime).
+    """
+    from ..core import uvmap
+    from ..layout.interactions import Interaction, Motion, State
+    from .primitives import CubeGenerator
+
+    for shaft_id in sorted(set().union(*(_shaft_rooms(s).keys() for s in storeys))):
+        column = [(s, _shaft_rooms(s).get(shaft_id)) for s in storeys]
+        column = [(s, r) for s, r in column if r is not None]
+        if len(column) < 2:
+            continue
+        for i, (storey, room) in enumerate(column):
+            drop = {"skirting", "cornice", f"{room.name}_light"} | ({"floor"} if i > 0 else set()) \
+                | ({"ceiling"} if i < len(column) - 1 else set())
+            room.children = [c for c in room.children if c.name not in drop and "switch.light" not in c.tags]
+            room.meta["nav"] = False  # the shaft volume isn't somewhere to walk
+            volume = room.find(f"{room.name}_volume")
+            if volume is not None:
+                volume.meta["nav"] = False
+        bottom = column[0][1]
+        to_root = np.linalg.inv(root.world_transform())
+        m = to_root @ bottom.world_transform()
+        sx, sz = float(bottom.size[0]), float(bottom.size[2])
+        elevations = [float((to_root @ s.world_transform())[1, 3]) for s, _ in column]
+
+        lift = SceneNode(name=f"lift_{shaft_id}", transform=Transform(translation=m[:3, 3].copy()))
+        lift.tags = ["lift"]
+        car = SceneNode(name="lift_car", transform=Transform(translation=np.array([0.0, elevations[0], 0.0])))
+        car.tags = ["lift.car"]
+        lift.add_child(car)
+        opening = next((o for o in bottom.meta.get("openings", []) if o["kind"] == "door"), None)
+        front = opening["side"] if opening else "south"
+        inward = {"north": np.array([0, 0, -1.0]), "south": np.array([0, 0, 1.0]),
+                  "east": np.array([-1.0, 0, 0]), "west": np.array([1.0, 0, 0])}[front]
+        cw, cd = sx - 0.1, sz - 0.1
+        steel = material_loader.load("metal")
+        panel_mat = material_loader.load("wood_dark")
+
+        def part(name: str, lo, hi, material, collider: str = "box") -> SceneNode:
+            lo, hi = np.asarray(lo, float), np.asarray(hi, float)
+            mesh = CubeGenerator(size_x=hi[0] - lo[0], size_y=hi[1] - lo[1], size_z=hi[2] - lo[2], bevel=0).generate()
+            move = np.eye(4)
+            move[:3, 3] = (lo + hi) / 2
+            mesh = uvmap.box_project(mesh.transform(move))
+            mesh.material = material
+            node = SceneNode(name=name, mesh=mesh)
+            node.meta["collider"] = collider
+            return node
+
+        car.add_child(part("car_floor", [-cw / 2, -0.12, -cd / 2], [cw / 2, 0.0, cd / 2], steel))
+        car.add_child(part("car_ceiling", [-cw / 2, CAR_HEIGHT, -cd / 2], [cw / 2, CAR_HEIGHT + 0.06, cd / 2], steel))
+        # Three walls; the open side faces the doorway.
+        walls = {"north": ([-cw / 2, 0, cd / 2 - 0.04], [cw / 2, CAR_HEIGHT, cd / 2]),
+                 "south": ([-cw / 2, 0, -cd / 2], [cw / 2, CAR_HEIGHT, -cd / 2 + 0.04]),
+                 "east": ([cw / 2 - 0.04, 0, -cd / 2], [cw / 2, CAR_HEIGHT, cd / 2]),
+                 "west": ([-cw / 2, 0, -cd / 2], [-cw / 2 + 0.04, CAR_HEIGHT, cd / 2])}
+        for side, (lo, hi) in walls.items():
+            if side != front:
+                car.add_child(part(f"car_wall_{side}", lo, hi, panel_mat))
+        # Button panel beside the opening, on the wall to its right.
+        right = np.array([-inward[2], 0.0, inward[0]])
+        panel_centre = -inward * 0.0 + right * (min(cw, cd) / 2 - 0.05) + np.array([0, 1.2, 0]) - inward * (
+            (cd if front in ("north", "south") else cw) / 2 - 0.35)
+        half = np.abs(right) * 0.02 + np.abs(inward) * 0.1 + np.array([0, 0.18, 0])
+        panel = part("car_buttons", panel_centre - half, panel_centre + half, steel, collider="none")
+        panel.tags = ["lift.buttons"]
+        car.add_child(panel)
+
+        states = {}
+        for k in range(len(column)):
+            nxt = (k + 1) % len(column)
+            states[f"floor_{k}"] = State(next=f"floor_{nxt}", prompt=f"Go to floor {nxt}", emit=f"arrived_{k}")
+        travel = max(elevations) - min(elevations)
+        lift.interactions = [Interaction(
+            name="lift", states=states,
+            motions=[Motion([car], "translate", np.array([0.0, 1.0, 0.0]), np.zeros(3),
+                            {f"floor_{k}": e - elevations[0] for k, e in enumerate(elevations)})],
+            targets=[panel], initial="floor_0", duration=max(1.0, travel / LIFT_SPEED),
+        )]
+        # Gates in each floor's shaft doorway (the wall's centre line).
+        for k, (storey, room) in enumerate(column):
+            door = next((o for o in room.meta.get("openings", []) if o["kind"] == "door"), None)
+            if door is None:
+                continue
+            mr = to_root @ room.world_transform()
+            half_room = np.array([float(room.size[0]), 0.0, float(room.size[2])]) / 2
+            axis = 0 if door["side"] in ("north", "south") else 2
+            normal = -{"north": np.array([0, 0, -1.0]), "south": np.array([0, 0, 1.0]),
+                       "east": np.array([-1.0, 0, 0]), "west": np.array([1.0, 0, 0])}[door["side"]]
+            centre = mr[:3, 3].copy()
+            centre[axis] += (door["lo"] + door["hi"]) / 2
+            other = 2 - axis
+            centre[other] += normal[other] * (half_room[other] + 0.06)
+            extent = np.zeros(3)
+            extent[axis] = (door["hi"] - door["lo"]) / 2
+            extent[other] = 0.03
+            extent[1] = door["top"] / 2
+            centre[1] = elevations[k] + door["top"] / 2
+            gate = part(f"lift_gate_{k}", centre - extent - m[:3, 3], centre + extent - m[:3, 3], steel)
+            gate.tags = ["lift.gate"]
+            gate.meta["gate"] = {"interaction": "lift", "open_in": f"floor_{k}"}
+            lift.add_child(gate)
+        root.add_child(lift)
 
 
 def _add_entrance_spawn(root: SceneNode, ground: SceneNode) -> None:

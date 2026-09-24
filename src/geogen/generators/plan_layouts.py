@@ -32,7 +32,8 @@ def _rect(x: float, z: float, w: float, d: float) -> list[float]:
 
 def hotel_corridor(length: float = 30.0, depth: float = 16.0, corridor: float = 1.8, module: float = 3.6,
                    ensuite: bool = True, bath_width: float = 2.0, bath_depth: float = 2.4,
-                   core_width: float = 4.8, stair_width: float = 3.0, floor: int = 1) -> dict[str, Any]:
+                   core_width: float = 4.8, stair_width: float = 3.0, floor: int = 1,
+                   lift: bool = True, shaft: float = 2.2) -> dict[str, Any]:
     """Double-loaded guest floor.
 
     ``[stair][rooms...][core][rooms...][stair]`` along X, a corridor down the
@@ -60,10 +61,13 @@ def hotel_corridor(length: float = 30.0, depth: float = 16.0, corridor: float = 
         rooms[name] = {"rect": _rect(sx, 0, stair_width, depth), "type": "stair"}
         doors.append({"between": [name, "corridor"], "width": 1.0})
     core_x = x0 + per_half * module
-    rooms["lift_lobby"] = {"rect": _rect(core_x, cz1, core, side_depth), "type": "lift_lobby"}
+    lobby_depth = side_depth - shaft if lift else side_depth
+    rooms["lift_lobby"] = {"rect": _rect(core_x, cz1, core, lobby_depth), "type": "lift_lobby"}
     rooms["service"] = {"rect": _rect(core_x, 0, core, side_depth), "type": "service"}
     doors.append({"between": ["corridor", "lift_lobby"], "width": min(2.4, core - 0.6), "style": "archway"})
     doors.append({"between": ["corridor", "service"], "width": 0.9})
+    if lift:
+        _add_lift(rooms, doors, "lift_lobby", core_x, core, cz1 + lobby_depth, shaft)
 
     number = 1
     for side, (z_bath, z_bed, bed_depth, window_side) in {
@@ -105,9 +109,25 @@ def hotel_corridor(length: float = 30.0, depth: float = 16.0, corridor: float = 
     return {"rooms": rooms, "doors": doors, "windows": windows}
 
 
+def _add_lift(rooms: dict, doors: list, lobby: str, x: float, width: float, z: float, shaft: float) -> None:
+    """A lift shaft centred at the back of ``lobby`` with plant rooms either side.
+
+    Shafts are centred on the building (x = x + width / 2) so they stack
+    across storeys; building.py turns stacked shafts into a working lift.
+    """
+    side = _snap((width - shaft) / 2)
+    rooms["lift_shaft"] = {"rect": _rect(x + side, z, shaft, shaft), "type": "lift_shaft"}
+    doors.append({"between": [lobby, "lift_shaft"], "width": 1.1, "style": "opening"})
+    for name, px in (("lift_plant_west", x), ("lift_plant_east", x + side + shaft)):
+        if side >= 1.2:
+            rooms[name] = {"rect": _rect(px, z, side, shaft), "type": "service"}
+            doors.append({"between": [lobby, name], "width": 0.9})
+
+
 def hotel_lobby(length: float = 30.0, depth: float = 16.0, entrance_width: float = 6.0,
                 reception_depth: float = 5.0, restroom_width: float = 3.0,
-                back_of_house: float = 7.0, stair_width: float = 3.0) -> dict[str, Any]:
+                back_of_house: float = 7.0, stair_width: float = 3.0, lift: bool = True,
+                shaft: float = 2.2) -> dict[str, Any]:
     """Ground floor: entrance lobby off the street (south), reception behind
     it, lounge and restaurant either side, restrooms and back-of-house to
     the north. Entry doors on the south façade. With ``stair_width`` > 0,
@@ -120,13 +140,17 @@ def hotel_lobby(length: float = 30.0, depth: float = 16.0, entrance_width: float
         "lobby": {"rect": _rect(x0 + side_w, 0, entrance_width, front), "type": "lobby"},
         "lounge": {"rect": _rect(x0, 0, side_w, front), "type": "lounge"},
         "restaurant": {"rect": _rect(x0 + side_w + entrance_width, 0, side_w, front), "type": "restaurant"},
-        "reception": {"rect": _rect(x0 + side_w, front, entrance_width, reception_depth), "type": "reception"},
+        "reception": {"rect": _rect(x0 + side_w, front, entrance_width,
+                                    reception_depth - (shaft if lift else 0.0)), "type": "reception"},
         "restroom_a": {"rect": _rect(x0 + side_w - restroom_width, front, restroom_width, reception_depth),
                        "type": "restroom"},
         "restroom_b": {"rect": _rect(x0, front, side_w - restroom_width, reception_depth), "type": "restroom"},
         "back_of_house": {"rect": _rect(x0 + side_w + entrance_width, front, side_w, reception_depth),
                           "type": "back_of_house"},
     }
+    lift_doors: list[dict] = []
+    if lift:
+        _add_lift(rooms, lift_doors, "reception", x0 + side_w, entrance_width, depth - shaft, shaft)
     stair_doors = []
     if stair_width > 0:
         rooms["stair_west"] = {"rect": _rect(0, 0, stair_width, depth), "type": "stair"}
@@ -144,6 +168,7 @@ def hotel_lobby(length: float = 30.0, depth: float = 16.0, entrance_width: float
         {"between": ["lounge", "restroom_b"], "width": 0.9},
         {"between": ["restaurant", "back_of_house"], "width": 1.2},
         *stair_doors,
+        *lift_doors,
     ]
     windows = [
         {"room": "lounge", "side": "south", "width": _snap(side_w - 2.0), "height": 2.0, "sill": 0.4},

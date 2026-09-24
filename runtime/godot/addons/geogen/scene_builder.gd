@@ -17,7 +17,8 @@ const SUPPORTED_VERSION := 1
 const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple of the 5 cm cell)
 const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable", "room", "size", "door",
 	"joint", "door_swings", "footprint", "clearance", "interactions", "light", "switch", "openings",
-	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan"]
+	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan", "gate", "nav", "stairs",
+	"storey", "building", "facade", "walkable"]
 
 
 static func extras(node: Node) -> Dictionary:
@@ -157,6 +158,8 @@ static func bake_navigation_mesh(root: Node3D, spec, include_moving := false) ->
 			if part == null or part.mesh == null:
 				continue
 			var box: AABB = part.global_transform * part.get_aabb()
+			if minf(box.size.x, box.size.z) > 0.15:
+				continue  # thick enough to rasterise (a lift car floor is walkable)
 			box = box.grow(0.005)
 			var corners := PackedVector3Array([
 				Vector3(box.position.x, 0, box.position.z), Vector3(box.end.x, 0, box.position.z),

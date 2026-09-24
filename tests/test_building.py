@@ -73,3 +73,18 @@ def test_building_errors():
         LayoutLoader().load_string("name: b\nbuilding: { storeys: [] }\n")
     with pytest.raises(ValueError, match="floorplan"):
         LayoutLoader().load_string("name: b\nbuilding: { storeys: [ { repeat: 2 } ] }\n")
+
+
+def test_lift_serves_every_storey(building):
+    lift = building.find("lift_lift_shaft")
+    (it,) = lift.interactions
+    assert list(it.states) == ["floor_0", "floor_1", "floor_2"]
+    assert it.states["floor_2"].next == "floor_0"          # wraps to the lobby
+    assert it.motions[0].values == pytest.approx({"floor_0": 0.0, "floor_1": 3.65, "floor_2": 6.4})
+    gates = [c for c in lift.children if "lift.gate" in c.tags]
+    assert [g.meta["gate"]["open_in"] for g in gates] == ["floor_0", "floor_1", "floor_2"]
+    # The shaft is open: only the bottom room keeps its floor, only the top its ceiling.
+    shafts = [building.find(f"storey_{k}").find("lift_shaft") for k in range(3)]
+    assert [s.find("floor") is not None for s in shafts] == [True, False, False]
+    assert [s.find("ceiling") is not None for s in shafts] == [False, False, True]
+    assert all(s.find("lift_shaft_volume").meta["nav"] is False for s in shafts)

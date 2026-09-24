@@ -57,6 +57,8 @@ func _check_paths() -> void:
 	var from := NavigationServer3D.map_get_closest_point(map, start)
 	var reachable_rooms: Array[Dictionary] = []
 	for room in world.rooms:
+		if not room.get("nav", true):
+			continue  # lift shafts and the like aren't walked
 		_report["rooms"] += 1
 		var xform: Transform3D = room["xform"]
 		var size: Vector3 = room["size"]
