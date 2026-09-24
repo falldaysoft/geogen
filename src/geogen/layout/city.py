@@ -42,7 +42,6 @@ loaded once and instanced (meshes shared). Nodes carry ``meta.lot``
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -89,9 +88,7 @@ def _key(value) -> tuple[int, int]:
 
 
 def _instance(node: SceneNode) -> SceneNode:
-    """Deep copy that shares meshes (and their materials) with the original."""
-    memo = {id(n.mesh): n.mesh for n in node.iter_nodes() if n.mesh is not None}
-    return copy.deepcopy(node, memo)
+    return node.instance()
 
 
 def _slab(lo, hi, y0: float, y1: float) -> Mesh:

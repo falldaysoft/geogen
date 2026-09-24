@@ -91,6 +91,7 @@ class LayoutLoader:
         """
         self._material_loader = MaterialLoader()
         self.detail = float(detail)
+        self._prototypes: dict[tuple[str, str], SceneNode] = {}
 
     def load(
         self, path: str | Path, params: dict[str, float] | None = None
@@ -104,7 +105,16 @@ class LayoutLoader:
         Returns:
             SceneNode hierarchy representing the composite object
         """
-        path = Path(path)
+        # Identical loads (same file and params) return instances of one
+        # prototype, so repeated furniture shares meshes (see SceneNode.instance).
+        key = (str(Path(path).resolve()), _params_key(params))
+        prototype = self._prototypes.get(key)
+        if prototype is None:
+            prototype = self._load(Path(path), params)
+            self._prototypes[key] = prototype
+        return prototype.instance()
+
+    def _load(self, path: Path, params: dict[str, float] | None) -> SceneNode:
         logger.debug("Loading asset: %s", path)
         data = safe_load_path(path)
 
@@ -1007,3 +1017,9 @@ def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
     mesh = meshops.compute_normals(uvmap.box_project(mesh, directions=directions), crease if crease is not None else 75.0)
     mesh.material = material
     return mesh
+
+
+def _params_key(params: dict | None) -> str:
+    import json
+
+    return json.dumps(params or {}, sort_keys=True, default=str)

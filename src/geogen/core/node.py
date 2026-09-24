@@ -273,6 +273,26 @@ class SceneNode:
                 new_node.add_child(child.copy(deep=True))
         return new_node
 
+    def instance(self) -> SceneNode:
+        """A deep copy of this subtree that shares its meshes (and their materials).
+
+        Transforms, meta, surfaces and interactions are copied (interaction
+        targets are remapped to the copied nodes), so the instance can be
+        placed, animated or cut (CSG assigns new meshes) independently while
+        identical geometry is stored once and exported once.
+        """
+        import copy
+
+        memo: dict[int, object] = {}
+        if self.parent is not None:
+            memo[id(self.parent)] = None      # the copy is a new root
+        for node in self.iter_nodes():
+            if node.mesh is not None:
+                memo[id(node.mesh)] = node.mesh
+            for cutter in node.host_cutters:
+                memo[id(cutter)] = cutter
+        return copy.deepcopy(self, memo)
+
     def __repr__(self) -> str:
         mesh_str = f", mesh={self.mesh.face_count}f" if self.mesh else ""
         children_str = f", children={len(self.children)}" if self.children else ""

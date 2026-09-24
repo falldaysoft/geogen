@@ -93,13 +93,24 @@ class SceneComposer:
             slot: plot_right
     """
 
-    def __init__(self, assets_dir: str | Path | None = None) -> None:
+    def __init__(self, assets_dir: str | Path | None = None, cache_dir: str | Path | None = None) -> None:
         """Initialize the composer.
 
         Args:
             assets_dir: Base directory for asset files. Defaults to 'assets/' relative to project.
+            cache_dir: Optional on-disk cache for placed assets/scenes (see ``PrototypeCache``);
+                defaults to ``$GEOGEN_CACHE`` when set.
         """
+        import os
+
         self._loader = LayoutLoader()
+        self._prototypes: dict[str, SceneNode] = {}
+        cache_dir = cache_dir or os.environ.get("GEOGEN_CACHE")
+        self._disk_cache = None
+        if cache_dir:
+            from .cache import PrototypeCache
+
+            self._disk_cache = PrototypeCache(cache_dir)
         if assets_dir is None:
             # Default to project's assets directory
             self._assets_dir = Path(__file__).parent.parent.parent.parent / "assets"
@@ -302,7 +313,22 @@ class SceneComposer:
         return root
 
     def _load_object(self, obj_def: dict[str, Any]) -> SceneNode:
-        """Load an object from asset or scene definition."""
+        """Load an object from asset or scene definition (instances of one prototype per definition)."""
+        import json
+
+        key = json.dumps({k: obj_def.get(k) for k in ("asset", "scene", "params", "furnish")}, sort_keys=True,
+                         default=str)
+        prototype = self._prototypes.get(key)
+        if prototype is None and self._disk_cache is not None:
+            prototype = self._disk_cache.get(key)
+        if prototype is None:
+            prototype = self._load_prototype(obj_def)
+            if self._disk_cache is not None:
+                self._disk_cache.put(key, prototype)
+        self._prototypes[key] = prototype
+        return prototype.instance()
+
+    def _load_prototype(self, obj_def: dict[str, Any]) -> SceneNode:
         if "asset" in obj_def:
             asset_path = self._assets_dir / obj_def["asset"]
             node = self._loader.load(asset_path, params=obj_def.get("params"))

@@ -26,9 +26,11 @@ def test_glb_round_trip_preserves_geometry(scene, tmp_path):
     loaded = trimesh.load(path)
     np.testing.assert_allclose(loaded.bounds, scene_bounds(root), atol=1e-4)
     src_tris = sum(len(m.faces) for _, m in root.iter_meshes())
-    assert sum(len(g.faces) for g in _visual(loaded.geometry).values()) == src_tris
+    # Instances share one glTF mesh, so count per node.
+    nodes = [n for n in loaded.graph.nodes_geometry if "-col" not in n and "-convcol" not in n]
+    assert sum(len(loaded.geometry[loaded.graph[n][1]].faces) for n in nodes) == src_tris
     # Hierarchy: every scene node with a mesh is its own glTF node.
-    assert len(_visual(loaded.geometry)) == sum(1 for _, m in root.iter_meshes() if len(m.faces))
+    assert len(nodes) == sum(1 for _, m in root.iter_meshes() if len(m.faces))
 
 
 def test_glb_has_textured_pbr_materials(tmp_path):

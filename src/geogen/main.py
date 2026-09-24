@@ -105,6 +105,11 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--night", action="store_true", help="Viewer: night lighting (scene fixtures)")
     parser.add_argument("--lods", default=None, metavar="R1,R2",
                         help="Export: add decimated LODs at these triangle ratios (GLB, MSFT_lod), e.g. 0.5,0.25")
+    parser.add_argument("--cache", nargs="?", const=".cache/geogen", default=None, metavar="DIR",
+                        help="Cache generated assets on disk (default dir .cache/geogen); any source or asset "
+                             "change invalidates it")
+    parser.add_argument("--chunks", default=None, metavar="DIR",
+                        help="Export as streamable chunks (per block/building, exterior LODs, interiors) into DIR")
     parser.add_argument("--state", default=None,
                         help="Viewer: pose every interaction in this state (e.g. open)")
     return parser.parse_args()
@@ -114,6 +119,10 @@ def main() -> None:
     """Run the geogen demo."""
     registry = _build_registry()
     args = parse_args(registry)
+    if args.cache:
+        import os
+
+        os.environ["GEOGEN_CACHE"] = args.cache
 
     root = registry[args.scene]()
 
@@ -125,6 +134,14 @@ def main() -> None:
         indent = "  " * node.depth
         mesh_info = f" ({node.mesh.face_count} faces)" if node.mesh else ""
         print(f"{indent}- {node.name}{mesh_info}")
+
+    if args.chunks:
+        from .chunks import export_chunks
+
+        index = export_chunks(root, args.chunks, name=args.scene)
+        print(f"\nExported {args.scene} chunks; index {index}")
+        if not (args.render or args.export or args.export_godot):
+            return
 
     if args.export or args.export_godot:
         from .export import export_scene

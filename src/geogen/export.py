@@ -23,6 +23,7 @@ suffixes should skip nodes whose extras say ``type: collider``.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +34,8 @@ from .core.mesh import Mesh
 from .core.node import SceneNode
 from .materials.material import Material
 from .player import PlayerSpec, load_player_spec
+
+logger = logging.getLogger(__name__)
 
 FORMATS = {".glb", ".gltf", ".obj"}
 MANIFEST_FORMAT = "geogen-manifest"
@@ -143,9 +146,14 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
 
     Nodes carry ``extras.geogen``; with ``colliders`` each mesh node that gets
     a collider has a ``<name>-colonly`` / ``<name>-convcolonly`` child.
+    Nodes sharing a Mesh object (instances, see ``SceneNode.instance``) share
+    one glTF mesh, and so do their colliders and LODs.
     """
     scene = trimesh.Scene(base_frame="world")
     cache: dict = {}
+    shared: dict[tuple, str] = {}           # (kind, id(mesh), ...) -> geometry name
+    collider_kinds: dict[tuple, str] = {}
+    lod_sizes: dict[tuple, tuple] = {}
     used: set[str] = {"world"}
 
     def unique(name: str) -> str:
@@ -162,45 +170,60 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
     def name_of(node: SceneNode) -> str:
         return names[id(node)]
 
+    def add(key: tuple, build, node_name: str, parent: str, matrix=None, metadata=None) -> None:
+        """Add a node showing geometry ``key``, building the geometry only the first time."""
+        geom = shared.get(key)
+        if geom is None:
+            shared[key] = node_name
+            scene.add_geometry(build(), node_name=node_name, geom_name=node_name, parent_node_name=parent,
+                               transform=matrix, metadata=metadata)
+        else:
+            scene.graph.update(frame_from=parent, frame_to=node_name,
+                               matrix=matrix if matrix is not None else np.eye(4), geometry=geom,
+                               **({"metadata": metadata} if metadata else {}))
+
+    def collider_of(node: SceneNode) -> str:
+        key = (id(node.mesh), str(node.meta.get("collider", "auto")))
+        if key not in collider_kinds:
+            collider_kinds[key] = resolve_collider(node)
+        return collider_kinds[key]
+
     def visit(node: SceneNode, parent_name: str) -> None:
         name = name_of(node)
         matrix = node.transform.to_matrix()
         has_mesh = node.mesh is not None and len(node.mesh.faces) > 0
-        collider = resolve_collider(node) if has_mesh else None
+        collider = collider_of(node) if has_mesh else None
         extras = node_extras(node, collider)
         if node.interactions:
-            extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = {
-                i.name: i.to_extras(name_of) for i in node.interactions
-            }
+            exported = {}
+            for interaction in node.interactions:
+                try:
+                    exported[interaction.name] = interaction.to_extras(name_of)
+                except KeyError:   # drives nodes outside this export (a chunk split); runtime can't use it
+                    logger.warning("Skipping interaction '%s' on '%s': its nodes aren't all in this export",
+                                   interaction.name, node.name)
+            if exported:
+                extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = exported
         if has_mesh:
-            scene.add_geometry(
-                to_trimesh(node.mesh, cache),
-                node_name=name,
-                geom_name=name,
-                parent_node_name=parent_name,
-                transform=matrix,
-                metadata=extras or None,
-            )
-            if lods and len(node.mesh.faces) >= LOD_MIN_TRIANGLES:
+            mesh = node.mesh
+            add(("mesh", id(mesh)), lambda: to_trimesh(mesh, cache), name, parent_name, matrix, extras or None)
+            if lods and len(mesh.faces) >= LOD_MIN_TRIANGLES:
                 for level, ratio in enumerate(lods, start=1):
-                    reduced = meshops.decimate(node.mesh, ratio)
-                    if len(reduced.faces) >= len(node.mesh.faces):
+                    key = ("lod", id(mesh), ratio)
+                    if key not in lod_sizes:
+                        reduced = meshops.decimate(mesh, ratio)
+                        lod_sizes[key] = (reduced, len(reduced.faces))
+                    reduced, faces = lod_sizes[key]
+                    if faces >= len(mesh.faces):
                         continue
                     lod_name = unique(f"{name}_LOD{level}")
-                    scene.add_geometry(
-                        to_trimesh(reduced, cache), node_name=lod_name, geom_name=lod_name, parent_node_name=name,
+                    add(key, lambda reduced=reduced: to_trimesh(reduced, cache), lod_name, name,
                         metadata={"geogen": {"version": EXTRAS_VERSION, "type": "lod", "level": level,
-                                             "ratio": ratio}},
-                    )
+                                             "ratio": ratio}})
             if colliders and collider in COLLIDER_SUFFIX:
                 col_name = unique(f"{name}{COLLIDER_SUFFIX[collider]}")
-                scene.add_geometry(
-                    collider_mesh(node.mesh, collider),
-                    node_name=col_name,
-                    geom_name=col_name,
-                    parent_node_name=name,
-                    metadata={"geogen": {"version": EXTRAS_VERSION, "type": "collider", "shape": collider}},
-                )
+                add(("collider", id(mesh), collider), lambda: collider_mesh(mesh, collider), col_name, name,
+                    metadata={"geogen": {"version": EXTRAS_VERSION, "type": "collider", "shape": collider}})
         else:
             scene.graph.update(frame_from=parent_name, frame_to=name, matrix=matrix,
                                **({"metadata": extras} if extras else {}))
@@ -333,6 +356,55 @@ def _join_glb(gltf: dict, rest: bytes, header) -> bytes:
     return struct.pack("<III", magic, version, 12 + len(body)) + body
 
 
+def externalize_images(glb: bytes, textures_dir: str | Path, uri_prefix: str = "") -> bytes:
+    """Move a GLB's embedded images to ``textures_dir`` (named by content hash) and refer to them by URI.
+
+    Chunk files share one texture folder this way instead of each embedding
+    the same maps; the binary buffer is repacked without the image data.
+    """
+    import hashlib
+    import struct
+
+    gltf, rest, header = _split_glb(glb)
+    images = gltf.get("images") or []
+    if not rest or not any("bufferView" in image for image in images):
+        return glb
+    bin_len, bin_type = struct.unpack("<II", rest[:8])
+    data = rest[8:8 + bin_len]
+    views = gltf["bufferViews"]
+    textures_dir = Path(textures_dir)
+    textures_dir.mkdir(parents=True, exist_ok=True)
+    moved: set[int] = set()
+    for image in images:
+        if "bufferView" not in image:
+            continue
+        view = views[image["bufferView"]]
+        start = view.get("byteOffset", 0)
+        blob = data[start:start + view["byteLength"]]
+        extension = {"image/jpeg": ".jpg"}.get(image.get("mimeType", ""), ".png")
+        file_name = hashlib.sha1(blob).hexdigest()[:20] + extension
+        if not (textures_dir / file_name).exists():
+            (textures_dir / file_name).write_bytes(blob)
+        moved.add(image.pop("bufferView"))
+        image["uri"] = uri_prefix + file_name
+    packed, remap, kept = bytearray(), {}, []
+    for index, view in enumerate(views):
+        if index in moved:
+            continue
+        start = view.get("byteOffset", 0)
+        packed += b"\0" * (-len(packed) % 4)
+        remap[index] = len(kept)
+        kept.append({**view, "byteOffset": len(packed)})
+        packed += data[start:start + view["byteLength"]]
+    packed += b"\0" * (-len(packed) % 4)
+    for accessor in gltf.get("accessors", []):
+        if "bufferView" in accessor:
+            accessor["bufferView"] = remap[accessor["bufferView"]]
+    gltf["bufferViews"] = kept
+    gltf["buffers"][0]["byteLength"] = len(packed)
+    return _join_glb(gltf, struct.pack("<II", len(packed), bin_type) + bytes(packed), header)
+
+
 def add_punctual_lights(glb: bytes) -> bytes:
     """Add KHR_lights_punctual lights for nodes whose extras.geogen has a ``light``.
 
@@ -377,12 +449,16 @@ def add_punctual_lights(glb: bytes) -> bytes:
 
 
 def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None,
-                 lods: list[float] | None = None) -> Path:
+                 lods: list[float] | None = None, manifest: bool = True,
+                 textures_dir: str | Path | None = None) -> Path:
     """Export ``root`` to ``path``; the format is chosen by the file extension.
 
     glTF/GLB exports also get a manifest (see ``write_manifest``); ``player``
     overrides the project's default player spec in it. ``lods`` (GLB only),
     e.g. ``[0.5, 0.25]``, adds decimated levels per mesh as MSFT_lod.
+    ``manifest=False`` skips the manifest (chunk files are indexed by
+    ``chunks.export_chunks`` instead). ``textures_dir`` (GLB only) writes
+    images there, shared by content hash, instead of embedding them.
     """
     path = Path(path)
     suffix = path.suffix.lower()
@@ -398,10 +474,18 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     elif suffix == ".glb":
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
-        tmp.write_bytes(add_lod_extension(add_punctual_lights(scene.export(file_type="glb"))))
+        glb = add_lod_extension(add_punctual_lights(scene.export(file_type="glb")))
+        if textures_dir is not None:
+            import os
+
+            prefix = Path(os.path.relpath(textures_dir, path.parent)).as_posix() + "/"
+            glb = externalize_images(glb, textures_dir, prefix)
+        tmp.write_bytes(glb)
         tmp.replace(path)
-        write_manifest(path, player, root)
+        if manifest:
+            write_manifest(path, player, root)
     else:
         scene.export(str(path), file_type=suffix[1:])
-        write_manifest(path, player, root)
+        if manifest:
+            write_manifest(path, player, root)
     return path
