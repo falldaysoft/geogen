@@ -1,0 +1,35 @@
+# Lounge: two sofas facing across a coffee table, armchairs, lamps, plants.
+
+name: lounge
+finishes: { walls: paint_sage, floor: carpet }
+
+items:
+  sofa:
+    asset: sofa.yaml
+    against: wall
+    count: 2
+    min: 1
+    prefer: [no_door_wall, centered]
+  coffee_table:
+    asset: coffee_table.yaml
+    front_of: sofa
+    distance: 0.45
+    optional: true
+  armchair:
+    asset: armchair.yaml
+    against: none
+    facing: center
+    count: 2
+    min: 0
+    prefer: [{near: coffee_table}]
+  floor_lamp:
+    asset: floor_lamp.yaml
+    against: wall
+    prefer: [corner, {near: sofa}]
+    optional: true
+  planter:
+    asset: planter.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [corner]

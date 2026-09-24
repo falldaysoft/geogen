@@ -37,7 +37,9 @@ the item faces, lined up with it), ``{near: <item>}``, ``{far: <item>}``.
 ``count`` asks for several; ``min`` is how many must be placed (default:
 all of them) before the rule counts as unsatisfied.
 
-Relations: ``flank: <item>`` (beside it on the same wall, ``count`` sides),
+Relations: ``around: <item>`` (one per attachment point of each such item,
+e.g. chairs round tables; ``at:`` picks attachments), ``flank: <item>``
+(beside it on the same wall, ``count`` sides),
 ``front_of: <item>`` (facing it, ``distance`` beyond its front; negative
 tucks in), ``under: <item>`` (centred, ``offset`` toward its front),
 ``on: <item>`` (its ``surface``, default ``top``), ``mount: wall`` with
@@ -277,9 +279,9 @@ class _RoomSolver:
                     offset = (center - other.center) @ np.array([other.facing[1], -other.facing[0]])
                     total -= abs(offset)
                 elif key == "near":
-                    total -= float(np.linalg.norm(center - other.center))
+                    total -= min(float(np.linalg.norm(center - o.center)) for o in others)
                 elif key == "far":
-                    total += float(np.linalg.norm(center - other.center))
+                    total += min(float(np.linalg.norm(center - o.center)) for o in others)
                 continue
             has_door = wall is not None and any(d["side"] == wall for d in self.doors)
             has_window = wall is not None and any(w["side"] == wall for w in self.windows)
@@ -348,6 +350,8 @@ class _RoomSolver:
             return self.place_front_of(name, spec)
         if "flank" in spec:
             return self.place_flank(name, spec)
+        if "around" in spec:
+            return self.place_around(name, spec)
         return self.place_free(name, spec)
 
     def _clearance(self, node: SceneNode, spec: dict[str, Any]) -> dict[str, float]:
@@ -415,6 +419,9 @@ class _RoomSolver:
         axes = [np.array(v) for v in ([0.0, 1.0], [0.0, -1.0], [1.0, 0.0], [-1.0, 0.0])]
         if spec in (None, "any"):
             return axes
+        compass = {"north": 0, "south": 1, "east": 2, "west": 3}
+        if spec in compass:
+            return [axes[compass[spec]]]
         if spec == "center":
             target = np.zeros(2)
         elif spec in self.placed:
@@ -444,6 +451,38 @@ class _RoomSolver:
             # Flanking items stand in the parent's side clearance by design.
             if self.fits(rect, keep, float(size[1]), {parent.name}) and not rect.overlaps(parent.rect, GAP / 2):
                 self.add(name, placed, node, center, inward.copy(), 0.0, rect, keep, parent.wall, along)
+                placed += 1
+        return placed
+
+    def place_around(self, name: str, spec: dict[str, Any]) -> int:
+        """One item at each of the parent items' attachment points (chairs round tables).
+
+        ``at:`` lists attachment names (default: all of the parent's). Items
+        may sit inside the parent's clearance (that's what it's for).
+        """
+        placed = 0
+        for parent in self.placed.get(spec["around"], []):
+            names = spec.get("at") or parent.node.list_attachments()
+            local_parent = parent.node.transform.to_matrix()
+            for attach in names:
+                point = parent.node.attachments.get(attach)
+                if point is None:
+                    continue
+                m = local_parent @ point.resolve(parent.node.size).to_matrix()
+                node = self.load(spec)
+                size = np.asarray(node.size, dtype=float)
+                center = m[[0, 2], 3]
+                facing = m[[0, 2], 2] / max(np.linalg.norm(m[[0, 2], 2]), 1e-9)
+                # Snap to the nearest axis (footprints are axis-aligned).
+                facing = np.round(facing) if np.abs(facing).max() > 0.9 else facing
+                rect = self.footprint(center, facing, size)
+                if not self.fits(rect, [], float(size[1]), {spec["around"]}):
+                    continue
+                before = set(self.unreachable())
+                self.add(name, placed, node, center, facing, 0.0, rect, [])
+                if not set(self.unreachable()) <= before:
+                    self.remove_last(name)  # this chair would wall something off
+                    continue
                 placed += 1
         return placed
 

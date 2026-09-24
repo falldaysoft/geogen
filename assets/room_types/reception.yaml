@@ -1,0 +1,22 @@
+# Reception: the counter facing the lobby with a chair behind it.
+
+name: reception
+finishes: { walls: paint_greige, floor: tile_floor_grey }
+
+items:
+  desk:
+    asset: reception_desk.yaml
+    against: none
+    facing: south
+    clearance: { front: 1.0, back: 0.9 }
+    prefer: [centered]
+  chair:
+    asset: desk_chair.yaml
+    around: desk
+    at: [staff]
+    optional: true
+  planter:
+    asset: planter.yaml
+    against: wall
+    prefer: [corner]
+    optional: true

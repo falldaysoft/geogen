@@ -1,0 +1,76 @@
+# Three-seat sofa: upholstered base and arms, seat and back cushions on low
+# wooden legs. Origin bottom_center, seats face +Z.
+
+name: sofa
+tags: [furniture.sofa]
+origin: bottom_center
+
+params:
+  width:  { default: 2.0 }
+  depth:  { default: 0.9 }
+  height: { default: 0.82 }
+  seats:  { default: 3 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.6 }
+
+parts:
+  base:
+    primitive: cube
+    size: [1, "{0.26 / height}", "{(depth - 0.16) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.1 / height}", "{0.08 / depth}"]
+    bevel: 0.03
+    material: fabric_linen
+  back:
+    primitive: cube
+    size: [1, "{(height - 0.1) / height}", "{0.18 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.1 / height}", "{(0.09 - depth / 2) / depth}"]
+    bevel: 0.05
+    material: fabric_linen
+  arm_left: &arm
+    primitive: cube
+    size: ["{0.16 / width}", "{0.5 / height}", "{(depth - 0.16) / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.08 - width / 2) / width}", "{0.1 / height}", "{0.08 / depth}"]
+    bevel: 0.06
+    material: fabric_linen
+  arm_right:
+    <<: *arm
+    offset: ["{(width / 2 - 0.08) / width}", "{0.1 / height}", "{0.08 / depth}"]
+  seat_cushions:
+    primitive: cube
+    size: ["{(width - 0.34) / width}", "{0.14 / height}", "{(depth - 0.2) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.36 / height}", "{0.1 / depth}"]
+    bevel: 0.05
+    material: fabric_velvet
+  back_cushions:
+    primitive: cube
+    size: ["{(width - 0.34) / width}", "{0.3 / height}", "{0.14 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.5 / height}", "{(0.25 - depth / 2) / depth}"]
+    rotation: [-8, 0, 0]
+    bevel: 0.05
+    material: fabric_velvet
+  leg_fl: &leg
+    primitive: cylinder
+    size: ["{0.04 / width}", "{0.1 / height}", "{0.04 / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.1 - width / 2) / width}", 0, "{(depth / 2 - 0.1) / depth}"]
+    material: wood_dark
+    collider: none
+  leg_fr:
+    <<: *leg
+    offset: ["{(width / 2 - 0.1) / width}", 0, "{(depth / 2 - 0.1) / depth}"]
+  leg_bl:
+    <<: *leg
+    offset: ["{(0.1 - width / 2) / width}", 0, "{(0.1 - depth / 2) / depth}"]
+  leg_br:
+    <<: *leg
+    offset: ["{(width / 2 - 0.1) / width}", 0, "{(0.1 - depth / 2) / depth}"]
+
+surfaces:
+  seat: { from: seat_cushions.top }

@@ -1,0 +1,54 @@
+# Low coffee table: rounded top on four square legs with a lower shelf.
+# Origin bottom_center.
+
+name: coffee_table
+tags: [furniture.table, furniture.coffee_table]
+origin: bottom_center
+
+params:
+  width:  { default: 1.1 }
+  depth:  { default: 0.6 }
+  height: { default: 0.42 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.4, back: 0.4 }
+
+parts:
+  top:
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.06 }
+    fit: none
+    axis: y
+    bevel: 0.008
+    size: [1, "{0.035 / height}", 1]
+    anchor: bottom_center
+    offset: [0, "{1 - 0.035 / height}", 0]
+    material: marble
+  shelf:
+    primitive: cube
+    size: ["{(width - 0.12) / width}", "{0.02 / height}", "{(depth - 0.12) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.1 / height}", 0]
+    bevel: 0.004
+    material: wood_dark
+    collider: none
+  leg_fl: &leg
+    primitive: cube
+    size: ["{0.04 / width}", "{(height - 0.035) / height}", "{0.04 / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.05 - width / 2) / width}", 0, "{(depth / 2 - 0.05) / depth}"]
+    bevel: 0.004
+    material: wood_dark
+  leg_fr:
+    <<: *leg
+    offset: ["{(width / 2 - 0.05) / width}", 0, "{(depth / 2 - 0.05) / depth}"]
+  leg_bl:
+    <<: *leg
+    offset: ["{(0.05 - width / 2) / width}", 0, "{(0.05 - depth / 2) / depth}"]
+  leg_br:
+    <<: *leg
+    offset: ["{(width / 2 - 0.05) / width}", 0, "{(0.05 - depth / 2) / depth}"]
+
+surfaces:
+  top: { from: top.top }

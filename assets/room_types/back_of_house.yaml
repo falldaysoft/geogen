@@ -1,0 +1,22 @@
+# Back of house: an office corner and storage shelving.
+
+name: back_of_house
+finishes: { walls: paint_white, floor: laminate }
+
+items:
+  shelf:
+    asset: bookshelf.yaml
+    against: wall
+    count: 2
+    min: 1
+    prefer: [no_door_wall]
+  desk:
+    asset: desk.yaml
+    against: wall
+    prefer: [near_window, far_door]
+    optional: true
+  desk_chair:
+    asset: desk_chair.yaml
+    front_of: desk
+    distance: -0.2
+    optional: true

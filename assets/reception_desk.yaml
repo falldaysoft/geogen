@@ -1,0 +1,65 @@
+# Reception counter: a raised customer-side transaction ledge over a lower
+# work desk, with a marble top and a modesty panel. Origin bottom_center;
+# guests stand on the +Z side, staff sit behind (-Z).
+
+name: reception_desk
+tags: [furniture.desk, furniture.reception_desk]
+origin: bottom_center
+
+params:
+  width: { default: 2.4 }
+  depth: { default: 0.8 }
+
+size: ["{width}", 1.1, "{depth}"]
+
+clearance: { front: 1.0, back: 0.9 }
+
+parts:
+  front_panel:
+    primitive: cube
+    size: [1, "{1.05 / 1.1}", "{0.06 / depth}"]
+    anchor: bottom_center
+    offset: [0, 0, "{(depth / 2 - 0.1) / depth}"]
+    bevel: 0.01
+    material: wood_dark
+  ledge:
+    primitive: cube
+    size: ["{(width + 0.04) / width}", "{0.04 / 1.1}", "{0.3 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{1.05 / 1.1 - 0.001}", "{(depth / 2 - 0.13) / depth}"]
+    bevel: 0.008
+    material: marble
+  work_top:
+    primitive: cube
+    size: [1, "{0.035 / 1.1}", "{(depth - 0.15) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.74 / 1.1}", "{-0.075 / depth}"]
+    bevel: 0.006
+    material: wood_dark
+  end_left: &end
+    primitive: cube
+    size: ["{0.05 / width}", "{0.74 / 1.1}", "{(depth - 0.1) / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.025 - width / 2) / width}", 0, "{-0.05 / depth}"]
+    bevel: 0.006
+    material: wood_dark
+  end_right:
+    <<: *end
+    offset: ["{(width / 2 - 0.025) / width}", 0, "{-0.05 / depth}"]
+  bell:
+    primitive: sphere
+    size: ["{0.08 / width}", "{0.05 / 1.1}", "{0.08 / depth}"]
+    anchor: bottom_center
+    offset: ["{0.5 / width}", "{1.09 / 1.1}", "{(depth / 2 - 0.13) / depth}"]
+    material: chrome
+    collider: none
+
+attachments:
+  staff:
+    anchor: bottom_back_center
+    offset: [0, 0, -0.45]
+    facing: north
+  guest:
+    anchor: bottom_front_center
+    offset: [0, 0, 0.5]
+    facing: south

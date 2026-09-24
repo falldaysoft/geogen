@@ -277,11 +277,22 @@ def _front_point(item: _Item) -> np.ndarray:
     return centre + item.facing * extent
 
 
+# Items used from any side (tables, chairs pulled out) rather than their front.
+ANY_SIDE = ("furniture.table", "furniture.chair")
+
+
 def _reachable_front(item: _Item, reachable: np.ndarray, gx: np.ndarray, gz: np.ndarray, reach: float) -> bool:
-    """Is some standable, connected spot within arm's reach of the item's front edge?"""
-    front = _front_point(item)
-    near = (gx - front[0]) ** 2 + (gz - front[1]) ** 2 <= reach ** 2
-    return bool((near & reachable).any())
+    """Is some standable, connected spot within arm's reach of the item's front edge (or any side)?"""
+    centre = (item.lo + item.hi) / 2
+    half = (item.hi - item.lo) / 2
+    points = [_front_point(item)]
+    if any(t in item.node.tags for t in ANY_SIDE):
+        points = [centre + np.array(d) * half for d in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+    for p in points:
+        near = (gx - p[0]) ** 2 + (gz - p[1]) ** 2 <= reach ** 2
+        if (near & reachable).any():
+            return True
+    return False
 
 
 def room_reachability(room_node: SceneNode, player=None) -> list[str]:

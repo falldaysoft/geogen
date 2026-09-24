@@ -1,0 +1,21 @@
+# Public restroom: toilets along a wall and a basin by the door.
+
+name: restroom
+finishes: { walls: tile_subway, floor: tile_floor_grey }
+
+items:
+  toilet:
+    asset: toilet.yaml
+    against: wall
+    count: 2
+    min: 1
+    prefer: [far_door, no_door_wall]
+  vanity:
+    asset: vanity.yaml
+    against: wall
+    prefer: [near_door]
+  mirror:
+    asset: wall_mirror.yaml
+    mount: wall
+    above: vanity
+    height: 1.2

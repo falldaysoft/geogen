@@ -1,0 +1,16 @@
+# Lift lobby on guest floors: plants and a seat while waiting.
+
+name: lift_lobby
+
+items:
+  armchair:
+    asset: armchair.yaml
+    against: wall
+    prefer: [no_door_wall]
+    optional: true
+  planter:
+    asset: planter.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [corner]

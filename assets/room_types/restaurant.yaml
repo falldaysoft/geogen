@@ -1,0 +1,24 @@
+# Restaurant: dining tables with four chairs each, spaced for service.
+
+name: restaurant
+finishes: { walls: paint_terracotta, floor: hardwood_floor }
+
+items:
+  table:
+    asset: table.yaml
+    against: none
+    facing: north
+    count: 6
+    min: 2
+    clearance: { front: 0.9, back: 0.9, left: 0.9, right: 0.9 }
+    prefer: [{far: table}, near_window]   # spread out, window tables first
+  chair:
+    asset: chair.yaml
+    around: table
+    min: 4
+  planter:
+    asset: planter.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [corner]

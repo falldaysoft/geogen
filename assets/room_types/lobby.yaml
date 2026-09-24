@@ -1,0 +1,23 @@
+# Hotel entrance lobby: a seating group and plants, keeping the route from
+# the street door to reception clear (door approach zones are kept free).
+
+name: lobby
+finishes: { walls: paint_white, floor: tile_floor_grey }
+
+items:
+  sofa:
+    asset: sofa.yaml
+    against: wall
+    prefer: [no_door_wall, far_door]
+    optional: true
+  coffee_table:
+    asset: coffee_table.yaml
+    front_of: sofa
+    distance: 0.45
+    optional: true
+  planter:
+    asset: planter.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [corner, near_door]

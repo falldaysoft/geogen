@@ -13,6 +13,7 @@ building:
         depth: 15
         wall_height: 3.6
         materials: { walls: paint_white, floor: tile_floor_grey, ceiling: ceiling_white }
+      furnish: true
     - floorplan:
         generate: hotel_corridor
         length: 30
