@@ -130,6 +130,47 @@ static func build_navigation(root: Node3D, spec, include_moving := false) -> Nav
 	return region
 
 
+## Navigation mesh settings for the player (cell size matches the project's map).
+static func nav_mesh_for(spec) -> NavigationMesh:
+	var mesh := NavigationMesh.new()
+	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	mesh.geometry_collision_mask = 1
+	mesh.cell_size = 0.05
+	mesh.cell_height = 0.05
+	mesh.agent_radius = (spec.radius if spec else 0.3) + NAV_MARGIN
+	mesh.agent_height = spec.height if spec else 1.8
+	mesh.agent_max_climb = spec.step_height if spec else 0.3
+	mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
+	return mesh
+
+
+## Parse the static colliders under ``roots`` for one navigation tile: the source
+## geometry reaches ``border`` beyond ``tile`` and the bake is clipped back to it,
+## so neighbouring tiles meet edge to edge. Moving parts (doors) are left out.
+## Bake the result with NavigationServer3D.bake_from_source_geometry_data(_async).
+static func parse_tile(roots: Array, tile: AABB, spec, border: float) -> Array:
+	var mesh := nav_mesh_for(spec)
+	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+	mesh.geometry_source_group_name = &"geogen_nav_parse"
+	mesh.filter_baking_aabb = tile.grow(border)
+	mesh.border_size = border
+	var moving: Array[CollisionObject3D] = []
+	for root in roots:
+		root.add_to_group("geogen_nav_parse")
+		for body in root.find_children("*", "AnimatableBody3D", true, false):
+			if body.collision_layer & 1:
+				moving.append(body)
+				body.collision_layer &= ~1
+	var source := NavigationMeshSourceGeometryData3D.new()
+	if not roots.is_empty():
+		NavigationServer3D.parse_source_geometry_data(mesh, source, roots[0])
+	for body in moving:
+		body.collision_layer |= 1
+	for root in roots:
+		root.remove_from_group("geogen_nav_parse")
+	return [mesh, source]
+
+
 static func bake_navigation_mesh(root: Node3D, spec, include_moving := false) -> NavigationMesh:
 	var mesh := NavigationMesh.new()
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS

@@ -122,7 +122,13 @@ Loading runs as follows:
 - After that, GLB parsing and mipmap generation run on the `WorkerThreadPool`; the main thread adds the nodes and runs `WorldLoader.setup_root`.
 - An unloaded chunk is unregistered with `WorldLoader.forget`.
 
-The overlay shows full / LOD / interior counts, and `--walk` / `--status` results carry a `stream` report. Navigation isn't baked for streamed chunks, so `--playtest` needs a single-file export.
+Navigation comes as 24 m tiles within 30 m of the player, baked from the loaded pieces that overlap them:
+- Each tile is clipped to its own box with a border, so neighbouring tiles join edge to edge.
+- Parsing happens on the main thread and baking runs async.
+- A tile re-bakes when a chunk or interior overlapping it loads or unloads.
+- `--nav` queries wait until the nearby tiles are baked.
+
+The overlay shows full / LOD / interior counts, and `--walk` / `--status` results carry a `stream` report (including `nav_tiles`). `--playtest` still needs a single-file export, since it checks every room at once.
 
 ## Manifest
 

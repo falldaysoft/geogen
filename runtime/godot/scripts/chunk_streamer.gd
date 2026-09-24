@@ -10,7 +10,12 @@ extends Node
 ##   until the full version is in, so nothing pops out);
 ## - a building's interior within ``interior_radius`` of its bounds while
 ##   the full exterior is loaded;
-## - pieces unload ``hysteresis`` metres further out than they load.
+## - pieces unload ``hysteresis`` metres further out than they load;
+## - navigation: ``nav_tile``-metre tiles within ``nav_radius`` are baked from
+##   the loaded pieces overlapping them (parsed on the main thread, baked
+##   async), clipped to the tile so neighbours join, and re-baked whenever a
+##   piece overlapping them loads or unloads. Moving parts (doors) are left
+##   out, like WorldLoader's single-file bake.
 ##
 ## GLB parsing and scene generation run on the WorkerThreadPool; the main
 ## thread builds texture mipmaps (reading texture images off the main thread
@@ -33,6 +38,14 @@ var _loaded := {}     # file -> Node3D in the tree
 var _tasks := {}      # file -> {"id": int, "out": Array}
 var _loads := 0
 var _unloads := 0
+
+var navigation := true
+var nav_tile := 24.0
+var nav_radius := 30.0
+var nav_border := 1.0
+var _piece_bounds := {}    # file -> AABB of the loaded piece
+var _tiles := {}           # Vector2i -> {"region": NavigationRegion3D, "dirty": bool, "baking": bool}
+var _bakes := 0            # async bakes in flight
 
 
 func open(index_path: String, index: Dictionary) -> void:
@@ -62,6 +75,10 @@ func prime(focus: Vector3) -> void:
 		if not added:
 			break
 	_unload_unwanted(focus)
+	if navigation:
+		for key in _wanted_tiles(focus):
+			if _distance(focus, _tile_aabb(key)) <= nav_tile / 2.0:
+				_bake_tile(key, false)     # the start tile synchronously: agents can path at once
 
 
 func _process(_delta: float) -> void:
@@ -90,6 +107,8 @@ func _process(_delta: float) -> void:
 		elif root != null:
 			root.free()
 	_unload_unwanted(focus)
+	if navigation:
+		_update_navigation(focus)
 
 
 ## Never leave a worker parsing a chunk behind (quitting or reloading).
@@ -140,6 +159,8 @@ func _unload_unwanted(focus: Vector3) -> void:
 		world.forget(root)
 		root.queue_free()
 		_unloads += 1
+		_mark_dirty(_piece_bounds.get(file, AABB()))
+		_piece_bounds.erase(file)
 
 
 func _attach(file: String, root: Node3D) -> void:
@@ -154,6 +175,9 @@ func _attach(file: String, root: Node3D) -> void:
 	world.setup_root(root)
 	_loaded[file] = root
 	_loads += 1
+	var box := WorldLoader._aabb(root)
+	_piece_bounds[file] = box
+	_mark_dirty(box)
 
 
 ## Parse a GLB into a scene (safe on a worker thread: nothing is in the tree yet).
@@ -186,6 +210,91 @@ static func _distance(p: Vector3, box: AABB) -> float:
 	return Vector2(dx, dz).length()
 
 
+# --- navigation tiles ---------------------------------------------------------------------------
+
+func _tile_aabb(key: Vector2i) -> AABB:
+	var y0 := bounds.position.y - 2.0
+	return AABB(Vector3(key.x * nav_tile, y0, key.y * nav_tile), Vector3(nav_tile, bounds.size.y + 4.0, nav_tile))
+
+
+func _wanted_tiles(focus: Vector3) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var lo := Vector2i(floori((focus.x - nav_radius) / nav_tile), floori((focus.z - nav_radius) / nav_tile))
+	var hi := Vector2i(floori((focus.x + nav_radius) / nav_tile), floori((focus.z + nav_radius) / nav_tile))
+	for x in range(lo.x, hi.x + 1):
+		for z in range(lo.y, hi.y + 1):
+			var key := Vector2i(x, z)
+			if _distance(focus, _tile_aabb(key)) <= nav_radius:
+				out.append(key)
+	return out
+
+
+func _mark_dirty(box: AABB) -> void:
+	if box.size == Vector3.ZERO:
+		return
+	for key in _tiles:
+		var tile := _tile_aabb(key).grow(nav_border)
+		if tile.intersects(box):
+			_tiles[key]["dirty"] = true
+
+
+func _update_navigation(focus: Vector3) -> void:
+	var wanted := _wanted_tiles(focus)
+	for key in _tiles.keys():
+		if not key in wanted and not _tiles[key]["baking"]:
+			_tiles[key]["region"].queue_free()
+			_tiles.erase(key)
+	# One parse per frame (it runs on the main thread); bakes finish in the background.
+	for key in wanted:
+		var tile = _tiles.get(key)
+		if tile == null or (tile["dirty"] and not tile["baking"]):
+			_bake_tile(key, true)
+			return
+
+
+func _bake_tile(key: Vector2i, threaded_bake: bool) -> void:
+	var tile: Dictionary = _tiles.get(key, {})
+	if tile.is_empty():
+		var region := NavigationRegion3D.new()
+		region.name = "NavTile_%d_%d" % [key.x, key.y]
+		region.add_to_group("geogen_navigation")
+		world.add_child(region)
+		tile = {"region": region, "dirty": true, "baking": false}
+		_tiles[key] = tile
+	var aabb := _tile_aabb(key)
+	var roots := []
+	for file in _loaded:
+		var box: AABB = _piece_bounds.get(file, AABB())
+		if box.size != Vector3.ZERO and box.intersects(aabb.grow(nav_border + 0.5)):
+			roots.append(_loaded[file])
+	var parsed := GeogenSceneBuilder.parse_tile(roots, aabb, world.player_spec(), nav_border)
+	var mesh: NavigationMesh = parsed[0]
+	var source: NavigationMeshSourceGeometryData3D = parsed[1]
+	tile["dirty"] = false
+	if not threaded_bake:
+		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+		tile["region"].navigation_mesh = mesh
+		return
+	tile["baking"] = true
+	_bakes += 1
+	var region: NavigationRegion3D = tile["region"]
+	NavigationServer3D.bake_from_source_geometry_data_async(mesh, source, func():
+		_bakes -= 1
+		tile["baking"] = false
+		if is_instance_valid(region):
+			region.navigation_mesh = mesh)
+
+
+## True while navigation tiles near the focus are missing, stale or baking.
+func navigation_busy() -> bool:
+	if _bakes > 0:
+		return true
+	for key in _wanted_tiles(world.stream_focus):
+		if not _tiles.has(key) or _tiles[key]["dirty"]:
+			return true
+	return false
+
+
 ## What is loaded now: chunk names at full / LOD detail and loaded interiors.
 func report() -> Dictionary:
 	var full := []
@@ -200,4 +309,4 @@ func report() -> Dictionary:
 			if _loaded.has(interior["file"]):
 				interiors.append("%s/%s" % [chunk["name"], interior["building"]])
 	return {"full": full, "lod": lod, "interiors": interiors, "pending": _tasks.size(),
-		"loads": _loads, "unloads": _unloads}
+		"loads": _loads, "unloads": _unloads, "nav_tiles": _tiles.size(), "nav_baking": _bakes}

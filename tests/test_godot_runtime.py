@@ -558,3 +558,22 @@ def test_m3_enter_the_hotel(run_godot, district):
     end = _district_walk(run_godot, generated, f"--spawn={hotel['spawn']}", f"--yaw={hotel['yaw']}",
                          "--use=entrance", "--wait=2", "--walk=2")
     assert end["room"] == "lobby"
+
+
+def _stream_nav(run_godot, generated, spawn, query):
+    out = run_godot("--scene", "strip", f"--generated={generated}", "--stream-radius=20,1000,12",
+                    f"--spawn={spawn}", f"--nav={query}")
+    return json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
+
+
+def test_stream_navigation_tiles_join_along_the_street(run_godot, strip_dir):
+    # -72 is a 24 m tile boundary: the path runs straight through it.
+    path = _stream_nav(run_godot, strip_dir, "-75,0,-20", "-75,-20:-60,-20")
+    assert path["reached"] and path["length"] == pytest.approx(15.0, abs=0.3)
+
+
+def test_stream_navigation_reaches_into_a_shop(run_godot, strip_dir):
+    # From the avenue, up the curb and through the (closed, ignored) shop door onto its floor.
+    path = _stream_nav(run_godot, strip_dir, "-80,0.2,-18", "-80,-20:-80.97,-7.5")
+    assert path["reached"] and path["end_gap"] < 0.4
+    assert max(p[1] for p in path["points"]) > 0.2          # on the shop floor, above the sidewalk
