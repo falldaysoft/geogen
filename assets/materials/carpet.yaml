@@ -13,5 +13,5 @@ tile_size: 0.5  # tufts about 3 mm apart
 pbr:
   roughness: 1.0
   metallic: 0.0
-  normal_strength: 0.6
+  normal_strength: 0.2
   ao_strength: 0.8

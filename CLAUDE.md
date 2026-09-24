@@ -86,6 +86,8 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **EllipsoidGenerator** (`primitives.py`): Sphere stretched to all three size components (`sphere` keeps using `min(size)` for back-compat).
 
+- **FloorPlan** (`floorplan.py`): Multi-room storeys from a YAML `floorplan:` block (an asset with `floorplan:` instead of `parts:`; `size` is computed). Rooms are grid rectangles on wall centre lines (`rect: [x, z, w, d]`); edges shared by two rooms become `interior_wall` (0.12) walls, outside edges `exterior_wall` (0.3), all centred on the edge. Segments are extended to their perpendicular walls and unioned in 2D (shapely) before one extrusion, so junctions are clean and `walls` is a single watertight mesh; `doors` (`between: [a, b]` or `room`+`side`) and `windows` (`room`, `side`, `at`, `width`, `height`, `sill`) are CSG-cut. Each room is a node (tags `room`, `room_type`) with `floor`/`ceiling` slabs (per-room `floor:`/`ceiling:` materials) and surfaces exported at the root as `<room>.<surface>`: `floor`, `ceiling`, `<side>_wall` (facing into the room) and `<side>_exterior` on outside walls, so `on: suite.bedroom.south_exterior` places a window asset that cuts the walls. North = +Z. The default 0.2 m ceiling slab is deliberate: thin slabs leak sunlight through shadow maps in Godot. Example: `assets/hotel_suite.yaml`.
+
 - **RoomGenerator** (`room.py`): Generates rooms with walls, floor, ceiling, and openings (doors/windows). Supports `generate_parts()` for separate surface meshes with different materials. Uses `Opening` dataclass for doors/windows with wall position, size, and bottom offset.
 
 ### Textures (`src/geogen/textures/`)

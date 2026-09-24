@@ -285,7 +285,48 @@ def triangulate(outer: Loop, holes: Sequence[Loop] = ()) -> tuple[NDArray, NDArr
         cross = (b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1]) - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0])
         flip = cross < 0
         tris[flip] = tris[flip][:, [0, 2, 1]]
-    return points, tris
+    return points, _split_t_junctions(points, tris)
+
+
+def _split_t_junctions(points: NDArray, tris: NDArray, tol: float = 1e-9) -> NDArray:
+    """Split triangles whose edges pass through another vertex.
+
+    earcut can bridge along collinear hole edges (e.g. several rectangular
+    holes in a row), leaving vertices in the middle of triangle edges. Those
+    T-junctions open cracks in extrusions, so split each such triangle at
+    the vertex (keeping winding) until no edge contains a vertex.
+    """
+    if len(tris) == 0:
+        return tris
+    scale = max(float(np.ptp(points, axis=0).max()), 1.0)
+    eps = tol * scale
+    out: list[list[int]] = []
+    stack = [list(map(int, t)) for t in tris]
+    while stack:
+        a, b, c = stack.pop()
+        split = None
+        for (i, j, k) in ((a, b, c), (b, c, a), (c, a, b)):
+            pi, pj = points[i], points[j]
+            d = pj - pi
+            length2 = float(d @ d)
+            if length2 == 0:
+                continue
+            rel = points - pi
+            t = rel @ d / length2
+            dist = np.abs(rel[:, 0] * d[1] - rel[:, 1] * d[0]) / np.sqrt(length2)
+            on_edge = (t > 1e-9) & (t < 1 - 1e-9) & (dist < eps)
+            on_edge[[i, j]] = False
+            if on_edge.any():
+                candidates = np.flatnonzero(on_edge)
+                p = int(candidates[np.argmin(np.abs(t[candidates] - 0.5))])
+                split = (i, j, k, p)
+                break
+        if split is None:
+            out.append([a, b, c])
+        else:
+            i, j, k, p = split
+            stack += [[i, p, k], [p, j, k]]
+    return np.asarray(out, dtype=np.int64)
 
 
 # --------------------------------------------------------------------------

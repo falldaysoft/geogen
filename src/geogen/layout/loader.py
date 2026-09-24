@@ -145,6 +145,8 @@ class LayoutLoader:
     def _build_hierarchy(self, data: dict[str, Any]) -> SceneNode:
         """Build scene hierarchy from parsed YAML data."""
         name = data.get("name", "composite")
+        if "floorplan" in data:
+            return self._build_floorplan(name, data)
         container_size = np.array(data["size"], dtype=np.float64)
         logger.debug("Building hierarchy: %s (size=%s)", name, container_size)
 
@@ -393,6 +395,20 @@ class LayoutLoader:
                 also_cut=also_cut,
                 reveal=reveal,
             )
+
+    def _build_floorplan(self, name: str, data: dict[str, Any]) -> SceneNode:
+        """Build an asset whose geometry is a ``floorplan:`` (rooms + walls).
+
+        The plan is centred on its bounds at floor level (origin bottom_center).
+        Surfaces are exported at the root as ``<room>.<surface>``, e.g.
+        ``on: suite.bedroom.north_wall`` or ``suite.bedroom.south_exterior``.
+        """
+        from ..generators.floorplan import FloorPlan
+
+        if data.get("parts"):
+            raise ValueError(f"'{name}': a floorplan asset can't also define parts")
+        plan = FloorPlan.from_spec(data["floorplan"])
+        return plan.build(name, self._material_loader)
 
     def _create_room_node(
         self, name: str, size: np.ndarray, room_config: dict[str, Any]

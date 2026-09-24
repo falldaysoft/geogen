@@ -1,0 +1,30 @@
+# Hotel suite floor plan: bedroom, ensuite bathroom and an entry corridor.
+#
+# Rooms are rectangles on wall centre lines ([x, z, width, depth], metres).
+# Walls are generated from the room boundaries: shared edges become 12 cm
+# interior walls, outside edges 30 cm exterior walls, with clean junctions.
+# Surfaces are exported as <room>.<surface> (floor, ceiling, <side>_wall,
+# and <side>_exterior on outside walls).
+
+name: hotel_suite
+
+floorplan:
+  grid: 0.1
+  wall_height: 2.7
+  exterior_wall: 0.3
+  interior_wall: 0.12
+  materials: { walls: paint_white, floor: carpet, ceiling: ceiling_white }
+
+  rooms:
+    bedroom:  { rect: [0, 0, 4.4, 4.6], type: hotel_bedroom }
+    bathroom: { rect: [4.4, 0, 2.4, 2.6], type: hotel_bathroom, floor: tile_floor_grey }
+    corridor: { rect: [4.4, 2.6, 2.4, 2.0], type: corridor, floor: laminate }
+
+  doors:
+    - { name: entry, room: corridor, side: east, at: 0.5, width: 0.9 }
+    - { between: [corridor, bedroom], at: 0.5, width: 0.9 }
+    - { between: [corridor, bathroom], at: 0.6, width: 0.8 }
+
+  windows:
+    - { room: bedroom, side: south, at: 0.5, width: 2.0, height: 1.5, sill: 0.7 }
+    - { room: bathroom, side: south, at: 0.5, width: 0.6, height: 0.6, sill: 1.5 }
