@@ -170,6 +170,8 @@ class LayoutLoader:
         root = SceneNode(name)
         root.size = container_size
         root.tags = list(data.get("tags", []))
+        if data.get("light"):
+            root.meta["light"] = light_spec(data["light"])
         # Furniture: footprint (x, z) and the free space needed around it
         # (front = +Z) for furnishing solvers and navigation.
         if "clearance" in data:
@@ -873,4 +875,22 @@ def _geometry_extent(root: SceneNode) -> np.ndarray | None:
         return None
     allp = np.vstack(pts)
     return allp.max(axis=0) - allp.min(axis=0)
+
+
+LIGHT_DEFAULTS = {"type": "omni", "color": [1.0, 0.93, 0.82], "energy": 1.0, "range": 5.0, "offset": [0.0, 0.0, 0.0]}
+
+
+def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    """Normalise an asset's ``light:`` block (omni light; ``offset`` metres from the asset origin)."""
+    unknown = set(spec) - set(LIGHT_DEFAULTS)
+    if unknown:
+        raise ValueError(f"light: unknown keys {sorted(unknown)}; known: {sorted(LIGHT_DEFAULTS)}")
+    light = {**LIGHT_DEFAULTS, **spec}
+    if light["type"] != "omni":
+        raise ValueError("light: only type omni is supported")
+    offset = light["offset"]
+    light["offset"] = [0.0, float(offset), 0.0] if isinstance(offset, (int, float)) else [float(v) for v in offset]
+    light["color"] = [float(c) for c in light["color"]]
+    light["energy"], light["range"] = float(light["energy"]), float(light["range"])
+    return light
 

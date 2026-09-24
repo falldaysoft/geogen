@@ -95,8 +95,8 @@ def test_floorplan_doors_get_swing_interactions(tmp_path):
     bath = root.find("door_corridor_bathroom")
     assert bath.interactions[0].initial == "closed"
     gltf = _gltf_json(export_scene(root, tmp_path / "suite.glb"))
-    exported = [n for n in gltf["nodes"] if "interactions" in n.get("extras", {}).get("geogen", {})]
-    assert len(exported) == 3
+    exported = [n for n in gltf["nodes"] if "swing" in n.get("extras", {}).get("geogen", {}).get("interactions", {})]
+    assert len(exported) == 3                                  # the three doors (switches have their own)
     # Exported node names are unique, and each interaction points at its own leaf pivot.
     pivots = [n["extras"]["geogen"]["interactions"]["swing"]["motions"][0]["nodes"][0] for n in exported]
     assert len(set(pivots)) == 3

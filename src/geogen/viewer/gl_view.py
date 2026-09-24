@@ -69,6 +69,25 @@ def _look_at_view(eye: np.ndarray, target: np.ndarray) -> np.ndarray:
     return view
 
 
+MAX_SHADER_LIGHTS = 16      # matches MAX_LIGHTS in scene.frag
+FIXTURE_INTENSITY = 14.0    # viewer point-light intensity per unit of fixture energy
+
+
+def scene_fixture_lights(root: SceneNode) -> list[tuple[np.ndarray, tuple[float, float, float], float, float]]:
+    """World position, colour, energy and range of every ``meta.light`` fixture under ``root``."""
+    result = []
+    for node in root.iter_nodes():
+        spec = node.meta.get("light")
+        if not isinstance(spec, dict):
+            continue
+        offset = spec.get("offset", [0.0, 0.0, 0.0])
+        offset = [0.0, float(offset), 0.0] if isinstance(offset, (int, float)) else offset
+        pos = (node.world_transform() @ np.r_[np.asarray(offset, dtype=np.float64), 1.0])[:3]
+        result.append((pos, tuple(spec.get("color", (1.0, 1.0, 1.0))), float(spec.get("energy", 1.0)),
+                       float(spec.get("range", 5.0))))
+    return result
+
+
 class GLView(QOpenGLWidget):
     """Interactive 3D viewport for a SceneNode hierarchy."""
 
@@ -87,6 +106,9 @@ class GLView(QOpenGLWidget):
         self.show_ground = True
         self.shadows = True
         self.exposure = 1.0
+        # Night: dim sun and sky, light interiors with the scene's own fixtures.
+        self.night_mode = False
+        self._fixtures: list[tuple[np.ndarray, tuple[float, float, float], float, float]] = []
 
         self._root: SceneNode | None = None
         self._pending_root: SceneNode | None = None
@@ -117,12 +139,20 @@ class GLView(QOpenGLWidget):
 
     # ------------------------------------------------------------------ scene
 
+    def set_fixture_source(self, root: SceneNode | None) -> None:
+        """Take fixture lights from ``root`` (e.g. the uncut scene when showing a cutaway)."""
+        self._fixture_source = root
+        self._fixtures = scene_fixture_lights(root) if root is not None else []
+        self.update()
+
     def set_scene(self, root: SceneNode, reframe: bool = True) -> None:
         if not self._gl_ready:
             self._pending_root, self._pending_reframe = root, reframe
             return
         self.makeCurrent()
         self._upload_scene(root)
+        if getattr(self, "_fixture_source", None) is None:
+            self._fixtures = scene_fixture_lights(root)
         if reframe:
             self.frame_all()
         self.doneCurrent()
@@ -351,6 +381,19 @@ class GLView(QOpenGLWidget):
 
     # ---------------------------------------------------------------- drawing
 
+    def _shader_lights(self, eye: np.ndarray) -> list[tuple[int, tuple, tuple, float, float]]:
+        """(type, position/direction, colour, intensity, range) for the shader; sun first (it casts the shadow)."""
+        data = self.lighting.get_shader_data()
+        lights = [(int(data["uLightTypes"][i]), data["uLightPositions"][i], data["uLightColors"][i],
+                   float(data["uLightIntensities"][i]) * (0.03 if self.night_mode else 1.0), 0.0)
+                  for i in range(data["uLightCount"])]
+        if self.night_mode and self._fixtures:
+            target = self.camera.target
+            nearest = sorted(self._fixtures, key=lambda f: float(np.linalg.norm(f[0] - target)))
+            for pos, color, energy, reach in nearest[:MAX_SHADER_LIGHTS - len(lights)]:
+                lights.append((1, tuple(pos), color, energy * FIXTURE_INTENSITY, reach))
+        return lights[:MAX_SHADER_LIGHTS]
+
     def _sun(self) -> tuple[int, np.ndarray | None]:
         for i, light in enumerate(self.lighting.lights[:4]):
             if isinstance(light, DirectionalLight):
@@ -443,16 +486,18 @@ class GLView(QOpenGLWidget):
         prog.set_uniform("uShadowsEnabled", self._shadow_light >= 0)
         prog.set_uniform("uShadowLight", int(self._shadow_light))
         prog.set_uniform("uExposure", float(self.exposure))
-        prog.set_uniform("uSkyColor", np.array([0.42, 0.48, 0.58]))
-        prog.set_uniform("uGroundColor", np.array([0.2, 0.18, 0.16]))
+        night = 0.06 if self.night_mode else 1.0
+        prog.set_uniform("uSkyColor", np.array([0.42, 0.48, 0.58]) * night)
+        prog.set_uniform("uGroundColor", np.array([0.2, 0.18, 0.16]) * night)
 
-        lights = self.lighting.get_shader_data()
-        prog.set_uniform("uLightCount", int(lights["uLightCount"]))
-        for i in range(lights["uLightCount"]):
-            prog.set_uniform(f"uLightTypes[{i}]", int(lights["uLightTypes"][i]))
-            prog.set_uniform(f"uLightPositions[{i}]", np.array(lights["uLightPositions"][i]))
-            prog.set_uniform(f"uLightColors[{i}]", np.array(lights["uLightColors"][i]))
-            prog.set_uniform(f"uLightIntensities[{i}]", float(lights["uLightIntensities"][i]))
+        lights = self._shader_lights(eye)
+        prog.set_uniform("uLightCount", len(lights))
+        for i, (kind, pos, color, intensity, reach) in enumerate(lights):
+            prog.set_uniform(f"uLightRanges[{i}]", float(reach))
+            prog.set_uniform(f"uLightTypes[{i}]", kind)
+            prog.set_uniform(f"uLightPositions[{i}]", np.array(pos, dtype=np.float64))
+            prog.set_uniform(f"uLightColors[{i}]", np.array(color, dtype=np.float64))
+            prog.set_uniform(f"uLightIntensities[{i}]", float(intensity))
 
         GL.glActiveTexture(GL.GL_TEXTURE4)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._shadow_tex)
@@ -497,6 +542,7 @@ class GLView(QOpenGLWidget):
 
         if self.show_ground and self._ground is not None:
             prog.set_uniform("uBaseColor", (0.78, 0.78, 0.76, 1.0))
+            prog.set_uniform("uLightCount", min(len(lights), len(self.lighting.lights)))  # no fixture leaks
             prog.set_uniform("uOpacity", 1.0)
             prog.set_uniform("uEmissive", np.zeros(3))
             prog.set_uniform("uRoughness", 0.95)

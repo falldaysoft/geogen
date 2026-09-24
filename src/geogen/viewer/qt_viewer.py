@@ -263,6 +263,8 @@ class ViewerWindow(QMainWindow):
         self._grid_act = action("Grid", self._toggle("show_grid"), checkable=True, checked=True)
         self._shadow_act = action("Shadows", self._toggle("shadows"), checkable=True, checked=True)
         self._ground_act = action("Ground", self._toggle("show_ground"), checkable=True, checked=True)
+        self._night_act = action("Night", self._toggle("night_mode"), "N", checkable=True)
+        self._night_act.setToolTip("Dim the sun; light interiors with the scene's fixtures (N)")
         bar.addSeparator()
         action("Screenshot", self.save_screenshot, "Ctrl+S")
 
@@ -401,6 +403,7 @@ class ViewerWindow(QMainWindow):
         selected_name = self._view._selected_root.name if (keep_camera and self._view._selected_root) else None
         self._current_name, self._current_scene = name, root
         self._refresh_section_controls(root)
+        self._view.set_fixture_source(root)
         self._view.set_scene(self._section_scene(root), reframe=not keep_camera)
         self._rebuild_tree()
         items = self._scene_list.findItems(name, Qt.MatchFlag.MatchExactly)
@@ -506,6 +509,7 @@ def run_viewer(
     cutaway: bool = False,
     storey: int | None = None,
     state: str | None = None,
+    night: bool = False,
 ) -> None:
     """Run the Qt viewer. With ``screenshot``, save one frame to that path and exit."""
     fmt = QSurfaceFormat()
@@ -525,6 +529,8 @@ def run_viewer(
         window._mode_combo.setCurrentIndex(display_mode)
     if cutaway:
         window._cutaway_act.setChecked(True)
+    if night:
+        window._night_act.setChecked(True)
     if storey is not None and window._storey_combo.findData(storey) >= 0:
         window._storey_combo.setCurrentIndex(window._storey_combo.findData(storey))
     if state is not None and window._state_combo.findData(state) >= 0:

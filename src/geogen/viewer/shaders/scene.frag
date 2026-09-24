@@ -36,12 +36,13 @@ uniform vec3 uCameraPos;
 uniform vec3 uSkyColor;
 uniform vec3 uGroundColor;
 
-#define MAX_LIGHTS 4
+#define MAX_LIGHTS 16
 uniform int uLightCount;
 uniform int uLightTypes[MAX_LIGHTS];        // 0 = directional, 1 = point
 uniform vec3 uLightPositions[MAX_LIGHTS];   // position (point) or direction (directional)
 uniform vec3 uLightColors[MAX_LIGHTS];
 uniform float uLightIntensities[MAX_LIGHTS];
+uniform float uLightRanges[MAX_LIGHTS];     // point lights: fade to zero at this distance (0 = no limit)
 uniform int uShadowLight;                   // index of the shadow-casting light, -1 for none
 
 out vec4 FragColor;
@@ -174,6 +175,11 @@ void main() {
             float d = length(toLight);
             L = toLight / d;
             attenuation = 1.0 / (1.0 + 0.09 * d + 0.032 * d * d);
+            if (uLightRanges[i] > 0.0) {
+                // glTF KHR_lights_punctual style windowed inverse square.
+                float w = clamp(1.0 - pow(d / uLightRanges[i], 4.0), 0.0, 1.0);
+                attenuation = w * w / max(d * d, 0.01);
+            }
         }
         if (i == uShadowLight) {
             attenuation *= shadowFactor(geomN, L);

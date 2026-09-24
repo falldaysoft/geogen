@@ -12,6 +12,8 @@ size: ["{shade}", "{height}", "{shade}"]
 
 clearance: { front: 0.3 }
 
+light: { energy: 0.9, range: 4.0, offset: [0, "{height - 0.18}", 0] }
+
 parts:
   base:
     primitive: lathe

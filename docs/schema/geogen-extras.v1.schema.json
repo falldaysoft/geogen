@@ -18,7 +18,7 @@
         },
         "type": {
           "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render.",
-          "enum": ["room_volume", "spawn", "collider"]
+          "enum": ["room_volume", "spawn", "collider", "light"]
         },
         "shape": {
           "description": "Collider nodes only: how the collision geometry was made.",
@@ -124,6 +124,20 @@
             "type": "object",
             "required": ["door", "hinge", "radius", "from_deg", "to_deg"]
           }
+        },
+        "light": {
+          "description": "Light fixtures: an omni light at 'offset' (node frame). Exported as a KHR_lights_punctual point light on a <node>_light child (intensity = energy * 12 cd).",
+          "type": "object",
+          "properties": {
+            "type": { "const": "omni" },
+            "color": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+            "energy": { "type": "number" }, "range": { "type": "number" },
+            "offset": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+          }
+        },
+        "switch": {
+          "description": "Light switches: the light node (by name, in the same model) this switch's interaction turns on/off.",
+          "type": "object", "required": ["light"], "properties": { "light": { "type": "string" } }
         },
         "gate": {
           "description": "A barrier that is solid (collider on, visible) except while the named interaction on an ancestor node has arrived at state open_in (e.g. a lift shaft door that opens when the car is at that floor).",

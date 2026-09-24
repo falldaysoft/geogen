@@ -256,6 +256,53 @@ def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,
     return out
 
 
+# glTF KHR_lights_punctual point intensity (candela) per unit of our light energy.
+CANDELA_PER_ENERGY = 12.0
+
+
+def add_punctual_lights(glb: bytes) -> bytes:
+    """Add KHR_lights_punctual lights for nodes whose extras.geogen has a ``light``.
+
+    trimesh can't write the extension, so the GLB's JSON chunk is patched: a
+    point light per fixture on a ``<node>_light`` child at the light's offset.
+    Engines with KHR support (Godot, Blender, three.js) get real lights.
+    """
+    import struct
+
+    magic, version, _ = struct.unpack("<III", glb[:12])
+    json_len, json_type = struct.unpack("<II", glb[12:20])
+    gltf = json.loads(glb[20:20 + json_len])
+    rest = glb[20 + json_len:]
+    lights = []
+    nodes = gltf.get("nodes", [])
+    for index in range(len(nodes)):
+        spec = nodes[index].get("extras", {}).get("geogen", {}).get("light")
+        if not isinstance(spec, dict):
+            continue
+        lights.append({
+            "type": "point",
+            "name": f"{nodes[index].get('name', 'light')}_light",
+            "color": [float(c) for c in spec.get("color", [1.0, 1.0, 1.0])],
+            "intensity": float(spec.get("energy", 1.0)) * CANDELA_PER_ENERGY,
+            "range": float(spec.get("range", 5.0)),
+        })
+        child = {"name": lights[-1]["name"], "translation": [float(v) for v in spec.get("offset", [0, 0, 0])],
+                 "extensions": {"KHR_lights_punctual": {"light": len(lights) - 1}},
+                 "extras": {"geogen": {"version": EXTRAS_VERSION, "type": "light"}}}
+        nodes.append(child)
+        nodes[index].setdefault("children", []).append(len(nodes) - 1)
+    if not lights:
+        return glb
+    gltf.setdefault("extensions", {})["KHR_lights_punctual"] = {"lights": lights}
+    used = gltf.setdefault("extensionsUsed", [])
+    if "KHR_lights_punctual" not in used:
+        used.append("KHR_lights_punctual")
+    payload = json.dumps(gltf, separators=(",", ":")).encode()
+    payload += b" " * (-len(payload) % 4)
+    body = struct.pack("<II", len(payload), json_type) + payload + rest
+    return struct.pack("<III", magic, version, 12 + len(body)) + body
+
+
 def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None) -> Path:
     """Export ``root`` to ``path``; the format is chosen by the file extension.
 
@@ -276,7 +323,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     elif suffix == ".glb":
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
-        tmp.write_bytes(scene.export(file_type="glb"))
+        tmp.write_bytes(add_punctual_lights(scene.export(file_type="glb")))
         tmp.replace(path)
         write_manifest(path, player, root)
     else:

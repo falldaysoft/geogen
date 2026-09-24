@@ -318,3 +318,15 @@ def test_ride_lift_and_gates(run_godot, tmp_path):
     out = run_godot(*args, f"--spawn={car[0]},3.65,{car[2] - 2.4}", "--yaw=180", "--walk=1.5")
     end = walk_result(out)
     assert end["y"] == pytest.approx(3.65, abs=0.03) and end["z"] < car[2] - 1.0
+
+
+def test_godot_fixture_lights_and_switch(run_godot, auto_room_dir):
+    def lights(*extra):
+        out = run_godot("--scene", "hotel_room_auto", f"--generated={auto_room_dir}", "--lights", *extra)
+        return json.loads(next(l for l in out.splitlines() if l.startswith("lights: ")).removeprefix("lights: "))
+    report = lights("--quit-after=5")
+    assert report["total"] == report["light3d"] == 6          # KHR lights configured, not duplicated
+    assert all(f["visible"] for f in report["fixtures"].values())
+    report = lights("--use=bedroom_switch_1", "--quit-after=40")
+    assert report["fixtures"]["bedroom_light"]["visible"] is False
+    assert report["fixtures"]["bathroom_light"]["visible"] is True

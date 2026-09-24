@@ -40,6 +40,8 @@ var model_aabbs: Array[AABB] = []
 var rooms: Array[Dictionary] = []
 ## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
 var spawns: Array[Dictionary] = []
+## Fixture lights by their fixture node's name (light switches refer to them).
+var lights_by_name := {}
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
 var _moving := {}     # Node3D driven by an interaction -> true
@@ -68,6 +70,7 @@ func load_all() -> AABB:
 	rooms.clear()
 	spawns.clear()
 	interactions.clear()
+	lights_by_name.clear()
 	_gates.clear()
 	_moving.clear()
 	_target_of.clear()
@@ -159,6 +162,7 @@ func _load_model(manifest_path: String) -> void:
 	_prepare_materials(root)
 	_collect_interactions(root)
 	_add_lights(root)
+	_wire_switches()
 	var count := _add_collision(root)
 	_collect_gates(root)
 	_collect_rooms(root)
@@ -195,18 +199,47 @@ func _add_lights(root: Node) -> void:
 		var spec = geogen_extras(node).get("light")
 		if not spec is Dictionary:
 			continue
-		var light := OmniLight3D.new()
+		# Exports carry a KHR_lights_punctual light (imported as a Light3D child);
+		# tune it with our energy/range/shadows. Older exports get one added.
+		var light: OmniLight3D = null
+		for child in node.get_children():
+			if child is OmniLight3D:
+				light = child
+			elif geogen_extras(child).get("type") == "light":
+				for grand in child.get_children():
+					if grand is OmniLight3D:
+						light = grand
+				if light == null and child is OmniLight3D:
+					light = child
+		if light == null:
+			light = OmniLight3D.new()
+			var offset = spec.get("offset", [0, -0.5, 0])
+			light.position = Vector3(offset[0], offset[1], offset[2]) if offset is Array else Vector3(0, offset, 0)
+			node.add_child(light)
 		light.name = "Light"
 		var c: Array = spec.get("color", [1, 1, 1])
 		light.light_color = Color(c[0], c[1], c[2])
 		light.light_energy = float(spec.get("energy", 1.0))
 		light.omni_range = float(spec.get("range", 5.0))
+		light.omni_attenuation = 1.0
 		light.shadow_enabled = true
-		light.position = Vector3(0, float(spec.get("offset", -0.5)), 0)
-		node.add_child(light)
+		light.add_to_group("geogen_light")
+		lights_by_name[String(node.name)] = light
 		# The fixture itself mustn't shadow its own light.
 		for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Light switches: their interaction's on/off state shows or hides the named light.
+func _wire_switches() -> void:
+	for it in interactions:
+		var spec = geogen_extras(it.asset).get("switch")
+		if not spec is Dictionary:
+			continue
+		var light: Light3D = lights_by_name.get(str(spec.get("light", "")))
+		if light == null:
+			continue
+		it.state_entered.connect(func(state: String, _event: String): light.visible = state != "off")
 
 
 func _collect_rooms(root: Node) -> void:

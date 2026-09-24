@@ -164,7 +164,7 @@ def _pendant(name: str, ceiling: float, loader) -> SceneNode:
     node = SceneNode(name=name, transform=Transform(translation=np.array([0.0, ceiling, 0.0])),
                      tags=["light.ceiling"])
     node.meta["light"] = {"type": "omni", "color": [1.0, 0.93, 0.82], "energy": 1.2, "range": 6.0,
-                          "offset": -0.47}  # just below the shade
+                          "offset": [0.0, -0.47, 0.0]}  # just below the shade
     chrome = loader.load("chrome")
 
     def at(mesh: Mesh, y: float) -> Mesh:
@@ -215,5 +215,21 @@ def _switch(name: str, door: dict[str, Any], hx: float, hz: float, swings: list[
     move[2, 3] = 0.013
     rocker = rocker.transform(move)
     node.add_child(_part("plate", plate, loader.load("paint_white"), collider="none"))
-    node.add_child(_part("rocker", rocker, loader.load("paint_white"), collider="none"))
+    rocker_node = _part("rocker", rocker, loader.load("paint_white"), collider="none")
+    node.add_child(rocker_node)
+    node.interactions = [_switch_interaction(rocker_node)]
     return node
+
+
+def _switch_interaction(rocker: SceneNode):
+    """On/off: the rocker tips 12 degrees; runtimes toggle meta.switch.light on arrival."""
+    from ..layout.interactions import Interaction, Motion, State
+
+    return Interaction(
+        name="switch",
+        states={"on": State(next="off", prompt="Lights off", emit="lights_on"),
+                "off": State(next="on", prompt="Lights on", emit="lights_off")},
+        motions=[Motion([rocker], "rotate", np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.01]),
+                        {"on": 0.0, "off": 12.0})],
+        targets=[rocker], initial="on", duration=0.15,
+    )

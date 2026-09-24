@@ -102,6 +102,7 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="Remove ceilings, roofs and ceiling lights to see inside (--render and viewer)")
     parser.add_argument("--storey", type=int, default=None,
                         help="Viewer: show building storeys up to this index")
+    parser.add_argument("--night", action="store_true", help="Viewer: night lighting (scene fixtures)")
     parser.add_argument("--state", default=None,
                         help="Viewer: pose every interaction in this state (e.g. open)")
     return parser.parse_args()
@@ -174,6 +175,7 @@ def main() -> None:
             cutaway=args.cutaway,
             storey=args.storey,
             state=args.state,
+            night=args.night,
         )
 
 

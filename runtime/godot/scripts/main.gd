@@ -14,6 +14,7 @@ extends Node3D
 ##                                 --use=@aim presses E on whatever the player looks at
 ##   --wait=SECONDS                wait before the --walk starts (let a door swing)
 ##   --nav=AX,AZ:BX,BZ             print the navigation path between two floor points, quit
+##   --lights                      print the fixture lights (JSON) when quitting
 ##   --playtest[=N]                check every room/interaction is reachable, walk N routes
 ##                                 with a bot (default 6), print "playtest: {...}", quit
 ##
@@ -35,6 +36,7 @@ var _manifest_arg := false
 var _start_overview := false
 var _use_assets: Array[String] = []
 var _use_aim := false
+var _print_lights := false
 var _nav_query := []
 var _frames_nav := 0
 var _playtest_walks := -1
@@ -80,6 +82,8 @@ func _ready() -> void:
             for point in value.split(":"):
                 var xz := point.split_floats(",")
                 _nav_query.append(Vector3(xz[0], 0.0, xz[1]))
+        elif arg == "--lights":
+            _print_lights = true
         elif arg == "--use=@aim":
             _use_aim = true
         elif arg.begins_with("--use="):
@@ -235,6 +239,15 @@ func _process(_delta: float) -> void:
         return
     _frames += 1
     if _frames >= quit_after_frames:
+        if _print_lights:
+            var report := {}
+            for name in world.lights_by_name:
+                var light: OmniLight3D = world.lights_by_name[name]
+                report[name] = {"visible": light.visible, "energy": light.light_energy,
+                    "range": light.omni_range, "y": snappedf(light.global_position.y, 0.01)}
+            var total := get_tree().get_nodes_in_group("geogen_light").size()
+            print("lights: %s" % JSON.stringify({"fixtures": report, "total": total,
+                "light3d": get_tree().root.find_children("*", "OmniLight3D", true, false).size()}))
         if screenshot_path != "":
             var err := get_viewport().get_texture().get_image().save_png(screenshot_path)
             print("screenshot -> %s (%s)" % [screenshot_path, error_string(err)])
