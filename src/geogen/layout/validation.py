@@ -28,7 +28,7 @@ PART_KNOWN_KEYS = {
 
 # Known keys for scene YAML files
 SCENE_KNOWN_KEYS = {
-    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns",
+    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params",
 }
 
 SLOT_KNOWN_KEYS = {
@@ -36,7 +36,7 @@ SLOT_KNOWN_KEYS = {
 }
 
 PLACEMENT_KNOWN_KEYS = {
-    "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish",
+    "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params",
 }
 
 # Known primitive types

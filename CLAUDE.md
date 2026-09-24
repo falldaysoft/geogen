@@ -394,7 +394,7 @@ parts:
     anchor: bottom_center
 ```
 
-Overrides come in through `LayoutLoader.load(path, params={"width": 12})`. Unknown params raise. Scenes can't yet override params per placement (`SceneComposer` loads assets with defaults). The expression evaluator is AST-restricted — only numeric literals, param references, `+ - * /`, parens, and unit literals (`50cm`, `2m`, `20%`). No function calls, no attribute access.
+Overrides come in through `LayoutLoader.load(path, params={"width": 12})`, or per placement in scenes: `door: {asset: door.yaml, params: {width: 1.1}, on: ...}`. Scenes can declare `params:` and use `{expr}` too (`SceneComposer.compose(path, params=...)`, or `scene: plot.yaml, params: {...}` from a parent scene). Unknown params raise. The expression evaluator is AST-restricted — only numeric literals, param references, `+ - * /`, parens, and unit literals (`50cm`, `2m`, `20%`). No function calls, no attribute access.
 
 Relevant module: `src/geogen/layout/expressions.py`.
 

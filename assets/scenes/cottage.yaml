@@ -30,12 +30,15 @@ place:
     on: house.right_wall
     at: { u: 0.5, v: { abs: 0.85 } }
 
+  # Wider windows at the back (per-placement params override asset defaults).
   window_back_left:
     asset: window.yaml
+    params: { width: 1.3 }
     on: house.back_wall
     at: { u: 0.3, v: { abs: 0.85 } }
   window_back_right:
     asset: window.yaml
+    params: { width: 1.3 }
     on: house.back_wall
     at: { u: 0.7, v: { abs: 0.85 } }
 

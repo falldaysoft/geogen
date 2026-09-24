@@ -106,11 +106,13 @@ class SceneComposer:
         else:
             self._assets_dir = Path(assets_dir)
 
-    def compose(self, path: str | Path) -> SceneNode:
+    def compose(self, path: str | Path, params: dict[str, float] | None = None) -> SceneNode:
         """Load and compose a scene from a YAML file.
 
         Args:
             path: Path to the composition YAML file
+            params: Overrides for the scene's declared ``params:`` (scenes
+                use ``{expr}`` interpolation like assets)
 
         Returns:
             Root SceneNode of the composed scene
@@ -130,7 +132,17 @@ class SceneComposer:
                 f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
             )
 
-        return self._build_scene(data)
+        return self._build_scene(self._resolve_params(data, params))
+
+    @staticmethod
+    def _resolve_params(data: dict[str, Any], overrides: dict[str, float] | None) -> dict[str, Any]:
+        """Resolve a scene's ``params:`` and ``{expr}`` values (like LayoutLoader)."""
+        from .expressions import resolve_params, resolve_value
+
+        if "params" not in data and not overrides:
+            return data
+        resolved = resolve_params(data.get("params"), overrides)
+        return {k: (v if k in ("params", "name") else resolve_value(v, resolved)) for k, v in data.items()}
 
     def compose_string(self, yaml_string: str) -> SceneNode:
         """Compose a scene from a YAML string.
@@ -142,7 +154,7 @@ class SceneComposer:
             Root SceneNode of the composed scene
         """
         data = safe_load(yaml_string)
-        return self._build_scene(data)
+        return self._build_scene(self._resolve_params(data, None))
 
     def _build_scene(self, data: dict[str, Any]) -> SceneNode:
         """Build scene from parsed YAML data."""
@@ -276,7 +288,7 @@ class SceneComposer:
         """Load an object from asset or scene definition."""
         if "asset" in obj_def:
             asset_path = self._assets_dir / obj_def["asset"]
-            node = self._loader.load(asset_path)
+            node = self._loader.load(asset_path, params=obj_def.get("params"))
             if obj_def.get("furnish"):
                 from .furnish import furnish_plan
 
@@ -285,7 +297,7 @@ class SceneComposer:
             return node
         elif "scene" in obj_def:
             scene_path = self._assets_dir / obj_def["scene"]
-            return self.compose(scene_path)
+            return self.compose(scene_path, params=obj_def.get("params"))
         else:
             raise ValueError("Object must have 'asset' or 'scene' specified")
 
