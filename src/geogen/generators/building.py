@@ -197,7 +197,8 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
             node.meta["collider"] = collider
             return node
 
-        car.add_child(part("car_floor", [-cw / 2, -0.12, -cd / 2], [cw / 2, 0.0, cd / 2], steel))
+        # 4 mm proud of the landing floor so the two don't z-fight while the car is parked.
+        car.add_child(part("car_floor", [-cw / 2, -0.12, -cd / 2], [cw / 2, 0.004, cd / 2], steel))
         car.add_child(part("car_ceiling", [-cw / 2, CAR_HEIGHT, -cd / 2], [cw / 2, CAR_HEIGHT + 0.06, cd / 2], steel))
         # Three walls; the open side faces the doorway.
         walls = {"north": ([-cw / 2, 0, cd / 2 - 0.04], [cw / 2, CAR_HEIGHT, cd / 2]),

@@ -22,7 +22,7 @@ parts:
     primitive: cylinder
     size: [0.66, "{0.02 / height}", 0.66]
     anchor: bottom_center
-    offset: [0, "{0.4 / height}", 0]
+    offset: [0, "{0.405 / height}", 0]      # soil top 5 mm above the rim: level, the two z-fight
     material: dirt
     collider: none
   foliage:

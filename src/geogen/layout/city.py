@@ -276,7 +276,41 @@ class CityBuilder:
         if building is not None:
             building.name = f"{node.name}_{building.name.removeprefix('building_')}"   # unique per lot
             node.add_child(building)
+            self._clear_footprint(ground, building)
         return node
+
+    def _clear_footprint(self, ground: SceneNode, building: SceneNode) -> None:
+        """Cut the building's ground contact out of the lot slab: its ground floor sits at the
+        slab's top, and two coplanar floors z-fight. The cut is inset 5 cm so the slab still
+        runs under the walls."""
+        from ..core import csg
+
+        base = float(building.transform.translation[1])
+        walls, contact = [], []
+        for n in building.iter_nodes():
+            if n.mesh is None or not len(n.mesh.vertices):
+                continue
+            v = n.mesh.vertices
+            w = (n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3]
+            if "wall" in n.tags:
+                walls.append(w[:, [0, 2]])
+            contact.append(w[np.abs(w[:, 1] - base) < 0.05][:, [0, 2]])
+        # Walled buildings: exactly the wall footprint (the slab stops at the outer wall face,
+        # clear of doorway thresholds, which sit level with it).
+        # Others (cottages on foundations): whatever touches the ground, inset 5 cm.
+        pts, inset = (walls, 0.0) if walls else ([p for p in contact if len(p)], 0.05)
+        if not pts:
+            return
+        allp = np.vstack(pts)
+        lo, hi = allp.min(axis=0) + inset, allp.max(axis=0) - inset
+        if np.any(hi <= lo):
+            return
+        cutter = _slab(lo, hi, -1.0, self.curb + 1.0)
+        try:
+            cut = csg.difference(ground.mesh, cutter)
+        except csg.CSGError:
+            return
+        ground.mesh = self._material(cut, ground.mesh.material.name) if ground.mesh.material else cut
 
     def _prototype(self, entry: dict[str, Any]) -> tuple[SceneNode, np.ndarray, np.ndarray]:
         """Loaded node and its full bounds (for street furniture and park trees)."""

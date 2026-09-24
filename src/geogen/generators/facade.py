@@ -80,7 +80,9 @@ def _window_parts(width: float, height: float, style: FacadeStyle, storefront: b
 
     parts: dict[str, list[Mesh]] = {"frame": [], "glass": [], "trim": []}
     z_frame = -WINDOW_RECESS
-    outline = Shape(np.array([[-width / 2, 0], [width / 2, 0], [width / 2, height], [-width / 2, height]]),
+    g = 0.002   # inset from the opening's faces so the frame's outer faces don't z-fight with them
+    outline = Shape(np.array([[-width / 2 + g, g], [width / 2 - g, g], [width / 2 - g, height - g],
+                              [-width / 2 + g, height - g]]),
                     [np.array([[-width / 2 + FRAME, FRAME], [-width / 2 + FRAME, height - FRAME],
                                [width / 2 - FRAME, height - FRAME], [width / 2 - FRAME, FRAME]])])
     frame = ExtrudeGenerator(shape=outline, depth=0.07, axis="z", crease_angle=30.0).generate()

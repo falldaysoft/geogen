@@ -259,7 +259,7 @@ class TreeGenerator(MeshGenerator):
         # Centre on the trunk base (the skeleton grows from the origin): the part frame
         # puts the bounding box's centre at the origin, so shift down by half the height.
         shift = np.eye(4)
-        shift[1, 3] = -self.height / 2
+        shift[1, 3] = -self.height / 2 - 0.02    # trunk base 2 cm into the ground (no coplanar base cap)
         node = SceneNode(name=name or "tree", mesh=trunk.transform(shift), tags=["vegetation.trunk"])
         node.meta["tree"] = {"style": self.style, "seed": self.seed, "branches": int(len(nodes))}
         node.meta["collider"] = "hull"        # the trunk; branches and leaves don't block

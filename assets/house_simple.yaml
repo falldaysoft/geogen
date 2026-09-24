@@ -117,7 +117,7 @@ parts:
     primitive: cube
     size: [0.08, 0.18, 0.08]
     anchor: bottom_center
-    offset: [0.30, 0.72, -0.25]
+    offset: [0.30, 0.715, -0.25]
     material: brick
 
 # Re-export useful surfaces for scene-level placement (e.g. placing a

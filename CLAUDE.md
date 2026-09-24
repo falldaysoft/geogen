@@ -520,6 +520,7 @@ Coordinate forms for `u`/`v`/`depth`:
 - **UVs are metric** (1 UV unit = 1 m of surface). Generators must emit metric UVs (or run `uvmap.box_project`); materials set `tile_size`. Never emit 0–1-per-face UVs — texture density would vary with object size.
 - **Procedural textures must tile**: noise is periodic (`perlin_noise` wraps its lattice); `tests/test_textures_tile.py` checks every material.
 - Generators should produce closed meshes that pass `meshops.validate`; `tests/test_asset_quality.py` checks every registered asset/scene.
+- **No coplanar surfaces** between different meshes: `qa.coplanar_overlaps(scene)` finds horizontal faces from different meshes that lie in the same plane, face the same way and overlap (they z-fight in every renderer). Undersides at or below y = 0 are ignored. `test_asset_quality.py` requires every scene to pass. Fix a hit by offsetting one of the surfaces 3 mm (`floorplan.COPLANAR_GAP`: ceiling slabs stop under the wall tops; sills sit above opening faces and lintels below them; architraves lap the lining; the lift car floor sits proud of the landing) or by cutting one away (city lot slabs lose each building's footprint).
 - For turned/curved/filleted parts prefer `lathe`/`extrude` over stacking primitives. YAML anchors+merge keys (`&leg` / `<<: *leg`) work for repeated parts.
 
 - All meshes use counter-clockwise face winding for outward normals

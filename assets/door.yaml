@@ -107,7 +107,7 @@ parts:
     primitive: cube
     size: ["{(width + 0.25) / width}", "{step_height / height}", 0.45]
     anchor: bottom_center
-    offset: [0, "{-step_height / height}", 0.12]
+    offset: [0, "{-(step_height + 0.003) / height}", 0.12]   # 3 mm under the foundation top (level: z-fight)
     bevel: 0.015
     material: concrete
 

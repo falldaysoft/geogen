@@ -56,6 +56,13 @@ def test_interiors_pass_layout_qa(scene):
     assert [str(i) for i in check_layout(root)] == [], name
 
 
+def test_no_coplanar_z_fighting(scene):
+    from geogen.layout.qa import coplanar_overlaps
+
+    name, root = scene
+    assert [str(i) for i in coplanar_overlaps(root)] == [], name
+
+
 def test_scene_is_not_empty(scene):
     name, root = scene
     assert sum(len(m.faces) for _, m in root.iter_meshes()) > 0, name

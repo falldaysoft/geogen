@@ -34,12 +34,12 @@ parts:
     primitive: cube
     size: ["{0.16 / width}", "{0.5 / height}", "{(depth - 0.16) / depth}"]
     anchor: bottom_center
-    offset: ["{(0.08 - width / 2) / width}", "{0.1 / height}", "{0.08 / depth}"]
+    offset: ["{(0.08 - width / 2) / width}", "{0.103 / height}", "{0.08 / depth}"]   # clear of the base underside
     bevel: 0.06
     material: fabric_linen
   arm_right:
     <<: *arm
-    offset: ["{(width / 2 - 0.08) / width}", "{0.1 / height}", "{0.08 / depth}"]
+    offset: ["{(width / 2 - 0.08) / width}", "{0.103 / height}", "{0.08 / depth}"]
   seat_cushions:
     primitive: cube
     size: ["{(width - 0.34) / width}", "{0.14 / height}", "{(depth - 0.2) / depth}"]

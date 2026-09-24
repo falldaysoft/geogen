@@ -66,3 +66,24 @@ def test_narrow_doors_use_player_spec():
     wide_player = PlayerSpec(radius=0.5, door_min_width=1.2, corridor_min_width=1.2)
     assert "narrow_door" in _kinds(root, wide_player)
     assert "narrow_door" not in _kinds(root)
+
+
+def test_coplanar_overlaps_finds_z_fighting_floors():
+    import numpy as np
+
+    from geogen.core.node import SceneNode
+    from geogen.core.transform import Transform
+    from geogen.generators.primitives import CubeGenerator
+    from geogen.layout.qa import coplanar_overlaps
+
+    def slab(name, y0, y1, x=0.0):
+        mesh = CubeGenerator(size_x=2, size_y=y1 - y0, size_z=2, bevel=0).generate()
+        return SceneNode(name, mesh=mesh, transform=Transform(translation=np.array([x, (y0 + y1) / 2, 0.0])))
+
+    root = SceneNode("root")
+    root.add_child(slab("lot", 0.0, 0.15))
+    root.add_child(slab("floor", 0.10, 0.15, x=0.5))       # top level with the lot's: z-fights
+    issues = coplanar_overlaps(root)
+    assert [i.items for i in issues] == [("lot", "floor")] and "y=0.150" in issues[0].message
+    root.children[1].transform.translation[1] += 0.003     # 3 mm proud: fine
+    assert coplanar_overlaps(root) == []

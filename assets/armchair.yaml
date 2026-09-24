@@ -40,7 +40,7 @@ parts:
     primitive: cube
     size: ["{arm_width / width}", "{(arm_top - leg) / height}", "{(depth - back + 0.04) / depth}"]
     anchor: bottom_center
-    offset: ["{(arm_width / 2 - width / 2) / width}", "{leg / height}", "{(back - 0.04) / 2 / depth}"]
+    offset: ["{(arm_width / 2 - width / 2) / width}", "{(leg + 0.003) / height}", "{(back - 0.04) / 2 / depth}"]   # clear of the base underside
     bevel: 0.05
     material: fabric_velvet
 
@@ -48,7 +48,7 @@ parts:
     primitive: cube
     size: ["{arm_width / width}", "{(arm_top - leg) / height}", "{(depth - back + 0.04) / depth}"]
     anchor: bottom_center
-    offset: ["{(width / 2 - arm_width / 2) / width}", "{leg / height}", "{(back - 0.04) / 2 / depth}"]
+    offset: ["{(width / 2 - arm_width / 2) / width}", "{(leg + 0.003) / height}", "{(back - 0.04) / 2 / depth}"]   # clear of the base underside
     bevel: 0.05
     material: fabric_velvet
 

@@ -322,7 +322,9 @@ def make_shell(building: SceneNode, material_loader) -> None:
             continue
         lo, hi = walls.mesh.vertices.min(axis=0), walls.mesh.vertices.max(axis=0)
         inset = 0.45
-        box = _box(np.array([lo[0] + inset, lo[1], lo[2] + inset]), np.array([hi[0] - inset, hi[1], hi[2] - inset]))
+        # 3 mm inside the wall tops/bottoms too: level with them, the faces z-fight.
+        box = _box(np.array([lo[0] + inset, lo[1] + 0.003, lo[2] + inset]),
+                   np.array([hi[0] - inset, hi[1] - 0.003, hi[2] - inset]))
         box = meshops.compute_normals(uvmap.box_project(box), 30.0)
         box.material = material_loader.load("plastic_black")
         void = SceneNode(name="shell_void", mesh=box, tags=["shell.void"])

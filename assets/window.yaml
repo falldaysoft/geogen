@@ -79,7 +79,7 @@ parts:
     primitive: cube
     size: ["{(width + 0.14) / width}", "{0.05 / height}", 0.2]
     anchor: bottom_center
-    offset: [0, "{-0.05 / height}", -0.04]
+    offset: [0, "{-0.047 / height}", -0.04]   # top 3 mm above the opening's sill face (level: z-fight)
     bevel: 0.008
     material: concrete
 
@@ -87,6 +87,6 @@ parts:
     primitive: cube
     size: ["{(width + 0.2) / width}", "{0.14 / height}", 0.05]
     anchor: bottom_center
-    offset: [0, 1, 0.005]
+    offset: [0, "{1 - 0.003 / height}", 0.005]   # 3 mm below the opening's head face
     bevel: 0.006
     material: concrete

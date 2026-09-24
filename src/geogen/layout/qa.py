@@ -319,3 +319,58 @@ def room_reachability(room_node: SceneNode, player=None) -> list[str]:
     _collect_items(room_node, rooms)
     return [i.items[0] for i in _check_reachability(rooms, player)]
 
+
+
+# --- z-fighting --------------------------------------------------------------------------------
+
+ZFIGHT_MIN_AREA = 0.01      # m²: smaller coplanar overlaps aren't visible
+
+
+def coplanar_overlaps(scene: SceneNode, min_area: float = ZFIGHT_MIN_AREA) -> list[Issue]:
+    """Horizontal faces of different meshes that lie in the same plane, face the same way
+    and overlap: they z-fight in every renderer (e.g. a floor on top of a lot slab).
+
+    Faces are grouped by height (1 mm) and facing; overlaps are measured in plan with shapely.
+    Returns ``zfight`` issues naming both nodes and the overlap area.
+    """
+    from collections import defaultdict
+
+    from shapely import STRtree
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+
+    groups: dict[tuple[float, int], list[tuple[SceneNode, object]]] = defaultdict(list)
+    for node, mesh in scene.iter_meshes():
+        if not len(mesh.faces) or node.meta.get("type") == "collider":
+            continue
+        tri = mesh.vertices[mesh.faces]
+        n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+        length = np.linalg.norm(n, axis=1)
+        ny = np.divide(n[:, 1], length, out=np.zeros(len(n)), where=length > 1e-12)
+        for sign in (1, -1):
+            sel = ny * sign > 0.999
+            if not sel.any():
+                continue
+            heights = np.round(tri[sel][:, :, 1].mean(axis=1), 3)
+            for h in np.unique(heights):
+                polys = [Polygon(t[:, [0, 2]]) for t in tri[sel][heights == h]]
+                shape = unary_union([p for p in polys if p.area > 1e-9])
+                if shape.area >= min_area:
+                    groups[(float(h), sign)].append((node, shape))
+    # Undersides on or below the ground plane (y = 0, where scenes are authored) can't be seen.
+    issues = []
+    for (h, sign), items in groups.items():
+        if len(items) < 2 or (sign < 0 and h <= 0.005):
+            continue
+        tree = STRtree([shape for _, shape in items])
+        for i, (node, shape) in enumerate(items):
+            for j in tree.query(shape):
+                if j <= i or items[j][0] is node:
+                    continue
+                area = shape.intersection(items[j][1]).area
+                if area >= min_area:
+                    other = items[j][0]
+                    issues.append(Issue("zfight", node.name, (node.name, other.name),
+                                        f"{node.name} and {other.name} are coplanar at y={h:.3f}"
+                                        f" ({'up' if sign > 0 else 'down'}-facing, {area:.2f} m² overlap)"))
+    return issues

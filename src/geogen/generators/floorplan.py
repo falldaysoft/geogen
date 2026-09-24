@@ -44,6 +44,8 @@ _SIDE_INFO = {
 }
 
 _EPS = 1e-6
+# Gap that keeps surfaces which would otherwise be coplanar from z-fighting.
+COPLANAR_GAP = 0.003
 
 
 @dataclass
@@ -606,7 +608,10 @@ class FloorPlan:
         clear_height = self.wall_height
         if self.ceiling:
             clear_height = self.wall_height - self.ceiling_thickness
-            node.add_child(slab("ceiling", self.ceiling_thickness, clear_height, mats["ceiling"], tuck_ceiling))
+            # Stop 3 mm under the wall tops: level with them, the tucked edges z-fight
+            # with the wall tops (visible from above and in cutaways).
+            node.add_child(slab("ceiling", self.ceiling_thickness - COPLANAR_GAP, clear_height, mats["ceiling"],
+                                tuck_ceiling))
         node.meta["clear_height"] = clear_height
 
         # Trigger volume filling the room's clear space (for "which room am I in").
