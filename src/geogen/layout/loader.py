@@ -19,6 +19,7 @@ from ..generators.primitives import (
 )
 from ..generators.architecture import PrismGenerator, RoofGenerator
 from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
+from ..generators.stairs import StairsGenerator
 from ..generators.sweep import SweepGenerator
 from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
@@ -48,6 +49,7 @@ PRIMITIVE_REGISTRY = {
     "roof": RoofGenerator,
     "prism": PrismGenerator,
     "sweep": SweepGenerator,
+    "stairs": StairsGenerator,
 }
 
 
@@ -208,7 +210,7 @@ class LayoutLoader:
 
             # Store the node's actual size for attachment calculations
             node.size = actual_size
-            node.tags = list(part_def.get("tags", []))
+            node.tags = [*node.tags, *[t for t in part_def.get("tags", []) if t not in node.tags]]
             collider = part_def.get("collider")
             if collider is not None:
                 if collider not in COLLIDER_TYPES:
@@ -567,6 +569,15 @@ class LayoutLoader:
             return self._create_lathe_generator(size, extra_config or {})
         elif primitive_type == "sweep":
             return self._create_sweep_generator(extra_config or {})
+        elif primitive_type == "stairs":
+            config = extra_config or {}
+            keys = ("style", "rise", "width", "max_riser", "tread", "turn", "landing_at", "waist", "railing",
+                    "rail_height", "railing_material")
+            args = {k: config[k] for k in keys if k in config}
+            for k in ("rise", "width", "max_riser", "tread", "landing_at", "waist", "rail_height"):
+                if k in args:
+                    args[k] = float(args[k])
+            return StairsGenerator(**args)
         elif primitive_type == "roof":
             config = extra_config or {}
             return RoofGenerator(

@@ -212,3 +212,12 @@ def test_editor_import_plugin_builds_gameplay_nodes(run_godot, auto_room_dir, tm
     check = json.loads(line.removeprefix("import check: "))
     assert check["areas"] == 3 and check["markers"] == 1
     assert {"furniture", "furniture.bed"} <= set(check["bed_groups"])
+
+
+def test_player_climbs_stairs(run_godot, tmp_path):
+    from geogen.layout import LayoutLoader
+    export_scene(LayoutLoader().load("assets/staircase.yaml"), tmp_path / "staircase.glb")
+    out = run_godot("--scene", "staircase", f"--generated={tmp_path}", "--spawn=0,0,3.2", "--walk=1.4")
+    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
+                     .removeprefix("walk result: "))
+    assert end["y"] == pytest.approx(3.0, abs=0.02) and end["on_floor"]

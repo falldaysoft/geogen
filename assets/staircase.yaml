@@ -1,0 +1,25 @@
+# Parametric staircase: straight, L-shaped (quarter landing) or spiral, with
+# handrails. The step count follows from rise / max_riser, so any rise stays
+# climbable. Climbs toward -Z; origin at the bottom centre.
+
+name: staircase
+tags: [architecture.stairs]
+origin: bottom_center
+
+params:
+  rise:  { default: 3.0 }
+  width: { default: 1.1 }
+
+# Straight flight: steps of up to 18 cm rise and 28 cm going; rails add ~0.9 m.
+size: ["{width}", "{rise + 0.92}", "{rise / 0.18 * 0.28 + 0.1}"]
+
+parts:
+  stairs:
+    primitive: stairs
+    style: straight          # straight | l | spiral
+    rise: "{rise}"
+    width: "{width}"
+    turn: left
+    railing: both
+    anchor: bottom_center
+    material: concrete
