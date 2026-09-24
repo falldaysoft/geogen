@@ -225,9 +225,12 @@ class SceneRenderer:
         opts = self.options
         pose = self.camera_pose(view)
         self.scene.set_pose(self._camera_node, pose)
-        # Fill light comes from behind/above the camera so shadowed sides aren't black.
+        # Fill light comes from behind/above the camera so shadowed sides aren't black,
+        # tilted off the view axis so flat surfaces facing the camera (a tabletop
+        # in top view) don't mirror it straight back as a hotspot.
         cam_dir = -pose[:3, 2]
-        self.scene.set_pose(self._fill_node, _direction_pose(cam_dir + np.array([0.0, -0.5, 0.0])))
+        cam_right = pose[:3, 0]
+        self.scene.set_pose(self._fill_node, _direction_pose(cam_dir + cam_right * 0.8 + np.array([0.0, -0.5, 0.0])))
         flags = pyrender.RenderFlags.NONE
         if opts.shadows:
             flags |= pyrender.RenderFlags.SHADOWS_DIRECTIONAL
