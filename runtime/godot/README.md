@@ -34,6 +34,7 @@ capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 | `scripts/world_loader.gd` | `WorldLoader`: loads `.glb` exports at runtime via `GLTFDocument`, builds static bodies from the exported collider nodes, collects room volumes (`room_at()`) and manifest spawns, adds texture mipmaps, hot-reloads |
 | `scripts/player.gd` | `Player`: first-person `CharacterBody3D` sized from the player spec, with step-up |
 | `scripts/player_spec.gd` | `PlayerSpec`: player radius/height/eye/step/slope/reach read from a geogen manifest |
+| `addons/geogen/` | Editor plugin + `GeogenSceneBuilder`: turns `extras.geogen` into room `Area3D`s (`RoomArea`, group `geogen_room`), spawn `Marker3D`s (group `geogen_spawn`), tag groups (`furniture.bed` → `furniture.bed` + `furniture`) and a baked `NavigationRegion3D`; applied on editor import (post-import plugin) and by `WorldLoader` at runtime |
 | `generated/` | Exports land here (git-ignored; `.gdignore` keeps the editor from importing them, the runtime loads them directly) |
 
 Exports are loaded at runtime rather than imported by the editor so a
@@ -78,6 +79,7 @@ User args (after `--`):
 | `--colliders` | Show collider wireframes |
 | `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
 | `--use=ASSET`, `--use=@aim` | Use an asset's interactions (e.g. `door`) or whatever the player looks at, at start |
+| `--nav=AX,AZ:BX,BZ` | Print the navigation path between two floor points (`nav path: {...}`) and quit |
 | `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
 | `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
 | `--quit-after=N` | Quit after N frames |

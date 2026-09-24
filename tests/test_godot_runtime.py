@@ -8,6 +8,8 @@ front and walks toward -Z.
 
 import json
 
+import numpy as np
+
 import pytest
 
 from geogen.export import export_scene
@@ -136,3 +138,77 @@ def test_m1_furnished_hotel_room_walkthrough(run_godot, tmp_path):
                      .removeprefix("walk result: "))
     assert end["room"] == "bedroom"
     assert end["x"] == pytest.approx(nightstand[0] + 0.2 + RADIUS, abs=0.05)  # against its front
+
+
+def _nav(run_godot, generated, scene, a, b) -> dict:
+    out = run_godot("--scene", scene, f"--generated={generated}", f"--nav={a[0]},{a[1]}:{b[0]},{b[1]}")
+    return json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
+
+
+@pytest.fixture(scope="module")
+def auto_room_dir(tmp_path_factory):
+    from geogen.layout import SceneComposer
+    out = tmp_path_factory.mktemp("generated_auto")
+    export_scene(SceneComposer().compose("assets/scenes/hotel_room_auto.yaml"), out / "hotel_room_auto.glb")
+    return out
+
+
+def test_scene_builder_summary(run_godot, auto_room_dir):
+    out = run_godot("--scene", "hotel_room_auto", f"--generated={auto_room_dir}", "--quit-after=2")
+    line = next(l for l in out.splitlines() if "loaded hotel_room_auto.glb" in l)
+    assert "3 rooms" in line and "1 spawns" in line
+    assert "geogen: unknown" not in out and "extras.geogen version" not in out
+
+
+def test_navigation_reaches_rooms_through_doorways(run_godot, auto_room_dir):
+    # From the entry to open floor in the bedroom (foot of the bed) and into the bathroom.
+    to_bedroom = _nav(run_godot, auto_room_dir, "hotel_room_auto", (4.2, 1.3), (-0.6, 0.6))
+    assert to_bedroom["points"] and to_bedroom["end_gap"] < 0.5
+    to_bathroom = _nav(run_godot, auto_room_dir, "hotel_room_auto", (4.2, 1.3), (2.6, -0.6))
+    assert to_bathroom["points"] and to_bathroom["end_gap"] < 0.5
+    # Paths go through the doorway gaps, never through walls: every corridor->bedroom
+    # path crosses x = 1.0 (the shared wall) within the door's z span.
+    pts = np.array(to_bedroom["points"])
+    crossing = next(i for i in range(1, len(pts)) if pts[i - 1][0] >= 1.0 > pts[i][0])
+    a, b = pts[crossing - 1], pts[crossing]
+    z = a[2] + (b[2] - a[2]) * (a[0] - 1.0) / (a[0] - b[0])
+    assert 0.85 < z < 1.75
+
+
+def test_editor_import_plugin_builds_gameplay_nodes(run_godot, auto_room_dir, tmp_path):
+    # Copy the runtime project, drop a geogen .glb in as a regular editor
+    # asset and import it: the geogen addon must add room areas, spawn
+    # markers and tag groups to the imported scene.
+    import shutil
+    import subprocess
+    from conftest import GODOT_PROJECT, _godot_binary
+
+    project = tmp_path / "project"
+    project.mkdir()
+    shutil.copy(GODOT_PROJECT / "project.godot", project)
+    for folder in ("addons", "scripts", "scenes"):
+        shutil.copytree(GODOT_PROJECT / folder, project / folder)
+    (project / "models").mkdir()
+    shutil.copy(auto_room_dir / "hotel_room_auto.glb", project / "models")
+    (project / "check.gd").write_text(
+        "extends SceneTree\n"
+        "func _initialize() -> void:\n"
+        "\tvar root: Node = load(\"res://models/hotel_room_auto.glb\").instantiate()\n"
+        "\tvar bed = root.find_child(\"bed\", true, false)\n"
+        "\tprint(\"import check: %s\" % JSON.stringify({\n"
+        "\t\t\"areas\": root.find_children(\"RoomArea\", \"\", true, false).size(),\n"
+        "\t\t\"markers\": root.find_children(\"SpawnMarker\", \"\", true, false).size(),\n"
+        "\t\t\"bed_groups\": bed.get_groups()}))\n"
+        "\troot.free()\n"
+        "\tquit()\n")
+    godot = _godot_binary()
+    # First pass registers the addon's classes; the second imports with the plugin active.
+    for _ in range(2):
+        (project / "models" / "hotel_room_auto.glb.import").unlink(missing_ok=True)
+        subprocess.run([godot, "--headless", "--path", str(project), "--import"], capture_output=True, timeout=240)
+    result = subprocess.run([godot, "--headless", "--path", str(project), "-s", "check.gd"],
+                            capture_output=True, text=True, timeout=120)
+    line = next(l for l in result.stdout.splitlines() if l.startswith("import check: "))
+    check = json.loads(line.removeprefix("import check: "))
+    assert check["areas"] == 3 and check["markers"] == 1
+    assert {"furniture", "furniture.bed"} <= set(check["bed_groups"])

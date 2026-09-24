@@ -18,6 +18,8 @@ const POLL_SECONDS := 0.5
 var scene_name := ""
 ## Directory holding exports (res:// or absolute path).
 var generated_dir := DEFAULT_GENERATED_DIR
+## Bake a navigation mesh per loaded model (from its colliders).
+var bake_navigation := true
 ## Show collision shapes as wireframe overlays.
 var show_colliders := false:
 	set(value):
@@ -153,12 +155,16 @@ func _load_model(manifest_path: String) -> void:
 	_add_lights(root)
 	var count := _add_collision(root)
 	_collect_rooms(root)
+	var summary := GeogenSceneBuilder.build(root)
+	if bake_navigation:
+		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path))
 	for s in manifest.get("spawns", []):
 		var f: Array = s.get("forward", [0, 0, -1])
 		var p: Array = s.get("position", [0, 0, 0])
 		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]) + offset,
 			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
-	print("geogen: loaded %s (%d meshes, %d rooms)" % [model_path.get_file(), count, rooms.size()])
+	print("geogen: loaded %s (%d meshes, %d rooms, %d spawns, %d tagged)" % [
+		model_path.get_file(), count, summary["rooms"], summary["spawns"], summary["tagged"]])
 
 
 ## extras.geogen of a node imported from glTF, or {}.

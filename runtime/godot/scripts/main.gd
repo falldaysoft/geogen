@@ -13,6 +13,7 @@ extends Node3D
 ##   --use=ASSET                   use ASSET's interactions at start (e.g. open "door");
 ##                                 --use=@aim presses E on whatever the player looks at
 ##   --wait=SECONDS                wait before the --walk starts (let a door swing)
+##   --nav=AX,AZ:BX,BZ             print the navigation path between two floor points, quit
 ##
 ## In game, look at something interactive within reach and press E.
 ##   --screenshot=PATH             save a frame and quit
@@ -32,6 +33,8 @@ var _manifest_arg := false
 var _start_overview := false
 var _use_assets: Array[String] = []
 var _use_aim := false
+var _nav_query := []
+var _frames_nav := 0
 var _wait_left := 0.0
 var _focus: GeogenInteraction = null
 var _prompt: Label
@@ -66,6 +69,10 @@ func _ready() -> void:
             _start_overview = true
         elif arg.begins_with("--walk="):
             walk_seconds = float(value)
+        elif arg.begins_with("--nav="):
+            for point in value.split(":"):
+                var xz := point.split_floats(",")
+                _nav_query.append(Vector3(xz[0], 0.0, xz[1]))
         elif arg == "--use=@aim":
             _use_aim = true
         elif arg.begins_with("--use="):
@@ -170,6 +177,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
     _update_focus()
+    if _nav_query.size() == 2:
+        _frames_nav += 1
+        # Wait until the navigation map has synced the baked regions.
+        var synced := NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map) > 1
+        if synced or _frames_nav > 120:
+            _print_nav_path(_nav_query[0], _nav_query[1])
+            get_tree().quit()
+        return
     if _use_aim and _focus != null:
         _use_aim = false
         print("used: %s (%s)" % [_focus.asset.name, _focus.interaction_name])
@@ -226,3 +241,19 @@ func _update_focus() -> void:
                 _focus = it
     if _prompt:
         _prompt.text = "E: %s" % _focus.prompt() if _focus else ""
+
+
+## Print the navigation path between two floor points as JSON (length, points).
+func _print_nav_path(a: Vector3, b: Vector3) -> void:
+    var map := get_world_3d().navigation_map
+    var from := NavigationServer3D.map_get_closest_point(map, a)
+    var to := NavigationServer3D.map_get_closest_point(map, b)
+    var path := NavigationServer3D.map_get_path(map, from, to, true)
+    var length := 0.0
+    var points := []
+    for i in path.size():
+        points.append([snappedf(path[i].x, 0.01), snappedf(path[i].y, 0.01), snappedf(path[i].z, 0.01)])
+        if i > 0:
+            length += path[i].distance_to(path[i - 1])
+    print("nav path: %s" % JSON.stringify({"length": length, "reached": path.size() > 0 and path[-1].distance_to(to) < 0.05,
+        "end_gap": to.distance_to(b), "points": points}))
