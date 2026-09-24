@@ -59,6 +59,8 @@ var prefer_chunks := false
 var stream_focus := Vector3.ZERO
 ## The streamer of a chunked export, or null.
 var streamer: GeogenChunkStreamer = null
+## Where to prime a streamed export (the player's start when overridden), or null for its first spawn.
+var prime_focus = null
 ## Optional [full, lod, interior] radii for the streamer (metres).
 var stream_radii := PackedFloat64Array()
 
@@ -251,7 +253,9 @@ func _load_chunked(index_path: String, index: Dictionary) -> void:
 		streamer.interior_radius = stream_radii[2]
 	add_child(streamer)
 	streamer.open(index_path, index)
-	if not index.get("spawns", []).is_empty():
+	if prime_focus != null:
+		stream_focus = prime_focus
+	elif not index.get("spawns", []).is_empty():
 		var p: Array = index["spawns"][0].get("position", [0, 0, 0])
 		stream_focus = Vector3(p[0], p[1], p[2])
 	streamer.prime(stream_focus)
@@ -536,7 +540,10 @@ func _add_collision(root: Node) -> int:
 		if mi.mesh != null:
 			var convex: bool = String(mi.name).ends_with("-convcolonly") or geogen_extras(mi).get("shape") in ["box", "hull"]
 			var shape: Shape3D = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
-			_add_body(mi.get_parent(), shape, mi.transform)
+			if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
+				shape = mi.mesh.create_trimesh_shape()
+			if shape != null:
+				_add_body(mi.get_parent(), shape, mi.transform)
 		mi.get_parent().remove_child(mi)
 		mi.free()
 	return meshes.size() - colliders.size()

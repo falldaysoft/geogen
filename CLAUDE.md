@@ -416,6 +416,11 @@ Recipe keys are `storeys` (a number or `[lo, hi]`), `interior`, `style` (one or 
 
 Storeys are capped by what the stair hall can fit (`_cap_storeys`), and a recipe that doesn't fit is retried lower. Fitting uses the wall footprint (nodes tagged `wall`), so canopies may overhang the setback. The front is the side the entrance spawn is on (`recipes.front_of`), so a south-entrance hotel still faces its street. `building:` roofs take `style: gable|hip|shed` (+ `rise`, `overhang`, `gable_material`) as well as flat/parapet. The furnishing solver rejects placements whose own front can't be reached (it used to only protect already-placed items).
 
+`scenes/town.yaml` is milestone M3:
+- The district is exported with `--export-godot --stream`.
+- The hotel lobby and shop floors are furnished; offices are shells.
+- `tests/test_godot_runtime.py::test_m3_*` streams it in Godot, walks the avenue, opens a shop door and the hotel entrance, and checks the player ends up in `shop` / `lobby`.
+
 Manifest spawns are ordered shallowest first, so a scene's own `spawns:` beat nested buildings' `entrance_spawn`s. Layout QA works in each room's parent (storey) frame, so moving or rotating a building never changes its result.
 
 ### Buildings

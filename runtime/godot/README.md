@@ -95,7 +95,10 @@ User args (after `--`):
 | `--manifest=PATH` | Use the player spec from this manifest |
 
 `tests/test_godot_runtime.py` exports the cottage and walks the player into
-it headless (wall blocks, door step is climbed, closed door blocks).
+it headless (wall blocks, door step is climbed, closed door blocks). The
+`test_m3_*` tests stream the town district and walk into a shop and the
+hotel lobby; `test_stream_*` check what loads at full, LOD and interior
+detail as the player moves along a five-block street.
 
 ## Streaming large scenes
 

@@ -12,8 +12,9 @@ extends Node
 ##   the full exterior is loaded;
 ## - pieces unload ``hysteresis`` metres further out than they load.
 ##
-## GLB parsing and mipmap generation run on the WorkerThreadPool; the main
-## thread only adds the finished nodes and runs WorldLoader.setup_root.
+## GLB parsing and scene generation run on the WorkerThreadPool; the main
+## thread builds texture mipmaps (reading texture images off the main thread
+## crashes), adds the nodes and runs WorldLoader.setup_root.
 ## ``prime()`` loads what the start position needs synchronously.
 
 const INDEX_FORMAT := "geogen-chunks"
@@ -51,9 +52,15 @@ func open(index_path: String, index: Dictionary) -> void:
 
 ## Load everything wanted at ``focus`` right now (no threads): the start of a session.
 func prime(focus: Vector3) -> void:
-	for file in _wanted(focus):
-		if not _loaded.has(file):
-			_attach(file, _load_glb(_path(file), world))
+	# Interiors are only wanted once their exterior is in, so repeat until settled.
+	for _pass in 3:
+		var added := false
+		for file in _wanted(focus):
+			if not _loaded.has(file):
+				_attach(file, _load_glb(_path(file), world))
+				added = true
+		if not added:
+			break
 	_unload_unwanted(focus)
 
 
@@ -83,6 +90,16 @@ func _process(_delta: float) -> void:
 		elif root != null:
 			root.free()
 	_unload_unwanted(focus)
+
+
+## Never leave a worker parsing a chunk behind (quitting or reloading).
+func _exit_tree() -> void:
+	for file in _tasks.keys():
+		WorkerThreadPool.wait_for_task_completion(_tasks[file]["id"])
+		for root in _tasks[file]["out"]:
+			if root != null:
+				root.free()
+	_tasks.clear()
 
 
 ## Files that should be loaded for ``focus`` (with hysteresis for loaded ones).
@@ -132,22 +149,20 @@ func _attach(file: String, root: Node3D) -> void:
 		world.add_child(_loaded[file])
 		return
 	root.name = file.get_basename()
+	world._prepare_materials(root)
 	world.add_child(root)
 	world.setup_root(root)
 	_loaded[file] = root
 	_loads += 1
 
 
-## Parse a GLB and build mipmaps (safe on a worker thread: nothing is in the tree yet).
-static func _load_glb(path: String, w: WorldLoader) -> Node3D:
+## Parse a GLB into a scene (safe on a worker thread: nothing is in the tree yet).
+static func _load_glb(path: String, _w: WorldLoader = null) -> Node3D:
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
 	if doc.append_from_file(ProjectSettings.globalize_path(path), state) != OK:
 		return null
-	var root := doc.generate_scene(state) as Node3D
-	if root != null:
-		w._prepare_materials(root)
-	return root
+	return doc.generate_scene(state) as Node3D
 
 
 func _path(file: String) -> String:

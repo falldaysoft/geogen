@@ -139,6 +139,7 @@ func _ready() -> void:
     print("geogen runtime ready (Godot %s)" % Engine.get_version_info().string)
 
     world.open_before_bake = _playtest_walks >= 0
+    world.prime_focus = _spawn_override
     world.world_loaded.connect(_on_world_loaded)
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         print("interaction event: %s" % JSON.stringify(

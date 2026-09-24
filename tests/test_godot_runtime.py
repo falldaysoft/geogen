@@ -493,3 +493,68 @@ def test_stream_loads_interiors_next_to_buildings(run_godot, strip_dir):
                     "--spawn=-80,0.2,-12.5", "--quit-after=90", "--status")
     status = json.loads(next(l for l in out.splitlines() if l.startswith("status: ")).removeprefix("status: "))
     assert status["stream"]["interiors"] and all(i.startswith("block_0_0/") for i in status["stream"]["interiors"])
+
+
+@pytest.fixture(scope="module")
+def district(tmp_path_factory):
+    """Milestone M3: the town district as a streamed chunk export, plus its building entrances."""
+    from geogen.chunks import export_chunks
+
+    root = _build_registry()["town"]()
+    out = tmp_path_factory.mktemp("generated")
+    index = json.loads(export_chunks(root, out / "town_chunks", name="town").read_text())
+    entrances = {}
+    for node in root.iter_nodes():
+        if node.name != "entrance_spawn":
+            continue
+        building = node.parent
+        m = node.world_transform()
+        forward = m[:3, 2]
+        entrances.setdefault(building.meta["building"]["entry"], []).append({
+            "name": building.name, "shell": "building.shell" in building.tags,
+            "spawn": ",".join(f"{v:.3f}" for v in m[:3, 3]),
+            "yaw": float(np.degrees(np.arctan2(-forward[0], -forward[2]))),
+        })
+    return out, index, entrances
+
+
+def _district_walk(run_godot, generated, *args):
+    out = run_godot("--scene", "town", f"--generated={generated}", *args)
+    assert "geogen: streaming town.chunks.json" in out
+    return json.loads(next(l for l in out.splitlines() if l.startswith("walk result: ")).removeprefix("walk result: "))
+
+
+def test_m3_district_exports_streamable_chunks(district):
+    _, index, entrances = district
+    assert index["format"] == "geogen-chunks" and index["spawns"][0]["name"] == "start"
+    kinds = set(entrances)
+    assert {"hotel", "shop_row", "office", "detached_house"} <= kinds
+    interiors = {i["building"] for c in index["chunks"] for i in c["interiors"]}
+    # Enterable buildings stream their interiors; background shells have none.
+    assert any("hotel" in b for b in interiors) and any("shop_row" in b for b in interiors)
+    assert all(e["shell"] for e in entrances["office"])
+    assert not any("office" in b for b in interiors)
+
+
+def test_m3_walk_the_street(run_godot, district):
+    generated, _, _ = district
+    end = _district_walk(run_godot, generated, "--walk=1.5")
+    assert end["on_floor"] and end["z"] > 2          # walked north across the avenue onto the sidewalk
+    assert "base" in end["stream"]["full"]
+
+
+def test_m3_enter_a_shop(run_godot, district):
+    generated, _, entrances = district
+    shop = next(e for e in entrances["shop_row"] if not e["shell"])
+    end = _district_walk(run_godot, generated, f"--spawn={shop['spawn']}", f"--yaw={shop['yaw']}",
+                         "--use=shop_door", "--wait=1.5", "--walk=1.6")
+    assert end["room"] == "shop"
+    assert any(shop["name"] in i for i in end["stream"]["interiors"])
+
+
+def test_m3_enter_the_hotel(run_godot, district):
+    generated, _, entrances = district
+    hotel = entrances["hotel"][0]
+    end = _district_walk(run_godot, generated, f"--spawn={hotel['spawn']}", f"--yaw={hotel['yaw']}",
+                         "--use=entrance", "--wait=2", "--walk=2")
+    assert end["room"] == "lobby"
