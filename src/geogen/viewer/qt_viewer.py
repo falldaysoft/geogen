@@ -97,6 +97,15 @@ def describe_node(node: SceneNode) -> str:
             lines.extend(f"  ! {issue}" for issue in report.issues)
         else:
             lines.append("  no defects")
+
+    # Interiors: layout QA (overlaps, door swings, reachability) for nodes holding rooms.
+    if any(isinstance(n.meta.get("room"), dict) for n in node.iter_nodes()):
+        from ..layout.qa import check_layout
+
+        issues = check_layout(node)
+        lines.append("")
+        lines.append("Layout check")
+        lines.extend(f"  ! {issue}" for issue in issues) if issues else lines.append("  no problems")
     return "\n".join(lines)
 
 

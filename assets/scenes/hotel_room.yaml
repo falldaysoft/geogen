@@ -11,20 +11,22 @@ place:
     asset: hotel_suite.yaml
 
   # --- Bedroom (4.19 x 4.3 m clear) ---------------------------------------
+  # A small room: a desk or armchair would wall off a nightstand (see
+  # geogen.layout.qa), so like the solver's layout it has neither.
   bed:
     asset: bed.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 1.065 }, v: { abs: 2.3 } }
+    at: { u: { abs: 1.094 }, v: { abs: 2.154 } }
     facing: east                      # headboard on the west wall
   nightstand_south:
     asset: nightstand.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 0.22 }, v: { abs: 1.17 } }
+    at: { u: { abs: 0.229 }, v: { abs: 1.054 } }
     facing: east
   nightstand_north:
     asset: nightstand.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 0.22 }, v: { abs: 3.43 } }
+    at: { u: { abs: 0.229 }, v: { abs: 3.254 } }
     facing: east
   lamp_south:
     asset: table_lamp.yaml
@@ -35,47 +37,31 @@ place:
   art:
     asset: wall_art.yaml
     on: suite.bedroom.west_wall
-    at: { u: 0.465, v: { abs: 1.35 } }
+    at: { u: 0.5, v: { abs: 1.35 } }
   rug:
     asset: rug.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 2.2 }, v: { abs: 2.3 } }
+    at: { u: { abs: 1.844 }, v: { abs: 2.154 } }
     facing: east
 
   tv_console:
     asset: tv_console.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 3.98 }, v: { abs: 1.6 } }
+    at: { u: { abs: 3.951 }, v: { abs: 1.124 } }
     facing: west
   tv:
     asset: tv.yaml
     on: suite.bedroom.east_wall
-    at: { u: { abs: 1.6 }, v: { abs: 0.95 } }
-
+    at: { u: { abs: 1.124 }, v: { abs: 0.95 } }
   wardrobe:
     asset: wardrobe.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 2.6 }, v: { abs: 4.01 } }
-    facing: south
-  desk:
-    asset: desk.yaml
-    on: suite.bedroom.floor
-    at: { u: { abs: 1.3 }, v: { abs: 4.0 } }
-    facing: south
-  desk_chair:
-    asset: desk_chair.yaml
-    on: suite.bedroom.floor
-    at: { u: { abs: 1.3 }, v: { abs: 3.5 } }
-    facing: north
-  armchair:
-    asset: armchair.yaml
-    on: suite.bedroom.floor
-    at: { u: { abs: 3.2 }, v: { abs: 0.8 } }
-    facing: center
+    at: { u: { abs: 3.871 }, v: { abs: 2.374 } }
+    facing: west
   floor_lamp:
     asset: floor_lamp.yaml
     on: suite.bedroom.floor
-    at: { u: { abs: 3.9 }, v: { abs: 0.3 } }
+    at: { u: { abs: 0.234 }, v: { abs: 4.061 } }
   curtains:
     asset: curtains.yaml
     on: suite.bedroom.south_wall
@@ -85,17 +71,17 @@ place:
   shower:
     asset: shower.yaml
     on: suite.bathroom.floor
-    at: { u: { abs: 0.45 }, v: { abs: 0.45 } }
+    at: { u: { abs: 0.48 }, v: { abs: 0.48 } }
     facing: north
   toilet:
     asset: toilet.yaml
     on: suite.bathroom.floor
-    at: { u: { abs: 1.3 }, v: { abs: 0.35 } }
+    at: { u: { abs: 1.3 }, v: { abs: 0.38 } }
     facing: north
   vanity:
     asset: vanity.yaml
     on: suite.bathroom.floor
-    at: { u: { abs: 1.94 }, v: { abs: 1.05 } }
+    at: { u: { abs: 1.9 }, v: { abs: 1.05 } }
     facing: west
   mirror:
     asset: wall_mirror.yaml

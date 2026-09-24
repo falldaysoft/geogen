@@ -200,6 +200,10 @@ pytest tests/test_scenes.py -k "test_name"
 
 Parametric furniture assets in `assets/` (tags `furniture.*` / `bathroom.*` / `decor.*`, `clearance:` → `meta.footprint` + `meta.clearance` in extras): bed, nightstand (drawer interaction), wardrobe (door interaction), desk, desk_chair, armchair, bookshelf, floor_lamp, table_lamp, tv_console, luggage_rack, rug; wall-mounted (origin on the wall plane, depth along +Z): tv, wall_mirror, wall_art, curtains, towel_rail; bathroom: toilet (lid interaction), vanity (basin + tap), shower, bathtub. `scenes/hotel_room.yaml` furnishes `hotel_suite.yaml` by hand; `tests/test_furniture.py` checks nothing overlaps or blocks door swings. Soft goods are rounded boxes/ellipsoids until subdivision (geogen-o3s.14).
 
+### Layout QA
+
+`layout/qa.py`: `check_layout(scene, player)` finds furniture overlaps (chairs may tuck under desks/tables), items in walls, items in door swing arcs, tall items in front of windows (sills below 1.2 m), doors narrower than `player.door_min_width`, and items whose front can't be reached from a door (2D occupancy grid eroded by the player radius, flood-filled from doorways). The furnishing solver uses `room_reachability` to reject placements that would wall off earlier items; the viewer inspector shows a "Layout check" section; `tests/test_asset_quality.py` requires every registered scene to pass.
+
 ### Interior finishes
 
 `generators/finishes.py` (called from `FloorPlan.build`, `floorplan: {finishes: true | false | {lining, skirting, cornice, light, switches}}`): per room a 1 cm `lining` in the room's wall material (cut by openings; room wall surfaces sit on it), swept `skirting` broken at doorways, swept `cornice`, a pendant `<room>_light` with `meta.light` (Godot adds an `OmniLight3D`; fixture meshes don't cast shadows) and `<room>_switch_N` beside each door's latch side (`meta.switch.light`). Room materials resolve room keys (`floor`/`walls`/`ceiling`) > room type `finishes:` in `assets/room_types/<type>.yaml` > plan `materials`. Rooms record `meta.wall_inset` so the furnishing solver keeps floor items off the skirting.

@@ -23,7 +23,9 @@ door swing arcs and the approach zone in front of each door, and items
 rising more than 0.4 m above a window's sill (wardrobes, shelves) stay out
 of the zone in front of it. Remaining
 candidates are scored by ``prefer`` terms; ties break by a seeded jitter, so
-results are deterministic for a seed. Rules that can't be met are reported
+results are deterministic for a seed. A candidate is rejected if it would
+leave an already-placed item out of reach from the room's doors (see
+``qa.room_reachability``). Rules that can't be met are reported
 (``furnish_room`` returns them); ``optional: true`` items are skipped
 quietly.
 
@@ -65,6 +67,7 @@ _WALLS = {
 GAP = 0.02          # air between neighbouring items
 STEP = 0.05         # candidate spacing along walls / grid
 DOOR_APPROACH = 0.9  # free depth in front of every door
+MAX_REACH_TRIES = 300 # candidates tried per item before giving up on reachability
 WINDOW_OVERLAP = 0.4  # items may rise this far above a sill in front of a window
 
 
@@ -355,21 +358,36 @@ class _RoomSolver:
             node = self.load(spec)
             size = np.asarray(node.size, dtype=float)
             clearance = self._clearance(node, spec)
-            best = None
+            options = []
             for center, facing, wall, along in self._candidates(size, against, spec.get("facing")):
                 rect = self.footprint(center, facing, size)
                 keep = self.keepout(center, facing, size, clearance)
                 if not self.fits(rect, keep, float(size[1]), set()):
                     continue
-                s = self.score(prefer, center, wall, along, size)
-                if best is None or s > best[0]:
-                    best = (s, center, facing, rect, keep, wall, along)
-            if best is None:
+                options.append((self.score(prefer, center, wall, along, size), center, facing, rect, keep, wall, along))
+            options.sort(key=lambda o: -o[0])
+            # Best first, but never cut off access to something already placed.
+            before = set(self.unreachable())
+            for _, center, facing, rect, keep, wall, along in options[:MAX_REACH_TRIES]:
+                self.add(name, i, node, center, facing, 0.0, rect, keep, wall, along)
+                if set(self.unreachable()) <= before:
+                    placed += 1
+                    break
+                self.remove_last(name)
+            else:
                 break
-            _, center, facing, rect, keep, wall, along = best
-            self.add(name, i, node, center, facing, 0.0, rect, keep, wall, along)
-            placed += 1
         return placed
+
+    def unreachable(self) -> list[str]:
+        from .qa import room_reachability
+
+        return room_reachability(self.room)
+
+    def remove_last(self, name: str) -> None:
+        placed = self.placed[name].pop()
+        if not self.placed[name]:
+            del self.placed[name]
+        self.room.remove_child(placed.node)
 
     def _candidates(self, size: np.ndarray, against: str, facing_spec: str | None):
         w, d = float(size[0]), float(size[2])

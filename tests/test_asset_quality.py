@@ -49,6 +49,13 @@ def test_textured_meshes_have_metric_uvs(scene):
     assert not problems, f"{name}:\n" + "\n".join(problems)
 
 
+def test_interiors_pass_layout_qa(scene):
+    from geogen.layout.qa import check_layout
+
+    name, root = scene
+    assert [str(i) for i in check_layout(root)] == [], name
+
+
 def test_scene_is_not_empty(scene):
     name, root = scene
     assert sum(len(m.faces) for _, m in root.iter_meshes()) > 0, name
