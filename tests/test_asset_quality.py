@@ -62,7 +62,7 @@ def test_scene_is_not_empty(scene):
 
 
 # Assets whose declared size doesn't match their geometry yet (geogen-o3s.26).
-KNOWN_SIZE_MISMATCH = {"fire_hydrant", "maple_tree", "pine_tree", "street_lamp"}
+KNOWN_SIZE_MISMATCH: set[str] = set()
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
 ROOT_ASSETS = [n for n in SCENES if "parts" in (safe_load_path(ASSETS_DIR / f"{n}.yaml") if (ASSETS_DIR / f"{n}.yaml").exists() else {})]
 

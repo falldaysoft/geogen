@@ -361,6 +361,12 @@ class LayoutLoader:
             for interaction in root.interactions:
                 apply_state(root, interaction, interaction.initial)
 
+        if data.get("bounds") == "geometry":
+            # The container is only a unit for part sizes (e.g. [scale, scale,
+            # scale] with parts in metres): report the real extent instead.
+            extent = _geometry_extent(root)
+            if extent is not None:
+                root.size = extent
         return root
 
     def _resolve_surface_exports(
@@ -856,4 +862,15 @@ def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
             "motions": [motion],
         }
     return result
+
+
+def _geometry_extent(root: SceneNode) -> np.ndarray | None:
+    """Size of the axis-aligned box around all meshes, in ``root``'s frame."""
+    inv = np.linalg.inv(root.world_transform())
+    pts = [(inv @ n.world_transform() @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3]
+           for n in root.iter_nodes() if n.mesh is not None and len(n.mesh.vertices)]
+    if not pts:
+        return None
+    allp = np.vstack(pts)
+    return allp.max(axis=0) - allp.min(axis=0)
 

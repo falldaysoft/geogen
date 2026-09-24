@@ -7,7 +7,7 @@ from typing import Any
 # Known keys for asset YAML files
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
-    "surfaces", "floorplan", "tags", "interactions", "clearance", "building",
+    "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds",
 }
 
 PART_KNOWN_KEYS = {

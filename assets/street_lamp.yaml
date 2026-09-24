@@ -12,6 +12,7 @@ params:
   scale: { default: 1 }
 
 size: ["{scale}", "{scale}", "{scale}"]
+bounds: geometry     # declared size = the real extent (the container above is a unit)
 
 parts:
   # Base plate (0.3m diameter, 0.02m thick)
