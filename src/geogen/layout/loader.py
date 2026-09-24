@@ -19,6 +19,7 @@ from ..generators.primitives import (
 )
 from ..generators.architecture import PrismGenerator, RoofGenerator
 from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
+from ..generators.sweep import SweepGenerator
 from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import resolve_anchor
@@ -46,6 +47,7 @@ PRIMITIVE_REGISTRY = {
     "lathe": LatheGenerator,
     "roof": RoofGenerator,
     "prism": PrismGenerator,
+    "sweep": SweepGenerator,
 }
 
 
@@ -181,11 +183,16 @@ class LayoutLoader:
 
         for part_name, part_def in parts.items():
             primitive_type = part_def["primitive"]
-            frac_size = np.array(part_def["size"], dtype=np.float64)
-            actual_size = frac_size * container_size
+            if "size" in part_def:
+                frac_size = np.array(part_def["size"], dtype=np.float64)
+                actual_size = frac_size * container_size
+            else:  # sweeps: the path defines the size
+                actual_size = np.zeros(3)
 
             generator = self._create_generator(primitive_type, actual_size, part_def)
             node = generator.to_node(part_name)
+            if "size" not in part_def and node.mesh is not None:
+                actual_size = node.mesh.vertices.max(axis=0) - node.mesh.vertices.min(axis=0)
 
             # Apply material if specified
             material_name = part_def.get("material")
@@ -304,6 +311,10 @@ class LayoutLoader:
                 # If anchor is a "bottom" anchor, shift up so bottom of part is at anchor
                 if "bottom" in anchor_name:
                     position[1] += actual_size[1] / 2
+
+                # Uncentred sweeps keep their path in the asset's own frame.
+                if part_def["primitive"] == "sweep" and part_def.get("center") is False:
+                    position = offset_world
 
                 node.transform.translation = position
 
@@ -554,6 +565,8 @@ class LayoutLoader:
             return self._create_extrude_generator(size, extra_config or {})
         elif primitive_type == "lathe":
             return self._create_lathe_generator(size, extra_config or {})
+        elif primitive_type == "sweep":
+            return self._create_sweep_generator(extra_config or {})
         elif primitive_type == "roof":
             config = extra_config or {}
             return RoofGenerator(
@@ -662,6 +675,43 @@ class LayoutLoader:
             bevel_segments=int(config.get("bevel_segments", 3)),
             crease_angle=float(config.get("crease_angle", 40.0)),
             caps=bool(config.get("caps", True)),
+        )
+
+    @staticmethod
+    def _create_sweep_generator(config: dict[str, Any]) -> SweepGenerator:
+        """Sweep ``config['profile']`` (a shape spec, metres) along ``config['path']``.
+
+        ``path`` is a list of [x, y, z] points or ``{spline: [...], samples: n}``
+        (Catmull-Rom through the points). The mesh is centred on its bounds
+        like other primitives unless ``center: false``, in which case the path
+        is in the asset's frame (anchor ignored, ``offset`` still applies).
+        """
+        from ..core.profile import catmull_rom
+
+        if "profile" not in config or "path" not in config:
+            raise ValueError("sweep parts require 'profile' (a shape) and 'path' ([[x, y, z], ...])")
+        closed = bool(config.get("closed", False))
+        path_spec = config["path"]
+        if isinstance(path_spec, dict):
+            if "spline" not in path_spec:
+                raise ValueError("sweep path mapping must be {spline: [[x, y, z], ...], samples: n}")
+            path = catmull_rom(np.asarray(path_spec["spline"], dtype=np.float64),
+                               int(path_spec.get("samples", 8)), closed=closed)
+        else:
+            path = np.asarray(path_spec, dtype=np.float64)
+        if path.ndim != 2 or path.shape[1] != 3:
+            raise ValueError(f"sweep path must be a list of [x, y, z] points, got shape {path.shape}")
+        scale = config.get("scale", [1.0, 1.0])
+        scale = (float(scale), float(scale)) if isinstance(scale, (int, float)) else tuple(float(v) for v in scale)
+        return SweepGenerator(
+            profile=shape_from_spec(config["profile"]),
+            path=path,
+            closed=closed,
+            up=tuple(float(v) for v in config.get("up", (0.0, 1.0, 0.0))),
+            twist=float(config.get("twist", 0.0)),
+            scale=scale,
+            crease_angle=float(config.get("crease_angle", 40.0)),
+            center=bool(config.get("center", True)),
         )
 
     @staticmethod

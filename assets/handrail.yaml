@@ -1,0 +1,42 @@
+# Stair/landing handrail: turned posts and a round rail swept along a path
+# that bends down into the floor at both ends. Origin bottom_center; the rail
+# runs along X.
+
+name: handrail
+tags: [architecture.handrail]
+origin: bottom_center
+
+params:
+  length: { default: 2.0 }
+  height: { default: 0.9 }
+
+size: ["{length}", "{height}", 0.08]
+
+parts:
+  rail:
+    primitive: sweep
+    profile: { circle: 0.022, segments: 16 }
+    path:
+      spline:
+        - ["{-length / 2}", 0.0, 0]
+        - ["{-length / 2}", 0.3, 0]
+        - ["{-length / 2}", "{height - 0.17}", 0]
+        - ["{-length / 2 + 0.035}", "{height - 0.06}", 0]
+        - ["{-length / 2 + 0.15}", "{height - 0.022}", 0]
+        - ["{-length / 4}", "{height - 0.022}", 0]
+        - [0, "{height - 0.022}", 0]
+        - ["{length / 4}", "{height - 0.022}", 0]
+        - ["{length / 2 - 0.15}", "{height - 0.022}", 0]
+        - ["{length / 2 - 0.035}", "{height - 0.06}", 0]
+        - ["{length / 2}", "{height - 0.17}", 0]
+        - ["{length / 2}", 0.3, 0]
+        - ["{length / 2}", 0.0, 0]
+      samples: 10
+    center: false          # path coordinates are in the asset frame
+    material: wood_dark
+  post_mid:
+    primitive: lathe
+    profile: { spline: [[0.9, 0], [1.0, 0.04], [0.55, 0.12], [0.5, 0.5], [0.6, 0.9], [0.5, 1.0]] }
+    size: ["{0.05 / length}", "{(height - 0.04) / height}", 0.6]
+    anchor: bottom_center
+    material: wood_dark

@@ -16,6 +16,8 @@ PART_KNOWN_KEYS = {
     # extrude / lathe
     "shape", "profile", "axis", "fit", "crease_angle", "caps", "segments", "sweep",
     "cap_bottom", "cap_top",
+    # sweep
+    "path", "closed", "up", "twist", "scale", "center",
     # booleans
     "subtract", "cutter", "cut_host", "reveal",
     # gameplay metadata
@@ -38,7 +40,7 @@ PLACEMENT_KNOWN_KEYS = {
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
@@ -94,7 +96,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
             msg = f"Unknown primitive '{prim_type}' in part '{part_name}'.{_suggest(prim_type, KNOWN_PRIMITIVES)}"
             raise ValidationError(msg)
 
-        if "size" not in part_def:
+        if "size" not in part_def and prim_type != "sweep":
             raise ValidationError(f"Part '{part_name}' requires 'size' field")
 
         for key in part_def:

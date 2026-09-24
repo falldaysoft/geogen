@@ -80,6 +80,8 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **ExtrudeGenerator / LatheGenerator** (`profiles.py`): Extrude a `Shape` (with holes) along x/y/z with an optional rounded cap bevel; revolve an (r, y) profile around Y (partial `sweep` supported, r=0 closes at the axis). Both are watertight, metric-UV'd, and use a crease angle (default 40°) for normals.
 
+- **SweepGenerator** (`sweep.py`): `primitive: sweep` sweeps a `profile` shape (metres; x = right of travel, y = up) along a `path` of [x, y, z] points or `{spline: [...], samples}`, with rotation-minimising frames, mitred corners, `closed`, `twist` (deg), `scale: [start, end]`, caps on open paths. `size` is optional (taken from the path); `center: false` keeps the path in the asset frame (anchor ignored). Example: `assets/handrail.yaml`.
+
 - **RoofGenerator / PrismGenerator** (`architecture.py`): `primitive: roof` with `style: gable|hip|shed|flat`, `overhang`, `thickness`, `ridge_axis: auto|x|z`, `ridge_cap`. Size = wall-top footprint + rise; the part's bottom is the wall-top plane, eaves overhang beyond it. UVs are face-planar (shingle rows parallel to eaves). `primitive: prism` fills gable ends (`apex: center|back|front` for wedges/ramps).
 
 - **CSG** (`core/csg.py`): `difference`, `union`, `intersection` on closed meshes via manifold3d; UVs survive, normals are recomputed. In YAML: `subtract: [part, ...]` on a target and `cutter: true` on helper parts (removed after cutting). `cut_host: true` marks an opening cutter that is applied to *whatever surface the asset is placed on* — `window.yaml` / `door.yaml` use this so `on: house.front_wall` cuts a real opening into the wall part (surfaces remember their `source` part).
