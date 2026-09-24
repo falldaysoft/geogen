@@ -14,6 +14,8 @@ extends Node3D
 ##                                 --use=@aim presses E on whatever the player looks at
 ##   --wait=SECONDS                wait before the --walk starts (let a door swing)
 ##   --nav=AX,AZ:BX,BZ             print the navigation path between two floor points, quit
+##   --playtest[=N]                check every room/interaction is reachable, walk N routes
+##                                 with a bot (default 6), print "playtest: {...}", quit
 ##
 ## In game, look at something interactive within reach and press E.
 ##   --screenshot=PATH             save a frame and quit
@@ -35,6 +37,7 @@ var _use_assets: Array[String] = []
 var _use_aim := false
 var _nav_query := []
 var _frames_nav := 0
+var _playtest_walks := -1
 var _wait_left := 0.0
 var _focus: GeogenInteraction = null
 var _prompt: Label
@@ -69,6 +72,10 @@ func _ready() -> void:
             _start_overview = true
         elif arg.begins_with("--walk="):
             walk_seconds = float(value)
+        elif arg == "--playtest":
+            _playtest_walks = 6
+        elif arg.begins_with("--playtest="):
+            _playtest_walks = int(value)
         elif arg.begins_with("--nav="):
             for point in value.split(":"):
                 var xz := point.split_floats(",")
@@ -93,6 +100,7 @@ func _ready() -> void:
         i += 1
     print("geogen runtime ready (Godot %s)" % Engine.get_version_info().string)
 
+    world.open_before_bake = _playtest_walks >= 0
     world.world_loaded.connect(_on_world_loaded)
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         print("interaction event: %s" % JSON.stringify(
@@ -122,6 +130,14 @@ func _ready() -> void:
     # The viewport auto-selects the first camera to enter the tree (the
     # overview), so always pick one explicitly.
     (overview if _start_overview else player.camera).make_current()
+    if _playtest_walks >= 0:
+        var playtest := GeogenPlaytest.new()
+        playtest.world = world
+        playtest.player = player
+        playtest.start = player.global_position
+        playtest.start_yaw = rad_to_deg(player.rotation.y)
+        playtest.walk_count = _playtest_walks
+        add_child(playtest)
     if walk_seconds > 0.0:
         _walk_left = walk_seconds
         if _wait_left <= 0.0:

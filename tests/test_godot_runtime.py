@@ -237,3 +237,50 @@ def test_player_climbs_building_stairs_to_next_storey(run_godot, tmp_path):
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
                      .removeprefix("walk result: "))
     assert end["y"] == pytest.approx(3.65, abs=0.03) and end["on_floor"]
+
+
+def _playtest(run_godot, generated, scene, walks=4):
+    import subprocess
+    from conftest import GODOT_PROJECT, _godot_binary
+    # Fixed-fps makes the scripted bot run faster than real time.
+    result = subprocess.run([_godot_binary(), "--headless", "--fixed-fps", "60", "--path", str(GODOT_PROJECT), "--",
+                             "--scene", scene, f"--generated={generated}", f"--playtest={walks}"],
+                            capture_output=True, text=True, timeout=600)
+    line = next(l for l in result.stdout.splitlines() if l.startswith("playtest: "))
+    return result.returncode, json.loads(line.removeprefix("playtest: "))
+
+
+def test_playtest_furnished_suite(run_godot, auto_room_dir):
+    code, report = _playtest(run_godot, auto_room_dir, "hotel_room_auto", walks=3)
+    assert report["ok"] and code == 0, report
+    assert report["rooms"] == 3 and len(report["walked"]) == 3
+    assert report["targets"] > 0 and report["unreachable_targets"] == []
+
+
+def test_playtest_building_from_entrance(run_godot, tmp_path):
+    from geogen.layout import LayoutLoader
+    from test_building import SMALL
+    export_scene(LayoutLoader().load_string(SMALL), tmp_path / "small_building.glb")
+    code, report = _playtest(run_godot, tmp_path, "small_building", walks=6)
+    assert report["ok"] and code == 0, report
+    # Lobby rooms + two guest floors, all reachable from the street entrance.
+    assert report["unreachable"] == [] and report["rooms"] > 30
+
+
+def test_playtest_reports_blocked_rooms(run_godot, tmp_path):
+    # A room whose only door is too narrow for the player is reported by name.
+    from geogen.generators.floorplan import FloorPlan
+    plan = FloorPlan.from_spec({
+        "rooms": {"hall": {"rect": [0, 0, 4, 3]}, "closet": {"rect": [4, 0, 2, 3], "type": "closet"}},
+        "doors": [{"name": "front", "room": "hall", "side": "south", "width": 1.0},
+                  {"between": ["hall", "closet"], "width": 0.5, "style": "opening"}],
+    }).build("narrow")
+    from geogen.core.node import SceneNode
+    from geogen.core.transform import Transform
+    spawn = SceneNode("spawn", transform=Transform(translation=np.array([-1.0, 0.0, -3.0])))
+    spawn.meta["type"] = "spawn"
+    plan.add_child(spawn)
+    export_scene(plan, tmp_path / "narrow.glb")
+    code, report = _playtest(run_godot, tmp_path, "narrow", walks=1)
+    assert code == 1 and not report["ok"]
+    assert report["unreachable"] == ["closet (closet)"]

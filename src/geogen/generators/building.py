@@ -13,15 +13,16 @@ YAML (an asset with ``building:`` instead of ``parts:``)::
 Each storey is a ``storey_<n>`` node (tags ``storey``, ``storey.<n>``; meta
 ``storey: {index, elevation, height}``) holding its floor plan, raised so its
 floor slab sits on the walls below. Layouts that take a ``floor`` param get
-the storey number. Every room of type ``stair`` gets a straight flight up to
-the room above (same position on the next storey), and the floor above and
-the ceiling below are cut open over the flight. A flat roof slab with a
+the storey number. Stair rooms stacked over several storeys become scissor
+cores (see ``_connect_all_stairs``); the floor above and ceiling below are
+cut open over each flight. A flat roof slab with a
 parapet caps the top storey.
 """
 
 from __future__ import annotations
 
 import copy
+import logging
 import inspect
 from pathlib import Path
 from typing import Any
@@ -33,8 +34,11 @@ from ..core.node import SceneNode
 from ..core.transform import Transform
 from .floorplan import FloorPlan
 
+logger = logging.getLogger(__name__)
+
 STAIR_WIDTH = 1.2
-DOOR_CLEAR = 0.9      # free floor between a stair room's door and the bottom step
+DOOR_CLEAR = 0.9      # free floor in front of a stair room's end-wall door
+WALKWAY = 1.2         # clear width beside the flights (door side)
 
 
 def _box(lo: np.ndarray, hi: np.ndarray) -> Mesh:
@@ -100,8 +104,8 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
             # The next floor slab sits on top of these walls.
             elevation += plan.wall_height + plans[index + 1].floor_thickness
 
-    for (lower, lower_plan), (upper, _) in zip(storeys, storeys[1:]):
-        _connect_stairs(lower, lower_plan, upper, material_loader)
+    _connect_all_stairs([s for s, _ in storeys], material_loader)
+    _add_entrance_spawn(root, storeys[0][0])
 
     if facade:
         from .facade import build_facade
@@ -121,64 +125,122 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
     return root
 
 
-def _connect_stairs(lower: SceneNode, lower_plan: FloorPlan, upper: SceneNode, material_loader) -> None:
-    """A straight flight in each lower stair room up to the matching upper room."""
-    from ..core import csg
+def _add_entrance_spawn(root: SceneNode, ground: SceneNode) -> None:
+    """A spawn point 2.5 m outside the first ground-floor exterior door, facing it."""
+    to_root = np.linalg.inv(root.world_transform())
+    for door in ground.iter_nodes():
+        if "door.exterior" not in door.tags:
+            continue
+        m = to_root @ door.world_transform()
+        # Door +Z faces the swing room (inside); outside is -Z.
+        inward = m[:3, 2] / np.linalg.norm(m[:3, 2])
+        position = m[:3, 3] - inward * 2.5
+        position[1] = 0.0
+        yaw = float(np.arctan2(inward[0], inward[2]))
+        spawn = SceneNode(name="entrance_spawn", transform=Transform(translation=position,
+                                                                   rotation=np.array([0.0, yaw, 0.0])))
+        spawn.tags = ["spawn"]
+        spawn.meta["type"] = "spawn"
+        root.add_child(spawn)
+        return
+
+
+def _stair_rooms(storey: SceneNode) -> dict[str, SceneNode]:
+    return {n.meta["room"]["id"]: n for n in storey.iter_nodes()
+            if isinstance(n.meta.get("room"), dict) and n.meta.get("type") != "room_volume"
+            and n.meta["room"]["type"] == "stair"}
+
+
+def _connect_all_stairs(storeys: list[SceneNode], material_loader) -> None:
+    """Scissor stair cores for stair rooms stacked over several storeys.
+
+    Every flight runs along the long wall away from the room's doors, so the
+    door side stays a clear walkway on every floor. Flights alternate halves:
+    even ones climb toward one end, odd ones toward the other, each starting
+    near the middle; a player arriving at the far end of one flight walks
+    back along the walkway to the start of the next. Flights two storeys
+    apart share a footprint but are separated by the slab in between.
+    """
     from .stairs import StairsGenerator
 
-    rise = float(upper.transform.translation[1] - lower.transform.translation[1])
-    uppers = {n.meta["room"]["id"]: n for n in upper.iter_nodes()
-              if isinstance(n.meta.get("room"), dict) and n.meta.get("type") != "room_volume"}
-    for room in [n for n in lower.iter_nodes() if isinstance(n.meta.get("room"), dict)
-                 and n.meta.get("type") != "room_volume" and n.meta["room"]["type"] == "stair"]:
-        above = uppers.get(room.meta["room"]["id"])
-        if above is None:
+    ids = set().union(*(_stair_rooms(s).keys() for s in storeys))
+    for room_id in sorted(ids):
+        flights = []
+        for lo, hi in zip(storeys, storeys[1:]):
+            room, above = _stair_rooms(lo).get(room_id), _stair_rooms(hi).get(room_id)
+            if room is None or above is None:
+                break
+            flights.append((room, above, float(hi.transform.translation[1] - lo.transform.translation[1])))
+        if not flights:
             continue
-        sx, sz = float(room.size[0]), float(room.size[2])
+        first = flights[0][0]
+        sx, sz = float(first.size[0]), float(first.size[2])
         along_z = sz >= sx
         length, across = (sz, sx) if along_z else (sx, sz)
-        width = min(STAIR_WIDTH, across - 0.4)
-        gen = StairsGenerator(style="straight", rise=rise, width=width, railing="both")
-        run = gen.steps * gen.tread
-        # Which half of the room holds the doors? Climb away from them.
-        doors = [o for o in room.meta.get("openings", []) if o["kind"] == "door"]
-        door_pos = np.mean([(o["lo"] + o["hi"]) / 2 for o in doors]) if doors else 0.0
-        side_doors = [o for o in doors if o["side"] in (("east", "west") if along_z else ("north", "south"))]
-        # The flight hugs the long wall without doors (or the first one).
-        wall_side = -1.0
-        if side_doors and all(o["side"] in ("west", "south") for o in side_doors):
-            wall_side = 1.0
-        offset_across = wall_side * (across / 2 - width / 2 - 0.02)
-        climb = -1.0 if door_pos >= 0 else 1.0     # up and away from the doors
-        start = door_pos + climb * DOOR_CLEAR if doors else climb * -length / 2 + climb * 0.2
-        start = float(np.clip(start, -length / 2 + 0.2, length / 2 - 0.2))
-        if abs(start + climb * run) > length / 2 - 0.2:
-            continue  # the room is too short for a straight flight of this rise
-        centre_along = start + climb * run / 2
-        node = gen.to_node("stairs")
-        node.mesh.material = material_loader.load("concrete")
-        # Local stairs climb -Z; rotate so they climb along +/-Z or +/-X of the room.
-        if along_z:
-            yaw = 0.0 if climb < 0 else 180.0
-            pos = np.array([offset_across, rise / 2, centre_along])
-        else:
-            yaw = 90.0 if climb < 0 else -90.0
-            pos = np.array([centre_along, rise / 2, offset_across])
-        node.transform = Transform(translation=pos, rotation=np.array([0.0, np.radians(yaw), 0.0]))
-        room.add_child(node)
+        width = min(STAIR_WIDTH, across - WALKWAY)
+        if width < 0.8:
+            logger.warning("stair core %s: %.1f m is too narrow for a stair and a walkway", room_id, across)
+            continue
+        gens = [StairsGenerator(style="straight", rise=rise, width=width, railing="both") for _, _, rise in flights]
+        runs = [g.steps * g.tread for g in gens]
+        long_sides = ("east", "west") if along_z else ("north", "south")
+        door_sides, end_zones = [], []
+        for node in [f[0] for f in flights] + [flights[-1][1]]:
+            for o in node.meta.get("openings", []):
+                if o["kind"] != "door":
+                    continue
+                if o["side"] in long_sides:
+                    door_sides.append(1.0 if o["side"] in ("east", "north") else -1.0)
+                else:
+                    end = length / 2 if o["side"] in ("north", "east") else -length / 2
+                    end_zones.append((end - DOOR_CLEAR, end) if end > 0 else (end, end + DOOR_CLEAR))
+        side = -1.0 if (door_sides and np.mean(door_sides) > 0) else 1.0
+        lo_lim = max([-length / 2 + 0.2] + [b for a, b in end_zones if a < 0])
+        hi_lim = min([length / 2 - 0.2] + [a for a, b in end_zones if a > 0])
+        up_run = max(runs[0::2])                      # flights climbing toward +
+        down_run = max(runs[1::2], default=0.0)       # flights climbing toward -
+        a = hi_lim - up_run                           # start of the + flights
+        b = lo_lim + down_run                         # start of the - flights
+        if b > a + 1e-6:
+            logger.warning("stair core %s: %.1f m is too short for flights of %.1f + %.1f m",
+                           room_id, length, up_run, down_run)
+            continue
+        mid = (a + b) / 2                             # centre both starts on the slack
+        a, b = max(a - (a - mid) / 2, b), min(b + (mid - b) / 2, a)
+        offset = side * (across / 2 - width / 2 - 0.02)
+        for i, ((room, above, rise), gen, run) in enumerate(zip(flights, gens, runs)):
+            start, climb = (a, 1.0) if i % 2 == 0 else (b, -1.0)
+            _place_flight(room, above, gen, rise, run, start, climb, offset, along_z, material_loader)
 
-        # Open the slab above the flight (upper floor and lower ceiling).
-        half = np.array([width / 2, run / 2]) + 0.05
-        half_xz = half if along_z else half[::-1]
-        lo = np.array([pos[0] - half_xz[0], 0.0, pos[2] - half_xz[1]])
-        hi = np.array([pos[0] + half_xz[0], 0.0, pos[2] + half_xz[1]])
-        for target, y0, y1 in ((room.find("ceiling"), -1.0, rise + 1.0), (above.find("floor"), -rise - 1.0, 1.0)):
-            if target is None or target.mesh is None:
-                continue
-            cutter = _box(np.array([lo[0], y0, lo[2]]), np.array([hi[0], y1, hi[2]]))
-            target.mesh = csg.difference(target.mesh, cutter, crease_angle=30.0)
-        room.meta.setdefault("stairs", []).append({"to": above.meta["room"]["id"], "rise": rise,
-                                                   "steps": gen.steps})
+
+def _place_flight(room: SceneNode, above: SceneNode, gen, rise: float, run: float, start: float, climb: float,
+                  across: float, along_z: bool, material_loader) -> None:
+    from ..core import csg
+
+    centre_along = start + climb * run / 2
+    node = gen.to_node("stairs")
+    node.mesh.material = material_loader.load("concrete")
+    # Local stairs climb -Z; rotate so they climb along +/-Z or +/-X of the room.
+    if along_z:
+        yaw = 0.0 if climb < 0 else 180.0
+        pos = np.array([across, rise / 2, centre_along])
+    else:
+        yaw = 90.0 if climb < 0 else -90.0
+        pos = np.array([centre_along, rise / 2, across])
+    node.transform = Transform(translation=pos, rotation=np.array([0.0, np.radians(yaw), 0.0]))
+    room.add_child(node)
+
+    # Open the slab above the flight (upper floor and lower ceiling).
+    half = np.array([gen.width / 2, run / 2]) + 0.05
+    half_xz = half if along_z else half[::-1]
+    lo = np.array([pos[0] - half_xz[0], 0.0, pos[2] - half_xz[1]])
+    hi = np.array([pos[0] + half_xz[0], 0.0, pos[2] + half_xz[1]])
+    for target, y0, y1 in ((room.find("ceiling"), -1.0, rise + 1.0), (above.find("floor"), -rise - 1.0, 1.0)):
+        if target is None or target.mesh is None:
+            continue
+        cutter = _box(np.array([lo[0], y0, lo[2]]), np.array([hi[0], y1, hi[2]]))
+        target.mesh = csg.difference(target.mesh, cutter, crease_angle=30.0)
+    room.meta.setdefault("stairs", []).append({"to": above.meta["room"]["id"], "rise": rise, "steps": gen.steps})
 
 
 def _roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], material_loader) -> SceneNode:

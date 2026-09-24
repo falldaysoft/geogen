@@ -20,6 +20,9 @@ var scene_name := ""
 var generated_dir := DEFAULT_GENERATED_DIR
 ## Bake a navigation mesh per loaded model (from its colliders).
 var bake_navigation := true
+## Open every openable interaction before baking, with the open parts as
+## obstacles (headless playtests: doors must not block routes, leaves must).
+var open_before_bake := false
 ## Show collision shapes as wireframe overlays.
 var show_colliders := false:
 	set(value):
@@ -156,8 +159,13 @@ func _load_model(manifest_path: String) -> void:
 	var count := _add_collision(root)
 	_collect_rooms(root)
 	var summary := GeogenSceneBuilder.build(root)
+	if open_before_bake:
+		for it in interactions:
+			if it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset):
+				if it.states.has("open"):
+					it.set_state("open", true)
 	if bake_navigation:
-		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path))
+		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake)
 	for s in manifest.get("spawns", []):
 		var f: Array = s.get("forward", [0, 0, -1])
 		var p: Array = s.get("position", [0, 0, 0])

@@ -92,13 +92,6 @@ place:
     on: suite.bathroom.west_wall
     at: { u: { abs: 0.6 }, v: { abs: 1.1 } }
 
-  # --- Corridor ------------------------------------------------------------
-  luggage_rack:
-    asset: luggage_rack.yaml
-    on: suite.corridor.floor
-    at: { u: { abs: 1.0 }, v: { abs: 1.55 } }
-    facing: south
-
 spawns:
   entry:
     position: [4.2, 0, 1.3]

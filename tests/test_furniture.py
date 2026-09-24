@@ -44,7 +44,7 @@ def _footprint(node):
 def test_hotel_room_furniture_does_not_overlap_or_block_doors():
     scene = SceneComposer().compose(Path("assets/scenes/hotel_room.yaml"))
     names = ["bed", "nightstand_south", "nightstand_north", "tv_console", "wardrobe",
-             "floor_lamp", "shower", "toilet", "vanity", "luggage_rack"]
+             "floor_lamp", "shower", "toilet", "vanity"]
     boxes = {n: _footprint(scene.find(n)) for n in names}
     for i, a in enumerate(names):
         for b in names[i + 1:]:

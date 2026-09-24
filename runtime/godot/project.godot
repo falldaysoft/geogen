@@ -27,3 +27,8 @@ anti_aliasing/quality/msaa_3d=2
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/geogen/plugin.cfg")
+
+[navigation]
+
+3d/default_cell_size=0.05
+3d/default_cell_height=0.05

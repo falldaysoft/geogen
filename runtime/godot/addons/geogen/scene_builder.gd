@@ -14,6 +14,7 @@ extends RefCounted
 ## Unknown extras versions are reported once per scene.
 
 const SUPPORTED_VERSION := 1
+const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple of the 5 cm cell)
 const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable", "room", "size", "door",
 	"joint", "door_swings", "footprint", "clearance", "interactions", "light", "switch", "openings",
 	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan"]
@@ -115,32 +116,51 @@ static func _own(child: Node, parent: Node) -> void:
 
 ## Bake a NavigationRegion3D over ``root`` from its static colliders, with the
 ## agent sized from ``spec`` (a PlayerSpec). Call after colliders exist.
-static func build_navigation(root: Node3D, spec) -> NavigationRegion3D:
+## Moving parts (door leaves, drawers) are AnimatableBody3Ds, i.e. static
+## colliders; they're left out unless ``include_moving`` (so closed doors
+## don't block the navmesh; agents open them).
+static func build_navigation(root: Node3D, spec, include_moving := false) -> NavigationRegion3D:
 	var region := NavigationRegion3D.new()
 	region.name = "Navigation"
-	var mesh := NavigationMesh.new()
-	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
-	mesh.cell_size = 0.05
-	mesh.cell_height = 0.05
-	mesh.agent_radius = spec.radius if spec else 0.3
-	mesh.agent_height = spec.height if spec else 1.8
-	mesh.agent_max_climb = spec.step_height if spec else 0.3
-	mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
-	# Moving parts (door leaves, drawers) are AnimatableBody3Ds, i.e. static
-	# colliders; leave them out so doorways stay navigable (agents open doors).
-	var moving: Array[CollisionObject3D] = []
-	for body in root.find_children("*", "AnimatableBody3D", true, false):
-		if body.collision_layer & 1:
-			moving.append(body)
-			body.collision_layer &= ~1
-	var source := NavigationMeshSourceGeometryData3D.new()
-	mesh.geometry_collision_mask = 1
-	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
-	for body in moving:
-		body.collision_layer |= 1
-	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-	region.navigation_mesh = mesh
+	region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving)
 	region.add_to_group("geogen_navigation")
 	root.add_child(region)
 	return region
+
+
+static func bake_navigation_mesh(root: Node3D, spec, include_moving := false) -> NavigationMesh:
+	var mesh := NavigationMesh.new()
+	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
+	mesh.geometry_collision_mask = 1
+	mesh.cell_size = 0.05
+	mesh.cell_height = 0.05
+	mesh.agent_radius = (spec.radius if spec else 0.3) + NAV_MARGIN
+	mesh.agent_height = spec.height if spec else 1.8
+	mesh.agent_max_climb = spec.step_height if spec else 0.3
+	mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
+	var moving: Array[CollisionObject3D] = []
+	if not include_moving:
+		for body in root.find_children("*", "AnimatableBody3D", true, false):
+			if body.collision_layer & 1:
+				moving.append(body)
+				body.collision_layer &= ~1
+	var source := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
+	for body in moving:
+		body.collision_layer |= 1
+	if include_moving:
+		# Door leaves are thinner than a voxel and vanish in the bake; add each
+		# moving part's footprint as an obstruction instead.
+		for body in root.find_children("*", "AnimatableBody3D", true, false):
+			var part := body.get_parent() as MeshInstance3D
+			if part == null or part.mesh == null:
+				continue
+			var box: AABB = part.global_transform * part.get_aabb()
+			box = box.grow(0.005)
+			var corners := PackedVector3Array([
+				Vector3(box.position.x, 0, box.position.z), Vector3(box.end.x, 0, box.position.z),
+				Vector3(box.end.x, 0, box.end.z), Vector3(box.position.x, 0, box.end.z)])
+			source.add_projected_obstruction(corners, box.position.y, box.size.y, false)
+	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+	return mesh

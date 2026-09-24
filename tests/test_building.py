@@ -54,6 +54,14 @@ def test_stair_cores_connect_every_storey(building):
             assert top_area < area - 1.0 * 5.0  # at least a 1 x 5 m stairwell removed
 
 
+def test_entrance_spawn_outside_the_street_door(building):
+    spawn = building.find("entrance_spawn")
+    assert spawn.meta["type"] == "spawn"
+    m = spawn.world_transform()
+    assert m[1, 3] == 0.0 and m[2, 3] < -7.5          # in front of the south façade
+    assert m[:3, 2] == pytest.approx([0, 0, 1], abs=1e-9)  # facing the building
+
+
 def test_roof_caps_the_top(building):
     roof = building.find("roof")
     assert meshops.validate(roof.mesh).watertight

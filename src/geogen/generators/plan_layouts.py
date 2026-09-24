@@ -82,7 +82,15 @@ def hotel_corridor(length: float = 30.0, depth: float = 16.0, corridor: float = 
                 rooms[f"{rid}_entry"] = {"rect": _rect(ex, z_bath, entry_w, bath_depth), "type": "corridor"}
                 rooms[f"{rid}_bath"] = {"rect": _rect(bx, z_bath, bath_width, bath_depth), "type": "hotel_bathroom"}
                 rooms[rid] = {"rect": _rect(x, z_bed, module, bed_depth), "type": "hotel_bedroom"}
-                doors.append({"name": f"door_{rid}", "between": ["corridor", f"{rid}_entry"], "width": 0.9})
+                # Hinge the corridor door on the side away from the bathroom so the
+                # open leaf doesn't park across the bathroom doorway. Door-local +X
+                # is world +X on north-side modules (swinging +Z), -X on south ones.
+                bath_east = not flip
+                hinge_west = bath_east
+                hinge = ("left" if hinge_west else "right") if side == "north" else \
+                    ("right" if hinge_west else "left")
+                doors.append({"name": f"door_{rid}", "between": ["corridor", f"{rid}_entry"], "width": 0.9,
+                              "hinge": hinge})
                 doors.append({"between": [f"{rid}_entry", rid], "width": 0.9})
                 doors.append({"between": [f"{rid}_entry", f"{rid}_bath"], "width": 0.9})
             else:
