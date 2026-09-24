@@ -19,6 +19,7 @@ from ..generators.primitives import (
 )
 from ..generators.architecture import PrismGenerator, RoofGenerator
 from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
+from ..generators.round_shapes import BevelledCylinderGenerator, CapsuleGenerator, TorusGenerator
 from ..generators.stairs import StairsGenerator
 from ..generators.sweep import SweepGenerator
 from ..generators.room import RoomGenerator, Opening
@@ -50,6 +51,8 @@ PRIMITIVE_REGISTRY = {
     "prism": PrismGenerator,
     "sweep": SweepGenerator,
     "stairs": StairsGenerator,
+    "torus": TorusGenerator,
+    "capsule": CapsuleGenerator,
 }
 
 
@@ -545,6 +548,10 @@ class LayoutLoader:
         elif primitive_type == "cylinder":
             # Cylinder uses radius (half of x/z) and height
             radius = min(size[0], size[2]) / 2
+            bevel = float((extra_config or {}).get("bevel", 0.0))
+            if bevel > 0:  # rounded rims (cylinders are sharp by default)
+                return BevelledCylinderGenerator(radius=radius, height=size[1], bevel=bevel,
+                                                 bevel_segments=int((extra_config or {}).get("bevel_segments", 4)))
             return CylinderGenerator(radius=radius, height=size[1])
         elif primitive_type == "sphere":
             # Use the minimum dimension as the base radius
@@ -576,6 +583,11 @@ class LayoutLoader:
             return self._create_lathe_generator(size, extra_config or {})
         elif primitive_type == "sweep":
             return self._create_sweep_generator(extra_config or {})
+        elif primitive_type == "torus":
+            return TorusGenerator(size_x=size[0], size_y=size[1], size_z=size[2],
+                                  tube=float((extra_config or {}).get("tube", 0.0)))
+        elif primitive_type == "capsule":
+            return CapsuleGenerator(size_x=size[0], size_y=size[1], size_z=size[2])
         elif primitive_type == "stairs":
             config = extra_config or {}
             keys = ("style", "rise", "width", "max_riser", "tread", "turn", "landing_at", "waist", "railing",

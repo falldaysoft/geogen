@@ -21,6 +21,8 @@ PART_KNOWN_KEYS = {
     # stairs
     "rise", "width", "max_riser", "tread", "turn", "landing_at", "waist", "railing", "rail_height",
     "railing_material",
+    # torus
+    "tube",
     # booleans
     "subtract", "cutter", "cut_host", "reveal",
     # gameplay metadata
@@ -43,7 +45,7 @@ PLACEMENT_KNOWN_KEYS = {
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
