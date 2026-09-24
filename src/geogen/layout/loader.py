@@ -156,6 +156,15 @@ class LayoutLoader:
         root = SceneNode(name)
         root.size = container_size
         root.tags = list(data.get("tags", []))
+        # Furniture: footprint (x, z) and the free space needed around it
+        # (front = +Z) for furnishing solvers and navigation.
+        if "clearance" in data:
+            clearance = data["clearance"] or {}
+            unknown = set(clearance) - {"front", "back", "left", "right"}
+            if unknown:
+                raise ValueError(f"'{name}': clearance sides must be front/back/left/right, got {sorted(unknown)}")
+            root.meta["footprint"] = [float(container_size[0]), float(container_size[2])]
+            root.meta["clearance"] = {k: float(v) for k, v in clearance.items()}
 
         # Check if this is a room definition (has 'room' key with openings)
         room_config = data.get("room")

@@ -1,0 +1,24 @@
+# Low-pile area rug with a bound edge. Origin bottom_center.
+
+name: rug
+tags: [furniture.rug]
+origin: bottom_center
+
+params:
+  width: { default: 2.0 }
+  depth: { default: 1.4 }
+
+size: ["{width}", 0.012, "{depth}"]
+
+parts:
+  rug:
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.03 }
+    fit: none
+    axis: y
+    bevel: 0.004
+    size: [1, 1, 1]
+    anchor: bottom_center
+    material: rug
+    walkable: true
+    collider: none

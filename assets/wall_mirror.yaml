@@ -1,0 +1,33 @@
+# Framed wall mirror. Origin bottom-centre on the wall, glass faces +Z.
+
+name: wall_mirror
+tags: [furniture.mirror]
+origin: bottom_center
+
+params:
+  width:  { default: 0.6 }
+  height: { default: 0.9 }
+  frame:  { default: 0.04 }
+
+size: ["{width}", "{height}", 0.03]
+
+parts:
+  frame:
+    primitive: extrude
+    shape:
+      outer: { rect: ["{width}", "{height}"], radius: 0.01 }
+      holes: [{ rect: ["{width - 2 * frame}", "{height - 2 * frame}"] }]
+    fit: none
+    axis: z
+    bevel: 0.004
+    size: [1, 1, 1]
+    anchor: bottom_center
+    offset: [0, 0, 0.5]        # back of the frame on the wall (z = 0)
+    material: wood_dark
+  glass:
+    primitive: cube
+    size: ["{(width - 2 * frame + 0.01) / width}", "{(height - 2 * frame + 0.01) / height}", 0.2]
+    anchor: bottom_center
+    offset: [0, "{(frame - 0.005) / height}", 0.33]
+    bevel: 0
+    material: mirror

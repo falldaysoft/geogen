@@ -1,0 +1,44 @@
+# Framed print for a wall. Origin bottom-centre on the wall, faces +Z.
+
+name: wall_art
+tags: [decor.wall_art]
+origin: bottom_center
+
+params:
+  width:  { default: 0.8 }
+  height: { default: 0.6 }
+  frame:  { default: 0.03 }
+  mat:    { default: 0.06 }   # white mount inside the frame
+
+size: ["{width}", "{height}", 0.03]
+
+parts:
+  frame:
+    primitive: extrude
+    shape:
+      outer: { rect: ["{width}", "{height}"] }
+      holes: [{ rect: ["{width - 2 * frame}", "{height - 2 * frame}"] }]
+    fit: none
+    axis: z
+    bevel: 0.003
+    size: [1, 1, 1]
+    anchor: bottom_center
+    offset: [0, 0, 0.5]        # back of the frame on the wall (z = 0)
+    material: plastic_black
+    collider: none
+  mount:
+    primitive: cube
+    size: ["{(width - 2 * frame + 0.004) / width}", "{(height - 2 * frame + 0.004) / height}", 0.4]
+    anchor: bottom_center
+    offset: [0, "{(frame - 0.002) / height}", 0.2]
+    bevel: 0
+    material: paint_white
+    collider: none
+  print:
+    primitive: cube
+    size: ["{(width - 2 * frame - 2 * mat) / width}", "{(height - 2 * frame - 2 * mat) / height}", 0.1]
+    anchor: bottom_center
+    offset: [0, "{(frame + mat) / height}", 0.45]
+    bevel: 0
+    material: marble
+    collider: none

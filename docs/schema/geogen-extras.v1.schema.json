@@ -104,6 +104,19 @@
             }
           }
         },
+        "footprint": {
+          "description": "Furniture: floor footprint [x, z] in metres (asset frame, centred on the origin).",
+          "type": "array", "items": { "type": "number", "minimum": 0 }, "minItems": 2, "maxItems": 2
+        },
+        "clearance": {
+          "description": "Furniture: free space needed beyond the footprint on each side (front = +Z), metres.",
+          "type": "object",
+          "properties": {
+            "front": { "type": "number" }, "back": { "type": "number" },
+            "left": { "type": "number" }, "right": { "type": "number" }
+          },
+          "additionalProperties": false
+        },
         "door_swings": {
           "description": "Room nodes: door leaf swing arcs in the room's frame (hinge point, radius, sweep in degrees in the XZ plane, 0 = +X, 90 = +Z), for furnishing to keep clear.",
           "type": "array",

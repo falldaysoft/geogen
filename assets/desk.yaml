@@ -1,0 +1,76 @@
+# Writing desk: top on two panel ends with a modesty panel and a shallow
+# drawer. Origin bottom_center, the user sits on the front (+Z) side.
+
+name: desk
+tags: [furniture.desk]
+origin: bottom_center
+
+params:
+  width:  { default: 1.2 }
+  height: { default: 0.75 }
+  depth:  { default: 0.6 }
+  board:  { default: 0.025 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.9 }
+
+parts:
+  top:
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.01 }
+    fit: none
+    axis: y
+    bevel: 0.004
+    size: [1, "{board / height}", 1]
+    anchor: bottom_center
+    offset: [0, "{1 - board / height}", 0]
+    material: wood_dark
+  end_left: &end
+    primitive: cube
+    size: ["{board / width}", "{(height - board) / height}", "{(depth - 0.04) / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.03 - width / 2) / width}", 0, 0]
+    bevel: 0.003
+    material: wood_dark
+  end_right:
+    <<: *end
+    offset: ["{(width / 2 - 0.03) / width}", 0, 0]
+  modesty:
+    primitive: cube
+    size: ["{(width - 0.08) / width}", "{0.4 / height}", "{0.018 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - board - 0.4) / height}", "{(0.06 - depth / 2) / depth}"]
+    bevel: 0.002
+    material: wood_dark
+  drawer_front:
+    primitive: cube
+    size: ["{0.45 / width}", "{0.08 / height}", "{0.02 / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 2 - 0.3) / width}", "{(height - board - 0.085) / height}", "{(depth / 2 - 0.04) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  drawer_body:
+    primitive: cube
+    size: ["{0.45 / width}", "{0.08 / height}", "{(depth - 0.12) / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 2 - 0.3) / width}", "{(height - board - 0.085) / height}", "{-0.02 / depth}"]
+    bevel: 0.002
+    material: wood_dark
+  drawer_handle:
+    primitive: cube
+    size: ["{0.12 / width}", "{0.012 / height}", "{0.018 / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 2 - 0.3) / width}", "{(height - board - 0.051) / height}", "{(depth / 2 - 0.021) / depth}"]
+    bevel: 0.004
+    material: chrome
+    collider: none
+
+attachments:
+  seat:
+    anchor: bottom_front_center
+    offset: [0, 0, 0.1]
+    facing: south
+
+surfaces:
+  top: { from: top.top }

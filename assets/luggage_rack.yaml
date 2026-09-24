@@ -1,0 +1,63 @@
+# Folding luggage rack: two X-braced wooden frames with webbing straps.
+# Origin bottom_center, long side along X.
+
+name: luggage_rack
+tags: [furniture.luggage_rack]
+origin: bottom_center
+
+params:
+  width:  { default: 0.7 }
+  depth:  { default: 0.45 }
+  height: { default: 0.52 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.5 }
+
+parts:
+  rail_front: &rail
+    primitive: cube
+    size: [1, "{0.03 / height}", "{0.03 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - 0.03) / height}", "{(depth / 2 - 0.05) / depth}"]
+    bevel: 0.005
+    material: wood_dark
+  rail_back:
+    <<: *rail
+    offset: [0, "{(height - 0.03) / height}", "{(0.05 - depth / 2) / depth}"]
+  # Legs cross in an X at each end.
+  leg_left_a: &xleg
+    primitive: cube
+    size: ["{0.03 / width}", "{0.58 / height}", "{0.03 / depth}"]
+    anchor: center
+    offset: ["{(0.06 - width / 2) / width}", 0, 0]
+    rotation: [38, 0, 0]
+    bevel: 0.005
+    material: wood_dark
+    collider: none
+  leg_left_b:
+    <<: *xleg
+    rotation: [-38, 0, 0]
+  leg_right_a:
+    <<: *xleg
+    offset: ["{(width / 2 - 0.06) / width}", 0, 0]
+  leg_right_b:
+    <<: *xleg
+    offset: ["{(width / 2 - 0.06) / width}", 0, 0]
+    rotation: [-38, 0, 0]
+  strap_1: &strap
+    primitive: cube
+    size: ["{0.05 / width}", "{0.004 / height}", "{(depth - 0.1) / depth}"]
+    anchor: bottom_center
+    offset: ["{-0.18 / width}", "{(height - 0.006) / height}", 0]
+    bevel: 0
+    material: fabric_velvet
+  strap_2:
+    <<: *strap
+    offset: [0, "{(height - 0.006) / height}", 0]
+  strap_3:
+    <<: *strap
+    offset: ["{0.18 / width}", "{(height - 0.006) / height}", 0]
+
+surfaces:
+  top: { from: rail_front.top }

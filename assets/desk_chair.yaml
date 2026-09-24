@@ -1,0 +1,65 @@
+# Upholstered desk chair on four slim metal legs. Origin bottom_center,
+# the seat faces +Z.
+
+name: desk_chair
+tags: [furniture.chair]
+origin: bottom_center
+
+params:
+  width:  { default: 0.5 }
+  depth:  { default: 0.52 }
+  height: { default: 0.85 }
+  seat:   { default: 0.46 }   # seat height
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.5 }
+
+parts:
+  seat:
+    primitive: cube
+    size: [1, "{0.07 / height}", "{(depth - 0.04) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(seat - 0.07) / height}", "{0.02 / depth}"]
+    bevel: 0.03
+    material: fabric_velvet
+  back:
+    primitive: cube
+    size: ["{(width - 0.02) / width}", "{(height - seat - 0.05) / height}", "{0.06 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(seat + 0.05) / height}", "{(0.03 - depth / 2) / depth}"]
+    rotation: [-8, 0, 0]
+    bevel: 0.03
+    material: fabric_velvet
+  leg_fl: &leg
+    primitive: cylinder
+    size: ["{0.025 / width}", "{(seat - 0.07) / height}", "{0.025 / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.04 - width / 2) / width}", 0, "{(depth / 2 - 0.05) / depth}"]
+    material: metal
+    collider: none
+  leg_fr:
+    <<: *leg
+    offset: ["{(width / 2 - 0.04) / width}", 0, "{(depth / 2 - 0.05) / depth}"]
+  leg_bl:
+    <<: *leg
+    offset: ["{(0.04 - width / 2) / width}", 0, "{(0.05 - depth / 2) / depth}"]
+  leg_br:
+    <<: *leg
+    offset: ["{(width / 2 - 0.04) / width}", 0, "{(0.05 - depth / 2) / depth}"]
+  back_post_left: &post
+    primitive: cylinder
+    size: ["{0.022 / width}", "{0.12 / height}", "{0.022 / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.08 - width / 2) / width}", "{seat / height}", "{(0.035 - depth / 2) / depth}"]
+    material: metal
+    collider: none
+  back_post_right:
+    <<: *post
+    offset: ["{(width / 2 - 0.08) / width}", "{seat / height}", "{(0.035 - depth / 2) / depth}"]
+
+attachments:
+  sit:
+    anchor: bottom_front_center
+    offset: [0, 0, 0.3]
+    facing: outward

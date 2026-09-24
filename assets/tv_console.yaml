@@ -1,0 +1,65 @@
+# Low media console with two push doors and an open shelf. Origin
+# bottom_center, front +Z.
+
+name: tv_console
+tags: [furniture.console]
+origin: bottom_center
+
+params:
+  width:  { default: 1.4 }
+  height: { default: 0.5 }
+  depth:  { default: 0.42 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.6 }
+
+parts:
+  body:
+    primitive: cube
+    size: [1, "{(height - 0.08) / height}", "{(depth - 0.02) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.08 / height}", "{-0.01 / depth}"]
+    bevel: 0.004
+    subtract: [niche]
+    material: wood_dark
+  niche:
+    primitive: cube
+    size: ["{(width * 0.3) / width}", "{(height - 0.16) / height}", "{depth / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.12 / height}", "{0.06 / depth}"]
+    bevel: 0
+    cutter: true
+  door_left:
+    primitive: cube
+    size: ["{(width * 0.35 - 0.004) / width}", "{(height - 0.09) / height}", "{0.018 / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width * 0.325) / width}", "{0.085 / height}", "{(depth / 2 - 0.011) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  door_right:
+    primitive: cube
+    size: ["{(width * 0.35 - 0.004) / width}", "{(height - 0.09) / height}", "{0.018 / depth}"]
+    anchor: bottom_center
+    offset: ["{(width * 0.325) / width}", "{0.085 / height}", "{(depth / 2 - 0.011) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  leg_l:
+    primitive: cube
+    size: ["{0.04 / width}", "{0.08 / height}", "{(depth - 0.08) / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.1 - width / 2) / width}", 0, 0]
+    bevel: 0.003
+    material: metal
+    collider: none
+  leg_r:
+    primitive: cube
+    size: ["{0.04 / width}", "{0.08 / height}", "{(depth - 0.08) / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 2 - 0.1) / width}", 0, 0]
+    bevel: 0.003
+    material: metal
+    collider: none
+
+surfaces:
+  top: { from: body.top }

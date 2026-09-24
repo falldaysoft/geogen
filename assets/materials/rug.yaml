@@ -1,0 +1,17 @@
+# Dense terracotta wool rug.
+name: rug
+texture:
+  type: cut_pile_carpet
+  params:
+    base_color: terracotta
+    tufts: 128
+    pile_contrast: 0.3
+    shading: 0.1
+    seed: 143
+size: [512, 512]
+tile_size: 0.4  # metres per texture repeat
+pbr:
+  roughness: 1.0
+  metallic: 0.0
+  normal_strength: 0.2
+  ao_strength: 0.8

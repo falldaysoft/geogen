@@ -1,0 +1,97 @@
+# Two-door wardrobe on a plinth with bar handles; the doors swing out
+# (interaction 'doors'). Origin bottom_center, front +Z.
+
+name: wardrobe
+tags: [furniture.wardrobe]
+origin: bottom_center
+
+params:
+  width:  { default: 1.0 }
+  height: { default: 2.0 }
+  depth:  { default: 0.58 }
+  board:  { default: 0.022 }
+  plinth: { default: 0.07 }
+  door_t: { default: 0.02 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.8 }
+
+parts:
+  carcass:
+    primitive: cube
+    size: [1, "{(height - plinth) / height}", "{(depth - door_t) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{plinth / height}", "{-door_t / 2 / depth}"]
+    bevel: 0.004
+    subtract: [hollow]
+    material: wood_dark
+  hollow:
+    primitive: cube
+    size: ["{(width - 2 * board) / width}", "{(height - plinth - 2 * board) / height}", "{depth / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(plinth + board) / height}", "{(board + 0.02) / depth}"]
+    bevel: 0
+    cutter: true
+  rail:
+    primitive: cylinder
+    size: ["{0.025 / width}", "{(width - 2 * board) / height}", "{0.025 / depth}"]
+    anchor: center
+    offset: [0, "{(height - 0.3) / height - 0.5}", 0]
+    rotation: [0, 0, 90]
+    material: chrome
+    collider: none
+  plinth:
+    primitive: cube
+    size: ["{(width - 0.02) / width}", "{plinth / height}", "{(depth - 0.05) / depth}"]
+    anchor: bottom_center
+    bevel: 0.002
+    material: plastic_black
+
+  door_left:
+    primitive: cube
+    size: ["{(width / 2 - 0.003) / width}", "{(height - plinth - 0.006) / height}", "{door_t / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width / 4) / width}", "{(plinth + 0.003) / height}", "{(depth / 2 - door_t / 2) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  door_right:
+    primitive: cube
+    size: ["{(width / 2 - 0.003) / width}", "{(height - plinth - 0.006) / height}", "{door_t / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 4) / width}", "{(plinth + 0.003) / height}", "{(depth / 2 - door_t / 2) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  handle_left:
+    primitive: cube
+    size: ["{0.015 / width}", "{0.35 / height}", "{0.02 / depth}"]
+    anchor: bottom_center
+    offset: ["{-0.05 / width}", "{1.0 / height}", "{(depth / 2 + 0.01) / depth}"]
+    bevel: 0.005
+    material: chrome
+    collider: none
+  handle_right:
+    primitive: cube
+    size: ["{0.015 / width}", "{0.35 / height}", "{0.02 / depth}"]
+    anchor: bottom_center
+    offset: ["{0.05 / width}", "{1.0 / height}", "{(depth / 2 + 0.01) / depth}"]
+    bevel: 0.005
+    material: chrome
+    collider: none
+
+interactions:
+  doors:
+    targets: [door_left, door_right, handle_left, handle_right]
+    duration: 0.8
+    states:
+      closed: { prompt: Open wardrobe, next: open }
+      open:   { prompt: Close wardrobe, next: closed }
+    motions:
+      - parts: [door_left, handle_left]
+        rotate: -y
+        pivot: ["{-width / 2}", 0, "{depth / 2}"]
+        values: { open: 100 }
+      - parts: [door_right, handle_right]
+        rotate: y
+        pivot: ["{width / 2}", 0, "{depth / 2}"]
+        values: { open: 100 }

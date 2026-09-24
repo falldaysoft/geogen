@@ -1,0 +1,104 @@
+# Bedside table: carcass with an open shelf, one drawer that slides out
+# (interaction 'drawer'), on a plinth. Origin bottom_center, front +Z.
+
+name: nightstand
+tags: [furniture.nightstand]
+origin: bottom_center
+
+params:
+  width:  { default: 0.5 }
+  height: { default: 0.55 }
+  depth:  { default: 0.4 }
+  board:  { default: 0.02 }
+  drawer: { default: 0.16 }   # drawer front height
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.5 }
+
+parts:
+  top:
+    primitive: cube
+    size: [1, "{board / height}", 1]
+    anchor: bottom_center
+    offset: [0, "{1 - board / height}", 0]
+    bevel: 0.004
+    material: wood_dark
+  side_left: &side
+    primitive: cube
+    size: ["{board / width}", "{(height - board - 0.04) / height}", "{(depth - 0.01) / depth}"]
+    anchor: bottom_center
+    offset: ["{(board / 2 - width / 2) / width}", "{0.04 / height}", "{-0.005 / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  side_right:
+    <<: *side
+    offset: ["{(width / 2 - board / 2) / width}", "{0.04 / height}", "{-0.005 / depth}"]
+  back:
+    primitive: cube
+    size: ["{(width - 2 * board) / width}", "{(height - board - 0.04) / height}", "{0.01 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.04 / height}", "{(0.005 - depth / 2) / depth}"]
+    bevel: 0
+    material: wood_dark
+  bottom:
+    primitive: cube
+    size: ["{(width - 2 * board) / width}", "{board / height}", "{(depth - 0.02) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.04 / height}", 0]
+    bevel: 0.002
+    material: wood_dark
+  shelf:
+    primitive: cube
+    size: ["{(width - 2 * board) / width}", "{board / height}", "{(depth - 0.02) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - board - drawer - 0.01 - board) / height}", 0]
+    bevel: 0.002
+    material: wood_dark
+  plinth:
+    primitive: cube
+    size: ["{(width - 0.04) / width}", "{0.04 / height}", "{(depth - 0.04) / depth}"]
+    anchor: bottom_center
+    bevel: 0.002
+    material: plastic_black
+    collider: none
+
+  # Drawer: a box behind a flush front, with a bar handle.
+  drawer_box:
+    primitive: cube
+    size: ["{(width - 2 * board - 0.01) / width}", "{(drawer - 0.03) / height}", "{(depth - 0.06) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - board - drawer + 0.01) / height}", "{-0.02 / depth}"]
+    bevel: 0.002
+    material: wood
+    collider: none
+  drawer_front:
+    primitive: cube
+    size: ["{(width - 2 * board - 0.004) / width}", "{(drawer - 0.006) / height}", "{0.02 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - board - drawer + 0.003) / height}", "{(depth / 2 - 0.01) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  handle:
+    primitive: cube
+    size: ["{0.14 / width}", "{0.012 / height}", "{0.02 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - board - drawer / 2 - 0.006) / height}", "{(depth / 2 + 0.01) / depth}"]
+    bevel: 0.004
+    material: chrome
+    collider: none
+
+interactions:
+  drawer:
+    targets: [drawer_front, handle]
+    duration: 0.4
+    states:
+      closed: { prompt: Open drawer, next: open }
+      open:   { prompt: Close drawer, next: closed }
+    motions:
+      - parts: [drawer_box, drawer_front, handle]
+        translate: z
+        values: { open: "{depth * 0.6}" }
+
+surfaces:
+  top: { from: top.top }

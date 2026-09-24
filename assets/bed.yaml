@@ -1,0 +1,119 @@
+# Hotel double bed: upholstered headboard, base on short legs, mattress,
+# duvet folded back at the head, and two pillows. Head at the back (-Z),
+# foot at the front (+Z); origin bottom_center.
+
+name: bed
+tags: [furniture.bed]
+origin: bottom_center
+
+params:
+  width:      { default: 1.6 }    # mattress width (1.6 = UK king / US queen)
+  length:     { default: 2.0 }    # mattress length
+  headboard:  { default: 1.15 }   # headboard height
+  leg:        { default: 0.1 }
+  base:       { default: 0.28 }   # base (divan) height above the legs
+  mattress:   { default: 0.24 }
+  hb_depth:   { default: 0.09 }
+
+size: ["{width + 0.06}", "{headboard}", "{length + hb_depth + 0.04}"]
+
+clearance: { left: 0.6, right: 0.6, front: 0.7 }
+
+parts:
+  headboard:
+    primitive: cube
+    size: [1, 1, "{hb_depth / (length + hb_depth + 0.04)}"]
+    anchor: bottom_back_center
+    bevel: 0.03
+    material: fabric_linen
+
+  base:
+    primitive: cube
+    size: ["{width / (width + 0.06)}", "{base / headboard}", "{length / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: [0, "{leg / headboard}", "{(hb_depth + 0.04) / 2 / (length + hb_depth + 0.04)}"]
+    bevel: 0.02
+    material: fabric_velvet
+
+  mattress:
+    primitive: cube
+    size: ["{(width - 0.02) / (width + 0.06)}", "{mattress / headboard}", "{(length - 0.02) / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: [0, "{(leg + base) / headboard}", "{(hb_depth + 0.04) / 2 / (length + hb_depth + 0.04)}"]
+    bevel: 0.06
+    material: bedding_white
+    walkable: false
+
+  # Duvet: covers the foot two-thirds and drapes a little over the sides.
+  duvet:
+    primitive: cube
+    size: ["{(width + 0.05) / (width + 0.06)}", "{(mattress * 0.55 + 0.05) / headboard}", "{length * 0.68 / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: [0, "{(leg + base + mattress * 0.5) / headboard}", "{(((hb_depth + 0.04) / 2 + (length - 0.02) / 2) - length * 0.34 + 0.01) / (length + hb_depth + 0.04)}"]
+    bevel: 0.05
+    material: bedding_white
+
+  # Folded-back top edge of the duvet.
+  duvet_fold:
+    primitive: cube
+    size: ["{(width + 0.04) / (width + 0.06)}", "{0.08 / headboard}", "{0.22 / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: [0, "{((leg + base + mattress * 1.05 + 0.05) - 0.05) / headboard}", "{(((hb_depth + 0.04) / 2 + (length - 0.02) / 2) - length * 0.68 + 0.12) / (length + hb_depth + 0.04)}"]
+    bevel: 0.035
+    material: bedding_white
+
+  # Velvet throw across the foot of the bed.
+  throw:
+    primitive: cube
+    size: ["{(width + 0.07) / (width + 0.06)}", "{0.025 / headboard}", "{0.5 / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: [0, "{((leg + base + mattress * 1.05 + 0.05) - 0.012) / headboard}", "{(((hb_depth + 0.04) / 2 + (length - 0.02) / 2) - 0.3) / (length + hb_depth + 0.04)}"]
+    bevel: 0.01
+    material: fabric_velvet
+    collider: none
+
+  pillow_left: &pillow
+    primitive: ellipsoid
+    size: ["{(width / 2 - 0.1) / (width + 0.06)}", "{0.16 / headboard}", "{0.42 / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: ["{-(width / 4) / (width + 0.06)}", "{(leg + base + mattress - 0.01) / headboard}", "{(0.28 + hb_depth - (length + hb_depth + 0.04) / 2) / (length + hb_depth + 0.04)}"]
+    material: bedding_white
+    collider: none
+  pillow_right:
+    <<: *pillow
+    offset: ["{(width / 4) / (width + 0.06)}", "{(leg + base + mattress - 0.01) / headboard}", "{(0.28 + hb_depth - (length + hb_depth + 0.04) / 2) / (length + hb_depth + 0.04)}"]
+
+  leg_fl: &leg
+    primitive: cylinder
+    size: ["{0.05 / (width + 0.06)}", "{leg / headboard}", "{0.05 / (length + hb_depth + 0.04)}"]
+    anchor: bottom_center
+    offset: ["{(0.08 - width / 2) / (width + 0.06)}", 0, "{((length + hb_depth + 0.04) / 2 - 0.08) / (length + hb_depth + 0.04)}"]
+    material: wood_dark
+    collider: none
+  leg_fr:
+    <<: *leg
+    offset: ["{(width / 2 - 0.08) / (width + 0.06)}", 0, "{((length + hb_depth + 0.04) / 2 - 0.08) / (length + hb_depth + 0.04)}"]
+  leg_bl:
+    <<: *leg
+    offset: ["{(0.08 - width / 2) / (width + 0.06)}", 0, "{(hb_depth + 0.12 - (length + hb_depth + 0.04) / 2) / (length + hb_depth + 0.04)}"]
+  leg_br:
+    <<: *leg
+    offset: ["{(width / 2 - 0.08) / (width + 0.06)}", 0, "{(hb_depth + 0.12 - (length + hb_depth + 0.04) / 2) / (length + hb_depth + 0.04)}"]
+
+attachments:
+  # Nightstands stand beside the head on each side, facing the room (+Z).
+  nightstand_left:
+    anchor: bottom_back_left
+    offset: [-0.3, 0, 0.3]
+    facing: north
+  nightstand_right:
+    anchor: bottom_back_right
+    offset: [0.3, 0, 0.3]
+    facing: north
+  foot:
+    anchor: bottom_front_center
+    offset: [0, 0, 0.35]
+    facing: north
+
+surfaces:
+  mattress: { from: mattress.top }

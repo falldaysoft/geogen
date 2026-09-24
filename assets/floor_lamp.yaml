@@ -1,0 +1,35 @@
+# Floor lamp: weighted round base, slim pole, drum shade. Origin bottom_center.
+
+name: floor_lamp
+tags: [furniture.lamp, light.floor_lamp]
+origin: bottom_center
+
+params:
+  height: { default: 1.6 }
+  shade:  { default: 0.42 }   # shade diameter
+
+size: ["{shade}", "{height}", "{shade}"]
+
+clearance: { front: 0.3 }
+
+parts:
+  base:
+    primitive: lathe
+    profile: [[0, 0], [0.14, 0], [0.15, 0.01], [0.14, 0.025], [0.03, 0.03], [0, 0.03]]
+    fit: none
+    size: ["{0.3 / shade}", "{0.03 / height}", "{0.3 / shade}"]
+    anchor: bottom_center
+    material: chrome
+  pole:
+    primitive: cylinder
+    size: ["{0.022 / shade}", "{(height - 0.3) / height}", "{0.022 / shade}"]
+    anchor: bottom_center
+    offset: [0, "{0.03 / height}", 0]
+    material: chrome
+  shade:
+    primitive: lathe
+    profile: [[0.02, 0], [1.0, 0], [0.82, 1.0], [0.02, 1.0]]
+    size: [1, "{0.32 / height}", 1]
+    anchor: bottom_center
+    offset: [0, "{(height - 0.32) / height}", 0]
+    material: fabric_linen
