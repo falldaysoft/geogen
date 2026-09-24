@@ -100,3 +100,45 @@ def test_floorplan_doors_get_swing_interactions(tmp_path):
     # Exported node names are unique, and each interaction points at its own leaf pivot.
     pivots = [n["extras"]["geogen"]["interactions"]["swing"]["motions"][0]["nodes"][0] for n in exported]
     assert len(set(pivots)) == 3
+
+
+CABINET = """
+name: cabinet
+size: [0.6, 0.8, 0.4]
+parts:
+  body: { primitive: cube, size: [1, 1, 0.95], anchor: bottom_center, offset: [0, 0, -0.025] }
+  door:
+    primitive: cube
+    size: [0.98, 0.95, 0.05]
+    anchor: bottom_center
+    offset: [0, 0.02, 0.475]
+    joint: { type: hinge, pivot: left, limits: [0, 110], with: [knob] }
+  knob: { primitive: sphere, size: [0.06, 0.06, 0.06], anchor: bottom_center, offset: [0.4, 0.5, 0.55] }
+  drawer:
+    primitive: cube
+    size: [0.9, 0.1, 0.9]
+    anchor: bottom_center
+    offset: [0, 0.9, 0]
+    joint: { type: slide, range: [0, 0.3] }
+"""
+
+
+def test_joint_shorthand_makes_interactions():
+    root = LayoutLoader().load_string(CABINET)
+    by_name = {i.name: i for i in root.interactions}
+    door, drawer = by_name["door"], by_name["drawer"]
+    assert list(door.states) == ["closed", "open"] and door.initial == "closed"
+    assert [p.name for p in door.motions[0].parts] == ["door", "knob"]
+    assert door.motions[0].pivot[0] == pytest.approx(-0.294, abs=1e-3)  # the door's left face
+    before = _world_points(root.find("door"))
+    apply_state(root, door, "open")
+    after = _world_points(root.find("door"))
+    assert after[:, 2].max() > before[:, 2].max() + 0.4    # swings out toward +Z
+    assert drawer.motions[0].kind == "translate" and drawer.motions[0].values == {"closed": 0.0, "open": 0.3}
+    apply_state(root, drawer, "open")
+    assert root.find("drawer").world_transform()[2, 3] == pytest.approx(0.3, abs=1e-6)
+
+
+def test_bad_joint_type():
+    with pytest.raises(ValueError, match="joint type"):
+        LayoutLoader().load_string(CABINET.replace("type: slide", "type: ball"))

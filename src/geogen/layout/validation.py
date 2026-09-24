@@ -26,7 +26,7 @@ PART_KNOWN_KEYS = {
     # booleans
     "subtract", "cutter", "cut_host", "reveal",
     # gameplay metadata
-    "tags", "collider", "walkable",
+    "tags", "collider", "walkable", "joint",
     # roof / prism
     "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
 }

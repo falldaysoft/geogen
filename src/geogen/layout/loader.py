@@ -352,10 +352,12 @@ class LayoutLoader:
         # rather than house.shell.north_wall.
         self._resolve_surface_exports(data.get("surfaces", {}), root, part_nodes)
 
-        if data.get("interactions"):
+        interactions = dict(data.get("interactions") or {})
+        interactions.update(_joint_interactions(parts))
+        if interactions:
             from .interactions import apply_state, parse_interactions
 
-            root.interactions = parse_interactions(data["interactions"], root, part_nodes)
+            root.interactions = parse_interactions(interactions, root, part_nodes)
             for interaction in root.interactions:
                 apply_state(root, interaction, interaction.initial)
 
@@ -810,3 +812,48 @@ class LayoutLoader:
             has_ceiling=config.get("has_ceiling", True),
             openings=openings,
         )
+
+
+def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
+    """Expand part ``joint:`` shorthands into interactions.
+
+    ``joint: {type: hinge, pivot: left, limits: [0, 100]}`` or
+    ``joint: {type: slide, axis: z, range: [0, 0.4]}`` on a part makes a
+    two-state (closed/open) interaction named after the part that moves it
+    (and its ``with: [other parts]``). ``pivot`` is an anchor on the part
+    (``left`` = its -X face centre, ``right``, ``top``, ``bottom``, ...) or
+    ``[x, y, z]`` in the asset frame. Without ``axis``, side and top/bottom
+    pivots pick the axis that swings the part out toward +Z (its front).
+    """
+    anchors = {"left": "left_center", "right": "right_center", "front": "front_center", "back": "back_center",
+               "top": "top_center", "bottom": "bottom_center", "center": "center"}
+    result: dict[str, Any] = {}
+    for name, part in parts.items():
+        joint = part.get("joint") if isinstance(part, dict) else None
+        if not joint:
+            continue
+        kind = joint.get("type", "hinge")
+        if kind not in ("hinge", "slide"):
+            raise ValueError(f"Part '{name}' joint type must be hinge or slide, got {kind!r}")
+        lo, hi = joint.get("limits", [0, 90]) if kind == "hinge" else joint.get("range", [0, 0.3])
+        pivot = joint.get("pivot", "left")
+        # Default hinge axes swing the part out toward +Z (its front) about a side pivot.
+        default_axis = {"left": "-y", "right": "y", "top": "x", "bottom": "-x"}.get(pivot, "y") \
+            if kind == "hinge" else "z"
+        motion: dict[str, Any] = {
+            "parts": [name, *joint.get("with", [])],
+            ("rotate" if kind == "hinge" else "translate"): joint.get("axis", default_axis),
+            "values": {"closed": float(lo), "open": float(hi)},
+        }
+        if kind == "hinge":
+            motion["pivot"] = f"{name}.{anchors.get(pivot, pivot)}" if isinstance(pivot, str) else pivot
+        result[joint.get("name", name)] = {
+            "targets": [name, *joint.get("with", [])],
+            "initial": joint.get("initial", "closed"),
+            "duration": float(joint.get("duration", 0.8 if kind == "hinge" else 0.4)),
+            "states": {"closed": {"prompt": joint.get("open_prompt", "Open"), "next": "open"},
+                       "open": {"prompt": joint.get("close_prompt", "Close"), "next": "closed"}},
+            "motions": [motion],
+        }
+    return result
+
