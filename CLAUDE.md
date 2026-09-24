@@ -387,6 +387,21 @@ place:
     slot: left_side
 ```
 
+### City layout
+
+A scene with a top-level `city:` block (`src/geogen/layout/city.py`, e.g. `assets/scenes/town.yaml`) builds a district:
+- a street grid (`blocks`, `block_size`, `street_width`, `avenues: {ew: [..], ns: [..]}` + `avenue_width`), one asphalt slab with crosswalks at every block corner and dashed centre lines (`road_paint_white/yellow`);
+- raised blocks (`curb_height`): a rounded concrete sidewalk ring plus lot slabs.
+
+Lots are rows split into `lot_width` frontages. Zoning:
+- `landmarks` blocks hold one building;
+- `parks` blocks get trees;
+- lots fronting an avenue are commercial, the rest residential.
+
+Each lot takes a random fitting entry from `buildings: {zone: [{asset|scene, params, weight, setback}]}`. The building's +Z front faces the street. Buildings and furniture are loaded once and instanced (deep copies sharing meshes). `furniture:` lines the curbs (lamp/tree by `spacing`; bench/hydrant/trashcan `per_edge`, optional `zones`). Nodes carry `meta.lot` / `meta.building` / `meta.street_furniture`. Streets and sidewalks are walkable.
+
+Manifest spawns are ordered shallowest first, so a scene's own `spawns:` beat nested buildings' `entrance_spawn`s. Layout QA works in each room's parent (storey) frame, so moving or rotating a building never changes its result.
+
 ### Buildings
 
 `house_peaked.yaml` is a hollow brick shell (walls minus an `interior` cutter) with a gable `roof`, brick `prism` gables and a chimney. Inside it has a separate finish: `floor` (hardwood_floor), a hollow `lining` (wall_plaster, 1.5 cm) and a `ceiling` at the wall top. Its wall surfaces are exported with `cut: [lining]` and `reveal: {material: wall_plaster, thickness: 0.015}`, so openings cut through the brick and the lining, and the composer adds a `<object>_reveal` plaster sleeve behind the frame. Opening assets mark that region with a `reveal: true` part (`reveal: {bottom: false}` for doors), a box from the frame's back face into the room; it is clipped to the removed wall/lining material. `scenes/cottage.yaml` places `door.yaml` and `window.yaml` on its wall surfaces (each cuts its own opening) and furniture (dining set, `bookshelf.yaml`, `armchair.yaml`) on `house.floor`. Surface placements take `facing:` (compass/center/outward) and `yaw:` (degrees) to turn objects. Opening assets are authored with the origin at the bottom-centre of the opening on the wall face, +Z out of the wall, and a 1 m container depth so z offsets read as metres. `scenes/house_plot.yaml` (used by the street) places the cottage scene.

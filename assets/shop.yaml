@@ -1,0 +1,32 @@
+# Corner shop: a double-height storefront on the ground floor with a stock
+# room behind, and a flat above. Front (storefront and door) faces +Z.
+
+name: shop
+tags: [building.shop]
+
+building:
+  storeys:
+    - floorplan:
+        wall_height: 3.4
+        materials: { walls: paint_white, floor: tile_floor_grey, ceiling: ceiling_white }
+        rooms:
+          shop:  { rect: [0, 3, 8, 6], type: shop }
+          stock: { rect: [0, 0, 8, 3], type: storage, floor: laminate }
+        doors:
+          - { name: entry, room: shop, side: north, at: 0.5, width: 1.2 }
+          - { between: [shop, stock], at: 0.8, width: 0.9 }
+        windows:
+          - { room: shop, side: north, at: 0.2, width: 2.2, height: 2.3, sill: 0.4 }
+          - { room: shop, side: north, at: 0.8, width: 2.2, height: 2.3, sill: 0.4 }
+          - { room: stock, side: west, at: 0.5, width: 0.8, height: 0.8, sill: 1.6 }
+    - floorplan:
+        wall_height: 2.7
+        materials: { walls: paint_greige, floor: laminate, ceiling: ceiling_white }
+        rooms:
+          flat: { rect: [0, 0, 8, 9], type: living_room }
+        windows:
+          - { room: flat, side: north, at: 0.25, width: 1.4, height: 1.5, sill: 0.8 }
+          - { room: flat, side: north, at: 0.75, width: 1.4, height: 1.5, sill: 0.8 }
+          - { room: flat, side: south, at: 0.5, width: 1.4, height: 1.5, sill: 0.8 }
+  facade: { style: stucco }
+  roof: { parapet: 0.8, material: concrete }

@@ -1,0 +1,14 @@
+# Road marking paint (yellow): crosswalks and lane lines.
+name: road_paint_yellow
+texture:
+  type: painted_wall
+  params:
+    base_color: mustard
+    seed: 135
+size: [128, 128]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.7
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 1.0

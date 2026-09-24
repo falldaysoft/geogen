@@ -49,10 +49,12 @@ class Issue:
 class _Room:
     name: str
     node: SceneNode
-    center: np.ndarray            # world (x, z)
+    center: np.ndarray            # plan (x, z): the room's parent (storey) frame
     half: np.ndarray              # clear half size (x, z) (axis-aligned rooms)
     openings: list[dict]
     swings: list[dict]
+    frame: np.ndarray             # world -> plan frame
+    matrix: np.ndarray            # room -> plan frame
     items: list["_Item"] = field(default_factory=list)
 
 
@@ -60,11 +62,11 @@ class _Room:
 class _Item:
     name: str
     node: SceneNode
-    lo: np.ndarray                # world footprint (x, z)
+    lo: np.ndarray                # footprint (x, z) in its room's plan frame
     hi: np.ndarray
     bottom: float
     top: float
-    facing: np.ndarray            # world (x, z)
+    facing: np.ndarray            # plan (x, z)
     front: float                  # clearance in front (m)
 
 
@@ -88,13 +90,17 @@ def _rooms(scene: SceneNode) -> list[_Room]:
         room = node.meta.get("room")
         if not isinstance(room, dict) or node.meta.get("type") == "room_volume" or node.size is None:
             continue
-        m = node.world_transform()
+        # Work in the parent's frame, so moving or turning a whole building
+        # (a city lot) never changes the result.
+        frame = np.linalg.inv(node.parent.world_transform()) if node.parent is not None else np.eye(4)
+        m = frame @ node.world_transform()
         inset = float(node.meta.get("wall_inset", {}).get("mount", 0.0))
         rooms.append(_Room(
             name=str(room.get("id", node.name)), node=node, center=m[[0, 2], 3],
             half=np.asarray(node.size, dtype=float)[[0, 2]] / 2 - inset,
             openings=list(node.meta.get("openings", [])),
             swings=list(node.meta.get("door_swings", [])),
+            frame=frame, matrix=m,
         ))
     return rooms
 
@@ -105,18 +111,21 @@ def _collect_items(scene: SceneNode, rooms: list[_Room]) -> None:
     def visit(node: SceneNode) -> None:
         if _is_item(node) and id(node) not in seen:
             seen.add(id(node))
-            pts = _world_points(node)
-            if pts is not None:
-                m = node.world_transform()
-                facing = m[[0, 2], 2]
-                facing = facing / max(np.linalg.norm(facing), 1e-9)
-                item = _Item(node.name, node, pts[:, [0, 2]].min(axis=0), pts[:, [0, 2]].max(axis=0),
-                             float(pts[:, 1].min()), float(pts[:, 1].max()), facing,
-                             float(node.meta.get("clearance", {}).get("front", 0.3)))
-                centre = (item.lo + item.hi) / 2
+            world_pts = _world_points(node)
+            if world_pts is not None:
+                homogeneous = np.c_[world_pts, np.ones(len(world_pts))]
                 for room in rooms:
-                    floor_y = room.node.world_transform()[1, 3]
-                    if np.all(np.abs(centre - room.center) <= room.half + 1e-6) and item.bottom - floor_y < 2.0:
+                    pts = (room.frame @ homogeneous.T).T
+                    m = room.frame @ node.world_transform()
+                    facing = m[[0, 2], 2]
+                    facing = facing / max(np.linalg.norm(facing), 1e-9)
+                    item = _Item(node.name, node, pts[:, [0, 2]].min(axis=0), pts[:, [0, 2]].max(axis=0),
+                                 float(pts[:, 1].min()), float(pts[:, 1].max()), facing,
+                                 float(node.meta.get("clearance", {}).get("front", 0.3)))
+                    centre = (item.lo + item.hi) / 2
+                    floor_y = room.matrix[1, 3]
+                    inside = np.all(np.abs(centre - room.center) <= room.half + 1e-6)
+                    if inside and -0.5 <= item.bottom - floor_y < 2.0:
                         item.bottom -= floor_y
                         item.top -= floor_y
                         room.items.append(item)
@@ -166,10 +175,11 @@ def check_layout(scene: SceneNode, player=None) -> list[Issue]:
     issues: list[Issue] = []
     for room in rooms:
         issues += _check_room(room, player)
-    # Reachability per floor level: rooms of different storeys overlap in plan.
-    levels: dict[float, list[_Room]] = {}
+    # Reachability per plan frame and floor level: rooms of different storeys overlap in plan.
+    levels: dict[tuple[int, float], list[_Room]] = {}
     for room in rooms:
-        levels.setdefault(round(float(room.node.world_transform()[1, 3]), 2), []).append(room)
+        key = (id(room.node.parent), round(float(room.matrix[1, 3]), 2))
+        levels.setdefault(key, []).append(room)
     for level_rooms in levels.values():
         issues += _check_reachability(level_rooms, player)
     return issues
@@ -191,9 +201,8 @@ def _check_room(room: _Room, player) -> list[Issue]:
         if out.max() > 0.01:
             issues.append(Issue("outside_room", room.name, (item.name,),
                                 f"{item.name} extends {out.max():.2f} m into the wall"))
-    to_world = room.node.world_transform()
     for swing in room.swings:
-        hinge = (to_world @ np.r_[swing["hinge"], 1.0])[[0, 2]]
+        hinge = (room.matrix @ np.r_[swing["hinge"], 1.0])[[0, 2]]
         lo_a, hi_a = sorted((swing["from_deg"], swing["to_deg"]))
         pts = np.array([hinge + r * np.array([np.cos(t), np.sin(t)])
                         for r in np.linspace(0.1, swing["radius"], 6)
@@ -225,8 +234,8 @@ def _check_reachability(rooms: list[_Room], player) -> list[Issue]:
         return []
     lo = np.min([r.center - r.half for r in rooms], axis=0) - 0.5
     hi = np.max([r.center + r.half for r in rooms], axis=0) + 0.5
-    # Snap to a world lattice so a room checked alone (furnishing) and the
-    # same room checked with its whole storey (QA) rasterise identically.
+    # Snap to a lattice in the plan frame so a room checked alone (furnishing)
+    # and the same room checked with its whole storey (QA) rasterise identically.
     lo = np.floor(lo / CELL) * CELL
     hi = np.ceil(hi / CELL) * CELL
     shape = np.ceil((hi - lo) / CELL).astype(int) + 1

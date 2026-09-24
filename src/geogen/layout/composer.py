@@ -266,6 +266,12 @@ class SceneComposer:
                     node.transform = attach_transform
                     root.add_child(node)
 
+        if "city" in data:
+            from .city import build_city
+
+            build_city(root, data["city"], self._load_object, self._loader._material_loader)
+            loaded_objects["city"] = root.children[-1]
+
         if scatters:
             from .scatter import scatter
 

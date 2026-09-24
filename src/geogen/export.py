@@ -223,6 +223,8 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
     Rooms come from ``room_volume`` nodes (centre, size, and the volume's
     world rotation about Y); spawns from ``spawn`` nodes (position and
     ``forward``, the node's +Z axis: the direction the player should face).
+    Spawns are ordered shallowest first, so a scene's own spawns come before
+    those of nested assets (e.g. every building's ``entrance_spawn`` in a city).
     """
     rooms, spawns = [], []
     for node in root.iter_nodes():
@@ -242,9 +244,13 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
                 "yaw_deg": round(float(np.degrees(np.arctan2(world[0, 2], world[2, 2]))), 6),
             })
         else:
-            spawns.append({"name": node.name, "position": position,
-                           "forward": [round(float(v), 6) for v in forward]})
-    return {"rooms": rooms, "spawns": spawns}
+            depth, parent = 0, node.parent
+            while parent is not None:
+                depth, parent = depth + 1, parent.parent
+            spawns.append((depth, {"name": node.name, "position": position,
+                                   "forward": [round(float(v), 6) for v in forward]}))
+    spawns.sort(key=lambda item: item[0])
+    return {"rooms": rooms, "spawns": [spawn for _, spawn in spawns]}
 
 
 def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,

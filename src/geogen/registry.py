@@ -77,12 +77,12 @@ class SceneRegistry:
         return isinstance(data, dict) and "kind" in data
 
     def _is_composed_scene(self, yaml_path: Path) -> bool:
-        """Check if a YAML file is a composed scene (has place: or compose:)."""
+        """Check if a YAML file is a composed scene (has place:, compose: or city:)."""
         with open(yaml_path) as f:
             data = yaml.safe_load(f)
         if not isinstance(data, dict):
             return False
-        return "place" in data or "compose" in data
+        return "place" in data or "compose" in data or "city" in data
 
     def _register_asset(self, name: str, yaml_path: Path) -> None:
         """Register a YAML asset that loads via LayoutLoader."""

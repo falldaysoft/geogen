@@ -1,0 +1,34 @@
+# A small town district: a 3 x 2 street grid with a commercial avenue down
+# the middle, the hotel as a landmark, a park, and houses on the side
+# streets. Lamps, trees, benches and hydrants line the sidewalks.
+
+name: town
+tags: [city.district]
+
+city:
+  seed: 4
+  blocks: [3, 2]
+  block_size: [44, 36]
+  street_width: 8
+  avenues: { ew: [1] }
+  avenue_width: 12
+  sidewalk: 3
+  curb_height: 0.15
+  lot_width: [10, 15]
+  landmarks: { "1,0": { asset: hotel.yaml } }
+  parks: ["2,1"]
+  buildings:
+    residential:
+      - { scene: scenes/cottage.yaml }
+      - { asset: house_simple.yaml, params: { width: 7, depth: 7 } }
+      - { asset: house_simple.yaml, params: { width: 9, depth: 6, height: 3.5 } }
+    commercial:
+      - { asset: shop.yaml, setback: 0 }
+  furniture:
+    lamp:    { asset: street_lamp.yaml, spacing: 20 }
+    tree:    { asset: maple_tree.yaml, spacing: 10 }
+    bench:   { asset: bench.yaml, per_edge: 1, zones: [commercial, park, landmark] }
+    hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+
+spawns:
+  start: { position: [-3, 0, -2], facing: north }   # on the avenue, facing the shops

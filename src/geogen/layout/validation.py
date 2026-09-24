@@ -36,7 +36,7 @@ PART_KNOWN_KEYS = {
 
 # Known keys for scene YAML files
 SCENE_KNOWN_KEYS = {
-    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params",
+    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params", "city",
 }
 
 SLOT_KNOWN_KEYS = {
