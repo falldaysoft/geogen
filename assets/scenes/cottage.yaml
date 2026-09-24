@@ -38,3 +38,23 @@ place:
     asset: window.yaml
     on: house.back_wall
     at: { u: 0.7, v: { abs: 0.85 } }
+
+  # Furniture on the interior floor (u: west -> east, v: back -> front).
+  # The floor is 7.4 x 5.4 m; keep >= 1.2 m paths between the front door,
+  # the table and the windows.
+  dining:
+    scene: scenes/dining_set.yaml
+    on: house.floor
+    at: { u: { abs: 2.0 }, v: { abs: 2.3 } }
+
+  bookshelf:
+    asset: bookshelf.yaml
+    on: house.floor
+    at: { u: 0.5, v: { abs: 0.19 } }     # against the back wall, between its windows
+
+  armchair:
+    asset: armchair.yaml
+    on: house.floor
+    at: { u: { abs: 6.3 }, v: { abs: 3.9 } }
+    facing: center
+    yaw: 15

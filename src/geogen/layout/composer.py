@@ -374,6 +374,10 @@ class SceneComposer:
         Forms:
           on: floor            # root-level surface
           on: house.floor      # surface on a placed object
+
+        Objects face out of the surface (+Z along its normal); on horizontal
+        surfaces that is +Z (north). ``facing:`` (north/south/east/west/
+        center/outward) replaces the heading, ``yaw:`` (degrees) turns further.
         """
         spec = obj_def["on"]
         at = obj_def.get("at", {})
@@ -407,7 +411,7 @@ class SceneComposer:
                     f"Surface '{surface_name}' not found on '{target_name}'.{hint}"
                     f" Available: {available}"
                 )
-            return transform
+            return self._orient(transform, obj_def)
 
         # Root-level surface
         transform = root.get_surface(spec, u=u, v=v, depth=depth)
@@ -417,6 +421,14 @@ class SceneComposer:
                 f"Surface '{spec}' not defined on scene root."
                 f" Available: {available}"
             )
+        return self._orient(transform, obj_def)
+
+    def _orient(self, transform: Transform, obj_def: dict[str, Any]) -> Transform:
+        """Apply a placement's ``facing:`` / ``yaw:`` to a surface transform."""
+        if "facing" in obj_def:
+            transform.rotation[1] = self._facing_to_rotation(obj_def["facing"], transform.translation)
+        if "yaw" in obj_def:
+            transform.rotation[1] += np.radians(float(obj_def["yaw"]))
         return transform
 
     def _parse_slots(

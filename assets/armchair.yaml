@@ -1,0 +1,93 @@
+# Upholstered armchair: box base on short wooden legs, seat and back
+# cushions between padded arms. Origin bottom_center, front (seat) faces +Z.
+
+name: armchair
+tags: [furniture.armchair]
+origin: bottom_center
+
+params:
+  width:     { default: 0.86 }
+  depth:     { default: 0.84 }
+  height:    { default: 0.86 }
+  leg:       { default: 0.1 }    # leg height (base sits on the legs)
+  base:      { default: 0.24 }   # upholstered base height
+  arm_width: { default: 0.15 }
+  arm_top:   { default: 0.62 }   # arm height above the floor
+  back:      { default: 0.18 }   # backrest thickness
+
+size: ["{width}", "{height}", "{depth}"]
+
+parts:
+  base:
+    primitive: cube
+    size: [1, "{base / height}", "{(depth - back + 0.02) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{leg / height}", "{(back - 0.02) / 2 / depth}"]
+    bevel: 0.03
+    material: fabric_velvet
+
+  backrest:
+    primitive: cube
+    size: [1, "{(height - leg) / height}", "{back / depth}"]
+    anchor: bottom_center
+    offset: [0, "{leg / height}", "{(back / 2 - depth / 2) / depth}"]
+    bevel: 0.05
+    material: fabric_velvet
+
+  arm_left:
+    primitive: cube
+    size: ["{arm_width / width}", "{(arm_top - leg) / height}", "{(depth - back + 0.04) / depth}"]
+    anchor: bottom_center
+    offset: ["{(arm_width / 2 - width / 2) / width}", "{leg / height}", "{(back - 0.04) / 2 / depth}"]
+    bevel: 0.05
+    material: fabric_velvet
+
+  arm_right:
+    primitive: cube
+    size: ["{arm_width / width}", "{(arm_top - leg) / height}", "{(depth - back + 0.04) / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 2 - arm_width / 2) / width}", "{leg / height}", "{(back - 0.04) / 2 / depth}"]
+    bevel: 0.05
+    material: fabric_velvet
+
+  seat_cushion:
+    primitive: cube
+    size: ["{(width - 2 * arm_width - 0.01) / width}", "{0.13 / height}", "{(depth - back - 0.02) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(leg + base) / height}", "{(back + 0.02) / 2 / depth}"]
+    bevel: 0.045
+    material: fabric_linen
+
+  back_cushion:
+    primitive: cube
+    size: ["{(width - 2 * arm_width - 0.01) / width}", "{(height - leg - base - 0.13 - 0.04) / height}", "{0.12 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(leg + base + 0.13) / height}", "{(back + 0.06 - depth / 2) / depth}"]
+    bevel: 0.045
+    material: fabric_linen
+
+  leg_fl: &leg
+    primitive: cylinder
+    size: ["{0.045 / width}", "{leg / height}", "{0.045 / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.07 - width / 2) / width}", 0, "{(depth / 2 - 0.07) / depth}"]
+    material: wood
+    collider: none
+  leg_fr:
+    <<: *leg
+    offset: ["{(width / 2 - 0.07) / width}", 0, "{(depth / 2 - 0.07) / depth}"]
+  leg_bl:
+    <<: *leg
+    offset: ["{(0.07 - width / 2) / width}", 0, "{(0.07 - depth / 2) / depth}"]
+  leg_br:
+    <<: *leg
+    offset: ["{(width / 2 - 0.07) / width}", 0, "{(0.07 - depth / 2) / depth}"]
+
+attachments:
+  sit:
+    anchor: bottom_front_center
+    offset: [0, 0, 0.35]
+    facing: outward
+
+surfaces:
+  seat: { from: seat_cushion.top }

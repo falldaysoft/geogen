@@ -128,3 +128,5 @@ surfaces:
   back_wall:  { from: walls.back,  cut: [lining], reveal: *plaster_reveal }
   left_wall:  { from: walls.left,  cut: [lining], reveal: *plaster_reveal }
   right_wall: { from: walls.right, cut: [lining], reveal: *plaster_reveal }
+  # Interior floor (top of the floorboards) for furniture: on: house.floor
+  floor: { from: floor.top }

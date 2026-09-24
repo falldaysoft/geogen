@@ -155,3 +155,20 @@ place:
     assert hi[2] == pytest.approx(depth - 0.09 - 0.035, abs=1e-6)
     assert lo[2] == pytest.approx(depth - 0.3 - 0.015, abs=1e-6)
     assert meshops.validate(reveal.mesh).watertight
+
+
+def test_cottage_furniture_stands_on_house_floor():
+    from pathlib import Path
+    scene = SceneComposer().compose(Path("assets/scenes/cottage.yaml"))
+    house = scene.find("house")
+    floor = house.find("floor")
+    floor_top = (floor.world_transform() @ np.r_[floor.mesh.vertices.max(axis=0), 1])[1]
+    for name in ("dining", "bookshelf", "armchair"):
+        node = scene.find(name)
+        lows = [(n.world_transform() @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T)[1].min()
+                for n in node.iter_nodes() if n.mesh is not None]
+        assert min(lows) == pytest.approx(floor_top, abs=1e-6), name
+    # A 1.2 m path runs from the front door to the back of the room.
+    armchair_x = scene.find("armchair").world_transform()[0, 3]
+    dining_x = scene.find("dining").world_transform()[0, 3]
+    assert armchair_x - 0.6 - (dining_x + 1.1) > 1.2
