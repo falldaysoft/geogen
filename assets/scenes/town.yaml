@@ -1,6 +1,7 @@
 # A small town district: a 3 x 2 street grid with a commercial avenue down
-# the middle, the hotel as a landmark, a park, and houses on the side
-# streets. Lamps, trees, benches and hydrants line the sidewalks.
+# the middle (shop rows with flats above, the odd office), a hotel and an
+# apartment block as landmarks, a park, and houses on the side streets.
+# Lamps, trees, benches and hydrants line the sidewalks.
 
 name: town
 tags: [city.district]
@@ -15,15 +16,17 @@ city:
   sidewalk: 3
   curb_height: 0.15
   lot_width: [10, 15]
-  landmarks: { "1,0": { asset: hotel.yaml } }
+  landmarks:
+    "1,0": { recipe: hotel, storeys: 4, interior: lobby }
+    "0,1": { recipe: apartment_block, storeys: [4, 5], interior: lobby }
   parks: ["2,1"]
-  buildings:
+  buildings:                         # recipes are sized to each lot; interior: full | lobby | shell
     residential:
+      - { recipe: detached_house, storeys: [1, 2], style: [brick_hotel, stucco], weight: 3 }
       - { scene: scenes/cottage.yaml }
-      - { asset: house_simple.yaml, params: { width: 7, depth: 7 } }
-      - { asset: house_simple.yaml, params: { width: 9, depth: 6, height: 3.5 } }
     commercial:
-      - { asset: shop.yaml, setback: 0 }
+      - { recipe: shop_row, storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel], weight: 3 }
+      - { recipe: office, storeys: [3, 4], interior: shell, max_width: 14 }
   furniture:
     lamp:    { asset: street_lamp.yaml, spacing: 20 }
     tree:    { asset: maple_tree.yaml, spacing: 10 }

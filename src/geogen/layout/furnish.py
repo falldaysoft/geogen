@@ -23,9 +23,9 @@ door swing arcs and the approach zone in front of each door, and items
 rising more than 0.4 m above a window's sill (wardrobes, shelves) stay out
 of the zone in front of it. Remaining
 candidates are scored by ``prefer`` terms; ties break by a seeded jitter, so
-results are deterministic for a seed. A candidate is rejected if it would
-leave an already-placed item out of reach from the room's doors (see
-``qa.room_reachability``). Rules that can't be met are reported
+results are deterministic for a seed. A candidate is rejected if it can't
+itself be reached, or would leave an already-placed item out of reach, from
+the room's doors (see ``qa.room_reachability``). Rules that can't be met are reported
 (``furnish_room`` returns them); ``optional: true`` items are skipped
 quietly.
 
@@ -378,7 +378,7 @@ class _RoomSolver:
             before = set(self.unreachable())
             for _, center, facing, rect, keep, wall, along in options[:MAX_REACH_TRIES]:
                 self.add(name, i, node, center, facing, 0.0, rect, keep, wall, along)
-                if set(self.unreachable()) <= before:
+                if self.keeps_access(before, node):
                     placed += 1
                     break
                 self.remove_last(name)
@@ -390,6 +390,11 @@ class _RoomSolver:
         from .qa import room_reachability
 
         return room_reachability(self.room)
+
+    def keeps_access(self, before: set[str], node: SceneNode) -> bool:
+        """After placing ``node``: is it reachable, and is everything that was still reachable?"""
+        after = set(self.unreachable())
+        return after <= before and node.name not in after
 
     def remove_last(self, name: str) -> None:
         placed = self.placed[name].pop()
@@ -450,7 +455,11 @@ class _RoomSolver:
             keep = self.keepout(center, inward, size, self._clearance(node, spec))
             # Flanking items stand in the parent's side clearance by design.
             if self.fits(rect, keep, float(size[1]), {parent.name}) and not rect.overlaps(parent.rect, GAP / 2):
+                before = set(self.unreachable())
                 self.add(name, placed, node, center, inward.copy(), 0.0, rect, keep, parent.wall, along)
+                if not self.keeps_access(before, node):
+                    self.remove_last(name)   # e.g. a nightstand in a gap too narrow to walk into
+                    continue
                 placed += 1
         return placed
 
@@ -480,7 +489,7 @@ class _RoomSolver:
                     continue
                 before = set(self.unreachable())
                 self.add(name, placed, node, center, facing, 0.0, rect, [])
-                if not set(self.unreachable()) <= before:
+                if not self.keeps_access(before, node):
                     self.remove_last(name)  # this chair would wall something off
                     continue
                 placed += 1
@@ -499,7 +508,11 @@ class _RoomSolver:
         ignore = {spec["front_of"]} if distance < 0 else set()
         if not self.fits(rect, [], float(size[1]), ignore):
             return 0
+        before = set(self.unreachable())
         self.add(name, 0, node, center, facing, 0.0, rect, [])
+        if not self.keeps_access(before, node):
+            self.remove_last(name)
+            return 0
         return 1
 
     def place_under(self, name: str, spec: dict[str, Any]) -> int:

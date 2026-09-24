@@ -1,0 +1,21 @@
+# Kitchen-diner: a table with chairs round it (no fitted kitchen units yet).
+
+name: kitchen
+finishes: { walls: tile_subway, floor: tile_floor_grey }
+
+items:
+  table:
+    asset: table.yaml
+    against: none
+    facing: north
+    clearance: { front: 0.8, back: 0.8, left: 0.8, right: 0.8 }
+    prefer: [centered]
+  chair:
+    asset: chair.yaml
+    around: table
+    min: 2
+  planter:
+    asset: planter.yaml
+    against: wall
+    prefer: [corner]
+    optional: true

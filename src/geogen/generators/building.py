@@ -121,7 +121,12 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
     x0, z0, x1, z1 = storeys[0][1].bounds
     t = storeys[0][1].exterior_wall
     top_y = elevation + top_plan.wall_height
-    root.size = np.array([x1 - x0 + t, top_y + (roof or {}).get("parapet", 1.0), z1 - z0 + t])
+    roof_spec = roof or {}
+    if roof_spec.get("style", "flat") in ("gable", "hip", "shed"):
+        cap = float(roof_spec.get("rise", 0.35 * min(x1 - x0 + t, z1 - z0 + t)))
+    else:
+        cap = float(roof_spec.get("parapet", 1.0))
+    root.size = np.array([x1 - x0 + t, top_y + cap, z1 - z0 + t])
     root.meta["building"] = {"storeys": len(storeys), "height": round(top_y, 6)}
     return root
 
@@ -367,12 +372,17 @@ def _place_flight(room: SceneNode, above: SceneNode, gen, rise: float, run: floa
 
 
 def _roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], material_loader) -> SceneNode:
-    """Flat roof slab over the top storey plus a parapet around its edge."""
+    """Flat roof slab over the top storey plus a parapet around its edge, or a
+    pitched roof (``style: gable|hip|shed``, ``rise``, ``overhang``) with its
+    gable ends filled in ``gable_material``."""
     from ..core import csg, uvmap
     from .primitives import CubeGenerator
 
     size = plan.size
     t = plan.exterior_wall
+    style = roof.get("style", "flat")
+    if style in ("gable", "hip", "shed"):
+        return _pitched_roof(top, plan, roof, style, material_loader)
     slab_t = float(roof.get("thickness", 0.25))
     parapet = float(roof.get("parapet", 1.0))
     y = float(top.transform.translation[1]) + plan.wall_height
@@ -390,4 +400,35 @@ def _roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], material_loader
     mesh.material = material_loader.load(roof.get("material", "concrete"))
     node = SceneNode(name="roof", mesh=mesh, tags=["roof"])
     node.meta["walkable"] = True
+    return node
+
+
+def _pitched_roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], style: str, material_loader) -> SceneNode:
+    from .architecture import PrismGenerator, RoofGenerator
+
+    size = plan.size
+    y = float(top.transform.translation[1]) + plan.wall_height
+    rise = float(roof.get("rise", 0.35 * min(size[0], size[2])))
+    gen = RoofGenerator(width=size[0], height=rise, depth=size[2], style=style,
+                        overhang=float(roof.get("overhang", 0.4)), thickness=float(roof.get("thickness", 0.15)))
+    m = np.eye(4)
+    m[1, 3] = y + rise / 2          # the generator's wall-top plane is at -rise / 2
+    mesh = gen.generate().transform(m)
+    mesh.material = material_loader.load(roof.get("material", "roof_shingle"))
+    node = SceneNode(name="roof", mesh=mesh, tags=["roof", f"roof.{style}"])
+    if style in ("gable", "shed"):
+        along_x = size[0] >= size[2]
+        width, depth = (size[0], size[2]) if along_x else (size[2], size[0])
+        prism = PrismGenerator(width=width, height=rise, depth=depth,
+                               apex="back" if style == "shed" else "center").generate()
+        m = np.eye(4)
+        if not along_x:
+            m[:3, :3] = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]
+        m[1, 3] = y + rise / 2
+        from ..core import meshops, uvmap
+
+        gable = meshops.compute_normals(uvmap.box_project(prism.transform(m)), 30.0)
+        gable.material = material_loader.load(roof.get("gable_material", "brick"))
+        node.add_child(SceneNode(name="gables", mesh=gable, tags=["wall.gable"]))
+    node.meta["roof"] = {"style": style, "rise": round(rise, 3)}
     return node

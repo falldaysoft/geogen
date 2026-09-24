@@ -91,6 +91,13 @@ def _instance(node: SceneNode) -> SceneNode:
     return node.instance()
 
 
+def _rot_y(yaw: float) -> np.ndarray:
+    c, s = np.cos(yaw), np.sin(yaw)
+    m = np.eye(4)
+    m[0, 0], m[0, 2], m[2, 0], m[2, 2] = c, s, -s, c
+    return m
+
+
 def _slab(lo, hi, y0: float, y1: float) -> Mesh:
     from ..generators.primitives import CubeGenerator
 
@@ -138,7 +145,7 @@ class CityBuilder:
         self.landmarks = {_key(k): v for k, v in (spec.get("landmarks") or {}).items()}
         self.parks = {_key(k) for k in spec.get("parks", [])}
         self.catalogue = spec.get("buildings", {}) or {}
-        self._prototypes: dict[int, tuple[SceneNode, np.ndarray, np.ndarray]] = {}
+        self._prototypes: dict[str, tuple[SceneNode, dict[str, Any]]] = {}
 
         # Street centre lines and widths along each axis.
         self.ns_width = [self.avenue if i in self.ns_avenues else self.street for i in range(self.nx + 1)]
@@ -271,20 +278,83 @@ class CityBuilder:
         return node
 
     def _prototype(self, entry: dict[str, Any]) -> tuple[SceneNode, np.ndarray, np.ndarray]:
-        key = id(entry)
+        """Loaded node and its full bounds (for street furniture and park trees)."""
+        node, fp = self._measured({k: v for k, v in entry.items() if k in ("asset", "scene", "params", "furnish")})
+        return node, fp["full_lo"], fp["full_hi"]
+
+    def _measured(self, obj: dict[str, Any]) -> tuple[SceneNode, dict[str, Any]]:
+        """Load ``obj`` once and measure it in its front-aligned frame (entrance toward +Z).
+
+        ``body`` is the wall footprint (nodes tagged ``wall``; the whole
+        thing when there are none); ``full`` includes canopies, roofs and
+        other projections. ``fix`` is the yaw that turns the entrance to +Z.
+        """
+        import json
+
+        from .recipes import front_of
+
+        key = json.dumps(obj, sort_keys=True, default=str)
         if key not in self._prototypes:
-            node = self.load({k: v for k, v in entry.items() if k in ("asset", "scene", "params", "furnish")})
-            pts = []
+            node = self.load(obj)
+            to_local = np.linalg.inv(node.world_transform())
+            full, body = [], []
             for n in node.iter_nodes():
-                if n.mesh is not None and len(n.mesh.vertices) and n.meta.get("type") != "room_volume":
-                    v = n.mesh.vertices
-                    pts.append((n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3])
-            allp = np.vstack(pts) if pts else np.zeros((1, 3))
-            self._prototypes[key] = (node, allp.min(axis=0), allp.max(axis=0))
+                if n.mesh is None or not len(n.mesh.vertices) or n.meta.get("type") == "room_volume":
+                    continue
+                v = n.mesh.vertices
+                pts = (to_local @ n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3]
+                full.append(pts)
+                if "wall" in n.tags:
+                    body.append(pts)
+            full_pts = np.vstack(full) if full else np.zeros((1, 3))
+            body_pts = np.vstack(body) if body else full_pts
+            front = front_of(node)
+            fix = float(np.arctan2(-front[0], front[1]))     # R_y(fix) maps the entrance direction to +Z
+            rot = _rot_y(fix)[:3, :3]
+
+            def aligned(pts):
+                p = pts @ rot.T
+                return p.min(axis=0), p.max(axis=0)
+
+            full_lo, full_hi = aligned(full_pts)
+            body_lo, body_hi = aligned(body_pts)
+            self._prototypes[key] = (node, {"full_lo": full_lo, "full_hi": full_hi, "body_lo": body_lo,
+                                            "body_hi": body_hi, "fix": fix})
         return self._prototypes[key]
 
+    def _recipe_params(self, entry: dict[str, Any], lot: Lot, setback: float, side_gap: float) -> dict | None:
+        from .recipes import RECIPE_LIMITS
+
+        name = entry["recipe"]
+        max_w, max_d = RECIPE_LIMITS.get(name, (40.0, 20.0))
+        rear_gap = float(entry.get("rear_gap", 0.0 if lot.zone in ("commercial", "landmark") else 1.5))
+        width = min(lot.frontage - 2 * side_gap, float(entry.get("max_width", max_w))) - 0.4   # outer wall skin
+        depth = min(lot.depth - setback - rear_gap, float(entry.get("max_depth", max_d))) - 0.4
+        width, depth = np.floor(width * 2) / 2, np.floor(depth * 2) / 2
+        if width <= 0 or depth <= 0:
+            return None
+        storeys = entry.get("storeys", 1)
+        if isinstance(storeys, (list, tuple)):
+            storeys = int(self.rng.integers(int(storeys[0]), int(storeys[1]) + 1))
+        params = {"width": float(width), "depth": float(depth), "storeys": int(storeys),
+                  "interior": entry.get("interior", "full")}
+        styles = entry.get("style")
+        if isinstance(styles, (list, tuple)):
+            params["style"] = str(styles[int(self.rng.integers(len(styles)))])
+        elif styles:
+            params["style"] = str(styles)
+        return params
+
     def _fit(self, entries: list[dict[str, Any]], lot: Lot) -> SceneNode | None:
-        """Place a random catalogue entry that fits the lot (front to the street)."""
+        """Place a random catalogue entry that fits the lot, entrance to the street.
+
+        Fitting uses the wall footprint: the body must fit between the side
+        gaps and behind the setback; projections (canopies, eaves) may reach
+        forward over the setback and the sidewalk, but not past the lot's
+        sides or back. Recipes are sized to the lot first.
+        """
+        from .recipes import RecipeError
+
         order = list(self.rng.permutation(len(entries))) if entries else []
         weights = np.array([float(entries[k].get("weight", 1.0)) for k in order]) if order else None
         if order and weights is not None and weights.sum() > 0:
@@ -292,27 +362,49 @@ class CityBuilder:
                                                          p=weights / weights.sum())]
         for k in order:
             entry = entries[k]
-            proto, bmin, bmax = self._prototype(entry)
-            width, depth = bmax[0] - bmin[0], bmax[2] - bmin[2]
             setback = float(entry.get("setback", _DEFAULT_SETBACK.get(lot.zone, 2.0)))
-            side_gap = 0.0 if lot.zone == "commercial" else 1.0
-            if width > lot.frontage - 2 * side_gap + 1e-6 or depth > lot.depth - setback + 1e-6:
+            side_gap = float(entry.get("side_gap", 0.0 if lot.zone in ("commercial", "landmark") else 1.0))
+            if "recipe" in entry:
+                params = self._recipe_params(entry, lot, setback, side_gap)
+                if params is None:
+                    continue
+                measured = None
+                while measured is None and params["storeys"] >= 1:   # too tight for a stair: go lower
+                    obj = {"recipe": entry["recipe"], "params": dict(params)}
+                    try:
+                        measured = self._measured(obj)
+                    except RecipeError:
+                        params["storeys"] -= 1
+                if measured is None:
+                    continue
+                proto, fp = measured
+            else:
+                obj = {k: v for k, v in entry.items() if k in ("asset", "scene", "params", "furnish")}
+                proto, fp = self._measured(obj)
+            body_lo, body_hi, full_lo, full_hi = fp["body_lo"], fp["body_hi"], fp["full_lo"], fp["full_hi"]
+            cx = (body_lo[0] + body_hi[0]) / 2
+            half = lot.frontage / 2
+            fits = (body_hi[0] - body_lo[0] <= lot.frontage - 2 * side_gap + 1e-6
+                    and body_hi[2] - body_lo[2] <= lot.depth - setback + 1e-6
+                    and full_hi[0] - cx <= half + 1e-6 and cx - full_lo[0] <= half + 1e-6
+                    and body_hi[2] - full_lo[2] <= lot.depth - setback + 1e-6
+                    and full_hi[2] - body_hi[2] <= setback + self.sidewalk - 0.8 + 1e-6)
+            if not fits:
                 continue
             node = _instance(proto)
-            node.name = f"building_{entry.get('asset', entry.get('scene', 'x')).split('/')[-1].split('.')[0]}"
-            yaw = _YAW[lot.side]
+            label = entry.get("recipe") or str(entry.get("asset", entry.get("scene", "x"))).split("/")[-1].split(".")[0]
+            node.name = f"building_{label}"
             out = _OUT[lot.side]
             centre = (lot.lo + lot.hi) / 2
-            # Street edge of the lot, then back by the setback to the building's front face.
-            edge = centre + out * (lot.depth / 2)
-            front = edge - out * setback
-            # In the building frame the front face is at z = bmax[2], centred on x.
-            local = np.array([(bmin[0] + bmax[0]) / 2, 0.0, bmax[2]])
-            c, s = np.cos(yaw), np.sin(yaw)
-            rotated = np.array([c * local[0] + s * local[2], 0.0, -s * local[0] + c * local[2]])
-            node.transform = Transform(translation=np.array([front[0], self.curb, front[1]]) - rotated,
-                                       rotation=np.array([0.0, yaw, 0.0]))
-            node.meta["building"] = {"entry": entry.get("asset", entry.get("scene")), "zone": lot.zone}
+            front = centre + out * (lot.depth / 2 - setback)      # the wall front line
+            anchor = np.eye(4)
+            anchor[:3, 3] = [-cx, 0.0, -body_hi[2]]
+            place = np.eye(4)
+            place[:3, 3] = [front[0], self.curb, front[1]]
+            matrix = place @ _rot_y(_YAW[lot.side]) @ anchor @ _rot_y(fp["fix"])
+            node.transform = Transform.from_matrix(matrix)
+            node.meta["building"] = {"entry": label, "zone": lot.zone,
+                                     **({"params": obj["params"]} if "recipe" in obj else {})}
             return node
         return None
 

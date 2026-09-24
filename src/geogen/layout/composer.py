@@ -316,7 +316,7 @@ class SceneComposer:
         """Load an object from asset or scene definition (instances of one prototype per definition)."""
         import json
 
-        key = json.dumps({k: obj_def.get(k) for k in ("asset", "scene", "params", "furnish")}, sort_keys=True,
+        key = json.dumps({k: obj_def.get(k) for k in ("asset", "scene", "recipe", "params", "furnish")}, sort_keys=True,
                          default=str)
         prototype = self._prototypes.get(key)
         if prototype is None and self._disk_cache is not None:
@@ -329,6 +329,10 @@ class SceneComposer:
         return prototype.instance()
 
     def _load_prototype(self, obj_def: dict[str, Any]) -> SceneNode:
+        if "recipe" in obj_def:
+            from .recipes import build_recipe
+
+            return build_recipe(obj_def["recipe"], obj_def.get("params") or {}, self._loader)
         if "asset" in obj_def:
             asset_path = self._assets_dir / obj_def["asset"]
             node = self._loader.load(asset_path, params=obj_def.get("params"))
@@ -342,7 +346,7 @@ class SceneComposer:
             scene_path = self._assets_dir / obj_def["scene"]
             return self.compose(scene_path, params=obj_def.get("params"))
         else:
-            raise ValueError("Object must have 'asset' or 'scene' specified")
+            raise ValueError("Object must have 'asset', 'scene' or 'recipe' specified")
 
     @staticmethod
     def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:

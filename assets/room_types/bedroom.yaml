@@ -1,0 +1,37 @@
+# Home bedroom: bed against the long wall, nightstands, wardrobe by the door.
+
+name: bedroom
+finishes: { walls: paint_sage, floor: hardwood_floor }
+
+items:
+  bed:
+    asset: bed.yaml
+    against: wall
+    prefer: [longest_wall, no_door_wall, no_window_wall, centered]
+  nightstand:
+    asset: nightstand.yaml
+    flank: bed
+    count: 2
+    min: 1
+  lamp:
+    asset: table_lamp.yaml
+    on: nightstand
+  rug:
+    asset: rug.yaml
+    under: bed
+    offset: 0.75
+  wardrobe:
+    asset: wardrobe.yaml
+    against: wall
+    prefer: [near_door]
+    optional: true
+  art:
+    asset: wall_art.yaml
+    mount: wall
+    above: bed
+    height: 1.35
+    optional: true
+  curtains:
+    asset: curtains.yaml
+    mount: window
+    fit: window

@@ -1,0 +1,44 @@
+# Living room: sofa facing the TV across a coffee table, an armchair and a lamp.
+
+name: living_room
+finishes: { walls: paint_greige, floor: hardwood_floor }
+
+items:
+  sofa:
+    asset: sofa.yaml
+    against: wall
+    prefer: [longest_wall, no_door_wall, centered]
+  coffee_table:
+    asset: coffee_table.yaml
+    front_of: sofa
+    distance: 0.45
+    optional: true
+  tv_console:
+    asset: tv_console.yaml
+    against: wall
+    prefer: [{opposite: sofa}]
+    optional: true
+  tv:
+    asset: tv.yaml
+    on: tv_console
+    optional: true
+  armchair:
+    asset: armchair.yaml
+    against: none
+    facing: center
+    prefer: [{near: coffee_table}]
+    optional: true
+  floor_lamp:
+    asset: floor_lamp.yaml
+    against: wall
+    prefer: [corner, {near: sofa}]
+    optional: true
+  bookshelf:
+    asset: bookshelf.yaml
+    against: wall
+    prefer: [no_window_wall]
+    optional: true
+  curtains:
+    asset: curtains.yaml
+    mount: window
+    fit: window

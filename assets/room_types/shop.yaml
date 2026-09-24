@@ -1,0 +1,23 @@
+# Shop floor: a counter facing the entrance and shelving along the walls.
+
+name: shop
+finishes: { walls: paint_white, floor: tile_floor_grey }
+
+items:
+  counter:
+    asset: reception_desk.yaml
+    against: none
+    facing: north
+    clearance: { front: 1.2, back: 0.9 }
+    prefer: [far_door, centered]
+  shelving:
+    asset: bookshelf.yaml
+    against: wall
+    count: 4
+    min: 1
+    prefer: [no_window_wall, no_door_wall]
+  planter:
+    asset: planter.yaml
+    against: wall
+    prefer: [corner, near_window]
+    optional: true

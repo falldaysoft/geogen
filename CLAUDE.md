@@ -402,6 +402,18 @@ Lots are rows split into `lot_width` frontages. Zoning:
 
 Each lot takes a random fitting entry from `buildings: {zone: [{asset|scene, params, weight, setback}]}`. The building's +Z front faces the street. Buildings and furniture are loaded once and instanced (deep copies sharing meshes). `furniture:` lines the curbs (lamp/tree by `spacing`; bench/hydrant/trashcan `per_edge`, optional `zones`). Nodes carry `meta.lot` / `meta.building` / `meta.street_furniture`. Streets and sidewalks are walkable.
 
+Catalogue entries can also be `recipe:` buildings (`layout/recipes.py`), generated to fit each lot:
+- `detached_house`: 1–2 storeys, gable roof;
+- `shop_row`: shop and stock room with flats above, reached by their own stair;
+- `apartment_block`, `office`, `hotel`.
+
+Recipe keys are `storeys` (a number or `[lo, hi]`), `interior`, `style` (one or a list), `max_width`/`max_depth`, `setback`, `side_gap` and `rear_gap`. `interior` is:
+- `full`: furnish every storey;
+- `lobby`: furnish only the ground floor;
+- `shell`: rooms stripped, street doors locked, dark voids behind the windows.
+
+Storeys are capped by what the stair hall can fit (`_cap_storeys`), and a recipe that doesn't fit is retried lower. Fitting uses the wall footprint (nodes tagged `wall`), so canopies may overhang the setback. The front is the side the entrance spawn is on (`recipes.front_of`), so a south-entrance hotel still faces its street. `building:` roofs take `style: gable|hip|shed` (+ `rise`, `overhang`, `gable_material`) as well as flat/parapet. The furnishing solver rejects placements whose own front can't be reached (it used to only protect already-placed items).
+
 Manifest spawns are ordered shallowest first, so a scene's own `spawns:` beat nested buildings' `entrance_spawn`s. Layout QA works in each room's parent (storey) frame, so moving or rotating a building never changes its result.
 
 ### Buildings

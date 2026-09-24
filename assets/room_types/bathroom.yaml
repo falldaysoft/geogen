@@ -1,0 +1,24 @@
+# Home bathroom: bath (when it fits), toilet and basin.
+
+name: bathroom
+finishes: { walls: tile_white, floor: tile_floor_grey }
+
+items:
+  bathtub:
+    asset: bathtub.yaml
+    against: wall
+    prefer: [far_door, longest_wall]
+    optional: true
+  toilet:
+    asset: toilet.yaml
+    against: wall
+    prefer: [no_door_wall]
+  vanity:
+    asset: vanity.yaml
+    against: wall
+    prefer: [near_door]
+  mirror:
+    asset: wall_mirror.yaml
+    mount: wall
+    above: vanity
+    height: 1.2

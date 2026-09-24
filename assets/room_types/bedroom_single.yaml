@@ -1,0 +1,29 @@
+# Small bedroom: a single bed, one nightstand and a wardrobe.
+
+name: bedroom_single
+finishes: { walls: paint_sage, floor: hardwood_floor }
+
+items:
+  bed:
+    asset: bed.yaml
+    params: { width: 0.9 }
+    against: wall
+    prefer: [longest_wall, no_door_wall, no_window_wall]
+  nightstand:
+    asset: nightstand.yaml
+    flank: bed
+    count: 1
+    min: 0
+  lamp:
+    asset: table_lamp.yaml
+    on: nightstand
+    optional: true
+  wardrobe:
+    asset: wardrobe.yaml
+    against: wall
+    prefer: [near_door]
+    optional: true
+  curtains:
+    asset: curtains.yaml
+    mount: window
+    fit: window

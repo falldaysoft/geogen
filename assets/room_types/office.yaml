@@ -1,0 +1,45 @@
+# Open office: desks with chairs along the walls, shelving and plants.
+
+name: office
+finishes: { walls: paint_white, floor: carpet }
+
+items:
+  desk_a:
+    asset: desk.yaml
+    against: wall
+    prefer: [near_window]
+  chair_a:
+    asset: desk_chair.yaml
+    front_of: desk_a
+    distance: -0.2
+  desk_b:
+    asset: desk.yaml
+    against: wall
+    prefer: [near_window, {far: desk_a}]
+    optional: true
+  chair_b:
+    asset: desk_chair.yaml
+    front_of: desk_b
+    distance: -0.2
+    optional: true
+  desk_c:
+    asset: desk.yaml
+    against: wall
+    prefer: [{far: desk_a}]
+    optional: true
+  chair_c:
+    asset: desk_chair.yaml
+    front_of: desk_c
+    distance: -0.2
+    optional: true
+  bookshelf:
+    asset: bookshelf.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [no_window_wall]
+  planter:
+    asset: planter.yaml
+    against: wall
+    prefer: [corner]
+    optional: true
