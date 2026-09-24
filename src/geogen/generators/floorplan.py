@@ -429,7 +429,8 @@ class FloorPlan:
         if cutters:
             walls_mesh = csg.difference(walls_mesh, *cutters, crease_angle=30.0)
         walls_mesh = uvmap.box_project(walls_mesh)
-        walls_mesh.material = loader.load(self.materials["walls"])
+        # The structural walls show outside (and on reveals); rooms get their own linings.
+        walls_mesh.material = loader.load(self.materials.get("exterior", self.materials["walls"]))
         walls = SceneNode(name="walls", mesh=walls_mesh, tags=["wall"])
         root.add_child(walls)
 

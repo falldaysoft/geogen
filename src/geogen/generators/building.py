@@ -67,9 +67,16 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
     root = SceneNode(name=name)
     root.tags = ["building"]
     entries = _storey_specs(spec)
+    facade = spec.get("facade")
     plans = []
     for index, entry in enumerate(entries):
         plan_spec = copy.deepcopy(entry["floorplan"])
+        if facade:
+            from .facade import STYLES
+
+            style = STYLES.get(facade.get("style", "brick_hotel"))
+            if style is not None:
+                plan_spec.setdefault("materials", {})["exterior"] = style.cladding
         layout = LAYOUTS.get(plan_spec.get("generate", ""))
         if layout is not None and "floor" in inspect.signature(layout).parameters and "floor" not in plan_spec:
             plan_spec["floor"] = index
@@ -95,6 +102,11 @@ def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir:
 
     for (lower, lower_plan), (upper, _) in zip(storeys, storeys[1:]):
         _connect_stairs(lower, lower_plan, upper, material_loader)
+
+    if facade:
+        from .facade import build_facade
+
+        root.add_child(build_facade(root, storeys, facade, material_loader))
 
     top, top_plan = storeys[-1]
     roof = spec.get("roof", {})

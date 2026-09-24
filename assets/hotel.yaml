@@ -21,4 +21,5 @@ building:
         materials: { walls: paint_white, floor: carpet, ceiling: ceiling_white }
       repeat: 3
       furnish: true
+  facade: { style: brick_hotel, balconies: true }
   roof: { parapet: 1.0, material: concrete }
