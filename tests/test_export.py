@@ -139,3 +139,54 @@ spawns:
     assert manifest["spawns"][0]["position"] == pytest.approx([2.2, 0, 1.3])
     assert manifest["spawns"][0]["forward"] == pytest.approx([-1, 0, 0], abs=1e-6)
     assert manifest["extras"]["version"] == 1
+
+
+def _read_accessor(glb: bytes, gltf: dict, index: int) -> np.ndarray:
+    import struct
+
+    length = struct.unpack("<I", glb[12:16])[0]
+    rest = glb[20 + length:]
+    data = rest[8:8 + struct.unpack("<I", rest[:4])[0]]
+    acc = gltf["accessors"][index]
+    view = gltf["bufferViews"][acc["bufferView"]]
+    width = {"SCALAR": 1, "VEC3": 3, "VEC4": 4}[acc["type"]]
+    start = view.get("byteOffset", 0) + acc.get("byteOffset", 0)
+    return np.frombuffer(data[start:start + acc["count"] * width * 4], dtype="<f4").reshape(acc["count"], width)
+
+
+def test_interaction_transitions_export_as_gltf_animations(tmp_path):
+    from geogen.layout.interactions import apply_state
+
+    root = REGISTRY["cottage"]()
+    path = export_scene(root, tmp_path / "cottage.glb")
+    glb = path.read_bytes()
+    gltf = _gltf_json(path)
+    names = {a["name"]: a for a in gltf["animations"]}
+    assert {"door/swing/closed->open", "door/swing/open->closed"} <= set(names)
+    anim = names["door/swing/closed->open"]
+    nodes = gltf["nodes"]
+    leaf_index = next(i for i, n in enumerate(nodes) if n.get("name") == "leaf")
+    assert "matrix" not in nodes[leaf_index] and "rotation" in nodes[leaf_index]
+    rotation = next(c for c in anim["channels"] if c["target"] == {"node": leaf_index, "path": "rotation"})
+    translation = next(c for c in anim["channels"] if c["target"] == {"node": leaf_index, "path": "translation"})
+    times = _read_accessor(glb, gltf, anim["samplers"][rotation["sampler"]]["input"])
+    assert times[0, 0] == 0.0 and times[-1, 0] == pytest.approx(0.9)
+    assert gltf["accessors"][anim["samplers"][rotation["sampler"]]["input"]]["max"] == [pytest.approx(0.9)]
+    quats = _read_accessor(glb, gltf, anim["samplers"][rotation["sampler"]]["output"])
+    moves = _read_accessor(glb, gltf, anim["samplers"][translation["sampler"]]["output"])
+    np.testing.assert_allclose(np.linalg.norm(quats, axis=1), 1.0, atol=1e-5)
+    # The first key is the exported (closed) pose; the last is the pose apply_state gives for "open".
+    np.testing.assert_allclose(quats[0], nodes[leaf_index]["rotation"], atol=1e-5)
+    door = next(n for n in root.iter_nodes() if any(i.name == "swing" for i in n.interactions))
+    apply_state(door, door.interactions[0], "open")
+    leaf = next(n for n in door.iter_nodes() if n.name == "leaf")
+    from geogen.export import _quat
+
+    expected = _quat(leaf.transform.to_matrix()[:3, :3])
+    assert min(np.abs(quats[-1] - expected).max(), np.abs(quats[-1] + expected).max()) < 1e-4
+    np.testing.assert_allclose(moves[-1], leaf.transform.translation, atol=1e-4)
+
+
+def test_animations_can_be_disabled(tmp_path):
+    path = export_scene(REGISTRY["cottage"](), tmp_path / "plain.glb", animations=False)
+    assert "animations" not in _gltf_json(path)

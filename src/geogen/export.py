@@ -231,6 +231,7 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
             visit(child, name)
 
     visit(root, "world")
+    scene.metadata["geogen_names"] = names      # node id -> exported name (for animations)
     return scene
 
 
@@ -301,6 +302,133 @@ def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,
 
 # glTF KHR_lights_punctual point intensity (candela) per unit of our light energy.
 CANDELA_PER_ENERGY = 12.0
+
+
+ANIMATION_KEYS = 12       # samples per transition (rotation about a pivot moves the origin on an arc)
+
+
+def interaction_animations(root: SceneNode, names: dict[int, str]) -> list[dict]:
+    """One animation per interaction transition (``next``/``then`` edges), for engines
+    that don't read extras.geogen: ``<asset>/<interaction>/<from>-><to>``, sampling the
+    moving parts' local translation/rotation over the interaction's duration.
+    """
+    from .layout.interactions import _to_transform
+
+    animations = []
+    for owner in root.iter_nodes():
+        for it in owner.interactions:
+            edges = []
+            for state_name, state in it.states.items():
+                for to in (state.next, state.then):
+                    if to and (state_name, to) not in edges:
+                        edges.append((state_name, to))
+            owner_world = owner.world_transform()
+            owner_inv = np.linalg.inv(owner_world)
+            for a, b in edges:
+                channels: dict[int, dict] = {}
+                times = np.linspace(0.0, float(it.duration), ANIMATION_KEYS)
+                for motion in it.motions:
+                    va, vb = it.value(motion, a), it.value(motion, b)
+                    undo = np.linalg.inv(motion.matrix(motion.applied))
+                    for part in motion.parts:
+                        if id(part) not in names:
+                            continue
+                        in_owner = owner_inv @ part.world_transform()
+                        parent_world = part.parent.world_transform() if part.parent is not None else np.eye(4)
+                        to_parent = np.linalg.inv(parent_world) @ owner_world
+                        poses = []
+                        for t in np.linspace(0.0, 1.0, ANIMATION_KEYS):
+                            v = va + (vb - va) * t
+                            local = to_parent @ motion.matrix(v) @ undo @ in_owner
+                            tr = _to_transform(local, part.transform.scale)
+                            poses.append((tr.translation, _quat(tr.to_matrix()[:3, :3] / tr.scale[None, :])))
+                        channels[id(part)] = {"node": names[id(part)], "times": times,
+                                              "translation": np.array([p[0] for p in poses]),
+                                              "rotation": np.array([p[1] for p in poses]),
+                                              "scale": part.transform.scale}
+                if channels:
+                    animations.append({"name": f"{names[id(owner)]}/{it.name}/{a}->{b}",
+                                       "channels": list(channels.values())})
+    return animations
+
+
+def _quat(r: np.ndarray) -> np.ndarray:
+    """Rotation matrix -> unit quaternion (x, y, z, w)."""
+    t = np.trace(r)
+    if t > 0:
+        s = np.sqrt(t + 1.0) * 2
+        q = [(r[2, 1] - r[1, 2]) / s, (r[0, 2] - r[2, 0]) / s, (r[1, 0] - r[0, 1]) / s, 0.25 * s]
+    else:
+        i = int(np.argmax(np.diag(r)))
+        j, k = (i + 1) % 3, (i + 2) % 3
+        s = np.sqrt(1.0 + r[i, i] - r[j, j] - r[k, k]) * 2
+        q = [0.0, 0.0, 0.0, (r[k, j] - r[j, k]) / s]
+        q[i] = 0.25 * s
+        q[j] = (r[j, i] + r[i, j]) / s
+        q[k] = (r[k, i] + r[i, k]) / s
+    q = np.array(q)
+    return q / np.linalg.norm(q)
+
+
+def add_animations(glb: bytes, animations: list[dict]) -> bytes:
+    """Append glTF animations (see ``interaction_animations``) to a GLB.
+
+    Animated nodes are switched from ``matrix`` to TRS, as the spec requires.
+    """
+    import struct
+
+    if not animations:
+        return glb
+    gltf, rest, header = _split_glb(glb)
+    bin_len, bin_type = struct.unpack("<II", rest[:8]) if rest else (0, 0x004E4942)
+    data = bytearray(rest[8:8 + bin_len])
+    views, accessors = gltf.setdefault("bufferViews", []), gltf.setdefault("accessors", [])
+    index = {n.get("name"): i for i, n in enumerate(gltf.get("nodes", []))}
+
+    def accessor(values: np.ndarray, kind: str, with_bounds: bool = False) -> int:
+        blob = np.ascontiguousarray(values, dtype="<f4").tobytes()
+        data.extend(b"\0" * (-len(data) % 4))
+        views.append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob)})
+        data.extend(blob)
+        acc = {"bufferView": len(views) - 1, "componentType": 5126, "count": int(values.shape[0]), "type": kind}
+        if with_bounds:
+            acc["min"] = [float(values.min())]
+            acc["max"] = [float(values.max())]
+        accessors.append(acc)
+        return len(accessors) - 1
+
+    out = gltf.setdefault("animations", [])
+    for anim in animations:
+        samplers, channels = [], []
+        for ch in anim["channels"]:
+            node = index.get(ch["node"])
+            if node is None:
+                continue
+            _to_trs(gltf["nodes"][node], ch["scale"])
+            time = accessor(ch["times"], "SCALAR", with_bounds=True)
+            for path, values, kind in (("translation", ch["translation"], "VEC3"),
+                                       ("rotation", ch["rotation"], "VEC4")):
+                samplers.append({"input": time, "output": accessor(values, kind), "interpolation": "LINEAR"})
+                channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": path}})
+        if channels:
+            out.append({"name": anim["name"], "samplers": samplers, "channels": channels})
+    data.extend(b"\0" * (-len(data) % 4))
+    if not gltf.get("buffers"):
+        gltf["buffers"] = [{"byteLength": 0}]
+    gltf["buffers"][0]["byteLength"] = len(data)
+    return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
+
+
+def _to_trs(node: dict, scale: np.ndarray) -> None:
+    """Replace a glTF node's ``matrix`` with translation/rotation/scale."""
+    if "matrix" not in node:
+        return
+    m = np.array(node.pop("matrix"), dtype=np.float64).reshape(4, 4).T     # column-major
+    s = np.linalg.norm(m[:3, :3], axis=0)
+    node["translation"] = [float(v) for v in m[:3, 3]]
+    node["rotation"] = [float(v) for v in _quat(m[:3, :3] / np.where(s == 0, 1, s)[None, :])]
+    if not np.allclose(s, 1.0):
+        node["scale"] = [float(v) for v in s]
 
 
 def add_lod_extension(glb: bytes) -> bytes:
@@ -450,14 +578,16 @@ def add_punctual_lights(glb: bytes) -> bytes:
 
 def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None,
                  lods: list[float] | None = None, manifest: bool = True,
-                 textures_dir: str | Path | None = None) -> Path:
+                 textures_dir: str | Path | None = None, animations: bool = True) -> Path:
     """Export ``root`` to ``path``; the format is chosen by the file extension.
 
     glTF/GLB exports also get a manifest (see ``write_manifest``); ``player``
     overrides the project's default player spec in it. ``lods`` (GLB only),
     e.g. ``[0.5, 0.25]``, adds decimated levels per mesh as MSFT_lod.
     ``manifest=False`` skips the manifest (chunk files are indexed by
-    ``chunks.export_chunks`` instead). ``textures_dir`` (GLB only) writes
+    ``chunks.export_chunks`` instead). GLBs also carry a glTF animation per
+    interaction transition (``animations=False`` to skip) for engines that
+    don't read extras.geogen. ``textures_dir`` (GLB only) writes
     images there, shared by content hash, instead of embedding them.
     """
     path = Path(path)
@@ -475,6 +605,8 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
         glb = add_lod_extension(add_punctual_lights(scene.export(file_type="glb")))
+        if animations:
+            glb = add_animations(glb, interaction_animations(root, scene.metadata["geogen_names"]))
         if textures_dir is not None:
             import os
 
