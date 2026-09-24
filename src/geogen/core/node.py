@@ -50,6 +50,9 @@ class SceneNode:
     # Closed meshes (in this node's frame) that cut an opening into whatever
     # surface this object is placed on, e.g. the hole a window needs.
     host_cutters: list[Mesh] = field(default_factory=list, repr=False)
+    # (box mesh in this node's frame, line_bottom) regions behind the frame
+    # where the host lines the opening's reveal (see Surface.reveal).
+    host_reveals: list[tuple[Mesh, bool]] = field(default_factory=list, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -252,6 +255,7 @@ class SceneNode:
             surfaces=self.surfaces.copy(),
             size=self.size.copy() if self.size is not None else None,
             host_cutters=list(self.host_cutters),
+            host_reveals=list(self.host_reveals),
         )
         if deep:
             for child in self.children:

@@ -132,3 +132,26 @@ def test_house_has_interior_finish():
     assert materials["lining"] == "wall_plaster"
     assert materials["ceiling"] == "ceiling_white"
     assert "lining_void" not in materials
+
+
+def test_openings_get_plastered_reveals():
+    scene = SceneComposer().compose_string("""
+name: s
+place:
+  house: { asset: house_peaked.yaml }
+  win:
+    asset: window.yaml
+    on: house.front_wall
+    at: { u: 0.5, v: { abs: 1.0 } }
+""")
+    reveal = scene.find("win_reveal")
+    assert reveal is not None and reveal.mesh.material.name == "wall_plaster"
+    lo, hi = reveal.mesh.vertices.min(axis=0), reveal.mesh.vertices.max(axis=0)
+    # Sleeve spans the window opening (1.0 x 1.3 m) ...
+    assert hi[0] - lo[0] == pytest.approx(1.0, abs=1e-6)
+    assert hi[1] - lo[1] == pytest.approx(1.3, abs=1e-6)
+    # ... from behind the frame to the lining's inner face, never outside.
+    depth = 3.0  # house_peaked default depth 6 m, front wall face at z = +3
+    assert hi[2] == pytest.approx(depth - 0.09 - 0.035, abs=1e-6)
+    assert lo[2] == pytest.approx(depth - 0.3 - 0.015, abs=1e-6)
+    assert meshops.validate(reveal.mesh).watertight

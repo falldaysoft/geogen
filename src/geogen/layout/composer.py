@@ -273,7 +273,8 @@ class SceneComposer:
     @staticmethod
     def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:
         """Subtract ``node``'s host cutters from the part that owns surface ``spec``
-        (and any parts the surface export lists under ``cut:``)."""
+        (and any parts the surface export lists under ``cut:``), then line the
+        opening's reveals if the surface declares a ``reveal`` finish."""
         if not node.host_cutters:
             return
         from ..core import csg
@@ -284,9 +285,9 @@ class SceneComposer:
         if host is None or host.mesh is None:
             logger.warning("'%s' has openings but surface '%s' has no source part to cut", obj_name, spec)
             return
-        for part in [host, *surface.also_cut]:
-            if part.mesh is None:
-                continue
+        parts = [p for p in [host, *surface.also_cut] if p.mesh is not None]
+        uncut = {id(p): p.mesh for p in parts}
+        for part in parts:
             to_part = np.linalg.inv(part.world_transform()) @ node.world_transform()
             cutters = [m.transform(to_part) for m in node.host_cutters]
             try:
@@ -295,6 +296,55 @@ class SceneComposer:
                 raise ValueError(
                     f"Cutting opening for '{obj_name}' into '{spec}' ({part.name}) failed: {exc}"
                 ) from exc
+
+        if surface.reveal and node.host_reveals and host.parent is not None:
+            SceneComposer._line_reveals(node, obj_name, surface.reveal, parts, uncut, host.parent)
+
+    @staticmethod
+    def _line_reveals(
+        node: SceneNode,
+        obj_name: str,
+        reveal: dict[str, Any],
+        parts: list[SceneNode],
+        uncut: dict[int, Any],
+        owner: SceneNode,
+    ) -> None:
+        """Add a ``<obj>_reveal`` part to ``owner`` lining the opening's sides.
+
+        Each reveal box (in the opening's frame, running from behind its frame
+        into the room) becomes a sleeve ``thickness`` thick around the opening,
+        clipped to the material that was removed from the wall and lining.
+        """
+        from ..core import csg, uvmap
+        from ..core.mesh import Mesh
+        from ..generators.primitives import CubeGenerator
+
+        def box(lo: np.ndarray, hi: np.ndarray) -> Mesh:
+            size = hi - lo
+            mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
+            move = np.eye(4)
+            move[:3, 3] = (lo + hi) / 2
+            return mesh.transform(move)
+
+        t = reveal["thickness"]
+        to_owner = np.linalg.inv(owner.world_transform())
+        pieces = []
+        for region, line_bottom in node.host_reveals:
+            lo, hi = region.vertices.min(axis=0), region.vertices.max(axis=0)
+            inner_lo = lo + np.array([t, t if line_bottom else -0.1, -0.1])
+            inner_hi = hi - np.array([t, t, -0.1])
+            sleeve = csg.difference(box(lo, hi), box(inner_lo, inner_hi))
+            sleeve = sleeve.transform(to_owner @ node.world_transform())
+            for part in parts:
+                solid = uncut[id(part)].transform(to_owner @ part.world_transform())
+                piece = csg.intersection(sleeve, solid)
+                if len(piece.faces):
+                    pieces.append(piece)
+        if not pieces:
+            return
+        mesh = uvmap.box_project(csg.union(*pieces))
+        mesh.material = reveal["material"]
+        owner.add_child(SceneNode(name=f"{obj_name}_reveal", mesh=mesh))
 
     def _surface_target_is_object(self, spec: str) -> bool:
         """Return True when `on: <spec>` refers to `<object>.<surface>`."""

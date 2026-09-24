@@ -17,7 +17,7 @@ PART_KNOWN_KEYS = {
     "shape", "profile", "axis", "fit", "crease_angle", "caps", "segments", "sweep",
     "cap_bottom", "cap_top",
     # booleans
-    "subtract", "cutter", "cut_host",
+    "subtract", "cutter", "cut_host", "reveal",
     # roof / prism
     "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
 }

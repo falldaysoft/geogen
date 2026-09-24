@@ -27,6 +27,16 @@ parts:
     bevel: 0
     cut_host: true
 
+  # Behind the frame the host plasters the reveal (if its surface has a
+  # reveal finish); the sleeve is clipped to the wall, so 1 m is "all of it".
+  reveal:
+    primitive: cube
+    size: [1, 1, 1]
+    anchor: bottom_center
+    offset: [0, 0, "{-recess - 0.035 - 0.5}"]
+    bevel: 0
+    reveal: true
+
   frame:
     primitive: extrude
     shape:

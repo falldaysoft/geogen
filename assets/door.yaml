@@ -26,6 +26,15 @@ parts:
     bevel: 0
     cut_host: true
 
+  # Plastered reveal behind the frame (no lining on the threshold).
+  reveal:
+    primitive: cube
+    size: [1, 1, 1]
+    anchor: bottom_center
+    offset: [0, 0, "{-recess - 0.045 - 0.5}"]
+    bevel: 0
+    reveal: { bottom: false }
+
   # U-shaped frame: jambs and head, open at the threshold.
   frame:
     primitive: extrude

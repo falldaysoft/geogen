@@ -321,6 +321,10 @@ class LayoutLoader:
               north_wall: { from: shell.north_wall }
               floor: { from: shell.floor }
               front_wall: { from: walls.front, cut: [lining] }  # openings also cut 'lining'
+              back_wall:                                          # and get plastered reveals
+                from: walls.back
+                cut: [lining]
+                reveal: { material: wall_plaster, thickness: 0.015 }
         """
         from .surfaces import Surface
 
@@ -358,6 +362,19 @@ class LayoutLoader:
                     )
                 also_cut.append(part_nodes[cut_name])
 
+            reveal = None
+            if "reveal" in spec:
+                reveal_spec = spec["reveal"]
+                if not isinstance(reveal_spec, dict) or "material" not in reveal_spec:
+                    raise ValueError(
+                        f"Surface export '{export_name}' reveal must be"
+                        " {material: <name>, thickness: <m>}"
+                    )
+                reveal = {
+                    "material": self._material_loader.load(reveal_spec["material"]),
+                    "thickness": float(reveal_spec.get("thickness", 0.015)),
+                }
+
             # Transform surface from part's local frame into root's local frame.
             # Surfaces store positions (origin) and directions (axes, normal).
             part_matrix = part_node.transform.to_matrix()
@@ -374,6 +391,7 @@ class LayoutLoader:
                 v_extent=src.v_extent,
                 source=part_node,
                 also_cut=also_cut,
+                reveal=reveal,
             )
 
     def _create_room_node(
@@ -524,6 +542,9 @@ class LayoutLoader:
         Parts with ``cut_host: true`` are cutters for the *host* this asset
         gets placed on (e.g. a window's opening): they are removed from the
         asset and stored on ``root.host_cutters`` for the scene composer.
+        Parts with ``reveal: true`` (or ``reveal: {bottom: false}``) mark the
+        box behind the frame whose sides the host lines when its surface
+        declares a ``reveal`` finish; they go to ``root.host_reveals``.
         """
         from ..core import csg
 
@@ -551,7 +572,12 @@ class LayoutLoader:
             if part_def.get("cut_host"):
                 node = part_nodes[part_name]
                 root.host_cutters.append(node.mesh.transform(root_inv @ node.world_transform()))
-            if part_def.get("cutter") or part_def.get("cut_host"):
+            reveal = part_def.get("reveal")
+            if reveal:
+                node = part_nodes[part_name]
+                line_bottom = bool(reveal.get("bottom", True)) if isinstance(reveal, dict) else True
+                root.host_reveals.append((node.mesh.transform(root_inv @ node.world_transform()), line_bottom))
+            if part_def.get("cutter") or part_def.get("cut_host") or reveal:
                 node = part_nodes[part_name]
                 if node.children:
                     raise ValueError(f"Cutter part '{part_name}' cannot have attached children")

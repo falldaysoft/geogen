@@ -119,9 +119,10 @@ parts:
     material: concrete
 
 # Wall surfaces (v = 0 at the top of the foundation) for placing openings.
-# Openings cut through the brick and the interior lining behind it.
+# Openings cut through the brick and the interior lining behind it, and their
+# reveals (behind the window/door frame) are plastered to match the lining.
 surfaces:
-  front_wall: { from: walls.front, cut: [lining] }
-  back_wall:  { from: walls.back,  cut: [lining] }
-  left_wall:  { from: walls.left,  cut: [lining] }
-  right_wall: { from: walls.right, cut: [lining] }
+  front_wall: { from: walls.front, cut: [lining], reveal: &plaster_reveal { material: wall_plaster, thickness: 0.015 } }
+  back_wall:  { from: walls.back,  cut: [lining], reveal: *plaster_reveal }
+  left_wall:  { from: walls.left,  cut: [lining], reveal: *plaster_reveal }
+  right_wall: { from: walls.right, cut: [lining], reveal: *plaster_reveal }
