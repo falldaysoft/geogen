@@ -1,0 +1,81 @@
+# Shower: low ceramic tray, fixed glass screen on part of the front, chrome
+# riser rail with a rain head and mixer on the back wall. Back against the
+# wall (-Z), origin bottom_center.
+
+name: shower
+tags: [bathroom.shower]
+origin: bottom_center
+
+params:
+  width:  { default: 0.9 }
+  depth:  { default: 0.9 }
+  height: { default: 2.05 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+clearance: { front: 0.6 }
+
+parts:
+  tray:
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.02 }
+    fit: none
+    axis: y
+    bevel: 0.01
+    size: [1, "{0.045 / height}", 1]
+    anchor: bottom_center
+    material: ceramic_white
+    walkable: true
+  drain:
+    primitive: cylinder
+    size: ["{0.1 / width}", "{0.004 / height}", "{0.1 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.044 / height}", 0]
+    material: chrome
+    collider: none
+  screen:
+    primitive: cube
+    size: ["{(width * 0.55) / width}", "{(height - 0.1) / height}", "{0.008 / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width * 0.225) / width}", "{0.045 / height}", "{(depth / 2 - 0.02) / depth}"]
+    bevel: 0.002
+    material: glass
+    collider: box
+  screen_profile:
+    primitive: cube
+    size: ["{0.02 / width}", "{(height - 0.1) / height}", "{0.03 / depth}"]
+    anchor: bottom_center
+    offset: ["{(0.01 - width / 2) / width}", "{0.045 / height}", "{(depth / 2 - 0.02) / depth}"]
+    bevel: 0.003
+    material: chrome
+    collider: none
+  riser:
+    primitive: cylinder
+    size: ["{0.022 / width}", "{1.1 / height}", "{0.022 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.95 / height}", "{(0.04 - depth / 2) / depth}"]
+    material: chrome
+    collider: none
+  arm:
+    primitive: cube
+    size: ["{0.02 / width}", "{0.02 / height}", "{0.3 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - 0.03) / height}", "{(0.18 - depth / 2) / depth}"]
+    bevel: 0.008
+    material: chrome
+    collider: none
+  head:
+    primitive: cylinder
+    size: ["{0.25 / width}", "{0.015 / height}", "{0.25 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(height - 0.05) / height}", "{(0.33 - depth / 2) / depth}"]
+    material: chrome
+    collider: none
+  mixer:
+    primitive: cube
+    size: ["{0.2 / width}", "{0.07 / height}", "{0.05 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{1.05 / height}", "{(0.025 - depth / 2) / depth}"]
+    bevel: 0.015
+    material: chrome
+    collider: none

@@ -193,6 +193,10 @@ pytest tests/test_scenes.py -k "test_name"
       at: [seat_front, seat_back, seat_left, seat_right]
   ```
 
+### Furniture library
+
+Parametric furniture assets in `assets/` (tags `furniture.*` / `bathroom.*` / `decor.*`, `clearance:` → `meta.footprint` + `meta.clearance` in extras): bed, nightstand (drawer interaction), wardrobe (door interaction), desk, desk_chair, armchair, bookshelf, floor_lamp, table_lamp, tv_console, luggage_rack, rug; wall-mounted (origin on the wall plane, depth along +Z): tv, wall_mirror, wall_art, curtains, towel_rail; bathroom: toilet (lid interaction), vanity (basin + tap), shower, bathtub. `scenes/hotel_room.yaml` furnishes `hotel_suite.yaml` by hand; `tests/test_furniture.py` checks nothing overlaps or blocks door swings. Soft goods are rounded boxes/ellipsoids until subdivision (geogen-o3s.14).
+
 ### Interactions
 
 `layout/interactions.py`: asset-level `interactions:` state machines (states with `next`/`then`/`emit`/`prompt`, `motions` that `rotate`/`translate` parts about a `pivot` in the asset frame, per-state `values`, `targets` the player aims at). `SceneNode.interactions` holds them; the loader poses parts for `initial`, `apply_state()` re-poses (absolute). Exported in the asset node's `extras.geogen.interactions` with exported node names (see the schema). `door.yaml` has a `swing`; floor-plan doors (`DoorGenerator`) get one on `leaf_pivot`. Godot: `GeogenInteraction` (`runtime/godot/scripts/interaction.gd`) animates parts; colliders under moving parts are `AnimatableBody3D`; look at a target within `reach` and press E; `--use=<asset>` / `--use=@aim` + `--wait=S` for headless tests; state arrivals print `interaction event: {...}`.

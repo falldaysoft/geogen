@@ -1,0 +1,57 @@
+# Wall-mounted chrome towel rail with a folded towel over the bar. Origin
+# bottom-centre on the wall, projects along +Z.
+
+name: towel_rail
+tags: [bathroom.towel_rail]
+origin: bottom_center
+
+params:
+  width: { default: 0.6 }
+
+size: ["{width}", 0.5, 0.1]
+
+parts:
+  bracket_left: &bracket
+    primitive: cylinder
+    size: ["{0.02 / width}", 0.16, 0.2]
+    anchor: center
+    offset: ["{(0.02 - width / 2) / width}", "{0.45 / 0.5 - 0.5}", 0.4]
+    rotation: [90, 0, 0]
+    material: chrome
+    collider: none
+  bracket_right:
+    <<: *bracket
+    offset: ["{(width / 2 - 0.02) / width}", "{0.45 / 0.5 - 0.5}", 0.4]
+  bar:
+    primitive: cylinder
+    size: ["{0.022 / width}", "{width / 0.5}", 0.22]
+    anchor: center
+    offset: [0, "{0.45 / 0.5 - 0.5}", 0.65]
+    rotation: [0, 0, 90]
+    material: chrome
+    collider: none
+  # Towel folded over the bar: a front and a back fall joined over the top.
+  towel_front:
+    primitive: cube
+    size: ["{(width - 0.12) / width}", "{0.42 / 0.5}", 0.1]
+    anchor: bottom_center
+    offset: [0, "{0.04 / 0.5}", 0.77]
+    bevel: 0.004
+    material: bedding_white
+    collider: none
+  towel_back:
+    primitive: cube
+    size: ["{(width - 0.12) / width}", "{0.3 / 0.5}", 0.1]
+    anchor: bottom_center
+    offset: [0, "{0.16 / 0.5}", 0.53]
+    bevel: 0.004
+    material: bedding_white
+    collider: none
+  towel_fold:
+    primitive: cube
+    size: ["{(width - 0.12) / width}", "{0.03 / 0.5}", 0.34]
+    anchor: bottom_center
+    offset: [0, "{0.46 / 0.5}", 0.65]
+    bevel: 0.012
+    material: bedding_white
+    collider: none

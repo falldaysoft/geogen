@@ -1,0 +1,53 @@
+# Built-in bathtub: ceramic tub with a rounded, sloped-in cavity and a
+# chrome filler at the tap end (-X). Origin bottom_center, long side along X.
+
+name: bathtub
+tags: [bathroom.bathtub]
+origin: bottom_center
+
+params:
+  length: { default: 1.7 }
+  width:  { default: 0.75 }
+  height: { default: 0.56 }
+  rim:    { default: 0.07 }
+
+size: ["{length}", "{height + 0.2}", "{width}"]
+
+clearance: { front: 0.6 }
+
+parts:
+  tub:
+    primitive: extrude
+    shape: { rect: ["{length}", "{width}"], radius: 0.03 }
+    fit: none
+    axis: y
+    bevel: 0.015
+    size: [1, "{height / (height + 0.2)}", 1]
+    anchor: bottom_center
+    subtract: [cavity]
+    material: ceramic_white
+  cavity:
+    primitive: extrude
+    shape: { rect: ["{length - 2 * rim}", "{width - 2 * rim}"], radius: 0.18 }
+    fit: none
+    axis: y
+    bevel: 0.12
+    size: [1, "{(height - 0.06 + 0.2) / (height + 0.2)}", 1]
+    anchor: bottom_center
+    offset: [0, "{0.06 / (height + 0.2)}", 0]
+    cutter: true
+  filler:
+    primitive: cylinder
+    size: ["{0.035 / length}", "{0.16 / (height + 0.2)}", "{0.035 / width}"]
+    anchor: bottom_center
+    offset: ["{(rim / 2 - length / 2 + 0.01) / length}", "{height / (height + 0.2)}", 0]
+    material: chrome
+    collider: none
+  spout:
+    primitive: cube
+    size: ["{0.16 / length}", "{0.026 / (height + 0.2)}", "{0.026 / width}"]
+    anchor: bottom_center
+    offset: ["{(rim / 2 - length / 2 + 0.09) / length}", "{(height + 0.14) / (height + 0.2)}", 0]
+    bevel: 0.01
+    material: chrome
+    collider: none

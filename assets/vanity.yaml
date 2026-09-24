@@ -1,0 +1,89 @@
+# Bathroom vanity: two-door cabinet, marble top, vessel basin and a chrome
+# mixer tap. Back against the wall (-Z), origin bottom_center.
+
+name: vanity
+tags: [bathroom.vanity, bathroom.basin]
+origin: bottom_center
+
+params:
+  width:  { default: 0.8 }
+  depth:  { default: 0.5 }
+  top:    { default: 0.84 }   # counter height
+
+size: ["{width}", "{top + 0.28}", "{depth}"]
+
+clearance: { front: 0.7 }
+
+parts:
+  cabinet:
+    primitive: cube
+    size: [1, "{(top - 0.03 - 0.1) / (top + 0.28)}", "{(depth - 0.02) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.1 / (top + 0.28)}", "{-0.01 / depth}"]
+    bevel: 0.004
+    material: wood_dark
+  plinth:
+    primitive: cube
+    size: ["{(width - 0.04) / width}", "{0.1 / (top + 0.28)}", "{(depth - 0.06) / depth}"]
+    anchor: bottom_center
+    offset: [0, 0, "{-0.02 / depth}"]
+    bevel: 0.002
+    material: plastic_black
+  door_left:
+    primitive: cube
+    size: ["{(width / 2 - 0.004) / width}", "{(top - 0.03 - 0.104) / (top + 0.28)}", "{0.018 / depth}"]
+    anchor: bottom_center
+    offset: ["{-(width / 4) / width}", "{0.102 / (top + 0.28)}", "{(depth / 2 - 0.009) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  door_right:
+    primitive: cube
+    size: ["{(width / 2 - 0.004) / width}", "{(top - 0.03 - 0.104) / (top + 0.28)}", "{0.018 / depth}"]
+    anchor: bottom_center
+    offset: ["{(width / 4) / width}", "{0.102 / (top + 0.28)}", "{(depth / 2 - 0.009) / depth}"]
+    bevel: 0.003
+    material: wood_dark
+  counter:
+    primitive: cube
+    size: ["{(width + 0.02) / width}", "{0.03 / (top + 0.28)}", "{(depth + 0.01) / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(top - 0.03) / (top + 0.28)}", "{0.005 / depth}"]
+    bevel: 0.004
+    material: marble
+  basin:
+    primitive: lathe
+    profile: [[0, 0], [0.08, 0], [0.18, 0.07], [0.2, 0.13], [0.185, 0.13], [0.168, 0.075], [0.075, 0.014], [0, 0.014]]
+    fit: none
+    segments: 48
+    size: ["{0.4 / width}", "{0.13 / (top + 0.28)}", "{0.4 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{top / (top + 0.28)}", "{0.03 / depth}"]
+    material: ceramic_white
+    collider: hull
+  tap_body:
+    primitive: cylinder
+    size: ["{0.035 / width}", "{0.26 / (top + 0.28)}", "{0.035 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{top / (top + 0.28)}", "{(0.03 - 0.23) / depth}"]
+    material: chrome
+    collider: none
+  tap_spout:
+    primitive: cube
+    size: ["{0.024 / width}", "{0.024 / (top + 0.28)}", "{0.16 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(top + 0.235) / (top + 0.28)}", "{(0.03 - 0.23 + 0.08) / depth}"]
+    bevel: 0.01
+    material: chrome
+    collider: none
+  tap_lever:
+    primitive: cube
+    size: ["{0.012 / width}", "{0.012 / (top + 0.28)}", "{0.08 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{(top + 0.26) / (top + 0.28)}", "{(0.03 - 0.26) / depth}"]
+    rotation: [20, 0, 0]
+    bevel: 0.005
+    material: chrome
+    collider: none
+
+surfaces:
+  counter: { from: counter.top }

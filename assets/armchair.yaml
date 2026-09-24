@@ -17,6 +17,8 @@ params:
 
 size: ["{width}", "{height}", "{depth}"]
 
+clearance: { front: 0.6 }
+
 parts:
   base:
     primitive: cube

@@ -1,0 +1,86 @@
+# Close-coupled toilet: pedestal, oval bowl (hollow), seat, lid that lifts
+# (interaction 'lid') and cistern with a flush button. Back against the wall
+# (-Z), origin bottom_center.
+
+name: toilet
+tags: [bathroom.toilet]
+origin: bottom_center
+
+size: [0.38, 0.8, 0.7]
+
+clearance: { front: 0.6, left: 0.2, right: 0.2 }
+
+parts:
+  pedestal:
+    primitive: cube
+    size: ["{0.24 / 0.38}", "{0.38 / 0.8}", "{0.5 / 0.7}"]
+    anchor: bottom_center
+    offset: [0, 0, "{-0.09 / 0.7}"]
+    bevel: 0.05
+    material: ceramic_white
+  bowl:
+    primitive: extrude
+    shape: { ellipse: [0.18, 0.25] }
+    fit: none
+    axis: y
+    bevel: 0.03
+    size: [1, "{0.15 / 0.8}", "{0.5 / 0.7}"]
+    anchor: bottom_center
+    offset: [0, "{0.25 / 0.8}", "{0.08 / 0.7}"]
+    subtract: [bowl_cavity]
+    material: ceramic_white
+  bowl_cavity:
+    primitive: ellipsoid
+    size: ["{0.25 / 0.38}", "{0.26 / 0.8}", "{0.36 / 0.7}"]
+    anchor: center
+    offset: [0, "{0.4 / 0.8 - 0.5}", "{0.08 / 0.7}"]
+    cutter: true
+  seat:
+    primitive: extrude
+    shape:
+      outer: { ellipse: [0.18, 0.25] }
+      holes: [{ ellipse: [0.12, 0.17] }]
+    fit: none
+    axis: y
+    bevel: 0.008
+    size: [1, "{0.022 / 0.8}", "{0.5 / 0.7}"]
+    anchor: bottom_center
+    offset: [0, "{0.4 / 0.8}", "{0.08 / 0.7}"]
+    material: paint_white
+  lid:
+    primitive: extrude
+    shape: { ellipse: [0.18, 0.25] }
+    fit: none
+    axis: y
+    bevel: 0.008
+    size: [1, "{0.02 / 0.8}", "{0.5 / 0.7}"]
+    anchor: bottom_center
+    offset: [0, "{0.422 / 0.8}", "{0.08 / 0.7}"]
+    material: paint_white
+  cistern:
+    primitive: cube
+    size: ["{0.36 / 0.38}", "{0.42 / 0.8}", "{0.17 / 0.7}"]
+    anchor: bottom_center
+    offset: [0, "{0.38 / 0.8}", "{-0.265 / 0.7}"]
+    bevel: 0.02
+    material: ceramic_white
+  flush:
+    primitive: cylinder
+    size: ["{0.05 / 0.38}", "{0.012 / 0.8}", "{0.05 / 0.7}"]
+    anchor: bottom_center
+    offset: [0, "{0.8 / 0.8 - 0.006 / 0.8}", "{-0.265 / 0.7}"]
+    material: chrome
+    collider: none
+
+interactions:
+  lid:
+    targets: [lid]
+    duration: 0.5
+    states:
+      closed: { prompt: Lift lid, next: open }
+      open:   { prompt: Close lid, next: closed }
+    motions:
+      - parts: [lid]
+        rotate: -x
+        pivot: [0, 0.442, -0.17]
+        values: { open: 86 }

@@ -1,0 +1,119 @@
+# Furnished hotel suite (hand-placed; the furnishing solver, geogen-3cc.6,
+# will do this from room archetypes). Positions are metres on each room's
+# floor surface: u runs west -> east, v south -> north. Furniture keeps
+# clear of the door swing arcs recorded in the rooms' door_swings.
+
+name: hotel_room
+tags: [level.hotel_room]
+
+place:
+  suite:
+    asset: hotel_suite.yaml
+
+  # --- Bedroom (4.19 x 4.3 m clear) ---------------------------------------
+  bed:
+    asset: bed.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 1.065 }, v: { abs: 2.3 } }
+    facing: east                      # headboard on the west wall
+  nightstand_south:
+    asset: nightstand.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 0.22 }, v: { abs: 1.17 } }
+    facing: east
+  nightstand_north:
+    asset: nightstand.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 0.22 }, v: { abs: 3.43 } }
+    facing: east
+  lamp_south:
+    asset: table_lamp.yaml
+    on: nightstand_south.top
+  lamp_north:
+    asset: table_lamp.yaml
+    on: nightstand_north.top
+  art:
+    asset: wall_art.yaml
+    on: suite.bedroom.west_wall
+    at: { u: 0.465, v: { abs: 1.35 } }
+  rug:
+    asset: rug.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 2.2 }, v: { abs: 2.3 } }
+    facing: east
+
+  tv_console:
+    asset: tv_console.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 3.98 }, v: { abs: 1.6 } }
+    facing: west
+  tv:
+    asset: tv.yaml
+    on: suite.bedroom.east_wall
+    at: { u: { abs: 1.6 }, v: { abs: 0.95 } }
+
+  wardrobe:
+    asset: wardrobe.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 2.6 }, v: { abs: 4.01 } }
+    facing: south
+  desk:
+    asset: desk.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 1.3 }, v: { abs: 4.0 } }
+    facing: south
+  desk_chair:
+    asset: desk_chair.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 1.3 }, v: { abs: 3.5 } }
+    facing: north
+  armchair:
+    asset: armchair.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 3.2 }, v: { abs: 0.8 } }
+    facing: center
+  floor_lamp:
+    asset: floor_lamp.yaml
+    on: suite.bedroom.floor
+    at: { u: { abs: 3.9 }, v: { abs: 0.3 } }
+  curtains:
+    asset: curtains.yaml
+    on: suite.bedroom.south_wall
+    at: { u: 0.5, v: 0 }
+
+  # --- Bathroom (2.19 x 2.39 m clear) -------------------------------------
+  shower:
+    asset: shower.yaml
+    on: suite.bathroom.floor
+    at: { u: { abs: 0.45 }, v: { abs: 0.45 } }
+    facing: north
+  toilet:
+    asset: toilet.yaml
+    on: suite.bathroom.floor
+    at: { u: { abs: 1.3 }, v: { abs: 0.35 } }
+    facing: north
+  vanity:
+    asset: vanity.yaml
+    on: suite.bathroom.floor
+    at: { u: { abs: 1.94 }, v: { abs: 1.05 } }
+    facing: west
+  mirror:
+    asset: wall_mirror.yaml
+    on: suite.bathroom.east_wall
+    at: { u: { abs: 1.05 }, v: { abs: 1.2 } }
+  towel_rail:
+    asset: towel_rail.yaml
+    on: suite.bathroom.west_wall
+    at: { u: { abs: 0.6 }, v: { abs: 1.1 } }
+
+  # --- Corridor ------------------------------------------------------------
+  luggage_rack:
+    asset: luggage_rack.yaml
+    on: suite.corridor.floor
+    at: { u: { abs: 1.0 }, v: { abs: 1.55 } }
+    facing: south
+
+spawns:
+  entry:
+    position: [4.2, 0, 1.3]
+    facing: west

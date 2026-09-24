@@ -17,21 +17,21 @@ parts:
     primitive: cube
     size: [1, 1, "{(depth - 0.02) / depth}"]
     anchor: bottom_center
-    offset: [0, 0, "{((depth + 0.02) / 2 - depth / 2) / depth}"]
+    offset: [0, 0, "{(0.02 + (depth - 0.02) / 2) / depth}"]
     bevel: 0.006
     material: plastic_black
   bracket:
     primitive: cube
     size: ["{0.3 / width}", "{0.25 / height}", "{0.02 / depth}"]
     anchor: bottom_center
-    offset: [0, "{0.2 / height}", "{(0.01 - depth / 2) / depth}"]
+    offset: [0, "{0.2 / height}", "{0.01 / depth}"]
     bevel: 0
     material: metal
   screen:
     primitive: cube
     size: ["{(width - 0.03) / width}", "{(height - 0.03) / height}", "{0.004 / depth}"]
     anchor: bottom_center
-    offset: [0, "{0.015 / height}", "{(depth / 2 - 0.001) / depth}"]
+    offset: [0, "{0.015 / height}", "{(depth + 0.001) / depth}"]
     bevel: 0
     material: glass
     collider: none
