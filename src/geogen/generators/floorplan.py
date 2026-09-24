@@ -156,7 +156,10 @@ class FloorPlan:
 
     @classmethod
     def from_spec(cls, spec: dict[str, Any]) -> FloorPlan:
-        """Build from the YAML ``floorplan:`` mapping."""
+        """Build from the YAML ``floorplan:`` mapping (``generate:`` expands a layout)."""
+        from .plan_layouts import expand
+
+        spec = expand(spec)
         known = {"grid", "wall_height", "exterior_wall", "interior_wall", "floor_thickness",
                  "ceiling_thickness", "ceiling", "materials", "rooms", "doors", "windows", "finishes"}
         unknown = set(spec) - known

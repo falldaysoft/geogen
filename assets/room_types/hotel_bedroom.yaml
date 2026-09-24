@@ -14,6 +14,7 @@ items:
     asset: nightstand.yaml
     flank: bed
     count: 2
+    min: 1        # a door zone may take one side in narrow rooms
   lamp:
     asset: table_lamp.yaml
     on: nightstand

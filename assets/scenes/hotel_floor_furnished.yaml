@@ -1,0 +1,14 @@
+# A generated hotel guest floor with every room furnished from its archetype.
+
+name: hotel_floor_furnished
+tags: [level.hotel_floor]
+
+place:
+  floor:
+    asset: hotel_floor.yaml
+    furnish: true
+
+spawns:
+  lift:
+    position: [0, 0, 0]
+    facing: south

@@ -1,0 +1,14 @@
+# A generated hotel guest floor: double-loaded corridor with fire stairs at
+# the ends, a lift lobby mid-floor and ensuite guest rooms on both sides.
+# See geogen/generators/plan_layouts.py for the layout parameters.
+
+name: hotel_floor
+tags: [building.hotel_floor]
+
+floorplan:
+  generate: hotel_corridor
+  length: 30
+  depth: 15
+  module: 3.8
+  corridor: 1.8
+  materials: { walls: paint_white, floor: carpet, ceiling: ceiling_white }

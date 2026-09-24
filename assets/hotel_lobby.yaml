@@ -1,0 +1,12 @@
+# Generated hotel ground floor: street entrance, lobby, reception, lounge,
+# restaurant, restrooms and back-of-house.
+
+name: hotel_lobby
+tags: [building.hotel_lobby]
+
+floorplan:
+  generate: hotel_lobby
+  length: 30
+  depth: 15
+  wall_height: 3.6
+  materials: { walls: paint_white, floor: tile_floor_grey, ceiling: ceiling_white }

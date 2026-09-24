@@ -34,6 +34,9 @@ Prefer terms: ``longest_wall``, ``no_door_wall``, ``door_wall``,
 ``near_window``, ``centered``, ``corner``, ``{opposite: <item>}`` (the wall
 the item faces, lined up with it), ``{near: <item>}``, ``{far: <item>}``.
 
+``count`` asks for several; ``min`` is how many must be placed (default:
+all of them) before the rule counts as unsatisfied.
+
 Relations: ``flank: <item>`` (beside it on the same wall, ``count`` sides),
 ``front_of: <item>`` (facing it, ``distance`` beyond its front; negative
 tucks in), ``under: <item>`` (centred, ``offset`` toward its front),
@@ -327,7 +330,8 @@ class _RoomSolver:
                 self.report.append(Unsatisfied(self.name, name, f"error: {exc}"))
                 continue
             want = int(spec.get("count", 1)) if not spec.get("mount") == "window" else len(self.windows)
-            if placed < want and not spec.get("optional"):
+            required = int(spec.get("min", want))
+            if placed < required and not spec.get("optional"):
                 self.report.append(Unsatisfied(self.name, name, f"placed {placed} of {want}"))
         return self.report
 
