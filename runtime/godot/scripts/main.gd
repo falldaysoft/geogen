@@ -15,6 +15,14 @@ extends Node3D
 ##   --wait=SECONDS                wait before the --walk starts (let a door swing)
 ##   --nav=AX,AZ:BX,BZ             print the navigation path between two floor points, quit
 ##   --lights                      print the fixture lights (JSON) when quitting
+##   --keys=K1,K2                  keys the player holds (lock/unlock doors with L)
+##   --lock=@aim                   press L on whatever the player looks at
+##   --pitch=DEG                   look up (+) or down (-) at spawn
+##   --save=PATH / --load=PATH     write interaction state on quit / restore it at start
+##   --status                      print the player's pose/room/focus when quitting
+##
+## E uses the focused interaction, or sits/lies on the furniture you look at
+## (E or walking stands you up); L locks/unlocks with a held key.
 ##   --playtest[=N]                check every room/interaction is reachable, walk N routes
 ##                                 with a bot (default 6), print "playtest: {...}", quit
 ##
@@ -37,6 +45,13 @@ var _start_overview := false
 var _use_assets: Array[String] = []
 var _use_aim := false
 var _print_lights := false
+var keys: Array = []
+var _lock_aim := false
+var _pitch := 0.0
+var _save_path := ""
+var _load_path := ""
+var _print_status := false
+var _focus_affordance := {}
 var _nav_query := []
 var _frames_nav := 0
 var _playtest_walks := -1
@@ -84,6 +99,18 @@ func _ready() -> void:
                 _nav_query.append(Vector3(xz[0], 0.0, xz[1]))
         elif arg == "--lights":
             _print_lights = true
+        elif arg.begins_with("--keys="):
+            keys = Array(value.split(",", false))
+        elif arg.begins_with("--pitch="):
+            _pitch = float(value)
+        elif arg == "--lock=@aim":
+            _lock_aim = true
+        elif arg.begins_with("--save="):
+            _save_path = value
+        elif arg.begins_with("--load="):
+            _load_path = value
+        elif arg == "--status":
+            _print_status = true
         elif arg == "--use=@aim":
             _use_aim = true
         elif arg.begins_with("--use="):
@@ -110,6 +137,10 @@ func _ready() -> void:
         print("interaction event: %s" % JSON.stringify(
             {"asset": asset, "interaction": interaction, "state": state, "event": event})))
     world.load_all()
+    if _load_path != "":
+        var saved = JSON.parse_string(FileAccess.get_file_as_string(_load_path))
+        if saved is Dictionary:
+            world.load_state(saved)
     for asset_name in _use_assets:
         var found := world.interactions_of(asset_name)
         if found.is_empty():
@@ -170,6 +201,7 @@ func _place_player(aabb: AABB) -> void:
     if _spawn_override != null:
         pos = _spawn_override
     player.spawn(pos, _yaw_override if _yaw_override != null else yaw)
+    player.head.rotation.x = deg_to_rad(_pitch)
 
 
 func _frame_overview(aabb: AABB) -> void:
@@ -186,8 +218,10 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event.is_action_pressed("geogen_toggle_colliders"):
         world.show_colliders = not world.show_colliders
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E:
+        _press_use()
+    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
         if _focus != null:
-            _focus.use()
+            _focus.toggle_lock(keys)
     elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_F4:
         if overview.current:
             player.camera.make_current()
@@ -205,10 +239,16 @@ func _physics_process(delta: float) -> void:
             _print_nav_path(_nav_query[0], _nav_query[1])
             get_tree().quit()
         return
-    if _use_aim and _focus != null:
+    if _lock_aim and _focus != null:
+        _lock_aim = false
+        print("lock: %s -> %s" % [_focus.asset.name, _focus.toggle_lock(keys)])
+    if _use_aim and (_focus != null or not _focus_affordance.is_empty()):
         _use_aim = false
-        print("used: %s (%s)" % [_focus.asset.name, _focus.interaction_name])
-        _focus.use()
+        if _focus != null:
+            print("used: %s (%s)" % [_focus.asset.name, _focus.interaction_name])
+        else:
+            print("used: %s (%s)" % [_focus_affordance["asset"], _focus_affordance["type"]])
+        _press_use()
     if _wait_left > 0.0:
         _wait_left -= delta
         if _wait_left <= 0.0 and _walk_left > 0.0:
@@ -239,6 +279,16 @@ func _process(_delta: float) -> void:
         return
     _frames += 1
     if _frames >= quit_after_frames:
+        if _save_path != "":
+            var f := FileAccess.open(_save_path, FileAccess.WRITE)
+            f.store_string(JSON.stringify(world.save_state()))
+            f.close()
+        if _print_status:
+            var p := player.global_position
+            print("status: %s" % JSON.stringify({"pose": player.pose.get("type", "stand"),
+                "pose_asset": player.pose.get("asset", ""), "x": p.x, "y": p.y, "z": p.z,
+                "room": world.room_at(p + Vector3(0, 0.5, 0)), "eye_y": player.camera.global_position.y,
+                "states": world.save_state()}))
         if _print_lights:
             var report := {}
             for name in world.lights_by_name:
@@ -257,7 +307,8 @@ func _process(_delta: float) -> void:
 ## What the player is aiming at within reach, and its prompt ("E: Open").
 func _update_focus() -> void:
     _focus = null
-    if player != null and player.camera.current:
+    _focus_affordance = {}
+    if player != null and player.camera.current and player.pose.is_empty():
         var cam := player.camera
         var from := cam.global_position
         var to := from - cam.global_basis.z * player_spec.reach
@@ -268,8 +319,27 @@ func _update_focus() -> void:
             var it := world.interaction_for(hit["collider"])
             if it != null and it.can_use():
                 _focus = it
+            else:
+                _focus_affordance = world.affordance_near(hit["position"])
     if _prompt:
-        _prompt.text = "E: %s" % _focus.prompt() if _focus else ""
+        if player != null and not player.pose.is_empty():
+            _prompt.text = "E: Stand up"
+        elif _focus != null:
+            _prompt.text = "E: %s" % _focus.prompt(keys)
+        elif not _focus_affordance.is_empty():
+            _prompt.text = "E: %s" % {"sit": "Sit", "lie": "Lie down", "use": "Use", "stand": "Stand here"}.get(
+                _focus_affordance["type"], "Use")
+        else:
+            _prompt.text = ""
+
+
+func _press_use() -> void:
+    if not player.pose.is_empty():
+        player.leave_pose()
+    elif _focus != null:
+        _focus.use()
+    elif not _focus_affordance.is_empty():
+        player.take_pose(_focus_affordance)
 
 
 ## Print the navigation path between two floor points as JSON (length, points).

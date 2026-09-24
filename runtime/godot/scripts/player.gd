@@ -86,9 +86,45 @@ func _unhandled_input(event: InputEvent) -> void:
 		_shape.disabled = flying
 
 
+## Sitting or lying on an affordance: {} when standing.
+var pose := {}
+var _stand_at := Vector3.ZERO
+
+
+## Take a pose (sit/lie) from world_loader.affordances: body parked, camera at the pose.
+func take_pose(affordance: Dictionary) -> void:
+	_stand_at = global_position
+	pose = affordance
+	_shape.disabled = true
+	velocity = Vector3.ZERO
+	var hips: Vector3 = affordance["position"]
+	global_position = Vector3(hips.x, hips.y - (0.0 if affordance["type"] == "lie" else 0.0), hips.z)
+	rotation = Vector3(0, deg_to_rad(float(affordance["yaw_deg"])), 0)
+	if affordance["type"] == "lie":
+		head.position.y = 0.25
+		head.rotation = Vector3(deg_to_rad(70.0), 0, 0)   # looking up at the ceiling
+	else:
+		head.position.y = 0.72                            # seated eye height above the seat
+		head.rotation = Vector3.ZERO
+
+
+func leave_pose() -> void:
+	if pose.is_empty():
+		return
+	pose = {}
+	global_position = _stand_at
+	head.position.y = spec.eye_height
+	head.rotation = Vector3.ZERO
+	_shape.disabled = flying
+
+
 func _physics_process(delta: float) -> void:
 	var input: Vector2 = scripted_move if scripted_move != null else Input.get_vector(
 		"geogen_left", "geogen_right", "geogen_back", "geogen_forward")
+	if not pose.is_empty():
+		if input.length() > 0.5:
+			leave_pose()   # walking off stands you up
+		return
 	if flying:
 		_fly(input, delta)
 		return

@@ -50,8 +50,8 @@ as `get_meta("extras")`; room volumes drive the overlay's `room:` readout and
 the `room` field of `--walk` results. Without `--spawn`, the player starts at
 the manifest's first spawn point. Interactions in node extras (e.g. the
 cottage door's `swing`) become `GeogenInteraction` nodes (`scripts/interaction.gd`):
-look at the door within reach and press E to open or close it; colliders on
-moving parts are `AnimatableBody3D`s so the open door lets you through. The
+look at the door within reach and press E to open or close it (L locks/unlocks with a held key; timed states like self-closing guest doors advance on their own); colliders on
+moving parts are `AnimatableBody3D`s so the open door lets you through. Looking at furniture with affordances (chairs, sofas, the bed) offers E: Sit / Lie down; E or walking stands up. The
 player body is a
 cylinder, not a capsule: a capsule's rounded bottom slides off the edge of
 a step exactly `step_height` tall.
@@ -80,6 +80,12 @@ User args (after `--`):
 | `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
 | `--use=ASSET`, `--use=@aim` | Use an asset's interactions (e.g. `door`) or whatever the player looks at, at start |
 | `--nav=AX,AZ:BX,BZ` | Print the navigation path between two floor points (`nav path: {...}`) and quit |
+| `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one |
+| `--lock=@aim` | Press L on whatever the player looks at |
+| `--pitch=DEG` | Look up (+) / down (-) at spawn |
+| `--save=PATH`, `--load=PATH` | Write interaction state (doors, drawers, switches, locks) on quit / restore it at start |
+| `--status` | Print the player's pose, room and interaction states on quit |
+| `--lights` | Print fixture lights on quit |
 | `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
 | `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
 | `--quit-after=N` | Quit after N frames |

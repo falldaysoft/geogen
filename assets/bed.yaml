@@ -120,6 +120,6 @@ surfaces:
   mattress: { from: mattress.top }
 
 affordances:
-  - { type: lie, at: ["{-width / 4}", "{leg + base + mattress}", 0.1], facing: 180, height: "{leg + base + mattress}" }
-  - { type: lie, at: ["{width / 4}", "{leg + base + mattress}", 0.1], facing: 180, height: "{leg + base + mattress}" }
+  - { type: lie, at: ["{-width / 4}", "{leg + base + mattress}", 0.1], facing: 0, height: "{leg + base + mattress}" }
+  - { type: lie, at: ["{width / 4}", "{leg + base + mattress}", 0.1], facing: 0, height: "{leg + base + mattress}" }
   - { type: sit, at: [0, "{leg + base + mattress}", "{(length + hb_depth + 0.04) / 2 - 0.3}"], facing: 0, height: "{leg + base + mattress}" }

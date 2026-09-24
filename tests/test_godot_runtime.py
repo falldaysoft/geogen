@@ -330,3 +330,67 @@ def test_godot_fixture_lights_and_switch(run_godot, auto_room_dir):
     report = lights("--use=bedroom_switch_1", "--quit-after=40")
     assert report["fixtures"]["bedroom_light"]["visible"] is False
     assert report["fixtures"]["bathroom_light"]["visible"] is True
+
+
+def _lines(out, prefix):
+    return [json.loads(l.removeprefix(prefix)) for l in out.splitlines() if l.startswith(prefix)]
+
+
+@pytest.fixture(scope="module")
+def small_building_dir(tmp_path_factory):
+    from geogen.layout import LayoutLoader
+    from test_building import SMALL
+    out = tmp_path_factory.mktemp("generated_small")
+    export_scene(LayoutLoader().load_string(SMALL), out / "small_building.glb")
+    return out
+
+
+def _guest_door_args(small_building_dir):
+    # Standing in the first-floor corridor facing room 101's door.
+    return ("--scene", "small_building", f"--generated={small_building_dir}", "--spawn=-9.2,3.65,-0.3",
+            "--yaw=180")
+
+
+def test_locked_guest_door_needs_its_key(run_godot, small_building_dir):
+    args = _guest_door_args(small_building_dir)
+    out = run_godot(*args, "--use=@aim", "--wait=1.2", "--walk=1.2")
+    assert _lines(out, "interaction event: ")[0]["event"] == "locked"
+    assert _lines(out, "walk result: ")[0]["room"] == "corridor"
+    out = run_godot(*args, "--keys=key_room_101", "--lock=@aim", "--use=@aim", "--wait=1.2", "--walk=1.2")
+    events = [e["event"] or e["state"] for e in _lines(out, "interaction event: ")]
+    assert events[:2] == ["unlocked", "open"]
+    assert _lines(out, "walk result: ")[0]["room"] == "room_101_entry"
+
+
+def test_guest_door_closes_itself(run_godot, small_building_dir):
+    import subprocess
+    from conftest import GODOT_PROJECT, _godot_binary
+    result = subprocess.run([_godot_binary(), "--headless", "--fixed-fps", "60", "--path", str(GODOT_PROJECT), "--",
+                             *_guest_door_args(small_building_dir), "--keys=key_room_101", "--lock=@aim",
+                             "--use=@aim", "--quit-after=560", "--status"], capture_output=True, text=True, timeout=300)
+    states = [e["state"] for e in _lines(result.stdout, "interaction event: ")]
+    assert states[-2:] == ["open", "closed"]           # opened, then closed after 6 s
+
+
+def test_sit_lie_and_stand(run_godot, auto_room_dir):
+    base = ("--scene", "hotel_room_auto", f"--generated={auto_room_dir}")
+    # Beside the bed, looking down at its middle: lie down.
+    out = run_godot(*base, "--spawn=-1.9,0,-1.55", "--yaw=180", "--pitch=-50", "--use=@aim",
+                    "--quit-after=20", "--status")
+    status = _lines(out, "status: ")[0]
+    assert status["pose"] == "lie" and status["pose_asset"] == "bed"
+    assert status["eye_y"] == pytest.approx(0.62 + 0.25, abs=0.02)
+    # At the foot of the bed: sit on its edge; walking stands you back up.
+    out = run_godot(*base, "--spawn=-0.6,0,-0.4", "--yaw=90", "--pitch=-45", "--use=@aim", "--wait=0.4", "--walk=0.3")
+    end = _lines(out, "walk result: ")[0]
+    assert end["y"] == pytest.approx(0.0, abs=0.02) and end["room"] == "bedroom"
+
+
+def test_save_and_restore_interaction_state(run_godot, auto_room_dir, tmp_path):
+    base = ("--scene", "hotel_room_auto", f"--generated={auto_room_dir}")
+    save = tmp_path / "save.json"
+    run_godot(*base, "--use=bedroom_switch_1", "--use=nightstand", "--quit-after=60", f"--save={save}")
+    saved = json.loads(save.read_text())
+    assert saved["bedroom_switch_1/switch"]["state"] == "off" and saved["nightstand/drawer"]["state"] == "open"
+    out = run_godot(*base, f"--load={save}", "--lights", "--quit-after=5")
+    assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False

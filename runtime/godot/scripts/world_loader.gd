@@ -42,6 +42,9 @@ var rooms: Array[Dictionary] = []
 var spawns: Array[Dictionary] = []
 ## Fixture lights by their fixture node's name (light switches refer to them).
 var lights_by_name := {}
+## Actor poses from extras.geogen.affordances, world space:
+## [{type, position: Vector3, yaw_deg: float, height: float, node: Node3D}]
+var affordances: Array[Dictionary] = []
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
 var _moving := {}     # Node3D driven by an interaction -> true
@@ -71,6 +74,7 @@ func load_all() -> AABB:
 	spawns.clear()
 	interactions.clear()
 	lights_by_name.clear()
+	affordances.clear()
 	_gates.clear()
 	_moving.clear()
 	_target_of.clear()
@@ -163,6 +167,7 @@ func _load_model(manifest_path: String) -> void:
 	_collect_interactions(root)
 	_add_lights(root)
 	_wire_switches()
+	_collect_affordances(root)
 	var count := _add_collision(root)
 	_collect_gates(root)
 	_collect_rooms(root)
@@ -172,6 +177,7 @@ func _load_model(manifest_path: String) -> void:
 			if it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset):
 				if it.states.has("open"):
 					it.set_state("open", true)
+					it.hold = true
 	if bake_navigation:
 		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake)
 	for s in manifest.get("spawns", []):
@@ -239,7 +245,68 @@ func _wire_switches() -> void:
 		var light: Light3D = lights_by_name.get(str(spec.get("light", "")))
 		if light == null:
 			continue
-		it.state_entered.connect(func(state: String, _event: String): light.visible = state != "off")
+		var fixture := light.get_parent()
+		while fixture != null and not geogen_extras(fixture).has("light"):
+			fixture = fixture.get_parent()
+		it.state_entered.connect(func(state: String, _event: String):
+			light.visible = state != "off"
+			if fixture != null:
+				_set_emission(fixture, state != "off"))
+
+
+## Dim or restore a fixture's glowing materials (lamp shades) with its light.
+static func _set_emission(fixture: Node, on: bool) -> void:
+	for mi: MeshInstance3D in fixture.find_children("*", "MeshInstance3D", true, false):
+		for i in mi.mesh.get_surface_count() if mi.mesh else 0:
+			var mat := mi.get_active_material(i) as BaseMaterial3D
+			if mat == null or not (mat.emission_enabled or mi.has_meta("geogen_dimmed")):
+				continue
+			if mi.get_surface_override_material(i) == null:
+				mat = mat.duplicate()
+				mi.set_surface_override_material(i, mat)
+			mat.emission_enabled = on
+			mi.set_meta("geogen_dimmed", not on)
+
+
+func _collect_affordances(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		var list = geogen_extras(node).get("affordances")
+		if not list is Array:
+			continue
+		var xform := (node as Node3D).global_transform
+		for a in list:
+			var p: Array = a.get("position", [0, 0, 0])
+			var forward := xform.basis * Basis(Vector3.UP, deg_to_rad(float(a.get("yaw", 0.0)))) * Vector3.BACK
+			affordances.append({"type": str(a.get("type", "sit")), "position": xform * Vector3(p[0], p[1], p[2]),
+				"yaw_deg": rad_to_deg(atan2(-forward.x, -forward.z)), "node": node,
+				"height": float(a.get("height", p[1])), "asset": String(node.name)})
+
+
+## Nearest affordance within ``radius`` of a world point, or {}.
+func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
+	var best := {}
+	var best_d := radius
+	for a in affordances:
+		var d: float = (a["position"] as Vector3).distance_to(point)
+		if d < best_d:
+			best_d = d
+			best = a
+	return best
+
+
+## Interaction state of every interaction, keyed "<asset>/<interaction>".
+func save_state() -> Dictionary:
+	var data := {}
+	for it in interactions:
+		data["%s/%s" % [it.asset.name, it.interaction_name]] = it.snapshot()
+	return data
+
+
+func load_state(data: Dictionary) -> void:
+	for it in interactions:
+		var key := "%s/%s" % [it.asset.name, it.interaction_name]
+		if data.has(key):
+			it.restore(data[key])
 
 
 func _collect_rooms(root: Node) -> void:
