@@ -31,4 +31,4 @@ parts:
     size: [1, "{0.22 / height}", 1]
     anchor: bottom_center
     offset: [0, "{(height - 0.22) / height}", 0]
-    material: fabric_linen
+    material: lamp_shade

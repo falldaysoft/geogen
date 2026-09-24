@@ -460,9 +460,18 @@ class GLView(QOpenGLWidget):
         for unit, name in enumerate(("uAlbedoMap", "uNormalMap", "uRoughnessMap", "uAOMap")):
             prog.set_uniform(name, unit)
 
-        for m in self._meshes:
+        # Opaque first, then alpha-blended (glass) without depth writes.
+        ordered = sorted(self._meshes, key=lambda m: bool(m.material is not None and m.material.transparent))
+        for m in ordered:
             mat = m.material
             tex = self._textures.get(id(mat)) if mat is not None else None
+            transparent = mat is not None and mat.transparent
+            if transparent:
+                GL.glEnable(GL.GL_BLEND)
+                GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                GL.glDepthMask(GL.GL_FALSE)
+            prog.set_uniform("uOpacity", float(mat.opacity) if mat else 1.0)
+            prog.set_uniform("uEmissive", np.array(mat.emissive) * mat.emissive_strength if mat else np.zeros(3))
             prog.set_uniform("uBaseColor", DEFAULT_COLOR)
             prog.set_uniform("uRoughness", float(mat.roughness) if mat else 0.6)
             prog.set_uniform("uMetallic", float(mat.metallic) if mat else 0.0)
@@ -482,9 +491,14 @@ class GLView(QOpenGLWidget):
                 GL.glBindTexture(GL.GL_TEXTURE_2D, tex_id or self._blank_tex)
             GL.glBindVertexArray(m.vao)
             GL.glDrawElements(GL.GL_TRIANGLES, m.faces.size, GL.GL_UNSIGNED_INT, None)
+            if transparent:
+                GL.glDepthMask(GL.GL_TRUE)
+                GL.glDisable(GL.GL_BLEND)
 
         if self.show_ground and self._ground is not None:
             prog.set_uniform("uBaseColor", (0.78, 0.78, 0.76, 1.0))
+            prog.set_uniform("uOpacity", 1.0)
+            prog.set_uniform("uEmissive", np.zeros(3))
             prog.set_uniform("uRoughness", 0.95)
             prog.set_uniform("uMetallic", 0.0)
             prog.set_uniform("uHighlight", (0.0, 0.0, 0.0, 0.0))

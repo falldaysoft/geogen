@@ -57,6 +57,10 @@ def _pbr_material(material: Material, cache: dict[int, trimesh.visual.material.P
             occlusionTexture=images.get("occlusion"),
             metallicFactor=1.0,
             roughnessFactor=1.0,
+            emissiveFactor=list(material.emissive_factor) if any(material.emissive) else None,
+            alphaMode="BLEND" if material.transparent else None,
+            baseColorFactor=[1.0, 1.0, 1.0, material.opacity] if material.transparent else None,
+            doubleSided=True if material.transparent else None,
         )
     return cache[key]
 

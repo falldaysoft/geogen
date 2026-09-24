@@ -33,5 +33,5 @@ parts:
     anchor: bottom_center
     offset: [0, "{0.015 / height}", "{(depth + 0.001) / depth}"]
     bevel: 0
-    material: glass
+    material: screen
     collider: none

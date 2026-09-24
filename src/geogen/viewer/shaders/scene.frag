@@ -22,6 +22,8 @@ uniform float uRoughness;
 uniform float uMetallic;
 uniform float uNormalStrength;
 uniform float uAOStrength;
+uniform vec3 uEmissive;
+uniform float uOpacity;
 uniform vec2 uUVScale;
 
 // 0 = lit, 1 = clay (no textures), 2 = normals, 3 = UV checker
@@ -190,10 +192,10 @@ void main() {
     // Hemisphere ambient: sky from above, bounced ground light from below.
     vec3 hemi = mix(uGroundColor, uSkyColor, N.y * 0.5 + 0.5);
     vec3 ambient = hemi * albedo * ao * (1.0 - metallic * 0.5);
-    vec3 color = (ambient + Lo) * uExposure;
+    vec3 color = (ambient + Lo + uEmissive) * uExposure;
 
     color = acesTonemap(color);
     color = pow(color, vec3(1.0 / 2.2));
     color = mix(color, uHighlight.rgb, uHighlight.a);
-    FragColor = vec4(color, 1.0);
+    FragColor = vec4(color, uOpacity);
 }

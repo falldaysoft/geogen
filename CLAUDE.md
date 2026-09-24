@@ -117,7 +117,7 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **Material** (`material.py`): Combines a TextureGenerator with PBR properties (roughness, metallic, normal_strength, ao_strength). Caches generated textures. `tile_size` (metres per texture repeat, YAML scalar or `[u, v]`) converts metric mesh UVs to texture space via `texture_uv_scale`; `gltf_images()` packs base colour / metallic-roughness / normal / occlusion for both the renderer and exporter.
 
-- **MaterialLoader** (`loader.py`): Loads material definitions from YAML files in `assets/materials/`.
+- **MaterialLoader** (`loader.py`): Loads material definitions from YAML files in `assets/materials/`. `pbr: {opacity: 0.3}` makes a material alpha-blended (glass: see-through in renderer, viewer, glTF `BLEND` + double-sided, Godot); `pbr: {emissive: [r, g, b], emissive_strength}` makes it glow (`lamp_shade`, `screen`).
 
 ### Lighting (`src/geogen/lighting/`)
 

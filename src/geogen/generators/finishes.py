@@ -178,7 +178,7 @@ def _pendant(name: str, ceiling: float, loader) -> SceneNode:
                            segments=40).generate()
     shade = at(shade, -0.425)
     node.add_child(_part("canopy", Mesh.merge([canopy, stem]), chrome, collider="none"))
-    node.add_child(_part("shade", shade, loader.load("fabric_linen"), collider="none"))
+    node.add_child(_part("shade", shade, loader.load("lamp_shade"), collider="none"))
     return node
 
 

@@ -199,6 +199,9 @@ class MaterialLoader:
             tile_size=tile_size,
             shininess=shininess,
             tint=tint,
+            opacity=float(pbr.get("opacity", data.get("opacity", 1.0))),
+            emissive=tuple(float(c) for c in pbr.get("emissive", [0.0, 0.0, 0.0])),
+            emissive_strength=float(pbr.get("emissive_strength", 1.0)),
         )
 
     def _convert_params(self, texture_type: str, params: dict[str, Any]) -> dict[str, Any]:

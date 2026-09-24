@@ -97,6 +97,11 @@ class _MaterialCache:
             kwargs["normalTexture"] = _texture(images["normal"], "RGB")
         if "occlusion" in images:
             kwargs["occlusionTexture"] = _texture(images["occlusion"], "RGB")
+        if any(material.emissive):
+            kwargs["emissiveFactor"] = np.array(material.emissive) * material.emissive_strength
+        if material.transparent:
+            kwargs["alphaMode"] = "BLEND"
+            kwargs["baseColorFactor"] = [1.0, 1.0, 1.0, material.opacity]
         return pyrender.MetallicRoughnessMaterial(name=material.name, **kwargs)
 
 

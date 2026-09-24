@@ -46,6 +46,12 @@ class Material:
     uv_scale: tuple[float, float] = (1.0, 1.0)
     tile_size: tuple[float, float] = (1.0, 1.0)
 
+    # Transparency (1 = opaque; below 1 is alpha-blended: glass) and emission
+    # (linear RGB 0-1 times strength: lamp shades, screens).
+    opacity: float = 1.0
+    emissive: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    emissive_strength: float = 1.0
+
     # Legacy property (converted to roughness if roughness not explicitly set)
     shininess: float = 0.3
     tint: tuple[float, float, float] | None = None
@@ -55,6 +61,15 @@ class Material:
     _cached_normal: Image.Image | None = field(default=None, repr=False)
     _cached_roughness: Image.Image | None = field(default=None, repr=False)
     _cached_ao: Image.Image | None = field(default=None, repr=False)
+
+    @property
+    def transparent(self) -> bool:
+        return self.opacity < 1.0
+
+    @property
+    def emissive_factor(self) -> tuple[float, float, float]:
+        """glTF emissiveFactor (clamped to 0-1; strength beyond 1 goes to KHR_materials_emissive_strength)."""
+        return tuple(float(min(1.0, c * min(self.emissive_strength, 1.0))) for c in self.emissive)
 
     @property
     def texture_uv_scale(self) -> tuple[float, float]:
