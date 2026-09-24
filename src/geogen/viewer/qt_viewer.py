@@ -85,6 +85,18 @@ def describe_node(node: SceneNode) -> str:
         lines.append(f"Attach    {', '.join(sorted(node.attachments))}")
     if node.surfaces:
         lines.append(f"Surfaces  {', '.join(sorted(node.surfaces))}")
+    if node.tags:
+        lines.append(f"Tags      {', '.join(node.tags)}")
+    for key in ("room", "storey", "collider", "walkable", "joint", "light", "gate", "stairs", "footprint",
+                "clearance"):
+        if key in node.meta:
+            lines.append(f"{key:<9} {node.meta[key]}")
+    for interaction in node.interactions:
+        lines.append(f"Interact  {interaction.name}: {' -> '.join(interaction.states)} (initial {interaction.initial})")
+        for motion in interaction.motions:
+            parts = ", ".join(p.name for p in motion.parts)
+            lines.append(f"            {motion.kind} {list(np.round(motion.axis, 3))} about "
+                         f"{list(np.round(motion.pivot, 3))}: {parts}")
 
     if node.mesh is not None:
         report = meshops.validate(node.mesh)
@@ -107,6 +119,29 @@ def describe_node(node: SceneNode) -> str:
         lines.append("Layout check")
         lines.extend(f"  ! {issue}" for issue in issues) if issues else lines.append("  no problems")
     return "\n".join(lines)
+
+
+def _copy_with_interactions(root: SceneNode) -> SceneNode:
+    """Deep copy whose interactions move the copied parts (not the originals)."""
+    import copy as _copy
+
+    shown = root.copy(deep=True)
+    mapping = {id(a): b for a, b in zip(root.iter_nodes(), shown.iter_nodes())}
+    for node in shown.iter_nodes():
+        if not node.interactions:
+            continue
+        remapped = []
+        for interaction in node.interactions:
+            clone = _copy.copy(interaction)
+            clone.targets = [mapping.get(id(t), t) for t in interaction.targets]
+            clone.motions = []
+            for motion in interaction.motions:
+                m = _copy.copy(motion)
+                m.parts = [mapping.get(id(p), p) for p in motion.parts]
+                clone.motions.append(m)
+            remapped.append(clone)
+        node.interactions = remapped
+    return shown
 
 
 class ViewerWindow(QMainWindow):
@@ -231,6 +266,74 @@ class ViewerWindow(QMainWindow):
         bar.addSeparator()
         action("Screenshot", self.save_screenshot, "Ctrl+S")
 
+        # Section tools for buildings and interiors.
+        section = QToolBar("Section")
+        section.setMovable(False)
+        self.addToolBar(section)
+        self._cutaway_act = QAction("Cutaway", self, checkable=True)
+        self._cutaway_act.setToolTip("Hide ceilings, roofs and ceiling lights (C)")
+        self._cutaway_act.setShortcut(QKeySequence("C"))
+        self._cutaway_act.toggled.connect(lambda _=False: self._apply_section())
+        section.addAction(self._cutaway_act)
+        section.addWidget(QLabel(" Storey "))
+        self._storey_combo = QComboBox()
+        self._storey_combo.setToolTip("Show storeys up to this one (buildings)")
+        self._storey_combo.currentIndexChanged.connect(lambda _=0: self._apply_section())
+        section.addWidget(self._storey_combo)
+        section.addWidget(QLabel(" Interactions "))
+        self._state_combo = QComboBox()
+        self._state_combo.setToolTip("Pose every interaction (doors, drawers, lifts) in a state")
+        self._state_combo.currentIndexChanged.connect(lambda _=0: self._apply_section())
+        section.addWidget(self._state_combo)
+
+    def _section_scene(self, root: SceneNode) -> SceneNode:
+        """The scene as filtered/posed by the Section toolbar (a copy when changed)."""
+        from ..layout.interactions import apply_state
+        from ..render import cutaway
+
+        storey = self._storey_combo.currentData() if self._storey_combo.count() else None
+        state = self._state_combo.currentData() if self._state_combo.count() else None
+        if not self._cutaway_act.isChecked() and storey is None and state is None:
+            return root
+        shown = _copy_with_interactions(root)
+        if storey is not None:
+            for node in list(shown.iter_nodes()):
+                info = node.meta.get("storey")
+                if isinstance(info, dict) and info.get("index", 0) > storey and node.parent is not None:
+                    node.parent.remove_child(node)
+                if node.name == "roof" and node.parent is not None and "roof" in node.tags:
+                    node.parent.remove_child(node)
+        if state is not None:
+            for node in shown.iter_nodes():
+                for interaction in node.interactions:
+                    if state in interaction.states:
+                        apply_state(node, interaction, state)
+        if self._cutaway_act.isChecked():
+            shown = cutaway(shown)
+        return shown
+
+    def _apply_section(self) -> None:
+        if self._current_scene is not None:
+            self._view.set_scene(self._section_scene(self._current_scene), reframe=False)
+            self._view.update()
+
+    def _refresh_section_controls(self, root: SceneNode) -> None:
+        storeys = sorted({n.meta["storey"]["index"] for n in root.iter_nodes()
+                          if isinstance(n.meta.get("storey"), dict)})
+        states = sorted({s for n in root.iter_nodes() for i in n.interactions for s in i.states})
+        for combo, items, blank in ((self._storey_combo, [(f"≤ {k}", k) for k in storeys], "All"),
+                                    (self._state_combo, [(s, s) for s in states], "As authored")):
+            combo.blockSignals(True)
+            previous = combo.currentData()
+            combo.clear()
+            combo.addItem(blank, None)
+            for label, data in items:
+                combo.addItem(label, data)
+            index = combo.findData(previous)
+            combo.setCurrentIndex(index if index >= 0 else 0)
+            combo.setEnabled(bool(items))
+            combo.blockSignals(False)
+
     def _build_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+F"), self, activated=lambda: (self._filter.setFocus(), self._filter.selectAll()))
 
@@ -297,7 +400,8 @@ class ViewerWindow(QMainWindow):
 
         selected_name = self._view._selected_root.name if (keep_camera and self._view._selected_root) else None
         self._current_name, self._current_scene = name, root
-        self._view.set_scene(root, reframe=not keep_camera)
+        self._refresh_section_controls(root)
+        self._view.set_scene(self._section_scene(root), reframe=not keep_camera)
         self._rebuild_tree()
         items = self._scene_list.findItems(name, Qt.MatchFlag.MatchExactly)
         if items and self._scene_list.currentItem() is not items[0]:
@@ -399,6 +503,9 @@ def run_viewer(
     screenshot: str | None = None,
     view: str | None = None,
     display_mode: int = 0,
+    cutaway: bool = False,
+    storey: int | None = None,
+    state: str | None = None,
 ) -> None:
     """Run the Qt viewer. With ``screenshot``, save one frame to that path and exit."""
     fmt = QSurfaceFormat()
@@ -416,6 +523,12 @@ def run_viewer(
         window._view.set_view(view)
     if display_mode:
         window._mode_combo.setCurrentIndex(display_mode)
+    if cutaway:
+        window._cutaway_act.setChecked(True)
+    if storey is not None and window._storey_combo.findData(storey) >= 0:
+        window._storey_combo.setCurrentIndex(window._storey_combo.findData(storey))
+    if state is not None and window._state_combo.findData(state) >= 0:
+        window._state_combo.setCurrentIndex(window._state_combo.findData(state))
 
     if screenshot:
         def grab() -> None:

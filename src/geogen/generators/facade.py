@@ -12,8 +12,9 @@
 - a canopy over each exterior door on the ground floor;
 - optional Juliet balcony rails on upper-floor guest room windows.
 
-Façade parts are merged per material under a ``facade`` node (few meshes,
-no colliders except canopies).
+Façade parts are merged per material and storey under a ``facade`` node
+(``facade_<n>`` per storey, ``meta.storey``; few meshes, no colliders
+except canopies).
 """
 
 from __future__ import annotations
@@ -114,10 +115,16 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
     if style_name not in STYLES:
         raise ValueError(f"facade style must be one of {sorted(STYLES)}, got {style_name!r}")
     style = STYLES[style_name]
-    groups: dict[str, list[Mesh]] = {"frame": [], "glass": [], "trim": [], "canopy": [], "rail": []}
+    # Façade pieces per storey (index -> group -> meshes), so storeys can be hidden together.
+    per_storey: dict[int, dict[str, list[Mesh]]] = {}
+
+    def bucket(index: int) -> dict[str, list[Mesh]]:
+        return per_storey.setdefault(index, {"frame": [], "glass": [], "trim": [], "canopy": [], "rail": []})
+
     to_building = np.linalg.inv(building.world_transform())
 
     for index, (storey, plan) in enumerate(storeys):
+        groups = bucket(index)
         thickness = plan.exterior_wall
         for room in storey.iter_nodes():
             if not isinstance(room.meta.get("room"), dict) or room.meta.get("type") == "room_volume":
@@ -160,28 +167,33 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
     hx, hz = (x1 - x0 + t) / 2, (z1 - z0 + t) / 2
     ring = np.array([[-hx, 0, -hz], [-hx, 0, hz], [hx, 0, hz], [hx, 0, -hz]])  # right of travel = outward
     band = Shape(np.array([[0.0, 0.0], [0.04, 0.0], [0.04, style.band_height], [0.0, style.band_height]]))
-    for storey, plan in storeys[1:]:
+    for index, (storey, plan) in enumerate(storeys[1:], start=1):
         y = float((to_building @ storey.world_transform())[1, 3]) - plan.floor_thickness - style.band_height / 2
         path = ring + np.array([0.0, y, 0.0])
-        groups["trim"].append(SweepGenerator(profile=band, path=path, closed=True, center=False).generate())
+        bucket(index)["trim"].append(SweepGenerator(profile=band, path=path, closed=True, center=False).generate())
     if style.cornice:
         top_storey, top_plan = storeys[-1]
         y = float((to_building @ top_storey.world_transform())[1, 3]) + top_plan.wall_height - 0.25
         cornice = Shape(np.array([[0.0, 0.0], [0.05, 0.0], [0.05, 0.08], [0.14, 0.16], [0.14, 0.25], [0.0, 0.25]]))
-        groups["trim"].append(SweepGenerator(profile=cornice, path=ring + np.array([0.0, y, 0.0]), closed=True,
-                                             center=False).generate())
+        bucket(len(storeys) - 1)["trim"].append(SweepGenerator(profile=cornice, path=ring + np.array([0.0, y, 0.0]),
+                                                                closed=True, center=False).generate())
 
     node = SceneNode(name="facade", tags=["facade", f"facade.{style_name}"])
     materials = {"frame": style.frame, "glass": "glass", "trim": style.trim, "canopy": style.trim,
                  "rail": "metal"}
-    for group, meshes in groups.items():
-        if not meshes:
-            continue
-        mesh = uvmap.box_project(Mesh.merge(meshes))
-        mesh.material = material_loader.load(materials[group])
-        part = SceneNode(name=f"facade_{group}", mesh=mesh)
-        part.meta["collider"] = "box" if group == "canopy" else "none"
-        node.add_child(part)
+    for index in sorted(per_storey):
+        level = SceneNode(name=f"facade_{index}", tags=["facade.storey"])
+        level.meta["storey"] = {"index": index}
+        for group, meshes in per_storey[index].items():
+            if not meshes:
+                continue
+            mesh = uvmap.box_project(Mesh.merge(meshes))
+            mesh.material = material_loader.load(materials[group])
+            part = SceneNode(name=f"facade_{group}", mesh=mesh)
+            part.meta["collider"] = "box" if group == "canopy" else "none"
+            level.add_child(part)
+        if level.children:
+            node.add_child(level)
     node.meta["facade"] = {"style": style_name}
     return node
 

@@ -237,6 +237,7 @@ Parametric furniture assets in `assets/` (tags `furniture.*` / `bathroom.*` / `d
 ### Viewer (`src/geogen/viewer/`)
 
 - **qt_viewer.py**: `ViewerWindow` — filterable scene list, node tree synced with viewport picking, inspector (size, tris, materials, attachments, surfaces, mesh validation), toolbar (reload, views, display mode, wireframe/grid/shadows/ground, screenshot), hot reload of `assets/**/*.yaml` via QFileSystemWatcher, errors shown in the status bar instead of crashing. Keys: 1/2/3/4/7/0 views, F frame selection, A frame all, W/G/S/H toggles, M display mode, Ctrl+R/S/F.
+- **Section toolbar** (viewer): *Cutaway* (C) hides ceilings/roofs/ceiling lights, *Storey* shows building storeys up to N (façade per storey too), *Interactions* poses every interaction in a state (e.g. `open`) on a copy. CLI: `--viewer-screenshot out.png --cutaway --storey 1 --state open`. The inspector lists tags, room/storey/collider/joint/light/gate meta and interactions (states, motion axes and pivots).
 - **gl_view.py**: `GLView` QOpenGLWidget — sun shadow map (PCF), hemisphere ambient + ACES tonemap, display modes Lit/Clay/Normals/UV checker (1 checker cell = 25 cm), selection highlight, CPU ray picking, zoom-to-cursor.
 - **camera.py**: Pure-numpy `OrbitCamera` (framing, presets, pan/orbit/zoom, adaptive clip planes, pick rays) and `ray_mesh_intersect` — unit tested without GL.
 - **shaders/**: `scene.vert/.frag` (PBR + shadows + debug modes), `depth.*` (shadow pass), `line.*` (grid/axes/wireframe).

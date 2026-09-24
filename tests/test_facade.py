@@ -32,16 +32,21 @@ def test_styles_clad_walls_and_frame_windows(style, cladding, frame):
     assert facade.tags == ["facade", f"facade.{style}"]
     assert facade.find("facade_frame").mesh.material.name == frame
     assert facade.find("facade_glass").mesh.material.name == "glass"
-    for part in facade.children:
-        assert meshops.validate(part.mesh).nan_values == 0
+    assert [c.meta["storey"]["index"] for c in facade.children] == [0, 1, 2]
+    for part in facade.iter_nodes():
+        if part.mesh is not None:
+            assert meshops.validate(part.mesh).nan_values == 0
 
 
 def test_every_exterior_window_gets_glass_in_its_opening():
     root = _build()
-    glass = root.find("facade_glass").mesh
     # Separate panes: 8 guest + 2 stair windows per guest floor, 2 storefronts on the lobby.
     import trimesh
-    panes = len(trimesh.Trimesh(glass.vertices, glass.faces, process=True).split(only_watertight=False))
+    panes = 0
+    for node in root.find("facade").iter_nodes():
+        if node.name == "facade_glass":
+            m = node.mesh
+            panes += len(trimesh.Trimesh(m.vertices, m.faces, process=True).split(only_watertight=False))
     assert panes == 2 * (8 + 2) + 2
 
 

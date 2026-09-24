@@ -99,7 +99,11 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--no-shadows", action="store_true", help="Disable shadows in --render")
     parser.add_argument("--no-ground", action="store_true", help="Don't add a ground plane in --render")
     parser.add_argument("--cutaway", action="store_true",
-                        help="--render with ceilings, roofs and ceiling lights removed to see inside")
+                        help="Remove ceilings, roofs and ceiling lights to see inside (--render and viewer)")
+    parser.add_argument("--storey", type=int, default=None,
+                        help="Viewer: show building storeys up to this index")
+    parser.add_argument("--state", default=None,
+                        help="Viewer: pose every interaction in this state (e.g. open)")
     return parser.parse_args()
 
 
@@ -167,6 +171,9 @@ def main() -> None:
             screenshot=args.viewer_screenshot,
             view=None if args.view == "iso" else {"side": "right"}.get(args.view, args.view),
             display_mode=["lit", "clay", "normals", "uv"].index(args.display),
+            cutaway=args.cutaway,
+            storey=args.storey,
+            state=args.state,
         )
 
 
