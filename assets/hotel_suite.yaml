@@ -23,7 +23,7 @@ floorplan:
 
   doors:
     # Doors are generated with lining, architraves and a hinged leaf (open: degrees).
-    - { name: entry, room: corridor, side: east, at: 0.5, width: 1.0, open: 90, hinge: right }   # parks clear of the bathroom door
+    - { name: entry, room: corridor, side: east, at: 0.5, width: 1.0, hinge: right, lock: key_suite, auto_close: 8 }   # parks clear of the bathroom door when open
     - { between: [corridor, bedroom], at: 0.5, width: 0.9, open: 90 }
     - { between: [corridor, bathroom], at: 0.6, width: 0.9, hinge: right }
 

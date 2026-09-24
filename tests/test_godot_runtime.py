@@ -89,9 +89,12 @@ spawns:
 
 
 def test_walk_through_floorplan_doors_into_room(run_godot, suite_dir):
-    # From outside the entry door (east), through the corridor and the
-    # bedroom door, to the bedroom's west wall (inner face x = -3.25).
-    out = run_godot("--scene", "suite_level", f"--generated={suite_dir}",
+    # From outside the entry door (east; the suite's door starts locked, so
+    # restore a save with it open), through the corridor and the bedroom
+    # door, to the bedroom's west wall (inner face x = -3.25).
+    save = suite_dir / "entry_open.json"
+    save.write_text(json.dumps({"entry/swing": {"state": "open", "locked": False}}))
+    out = run_godot("--scene", "suite_level", f"--generated={suite_dir}", f"--load={save}",
                     "--spawn=4,0,1.3", "--yaw=90", "--walk=3")
     assert "3 rooms" in out
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
@@ -132,7 +135,9 @@ def test_m1_furnished_hotel_room_walkthrough(run_godot, tmp_path):
     scene = SceneComposer().compose("assets/scenes/hotel_room_auto.yaml")
     nightstand = scene.find("nightstand_2").world_transform()[:3, 3]
     export_scene(scene, tmp_path / "hotel_room_auto.glb")
-    out = run_godot("--scene", "hotel_room_auto", f"--generated={tmp_path}", "--walk=4")
+    save = tmp_path / "entry_open.json"   # the suite door starts locked
+    save.write_text(json.dumps({"entry/swing": {"state": "open", "locked": False}}))
+    out = run_godot("--scene", "hotel_room_auto", f"--generated={tmp_path}", f"--load={save}", "--walk=4")
     assert "3 rooms" in out
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
                      .removeprefix("walk result: "))
@@ -394,3 +399,38 @@ def test_save_and_restore_interaction_state(run_godot, auto_room_dir, tmp_path):
     assert saved["bedroom_switch_1/switch"]["state"] == "off" and saved["nightstand/drawer"]["state"] == "open"
     out = run_godot(*base, f"--load={save}", "--lights", "--quit-after=5")
     assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
+
+
+def test_m4_interactive_hotel_room(run_godot, tmp_path):
+    """Milestone M4: in the furnished suite, lock/unlock and open the room door,
+    open the wardrobe and a nightstand drawer, switch the lights, sit on the
+    chair and lie on the bed."""
+    from geogen.layout import SceneComposer
+    scene = SceneComposer().compose("assets/scenes/hotel_room_auto.yaml")
+    chair = scene.find("chair").world_transform()[:3, 3]
+    export_scene(scene, tmp_path / "hotel_room_auto.glb")
+    base = ("--scene", "hotel_room_auto", f"--generated={tmp_path}")
+
+    # The door: locked from the corridor spawn without the key, opens with it.
+    out = run_godot(*base, "--use=@aim", "--wait=1.0", "--walk=1.0")
+    assert _lines(out, "interaction event: ")[0]["event"] == "locked"
+    out = run_godot(*base, "--keys=key_suite", "--lock=@aim", "--use=@aim", "--wait=1.0", "--walk=1.4")
+    assert _lines(out, "walk result: ")[0]["room"] in ("corridor", "bedroom")   # through the door
+    # L with the key toggles the lock (here: unlocks it), without opening the door.
+    out = run_godot(*base, "--keys=key_suite", "--lock=@aim", "--quit-after=10", "--status")
+    entry = _lines(out, "status: ")[0]["states"]["entry/swing"]
+    assert entry == {"locked": False, "state": "closed"}
+    # Wardrobe doors, a drawer and the bedroom light.
+    out = run_godot(*base, "--use=wardrobe", "--use=nightstand", "--use=bedroom_switch_1", "--quit-after=90",
+                    "--status", "--lights")
+    states = _lines(out, "status: ")[0]["states"]
+    assert states["wardrobe/doors"]["state"] == "open" and states["nightstand/drawer"]["state"] == "open"
+    assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
+    # Sit on the chair (looking down at it from in front), lie on the bed.
+    out = run_godot(*base, f"--spawn={chair[0]},0,{chair[2] + 1.0}", "--yaw=0", "--pitch=-50", "--use=@aim",
+                    "--quit-after=20", "--status")
+    status = _lines(out, "status: ")[0]
+    assert (status["pose"], status["pose_asset"]) == ("sit", "chair")
+    out = run_godot(*base, "--spawn=-1.9,0,-1.55", "--yaw=180", "--pitch=-50", "--use=@aim", "--quit-after=20", "--status")
+    status = _lines(out, "status: ")[0]
+    assert (status["pose"], status["pose_asset"]) == ("lie", "bed")

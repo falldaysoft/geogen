@@ -225,6 +225,10 @@ def _check_reachability(rooms: list[_Room], player) -> list[Issue]:
         return []
     lo = np.min([r.center - r.half for r in rooms], axis=0) - 0.5
     hi = np.max([r.center + r.half for r in rooms], axis=0) + 0.5
+    # Snap to a world lattice so a room checked alone (furnishing) and the
+    # same room checked with its whole storey (QA) rasterise identically.
+    lo = np.floor(lo / CELL) * CELL
+    hi = np.ceil(hi / CELL) * CELL
     shape = np.ceil((hi - lo) / CELL).astype(int) + 1
     xs = lo[0] + np.arange(shape[0]) * CELL
     zs = lo[1] + np.arange(shape[1]) * CELL

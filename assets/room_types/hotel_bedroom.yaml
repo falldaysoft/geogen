@@ -52,8 +52,12 @@ items:
     optional: true
   armchair:
     asset: armchair.yaml
-    against: none
-    facing: center
+    against: wall
+    prefer: [near_window, corner]
+    optional: true
+  chair:                      # small rooms get a side chair by the window instead
+    asset: desk_chair.yaml
+    against: wall
     prefer: [near_window]
     optional: true
   floor_lamp:

@@ -90,7 +90,7 @@ def test_floorplan_doors_get_swing_interactions(tmp_path):
     root = LayoutLoader().load("assets/hotel_suite.yaml")
     entry = root.find("entry")
     (swing,) = entry.interactions
-    assert swing.initial == "open"  # the suite opens its entry door 90 degrees
+    assert swing.initial == "closed" and swing.lock == {"key": "key_suite", "locked": True}
     assert swing.motions[0].parts[0].name == "leaf_pivot"
     bath = root.find("door_corridor_bathroom")
     assert bath.interactions[0].initial == "closed"
