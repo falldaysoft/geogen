@@ -284,3 +284,13 @@ def test_playtest_reports_blocked_rooms(run_godot, tmp_path):
     code, report = _playtest(run_godot, tmp_path, "narrow", walks=1)
     assert code == 1 and not report["ok"]
     assert report["unreachable"] == ["closet (closet)"]
+
+
+def test_m2_hotel_playtest_from_street(run_godot, tmp_path):
+    # Milestone M2: generated hotel (lobby + 3 furnished guest floors), entered
+    # from its street entrance spawn; every room and interaction reachable.
+    from geogen.layout import LayoutLoader
+    export_scene(LayoutLoader().load("assets/hotel.yaml"), tmp_path / "hotel.glb")
+    code, report = _playtest(run_godot, tmp_path, "hotel", walks=8)
+    assert report["ok"] and code == 0, {k: v for k, v in report.items() if k != "reachable"}
+    assert report["rooms"] == 96 and report["targets"] > 200
