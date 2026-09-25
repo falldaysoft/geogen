@@ -7,11 +7,8 @@ import pytest
 import trimesh
 
 from geogen.export import export_scene, manifest_path
-from geogen.main import _build_registry
 from geogen.player import PlayerSpec, load_player_spec
 from geogen.render import scene_bounds
-
-REGISTRY = _build_registry()
 
 
 def _visual(geometry: dict) -> dict:
@@ -20,8 +17,8 @@ def _visual(geometry: dict) -> dict:
 
 
 @pytest.mark.parametrize("scene", ["chair", "dining_set", "house_peaked", "room"])
-def test_glb_round_trip_preserves_geometry(scene, tmp_path):
-    root = REGISTRY[scene]()
+def test_glb_round_trip_preserves_geometry(built_scene, scene, tmp_path):
+    root = built_scene(scene)
     path = export_scene(root, tmp_path / f"{scene}.glb")
     loaded = trimesh.load(path)
     np.testing.assert_allclose(loaded.bounds, scene_bounds(root), atol=1e-4)
@@ -33,8 +30,8 @@ def test_glb_round_trip_preserves_geometry(scene, tmp_path):
     assert len(nodes) == sum(1 for _, m in root.iter_meshes() if len(m.faces))
 
 
-def test_glb_has_textured_pbr_materials(tmp_path):
-    loaded = trimesh.load(export_scene(REGISTRY["table"](), tmp_path / "table.glb"))
+def test_glb_has_textured_pbr_materials(built_scene, tmp_path):
+    loaded = trimesh.load(export_scene(built_scene("table"), tmp_path / "table.glb"))
     for geom in _visual(loaded.geometry).values():
         assert isinstance(geom.visual, trimesh.visual.TextureVisuals)
         mat = geom.visual.material
@@ -45,20 +42,20 @@ def test_glb_has_textured_pbr_materials(tmp_path):
     assert np.ptp(top.visual.uv, axis=0).max() > 1.2
 
 
-def test_obj_export_writes_material_and_textures(tmp_path):
-    path = export_scene(REGISTRY["chair"](), tmp_path / "chair.obj")
+def test_obj_export_writes_material_and_textures(built_scene, tmp_path):
+    path = export_scene(built_scene("chair"), tmp_path / "chair.obj")
     assert path.exists()
     assert any(p.suffix == ".mtl" for p in tmp_path.iterdir())
     assert any(p.suffix == ".png" for p in tmp_path.iterdir())
 
 
-def test_unknown_format_rejected(tmp_path):
+def test_unknown_format_rejected(built_scene, tmp_path):
     with pytest.raises(ValueError):
-        export_scene(REGISTRY["chair"](), tmp_path / "chair.fbx")
+        export_scene(built_scene("chair"), tmp_path / "chair.fbx")
 
 
-def test_glb_export_writes_manifest_with_player_spec(tmp_path):
-    path = export_scene(REGISTRY["chair"](), tmp_path / "chair.glb")
+def test_glb_export_writes_manifest_with_player_spec(built_scene, tmp_path):
+    path = export_scene(built_scene("chair"), tmp_path / "chair.glb")
     manifest = json.loads(manifest_path(path).read_text())
     assert manifest["format"] == "geogen-manifest"
     assert manifest["model"] == "chair.glb"
@@ -66,8 +63,8 @@ def test_glb_export_writes_manifest_with_player_spec(tmp_path):
     assert PlayerSpec.from_dict(manifest["player"]) == load_player_spec()
 
 
-def test_obj_export_has_no_manifest(tmp_path):
-    path = export_scene(REGISTRY["chair"](), tmp_path / "chair.obj")
+def test_obj_export_has_no_manifest(built_scene, tmp_path):
+    path = export_scene(built_scene("chair"), tmp_path / "chair.obj")
     assert not manifest_path(path).exists()
 
 
@@ -78,20 +75,20 @@ def _gltf_json(path):
     return json.loads(data[20:20 + length])
 
 
-def test_node_extras_match_schema(tmp_path):
+def test_node_extras_match_schema(built_scene, tmp_path):
     jsonschema = pytest.importorskip("jsonschema")
     from pathlib import Path
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
     for scene in ("hotel_suite", "cottage", "dining_set"):
-        gltf = _gltf_json(export_scene(REGISTRY[scene](), tmp_path / f"{scene}.glb"))
+        gltf = _gltf_json(export_scene(built_scene(scene), tmp_path / f"{scene}.glb"))
         extras = [n["extras"] for n in gltf["nodes"] if "extras" in n]
         assert extras, scene
         for e in extras:
             jsonschema.validate(e, schema)
 
 
-def test_colliders_are_godot_suffixed_children(tmp_path):
-    gltf = _gltf_json(export_scene(REGISTRY["hotel_suite"](), tmp_path / "suite.glb"))
+def test_colliders_are_godot_suffixed_children(built_scene, tmp_path):
+    gltf = _gltf_json(export_scene(built_scene("hotel_suite"), tmp_path / "suite.glb"))
     nodes = gltf["nodes"]
     by_name = {n["name"]: n for n in nodes}
     walls = by_name["walls"]
@@ -104,7 +101,7 @@ def test_colliders_are_godot_suffixed_children(tmp_path):
     assert "floor-convcolonly" in by_name
 
 
-def test_collider_override_and_auto_policy():
+def test_collider_override_and_auto_policy(built_scene):
     from geogen.core.node import SceneNode
     from geogen.export import resolve_collider
     from geogen.generators.primitives import CubeGenerator, SphereGenerator
@@ -117,7 +114,7 @@ def test_collider_override_and_auto_policy():
     assert resolve_collider(tiny) == "none"
     ball.meta["collider"] = "none"
     assert resolve_collider(ball) == "none"
-    hollow = REGISTRY["house_peaked"]().find("walls")
+    hollow = built_scene("house_peaked").find("walls")
     assert resolve_collider(hollow) == "mesh"
 
 
@@ -154,10 +151,10 @@ def _read_accessor(glb: bytes, gltf: dict, index: int) -> np.ndarray:
     return np.frombuffer(data[start:start + acc["count"] * width * 4], dtype="<f4").reshape(acc["count"], width)
 
 
-def test_interaction_transitions_export_as_gltf_animations(tmp_path):
+def test_interaction_transitions_export_as_gltf_animations(built_scene, tmp_path):
     from geogen.layout.interactions import apply_state
 
-    root = REGISTRY["cottage"]()
+    root = built_scene("cottage")
     path = export_scene(root, tmp_path / "cottage.glb")
     glb = path.read_bytes()
     gltf = _gltf_json(path)
@@ -187,6 +184,6 @@ def test_interaction_transitions_export_as_gltf_animations(tmp_path):
     np.testing.assert_allclose(moves[-1], leaf.transform.translation, atol=1e-4)
 
 
-def test_animations_can_be_disabled(tmp_path):
-    path = export_scene(REGISTRY["cottage"](), tmp_path / "plain.glb", animations=False)
+def test_animations_can_be_disabled(built_scene, tmp_path):
+    path = export_scene(built_scene("cottage"), tmp_path / "plain.glb", animations=False)
     assert "animations" not in _gltf_json(path)

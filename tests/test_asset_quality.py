@@ -19,8 +19,8 @@ SCENES = REGISTRY.names()
 
 
 @pytest.fixture(scope="module", params=SCENES)
-def scene(request):
-    return request.param, REGISTRY[request.param]()
+def scene(request, built_scene):
+    return request.param, built_scene(request.param)
 
 
 def test_meshes_are_valid(scene):
@@ -79,8 +79,8 @@ ROOT_ASSETS = [n for n in SCENES if "parts" in (safe_load_path(ASSETS_DIR / f"{n
     [pytest.param(n, marks=pytest.mark.xfail(reason="geogen-o3s.26", strict=True)) if n in KNOWN_SIZE_MISMATCH else n
      for n in ROOT_ASSETS],
 )
-def test_asset_fits_declared_size(name):
-    root = REGISTRY[name]()
+def test_asset_fits_declared_size(name, built_scene):
+    root = built_scene(name)
     declared = root.children[0].size
     verts = np.vstack([m.vertices for _, m in root.iter_meshes()])
     extent = np.ptp(verts, axis=0)

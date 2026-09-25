@@ -13,16 +13,15 @@ import numpy as np
 import pytest
 
 from geogen.export import export_scene
-from geogen.main import _build_registry
 from geogen.player import load_player_spec
 
 RADIUS = load_player_spec().radius
 
 
 @pytest.fixture(scope="module")
-def cottage_dir(tmp_path_factory):
+def cottage_dir(tmp_path_factory, built_scene):
     out = tmp_path_factory.mktemp("generated")
-    export_scene(_build_registry()["cottage"](), out / "cottage.glb")
+    export_scene(built_scene("cottage"), out / "cottage.glb")
     return out
 
 
@@ -113,13 +112,12 @@ def test_player_starts_at_manifest_spawn(run_godot, suite_dir):
     assert end["room"] == "corridor"
 
 
-def test_all_exports_load_side_by_side(run_godot, tmp_path):
+def test_all_exports_load_side_by_side(run_godot, built_scene, tmp_path):
     # Without --scene every export loads; they must not overlap (the hotel
     # suite's walls used to sit inside the cottage) so the cottage stays
     # enterable. The player starts in front of the first model (cottage).
-    from geogen.layout import LayoutLoader
-    export_scene(_build_registry()["cottage"](), tmp_path / "cottage.glb")
-    export_scene(LayoutLoader().load("assets/hotel_suite.yaml"), tmp_path / "hotel_suite.glb")
+    export_scene(built_scene("cottage"), tmp_path / "cottage.glb")
+    export_scene(built_scene("hotel_suite"), tmp_path / "hotel_suite.glb")
     out = run_godot(f"--generated={tmp_path}", "--use=door", "--wait=1.2", "--walk=1.5")
     assert "loaded cottage.glb" in out and "loaded hotel_suite.glb" in out
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
@@ -127,17 +125,14 @@ def test_all_exports_load_side_by_side(run_godot, tmp_path):
     assert end["z"] < 2.0  # walked through the door into the cottage
 
 
-def test_m1_furnished_hotel_room_walkthrough(run_godot, tmp_path):
+def test_m1_furnished_hotel_room_walkthrough(run_godot, built_scene, auto_room_dir, tmp_path):
     # Milestone M1: floor plan + archetype furnishing, exported with metadata.
     # From the entry spawn (facing west) the player walks through the
     # corridor and the bedroom door and is stopped by a nightstand.
-    from geogen.layout import SceneComposer
-    scene = SceneComposer().compose("assets/scenes/hotel_room_auto.yaml")
-    nightstand = scene.find("nightstand_2").world_transform()[:3, 3]
-    export_scene(scene, tmp_path / "hotel_room_auto.glb")
+    nightstand = built_scene("hotel_room_auto").find("nightstand_2").world_transform()[:3, 3]
     save = tmp_path / "entry_open.json"   # the suite door starts locked
     save.write_text(json.dumps({"entry/swing": {"state": "open", "locked": False}}))
-    out = run_godot("--scene", "hotel_room_auto", f"--generated={tmp_path}", f"--load={save}", "--walk=4")
+    out = run_godot("--scene", "hotel_room_auto", f"--generated={auto_room_dir}", f"--load={save}", "--walk=4")
     assert "3 rooms" in out
     end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
                      .removeprefix("walk result: "))
@@ -151,10 +146,9 @@ def _nav(run_godot, generated, scene, a, b) -> dict:
 
 
 @pytest.fixture(scope="module")
-def auto_room_dir(tmp_path_factory):
-    from geogen.layout import SceneComposer
+def auto_room_dir(tmp_path_factory, built_scene):
     out = tmp_path_factory.mktemp("generated_auto")
-    export_scene(SceneComposer().compose("assets/scenes/hotel_room_auto.yaml"), out / "hotel_room_auto.glb")
+    export_scene(built_scene("hotel_room_auto"), out / "hotel_room_auto.glb")
     return out
 
 
@@ -291,11 +285,10 @@ def test_playtest_reports_blocked_rooms(run_godot, tmp_path):
     assert report["unreachable"] == ["closet (closet)"]
 
 
-def test_m2_hotel_playtest_from_street(run_godot, tmp_path):
+def test_m2_hotel_playtest_from_street(run_godot, built_scene, tmp_path):
     # Milestone M2: generated hotel (lobby + 3 furnished guest floors), entered
     # from its street entrance spawn; every room and interaction reachable.
-    from geogen.layout import LayoutLoader
-    export_scene(LayoutLoader().load("assets/hotel.yaml"), tmp_path / "hotel.glb")
+    export_scene(built_scene("hotel"), tmp_path / "hotel.glb")
     code, report = _playtest(run_godot, tmp_path, "hotel", walks=8)
     assert report["ok"] and code == 0, {k: v for k, v in report.items() if k != "reachable"}
     assert report["rooms"] == 104 and report["targets"] > 200  # lift shafts are excluded (nav: false)
@@ -401,15 +394,12 @@ def test_save_and_restore_interaction_state(run_godot, auto_room_dir, tmp_path):
     assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
 
 
-def test_m4_interactive_hotel_room(run_godot, tmp_path):
+def test_m4_interactive_hotel_room(run_godot, built_scene, auto_room_dir):
     """Milestone M4: in the furnished suite, lock/unlock and open the room door,
     open the wardrobe and a nightstand drawer, switch the lights, sit on the
     chair and lie on the bed."""
-    from geogen.layout import SceneComposer
-    scene = SceneComposer().compose("assets/scenes/hotel_room_auto.yaml")
-    chair = scene.find("chair").world_transform()[:3, 3]
-    export_scene(scene, tmp_path / "hotel_room_auto.glb")
-    base = ("--scene", "hotel_room_auto", f"--generated={tmp_path}")
+    chair = built_scene("hotel_room_auto").find("chair").world_transform()[:3, 3]
+    base = ("--scene", "hotel_room_auto", f"--generated={auto_room_dir}")
 
     # The door: locked from the corridor spawn without the key, opens with it.
     out = run_godot(*base, "--use=@aim", "--wait=1.0", "--walk=1.0")
@@ -496,11 +486,11 @@ def test_stream_loads_interiors_next_to_buildings(run_godot, strip_dir):
 
 
 @pytest.fixture(scope="module")
-def district(tmp_path_factory):
+def district(tmp_path_factory, built_scene):
     """Milestone M3: the town district as a streamed chunk export, plus its building entrances."""
     from geogen.chunks import export_chunks
 
-    root = _build_registry()["town"]()
+    root = built_scene("town")
     out = tmp_path_factory.mktemp("generated")
     index = json.loads(export_chunks(root, out / "town_chunks", name="town").read_text())
     entrances = {}

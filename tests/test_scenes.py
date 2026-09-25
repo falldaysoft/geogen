@@ -1,14 +1,11 @@
 """Tests for all scenes - loads and renders each scene."""
 
-import tempfile
-from pathlib import Path
-
 import numpy as np
 import pyrender
 import pytest
-from PIL import Image
 
 from geogen.registry import SceneRegistry
+from geogen.render import _get_renderer
 from geogen.scenes.nature import create_nature_scene
 from geogen.viewer import Viewer
 
@@ -23,32 +20,6 @@ def _build_registry() -> SceneRegistry:
 
 _registry = _build_registry()
 SCENES = list(_registry.scenes.items())
-
-# Module-level renderer to avoid macOS pyglet context issues
-_renderer = None
-_renderer_size = (640, 480)
-
-
-def get_renderer(width: int = 640, height: int = 480) -> pyrender.OffscreenRenderer:
-    """Get or create a shared renderer."""
-    global _renderer, _renderer_size
-    if _renderer is None or _renderer_size != (width, height):
-        if _renderer is not None:
-            _renderer.delete()
-        _renderer = pyrender.OffscreenRenderer(width, height)
-        _renderer_size = (width, height)
-    return _renderer
-
-
-@pytest.fixture(scope="module", autouse=True)
-def cleanup_renderer():
-    """Clean up renderer after all tests in module."""
-    yield
-    global _renderer
-    if _renderer is not None:
-        _renderer.delete()
-        _renderer = None
-
 
 def render_scene(root, width: int = 640, height: int = 480) -> np.ndarray:
     """Render a scene to an image array."""
@@ -85,58 +56,22 @@ def render_scene(root, width: int = 640, height: int = 480) -> np.ndarray:
     light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
     pr_scene.add(light, pose=camera_pose)
 
-    # Render offscreen using shared renderer
-    renderer = get_renderer(width, height)
+    # One offscreen context per process: recreating it breaks pyglet on macOS.
+    renderer = _get_renderer(width, height)
     color, _ = renderer.render(pr_scene)
 
     return color
 
 
-@pytest.mark.parametrize("scene_name,scene_factory", SCENES)
-def test_scene_loads(scene_name, scene_factory):
-    """Test that each scene loads without errors."""
-    root = scene_factory()
-    assert root is not None
-    assert root.name is not None
+@pytest.mark.parametrize("scene_name", [name for name, _ in SCENES])
+def test_scene_renders(scene_name, built_scene):
+    """Each scene converts to trimesh and renders to a non-black image.
 
-    # Verify scene has nodes
-    nodes = list(root.iter_nodes())
-    assert len(nodes) > 0, f"Scene '{scene_name}' should have at least one node"
-
-
-@pytest.mark.parametrize("scene_name,scene_factory", SCENES)
-def test_scene_renders(scene_name, scene_factory):
-    """Test that each scene renders without errors."""
-    root = scene_factory()
-    color = render_scene(root)
-
-    # Verify we got a valid image
-    assert color is not None
-    assert color.shape == (480, 640, 3), f"Expected (480, 640, 3), got {color.shape}"
-    assert color.dtype == np.uint8
-
-    # Verify the image isn't completely black (rendering failed)
+    Loading and geometry checks live in test_asset_quality.py (sharing the build).
+    """
+    color = render_scene(built_scene(scene_name))
+    assert color.shape == (480, 640, 3) and color.dtype == np.uint8
     assert color.max() > 0, f"Scene '{scene_name}' rendered as completely black"
-
-
-@pytest.mark.parametrize("scene_name,scene_factory", SCENES)
-def test_scene_renders_to_file(scene_name, scene_factory):
-    """Test that each scene can be saved to a file."""
-    root = scene_factory()
-    color = render_scene(root)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        output_path = Path(tmpdir) / f"{scene_name}.png"
-        img = Image.fromarray(color)
-        img.save(str(output_path))
-
-        # Verify file was created and is non-empty
-        assert output_path.exists()
-        assert output_path.stat().st_size > 0
-
-        # Verify it's a valid image by re-loading it
-        loaded = Image.open(output_path)
-        assert loaded.size == (640, 480)
 
 
 def test_registry_discovers_all_yaml():

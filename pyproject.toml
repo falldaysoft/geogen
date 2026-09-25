@@ -21,6 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-xdist>=3.5",  # parallel runs (addopts below); -n0 for a serial run
     "jsonschema>=4.0",  # validates exported extras against docs/schema
 ]
 export = [
@@ -36,3 +37,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Tests sharing an expensive build/export are pinned to one worker (see
+# tests/conftest.py pytest_collection_modifyitems).
+addopts = "-n auto --dist loadgroup"
+markers = [
+    "godot: runs the Godot runtime headless (skipped without Godot); deselect with -m 'not godot'",
+]
