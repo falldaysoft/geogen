@@ -113,3 +113,7 @@ parts:
 
 surfaces:
   top: { from: top.top }
+
+# Browsing: stand in front, facing the shelves.
+affordances:
+  - { type: look, at: [0, 0, "{depth / 2 + 0.45}"], facing: 180, duration: [6, 15], advertises: { curiosity: 0.3 }, tags: [shelf] }

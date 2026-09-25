@@ -128,4 +128,5 @@ surfaces:
   seat: { from: seat.top }
 
 affordances:
-  - { type: sit, at: [0, 0.45, 0.03], facing: 0, height: 0.45 }
+  - { type: sit, at: [0, 0.45, 0.03], facing: 0, height: 0.45, approach: [0.6, 0, 0.15],
+      advertises: { rest: 0.35 }, tags: [seat, table] }

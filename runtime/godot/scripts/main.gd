@@ -23,6 +23,11 @@ extends Node3D
 ##   --pitch=DEG                   look up (+) or down (-) at spawn
 ##   --save=PATH / --load=PATH     write interaction state on quit / restore it at start
 ##   --status                      print the player's pose/room/focus when quitting
+##   --npc-trace                   print every NPC decision and step ("npc: {...}")
+##   --timescale=N                 run the world N times faster (physics ticks scale too)
+##   --simulate=SECONDS            run for SECONDS of world time, print "npc summary: [...]", quit
+##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
+##   --camera=follow[:NAME]        watch an NPC (the first, or the one whose name starts with NAME)
 ##
 ## E uses the focused interaction, or sits/lies on the furniture you look at
 ## (E or walking stands you up); L locks/unlocks with a held key.
@@ -60,6 +65,10 @@ var _frames_nav := 0
 var _playtest_walks := -1
 var _wait_left := 0.0
 var _focus: GeogenInteraction = null
+var _simulate := 0.0
+var _sim_clock := 0.0
+var _npc_labels := false
+var _follow = null       # NPC name prefix to follow with the overview camera, or null
 var _prompt: Label
 
 @onready var world: WorldLoader = $World
@@ -116,6 +125,20 @@ func _ready() -> void:
             _save_path = value
         elif arg.begins_with("--load="):
             _load_path = value
+        elif arg == "--npc-trace":
+            world.npc_trace = true
+        elif arg.begins_with("--timescale="):
+            var scale := maxf(float(value), 0.01)
+            Engine.time_scale = scale
+            Engine.physics_ticks_per_second = int(60 * maxf(scale, 1.0))
+            Engine.max_physics_steps_per_frame = int(8 * maxf(scale, 1.0))
+        elif arg.begins_with("--simulate="):
+            _simulate = float(value)
+        elif arg == "--npc-labels":
+            _npc_labels = true
+        elif arg == "--camera=follow" or arg.begins_with("--camera=follow:"):
+            _follow = arg.get_slice(":", 1) if ":" in arg else ""
+            _start_overview = true
         elif arg == "--status":
             _print_status = true
         elif arg == "--use=@aim":
@@ -145,6 +168,10 @@ func _ready() -> void:
         print("interaction event: %s" % JSON.stringify(
             {"asset": asset, "interaction": interaction, "state": state, "event": event})))
     world.load_all()
+    for npc in world.npcs:
+        npc.label.visible = _npc_labels
+    if not world.npcs.is_empty():
+        print("npcs: %s" % JSON.stringify(world.npcs.map(func(n): return String(n.name))))
     if _load_path != "":
         var saved = JSON.parse_string(FileAccess.get_file_as_string(_load_path))
         if saved is Dictionary:
@@ -230,6 +257,11 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
         if _focus != null:
             _focus.toggle_lock(keys)
+    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
+        _npc_labels = not _npc_labels
+        for npc in world.npcs:
+            if is_instance_valid(npc):
+                npc.label.visible = _npc_labels
     elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_F4:
         if overview.current:
             player.camera.make_current()
@@ -240,6 +272,20 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
     if player != null:
         world.stream_focus = player.global_position
+    if _simulate > 0.0:
+        _sim_clock += delta
+        if _sim_clock >= _simulate:
+            _simulate = 0.0
+            var reports := []
+            for npc in world.npcs:
+                if is_instance_valid(npc):
+                    reports.append(npc.report())
+            print("npc summary: %s" % JSON.stringify(reports))
+            if screenshot_path != "":
+                _frames = 0
+                quit_after_frames = 3
+            else:
+                get_tree().quit()
     _update_focus()
     if _nav_query.size() == 2:
         _frames_nav += 1
@@ -283,6 +329,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+    _follow_npc()
+    if _simulate > 0.0:
+        return   # --screenshot waits for the simulation
     if overlay.visible:
         var p := player.global_position
         var room := world.room_at(p + Vector3(0, 0.5, 0))
@@ -320,6 +369,9 @@ func _process(_delta: float) -> void:
             print("lights: %s" % JSON.stringify({"fixtures": report, "total": total,
                 "light3d": get_tree().root.find_children("*", "OmniLight3D", true, false).size()}))
         if screenshot_path != "":
+            # Draw now: a background window may have skipped frames (macOS), and
+            # the viewport texture would still hold an old one.
+            RenderingServer.force_draw(false)
             var err := get_viewport().get_texture().get_image().save_png(screenshot_path)
             print("screenshot -> %s (%s)" % [screenshot_path, error_string(err)])
         get_tree().quit()
@@ -377,3 +429,25 @@ func _print_nav_path(a: Vector3, b: Vector3) -> void:
             length += path[i].distance_to(path[i - 1])
     print("nav path: %s" % JSON.stringify({"length": length, "reached": path.size() > 0 and path[-1].distance_to(to) < 0.05,
         "end_gap": to.distance_to(b), "points": points}))
+
+
+## --camera=follow: keep the overview camera on an NPC, from the first of a ring
+## of viewpoints (front first) with a clear line of sight under any ceiling.
+func _follow_npc() -> void:
+    if _follow == null or not overview.current:
+        return
+    for npc in world.npcs:
+        if is_instance_valid(npc) and String(npc.name).begins_with(_follow):
+            var head := npc.global_position + Vector3(0, 1.3, 0)
+            var space := get_world_3d().direct_space_state
+            var best := head + Vector3(0, 6, 0)
+            for step in [0, 1, -1, 2, -2, 3, -3, 4]:
+                var dir := Basis(Vector3.UP, npc.rotation.y + step * PI / 4.0) * Vector3(0, 0, 1)
+                var eye := head + dir * 2.6 + Vector3(0, 0.6, 0)
+                var query := PhysicsRayQueryParameters3D.create(head, eye + dir * 0.3)
+                query.exclude = [npc.get_rid()]
+                if space.intersect_ray(query).is_empty():
+                    best = eye
+                    break
+            overview.look_at_from_position(best, npc.global_position + Vector3(0, 0.8, 0))
+            return

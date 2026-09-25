@@ -396,6 +396,14 @@ class LayoutLoader:
 
         if data.get("affordances"):
             root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
+        if data.get("poses"):
+            from ..npc import parse_poses
+
+            root.meta["poses"] = parse_poses(data["poses"])
+        if data.get("portal"):
+            from ..npc import parse_portal
+
+            root.meta["portal"] = parse_portal(data["portal"], root.interactions)
 
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,
@@ -945,16 +953,31 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
     return light
 
 
-AFFORDANCE_TYPES = ("sit", "lie", "use", "stand")
+AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
+AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
+                   "advertises", "tags", "slots", "interaction"}
 
 
 def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
-    """An actor pose on an asset: ``{type: sit, at: <attachment> | [x, y, z], facing: <deg>, height: <m>}``.
+    """Something an actor can do at an asset (the player and NPCs share these).
 
-    Position/yaw are in the asset frame; for attachments the attachment's own
+    ``{type: sit, at: <attachment> | [x, y, z], facing: <deg>, height: <m>}``:
+    position/yaw are in the asset frame; for attachments the attachment's own
     facing is used unless ``facing`` (degrees about +Y, 0 = +Z) is given.
     ``height`` is the seat/mattress height the actor's hips rest at.
+
+    For NPCs (see geogen.npc and assets/npcs/actions.yaml): ``action``
+    (default: the type), ``approach`` (where to stand first: metres in front
+    of the anchor or [x, y, z] in its frame; default from the action),
+    ``duration`` (seconds or [lo, hi]), ``advertises`` ({need: amount}),
+    ``tags``, ``slots`` (actors at once, default 1) and ``interaction`` (the
+    asset interaction a ``use:`` step drives).
     """
+    from ..npc import _range, approach_point, load_actions
+
+    unknown = set(spec) - AFFORDANCE_KEYS
+    if unknown:
+        raise ValueError(f"affordance: unknown keys {sorted(unknown)}; known: {sorted(AFFORDANCE_KEYS)}")
     kind = spec.get("type")
     if kind not in AFFORDANCE_TYPES:
         raise ValueError(f"affordance type must be one of {AFFORDANCE_TYPES}, got {kind!r}")
@@ -974,6 +997,23 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
     for key in ("height", "prompt"):
         if key in spec:
             out[key] = float(spec[key]) if key == "height" else str(spec[key])
+    action = str(spec.get("action", kind))
+    if action not in load_actions():
+        raise ValueError(f"affordance action {action!r} is not in assets/npcs/actions.yaml")
+    out["action"] = action
+    out["approach"] = approach_point(action, position, yaw, spec.get("approach"))
+    if "duration" in spec:
+        out["duration"] = _range(spec["duration"], "affordance duration")
+    if spec.get("advertises"):
+        out["advertises"] = {str(k): float(v) for k, v in spec["advertises"].items()}
+    if spec.get("tags"):
+        out["tags"] = [str(t) for t in spec["tags"]]
+    out["slots"] = int(spec.get("slots", 1))
+    if "interaction" in spec:
+        name = str(spec["interaction"])
+        if not any(i.name == name for i in root.interactions):
+            raise ValueError(f"affordance interaction {name!r} not on this asset")
+        out["interaction"] = name
     return out
 
 

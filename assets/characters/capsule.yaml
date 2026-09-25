@@ -1,0 +1,41 @@
+# Placeholder character body: a capsule with a visor showing which way it
+# faces (+Z). NPC definitions name a body asset; the humanoid generator will
+# replace this one without changing anything else.
+#
+# `poses:` place the body relative to an anchor (feet for stand, the hips on
+# a seat for sit, the mattress for lie): offset in metres (anchor frame: x
+# right, y up, z forward), rotation in degrees, scale. The runtime applies
+# them as-is; a jointed body will define the same pose names as joint sets.
+
+name: capsule_body
+tags: [npc.body]
+origin: bottom_center
+
+params:
+  height: { default: 1.75 }
+  radius: { default: 0.24 }
+
+size: ["{2 * radius}", "{height}", "{2 * radius}"]
+
+parts:
+  body:
+    primitive: capsule
+    size: [1, 1, 1]
+    anchor: bottom_center
+    segments: 24
+    material: paint_navy
+    collider: none
+
+  visor:
+    primitive: cube
+    size: [0.62, "{0.09 / height}", 0.3]
+    anchor: center
+    offset: [0, "{(height - 0.2) / height - 0.5}", 0.38]
+    bevel: 0.015
+    material: paint_white
+    collider: none
+
+poses:
+  stand: {}
+  sit: { offset: [0, -0.06, -0.06], scale: [1, 0.56, 1] }
+  lie: { offset: [0, "{radius - 0.02}", "{height / 2}"], rotation: [-90, 0, 0] }

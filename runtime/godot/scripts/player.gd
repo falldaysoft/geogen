@@ -33,6 +33,8 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 func _init() -> void:
 	name = "Player"
+	collision_mask = 1 | 2   # the world, and NPC bodies (GeogenNpc.LAYER)
+	add_to_group("geogen_character")   # NPCs steer around it
 	_shape = CollisionShape3D.new()
 	_shape.shape = CylinderShape3D.new()
 	add_child(_shape)
@@ -149,33 +151,38 @@ func _physics_process(delta: float) -> void:
 ## Walk up ledges no taller than spec.step_height: if the way ahead is blocked,
 ## try the same move from step_height higher and drop back onto the ledge.
 func _try_step_up(motion: Vector3) -> bool:
+	return step_up(self, motion, spec.step_height)
+
+
+## Step-up for any CharacterBody3D with a flat-bottomed shape (NPCs share it).
+static func step_up(body: CharacterBody3D, motion: Vector3, step_height: float) -> bool:
 	if motion.length_squared() < 1e-8:
 		return false
-	var from := global_transform
-	if not test_move(from, motion):
+	var from := body.global_transform
+	if not body.test_move(from, motion):
 		return false
-	var up := Vector3.UP * (spec.step_height + STEP_PROBE_MARGIN)
+	var up := Vector3.UP * (step_height + STEP_PROBE_MARGIN)
 	# Rise only as far as the headroom allows (e.g. under a door head), so
 	# low lips like a threshold are still climbable where a full step isn't.
 	var ceiling := KinematicCollision3D.new()
-	if test_move(from, up, ceiling):
+	if body.test_move(from, up, ceiling):
 		up = ceiling.get_travel() - Vector3.UP * 0.005
 		if up.y < 0.01:
 			return false  # no headroom
 	var raised := from.translated(up)
-	if test_move(raised, motion):
+	if body.test_move(raised, motion):
 		return false  # a wall, not a step
 	var ahead := raised.translated(motion)
 	var hit := KinematicCollision3D.new()
-	if not test_move(ahead, -up, hit):
+	if not body.test_move(ahead, -up, hit):
 		return false  # no floor to land on within the step height
-	if hit.get_normal().angle_to(Vector3.UP) > floor_max_angle:
+	if hit.get_normal().angle_to(Vector3.UP) > body.floor_max_angle:
 		return false
 	var landed := ahead.origin + hit.get_travel()
-	if landed.y - from.origin.y > spec.step_height + 0.01:
+	if landed.y - from.origin.y > step_height + 0.01:
 		return false
-	global_position = landed
-	velocity.y = 0.0
+	body.global_position = landed
+	body.velocity.y = 0.0
 	return true
 
 

@@ -61,3 +61,12 @@ place:
     at: { u: { abs: 6.3 }, v: { abs: 3.9 } }
     facing: center
     yaw: 15
+
+  # Someone lives here (assets/npcs/resident.yaml). They stay within the
+  # floor (plus a margin that reaches the doorstep).
+  resident:
+    npc: npcs/resident.yaml
+    on: house.floor
+    at: { u: { abs: 4.6 }, v: { abs: 3.2 } }
+    facing: south
+    home: house.floor

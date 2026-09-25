@@ -65,4 +65,5 @@ attachments:
     facing: outward
 
 affordances:
-  - { type: sit, at: [0, "{seat}", 0.03], facing: 0, height: "{seat}" }
+  - { type: sit, at: [0, "{seat}", 0.03], facing: 0, height: "{seat}", approach: [0.6, 0, 0.15],
+      advertises: { rest: 0.25 }, tags: [seat, desk] }

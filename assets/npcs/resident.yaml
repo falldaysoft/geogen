@@ -1,0 +1,43 @@
+# A person who lives in a house: rests in chairs, looks out of the windows,
+# browses the shelves and steps out of the front door now and then.
+#
+# Place in a scene with:
+#   resident: { npc: npcs/resident.yaml, on: house.floor, at: {u: 0.5, v: 0.5}, home: house.floor }
+#
+# Everything the runtime does comes from here, the actions (actions.yaml)
+# and the affordances objects advertise (see geogen/npc.py).
+
+kind: npc
+version: 1
+
+body: { asset: characters/capsule.yaml }
+speed: 1.2                # walking speed, m/s
+turn_speed: 360           # deg/s
+
+# Needs run 0 (desperate) .. 1 (satisfied) and fall by `decay` per second.
+# Doing something adds its affordance's `advertises` to them.
+needs:
+  rest:      { initial: 0.7, decay: 0.006 }
+  curiosity: { initial: 0.5, decay: 0.01 }
+  fresh_air: { initial: 0.8, decay: 0.004 }
+
+# Multiply the utility of affordances carrying these tags.
+preferences:
+  window: 1.3
+  seat: 1.0
+
+# Things the NPC can always do, besides what the world advertises.
+activities:
+  wander: { action: wander, advertises: { curiosity: 0.06 } }
+  idle:   { action: idle, advertises: { rest: 0.04 } }
+
+# Score = sum(urgency x advertised) x preference
+#         - distance x metres - recency x (fades over `memory` seconds) + noise x random.
+# Something that failed (no path, locked door) isn't retried for `retry` seconds.
+scoring: { distance: 0.02, recency: 0.4, memory: 120, noise: 0.05, retry: 30 }
+
+# Affordances this far outside the home region are still in scope (the doorstep).
+home_margin: 2.0
+
+flags:
+  closes_doors: true

@@ -52,6 +52,12 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 |---|---|
 | ![Godot first person](docs/images/godot_first_person.png) | ![Godot colliders](docs/images/godot_colliders.png) |
 
+**NPCs**: the cottage has a resident (a placeholder capsule body for now). Everything they do is data: the furniture, windows and door advertise what can be done there, and the Godot runtime just scores those offers against the resident's needs and runs the chosen action's steps. Here they're resting in the armchair (left) and have opened the front door to step outside (right):
+
+| Resting | On the doorstep |
+|---|---|
+| ![NPC in the armchair](docs/images/godot_npc_armchair.png) | ![NPC on the doorstep](docs/images/godot_npc_doorstep.png) |
+
 **Interactive viewer** (Qt/OpenGL) viewport: shadows, PBR, grid, picking:
 
 ![Viewer](docs/images/geogen_viewer.png)
@@ -90,11 +96,13 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
   - hot reload of `assets/**/*.yaml`.
 - **Rendering**: offscreen rendering with shadows and PBR, auto-framed, view presets, cutaways, and multi-view contact sheets.
 - **Export**: glTF/GLB with the node hierarchy, PBR textures, colliders (Godot import suffixes), gameplay extras (a versioned JSON schema), punctual lights, interaction animations and a JSON manifest; or OBJ+MTL+PNG.
+- **NPCs**: declarative characters. Assets advertise affordances (sit, lie, look, stand, use) with what they satisfy, doors advertise portals, and actions are step lists (`assets/npcs/actions.yaml`). An NPC definition (`assets/npcs/resident.yaml`) gives a body asset, needs, preferences and scoring weights. The runtime runs these as a generic interpreter: utility selection, navmesh walking, poses, and opening doors on the way.
 - **Player spec**: one file (`assets/player.yaml`) defines the player's size (radius, height, eye and step height, max slope, minimum door and corridor clearances, reach). Generation and the runtime both read it, so "enterable" means the same thing on both sides.
 - **Godot 4 runtime** (`runtime/godot/`):
   - a first-person player sized from the manifest, with step-up, collision, fly mode and a debug overlay;
   - interactions (E to use, L to lock), seats, light switches, save/load and live reload;
   - an automated playtest that checks every room is reachable;
+  - NPCs that decide, walk, sit, look out of windows and use doors, with a trace, labels, a follow camera and fast headless simulation;
   - chunk streaming (full, LOD and interiors) with navmesh tiles baked around the player.
 
 ## Installation
@@ -152,6 +160,8 @@ Large scenes stream: the runtime loads nearby blocks in full, distant ones as LO
 python -m geogen.main -s town --export-godot --stream                 # -> runtime/godot/generated/town_chunks/
 godot --path runtime/godot -- --scene town --stream
 ```
+
+NPCs placed in the scene come to life when it loads. F5 shows what each one is doing, `--camera=follow` watches one, and `--timescale=8 --simulate=600 --npc-trace` runs ten minutes of their day headless and prints every decision.
 
 To check that a building is enterable, export it (`-s hotel --export-godot`) and run `godot --headless --fixed-fps 60 --path runtime/godot -- --scene hotel --playtest`. It reports any rooms or interaction targets the player can't reach from the spawn. See [`runtime/godot/README.md`](runtime/godot/README.md) for all the runtime's options and the manifest and chunk index formats.
 

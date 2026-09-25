@@ -162,5 +162,5 @@ parts:
     material: wood
 
 affordances:
-  - { type: sit, at: [-0.3, 0.45, 0.05], facing: 0, height: 0.45 }
-  - { type: sit, at: [0.3, 0.45, 0.05], facing: 0, height: 0.45 }
+  - { type: sit, at: [-0.3, 0.45, 0.05], facing: 0, height: 0.45, advertises: { rest: 0.3 }, tags: [seat, outside] }
+  - { type: sit, at: [0.3, 0.45, 0.05], facing: 0, height: 0.45, advertises: { rest: 0.3 }, tags: [seat, outside] }

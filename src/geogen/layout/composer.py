@@ -291,6 +291,16 @@ class SceneComposer:
                 scatter(root, obj_name, obj_def, loaded_objects,
                         lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied)
 
+        # NPCs: home region (in the NPC's frame) and per-placement seed.
+        for obj_name, obj_def in all_placements.items():
+            node = loaded_objects.get(obj_name)
+            if node is not None and "npc" in obj_def:
+                from ..npc import resolve_home
+
+                resolve_home(node, obj_def.get("home"), loaded_objects)
+                if "seed" in obj_def:
+                    node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
+
         # Extra semantic tags per placement (e.g. tags: [door.interior]).
         for obj_name, obj_def in all_placements.items():
             node = loaded_objects.get(obj_name)
@@ -316,7 +326,8 @@ class SceneComposer:
         """Load an object from asset or scene definition (instances of one prototype per definition)."""
         import json
 
-        key = json.dumps({k: obj_def.get(k) for k in ("asset", "scene", "recipe", "params", "furnish")}, sort_keys=True,
+        key = json.dumps({k: obj_def.get(k) for k in ("asset", "scene", "recipe", "npc", "params", "furnish")},
+                         sort_keys=True,
                          default=str)
         prototype = self._prototypes.get(key)
         if prototype is None and self._disk_cache is not None:
@@ -333,6 +344,10 @@ class SceneComposer:
             from .recipes import build_recipe
 
             return build_recipe(obj_def["recipe"], obj_def.get("params") or {}, self._loader)
+        if "npc" in obj_def:
+            from ..npc import build_npc, load_definition
+
+            return build_npc(load_definition(self._assets_dir / obj_def["npc"]), self._loader, self._assets_dir)
         if "asset" in obj_def:
             asset_path = self._assets_dir / obj_def["asset"]
             node = self._loader.load(asset_path, params=obj_def.get("params"))
@@ -346,7 +361,7 @@ class SceneComposer:
             scene_path = self._assets_dir / obj_def["scene"]
             return self.compose(scene_path, params=obj_def.get("params"))
         else:
-            raise ValueError("Object must have 'asset', 'scene' or 'recipe' specified")
+            raise ValueError("Object must have 'asset', 'scene', 'recipe' or 'npc' specified")
 
     @staticmethod
     def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:

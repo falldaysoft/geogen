@@ -31,6 +31,13 @@ render -s cottage --export-godot
 "$GODOT" --path runtime/godot -- --scene cottage --colliders --spawn=4,0,6 --yaw=30 \
     --screenshot="$PWD/$OUT/godot_colliders.png" > /dev/null
 
+# The cottage resident (NPC), sped up to a moment in their day: resting in the
+# armchair, then out on the doorstep. Deterministic with --fixed-fps.
+"$GODOT" --fixed-fps 60 --path runtime/godot -- --scene cottage --timescale=4 --simulate=40 --camera=follow \
+    --screenshot="$PWD/$OUT/godot_npc_armchair.png" > /dev/null
+"$GODOT" --fixed-fps 60 --path runtime/godot -- --scene cottage --timescale=4 --simulate=80 --camera=follow \
+    --screenshot="$PWD/$OUT/godot_npc_doorstep.png" > /dev/null
+
 # Streamed town district: the avenue, and the hotel lobby interior.
 render -s town --export-godot --stream
 "$GODOT" --path runtime/godot -- --scene town --stream --spawn=-3,0,-2 --yaw=90 --quit-after=60 \

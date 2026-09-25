@@ -17,8 +17,8 @@
           "items": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" }
         },
         "type": {
-          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced).",
-          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group"]
+          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced). npc: a character placed here (see 'npc'); its body asset is the child named by npc.body.node.",
+          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group", "npc"]
         },
         "shape": {
           "description": "Collider nodes only: how the collision geometry was made.",
@@ -146,14 +146,74 @@
           "type": "object", "required": ["light"], "properties": { "light": { "type": "string" } }
         },
         "affordances": {
-          "description": "Actor poses on an asset (asset frame): sit/lie/use/stand at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest.",
+          "description": "Things an actor can do at an asset (asset frame): sit/lie/use/stand/look at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest. The player takes sit/lie; NPCs run 'action' (assets/npcs/actions.yaml), starting from 'approach' (floor level), for 'duration' seconds, adding 'advertises' to their needs; 'slots' actors at once; 'interaction' is the asset interaction a use step drives.",
           "type": "array",
           "items": {
             "type": "object", "required": ["type", "position", "yaw"],
             "properties": {
-              "type": { "enum": ["sit", "lie", "use", "stand"] },
-              "position": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
-              "yaw": { "type": "number" }, "height": { "type": "number" }, "prompt": { "type": "string" }
+              "type": { "enum": ["sit", "lie", "use", "stand", "look"] },
+              "position": { "$ref": "#/$defs/vec3" },
+              "yaw": { "type": "number" }, "height": { "type": "number" }, "prompt": { "type": "string" },
+              "action": { "type": "string" },
+              "approach": { "$ref": "#/$defs/vec3" },
+              "duration": { "$ref": "#/$defs/range" },
+              "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
+              "tags": { "type": "array", "items": { "type": "string" } },
+              "slots": { "type": "integer", "minimum": 1 },
+              "interaction": { "type": "string" }
+            }
+          }
+        },
+        "portal": {
+          "description": "A doorway NPC paths may cross (asset frame): width x height opening centred on 'center', 'depth' thick along 'normal'. A path through it while 'interaction' isn't in state 'open' runs the NPC 'pass' action (stop 'clearance' beyond the near face, open, walk through, maybe close).",
+          "type": "object",
+          "required": ["interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"],
+          "properties": {
+            "interaction": { "type": "string" }, "open": { "type": "string" }, "closed": { "type": "string" },
+            "center": { "$ref": "#/$defs/vec3" }, "normal": { "$ref": "#/$defs/vec3" },
+            "width": { "type": "number" }, "height": { "type": "number" }, "depth": { "type": "number" },
+            "clearance": { "type": "number" }
+          }
+        },
+        "poses": {
+          "description": "Character body assets: named poses as root transforms relative to an anchor (offset m, rotation deg XYZ, scale).",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/pose" }
+        },
+        "npc": {
+          "description": "A placed NPC, fully resolved from assets/npcs/<definition>.yaml: everything the runtime interpreter needs. Distances in metres, rates per second. 'home.polygon' is [x, z] in this node's frame.",
+          "type": "object",
+          "required": ["definition", "body", "speed", "needs", "activities", "scoring", "actions", "home", "radius", "height"],
+          "properties": {
+            "definition": { "type": "string" },
+            "body": {
+              "type": "object", "required": ["node", "poses"],
+              "properties": { "asset": { "type": "string" }, "node": { "type": "string" },
+                "poses": { "type": "object", "additionalProperties": { "$ref": "#/$defs/pose" } } }
+            },
+            "speed": { "type": "number" }, "turn_speed": { "type": "number" }, "seed": { "type": "integer" },
+            "radius": { "type": "number" }, "height": { "type": "number" },
+            "needs": { "type": "object", "additionalProperties": {
+              "type": "object", "required": ["initial", "decay"],
+              "properties": { "initial": { "type": "number", "minimum": 0, "maximum": 1 }, "decay": { "type": "number" } } } },
+            "preferences": { "type": "object", "additionalProperties": { "type": "number" } },
+            "activities": { "type": "object", "additionalProperties": {
+              "type": "object", "required": ["action", "advertises"],
+              "properties": { "action": { "type": "string" }, "duration": { "$ref": "#/$defs/range" },
+                "advertises": { "type": "object", "additionalProperties": { "type": "number" } } } } },
+            "scoring": { "type": "object", "properties": {
+              "distance": { "type": "number" }, "recency": { "type": "number" }, "memory": { "type": "number" },
+              "noise": { "type": "number" }, "retry": { "type": "number" } } },
+            "home_margin": { "type": "number" },
+            "flags": { "type": "object", "additionalProperties": { "type": "boolean" } },
+            "actions": { "type": "object", "additionalProperties": {
+              "type": "object", "required": ["steps"],
+              "properties": { "approach": { "$ref": "#/$defs/vec3" }, "duration": { "$ref": "#/$defs/range" },
+                "steps": { "type": "array", "items": { "type": "object" } } } } },
+            "home": {
+              "type": "object", "required": ["polygon", "y"],
+              "properties": { "polygon": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } },
+                "y": { "type": "number" } }
             }
           }
         },
@@ -196,6 +256,14 @@
         { "if": { "properties": { "type": { "const": "collider" } }, "required": ["type"] },
           "then": { "required": ["shape"] } }
       ]
+    }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "range": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+    "pose": {
+      "type": "object", "required": ["offset", "rotation", "scale"],
+      "properties": { "offset": { "$ref": "#/$defs/vec3" }, "rotation": { "$ref": "#/$defs/vec3" }, "scale": { "$ref": "#/$defs/vec3" } }
     }
   }
 }

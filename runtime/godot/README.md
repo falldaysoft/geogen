@@ -93,12 +93,53 @@ User args (after `--`):
 | `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
 | `--quit-after=N` | Quit after N frames |
 | `--manifest=PATH` | Use the player spec from this manifest |
+| `--npc-trace` | Print every NPC decision (top-3 scores) and step as `npc: {...}` lines |
+| `--timescale=N` | Run the world N times faster (physics ticks scale with it, so movement stays exact) |
+| `--simulate=SECONDS` | Run SECONDS of world time, print `npc summary: [...]` and quit (with `--screenshot`, capture then quit) |
+| `--npc-labels` | Show each NPC's current action and needs above it (F5 toggles) |
+| `--camera=follow[:NAME]` | Watch an NPC (the first, or the one whose name starts with NAME) from a clear viewpoint |
 
 `tests/test_godot_runtime.py` exports the cottage and walks the player into
 it headless (wall blocks, door step is climbed, closed door blocks). The
 `test_m3_*` tests stream the town district and walk into a shop and the
 hotel lobby; `test_stream_*` check what loads at full, LOD and interior
 detail as the player moves along a five-block street.
+
+## NPCs
+
+Scenes place NPCs like assets (`place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor}}`).
+Each one arrives as a node with `extras.geogen.type = "npc"`, the fully resolved definition in
+`extras.geogen.npc`, and its body asset as a child. `WorldLoader` turns it into a `GeogenNpc`
+(`scripts/npc.gd`): a `CharacterBody3D` (cylinder, layer 2, with the player's step-up) with the
+body reparented under it. The script is a generic interpreter; nothing in it knows about chairs,
+windows or doors:
+
+- **Needs** fall at their declared rates. Finishing something adds its `advertises` to them.
+- **Deciding**: every affordance in the NPC's home (+ `home_margin`) with a free slot, plus its
+  own activities (wander, idle), scores
+  `sum((1 - need) x advertised) x preference(tags) - distance x m - recency x e^(-age/memory) + noise x rand`,
+  with the weights from the definition's `scoring`. The best one is reserved and run. Failures
+  aren't retried for `scoring.retry` seconds.
+- **Running**: the action's steps (`assets/npcs/actions.yaml`): `go_to` (navmesh path),
+  `face`, `pose` (the body asset's `poses:`, placed at the affordance anchor), `wait`, `use`
+  (drives an interaction to a state, as the player's E does).
+- **Doors**: exported `portal`s. When the path ahead crosses a portal whose interaction isn't
+  open, the NPC runs the `pass` action first: stop clear of the leaf, open it, walk through,
+  and close it if the NPC's `closes_doors` flag is set.
+- **Other characters** (the player, other NPCs; group `geogen_character`) aren't in the
+  navmesh, so paths bend around them on an arc of navmesh points. An NPC whose destination is
+  occupied waits, then gives up.
+
+The navmesh includes the runtime's ground plane around each model (`WorldLoader.ground_margin`),
+so NPCs (and the playtest) can step outside. `tests/test_npc_runtime.py` simulates the cottage
+resident at 8x and asserts on the summary: which affordances were used, door passes, stalls,
+failures, and time spent outside home.
+
+```bash
+godot --path runtime/godot -- --scene cottage --camera=follow --npc-labels          # watch the resident
+godot --headless --fixed-fps 60 --path runtime/godot -- --scene cottage \
+    --timescale=8 --simulate=600 --npc-trace                                         # 10 minutes in ~20 s
+```
 
 ## Streaming large scenes
 

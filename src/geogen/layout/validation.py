@@ -8,7 +8,7 @@ from typing import Any
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
     "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds", "light",
-    "affordances", "container",
+    "affordances", "container", "poses", "portal",
 }
 
 PART_KNOWN_KEYS = {
@@ -48,6 +48,7 @@ SLOT_KNOWN_KEYS = {
 
 PLACEMENT_KNOWN_KEYS = {
     "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params", "scatter",
+    "npc", "home", "seed",
 }
 
 # Known primitive types
@@ -163,9 +164,9 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
         if not isinstance(obj_def, dict):
             raise ValidationError(f"Placement '{obj_name}' must be a mapping")
 
-        if "asset" not in obj_def and "scene" not in obj_def:
+        if "asset" not in obj_def and "scene" not in obj_def and "npc" not in obj_def:
             raise ValidationError(
-                f"Placement '{obj_name}' requires 'asset' or 'scene' field"
+                f"Placement '{obj_name}' requires 'asset', 'scene' or 'npc' field"
             )
 
         for key in obj_def:

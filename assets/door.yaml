@@ -113,6 +113,23 @@ parts:
 
 # Press E (Godot runtime) on the leaf or a knob to swing the door inward
 # about its hinge on the left jamb (seen from outside).
+# The opening, for NPCs: a path through it opens the door first (actions.yaml
+# 'pass'). The wall is behind the origin (-Z); stand clear of the leaf.
+portal:
+  interaction: swing
+  open: open
+  closed: closed
+  center: [0, "{height / 2}", -0.15]
+  normal: [0, 0, 1]
+  width: "{width - 2 * frame}"
+  height: "{height}"
+  depth: 0.4
+  clearance: 0.95
+
+# Stepping out onto the doorstep for some air.
+affordances:
+  - { type: stand, at: [0, 0, 1.4], facing: 0, duration: [8, 20], advertises: { fresh_air: 0.6 }, tags: [outside] }
+
 interactions:
   swing:
     targets: [leaf, knob, knob_inside]

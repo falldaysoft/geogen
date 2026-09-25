@@ -19,7 +19,8 @@ const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable",
 	"joint", "door_swings", "footprint", "clearance", "interactions", "light", "switch", "openings",
 	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan", "gate", "nav", "stairs",
 	"storey", "building", "facade", "walkable", "affordances", "container", "switch", "level", "ratio",
-	"city", "block", "lot", "street_furniture", "recipe", "roof", "lod", "interior", "scatter"]
+	"city", "block", "lot", "street_furniture", "recipe", "roof", "lod", "interior", "scatter",
+	"npc", "portal", "poses"]
 
 
 static func extras(node: Node) -> Dictionary:
@@ -121,10 +122,12 @@ static func _own(child: Node, parent: Node) -> void:
 ## Moving parts (door leaves, drawers) are AnimatableBody3Ds, i.e. static
 ## colliders; they're left out unless ``include_moving`` (so closed doors
 ## don't block the navmesh; agents open them).
-static func build_navigation(root: Node3D, spec, include_moving := false) -> NavigationRegion3D:
+## ``ground_margin`` > 0 adds the runtime's ground plane (y = 0, which isn't
+## part of the export) under the model and that far around it.
+static func build_navigation(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> NavigationRegion3D:
 	var region := NavigationRegion3D.new()
 	region.name = "Navigation"
-	region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving)
+	region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving, ground_margin)
 	region.add_to_group("geogen_navigation")
 	root.add_child(region)
 	return region
@@ -171,7 +174,7 @@ static func parse_tile(roots: Array, tile: AABB, spec, border: float) -> Array:
 	return [mesh, source]
 
 
-static func bake_navigation_mesh(root: Node3D, spec, include_moving := false) -> NavigationMesh:
+static func bake_navigation_mesh(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> NavigationMesh:
 	var mesh := NavigationMesh.new()
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
@@ -207,5 +210,12 @@ static func bake_navigation_mesh(root: Node3D, spec, include_moving := false) ->
 				Vector3(box.position.x, 0, box.position.z), Vector3(box.end.x, 0, box.position.z),
 				Vector3(box.end.x, 0, box.end.z), Vector3(box.position.x, 0, box.end.z)])
 			source.add_projected_obstruction(corners, box.position.y, box.size.y, false)
+	if ground_margin > 0.0:
+		var box := WorldLoader._aabb(root).grow(ground_margin)
+		var a := Vector3(box.position.x, 0, box.position.z)
+		var b := Vector3(box.end.x, 0, box.position.z)
+		var c := Vector3(box.end.x, 0, box.end.z)
+		var d := Vector3(box.position.x, 0, box.end.z)
+		source.add_faces(PackedVector3Array([a, b, c, a, c, d]), Transform3D.IDENTITY)
 	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 	return mesh

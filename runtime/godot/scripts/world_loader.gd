@@ -20,6 +20,8 @@ var scene_name := ""
 var generated_dir := DEFAULT_GENERATED_DIR
 ## Bake a navigation mesh per loaded model (from its colliders).
 var bake_navigation := true
+## The runtime's ground plane (main.tscn, y = 0) is walkable this far around each model.
+var ground_margin := 6.0
 ## Open every openable interaction before baking, with the open parts as
 ## obstacles (headless playtests: doors must not block routes, leaves must).
 var open_before_bake := false
@@ -45,6 +47,14 @@ var lights_by_name := {}
 ## Actor poses from extras.geogen.affordances, world space:
 ## [{type, position: Vector3, yaw_deg: float, height: float, node: Node3D}]
 var affordances: Array[Dictionary] = []
+## NPCs spawned from extras.geogen.npc nodes (see npc.gd).
+var npcs: Array[GeogenNpc] = []
+## Print every NPC decision and step (--npc-trace).
+var npc_trace := false
+## Doorways NPCs path through: [{interaction, open, closed, center, normal (world),
+## width, height, depth, clearance, node}]
+var portals: Array[Dictionary] = []
+var _reservations := {}   # affordance id -> [GeogenNpc]
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
 var _moving := {}     # Node3D driven by an interaction -> true
@@ -86,6 +96,9 @@ func load_all() -> AABB:
 	interactions.clear()
 	lights_by_name.clear()
 	affordances.clear()
+	npcs.clear()
+	portals.clear()
+	_reservations.clear()
 	_gates.clear()
 	_moving.clear()
 	_target_of.clear()
@@ -190,7 +203,8 @@ func _load_model(manifest_path: String) -> void:
 					it.set_state("open", true)
 					it.hold = true
 	if bake_navigation:
-		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake)
+		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake,
+			ground_margin)
 	for s in manifest.get("spawns", []):
 		var f: Array = s.get("forward", [0, 0, -1])
 		var p: Array = s.get("position", [0, 0, 0])
@@ -213,7 +227,9 @@ func setup_root(root: Node) -> Dictionary:
 	_add_lights(root)
 	_wire_switches(root)
 	_collect_affordances(root)
+	_collect_portals(root)
 	var count := _add_collision(root)
+	_spawn_npcs(root)
 	_collect_gates(root)
 	_collect_rooms(root)
 	var summary := GeogenSceneBuilder.build(root)
@@ -231,6 +247,8 @@ func forget(root: Node) -> void:
 			it.queue_free()
 	rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
 	affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
+	portals = portals.filter(func(p): return not inside.call(p.get("node")))
+	npcs = npcs.filter(func(n): return not inside.call(n))
 	_gates = _gates.filter(func(g): return not inside.call(g.get("node")))
 	for key in lights_by_name.keys():
 		if inside.call(lights_by_name[key]):
@@ -360,19 +378,90 @@ func _collect_affordances(root: Node) -> void:
 		if not list is Array:
 			continue
 		var xform := (node as Node3D).global_transform
-		for a in list:
+		for i in list.size():
+			var a: Dictionary = list[i]
 			var p: Array = a.get("position", [0, 0, 0])
 			var forward := xform.basis * Basis(Vector3.UP, deg_to_rad(float(a.get("yaw", 0.0)))) * Vector3.BACK
-			affordances.append({"type": str(a.get("type", "sit")), "position": xform * Vector3(p[0], p[1], p[2]),
+			var ap: Array = a.get("approach", p)
+			var entry := {"type": str(a.get("type", "sit")), "position": xform * Vector3(p[0], p[1], p[2]),
 				"yaw_deg": rad_to_deg(atan2(-forward.x, -forward.z)), "node": node,
-				"height": float(a.get("height", p[1])), "asset": String(node.name)})
+				"height": float(a.get("height", p[1])), "asset": String(node.name),
+				# NPCs (npc.gd): heading of the actor (+Z forward), approach point and the rest.
+				"id": "%s#%d" % [node.name, i], "npc_yaw_deg": rad_to_deg(atan2(forward.x, forward.z)),
+				"action": str(a.get("action", a.get("type", "sit"))), "approach": xform * Vector3(ap[0], ap[1], ap[2]),
+				"advertises": a.get("advertises", {}), "tags": a.get("tags", []), "slots": int(a.get("slots", 1))}
+			if a.has("duration"):
+				entry["duration"] = a["duration"]
+			if a.has("interaction"):
+				for it in interactions_of(String(node.name)):
+					if it.interaction_name == a["interaction"] and it.asset == node:
+						entry["interaction"] = it
+			affordances.append(entry)
+
+
+## Doors' extras.geogen.portal, in world space, with their interaction.
+func _collect_portals(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		var p = geogen_extras(node).get("portal")
+		if not p is Dictionary:
+			continue
+		var it: GeogenInteraction = null
+		for candidate in interactions:
+			if candidate.asset == node and candidate.interaction_name == p.get("interaction", ""):
+				it = candidate
+		if it == null:
+			push_warning("geogen: portal %s: no interaction '%s'" % [node.name, p.get("interaction", "")])
+			continue
+		var xform := (node as Node3D).global_transform
+		var c: Array = p.get("center", [0, 1, 0])
+		var n: Array = p.get("normal", [0, 0, 1])
+		portals.append({"node": node, "interaction": it, "open": str(p.get("open", "open")),
+			"closed": str(p.get("closed", "closed")), "center": xform * Vector3(c[0], c[1], c[2]),
+			"normal": (xform.basis * Vector3(n[0], n[1], n[2])).normalized(),
+			"width": float(p.get("width", 0.9)), "height": float(p.get("height", 2.0)),
+			"depth": float(p.get("depth", 0.3)), "clearance": float(p.get("clearance", 0.9))})
+
+
+## Nodes with extras.geogen type npc become GeogenNpc bodies.
+func _spawn_npcs(root: Node) -> void:
+	var spec := player_spec()
+	for node in root.find_children("*", "Node3D", true, false):
+		var g := geogen_extras(node)
+		if g.get("type") != "npc" or not g.get("npc") is Dictionary or node.has_meta("geogen_npc"):
+			continue
+		var npc := GeogenNpc.spawn(self, node, g["npc"])
+		npc.trace_enabled = npc_trace
+		if spec != null:
+			npc.step_height = spec.step_height
+		npcs.append(npc)
+
+
+## How many NPCs other than ``npc`` hold affordance ``id``.
+func npc_reserved(id: String, npc: Node) -> int:
+	var holders: Array = _reservations.get(id, []).filter(func(n): return is_instance_valid(n) and n != npc)
+	return holders.size()
+
+
+func npc_reserve(id: String, npc: Node) -> void:
+	var holders: Array = _reservations.get(id, [])
+	if not npc in holders:
+		holders.append(npc)
+	_reservations[id] = holders
+
+
+func npc_release(id: String, npc: Node) -> void:
+	if _reservations.has(id):
+		_reservations[id].erase(npc)
 
 
 ## Nearest affordance within ``radius`` of a world point, or {}.
+## Only poses the player can take (sit, lie); NPC-only actions (look, stand) are skipped.
 func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
 	var best := {}
 	var best_d := radius
 	for a in affordances:
+		if not a["type"] in ["sit", "lie"]:
+			continue
 		var d: float = (a["position"] as Vector3).distance_to(point)
 		if d < best_d:
 			best_d = d

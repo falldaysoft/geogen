@@ -95,4 +95,5 @@ surfaces:
   seat: { from: seat_cushion.top }
 
 affordances:
-  - { type: sit, at: [0, "{leg + base + 0.13}", 0.08], facing: 0, height: "{leg + base + 0.13}" }
+  - { type: sit, at: [0, "{leg + base + 0.13}", 0.08], facing: 0, height: "{leg + base + 0.13}",
+      duration: [25, 60], advertises: { rest: 0.6 }, tags: [seat, comfy] }

@@ -10,3 +10,4 @@ __pycache__/
 .beads/proxieddb/
 .beads/issues.jsonl
 .cache/
+.beads/interactions.jsonl

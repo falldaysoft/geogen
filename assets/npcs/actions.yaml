@@ -1,0 +1,95 @@
+# What NPCs do, as data. Each action is a list of steps from a fixed
+# vocabulary that the runtime interprets (runtime/godot/scripts/npc.gd);
+# nothing here is specific to an object or a character.
+#
+# An affordance (on furniture, windows, doors...) names its action with
+# `action:` (default: its `type`). NPC activities (wander, idle) name one too.
+#
+# Step vocabulary:
+#   go_to: approach | anchor | random | near | far
+#       walk (navmesh) to the affordance's approach point, the anchor itself,
+#       a random point in the NPC's home, or a portal's near/far side
+#   face: anchor | portal        turn toward the anchor's heading / through the portal
+#   pose: <name>                 put the body in a pose from its body asset's `poses:`
+#       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
+#   wait: duration | S | [lo, hi]  seconds (duration = the affordance's range)
+#   use: <state>                 drive the affordance's/portal's interaction to <state>
+#                                (presses it like the player does, waits for arrival)
+#   if: <flag>                   on any step: skip it unless the NPC's flag is true
+#
+# `approach` is where the actor stands to start the action, in the anchor's
+# frame (x right, z forward, metres); an affordance may override it.
+
+kind: npc_actions
+version: 1
+
+actions:
+  sit:
+    approach: [0, 0, 0.5]        # in front of the seat, then turn round and sit
+    duration: [15, 40]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - pose: sit
+        at: anchor
+      - wait: duration
+      - pose: stand
+        at: approach
+
+  lie:
+    approach: [0.8, 0, 0]        # beside the mattress
+    duration: [30, 90]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - pose: lie
+        at: anchor
+      - wait: duration
+      - pose: stand
+        at: approach
+
+  look:                          # stand somewhere facing something (a window, a shelf)
+    approach: [0, 0, 0]
+    duration: [6, 15]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - wait: duration
+
+  stand:                         # go and stand at a spot (the doorstep)
+    approach: [0, 0, 0]
+    duration: [5, 12]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - wait: duration
+
+  use:                           # operate an object's interaction, then leave it as found
+    approach: [0, 0, 0.6]
+    duration: [3, 8]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - use: on
+      - wait: duration
+      - use: off
+
+  pass:                          # walk through a door that's in the way (portals)
+    steps:
+      - go_to: near
+      - face: portal
+      - use: open
+      - go_to: far
+      - use: closed
+        if: closes_doors
+
+  wander:
+    duration: [2, 5]
+    steps:
+      - go_to: random
+      - wait: duration
+
+  idle:
+    duration: [3, 8]
+    steps:
+      - wait: duration

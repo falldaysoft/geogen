@@ -90,3 +90,7 @@ parts:
     offset: [0, "{1 - 0.003 / height}", 0.005]   # 3 mm below the opening's head face
     bevel: 0.006
     material: concrete
+
+# Looking out: stand inside (behind the wall, which is -Z of the origin) facing out.
+affordances:
+  - { type: look, at: [0, 0, -0.8], facing: 0, duration: [8, 20], advertises: { curiosity: 0.4 }, tags: [window] }

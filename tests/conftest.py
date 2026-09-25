@@ -43,9 +43,10 @@ def run_godot():
         subprocess.run([godot, "--headless", "--path", str(GODOT_PROJECT), "--import"],
                        capture_output=True, timeout=180)
 
-    def run(*user_args: str) -> str:
+    def run(*user_args: str, engine_args: tuple[str, ...] = ()) -> str:
+        """``engine_args`` go before ``--`` (e.g. ("--fixed-fps", "60") to run unthrottled)."""
         result = subprocess.run(
-            [godot, "--headless", "--path", str(GODOT_PROJECT), "--", *user_args],
+            [godot, "--headless", *engine_args, "--path", str(GODOT_PROJECT), "--", *user_args],
             capture_output=True, text=True, timeout=120,
         )
         assert result.returncode == 0, result.stderr
