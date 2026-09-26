@@ -17,7 +17,7 @@ params:
 
 size: ["{width + 0.06}", "{headboard}", "{length + hb_depth + 0.04}"]
 
-clearance: { left: 0.6, right: 0.6, front: 0.7 }
+clearance: { left: 0.75, right: 0.75, front: 0.7 }   # sides: room for a person (2 x player radius + margin)
 
 parts:
   headboard:
@@ -123,7 +123,7 @@ surfaces:
 
 affordances:
   - { type: lie, at: ["{-width / 4}", "{leg + base + mattress}", 0.1], facing: 0, height: "{leg + base + mattress}",
-      approach: ["{-width / 4 - 0.5}", 0, 0], advertises: { rest: 1.0 }, duration: [60, 180], tags: [bed] }
+      approach: ["{-width / 4 - 0.5}", 0, 0.3], advertises: { rest: 1.0 }, duration: [60, 180], tags: [bed] }
   - { type: lie, at: ["{width / 4}", "{leg + base + mattress}", 0.1], facing: 0, height: "{leg + base + mattress}",
-      approach: ["{width / 4 + 0.5}", 0, 0], advertises: { rest: 1.0 }, duration: [60, 180], tags: [bed] }
+      approach: ["{width / 4 + 0.5}", 0, 0.3], advertises: { rest: 1.0 }, duration: [60, 180], tags: [bed] }
   - { type: sit, at: [0, "{leg + base + mattress}", "{(length + hb_depth + 0.04) / 2 - 0.3}"], facing: 0, height: "{leg + base + mattress}" }

@@ -279,6 +279,18 @@ Fixtures carry `meta.light` (`{type: omni, color, energy, range, offset: [x, y, 
 
 `layout/qa.py`: `check_layout(scene, player)` finds furniture overlaps (chairs may tuck under desks/tables), items in walls, items in door swing arcs, tall items in front of windows (sills below 1.2 m), doors narrower than `player.door_min_width`, and items whose front can't be reached from a door (2D occupancy grid eroded by the player radius, flood-filled from doorways). The furnishing solver uses `room_reachability` to reject placements that would wall off earlier items; the viewer inspector shows a "Layout check" section; `tests/test_asset_quality.py` requires every registered scene to pass.
 
+Layout QA also requires every affordance's `approach` point on an item to be reachable. Erosion is by radius + half a cell, so a gap exactly one body wide counts as shut.
+
+### Affordance QA
+
+`layout/affordance_qa.py` checks affordances the way the runtime uses them: walk to `approach`, face the anchor, and hold the action's `pose:` at the anchor.
+- `stage_actors(scene, body)` poses a body at every affordance. Render with `-r out.png --affordances`, which also prints issues and uses the scene's NPC body if it has one.
+- `check_affordances(scene)` reports:
+  - `approach_blocked`: no standable floor within 0.3 m of the approach point. Floor is found by slicing collidable meshes between step height and head height, eroded by the actor radius. Interaction-moved parts such as door leaves don't block.
+  - `approach_unreachable`: the approach can't be reached from spawns or NPCs.
+  - `pose_clash`: the posed body sinks more than 12 L into the asset it uses, or more than 0.5 L into anything else. Feet may press 6 cm into the floor.
+- `tests/test_asset_quality.py::test_affordances_are_usable` runs it on every scene. Unit tests are in `tests/test_affordance_qa.py`.
+
 ### Interior finishes
 
 `generators/finishes.py` (called from `FloorPlan.build`, `floorplan: {finishes: true | false | {lining, skirting, cornice, light, switches}}`): per room a 1 cm `lining` in the room's wall material (cut by openings; room wall surfaces sit on it), swept `skirting` broken at doorways, swept `cornice`, a pendant `<room>_light` with `meta.light` (Godot adds an `OmniLight3D`; fixture meshes don't cast shadows) and `<room>_switch_N` beside each door's latch side (`meta.switch.light`). Room materials resolve room keys (`floor`/`walls`/`ceiling`) > room type `finishes:` in `assets/room_types/<type>.yaml` > plan `materials`. Rooms record `meta.wall_inset` so the furnishing solver keeps floor items off the skirting.

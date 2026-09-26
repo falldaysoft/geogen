@@ -263,7 +263,8 @@ def _check_reachability(rooms: list[_Room], player) -> list[Issue]:
             if _obstacle(item):
                 free &= ~cells(item.lo, item.hi)
     # Erode by the player radius: where the body's centre can stand.
-    radius_cells = int(np.ceil(player.radius / CELL))
+    # (plus half a cell: a gap exactly one body wide rasterises open or shut by luck)
+    radius_cells = int(np.ceil((player.radius + CELL / 2) / CELL))
     yy, xx = np.mgrid[-radius_cells:radius_cells + 1, -radius_cells:radius_cells + 1]
     disk = xx ** 2 + yy ** 2 <= radius_cells ** 2
     standable = ndimage.binary_erosion(free, structure=disk)
@@ -281,7 +282,29 @@ def _check_reachability(rooms: list[_Room], player) -> list[Issue]:
                 issues.append(Issue("unreachable", room.name, (item.name,),
                                     f"{item.name} can't be reached from a door (front at"
                                     f" {front[0]:.2f}, {front[1]:.2f})"))
+                continue
+            # Where people stand to use it (a bed's sides, a chair pulled from a table).
+            for a, p in _approach_points(item, room):
+                near = (gx - p[0]) ** 2 + (gz - p[1]) ** 2 <= APPROACH_SNAP ** 2
+                if not (near & reachable).any():
+                    issues.append(Issue("unreachable", room.name, (item.name,),
+                                        f"{item.name}: can't reach where you stand to {a['type']}"
+                                        f" ({p[0]:.2f}, {p[1]:.2f})"))
+                    break
     return issues
+
+
+APPROACH_SNAP = 0.3      # an affordance's approach point may be this far from standable floor
+
+
+def _approach_points(item: _Item, room: _Room) -> list[tuple[dict, np.ndarray]]:
+    """The item's affordance approach points (plan frame)."""
+    out = []
+    m = room.frame @ item.node.world_transform()
+    for a in item.node.meta.get("affordances") or []:
+        p = m @ np.r_[np.asarray(a["approach"], dtype=float), 1.0]
+        out.append((a, p[[0, 2]]))
+    return out
 
 
 def _front_point(item: _Item) -> np.ndarray:

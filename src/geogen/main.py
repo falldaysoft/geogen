@@ -143,6 +143,9 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="Render: pose every skeletal clip NAME at SECONDS (e.g. sway@1.0)")
     parser.add_argument("--pose", default=None, metavar="NAME",
                         help="Render: put every humanoid in skeletal pose NAME (its pose_NAME clip)")
+    parser.add_argument("--affordances", action="store_true",
+                        help="Render: pose a character at every affordance (sitting on seats, at windows...) "
+                             "and print the affordance QA")
     parser.add_argument("--filmstrip", type=int, default=0, metavar="N",
                         help="Render with --clip NAME: N copies posed across the clip, side by side")
     parser.add_argument("--state", default=None,
@@ -213,6 +216,14 @@ def main() -> None:
             clip_name, _, at = args.clip.partition("@")
             if not pose_clips(root, clip_name, float(at or 0)):
                 print(f"Warning: no clip named '{clip_name}' in {args.scene}")
+        if args.affordances:
+            from .layout.affordance_qa import check_affordances, stage_actors
+
+            npc = next((n for n in root.iter_nodes() if n.meta.get("type") == "npc"), None)
+            body = npc.find("body") if npc is not None else None
+            for issue in check_affordances(root, body=body):
+                print(issue)
+            root = stage_actors(root, body=body)
         if args.cutaway:
             from .render import cutaway
 

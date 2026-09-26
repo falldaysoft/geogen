@@ -86,3 +86,13 @@ def test_asset_fits_declared_size(name, built_scene):
     extent = np.ptp(verts, axis=0)
     # Parts may overhang slightly (eaves, trim) but not by more than 25%.
     assert np.all(extent <= np.asarray(declared) * 1.25 + 0.05), f"{name}: extent {extent} vs size {declared}"
+
+
+def test_affordances_are_usable(scene):
+    """Every affordance can be walked to and its pose (sit, lie) doesn't sink into anything."""
+    from geogen.layout.affordance_qa import check_affordances
+
+    name, root = scene
+    npc = next((n for n in root.iter_nodes() if n.meta.get("type") == "npc"), None)
+    body = npc.find("body") if npc is not None else None
+    assert [str(i) for i in check_affordances(root, body=body)] == [], name
