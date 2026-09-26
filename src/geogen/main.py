@@ -141,6 +141,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="Export as streamable chunks (per block/building, exterior LODs, interiors) into DIR")
     parser.add_argument("--clip", default=None, metavar="NAME@SECONDS",
                         help="Render: pose every skeletal clip NAME at SECONDS (e.g. sway@1.0)")
+    parser.add_argument("--pose", default=None, metavar="NAME",
+                        help="Render: put every humanoid in skeletal pose NAME (its pose_NAME clip)")
     parser.add_argument("--filmstrip", type=int, default=0, metavar="N",
                         help="Render with --clip NAME: N copies posed across the clip, side by side")
     parser.add_argument("--state", default=None,
@@ -198,6 +200,11 @@ def main() -> None:
             return
 
     if args.render:
+        if args.pose:
+            from .core.skin import pose_clips
+
+            if not pose_clips(root, f"pose_{args.pose}", 0.0):
+                print(f"Warning: no pose '{args.pose}' in {args.scene}")
         if args.clip and args.filmstrip:
             root = filmstrip(root, args.clip.partition("@")[0], args.filmstrip, args.view)
         elif args.clip:

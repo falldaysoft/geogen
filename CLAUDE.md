@@ -246,7 +246,8 @@ Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): a
 - `presets:` feminine/masculine (`params: {preset: feminine, height: 1.6}`; explicit values win). Asset YAML takes `presets:`/`preset:` and sequential `derived:` expressions in general.
 - `body.poses` are skeletal poses (stand, sit, lie, t_pose; body frame), and `body.pose` is the one it's built in; each becomes a static `pose_<name>` clip. The top-level `poses:` are the NPC root transforms: sit drops the hips onto the seat point, lie lays the body along the bed.
 - `body.clips`: procedural clips (`generators/clips.py`) over the stand pose. `walk` (`speed`, `duty`, `knee_drop`, `bob`, `hip_sway`, `pelvis_yaw`, `chest_yaw`, `arm_swing`, `lift`, `heel_raise`) is an in-place cycle with ground-locked stance feet via two-bone IK (`core/ik.py`), the stride chosen from leg reach, and `meta.speed`/`stride` exported in extras. `idle` is breathing, weight shift and a glance. Clips key every bone plus the Hips translation.
-- Review: `-s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side --zoom 2.6`.
+- Poses take `hips: [x, y, z]` (pelvis offset) and `ik: {LeftFoot|RightFoot|LeftHand|RightHand: {target, pole, flat}, mirror: true}`. Targets are in the body frame, solved per body by `core/ik.solve_limb`, so every preset fits. Humanoid poses: stand, sit and sit_at_table (feet planted for the `seat_height` / `table_height` params), lie, lean_on_sill (`sill_height`), reach_low, look, t_pose. The NPC actions use stand, sit and lie.
+- Review: `-s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side --zoom 2.6`; `-r out.png --pose sit_at_table`.
 - Review scene: `-s humanoid_lineup` (presets beside a door and a chair). Tests: `tests/test_humanoid.py`, `tests/test_skeleton.py`, `tests/test_ringloft.py`.
 
 ### Furniture library

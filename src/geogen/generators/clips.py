@@ -73,7 +73,7 @@ def tracks_from_poses(skeleton: Skeleton, poses: list[Pose], times: np.ndarray) 
 
 
 class _Legs:
-    """Two-bone IK for one leg, with the foot's world orientation set explicitly."""
+    """One leg for the clip generators: IK to an ankle target with an explicit foot rotation."""
 
     def __init__(self, skeleton: Skeleton, side: str) -> None:
         self.skeleton = skeleton
@@ -87,20 +87,8 @@ class _Legs:
 
     def solve(self, pose: Pose, ankle: np.ndarray, foot_rotation: np.ndarray, toe_bend: float) -> bool:
         """Set the leg bones in ``pose`` so the ankle reaches ``ankle``; returns whether it did."""
-        s = self.skeleton
-        world = s.fk(pose)
-        hip = world[self.upper][:3, 3]
-        knee, end, reached = ik.two_bone(hip, self.a, self.b, ankle, np.array([0.0, 0.0, 1.0]))
-        normal = np.cross([0.0, 0.0, 1.0], end - hip)          # the knee's hinge (X at rest)
-        rest_normal = np.array([1.0, 0.0, 0.0])
-        up_world = ik.aim(s[self.upper].rotation, [0, -1, 0], rest_normal, knee - hip, normal)
-        pose.rotations[self.upper] = s.pose_quat(self.upper, world[s[self.upper].parent], up_world)
-        world = s.fk(pose)
-        low_world = ik.aim(s[self.lower].rotation, [0, -1, 0], rest_normal, end - knee, normal)
-        pose.rotations[self.lower] = s.pose_quat(self.lower, world[self.upper], low_world)
-        world = s.fk(pose)
-        pose.rotations[self.foot] = s.pose_quat(self.foot, world[self.lower], foot_rotation @ s[self.foot].rotation)
-        pose.rotations[self.toes] = s.body_quat(self.toes, _rx(toe_bend))
+        reached = ik.solve_limb(self.skeleton, pose, self.foot, ankle, end_rotation=foot_rotation)
+        pose.rotations[self.toes] = self.skeleton.body_quat(self.toes, _rx(toe_bend))
         return reached
 
 

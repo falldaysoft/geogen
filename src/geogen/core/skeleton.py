@@ -185,7 +185,7 @@ class Pose:
 
     @classmethod
     def from_spec(cls, spec: dict | None, skeleton: Skeleton | None = None) -> Pose:
-        """``{bones: {Name: [x, y, z] degrees}, root: [x, y, z], frame: body | bone}``.
+        """``{bones: {Name: [x, y, z] degrees}, root: [x, y, z], hips: [x, y, z], ik: {...}, frame: body | bone}``.
 
         Angles are Euler XYZ (like ``Transform``). In the default ``body`` frame they
         rotate about the character's own axes (X = its left, Y = up, Z = forward),
@@ -208,7 +208,37 @@ class Pose:
                 rest = skeleton[name].rotation
                 r = rest.T @ r @ rest
             rotations[name] = quat_from_matrix(r)
-        return cls(rotations, np.asarray(spec.get("root", [0, 0, 0]), dtype=np.float64))
+        pose = cls(rotations, np.asarray(spec.get("root", [0, 0, 0]), dtype=np.float64))
+        if "hips" in spec:
+            pose.offsets["Hips"] = np.asarray(spec["hips"], dtype=np.float64)
+        if spec.get("ik"):
+            if skeleton is None:
+                raise ValueError("an IK pose needs the skeleton")
+            pose.solve_ik(spec["ik"], skeleton)
+        return pose
+
+    def solve_ik(self, spec: dict, skeleton: Skeleton) -> None:
+        """``{End: {target: [x, y, z], pole: [x, y, z], flat: bool}, mirror: bool}``: place hands/feet
+        (body frame, after ``bones``/``hips``). ``flat`` keeps the end bone at its rest orientation
+        (feet flat on the floor); ``mirror`` also solves the Right* twin of each Left* entry."""
+        from .ik import LIMBS, solve_limb
+
+        entries = {k: v for k, v in spec.items() if k != "mirror"}
+        if spec.get("mirror"):
+            for name, entry in list(entries.items()):
+                twin = mirror_name(name)
+                if twin and twin not in entries:
+                    entries[twin] = {**entry, "target": list(np.asarray(entry["target"], dtype=float) * [-1, 1, 1])}
+                    if "pole" in entry:
+                        entries[twin]["pole"] = list(np.asarray(entry["pole"], dtype=float) * [-1, 1, 1])
+        for end, entry in entries.items():
+            if end not in LIMBS:
+                raise ValueError(f"pose ik: '{end}' is not an IK end (one of {sorted(LIMBS)})")
+            unknown = set(entry) - {"target", "pole", "flat"}
+            if unknown:
+                raise ValueError(f"pose ik '{end}': unknown keys {sorted(unknown)}")
+            solve_limb(skeleton, self, end, entry["target"], entry.get("pole"),
+                       np.eye(3) if entry.get("flat") else None)
 
     def apply(self, skeleton: Skeleton, nodes: dict[str, SceneNode]) -> None:
         """Set the joint nodes' transforms (from ``Skeleton.build``) to this pose."""

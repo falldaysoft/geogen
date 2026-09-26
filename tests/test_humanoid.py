@@ -108,3 +108,42 @@ def test_humanoid_exports_as_a_skinned_glb(bodies, tmp_path):
     assert len(skin["joints"]) == 56
     assert gltf["nodes"][skin["skeleton"]]["name"] == "Root"
     assert not any(n["name"].endswith("colonly") for n in gltf["nodes"])
+
+
+def _posed(body, pose):
+    from geogen.core.skin import pose_clips
+
+    copy = body.instance()
+    pose_clips(copy, f"pose_{pose}", 0.0)
+    return copy
+
+
+@pytest.mark.parametrize("preset", ["feminine", "masculine"])
+def test_sit_puts_feet_on_the_floor_and_hips_on_the_seat(bodies, preset):
+    """The sit pose's IK is solved per body: placed at a 0.45 m seat anchor with the runtime's
+    root offset, both ankles sit at ankle height and the hips just above the seat."""
+    body = _posed(bodies[preset], "sit")
+    offset = np.array(body.meta["poses"]["sit"]["offset"])
+    body.transform.translation = np.array([0.0, 0.45, 0.0]) + offset
+    height = body.meta["humanoid"]["height"]
+    for side in ("Left", "Right"):
+        ankle = body.find(f"{side}Foot").world_transform()[:3, 3]
+        assert ankle[1] == pytest.approx(0.045 * height, abs=0.01), side
+        assert ankle[2] > 0.3                                   # feet out in front of the seat
+    hips = body.find("Hips").world_transform()[:3, 3]
+    assert 0.45 < hips[1] < 0.6
+    lowest = body.find("body").world_mesh().vertices[:, 1].min()
+    assert lowest > -0.02
+
+
+def test_ik_poses_reach_their_targets(bodies):
+    body = bodies["feminine"]
+    lean = _posed(body, "lean_on_sill")
+    for side in ("Left", "Right"):
+        hand = lean.find(f"{side}Hand").world_transform()[:3, 3]
+        assert hand[1] == pytest.approx(0.97, abs=0.01)
+        assert lean.find(f"{side}Foot").world_transform()[1, 3] == pytest.approx(0.045 * 1.66, abs=0.005)
+    reach = _posed(body, "reach_low")
+    assert reach.find("RightHand").world_transform()[1, 3] < 0.55
+    for pose in ("sit_at_table", "look", "reach_low", "lean_on_sill"):
+        assert meshops.validate(_posed(body, pose).find("body").world_mesh()).watertight

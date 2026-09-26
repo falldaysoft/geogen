@@ -187,7 +187,9 @@ def test_interaction_transitions_export_as_gltf_animations(built_scene, tmp_path
 def test_animations_can_be_disabled(built_scene, tmp_path):
     path = export_scene(built_scene("cottage"), tmp_path / "plain.glb", animations=False)
     # Only the resident's skeletal clips remain (always exported); no interaction transitions.
-    names = [a["name"] for a in _gltf_json(path).get("animations", [])]
-    clips = {"walk", "idle", "pose_stand", "pose_sit", "pose_lie", "pose_t_pose"}
-    assert names and all(n.split("_", 1)[1] in clips for n in names), names
+    gltf = _gltf_json(path)
+    names = {a["name"] for a in gltf.get("animations", [])}
+    clips = {c["animation"] for n in gltf["nodes"]
+             for c in (n.get("extras") or {}).get("geogen", {}).get("clips", [])}
+    assert names and names == clips
     assert not any("->" in n for n in names)

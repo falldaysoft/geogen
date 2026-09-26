@@ -26,6 +26,9 @@ params:
   neck_length:    { default: 0.10 }
   hand_size:      { default: 1.0 }
   foot_length:    { default: 0.24 }
+  seat_height:    { default: 0.45 }   # seat the sit poses plant the feet for (floor to seat)
+  table_height:   { default: 0.74 }
+  sill_height:    { default: 0.95 }
 
 presets:
   feminine:
@@ -69,6 +72,13 @@ derived:
   waist_rx: "{0.15 * tf * waist}"
   chest_rx: "{(0.075 + shoulder_width * 0.24) * bf}"
   shoulder_r: "{0.052 * lf}"
+  # Skeleton positions the poses aim at (see skeletons/humanoid.yaml).
+  hip_j: "{hip_width / 2}"
+  hips_h: "{height * 0.53}"
+  ankle_h: "{height * 0.045}"
+  thigh: "{height * 0.245 - 0.03}"
+  seat_drop: "{0.09 * k}"                          # hip joint above the seat
+  sit_floor: "{hips_h - seat_drop - seat_height}"  # the floor's height in a seated body's frame
 
 body:
   skeleton: skeletons/humanoid.yaml
@@ -202,24 +212,59 @@ body:
         LeftThumbMetacarpal: [0, 28, 0]      # fold the rest pose's splayed thumb along the hand
         RightThumbMetacarpal: [0, -28, 0]
     sit:
-      bones:
-        LeftUpperLeg: [-90, 0, 0]
-        RightUpperLeg: [-90, 0, 0]
-        LeftLowerLeg: [90, 0, 0]
-        RightLowerLeg: [90, 0, 0]
-        LeftUpperArm: [-14, 0, -80]           # hands in the lap
-        RightUpperArm: [-14, 0, 80]
-        LeftLowerArm: [0, -62, 0]
-        RightLowerArm: [0, 62, 0]
+      bones: &sit_upper
         LeftThumbMetacarpal: [0, 28, 0]
         RightThumbMetacarpal: [0, -28, 0]
         Spine: [-4, 0, 0]
+      ik: &sit_ik
+        LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.07 * k}"], flat: true }
+        LeftHand: { target: ["{0.12 * k}", "{hips_h + 0.075 * k}", "{0.25 * k}"], pole: [0.4, -0.3, -1] }
+        mirror: true
+    sit_at_table:
+      bones:
+        <<: *sit_upper
+        Spine: [6, 0, 0]
+        Chest: [4, 0, 0]
+      ik:
+        LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.04 * k}"], flat: true }
+        LeftHand: { target: ["{0.16 * k}", "{sit_floor + table_height + 0.02}", "{0.34 * k}"], pole: [0.5, -1, -0.4] }
+        mirror: true
     lie:
       bones:
         LeftUpperArm: [0, 0, -80]
         RightUpperArm: [0, 0, 80]
         LeftThumbMetacarpal: [0, 28, 0]
         RightThumbMetacarpal: [0, -28, 0]
+    lean_on_sill:                           # hands on a sill in front, leaning in to look out
+      hips: [0, 0, -0.03]
+      bones:
+        Spine: [9, 0, 0]
+        Chest: [6, 0, 0]
+        Neck: [-8, 0, 0]
+        LeftThumbMetacarpal: [0, 28, 0]
+        RightThumbMetacarpal: [0, -28, 0]
+      ik:
+        LeftFoot: { target: ["{hip_j}", "{ankle_h}", 0.02], flat: true }
+        LeftHand: { target: ["{0.19 * k}", "{sill_height + 0.02}", "{0.36 * k}"], pole: [0.6, -0.4, -1] }
+        mirror: true
+    reach_low:                              # crouch and reach down in front with the right hand
+      hips: ["{0.02 * k}", "{-0.3 * k}", "{-0.16 * k}"]
+      bones:
+        Spine: [30, 0, 0]
+        Chest: [18, 0, 0]
+        Neck: [-18, 0, 0]
+        LeftThumbMetacarpal: [0, 28, 0]
+        RightThumbMetacarpal: [0, -28, 0]
+      ik:
+        LeftFoot: { target: ["{hip_j + 0.02}", "{ankle_h}", "{0.08 * k}"], flat: true }
+        RightFoot: { target: ["{-hip_j - 0.02}", "{ankle_h}", "{-0.1 * k}"], flat: true }
+        RightHand: { target: ["{-0.12 * k}", "{0.47 * k}", "{0.3 * k}"], pole: [-0.5, -0.3, -1] }
+        LeftHand: { target: ["{0.14 * k}", "{0.5 * k}", "{0.22 * k}"], pole: [0.7, 0, -1] }
+    look:                                   # standing, looking up and to the left
+      bones:
+        <<: *arms_down
+        Neck: [-8, 14, 0]
+        Head: [-8, 10, 0]
   pose: stand
   # Procedural clips over the stand pose (generators/clips.py); walk matches the NPC speed.
   clips:

@@ -42,3 +42,40 @@ def aim(rest_rotation: NDArray, rest_dir: NDArray, rest_normal: NDArray,
         return np.column_stack([d, n, np.cross(d, n)])
 
     return frame(direction, normal) @ frame(rest_dir, rest_normal).T @ rest_rotation
+
+
+# Two-bone limbs by end bone: (upper, lower, rest direction, rest pole = where the middle joint
+# bends toward in the T-pose rest).
+LIMBS = {
+    "LeftFoot": ("LeftUpperLeg", "LeftLowerLeg", (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
+    "RightFoot": ("RightUpperLeg", "RightLowerLeg", (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
+    "LeftHand": ("LeftUpperArm", "LeftLowerArm", (1.0, 0.0, 0.0), (0.0, 0.0, -1.0)),
+    "RightHand": ("RightUpperArm", "RightLowerArm", (-1.0, 0.0, 0.0), (0.0, 0.0, -1.0)),
+}
+
+
+def solve_limb(skeleton, pose, end: str, target, pole=None, end_rotation=None) -> bool:
+    """Set a limb's two bones in ``pose`` (a ``core.skeleton.Pose``) so bone ``end``'s head reaches
+    ``target`` (body frame), bending toward ``pole`` (default: the limb's rest pole). With
+    ``end_rotation`` (3x3, body frame) the end bone gets that world rotation times its rest.
+    Returns whether the target was reached.
+    """
+    upper, lower, rest_dir, rest_pole = LIMBS[end]
+    pole = np.asarray(rest_pole if pole is None else pole, dtype=np.float64)
+    rest_normal = np.cross(rest_pole, rest_dir)
+    s = skeleton
+    a = float(np.linalg.norm(s[lower].head - s[upper].head))
+    b = float(np.linalg.norm(s[end].head - s[lower].head))
+    world = s.fk(pose)
+    root = world[upper][:3, 3]
+    middle, tip, reached = two_bone(root, a, b, np.asarray(target, dtype=np.float64), pole)
+    normal = np.cross(pole, tip - root)
+    up = aim(s[upper].rotation, rest_dir, rest_normal, middle - root, normal)
+    pose.rotations[upper] = s.pose_quat(upper, world[s[upper].parent], up)
+    world = s.fk(pose)
+    low = aim(s[lower].rotation, rest_dir, rest_normal, tip - middle, normal)
+    pose.rotations[lower] = s.pose_quat(lower, world[upper], low)
+    if end_rotation is not None:
+        world = s.fk(pose)
+        pose.rotations[end] = s.pose_quat(end, world[lower], np.asarray(end_rotation) @ s[end].rotation)
+    return reached
