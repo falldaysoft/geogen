@@ -16,18 +16,21 @@ params:
   build:          { default: 0.5 }    # 0 slight .. 1 heavy (all flesh radii)
   shoulder_width: { default: 0.34 }   # between the shoulder joints
   hip_width:      { default: 0.18 }   # between the hip joints
+  leg_ratio:      { default: 0.53 }   # hip joint height / height (long legs ~0.55, short ~0.5)
   hips:           { default: 1.0 }    # hip/pelvis flesh width factor
   waist:          { default: 0.9 }    # waist width factor
   bust:           { default: 0.5 }    # 0 .. 1
   glutes:         { default: 0.5 }    # 0 .. 1
   limb:           { default: 1.0 }    # arm/leg thickness factor
+  limb_scale:     { default: 1.0 }    # body-type multiplier on limb (presets stack without overriding it)
+  belly:          { default: 0.0 }    # 0 .. 1: a fuller waist and stomach
   head_size:      { default: 1.0 }
   jaw_width:      { default: 1.0 }
   neck_length:    { default: 0.10 }
   hand_size:      { default: 1.0 }
   foot_length:    { default: 0.24 }
   skin_tone:      { default: 0.25 }   # 0 very light .. 1 very dark (vertex colour over `skin`)
-  hair_style:     { default: crop, choices: [none, buzz, crop, bob, long, ponytail, bun] }
+  hair_style:     { default: crop, choices: [none, buzz, crop, pixie, bob, long, ponytail, bun, afro] }
   hair_color:     { default: brown, choices: [black, dark_brown, brown, auburn, blonde, light_blonde, red, grey, white] }
   eye_color:      { default: brown, choices: [brown, dark_brown, hazel, green, blue, grey] }
   outfit:         { default: casual, choices: [none, casual, jeans_tee, smart, dress, skirt_sweater, shorts_tee, casual_f] }
@@ -95,23 +98,74 @@ presets:
     brow_thickness: 1.45
     brow_arch: 0.4
 
+  # Body types: stack after a gender preset (params: {preset: [feminine, curvy]}).
+  # They set overall flesh (build), limb_scale and belly, leaving the gender
+  # presets' limb/waist/hips shape alone (except curvy, which is about the hips).
+  slim:
+    build: 0.1
+    limb_scale: 0.92
+  athletic:
+    build: 0.35
+    limb_scale: 1.08
+    glutes: 0.65
+  curvy:
+    build: 0.6
+    hips: 1.28
+    waist: 0.8
+    glutes: 1.0
+  heavy:
+    build: 1.3
+    limb_scale: 1.12
+    belly: 0.85
+    neck_length: 0.085
+  hourglass:                          # exaggerated, a clothing-fit stress test
+    build: 0.5
+    bust: 1.7
+    hips: 1.42
+    waist: 0.66
+    glutes: 1.4
+  petite:
+    height: 1.53
+    hand_size: 0.88
+    foot_length: 0.215
+    head_size: 1.04
+    leg_ratio: 0.52
+  tall:
+    height: 1.9
+    leg_ratio: 0.545
+    foot_length: 0.28
+    hand_size: 1.08
+  stocky:
+    height: 1.64
+    build: 0.75
+    limb_scale: 1.15
+    belly: 0.3
+    leg_ratio: 0.505
+    neck_length: 0.08
+  lanky:
+    height: 1.86
+    build: 0.1
+    limb_scale: 0.9
+    leg_ratio: 0.555
+    neck_length: 0.12
+
 derived:
   k: "{height / 1.7}"                              # size scale
   bf: "{0.85 + 0.3 * build}"                       # flesh factor
   tf: "{bf * k}"                                   # torso radii scale
-  lf: "{limb * bf * k}"                            # limb radii scale
+  lf: "{limb * limb_scale * bf * k}"                            # limb radii scale
   hs: "{head_size * k}"
   hk: "{hand_size * k}"
   jaw: "{jaw_width}"
   hips_rx: "{(hip_width / 2 + 0.072 * tf) * hips}"
-  waist_rx: "{0.15 * tf * waist}"
+  waist_rx: "{0.15 * tf * waist * (1 + 0.25 * belly)}"
   chest_rx: "{(0.075 + shoulder_width * 0.24) * bf}"
   shoulder_r: "{0.052 * lf}"
   # Skeleton positions the poses aim at (see skeletons/humanoid.yaml).
   hip_j: "{hip_width / 2}"
-  hips_h: "{height * 0.53}"
+  hips_h: "{height * leg_ratio}"
   ankle_h: "{height * 0.045}"
-  thigh: "{height * 0.245 - 0.03}"
+  thigh: "{height * leg_ratio * (1 - 0.285 / 0.53) - 0.03}"
   seat_drop: "{0.09 * k}"                          # hip joint above the seat
   sit_floor: "{hips_h - seat_drop - seat_height}"  # the floor's height in a seated body's frame
   # Head landmarks (skeleton: head top = height, chin one head unit below).
@@ -125,6 +179,7 @@ body:
     height: "{height}"
     shoulder_width: "{shoulder_width}"
     hip_width: "{hip_width}"
+    leg_ratio: "{leg_ratio}"
     neck_length: "{neck_length}"
     hand_size: "{hand_size}"
     foot_length: "{foot_length}"
@@ -190,8 +245,8 @@ body:
         - [Hips, -0.65, "{0.062 * tf}", "{0.052 * tf}", { power: 2.2 }]
         - [Hips, -0.4, "{hips_rx}", "{0.086 * tf + 0.016 * glutes}", { offset: [0, "{-0.014 * glutes}"], power: 2.2 }]
         - [Hips, 0.2, "{hips_rx * 0.94}", "{0.088 * tf + 0.008 * glutes}", { offset: [0, "{-0.006 * glutes}"], power: 2.3 }]
-        - [Spine, 0.0, "{(hips_rx + waist_rx) / 2}", "{0.082 * tf}", { power: 2.3 }]
-        - [Spine, 0.6, "{waist_rx}", "{0.078 * tf}", { power: 2.3 }]
+        - [Spine, 0.0, "{(hips_rx + waist_rx) / 2}", "{(0.082 + 0.03 * belly) * tf}", { offset: [0, "{0.018 * belly * tf}"], power: 2.3 }]
+        - [Spine, 0.6, "{waist_rx}", "{(0.078 + 0.036 * belly) * tf}", { offset: [0, "{0.024 * belly * tf}"], power: 2.3 }]
         - [Chest, 0.45, "{chest_rx}", "{0.086 * tf + 0.03 * bust}", { offset: [0, "{0.016 * bust}"], power: 2.4 }]
         - [UpperChest, 0.35, "{chest_rx * 1.02}", "{0.082 * tf}", { power: 2.6 }]
         - [UpperChest, 0.78, "{chest_rx * 0.8}", "{0.07 * tf}", { power: 2.3 }]
@@ -415,6 +470,48 @@ body:
         - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
         - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
         - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }
+    afro:                                   # a rounded halo of volume
+      chains:
+        cap:
+          bones: [Neck, Head]
+          end: { landmark: head_top, offset: [0, "{0.07 * hs}", 0] }
+          sides: 16
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 4
+          weight_shift: { Head: -0.06 }
+          rings:
+            - [Neck, 0.5, "{0.058 * hs + 0.012}", "{0.062 * hs + 0.012}", { offset: [0, "{-0.02 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.04}", "{0.1 * hs + 0.035}", { offset: [0, "{-0.006 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.06}", "{0.105 * hs + 0.05}", { offset: [0, "{-0.01 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + 0.07}", "{0.107 * hs + 0.058}", { offset: [0, "{-0.012 * hs}"] }]
+            - [Head, 0.6, "{0.086 * hs + 0.068}", "{0.103 * hs + 0.058}", { offset: [0, "{-0.012 * hs}"] }]
+      cut:
+        - { center: [0, "{eyes_y - 0.03 * hs}", "{0.13 * hs}"], radii: ["{0.078 * hs}", "{0.116 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+        - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.3, "{0.07 * hs}", "{0.1 * hs}"] }                 # clear of the ears and jaw
+        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.1 * hs}", 0.05]                                                                  # the nape
+    pixie:                                  # short, full on top, with a low fringe
+      chains:
+        cap:
+          bones: [Neck, Head]
+          end: { landmark: head_top, offset: [0, 0.026, 0] }
+          sides: 14
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 3
+          weight_shift: { Head: -0.06 }
+          rings:
+            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.01}", "{0.1 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.012}", "{0.105 * hs + 0.014}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + 0.02}", "{0.107 * hs + 0.024}", { offset: [0, "{0.004 * hs}"] }]
+            - [Head, 0.6, "{0.086 * hs + 0.026}", "{0.103 * hs + 0.028}", { offset: [0, "{0.006 * hs}"] }]
+      cut:
+        - { center: [0, "{eyes_y - 0.05 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.108 * hs}", "{0.13 * hs}"] }   # the face, the fringe low on the brow
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+        - { center: [0, "{eyes_y - 0.11 * hs}", 0.0], radii: [0.2, "{0.092 * hs}", "{0.094 * hs}"] }                        # sides, above the ears
+        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.09 * hs}", 0.05]                                                                  # the nape, short
     bun:
       chains:
         cap:
@@ -522,5 +619,5 @@ body:
 # the hips onto the seat point, lie lays the body on its back along the bed.
 poses:
   stand: {}
-  sit: { offset: [0, "{0.09 * k - height * 0.53}", -0.09] }
+  sit: { offset: [0, "{0.09 * k - hips_h}", -0.09] }
   lie: { offset: [0, "{0.105 * tf}", "{height * 0.5}"], rotation: [-90, 0, 0] }

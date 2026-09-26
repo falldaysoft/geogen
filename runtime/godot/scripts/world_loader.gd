@@ -209,7 +209,7 @@ func _load_model(manifest_path: String) -> void:
 		var f: Array = s.get("forward", [0, 0, -1])
 		var p: Array = s.get("position", [0, 0, 0])
 		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]) + offset,
-			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
+			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2]))), "model": model_aabbs.size() - 1})
 	print("geogen: loaded %s (%d meshes, %d rooms, %d spawns, %d tagged)" % [
 		model_path.get_file(), count, summary["rooms"], summary["spawns"], summary["tagged"]])
 

@@ -1,0 +1,74 @@
+# A row of humanoid variants for review: body types stacked on the gender
+# presets (params: {preset: [feminine, curvy]}), proportions, hair styles and
+# colours, skin tones and outfits. The cottage places it on the front lawn; faces +Z.
+name: people_gallery
+
+slots:
+  petite_bob: { position: [-5.5, 0, 0], facing: north }
+  slim_ponytail: { position: [-4.5, 0, 0], facing: north }
+  curvy_long: { position: [-3.5, 0, 0], facing: north }
+  tall_bun: { position: [-2.5, 0, 0], facing: north }
+  heavy_crop_f: { position: [-1.5, 0, 0], facing: north }
+  hourglass: { position: [-6.5, 0, 0], facing: north }
+  lanky_buzz: { position: [1.5, 0, 0], facing: north }
+  athletic_crop: { position: [2.5, 0, 0], facing: north }
+  stocky_bald: { position: [3.5, 0, 0], facing: north }
+  heavy_grey: { position: [4.5, 0, 0], facing: north }
+  tall_long_m: { position: [5.5, 0, 0], facing: north }
+
+place:
+  petite_bob:
+    asset: characters/humanoid.yaml
+    slot: petite_bob
+    params: { preset: [feminine, petite], hair_style: bob, hair_color: black, skin_tone: 0.55, eye_color: dark_brown,
+              outfit: dress, top_color: teal, shoe_color: tan }
+  slim_ponytail:
+    asset: characters/humanoid.yaml
+    slot: slim_ponytail
+    params: { preset: [feminine, slim], hair_style: ponytail, hair_color: light_blonde, skin_tone: 0.05, eye_color: blue,
+              outfit: jeans_tee, top_color: white, bottom_color: light_denim, shoe_color: white, freckles: 0.6 }
+  curvy_long:
+    asset: characters/humanoid.yaml
+    slot: curvy_long
+    params: { preset: [feminine, curvy], hair_color: auburn, skin_tone: 0.2, eye_color: green,
+              outfit: skirt_sweater, top_color: mustard, bottom_color: charcoal, shoe_color: brown }
+  tall_bun:
+    asset: characters/humanoid.yaml
+    slot: tall_bun
+    params: { preset: [feminine, tall, athletic], hair_style: bun, hair_color: dark_brown, skin_tone: 0.85,
+              outfit: smart, top_color: burgundy, bottom_color: black, shoe_color: black }
+  heavy_crop_f:
+    asset: characters/humanoid.yaml
+    slot: heavy_crop_f
+    params: { preset: [feminine, heavy], hair_style: pixie, hair_color: grey, skin_tone: 0.3, eye_color: hazel,
+              outfit: casual, top_color: lavender, bottom_color: navy, shoe_color: grey, blush: 0.2 }
+  lanky_buzz:
+    asset: characters/humanoid.yaml
+    slot: lanky_buzz
+    params: { preset: [masculine, lanky], hair_style: afro, hair_color: black, skin_tone: 0.95, eye_color: dark_brown,
+              outfit: shorts_tee, top_color: red, bottom_color: tan, shoe_color: white }
+  athletic_crop:
+    asset: characters/humanoid.yaml
+    slot: athletic_crop
+    params: { preset: [masculine, athletic], hair_color: blonde, skin_tone: 0.12, eye_color: blue,
+              outfit: jeans_tee, top_color: olive, bottom_color: denim, shoe_color: black }
+  stocky_bald:
+    asset: characters/humanoid.yaml
+    slot: stocky_bald
+    params: { preset: [masculine, stocky], hair_style: none, skin_tone: 0.45, eye_color: brown,
+              outfit: smart, top_color: sky, bottom_color: charcoal, shoe_color: brown }
+  heavy_grey:
+    asset: characters/humanoid.yaml
+    slot: heavy_grey
+    params: { preset: [masculine, heavy], hair_color: white, skin_tone: 0.25, eye_color: grey,
+              outfit: casual, top_color: green, bottom_color: tan, shoe_color: brown }
+  tall_long_m:
+    asset: characters/humanoid.yaml
+    slot: tall_long_m
+    params: { preset: [masculine, tall, slim], hair_style: long, hair_color: red, skin_tone: 0.08, eye_color: green, freckles: 0.4,
+              outfit: casual, top_color: charcoal, bottom_color: black, shoe_color: black }
+  hourglass:                              # exaggerated, to test clothing fit
+    asset: characters/humanoid.yaml
+    slot: hourglass
+    params: { preset: [feminine, hourglass], hair_style: long, hair_color: blonde, skin_tone: 0.35, eye_color: hazel,
+              outfit: dress, top_color: red, shoe_color: black }

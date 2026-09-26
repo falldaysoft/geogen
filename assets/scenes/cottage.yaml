@@ -3,6 +3,14 @@
 
 name: cottage
 
+slots:
+  lawn: { position: [0, 0, 8.0], facing: north }
+
+# The player starts on the path to the front door (the gallery would otherwise
+# push the runtime's default start, 3 m past the model bounds, out to z = 11).
+spawns:
+  front_path: { position: [0, 0, 6.4], facing: south }
+
 place:
   house:
     asset: house_peaked.yaml
@@ -70,3 +78,9 @@ place:
     at: { u: { abs: 4.6 }, v: { abs: 3.2 } }
     facing: south
     home: house.floor
+
+  # A gallery of humanoid variants on the front lawn (scenes/people_gallery.yaml),
+  # behind the paths the runtime tests walk up to the door (spawns at z = 6.4).
+  gallery:
+    scene: scenes/people_gallery.yaml
+    slot: lawn

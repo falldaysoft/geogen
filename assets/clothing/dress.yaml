@@ -17,6 +17,6 @@ chains:
     joint_rings: false
     caps: [round, flat]
     rings:
-      - [Spine, 0.05, "{(hips_rx + waist_rx) / 2 + 0.018}", "{0.084 * tf + 0.018}", { power: 2.3 }]
+      - [Spine, 0.05, "{(hips_rx + waist_rx) / 2 + 0.018}", "{(0.084 + 0.03 * belly) * tf + 0.018}", { offset: [0, "{0.018 * belly * tf}"], power: 2.3 }]
       - [Hips, 0.35, "{hips_rx + 0.035}", "{0.09 * tf + 0.016 * glutes + 0.03}", { offset: [0, "{-0.012 * glutes}"], power: 2.3 }]
       - [Hips, 1.0, "{hips_rx + 0.08}", "{0.13 * tf + 0.05}", { offset: [0, -0.01], power: 2.2 }]

@@ -230,6 +230,12 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
         has_mesh = node.mesh is not None and len(node.mesh.faces) > 0
         collider = collider_of(node) if has_mesh else None
         extras = node_extras(node, collider)
+        npc = extras.get("geogen", {}).get("npc")
+        if isinstance(npc, dict) and isinstance(npc.get("body"), dict):
+            # The body child may be renamed on export (other 'body' nodes): point at the exported name.
+            body = next((c for c in node.children if c.name == npc["body"].get("node", "body")), None)
+            if body is not None:
+                extras["geogen"]["npc"] = {**npc, "body": {**npc["body"], "node": name_of(body)}}
         if node.interactions:
             exported = {}
             for interaction in node.interactions:

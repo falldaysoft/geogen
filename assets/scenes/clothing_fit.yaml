@@ -1,0 +1,20 @@
+# Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide
+# hips, narrow waist) in every outfit. Review with
+#   python -m geogen.main -s clothing_fit -r out.png --views front,iso --zoom 3.2
+name: clothing_fit
+slots:
+  s0: { position: [-3.0, 0, 0], facing: north }
+  s1: { position: [-2.0, 0, 0], facing: north }
+  s2: { position: [-1.0, 0, 0], facing: north }
+  s3: { position: [0.0, 0, 0], facing: north }
+  s4: { position: [1.0, 0, 0], facing: north }
+  s5: { position: [2.0, 0, 0], facing: north }
+  s6: { position: [3.0, 0, 0], facing: north }
+place:
+  nude: { asset: characters/humanoid.yaml, slot: s0, params: { preset: [feminine, hourglass], outfit: none } }
+  casual: { asset: characters/humanoid.yaml, slot: s1, params: { preset: [feminine, hourglass], outfit: casual } }
+  jeans_tee: { asset: characters/humanoid.yaml, slot: s2, params: { preset: [feminine, hourglass], outfit: jeans_tee } }
+  dress: { asset: characters/humanoid.yaml, slot: s3, params: { preset: [feminine, hourglass], outfit: dress } }
+  skirt_sweater: { asset: characters/humanoid.yaml, slot: s4, params: { preset: [feminine, hourglass], outfit: skirt_sweater } }
+  shorts_tee: { asset: characters/humanoid.yaml, slot: s5, params: { preset: [feminine, hourglass], outfit: shorts_tee } }
+  casual_f: { asset: characters/humanoid.yaml, slot: s6, params: { preset: [feminine, hourglass], outfit: casual_f } }

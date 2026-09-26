@@ -164,12 +164,18 @@ class LayoutLoader:
         overrides = dict(overrides or {})
         # Named param bundles: params: {preset: feminine, height: 1.6} applies the
         # preset's values, then the explicit ones; a top-level `preset:` is the default.
+        # A list (`preset: [feminine, curvy]`) applies them in order, later ones winning.
         presets = data.get("presets") or {}
         preset = overrides.pop("preset", data.get("preset"))
         if preset is not None:
-            if preset not in presets:
-                raise ValueError(f"'{data.get('name')}': unknown preset '{preset}'. Presets: {sorted(presets)}")
-            overrides = {**presets[preset], **overrides}
+            names = [preset] if isinstance(preset, str) else list(preset)
+            merged: dict[str, Any] = {}
+            for p in names:
+                if p not in presets:
+                    raise ValueError(f"'{data.get('name')}': unknown preset '{p}'. Presets: {sorted(presets)}")
+                merged.update(presets[p])
+            overrides = {**merged, **overrides}
+            preset = "+".join(names)
         resolved_params = resolve_params(declared, overrides)
         # Derived values: expressions over params (and earlier derived values), in order.
         for key, expr in (data.get("derived") or {}).items():

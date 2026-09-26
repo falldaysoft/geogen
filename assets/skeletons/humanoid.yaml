@@ -34,7 +34,7 @@ derived:
   upper_arm: "{height * arm_ratio * 0.54}"
   forearm: "{height * arm_ratio * 0.46}"
   hip_x: "{hip_width / 2}"
-  knee_y: "{height * 0.285}"
+  knee_y: "{height * 0.285 * leg_ratio / 0.53}"   # knee follows the leg length
   ankle_y: "{height * 0.045}"
   heel_z: "{-foot_length * 0.22}"                # heel behind the ankle
   ball_z: "{foot_length * 0.52}"                  # ball of the foot (Toes joint)

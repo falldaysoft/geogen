@@ -165,7 +165,9 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray, NDAr
     min_gap = min(chain.spacing, chain.blend) * 0.35
     keep = np.array([np.any(np.isclose(fixed, x)) or np.min(np.abs(fixed - x)) > min_gap for x in s])
     s = s[keep]
-    spans = [(path.s_of(*sp.start), path.s_of(*sp.end), sp) for sp in chain.spans]
+    # A resample landing within float noise of a key ring (isclose keeps both) would make coincident rings.
+    s = s[np.concatenate([[True], np.diff(s) > 1e-5])]
+    spans =[(path.s_of(*sp.start), path.s_of(*sp.end), sp) for sp in chain.spans]
     bounds = sorted({b for a, e, _ in spans for b in (a, e) if s_keys[0] < b < s_keys[-1]})
     if bounds:
         s = np.unique(np.concatenate([s, bounds]))
