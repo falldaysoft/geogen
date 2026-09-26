@@ -1,0 +1,15 @@
+# Glossy automotive paint in a light neutral: parts set `tint:` (vertex colour)
+# for the actual colour, so one material serves the whole fleet.
+name: car_paint
+texture:
+  type: painted_wall
+  params:
+    base_color: [240, 240, 240]
+    seed: 301
+size: [128, 128]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.22
+  metallic: 0.35
+  normal_strength: 0.0
+  ao_strength: 0.6

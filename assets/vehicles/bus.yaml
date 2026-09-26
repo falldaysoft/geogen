@@ -1,0 +1,213 @@
+# A single-deck city bus: flat front, a continuous window band with painted
+# pillars, doors on the right (kerb side for right-hand traffic; -X). Built
+# along +Z, origin on the ground midway between the axles, left = +X, parts
+# in metres (unit container, `bounds: geometry`). Paint is a vertex tint.
+
+name: bus
+tags: [vehicle.bus]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+params:
+  length:    { default: 11.0 }
+  width:     { default: 2.5 }
+  height:    { default: 3.05 }
+  wheelbase: { default: 5.9 }
+  wheel_r:   { default: 0.5 }
+  tyre_w:    { default: 0.3 }
+  belt:      { default: 1.25 }
+  window_top: { default: 2.6 }
+  pane:      { default: 1.35 }     # pillar spacing along the window band
+  paint:     { default: bus_red, choices: [bus_red, car_white, car_blue, british_green, taxi_yellow, orange, silver] }
+
+derived:
+  lh: "{length / 2}"
+  wz: "{wheelbase / 2 - 0.35}"     # rear overhang is longer than the front
+  wx: "{width / 2 - tyre_w / 2 - 0.05}"
+  band: "{window_top - belt}"
+
+parts:
+  body:
+    primitive: extrude
+    axis: x
+    fit: none
+    shape:
+      - ["{-(lh - 0.05)}", 0.3]
+      - ["{-lh}", 0.6]
+      - ["{-lh}", "{belt}"]
+      - ["{lh}", "{belt}"]
+      - ["{lh}", 0.6]
+      - ["{lh - 0.05}", 0.3]
+      - ["{lh - 0.3}", 0.28]
+      - ["{-(lh - 0.3)}", 0.28]
+    size: ["{width}", "{belt - 0.28}", "{length}"]
+    anchor: bottom_center
+    offset: [0, 0.28, 0]
+    bevel: 0.08
+    subtract: [arch_front, arch_rear]
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+
+  arch_front: &arch
+    primitive: cylinder
+    cutter: true
+    size: ["{2 * wheel_r + 0.14}", "{width + 0.4}", "{2 * wheel_r + 0.14}"]
+    rotation: [0, 0, 90]
+    anchor: bottom_center
+    offset: [0, "{wheel_r - (width + 0.4) / 2}", "{wz + 0.35}"]
+  arch_rear:
+    <<: *arch
+    offset: [0, "{wheel_r - (width + 0.4) / 2}", "{-wz + 0.35 - 0.7}"]
+
+  window_band:
+    primitive: cube
+    size: ["{width - 0.08}", "{band}", "{length - 0.1}"]
+    anchor: bottom_center
+    offset: [0, "{belt}", 0]
+    bevel: 0.04
+    material: car_glass
+    collider: none
+
+  roof:
+    primitive: extrude
+    axis: x
+    fit: none
+    shape: { rect: ["{length}", "{height - window_top}"], radius: 0.18 }
+    size: ["{width}", "{height - window_top}", "{length}"]
+    anchor: bottom_center
+    offset: [0, "{window_top}", 0]
+    bevel: 0.05
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+
+  pillar_1: &pillar
+    primitive: cube
+    size: ["{width - 0.02}", "{band - 0.006}", 0.12]      # 3 mm inside the band's faces (no z-fighting)
+    anchor: bottom_center
+    offset: [0, "{belt + 0.003}", "{lh - 1.2}"]
+    bevel: 0.01
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+  pillar_2: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - pane}"] }
+  pillar_3: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 2 * pane}"] }
+  pillar_4: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 3 * pane}"] }
+  pillar_5: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 4 * pane}"] }
+  pillar_6: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 5 * pane}"] }
+  pillar_7: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 6 * pane}"] }
+  pillar_rear: { <<: *pillar, size: ["{width - 0.02}", "{band - 0.006}", 0.5], offset: [0, "{belt + 0.003}", "{-(lh - 0.3)}"] }
+
+  # Doors on the kerb side (-X): glazed panels from the step to the window top.
+  door_front: &door
+    primitive: cube
+    size: [0.04, "{window_top - 0.35}", 1.1]
+    anchor: bottom_center
+    offset: ["{-(width / 2 + 0.005)}", 0.35, "{lh - 0.75}"]
+    bevel: 0
+    material: car_glass
+    collider: none
+  door_mid:
+    <<: *door
+    offset: ["{-(width / 2 + 0.005)}", 0.35, -0.6]
+
+  destination:
+    primitive: cube
+    size: ["{width - 0.5}", 0.26, 0.04]
+    anchor: bottom_center
+    offset: [0, "{window_top + 0.08}", "{lh + 0.005}"]
+    bevel: 0
+    material: headlight
+    collider: none
+  bumper_front:
+    primitive: cube
+    size: ["{width}", 0.3, 0.14]
+    anchor: bottom_center
+    offset: [0, 0.3, "{lh - 0.03}"]
+    bevel: 0.05
+    material: car_trim
+    collider: none
+  bumper_rear:
+    primitive: cube
+    size: ["{width}", 0.3, 0.14]
+    anchor: bottom_center
+    offset: [0, 0.3, "{-(lh - 0.03)}"]
+    bevel: 0.05
+    material: car_trim
+    collider: none
+  headlight_left: &headlight
+    primitive: cube
+    size: [0.3, 0.16, 0.05]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.3}", 0.72, "{lh + 0.005}"]
+    bevel: 0.02
+    material: headlight
+    collider: none
+  headlight_right:
+    <<: *headlight
+    offset: ["{-(width / 2 - 0.3)}", 0.72, "{lh + 0.005}"]
+  taillight_left: &taillight
+    primitive: cube
+    size: [0.18, 0.5, 0.05]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.15}", 0.65, "{-(lh + 0.005)}"]
+    bevel: 0.02
+    material: taillight
+    collider: none
+  taillight_right:
+    <<: *taillight
+    offset: ["{-(width / 2 - 0.15)}", 0.65, "{-(lh + 0.005)}"]
+  mirror_left: &mirror
+    primitive: cube
+    size: [0.08, 0.35, 0.08]
+    anchor: bottom_center
+    offset: ["{width / 2 + 0.18}", "{window_top - 0.6}", "{lh + 0.2}"]
+    bevel: 0.02
+    material: car_trim
+    collider: none
+  mirror_right:
+    <<: *mirror
+    offset: ["{-(width / 2 + 0.18)}", "{window_top - 0.6}", "{lh + 0.2}"]
+
+  wheel_fl: &wheel
+    primitive: cylinder
+    size: ["{2 * wheel_r}", "{tyre_w}", "{2 * wheel_r}"]
+    bevel: 0.06
+    rotation: [0, 0, -90]
+    anchor: bottom_center
+    offset: ["{wx}", "{wheel_r - tyre_w / 2}", "{wz + 0.35}"]
+    material: tyre
+    collider: none
+  wheel_fr:
+    <<: *wheel
+    rotation: [0, 0, 90]
+    offset: ["{-wx}", "{wheel_r - tyre_w / 2}", "{wz + 0.35}"]
+  wheel_rl:
+    <<: *wheel
+    offset: ["{wx}", "{wheel_r - tyre_w / 2}", "{-wz + 0.35 - 0.7}"]
+  wheel_rr:
+    <<: *wheel
+    rotation: [0, 0, 90]
+    offset: ["{-wx}", "{wheel_r - tyre_w / 2}", "{-wz + 0.35 - 0.7}"]
+  hub_fl: &hub
+    primitive: cylinder
+    size: ["{1.1 * wheel_r}", 0.02, "{1.1 * wheel_r}"]
+    bevel: 0.008
+    attach_to: wheel_fl
+    at: top
+    from: center
+    material: metal
+    collider: none
+  hub_fr: { <<: *hub, attach_to: wheel_fr }
+  hub_rl: { <<: *hub, attach_to: wheel_rl }
+  hub_rr: { <<: *hub, attach_to: wheel_rr }
+
+vehicle:
+  class: bus
+  wheels: [wheel_fl, wheel_fr, wheel_rl, wheel_rr]
+  steer: [wheel_fl, wheel_fr]
+  paint: [body, roof, pillar_1, pillar_2, pillar_3, pillar_4, pillar_5, pillar_6, pillar_7, pillar_rear]
+  lamps: { head: [headlight_left, headlight_right, destination], tail: [taillight_left, taillight_right],
+           brake: [taillight_left, taillight_right] }

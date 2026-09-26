@@ -7,8 +7,10 @@ tags: [vegetation.tree]
 origin: bottom_center
 
 params:
-  scale: { default: 1 }
-  seed:  { default: 1 }
+  scale:  { default: 1 }
+  seed:   { default: 1 }
+  height: { default: 5.2 }     # crown top (m, before scale)
+  trunk:  { default: 0.38 }    # clear trunk as a share of the height (street trees: ~0.6, crown above buses)
 
 size: ["{scale}", "{scale}", "{scale}"]
 bounds: geometry     # declared size = the real extent (the container above is a unit)
@@ -17,10 +19,10 @@ parts:
   tree:
     primitive: tree
     style: deciduous
-    size: [4.0, 5.2, 4.0]          # crown width, height, depth (m, times scale)
+    size: [4.0, "{height}", 4.0]   # crown width, height, depth (m, times scale)
     anchor: bottom_center
     seed: "{seed}"
-    trunk_height: 0.38
+    trunk_height: "{trunk}"
     trunk_radius: "{0.17 * scale}"
     step: "{0.34 * scale}"
     leaf_size: "{0.5 * scale}"

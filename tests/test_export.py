@@ -79,7 +79,7 @@ def test_node_extras_match_schema(built_scene, tmp_path):
     jsonschema = pytest.importorskip("jsonschema")
     from pathlib import Path
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
-    for scene in ("hotel_suite", "cottage", "dining_set"):
+    for scene in ("hotel_suite", "cottage", "dining_set", "vehicle_lineup"):
         gltf = _gltf_json(export_scene(built_scene(scene), tmp_path / f"{scene}.glb"))
         extras = [n["extras"] for n in gltf["nodes"] if "extras" in n]
         assert extras, scene

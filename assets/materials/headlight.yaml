@@ -1,0 +1,16 @@
+# Headlamp lens: cool white glow.
+name: headlight
+texture:
+  type: painted_wall
+  params:
+    base_color: [236, 238, 240]
+    seed: 304
+size: [64, 64]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.1
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [1.0, 0.97, 0.9]
+  emissive_strength: 0.8

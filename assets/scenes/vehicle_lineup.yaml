@@ -1,0 +1,20 @@
+# Vehicles for review: the car presets in a few paints, a van and a bus. Faces +X.
+name: vehicle_lineup
+
+slots:
+  sedan: { position: [0, 0, 0], facing: east }
+  hatchback: { position: [0, 0, 2.6], facing: east }
+  estate: { position: [0, 0, 5.2], facing: east }
+  taxi: { position: [0, 0, 7.8], facing: east }
+  sedan_red: { position: [0, 0, -2.6], facing: east }
+  van: { position: [0, 0, -5.5], facing: east }
+  bus: { position: [0, 0, -9.5], facing: east }
+
+place:
+  sedan: { asset: vehicles/car.yaml, slot: sedan }
+  hatchback: { asset: vehicles/car.yaml, slot: hatchback, params: { preset: hatchback, paint: car_blue } }
+  estate: { asset: vehicles/car.yaml, slot: estate, params: { preset: estate, paint: british_green } }
+  taxi: { asset: vehicles/car.yaml, slot: taxi, params: { preset: taxi } }
+  sedan_red: { asset: vehicles/car.yaml, slot: sedan_red, params: { paint: car_red } }
+  van: { asset: vehicles/van.yaml, slot: van }
+  bus: { asset: vehicles/bus.yaml, slot: bus }

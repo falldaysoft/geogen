@@ -1,0 +1,16 @@
+# Tail lamp lens: red glow.
+name: taillight
+texture:
+  type: painted_wall
+  params:
+    base_color: [170, 20, 24]
+    seed: 305
+size: [64, 64]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.15
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [1.0, 0.08, 0.06]
+  emissive_strength: 0.5

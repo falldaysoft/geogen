@@ -8,11 +8,11 @@ from typing import Any
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
     "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds", "light",
-    "affordances", "container", "poses", "portal", "body", "presets", "preset", "derived", "_params",
+    "affordances", "container", "poses", "portal", "vehicle", "body", "presets", "preset", "derived", "_params",
 }
 
 PART_KNOWN_KEYS = {
-    "primitive", "size", "anchor", "offset", "material",
+    "primitive", "size", "anchor", "offset", "material", "tint", "when",
     "attach_to", "at", "from", "rotation", "bevel", "bevel_segments",
     # extrude / lathe
     "shape", "profile", "axis", "fit", "crease_angle", "caps", "segments", "sweep",
@@ -39,7 +39,7 @@ PART_KNOWN_KEYS = {
 
 # Known keys for scene YAML files
 SCENE_KNOWN_KEYS = {
-    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params", "city",
+    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params", "city", "routes",
 }
 
 SLOT_KNOWN_KEYS = {

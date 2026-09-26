@@ -1,0 +1,253 @@
+# A parametric car: sedan, hatchback, estate or taxi (presets). Built along +Z
+# (the front) with the origin on the ground midway between the axles; left is
+# +X. Parts are in metres (a unit container with `bounds: geometry`).
+#
+# The body is a side profile extruded across the width (axis x maps profile
+# x to -Z, so profile points are written [-z, y]), with the wheel arches cut
+# out; the glasshouse is a narrower extrusion in tinted glass with a painted
+# roof. Paint is a vertex tint (`paint` param) over one neutral material.
+
+name: car
+tags: [vehicle.car]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+params:
+  length:     { default: 4.6 }
+  width:      { default: 1.8 }
+  wheelbase:  { default: 2.7 }
+  wheel_r:    { default: 0.32 }
+  tyre_w:     { default: 0.21 }
+  belt:       { default: 0.95 }    # top of the doors
+  hood:       { default: 0.8 }     # front edge of the bonnet
+  deck:       { default: 0.93 }    # rear edge of the boot lid (or hatch)
+  roof:       { default: 1.44 }
+  screen_z:   { default: 0.85 }    # windscreen base (z)
+  roof_f:     { default: 0.15 }    # roof front / rear (z)
+  roof_r:     { default: -0.85 }
+  back_z:     { default: -1.4 }    # rear window base (z); keep > -(length / 2 - 0.16)
+  taxi:       { default: 0 }       # 1: roof sign
+  paint:      { default: silver, choices: [car_white, silver, graphite, car_black, car_red, maroon, car_blue, car_navy, teal_green, british_green, beige, taxi_yellow, orange] }
+
+presets:
+  sedan: {}
+  hatchback:
+    length: 4.05
+    wheelbase: 2.55
+    deck: 0.98
+    roof: 1.46
+    screen_z: 0.75
+    roof_f: 0.05
+    roof_r: -1.55
+    back_z: -1.8          # must stay in front of the boot-lid point (-(length/2 - 0.16))
+  estate:
+    length: 4.75
+    wheelbase: 2.75
+    deck: 0.98
+    roof_r: -1.95
+    back_z: -2.15
+  taxi:
+    paint: taxi_yellow
+    taxi: 1
+
+derived:
+  lh: "{length / 2}"
+  wz: "{wheelbase / 2}"
+  wx: "{width / 2 - tyre_w / 2 - 0.03}"
+  glass_w: "{width - 0.26}"
+
+parts:
+  body:
+    primitive: extrude
+    axis: x
+    fit: none
+    shape:
+      - ["{-(lh - 0.03)}", 0.22]
+      - ["{-lh}", 0.42]
+      - ["{-(lh - 0.04)}", "{hood - 0.06}"]
+      - ["{-(lh - 0.2)}", "{hood}"]
+      - ["{-(screen_z + 0.05)}", "{belt}"]
+      - ["{-(back_z - 0.02)}", "{belt}"]
+      - ["{lh - 0.18}", "{deck}"]
+      - ["{lh - 0.02}", "{deck - 0.08}"]
+      - ["{lh}", 0.45]
+      - ["{lh - 0.05}", 0.22]
+      - ["{lh - 0.3}", 0.18]
+      - ["{-(lh - 0.3)}", 0.18]
+    size: ["{width}", "{belt - 0.18}", "{length}"]
+    anchor: bottom_center
+    offset: [0, 0.18, 0]
+    bevel: 0.06
+    crease_angle: 35
+    subtract: [arch_front, arch_rear]
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+
+  arch_front: &arch
+    primitive: cylinder
+    cutter: true
+    size: ["{2 * wheel_r + 0.12}", "{width + 0.4}", "{2 * wheel_r + 0.12}"]
+    rotation: [0, 0, 90]
+    anchor: bottom_center
+    offset: [0, "{wheel_r - (width + 0.4) / 2}", "{wz}"]
+  arch_rear:
+    <<: *arch
+    offset: [0, "{wheel_r - (width + 0.4) / 2}", "{-wz}"]
+
+  glasshouse:
+    primitive: extrude
+    axis: x
+    fit: none
+    shape:
+      - ["{-screen_z}", "{belt - 0.02}"]
+      - ["{-roof_f}", "{roof - 0.03}"]
+      - ["{-roof_r}", "{roof - 0.03}"]
+      - ["{-back_z}", "{belt - 0.02}"]
+    size: ["{glass_w}", "{roof - belt - 0.01}", "{screen_z - back_z}"]
+    anchor: bottom_center
+    offset: [0, "{belt - 0.02}", "{(screen_z + back_z) / 2}"]
+    bevel: 0.03
+    material: car_glass
+    collider: none
+
+  roof_panel:
+    primitive: cube
+    size: ["{glass_w + 0.04}", 0.05, "{roof_f - roof_r - 0.06}"]
+    anchor: bottom_center
+    offset: [0, "{roof - 0.055}", "{(roof_f + roof_r) / 2 - 0.02}"]
+    bevel: 0.022
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+
+  b_pillar:
+    primitive: cube
+    size: ["{glass_w + 0.02}", "{roof - belt - 0.046}", 0.09]
+    anchor: bottom_center
+    offset: [0, "{belt - 0.017}", "{(roof_f + roof_r) / 2 + 0.05}"]
+    bevel: 0.01
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+
+  bumper_front:
+    primitive: cube
+    size: ["{width - 0.04}", 0.17, 0.12]
+    anchor: bottom_center
+    offset: [0, 0.22, "{lh - 0.04}"]
+    bevel: 0.04
+    material: car_trim
+    collider: none
+  bumper_rear:
+    primitive: cube
+    size: ["{width - 0.04}", 0.17, 0.12]
+    anchor: bottom_center
+    offset: [0, 0.24, "{-(lh - 0.04)}"]
+    bevel: 0.04
+    material: car_trim
+    collider: none
+  grille:
+    primitive: cube
+    size: ["{width * 0.4}", 0.12, 0.04]
+    anchor: bottom_center
+    offset: [0, "{hood - 0.24}", "{lh - 0.01}"]
+    bevel: 0.01
+    material: car_trim
+    collider: none
+
+  headlight_left: &headlight
+    primitive: cube
+    size: [0.36, 0.09, 0.06]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.3}", "{hood - 0.17}", "{lh - 0.035}"]
+    bevel: 0.02
+    material: headlight
+    collider: none
+  headlight_right:
+    <<: *headlight
+    offset: ["{-(width / 2 - 0.3)}", "{hood - 0.17}", "{lh - 0.035}"]
+  taillight_left: &taillight
+    primitive: cube
+    size: [0.34, 0.1, 0.06]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.26}", "{deck - 0.2}", "{-(lh - 0.04)}"]
+    bevel: 0.02
+    material: taillight
+    collider: none
+  taillight_right:
+    <<: *taillight
+    offset: ["{-(width / 2 - 0.26)}", "{deck - 0.2}", "{-(lh - 0.04)}"]
+
+  mirror_left: &mirror
+    primitive: cube
+    size: [0.16, 0.1, 0.07]
+    anchor: bottom_center
+    offset: ["{width / 2 + 0.03}", "{belt + 0.02}", "{screen_z - 0.1}"]
+    bevel: 0.02
+    material: car_trim
+    collider: none
+  mirror_right:
+    <<: *mirror
+    offset: ["{-(width / 2 + 0.03)}", "{belt + 0.02}", "{screen_z - 0.1}"]
+
+  taxi_sign:
+    when: "{taxi}"
+    primitive: cube
+    size: [0.62, 0.16, 0.2]
+    anchor: bottom_center
+    offset: [0, "{roof - 0.01}", "{(roof_f + roof_r) / 2}"]
+    bevel: 0.03
+    material: headlight
+    collider: none
+
+  # Wheels spin about their local axle (X); left wheels (+X) are turned so their
+  # `top` faces outward, which is where the hub caps sit.
+  wheel_fl: &wheel
+    primitive: cylinder
+    size: ["{2 * wheel_r}", "{tyre_w}", "{2 * wheel_r}"]
+    bevel: 0.05
+    rotation: [0, 0, -90]
+    anchor: bottom_center
+    offset: ["{wx}", "{wheel_r - tyre_w / 2}", "{wz}"]
+    material: tyre
+    collider: none
+  wheel_fr:
+    <<: *wheel
+    rotation: [0, 0, 90]
+    offset: ["{-wx}", "{wheel_r - tyre_w / 2}", "{wz}"]
+  wheel_rl:
+    <<: *wheel
+    offset: ["{wx}", "{wheel_r - tyre_w / 2}", "{-wz}"]
+  wheel_rr:
+    <<: *wheel
+    rotation: [0, 0, 90]
+    offset: ["{-wx}", "{wheel_r - tyre_w / 2}", "{-wz}"]
+
+  hub_fl: &hub
+    primitive: cylinder
+    size: ["{1.25 * wheel_r}", 0.02, "{1.25 * wheel_r}"]
+    bevel: 0.008
+    attach_to: wheel_fl
+    at: top
+    from: center
+    material: metal
+    collider: none
+  hub_fr:
+    <<: *hub
+    attach_to: wheel_fr
+  hub_rl:
+    <<: *hub
+    attach_to: wheel_rl
+  hub_rr:
+    <<: *hub
+    attach_to: wheel_rr
+
+vehicle:
+  class: car
+  wheels: [wheel_fl, wheel_fr, wheel_rl, wheel_rr]
+  steer: [wheel_fl, wheel_fr]
+  paint: [body, roof_panel, b_pillar]
+  lamps: { head: [headlight_left, headlight_right], tail: [taillight_left, taillight_right],
+           brake: [taillight_left, taillight_right] }

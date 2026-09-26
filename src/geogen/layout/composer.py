@@ -309,6 +309,14 @@ class SceneComposer:
 
         root.tags = list(data.get("tags", []))
 
+        # Explicit traffic routes (roads, bus loops) in the scene frame: a lane graph.
+        if data.get("routes"):
+            from ..traffic import routes_graph
+
+            lanes = routes_graph(data["routes"])
+            if lanes is not None:
+                root.meta["traffic"] = lanes
+
         # Spawn points: slot-style positions exported as empty nodes.
         for spawn_name, transform in self._parse_slots(data.get("spawns", {}), size).items():
             root.add_child(SceneNode(name=spawn_name, transform=transform, tags=["spawn"],

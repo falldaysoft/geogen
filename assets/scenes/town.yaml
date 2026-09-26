@@ -1,7 +1,8 @@
 # A small town district: a 3 x 2 street grid with a commercial avenue down
 # the middle (shop rows with flats above, the odd office), a hotel and an
 # apartment block as landmarks, a park, and houses on the side streets.
-# Lamps, trees, benches and hydrants line the sidewalks.
+# Lamps, trees, benches and hydrants line the sidewalks; cars are parked along
+# the kerbs.
 
 name: town
 tags: [city.district]
@@ -29,9 +30,23 @@ city:
       - { recipe: office, storeys: [3, 4], interior: shell, max_width: 14 }
   furniture:
     lamp:    { asset: street_lamp.yaml, spacing: 20 }
-    tree:    { asset: maple_tree.yaml, spacing: 10 }
+    tree:    { asset: maple_tree.yaml, spacing: 10, params: { height: 6.8, trunk: 0.6 } }   # crowns lifted over the road
     bench:   { asset: bench.yaml, per_edge: 1, zones: [commercial, park, landmark] }
     hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13 }   # lane graph for moving traffic
+  parking:                           # parked cars along the kerbs (vehicles/*.yaml)
+    fill: 0.45
+    fleet:
+      - asset: vehicles/car.yaml
+        weight: 6
+        params:
+          preset: { choice: [sedan, hatchback, estate], weights: [3, 3, 1] }
+          paint: { choice: [car_white, silver, graphite, car_black, car_red, maroon, car_blue, car_navy, teal_green, british_green, beige],
+                   weights: [3, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1] }
+      - { asset: vehicles/car.yaml, weight: 1, params: { preset: taxi } }
+      - asset: vehicles/van.yaml
+        weight: 1
+        params: { paint: { choice: [car_white, car_white, silver, car_blue, british_green] } }
 
 spawns:
   start: { position: [-3, 0, -2], facing: north }   # on the avenue, facing the shops

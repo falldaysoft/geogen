@@ -146,6 +146,9 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--affordances", action="store_true",
                         help="Render: pose a character at every affordance (sitting on seats, at windows...) "
                              "and print the affordance QA")
+    parser.add_argument("--lanes", action="store_true",
+                        help="Render: overlay the traffic lane graph (lanes blue, connectors by turn) "
+                             "and print lane-graph and clearance issues")
     parser.add_argument("--filmstrip", type=int, default=0, metavar="N",
                         help="Render with --clip NAME: N copies posed across the clip, side by side")
     parser.add_argument("--state", default=None,
@@ -224,6 +227,17 @@ def main() -> None:
             for issue in check_affordances(root, body=body):
                 print(issue)
             root = stage_actors(root, body=body)
+        if args.lanes:
+            from .materials.loader import MaterialLoader
+            from .traffic import build_traffic, check_clearance, check_graph, lane_overlay
+
+            graph = build_traffic(root)
+            if graph is None:
+                print(f"Warning: {args.scene} has no traffic lanes")
+            else:
+                for issue in check_graph(graph) + check_clearance(root, graph):
+                    print(issue)
+                root.add_child(lane_overlay(graph, MaterialLoader()))
         if args.cutaway:
             from .render import cutaway
 

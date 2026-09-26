@@ -133,7 +133,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     for key, value in node.meta.items():
-        if key != "collider":
+        if key not in ("collider", "traffic"):     # traffic graphs go in the manifest
             data[key] = value.tolist() if hasattr(value, "tolist") else value
     if collider is not None:
         data["collider"] = collider
@@ -236,6 +236,9 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
             body = next((c for c in node.children if c.name == npc["body"].get("node", "body")), None)
             if body is not None:
                 extras["geogen"]["npc"] = {**npc, "body": {**npc["body"], "node": name_of(body)}}
+        vehicle = extras.get("geogen", {}).get("vehicle")
+        if isinstance(vehicle, dict):
+            extras["geogen"]["vehicle"] = _vehicle_exported(vehicle, node, name_of)
         if node.interactions:
             exported = {}
             for interaction in node.interactions:
@@ -306,6 +309,7 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
     ``forward``, the node's +Z axis: the direction the player should face).
     Spawns are ordered shallowest first, so a scene's own spawns come before
     those of nested assets (e.g. every building's ``entrance_spawn`` in a city).
+    Scenes with streets or routes add ``traffic``: the lane graph (geogen/traffic.py).
     """
     rooms, spawns = [], []
     for node in root.iter_nodes():
@@ -331,7 +335,13 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
             spawns.append((depth, {"name": node.name, "position": position,
                                    "forward": [round(float(v), 6) for v in forward]}))
     spawns.sort(key=lambda item: item[0])
-    return {"rooms": rooms, "spawns": [spawn for _, spawn in spawns]}
+    out: dict = {"rooms": rooms, "spawns": [spawn for _, spawn in spawns]}
+    from .traffic import build_traffic
+
+    traffic = build_traffic(root)       # the lane graph (geogen-traffic v1), world space
+    if traffic is not None:
+        out["traffic"] = traffic
+    return out
 
 
 def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,
@@ -753,6 +763,25 @@ def add_punctual_lights(glb: bytes) -> bytes:
     payload += b" " * (-len(payload) % 4)
     body = struct.pack("<II", len(payload), json_type) + payload + rest
     return struct.pack("<III", magic, version, 12 + len(body)) + body
+
+
+def _vehicle_exported(vehicle: dict, node: SceneNode, name_of) -> dict:
+    """``meta.vehicle`` with part names replaced by their exported (uniquified) node names."""
+    by_name: dict[str, SceneNode] = {}
+    for n in node.iter_nodes(include_self=False):
+        by_name.setdefault(n.name, n)
+
+    def rename(part: str) -> str:
+        return name_of(by_name[part]) if part in by_name else part
+
+    out = dict(vehicle)
+    out["wheels"] = [{**w, "part": rename(w["part"])} for w in vehicle.get("wheels", [])]
+    for key in ("steer", "paint", "bogies", "couplers"):
+        if key in vehicle:
+            out[key] = [rename(p) for p in vehicle[key]]
+    if "lamps" in vehicle:
+        out["lamps"] = {k: [rename(p) for p in v] for k, v in vehicle["lamps"].items()}
+    return out
 
 
 def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None,

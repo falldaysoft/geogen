@@ -17,8 +17,8 @@
           "items": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" }
         },
         "type": {
-          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced). npc: a character placed here (see 'npc'); its body asset is the child named by npc.body.node.",
-          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group", "npc"]
+          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced). npc: a character placed here (see 'npc'); its body asset is the child named by npc.body.node. vehicle: a vehicle asset root (see 'vehicle').",
+          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group", "npc", "vehicle"]
         },
         "shape": {
           "description": "Collider nodes only: how the collision geometry was made.",
@@ -262,7 +262,28 @@
         "roof": { "description": "Pitched roof: {style, rise}.", "type": "object" },
         "lod": { "description": "Exterior LOD stand-in of a chunk: {ratio, min_size}.", "type": "object" },
         "interior": { "description": "Root of a streamed building interior chunk: {building}.", "type": "object" },
-        "scatter": { "description": "Scattered copy: {group, index, seed}.", "type": "object" }
+        "scatter": { "description": "Scattered copy: {group, index, seed}.", "type": "object" },
+        "character": { "description": "A person drawn from a character archetype: {archetype, seed}.", "type": "object" },
+        "vehicle": {
+          "description": "A vehicle asset (geogen/vehicles.py), built along +Z with its origin on the ground midway between the axles. Parts named here are descendants of this node: wheels spin about their local X (radius in metres), steer parts turn, paint parts carry the tint, lamps glow by kind. clearance is [length, width, height]; front/rear are the bumper z positions.",
+          "type": "object",
+          "required": ["class", "wheels", "clearance", "max_speed", "turn_radius"],
+          "properties": {
+            "class": { "enum": ["car", "van", "bus", "truck", "loco", "carriage"] },
+            "wheels": { "type": "array", "items": { "type": "object", "required": ["part", "center", "radius"],
+              "properties": { "part": { "type": "string" }, "center": { "$ref": "#/$defs/vec3" }, "radius": { "type": "number" } } } },
+            "steer": { "type": "array", "items": { "type": "string" } },
+            "paint": { "type": "array", "items": { "type": "string" } },
+            "bogies": { "type": "array", "items": { "type": "string" } },
+            "couplers": { "type": "array", "items": { "type": "string" } },
+            "lamps": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+            "wheelbase": { "type": "number" }, "track": { "type": "number" },
+            "clearance": { "$ref": "#/$defs/vec3" },
+            "front": { "type": "number" }, "rear": { "type": "number" },
+            "max_speed": { "type": "number" }, "turn_radius": { "type": "number" },
+            "accel": { "type": "number" }, "decel": { "type": "number" }
+          }
+        }
       },
       "allOf": [
         { "if": { "properties": { "type": { "const": "room_volume" } }, "required": ["type"] },

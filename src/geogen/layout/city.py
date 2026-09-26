@@ -23,6 +23,19 @@ A scene with a ``city:`` block builds a town district::
         tree: { asset: maple_tree.yaml, spacing: 11 }
         bench: { asset: bench.yaml, per_edge: 1, zones: [commercial, park] }
         hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+      parking:                    # parked cars in kerbside bays (static instances)
+        fleet:                    # weighted; params may be draws ({choice}, {random}), per car
+          - { asset: vehicles/car.yaml, weight: 5, params: { preset: { choice: [sedan, hatchback] } } }
+          - { asset: vehicles/van.yaml, weight: 1 }
+        fill: 0.45                # share of bays with a car
+        bay: 6.0                  # bay length (m)
+        drive: right              # cars face the traffic on their kerb
+        both_sides: 11            # streets at least this wide park on both kerbs, else one
+        clear: 4.5                # keep this far from the block corners (crosswalks)
+      traffic:                    # a lane graph for moving vehicles (geogen/traffic.py)
+        drive: right
+        lanes: 1                  # per way; avenue_lanes on avenues
+        speed: 11                 # m/s; avenue_speed on avenues
 
 Geometry: one asphalt slab under the whole district (top at y = 0) with
 crosswalks and centre lines; each block is a platform ``curb_height`` tall:
@@ -53,7 +66,8 @@ from ..core.profile import Shape, rect
 from ..core.transform import Transform
 
 KNOWN = {"seed", "blocks", "block_size", "street_width", "avenues", "avenue_width", "sidewalk", "curb_height",
-         "lot_width", "landmarks", "parks", "buildings", "furniture", "corner_radius"}
+         "lot_width", "landmarks", "parks", "buildings", "furniture", "corner_radius", "parking", "traffic"}
+PARKING_KEYS = {"fleet", "fill", "bay", "drive", "both_sides", "clear", "seed"}
 
 _DEFAULT_SETBACK = {"residential": 3.0, "commercial": 0.0, "landmark": 2.0}
 _LOT_MATERIAL = {"residential": "grass", "park": "grass", "commercial": "concrete", "landmark": "concrete"}
@@ -146,6 +160,7 @@ class CityBuilder:
         self.parks = {_key(k) for k in spec.get("parks", [])}
         self.catalogue = spec.get("buildings", {}) or {}
         self._prototypes: dict[str, tuple[SceneNode, dict[str, Any]]] = {}
+        self._hydrants: list[np.ndarray] = []
 
         # Street centre lines and widths along each axis.
         self.ns_width = [self.avenue if i in self.ns_avenues else self.street for i in range(self.nx + 1)]
@@ -248,6 +263,12 @@ class CityBuilder:
                     block.add_child(self._lot_node(lot, k))
                 city.add_child(block)
         self._furnish_streets(city, lots)
+        self._park_cars(city)
+        from ..traffic import city_graph
+
+        lanes = city_graph(self)
+        if lanes is not None:
+            city.meta["traffic"] = lanes
         root.add_child(city)
         return lots
 
@@ -565,7 +586,75 @@ class CityBuilder:
         node.meta["street_furniture"] = kind
         group.add_child(node)
         taken.append(p)
+        if kind == "hydrant":
+            self._hydrants.append(p)
         return True
+
+    # --- parked cars -----------------------------------------------------------------------------
+
+    def _street_width_at(self, i: int, j: int, side: str) -> float:
+        """Width of the street on ``side`` of block (i, j)."""
+        return {"south": self.ew_width[j], "north": self.ew_width[j + 1],
+                "west": self.ns_width[i], "east": self.ns_width[i + 1]}[side]
+
+    def _park_cars(self, city: SceneNode) -> None:
+        spec = self.spec.get("parking")
+        if not spec:
+            return
+        from ..characters import draw_params
+
+        unknown = set(spec) - PARKING_KEYS
+        if unknown:
+            raise ValueError(f"city parking: unknown keys {sorted(unknown)}. Known: {sorted(PARKING_KEYS)}")
+        fleet = list(spec.get("fleet") or [])
+        if not fleet:
+            return
+        rng = np.random.default_rng(int(spec.get("seed", int(self.spec.get("seed", 0)) + 101)))
+        weights = np.array([float(e.get("weight", 1.0)) for e in fleet])
+        fill, bay = float(spec.get("fill", 0.45)), float(spec.get("bay", 6.0))
+        clear = float(spec.get("clear", 4.5))
+        both = float(spec.get("both_sides", 11.0))
+        hand = 1.0 if spec.get("drive", "right") == "right" else -1.0
+        group = SceneNode(name="parked_cars", tags=["street.parking"])
+        for i in range(self.nx):
+            for j in range(self.nz):
+                lo, hi = self.block_rect(i, j)
+                edges = {"south": (np.array([lo[0], lo[1]]), np.array([hi[0], lo[1]])),
+                         "north": (np.array([lo[0], hi[1]]), np.array([hi[0], hi[1]])),
+                         "west": (np.array([lo[0], lo[1]]), np.array([lo[0], hi[1]])),
+                         "east": (np.array([hi[0], lo[1]]), np.array([hi[0], hi[1]]))}
+                for side, (a, b) in edges.items():
+                    # Narrow streets park on one kerb only: the block's south/west edges
+                    # (the north/east side of the street).
+                    if self._street_width_at(i, j, side) < both and side in ("north", "east"):
+                        continue
+                    out = _OUT[side]
+                    heading = hand * np.array([-out[1], out[0]])     # kerb on the driver's near side
+                    yaw = float(np.arctan2(heading[0], heading[1]))
+                    length = float(np.linalg.norm(b - a))
+                    u = (b - a) / length
+                    n_bays = int((length - 2 * clear) // bay)
+                    start = (length - n_bays * bay) / 2
+                    for k in range(n_bays):
+                        centre = a + u * (start + (k + 0.5) * bay)
+                        if rng.random() >= fill:
+                            continue
+                        if any(np.linalg.norm(centre - h) < bay / 2 + 1.5 for h in self._hydrants):
+                            continue       # keep hydrants clear
+                        entry = fleet[int(rng.choice(len(fleet), p=weights / weights.sum()))]
+                        params = draw_params(entry.get("params"), rng)
+                        proto, _, _ = self._prototype({**{k2: v for k2, v in entry.items() if k2 != "weight"},
+                                                       "params": params})
+                        node = _instance(proto)
+                        width = float(proto.meta.get("vehicle", {}).get("clearance", [0, 1.8, 0])[1])
+                        p = centre + out * (0.3 + width / 2)
+                        node.name = f"parked_{len(group.children) + 1}"
+                        node.transform = Transform(translation=np.array([p[0], 0.0, p[1]]),
+                                                   rotation=np.array([0.0, yaw, 0.0]))
+                        node.meta["parked"] = {"block": [i, j], "side": side}
+                        group.add_child(node)
+        if group.children:
+            city.add_child(group)
 
 
 def build_city(root: SceneNode, spec: dict[str, Any], load, material_loader) -> list[Lot]:

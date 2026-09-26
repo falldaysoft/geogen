@@ -12,6 +12,9 @@ from .layout import LayoutLoader, SceneComposer
 SceneFactory = Callable[[], SceneNode]
 
 
+ASSET_SUBDIRS = ("vehicles",)
+
+
 class SceneRegistry:
     """Registry that maps scene names to factory functions.
 
@@ -51,6 +54,7 @@ class SceneRegistry:
 
         - ``assets/*.yaml`` are loaded as individual assets via LayoutLoader
         - ``assets/scenes/*.yaml`` are loaded as composed scenes via SceneComposer
+        - ``assets/<sub>/*.yaml`` for ``ASSET_SUBDIRS`` (vehicles) are assets too
         """
         # Discover assets and composed scenes in root assets dir
         for yaml_path in sorted(self._assets_dir.glob("*.yaml")):
@@ -59,6 +63,13 @@ class SceneRegistry:
                 if self._is_composed_scene(yaml_path):
                     self._register_composed_scene(name, yaml_path)
                 else:
+                    self._register_asset(name, yaml_path)
+
+        # Asset libraries in subdirectories (vehicles/sedan.yaml -> "sedan").
+        for sub in ASSET_SUBDIRS:
+            for yaml_path in sorted((self._assets_dir / sub).glob("*.yaml")):
+                name = yaml_path.stem
+                if name not in self._factories and not self._is_spec(yaml_path):
                     self._register_asset(name, yaml_path)
 
         # Discover composed scenes

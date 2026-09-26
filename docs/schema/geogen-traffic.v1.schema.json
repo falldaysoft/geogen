@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geogen.dev/schema/geogen-traffic.v1.schema.json",
+  "title": "geogen traffic lane graph, version 1",
+  "description": "The 'traffic' section of a geogen manifest / chunk index (geogen/traffic.py). World space, metres, +Y up. Lanes are directed polylines resampled every 'step' metres; a vehicle is (lane, s, v) and follows the points. A lane's end is its stop line; 'successors' are the lanes (connectors through an intersection, or the next lane) it may continue on.",
+  "type": "object",
+  "required": ["version", "drive", "step", "lanes", "conflicts", "intersections"],
+  "properties": {
+    "version": { "const": 1 },
+    "drive": { "enum": ["right", "left"] },
+    "step": { "type": "number", "exclusiveMinimum": 0 },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "speed", "length", "points", "successors"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "description": "lane: a street lane between intersections; connector: a movement through an intersection; route: an explicitly declared road.", "enum": ["lane", "connector", "route"] },
+          "speed": { "description": "Speed limit (m/s), already capped by the lane's curvature.", "type": "number", "exclusiveMinimum": 0 },
+          "length": { "type": "number" },
+          "points": { "type": "array", "minItems": 2, "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } },
+          "successors": { "type": "array", "items": { "type": "string" } },
+          "road": { "type": "string" },
+          "turn": { "enum": ["straight", "left", "right"] },
+          "intersection": { "type": "string" },
+          "end": { "description": "exit: vehicles leave the world at this lane's end (open routes).", "const": "exit" },
+          "crosswalks": { "description": "s-ranges (metres along the lane) that cross a crosswalk: yield to people there.", "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } }
+        }
+      }
+    },
+    "conflicts": {
+      "description": "Connector pairs in one intersection whose paths come within a vehicle width: a vehicle claims the zone before entering its s-range.",
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["a", "b", "a_range", "b_range"],
+        "properties": {
+          "a": { "type": "string" }, "b": { "type": "string" },
+          "a_range": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "b_range": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+        }
+      }
+    },
+    "intersections": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["id", "control", "connectors", "center"],
+        "properties": {
+          "id": { "type": "string" },
+          "control": { "enum": ["all_way", "signals"] },
+          "connectors": { "type": "array", "items": { "type": "string" } },
+          "center": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+        }
+      }
+    }
+  }
+}

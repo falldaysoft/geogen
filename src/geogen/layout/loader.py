@@ -248,7 +248,8 @@ class LayoutLoader:
             room_node = self._create_room_node(name, container_size, room_config)
             root.add_child(room_node)
 
-        parts = data.get("parts", {})
+        # `when: "{expr}"` drops a part (and parts attached to it) when it resolves to 0 / false.
+        parts = _enabled_parts(data.get("parts", {}))
 
         # First pass: create all parts and track which have attachments
         part_nodes: dict[str, SceneNode] = {}
@@ -409,6 +410,7 @@ class LayoutLoader:
                 root.add_child(node)
 
         self._apply_booleans(parts, part_nodes, root)
+        _apply_tints(parts, part_nodes)
 
         # Parse explicit attachment points for the composite object
         attachments_data = data.get("attachments", {})
@@ -441,6 +443,11 @@ class LayoutLoader:
             from ..npc import parse_portal
 
             root.meta["portal"] = parse_portal(data["portal"], root.interactions)
+        if data.get("vehicle"):
+            from ..vehicles import parse_vehicle
+
+            root.meta["vehicle"] = parse_vehicle(data["vehicle"], root, part_nodes)
+            root.meta["type"] = "vehicle"
 
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,
@@ -993,6 +1000,45 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
                    "advertises", "tags", "slots", "interaction"}
+
+
+def _apply_tints(parts: dict[str, Any], part_nodes: dict[str, SceneNode]) -> None:
+    """``tint:`` is a vertex colour over the part's material (one light neutral material,
+    many colours: car paint); generated children are tinted too. Runs after CSG."""
+    from ..materials.loader import resolve_tint
+
+    for name, part_def in parts.items():
+        node = part_nodes.get(name)
+        if part_def.get("tint") is None or node is None:
+            continue
+        rgba = [*resolve_tint(part_def["tint"]), 1.0]
+        for child in node.iter_nodes():
+            if child.mesh is not None:
+                child.mesh.colors = np.tile(rgba, (len(child.mesh.vertices), 1))
+
+
+def _enabled_parts(parts: dict[str, Any]) -> dict[str, Any]:
+    """Parts whose ``when:`` is truthy (default), minus parts attached to dropped ones."""
+    def on(value: Any) -> bool:
+        if isinstance(value, str):
+            return value.strip().lower() not in ("", "0", "false", "no", "none")
+        return bool(value)
+
+    kept = {k: v for k, v in (parts or {}).items() if on(v.get("when", True))}
+    changed = True
+    while changed:
+        changed = False
+        for k, v in list(kept.items()):
+            if v.get("attach_to") is not None and v["attach_to"] not in kept:
+                del kept[k]
+                changed = True
+    out = {}
+    for k, v in kept.items():
+        v = {kk: vv for kk, vv in v.items() if kk != "when"}
+        if "subtract" in v:
+            v["subtract"] = [c for c in v["subtract"] if c in kept]
+        out[k] = v
+    return out
 
 
 def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:

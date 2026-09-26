@@ -68,6 +68,39 @@ PAINT_PALETTE: dict[str, tuple[int, int, int]] = {
     "forest": (52, 84, 64),
 }
 
+# Vehicle paints (a part's `tint:` may name these or a PAINT_PALETTE colour).
+VEHICLE_PAINT: dict[str, tuple[int, int, int]] = {
+    "car_white": (232, 233, 230),
+    "silver": (168, 172, 176),
+    "graphite": (78, 82, 88),
+    "car_black": (22, 23, 26),
+    "car_red": (168, 22, 26),
+    "maroon": (98, 26, 34),
+    "car_blue": (34, 72, 150),
+    "car_navy": (26, 36, 66),
+    "teal_green": (28, 98, 92),
+    "british_green": (22, 64, 40),
+    "beige": (196, 182, 150),
+    "taxi_yellow": (238, 186, 22),
+    "bus_red": (190, 28, 30),
+    "orange": (224, 110, 30),
+}
+
+
+def resolve_tint(value) -> tuple[float, float, float]:
+    """A tint as linear-ish 0..1 RGB: a palette name, [r, g, b] in 0..1, or [r, g, b] in 0..255."""
+    if isinstance(value, str):
+        rgb = VEHICLE_PAINT.get(value) or PAINT_PALETTE.get(value)
+        if rgb is None:
+            raise ValueError(f"Unknown tint '{value}'; colours: {sorted({**PAINT_PALETTE, **VEHICLE_PAINT})}")
+        return tuple(c / 255.0 for c in rgb)  # type: ignore[return-value]
+    values = [float(v) for v in value]
+    if len(values) != 3:
+        raise ValueError(f"tint must be a colour name or [r, g, b], got {value!r}")
+    if max(values) > 1.0:
+        values = [v / 255.0 for v in values]
+    return tuple(values)  # type: ignore[return-value]
+
 
 class MaterialLoader:
     """Loads material definitions from YAML files.

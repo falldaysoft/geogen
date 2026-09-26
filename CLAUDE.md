@@ -236,6 +236,45 @@ pytest tests/test_scenes.py -k "test_name"
       at: [seat_front, seat_back, seat_left, seat_right]
   ```
 
+### Vehicles
+
+`assets/vehicles/*.yaml` are registered by stem (`-s car`); `vehicle_lineup` is the review scene. The assets are:
+- `car.yaml`, with presets sedan, hatchback, estate and taxi;
+- `van.yaml`;
+- `bus.yaml`.
+
+They're built along +Z (the front) with the origin on the ground midway between the axles; left = +X. Parts are in metres (a unit container with `bounds: geometry`).
+- **Construction:** the body is a side profile `extrude` with `axis: x`, so profile points are `[-z, y]`. Wheel arches are cut by cylinder cutters. Glass is `car_glass`. The body colour is a `paint` choice param applied as `tint: "{paint}"` over the neutral `car_paint` material.
+- **Tints:** part `tint:` (a palette name or RGB) writes vertex colours after CSG. Palettes are `VEHICLE_PAINT` and `PAINT_PALETTE` in `materials/loader.py`.
+- **Conditional parts:** part `when: "{expr}"` drops the part, and parts attached to it, when the expression is 0 or false (the taxi sign).
+- **`vehicle:` block:** handled by `geogen/vehicles.py` and becomes `meta.vehicle` (`meta.type: vehicle`, schema-validated). Its keys:
+  - `class`, `wheels`, `steer`, `paint` and `lamps {head, tail, brake}`, all naming parts;
+  - `bogies` and `couplers` for rail;
+  - `max_speed`, `turn_radius`, `accel`, `decel`.
+- **Measured values:** wheel centres and radii, wheelbase, track, `clearance [length, width, height]`, and front/rear bumper z.
+- **Export:** rewrites these part names to the exported (uniquified) node names.
+- City `parking:` (`fleet` weighted with draw params, `fill`, `bay`, `drive`, `both_sides`, `clear`) puts static cars in kerbside bays.
+  - Cars face the traffic on their kerb and keep clear of corners and hydrants.
+  - Streets narrower than `both_sides` park on one kerb only.
+  - Nodes carry `meta.parked`.
+  - Tests: `tests/test_vehicles.py`. Traffic epic: geogen-r65.
+
+### Traffic lanes
+
+`geogen/traffic.py` builds a lane graph for vehicles. It is precomputed so the runtime only follows curves.
+- **City lanes:** `city: {traffic: {drive, lanes, avenue_lanes, speed, avenue_speed, turns}}` gives:
+  - directed lanes per street segment, laid across the carriageway that's left after parking and running between the crosswalks (a lane's end is its stop line);
+  - Bézier connectors through each intersection (`turn` straight/left/right, with the kerb-side turn from the kerb lane).
+- **Routes:** scene `routes: {name: {path | {spline}, lanes, drive, speed, loop, lane_width}}` declares explicit roads. Open routes `end: exit`.
+- **Precomputed data:**
+  - lanes resampled every 0.5 m, with the lane `speed` capped by curvature;
+  - `conflicts` (connector pairs within 2.2 m in one intersection, with s-ranges);
+  - connector `crosswalks` s-ranges;
+  - `intersections` (`control: all_way`).
+- **Storage and export:** graphs live in `meta.traffic` of the city/scene node (not exported as extras). `build_traffic(scene)` merges them in world space into the manifest's and chunk index's `traffic` section, with schema `docs/schema/geogen-traffic.v1.schema.json`.
+- **QA:** `check_graph` finds dead ends and unknown successors. `check_clearance` sweeps car/van/bus boxes along every lane against geometry. Town street trees use `maple_tree` `height: 6.8, trunk: 0.6` so the crowns clear buses.
+- **Review:** `-r out.png --lanes` overlays ribbons (lanes blue, straight green, left orange, right magenta) and prints issues. Tests: `tests/test_traffic.py`.
+
 ### Characters
 
 Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): an asset with a `body:` block is a skeleton (`core/skeleton.py`) skinned by ring-lofted chains (`generators/ringloft.py`).
