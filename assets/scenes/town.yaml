@@ -48,5 +48,8 @@ city:
         weight: 1
         params: { paint: { choice: [car_white, car_white, silver, car_blue, british_green] } }
 
+place:
+  traffic: { traffic: traffic/town.yaml, seed: 3 }   # moving vehicles on the lanes
+
 spawns:
   start: { position: [-3, 0, -2], facing: north }   # on the avenue, facing the shops

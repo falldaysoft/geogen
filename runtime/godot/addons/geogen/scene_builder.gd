@@ -20,7 +20,7 @@ const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable",
 	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan", "gate", "nav", "stairs",
 	"storey", "building", "facade", "walkable", "affordances", "container", "switch", "level", "ratio",
 	"city", "block", "lot", "street_furniture", "recipe", "roof", "lod", "interior", "scatter",
-	"npc", "portal", "poses"]
+	"npc", "portal", "poses", "vehicle", "parked", "fleet", "driving", "character", "clips", "preset", "tree"]
 
 
 static func extras(node: Node) -> Dictionary:

@@ -1,0 +1,33 @@
+# Traffic for a town: which vehicles drive the lanes and how (geogen/traffic.py).
+# Place with:  place: { traffic: { traffic: traffic/town.yaml, seed: 3 } }
+# The scene needs lanes (city: {traffic: ...} or routes:). The starting vehicles
+# are placed on the lanes at generation time; the runtime (runtime/godot/scripts/
+# traffic.gd) drives them and clones them for later arrivals.
+kind: traffic
+version: 1
+
+fleet:
+  - asset: vehicles/car.yaml
+    weight: 6
+    params:
+      preset: { choice: [sedan, hatchback, estate], weights: [3, 3, 1] }
+      paint: { choice: [car_white, silver, graphite, car_black, car_red, maroon, car_blue, car_navy, teal_green, british_green, beige],
+               weights: [3, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1] }
+  - { asset: vehicles/car.yaml, weight: 1, params: { preset: taxi } }
+  - asset: vehicles/van.yaml
+    weight: 1.5
+    params: { paint: { choice: [car_white, car_white, silver, car_blue, british_green] } }
+  - { asset: vehicles/bus.yaml, weight: 0.6 }
+
+count: 16                 # vehicles on the road
+spacing: 12               # minimum gap between starting vehicles on a lane (m)
+driving:                  # Intelligent Driver Model + all-way stops
+  accel: 1.8              # m/s²
+  decel: 3.0              # comfortable braking, m/s²
+  headway: 1.3            # s
+  gap: 2.5                # standstill gap, m
+  speed_factor: [0.85, 1.1]   # each driver's share of the limit
+  stop: all_way           # stop at every intersection, first come first served
+  stop_wait: 0.8          # s at the stop line
+turns: { straight: 0.6, left: 0.2, right: 0.2 }
+yield: [player, npc]      # stop for people in the lane ahead or on a crosswalk

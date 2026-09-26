@@ -37,8 +37,10 @@ VERSION = 1
 STEP = 0.5                  # resampling step (m)
 LATERAL_ACCEL = 2.5         # m/s² for the curvature speed cap
 LANE_WIDTH = 3.0            # default lane width (m)
+LANE_ENTRY = 4.0            # lanes start this far past the crosswalk (m): turning buses straighten first
+STOP_SETBACK = 3.0          # stop lines sit this far before the crosswalk (m)
 PARKING_DEPTH = 2.3         # kerb to the outer edge of a parked car (m)
-CONFLICT_GAP = 2.2          # connector paths closer than this conflict (m)
+CONFLICT_GAP = 3.6          # connector paths closer than this conflict (m): a bus plus its off-tracking in turns
 TRAFFIC_KEYS = {"drive", "lanes", "avenue_lanes", "speed", "avenue_speed", "turns", "control"}
 ROUTE_KEYS = {"path", "lanes", "drive", "speed", "loop", "lane_width", "y"}
 # Vehicle classes swept along every lane for clearance: (width, height) in metres.
@@ -150,7 +152,8 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
         return arms.setdefault(node, {}).setdefault(side, ([], []))
 
     def street(axis: str, k: int, a: float, b: float, lo: float, hi: float, n0, n1, avenue: bool):
-        """Lanes on one segment. axis 'z': a north-south street (x in [a, b]) from z=lo to z=hi."""
+        """Lanes on one segment. axis 'z': a north-south street (x in [a, b]) whose crosswalks
+        end at z=lo and start at z=hi."""
         width = b - a
         # Parking lanes: on streets narrower than `both`, only the north/east kerb (x = b / z = b).
         park_lo = PARKING_DEPTH if parking and width >= both else 0.0
@@ -168,11 +171,12 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
                 # is the outermost.
                 sign = -direction * hand if axis == "z" else direction * hand
                 lateral = mid + sign * (n_way - m - 0.5) * lane_w
+                # From just past the crosswalk to the stop line, set back so a bus turning
+                # across the end of the lane clears the car waiting there.
+                s0, s1 = (lo + LANE_ENTRY, hi - STOP_SETBACK) if direction > 0 else (hi - LANE_ENTRY, lo + STOP_SETBACK)
                 if axis == "z":
-                    s0, s1 = (lo, hi) if direction > 0 else (hi, lo)
                     pts = np.array([[lateral, 0.0, s0], [lateral, 0.0, s1]])
                 else:
-                    s0, s1 = (lo, hi) if direction > 0 else (hi, lo)
                     pts = np.array([[s0, 0.0, lateral], [s1, 0.0, lateral]])
                 src, dst = (n0, n1) if direction > 0 else (n1, n0)
                 lane = Lane(f"{road}_{'p' if direction > 0 else 'n'}{m}", "lane", resample(pts), limit, road=road)
@@ -187,11 +191,11 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     for i, (a, b) in enumerate(ns_spans):
         for j in range(builder.nz):
             z0, z1 = builder.z_edges[j]
-            street("z", i, a, b, z0 + sw + 1.0, z1 - sw - 1.0, (i, j), (i, j + 1), i in builder.ns_avenues)
+            street("z", i, a, b, z0 + sw, z1 - sw, (i, j), (i, j + 1), i in builder.ns_avenues)
     for j, (a, b) in enumerate(ew_spans):
         for i in range(builder.nx):
             x0, x1 = builder.x_edges[i]
-            street("x", j, a, b, x0 + sw + 1.0, x1 - sw - 1.0, (i, j), (i + 1, j), j in builder.ew_avenues)
+            street("x", j, a, b, x0 + sw, x1 - sw, (i, j), (i + 1, j), j in builder.ew_avenues)
 
     heading = {"north": np.array([0.0, 1.0]), "south": np.array([0.0, -1.0]),
                "east": np.array([1.0, 0.0]), "west": np.array([-1.0, 0.0])}
@@ -526,3 +530,123 @@ def lane_overlay(graph: dict[str, Any], material_loader=None) -> SceneNode:
             node.mesh.material = material_loader.load("lamp_shade")
         group.add_child(node)
     return group
+
+
+# --- fleets (what moves) ------------------------------------------------------------------------
+
+FLEET_KIND = "traffic"
+SPAWN_CLEARANCE = 12.0      # starting vehicles keep this far from spawns and NPCs (m)
+FLEET_KEYS = {"kind", "version", "fleet", "count", "spacing", "driving", "turns", "yield", "radius", "seed",
+              "description"}
+FLEET_ENTRY_KEYS = {"asset", "weight", "params", "lanes"}
+DRIVING_DEFAULTS = {"accel": 1.8, "decel": 3.0, "headway": 1.3, "gap": 2.5, "speed_factor": [0.85, 1.1],
+                    "stop": "all_way", "stop_wait": 0.8, "look_ahead": 14.0, "give_up": 25.0}
+TURN_DEFAULTS = {"straight": 0.6, "left": 0.2, "right": 0.2}
+
+
+def load_fleet(path) -> dict[str, Any]:
+    """Validate a ``kind: traffic`` definition (assets/traffic/*.yaml)."""
+    from pathlib import Path
+
+    from .layout.yaml_utils import safe_load_path
+
+    data = safe_load_path(path) or {}
+    if data.get("kind") != FLEET_KIND or int(data.get("version", 0)) != VERSION:
+        raise ValueError(f"{path}: expected kind '{FLEET_KIND}' version {VERSION}")
+    unknown = set(data) - FLEET_KEYS
+    if unknown:
+        raise ValueError(f"{path}: unknown keys {sorted(unknown)}; known: {sorted(FLEET_KEYS)}")
+    fleet = []
+    for i, entry in enumerate(data.get("fleet") or []):
+        if set(entry) - FLEET_ENTRY_KEYS or "asset" not in entry:
+            raise ValueError(f"{path}: fleet[{i}] needs asset (keys: {sorted(FLEET_ENTRY_KEYS)})")
+        fleet.append({"asset": entry["asset"], "weight": float(entry.get("weight", 1.0)),
+                      "params": entry.get("params") or {}, "lanes": entry.get("lanes")})
+    if not fleet:
+        raise ValueError(f"{path}: fleet is empty")
+    driving = {**DRIVING_DEFAULTS, **(data.get("driving") or {})}
+    if set(driving) - set(DRIVING_DEFAULTS):
+        raise ValueError(f"{path}: driving keys are {sorted(DRIVING_DEFAULTS)}")
+    turns = {**TURN_DEFAULTS, **(data.get("turns") or {})}
+    yields = list(data.get("yield", ["player", "npc"]))
+    if set(yields) - {"player", "npc"}:
+        raise ValueError(f"{path}: yield to player and/or npc")
+    return {"definition": Path(path).stem, "fleet": fleet, "count": int(data.get("count", 12)),
+            "spacing": float(data.get("spacing", 14.0)), "driving": driving, "turns": turns,
+            "yield": yields, "radius": float(data.get("radius", 0.0)), "seed": int(data.get("seed", 0))}
+
+
+def _pose_on_lane(points: np.ndarray, s: float, half_base: float) -> tuple[np.ndarray, float]:
+    """Position (midway between axles) and yaw of a vehicle at ``s`` on a lane: the axles sit
+    on the curve ``half_base`` behind and ahead (clamped to the lane)."""
+    cum = _cumulative(points)
+
+    def at(t: float) -> np.ndarray:
+        t = min(max(t, 0.0), cum[-1])
+        return np.array([np.interp(t, cum, points[:, k]) for k in range(3)])
+
+    rear, front = at(s - half_base), at(s + half_base)
+    d = front - rear
+    return (rear + front) / 2, float(np.arctan2(d[0], d[2]))
+
+
+def place_traffic(root: SceneNode, name: str, spec: dict[str, Any], load, graph: dict[str, Any] | None,
+                  assets_dir) -> SceneNode:
+    """The traffic placement: a node carrying ``meta.fleet`` whose children are the starting
+    vehicles, each on a lane (``meta.driving = {lane, s, factor}``). Runtimes drive these
+    and clone them for later arrivals; renders show the traffic as a snapshot."""
+    from pathlib import Path
+
+    from .characters import draw_params
+
+    fleet = load_fleet(Path(assets_dir) / spec["traffic"])
+    seed = int(spec.get("seed", fleet["seed"]))
+    rng = np.random.default_rng(seed)
+    node = SceneNode(name, tags=["traffic"])
+    node.meta["type"] = "traffic"
+    node.meta["fleet"] = {k: v for k, v in fleet.items() if k != "fleet"}
+    node.meta["fleet"]["seed"] = seed
+    if graph is None:
+        raise ValueError(f"traffic '{name}': the scene has no lanes (city traffic: or routes:)")
+    lanes = [ln for ln in graph["lanes"] if ln["kind"] in ("lane", "route") and ln["length"] > 8.0]
+    # Starting vehicles keep clear of where players and NPCs start.
+    to_root = np.linalg.inv(root.world_transform())
+    keep_clear = [(to_root @ n.world_transform())[:3, 3] for n in root.iter_nodes()
+                  if n.meta.get("type") in ("spawn", "npc")]
+    weights = np.array([e["weight"] for e in fleet["fleet"]])
+    taken: dict[str, list[tuple[float, float]]] = {}      # lane -> [(s, half length)]
+    count = fleet["count"]
+    tries = 0
+    while len(node.children) < count and tries < count * 40:
+        tries += 1
+        entry = fleet["fleet"][int(rng.choice(len(weights), p=weights / weights.sum()))]
+        pool = [ln for ln in lanes if not entry["lanes"] or any(ln["id"].startswith(p) for p in entry["lanes"])]
+        if not pool:
+            continue
+        lengths = np.array([ln["length"] for ln in pool])
+        lane = pool[int(rng.choice(len(pool), p=lengths / lengths.sum()))]
+        params = draw_params(entry["params"], rng)
+        vehicle = load({"asset": entry["asset"], "params": params})
+        v = vehicle.meta.get("vehicle")
+        if v is None:
+            raise ValueError(f"traffic '{name}': {entry['asset']} has no vehicle: block")
+        half = v["clearance"][0] / 2
+        if lane["length"] < 2 * half + 4.0:
+            continue          # too short for this vehicle
+        s = float(rng.uniform(half + 1.0, lane["length"] - half - 1.0))
+        if any(abs(s - s2) < half + h2 + fleet["spacing"] for s2, h2 in taken.get(lane["id"], [])):
+            continue
+        taken.setdefault(lane["id"], []).append((s, half))
+        pts = np.asarray(lane["points"], dtype=np.float64)
+        position, yaw = _pose_on_lane(pts, s, v.get("wheelbase", 2.6) / 2)
+        if any(np.linalg.norm((position - p)[[0, 2]]) < half + SPAWN_CLEARANCE for p in keep_clear):
+            taken[lane["id"]].pop()
+            continue
+        from .core.transform import Transform
+
+        vehicle.name = f"{name}_{len(node.children) + 1}"
+        vehicle.transform = Transform(translation=position, rotation=np.array([0.0, yaw, 0.0]))
+        lo, hi = fleet["driving"]["speed_factor"]
+        vehicle.meta["driving"] = {"lane": lane["id"], "s": round(s, 3), "factor": round(float(rng.uniform(lo, hi)), 3)}
+        node.add_child(vehicle)
+    return node

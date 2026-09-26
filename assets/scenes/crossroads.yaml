@@ -1,0 +1,31 @@
+# A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an
+# avenue, parked cars and moving traffic (assets/traffic/town.yaml). Used by the
+# traffic runtime tests (tests/test_traffic_runtime.py); quick to export.
+name: crossroads
+tags: [city.district]
+
+city:
+  seed: 2
+  blocks: [2, 2]
+  block_size: [30, 26]
+  street_width: 8
+  avenues: { ew: [1] }
+  avenue_width: 12
+  sidewalk: 3
+  parks: ["0,0", "1,0", "0,1", "1,1"]
+  furniture:
+    lamp: { asset: street_lamp.yaml, spacing: 18 }
+    tree: { asset: maple_tree.yaml, spacing: 12, params: { height: 6.8, trunk: 0.6 } }
+    hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13 }
+  parking:
+    fill: 0.35
+    fleet:
+      - { asset: vehicles/car.yaml, weight: 4, params: { paint: { choice: [car_white, silver, car_red, car_blue, graphite] } } }
+      - { asset: vehicles/van.yaml, weight: 1 }
+
+place:
+  traffic: { traffic: traffic/town.yaml, seed: 5 }
+
+spawns:
+  start: { position: [-20, 0.15, -8.5], facing: north }   # on the avenue's south sidewalk

@@ -274,6 +274,11 @@ They're built along +Z (the front) with the origin on the ground midway between 
 - **Storage and export:** graphs live in `meta.traffic` of the city/scene node (not exported as extras). `build_traffic(scene)` merges them in world space into the manifest's and chunk index's `traffic` section, with schema `docs/schema/geogen-traffic.v1.schema.json`.
 - **QA:** `check_graph` finds dead ends and unknown successors. `check_clearance` sweeps car/van/bus boxes along every lane against geometry. Town street trees use `maple_tree` `height: 6.8, trunk: 0.6` so the crowns clear buses.
 - **Review:** `-r out.png --lanes` overlays ribbons (lanes blue, straight green, left orange, right magenta) and prints issues. Tests: `tests/test_traffic.py`.
+- Stop lines are set back 3 m (`STOP_SETBACK`) and connectors within 3.6 m conflict, so buses' swept turns clear waiting cars.
+- **Moving traffic:** `kind: traffic` definitions live in `assets/traffic/*.yaml`.
+  - They declare the fleet (weighted assets with draw params, optional `lanes` id prefixes), `count`, `spacing`, `driving` (IDM `accel`, `decel`, `headway`, `gap`, `speed_factor`, `stop_wait`, `look_ahead`, `give_up`), `turns` weights and `yield: [player, npc]`.
+  - A placement `{traffic: traffic/town.yaml, seed}` runs after everything else, including spawns. `place_traffic` puts the starting vehicles on lanes (`meta.driving = {lane, s, factor}`), 12 m clear of spawns and NPCs, under a node with `meta.type: traffic` and `meta.fleet`.
+  - The Godot interpreter is `runtime/godot/scripts/traffic.gd`; see the Traffic section of `runtime/godot/README.md`. `-s crossroads` is the small test grid. Runtime tests: `tests/test_traffic_runtime.py`. Ad-hoc Godot runs on macOS need a timeout wrapper: there's no `timeout` command, so use `perl -e 'alarm shift; exec @ARGV' 300 godot ...`.
 
 ### Characters
 

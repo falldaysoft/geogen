@@ -157,6 +157,43 @@ godot --headless --fixed-fps 60 --path runtime/godot -- --scene cottage \
     --timescale=8 --simulate=600 --npc-trace                                         # 10 minutes in ~20 s
 ```
 
+## Traffic
+
+Scenes with streets (`city: {traffic: ...}`) or `routes:` export a lane graph in the manifest's
+(or chunk index's) `traffic` section (`docs/schema/geogen-traffic.v1.schema.json`). It contains
+directed lanes resampled every 0.5 m with curvature-capped speeds, connectors through
+intersections, conflict zones and crosswalk ranges. A traffic placement
+(`place: {traffic: {traffic: traffic/town.yaml, seed: 3}}`) arrives as a node with
+`extras.geogen.type = "traffic"` and the fleet's driving parameters in `extras.geogen.fleet`.
+Its children are the starting vehicles, each on a lane (`extras.geogen.driving = {lane, s, factor}`).
+
+`WorldLoader` hands both to a `GeogenTraffic` (`scripts/traffic.gd`). It's a generic interpreter
+that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns like a car:
+
+- **Car following**: the Intelligent Driver Model against the vehicle ahead on its lane or its
+  next lane. It slows in time for tighter connectors.
+- **All-way stops**: vehicles stop at the stop line, wait `stop_wait`, and claim their connector
+  once no conflicting movement is occupied or claimed. They're served first come, first served.
+  They don't enter unless the lane beyond has room ("don't block the box"). After `give_up`
+  seconds a vehicle picks another exit.
+- **Yielding**: the player and NPCs (group `geogen_character`) in the corridor ahead, or on a
+  crosswalk about to be crossed, are obstacles to stop for.
+- **Bodies**: vehicles are `AnimatableBody3D` boxes. They block the player, stay out of the
+  navmesh, and never push anything. Wheels spin at v / r. Vehicles that drive off an open route
+  come back at a route start.
+
+`--simulate=S` also prints `traffic summary: [...]`: vehicles, distance, overlaps, idle and wait
+times, claims, turns, yields and the closest stop to a person. `--traffic-trace` prints claims,
+replans, respawns and overlaps. `tests/test_traffic_runtime.py` covers flow without overlaps or
+gridlock, a player in the lane stopping traffic, determinism, and open routes.
+
+```bash
+python -m geogen.main -s crossroads --export-godot
+godot --path runtime/godot -- --scene crossroads --camera=overview                   # watch it
+godot --headless --fixed-fps 60 --path runtime/godot -- --scene crossroads \
+    --timescale=8 --simulate=300 --traffic-trace                                     # 5 minutes in ~10 s
+```
+
 ## Streaming large scenes
 
 `python -m geogen.main -s town --export-godot --stream` writes a chunked

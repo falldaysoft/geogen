@@ -27,6 +27,8 @@ extends Node3D
 ##   --timescale=N                 run the world N times faster (physics ticks scale too)
 ##   --simulate=SECONDS            run for SECONDS of world time, print "npc summary: [...]", quit
 ##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
+##   --traffic-trace               print traffic claims, overlaps and respawns ("traffic: {...}")
+##                                 (--simulate also prints "traffic summary: [...]")
 ##   --camera=follow[:NAME]        watch an NPC (the first, or the one whose name starts with NAME)
 ##
 ## E uses the focused interaction, or sits/lies on the furniture you look at
@@ -140,6 +142,8 @@ func _ready() -> void:
             Engine.max_physics_steps_per_frame = int(8 * maxf(scale, 1.0))
         elif arg.begins_with("--simulate="):
             _simulate = float(value)
+        elif arg == "--traffic-trace":
+            world.traffic_trace = true
         elif arg == "--npc-labels":
             _npc_labels = true
         elif arg == "--camera=follow" or arg.begins_with("--camera=follow:"):
@@ -298,6 +302,11 @@ func _physics_process(delta: float) -> void:
                 if is_instance_valid(npc):
                     reports.append(npc.report())
             print("npc summary: %s" % JSON.stringify(reports))
+            var traffic_reports := []
+            for t in world.traffic:
+                if is_instance_valid(t):
+                    traffic_reports.append(t.report())
+            print("traffic summary: %s" % JSON.stringify(traffic_reports))
             if screenshot_path != "":
                 _frames = 0
                 quit_after_frames = 3

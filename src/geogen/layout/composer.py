@@ -188,7 +188,9 @@ class SceneComposer:
         all_placements = {**compose_data, **place_data}
         # Scatter placements run last, once the objects they avoid exist.
         scatters = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "scatter" in v}
-        all_placements = {k: v for k, v in all_placements.items() if k not in scatters}
+        # Traffic placements put vehicles on the lanes, so they run once the streets exist.
+        fleets = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "traffic" in v}
+        all_placements = {k: v for k, v in all_placements.items() if k not in scatters and k not in fleets}
 
         # First pass: load all objects that don't depend on others.
         # Surface-based placements (`on:`) depend on the root's own surfaces
@@ -321,6 +323,16 @@ class SceneComposer:
         for spawn_name, transform in self._parse_slots(data.get("spawns", {}), size).items():
             root.add_child(SceneNode(name=spawn_name, transform=transform, tags=["spawn"],
                                      meta={"type": "spawn"}))
+
+        # Traffic last: it needs the lanes, and keeps clear of the spawns.
+        if fleets:
+            from ..traffic import build_traffic, place_traffic
+
+            graph = build_traffic(root)
+            for obj_name, obj_def in fleets.items():
+                node = place_traffic(root, obj_name, obj_def, self._load_object, graph, self._assets_dir)
+                root.add_child(node)
+                loaded_objects[obj_name] = node
 
         # Parse explicit attachment points for the composed scene
         attachments_data = data.get("attachments", {})

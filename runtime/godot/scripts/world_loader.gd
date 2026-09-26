@@ -51,6 +51,13 @@ var affordances: Array[Dictionary] = []
 var npcs: Array[GeogenNpc] = []
 ## Print every NPC decision and step (--npc-trace).
 var npc_trace := false
+## The lane graph of the loaded export (manifest / chunk index "traffic"), or {}.
+var traffic_graph := {}
+var _traffic_offset := Vector3.ZERO
+## Traffic controllers (traffic.gd), one per exported traffic node.
+var traffic: Array[GeogenTraffic] = []
+## Print traffic claims, overlaps and respawns (--traffic-trace).
+var traffic_trace := false
 ## Doorways NPCs path through: [{interaction, open, closed, center, normal (world),
 ## width, height, depth, clearance, node}]
 var portals: Array[Dictionary] = []
@@ -97,6 +104,8 @@ func load_all() -> AABB:
 	lights_by_name.clear()
 	affordances.clear()
 	npcs.clear()
+	traffic.clear()
+	traffic_graph = {}
 	portals.clear()
 	_reservations.clear()
 	_gates.clear()
@@ -194,6 +203,9 @@ func _load_model(manifest_path: String) -> void:
 		root.position = offset
 	model_aabbs.append(_aabb(root))
 	_prepare_materials(root)
+	if manifest.get("traffic") is Dictionary:
+		traffic_graph = manifest["traffic"]
+		_traffic_offset = offset
 	var summary := setup_root(root)
 	var count: int = summary["meshes"]
 	if open_before_bake:
@@ -230,6 +242,7 @@ func setup_root(root: Node) -> Dictionary:
 	_collect_portals(root)
 	var count := _add_collision(root)
 	_spawn_npcs(root)
+	_spawn_traffic(root)
 	_collect_gates(root)
 	_collect_rooms(root)
 	var summary := GeogenSceneBuilder.build(root)
@@ -270,6 +283,8 @@ func _load_chunked(index_path: String, index: Dictionary) -> void:
 		streamer.lod_radius = stream_radii[1]
 		streamer.interior_radius = stream_radii[2]
 	add_child(streamer)
+	if index.get("traffic") is Dictionary:
+		traffic_graph = index["traffic"]
 	streamer.open(index_path, index)
 	if prime_focus != null:
 		stream_focus = prime_focus
@@ -434,6 +449,23 @@ func _spawn_npcs(root: Node) -> void:
 		if spec != null:
 			npc.step_height = spec.step_height
 		npcs.append(npc)
+
+
+## Nodes with extras.geogen type traffic drive their vehicles over the lane graph (traffic.gd).
+func _spawn_traffic(root: Node) -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		if not is_instance_valid(node):      # a vehicle's collider, freed as its traffic was set up
+			continue
+		var g := geogen_extras(node)
+		if g.get("type") != "traffic" or not g.get("fleet") is Dictionary or node.has_meta("geogen_traffic"):
+			continue
+		node.set_meta("geogen_traffic", true)
+		if traffic_graph.is_empty():
+			push_warning("geogen: traffic node %s but the export has no lane graph" % node.name)
+			continue
+		var t := GeogenTraffic.spawn(self, node, g["fleet"], traffic_graph, _traffic_offset)
+		t.trace_enabled = traffic_trace
+		traffic.append(t)
 
 
 ## How many NPCs other than ``npc`` hold affordance ``id``.
