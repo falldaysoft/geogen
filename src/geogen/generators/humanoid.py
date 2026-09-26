@@ -315,7 +315,9 @@ def build_hair(spec: dict, skeleton: Skeleton, material_loader, crease: float) -
         cube.vertices = cube.vertices + (lo + hi) / 2
         cutters.append(cube)
     if cutters:
-        mesh = csg.difference(mesh, *cutters, crease_angle=crease)
+        from ..core.meshops import collapse_short_edges
+
+        mesh = collapse_short_edges(csg.difference(mesh, *cutters, crease_angle=crease), 1e-4)
     mesh.material = material_loader.load(spec.get("material", "hair"))
     return mesh
 

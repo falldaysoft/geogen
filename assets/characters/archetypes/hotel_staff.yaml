@@ -1,0 +1,22 @@
+# Hotel staff in uniform: white top, black trousers, black shoes, hair short or tied back.
+kind: archetype
+version: 1
+extends: adult.yaml
+tags: [character.staff, character.hotel_staff]
+params:
+  hair_color: { choice: [black, dark_brown, brown, blonde], weights: [3, 4, 3, 1] }
+  outfit: smart
+  top_color: white
+  bottom_color: black
+  shoe_color: black
+variants:
+  - name: woman
+    tags: [character.woman]
+    params:
+      preset: { choice: [[feminine], [feminine, slim], [feminine, athletic]] }
+      hair_style: { choice: [bun, ponytail, pixie], weights: [3, 2, 1] }
+  - name: man
+    tags: [character.man]
+    params:
+      preset: { choice: [[masculine], [masculine, slim], [masculine, athletic]] }
+      hair_style: { choice: [crop, buzz], weights: [3, 2] }

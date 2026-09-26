@@ -72,7 +72,7 @@ pytest tests/test_scenes.py -k "test_name"
 
 - **geometry** (`geometry.py`): Helper functions for face winding and normal computation. Uses CCW winding convention.
 
-- **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding). Use `validate` whenever you touch a generator.
+- **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `collapse_short_edges` (CSG slivers; hair uses it), `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding). Use `validate` whenever you touch a generator.
 
 - **subdiv** (`subdiv.py`): `subdivide(mesh, levels, crease_angle)` (Loop, crease/boundary rules, sharp crease turns stay corners) and `displace(mesh, amplitude, scale, octaves, seed, ridged)` (fractal 3D gradient noise along smoothed normals; closed meshes stay closed). In YAML any part takes `subdivide: 3` / `{levels, crease}` (result is stretched back to the part box; `LayoutLoader(detail)` adds/removes levels) and `displace: {amplitude, scale, octaves, seed, ridged}`; UVs are box-projected by the undisplaced normals so noisy surfaces get clean seams. Used by rocks (`seed` param), bushes and bed pillows.
 
@@ -256,6 +256,14 @@ Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): a
   - Each garment gets its own material copy so slots survive the union; `split_by_slot` then colours vertices per slot and merges slots per base material (`cloth`, `denim`, `leather`).
   - Loose garments (`chains:`, e.g. skirt, dress) are shells like hair, with weights transferred from the body underneath (`transfer_weights`), so skirts follow the thighs without poke-through (`tests/test_clothing.py`).
   - A dressed character is about 3.5-4k triangles (body budget `max_triangles: 2600`); crowd LODs are geogen-z2b.16.11.
+- Archetypes (`src/geogen/characters.py`, `assets/characters/archetypes/*.yaml`, `kind: archetype`):
+  - An archetype is a seeded distribution over a body's params: `{random: [lo, hi]}`, `{normal: [mean, sd], clamp}`, `{choice: [...], weights}`.
+  - `extends:` inherits another archetype's params. `variants:` draws correlated bundles, e.g. a preset with a matching hair style; `{archetype: other.yaml}` variants hand the draw to another archetype, as in `townsfolk.yaml`.
+  - Built in: `adult` (base), young_woman, young_man, older_woman, older_man, office_worker, hotel_staff, townsfolk.
+  - Scenes place a person with `{archetype: characters/archetypes/x.yaml, seed: 3}`. A `scatter:` of an archetype or NPC draws a seed per copy, giving a crowd of different people.
+  - NPC bodies take `body: {archetype: ...}`, and the placement `seed` picks the person and seeds the brain.
+  - Nodes get `meta.character = {archetype, seed}`. Identical resolved params share one body prototype.
+  - Review with `-s archetype_gallery -r out.png --view front_high`. Tests: `tests/test_characters.py`.
 - Review: `-s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side --zoom 2.6`; `-r out.png --pose sit_at_table`.
 - Review scenes: `-s humanoid_lineup` (presets beside a door and a chair), `-s people_gallery` (11 variants: body types, hair, tones, outfits; the cottage places it on its front lawn at z = 8), `-s clothing_fit` (hourglass in every outfit). Tests: `tests/test_humanoid.py`, `tests/test_skeleton.py`, `tests/test_ringloft.py`.
 

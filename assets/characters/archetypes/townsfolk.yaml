@@ -1,0 +1,10 @@
+# Whoever you meet in the street: a weighted mix of the other archetypes.
+kind: archetype
+version: 1
+tags: [character.townsfolk]
+variants:
+  - { archetype: young_woman.yaml, weight: 3 }
+  - { archetype: young_man.yaml, weight: 3 }
+  - { archetype: office_worker.yaml, weight: 2 }
+  - { archetype: older_woman.yaml, weight: 1.5 }
+  - { archetype: older_man.yaml, weight: 1.5 }

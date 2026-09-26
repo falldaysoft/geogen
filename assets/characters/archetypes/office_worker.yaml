@@ -1,0 +1,22 @@
+# Anyone dressed for the office: smart tops in sober colours, dark trousers.
+kind: archetype
+version: 1
+extends: adult.yaml
+tags: [character.office]
+params:
+  hair_color: { choice: [black, dark_brown, brown, blonde, grey], weights: [3, 4, 3, 2, 1] }
+  outfit: smart
+  top_color: { choice: [white, sky, cream, grey, navy, charcoal, burgundy], weights: [4, 3, 2, 2, 2, 1, 1] }
+  bottom_color: { choice: [black, charcoal, navy, grey], weights: [3, 3, 2, 1] }
+  shoe_color: { choice: [black, brown], weights: [3, 1] }
+variants:
+  - name: woman
+    tags: [character.woman]
+    params:
+      preset: { choice: [[feminine], [feminine, slim], [feminine, tall], [feminine, curvy]], weights: [3, 2, 1, 1] }
+      hair_style: { choice: [bob, bun, ponytail, long, pixie], weights: [3, 3, 2, 1, 1] }
+  - name: man
+    tags: [character.man]
+    params:
+      preset: { choice: [[masculine], [masculine, slim], [masculine, athletic], [masculine, heavy]], weights: [3, 2, 1, 1] }
+      hair_style: { choice: [crop, buzz, none], weights: [5, 2, 1] }

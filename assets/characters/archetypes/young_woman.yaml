@@ -1,0 +1,13 @@
+# A woman in her twenties or thirties in everyday clothes.
+kind: archetype
+version: 1
+extends: adult.yaml
+tags: [character.woman, character.young]
+params:
+  preset: { choice: [[feminine], [feminine, slim], [feminine, athletic], [feminine, curvy], [feminine, petite], [feminine, tall]],
+            weights: [4, 3, 2, 2, 1, 1] }
+  hair_style: { choice: [long, bob, ponytail, bun, pixie, afro], weights: [4, 2, 3, 2, 1, 1] }
+  hair_color: { choice: [black, dark_brown, brown, auburn, blonde, light_blonde, red], weights: [3, 4, 3, 1, 2, 1, 1] }
+  outfit: { choice: [casual_f, jeans_tee, dress, skirt_sweater, casual, shorts_tee], weights: [3, 3, 2, 2, 2, 1] }
+  blush: { random: [0.15, 0.45] }
+  lip_strength: { random: [0.4, 0.9] }

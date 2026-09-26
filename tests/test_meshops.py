@@ -96,3 +96,31 @@ def test_validate_detects_flipped_face():
     report = meshops.validate(Mesh(mesh.vertices, faces))
     assert report.inconsistent_winding_edges > 0
     assert not report.ok
+
+
+def test_collapse_short_edges_removes_slivers_and_stays_closed():
+    from geogen.core.meshops import collapse_short_edges, validate, weld_vertices
+    from geogen.generators.primitives import CubeGenerator
+
+    raw = CubeGenerator(bevel=0).generate()
+    cube = weld_vertices(Mesh(vertices=raw.vertices, faces=raw.faces))
+    # Split one edge (shared by two faces) 10 um from an endpoint: two sliver triangles.
+    faces = [list(f) for f in cube.faces]
+    (fi, ei), (fj, ej) = [(i, k) for i, f in enumerate(faces) for k in range(3)
+                          if {f[k], f[(k + 1) % 3]} == {int(cube.faces[0][0]), int(cube.faces[0][1])}]
+    a, b = faces[fi][ei], faces[fi][(ei + 1) % 3]
+    verts = np.vstack([cube.vertices, cube.vertices[a] + 1e-5 * (cube.vertices[b] - cube.vertices[a])])
+    p = len(verts) - 1
+    new = []
+    for i, f in enumerate(faces):
+        if i in (fi, fj):
+            k = ei if i == fi else ej
+            u, v, w = f[k], f[(k + 1) % 3], f[(k + 2) % 3]
+            new += [[u, p, w], [p, v, w]]
+        else:
+            new.append(f)
+    split = Mesh(vertices=verts, faces=np.array(new))
+    assert validate(split).watertight and len(split.faces) == 14
+    fixed = collapse_short_edges(split, 1e-4)
+    report = validate(fixed)
+    assert report.degenerate_faces == 0 and report.watertight and len(fixed.faces) == len(cube.faces)

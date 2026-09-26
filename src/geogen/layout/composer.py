@@ -326,7 +326,11 @@ class SceneComposer:
         """Load an object from asset or scene definition (instances of one prototype per definition)."""
         import json
 
-        key = json.dumps({k: obj_def.get(k) for k in ("asset", "scene", "recipe", "npc", "params", "furnish")},
+        # The seed picks the person for archetypes and NPCs (their bodies may be archetypes).
+        keys = ("asset", "scene", "recipe", "npc", "archetype", "params", "furnish")
+        if "archetype" in obj_def or "npc" in obj_def:
+            keys = (*keys, "seed")
+        key = json.dumps({k: obj_def.get(k) for k in keys},
                          sort_keys=True,
                          default=str)
         prototype = self._prototypes.get(key)
@@ -347,7 +351,13 @@ class SceneComposer:
         if "npc" in obj_def:
             from ..npc import build_npc, load_definition
 
-            return build_npc(load_definition(self._assets_dir / obj_def["npc"]), self._loader, self._assets_dir)
+            return build_npc(load_definition(self._assets_dir / obj_def["npc"]), self._loader, self._assets_dir,
+                             seed=int(obj_def.get("seed", 0)))
+        if "archetype" in obj_def:
+            from ..characters import load_character
+
+            return load_character(self._loader, self._assets_dir, obj_def["archetype"], int(obj_def.get("seed", 0)),
+                                  obj_def.get("params"))
         if "asset" in obj_def:
             asset_path = self._assets_dir / obj_def["asset"]
             node = self._loader.load(asset_path, params=obj_def.get("params"))
@@ -361,7 +371,7 @@ class SceneComposer:
             scene_path = self._assets_dir / obj_def["scene"]
             return self.compose(scene_path, params=obj_def.get("params"))
         else:
-            raise ValueError("Object must have 'asset', 'scene', 'recipe' or 'npc' specified")
+            raise ValueError("Object must have 'asset', 'scene', 'recipe', 'npc' or 'archetype' specified")
 
     @staticmethod
     def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:

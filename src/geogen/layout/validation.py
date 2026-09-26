@@ -48,7 +48,7 @@ SLOT_KNOWN_KEYS = {
 
 PLACEMENT_KNOWN_KEYS = {
     "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params", "scatter",
-    "npc", "home", "seed",
+    "npc", "home", "seed", "archetype",
 }
 
 # Known primitive types
@@ -164,9 +164,9 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
         if not isinstance(obj_def, dict):
             raise ValidationError(f"Placement '{obj_name}' must be a mapping")
 
-        if "asset" not in obj_def and "scene" not in obj_def and "npc" not in obj_def:
+        if not {"asset", "scene", "npc", "archetype"} & set(obj_def):
             raise ValidationError(
-                f"Placement '{obj_name}' requires 'asset', 'scene' or 'npc' field"
+                f"Placement '{obj_name}' requires 'asset', 'scene', 'npc' or 'archetype' field"
             )
 
         for key in obj_def:

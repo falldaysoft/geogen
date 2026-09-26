@@ -1,0 +1,23 @@
+# Character archetypes (assets/characters/archetypes/): one row per archetype,
+# eight seeded people each (a path scatter draws a seed per copy). Faces +Z.
+name: archetype_gallery
+
+place:
+  young_woman:
+    archetype: characters/archetypes/young_woman.yaml
+    scatter: { seed: 1, path: [[-4.2, 0.0], [4.2, 0.0]], spacing: 1.2, yaw: 0, radius: 0.1 }
+  young_man:
+    archetype: characters/archetypes/young_man.yaml
+    scatter: { seed: 2, path: [[-4.2, -3.0], [4.2, -3.0]], spacing: 1.2, yaw: 0, radius: 0.1 }
+  older_woman:
+    archetype: characters/archetypes/older_woman.yaml
+    scatter: { seed: 3, path: [[-4.2, -6.0], [4.2, -6.0]], spacing: 1.2, yaw: 0, radius: 0.1 }
+  older_man:
+    archetype: characters/archetypes/older_man.yaml
+    scatter: { seed: 4, path: [[-4.2, -9.0], [4.2, -9.0]], spacing: 1.2, yaw: 0, radius: 0.1 }
+  office_worker:
+    archetype: characters/archetypes/office_worker.yaml
+    scatter: { seed: 5, path: [[-4.2, -12.0], [4.2, -12.0]], spacing: 1.2, yaw: 0, radius: 0.1 }
+  hotel_staff:
+    archetype: characters/archetypes/hotel_staff.yaml
+    scatter: { seed: 6, path: [[-4.2, -15.0], [4.2, -15.0]], spacing: 1.2, yaw: 0, radius: 0.1 }

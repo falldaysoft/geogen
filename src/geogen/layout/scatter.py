@@ -20,8 +20,10 @@ A placement with ``scatter:`` places many copies of its asset::
           radius: 1.0                   # each copy's keep-out radius against other scatters
                                         # (default: spacing / 2; 0.75 along paths)
 
-Parameter values may be ``{random: [lo, hi]}`` (uniform float) or
-``{choice: [a, b, ...]}``; they are drawn per copy. Everything is
+Parameter values may be ``{random: [lo, hi]}`` (uniform float),
+``{normal: [mean, sd]}`` or ``{choice: [a, b, ...], weights: [...]}``; they are
+drawn per copy. ``archetype:`` / ``npc:`` placements draw a seed per copy
+instead, so a scatter of an archetype is a crowd of different people. Everything is
 deterministic for a seed. Copies are named ``<placement>_<n>``, carry
 ``meta.scatter`` and avoid each other and earlier scatters.
 """
@@ -40,20 +42,10 @@ KNOWN = {"seed", "rect", "path", "on", "count", "spacing", "avoid", "margin", "y
 
 
 def resolve_random_params(params: dict[str, Any] | None, rng: np.random.Generator) -> dict[str, Any] | None:
-    """Draw ``{random: [lo, hi]}`` / ``{choice: [...]}`` values."""
-    if not params:
-        return params
-    out = {}
-    for key, value in params.items():
-        if isinstance(value, dict) and "random" in value:
-            lo, hi = value["random"]
-            out[key] = float(rng.uniform(float(lo), float(hi)))
-        elif isinstance(value, dict) and "choice" in value:
-            options = list(value["choice"])
-            out[key] = options[int(rng.integers(len(options)))]
-        else:
-            out[key] = value
-    return out
+    """Draw ``{random: [lo, hi]}`` / ``{choice: [...], weights}`` / ``{normal: [mean, sd]}`` values."""
+    from ..characters import draw_params
+
+    return draw_params(params, rng)
 
 
 def poisson_disk(rng: np.random.Generator, lo: np.ndarray, hi: np.ndarray, spacing: float,
@@ -189,7 +181,11 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
     placed = []
     for k, (p, y, _normal) in enumerate(frames[:count]):
         params = resolve_random_params(obj_def.get("params"), rng)
-        node = load({**obj_def, "params": params})
+        if "archetype" in obj_def or "npc" in obj_def:
+            # Each copy is its own person (archetype/NPC body seed).
+            node = load({**obj_def, "seed": int(rng.integers(1 << 30))})
+        else:
+            node = load({**obj_def, "params": params})
         yaw = float(rng.uniform(*yaw_spec)) if isinstance(yaw_spec, (list, tuple)) else float(yaw_spec)
         scale = float(rng.uniform(*scale_spec)) if isinstance(scale_spec, (list, tuple)) else float(scale_spec)
         node.name = f"{name}_{k + 1}"

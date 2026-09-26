@@ -70,6 +70,42 @@ def weld_vertices(mesh: Mesh, tol: float = 1e-6) -> Mesh:
     ).with_attributes_of(mesh, vertex_index=first, face_keep=keep)
 
 
+def collapse_short_edges(mesh: Mesh, tol: float = 1e-5) -> Mesh:
+    """Collapse edges shorter than ``tol`` (slivers a CSG cut leaves where it grazes a vertex).
+
+    Works on positions, so vertices split for normals/UVs move together
+    and a closed mesh stays closed; faces that collapse are dropped.
+    """
+    pid = _position_ids(mesh.vertices, 1e-9)
+    n = int(pid.max()) + 1 if len(pid) else 0
+    positions = np.zeros((n, 3))
+    positions[pid] = mesh.vertices
+    corners = pid[mesh.faces]
+    edges = np.concatenate([corners[:, [0, 1]], corners[:, [1, 2]], corners[:, [2, 0]]])
+    short = edges[np.linalg.norm(positions[edges[:, 0]] - positions[edges[:, 1]], axis=1) < tol]
+    short = short[short[:, 0] != short[:, 1]]
+    if not len(short):
+        return mesh
+    parent = np.arange(n)
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for a, b in short:
+        ra, rb = root(int(a)), root(int(b))
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    roots = np.array([root(i) for i in range(n)])
+    rc = roots[corners]
+    keep = (rc[:, 0] != rc[:, 1]) & (rc[:, 1] != rc[:, 2]) & (rc[:, 0] != rc[:, 2])
+    out = Mesh(vertices=positions[roots[pid]], faces=mesh.faces[keep],
+               normals=mesh.normals, uvs=mesh.uvs, material=mesh.material)
+    return out.with_attributes_of(mesh, vertex_index=np.arange(len(mesh.vertices)), face_keep=keep)
+
+
 def compute_normals(
     mesh: Mesh,
     crease_angle: float = DEFAULT_CREASE_ANGLE,

@@ -1,0 +1,14 @@
+# A man in his sixties or seventies: grey or no hair, a bit of a belly.
+kind: archetype
+version: 1
+extends: adult.yaml
+tags: [character.man, character.older]
+params:
+  preset: { choice: [[masculine], [masculine, heavy], [masculine, stocky], [masculine, slim]], weights: [3, 3, 2, 1] }
+  belly: { random: [0.3, 0.8] }
+  hair_style: { choice: [crop, buzz, none], weights: [3, 2, 3] }
+  hair_color: { choice: [grey, white, dark_brown], weights: [5, 3, 1] }
+  outfit: { choice: [casual, smart, jeans_tee], weights: [4, 3, 1] }
+  top_color: { choice: [cream, sky, grey, navy, olive, burgundy, green, brown] }
+  bottom_color: { choice: [tan, charcoal, grey, brown, navy] }
+  shoe_color: { choice: [brown, black, tan] }

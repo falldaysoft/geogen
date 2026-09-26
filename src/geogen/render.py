@@ -31,6 +31,7 @@ BACKGROUND = (0.55, 0.7, 0.85, 1.0)
 VIEWS: dict[str, tuple[float, float]] = {
     "iso": (35.0, 25.0),
     "front": (0.0, 5.0),
+    "front_high": (0.0, 30.0),
     "side": (90.0, 5.0),
     "back": (180.0, 5.0),
     "top": (0.0, 89.0),

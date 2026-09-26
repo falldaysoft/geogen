@@ -1,0 +1,11 @@
+# A man in his twenties or thirties in everyday clothes.
+kind: archetype
+version: 1
+extends: adult.yaml
+tags: [character.man, character.young]
+params:
+  preset: { choice: [[masculine], [masculine, slim], [masculine, athletic], [masculine, lanky], [masculine, stocky], [masculine, tall]],
+            weights: [4, 2, 3, 1, 1, 1] }
+  hair_style: { choice: [crop, buzz, afro, long, none, pixie], weights: [5, 3, 1, 1, 1, 1] }
+  hair_color: { choice: [black, dark_brown, brown, blonde, light_blonde, red], weights: [3, 4, 3, 2, 1, 1] }
+  outfit: { choice: [jeans_tee, casual, shorts_tee, smart], weights: [4, 3, 1, 1] }

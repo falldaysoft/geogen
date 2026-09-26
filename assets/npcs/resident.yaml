@@ -10,7 +10,8 @@
 kind: npc
 version: 1
 
-body: { asset: characters/humanoid.yaml, params: { preset: feminine } }
+# The person is drawn from an archetype; the placement's `seed` picks who (and seeds the brain).
+body: { archetype: characters/archetypes/young_woman.yaml }
 speed: 1.2                # walking speed, m/s
 turn_speed: 360           # deg/s
 

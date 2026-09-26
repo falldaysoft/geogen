@@ -1,0 +1,16 @@
+# A woman in her sixties or seventies: greying hair, fuller figure, sensible shoes.
+kind: archetype
+version: 1
+extends: adult.yaml
+tags: [character.woman, character.older]
+params:
+  preset: { choice: [[feminine], [feminine, heavy], [feminine, petite], [feminine, curvy]], weights: [3, 2, 2, 1] }
+  belly: { random: [0.2, 0.6] }
+  hair_style: { choice: [bob, pixie, bun, long], weights: [3, 3, 2, 1] }
+  hair_color: { choice: [grey, white, light_blonde, dark_brown], weights: [5, 3, 1, 1] }
+  outfit: { choice: [skirt_sweater, casual, dress, smart], weights: [3, 3, 2, 1] }
+  top_color: { choice: [cream, lavender, sky, burgundy, teal, mustard, pink, navy] }
+  bottom_color: { choice: [charcoal, navy, grey, brown, tan, black] }
+  shoe_color: { choice: [black, brown, tan, grey] }
+  blush: { random: [0.05, 0.25] }
+  lip_strength: { random: [0.3, 0.6] }

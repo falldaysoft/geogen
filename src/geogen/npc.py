@@ -217,6 +217,8 @@ def load_definition(path: str | Path) -> dict[str, Any]:
     body = data.get("body") or {"asset": "characters/capsule.yaml"}
     if isinstance(body, str):
         body = {"asset": body}
+    if not ({"asset", "archetype"} & set(body)) or set(body) - {"asset", "archetype", "params"}:
+        raise ValueError(f"{path}: body is {{asset|archetype, params}}, got {body!r}")
     return {
         "definition": Path(path).stem,
         "body": body,
@@ -241,14 +243,27 @@ def _advertises(spec: Any, needs: dict | None, where: str) -> dict[str, float]:
     return out
 
 
-def build_npc(definition: dict[str, Any], loader, assets_dir: Path) -> SceneNode:
-    """The NPC prototype: a node (meta.type npc, meta.npc) with the body asset as a child named 'body'."""
+def build_npc(definition: dict[str, Any], loader, assets_dir: Path, seed: int | None = None) -> SceneNode:
+    """The NPC prototype: a node (meta.type npc, meta.npc) with the body asset as a child named 'body'.
+
+    The body is ``{asset, params}`` or ``{archetype, params}`` (a character
+    archetype; ``seed`` picks the person, and also seeds the brain).
+    """
     body_spec = definition["body"]
-    body = loader.load(Path(assets_dir) / body_spec["asset"], params=body_spec.get("params"))
+    if "archetype" in body_spec:
+        from .characters import load_character
+
+        body = load_character(loader, assets_dir, body_spec["archetype"], seed or 0, body_spec.get("params"))
+    else:
+        body = loader.load(Path(assets_dir) / body_spec["asset"], params=body_spec.get("params"))
     body.name = "body"
     poses = body.meta.get("poses") or {"stand": parse_poses({"stand": {}})["stand"]}
     npc = copy.deepcopy(definition)
     npc["body"] = {**body_spec, "node": "body", "poses": poses}
+    if seed is not None:
+        npc["seed"] = int(seed)
+    if "character" in body.meta:
+        npc["body"]["character"] = body.meta["character"]
     # Collision capsule from the body's bounds (a humanoid is narrower than its arm span).
     size = np.asarray(body.size, dtype=np.float64)
     npc["height"] = round(float(size[1]), 4)
