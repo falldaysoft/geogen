@@ -24,6 +24,8 @@ extends Node3D
 ## left out of the navmesh; they never push anything.
 
 const CHARACTER_GROUP := "geogen_character"
+## Moving vehicles, for NPCs to wait for or walk around (meta geogen_vehicle_box, geogen_speed).
+const VEHICLE_GROUP := "geogen_vehicle"
 const OVERLAP_CHECK := 0.25       # s between vehicle overlap checks
 const STOP_SPEED := 0.3           # m/s: counts as stopped at the line
 const PERSON_RADIUS := 0.4
@@ -175,6 +177,10 @@ func _adopt(node: Node3D) -> Dictionary:
 		(float(info.get("front", clearance[0] / 2.0)) + float(info.get("rear", -clearance[0] / 2.0))) / 2.0)
 	body.add_child(shape)
 	node.add_child(body)
+	node.add_to_group(VEHICLE_GROUP)
+	node.set_meta("geogen_vehicle_box", {"half": float(clearance[0]) / 2.0, "half_w": float(clearance[1]) / 2.0,
+		"offset": shape.position.z})
+	node.set_meta("geogen_speed", 0.0)
 	var wheels := []
 	for w in info.get("wheels", []):
 		var wheel := node.find_child(str(w["part"]), true, false) as Node3D
@@ -343,6 +349,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
 			stats["turns"][turn] = int(stats["turns"].get(turn, 0)) + 1
 		v["next"] = _choose_next(v["lane"])
 	_place(v)
+	(v["node"] as Node3D).set_meta("geogen_speed", speed)
 	for w in v["wheels"]:
 		(w["node"] as Node3D).rotate(Vector3.RIGHT, step / float(w["r"]))
 
@@ -388,7 +395,7 @@ func _person_gap(v: Dictionary, people: Array) -> float:
 			var q := _path_point(v, s)
 			var width: float = v["half_w"] + PERSON_RADIUS + 0.3
 			if _on_crosswalk(v, s):
-				width += 2.0
+				width += 1.0          # people about to step onto it (not the whole sidewalk)
 			if Vector2(q.x - p.x, q.z - p.z).length() < width and absf(q.y - p.y) < 2.0:
 				var gap := along - PERSON_MARGIN
 				stats["min_person_gap"] = minf(stats["min_person_gap"], maxf(along, 0.0))

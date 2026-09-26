@@ -35,6 +35,12 @@ const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this 
 const AVOID_MARGIN := 0.2
 ## Moving bodies NPCs steer around (the player joins it too).
 const CHARACTER_GROUP := "geogen_character"
+## Traffic (traffic.gd): wait for moving vehicles, walk around stopped ones.
+const VEHICLE_GROUP := "geogen_vehicle"
+const VEHICLE_MARGIN := 0.35
+const VEHICLE_LOOKAHEAD := 3.0    # s: a vehicle that would cross our next steps this soon has priority
+const VEHICLE_PROBE := 2.5        # m of our path checked against vehicles
+const VEHICLE_PATIENCE := 3.0     # s waiting at the kerb before stepping out anyway (traffic yields)
 
 var world: WorldLoader
 var definition := {}
@@ -70,6 +76,9 @@ var _sidestep := 0.0
 var _sidestep_dir := 1.0
 var _yaw_goal := 0.0
 var _detour := -1                 # index in _path of the last detour waypoint
+var _vehicle_wait := 0.0          # s spent waiting for traffic at this waypoint
+var _assertive := -1              # waypoint we're walking to regardless of moving traffic
+var _vehicle_detours := 0         # detours round stopped vehicles on this path
 
 
 ## Build an NPC from an exported npc node (its body child moves under the NPC).
@@ -443,6 +452,9 @@ func _plan(target: Vector3) -> String:
 	_path = NavigationServer3D.map_get_path(map, from, to, true)
 	_waypoint = 1
 	_detour = -1
+	_assertive = -1
+	_vehicle_wait = 0.0
+	_vehicle_detours = 0
 	_best = INF
 	_stall = 0.0
 	_sidestep = 0.0
@@ -465,6 +477,17 @@ func _walk(delta: float) -> String:
 		stats["passes"] += 1
 		_push("pass", door)
 		return "running"
+	if _waypoint != _assertive and not _clear_of_vehicles():
+		# Traffic coming: wait at the kerb (not stalling), but not forever: after a while step
+		# out anyway until the next waypoint; vehicles yield to people in their way.
+		_vehicle_wait += delta
+		if _vehicle_wait > VEHICLE_PATIENCE:
+			_assertive = _waypoint
+		velocity.x = 0.0
+		velocity.z = 0.0
+		_move(delta)
+		return "running"
+	_vehicle_wait = 0.0
 	if not _detour_around_characters():
 		# Someone is standing on our destination: wait (the stall timer gives up eventually).
 		velocity.x = 0.0
@@ -550,6 +573,106 @@ func _detour_around_characters() -> bool:
 		_detour = _waypoint + arc.size() - 1
 		_best = INF
 	return true
+
+
+## Vehicles aren't in the navmesh either. A moving one whose next few seconds of travel crosses
+## the next steps of our path makes us wait (unless we're already in its way: then press on and
+## it yields); a stopped one in the way gets a detour round its nearer end.
+func _clear_of_vehicles() -> bool:
+	var radius := float(definition.get("radius", 0.25))
+	var a := global_position
+	var seg := _flat(_path[_waypoint] - a)
+	if seg.length() < 0.05:
+		return true
+	var probe := a + seg.normalized() * minf(seg.length(), VEHICLE_PROBE)
+	var map := get_world_3d().navigation_map
+	for car in get_tree().get_nodes_in_group(VEHICLE_GROUP):
+		var box: Dictionary = car.get_meta("geogen_vehicle_box", {})
+		if box.is_empty():
+			continue
+		var xf: Transform3D = car.global_transform
+		if absf(xf.origin.y - a.y) > 2.0:
+			continue
+		var fwd := _flat(xf.basis.z).normalized()
+		var right := Vector3(fwd.z, 0.0, -fwd.x)
+		var center: Vector3 = xf.origin + fwd * float(box["offset"])
+		var hl := float(box["half"]) + radius + VEHICLE_MARGIN
+		var hw := float(box["half_w"]) + radius + VEHICLE_MARGIN
+		var speed := float(car.get_meta("geogen_speed", 0.0))
+		if speed > 0.5:
+			var reach := speed * VEHICLE_LOOKAHEAD
+			var swept_c := center + fwd * reach / 2.0
+			if _in_box(a, swept_c, fwd, right, hl + reach / 2.0, hw):
+				continue          # already in its way: keep going, it yields to us
+			if _segment_hits_box(a, probe, swept_c, fwd, right, hl + reach / 2.0, hw):
+				return false
+		elif _waypoint > _detour and _vehicle_detours < 2 and _segment_hits_box(a, probe, center, fwd, right, hl, hw):
+			# (Also when pressed up against it: the corners on our side lead round it.)
+			_vehicle_detours += 1
+			var detour := _around_box(a, _path[_waypoint], center, fwd, right, hl + 0.05, hw + 0.05, map)
+			if not detour.is_empty():
+				for k in detour.size():
+					_path.insert(_waypoint + k, detour[k])
+				_detour = _waypoint + detour.size() - 1
+				_best = INF
+	return true
+
+
+static func _in_box(p: Vector3, c: Vector3, fwd: Vector3, right: Vector3, hl: float, hw: float) -> bool:
+	var d := _flat(p - c)
+	return absf(d.dot(fwd)) < hl and absf(d.dot(right)) < hw
+
+
+## Does segment a-b (plan) cross the box centred on c (half extents hl along fwd, hw along right)?
+static func _segment_hits_box(a: Vector3, b: Vector3, c: Vector3, fwd: Vector3, right: Vector3,
+		hl: float, hw: float) -> bool:
+	var p0 := Vector2(_flat(a - c).dot(fwd), _flat(a - c).dot(right))
+	var p1 := Vector2(_flat(b - c).dot(fwd), _flat(b - c).dot(right))
+	var d := p1 - p0
+	var t0 := 0.0
+	var t1 := 1.0
+	for axis in 2:
+		var lo := -hl if axis == 0 else -hw
+		var hi := hl if axis == 0 else hw
+		var start := p0[axis]
+		var delta := d[axis]
+		if absf(delta) < 1e-9:
+			if start < lo or start > hi:
+				return false
+			continue
+		var ta := (lo - start) / delta
+		var tb := (hi - start) / delta
+		t0 = maxf(t0, minf(ta, tb))
+		t1 = minf(t1, maxf(ta, tb))
+		if t0 > t1:
+			return false
+	return true
+
+
+## Two waypoints round the end of the box we're nearer to (in front of a car that has stopped
+## for us, behind one queuing), falling back to the other end; [] if neither is on the navmesh.
+func _around_box(a: Vector3, _b: Vector3, c: Vector3, fwd: Vector3, right: Vector3, hl: float, hw: float,
+		map: RID) -> Array:
+	var side := signf(_flat(a - c).dot(right))
+	if side == 0.0:
+		side = 1.0
+	var near := signf(_flat(a - c).dot(fwd))
+	if near == 0.0:
+		near = 1.0
+	for end in [near, -near]:
+		var p1 = _on_nav_near(c + fwd * end * hl + right * side * hw, map)
+		var p2 = _on_nav_near(c + fwd * end * hl - right * side * hw, map)
+		if p1 != null and p2 != null:
+			return [p1, p2]
+	return []
+
+
+## The navmesh point nearest ``p`` if it's within 0.4 m (a box corner may sit just off it).
+static func _on_nav_near(p: Vector3, map: RID):
+	var q := NavigationServer3D.map_get_closest_point(map, p)
+	if Vector2(q.x - p.x, q.z - p.z).length() < 0.4 and absf(q.y - p.y) < 0.5:
+		return q
+	return null
 
 
 static func _flat(v: Vector3) -> Vector3:

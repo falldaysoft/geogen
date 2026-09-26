@@ -142,6 +142,10 @@ windows or doors:
 - **Doors**: exported `portal`s. When the path ahead crosses a portal whose interaction isn't
   open, the NPC runs the `pass` action first: stop clear of the leaf, open it, walk through,
   and close it if the NPC's `closes_doors` flag is set.
+- **Traffic** (vehicles in group `geogen_vehicle`, see Traffic) isn't in the navmesh either.
+  - An NPC waits at the kerb for a moving vehicle whose next 3 s of travel crosses its next steps.
+  - After 3 s it steps out anyway (vehicles yield to people in their way).
+  - It walks round a stopped vehicle past the nearer end: in front of a car that stopped for it, behind one that's queuing.
 - **Other characters** (the player, other NPCs; group `geogen_character`) aren't in the
   navmesh, so paths bend around them on an arc of navmesh points. An NPC whose destination is
   occupied waits, then gives up.
