@@ -1,0 +1,8 @@
+# One feminine humanoid for clip review:
+#   python -m geogen.main -s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side
+name: humanoid_walk
+
+place:
+  person:
+    asset: characters/humanoid.yaml
+    params: { preset: feminine }

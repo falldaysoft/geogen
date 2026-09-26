@@ -107,10 +107,11 @@ names (`Hips`, `Spine`, ...) in every character. Runtime `GLTFDocument`
 resamples animations at 30 fps, so between those frames a pose differs
 from the Python clip by the slerp-vs-chord error (a few mm on the test tube).
 NPC bodies with skeletal clips (the humanoid) get their own AnimationPlayer
-under the body; `npc.gd` plays the `pose_<name>` clip for each pose (stand,
-sit, lie) after resetting the skeleton to rest, since the importer drops
-tracks that equal the rest (the exported stand pose). No walk cycle yet:
-she glides in the stand pose (geogen-z2b.16.9/.10).
+under the body, plus a `RESET` animation at the rest pose (the importer drops
+tracks equal to the rest, the exported stand pose, so blends need it).
+`npc.gd` cross-fades `pose_sit` / `pose_lie` when the NPC sits or lies, and
+while standing plays `walk` (speed-scaled to the NPC's velocity over the
+clip's recorded speed, so feet don't slide) or `idle`.
 `tools/dump_skeleton_profile.gd` prints `SkeletonProfileHumanoid`
 (saved as `assets/skeletons/humanoid_profile.json`).
 

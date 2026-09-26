@@ -27,6 +27,7 @@ built here instead of from ``parts:``::
             - [LeftLowerArm, 1.0, 0.02, 0.03, {offset: [0, 0.01], power: 2.5, twist: 0}]
       poses: {stand: {bones: {LeftUpperArm: [0, 0, -72]}}}    # body-frame degrees (core.skeleton.Pose)
       pose: stand                             # the pose the asset is built (and exported) in
+      clips: {walk: {generator: walk, speed: 1.2}, idle: {}}   # generators/clips.py, over `pose`
 
 The node tree is ``<name>`` > ``Root`` (joint hierarchy, every profile bone)
 and ``body`` (the skinned mesh, no collider). ``meta.humanoid`` records the
@@ -44,8 +45,7 @@ import numpy as np
 
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
-from ..core.skin import Clip, Skin, Track
-from ..core.transform import quat_from_matrix
+from ..core.skin import Clip, Skin
 from .ringloft import Chain, Ring, loft_body
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
@@ -120,17 +120,12 @@ POSE_CLIP_SECONDS = 0.25
 
 def pose_clips(skeleton: Skeleton, poses: dict) -> list[Clip]:
     """A static clip ``pose_<name>`` per skeletal pose, keying every joint's local rotation, so a
-    runtime can switch poses by playing clips (until real transition clips exist)."""
-    clips = []
-    for pose_name, pose_spec in poses.items():
-        pose = Pose.from_spec(pose_spec, skeleton)
-        tracks = {}
-        for bone in skeleton.names:
-            local = skeleton.rest_local(bone) @ pose.local(bone)
-            q = quat_from_matrix(local[:3, :3])
-            tracks[bone] = Track([0.0, POSE_CLIP_SECONDS], rotations=[q, q])
-        clips.append(Clip(f"pose_{pose_name}", tracks, loop=False))
-    return clips
+    runtime can switch poses by playing clips."""
+    from .clips import tracks_from_poses
+
+    times = np.array([0.0, POSE_CLIP_SECONDS])
+    return [Clip(f"pose_{name}", tracks_from_poses(skeleton, [Pose.from_spec(spec, skeleton)] * 2, times),
+                 loop=False) for name, spec in poses.items()]
 
 
 def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path) -> SceneNode:
@@ -163,6 +158,12 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path) -> 
     poses = spec.get("poses") or {}
     root.clips.extend(pose_clips(skeleton, poses))
     pose_name = spec.get("pose")
+    if spec.get("clips"):
+        from .clips import generate_clip
+
+        base = Pose.from_spec(poses.get(pose_name) or {}, skeleton)
+        root.clips.extend(generate_clip(skeleton, base, clip_name, clip_spec or {})
+                          for clip_name, clip_spec in spec["clips"].items())
     if pose_name is not None:
         if pose_name not in poses:
             raise ValueError(f"'{name}': unknown pose '{pose_name}'. Poses: {sorted(poses)}")

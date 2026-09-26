@@ -221,6 +221,10 @@ body:
         LeftThumbMetacarpal: [0, 28, 0]
         RightThumbMetacarpal: [0, -28, 0]
   pose: stand
+  # Procedural clips over the stand pose (generators/clips.py); walk matches the NPC speed.
+  clips:
+    walk: { generator: walk, speed: 1.2, arm_swing: "{12 + 6 * (1 - bust)}", hip_sway: "{0.012 + 0.012 * hips * bust}" }
+    idle: { generator: idle }
 
 # Where the NPC runtime puts the body (Root, on the floor under the hips) for each
 # pose, relative to the affordance anchor (x right, y up, z forward): sit drops

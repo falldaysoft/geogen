@@ -124,6 +124,7 @@ class Clip:
     name: str
     tracks: dict[str, Track] = field(default_factory=dict)
     loop: bool = True
+    meta: dict = field(default_factory=dict)      # exported with the clip in extras (e.g. walk speed)
 
     @property
     def duration(self) -> float:

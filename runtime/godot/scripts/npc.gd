@@ -27,6 +27,9 @@ const SIDESTEP_SECONDS := 0.4
 const FAIL_SECONDS := 4.0         # no progress this long: give up on the step
 const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (until there are clips)
+const POSE_BLEND := 0.4           # s to cross-fade skeletal pose clips (and ease the body into place)
+const LOCOMOTION_BLEND := 0.25    # s to cross-fade walk <-> idle
+const WALK_THRESHOLD := 0.15      # m/s: slower than this counts as standing still
 const PORTAL_LOOKAHEAD := 2.5     # react to closed doors this far ahead
 const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this far ahead
 const AVOID_MARGIN := 0.2
@@ -55,7 +58,8 @@ var _retry_at := {}                  # failed option id -> clock when it may be 
 var _shape: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _pose := "stand"
-var _anim: AnimationPlayer = null   # the body's skeletal clips (pose_<name>, ...), if it has any
+var _anim: AnimationPlayer = null   # the body's skeletal clips (pose_<name>, walk, idle, ...), if any
+var _clip_speed := {}               # clip name -> ground speed it was authored for (m/s)
 # Step state
 var _timer := 0.0
 var _path := PackedVector3Array()
@@ -81,6 +85,9 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
 	npc.body = node.get_node_or_null(str(data.get("body", {}).get("node", "body")))
 	if npc.body != null:
 		var clips := _body_clips(npc.body)
+		for clip in WorldLoader.geogen_extras(npc.body).get("clips", []):
+			if clip.has("speed"):
+				npc._clip_speed[clip["name"]] = float(clip["speed"])
 		npc.body.reparent(npc, false)
 		npc.body.transform = Transform3D.IDENTITY
 		if not clips.is_empty():
@@ -89,9 +96,10 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
 			var library := AnimationLibrary.new()
 			for clip_name in clips:
 				library.add_animation(clip_name, clips[clip_name])
+			library.add_animation("RESET", _rest_animation(npc.body, clips.values()))
 			npc._anim.add_animation_library("", library)
 			npc.body.add_child(npc._anim)   # root_node ".." = the body
-			npc._play_pose_clip("stand")
+			npc._play_pose_clip("stand", 0.0)
 	var h: Dictionary = data.get("home", {})
 	for p in h.get("polygon", []):
 		var w := xform * Vector3(p[0], 0.0, p[1])
@@ -220,6 +228,7 @@ func _finish_option(ok: bool, reason := "") -> void:
 
 func _physics_process(delta: float) -> void:
 	clock += delta
+	_animate_locomotion()
 	for need in needs:
 		needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
 	if home_distance(global_position) > float(definition.get("home_margin", 1.0)) + 0.5:
@@ -607,6 +616,35 @@ func _portal_ahead() -> Dictionary:
 
 # --- body -----------------------------------------------------------------
 
+## RESET: every track the clips animate, keyed at the skeleton's rest. The importer drops
+## tracks equal to the rest (the exported stand pose), so blending from a clip that moves a
+## bone into one that doesn't must fall back to the rest, not keep the old pose.
+static func _rest_animation(body: Node, anims: Array) -> Animation:
+	var reset := Animation.new()
+	reset.length = 0.001
+	var seen := {}
+	for anim: Animation in anims:
+		for t in anim.get_track_count():
+			var path := anim.track_get_path(t)
+			var kind := anim.track_get_type(t)
+			var key := "%s|%d" % [path, kind]
+			if seen.has(key) or not kind in [Animation.TYPE_ROTATION_3D, Animation.TYPE_POSITION_3D]:
+				continue
+			seen[key] = true
+			var sk := body.get_node_or_null(NodePath(String(path).get_slice(":", 0))) as Skeleton3D
+			var bone := sk.find_bone(String(path).get_slice(":", 1)) if sk != null else -1
+			if bone < 0:
+				continue
+			var rest := sk.get_bone_rest(bone)
+			var track := reset.add_track(kind)
+			reset.track_set_path(track, path)
+			if kind == Animation.TYPE_ROTATION_3D:
+				reset.rotation_track_insert_key(track, 0.0, rest.basis.get_rotation_quaternion())
+			else:
+				reset.position_track_insert_key(track, 0.0, rest.origin)
+	return reset
+
+
 ## The body's skeletal clips (extras.geogen.clips) copied out of the export's AnimationPlayer
 ## with their tracks re-pathed relative to the body, so they still play once the body
 ## moves under the NPC: {clip name: Animation}.
@@ -655,19 +693,40 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
 		var r: Array = pose["rotation"]
 		var s: Array = pose["scale"]
 		var basis := Basis.from_euler(Vector3(deg_to_rad(r[0]), deg_to_rad(r[1]), deg_to_rad(r[2])))
-		body.transform = Transform3D(basis.scaled_local(Vector3(s[0], s[1], s[2])), Vector3(o[0], o[1], o[2]))
-	_play_pose_clip(pose_name)
+		var target := Transform3D(basis.scaled_local(Vector3(s[0], s[1], s[2])), Vector3(o[0], o[1], o[2]))
+		if _anim != null:
+			# Skeletal bodies ease into place while the clips cross-fade.
+			create_tween().tween_property(body, "transform", target, POSE_BLEND)
+		else:
+			body.transform = target
+	_play_pose_clip(pose_name, POSE_BLEND)
 
 
-## Skeletal bodies: hold the pose's static clip (pose_<name>); capsule bodies have none.
-func _play_pose_clip(pose_name: String) -> void:
-	if _anim != null and _anim.has_animation("pose_" + pose_name):
-		# The importer drops tracks equal to the rest (the exported stand pose), so a pose clip
-		# only keys the bones it moves: start every switch from rest.
-		for sk: Skeleton3D in body.find_children("*", "Skeleton3D", true, false):
-			sk.reset_bone_poses()
-		_anim.play("pose_" + pose_name)
-		_anim.seek(0.0, true)
+## Skeletal bodies: hold the pose's clip (pose_<name>; standing: walk or idle); capsules have none.
+func _play_pose_clip(pose_name: String, blend: float) -> void:
+	if _anim == null:
+		return
+	var clip := "pose_" + pose_name
+	if pose_name == "stand" and _anim.has_animation("idle"):
+		clip = "idle"
+	if _anim.has_animation(clip):
+		_anim.speed_scale = 1.0
+		_anim.play(clip, blend)
+
+
+## Standing skeletal bodies walk while moving (playback scaled to the ground speed so the
+## feet don't slide) and idle when still.
+func _animate_locomotion() -> void:
+	if _anim == null or _pose != "stand" or not _anim.has_animation("walk"):
+		return
+	var speed := Vector2(velocity.x, velocity.z).length()
+	var clip := "walk" if speed > WALK_THRESHOLD else ("idle" if _anim.has_animation("idle") else "pose_stand")
+	if clip == "walk":
+		_anim.speed_scale = speed / float(_clip_speed.get("walk", 1.2))
+	else:
+		_anim.speed_scale = 1.0
+	if _anim.current_animation != clip:
+		_anim.play(clip, LOCOMOTION_BLEND)
 
 
 # --- helpers ------------------------------------------------------------------

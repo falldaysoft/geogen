@@ -120,17 +120,37 @@ class Skeleton:
         kids = self.children(name)
         return float(np.linalg.norm(self.bones[kids[0]].head - self.bones[name].head)) if kids else 0.0
 
+    def posed_local(self, name: str, pose: Pose | None) -> NDArray[np.float64]:
+        """A bone's local transform in ``pose``: rest, then the pose's rotation and offset."""
+        local = self.rest_local(name)
+        if pose is None:
+            return local
+        local = local @ pose.local(name)
+        offset = pose.offsets.get(name)
+        if offset is not None:
+            local[:3, 3] += offset
+        if self.bones[name].parent is None:
+            local = _matrix(np.eye(3), pose.root) @ local
+        return local
+
     def fk(self, pose: Pose | None = None) -> dict[str, NDArray[np.float64]]:
         """World matrices of every bone in ``pose`` (rest when None)."""
         world: dict[str, NDArray[np.float64]] = {}
         for name, bone in self.bones.items():
-            local = self.rest_local(name)
-            if pose is not None:
-                local = local @ pose.local(name)
-                if bone.parent is None:
-                    local = _matrix(np.eye(3), pose.root) @ local
+            local = self.posed_local(name, pose)
             world[name] = world[bone.parent] @ local if bone.parent else local
         return world
+
+    def pose_quat(self, name: str, parent_world: NDArray[np.float64], world_rotation: NDArray[np.float64]):
+        """The pose rotation (relative to rest) that gives bone ``name`` ``world_rotation`` under a
+        parent at ``parent_world``."""
+        local = parent_world[:3, :3].T @ world_rotation
+        return quat_from_matrix(self.rest_local(name)[:3, :3].T @ local)
+
+    def body_quat(self, name: str, rotation: NDArray[np.float64]):
+        """A body-frame rotation (3x3, about the character's own axes) as a pose rotation for ``name``."""
+        rest = self.bones[name].rotation
+        return quat_from_matrix(rest.T @ rotation @ rest)
 
     def build(self) -> tuple[SceneNode, dict[str, SceneNode]]:
         """Joint node hierarchy at rest: (root joint node, name -> node)."""
@@ -153,6 +173,11 @@ class Pose:
 
     rotations: dict[str, NDArray[np.float64]] = field(default_factory=dict)
     root: NDArray[np.float64] = field(default_factory=lambda: np.zeros(3))
+    # Per-bone translation added to the rest position, in the parent's frame (e.g. Hips bob).
+    offsets: dict[str, NDArray[np.float64]] = field(default_factory=dict)
+
+    def copy(self) -> Pose:
+        return Pose(dict(self.rotations), self.root.copy(), {k: v.copy() for k, v in self.offsets.items()})
 
     def local(self, name: str) -> NDArray[np.float64]:
         q = self.rotations.get(name)
@@ -187,11 +212,8 @@ class Pose:
 
     def apply(self, skeleton: Skeleton, nodes: dict[str, SceneNode]) -> None:
         """Set the joint nodes' transforms (from ``Skeleton.build``) to this pose."""
-        for name, bone in skeleton.bones.items():
-            local = skeleton.rest_local(name) @ self.local(name)
-            if bone.parent is None:
-                local = _matrix(np.eye(3), self.root) @ local
-            nodes[name].transform = Transform.from_matrix(local)
+        for name in skeleton.bones:
+            nodes[name].transform = Transform.from_matrix(skeleton.posed_local(name, self))
             nodes[name].transform.scale = np.ones(3)
 
 

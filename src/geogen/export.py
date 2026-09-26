@@ -243,7 +243,7 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
         if node.clips:
             extras.setdefault("geogen", {"version": EXTRAS_VERSION})["clips"] = [
                 {"name": clip.name, "animation": f"{name}_{clip.name}", "duration": round(clip.duration, 6),
-                 "loop": clip.loop} for clip in node.clips]
+                 "loop": clip.loop, **clip.meta} for clip in node.clips]
         if has_mesh:
             mesh = node.mesh
             add_mesh(("mesh", id(mesh)), mesh, name, parent_name, matrix, extras or None)

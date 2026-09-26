@@ -24,6 +24,31 @@ def _build_registry() -> SceneRegistry:
     return registry
 
 
+def filmstrip(root, clip_name: str, frames: int, view: str):
+    """``frames`` instances of ``root`` posed evenly across clip ``clip_name``, spaced across the view."""
+    from .core.node import SceneNode
+
+    clips = [c for n in root.iter_nodes() for c in n.clips if c.name == clip_name]
+    if not clips:
+        raise SystemExit(f"No clip named '{clip_name}'")
+    duration = clips[0].duration
+    lo, hi = np.min([m.vertices.min(axis=0) for _, m in root.iter_meshes()], axis=0), \
+        np.max([m.vertices.max(axis=0) for _, m in root.iter_meshes()], axis=0)
+    axis = 2 if view in ("side", "right", "left") else 0
+    spacing = max(float(hi[axis] - lo[axis]) * 1.15, 0.8)
+    strip = SceneNode(f"{root.name}_{clip_name}_filmstrip")
+    from .core.skin import pose_clips
+
+    for i in range(frames):
+        copy = root.instance()
+        pose_clips(copy, clip_name, duration * i / frames)
+        offset = np.zeros(3)
+        offset[axis] = i * spacing * (-1 if axis == 2 else 1)
+        copy.transform.translation = copy.transform.translation + offset
+        strip.add_child(copy)
+    return strip
+
+
 def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -116,6 +141,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="Export as streamable chunks (per block/building, exterior LODs, interiors) into DIR")
     parser.add_argument("--clip", default=None, metavar="NAME@SECONDS",
                         help="Render: pose every skeletal clip NAME at SECONDS (e.g. sway@1.0)")
+    parser.add_argument("--filmstrip", type=int, default=0, metavar="N",
+                        help="Render with --clip NAME: N copies posed across the clip, side by side")
     parser.add_argument("--state", default=None,
                         help="Viewer: pose every interaction in this state (e.g. open)")
     return parser.parse_args()
@@ -171,7 +198,9 @@ def main() -> None:
             return
 
     if args.render:
-        if args.clip:
+        if args.clip and args.filmstrip:
+            root = filmstrip(root, args.clip.partition("@")[0], args.filmstrip, args.view)
+        elif args.clip:
             from .core.skin import pose_clips
 
             clip_name, _, at = args.clip.partition("@")
