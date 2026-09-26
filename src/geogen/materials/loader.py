@@ -25,6 +25,7 @@ from ..textures.rock import RockTextureGenerator
 from ..textures.roof import RoofTextureGenerator
 from ..textures.wall import PlasterTextureGenerator, PaintedWallTextureGenerator
 from ..textures.wood import WoodTextureGenerator
+from ..textures.character import FaceTextureGenerator, HairTextureGenerator, SkinTextureGenerator
 
 
 # Registry of texture generator types
@@ -46,6 +47,9 @@ TEXTURE_GENERATORS = {
     "cut_pile_carpet": CutPileCarpetTextureGenerator,
     "tile": TileTextureGenerator,
     "marble": MarbleTextureGenerator,
+    "skin": SkinTextureGenerator,
+    "face": FaceTextureGenerator,
+    "hair": HairTextureGenerator,
 }
 
 # Named paint colours; any colour param may use one of these instead of [r, g, b].
@@ -213,6 +217,7 @@ class MaterialLoader:
             "color_light", "color_dark", "color_base", "color_variation",
             "base_color", "highlight_color", "mortar_color",
             "weft_color", "tile_color", "grout_color", "vein_color", "gap_color",
+            "eye_color", "brow_color", "lip_color",
         ]
         for key in color_keys:
             value = converted.get(key)

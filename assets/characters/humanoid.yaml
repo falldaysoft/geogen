@@ -26,6 +26,16 @@ params:
   neck_length:    { default: 0.10 }
   hand_size:      { default: 1.0 }
   foot_length:    { default: 0.24 }
+  skin_tone:      { default: 0.25 }   # 0 very light .. 1 very dark (vertex colour over `skin`)
+  hair_style:     { default: crop, choices: [none, buzz, crop, bob, long, ponytail, bun] }
+  hair_color:     { default: brown, choices: [black, dark_brown, brown, auburn, blonde, light_blonde, red, grey, white] }
+  eye_color:      { default: brown, choices: [brown, dark_brown, hazel, green, blue, grey] }
+  lashes:         { default: 0.3 }    # face paint: 0 .. 1
+  lip_strength:   { default: 0.4 }
+  blush:          { default: 0.1 }
+  freckles:       { default: 0.0 }
+  brow_thickness: { default: 1.1 }
+  brow_arch:      { default: 0.8 }
   seat_height:    { default: 0.45 }   # seat the sit poses plant the feet for (floor to seat)
   table_height:   { default: 0.74 }
   sill_height:    { default: 0.95 }
@@ -45,6 +55,12 @@ presets:
     neck_length: 0.10
     hand_size: 0.92
     foot_length: 0.23
+    hair_style: long
+    lashes: 1.0
+    lip_strength: 0.7
+    blush: 0.35
+    brow_thickness: 0.8
+    brow_arch: 1.2
   masculine:
     height: 1.79
     build: 0.55
@@ -59,6 +75,13 @@ presets:
     neck_length: 0.11
     hand_size: 1.05
     foot_length: 0.26
+    hair_style: crop
+    hair_color: dark_brown
+    lashes: 0.0
+    lip_strength: 0.12
+    blush: 0.0
+    brow_thickness: 1.45
+    brow_arch: 0.4
 
 derived:
   k: "{height / 1.7}"                              # size scale
@@ -79,6 +102,10 @@ derived:
   thigh: "{height * 0.245 - 0.03}"
   seat_drop: "{0.09 * k}"                          # hip joint above the seat
   sit_floor: "{hips_h - seat_drop - seat_height}"  # the floor's height in a seated body's frame
+  # Head landmarks (skeleton: head top = height, chin one head unit below).
+  hu: "{height / 6.5}"
+  eyes_y: "{height - 0.5 * hu}"
+  hairline: "{eyes_y + 0.085 * hs}"
 
 body:
   skeleton: skeletons/humanoid.yaml
@@ -90,6 +117,20 @@ body:
     hand_size: "{hand_size}"
     foot_length: "{foot_length}"
   material: skin
+  skin_tone: "{skin_tone}"
+  # The painted face: a decal over the front of the head (box = x0, y0, x1, y1 in the rest pose).
+  face:
+    box: ["{-0.085 * hs}", "{height - hu - 0.015}", "{0.085 * hs}", "{height - 0.16 * hu}"]
+    eye_color: "{eye_color}"
+    lashes: "{lashes}"
+    lip_strength: "{lip_strength}"
+    blush: "{blush}"
+    freckles: "{freckles}"
+    brow_thickness: "{brow_thickness}"
+    brow_arch: "{brow_arch}"
+    brow_color: "{hair_color}"
+  hair: "{hair_style}"
+  hair_color: "{hair_color}"
   crease_angle: 80
   max_triangles: 1500
   chains:
@@ -199,6 +240,135 @@ body:
         - [LeftFoot, 0.55, "{0.040 * k}", "{0.036 * k}", { offset: [0.003, "{-0.039 * k}"], power: 2.6 }]
         - [LeftToes, 0.0, "{0.044 * k}", "{0.026 * k}", { offset: [0.004, "{-0.050 * k}"], power: 2.8 }]
         - [LeftToes, 0.6, "{0.039 * k}", "{0.019 * k}", { offset: [0.002, "{-0.056 * k}"], power: 2.6 }]
+
+    nose:                                   # a small wedge from between the eyes to the tip
+      bones: [Head]
+      end: head_top
+      sides: 6
+      spacing: 0.2
+      joint_rings: false
+      cap_rings: 1
+      rings:
+        - [Head, 0.1, "{0.013 * hs}", "{0.016 * hs}", { offset: [0, "{0.096 * hs}"] }]
+        - [Head, 0.2, "{0.009 * hs}", "{0.012 * hs}", { offset: [0, "{0.1 * hs}"] }]
+        - [Head, 0.33, "{0.006 * hs}", "{0.008 * hs}", { offset: [0, "{0.098 * hs}"] }]
+
+  # Hair shells: ring-lofted chains on the head/neck/back bones minus `cut` boxes
+  # ([x0, y0, z0, x1, y1, z1], rest pose), skinned like the body.
+  hair_styles:
+    buzz: &short
+      chains:
+        cap: &cap
+          bones: [Neck, Head]
+          end: { landmark: head_top, offset: [0, 0.008, 0] }
+          sides: 12
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 2
+          weight_shift: { Head: -0.055 }
+          rings:
+            - [Neck, 0.5, "{0.056 * hs + 0.008}", "{0.058 * hs + 0.008}", { offset: [0, "{-0.012 * hs}"] }]
+            - [Head, 0.1, "{0.074 * hs + 0.008}", "{0.094 * hs + 0.008}", { offset: [0, "{0.004 * hs}"] }]
+            - [Head, 0.3, "{0.080 * hs + 0.008}", "{0.102 * hs + 0.008}", { offset: [0, "{0.003 * hs}"] }]
+            - [Head, 0.47, "{0.082 * hs + 0.008}", "{0.104 * hs + 0.008}"]
+            - [Head, 0.62, "{0.078 * hs + 0.008}", "{0.099 * hs + 0.008}", { offset: [0, "{-0.004 * hs}"] }]
+      cut:
+        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]     # face
+        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y}", 0.3]                      # sides below the temples
+    crop:
+      chains:
+        cap:
+          <<: *cap
+          end: { landmark: head_top, offset: [0, 0.018, 0] }
+          rings:
+            - [Neck, 0.5, "{0.056 * hs + 0.01}", "{0.058 * hs + 0.012}", { offset: [0, "{-0.014 * hs}"] }]
+            - [Head, 0.1, "{0.074 * hs + 0.012}", "{0.094 * hs + 0.012}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.3, "{0.080 * hs + 0.014}", "{0.102 * hs + 0.014}"]
+            - [Head, 0.47, "{0.082 * hs + 0.016}", "{0.104 * hs + 0.016}", { offset: [0, -0.002] }]
+            - [Head, 0.62, "{0.078 * hs + 0.018}", "{0.099 * hs + 0.018}", { offset: [0, "{-0.006 * hs}"] }]
+      cut:
+        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]
+        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y}", 0.3]
+    bob: &bob
+      chains:
+        cap: &bob_cap
+          <<: *cap
+          end: { landmark: head_top, offset: [0, 0.02, 0] }
+          rings:
+            - [Neck, 0.15, "{0.086 * hs}", "{0.094 * hs}", { offset: [0, "{-0.02 * hs}"], power: 2.2 }]
+            - [Neck, 0.5, "{0.084 * hs}", "{0.098 * hs}", { offset: [0, "{-0.012 * hs}"] }]
+            - [Head, 0.1, "{0.074 * hs + 0.02}", "{0.094 * hs + 0.018}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.3, "{0.080 * hs + 0.02}", "{0.102 * hs + 0.018}"]
+            - [Head, 0.47, "{0.082 * hs + 0.02}", "{0.104 * hs + 0.018}", { offset: [0, -0.002] }]
+            - [Head, 0.62, "{0.078 * hs + 0.02}", "{0.099 * hs + 0.02}", { offset: [0, "{-0.006 * hs}"] }]
+      cut:
+        - ["{-0.068 * hs}", "{height - 1.6 * hu}", 0.0, "{0.068 * hs}", "{hairline}", 0.3]
+    long:
+      chains:
+        cap: *bob_cap
+        back:
+          bones: [Head, Neck, UpperChest]
+          end: { bone: UpperChest, along: "{-0.13 * k}" }
+          sides: 10
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 2
+          blend: 0.06
+          rings:
+            - [Head, -0.6, "{0.074 * hs}", "{0.045 * hs}", { offset: [0, "{-0.062 * hs}"] }]
+            - [Neck, 0.3, "{0.088 * hs}", "{0.032 * hs}", { offset: [0, "{-0.082 * hs}"] }]
+            - [UpperChest, 0.5, "{0.1 * hs}", "{0.024 * hs}", { offset: [0, "{-0.104 * tf}"], power: 2.4 }]
+      cut:
+        - ["{-0.068 * hs}", "{height - 1.6 * hu}", 0.0, "{0.068 * hs}", "{hairline}", 0.3]
+    ponytail:
+      chains:
+        cap:
+          <<: *cap
+          end: { landmark: head_top, offset: [0, 0.014, 0] }
+          rings:
+            - [Neck, 0.5, "{0.056 * hs + 0.008}", "{0.058 * hs + 0.01}", { offset: [0, "{-0.014 * hs}"] }]
+            - [Head, 0.1, "{0.074 * hs + 0.01}", "{0.094 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.3, "{0.080 * hs + 0.011}", "{0.102 * hs + 0.011}"]
+            - [Head, 0.47, "{0.082 * hs + 0.012}", "{0.104 * hs + 0.012}", { offset: [0, -0.002] }]
+            - [Head, 0.62, "{0.078 * hs + 0.014}", "{0.099 * hs + 0.014}", { offset: [0, "{-0.004 * hs}"] }]
+        tail:
+          bones: [Head, Neck]
+          end: { bone: Neck, along: "{-0.16 * k}" }
+          bind: { Neck: [Head] }                 # the tail swings with the head
+          sides: 8
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 2
+          rings:
+            - [Head, -0.55, "{0.03 * hs}", "{0.03 * hs}", { offset: [0, "{-0.112 * hs}"] }]
+            - [Head, 0.2, "{0.034 * hs}", "{0.03 * hs}", { offset: [0, "{-0.12 * hs}"] }]
+            - [Neck, 0.8, "{0.02 * hs}", "{0.018 * hs}", { offset: [0, "{-0.1 * hs}"] }]
+      cut:
+        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]
+        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y - 0.02}", 0.3]
+    bun:
+      chains:
+        cap:
+          <<: *cap
+          end: { landmark: head_top, offset: [0, 0.012, 0] }
+          rings:
+            - [Neck, 0.5, "{0.056 * hs + 0.008}", "{0.058 * hs + 0.01}", { offset: [0, "{-0.014 * hs}"] }]
+            - [Head, 0.1, "{0.074 * hs + 0.01}", "{0.094 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.3, "{0.080 * hs + 0.011}", "{0.102 * hs + 0.011}"]
+            - [Head, 0.47, "{0.082 * hs + 0.012}", "{0.104 * hs + 0.012}", { offset: [0, -0.002] }]
+            - [Head, 0.62, "{0.078 * hs + 0.012}", "{0.099 * hs + 0.012}", { offset: [0, "{-0.004 * hs}"] }]
+        knot:
+          bones: [Head]
+          end: head_top
+          sides: 10
+          spacing: 0.2
+          joint_rings: false
+          rings:
+            - [Head, 0.42, "{0.04 * hs}", "{0.038 * hs}", { offset: [0, "{-0.108 * hs}"] }]
+            - [Head, 0.62, "{0.042 * hs}", "{0.04 * hs}", { offset: [0, "{-0.1 * hs}"] }]
+      cut:
+        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]
+        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y - 0.02}", 0.3]
 
   # Skeletal poses (body-frame degrees, see core.skeleton.Pose); each is also a `pose_<name>` clip.
   poses:

@@ -583,6 +583,7 @@ func room_at(pos: Vector3) -> String:
 
 ## Runtime-loaded glTF textures have no mipmaps, so fine patterns (brick,
 ## shingles) alias badly at a distance. Build mipmaps and filter anisotropically.
+## Surfaces with vertex colours get them as an albedo tint.
 func _prepare_materials(root: Node) -> void:
 	var done := {}
 	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
@@ -590,7 +591,13 @@ func _prepare_materials(root: Node) -> void:
 			continue
 		for surface in mi.mesh.get_surface_count():
 			var mat := mi.mesh.surface_get_material(surface) as BaseMaterial3D
-			if mat == null or done.has(mat):
+			if mat == null:
+				continue
+			# COLOR_0 tints (character skin tone, hair colour) multiply the albedo; meshes
+			# without colours read white, so a shared material can always enable it.
+			if mi.mesh.surface_get_format(surface) & Mesh.ARRAY_FORMAT_COLOR:
+				mat.vertex_color_use_as_albedo = true
+			if done.has(mat):
 				continue
 			done[mat] = true
 			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC

@@ -99,7 +99,7 @@ def test_npc_placement_builds_body_and_home():
     assert [c.name for c in npc.children] == ["body"]
     assert data["seed"] == 7
     # The resident is the feminine humanoid preset (1.66 m); her collider is as wide as she is deep.
-    assert data["height"] == pytest.approx(1.66, abs=0.01)
+    assert 1.66 <= data["height"] < 1.71                   # 1.66 m plus her hair
     assert 0.15 < data["radius"] < 0.25
     assert set(data["body"]["poses"]) == {"stand", "sit", "lie"}
     assert "pass" in data["actions"]

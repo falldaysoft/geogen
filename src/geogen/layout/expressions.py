@@ -70,6 +70,8 @@ def _eval_ast(node: ast.AST, params: dict[str, float]) -> float:
             raise ExpressionError(
                 f"Unknown parameter '{node.id}'. Available: {sorted(params)}"
             )
+        if isinstance(params[node.id], str):
+            raise ExpressionError(f"Choice parameter '{node.id}' can't be used in arithmetic")
         return float(params[node.id])
     if isinstance(node, ast.BinOp):
         left = _eval_ast(node.left, params)
@@ -125,6 +127,9 @@ def interpolate_string(value: str, params: dict[str, float]) -> str | float:
     # Exactly one interpolation that spans the whole string → return scalar.
     m = _INTERP_RE.fullmatch(value)
     if m is not None:
+        name = m.group(1).strip()
+        if isinstance(params.get(name), str):      # a choice param: "{hair_style}" -> "bob"
+            return params[name]
         return evaluate(m.group(1), params)
 
     # Multiple / embedded interpolations → keep as string.
@@ -159,6 +164,8 @@ def resolve_params(
     `declared` is the YAML `params:` block, e.g.
         {"width": {"default": 6}, "height": {"default": 3}}
 
+    A param with ``choices`` is a string selector ({default: bob, choices: [bob, long]}),
+    usable as a whole-value interpolation ("{hair_style}") but not in arithmetic.
     Overrides take precedence.
     """
     declared = declared or {}
@@ -173,6 +180,11 @@ def resolve_params(
         if "default" not in spec:
             raise ExpressionError(f"Param '{name}' requires a 'default' value")
         default = spec["default"]
+        if "choices" in spec:
+            if default not in spec["choices"]:
+                raise ExpressionError(f"Param '{name}': default {default!r} not in choices {spec['choices']}")
+            resolved[name] = default
+            continue
         if isinstance(default, str):
             # Defaults can also use unit literals, e.g. default: "50cm"
             default = interpolate_string(default, {})
@@ -184,6 +196,12 @@ def resolve_params(
             raise ExpressionError(
                 f"Unknown param override '{name}'. Declared params: {sorted(resolved)}"
             )
-        resolved[name] = float(value)
+        choices = declared[name].get("choices")
+        if choices is not None:
+            if value not in choices:
+                raise ExpressionError(f"Param '{name}' must be one of {choices}, got {value!r}")
+            resolved[name] = value
+        else:
+            resolved[name] = float(value)
 
     return resolved
