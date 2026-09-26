@@ -98,7 +98,9 @@ def test_npc_placement_builds_body_and_home():
     assert npc.name == "resident" and npc.tags == ["npc"]
     assert [c.name for c in npc.children] == ["body"]
     assert data["seed"] == 7
-    assert data["height"] == pytest.approx(1.75) and data["radius"] == pytest.approx(0.24)
+    # The resident is the feminine humanoid preset (1.66 m); her collider is as wide as she is deep.
+    assert data["height"] == pytest.approx(1.66, abs=0.01)
+    assert 0.15 < data["radius"] < 0.25
     assert set(data["body"]["poses"]) == {"stand", "sit", "lie"}
     assert "pass" in data["actions"]
     # The home polygon (house floor, 7.4 x 5.4 m) is in the NPC's frame: it contains the NPC.

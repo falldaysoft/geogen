@@ -55,6 +55,7 @@ var _retry_at := {}                  # failed option id -> clock when it may be 
 var _shape: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _pose := "stand"
+var _anim: AnimationPlayer = null   # the body's skeletal clips (pose_<name>, ...), if it has any
 # Step state
 var _timer := 0.0
 var _path := PackedVector3Array()
@@ -79,8 +80,18 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
 	npc.global_transform = Transform3D(Basis(Vector3.UP, yaw), xform.origin)
 	npc.body = node.get_node_or_null(str(data.get("body", {}).get("node", "body")))
 	if npc.body != null:
+		var clips := _body_clips(npc.body)
 		npc.body.reparent(npc, false)
 		npc.body.transform = Transform3D.IDENTITY
+		if not clips.is_empty():
+			npc._anim = AnimationPlayer.new()
+			npc._anim.name = "Clips"
+			var library := AnimationLibrary.new()
+			for clip_name in clips:
+				library.add_animation(clip_name, clips[clip_name])
+			npc._anim.add_animation_library("", library)
+			npc.body.add_child(npc._anim)   # root_node ".." = the body
+			npc._play_pose_clip("stand")
 	var h: Dictionary = data.get("home", {})
 	for p in h.get("polygon", []):
 		var w := xform * Vector3(p[0], 0.0, p[1])
@@ -596,6 +607,36 @@ func _portal_ahead() -> Dictionary:
 
 # --- body -----------------------------------------------------------------
 
+## The body's skeletal clips (extras.geogen.clips) copied out of the export's AnimationPlayer
+## with their tracks re-pathed relative to the body, so they still play once the body
+## moves under the NPC: {clip name: Animation}.
+static func _body_clips(body: Node) -> Dictionary:
+	var out := {}
+	var listed: Array = WorldLoader.geogen_extras(body).get("clips", [])
+	if listed.is_empty():
+		return out
+	var root := body
+	while root.get_parent() != null and not root.get_parent() is WorldLoader:
+		root = root.get_parent()
+	for ap: AnimationPlayer in root.find_children("*", "AnimationPlayer", true, false):
+		var base := ap.get_node(ap.root_node)
+		var prefix := String(base.get_path_to(body)) + "/"
+		for clip in listed:
+			var anim_name := String(clip.get("animation", ""))
+			if out.has(clip["name"]) or not ap.has_animation(anim_name):
+				continue
+			var anim: Animation = ap.get_animation(anim_name).duplicate(true)
+			for t in anim.get_track_count():
+				var path := String(anim.track_get_path(t))
+				if path.begins_with(prefix):
+					anim.track_set_path(t, NodePath(path.substr(prefix.length())))
+			# Static pose clips loop so the pose (and current_animation) holds.
+			var hold: bool = clip.get("loop", false) or String(clip["name"]).begins_with("pose_")
+			anim.loop_mode = Animation.LOOP_LINEAR if hold else Animation.LOOP_NONE
+			out[clip["name"]] = anim
+	return out
+
+
 ## Put the body in a pose: sit/lie at the anchor (collider off), stand where it stands.
 func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
 	var pose: Dictionary = definition["body"]["poses"][pose_name]
@@ -615,6 +656,18 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
 		var s: Array = pose["scale"]
 		var basis := Basis.from_euler(Vector3(deg_to_rad(r[0]), deg_to_rad(r[1]), deg_to_rad(r[2])))
 		body.transform = Transform3D(basis.scaled_local(Vector3(s[0], s[1], s[2])), Vector3(o[0], o[1], o[2]))
+	_play_pose_clip(pose_name)
+
+
+## Skeletal bodies: hold the pose's static clip (pose_<name>); capsule bodies have none.
+func _play_pose_clip(pose_name: String) -> void:
+	if _anim != null and _anim.has_animation("pose_" + pose_name):
+		# The importer drops tracks equal to the rest (the exported stand pose), so a pose clip
+		# only keys the bones it moves: start every switch from rest.
+		for sk: Skeleton3D in body.find_children("*", "Skeleton3D", true, false):
+			sk.reset_bone_poses()
+		_anim.play("pose_" + pose_name)
+		_anim.seek(0.0, true)
 
 
 # --- helpers ------------------------------------------------------------------
@@ -677,5 +730,5 @@ func report() -> Dictionary:
 	var p := global_position
 	return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
 		"decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
-		"outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose,
+		"outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
 		"position": _v(p), "needs": _rounded_needs(), "doing": _status()}

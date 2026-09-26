@@ -10,7 +10,7 @@
 kind: npc
 version: 1
 
-body: { asset: characters/capsule.yaml }
+body: { asset: characters/humanoid.yaml, params: { preset: feminine } }
 speed: 1.2                # walking speed, m/s
 turn_speed: 360           # deg/s
 

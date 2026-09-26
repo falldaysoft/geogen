@@ -1,0 +1,29 @@
+# Humanoid bodies for review: feminine, neutral and masculine presets next to
+# a chair and a door for scale.
+name: humanoid_lineup
+
+slots:
+  a: { position: [-0.8, 0, 0], facing: south }
+  b: { position: [0, 0, 0], facing: south }
+  c: { position: [0.8, 0, 0], facing: south }
+  chair: { position: [1.7, 0, 0], facing: south }
+  door: { position: [-1.9, 0, -0.2], facing: south }
+
+place:
+  feminine:
+    asset: characters/humanoid.yaml
+    params: { preset: feminine }
+    slot: a
+  neutral:
+    asset: characters/humanoid.yaml
+    slot: b
+  masculine:
+    asset: characters/humanoid.yaml
+    params: { preset: masculine }
+    slot: c
+  chair:
+    asset: chair.yaml
+    slot: chair
+  door:
+    asset: door.yaml
+    slot: door

@@ -14,6 +14,7 @@ from .transform import Transform
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
     from ..layout.surfaces import Surface
+    from .skin import Clip, Skin
 
 
 @dataclass
@@ -61,6 +62,10 @@ class SceneNode:
     meta: dict[str, object] = field(default_factory=dict, repr=False)
     # Interactions (layout.interactions.Interaction) whose parts are below this node.
     interactions: list = field(default_factory=list, repr=False)
+    # Skeletal skin (core.skin.Skin) binding this node's mesh to joint nodes; world_mesh() poses it.
+    skin: Skin | None = field(default=None, repr=False)
+    # Animation clips (core.skin.Clip) over joints below this node, exported as glTF animations.
+    clips: list[Clip] = field(default_factory=list, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -105,12 +110,19 @@ class SceneNode:
     def world_mesh(self) -> Mesh | None:
         """Get the mesh transformed to world space.
 
+        A skinned mesh (``skin`` set) is deformed by its joints' current pose.
+
         Returns:
             Transformed mesh or None if this node has no mesh
         """
         if self.mesh is None:
             return None
-        return self.mesh.transform(self.world_transform())
+        mesh = self.mesh
+        if self.skin is not None:
+            from .skin import skin_mesh
+
+            mesh = skin_mesh(mesh, self.skin.matrices(self))
+        return mesh.transform(self.world_transform())
 
     def iter_nodes(self, include_self: bool = True) -> Iterator[SceneNode]:
         """Iterate over this node and all descendants (depth-first).
@@ -246,7 +258,7 @@ class SceneNode:
         """List all surface names on this node."""
         return list(self.surfaces.keys())
 
-    def copy(self, deep: bool = True) -> SceneNode:
+    def copy(self, deep: bool = True, _top: bool = True) -> SceneNode:
         """Create a copy of this node.
 
         Args:
@@ -267,10 +279,14 @@ class SceneNode:
             tags=list(self.tags),
             meta=dict(self.meta),
             interactions=list(self.interactions),
+            skin=self.skin,
+            clips=list(self.clips),
         )
         if deep:
             for child in self.children:
-                new_node.add_child(child.copy(deep=True))
+                new_node.add_child(child.copy(deep=True, _top=False))
+            if _top:
+                _remap_skins(self, new_node)
         return new_node
 
     def instance(self) -> SceneNode:
@@ -297,3 +313,16 @@ class SceneNode:
         mesh_str = f", mesh={self.mesh.face_count}f" if self.mesh else ""
         children_str = f", children={len(self.children)}" if self.children else ""
         return f"SceneNode({self.name!r}{mesh_str}{children_str})"
+
+
+def _remap_skins(original: SceneNode, copied: SceneNode) -> None:
+    """Point skins in a deep copy at the copied joints (joints outside the copy are kept)."""
+    pairs = list(zip(original.iter_nodes(), copied.iter_nodes()))
+    if not any(c.skin is not None for _, c in pairs):
+        return
+    from .skin import Skin
+
+    mapping = {id(o): c for o, c in pairs}
+    for _, c in pairs:
+        if c.skin is not None:
+            c.skin = Skin([mapping.get(id(j), j) for j in c.skin.joints], c.skin.inverse_bind, c.skin.name)

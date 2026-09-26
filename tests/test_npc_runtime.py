@@ -37,6 +37,16 @@ def test_resident_idles_before_deciding(run_godot, cottage_dir):
     assert report["position"][1] == pytest.approx(0.32, abs=0.03)   # on the floorboards
 
 
+def test_humanoid_resident_plays_pose_clips(run_godot, cottage_dir):
+    # The resident is a skinned humanoid: standing holds pose_stand; ~14 s in she sits in
+    # the armchair (pose_sit on her own AnimationPlayer), and later stands again.
+    assert simulate(run_godot, cottage_dir, 2)["clip"] == "pose_stand"
+    sitting = simulate(run_godot, cottage_dir, 20)
+    assert (sitting["pose"], sitting["clip"]) == ("sit", "pose_sit")
+    later = simulate(run_godot, cottage_dir, 100)
+    assert (later["pose"], later["clip"]) == ("stand", "pose_stand")
+
+
 def test_resident_lives_in_the_cottage(run_godot, cottage_dir):
     report = simulate(run_godot, cottage_dir, 600)
     used = report["used"]

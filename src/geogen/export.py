@@ -11,6 +11,9 @@ glTF exports also write ``<name>.manifest.json`` alongside the model: the
 contract the Godot runtime reads (units, up axis, model file, player spec,
 rooms, spawns).
 
+Skinned meshes (``SceneNode.skin``, see ``core.skin``) export as glTF skins
+with JOINTS_0/WEIGHTS_0, and their clips as animations on the joint nodes.
+
 Gameplay metadata (schema: docs/schema/geogen-extras.v1.schema.json) rides
 along in glTF node extras as ``extras.geogen`` -- tags, room ids, trigger
 volumes, spawn points, walkable flags and the collider chosen for each mesh.
@@ -32,6 +35,7 @@ import trimesh
 from .core import meshops
 from .core.mesh import Mesh
 from .core.node import SceneNode
+from .core.transform import quat_from_matrix as _quat
 from .materials.material import Material
 from .player import PlayerSpec, load_player_spec
 
@@ -152,7 +156,9 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
     scene = trimesh.Scene(base_frame="world")
     cache: dict = {}
     shared: dict[tuple, str] = {}           # (kind, id(mesh), ...) -> geometry name
-    colors: dict[str, np.ndarray] = {}      # geometry name -> vertex colours (COLOR_0)
+    attributes: dict[str, dict] = {}        # geometry name -> {COLOR_0|JOINTS_0|WEIGHTS_0: per-vertex array}
+    skins: list[tuple[SceneNode, object]] = []
+    groups_of: dict[tuple, int] = {}        # mesh key -> material group count
     collider_kinds: dict[tuple, str] = {}
     lod_sizes: dict[tuple, tuple] = {}
     used: set[str] = {"world"}
@@ -183,22 +189,36 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
                                matrix=matrix if matrix is not None else np.eye(4), geometry=geom,
                                **({"metadata": metadata} if metadata else {}))
 
+    def vertex_attributes(geom: str, mesh: Mesh) -> None:
+        extra = {"COLOR_0": mesh.colors, "JOINTS_0": mesh.joints, "WEIGHTS_0": mesh.weights}
+        extra = {k: v for k, v in extra.items() if v is not None}
+        if extra:
+            attributes[geom] = extra
+
     def add_mesh(key: tuple, mesh: Mesh, node_name: str, parent: str, matrix=None, metadata=None) -> None:
         """A mesh node; extra material groups become ``material_group`` children, folded into the
         node's glTF mesh as extra primitives after export (``merge_material_groups``)."""
-        groups = mesh.groups()
+        if key in shared:       # already exported: just another node showing it
+            add(key, None, node_name, parent, matrix, metadata)
+            for k in range(1, groups_of.get(key, 1)):
+                add((*key, "group", k), None, unique(f"{node_name}__group{k}"), node_name,
+                    metadata={"geogen": {"version": EXTRAS_VERSION, "type": "material_group"}})
+            return
+        # Normals first: crease splitting adds vertices, and extra attributes must match them.
+        groups = [(m, meshops.ensure_normals(sub)) for m, sub in mesh.groups()]
+        groups_of[key] = len(groups)
         first = groups[0][1]
         add(key, lambda: to_trimesh(first, cache), node_name, parent, matrix, metadata)
-        if first.colors is not None:
-            colors[shared[key]] = first.colors
+        vertex_attributes(shared[key], first)
         for k, (_, sub) in enumerate(groups[1:], start=1):
             gkey = (*key, "group", k)
             add(gkey, lambda sub=sub: to_trimesh(sub, cache), unique(f"{node_name}__group{k}"), node_name,
                 metadata={"geogen": {"version": EXTRAS_VERSION, "type": "material_group"}})
-            if sub.colors is not None:
-                colors[shared[gkey]] = sub.colors
+            vertex_attributes(shared[gkey], sub)
 
     def collider_of(node: SceneNode) -> str:
+        if node.skin is not None:
+            return "none"     # a rest-pose collider would be wrong once the skin moves
         key = (id(node.mesh), str(node.meta.get("collider", "auto")))
         if key not in collider_kinds:
             collider_kinds[key] = resolve_collider(node)
@@ -220,10 +240,17 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
                                    interaction.name, node.name)
             if exported:
                 extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = exported
+        if node.clips:
+            extras.setdefault("geogen", {"version": EXTRAS_VERSION})["clips"] = [
+                {"name": clip.name, "animation": f"{name}_{clip.name}", "duration": round(clip.duration, 6),
+                 "loop": clip.loop} for clip in node.clips]
         if has_mesh:
             mesh = node.mesh
             add_mesh(("mesh", id(mesh)), mesh, name, parent_name, matrix, extras or None)
-            if lods and len(mesh.faces) >= LOD_MIN_TRIANGLES:
+            if node.skin is not None:
+                skins.append((node, node.skin))
+            # Decimation doesn't carry skin weights yet, so skinned meshes get no LODs.
+            if lods and len(mesh.faces) >= LOD_MIN_TRIANGLES and node.skin is None:
                 for level, ratio in enumerate(lods, start=1):
                     key = ("lod", id(mesh), ratio)
                     if key not in lod_sizes:
@@ -248,7 +275,14 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
 
     visit(root, "world")
     scene.metadata["geogen_names"] = names      # node id -> exported name (for animations)
-    scene.metadata["geogen_colors"] = colors    # geometry name -> COLOR_0
+    scene.metadata["geogen_attributes"] = attributes    # geometry name -> extra vertex attributes
+    scene.metadata["geogen_skins"] = [
+        {"node": names[id(node)], "name": skin.name, "inverse_bind": skin.inverse_bind,
+         "joints": [names.get(id(j)) for j in skin.joints]} for node, skin in skins]
+    # Exported names are unique (the post passes look nodes up by name), but joints must keep their
+    # own names (Hips, Spine, ...) in every character so skeleton profiles and retargeting match.
+    scene.metadata["geogen_joint_names"] = {names[id(j)]: j.name for _, skin in skins for j in skin.joints
+                                            if id(j) in names}
     return scene
 
 
@@ -369,24 +403,6 @@ def interaction_animations(root: SceneNode, names: dict[int, str]) -> list[dict]
     return animations
 
 
-def _quat(r: np.ndarray) -> np.ndarray:
-    """Rotation matrix -> unit quaternion (x, y, z, w)."""
-    t = np.trace(r)
-    if t > 0:
-        s = np.sqrt(t + 1.0) * 2
-        q = [(r[2, 1] - r[1, 2]) / s, (r[0, 2] - r[2, 0]) / s, (r[1, 0] - r[0, 1]) / s, 0.25 * s]
-    else:
-        i = int(np.argmax(np.diag(r)))
-        j, k = (i + 1) % 3, (i + 2) % 3
-        s = np.sqrt(1.0 + r[i, i] - r[j, j] - r[k, k]) * 2
-        q = [0.0, 0.0, 0.0, (r[k, j] - r[j, k]) / s]
-        q[i] = 0.25 * s
-        q[j] = (r[j, i] + r[i, j]) / s
-        q[k] = (r[k, i] + r[i, k]) / s
-    q = np.array(q)
-    return q / np.linalg.norm(q)
-
-
 def add_animations(glb: bytes, animations: list[dict]) -> bytes:
     """Append glTF animations (see ``interaction_animations``) to a GLB.
 
@@ -448,31 +464,119 @@ def _to_trs(node: dict, scale: np.ndarray) -> None:
         node["scale"] = [float(v) for v in s]
 
 
-def add_vertex_colors(glb: bytes, colors: dict[str, np.ndarray]) -> bytes:
-    """Add COLOR_0 (float RGBA) to the primitives of the named glTF meshes."""
+# glTF accessor layout per extra vertex attribute: (numpy dtype, componentType, clamp to 0-1).
+VERTEX_ATTRIBUTES = {"COLOR_0": ("<f4", 5126, True), "JOINTS_0": ("<u2", 5123, False),
+                     "WEIGHTS_0": ("<f4", 5126, False)}
+
+
+def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray]]) -> bytes:
+    """Add per-vertex VEC4 attributes (COLOR_0, JOINTS_0, WEIGHTS_0) to the primitives of the named glTF meshes."""
     import struct
 
-    if not colors:
+    if not attributes:
         return glb
     gltf, rest, header = _split_glb(glb)
     bin_len, bin_type = struct.unpack("<II", rest[:8])
     data = bytearray(rest[8:8 + bin_len])
     for mesh in gltf.get("meshes", []):
-        values = colors.get(mesh.get("name"))
-        if values is None:
-            continue
-        blob = np.ascontiguousarray(np.clip(values, 0, 1), dtype="<f4").tobytes()
-        data.extend(b"\0" * (-len(data) % 4))
-        gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
-                                    "target": 34962})
-        data.extend(blob)
-        gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
-                                  "count": int(len(values)), "type": "VEC4"})
-        for primitive in mesh.get("primitives", []):
-            primitive.setdefault("attributes", {})["COLOR_0"] = len(gltf["accessors"]) - 1
+        for semantic, values in attributes.get(mesh.get("name"), {}).items():
+            dtype, component, clamp = VERTEX_ATTRIBUTES[semantic]
+            if clamp:
+                values = np.clip(values, 0, 1)
+            blob = np.ascontiguousarray(values, dtype=dtype).tobytes()
+            data.extend(b"\0" * (-len(data) % 4))
+            gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
+                                        "target": 34962})
+            data.extend(blob)
+            gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": component,
+                                      "count": int(len(values)), "type": "VEC4"})
+            for primitive in mesh.get("primitives", []):
+                primitive.setdefault("attributes", {})[semantic] = len(gltf["accessors"]) - 1
     data.extend(b"\0" * (-len(data) % 4))
     gltf["buffers"][0]["byteLength"] = len(data)
     return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
+
+
+def add_skins(glb: bytes, skins: list[dict]) -> bytes:
+    """Add glTF skins (joints, inverseBindMatrices) and point each skinned node at its skin.
+
+    A skin whose joints aren't all in this export (a chunk split) is skipped:
+    the mesh then shows its bind pose, unskinned.
+    """
+    import struct
+
+    if not skins:
+        return glb
+    gltf, rest, header = _split_glb(glb)
+    bin_len, bin_type = struct.unpack("<II", rest[:8])
+    data = bytearray(rest[8:8 + bin_len])
+    nodes = gltf.get("nodes", [])
+    index = {n.get("name"): i for i, n in enumerate(nodes)}
+    parent_of = {c: i for i, n in enumerate(nodes) for c in n.get("children", [])}
+    out = gltf.setdefault("skins", [])
+    for skin in skins:
+        joints = [index.get(name) for name in skin["joints"]]
+        if skin["node"] not in index or None in joints:
+            logger.warning("Skipping skin on '%s': its joints aren't all in this export", skin["node"])
+            continue
+        # Column-major MAT4s.
+        blob = np.ascontiguousarray(np.transpose(skin["inverse_bind"], (0, 2, 1)), dtype="<f4").tobytes()
+        data.extend(b"\0" * (-len(data) % 4))
+        gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob)})
+        data.extend(blob)
+        gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
+                                  "count": len(joints), "type": "MAT4"})
+        joint_set = set(joints)
+        roots = [j for j in joints if parent_of.get(j) not in joint_set]
+        entry = {"name": skin["name"], "joints": joints, "inverseBindMatrices": len(gltf["accessors"]) - 1}
+        if len(roots) == 1:
+            entry["skeleton"] = roots[0]
+        out.append(entry)
+        nodes[index[skin["node"]]]["skin"] = len(out) - 1
+    data.extend(b"\0" * (-len(data) % 4))
+    gltf["buffers"][0]["byteLength"] = len(data)
+    return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
+
+
+def rename_nodes(glb: bytes, renames: dict[str, str]) -> bytes:
+    """Rename glTF nodes (exported name -> new name); run after every pass that finds nodes by name."""
+    renames = {k: v for k, v in renames.items() if k != v}
+    if not renames:
+        return glb
+    gltf, rest, header = _split_glb(glb)
+    for node in gltf.get("nodes", []):
+        if node.get("name") in renames:
+            node["name"] = renames[node["name"]]
+    return _join_glb(gltf, rest, header)
+
+
+def clip_animations(root: SceneNode, names: dict[int, str]) -> list[dict]:
+    """One animation per ``SceneNode.clips`` entry, ``<owner>_<clip>``, targeting the joint nodes.
+
+    Channels not animated by a track (rotation or translation) hold the joint's current value.
+    """
+    animations = []
+    for owner in root.iter_nodes():
+        if not owner.clips:
+            continue
+        by_name = {n.name: n for n in owner.iter_nodes()}
+        for clip in owner.clips:
+            channels = []
+            for joint_name, track in clip.tracks.items():
+                joint = by_name.get(joint_name)
+                if joint is None or id(joint) not in names:
+                    continue
+                count = len(track.times)
+                m = joint.transform.to_matrix()
+                rotation = track.rotations if track.rotations is not None else np.tile(
+                    _quat(m[:3, :3] / joint.transform.scale[None, :]), (count, 1))
+                translation = track.translations if track.translations is not None else np.tile(
+                    joint.transform.translation, (count, 1))
+                channels.append({"node": names[id(joint)], "times": track.times, "rotation": rotation,
+                                 "translation": translation, "scale": joint.transform.scale})
+            if channels:
+                animations.append({"name": f"{names[id(owner)]}_{clip.name}", "channels": channels})
+    return animations
 
 
 def merge_material_groups(glb: bytes) -> bytes:
@@ -656,7 +760,8 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     ``manifest=False`` skips the manifest (chunk files are indexed by
     ``chunks.export_chunks`` instead). GLBs also carry a glTF animation per
     interaction transition (``animations=False`` to skip) for engines that
-    don't read extras.geogen. ``textures_dir`` (GLB only) writes
+    don't read extras.geogen, and one per skeletal clip (``SceneNode.clips``,
+    always written). Skinned nodes become glTF skins. ``textures_dir`` (GLB only) writes
     images there, shared by content hash, instead of embedding them.
     """
     path = Path(path)
@@ -674,9 +779,12 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
         glb = add_lod_extension(add_punctual_lights(scene.export(file_type="glb")))
-        glb = merge_material_groups(add_vertex_colors(glb, scene.metadata.get("geogen_colors", {})))
-        if animations:
-            glb = add_animations(glb, interaction_animations(root, scene.metadata["geogen_names"]))
+        glb = merge_material_groups(add_vertex_attributes(glb, scene.metadata["geogen_attributes"]))
+        glb = add_skins(glb, scene.metadata["geogen_skins"])
+        names = scene.metadata["geogen_names"]
+        glb = add_animations(glb, (interaction_animations(root, names) if animations else [])
+                             + clip_animations(root, names))
+        glb = rename_nodes(glb, scene.metadata["geogen_joint_names"])
         if textures_dir is not None:
             import os
 

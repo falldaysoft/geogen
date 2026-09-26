@@ -7,6 +7,7 @@ import numpy as np
 
 from .registry import SceneRegistry
 from .scenes.nature import create_nature_scene
+from .scenes.skin_test import create_skin_test_scene
 from .render import VIEWS, RenderOptions, render_scene, render_views
 from .viewer import run_viewer
 
@@ -19,6 +20,7 @@ def _build_registry() -> SceneRegistry:
     registry.discover()
     # Python-coded scenes (not representable as pure YAML)
     registry.register("nature", create_nature_scene)
+    registry.register("skin_test", create_skin_test_scene)
     return registry
 
 
@@ -112,6 +114,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="With --export-godot: write a chunked export (<scene>_chunks/) the runtime streams")
     parser.add_argument("--chunks", default=None, metavar="DIR",
                         help="Export as streamable chunks (per block/building, exterior LODs, interiors) into DIR")
+    parser.add_argument("--clip", default=None, metavar="NAME@SECONDS",
+                        help="Render: pose every skeletal clip NAME at SECONDS (e.g. sway@1.0)")
     parser.add_argument("--state", default=None,
                         help="Viewer: pose every interaction in this state (e.g. open)")
     return parser.parse_args()
@@ -167,6 +171,12 @@ def main() -> None:
             return
 
     if args.render:
+        if args.clip:
+            from .core.skin import pose_clips
+
+            clip_name, _, at = args.clip.partition("@")
+            if not pose_clips(root, clip_name, float(at or 0)):
+                print(f"Warning: no clip named '{clip_name}' in {args.scene}")
         if args.cutaway:
             from .render import cutaway
 

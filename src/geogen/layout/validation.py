@@ -8,7 +8,7 @@ from typing import Any
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
     "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds", "light",
-    "affordances", "container", "poses", "portal",
+    "affordances", "container", "poses", "portal", "body", "presets", "preset", "derived",
 }
 
 PART_KNOWN_KEYS = {
@@ -82,7 +82,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
     if not isinstance(data, dict):
         raise ValidationError("Asset YAML must be a mapping")
 
-    if "size" not in data and "floorplan" not in data and "building" not in data:
+    if "size" not in data and not {"floorplan", "building", "body"} & set(data):
         raise ValidationError("Asset YAML requires 'size' field")
 
     # Check top-level keys

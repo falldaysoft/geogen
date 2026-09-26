@@ -98,6 +98,21 @@ User args (after `--`):
 | `--simulate=SECONDS` | Run SECONDS of world time, print `npc summary: [...]` and quit (with `--screenshot`, capture then quit) |
 | `--npc-labels` | Show each NPC's current action and needs above it (F5 toggles) |
 | `--camera=follow[:NAME]` | Watch an NPC (the first, or the one whose name starts with NAME) from a clear viewpoint |
+| `--play=ANIM[@SECONDS]` | Loop every animation named `ANIM` or `<node>_ANIM` (skeletal clips, interaction animations); `@SECONDS` freezes it there |
+| `--skeletons` | Print `skeletons: {...}` on quit: each Skeleton3D's bone positions, its skinned meshes' world bounds (CPU-skinned like the renderer) and the animations |
+
+Skinned exports (glTF skins, e.g. `-s skin_test`) import as `Skeleton3D` +
+skinned `MeshInstance3D` + `AnimationPlayer`; joint nodes keep their own
+names (`Hips`, `Spine`, ...) in every character. Runtime `GLTFDocument`
+resamples animations at 30 fps, so between those frames a pose differs
+from the Python clip by the slerp-vs-chord error (a few mm on the test tube).
+NPC bodies with skeletal clips (the humanoid) get their own AnimationPlayer
+under the body; `npc.gd` plays the `pose_<name>` clip for each pose (stand,
+sit, lie) after resetting the skeleton to rest, since the importer drops
+tracks that equal the rest (the exported stand pose). No walk cycle yet:
+she glides in the stand pose (geogen-z2b.16.9/.10).
+`tools/dump_skeleton_profile.gd` prints `SkeletonProfileHumanoid`
+(saved as `assets/skeletons/humanoid_profile.json`).
 
 `tests/test_godot_runtime.py` exports the cottage and walks the player into
 it headless (wall blocks, door step is climbed, closed door blocks). The

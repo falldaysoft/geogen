@@ -64,6 +64,20 @@
             "max_deg": { "type": "number" }
           }
         },
+        "clips": {
+          "description": "Skeletal animation clips over the joints below this node. Each is a glTF animation named 'animation' (<node>_<clip>; engines may mangle '/') targeting the joint nodes (Skeleton3D bones in Godot); 'loop' clips repeat.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "animation", "duration", "loop"],
+            "properties": {
+              "name": { "type": "string" },
+              "animation": { "type": "string" },
+              "duration": { "type": "number", "minimum": 0 },
+              "loop": { "type": "boolean" }
+            }
+          }
+        },
         "interactions": {
           "description": "Asset nodes: state machines that move descendant nodes (by exported node name). Exported transforms show the 'initial' state; a part's rest pose is M(initial value)^-1 * its exported transform, and its pose for value v is asset * M(v) * rest, where M rotates by v degrees about 'axis' through 'pivot' (asset frame) or translates v metres along 'axis'. use() goes to states[target].next; 'then' auto-advances on arrival; 'emit' names an event raised on arrival.",
           "type": "object",

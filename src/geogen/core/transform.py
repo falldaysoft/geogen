@@ -138,3 +138,51 @@ class Transform:
         """Combine two transforms via matrix multiplication."""
         combined = self.to_matrix() @ other.to_matrix()
         return Transform.from_matrix(combined)
+
+
+def quat_from_matrix(r: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Rotation matrix (3x3, no scale) -> unit quaternion (x, y, z, w), glTF order."""
+    t = np.trace(r)
+    if t > 0:
+        s = np.sqrt(t + 1.0) * 2
+        q = [(r[2, 1] - r[1, 2]) / s, (r[0, 2] - r[2, 0]) / s, (r[1, 0] - r[0, 1]) / s, 0.25 * s]
+    else:
+        i = int(np.argmax(np.diag(r)))
+        j, k = (i + 1) % 3, (i + 2) % 3
+        s = np.sqrt(1.0 + r[i, i] - r[j, j] - r[k, k]) * 2
+        q = [0.0, 0.0, 0.0, (r[k, j] - r[j, k]) / s]
+        q[i] = 0.25 * s
+        q[j] = (r[j, i] + r[i, j]) / s
+        q[k] = (r[k, i] + r[i, k]) / s
+    q = np.array(q)
+    return q / np.linalg.norm(q)
+
+
+def matrix_from_quat(q: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Unit quaternion (x, y, z, w) -> 3x3 rotation matrix."""
+    x, y, z, w = np.asarray(q, dtype=np.float64) / np.linalg.norm(q)
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+    ])
+
+
+def quat_axis_angle(axis, angle: float) -> NDArray[np.float64]:
+    """Quaternion (x, y, z, w) rotating ``angle`` radians about ``axis``."""
+    axis = np.asarray(axis, dtype=np.float64)
+    axis = axis / np.linalg.norm(axis)
+    return np.array([*(axis * np.sin(angle / 2)), np.cos(angle / 2)])
+
+
+def slerp(a: NDArray[np.float64], b: NDArray[np.float64], t: float) -> NDArray[np.float64]:
+    """Spherical interpolation between unit quaternions (shortest arc), as glTF LINEAR rotation does."""
+    a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
+    d = float(np.dot(a, b))
+    if d < 0:
+        b, d = -b, -d
+    if d > 0.9995:
+        q = a + (b - a) * t
+        return q / np.linalg.norm(q)
+    theta = np.arccos(d)
+    return (np.sin((1 - t) * theta) * a + np.sin(t * theta) * b) / np.sin(theta)

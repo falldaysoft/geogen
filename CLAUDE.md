@@ -26,6 +26,7 @@ python -m geogen.main -s chair -r sheet.png --views            # iso/front/side/
 python -m geogen.main -s chair -r sheet.png --views iso,back,top --resolution 700x700
 python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
 python -m geogen.main -s hotel_room_auto -r out.png --views iso,top --cutaway   # hide ceilings/roofs to see inside
+python -m geogen.main -s skin_test -r out.png --clip sway@1.0   # pose skeletal clips before rendering
 
 # Export for game engines (hierarchy + PBR textures)
 python -m geogen.main -s town --chunks out/town_chunks --cache    # streamable chunks + index
@@ -74,6 +75,21 @@ pytest tests/test_scenes.py -k "test_name"
 - **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding). Use `validate` whenever you touch a generator.
 
 - **subdiv** (`subdiv.py`): `subdivide(mesh, levels, crease_angle)` (Loop, crease/boundary rules, sharp crease turns stay corners) and `displace(mesh, amplitude, scale, octaves, seed, ridged)` (fractal 3D gradient noise along smoothed normals; closed meshes stay closed). In YAML any part takes `subdivide: 3` / `{levels, crease}` (result is stretched back to the part box; `LayoutLoader(detail)` adds/removes levels) and `displace: {amplitude, scale, octaves, seed, ridged}`; UVs are box-projected by the undisplaced normals so noisy surfaces get clean seams. Used by rocks (`seed` param), bushes and bed pillows.
+
+- **skin** (`skin.py`): skeletal skinning.
+  - A skeleton is a plain joint `SceneNode` hierarchy; `Mesh.joints`/`weights` (Nx4) bind vertices to up to 4 joints, carried through normals/weld/groups/merge (not CSG or decimation yet).
+  - `SceneNode.skin = Skin.bind(mesh_node, joints)` stores inverse bind matrices; `world_mesh()` then CPU-skins (linear blend) the current pose, so renders, the viewer and QA see it posed. Keep the skinned node a sibling of the root joint.
+  - `SceneNode.clips`: `Clip(name, {joint: Track(times, rotations xyzw, translations)}, loop)`; `clip.apply(owner, t)` / `pose_clips(root, name, t)` pose joints.
+  - Export writes glTF skins (JOINTS_0/WEIGHTS_0, inverseBindMatrices), no colliders or LODs for skinned meshes, joint nodes keep their own names (not uniquified), and each clip becomes an animation `<owner>_<clip>` listed in the owner's `extras.geogen.clips`.
+  - Test scene: `-s skin_test` (`scenes/skin_test.py`, 3-joint tube with a `sway` clip); render a clip frame with `-r out.png --clip sway@1.0`.
+  - Humanoid target: `assets/skeletons/humanoid_profile.json` (Godot `SkeletonProfileHumanoid`: 56 bones, T-pose facing +Z, left = +X, Root on the floor, each bone +Y toward its tail, with per-bone roll in `reference_pose`).
+  - CSG and `decimate` carry weights as one dense column per used joint (manifold vertex properties), returning the top 4; vertices from unskinned operands copy their nearest skinned neighbour.
+
+- **skeleton** (`skeleton.py`): `load_skeleton(path, params) -> Skeleton` from a `kind: skeleton` YAML (`assets/skeletons/humanoid.yaml`).
+  - The YAML has `params` (height 1.70, head_units 6.5, shoulder_width, hip_width, leg_ratio, arm_ratio, neck_length, hand_size, foot_length), sequential `derived` expressions, world rest `bones` heads (Left* mirror to Right*), `group_scale` for unlisted profile groups (fingers at the profile's offsets) and `landmarks` (head_top, chin, heel, toe_tip, crotch).
+  - All 56 profile bones always exist, with rest orientations exactly the profile's (params only move heads).
+  - `Skeleton.fk(pose)`, `build() -> (root joint node, name -> node)` for `core.skin`, `length(bone)`.
+  - `Pose.from_spec({bones: {Name: [x, y, z] deg}, root, frame}, skeleton)`: the default `frame: body` rotates about the character's own axes (X = its left, Y up, Z forward), e.g. `LeftUpperLeg: [-90, 0, 0]` lifts the thigh forward and `LeftUpperArm: [0, 0, -90]` lowers the arm; `frame: bone` uses each bone's rolled local axes (what library clips contain). `Pose.apply(skeleton, nodes)` poses built nodes.
 
 - **uvmap** (`uvmap.py`): Metric UV projection — `box_project`, `planar_project`, `cylindrical_project`, and `texel_density` (1.0 == metric).
 
@@ -220,6 +236,17 @@ pytest tests/test_scenes.py -k "test_name"
       at: [seat_front, seat_back, seat_left, seat_right]
   ```
 
+### Characters
+
+Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): an asset with a `body:` block is a skeleton (`core/skeleton.py`) skinned by ring-lofted chains (`generators/ringloft.py`).
+- Chains: torso+neck+head, arm (clavicle to mitten), thumb, leg, foot; `mirror: true` adds the exact Right* twin.
+- A chain's `rings` are `[bone, t, rx, rz, {offset, power, twist}]`. Chains also take `joint_rings` (bones whose joint gets bend rings), `joint_blend` (per-joint weight blend widths), `weight_shift` (e.g. Head -0.055, so the jaw follows the head) and `bind` (the mitten follows the Middle+Ring fingers, keeping 4 influences).
+- `max_triangles` decimates the unioned mesh (weights kept); the body is about 1.5k tris.
+- Shape params: height, build, shoulder_width, hip_width, hips, waist, bust, glutes, limb, head_size, jaw_width, neck_length, hand_size, foot_length.
+- `presets:` feminine/masculine (`params: {preset: feminine, height: 1.6}`; explicit values win). Asset YAML takes `presets:`/`preset:` and sequential `derived:` expressions in general.
+- `body.poses` are skeletal poses (stand, sit, lie, t_pose; body frame), and `body.pose` is the one it's built in; each becomes a static `pose_<name>` clip. The top-level `poses:` are the NPC root transforms: sit drops the hips onto the seat point, lie lays the body along the bed.
+- Review scene: `-s humanoid_lineup` (presets beside a door and a chair). Tests: `tests/test_humanoid.py`, `tests/test_skeleton.py`, `tests/test_ringloft.py`.
+
 ### Furniture library
 
 Parametric furniture assets in `assets/` (tags `furniture.*` / `bathroom.*` / `decor.*`, `clearance:` → `meta.footprint` + `meta.clearance` in extras): bed, nightstand (drawer interaction), wardrobe (door interaction), desk, desk_chair, armchair, bookshelf, floor_lamp, table_lamp, tv_console, luggage_rack, rug; wall-mounted (origin on the wall plane, depth along +Z): tv, wall_mirror, wall_art, curtains, towel_rail; bathroom: toilet (lid interaction), vanity (basin + tap), shower, bathtub. `scenes/hotel_room.yaml` furnishes `hotel_suite.yaml` by hand; `tests/test_furniture.py` checks nothing overlaps or blocks door swings. Soft goods are rounded boxes/ellipsoids until subdivision (geogen-o3s.14).
@@ -249,7 +276,7 @@ Fixtures carry `meta.light` (`{type: omni, color, energy, range, offset: [x, y, 
 Everything is data; the Godot side is a generic interpreter (decision recorded on geogen-z2b.1).
 - `src/geogen/npc.py`: loads `kind: npc` definitions (`assets/npcs/resident.yaml`: `body` asset, `speed`, `needs` {initial, decay/s}, `preferences` (tag multipliers), `activities` (wander/idle), `scoring` {distance, recency, memory, noise, retry}, `home_margin`, `flags`) and `assets/npcs/actions.yaml` (`kind: npc_actions`): per action a default `approach` offset (anchor frame, x right / z forward), `duration`, and `steps` from a fixed vocabulary: `go_to: approach|anchor|random|near|far`, `face: anchor|portal`, `pose: <name>` (+ `at: anchor|approach`), `wait: duration|S|[lo, hi]`, `use: <state>`, with optional `if: <flag>`.
 - Affordances (`layout/loader._affordance`, player and NPCs share them) take `action`, `approach` (metres in front or [x, y, z]), `duration`, `advertises` {need: amount}, `tags`, `slots` and `interaction`; each is exported with a resolved floor-level `approach` point. Types: sit, lie, use, stand, look (the player only takes sit/lie).
-- Doors declare `portal:` (`door.yaml`: interaction, open/closed states, centre, normal, width, height, depth, clearance) so paths through closed doors run the `pass` action. Body assets declare `poses:` (root offset/rotation/scale relative to the anchor; `assets/characters/capsule.yaml` is the placeholder body until the humanoid generator, z2b.2/z2b.3).
+- Doors declare `portal:` (`door.yaml`: interaction, open/closed states, centre, normal, width, height, depth, clearance) so paths through closed doors run the `pass` action. Body assets declare `poses:` (root offset/rotation/scale relative to the anchor). The resident's body is the feminine humanoid (`characters/humanoid.yaml`); `characters/capsule.yaml` is the old placeholder. Skeletal bodies also export a static `pose_<name>` clip per skeletal pose: `npc.gd` copies the body's clips (`extras.geogen.clips`) onto its own AnimationPlayer (tracks re-pathed after the body moves under the NPC), resets the skeleton to rest (Godot drops tracks equal to the exported stand pose) and plays the pose's clip; the summary reports `clip`.
 - Scenes: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`. The node gets `meta.type = "npc"`, `meta.npc` (the resolved definition with actions and poses inlined, `home.polygon` in the node's frame, `radius`/`height` from the body bounds) and the body asset as child `body` (no colliders).
 - Runtime (`runtime/godot/scripts/npc.gd`): see the NPCs section of `runtime/godot/README.md`. The navmesh bake includes the runtime ground (y = 0) `ground_margin` m around each model. Flags: `--npc-trace`, `--timescale=N`, `--simulate=S` (prints `npc summary: [...]`), `--npc-labels` / F5, `--camera=follow[:NAME]`. Tests: `tests/test_npc.py` (data), `tests/test_npc_runtime.py` (8x headless sims of the cottage resident).
 
@@ -259,9 +286,9 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
 
 ### Scenes & Registry
 
-- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (only `nature`).
+- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).
 
-- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Only `nature.py` is registered; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are legacy thin wrappers around their YAML counterparts and aren't used by the registry.
+- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Only `nature.py` and `skin_test.py` are registered; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are legacy thin wrappers around their YAML counterparts and aren't used by the registry.
 
 - **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`/`compose:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` uses `compose:` and is a scene, not an asset.)
 
@@ -285,7 +312,7 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
 
 ### Godot runtime (`runtime/godot/`)
 
-Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). `python -m geogen.main -s cottage --export-godot` writes `.glb` + manifest into `runtime/godot/generated/`; `godot --path runtime/godot -- --scene cottage` walks it in first person. `WorldLoader` loads exports at runtime (GLTFDocument, trimesh colliders, mipmaps) and hot-reloads when a manifest changes; `Player` is a cylinder `CharacterBody3D` sized from `PlayerSpec` with step-up. `--playtest[=N]` (run with `--headless --fixed-fps 60`) is the enterability check: every room volume and interaction target must be reachable on the navmesh from the export's spawn (doors opened and baked as obstacles first), and a bot walks N routes with the real player body; prints `playtest: {...}` and exits 1 on failure (`tests/test_godot_runtime.py`). Buildings add an `entrance_spawn` outside the street door. `addons/geogen/` (`GeogenSceneBuilder`, enabled editor plugin) turns extras into room Area3Ds, spawn markers, tag groups and a navmesh baked from colliders (moving parts excluded, so doorways stay navigable) — both on editor import of a geogen `.glb` and at runtime. Useful args after `--`: `--generated=DIR`, `--spawn=X,Y,Z`, `--walk=SECONDS` (prints the end position; used by `tests/test_godot_runtime.py`), `--nav=AX,AZ:BX,BZ` (prints a navmesh path), `--screenshot=out.png`, `--camera=overview`, `--colliders`. See `runtime/godot/README.md`. On macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT` and skip without it). Wrap ad-hoc Godot runs in a timeout: a GDScript parse error leaves the process running instead of exiting.
+Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). `python -m geogen.main -s cottage --export-godot` writes `.glb` + manifest into `runtime/godot/generated/`; `godot --path runtime/godot -- --scene cottage` walks it in first person. `WorldLoader` loads exports at runtime (GLTFDocument, trimesh colliders, mipmaps) and hot-reloads when a manifest changes; `Player` is a cylinder `CharacterBody3D` sized from `PlayerSpec` with step-up. `--playtest[=N]` (run with `--headless --fixed-fps 60`) is the enterability check: every room volume and interaction target must be reachable on the navmesh from the export's spawn (doors opened and baked as obstacles first), and a bot walks N routes with the real player body; prints `playtest: {...}` and exits 1 on failure (`tests/test_godot_runtime.py`). Buildings add an `entrance_spawn` outside the street door. `addons/geogen/` (`GeogenSceneBuilder`, enabled editor plugin) turns extras into room Area3Ds, spawn markers, tag groups and a navmesh baked from colliders (moving parts excluded, so doorways stay navigable) — both on editor import of a geogen `.glb` and at runtime. Useful args after `--`: `--generated=DIR`, `--spawn=X,Y,Z`, `--walk=SECONDS` (prints the end position; used by `tests/test_godot_runtime.py`), `--nav=AX,AZ:BX,BZ` (prints a navmesh path), `--play=ANIM@T` + `--skeletons` (freeze an animation, print bone positions and skinned bounds), `--screenshot=out.png`, `--camera=overview`, `--colliders`. See `runtime/godot/README.md`. On macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT` and skip without it). Wrap ad-hoc Godot runs in a timeout: a GDScript parse error leaves the process running instead of exiting.
 
 ## Hierarchical Layout System - Semantic Connections
 

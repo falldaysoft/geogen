@@ -22,6 +22,9 @@ class Mesh:
     ``materials``; a ``None`` entry falls back to ``material``. ``groups()``
     splits them for renderers and exporters (one glTF primitive each).
     ``colors`` are optional per-vertex RGBA (0-1) tints, exported as COLOR_0.
+    ``joints`` / ``weights`` (Nx4) bind each vertex to up to four joints of
+    the owning node's ``Skin`` (see ``core.skin``), exported as JOINTS_0 /
+    WEIGHTS_0; weights sum to 1 per vertex.
     """
 
     def __init__(
@@ -34,6 +37,8 @@ class Mesh:
         face_materials: NDArray[np.int64] | None = None,
         materials: list[Material | None] | None = None,
         colors: NDArray[np.float64] | None = None,
+        joints: NDArray[np.int64] | None = None,
+        weights: NDArray[np.float64] | None = None,
     ) -> None:
         """Create a mesh from geometry data.
 
@@ -54,6 +59,8 @@ class Mesh:
         self.face_materials = np.asarray(face_materials, dtype=np.int64) if face_materials is not None else None
         self.materials = list(materials) if materials is not None else None
         self.colors = np.asarray(colors, dtype=np.float64) if colors is not None else None
+        self.joints = np.asarray(joints, dtype=np.int64) if joints is not None else None
+        self.weights = np.asarray(weights, dtype=np.float64) if weights is not None else None
 
         self._trimesh_cache: trimesh.Trimesh | None = None
 
@@ -74,10 +81,10 @@ class Mesh:
         return self.face_materials, [self.face_material(i) for i in range(len(self.materials))]
 
     def with_attributes_of(self, source: Mesh, vertex_index=None, face_keep=None, face_repeat: int = 1) -> Mesh:
-        """Carry ``source``'s material slots and colours onto this derived mesh.
+        """Carry ``source``'s material slots, colours and skin weights onto this derived mesh.
 
         ``vertex_index`` maps this mesh's vertices to source vertices (for
-        colours); ``face_keep`` is a mask/index of source faces kept, in order;
+        colours and joints/weights); ``face_keep`` is a mask/index of source faces kept, in order;
         ``face_repeat`` tiles face slots (subdivision makes faces in blocks).
         """
         self.material = source.material if self.material is None else self.material
@@ -85,8 +92,11 @@ class Mesh:
             slots = source.face_materials if face_keep is None else source.face_materials[face_keep]
             self.face_materials = np.tile(slots, face_repeat)
             self.materials = list(source.materials) if source.materials is not None else None
-        if source.colors is not None and vertex_index is not None:
-            self.colors = source.colors[vertex_index]
+        if vertex_index is not None:
+            if source.colors is not None:
+                self.colors = source.colors[vertex_index]
+            if source.joints is not None and source.weights is not None:
+                self.joints, self.weights = source.joints[vertex_index], source.weights[vertex_index]
         return self
 
     def groups(self) -> list[tuple[Material | None, Mesh]]:
@@ -101,7 +111,9 @@ class Mesh:
                        normals=self.normals[used] if self.normals is not None else None,
                        uvs=self.uvs[used] if self.uvs is not None else None,
                        material=self.face_material(int(slot)),
-                       colors=self.colors[used] if self.colors is not None else None)
+                       colors=self.colors[used] if self.colors is not None else None,
+                       joints=self.joints[used] if self.joints is not None else None,
+                       weights=self.weights[used] if self.weights is not None else None)
             out.append((sub.material, sub))
         return out
 
@@ -191,6 +203,7 @@ class Mesh:
             uvs=self.uvs.copy() if self.uvs is not None else None,
             material=self.material,  # Material is preserved through transform
             face_materials=self.face_materials, materials=self.materials, colors=self.colors,
+            joints=self.joints, weights=self.weights,
         )
 
     def copy(self) -> Mesh:
@@ -204,6 +217,8 @@ class Mesh:
             face_materials=self.face_materials.copy() if self.face_materials is not None else None,
             materials=self.materials,
             colors=self.colors.copy() if self.colors is not None else None,
+            joints=self.joints.copy() if self.joints is not None else None,
+            weights=self.weights.copy() if self.weights is not None else None,
         )
 
     @staticmethod
@@ -260,6 +275,13 @@ class Mesh:
         if any(m.colors is not None for m in meshes):
             colors = np.vstack([m.colors if m.colors is not None else np.ones((len(m.vertices), 4))
                                 for m in meshes])
+        joints = weights = None
+        if any(m.joints is not None for m in meshes):
+            # Unskinned parts ride on joint 0 (only meaningful when all share one skin).
+            joints = np.vstack([m.joints if m.joints is not None else np.zeros((len(m.vertices), 4), np.int64)
+                                for m in meshes])
+            weights = np.vstack([m.weights if m.weights is not None
+                                 else np.tile([1.0, 0.0, 0.0, 0.0], (len(m.vertices), 1)) for m in meshes])
         grouped = len(slots) > 1
         return Mesh(
             vertices=np.vstack(all_vertices),
@@ -270,4 +292,6 @@ class Mesh:
             face_materials=np.concatenate(face_slots) if grouped else None,
             materials=slots if grouped else None,
             colors=colors,
+            joints=joints,
+            weights=weights,
         )

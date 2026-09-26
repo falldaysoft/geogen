@@ -35,6 +35,9 @@ extends Node3D
 ##                                 with a bot (default 6), print "playtest: {...}", quit
 ##
 ## In game, look at something interactive within reach and press E.
+##   --play=ANIM[@SECONDS]         loop every animation named ANIM (or <node>_ANIM); with @SECONDS,
+##                                 freeze it at that time (skeletal clips, interaction animations)
+##   --skeletons                   print Skeleton3D bones, skinned mesh bounds and animations on quit
 ##   --screenshot=PATH             save a frame and quit
 ##   --quit-after=N                quit after N frames
 ##   --manifest=PATH               print the player spec read from PATH
@@ -70,6 +73,9 @@ var _sim_clock := 0.0
 var _npc_labels := false
 var _follow = null       # NPC name prefix to follow with the overview camera, or null
 var _prompt: Label
+var _play := ""
+var _play_at := -1.0
+var _print_skeletons := false
 
 @onready var world: WorldLoader = $World
 @onready var overview: Camera3D = $OverviewCamera
@@ -147,6 +153,12 @@ func _ready() -> void:
             _use_assets.append(value)
         elif arg.begins_with("--wait="):
             _wait_left = float(value)
+        elif arg.begins_with("--play="):
+            _play = value.get_slice("@", 0)
+            if "@" in value:
+                _play_at = float(value.get_slice("@", 1))
+        elif arg == "--skeletons":
+            _print_skeletons = true
         elif arg.begins_with("--quit-after="):
             quit_after_frames = int(value)
         elif arg.begins_with("--screenshot="):
@@ -170,6 +182,8 @@ func _ready() -> void:
     world.load_all()
     for npc in world.npcs:
         npc.label.visible = _npc_labels
+    if _play != "":
+        _play_animations()
     if not world.npcs.is_empty():
         print("npcs: %s" % JSON.stringify(world.npcs.map(func(n): return String(n.name))))
     if _load_path != "":
@@ -368,6 +382,8 @@ func _process(_delta: float) -> void:
             var total := get_tree().get_nodes_in_group("geogen_light").size()
             print("lights: %s" % JSON.stringify({"fixtures": report, "total": total,
                 "light3d": get_tree().root.find_children("*", "OmniLight3D", true, false).size()}))
+        if _print_skeletons:
+            print("skeletons: %s" % JSON.stringify(_skeleton_report()))
         if screenshot_path != "":
             # Draw now: a background window may have skipped frames (macOS), and
             # the viewport texture would still hold an old one.
@@ -375,6 +391,83 @@ func _process(_delta: float) -> void:
             var err := get_viewport().get_texture().get_image().save_png(screenshot_path)
             print("screenshot -> %s (%s)" % [screenshot_path, error_string(err)])
         get_tree().quit()
+
+
+## --play: start (or freeze at --play=NAME@T) every matching animation in the loaded exports.
+func _play_animations() -> void:
+    var played := []
+    for source: AnimationPlayer in world.find_children("*", "AnimationPlayer", true, false):
+        var free := source
+        for anim_name in source.get_animation_list():
+            if anim_name != _play and not String(anim_name).ends_with("_" + _play):
+                continue
+            # One player plays one animation: each further match (another character) gets a copy.
+            var ap := free if free != null else source.duplicate() as AnimationPlayer
+            if free == null:
+                source.add_sibling(ap)
+            free = null
+            if _play_at < 0.0:
+                ap.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR   # imported clips don't loop
+            ap.play(anim_name)
+            if _play_at >= 0.0:
+                ap.seek(_play_at, true)
+                ap.pause()
+            played.append(anim_name)
+    print("play: %s" % JSON.stringify(played))
+
+
+## --skeletons: bones (global positions), skinned meshes (bounds of the CPU-baked pose) and animations.
+func _skeleton_report() -> Dictionary:
+    var skeletons := []
+    for sk: Skeleton3D in world.find_children("*", "Skeleton3D", true, false):
+        var bones := {}
+        for b in sk.get_bone_count():
+            var p := sk.global_transform * sk.get_bone_global_pose(b).origin
+            bones[sk.get_bone_name(b)] = [snappedf(p.x, 0.0001), snappedf(p.y, 0.0001), snappedf(p.z, 0.0001)]
+        var meshes := []
+        for mi: MeshInstance3D in sk.find_children("*", "MeshInstance3D", true, false):
+            if mi.skin == null:
+                continue
+            var box := _skinned_bounds(mi, sk)
+            meshes.append({"name": String(mi.name), "min": [box.position.x, box.position.y, box.position.z],
+                "max": [box.end.x, box.end.y, box.end.z]})
+        skeletons.append({"path": String(world.get_path_to(sk)), "bones": bones, "meshes": meshes})
+    var animations := {}
+    for ap: AnimationPlayer in world.find_children("*", "AnimationPlayer", true, false):
+        animations[String(world.get_path_to(ap))] = Array(ap.get_animation_list())
+    return {"skeletons": skeletons, "animations": animations}
+
+
+## World bounds of a skinned mesh in its current pose, skinned on the CPU the way the renderer
+## does it (vertex -> bind pose -> bone global pose -> mesh instance).
+static func _skinned_bounds(mi: MeshInstance3D, sk: Skeleton3D) -> AABB:
+    var joint_xforms: Array[Transform3D] = []
+    for i in mi.skin.get_bind_count():
+        var bone := mi.skin.get_bind_bone(i)
+        if bone < 0:
+            bone = sk.find_bone(mi.skin.get_bind_name(i))
+        joint_xforms.append(sk.get_bone_global_pose(bone) * mi.skin.get_bind_pose(i))
+    var box := AABB()
+    var first := true
+    for surface in mi.mesh.get_surface_count():
+        var arrays := mi.mesh.surface_get_arrays(surface)
+        var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+        var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+        var per := bones.size() / maxi(verts.size(), 1)
+        for v in verts.size():
+            var p := Vector3.ZERO
+            for k in per:
+                var w := weights[v * per + k]
+                if w > 0.0:
+                    p += (joint_xforms[bones[v * per + k]] * verts[v]) * w
+            p = mi.global_transform * p
+            if first:
+                box = AABB(p, Vector3.ZERO)
+                first = false
+            else:
+                box = box.expand(p)
+    return box
 
 
 ## What the player is aiming at within reach, and its prompt ("E: Open").

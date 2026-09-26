@@ -161,14 +161,28 @@ class LayoutLoader:
         recursively.
         """
         declared = data.get("params")
+        overrides = dict(overrides or {})
+        # Named param bundles: params: {preset: feminine, height: 1.6} applies the
+        # preset's values, then the explicit ones; a top-level `preset:` is the default.
+        presets = data.get("presets") or {}
+        preset = overrides.pop("preset", data.get("preset"))
+        if preset is not None:
+            if preset not in presets:
+                raise ValueError(f"'{data.get('name')}': unknown preset '{preset}'. Presets: {sorted(presets)}")
+            overrides = {**presets[preset], **overrides}
         resolved_params = resolve_params(declared, overrides)
+        # Derived values: expressions over params (and earlier derived values), in order.
+        for key, expr in (data.get("derived") or {}).items():
+            resolved_params[key] = float(resolve_value(expr, resolved_params))
 
         out: dict[str, Any] = {}
         for key, value in data.items():
-            if key in ("params", "name"):
+            if key in ("params", "name", "presets", "derived"):
                 out[key] = value
                 continue
             out[key] = resolve_value(value, resolved_params)
+        if preset is not None:
+            out["preset"] = preset
         return out
 
     def _build_hierarchy(self, data: dict[str, Any]) -> SceneNode:
@@ -176,6 +190,21 @@ class LayoutLoader:
         name = data.get("name", "composite")
         if "floorplan" in data:
             return self._build_floorplan(name, data)
+        if "body" in data:
+            from ..generators.humanoid import build_humanoid
+
+            root = build_humanoid(data["body"], name, self._material_loader,
+                                  assets_dir=Path(__file__).parents[3] / "assets")
+            root.tags = [*root.tags, *data.get("tags", [])]
+            if data.get("preset"):
+                root.meta["preset"] = data["preset"]
+            if data.get("poses"):
+                from ..npc import parse_poses
+
+                root.meta["poses"] = parse_poses(data["poses"])
+            if data.get("affordances"):
+                root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
+            return root
         if "building" in data:
             from ..generators.building import build_building
 

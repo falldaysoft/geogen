@@ -1,0 +1,231 @@
+# Parametric humanoid body: the humanoid skeleton (assets/skeletons/humanoid.yaml)
+# skinned by ring-lofted chains (generators/ringloft.py). Stylized ~6.5 heads,
+# low-poly, one watertight skinned mesh. Continuous shape params; `presets`
+# are named bundles (params: {preset: feminine, height: 1.6}: explicit values
+# win). Built in the relaxed `stand` pose over the T-pose rest.
+#
+# Ring frames: arms have side = up (rx vertical), front = +Z; legs/torso have
+# side = +X (rx = half width), front = +Z; feet have side = +X, front = up
+# (rz = half height). Offsets are [side, front] in metres.
+
+name: humanoid
+tags: [npc.body]
+
+params:
+  height:         { default: 1.72 }
+  build:          { default: 0.5 }    # 0 slight .. 1 heavy (all flesh radii)
+  shoulder_width: { default: 0.34 }   # between the shoulder joints
+  hip_width:      { default: 0.18 }   # between the hip joints
+  hips:           { default: 1.0 }    # hip/pelvis flesh width factor
+  waist:          { default: 0.9 }    # waist width factor
+  bust:           { default: 0.5 }    # 0 .. 1
+  glutes:         { default: 0.5 }    # 0 .. 1
+  limb:           { default: 1.0 }    # arm/leg thickness factor
+  head_size:      { default: 1.0 }
+  jaw_width:      { default: 1.0 }
+  neck_length:    { default: 0.10 }
+  hand_size:      { default: 1.0 }
+  foot_length:    { default: 0.24 }
+
+presets:
+  feminine:
+    height: 1.66
+    build: 0.42
+    shoulder_width: 0.30
+    hip_width: 0.19
+    hips: 1.12
+    waist: 0.80
+    bust: 1.0
+    glutes: 0.9
+    limb: 0.88
+    jaw_width: 0.86
+    neck_length: 0.10
+    hand_size: 0.92
+    foot_length: 0.23
+  masculine:
+    height: 1.79
+    build: 0.55
+    shoulder_width: 0.38
+    hip_width: 0.17
+    hips: 0.94
+    waist: 0.84
+    bust: 0.0
+    glutes: 0.3
+    limb: 1.1
+    jaw_width: 1.12
+    neck_length: 0.11
+    hand_size: 1.05
+    foot_length: 0.26
+
+derived:
+  k: "{height / 1.7}"                              # size scale
+  bf: "{0.85 + 0.3 * build}"                       # flesh factor
+  tf: "{bf * k}"                                   # torso radii scale
+  lf: "{limb * bf * k}"                            # limb radii scale
+  hs: "{head_size * k}"
+  hk: "{hand_size * k}"
+  jaw: "{jaw_width}"
+  hips_rx: "{(hip_width / 2 + 0.072 * tf) * hips}"
+  waist_rx: "{0.15 * tf * waist}"
+  chest_rx: "{(0.075 + shoulder_width * 0.24) * bf}"
+  shoulder_r: "{0.052 * lf}"
+
+body:
+  skeleton: skeletons/humanoid.yaml
+  skeleton_params:
+    height: "{height}"
+    shoulder_width: "{shoulder_width}"
+    hip_width: "{hip_width}"
+    neck_length: "{neck_length}"
+    hand_size: "{hand_size}"
+    foot_length: "{foot_length}"
+  material: skin
+  crease_angle: 80
+  max_triangles: 1500
+  chains:
+    torso:
+      bones: [Hips, Spine, Chest, UpperChest, Neck, Head]
+      end: head_top
+      sides: 12
+      spacing: 0.2
+      blend: 0.04
+      joint_rings: false
+      cap_rings: 2
+      weight_shift: { Head: -0.055 }          # jaw and chin (below the head joint) follow the head
+      rings:
+        - [Hips, -0.65, "{0.062 * tf}", "{0.052 * tf}", { power: 2.2 }]
+        - [Hips, -0.4, "{hips_rx}", "{0.086 * tf + 0.016 * glutes}", { offset: [0, "{-0.014 * glutes}"], power: 2.2 }]
+        - [Hips, 0.2, "{hips_rx * 0.94}", "{0.088 * tf + 0.008 * glutes}", { offset: [0, "{-0.006 * glutes}"], power: 2.3 }]
+        - [Spine, 0.0, "{(hips_rx + waist_rx) / 2}", "{0.082 * tf}", { power: 2.3 }]
+        - [Spine, 0.6, "{waist_rx}", "{0.078 * tf}", { power: 2.3 }]
+        - [Chest, 0.45, "{chest_rx}", "{0.086 * tf + 0.03 * bust}", { offset: [0, "{0.016 * bust}"], power: 2.4 }]
+        - [UpperChest, 0.35, "{chest_rx * 1.02}", "{0.082 * tf}", { power: 2.6 }]
+        - [UpperChest, 0.8, "{chest_rx * 0.86}", "{0.072 * tf}", { power: 2.4 }]
+        - [Neck, 0.0, "{0.095 * tf}", "{0.062 * tf}", { offset: [0, -0.006], power: 2.2 }]
+        - [Neck, 0.2, "{0.060 * k}", "{0.052 * k}", { offset: [0, -0.004] }]
+        - [Neck, 0.38, "{0.050 * k}", "{0.051 * k}", { offset: [0, 0.002] }]
+        - [Neck, 0.6, "{0.050 * hs * jaw}", "{0.064 * hs}", { offset: [0, "{0.026 * hs}"] }]
+        - [Neck, 0.85, "{0.066 * hs * jaw}", "{0.085 * hs}", { offset: [0, "{0.012 * hs}"] }]
+        - [Head, 0.2, "{0.076 * hs}", "{0.098 * hs}", { offset: [0, "{0.006 * hs}"] }]
+        - [Head, 0.45, "{0.082 * hs}", "{0.104 * hs}"]
+        - [Head, 0.62, "{0.078 * hs}", "{0.099 * hs}", { offset: [0, "{-0.004 * hs}"] }]
+
+    arm:
+      bones: [LeftShoulder, LeftUpperArm, LeftLowerArm, LeftHand, LeftMiddleProximal, LeftMiddleIntermediate,
+              LeftMiddleDistal]
+      end: { bone: LeftMiddleDistal, along: "{0.02 * hk}" }
+      mirror: true
+      sides: 8
+      spacing: 0.12
+      blend: 0.05
+      joint_rings: [LeftUpperArm, LeftLowerArm]
+      cap_rings: 2
+      joint_blend: { LeftMiddleProximal: 0.015, LeftMiddleIntermediate: 0.01, LeftMiddleDistal: 0.008 }
+      # The mitten follows the two centre fingers: hand + 2 fingers (knuckle) or 2 + 2 (finger
+      # joints) stay within glTF's 4 influences, and library grips curl every finger alike.
+      bind:
+        LeftMiddleProximal: [LeftMiddleProximal, LeftRingProximal]
+        LeftMiddleIntermediate: [LeftMiddleIntermediate, LeftRingIntermediate]
+        LeftMiddleDistal: [LeftMiddleDistal, LeftRingDistal]
+      rings:
+        - [LeftShoulder, 0.25, "{0.046 * tf}", "{0.050 * tf}", { offset: [-0.012, 0] }]
+        - [LeftUpperArm, -0.05, "{shoulder_r}", "{shoulder_r}", { offset: [0.002, 0] }]
+        - [LeftUpperArm, 0.15, "{0.048 * lf}", "{0.049 * lf}"]
+        - [LeftUpperArm, 0.55, "{0.040 * lf}", "{0.043 * lf}"]
+        - [LeftLowerArm, 0.0, "{0.033 * lf}", "{0.035 * lf}"]
+        - [LeftLowerArm, 0.3, "{0.035 * lf}", "{0.039 * lf}"]
+        - [LeftLowerArm, 0.95, "{0.020 * lf}", "{0.028 * lf}"]
+        - [LeftHand, 0.45, "{0.016 * hk}", "{0.042 * hk}", { offset: [0.002, "{-0.008 * hk}"], power: 2.6 }]
+        - [LeftMiddleProximal, 0.0, "{0.014 * hk}", "{0.041 * hk}", { offset: [0, "{-0.010 * hk}"], power: 2.6 }]
+        - [LeftMiddleProximal, 0.6, "{0.011 * hk}", "{0.036 * hk}", { offset: [0, "{-0.008 * hk}"], power: 2.4 }]
+        - [LeftMiddleDistal, 0.2, "{0.008 * hk}", "{0.028 * hk}", { offset: [0, "{-0.006 * hk}"] }]
+
+    thumb:
+      bones: [LeftThumbMetacarpal, LeftThumbProximal, LeftThumbDistal]
+      end: { bone: LeftThumbDistal, along: "{0.022 * hk}" }
+      front: [0, 1, 0]
+      mirror: true
+      sides: 5
+      spacing: 0.1
+      blend: 0.015
+      joint_rings: false
+      cap_rings: 1
+      rings:
+        - [LeftThumbMetacarpal, 0.1, "{0.015 * hk}", "{0.013 * hk}"]
+        - [LeftThumbProximal, 0.0, "{0.012 * hk}", "{0.011 * hk}"]
+        - [LeftThumbDistal, 0.3, "{0.010 * hk}", "{0.009 * hk}"]
+
+    leg:
+      bones: [LeftUpperLeg, LeftLowerLeg]
+      end: LeftFoot
+      mirror: true
+      sides: 9
+      spacing: 0.15
+      blend: 0.06
+      joint_rings: [LeftLowerLeg]
+      cap_rings: 1
+      rings:
+        - [LeftUpperLeg, -0.2, "{0.074 * tf}", "{0.078 * tf}"]
+        - [LeftUpperLeg, 0.06, "{0.082 * lf * hips}", "{0.080 * lf}", { offset: ["{0.012 * hips}", 0] }]
+        - [LeftUpperLeg, 0.55, "{0.063 * lf}", "{0.067 * lf}"]
+        - [LeftLowerLeg, 0.0, "{0.045 * lf}", "{0.049 * lf}"]
+        - [LeftLowerLeg, 0.3, "{0.049 * lf}", "{0.055 * lf}", { offset: [0, "{-0.010 * lf}"] }]
+        - [LeftLowerLeg, 0.85, "{0.031 * lf}", "{0.034 * lf}"]
+        - [LeftLowerLeg, 1.0, "{0.030 * lf}", "{0.033 * lf}"]
+
+    foot:
+      bones: [LeftFoot, LeftToes]
+      end: { bone: LeftToes, along: "{foot_length * 0.26}" }
+      front: [0, 1, 0]
+      mirror: true
+      sides: 8
+      spacing: 0.1
+      blend: 0.035
+      joint_rings: false
+      cap_rings: 2
+      rings:
+        - [LeftFoot, -0.2, "{0.032 * k}", "{0.036 * k}", { offset: [0, "{-0.038 * k}"], power: 2.4 }]
+        - [LeftFoot, 0.0, "{0.034 * k}", "{0.050 * k}", { offset: [0, "{-0.025 * k}"], power: 2.4 }]
+        - [LeftFoot, 0.55, "{0.040 * k}", "{0.036 * k}", { offset: [0.003, "{-0.039 * k}"], power: 2.6 }]
+        - [LeftToes, 0.0, "{0.044 * k}", "{0.026 * k}", { offset: [0.004, "{-0.050 * k}"], power: 2.8 }]
+        - [LeftToes, 0.6, "{0.039 * k}", "{0.019 * k}", { offset: [0.002, "{-0.056 * k}"], power: 2.6 }]
+
+  # Skeletal poses (body-frame degrees, see core.skeleton.Pose); each is also a `pose_<name>` clip.
+  poses:
+    t_pose: {}
+    stand:
+      bones: &arms_down
+        LeftUpperArm: [0, 0, -74]
+        RightUpperArm: [0, 0, 74]
+        LeftLowerArm: [0, -12, 0]
+        RightLowerArm: [0, 12, 0]
+        LeftThumbMetacarpal: [0, 28, 0]      # fold the rest pose's splayed thumb along the hand
+        RightThumbMetacarpal: [0, -28, 0]
+    sit:
+      bones:
+        LeftUpperLeg: [-90, 0, 0]
+        RightUpperLeg: [-90, 0, 0]
+        LeftLowerLeg: [90, 0, 0]
+        RightLowerLeg: [90, 0, 0]
+        LeftUpperArm: [-14, 0, -80]           # hands in the lap
+        RightUpperArm: [-14, 0, 80]
+        LeftLowerArm: [0, -62, 0]
+        RightLowerArm: [0, 62, 0]
+        LeftThumbMetacarpal: [0, 28, 0]
+        RightThumbMetacarpal: [0, -28, 0]
+        Spine: [-4, 0, 0]
+    lie:
+      bones:
+        LeftUpperArm: [0, 0, -80]
+        RightUpperArm: [0, 0, 80]
+        LeftThumbMetacarpal: [0, 28, 0]
+        RightThumbMetacarpal: [0, -28, 0]
+  pose: stand
+
+# Where the NPC runtime puts the body (Root, on the floor under the hips) for each
+# pose, relative to the affordance anchor (x right, y up, z forward): sit drops
+# the hips onto the seat point, lie lays the body on its back along the bed.
+poses:
+  stand: {}
+  sit: { offset: [0, "{0.09 * k - height * 0.53}", -0.09] }
+  lie: { offset: [0, "{0.105 * tf}", "{height * 0.5}"], rotation: [-90, 0, 0] }

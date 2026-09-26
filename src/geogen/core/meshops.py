@@ -51,6 +51,8 @@ def weld_vertices(mesh: Mesh, tol: float = 1e-6) -> Mesh:
         keys.append(_quantize(mesh.uvs, 1e-5))
     if mesh.colors is not None:
         keys.append(_quantize(mesh.colors, 1e-3))
+    if mesh.joints is not None and mesh.weights is not None:
+        keys += [mesh.joints, _quantize(mesh.weights, 1e-4)]
     key = np.hstack(keys)
 
     _, first, inverse = np.unique(key, axis=0, return_index=True, return_inverse=True)
@@ -263,17 +265,19 @@ def decimate(mesh: Mesh, ratio: float, crease_angle: float = 40.0) -> Mesh:
     """Reduce ``mesh`` to about ``ratio`` of its triangles, keeping UVs and hard edges.
 
     Uses manifold3d's edge-collapse simplification (UV seams and material
-    boundaries are preserved because UVs ride along as vertex properties),
+    boundaries are preserved because UVs ride along as vertex properties, and
+    skin weights too),
     binary-searching the collapse tolerance for the target triangle count.
     Meshes that aren't closed manifolds are returned unchanged.
     """
-    from .csg import CSGError, _from_manifold, _to_manifold
+    from .csg import CSGError, _from_manifold, _joint_columns, _to_manifold
 
     if ratio >= 1.0 or len(mesh.faces) < 8:
         return mesh
     slots = mesh.face_materials if mesh.multi_material else None
+    columns = _joint_columns([mesh])
     try:
-        man = _to_manifold(mesh, slots)
+        man = _to_manifold(mesh, slots, columns)
     except CSGError:
         return mesh
     target = max(4, int(len(mesh.faces) * ratio))
@@ -293,4 +297,4 @@ def decimate(mesh: Mesh, ratio: float, crease_angle: float = 40.0) -> Mesh:
             break
     if best.num_tri() == 0:
         return mesh
-    return _from_manifold(best, mesh.material, crease_angle, mesh.materials if slots is not None else None)
+    return _from_manifold(best, mesh.material, crease_angle, mesh.materials if slots is not None else None, columns)

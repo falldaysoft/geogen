@@ -1,0 +1,73 @@
+# Humanoid skeleton: Godot SkeletonProfileHumanoid bones (humanoid_profile.json),
+# placed by body proportions. Rest = T-pose facing +Z, character's left at +X,
+# Root on the floor. Every bone's rest orientation is the profile's reference
+# (each bone +Y toward its tail, profile roll), so library clips retarget
+# without a rest fixer; params only move bone heads.
+#
+# bones: world rest head positions ([x, y, z], {expr} over params + derived).
+# Left-side bones are mirrored to Right* (x negated) unless listed. Bones not
+# listed (fingers) are placed at the profile's offset in the parent's frame,
+# scaled per profile group by group_scale.
+kind: skeleton
+name: humanoid
+profile: humanoid_profile.json
+
+params:
+  height:         { default: 1.70 }   # floor to top of head
+  head_units:     { default: 6.5 }    # height in head lengths (stylized)
+  shoulder_width: { default: 0.34 }   # between the shoulder (upper arm) joints
+  hip_width:      { default: 0.18 }   # between the hip joints
+  leg_ratio:      { default: 0.53 }   # hip joint height / height
+  arm_ratio:      { default: 0.30 }   # shoulder to wrist / height
+  neck_length:    { default: 0.10 }
+  hand_size:      { default: 1.0 }    # relative to a 1.70 m person's hand
+  foot_length:    { default: 0.24 }   # heel to toe tip
+
+derived:
+  u: "{height / head_units}"                      # one head length
+  head_y: "{height - 0.77 * u}"                   # skull base / top of neck (Head joint)
+  neck_y: "{head_y - neck_length}"
+  hips_y: "{height * leg_ratio}"
+  spine_len: "{neck_y - hips_y}"
+  shoulder_y: "{neck_y - 0.05}"
+  shoulder_x: "{shoulder_width / 2}"
+  upper_arm: "{height * arm_ratio * 0.54}"
+  forearm: "{height * arm_ratio * 0.46}"
+  hip_x: "{hip_width / 2}"
+  knee_y: "{height * 0.285}"
+  ankle_y: "{height * 0.045}"
+  heel_z: "{-foot_length * 0.22}"                # heel behind the ankle
+  ball_z: "{foot_length * 0.52}"                  # ball of the foot (Toes joint)
+  hand_scale: "{height / 1.7 * hand_size}"
+  face_z: "{u * 0.36}"                            # front of the face from the head axis
+
+bones:
+  Root: [0, 0, 0]
+  Hips: [0, "{hips_y}", 0]
+  Spine: [0, "{hips_y + spine_len * 0.2}", 0]
+  Chest: [0, "{hips_y + spine_len * 0.45}", 0]
+  UpperChest: [0, "{hips_y + spine_len * 0.72}", 0]
+  Neck: [0, "{neck_y}", 0]
+  Head: [0, "{head_y}", 0]
+  LeftEye: ["{u * 0.13}", "{height - 0.5 * u}", "{face_z * 0.8}"]
+  Jaw: [0, "{head_y + u * 0.06}", "{u * 0.06}"]
+  LeftShoulder: ["{u * 0.08}", "{shoulder_y + 0.02}", 0]
+  LeftUpperArm: ["{shoulder_x}", "{shoulder_y}", 0]
+  LeftLowerArm: ["{shoulder_x + upper_arm}", "{shoulder_y}", 0]
+  LeftHand: ["{shoulder_x + upper_arm + forearm}", "{shoulder_y}", 0]
+  LeftUpperLeg: ["{hip_x}", "{hips_y - 0.03}", 0]
+  LeftLowerLeg: ["{hip_x}", "{knee_y}", 0]
+  LeftFoot: ["{hip_x}", "{ankle_y}", 0]
+  LeftToes: ["{hip_x}", "{ankle_y}", "{ball_z}"]
+
+group_scale:
+  LeftHand: "{hand_scale}"
+  RightHand: "{hand_scale}"
+
+# Named rest points for proportion checks and skin generation.
+landmarks:
+  head_top: [0, "{height}", 0]
+  chin: [0, "{height - u}", "{face_z * 0.85}"]
+  heel: ["{hip_x}", 0, "{heel_z}"]
+  toe_tip: ["{hip_x}", 0, "{foot_length + heel_z}"]
+  crotch: [0, "{hips_y - 0.08}", 0]
