@@ -86,3 +86,33 @@ def test_pedestrians_stroll_and_rest_while_traffic_yields(run_godot, crossroads_
     assert sum(1 for n in npcs if any(k.startswith("bench") for k in n["used"])) >= 3
     assert traffic["yields"] >= 1 and traffic["overlaps"] == 0
     assert traffic["min_moved"] > 50                                   # traffic still flows
+
+
+def _summaries(out: str) -> tuple[list, dict, dict]:
+    lines = out.splitlines()
+    npcs = json.loads(next(l for l in lines if l.startswith("npc summary: ")).split(": ", 1)[1])
+    (traffic,) = json.loads(next(l for l in lines if l.startswith("traffic summary: ")).split(": ", 1)[1])
+    status = json.loads(next(l for l in lines if l.startswith("status: ")).split(": ", 1)[1])
+    return npcs, traffic, status
+
+
+def test_night_empties_the_streets_and_lights_the_lamps(run_godot, crossroads_dir):
+    out = run_godot("--scene", "crossroads", f"--generated={crossroads_dir}", "--time=23:30", "--timescale=8",
+                    "--simulate=90", "--status", engine_args=FAST)
+    npcs, traffic, status = _summaries(out)
+    assert status["night"] and status["lamps_on"] >= 10
+    # Pedestrians go home (vanish out of the player's sight); the fleet thins to the schedule.
+    assert sum(1 for n in npcs if n["away"]) >= 4
+    assert traffic["share"] < 0.3 and traffic["vehicles"] <= 4 and traffic["parked"] >= 8
+    assert traffic["overlaps"] == 0
+
+
+def test_morning_brings_people_and_traffic_back(run_godot, crossroads_dir):
+    # 06:40 plus two hours of world time (a day lasts 1440 s, run at 8x).
+    out = run_godot("--scene", "crossroads", f"--generated={crossroads_dir}", "--time=06:40", "--timescale=8",
+                    "--simulate=120", "--status", engine_args=FAST)
+    npcs, traffic, status = _summaries(out)
+    assert not status["night"] and status["clock"] >= "08:30"
+    assert not any(n["away"] for n in npcs)
+    assert sum(n["returns"] for n in npcs) >= 4
+    assert traffic["share"] == 1.0 and traffic["parked"] == 0

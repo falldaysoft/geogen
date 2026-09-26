@@ -145,3 +145,12 @@ def test_town_lanes_are_clear(built_scene):
         if ln["kind"] == "lane":
             line = LineString(np.asarray(ln["points"])[:, [0, 2]])
             assert min(line.distance(Point(p[0], p[2])) for p in parked) > 1.9, ln["id"]
+
+
+def test_fleet_schedule_parses():
+    from geogen.traffic import load_fleet
+
+    fleet = load_fleet(ASSETS / "traffic" / "town.yaml")
+    hours = [h for h, _ in fleet["schedule"]]
+    assert hours == sorted(hours) and hours[0] == 0.0
+    assert all(0.0 <= f <= 1.0 for _, f in fleet["schedule"])

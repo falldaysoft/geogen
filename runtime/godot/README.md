@@ -203,6 +203,31 @@ godot --headless --fixed-fps 60 --path runtime/godot -- --scene crossroads \
     --timescale=8 --simulate=300 --traffic-trace                                     # 5 minutes in ~10 s
 ```
 
+## Time of day
+
+`scripts/clock.gd` (`GeogenClock`) runs a world clock with physics time, so `--timescale` speeds it
+up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the real seconds per
+24 h (default 1440; 0 freezes it). The overlay shows the time.
+
+- **Sun, sky and moon**: the sun's elevation, azimuth, colour and energy follow the hour, with
+  warm light low in the sky. The sky and fog fade through a pink twilight to a blue night, and a
+  faint shadowless moonlight keeps shapes readable.
+- **Night**: fixtures exported with `light.auto: night` switch on after dark, together with
+  their glowing glass. Street lamps are these, and have no shadows since there are many.
+  Vehicle head and tail lamps brighten. `WorldLoader.set_night` handles the switch.
+- **NPC routines**: definitions take `routine:` blocks `{from, to, activities, preferences, away}`.
+  The active blocks multiply activity and tag scores. An `away` block runs the `leave` action:
+  `go_to: exit` (the nearest building entrance spawn), then `vanish` (hidden, but not while the
+  player is within 12 m). When the block ends the NPC reappears at an entrance or on its wander
+  surfaces.
+- **Traffic schedule**: a fleet's `schedule: [["HH:MM", share], ...]` (linear, wrapping) sets how
+  much of it is on the road. Surplus vehicles park, and parked ones return, only 45 m or more
+  from the player.
+
+`--status` reports `clock`, `night` and `lamps_on`, and the NPC and traffic summaries include
+`away` / `returns` and `share` / `parked`. See the night and morning tests in
+`tests/test_traffic_runtime.py`.
+
 ## Streaming large scenes
 
 `python -m geogen.main -s town --export-godot --stream` writes a chunked

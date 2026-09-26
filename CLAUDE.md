@@ -369,6 +369,17 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
 - Scatter `on_tag: street.sidewalk` places copies on those surfaces.
 - `town` has 10 pedestrians and `crossroads` has 6. Traffic yields to them. `tests/test_traffic_runtime.py::test_pedestrians_stroll_and_rest_while_traffic_yields` covers this.
 
+### Time of day
+
+The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-length=S`) that drives the sun, sky, moon and night state.
+- **Lights:** `light: {..., auto: night}` fixtures (the rebuilt 4.5 m `street_lamp.yaml`, with an emissive `lamp_glass` lantern) turn on after dark, and vehicle lamps brighten.
+- **NPC `routine:`:** blocks `{name, from, to, activities, preferences, away}` are parsed by `npc.parse_routine`, with times as "HH:MM".
+  - The active blocks bias scoring.
+  - `away` runs the new `leave` action: `go_to: exit` (building entrance spawns), then `vanish: true` (a new step verb). The NPC reappears when the block ends.
+  - `npcs/pedestrian.yaml` goes home 22:30–07:00, sits more at lunch, and strolls more in the evening.
+- **Traffic `schedule:`:** `[["HH:MM", share], ...]` parks surplus vehicles out of the player's sight. `traffic/town.yaml` drops to 15% at night.
+- Details are in the runtime README's "Time of day" section.
+
 ### Scatter placement
 
 `layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface>, count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.

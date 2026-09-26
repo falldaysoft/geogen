@@ -6,9 +6,11 @@
 # `action:` (default: its `type`). NPC activities (wander, idle) name one too.
 #
 # Step vocabulary:
-#   go_to: approach | anchor | random | near | far
+#   go_to: approach | anchor | random | near | far | exit
 #       walk (navmesh) to the affordance's approach point, the anchor itself,
-#       a random point in the NPC's home, or a portal's near/far side
+#       a random point in the NPC's home, a portal's near/far side, or the nearest
+#       way out of the scene (a building entrance)
+#   vanish: true                 leave the world (routines bring the NPC back later)
 #   face: anchor | portal        turn toward the anchor's heading / through the portal
 #   pose: <name>                 put the body in a pose from its body asset's `poses:`
 #       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
@@ -93,3 +95,8 @@ actions:
     duration: [3, 8]
     steps:
       - wait: duration
+
+  leave:                         # routines' `away` blocks: go off (into a building) until later
+    steps:
+      - go_to: exit
+      - vanish: true

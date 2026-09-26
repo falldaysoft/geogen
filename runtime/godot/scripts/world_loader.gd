@@ -58,6 +58,11 @@ var _traffic_offset := Vector3.ZERO
 var traffic: Array[GeogenTraffic] = []
 ## Print traffic claims, overlaps and respawns (--traffic-trace).
 var traffic_trace := false
+## The world clock (clock.gd), set by main; NPC routines and traffic schedules read it.
+var clock: GeogenClock = null
+## After dark: `auto: night` lights and vehicle lamps are on (clock.gd sets it).
+var night := false
+var _auto_lights: Array[Dictionary] = []   # [{light, fixture}] for `auto: night` fixtures
 ## Doorways NPCs path through: [{interaction, open, closed, center, normal (world),
 ## width, height, depth, clearance, node}]
 var portals: Array[Dictionary] = []
@@ -104,6 +109,7 @@ func load_all() -> AABB:
 	lights_by_name.clear()
 	affordances.clear()
 	npcs.clear()
+	_auto_lights.clear()
 	traffic.clear()
 	traffic_graph = {}
 	portals.clear()
@@ -263,6 +269,7 @@ func forget(root: Node) -> void:
 	portals = portals.filter(func(p): return not inside.call(p.get("node")))
 	npcs = npcs.filter(func(n): return not inside.call(n))
 	_gates = _gates.filter(func(g): return not inside.call(g.get("node")))
+	_auto_lights = _auto_lights.filter(func(a): return not inside.call(a.get("fixture")))
 	for key in lights_by_name.keys():
 		if inside.call(lights_by_name[key]):
 			lights_by_name.erase(key)
@@ -347,6 +354,12 @@ func _add_lights(root: Node) -> void:
 		light.omni_attenuation = 1.0
 		light.shadow_enabled = true
 		light.add_to_group("geogen_light")
+		if spec.get("auto") == "night":
+			# Street lamps: many of them, so no shadows; on when the clock says it's dark.
+			light.shadow_enabled = false
+			_auto_lights.append({"light": light, "fixture": node})
+			light.visible = night
+			_set_emission(node, night)
 		lights_by_name[String(node.name)] = light
 		# The fixture itself mustn't shadow its own light.
 		for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
@@ -371,6 +384,27 @@ func _wire_switches(root: Node) -> void:
 			light.visible = state != "off"
 			if fixture != null:
 				_set_emission(fixture, state != "off"))
+
+
+## Ways out of the scene for NPCs going `away` (routines): building entrances (their spawns).
+func exit_points() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	for s in spawns:
+		if String(s.get("name", "")).begins_with("entrance"):
+			out.append(s["position"])
+	return out
+
+
+## Night on/off: `auto: night` lights and their glowing glass, and vehicle lamps.
+func set_night(on: bool) -> void:
+	night = on
+	for a in _auto_lights:
+		if is_instance_valid(a["light"]):
+			a["light"].visible = on
+			_set_emission(a["fixture"], on)
+	for t in traffic:
+		if is_instance_valid(t):
+			t.set_night(on)
 
 
 ## Dim or restore a fixture's glowing materials (lamp shades) with its light.
@@ -465,6 +499,7 @@ func _spawn_traffic(root: Node) -> void:
 			continue
 		var t := GeogenTraffic.spawn(self, node, g["fleet"], traffic_graph, _traffic_offset)
 		t.trace_enabled = traffic_trace
+		t.set_night(night)
 		traffic.append(t)
 
 

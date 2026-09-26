@@ -152,7 +152,8 @@
             "type": { "const": "omni" },
             "color": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
             "energy": { "type": "number" }, "range": { "type": "number" },
-            "offset": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+            "offset": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+            "auto": { "description": "night: switched by the runtime's world clock (on after dark), not by a switch.", "const": "night" }
           }
         },
         "switch": {

@@ -1,8 +1,7 @@
-# Classic street lamp post
-# Tall post with decorative lantern on top
-# Origin is at bottom_center
-# `scale` multiplies every dimension. Part sizes below are in metres
-# (container is [scale, scale, scale]).
+# Street lamp: a tapered cast-iron post with a glass lantern. Origin at the
+# bottom centre; parts in metres (the container is a unit, `scale` scales it).
+# The light is `auto: night`: runtimes switch it (and the lantern's glow) on
+# after dark.
 
 name: street_lamp
 tags: [street.lamp]
@@ -14,91 +13,62 @@ params:
 size: ["{scale}", "{scale}", "{scale}"]
 bounds: geometry     # declared size = the real extent (the container above is a unit)
 
+light: { energy: 2.5, range: 13.0, color: [1.0, 0.82, 0.58], offset: [0, "{4.12 * scale}", 0], auto: night }
+
 parts:
-  # Base plate (0.3m diameter, 0.02m thick)
-  base_plate:
-    primitive: cylinder
-    size: [0.30, 0.30, 0.02]
+  base:
+    primitive: lathe
+    profile: [[0, 0], [1.0, 0], [1.0, 0.12], [0.8, 0.2], [0.72, 0.55], [0.55, 0.75], [0.5, 1.0], [0, 1.0]]
+    size: ["{0.34 * scale}", "{0.55 * scale}", "{0.34 * scale}"]
     anchor: bottom_center
-    material: metal
+    segments: 24
+    material: lamp_iron
+    collider: hull
 
-  # Decorative base lower
-  base_lower:
-    primitive: cylinder
-    size: [0.25, 0.25, 0.05]
-    attach_to: base_plate
-    at: top
-    from: bottom
-    material: metal
-
-  # Decorative base middle
-  base_middle:
-    primitive: cylinder
-    size: [0.18, 0.18, 0.06]
-    attach_to: base_lower
-    at: top
-    from: bottom
-    material: metal
-
-  # Main post (tall and thin)
   post:
-    primitive: cylinder
-    size: [0.08, 0.08, 2.0]
-    attach_to: base_middle
-    at: top
-    from: bottom
-    material: metal
+    primitive: lathe
+    profile: [[0, 0], [1.0, 0], [0.62, 1.0], [0, 1.0]]
+    size: ["{0.16 * scale}", "{3.35 * scale}", "{0.16 * scale}"]
+    anchor: bottom_center
+    offset: [0, "{0.55 * scale}", 0]
+    segments: 20
+    material: lamp_iron
 
-  # Upper collar
   collar:
-    primitive: cylinder
-    size: [0.12, 0.12, 0.04]
-    attach_to: post
-    at: top
-    from: bottom
-    material: metal
+    primitive: lathe
+    profile: [[0, 0], [0.7, 0], [1.0, 0.4], [1.0, 0.6], [0.6, 1.0], [0, 1.0]]
+    size: ["{0.2 * scale}", "{0.12 * scale}", "{0.2 * scale}"]
+    anchor: bottom_center
+    offset: [0, "{3.88 * scale}", 0]
+    segments: 20
+    material: lamp_iron
 
-  # Lamp bracket base
-  bracket:
-    primitive: cylinder
-    size: [0.15, 0.15, 0.03]
-    attach_to: collar
-    at: top
-    from: bottom
-    material: metal
+  lantern:
+    primitive: lathe
+    profile: [[0, 0], [0.55, 0], [1.0, 1.0], [0, 1.0]]
+    size: ["{0.36 * scale}", "{0.36 * scale}", "{0.36 * scale}"]
+    anchor: bottom_center
+    offset: [0, "{4.0 * scale}", 0]
+    segments: 6
+    crease_angle: 20
+    material: lamp_glass
+    collider: none
 
-  # Lantern body (cylindrical glass housing)
-  lantern_body:
-    primitive: cylinder
-    size: [0.22, 0.22, 0.25]
-    attach_to: bracket
-    at: top
-    from: bottom
-    material: metal
+  roof:
+    primitive: lathe
+    profile: [[0, 0], [1.0, 0], [1.0, 0.12], [0.2, 0.85], [0, 1.0]]
+    size: ["{0.46 * scale}", "{0.2 * scale}", "{0.46 * scale}"]
+    anchor: bottom_center
+    offset: [0, "{4.36 * scale}", 0]
+    segments: 6
+    crease_angle: 20
+    material: lamp_iron
+    collider: none
 
-  # Lantern top ring
-  lantern_ring:
-    primitive: cylinder
-    size: [0.24, 0.24, 0.02]
-    attach_to: lantern_body
-    at: top
-    from: bottom
-    material: metal
-
-  # Lantern roof
-  lantern_roof:
-    primitive: cone
-    size: [0.30, 0.12, 0.30]
-    attach_to: lantern_ring
-    at: top
-    from: bottom
-    material: metal
-
-  # Top finial
   finial:
     primitive: sphere
-    size: [0.06, 0.06, 0.06]
-    attach_to: lantern_roof
-    at: top
-    from: bottom
-    material: metal
+    size: ["{0.07 * scale}", "{0.07 * scale}", "{0.07 * scale}"]
+    anchor: bottom_center
+    offset: [0, "{4.54 * scale}", 0]
+    material: lamp_iron
+    collider: none

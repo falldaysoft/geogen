@@ -979,7 +979,9 @@ def _geometry_extent(root: SceneNode) -> np.ndarray | None:
     return allp.max(axis=0) - allp.min(axis=0)
 
 
-LIGHT_DEFAULTS = {"type": "omni", "color": [1.0, 0.93, 0.82], "energy": 1.0, "range": 5.0, "offset": [0.0, 0.0, 0.0]}
+LIGHT_DEFAULTS = {"type": "omni", "color": [1.0, 0.93, 0.82], "energy": 1.0, "range": 5.0, "offset": [0.0, 0.0, 0.0],
+                  "auto": None}
+LIGHT_AUTO = {None, "night"}     # night: on after dark (runtimes' world clock), no switch
 
 
 def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
@@ -994,6 +996,10 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
     light["offset"] = [0.0, float(offset), 0.0] if isinstance(offset, (int, float)) else [float(v) for v in offset]
     light["color"] = [float(c) for c in light["color"]]
     light["energy"], light["range"] = float(light["energy"]), float(light["range"])
+    if light["auto"] not in LIGHT_AUTO:
+        raise ValueError(f"light: auto must be one of {sorted(a for a in LIGHT_AUTO if a)}, got {light['auto']!r}")
+    if light["auto"] is None:
+        del light["auto"]
     return light
 
 

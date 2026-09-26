@@ -79,6 +79,9 @@ var _detour := -1                 # index in _path of the last detour waypoint
 var _vehicle_wait := 0.0          # s spent waiting for traffic at this waypoint
 var _assertive := -1              # waypoint we're walking to regardless of moving traffic
 var _vehicle_detours := 0         # detours round stopped vehicles on this path
+## Off the map during a routine's `away` block (vanished into a building), back when it ends.
+var away := false
+const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
 
 
 ## Build an NPC from an exported npc node (its body child moves under the NPC).
@@ -147,6 +150,43 @@ func _ready() -> void:
 # --- deciding -----------------------------------------------------------
 
 ## Every option this NPC could take now, scored (best first).
+## The routine blocks active at the world clock's hour.
+func routine_blocks() -> Array:
+	var out := []
+	if world == null or world.clock == null:
+		return out
+	var h: float = world.clock.hours
+	for b in definition.get("routine", []):
+		var a := float(b["from"])
+		var z := float(b["to"])
+		if (a <= z and h >= a and h < z) or (a > z and (h >= a or h < z)):
+			out.append(b)
+	return out
+
+
+func _away_block() -> bool:
+	return routine_blocks().any(func(b): return b.get("away", false))
+
+
+## Back from an `away` block: at an entrance if there is one, else somewhere in the NPC's haunts.
+func _reappear() -> void:
+	var at = null
+	var exits := world.exit_points()
+	if not exits.is_empty():
+		at = exits[rng.randi() % exits.size()]
+	if at == null:
+		at = _random_home_point()
+	if at == null:
+		return      # try again next frame (navmesh not ready)
+	global_position = at
+	away = false
+	visible = true
+	_shape.set_deferred("disabled", false)
+	add_to_group(CHARACTER_GROUP)
+	stats["returns"] = int(stats.get("returns", 0)) + 1
+	_trace({"event": "return", "pos": _v(global_position)})
+
+
 func options() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var actions: Dictionary = definition.get("actions", {})
@@ -171,13 +211,20 @@ func options() -> Array[Dictionary]:
 		result.append({"id": "self/%s" % n, "action": act["action"], "activity": act,
 			"advertises": act.get("advertises", {}), "tags": [], "at": global_position})
 	var w: Dictionary = definition.get("scoring", {})
-	var prefs: Dictionary = definition.get("preferences", {})
+	var prefs: Dictionary = definition.get("preferences", {}).duplicate()
+	var act_mult := {}
+	for b in routine_blocks():      # routines bias the choice by time of day
+		for t in b.get("preferences", {}):
+			prefs[t] = float(prefs.get(t, 1.0)) * float(b["preferences"][t])
+		for n in b.get("activities", {}):
+			act_mult["self/%s" % n] = float(act_mult.get("self/%s" % n, 1.0)) * float(b["activities"][n])
 	for o in result:
 		var utility := 0.0
 		for need in o["advertises"]:
 			utility += (1.0 - float(needs.get(need, 1.0))) * float(o["advertises"][need])
 		for tag in o["tags"]:
 			utility *= float(prefs.get(tag, 1.0))
+		utility *= float(act_mult.get(o["id"], 1.0))
 		var distance := global_position.distance_to(o["at"])
 		var recency := 0.0
 		if _recent.has(o["id"]):
@@ -240,6 +287,10 @@ func _finish_option(ok: bool, reason := "") -> void:
 
 func _physics_process(delta: float) -> void:
 	clock += delta
+	if away:
+		if not _away_block():
+			_reappear()
+		return
 	_animate_locomotion()
 	for need in needs:
 		needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
@@ -251,7 +302,13 @@ func _physics_process(delta: float) -> void:
 		var map := get_world_3d().navigation_map
 		if NavigationServer3D.map_get_iteration_id(map) > 0 \
 				and NavigationServer3D.map_get_closest_point(map, global_position).distance_to(global_position) < 1.0:
-			_decide()
+			if _away_block() and definition.get("actions", {}).has("leave"):
+				_option = {"id": "self/leave", "action": "leave", "advertises": {}}
+				_trace({"event": "decide", "chosen": "self/leave", "reason": "routine"})
+				_push("leave", {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y),
+					"approach": global_position, "duration": [0.0, 0.0]})
+			else:
+				_decide()
 		return
 	var frame: Dictionary = _stack.back()
 	if frame["index"] >= frame["steps"].size():
@@ -313,6 +370,8 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
 		var r = ctx["duration"] if str(step["wait"]) == "duration" else step["wait"]
 		_timer = rng.randf_range(float(r[0]), float(r[1]))
 		return ""
+	if step.has("vanish"):
+		return ""
 	if step.has("use"):
 		var it: GeogenInteraction = ctx.get("interaction")
 		if it == null:
@@ -341,6 +400,21 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
 	if step.has("wait"):
 		_timer -= delta
 		return "done" if _timer <= 0.0 else "running"
+	if step.has("vanish"):
+		if not _away_block():
+			return "done"                 # the time to be away is over: stay
+		for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+			if other is Node3D and not other is GeogenNpc \
+					and (other as Node3D).global_position.distance_to(global_position) < VANISH_DISTANCE:
+				return "running"          # not in front of the player
+		away = true
+		visible = false
+		velocity = Vector3.ZERO
+		_shape.set_deferred("disabled", true)
+		remove_from_group(CHARACTER_GROUP)
+		stats["aways"] = int(stats.get("aways", 0)) + 1
+		_trace({"event": "away", "pos": _v(global_position)})
+		return "done"
 	if step.has("use"):
 		var it: GeogenInteraction = ctx.get("interaction")
 		var state := _state_name(str(step["use"]), ctx)
@@ -374,6 +448,13 @@ func _target(kind: String, ctx: Dictionary):
 			return p["center"] + p["normal"] * side * (p["depth"] / 2.0 + p["clearance"])
 		"random":
 			return _random_home_point()
+		"exit":
+			# The nearest way out (a building entrance); none: stay put and vanish from here.
+			var best = null
+			for p in world.exit_points():
+				if best == null or global_position.distance_to(p) < global_position.distance_to(best):
+					best = p
+			return best if best != null else global_position
 	return null
 
 
@@ -966,4 +1047,5 @@ func report() -> Dictionary:
 	return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
 		"decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
 		"outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
-		"position": _v(p), "needs": _rounded_needs(), "doing": _status()}
+		"position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
+		"aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0))}

@@ -27,6 +27,9 @@ extends Node3D
 ##   --timescale=N                 run the world N times faster (physics ticks scale too)
 ##   --simulate=SECONDS            run for SECONDS of world time, print "npc summary: [...]", quit
 ##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
+##   --time=HH:MM                  world clock at start (default 13:00): sun, sky, street lamps,
+##                                 routines and traffic follow it
+##   --day-length=SECONDS          real seconds per 24 h of world time (default 1440; 0 freezes it)
 ##   --traffic-trace               print traffic claims, overlaps and respawns ("traffic: {...}")
 ##                                 (--simulate also prints "traffic summary: [...]")
 ##   --camera=follow[:NAME]        watch an NPC (the first, or the one whose name starts with NAME)
@@ -78,6 +81,9 @@ var _prompt: Label
 var _play := ""
 var _play_at := -1.0
 var _print_skeletons := false
+var clock: GeogenClock
+var _start_time := 13.0
+var _day_length := 1440.0
 
 @onready var world: WorldLoader = $World
 @onready var overview: Camera3D = $OverviewCamera
@@ -142,6 +148,10 @@ func _ready() -> void:
             Engine.max_physics_steps_per_frame = int(8 * maxf(scale, 1.0))
         elif arg.begins_with("--simulate="):
             _simulate = float(value)
+        elif arg.begins_with("--time="):
+            _start_time = GeogenClock.parse(value)
+        elif arg.begins_with("--day-length="):
+            _day_length = float(value)
         elif arg == "--traffic-trace":
             world.traffic_trace = true
         elif arg == "--npc-labels":
@@ -183,7 +193,16 @@ func _ready() -> void:
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         print("interaction event: %s" % JSON.stringify(
             {"asset": asset, "interaction": interaction, "state": state, "event": event})))
+    clock = GeogenClock.new()
+    clock.name = "Clock"
+    clock.hours = _start_time
+    clock.day_length = _day_length
+    clock.sun = $Sun
+    clock.environment = ($WorldEnvironment as WorldEnvironment).environment
+    clock.world = world
+    world.clock = clock
     world.load_all()
+    add_child(clock)          # applies the time (night lights) once the world is loaded
     for npc in world.npcs:
         npc.label.visible = _npc_labels
     if _play != "":
@@ -310,6 +329,9 @@ func _physics_process(delta: float) -> void:
             if screenshot_path != "":
                 _frames = 0
                 quit_after_frames = 3
+            elif _print_status:
+                _frames = 0
+                quit_after_frames = 1      # print the status on the way out
             else:
                 get_tree().quit()
     _update_focus()
@@ -365,8 +387,8 @@ func _process(_delta: float) -> void:
         var chunk_info := "" if stream.is_empty() else "   chunks %d full / %d lod / %d interiors%s" % [
             stream["full"].size(), stream["lod"].size(), stream["interiors"].size(),
             " (+%d loading)" % stream["pending"] if stream["pending"] > 0 else ""]
-        overlay.text = "%d fps   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
-            Engine.get_frames_per_second(),
+        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
+            Engine.get_frames_per_second(), clock.label(),
             world.scene_name if world.scene_name != "" else "all exports", chunk_info,
             p.x, p.y, p.z, room if room != "" else "-",
             "   [fly]" if player.flying else "",
@@ -384,7 +406,9 @@ func _process(_delta: float) -> void:
             print("status: %s" % JSON.stringify({"pose": player.pose.get("type", "stand"),
                 "pose_asset": player.pose.get("asset", ""), "x": p.x, "y": p.y, "z": p.z,
                 "room": world.room_at(p + Vector3(0, 0.5, 0)), "eye_y": player.camera.global_position.y,
-                "states": world.save_state(), "stream": world.stream_report()}))
+                "states": world.save_state(), "stream": world.stream_report(),
+                "clock": clock.label(), "night": world.night,
+                "lamps_on": world.lights_by_name.values().filter(func(l): return is_instance_valid(l) and l.visible).size()}))
         if _print_lights:
             var report := {}
             for name in world.lights_by_name:

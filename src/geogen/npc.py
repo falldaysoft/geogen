@@ -39,14 +39,15 @@ NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
-STEP_KEYS = {"go_to", "face", "pose", "wait", "use"}
+STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish"}
 STEP_OPTIONS = {"at", "if"}
-GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far"}
+GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit"}
 FACE_TARGETS = {"anchor", "portal"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
-            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander"}
+            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine"}
+ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name"}
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
 POSE_KEYS = {"offset", "rotation", "scale"}
 PORTAL_KEYS = {"interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"}
@@ -84,6 +85,8 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
     if "at" in step and step["at"] not in POSE_AT:
         raise ValueError(f"{where}: at must be one of {sorted(POSE_AT)}, got {step['at']!r}")
     out = dict(step)
+    if verb == "vanish" and arg is not True:
+        raise ValueError(f"{where}: vanish: true")
     if verb == "wait" and arg != "duration":
         out["wait"] = _range(arg, f"{where}: wait")
     return out
@@ -236,7 +239,50 @@ def load_definition(path: str | Path) -> dict[str, Any]:
         "affordance_tags": [str(t) for t in data.get("affordance_tags") or []],
         # Where `go_to: random` goes: the home region, or points on surfaces with these tags.
         "wander": {"tags": [str(t) for t in (data.get("wander") or {}).get("tags", [])]},
+        "routine": parse_routine(data.get("routine") or [], activities, f"{path}: routine"),
     }
+
+
+def parse_time(value: Any, where: str) -> float:
+    """"HH:MM" (or hours as a number) -> hours in [0, 24)."""
+    if isinstance(value, (int, float)):
+        hours = float(value)
+    else:
+        text = str(value)
+        try:
+            hh, _, mm = text.partition(":")
+            hours = int(hh) + (int(mm) if mm else 0) / 60.0
+        except ValueError:
+            raise ValueError(f"{where}: times are 'HH:MM', got {value!r}") from None
+    if not 0.0 <= hours <= 24.0:
+        raise ValueError(f"{where}: time out of range: {value!r}")
+    return round(hours % 24.0, 4)
+
+
+def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, Any]]:
+    """Time-of-day blocks that bias behaviour (the runtime's world clock picks the active ones)::
+
+        routine:
+          - { from: "12:00", to: "14:00", activities: { pause: 2 }, preferences: { seat: 2 } }
+          - { from: "22:30", to: "07:00", away: true }    # wraps midnight; off to an entrance
+
+    ``activities`` / ``preferences`` multiply the scores of the NPC's own activities / of
+    affordances with those tags; ``away`` sends the NPC off (the ``leave`` action) until the
+    block ends.
+    """
+    out = []
+    for i, block in enumerate(blocks):
+        if not isinstance(block, dict) or set(block) - ROUTINE_KEYS or not {"from", "to"} <= set(block):
+            raise ValueError(f"{where}[{i}]: needs from/to (keys {sorted(ROUTINE_KEYS)}), got {block!r}")
+        acts = {str(k): float(v) for k, v in (block.get("activities") or {}).items()}
+        unknown = set(acts) - set(activities)
+        if unknown:
+            raise ValueError(f"{where}[{i}]: unknown activities {sorted(unknown)}")
+        out.append({"name": str(block.get("name", i)), "from": parse_time(block["from"], f"{where}[{i}]"),
+                    "to": parse_time(block["to"], f"{where}[{i}]"), "away": bool(block.get("away", False)),
+                    "activities": acts,
+                    "preferences": {str(k): float(v) for k, v in (block.get("preferences") or {}).items()}})
+    return out
 
 
 def _advertises(spec: Any, needs: dict | None, where: str) -> dict[str, float]:

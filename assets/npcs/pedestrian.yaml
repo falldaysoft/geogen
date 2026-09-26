@@ -29,6 +29,13 @@ affordance_tags: [outside]
 # Strolls go to points on the sidewalks (tagged surfaces), not anywhere in the home rect.
 wander: { tags: [street.sidewalk] }
 
+# Time of day (the runtime's world clock): home for the night (into the nearest
+# building entrance, or out of sight), a sit-down around lunch, a longer stroll at dusk.
+routine:
+  - { name: night, from: "22:30", to: "07:00", away: true }
+  - { name: lunch, from: "12:00", to: "14:00", preferences: { seat: 2.0 }, activities: { pause: 1.5 } }
+  - { name: evening, from: "18:00", to: "21:00", activities: { stroll: 1.5 } }
+
 scoring: { distance: 0.004, recency: 0.06, memory: 90, noise: 0.08, retry: 30 }   # strolling can repeat
 home_margin: 1.0
 

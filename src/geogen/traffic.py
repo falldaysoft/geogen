@@ -537,7 +537,7 @@ def lane_overlay(graph: dict[str, Any], material_loader=None) -> SceneNode:
 FLEET_KIND = "traffic"
 SPAWN_CLEARANCE = 12.0      # starting vehicles keep this far from spawns and NPCs (m)
 FLEET_KEYS = {"kind", "version", "fleet", "count", "spacing", "driving", "turns", "yield", "radius", "seed",
-              "description"}
+              "description", "schedule"}
 FLEET_ENTRY_KEYS = {"asset", "weight", "params", "lanes"}
 DRIVING_DEFAULTS = {"accel": 1.8, "decel": 3.0, "headway": 1.3, "gap": 2.5, "speed_factor": [0.85, 1.1],
                     "stop": "all_way", "stop_wait": 0.8, "look_ahead": 14.0, "give_up": 25.0}
@@ -571,7 +571,13 @@ def load_fleet(path) -> dict[str, Any]:
     yields = list(data.get("yield", ["player", "npc"]))
     if set(yields) - {"player", "npc"}:
         raise ValueError(f"{path}: yield to player and/or npc")
+    from .npc import parse_time
+
+    schedule = sorted([parse_time(t, f"{path}: schedule"), float(f)] for t, f in (data.get("schedule") or []))
+    if any(not 0.0 <= f <= 1.0 for _, f in schedule):
+        raise ValueError(f"{path}: schedule shares are 0..1")
     return {"definition": Path(path).stem, "fleet": fleet, "count": int(data.get("count", 12)),
+            "schedule": schedule,
             "spacing": float(data.get("spacing", 14.0)), "driving": driving, "turns": turns,
             "yield": yields, "radius": float(data.get("radius", 0.0)), "seed": int(data.get("seed", 0))}
 

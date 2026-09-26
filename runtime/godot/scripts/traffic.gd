@@ -30,6 +30,8 @@ const OVERLAP_CHECK := 0.25       # s between vehicle overlap checks
 const STOP_SPEED := 0.3           # m/s: counts as stopped at the line
 const PERSON_RADIUS := 0.4
 const PERSON_MARGIN := 0.9        # extra space kept in front of a person (m)
+const PARK_DISTANCE := 45.0       # vehicles leave / join the roads only this far from the player
+const SCHEDULE_CHECK := 1.0       # s between schedule checks
 
 var world: WorldLoader
 var fleet := {}
@@ -45,7 +47,11 @@ var stats := {"distance": 0.0, "claims": 0, "yields": 0, "overlaps": 0, "max_wai
 	"min_person_gap": INF, "min_player_gap": INF, "exits": 0}
 
 var _templates: Array[Node3D] = []   # detached copies of the starting vehicles (for respawns)
+var _lamp_materials := {}            # BaseMaterial3D -> [day emission energy, kind]
 var _overlap_timer := 0.0
+var _schedule_timer := 0.0
+var _fleet_size := 0
+var _parked: Array[Dictionary] = []  # vehicles off the road (the schedule's quiet hours)
 
 
 ## Build the controller for a traffic node; its vehicle children move under the controller.
@@ -65,7 +71,16 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary, graph: Di
 			_strip_bodies(template)
 			t._templates.append(template)
 			t._adopt(child as Node3D)
+	t._fleet_size = t.vehicles.size()
 	return t
+
+
+## Head and tail lamps brighter after dark (the materials are shared by the fleet).
+func set_night(on: bool) -> void:
+	for mat in _lamp_materials:
+		var base: float = _lamp_materials[mat][0]
+		var boost := 5.0 if _lamp_materials[mat][1] == "head" else 3.0
+		(mat as BaseMaterial3D).emission_energy_multiplier = base * (boost if on else 1.0)
 
 
 func _exit_tree() -> void:
@@ -181,6 +196,16 @@ func _adopt(node: Node3D) -> Dictionary:
 	node.set_meta("geogen_vehicle_box", {"half": float(clearance[0]) / 2.0, "half_w": float(clearance[1]) / 2.0,
 		"offset": shape.position.z})
 	node.set_meta("geogen_speed", 0.0)
+	for kind in info.get("lamps", {}):
+		for part_name in info["lamps"][kind]:
+			var part := node.find_child(str(part_name), true, false)
+			if part == null:
+				continue
+			for mi: MeshInstance3D in ([part] if part is MeshInstance3D else []) + part.find_children("*", "MeshInstance3D", true, false):
+				for i in mi.mesh.get_surface_count() if mi.mesh else 0:
+					var mat := mi.get_active_material(i) as BaseMaterial3D
+					if mat != null and mat.emission_enabled and not _lamp_materials.has(mat):
+						_lamp_materials[mat] = [mat.emission_energy_multiplier, kind]
 	var wheels := []
 	for w in info.get("wheels", []):
 		var wheel := node.find_child(str(w["part"]), true, false) as Node3D
@@ -220,6 +245,10 @@ func _physics_process(delta: float) -> void:
 	var people := _people()
 	for v in vehicles:
 		_drive(v, delta, people)
+	_schedule_timer += delta
+	if _schedule_timer >= SCHEDULE_CHECK:
+		_schedule_timer = 0.0
+		_follow_schedule()
 	_overlap_timer += delta
 	if _overlap_timer >= OVERLAP_CHECK:
 		_overlap_timer = 0.0
@@ -352,6 +381,85 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
 	(v["node"] as Node3D).set_meta("geogen_speed", speed)
 	for w in v["wheels"]:
 		(w["node"] as Node3D).rotate(Vector3.RIGHT, step / float(w["r"]))
+
+
+## Share of the fleet on the road at the world clock's hour (the fleet's `schedule`, linear
+## between its points, wrapping at midnight); 1 without a schedule or clock.
+func scheduled_share() -> float:
+	var schedule: Array = fleet.get("schedule", [])
+	if schedule.is_empty() or world == null or world.clock == null:
+		return 1.0
+	var h: float = world.clock.hours
+	for k in schedule.size():
+		var a: Array = schedule[k]
+		var b: Array = schedule[(k + 1) % schedule.size()]
+		var ha := float(a[0])
+		var hb := float(b[0]) + (24.0 if k + 1 >= schedule.size() else 0.0)
+		var hh := h if h >= ha else h + 24.0
+		if hh >= ha and hh <= hb:
+			return lerpf(float(a[1]), float(b[1]), (hh - ha) / maxf(hb - ha, 1e-6))
+	return float(schedule[0][1])
+
+
+func _player_positions() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	for node in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+		if node is Node3D and not node is GeogenNpc:
+			out.append((node as Node3D).global_position)
+	return out
+
+
+func _far_from(p: Vector3, players: Array[Vector3]) -> bool:
+	return players.all(func(q): return p.distance_to(q) > PARK_DISTANCE)
+
+
+## Park or bring back vehicles to follow the schedule, out of the player's sight.
+func _follow_schedule() -> void:
+	var target := roundi(_fleet_size * scheduled_share())
+	var players := _player_positions()
+	if vehicles.size() > target:
+		for v in vehicles:
+			if not v["claimed"] and lanes[v["lane"]]["x"] == "" and _far_from(v["node"].global_position, players):
+				vehicles.erase(v)
+				_set_active(v, false)
+				_parked.append(v)
+				trace({"t": snappedf(clock, 0.01), "park": String(v["node"].name)})
+				return
+	elif vehicles.size() < target and not _parked.is_empty():
+		var v: Dictionary = _parked.back()
+		for attempt in 12:
+			var lane := rng.randi() % lanes.size()
+			var ln: Dictionary = lanes[lane]
+			if ln["x"] != "" or ln["len"] < 2.0 * v["half"] + 4.0:
+				continue
+			var s: float = v["half"] + 1.0
+			if not _clear_at(lane, s + v["half"] + 8.0, v) or not _far_from(_lane_point(lane, s), players):
+				continue
+			_parked.pop_back()
+			v["lane"] = lane
+			v["prev"] = -1
+			v["s"] = s
+			v["v"] = 0.0
+			v["claimed"] = false
+			v["waiting"] = -1.0
+			v["next"] = _choose_next(lane)
+			vehicles.append(v)
+			_set_active(v, true)
+			_place(v)
+			trace({"t": snappedf(clock, 0.01), "unpark": String(v["node"].name), "lane": ln["id"]})
+			return
+
+
+func _set_active(v: Dictionary, on: bool) -> void:
+	var node: Node3D = v["node"]
+	node.visible = on
+	node.set_meta("geogen_speed", 0.0)
+	for shape: CollisionShape3D in node.find_children("*", "CollisionShape3D", true, false):
+		shape.set_deferred("disabled", not on)
+	if on:
+		node.add_to_group(VEHICLE_GROUP)
+	else:
+		node.remove_from_group(VEHICLE_GROUP)
 
 
 func _can_claim(v: Dictionary) -> bool:
@@ -514,7 +622,8 @@ func report() -> Dictionary:
 		max_idle = maxf(max_idle, v["idle"])
 	var gap = stats["min_person_gap"]
 	var player_gap = stats["min_player_gap"]
-	return {"vehicles": vehicles.size(), "distance": snappedf(stats["distance"], 0.1),
+	return {"vehicles": vehicles.size(), "parked": _parked.size(), "share": snappedf(scheduled_share(), 0.01),
+		"distance": snappedf(stats["distance"], 0.1),
 		"min_moved": snappedf(min_moved, 0.1) if min_moved < INF else 0.0, "max_idle": snappedf(max_idle, 0.1),
 		"claims": stats["claims"], "yields": stats["yields"], "overlaps": stats["overlaps"],
 		"max_wait": snappedf(stats["max_wait"], 0.1), "turns": stats["turns"], "exits": stats["exits"],

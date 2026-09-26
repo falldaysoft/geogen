@@ -132,3 +132,17 @@ def test_npc_exports_extras(tmp_path):
     assert data["definition"] == "resident"
     names = {gltf["nodes"][i]["name"] for i in npc["children"]}
     assert "body" in names
+
+
+def test_routine_blocks_parse(tmp_path):
+    from geogen.npc import load_definition, parse_time
+
+    assert parse_time("22:30", "t") == 22.5 and parse_time("07:00", "t") == 7.0
+    d = load_definition(ASSETS_DIR / "npcs" / "pedestrian.yaml")
+    night = next(b for b in d["routine"] if b["name"] == "night")
+    assert night == {"name": "night", "from": 22.5, "to": 7.0, "away": True, "activities": {}, "preferences": {}}
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("kind: npc\nversion: 1\nactivities: { idle: { action: idle } }\n"
+                   "routine: [{ from: '09:00', to: '10:00', activities: { dance: 2 } }]\n")
+    with pytest.raises(ValueError, match="unknown activities"):
+        load_definition(bad)
