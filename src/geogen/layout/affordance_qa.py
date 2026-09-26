@@ -352,50 +352,84 @@ def check_affordances(scene: SceneNode, player=None, body=None, loader=None,
     return issues
 
 
+def _users(scene: SceneNode) -> list[tuple[list[str], SceneNode]]:
+    """(affordance_tags, body) of the scene's NPCs, one per distinct body (up to 3 unrestricted
+    and 3 per tag filter): whoever might actually use an affordance."""
+    out, seen = [], set()
+    for node in scene.iter_nodes():
+        if node.meta.get("type") != "npc":
+            continue
+        body = next((c for c in node.children if c.name == node.meta["npc"]["body"].get("node", "body")), None)
+        if body is None:
+            continue
+        key = frozenset(id(n.mesh) for n in body.iter_nodes() if n.mesh is not None)
+        tags = list(node.meta["npc"].get("affordance_tags") or [])
+        if key in seen or sum(1 for t, _ in out if t == tags) >= 3:
+            continue
+        seen.add(key)
+        out.append((tags, body))
+    return out
+
+
 def _pose_clashes(scene, spots, meshes, body, loader, assets_dir) -> list[Issue]:
-    """Posed bodies (sit, lie) that sink into geometry."""
+    """Posed bodies (sit, lie) that sink into geometry. Without ``body``, each affordance is
+    tried with the bodies of the scene's NPCs that may use it (their ``affordance_tags``), or
+    the default body if none may."""
     posed = [s for s in spots if _pose_step(s.affordance["action"]) is not None]
     if not posed:
         return []
     loader, assets_dir = _defaults(loader, assets_dir)
-    body_node = _load_body(body, loader, assets_dir)
+    users = [] if body is not None else _users(scene)
+    fallback = _load_body(body, loader, assets_dir) if body is not None or not users else None
     floors = _Floors(meshes)
     issues = []
     for spot in posed:
-        actor = pose_actor(body_node, spot)
-        skin = next((n for n in actor.iter_nodes() if n.skin is not None and n.name == "body"), None)
-        if skin is None:
+        tags = spot.affordance.get("tags") or []
+        bodies = [b for t, b in users if not t or set(t) & set(tags)]
+        if not bodies:
+            fallback = fallback or _load_body(None, loader, assets_dir)
+            bodies = [fallback]
+        for body_node in bodies:
+            issues += _clash_one(spot, body_node, meshes, floors)
+    return issues
+
+
+def _clash_one(spot: Spot, body_node: SceneNode, meshes, floors) -> list[Issue]:
+    issues = []
+    actor = pose_actor(body_node, spot)
+    skin = next((n for n in actor.iter_nodes() if n.skin is not None and n.name == "body"), None)
+    if skin is None:
+        return []
+    mesh = skin.world_mesh()          # posed, in the actor's (scene) frame
+    v = mesh.vertices
+    body_man = _manifold(v, mesh.faces)
+    if body_man is None:
+        return []
+    floor = floors.y(spot.approach[0], spot.approach[2], spot.approach[1] + 1.0)
+    above = body_man.trim_by_plane((0.0, 1.0, 0.0), floor + FLOOR_TOL)   # for other geometry
+    lo, hi = v.min(axis=0), v.max(axis=0)
+    own_nodes = {id(n) for n in spot.owner.iter_nodes()}
+    own, other, worst = 0.0, 0.0, ("", 0.0)
+    for node, ov, of in meshes:
+        if np.any(ov.max(axis=0) < lo) or np.any(ov.min(axis=0) > hi):
             continue
-        mesh = skin.world_mesh()          # posed, in the actor's (scene) frame
-        v = mesh.vertices
-        body_man = _manifold(v, mesh.faces)
-        if body_man is None:
+        solid = _manifold(ov, of)
+        if solid is None:
             continue
-        floor = floors.y(spot.approach[0], spot.approach[2], spot.approach[1] + 1.0)
-        above = body_man.trim_by_plane((0.0, 1.0, 0.0), floor + FLOOR_TOL)   # for other geometry
-        lo, hi = v.min(axis=0), v.max(axis=0)
-        own_nodes = {id(n) for n in spot.owner.iter_nodes()}
-        own, other, worst = 0.0, 0.0, ("", 0.0)
-        for node, ov, of in meshes:
-            if np.any(ov.max(axis=0) < lo) or np.any(ov.min(axis=0) > hi):
-                continue
-            solid = _manifold(ov, of)
-            if solid is None:
-                continue
-            if id(node) in own_nodes:
-                own += float((body_man ^ solid).volume())
-            else:
-                vol = float((above ^ solid).volume())
-                other += vol
-                if vol > worst[1]:
-                    worst = (node.name, vol)
-        if own > CLASH_OWN:
-            issues.append(Issue("pose_clash", spot.owner.name, (spot.owner.name,),
-                                f"{spot.name}: the posed body sinks {own * 1000:.1f} L into {spot.owner.name}"))
-        if other > CLASH_OTHER:
-            issues.append(Issue("pose_clash", spot.owner.name, (spot.owner.name, worst[0]),
-                                f"{spot.name}: the posed body is {other * 1000:.1f} L inside other geometry"
-                                f" (most in {worst[0]}: {worst[1] * 1000:.1f} L)"))
+        if id(node) in own_nodes:
+            own += float((body_man ^ solid).volume())
+        else:
+            vol = float((above ^ solid).volume())
+            other += vol
+            if vol > worst[1]:
+                worst = (node.name, vol)
+    if own > CLASH_OWN:
+        issues.append(Issue("pose_clash", spot.owner.name, (spot.owner.name,),
+                            f"{spot.name}: the posed body sinks {own * 1000:.1f} L into {spot.owner.name}"))
+    if other > CLASH_OTHER:
+        issues.append(Issue("pose_clash", spot.owner.name, (spot.owner.name, worst[0]),
+                            f"{spot.name}: the posed body is {other * 1000:.1f} L inside other geometry"
+                            f" (most in {worst[0]}: {worst[1] * 1000:.1f} L)"))
     return issues
 
 

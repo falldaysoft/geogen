@@ -2,7 +2,7 @@
 # the middle (shop rows with flats above, the odd office), a hotel and an
 # apartment block as landmarks, a park, and houses on the side streets.
 # Lamps, trees, benches and hydrants line the sidewalks; cars are parked along
-# the kerbs.
+# the kerbs, traffic drives the streets and townsfolk stroll the sidewalks.
 
 name: town
 tags: [city.district]
@@ -50,6 +50,10 @@ city:
 
 place:
   traffic: { traffic: traffic/town.yaml, seed: 3 }   # moving vehicles on the lanes
+  pedestrians:                       # townsfolk strolling the sidewalks, resting on benches
+    npc: npcs/pedestrian.yaml
+    home: { rect: [-82, -50, 82, 50] }
+    scatter: { on_tag: street.sidewalk, count: 10, spacing: 12, seed: 7, radius: 0.5 }
 
 spawns:
   start: { position: [-3, 0, -2], facing: north }   # on the avenue, facing the shops

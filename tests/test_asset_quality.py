@@ -93,6 +93,5 @@ def test_affordances_are_usable(scene):
     from geogen.layout.affordance_qa import check_affordances
 
     name, root = scene
-    npc = next((n for n in root.iter_nodes() if n.meta.get("type") == "npc"), None)
-    body = npc.find("body") if npc is not None else None
-    assert [str(i) for i in check_affordances(root, body=body)] == [], name
+    # Each affordance is posed with the bodies of the NPCs that may use it (default body otherwise).
+    assert [str(i) for i in check_affordances(root)] == [], name

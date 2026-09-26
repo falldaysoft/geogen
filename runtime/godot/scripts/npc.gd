@@ -142,8 +142,11 @@ func options() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var actions: Dictionary = definition.get("actions", {})
 	var margin := float(definition.get("home_margin", 1.0))
+	var only: Array = definition.get("affordance_tags", [])
 	for a in world.affordances:
 		if not actions.has(a.get("action", "")) or not is_instance_valid(a.get("node")):
+			continue
+		if not only.is_empty() and not only.any(func(t): return t in a.get("tags", [])):
 			continue
 		if clock < float(_retry_at.get(a["id"], -1.0)):
 			continue
@@ -366,6 +369,9 @@ func _target(kind: String, ctx: Dictionary):
 
 
 func _random_home_point():
+	var tags: Array = definition.get("wander", {}).get("tags", [])
+	if not tags.is_empty():
+		return _random_surface_point(tags)
 	if home.size() < 3:
 		return null
 	var lo := home[0]
@@ -380,6 +386,53 @@ func _random_home_point():
 			var q := NavigationServer3D.map_get_closest_point(map, Vector3(p.x, home_y, p.y))
 			if Vector2(q.x - p.x, q.z - p.y).length() < 0.5 and absf(q.y - home_y) < 0.5:
 				return q
+	return null
+
+
+var _wander_tris := PackedVector3Array()   # up-facing triangles (world) of the wander surfaces
+var _wander_area := PackedFloat32Array()   # cumulative areas
+
+
+## A random point (area-weighted) on the up-facing faces of nodes tagged ``tags``, inside the
+## home region, snapped onto the navmesh.
+func _random_surface_point(tags: Array):
+	if _wander_tris.is_empty():
+		var total := 0.0
+		for tag in tags:
+			for node in get_tree().get_nodes_in_group(tag):
+				for mi: MeshInstance3D in ([node] if node is MeshInstance3D else []) + node.find_children("*", "MeshInstance3D", true, false):
+					if mi.mesh == null:
+						continue
+					var faces := mi.mesh.get_faces()
+					var xf := mi.global_transform
+					for k in range(0, faces.size(), 3):
+						var a := xf * faces[k]
+						var b := xf * faces[k + 1]
+						var c := xf * faces[k + 2]
+						var n := (b - a).cross(c - a)
+						if absf(n.y) < 0.9 * n.length() or n.length() < 1e-4:
+							continue
+						if home.size() >= 3 and not Geometry2D.is_point_in_polygon(Vector2((a.x + b.x + c.x) / 3.0, (a.z + b.z + c.z) / 3.0), home):
+							continue
+						total += n.length() / 2.0
+						_wander_tris.append_array([a, b, c])
+						_wander_area.append(total)
+	if _wander_area.is_empty():
+		return null
+	var map := get_world_3d().navigation_map
+	for _i in 10:
+		var pick := rng.randf() * _wander_area[-1]
+		var k := _wander_area.bsearch(pick)
+		var u := rng.randf()
+		var v := rng.randf()
+		if u + v > 1.0:
+			u = 1.0 - u
+			v = 1.0 - v
+		var a := _wander_tris[3 * k]
+		var p := a + (_wander_tris[3 * k + 1] - a) * u + (_wander_tris[3 * k + 2] - a) * v
+		var q := NavigationServer3D.map_get_closest_point(map, p)
+		if Vector2(q.x - p.x, q.z - p.z).length() < 0.6 and absf(q.y - p.y) < 0.5:
+			return q
 	return null
 
 

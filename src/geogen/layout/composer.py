@@ -290,8 +290,13 @@ class SceneComposer:
 
             occupied: list = []
             for obj_name, obj_def in scatters.items():
-                scatter(root, obj_name, obj_def, loaded_objects,
-                        lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied)
+                placed = scatter(root, obj_name, obj_def, loaded_objects,
+                                 lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied)
+                if "npc" in obj_def:          # a crowd: every copy shares the placement's home
+                    from ..npc import resolve_home
+
+                    for node in placed:
+                        resolve_home(node, obj_def.get("home"), loaded_objects)
 
         # NPCs: home region (in the NPC's frame) and per-placement seed.
         for obj_name, obj_def in all_placements.items():

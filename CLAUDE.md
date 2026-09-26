@@ -360,6 +360,15 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
 - Scenes: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`. The node gets `meta.type = "npc"`, `meta.npc` (the resolved definition with actions and poses inlined, `home.polygon` in the node's frame, `radius`/`height` from the body bounds) and the body asset as child `body` (no colliders).
 - Runtime (`runtime/godot/scripts/npc.gd`): see the NPCs section of `runtime/godot/README.md`. The navmesh bake includes the runtime ground (y = 0) `ground_margin` m around each model. Flags: `--npc-trace`, `--timescale=N`, `--simulate=S` (prints `npc summary: [...]`), `--npc-labels` / F5, `--camera=follow[:NAME]`. Tests: `tests/test_npc.py` (data), `tests/test_npc_runtime.py` (8x headless sims of the cottage resident).
 
+### Pedestrians and crowds
+
+- An NPC placement with `scatter:` is a crowd. Each copy draws its own seed, so its archetype body and brain differ. Every copy shares the placement's `home:`.
+- `npcs/pedestrian.yaml` (townsfolk bodies) strolls and pauses. NPC definitions take two keys for this:
+  - `affordance_tags: [outside]` keeps pedestrians to benches, not people's chairs;
+  - `wander: {tags: [street.sidewalk]}` makes `go_to: random` pick area-weighted points on the up-facing faces of nodes with those tag groups (npc.gd `_random_surface_point`).
+- Scatter `on_tag: street.sidewalk` places copies on those surfaces.
+- `town` has 10 pedestrians and `crossroads` has 6. Traffic yields to them. `tests/test_traffic_runtime.py::test_pedestrians_stroll_and_rest_while_traffic_yields` covers this.
+
 ### Scatter placement
 
 `layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface>, count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.

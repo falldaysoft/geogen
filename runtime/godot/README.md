@@ -146,6 +146,11 @@ windows or doors:
   navmesh, so paths bend around them on an arc of navmesh points. An NPC whose destination is
   occupied waits, then gives up.
 
+Crowds are scatters of an NPC (`npcs/pedestrian.yaml` in `town` and `crossroads`), each copy a
+different person. `affordance_tags` limits which affordances an NPC considers. `wander.tags` makes
+strolls go to random points on surfaces in those tag groups (sidewalks) rather than anywhere in
+the home region.
+
 The navmesh includes the runtime's ground plane around each model (`WorldLoader.ground_margin`),
 so NPCs (and the playtest) can step outside. `tests/test_npc_runtime.py` simulates the cottage
 resident at 8x and asserts on the summary: which affordances were used, door passes, stalls,

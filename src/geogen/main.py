@@ -224,7 +224,7 @@ def main() -> None:
 
             npc = next((n for n in root.iter_nodes() if n.meta.get("type") == "npc"), None)
             body = npc.find("body") if npc is not None else None
-            for issue in check_affordances(root, body=body):
+            for issue in check_affordances(root):
                 print(issue)
             root = stage_actors(root, body=body)
         if args.lanes:

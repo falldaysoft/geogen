@@ -73,7 +73,7 @@ def test_random_param_values():
 
 
 def test_bad_scatter_spec():
-    with pytest.raises(ValueError, match="rect:, path: or on:"):
+    with pytest.raises(ValueError, match="rect:, path:, on: or on_tag:"):
         SceneComposer().compose_string("name: s\nplace:\n  t: { asset: rock_small.yaml, scatter: { count: 3 } }\n")
     with pytest.raises(ValueError, match="unknown keys"):
         SceneComposer().compose_string(

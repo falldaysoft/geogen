@@ -11,6 +11,7 @@ A placement with ``scatter:`` places many copies of its asset::
           rect: [-20, -20, 20, 20]      # x0, z0, x1, z1 (scene frame), or:
           # path: [[x, z], ...]  +  spacing: 4  (+ jitter, offset: sideways metres)
           # on: house.floor               (a surface of a placed object)
+          # on_tag: street.sidewalk       (the tops of every mesh tagged so, e.g. a city's sidewalks)
           count: 30                     # at most this many
           spacing: 3                    # minimum distance between copies (Poisson disk)
           avoid: [house, road]          # keep off these placed objects' footprints
@@ -37,8 +38,8 @@ import numpy as np
 from ..core.node import SceneNode
 from ..core.transform import Transform
 
-KNOWN = {"seed", "rect", "path", "on", "count", "spacing", "avoid", "margin", "yaw", "scale", "jitter", "offset",
-         "radius"}
+KNOWN = {"seed", "rect", "path", "on", "on_tag", "count", "spacing", "avoid", "margin", "yaw", "scale", "jitter",
+         "offset", "radius"}
 
 
 def resolve_random_params(params: dict[str, Any] | None, rng: np.random.Generator) -> dict[str, Any] | None:
@@ -111,6 +112,43 @@ def _footprint(node: SceneNode, to_scene: np.ndarray) -> tuple[np.ndarray, np.nd
     return allp.min(axis=0), allp.max(axis=0)
 
 
+def _tagged_surface_points(root: SceneNode, tag: str, rng: np.random.Generator, spacing: float, clear,
+                           to_scene: np.ndarray) -> list[tuple[np.ndarray, float]]:
+    """Poisson-disk points on the up-facing faces of meshes under nodes tagged ``tag``."""
+    from shapely import STRtree
+    from shapely.geometry import Point, Polygon
+
+    polys, heights = [], []
+    for node in root.iter_nodes():
+        if tag not in node.tags:
+            continue
+        for n in node.iter_nodes():
+            if n.mesh is None or not len(n.mesh.faces):
+                continue
+            m = to_scene @ n.world_transform()
+            v = (m @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3]
+            tri = v[n.mesh.faces]
+            normal = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+            up = normal[:, 1] > 0.9 * np.linalg.norm(normal, axis=1)
+            for t in tri[up]:
+                poly = Polygon(t[:, [0, 2]])
+                if poly.area > 1e-6:
+                    polys.append(poly)
+                    heights.append(float(t[:, 1].mean()))
+    if not polys:
+        raise ValueError(f"scatter on_tag: no surfaces tagged '{tag}'")
+    tree = STRtree(polys)
+
+    def height_at(p: np.ndarray) -> float | None:
+        hits = tree.query(Point(p[0], p[1]), predicate="intersects")
+        return max(heights[int(k)] for k in hits) if len(hits) else None
+
+    lo = np.array([min(pl.bounds[0] for pl in polys), min(pl.bounds[1] for pl in polys)])
+    hi = np.array([max(pl.bounds[2] for pl in polys), max(pl.bounds[3] for pl in polys)])
+    points = poisson_disk(rng, lo, hi, spacing, lambda p: height_at(p) is not None and clear(p))
+    return [(p, float(height_at(p))) for p in points]
+
+
 def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[str, SceneNode], load,
             occupied: list[tuple[np.ndarray, float]]) -> list[SceneNode]:
     """Place copies for one scatter placement; returns the added nodes."""
@@ -173,8 +211,11 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
             p = world[[0, 2]]
             if clear(p):
                 frames.append((p, float(world[1]), m[:3, :3] @ surface.normal))
+    elif "on_tag" in spec:
+        for p, y in _tagged_surface_points(root, str(spec["on_tag"]), rng, spacing, clear, to_scene):
+            frames.append((p, y, None))
     else:
-        raise ValueError(f"scatter '{name}' needs rect:, path: or on:")
+        raise ValueError(f"scatter '{name}' needs rect:, path:, on: or on_tag:")
 
     yaw_spec = spec.get("yaw", [0.0, 360.0])
     scale_spec = spec.get("scale", 1.0)

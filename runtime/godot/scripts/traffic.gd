@@ -40,7 +40,7 @@ var clock := 0.0
 var trace_enabled := false
 ## Counters for tests and --simulate reports.
 var stats := {"distance": 0.0, "claims": 0, "yields": 0, "overlaps": 0, "max_wait": 0.0, "turns": {},
-	"min_person_gap": INF, "exits": 0}
+	"min_person_gap": INF, "min_player_gap": INF, "exits": 0}
 
 var _templates: Array[Node3D] = []   # detached copies of the starting vehicles (for respawns)
 var _overlap_timer := 0.0
@@ -220,19 +220,20 @@ func _physics_process(delta: float) -> void:
 		_check_overlaps()
 
 
-func _people() -> Array[Vector3]:
-	var out: Array[Vector3] = []
+## People to yield to: [position, is the player] pairs.
+func _people() -> Array:
+	var out := []
 	var yields: Array = fleet.get("yield", ["player", "npc"])
 	for node in get_tree().get_nodes_in_group(CHARACTER_GROUP):
 		if not node is Node3D:
 			continue
 		var is_npc := node is GeogenNpc
 		if (is_npc and "npc" in yields) or (not is_npc and "player" in yields):
-			out.append((node as Node3D).global_position)
+			out.append([(node as Node3D).global_position, not is_npc])
 	return out
 
 
-func _drive(v: Dictionary, dt: float, people: Array[Vector3]) -> void:
+func _drive(v: Dictionary, dt: float, people: Array) -> void:
 	var lane: Dictionary = lanes[v["lane"]]
 	var remaining: float = lane["len"] - v["s"]
 	var gap := INF
@@ -370,13 +371,14 @@ func _can_claim(v: Dictionary) -> bool:
 	return true
 
 
-func _person_gap(v: Dictionary, people: Array[Vector3]) -> float:
+func _person_gap(v: Dictionary, people: Array) -> float:
 	if people.is_empty():
 		return INF
 	var node: Node3D = v["node"]
 	var look := float(driving.get("look_ahead", 14.0))
 	var best := INF
-	for p in people:
+	for person in people:
+		var p: Vector3 = person[0]
 		if p.distance_squared_to(node.global_position) > pow(look + 6.0, 2):
 			continue
 		# Walk the path ahead of the front bumper in half-metre steps.
@@ -390,6 +392,8 @@ func _person_gap(v: Dictionary, people: Array[Vector3]) -> float:
 			if Vector2(q.x - p.x, q.z - p.z).length() < width and absf(q.y - p.y) < 2.0:
 				var gap := along - PERSON_MARGIN
 				stats["min_person_gap"] = minf(stats["min_person_gap"], maxf(along, 0.0))
+				if person[1]:
+					stats["min_player_gap"] = minf(stats["min_player_gap"], maxf(along, 0.0))
 				best = minf(best, gap)
 				break
 			along += 0.5
@@ -502,8 +506,10 @@ func report() -> Dictionary:
 		min_moved = minf(min_moved, v["moved"])
 		max_idle = maxf(max_idle, v["idle"])
 	var gap = stats["min_person_gap"]
+	var player_gap = stats["min_player_gap"]
 	return {"vehicles": vehicles.size(), "distance": snappedf(stats["distance"], 0.1),
 		"min_moved": snappedf(min_moved, 0.1) if min_moved < INF else 0.0, "max_idle": snappedf(max_idle, 0.1),
 		"claims": stats["claims"], "yields": stats["yields"], "overlaps": stats["overlaps"],
 		"max_wait": snappedf(stats["max_wait"], 0.1), "turns": stats["turns"], "exits": stats["exits"],
-		"min_person_gap": snappedf(gap, 0.01) if gap < INF else -1.0, "clock": snappedf(clock, 0.1)}
+		"min_person_gap": snappedf(gap, 0.01) if gap < INF else -1.0,
+		"min_player_gap": snappedf(player_gap, 0.01) if player_gap < INF else -1.0, "clock": snappedf(clock, 0.1)}

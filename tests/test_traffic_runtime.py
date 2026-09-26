@@ -43,9 +43,9 @@ def test_traffic_flows_without_overlaps_or_gridlock(run_godot, crossroads_dir):
 
 def test_a_player_in_the_lane_stops_traffic(run_godot, crossroads_dir):
     # Standing in the avenue's eastbound lane (z = 1.5): the next vehicle along stops short.
-    report = simulate(run_godot, crossroads_dir, "crossroads", 90, "--spawn=-19,0.2,1.5")
+    report = simulate(run_godot, crossroads_dir, "crossroads", 180, "--spawn=-19,0.2,1.5")
     assert report["yields"] >= 1
-    assert 0.5 < report["min_person_gap"] < 8.0
+    assert 0.5 < report["min_player_gap"] < 8.0
     assert report["overlaps"] == 0
 
 
@@ -71,3 +71,18 @@ def test_open_route_vehicles_leave_and_come_back(run_godot, tmp_path):
     report = simulate(run_godot, tmp_path, "road", 90)
     assert report["exits"] > 3 and report["overlaps"] == 0
     assert report["min_moved"] > 100
+
+
+def test_pedestrians_stroll_and_rest_while_traffic_yields(run_godot, crossroads_dir):
+    out = run_godot("--scene", "crossroads", f"--generated={crossroads_dir}", "--timescale=8",
+                    "--simulate=180", engine_args=FAST)
+    npcs = json.loads(next(l for l in out.splitlines() if l.startswith("npc summary: ")).split(": ", 1)[1])
+    (traffic,) = json.loads(next(l for l in out.splitlines() if l.startswith("traffic summary: ")).split(": ", 1)[1])
+    assert len(npcs) == 6
+    for npc in npcs:
+        used = npc["used"]
+        assert used.get("self/stroll", 0) >= 1, npc["npc"]            # walked the sidewalks
+        assert all(k.startswith(("self/", "bench")) for k in used)     # only outside affordances
+    assert sum(1 for n in npcs if any(k.startswith("bench") for k in n["used"])) >= 3
+    assert traffic["yields"] >= 1 and traffic["overlaps"] == 0
+    assert traffic["min_moved"] > 50                                   # traffic still flows

@@ -46,7 +46,7 @@ FACE_TARGETS = {"anchor", "portal"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
-            "activities", "scoring", "home_margin", "flags", "seed"}
+            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander"}
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
 POSE_KEYS = {"offset", "rotation", "scale"}
 PORTAL_KEYS = {"interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"}
@@ -231,6 +231,11 @@ def load_definition(path: str | Path) -> dict[str, Any]:
         "scoring": scoring,
         "home_margin": float(data.get("home_margin", 1.0)),
         "flags": {str(k): bool(v) for k, v in (data.get("flags") or {}).items()},
+        # Only affordances carrying one of these tags (e.g. [outside]: a passer-by doesn't sit
+        # in people's kitchens); empty = all of them.
+        "affordance_tags": [str(t) for t in data.get("affordance_tags") or []],
+        # Where `go_to: random` goes: the home region, or points on surfaces with these tags.
+        "wander": {"tags": [str(t) for t in (data.get("wander") or {}).get("tags", [])]},
     }
 
 
