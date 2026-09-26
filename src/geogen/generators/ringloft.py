@@ -49,6 +49,18 @@ class Ring:
 
 
 @dataclass
+class Span:
+    """A tight garment over part of a chain: rings from ``start`` to ``end`` ((bone, t) positions)
+    grow by ``thickness`` and their faces take material ``slot``; higher ``layer`` wins."""
+
+    start: tuple[str, float]
+    end: tuple[str, float]
+    thickness: float
+    slot: int
+    layer: int = 0
+
+
+@dataclass
 class Chain:
     name: str
     bones: list[str]
@@ -69,6 +81,7 @@ class Chain:
     # Extra rings across joints' blend zones (smooth bending): True for every joint, or the
     # bones whose joint (head) gets them, e.g. [LeftLowerArm] for the elbow only.
     joint_rings: bool | list[str] = True
+    spans: list[Span] = field(default_factory=list)   # tight garments (see Span)
 
 
 def _smoothstep(x: NDArray) -> NDArray:
@@ -129,8 +142,9 @@ def _interpolate(s_keys: NDArray, values: NDArray, s: NDArray) -> NDArray:
     return PchipInterpolator(s_keys, values, axis=0, extrapolate=False)(np.clip(s, s_keys[0], s_keys[-1]))
 
 
-def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray]:
-    """(s per ring, params per ring: rx, rz, off_side, off_front, power, twist) incl. cap rings."""
+def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray, NDArray]:
+    """(s per ring, params per ring: rx, rz, off_side, off_front, power, twist; incl. cap rings,
+    material slot per interval between consecutive rings)."""
     keys = sorted(chain.rings, key=lambda r: path.s_of(r.bone, r.t))
     s_keys = np.array([path.s_of(r.bone, r.t) for r in keys])
     if np.any(np.diff(s_keys) <= 1e-6):
@@ -151,7 +165,44 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray]:
     min_gap = min(chain.spacing, chain.blend) * 0.35
     keep = np.array([np.any(np.isclose(fixed, x)) or np.min(np.abs(fixed - x)) > min_gap for x in s])
     s = s[keep]
+    spans = [(path.s_of(*sp.start), path.s_of(*sp.end), sp) for sp in chain.spans]
+    bounds = sorted({b for a, e, _ in spans for b in (a, e) if s_keys[0] < b < s_keys[-1]})
+    if bounds:
+        s = np.unique(np.concatenate([s, bounds]))
+        s = s[[np.any(np.isclose(bounds, x)) or np.min(np.abs(np.asarray(bounds) - x)) > min_gap * 0.5
+               for x in s]]
     rings = _interpolate(s_keys, params, s)
+
+    def cover(x: float) -> tuple[float, int]:
+        """(thickness, slot) of the topmost garment at arc length x (0, 0 for bare skin)."""
+        best = None
+        for a, e, sp in spans:
+            if a - 1e-9 <= x <= e + 1e-9 and (best is None or sp.layer >= best.layer):
+                best = sp
+        return (best.thickness, best.slot) if best is not None else (0.0, 0)
+
+    # Garment edges become hem pairs: two rings at one position, the bare side and the covered one.
+    out_s, out_rings, out_thick = [], [], []
+    eps = 0.002                     # hem rings sit 2 mm apart (a crisp step, clear of tolerances)
+    for x, ring in zip(s, rings):
+        before, after = cover(x - eps), cover(x + eps)
+        if np.any(np.isclose(bounds, x)) and before[0] != after[0]:
+            out_s += [x, x + eps]
+            out_rings += [ring, ring]
+            out_thick += [before, after]
+        else:
+            out_s.append(x)
+            out_rings.append(ring)
+            out_thick.append(cover(x))
+    s = np.array(out_s)
+    rings = np.array(out_rings)
+    rings[:, :2] += np.array([t for t, _ in out_thick])[:, None]
+    slots = []
+    for i in range(len(s) - 1):
+        if s[i + 1] - s[i] <= 2 * eps:                     # a hem: the thicker (garment) side's slot
+            slots.append(max(out_thick[i], out_thick[i + 1])[1])
+        else:
+            slots.append(cover((s[i] + s[i + 1]) / 2)[1])
 
     def cap(at_end: bool):
         style = chain.cap_end if at_end else chain.cap_start
@@ -167,7 +218,9 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray]:
 
     s0, c0 = cap(False)
     s1, c1 = cap(True)
-    return np.concatenate([s0[::-1], s, s1]), np.vstack([c0[::-1], rings, c1])
+    end_slots = (slots[0] if slots else cover(s[0])[1], slots[-1] if slots else cover(s[-1])[1])
+    slots = [end_slots[0]] * len(s0) + slots + [end_slots[1]] * len(s1)
+    return np.concatenate([s0[::-1], s, s1]), np.vstack([c0[::-1], rings, c1]), np.array(slots, dtype=np.int64)
 
 
 def _cap_pole(path: ChainPath, chain: Chain, s: NDArray, rings: NDArray, at_end: bool) -> float:
@@ -211,7 +264,7 @@ def chain_weights(path: ChainPath, chain: Chain, s: NDArray, bone_index: dict[st
 def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
     """One closed, skinned, UV'd tube for ``chain``."""
     path = ChainPath(skeleton, chain)
-    s, rings = _sample_rings(path, chain)
+    s, rings, interval_slots = _sample_rings(path, chain)
     sides = chain.sides
     front_hint = np.asarray(chain.front, dtype=np.float64)
     theta = np.linspace(0, 2 * np.pi, sides + 1)          # last column repeats the first (UV seam)
@@ -230,15 +283,18 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
         e = 2.0 / power
         x = np.sign(c) * np.abs(c) ** e * rx + off_side
         z = np.sign(sn) * np.abs(sn) ** e * rz + off_front
-        verts.append(path.point(sk) + np.outer(x, side) + np.outer(z, front))
+        ring = path.point(sk) + np.outer(x, side) + np.outer(z, front)
+        ring[-1] = ring[0]            # the seam column is the first one, exactly (welds must match)
+        verts.append(ring)
         ring_s.append(np.full(sides + 1, sk))
     per = sides + 1
     count = len(s)
     vertices = np.vstack(verts)
-    faces = []
+    faces, face_slots = [], []
     for r in range(count - 1):
         a = r * per + np.arange(sides)
         faces += np.column_stack([a, a + 1, a + per + 1]).tolist() + np.column_stack([a, a + per + 1, a + per]).tolist()
+        face_slots += [interval_slots[r]] * (2 * sides)
     poles = []
     for at_end in (False, True):
         ps = _cap_pole(path, chain, s, rings, at_end)
@@ -255,12 +311,15 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
     for k in range(sides):
         faces.append([start_pole, k + 1, k])
         faces.append([end_pole, last + k, last + k + 1])
+        face_slots += [interval_slots[0], interval_slots[-1]]
     faces = np.array(faces, dtype=np.int64)
     all_s = np.concatenate([np.concatenate(ring_s), [poles[0][1], poles[1][1]]])
 
     perimeter = float(np.mean(np.pi * (rings[:, 0] + rings[:, 1])))
     u = np.concatenate([np.tile(theta / (2 * np.pi) * perimeter, count), [0.0, 0.0]])
     mesh = Mesh(vertices, faces, uvs=np.column_stack([u, all_s]))
+    if chain.spans:
+        mesh.face_materials = np.array(face_slots, dtype=np.int64)
     if _signed_volume(mesh) < 0:
         mesh.faces = mesh.faces[:, ::-1].copy()
     bone_index = {name: i for i, name in enumerate(skeleton.names)}
@@ -291,14 +350,21 @@ def _signed_volume(mesh: Mesh) -> float:
 
 
 def loft_body(skeleton: Skeleton, chains: list[Chain], crease_angle: float = 75.0,
-              mirrored: set[str] | None = None) -> Mesh:
+              mirrored: set[str] | None = None, materials: list | None = None) -> Mesh:
     """Loft every chain and union them into one watertight skinned mesh (rest pose).
 
     Chains named in ``mirrored`` also get an exact mirror image (their Right* twin).
+    With ``materials`` (one per slot, distinct objects), garment spans' slots become
+    material groups that survive the union.
     """
     meshes = []
     for chain in chains:
         mesh = loft_chain(skeleton, chain)
+        if materials is not None:
+            if mesh.face_materials is None:
+                mesh.face_materials = np.zeros(len(mesh.faces), dtype=np.int64)
+            mesh.materials = list(materials)
+            mesh.material = materials[0]
         meshes.append(mesh)
         if mirrored and chain.name in mirrored:
             meshes.append(mirror_mesh(mesh, skeleton))

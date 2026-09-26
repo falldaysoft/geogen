@@ -1,0 +1,9 @@
+kind: garment
+name: shorts
+type: tight
+material: cloth
+layer: 1
+thickness: 0.008
+cover:
+  torso: [[Hips, -2.0], [Hips, 0.55]]
+  leg: [[LeftUpperLeg, -1.0], [LeftUpperLeg, 0.45]]

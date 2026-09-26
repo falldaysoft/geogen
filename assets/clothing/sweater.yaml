@@ -1,0 +1,10 @@
+kind: garment
+name: sweater
+type: tight
+material: cloth
+layer: 3
+thickness: 0.011
+cover:
+  leg: [[LeftUpperLeg, -1.0], [LeftUpperLeg, -0.08]]   # the thigh tubes' tops inside the hem line
+  torso: [[Hips, 0.1], [Neck, 0.2]]
+  arm: [[LeftShoulder, 0.0], [LeftLowerArm, 0.92]]

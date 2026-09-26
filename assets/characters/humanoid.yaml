@@ -30,6 +30,10 @@ params:
   hair_style:     { default: crop, choices: [none, buzz, crop, bob, long, ponytail, bun] }
   hair_color:     { default: brown, choices: [black, dark_brown, brown, auburn, blonde, light_blonde, red, grey, white] }
   eye_color:      { default: brown, choices: [brown, dark_brown, hazel, green, blue, grey] }
+  outfit:         { default: casual, choices: [none, casual, jeans_tee, smart, dress, skirt_sweater, shorts_tee, casual_f] }
+  top_color:      { default: navy, choices: [white, cream, black, charcoal, grey, navy, denim, light_denim, red, burgundy, coral, pink, mustard, olive, green, teal, lavender, brown, tan, sky] }
+  bottom_color:   { default: denim, choices: [white, cream, black, charcoal, grey, navy, denim, light_denim, red, burgundy, coral, pink, mustard, olive, green, teal, lavender, brown, tan, sky] }
+  shoe_color:     { default: white, choices: [white, cream, black, charcoal, grey, navy, denim, light_denim, red, burgundy, coral, pink, mustard, olive, green, teal, lavender, brown, tan, sky] }
   lashes:         { default: 0.3 }    # face paint: 0 .. 1
   lip_strength:   { default: 0.4 }
   blush:          { default: 0.1 }
@@ -56,6 +60,10 @@ presets:
     hand_size: 0.92
     foot_length: 0.23
     hair_style: long
+    outfit: casual_f
+    top_color: coral
+    bottom_color: navy
+    shoe_color: black
     lashes: 1.0
     lip_strength: 0.7
     blush: 0.35
@@ -77,6 +85,10 @@ presets:
     foot_length: 0.26
     hair_style: crop
     hair_color: dark_brown
+    outfit: jeans_tee
+    top_color: grey
+    bottom_color: denim
+    shoe_color: white
     lashes: 0.0
     lip_strength: 0.12
     blush: 0.0
@@ -131,18 +143,49 @@ body:
     brow_color: "{hair_color}"
   hair: "{hair_style}"
   hair_color: "{hair_color}"
+  # Outfits: garments from assets/clothing (tight ones edit the body's rings, loose ones are shells).
+  outfit: "{outfit}"
+  outfits:
+    none: []
+    casual:
+      - { garment: long_sleeve_top, color: "{top_color}" }
+      - { garment: trousers, color: "{bottom_color}" }
+      - { garment: sneakers, color: "{shoe_color}" }
+    jeans_tee:
+      - { garment: t_shirt, color: "{top_color}" }
+      - { garment: jeans, color: "{bottom_color}" }
+      - { garment: sneakers, color: "{shoe_color}" }
+    smart:
+      - { garment: long_sleeve_top, color: "{top_color}" }
+      - { garment: trousers, color: "{bottom_color}" }
+      - { garment: boots, color: "{shoe_color}" }
+    shorts_tee:
+      - { garment: t_shirt, color: "{top_color}" }
+      - { garment: shorts, color: "{bottom_color}" }
+      - { garment: sneakers, color: "{shoe_color}" }
+    casual_f:
+      - { garment: t_shirt, color: "{top_color}" }
+      - { garment: skirt, color: "{bottom_color}" }
+      - { garment: flats, color: "{shoe_color}" }
+    skirt_sweater:
+      - { garment: sweater, color: "{top_color}" }
+      - { garment: skirt, color: "{bottom_color}" }
+      - { garment: boots, color: "{shoe_color}" }
+    dress:
+      - { garment: dress, color: "{top_color}" }
+      - { garment: flats, color: "{shoe_color}" }
   crease_angle: 80
-  max_triangles: 1500
+  max_triangles: 2600
   chains:
     torso:
       bones: [Hips, Spine, Chest, UpperChest, Neck, Head]
       end: head_top
-      sides: 12
+      sides: 16
       spacing: 0.2
       blend: 0.04
       joint_rings: false
       cap_rings: 2
-      weight_shift: { Head: -0.055 }          # jaw and chin (below the head joint) follow the head
+      weight_shift: { Head: -0.06 }           # jaw and chin (below the head joint) follow the head
       rings:
         - [Hips, -0.65, "{0.062 * tf}", "{0.052 * tf}", { power: 2.2 }]
         - [Hips, -0.4, "{hips_rx}", "{0.086 * tf + 0.016 * glutes}", { offset: [0, "{-0.014 * glutes}"], power: 2.2 }]
@@ -151,22 +194,24 @@ body:
         - [Spine, 0.6, "{waist_rx}", "{0.078 * tf}", { power: 2.3 }]
         - [Chest, 0.45, "{chest_rx}", "{0.086 * tf + 0.03 * bust}", { offset: [0, "{0.016 * bust}"], power: 2.4 }]
         - [UpperChest, 0.35, "{chest_rx * 1.02}", "{0.082 * tf}", { power: 2.6 }]
-        - [UpperChest, 0.8, "{chest_rx * 0.86}", "{0.072 * tf}", { power: 2.4 }]
-        - [Neck, 0.0, "{0.095 * tf}", "{0.062 * tf}", { offset: [0, -0.006], power: 2.2 }]
-        - [Neck, 0.2, "{0.060 * k}", "{0.052 * k}", { offset: [0, -0.004] }]
-        - [Neck, 0.38, "{0.050 * k}", "{0.051 * k}", { offset: [0, 0.002] }]
-        - [Neck, 0.6, "{0.050 * hs * jaw}", "{0.064 * hs}", { offset: [0, "{0.026 * hs}"] }]
-        - [Neck, 0.85, "{0.066 * hs * jaw}", "{0.085 * hs}", { offset: [0, "{0.012 * hs}"] }]
-        - [Head, 0.2, "{0.076 * hs}", "{0.098 * hs}", { offset: [0, "{0.006 * hs}"] }]
-        - [Head, 0.45, "{0.082 * hs}", "{0.104 * hs}"]
-        - [Head, 0.62, "{0.078 * hs}", "{0.099 * hs}", { offset: [0, "{-0.004 * hs}"] }]
+        - [UpperChest, 0.78, "{chest_rx * 0.8}", "{0.07 * tf}", { power: 2.3 }]
+        - [Neck, 0.0, "{0.112 * tf}", "{0.062 * tf}", { offset: [0, -0.008], power: 2.4 }]
+        - [Neck, 0.12, "{0.056 * k}", "{0.05 * k}", { offset: [0, -0.006] }]
+        - [Neck, 0.28, "{0.049 * k}", "{0.049 * k}", { offset: [0, -0.002] }]
+        # Head: a round cranium, full cheeks, a soft jaw tapering to a small chin.
+        - [Neck, 0.44, "{0.042 * hs * jaw}", "{0.072 * hs}", { offset: [0, "{0.021 * hs}"] }]
+        - [Neck, 0.72, "{0.062 * hs * jaw}", "{0.09 * hs}", { offset: [0, "{0.012 * hs}"] }]
+        - [Head, 0.07, "{0.075 * hs}", "{0.099 * hs}", { offset: [0, "{0.006 * hs}"] }]
+        - [Head, 0.26, "{0.084 * hs}", "{0.104 * hs}", { offset: [0, "{0.002 * hs}"] }]
+        - [Head, 0.44, "{0.088 * hs}", "{0.106 * hs}"]
+        - [Head, 0.6, "{0.085 * hs}", "{0.102 * hs}", { offset: [0, "{-0.004 * hs}"] }]
 
     arm:
       bones: [LeftShoulder, LeftUpperArm, LeftLowerArm, LeftHand, LeftMiddleProximal, LeftMiddleIntermediate,
               LeftMiddleDistal]
       end: { bone: LeftMiddleDistal, along: "{0.02 * hk}" }
       mirror: true
-      sides: 8
+      sides: 10
       spacing: 0.12
       blend: 0.05
       joint_rings: [LeftUpperArm, LeftLowerArm]
@@ -179,8 +224,8 @@ body:
         LeftMiddleIntermediate: [LeftMiddleIntermediate, LeftRingIntermediate]
         LeftMiddleDistal: [LeftMiddleDistal, LeftRingDistal]
       rings:
-        - [LeftShoulder, 0.25, "{0.046 * tf}", "{0.050 * tf}", { offset: [-0.012, 0] }]
-        - [LeftUpperArm, -0.05, "{shoulder_r}", "{shoulder_r}", { offset: [0.002, 0] }]
+        - [LeftShoulder, 0.42, "{0.042 * tf}", "{0.046 * tf}", { offset: [-0.016, 0] }]
+        - [LeftUpperArm, -0.05, "{shoulder_r * 1.06}", "{shoulder_r * 1.02}", { offset: [0.006, 0] }]
         - [LeftUpperArm, 0.15, "{0.048 * lf}", "{0.049 * lf}"]
         - [LeftUpperArm, 0.55, "{0.040 * lf}", "{0.043 * lf}"]
         - [LeftLowerArm, 0.0, "{0.033 * lf}", "{0.035 * lf}"]
@@ -210,7 +255,7 @@ body:
       bones: [LeftUpperLeg, LeftLowerLeg]
       end: LeftFoot
       mirror: true
-      sides: 9
+      sides: 12
       spacing: 0.15
       blend: 0.06
       joint_rings: [LeftLowerLeg]
@@ -229,7 +274,7 @@ body:
       end: { bone: LeftToes, along: "{foot_length * 0.26}" }
       front: [0, 1, 0]
       mirror: true
-      sides: 8
+      sides: 10
       spacing: 0.1
       blend: 0.035
       joint_rings: false
@@ -256,119 +301,150 @@ body:
   # Hair shells: ring-lofted chains on the head/neck/back bones minus `cut` boxes
   # ([x0, y0, z0, x1, y1, z1], rest pose), skinned like the body.
   hair_styles:
-    buzz: &short
+    buzz:
       chains:
-        cap: &cap
+        cap:
           bones: [Neck, Head]
           end: { landmark: head_top, offset: [0, 0.008, 0] }
-          sides: 12
+          sides: 14
           spacing: 0.2
           joint_rings: false
-          cap_rings: 2
-          weight_shift: { Head: -0.055 }
+          cap_rings: 3
+          weight_shift: { Head: -0.06 }
           rings:
-            - [Neck, 0.5, "{0.056 * hs + 0.008}", "{0.058 * hs + 0.008}", { offset: [0, "{-0.012 * hs}"] }]
-            - [Head, 0.1, "{0.074 * hs + 0.008}", "{0.094 * hs + 0.008}", { offset: [0, "{0.004 * hs}"] }]
-            - [Head, 0.3, "{0.080 * hs + 0.008}", "{0.102 * hs + 0.008}", { offset: [0, "{0.003 * hs}"] }]
-            - [Head, 0.47, "{0.082 * hs + 0.008}", "{0.104 * hs + 0.008}"]
-            - [Head, 0.62, "{0.078 * hs + 0.008}", "{0.099 * hs + 0.008}", { offset: [0, "{-0.004 * hs}"] }]
+            - [Neck, 0.5, "{0.058 * hs + 0.004}", "{0.062 * hs + 0.004}", { offset: [0, "{-0.016 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.006}", "{0.1 * hs + 0.006}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.006}", "{0.105 * hs + 0.006}", { offset: [0, "{-0.001 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + (0.006 + 0.008) / 2}", "{0.107 * hs + (0.006 + 0.008) / 2}", { offset: [0, -0.003] }]
+            - [Head, 0.6, "{0.086 * hs + 0.008}", "{0.103 * hs + 0.008}", { offset: [0, "{-0.006 * hs}"] }]
       cut:
-        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]     # face
-        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y}", 0.3]                      # sides below the temples
+        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+        - { center: [0, "{eyes_y - 0.13 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }                  # sides, rounded above the ears
+        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.1 * hs}", 0.05]                                                                  # the nape, short
     crop:
       chains:
         cap:
-          <<: *cap
+          bones: [Neck, Head]
           end: { landmark: head_top, offset: [0, 0.018, 0] }
+          sides: 14
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 3
+          weight_shift: { Head: -0.06 }
           rings:
-            - [Neck, 0.5, "{0.056 * hs + 0.01}", "{0.058 * hs + 0.012}", { offset: [0, "{-0.014 * hs}"] }]
-            - [Head, 0.1, "{0.074 * hs + 0.012}", "{0.094 * hs + 0.012}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.3, "{0.080 * hs + 0.014}", "{0.102 * hs + 0.014}"]
-            - [Head, 0.47, "{0.082 * hs + 0.016}", "{0.104 * hs + 0.016}", { offset: [0, -0.002] }]
-            - [Head, 0.62, "{0.078 * hs + 0.018}", "{0.099 * hs + 0.018}", { offset: [0, "{-0.006 * hs}"] }]
+            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.008}", "{0.1 * hs + 0.008}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.008}", "{0.105 * hs + 0.008}", { offset: [0, "{-0.001 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + (0.008 + 0.018) / 2}", "{0.107 * hs + (0.008 + 0.018) / 2}", { offset: [0, -0.003] }]
+            - [Head, 0.6, "{0.086 * hs + 0.018}", "{0.103 * hs + 0.022}", { offset: [0, "{0.004 * hs}"] }]
       cut:
-        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]
-        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y}", 0.3]
-    bob: &bob
+        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+        - { center: [0, "{eyes_y - 0.1 * hs}", 0.0], radii: [0.2, "{0.092 * hs}", "{0.094 * hs}"] }                        # sides, rounded above the ears
+        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.085 * hs}", 0.05]                                                                  # the nape, short
+    bob:
       chains:
         cap: &bob_cap
-          <<: *cap
-          end: { landmark: head_top, offset: [0, 0.02, 0] }
+          bones: [Neck, Head]
+          end: { landmark: head_top, offset: [0, 0.024, 0] }
+          sides: 14
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 3
+          weight_shift: { Head: -0.06 }
           rings:
-            - [Neck, 0.15, "{0.086 * hs}", "{0.094 * hs}", { offset: [0, "{-0.02 * hs}"], power: 2.2 }]
-            - [Neck, 0.5, "{0.084 * hs}", "{0.098 * hs}", { offset: [0, "{-0.012 * hs}"] }]
-            - [Head, 0.1, "{0.074 * hs + 0.02}", "{0.094 * hs + 0.018}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.3, "{0.080 * hs + 0.02}", "{0.102 * hs + 0.018}"]
-            - [Head, 0.47, "{0.082 * hs + 0.02}", "{0.104 * hs + 0.018}", { offset: [0, -0.002] }]
-            - [Head, 0.62, "{0.078 * hs + 0.02}", "{0.099 * hs + 0.02}", { offset: [0, "{-0.006 * hs}"] }]
+            - [Neck, 0.15, "{0.088 * hs}", "{0.096 * hs}", { offset: [0, "{-0.022 * hs}"], power: 2.2 }]
+            - [Neck, 0.55, "{0.086 * hs}", "{0.1 * hs}", { offset: [0, "{-0.014 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.02}", "{0.1 * hs + 0.02}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.02}", "{0.105 * hs + 0.02}", { offset: [0, "{-0.001 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + (0.02 + 0.024) / 2}", "{0.107 * hs + (0.02 + 0.024) / 2}", { offset: [0, -0.003] }]
+            - [Head, 0.6, "{0.086 * hs + 0.024}", "{0.103 * hs + 0.024}", { offset: [0, "{-0.006 * hs}"] }]
       cut:
-        - ["{-0.068 * hs}", "{height - 1.6 * hu}", 0.0, "{0.068 * hs}", "{hairline}", 0.3]
+        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
     long:
       chains:
         cap: *bob_cap
         back:
           bones: [Head, Neck, UpperChest]
           end: { bone: UpperChest, along: "{-0.13 * k}" }
-          sides: 10
+          sides: 14
           spacing: 0.2
           joint_rings: false
-          cap_rings: 2
+          cap_rings: 3
           blend: 0.06
           rings:
-            - [Head, -0.6, "{0.074 * hs}", "{0.045 * hs}", { offset: [0, "{-0.062 * hs}"] }]
-            - [Neck, 0.3, "{0.088 * hs}", "{0.032 * hs}", { offset: [0, "{-0.082 * hs}"] }]
-            - [UpperChest, 0.5, "{0.1 * hs}", "{0.024 * hs}", { offset: [0, "{-0.104 * tf}"], power: 2.4 }]
+            - [Head, -0.6, "{0.08 * hs}", "{0.05 * hs}", { offset: [0, "{-0.064 * hs}"] }]
+            - [Neck, 0.2, "{0.094 * hs}", "{0.036 * hs}", { offset: [0, "{-0.084 * hs}"] }]
+            - [UpperChest, 0.6, "{0.1 * hs}", "{0.026 * hs}", { offset: [0, "{-0.104 * tf}"], power: 2.4 }]
+            - [UpperChest, 1.2, "{0.07 * hs}", "{0.018 * hs}", { offset: [0, "{-0.1 * tf}"] }]
       cut:
-        - ["{-0.068 * hs}", "{height - 1.6 * hu}", 0.0, "{0.068 * hs}", "{hairline}", 0.3]
+        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
     ponytail:
       chains:
         cap:
-          <<: *cap
+          bones: [Neck, Head]
           end: { landmark: head_top, offset: [0, 0.014, 0] }
-          rings:
-            - [Neck, 0.5, "{0.056 * hs + 0.008}", "{0.058 * hs + 0.01}", { offset: [0, "{-0.014 * hs}"] }]
-            - [Head, 0.1, "{0.074 * hs + 0.01}", "{0.094 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.3, "{0.080 * hs + 0.011}", "{0.102 * hs + 0.011}"]
-            - [Head, 0.47, "{0.082 * hs + 0.012}", "{0.104 * hs + 0.012}", { offset: [0, -0.002] }]
-            - [Head, 0.62, "{0.078 * hs + 0.014}", "{0.099 * hs + 0.014}", { offset: [0, "{-0.004 * hs}"] }]
-        tail:
-          bones: [Head, Neck]
-          end: { bone: Neck, along: "{-0.16 * k}" }
-          bind: { Neck: [Head] }                 # the tail swings with the head
-          sides: 8
+          sides: 14
           spacing: 0.2
           joint_rings: false
-          cap_rings: 2
+          cap_rings: 3
+          weight_shift: { Head: -0.06 }
           rings:
-            - [Head, -0.55, "{0.03 * hs}", "{0.03 * hs}", { offset: [0, "{-0.112 * hs}"] }]
-            - [Head, 0.2, "{0.034 * hs}", "{0.03 * hs}", { offset: [0, "{-0.12 * hs}"] }]
-            - [Neck, 0.8, "{0.02 * hs}", "{0.018 * hs}", { offset: [0, "{-0.1 * hs}"] }]
-      cut:
-        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]
-        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y - 0.02}", 0.3]
-    bun:
-      chains:
-        cap:
-          <<: *cap
-          end: { landmark: head_top, offset: [0, 0.012, 0] }
-          rings:
-            - [Neck, 0.5, "{0.056 * hs + 0.008}", "{0.058 * hs + 0.01}", { offset: [0, "{-0.014 * hs}"] }]
-            - [Head, 0.1, "{0.074 * hs + 0.01}", "{0.094 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.3, "{0.080 * hs + 0.011}", "{0.102 * hs + 0.011}"]
-            - [Head, 0.47, "{0.082 * hs + 0.012}", "{0.104 * hs + 0.012}", { offset: [0, -0.002] }]
-            - [Head, 0.62, "{0.078 * hs + 0.012}", "{0.099 * hs + 0.012}", { offset: [0, "{-0.004 * hs}"] }]
-        knot:
-          bones: [Head]
-          end: head_top
+            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.01}", "{0.1 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.01}", "{0.105 * hs + 0.01}", { offset: [0, "{-0.001 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + (0.01 + 0.014) / 2}", "{0.107 * hs + (0.01 + 0.014) / 2}", { offset: [0, -0.003] }]
+            - [Head, 0.6, "{0.086 * hs + 0.014}", "{0.103 * hs + 0.014}", { offset: [0, "{-0.006 * hs}"] }]
+        tail:
+          bones: [Head, Neck]
+          end: { bone: Neck, along: "{-0.2 * k}" }
+          bind: { Neck: [Head] }                 # the tail swings with the head
           sides: 10
           spacing: 0.2
           joint_rings: false
+          cap_rings: 3
           rings:
-            - [Head, 0.42, "{0.04 * hs}", "{0.038 * hs}", { offset: [0, "{-0.108 * hs}"] }]
-            - [Head, 0.62, "{0.042 * hs}", "{0.04 * hs}", { offset: [0, "{-0.1 * hs}"] }]
+            - [Head, -0.5, "{0.022 * hs}", "{0.022 * hs}", { offset: [0, "{-0.115 * hs}"] }]
+            - [Head, 0.0, "{0.036 * hs}", "{0.032 * hs}", { offset: [0, "{-0.128 * hs}"] }]
+            - [Neck, 0.6, "{0.03 * hs}", "{0.026 * hs}", { offset: [0, "{-0.112 * hs}"] }]
+            - [Neck, 1.5, "{0.014 * hs}", "{0.012 * hs}", { offset: [0, "{-0.1 * hs}"] }]
       cut:
-        - ["{-0.07 * hs}", "{height - 1.5 * hu}", 0.0, "{0.07 * hs}", "{hairline}", 0.3]
-        - [-0.3, "{height - 1.5 * hu}", -0.02, 0.3, "{eyes_y - 0.02}", 0.3]
+        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+        - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }
+    bun:
+      chains:
+        cap:
+          bones: [Neck, Head]
+          end: { landmark: head_top, offset: [0, 0.014, 0] }
+          sides: 14
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 3
+          weight_shift: { Head: -0.06 }
+          rings:
+            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
+            - [Head, 0.07, "{0.077 * hs + 0.01}", "{0.1 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
+            - [Head, 0.26, "{0.085 * hs + 0.01}", "{0.105 * hs + 0.01}", { offset: [0, "{-0.001 * hs}"] }]
+            - [Head, 0.44, "{0.089 * hs + (0.01 + 0.014) / 2}", "{0.107 * hs + (0.01 + 0.014) / 2}", { offset: [0, -0.003] }]
+            - [Head, 0.6, "{0.086 * hs + 0.014}", "{0.103 * hs + 0.014}", { offset: [0, "{-0.006 * hs}"] }]
+        knot:
+          bones: [Head]
+          end: head_top
+          sides: 12
+          spacing: 0.2
+          joint_rings: false
+          cap_rings: 3
+          rings:
+            - [Head, 0.4, "{0.04 * hs}", "{0.038 * hs}", { offset: [0, "{-0.116 * hs}"] }]
+            - [Head, 0.58, "{0.042 * hs}", "{0.04 * hs}", { offset: [0, "{-0.106 * hs}"] }]
+      cut:
+        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
+        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+        - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }
 
   # Skeletal poses (body-frame degrees, see core.skeleton.Pose); each is also a `pose_<name>` clip.
   poses:

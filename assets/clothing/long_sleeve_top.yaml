@@ -1,0 +1,10 @@
+kind: garment
+name: long_sleeve_top
+type: tight
+material: cloth
+layer: 2
+thickness: 0.005
+cover:
+  leg: [[LeftUpperLeg, -1.0], [LeftUpperLeg, -0.17]]   # the thigh tubes' tops inside the hem line
+  torso: [[Hips, 0.35], [Neck, 0.2]]
+  arm: [[LeftShoulder, 0.0], [LeftLowerArm, 0.94]]

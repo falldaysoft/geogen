@@ -74,9 +74,9 @@ class FaceTextureGenerator(SkinTextureGenerator):
     """
 
     eye_color: tuple[int, int, int] = (84, 60, 40)
-    eye_v: float = 0.61
-    eye_spacing: float = 0.40
-    eye_size: float = 1.0
+    eye_v: float = 0.6
+    eye_spacing: float = 0.42
+    eye_size: float = 1.1
     brow_color: tuple[int, int, int] = (70, 50, 36)
     brow_thickness: float = 1.0
     brow_arch: float = 1.0
@@ -105,53 +105,73 @@ class FaceTextureGenerator(SkinTextureGenerator):
         es = self.eye_size
         if self.blush > 0:
             for side in (-1, 1):
-                d = np.hypot((u - (0.5 + side * 0.25)) / 0.11, (v - (self.eye_v - 0.17)) / 0.07)
-                paint(np.clip(1 - d, 0, 1) ** 1.5, (214, 120, 120), 0.35 * self.blush)
+                d = np.hypot((u - (0.5 + side * 0.26)) / 0.11, (v - (self.eye_v - 0.19)) / 0.065)
+                paint(np.clip(1 - d, 0, 1) ** 1.6, (222, 128, 124), 0.32 * self.blush)
         if self.freckles > 0:
             rng = np.random.default_rng(self.seed or 5)
             for _ in range(int(40 * self.freckles)):
                 side = rng.choice([-1, 1])
-                cu = 0.5 + side * rng.uniform(0.08, 0.3)
-                cv = self.eye_v - rng.uniform(0.07, 0.2)
-                paint(_ellipse(u, v, cu, cv, 0.008, 0.008, 0.006), (150, 96, 70), 0.45)
+                cu = 0.5 + side * rng.uniform(0.07, 0.3)
+                cv = self.eye_v - rng.uniform(0.08, 0.2)
+                paint(_ellipse(u, v, cu, cv, 0.007, 0.007, 0.006), (150, 96, 70), 0.4)
         for side in (-1, 1):
             cu = 0.5 + side * self.eye_spacing / 2
             cv = self.eye_v
-            # Sclera, iris, pupil, highlight.
-            paint(_ellipse(u, v, cu, cv, 0.085 * es, 0.047 * es), (244, 240, 234))
-            iris = _ellipse(u, v, cu, cv - 0.002, 0.047 * es, 0.047 * es) * _ellipse(u, v, cu, cv, 0.085 * es, 0.047 * es)
+            # Soft socket shadow above the eye.
+            d = np.hypot((u - cu) / (0.12 * es), (v - (cv + 0.025 * es)) / (0.06 * es))
+            paint(np.clip(1 - d, 0, 1) ** 1.2, (150, 104, 92), 0.18)
+            # Almond eye: sclera under an arched upper lid, a large iris, pupil, two highlights.
+            eye = _ellipse(u, v, cu, cv, 0.078 * es, 0.05 * es) * np.clip((v - (cv - 0.052 * es)) * 40, 0, 1)
+            paint(eye, (246, 243, 238))
+            iris = _ellipse(u, v, cu, cv - 0.004, 0.044 * es, 0.047 * es) * eye
             paint(iris, self.eye_color)
-            paint(_ellipse(u, v, cu, cv - 0.002, 0.022 * es, 0.022 * es), (18, 14, 12))
-            paint(_ellipse(u, v, cu + side * -0.015 * es, cv + 0.015 * es, 0.01 * es, 0.01 * es), (255, 255, 255), 0.9)
-            # Upper lid line (thicker with lashes, flicking out), faint lower lid.
-            lid = [(cu - side * 0.09 * es, cv - 0.004, 0.6), (cu, cv + 0.048 * es, 1.0),
-                   (cu + side * 0.09 * es, cv + 0.002, 0.7)]
+            ring = np.clip(_ellipse(u, v, cu, cv - 0.004, 0.044 * es, 0.047 * es)
+                           - _ellipse(u, v, cu, cv - 0.004, 0.036 * es, 0.039 * es), 0, 1) * eye
+            paint(ring, (40, 30, 26), 0.45)
+            paint(_ellipse(u, v, cu, cv - 0.004, 0.02 * es, 0.021 * es) * eye, (16, 12, 12))
+            paint(_ellipse(u, v, cu - side * 0.014 * es, cv + 0.014 * es, 0.009 * es, 0.009 * es), (255, 255, 255), 0.95)
+            paint(_ellipse(u, v, cu + side * 0.012 * es, cv - 0.018 * es, 0.005 * es, 0.005 * es), (255, 255, 255), 0.6)
+            # Upper lid: a smooth arc, heavier toward the outer corner; lashes flick out.
+            arc = [(cu - side * 0.082 * es, cv - 0.006, 0.5)]
+            for f in np.linspace(-0.8, 0.8, 7):
+                arc.append((cu + side * f * 0.08 * es, cv + 0.05 * es * np.cos(f * np.pi / 2) ** 0.8, 0.7 + 0.3 * (f + 1) / 2))
+            arc.append((cu + side * 0.084 * es, cv, 0.8))
             if self.lashes > 0:
-                lid.append((cu + side * (0.09 + 0.03 * self.lashes) * es, cv + 0.02 * es * self.lashes, 0.2))
-            paint(_stroke(u, v, lid, (0.012 + 0.014 * self.lashes) * es), (30, 22, 20))
-            paint(_stroke(u, v, [(cu - side * 0.07 * es, cv - 0.03 * es), (cu + side * 0.07 * es, cv - 0.03 * es)],
-                          0.006), (120, 80, 70), 0.35)
-            # Brow: an arch over the eye, thick at the inner end.
-            bt = self.brow_thickness
-            arch = 0.025 * self.brow_arch
-            brow = [(cu - side * 0.1, self.eye_v + 0.085, 1.0), (cu + side * 0.01, self.eye_v + 0.1 + arch, 0.9),
-                    (cu + side * 0.11, self.eye_v + 0.08, 0.35)]
-            paint(_stroke(u, v, brow, 0.022 * bt), self.brow_color, 0.95)
-        # Nose: soft shading under the tip and two nostrils.
-        nose_v = (self.eye_v + self.mouth_v) / 2 - 0.02
-        paint(_ellipse(u, v, 0.5, nose_v - 0.02, 0.07, 0.03, 0.04), (150, 100, 80), 0.18)
+                arc.append((cu + side * (0.084 + 0.028 * self.lashes) * es, cv + 0.018 * es * self.lashes, 0.25))
+            paint(_stroke(u, v, arc, (0.01 + 0.012 * self.lashes) * es, soft=0.008), (38, 26, 24))
+            # Faint lower lid and crease.
+            paint(_stroke(u, v, [(cu - side * 0.06 * es, cv - 0.04 * es), (cu, cv - 0.05 * es),
+                                 (cu + side * 0.07 * es, cv - 0.036 * es)], 0.006, soft=0.008), (120, 80, 72), 0.3)
+            paint(_stroke(u, v, [(cu - side * 0.06 * es, cv + 0.068 * es), (cu, cv + 0.078 * es),
+                                 (cu + side * 0.07 * es, cv + 0.066 * es)], 0.006, soft=0.01), (130, 90, 80), 0.25)
+            # Brow: a gentle arc, thick at the inner end, tapering outward.
+            bt, arch = self.brow_thickness, self.brow_arch
+            base = self.eye_v + 0.105
+            brow = []
+            for f in np.linspace(0.0, 1.0, 7):
+                x = cu + side * (-0.085 + 0.2 * f)
+                y = base + 0.018 * arch * np.sin(np.pi * min(f / 0.7, 1.0) * 0.9) - 0.012 * f * (1 - arch * 0.3)
+                brow.append((x, y, 1.0 - 0.65 * f))
+            paint(_stroke(u, v, brow, 0.024 * bt, soft=0.01), self.brow_color, 0.92)
+        # Nose: a soft shadow under the tip and two small nostrils.
+        nose_v = (self.eye_v + self.mouth_v) / 2 - 0.03
+        paint(_ellipse(u, v, 0.5, nose_v - 0.018, 0.065, 0.025, 0.04), (160, 108, 90), 0.16)
         for side in (-1, 1):
-            paint(_ellipse(u, v, 0.5 + side * 0.03, nose_v - 0.012, 0.016, 0.009, 0.01), (90, 55, 45), 0.6)
-        # Mouth: lips tinted toward lip_color, a darker line between them.
-        mw = 0.11 * self.mouth_width
+            paint(_ellipse(u, v, 0.5 + side * 0.028, nose_v - 0.01, 0.013, 0.008, 0.01), (110, 66, 56), 0.5)
+        # Mouth: upper and lower lip toward lip_color, the corners lifted in a small smile.
+        mw = 0.1 * self.mouth_width
         mv = self.mouth_v
-        lips = np.maximum(_ellipse(u, v, 0.5, mv + 0.014, mw, 0.022), _ellipse(u, v, 0.5, mv - 0.016, mw * 0.85, 0.026))
+        upper = _ellipse(u, v, 0.5, mv + 0.012, mw, 0.02) * np.clip((v - (mv + 0.001)) * 60, 0, 1)
+        lower = _ellipse(u, v, 0.5, mv - 0.012, mw * 0.82, 0.028) * np.clip(((mv + 0.001) - v) * 60, 0, 1)
+        lips = np.maximum(upper * 0.9, lower)
         lip = np.asarray(self.lip_color, dtype=np.float64) / 255.0
         target = skin * (1 - self.lip_strength) + lip[None, None, :] * self.lip_strength
-        a = lips[..., None] * 0.9
+        a = lips[..., None] * 0.92
         img = img * (1 - a) + target * a
-        paint(_stroke(u, v, [(0.5 - mw, mv + 0.004, 0.5), (0.5, mv - 0.002, 1.0), (0.5 + mw, mv + 0.004, 0.5)], 0.008),
-              (96, 44, 44), 0.8)
+        paint(_ellipse(u, v, 0.5, mv - 0.022, mw * 0.4, 0.008, 0.01), (255, 255, 255), 0.12 * self.lip_strength)
+        paint(_stroke(u, v, [(0.5 - mw * 1.05, mv + 0.008, 0.4), (0.5 - mw * 0.5, mv - 0.001, 0.9), (0.5, mv, 1.0),
+                             (0.5 + mw * 0.5, mv - 0.001, 0.9), (0.5 + mw * 1.05, mv + 0.008, 0.4)], 0.007, soft=0.008),
+              (104, 48, 48), 0.75)
         return Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8))
 
 
@@ -160,7 +180,7 @@ class HairTextureGenerator(TextureGenerator):
     """Strands along v (tiling): light neutral, tinted per character by vertex colour."""
 
     base_color: tuple[int, int, int] = (228, 222, 214)
-    contrast: float = 0.35
+    contrast: float = 0.18
 
     def generate(self) -> Image.Image:
         rng = np.random.default_rng(self.seed if self.seed is not None else 3)

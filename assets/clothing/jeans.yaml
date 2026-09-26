@@ -1,0 +1,9 @@
+kind: garment
+name: jeans
+type: tight
+material: denim
+layer: 1
+thickness: 0.007
+cover:
+  torso: [[Hips, -2.0], [Hips, 0.55]]
+  leg: [[LeftUpperLeg, -1.0], [LeftLowerLeg, 0.96]]

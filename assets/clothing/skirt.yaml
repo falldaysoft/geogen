@@ -1,0 +1,18 @@
+# A-line skirt to just above the knee: a loose shell from the waist, weighted from
+# the body under it (the thighs below the hips) so it swings with the legs.
+kind: garment
+name: skirt
+type: loose
+material: cloth
+chains:
+  skirt:
+    bones: [Spine, Hips]
+    end: [0, "{height * 0.3}", 0]
+    sides: 18
+    spacing: 0.2
+    joint_rings: false
+    caps: [round, flat]
+    rings:
+      - [Spine, 0.05, "{(hips_rx + waist_rx) / 2 + 0.018}", "{0.084 * tf + 0.018}", { power: 2.3 }]
+      - [Hips, 0.35, "{hips_rx + 0.035}", "{0.09 * tf + 0.016 * glutes + 0.03}", { offset: [0, "{-0.012 * glutes}"], power: 2.3 }]
+      - [Hips, 1.0, "{hips_rx + 0.07}", "{0.12 * tf + 0.05}", { offset: [0, -0.01], power: 2.2 }]

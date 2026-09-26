@@ -3,11 +3,11 @@
 name: humanoid_lineup
 
 slots:
-  a: { position: [-0.8, 0, 0], facing: south }
-  b: { position: [0, 0, 0], facing: south }
-  c: { position: [0.8, 0, 0], facing: south }
-  chair: { position: [1.7, 0, 0], facing: south }
-  door: { position: [-1.9, 0, -0.2], facing: south }
+  a: { position: [-0.8, 0, 0], facing: north }
+  b: { position: [0, 0, 0], facing: north }
+  c: { position: [0.8, 0, 0], facing: north }
+  chair: { position: [1.7, 0, 0], facing: north }
+  door: { position: [-1.9, 0, -0.2], facing: north }
 
 place:
   feminine:

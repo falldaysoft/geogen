@@ -1,0 +1,9 @@
+kind: garment
+name: sneakers
+type: tight
+material: leather
+layer: 3
+thickness: 0.011
+cover:
+  foot: [[LeftFoot, -2.0], [LeftToes, 2.0]]
+  leg: [[LeftLowerLeg, 0.9], [LeftLowerLeg, 1.0]]

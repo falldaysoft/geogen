@@ -1,0 +1,9 @@
+kind: garment
+name: tank_top
+type: tight
+material: cloth
+layer: 2
+thickness: 0.004
+cover:
+  leg: [[LeftUpperLeg, -1.0], [LeftUpperLeg, -0.17]]   # the thigh tubes' tops inside the hem line
+  torso: [[Hips, 0.35], [UpperChest, 0.85]]

@@ -41,7 +41,7 @@ def test_presets_build_clean_bodies_within_budget(bodies, preset, height):
     assert body.meta["humanoid"]["height"] == pytest.approx(height)
     assert body.meta["humanoid"]["pose"] == "stand"
     mesh = body.find("body").mesh
-    assert len(mesh.faces) <= 1600
+    assert len(mesh.faces) <= 2800
     assert meshops.validate(mesh).ok
     posed = body.find("body").world_mesh()
     assert meshops.validate(posed).watertight
@@ -65,9 +65,10 @@ def test_coincident_vertices_move_together(bodies):
     assert np.max(hi - lo) < 1e-9
 
 
-def test_feminine_and_masculine_shapes_differ(bodies):
-    fem_chest, fem_waist, fem_hips = _torso_widths(bodies["feminine"])
-    masc_chest, masc_waist, masc_hips = _torso_widths(bodies["masculine"])
+def test_feminine_and_masculine_shapes_differ():
+    bare = {p: LayoutLoader().load(HUMANOID, params={"preset": p, "outfit": "none"}) for p in ("feminine", "masculine")}
+    fem_chest, fem_waist, fem_hips = _torso_widths(bare["feminine"])
+    masc_chest, masc_waist, masc_hips = _torso_widths(bare["masculine"])
     assert masc_chest / masc_hips > fem_chest / fem_hips + 0.1     # broad chest vs hips
     assert fem_waist / fem_hips < masc_waist / masc_hips - 0.06    # hourglass
     assert fem_waist / fem_hips < 0.72
@@ -105,12 +106,12 @@ def test_humanoid_exports_as_a_skinned_glb(bodies, tmp_path):
     out = export_scene(bodies["feminine"], tmp_path / "woman.glb")
     gltf, _, _ = _split_glb(out.read_bytes())
     skins = gltf["skins"]
-    assert {gltf["nodes"][i]["name"] for i, n in enumerate(gltf["nodes"]) if "skin" in n} == {"body", "hair"}
+    assert {gltf["nodes"][i]["name"] for i, n in enumerate(gltf["nodes"]) if "skin" in n} == {"body", "hair", "clothes"}
     for skin in skins:
         assert len(skin["joints"]) == 56
         assert gltf["nodes"][skin["skeleton"]]["name"] == "Root"
     body_mesh = gltf["meshes"][next(n["mesh"] for n in gltf["nodes"] if n["name"] == "body")]
-    assert len(body_mesh["primitives"]) == 2                  # skin + face decal
+    assert len(body_mesh["primitives"]) == 4                  # skin, cloth, leather, face decal
     assert all("COLOR_0" in p["attributes"] and "JOINTS_0" in p["attributes"] for p in body_mesh["primitives"])
     assert not any(n["name"].endswith("colonly") for n in gltf["nodes"])
 
@@ -170,7 +171,7 @@ def test_hair_styles_build_closed_skinned_shells(style):
     # Hair sits on the head: above the chin, over the crown, clear of the face in front.
     top = body.meta["humanoid"]["height"]
     assert hair.world_mesh().vertices[:, 1].max() > top
-    assert body.meta["humanoid"]["triangles"] <= 2500
+    assert body.meta["humanoid"]["triangles"] <= 4200
 
 
 def test_no_hair_style_means_no_hair_node():
@@ -181,8 +182,8 @@ def test_no_hair_style_means_no_hair_node():
 
 def test_face_decal_slot_and_skin_tone(bodies):
     mesh = bodies["feminine"].find("body").mesh
-    assert mesh.multi_material and [m.name for m in mesh.materials] == ["skin", "face"]
-    face = mesh.faces[mesh.face_materials == 1]
+    assert mesh.multi_material and mesh.materials[0].name == "skin" and mesh.materials[-1].name == "face"
+    face = mesh.faces[mesh.face_materials == len(mesh.materials) - 1]
     assert 30 < len(face) < 300
     uv = mesh.uvs[np.unique(face)]
     assert uv.min() > -0.2 and uv.max() < 1.2
@@ -193,8 +194,8 @@ def test_face_decal_slot_and_skin_tone(bodies):
     assert dark.colors[0, 0] < mesh.colors[0, 0] - 0.3
     # Face texture: distinct per face spec, shared otherwise.
     again = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "height": 1.6}).find("body").mesh
-    assert again.materials[1] is mesh.materials[1]
-    assert bodies["masculine"].find("body").mesh.materials[1] is not mesh.materials[1]
+    assert again.materials[-1] is mesh.materials[-1]
+    assert bodies["masculine"].find("body").mesh.materials[-1] is not mesh.materials[-1]
 
 
 def test_face_texture_paints_features():

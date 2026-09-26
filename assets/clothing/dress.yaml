@@ -1,0 +1,22 @@
+# Sleeveless dress: a tight bodice plus the skirt shell, one colour.
+kind: garment
+name: dress
+type: loose
+material: cloth
+cover:
+  leg: [[LeftUpperLeg, -1.0], [LeftUpperLeg, -0.13]]   # the thigh tubes' tops inside the hem line
+  torso: [[Hips, 0.3], [UpperChest, 0.85]]
+thickness: 0.005
+layer: 2
+chains:
+  skirt:
+    bones: [Spine, Hips]
+    end: [0, "{height * 0.28}", 0]
+    sides: 18
+    spacing: 0.2
+    joint_rings: false
+    caps: [round, flat]
+    rings:
+      - [Spine, 0.05, "{(hips_rx + waist_rx) / 2 + 0.018}", "{0.084 * tf + 0.018}", { power: 2.3 }]
+      - [Hips, 0.35, "{hips_rx + 0.035}", "{0.09 * tf + 0.016 * glutes + 0.03}", { offset: [0, "{-0.012 * glutes}"], power: 2.3 }]
+      - [Hips, 1.0, "{hips_rx + 0.08}", "{0.13 * tf + 0.05}", { offset: [0, -0.01], power: 2.2 }]

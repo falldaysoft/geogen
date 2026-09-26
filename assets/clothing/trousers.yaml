@@ -1,0 +1,9 @@
+kind: garment
+name: trousers
+type: tight
+material: cloth
+layer: 1
+thickness: 0.009
+cover:
+  torso: [[Hips, -2.0], [Hips, 0.6]]
+  leg: [[LeftUpperLeg, -1.0], [LeftLowerLeg, 0.98]]

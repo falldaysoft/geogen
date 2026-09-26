@@ -183,6 +183,8 @@ class LayoutLoader:
             out[key] = resolve_value(value, resolved_params)
         if preset is not None:
             out["preset"] = preset
+        if "body" in data:
+            out["_params"] = resolved_params      # garments resolve against the body's params
         return out
 
     def _build_hierarchy(self, data: dict[str, Any]) -> SceneNode:
@@ -194,7 +196,7 @@ class LayoutLoader:
             from ..generators.humanoid import build_humanoid
 
             root = build_humanoid(data["body"], name, self._material_loader,
-                                  assets_dir=Path(__file__).parents[3] / "assets")
+                                  assets_dir=Path(__file__).parents[3] / "assets", params=data.get("_params"))
             root.tags = [*root.tags, *data.get("tags", [])]
             if data.get("preset"):
                 root.meta["preset"] = data["preset"]
