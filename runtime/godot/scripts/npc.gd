@@ -50,6 +50,8 @@ var rng := RandomNumberGenerator.new()
 var body: Node3D
 var home := PackedVector2Array()  # world XZ polygon
 var home_y := 0.0
+## Affordances more than this above or below the home's floor belong to another storey.
+const FLOOR_TOLERANCE := 1.5
 var step_height := 0.3
 var clock := 0.0                  # seconds since spawn
 var trace_enabled := false
@@ -216,6 +218,8 @@ func options() -> Array[Dictionary]:
             continue
         if home_distance(a["approach"]) > margin:
             continue
+        if absf((a["approach"] as Vector3).y - home_y) > FLOOR_TOLERANCE:
+            continue    # another storey above or below the home region
         if world.npc_reserved(a["id"], self) >= int(a.get("slots", 1)):
             continue
         result.append({"id": a["id"], "action": a["action"], "affordance": a,

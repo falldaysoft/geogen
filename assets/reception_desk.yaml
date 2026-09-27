@@ -63,3 +63,9 @@ attachments:
     anchor: bottom_front_center
     offset: [0, 0, 0.5]
     facing: south
+
+# Staff work the desk from the end of the counter, facing the guests (+Z):
+# furnished lobbies often leave no room to stand behind it.
+affordances:
+  - { type: stand, at: ["{width / 2 + 0.45}", 0, 0.1], approach: ["{width / 2 + 0.45}", 0, -0.2], facing: 0,
+      duration: [40, 90], advertises: { work: 1.0 }, tags: [staff, desk] }

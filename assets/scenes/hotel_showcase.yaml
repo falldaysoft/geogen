@@ -1,20 +1,99 @@
 # The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors,
-# stairs and a lift) with a travel door back to the hub beside its entrance.
+# stairs and a working lift) on a short street: a paved forecourt with lamps,
+# benches and planters, taxis waiting at the kerb, a receptionist at the desk,
+# guests upstairs, people strolling past, and a travel door back to the hub.
+#
+# The hotel's street door is on its south side (-Z, entrance_spawn at z = -10).
 
 name: hotel_showcase
-
-slots:
-  forecourt: { position: [4.5, 0, -12.5], facing: south }
+tags: [showcase.hotel]
 
 spawns:
-  from_hub: { position: [1.5, 0, -12.5], facing: north }   # beside the hub door, facing the entrance
+  from_hub: { position: [4.0, 0.12, -12.5], facing: north }   # beside the hub door, facing the entrance
+
+slots:
+  forecourt:   { position: [0, 0, -12.2], facing: north }
+  road:        { position: [0, 0, -20.0], facing: east }
+  far_walk:    { position: [0, 0, -24.75], facing: east }
+  hub_door:    { position: [6.5, 0.12, -12.5], facing: south }
+  taxi_1:      { position: [-4.0, 0.04, -18.2], facing: east }
+  taxi_2:      { position: [-10.5, 0.04, -18.2], facing: east }
+  lamp_fw:     { position: [-9.0, 0.12, -16.2], facing: north }
+  lamp_fe:     { position: [9.0, 0.12, -16.2], facing: north }
+  lamp_aw:     { position: [-14.0, 0.12, -24.0], facing: north }
+  lamp_ae:     { position: [14.0, 0.12, -24.0], facing: north }
+  bench_w:     { position: [-12.5, 0.12, -12.0], facing: east }
+  bench_e:     { position: [12.5, 0.12, -12.0], facing: west }
+  planter_w:   { position: [-4.2, 0.12, -10.2], facing: south }
+  planter_e:   { position: [4.2, 0.12, -10.2], facing: south }
+  tree_1:      { position: [-21.0, 0.12, -25.2], facing: north }
+  tree_2:      { position: [-7.0, 0.12, -25.2], facing: north }
+  tree_3:      { position: [7.0, 0.12, -25.2], facing: north }
+  tree_4:      { position: [21.0, 0.12, -25.2], facing: north }
+  front_desk:  { position: [0.0, 0.0, 5.0], facing: south }        # behind the reception desk
+  guest_101:   { position: [-10.1, 3.65, 5.4], facing: south }       # first floor, room 101
+  guest_207:   { position: [6.3, 6.4, -5.4], facing: north }         # second floor, room 207
 
 place:
   hotel:
     asset: hotel.yaml
 
+  forecourt:
+    asset: sidewalk.yaml
+    slot: forecourt
+    params: { width: 34, length: 9.1, thickness: 0.12 }   # wall face (z = -7.65) to the kerb
+  road:
+    asset: road.yaml
+    slot: road
+    params: { width: 6.5, length: 64, thickness: 0.04 }
+  far_walk:
+    asset: sidewalk.yaml
+    slot: far_walk
+    params: { width: 3, length: 64, thickness: 0.12 }
+
   hub_door:
     asset: travel_door.yaml
-    slot: forecourt
+    slot: hub_door
     params: { label: Hub }
     travel: { scene: hub, spawn: from_hotel }
+
+  taxi_1: { asset: vehicles/car.yaml, slot: taxi_1, params: { preset: taxi } }
+  taxi_2: { asset: vehicles/car.yaml, slot: taxi_2, params: { preset: taxi } }
+
+  lamp_fw: { asset: street_lamp.yaml, slot: lamp_fw }
+  lamp_fe: { asset: street_lamp.yaml, slot: lamp_fe }
+  lamp_aw: { asset: street_lamp.yaml, slot: lamp_aw }
+  lamp_ae: { asset: street_lamp.yaml, slot: lamp_ae }
+  bench_w: { asset: bench.yaml, slot: bench_w }
+  bench_e: { asset: bench.yaml, slot: bench_e }
+  planter_w: { asset: planter.yaml, slot: planter_w }
+  planter_e: { asset: planter.yaml, slot: planter_e }
+  tree_1: { asset: maple_tree.yaml, slot: tree_1 }
+  tree_2: { asset: maple_tree.yaml, slot: tree_2 }
+  tree_3: { asset: maple_tree.yaml, slot: tree_3 }
+  tree_4: { asset: maple_tree.yaml, slot: tree_4 }
+
+  # Front of house: works the reception desk, breaks on the lobby seating.
+  receptionist:
+    npc: npcs/hotel_staff.yaml
+    slot: front_desk
+    home: { rect: [-2.9, -7.3, 2.9, 5.2] }
+    seed: 2
+
+  # Guests in their rooms (upper storeys: the home's `y` is that floor).
+  guest_101:
+    npc: npcs/hotel_guest.yaml
+    slot: guest_101
+    home: { rect: [-11.9, 3.4, -8.3, 7.3], y: 3.65 }
+    seed: 5
+  guest_207:
+    npc: npcs/hotel_guest.yaml
+    slot: guest_207
+    home: { rect: [4.5, -7.3, 8.1, -3.4], y: 6.4 }
+    seed: 9
+
+  # People strolling past on the pavements.
+  pedestrians:
+    npc: npcs/pedestrian.yaml
+    home: { rect: [-32, -26.5, 32, -9.2] }
+    scatter: { on_tag: street.sidewalk, count: 4, spacing: 6, seed: 11, radius: 0.5 }

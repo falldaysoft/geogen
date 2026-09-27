@@ -1,0 +1,28 @@
+# A hotel guest in their room: sleeps, sits, looks out of the window, wanders
+# the room. The home is the room itself (a tight margin: the neighbours' beds
+# are a party wall away), on the room's storey (home: {rect: [...], y: floor}).
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/townsfolk.yaml }
+speed: 1.1
+turn_speed: 320
+
+needs:
+  rest:      { initial: 0.6, decay: 0.006 }
+  curiosity: { initial: 0.5, decay: 0.01 }
+
+preferences:
+  window: 1.3
+  bed: 1.1
+
+activities:
+  wander: { action: wander, advertises: { curiosity: 0.05 } }
+  idle:   { action: idle, advertises: { rest: 0.04 } }
+
+scoring: { distance: 0.02, recency: 0.4, memory: 120, noise: 0.05, retry: 30 }
+home_margin: 0.3
+
+flags:
+  closes_doors: true

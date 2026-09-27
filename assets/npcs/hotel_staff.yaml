@@ -1,0 +1,33 @@
+# Hotel front-of-house staff: works the reception desk (its staff-side `stand`
+# affordance, tagged `staff`), takes breaks on the lobby seating and walks the
+# lobby now and then. Place with a home around reception and the lobby:
+#   receptionist: { npc: npcs/hotel_staff.yaml, slot: behind_desk, home: { rect: [...] }, seed: 2 }
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/hotel_staff.yaml }
+speed: 1.2
+turn_speed: 320
+
+needs:
+  work:      { initial: 0.2, decay: 0.02 }     # back to the desk soon after leaving it
+  rest:      { initial: 0.9, decay: 0.003 }
+  curiosity: { initial: 0.7, decay: 0.004 }
+
+preferences:
+  staff: 1.5
+  seat: 0.6
+
+activities:
+  walk_about: { action: wander, advertises: { curiosity: 0.1 } }
+  idle:       { action: idle, advertises: { rest: 0.02 } }
+
+# The desk and the lobby seating, not the guests' beds.
+affordance_tags: [staff, seat]
+
+scoring: { distance: 0.02, recency: 0.15, memory: 60, noise: 0.05, retry: 30 }
+home_margin: 1.0
+
+flags:
+  closes_doors: true
