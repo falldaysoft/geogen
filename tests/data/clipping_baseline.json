@@ -18,8 +18,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 117,
-    "max_mm": 32.1
+    "count": 76,
+    "max_mm": 30.5
    },
    "shell_poke": {
     "count": 90,
@@ -74,8 +74,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 107,
-    "max_mm": 46.1
+    "count": 73,
+    "max_mm": 38.3
    },
    "shell_poke": {
     "count": 90,
@@ -218,8 +218,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 35,
-    "max_mm": 21.6
+    "count": 0,
+    "max_mm": 0.0
    },
    "shell_poke": {
     "count": 86,
@@ -274,8 +274,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 42,
-    "max_mm": 29.3
+    "count": 0,
+    "max_mm": 0.0
    },
    "shell_poke": {
     "count": 119,
@@ -418,8 +418,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 81,
-    "max_mm": 34.5
+    "count": 62,
+    "max_mm": 27.8
    },
    "shell_poke": {
     "count": 172,
@@ -474,8 +474,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 85,
-    "max_mm": 43.9
+    "count": 57,
+    "max_mm": 37.8
    },
    "shell_poke": {
     "count": 152,
@@ -618,8 +618,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 172,
-    "max_mm": 47.3
+    "count": 61,
+    "max_mm": 28.7
    },
    "shell_poke": {
     "count": 86,
@@ -674,8 +674,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 173,
-    "max_mm": 47.3
+    "count": 62,
+    "max_mm": 59.5
    },
    "shell_poke": {
     "count": 68,
@@ -730,8 +730,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 98,
-    "max_mm": 54.0
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -774,8 +774,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 112,
-    "max_mm": 55.9
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -818,8 +818,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 91,
-    "max_mm": 33.4
+    "count": 13,
+    "max_mm": 32.0
    },
    "shell_poke": {
     "count": 78,
@@ -874,8 +874,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 105,
-    "max_mm": 45.1
+    "count": 81,
+    "max_mm": 42.3
    },
    "shell_poke": {
     "count": 49,
@@ -930,8 +930,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 12,
-    "max_mm": 29.2
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -974,8 +974,8 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 14,
-    "max_mm": 31.1
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {

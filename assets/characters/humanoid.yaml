@@ -167,6 +167,9 @@ derived:
   ankle_h: "{height * 0.045}"
   thigh: "{height * leg_ratio * (1 - 0.285 / 0.53) - 0.03}"
   seat_drop: "{0.09 * k}"                          # hip joint above the seat
+  # Seated, the wrist rests on the thigh: its top (the leg ring's front half-depth, which
+  # faces up once the thigh is level) plus cloth and half a palm, above the hip joint.
+  lap: "{0.071 * lf + 0.02 + 0.018 * k + 0.02 * belly}"
   sit_floor: "{hips_h - seat_drop - seat_height}"  # the floor's height in a seated body's frame
   # Head landmarks (skeleton: head top = height, chin one head unit below).
   hu: "{height / 6.5}"
@@ -561,7 +564,7 @@ body:
         Spine: [-4, 0, 0]
       ik: &sit_ik
         LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.07 * k}"], flat: true }
-        LeftHand: { target: ["{0.12 * k}", "{hips_h + 0.075 * k}", "{0.25 * k}"], pole: [0.4, -0.3, -1] }
+        LeftHand: { target: ["{0.12 * k}", "{hips_h + lap}", "{0.25 * k}"], pole: ["{0.3 + 0.7 * build}", -0.3, "{-1 + 0.3 * build}"] }   # heavier: elbows out, clear of the waist
         mirror: true
     sit_at_table:
       bones:
