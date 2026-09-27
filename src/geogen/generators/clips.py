@@ -1,4 +1,4 @@
-"""Procedural skeletal clips for humanoids: walk, idle, and static poses.
+"""Procedural skeletal clips for humanoids: walk, idle, wave, and static poses.
 
 Clips are data in the body YAML (``body.clips``), generated against the
 character's own skeleton so a tall and a short body both walk without foot
@@ -33,6 +33,7 @@ WALK_DEFAULTS = {"speed": 1.2, "duty": 0.6, "knee_drop": 0.03, "bob": 0.026, "hi
                  "pelvis_yaw": 6.0, "pelvis_list": 3.0, "chest_yaw": 8.0, "arm_swing": 16.0,
                  "lift": 0.07, "heel_raise": 34.0, "stance_width": 0.0, "fps": 30}
 IDLE_DEFAULTS = {"duration": 6.0, "breathe": 1.5, "sway": 0.012, "glance": 12.0, "fps": 15}
+WAVE_DEFAULTS = {"duration": 2.4, "waves": 3, "swing": 18.0, "raise": 15.0, "ease": 0.45, "fps": 20}
 
 
 def _rx(a: float) -> np.ndarray:
@@ -202,7 +203,43 @@ def idle_clip(skeleton: Skeleton, base: Pose, name: str = "idle", **params) -> C
     return Clip(name, tracks_from_poses(s, poses, times), loop=True)
 
 
-GENERATORS = {"walk": walk_clip, "idle": idle_clip}
+def wave_clip(skeleton: Skeleton, base: Pose, name: str = "wave", **params) -> Clip:
+    """A one-shot wave with the right hand: the upper arm lifts out to the side (``raise``
+    degrees below horizontal), the forearm stands up and swings ``waves`` times by ``swing``
+    degrees, then the arm eases back to ``base``. Not looped."""
+    p = {**WAVE_DEFAULTS, **params}
+    unknown = set(params) - set(WAVE_DEFAULTS)
+    if unknown:
+        raise ValueError(f"wave clip: unknown params {sorted(unknown)}")
+    s = skeleton
+    duration, ease = float(p["duration"]), float(p["ease"])
+    frames = max(8, int(round(duration * p["fps"])))
+    times = np.linspace(0.0, duration, frames + 1)
+    legs = {side: _Legs(s, side) for side in ("Left", "Right")}
+    up = {"RightUpperArm": _ry(np.radians(-25)) @ _rz(np.radians(p["raise"])),
+          "RightShoulder": _rz(np.radians(-6))}
+    poses = []
+    for t in times:
+        # 0 -> 1 over the ease in, 1 while waving, back to 0 over the ease out.
+        w = _smooth(t / ease) * _smooth((duration - t) / ease)
+        pose = base.copy()
+        for bone, target in up.items():
+            q0 = pose.rotations.get(bone, s.body_quat(bone, np.eye(3)))
+            from ..core.transform import slerp
+
+            pose.rotations[bone] = slerp(q0, s.body_quat(bone, target), w)
+        swing = np.radians(p["swing"]) * np.sin(2 * np.pi * p["waves"] * max(t - ease, 0.0)
+                                                / max(duration - 2 * ease, 1e-6))
+        pose.rotations["RightLowerArm"] = s.body_quat("RightLowerArm", _rz(-np.radians(105) * w + swing * w))
+        pose.rotations["RightHand"] = s.body_quat("RightHand", _rz(swing * 0.4 * w))
+        pose.rotations["Head"] = s.body_quat("Head", _rz(np.radians(-4) * w))
+        for side in ("Left", "Right"):
+            legs[side].solve(pose, legs[side].ankle_rest.copy(), np.eye(3), 0.0)
+        poses.append(pose)
+    return Clip(name, tracks_from_poses(s, poses, times), loop=False)
+
+
+GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip}
 
 
 def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict) -> Clip:

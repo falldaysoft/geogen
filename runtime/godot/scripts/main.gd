@@ -13,6 +13,7 @@ extends Node3D
 ##   --camera=overview             start from the overview camera (F4 toggles)
 ##   --colliders                   show collision shapes (F2 toggles)
 ##   --walk=SECONDS                walk forward, print the final position, quit
+##   --greet=NAME[@S]              greet the NPC named NAME... after S s (default 2): it waves back
 ##   --use=ASSET                   use ASSET's interactions at start (e.g. open "door");
 ##                                 --use=@aim presses E on whatever the player looks at
 ##   --wait=SECONDS                wait before the --walk starts (let a door swing)
@@ -34,7 +35,7 @@ extends Node3D
 ##                                 (--simulate also prints "traffic summary: [...]")
 ##   --camera=follow[:NAME]        watch an NPC (the first, or the one whose name starts with NAME)
 ##
-## E uses the focused interaction, or sits/lies on the furniture you look at
+## E uses the focused interaction, sits/lies on the furniture you look at, or greets an NPC
 ## (E or walking stands you up); L locks/unlocks with a held key.
 ##   --playtest[=N]                check every room/interaction is reachable, walk N routes
 ##                                 with a bot (default 6), print "playtest: {...}", quit
@@ -68,6 +69,8 @@ var _save_path := ""
 var _load_path := ""
 var _print_status := false
 var _focus_affordance := {}
+var _focus_npc: GeogenNpc = null
+var _greet := {}                  # --greet: {name prefix: world seconds}
 var _nav_query := []
 var _frames_nav := 0
 var _playtest_walks := -1
@@ -163,6 +166,8 @@ func _ready() -> void:
             _print_status = true
         elif arg == "--use=@aim":
             _use_aim = true
+        elif arg.begins_with("--greet="):
+            _greet[value.get_slice("@", 0)] = float(value.get_slice("@", 1)) if "@" in value else 2.0
         elif arg.begins_with("--use="):
             _use_assets.append(value)
         elif arg.begins_with("--wait="):
@@ -312,6 +317,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
     if player != null:
         world.stream_focus = player.global_position
+    _sim_greet()
     if _simulate > 0.0:
         _sim_clock += delta
         if _sim_clock >= _simulate:
@@ -508,10 +514,29 @@ static func _skinned_bounds(mi: MeshInstance3D, sk: Skeleton3D) -> AABB:
     return box
 
 
+## --greet=NAME[@S]: greet the NPC whose name starts with NAME once S seconds of world time have
+## passed (headless tests); prints "greeted: {...}".
+var _greet_clock := 0.0
+func _sim_greet() -> void:
+    if _greet.is_empty():
+        return
+    _greet_clock += get_physics_process_delta_time()
+    for prefix in _greet.keys():
+        if _greet_clock < float(_greet[prefix]):
+            continue
+        for npc in world.npcs:
+            if is_instance_valid(npc) and String(npc.name).begins_with(prefix):
+                if npc.can_greet():
+                    print("greeted: %s" % JSON.stringify({"npc": String(npc.name), "ok": npc.greet()}))
+                    _greet.erase(prefix)
+                break
+
+
 ## What the player is aiming at within reach, and its prompt ("E: Open").
 func _update_focus() -> void:
     _focus = null
     _focus_affordance = {}
+    _focus_npc = null
     if player != null and player.camera.current and player.pose.is_empty():
         var cam := player.camera
         var from := cam.global_position
@@ -521,13 +546,18 @@ func _update_focus() -> void:
         var hit := get_world_3d().direct_space_state.intersect_ray(query)
         if hit:
             var it := world.interaction_for(hit["collider"])
-            if it != null and it.can_use():
+            if hit["collider"] is GeogenNpc:
+                if (hit["collider"] as GeogenNpc).can_greet():
+                    _focus_npc = hit["collider"]
+            elif it != null and it.can_use():
                 _focus = it
             else:
                 _focus_affordance = world.affordance_near(hit["position"])
     if _prompt:
         if player != null and not player.pose.is_empty():
             _prompt.text = "E: Stand up"
+        elif _focus_npc != null:
+            _prompt.text = "E: %s" % _focus_npc.greet_prompt()
         elif _focus != null:
             _prompt.text = "E: %s" % _focus.prompt(keys)
         elif not _focus_affordance.is_empty():
@@ -540,6 +570,8 @@ func _update_focus() -> void:
 func _press_use() -> void:
     if not player.pose.is_empty():
         player.leave_pose()
+    elif _focus_npc != null:
+        _focus_npc.greet()
     elif _focus != null:
         _focus.use()
     elif not _focus_affordance.is_empty():

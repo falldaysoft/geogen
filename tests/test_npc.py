@@ -146,3 +146,41 @@ def test_routine_blocks_parse(tmp_path):
                    "routine: [{ from: '09:00', to: '10:00', activities: { dance: 2 } }]\n")
     with pytest.raises(ValueError, match="unknown activities"):
         load_definition(bad)
+
+
+def test_attention_defaults_and_overrides(tmp_path):
+    from geogen.npc import ATTENTION_DEFAULTS
+
+    d = load_definition(ASSETS_DIR / "npcs" / "resident.yaml")
+    assert d["attention"] == ATTENTION_DEFAULTS           # on by default, every part
+    actions = load_actions()
+    assert [next(iter(s)) for s in actions["greet"]["steps"]] == ["face", "play", "wait"]
+    assert actions["step_aside"]["steps"][0] == {"go_to": "aside"}
+    path = tmp_path / "shy.yaml"
+    path.write_text("kind: npc\nversion: 1\nactivities: { idle: { action: idle } }\n"
+                    "attention: { look: { range: 2 }, greet: false }\n")
+    shy = load_definition(path)["attention"]
+    assert shy["look"]["range"] == 2.0 and shy["look"]["yaw"] == 70.0
+    assert "greet" not in shy and "yield" in shy
+    path.write_text("kind: npc\nversion: 1\nactivities: { idle: { action: idle } }\nattention: false\n")
+    assert load_definition(path)["attention"] == {}
+    path.write_text("kind: npc\nversion: 1\nactivities: { idle: { action: idle } }\n"
+                    "attention: { greet: { action: dance } }\n")
+    with pytest.raises(ValueError, match="unknown action"):
+        load_definition(path)
+
+
+def test_wave_clip_raises_the_right_hand():
+    from geogen.core.skin import pose_clips
+
+    body = LayoutLoader().load(ASSETS_DIR / "characters" / "humanoid.yaml")
+    wave = next(c for c in body.clips if c.name == "wave")
+    assert not wave.loop and wave.duration == pytest.approx(2.4)
+    rest = body.instance()
+    pose_clips(rest, "wave", 0.0)
+    start = rest.find("RightHand").world_transform()[1, 3]
+    mid = body.instance()
+    pose_clips(mid, "wave", 1.2)
+    hand = mid.find("RightHand").world_transform()[1, 3]
+    head = mid.find("Head").world_transform()[1, 3]
+    assert hand > head - 0.1 > start                      # up by the head, from the hip

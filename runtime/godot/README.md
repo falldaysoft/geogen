@@ -138,7 +138,7 @@ windows or doors:
   aren't retried for `scoring.retry` seconds.
 - **Running**: the action's steps (`assets/npcs/actions.yaml`): `go_to` (navmesh path),
   `face`, `pose` (the body asset's `poses:`, placed at the affordance anchor), `wait`, `use`
-  (drives an interaction to a state, as the player's E does).
+  (drives an interaction to a state, as the player's E does), `play` (a body clip, once).
 - **Doors**: exported `portal`s. When the path ahead crosses a portal whose interaction isn't
   open, the NPC runs the `pass` action first: stop clear of the leaf, open it, walk through,
   and close it if the NPC's `closes_doors` flag is set.
@@ -149,6 +149,18 @@ windows or doors:
 - **Other characters** (the player, other NPCs; group `geogen_character`) aren't in the
   navmesh, so paths bend around them on an arc of navmesh points. An NPC whose destination is
   occupied waits, then gives up.
+
+- **The player** (the definition's `attention:`, on by default; `false` or a part `false` turns it off):
+  - *look*: within `range` m and a `cone` ahead, a standing or seated skeletal NPC turns its neck
+    and head toward the player's eyes, clamped to `yaw`/`pitch` degrees and eased
+    (`scripts/head_look.gd`, a `SkeletonModifier3D` run after the clips).
+  - *greet*: aiming at a standing NPC shows `E: <prompt>`. E runs its `greet` action on top of
+    whatever it was doing: `face: player`, `play: wave` (the body's one-shot wave clip), a pause.
+    Then the interrupted step starts again. It won't greet again for `cooldown` s.
+  - *yield*: an NPC standing within `distance` m of the player walking straight at it runs
+    `step_aside` (`go_to: aside`, `step` m off the player's line, then `face: player`).
+  - The summary reports `greets`, `yields` and `looking` (seconds). `--greet=NAME[@S]` greets
+    headlessly.
 
 Pedestrians cross at crosswalks. The lane graph exports the painted crossings (`traffic.crosswalks`). A planned path that runs along road level inside the streets is rerouted over the crossing that makes the shortest detour: to one end, straight across, then on. The detour must be no longer than twice the direct path plus 25 m.
 

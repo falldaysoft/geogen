@@ -82,6 +82,11 @@ var _assertive := -1              # waypoint we're walking to regardless of movi
 var _vehicle_detours := 0         # detours round stopped vehicles on this path
 ## Off the map during a routine's `away` block (vanished into a building), back when it ends.
 var away := false
+var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
+var _playing := false             # a `play:` step holds the body's animation
+var _greeted_at := -INF           # clock of the last greeting (attention.greet cooldown)
+var _yielded_at := -INF
+const YIELD_COOLDOWN := 3.0       # s between stepping aside
 const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
 
 
@@ -113,6 +118,15 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
 			npc._anim.add_animation_library("", library)
 			npc.body.add_child(npc._anim)   # root_node ".." = the body
 			npc._play_pose_clip("stand", 0.0)
+		var look: Dictionary = data.get("attention", {}).get("look", {})
+		var skeletons := npc.body.find_children("*", "Skeleton3D", true, false)
+		if not look.is_empty() and not skeletons.is_empty():
+			npc._look = GeogenHeadLook.new()
+			npc._look.name = "HeadLook"
+			npc._look.yaw_limit = deg_to_rad(float(look["yaw"]))
+			npc._look.pitch_limit = deg_to_rad(float(look["pitch"]))
+			npc._look.speed = float(look["speed"])
+			skeletons[0].add_child(npc._look)
 	var h: Dictionary = data.get("home", {})
 	for p in h.get("polygon", []):
 		var w := xform * Vector3(p[0], 0.0, p[1])
@@ -293,6 +307,7 @@ func _physics_process(delta: float) -> void:
 			_reappear()
 		return
 	_animate_locomotion()
+	_attend(delta)
 	for need in needs:
 		needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
 	if home_distance(global_position) > float(definition.get("home_margin", 1.0)) + 0.5:
@@ -340,6 +355,7 @@ func _physics_process(delta: float) -> void:
 
 func _fail(reason: String) -> void:
 	_stack.clear()
+	_playing = false
 	if _pose != "stand":
 		_set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y)}, "approach")
 	velocity = Vector3.ZERO
@@ -358,6 +374,13 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
 		var dir: Vector3
 		if step["face"] == "portal" and ctx.has("portal"):
 			dir = -ctx["portal"]["normal"] * float(ctx["side"])
+		elif step["face"] == "player":
+			var who := _player()
+			if who == null:
+				return ""
+			dir = _flat(who.global_position - global_position)
+			if dir.length() < 1e-3:
+				return ""
 		else:
 			dir = Basis(Vector3.UP, deg_to_rad(float(ctx["yaw_deg"]))) * Vector3.BACK
 		_yaw_goal = atan2(dir.x, dir.z)
@@ -372,6 +395,17 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
 		_timer = rng.randf_range(float(r[0]), float(r[1]))
 		return ""
 	if step.has("vanish"):
+		return ""
+	if step.has("play"):
+		# A skeletal body plays the clip once (then back to standing); others just pause.
+		var clip := str(step["play"])
+		velocity = Vector3.ZERO
+		_timer = 1.0
+		if _anim != null and _anim.has_animation(clip) and _pose == "stand":
+			_anim.speed_scale = 1.0
+			_anim.play(clip, LOCOMOTION_BLEND)
+			_timer = _anim.get_animation(clip).length
+			_playing = true
 		return ""
 	if step.has("use"):
 		var it: GeogenInteraction = ctx.get("interaction")
@@ -401,6 +435,12 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
 	if step.has("wait"):
 		_timer -= delta
 		return "done" if _timer <= 0.0 else "running"
+	if step.has("play"):
+		_timer -= delta
+		if _timer > 0.0:
+			return "running"
+		_playing = false
+		return "done"
 	if step.has("vanish"):
 		if not _away_block():
 			return "done"                 # the time to be away is over: stay
@@ -437,6 +477,8 @@ func _state_name(state: String, ctx: Dictionary) -> String:
 
 func _target(kind: String, ctx: Dictionary):
 	match kind:
+		"aside":
+			return ctx.get("aside")
 		"approach":
 			return ctx["approach"]
 		"anchor":
@@ -1051,7 +1093,7 @@ func _play_pose_clip(pose_name: String, blend: float) -> void:
 ## Standing skeletal bodies walk while moving (playback scaled to the ground speed so the
 ## feet don't slide) and idle when still.
 func _animate_locomotion() -> void:
-	if _anim == null or _pose != "stand" or not _anim.has_animation("walk"):
+	if _anim == null or _pose != "stand" or _playing or not _anim.has_animation("walk"):
 		return
 	var speed := Vector2(velocity.x, velocity.z).length()
 	var clip := "walk" if speed > WALK_THRESHOLD else ("idle" if _anim.has_animation("idle") else "pose_stand")
@@ -1061,6 +1103,97 @@ func _animate_locomotion() -> void:
 		_anim.speed_scale = 1.0
 	if _anim.current_animation != clip:
 		_anim.play(clip, LOCOMOTION_BLEND)
+
+
+# --- attention (the player) ---------------------------------------------------
+
+## The player (the one character that isn't an NPC), or null.
+func _player() -> Node3D:
+	for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+		if other is Node3D and not other is GeogenNpc:
+			return other
+	return null
+
+
+## Look at the player when they're near and ahead; step out of their way when standing in it.
+func _attend(delta: float) -> void:
+	var attention: Dictionary = definition.get("attention", {})
+	var who := _player()
+	if _look != null:
+		var look: Dictionary = attention.get("look", {})
+		var want := 0.0
+		if who != null and _pose in ["stand", "sit"]:
+			var eye: Vector3 = who.global_position + Vector3(0, 1.6, 0)
+			var cam = who.get("camera")
+			if cam is Camera3D:
+				eye = (cam as Camera3D).global_position
+			var to := _flat(eye - global_position)
+			var forward := Basis(Vector3.UP, rotation.y) * Vector3.BACK
+			if to.length() < float(look["range"]) \
+					and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0:
+				want = 1.0
+				_look.target = eye
+		_look.want = want
+		if want > 0.0:
+			stats["looking"] = float(stats.get("looking", 0.0)) + delta
+	var yield_spec: Dictionary = attention.get("yield", {})
+	if who == null or yield_spec.is_empty() or _pose != "stand" or clock - _yielded_at < YIELD_COOLDOWN:
+		return
+	if not _stack.is_empty() and (_stack.back()["action"] in ["greet", yield_spec["action"]]
+			or _stack.back()["steps"][mini(_stack.back()["index"], _stack.back()["steps"].size() - 1)].has("go_to")):
+		return                             # walking already avoids the player; reactions run out
+	var body_velocity = who.get("velocity")
+	if not body_velocity is Vector3:
+		return
+	var v := _flat(body_velocity)
+	var offset := _flat(global_position - who.global_position)
+	if v.length() < 0.3 or offset.length() > float(yield_spec["distance"]) + v.length() * 0.6 \
+			or v.normalized().dot(offset.normalized()) < 0.7:
+		return                             # not walking at us
+	var side := signf(v.cross(offset).y)
+	if side == 0.0:
+		side = 1.0 if rng.randf() < 0.5 else -1.0
+	var perp := Vector3(v.z, 0, -v.x).normalized() * -side
+	var aside := global_position + perp * float(yield_spec["step"])
+	var map := get_world_3d().navigation_map
+	aside = NavigationServer3D.map_get_closest_point(map, aside)
+	_yielded_at = clock
+	stats["yields"] = int(stats.get("yields", 0)) + 1
+	_trace({"event": "yield", "to": _v(aside)})
+	_react(str(yield_spec["action"]), {"aside": aside})
+
+
+## Whether the player can greet this NPC now (their E prompt).
+func can_greet() -> bool:
+	var greet: Dictionary = definition.get("attention", {}).get("greet", {})
+	return not greet.is_empty() and not away and _pose == "stand" and clock - _greeted_at >= float(greet["cooldown"]) \
+		and (_stack.is_empty() or _stack.back()["action"] != greet["action"])
+
+
+func greet_prompt() -> String:
+	return str(definition.get("attention", {}).get("greet", {}).get("prompt", "Say hello"))
+
+
+## The player greets this NPC: it stops, turns to them and greets back, then carries on.
+func greet() -> bool:
+	if not can_greet():
+		return false
+	_greeted_at = clock
+	stats["greets"] = int(stats.get("greets", 0)) + 1
+	_trace({"event": "greet", "pos": _v(global_position)})
+	_react(str(definition["attention"]["greet"]["action"]), {})
+	return true
+
+
+## Run a reaction on top of whatever the NPC is doing; the interrupted step starts again after.
+func _react(action_name: String, extra: Dictionary) -> void:
+	if not _stack.is_empty():
+		_stack.back()["started"] = false
+	velocity = Vector3.ZERO
+	_path = PackedVector3Array()
+	var ctx := {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y), "approach": global_position}
+	ctx.merge(extra)
+	_push(action_name, ctx)
 
 
 # --- helpers ------------------------------------------------------------------
@@ -1126,4 +1259,5 @@ func report() -> Dictionary:
 		"outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
 		"position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
 		"aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
-		"crosswalks": int(stats.get("crosswalks", 0))}
+		"crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
+		"yields": int(stats.get("yields", 0)), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1)}

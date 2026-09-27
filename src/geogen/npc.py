@@ -39,17 +39,27 @@ NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
-STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish"}
+STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play"}
 STEP_OPTIONS = {"at", "if"}
-GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit"}
-FACE_TARGETS = {"anchor", "portal"}
+GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit", "aside"}
+FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
-            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine"}
+            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention"}
 ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name"}
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
 POSE_KEYS = {"offset", "rotation", "scale"}
+# How an NPC notices the player (runtime/godot/scripts/npc.gd): turn its head toward them
+# (``look``: within ``range`` m and a ``cone`` of degrees ahead, head/neck turned up to ``yaw`` /
+# ``pitch`` degrees, eased at ``speed``), greet them when they press E on it (``greet``: the
+# action it runs, the player's prompt, seconds before it greets again), and step ``step`` m aside
+# when it stands within ``distance`` m of the player walking at it (``yield``).
+ATTENTION_DEFAULTS = {
+    "look": {"range": 4.0, "cone": 150.0, "yaw": 70.0, "pitch": 25.0, "speed": 4.0},
+    "greet": {"action": "greet", "prompt": "Say hello", "cooldown": 8.0},
+    "yield": {"distance": 1.0, "step": 0.9, "action": "step_aside"},
+}
 PORTAL_KEYS = {"interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"}
 
 
@@ -217,6 +227,7 @@ def load_definition(path: str | Path) -> dict[str, Any]:
     scoring = {**SCORING_DEFAULTS, **{k: float(v) for k, v in (data.get("scoring") or {}).items()}}
     if set(scoring) - set(SCORING_DEFAULTS):
         raise ValueError(f"{path}: scoring keys are {sorted(SCORING_DEFAULTS)}")
+    attention = parse_attention(data.get("attention", True), actions, f"{path}: attention")
     body = data.get("body") or {"asset": "characters/capsule.yaml"}
     if isinstance(body, str):
         body = {"asset": body}
@@ -240,7 +251,34 @@ def load_definition(path: str | Path) -> dict[str, Any]:
         # Where `go_to: random` goes: the home region, or points on surfaces with these tags.
         "wander": {"tags": [str(t) for t in (data.get("wander") or {}).get("tags", [])]},
         "routine": parse_routine(data.get("routine") or [], activities, f"{path}: routine"),
+        "attention": attention,
     }
+
+
+def parse_attention(value: Any, actions: dict, where: str) -> dict[str, Any]:
+    """``attention:`` -> {look, greet, yield} with defaults; ``false`` (or a part ``false``) turns
+    that behaviour off (the part is omitted)."""
+    if value is False:
+        return {}
+    value = {} if value is True or value is None else value
+    if not isinstance(value, dict) or set(value) - set(ATTENTION_DEFAULTS):
+        raise ValueError(f"{where}: expected {{{', '.join(ATTENTION_DEFAULTS)}}} or false, got {value!r}")
+    out = {}
+    for part, defaults in ATTENTION_DEFAULTS.items():
+        spec = value.get(part, True)
+        if spec is False:
+            continue
+        spec = {} if spec is True else spec
+        unknown = set(spec) - set(defaults)
+        if unknown:
+            raise ValueError(f"{where}: {part}: unknown keys {sorted(unknown)}")
+        merged = {**defaults, **spec}
+        for k, v in merged.items():
+            merged[k] = v if isinstance(defaults[k], str) else float(v)
+        if "action" in merged and merged["action"] not in actions:
+            raise ValueError(f"{where}: {part}: unknown action {merged['action']!r}")
+        out[part] = merged
+    return out
 
 
 def parse_time(value: Any, where: str) -> float:
