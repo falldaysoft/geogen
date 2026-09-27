@@ -24,7 +24,7 @@ city:
   buildings:                         # recipes are sized to each lot; interior: full | lobby | shell
     residential:
       - { recipe: detached_house, storeys: [1, 2], style: [brick_hotel, stucco], weight: 3 }
-      - { scene: scenes/cottage.yaml }
+      - { scene: scenes/cottage.yaml, params: { hub_portal: 0 } }
     commercial:
       - { recipe: shop_row, storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel], weight: 3 }
       - { recipe: office, storeys: [3, 4], interior: shell, max_width: 14 }
@@ -56,8 +56,16 @@ railways:
     stations:
       - { name: town, at: 0.6, length: 80, side: right }
 
+slots:
+  park_portal: { position: [50.5, 0.15, 30.5], facing: south }   # in the park, clear of its trees
+
 place:
   commuter: { train: trains/commuter.yaml, railway: north }
+  hub_portal:                        # the way back to the hub (scenes/hub.yaml)
+    asset: portal.yaml
+    slot: park_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_town }
   traffic: { traffic: traffic/town.yaml, seed: 3 }   # moving vehicles on the lanes
   pedestrians:                       # townsfolk strolling the sidewalks, resting on benches
     npc: npcs/pedestrian.yaml
@@ -66,3 +74,4 @@ place:
 
 spawns:
   start: { position: [-3, 0, -2], facing: north }   # on the avenue, facing the shops
+  from_hub: { position: [50.5, 0.15, 27.5], facing: south }   # in the park, in front of the hub portal

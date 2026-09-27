@@ -90,6 +90,26 @@ def rect(width: float, height: float, radius: float = 0.0, segments: int = 6, ce
     return fillet(loop, radius, segments) if radius > 0 else loop
 
 
+def arch(width: float, height: float, inner: tuple[float, float] | None = None, segments: int = 16) -> Loop:
+    """A round-topped arch standing on y = 0, centred on x = 0: straight sides and a
+    semicircular top (``height`` includes it). With ``inner`` (width, height) the result is
+    the band between the two arches, open at the bottom (a doorway surround)."""
+    def side(w: float, h: float) -> NDArray:
+        r = w / 2
+        spring = max(h - r, 0.0)
+        t = np.linspace(np.pi, 0.0, segments + 1)
+        top = np.column_stack([r * np.cos(t), spring + r * np.sin(t)])
+        return np.vstack([[[-r, 0.0]], top, [[r, 0.0]]])
+
+    outer = side(width, height)
+    if inner is None:
+        return ensure_ccw(dedupe(outer, closed=True))
+    wi, hi = inner
+    if wi >= width or hi >= height:
+        raise ValueError(f"arch inner {inner} must be smaller than the arch [{width}, {height}]")
+    return ensure_ccw(dedupe(np.vstack([outer, side(wi, hi)[::-1]]), closed=True))
+
+
 def arc(center, radius: float, start_deg: float, end_deg: float, segments: int = 16) -> NDArray:
     """Open polyline along a circular arc (inclusive of both ends)."""
     t = np.radians(np.linspace(start_deg, end_deg, segments + 1))
@@ -304,6 +324,12 @@ def _split_t_junctions(points: NDArray, tris: NDArray, tol: float = 1e-9) -> NDA
     stack = [list(map(int, t)) for t in tris]
     while stack:
         a, b, c = stack.pop()
+        pa, pb, pc = points[a], points[b], points[c]
+        area2 = abs((pb[0] - pa[0]) * (pc[1] - pa[1]) - (pb[1] - pa[1]) * (pc[0] - pa[0]))
+        if area2 <= eps * scale:
+            # Collinear (earcut bridging along a straight run, e.g. a glyph's counter lined up
+            # with its outline): it covers nothing; neighbours through its middle vertex get split.
+            continue
         split = None
         for (i, j, k) in ((a, b, c), (b, c, a), (c, a, b)):
             pi, pj = points[i], points[j]
@@ -315,7 +341,7 @@ def _split_t_junctions(points: NDArray, tris: NDArray, tol: float = 1e-9) -> NDA
             t = rel @ d / length2
             dist = np.abs(rel[:, 0] * d[1] - rel[:, 1] * d[0]) / np.sqrt(length2)
             on_edge = (t > 1e-9) & (t < 1 - 1e-9) & (dist < eps)
-            on_edge[[i, j]] = False
+            on_edge[[i, j, k]] = False
             if on_edge.any():
                 candidates = np.flatnonzero(on_edge)
                 p = int(candidates[np.argmin(np.abs(t[candidates] - 0.5))])
@@ -345,6 +371,7 @@ def loop_from_spec(spec: Any, segments: int = 32) -> Loop:
         {ellipse: [rx, ry]}
         {ngon: r, sides: n}
         {spline: [[x, y], ...], samples: n} # smooth closed curve through points
+        {arch: [w, h], inner: [wi, hi]}     # round-topped arch on y = 0 (see ``arch``)
     """
     if isinstance(spec, (list, tuple)):
         return dedupe(np.asarray(spec, dtype=np.float64), closed=True)
@@ -368,6 +395,11 @@ def loop_from_spec(spec: Any, segments: int = 32) -> Loop:
         return fillet(loop, r, int(spec.get("fillet_segments", 6))) if np.any(np.asarray(r) > 0) else loop
     if "spline" in spec:
         return dedupe(catmull_rom(np.asarray(spec["spline"]), int(spec.get("samples", 8)), closed=True), True)
+    if "arch" in spec:
+        w, h = spec["arch"]
+        inner = spec.get("inner")
+        return arch(float(w), float(h), None if inner is None else (float(inner[0]), float(inner[1])),
+                    max(4, segs // 2))
     raise ValueError(f"Unknown profile spec keys: {sorted(spec)}")
 
 

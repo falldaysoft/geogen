@@ -1,0 +1,210 @@
+# A fingerpost: a post with up to four arrow boards, each lettered on both
+# faces and pointing along a compass bearing (0 = north / +Z, 90 = east / +X).
+# An arm whose label is "" is left off.
+#
+#   sign:
+#     asset: signpost.yaml
+#     params: { arm1: Hotel, dir1: 90, arm2: Park, dir2: 200 }
+#
+# Origin: the foot of the post.
+
+name: signpost
+tags: [decor.signpost]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  arm1: { default: "Hub", type: text }
+  arm2: { default: "", type: text }
+  arm3: { default: "", type: text }
+  arm4: { default: "", type: text }
+  dir1: { default: 90 }
+  dir2: { default: 270 }
+  dir3: { default: 0 }
+  dir4: { default: 180 }
+  post_height: { default: 2.7 }
+  arm_length:  { default: 1.0 }
+  letter:      { default: 0.1 }
+
+parts:
+  foot:
+    primitive: cube
+    size: [0.5, 0.12, 0.5]
+    anchor: bottom_center
+    bevel: 0.02
+    material: stone
+  post:
+    primitive: cylinder
+    size: [0.12, "{post_height}", 0.12]
+    anchor: bottom_center
+    offset: [0, 0.12, 0]
+    bevel: 0.01
+    material: wood_dark
+  finial:
+    primitive: sphere
+    size: [0.16, 0.16, 0.16]
+    anchor: bottom_center
+    offset: [0, "{0.12 + post_height - 0.02}", 0]
+    material: glow_accent
+
+  arm1:
+    primitive: extrude
+    when: "{arm1}"
+    shape:
+      polygon:
+        - ["{-arm_length / 2}", -0.12]
+        - ["{arm_length / 2 - 0.14}", -0.12]
+        - ["{arm_length / 2}", 0]
+        - ["{arm_length / 2 - 0.14}", 0.12]
+        - ["{-arm_length / 2}", 0.12]
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: ["{arm_length}", 0.24, 0.04]
+    anchor: center
+    offset: ["{(0.06 + arm_length / 2) * sind(dir1)}", "{0.12 + post_height - 0.35 - 0.00 - 0.5}", "{(0.06 + arm_length / 2) * cosd(dir1)}"]
+    rotation: [0, "{dir1 - 90}", 0]
+    material: paint_white
+  arm1_front:
+    primitive: text
+    when: "{arm1}"
+    text: "{arm1}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir1) - 0.024 * cosd(dir1)}", "{0.12 + post_height - 0.35 - 0.00 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir1) + 0.024 * sind(dir1)}"]
+    rotation: [0, "{dir1 - 90}", 0]
+    material: wood_dark
+    collider: none
+  arm1_back:
+    primitive: text
+    when: "{arm1}"
+    text: "{arm1}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir1) + 0.024 * cosd(dir1)}", "{0.12 + post_height - 0.35 - 0.00 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir1) - 0.024 * sind(dir1)}"]
+    rotation: [0, "{dir1 + 90}", 0]
+    material: wood_dark
+    collider: none
+  arm2:
+    primitive: extrude
+    when: "{arm2}"
+    shape:
+      polygon:
+        - ["{-arm_length / 2}", -0.12]
+        - ["{arm_length / 2 - 0.14}", -0.12]
+        - ["{arm_length / 2}", 0]
+        - ["{arm_length / 2 - 0.14}", 0.12]
+        - ["{-arm_length / 2}", 0.12]
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: ["{arm_length}", 0.24, 0.04]
+    anchor: center
+    offset: ["{(0.06 + arm_length / 2) * sind(dir2)}", "{0.12 + post_height - 0.35 - 0.30 - 0.5}", "{(0.06 + arm_length / 2) * cosd(dir2)}"]
+    rotation: [0, "{dir2 - 90}", 0]
+    material: paint_white
+  arm2_front:
+    primitive: text
+    when: "{arm2}"
+    text: "{arm2}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir2) - 0.024 * cosd(dir2)}", "{0.12 + post_height - 0.35 - 0.30 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir2) + 0.024 * sind(dir2)}"]
+    rotation: [0, "{dir2 - 90}", 0]
+    material: wood_dark
+    collider: none
+  arm2_back:
+    primitive: text
+    when: "{arm2}"
+    text: "{arm2}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir2) + 0.024 * cosd(dir2)}", "{0.12 + post_height - 0.35 - 0.30 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir2) - 0.024 * sind(dir2)}"]
+    rotation: [0, "{dir2 + 90}", 0]
+    material: wood_dark
+    collider: none
+  arm3:
+    primitive: extrude
+    when: "{arm3}"
+    shape:
+      polygon:
+        - ["{-arm_length / 2}", -0.12]
+        - ["{arm_length / 2 - 0.14}", -0.12]
+        - ["{arm_length / 2}", 0]
+        - ["{arm_length / 2 - 0.14}", 0.12]
+        - ["{-arm_length / 2}", 0.12]
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: ["{arm_length}", 0.24, 0.04]
+    anchor: center
+    offset: ["{(0.06 + arm_length / 2) * sind(dir3)}", "{0.12 + post_height - 0.35 - 0.60 - 0.5}", "{(0.06 + arm_length / 2) * cosd(dir3)}"]
+    rotation: [0, "{dir3 - 90}", 0]
+    material: paint_white
+  arm3_front:
+    primitive: text
+    when: "{arm3}"
+    text: "{arm3}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir3) - 0.024 * cosd(dir3)}", "{0.12 + post_height - 0.35 - 0.60 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir3) + 0.024 * sind(dir3)}"]
+    rotation: [0, "{dir3 - 90}", 0]
+    material: wood_dark
+    collider: none
+  arm3_back:
+    primitive: text
+    when: "{arm3}"
+    text: "{arm3}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir3) + 0.024 * cosd(dir3)}", "{0.12 + post_height - 0.35 - 0.60 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir3) - 0.024 * sind(dir3)}"]
+    rotation: [0, "{dir3 + 90}", 0]
+    material: wood_dark
+    collider: none
+  arm4:
+    primitive: extrude
+    when: "{arm4}"
+    shape:
+      polygon:
+        - ["{-arm_length / 2}", -0.12]
+        - ["{arm_length / 2 - 0.14}", -0.12]
+        - ["{arm_length / 2}", 0]
+        - ["{arm_length / 2 - 0.14}", 0.12]
+        - ["{-arm_length / 2}", 0.12]
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: ["{arm_length}", 0.24, 0.04]
+    anchor: center
+    offset: ["{(0.06 + arm_length / 2) * sind(dir4)}", "{0.12 + post_height - 0.35 - 0.90 - 0.5}", "{(0.06 + arm_length / 2) * cosd(dir4)}"]
+    rotation: [0, "{dir4 - 90}", 0]
+    material: paint_white
+  arm4_front:
+    primitive: text
+    when: "{arm4}"
+    text: "{arm4}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir4) - 0.024 * cosd(dir4)}", "{0.12 + post_height - 0.35 - 0.90 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir4) + 0.024 * sind(dir4)}"]
+    rotation: [0, "{dir4 - 90}", 0]
+    material: wood_dark
+    collider: none
+  arm4_back:
+    primitive: text
+    when: "{arm4}"
+    text: "{arm4}"
+    height: "{letter}"
+    depth: 0.012
+    anchor: center
+    offset: ["{((0.06 + arm_length / 2) - 0.06) * sind(dir4) + 0.024 * cosd(dir4)}", "{0.12 + post_height - 0.35 - 0.90 - 0.5}", "{((0.06 + arm_length / 2) - 0.06) * cosd(dir4) - 0.024 * sind(dir4)}"]
+    rotation: [0, "{dir4 + 90}", 0]
+    material: wood_dark
+    collider: none

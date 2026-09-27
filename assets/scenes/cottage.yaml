@@ -3,13 +3,18 @@
 
 name: cottage
 
+params:
+  hub_portal: { default: 1 }   # the portal back to the hub (0 where the cottage is part of something bigger)
+
 slots:
   lawn: { position: [0, 0, 8.0], facing: north }
+  west_lawn: { position: [-7.5, 0, 3.5], facing: east }
 
 # The player starts on the path to the front door (the gallery would otherwise
 # push the runtime's default start, 3 m past the model bounds, out to z = 11).
 spawns:
   front_path: { position: [0, 0, 6.4], facing: south }
+  from_hub: { position: [-5.4, 0, 3.5], facing: east }   # in front of the hub portal
 
 place:
   house:
@@ -84,3 +89,11 @@ place:
   gallery:
     scene: scenes/people_gallery.yaml
     slot: lawn
+
+  # The way back to the hub (scenes/hub.yaml): a portal on the west lawn.
+  hub_portal:
+    when: "{hub_portal}"
+    asset: portal.yaml
+    slot: west_lawn
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_cottage }

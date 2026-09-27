@@ -1,0 +1,52 @@
+# A waist-high stone plinth with a lettered front and a glowing cap band:
+# names a place, or labels a portal or travel door beside it.
+#
+#   hub_name: { asset: info_plinth.yaml, params: { label: "Geogen\nHub" } }
+#
+# Origin: bottom centre; the lettering faces +Z.
+
+name: info_plinth
+tags: [decor.plinth]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label:  { default: "Welcome", type: text }
+  width:  { default: 1.0 }
+  height: { default: 1.1 }
+  depth:  { default: 0.5 }
+  letter: { default: 0.12 }
+
+parts:
+  block:
+    primitive: cube
+    size: ["{width}", "{height}", "{depth}"]
+    anchor: bottom_center
+    bevel: 0.02
+    material: stone
+  cap:
+    primitive: cube
+    size: ["{width + 0.08}", 0.08, "{depth + 0.08}"]
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    bevel: 0.015
+    material: stone
+  glow:
+    primitive: cube
+    size: ["{width + 0.02}", 0.03, "{depth + 0.02}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.045}", 0]
+    bevel: 0
+    material: glow_accent
+    collider: none
+  lettering:
+    primitive: text
+    text: "{label}"
+    height: "{letter}"
+    depth: 0.015
+    line_spacing: 0.95
+    anchor: center
+    offset: [0, "{height * 0.62 - 0.5}", "{depth / 2 + 0.0035}"]
+    material: glow_accent
+    collider: none

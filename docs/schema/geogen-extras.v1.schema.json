@@ -190,6 +190,24 @@
             "clearance": { "type": "number" }
           }
         },
+        "travel": {
+          "description": "A travel point (geogen/travel.py): 'use' it (its 'travel' interaction emits 'travel') or walk into 'volume' (asset frame, on: enter) to go to spawn 'spawn' (default: the first) of catalogue scene 'scene' (absent: this scene). 'target' names the part aimed at for on: use.",
+          "type": "object",
+          "required": ["on", "prompt"],
+          "additionalProperties": false,
+          "properties": {
+            "on": { "enum": ["use", "enter"] },
+            "prompt": { "type": "string" },
+            "scene": { "type": "string" },
+            "spawn": { "type": "string" },
+            "target": { "type": "string" },
+            "volume": {
+              "type": "object",
+              "required": ["center", "size"],
+              "properties": { "center": { "$ref": "#/$defs/vec3" }, "size": { "$ref": "#/$defs/vec3" } }
+            }
+          }
+        },
         "poses": {
           "description": "Character body assets: named poses as root transforms relative to an anchor (offset m, rotation deg XYZ, scale).",
           "type": "object",

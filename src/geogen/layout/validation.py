@@ -8,7 +8,7 @@ from typing import Any
 ASSET_KNOWN_KEYS = {
     "name", "origin", "size", "parts", "attachments", "room", "params",
     "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds", "light",
-    "affordances", "container", "poses", "portal", "vehicle", "body", "presets", "preset", "derived", "_params",
+    "affordances", "container", "poses", "portal", "travel", "vehicle", "body", "presets", "preset", "derived", "_params",
 }
 
 PART_KNOWN_KEYS = {
@@ -35,6 +35,8 @@ PART_KNOWN_KEYS = {
     # tree / rock
     "seed", "trunk_height", "trunk_radius", "attractors", "step", "leaf_size", "foliage_material",
     "points", "levels", "roughness", "crease",
+    # text
+    "text", "font", "height", "depth", "align", "line_spacing", "tracking",
 }
 
 # Known keys for scene YAML files
@@ -48,11 +50,11 @@ SLOT_KNOWN_KEYS = {
 
 PLACEMENT_KNOWN_KEYS = {
     "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params", "scatter",
-    "npc", "home", "seed", "archetype", "traffic", "train", "railway", "count",
+    "npc", "home", "seed", "archetype", "traffic", "train", "railway", "count", "travel", "when",
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock", "text"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
@@ -108,7 +110,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
             msg = f"Unknown primitive '{prim_type}' in part '{part_name}'.{_suggest(prim_type, KNOWN_PRIMITIVES)}"
             raise ValidationError(msg)
 
-        if "size" not in part_def and prim_type not in ("sweep", "stairs"):
+        if "size" not in part_def and prim_type not in ("sweep", "stairs", "text"):
             raise ValidationError(f"Part '{part_name}' requires 'size' field")
 
         for key in part_def:

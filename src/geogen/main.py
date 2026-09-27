@@ -27,8 +27,12 @@ def _build_registry() -> SceneRegistry:
 def _refresh_catalogue_index() -> None:
     """Keep the runtime's catalogue.json in step with what's been exported."""
     from .catalogue import load_catalogue, write_index
+    from .travel import check_travel
 
-    write_index(load_catalogue(), GODOT_GENERATED)
+    catalogue = load_catalogue()
+    write_index(catalogue, GODOT_GENERATED)
+    for problem in check_travel(catalogue, GODOT_GENERATED):
+        print(f"warning: {problem}")
 
 
 def filmstrip(root, clip_name: str, frames: int, view: str):

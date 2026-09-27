@@ -1,0 +1,20 @@
+# The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors,
+# stairs and a lift) with a travel door back to the hub beside its entrance.
+
+name: hotel_showcase
+
+slots:
+  forecourt: { position: [4.5, 0, -12.5], facing: south }
+
+spawns:
+  from_hub: { position: [1.5, 0, -12.5], facing: north }   # beside the hub door, facing the entrance
+
+place:
+  hotel:
+    asset: hotel.yaml
+
+  hub_door:
+    asset: travel_door.yaml
+    slot: forecourt
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_hotel }

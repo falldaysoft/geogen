@@ -41,6 +41,12 @@ class TestEvaluate:
         with pytest.raises(ExpressionError):
             evaluate("len(width)", {"width": 5})
 
+    def test_allowed_functions(self):
+        assert evaluate("cosd(60) + sind(30)", {}) == pytest.approx(1.0)
+        assert evaluate("max(width, 7) - min(width, 2) + abs(-1)", {"width": 5}) == pytest.approx(6.0)
+        with pytest.raises(ExpressionError, match="Unsupported call"):
+            evaluate("sind(x=30)", {})
+
     def test_disallows_attribute_access(self):
         with pytest.raises(ExpressionError):
             evaluate("__import__('os').system('ls')", {})

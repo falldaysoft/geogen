@@ -123,9 +123,19 @@ def export_entry(entry: CatalogueEntry, root, out_dir: str | Path) -> Path:
 
 def export_catalogue(catalogue: Catalogue, build: Callable[[str], object], out_dir: str | Path,
                      entries: Iterable[CatalogueEntry] | None = None, log=print) -> Path:
-    """Build and export ``entries`` (default: all) with ``build(name)``, then write the index."""
+    """Build and export ``entries`` (default: all) with ``build(name)``, then write the index.
+
+    Raises ValueError (after writing everything) if a travel point goes to a
+    scene outside the catalogue or to a spawn its target doesn't have.
+    """
     for entry in list(entries) if entries is not None else list(catalogue.entries.values()):
         log(f"exporting {entry.name}{' (streamed)' if entry.stream else ''}...")
         path = export_entry(entry, build(entry.name), out_dir)
         log(f"  -> {path}")
-    return write_index(catalogue, out_dir)
+    index = write_index(catalogue, out_dir)
+    from .travel import check_travel
+
+    problems = check_travel(catalogue, out_dir)
+    if problems:
+        raise ValueError("bad travel targets:\n  " + "\n  ".join(problems))
+    return index

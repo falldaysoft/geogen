@@ -49,6 +49,21 @@ extends Node3D
 ##   --screenshot=PATH             save a frame and quit
 ##   --quit-after=N                quit after N frames
 ##   --manifest=PATH               print the player spec read from PATH
+##   --menu                        open the scene list at start (screenshots)
+##   --timings                     print each load's phases ("load timings: {...}", ms) and whether
+##                                 the navmesh came from <generated>/.navcache
+##   --list-scenes                 print the scene catalogue (name, group, exported, description), quit
+##   --switch=NAME[@S]             switch to scene NAME after S s (default 1; repeatable, in order);
+##                                 prints "switched: {...}" and "switch stats: {...}" (node/object
+##                                 counts), then quits unless --walk / --status / --screenshot follow
+##
+## Travel points (extras.geogen.travel: doors you use, portals you walk into) fade out, load
+## their target scene (or move within this one) and put the player at the named spawn; prints
+## "travelled: {...}".
+##
+## F6 opens the scene list, F7 / F8 go to the previous / next exported scene. The last scene
+## picked is remembered (user://settings.cfg, per generated dir) and loaded when no --scene is
+## given (not in headless runs).
 
 var quit_after_frames := 0
 var screenshot_path := ""
@@ -88,6 +103,20 @@ var _play_at := -1.0
 var _print_skeletons := false
 var clock: GeogenClock
 var _start_time := 13.0
+var _menu: GeogenSceneMenu
+var _switches: Array[Dictionary] = []   # --switch: [{name, at: seconds}]
+var _switch_clock := 0.0
+var _stats_in := -1                     # frames until the post-switch stats print
+var _queued := false                    # the last switch came from --switch (not the menu or travel)
+var _list_scenes := false
+var _travelling := false
+var _switching := false
+var _loading: Label
+var _open_menu_at_start := false
+var _fade: ColorRect
+const FADE_SECONDS := 0.25
+
+const SETTINGS_PATH := "user://settings.cfg"
 var _day_length := 1440.0
 
 @onready var world: WorldLoader = $World
@@ -109,6 +138,7 @@ func _ready() -> void:
             world.scene_name = value
         elif arg == "--stream":
             world.prefer_chunks = true
+            world.force_chunks = true
         elif arg.begins_with("--stream-radius="):
             world.stream_radii = value.split_floats(",")
         elif arg.begins_with("--generated="):
@@ -186,6 +216,16 @@ func _ready() -> void:
             screenshot_path = value
             if quit_after_frames <= 0:
                 quit_after_frames = 10  # let shadows/SSAO settle
+        elif arg == "--timings":
+            world.print_timings = true
+        elif arg == "--menu":
+            _open_menu_at_start = true
+        elif arg == "--list-scenes":
+            _list_scenes = true
+        elif arg.begins_with("--switch="):
+            var at := float(value.get_slice("@", 1)) if "@" in value else 1.0
+            var after: float = _switches[-1]["at"] if not _switches.is_empty() else 0.0
+            _switches.append({"name": value.get_slice("@", 0), "at": maxf(at, after)})
         elif arg.begins_with("--manifest="):
             var spec := PlayerSpec.from_manifest(value)
             if spec:
@@ -193,10 +233,17 @@ func _ready() -> void:
                 _manifest_arg = true
         i += 1
     print("geogen runtime ready (Godot %s)" % Engine.get_version_info().string)
+    if _list_scenes:
+        _print_scene_list()
+        set_process(false)
+        set_physics_process(false)
+        get_tree().quit()
+        return
 
     world.open_before_bake = _playtest_walks >= 0
     world.prime_focus = _spawn_override
     world.world_loaded.connect(_on_world_loaded)
+    world.travel_requested.connect(_travel)
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         print("interaction event: %s" % JSON.stringify(
             {"asset": asset, "interaction": interaction, "state": state, "event": event})))
@@ -211,11 +258,10 @@ func _ready() -> void:
     if world.scene_name == "all":
         world.scene_name = ""
     else:
-        world.use_catalogue_default()
+        world.use_catalogue_default(_remembered_scene())
     world.load_all()
     add_child(clock)          # applies the time (night lights) once the world is loaded
-    for npc in world.npcs:
-        npc.label.visible = _npc_labels
+    _show_npc_labels()
     if _play != "":
         _play_animations()
     if not world.npcs.is_empty():
@@ -243,6 +289,21 @@ func _ready() -> void:
     player = Player.new()
     player.spec = player_spec
     add_child(player)
+    _fade = ColorRect.new()
+    _fade.color = Color(0, 0, 0, 0)
+    _fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+    $Overlay.add_child(_fade)
+    _loading = Label.new()
+    _loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _loading.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+    _loading.add_theme_font_size_override("font_size", 22)
+    _loading.visible = false
+    $Overlay.add_child(_loading)
+    _menu = GeogenSceneMenu.new()
+    _menu.picked.connect(func(scene: String): switch_scene(scene))
+    _menu.closed.connect(_menu_closed)
+    add_child(_menu)
     _place_player(world.world_aabb())
     _frame_overview(world.world_aabb())
     # The viewport auto-selects the first camera to enter the tree (the
@@ -258,10 +319,12 @@ func _ready() -> void:
         add_child(playtest)
     if walk_seconds > 0.0:
         _walk_left = walk_seconds
-        if _wait_left <= 0.0:
+        if _wait_left <= 0.0 and _switches.is_empty():
             player.scripted_move = Vector2(0, 1)
     elif DisplayServer.get_name() != "headless" and screenshot_path == "":
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    if _open_menu_at_start:
+        _open_menu()
 
 
 func _on_world_loaded(aabb: AABB) -> void:
@@ -269,8 +332,9 @@ func _on_world_loaded(aabb: AABB) -> void:
     $ScaleReference.visible = aabb.size == Vector3.ZERO
 
 
-## Spawn in front (+Z) of whatever was loaded, facing it.
-func _place_player(aabb: AABB) -> void:
+## Spawn in front (+Z) of whatever was loaded, facing it. The command line's
+## --spawn / --yaw / --pitch apply to the first world only (``overrides``).
+func _place_player(aabb: AABB, spawn_name := "", overrides := true) -> void:
     var pos := Vector3(0, 0, 5)
     var yaw := 0.0
     if not world.model_aabbs.is_empty():
@@ -278,16 +342,212 @@ func _place_player(aabb: AABB) -> void:
     if aabb.size != Vector3.ZERO:
         pos = Vector3(aabb.get_center().x, 0, aabb.end.z + 3.0)
     # Use the first export's own manifest spawn (several exports lay out in a row).
-    if _spawn_override == null:
+    var spawn := {}
+    if spawn_name != "":
+        spawn = world.spawn_named(spawn_name)
+    else:
         for s in world.spawns:
             if s.get("model", 0) == 0:
-                pos = s["position"]
-                yaw = s["yaw_deg"]
+                spawn = s
                 break
-    if _spawn_override != null:
+    if not spawn.is_empty():
+        pos = spawn["position"]
+        yaw = spawn["yaw_deg"]
+    if overrides and _spawn_override != null:
         pos = _spawn_override
-    player.spawn(pos, _yaw_override if _yaw_override != null else yaw)
-    player.head.rotation.x = deg_to_rad(_pitch)
+    if overrides and _yaw_override != null:
+        yaw = _yaw_override
+    player.spawn(pos, yaw)
+    if overrides:
+        player.head.rotation.x = deg_to_rad(_pitch)
+
+
+## Unload the current world and load scene ``scene`` (a catalogue / generated
+## name) in its place, the player at its spawn ``spawn_name`` (default: the
+## first). A coroutine: it fades to a loading screen (unless already faded, as
+## travel does) while the export parses on a worker thread. False (nothing
+## changes) if the scene isn't exported or a switch is already under way.
+func switch_scene(scene: String, spawn_name := "", queued := false) -> bool:
+    if not world.is_exported(scene):
+        push_warning("geogen: can't switch to '%s': not exported in %s" % [scene, world.generated_dir])
+        return false
+    if _switching:
+        return false
+    _switching = true
+    var started := Time.get_ticks_msec()
+    var fade_back := _fade.color.a < 0.99
+    player.process_mode = Node.PROCESS_MODE_DISABLED
+    if fade_back:
+        await _fade_to(1.0)
+    _loading.text = "Loading %s..." % scene.replace("_", " ")
+    _loading.visible = true
+    if not player.pose.is_empty():
+        player.leave_pose()
+    _focus = null
+    _focus_npc = null
+    _focus_affordance = {}
+    var previous := world.scene_name
+    world.select_scene(scene)
+    world.prime_focus = null
+    world.prime_spawn = spawn_name
+    await world.load_all_async()
+    world.prime_spawn = ""
+    world.set_night(clock.night)
+    _show_npc_labels()
+    var spec := world.player_spec()
+    if spec and not _manifest_arg:
+        player_spec = spec
+        player.apply_spec(spec)
+    _place_player(world.world_aabb(), spawn_name, false)
+    _remember_scene(scene)
+    var p := player.global_position
+    print("switched: %s" % JSON.stringify({"from": previous, "scene": scene, "spawn": spawn_name,
+        "ms": Time.get_ticks_msec() - started, "x": p.x, "y": p.y, "z": p.z,
+        "npcs": world.npcs.size(), "rooms": world.rooms.size()}))
+    _loading.visible = false
+    player.process_mode = Node.PROCESS_MODE_INHERIT
+    if fade_back:
+        await _fade_to(0.0)
+    _switching = false
+    _queued = queued
+    _stats_in = 5    # freed/queued nodes are gone after a few frames
+    return true
+
+
+## A travel point fired: fade out, go to its scene (or stay) at its spawn, fade back in.
+func _travel(travel: Dictionary) -> void:
+    if _travelling:
+        return
+    _travelling = true
+    var scene := str(travel.get("scene", ""))
+    var spawn_name := str(travel.get("spawn", ""))
+    player.scripted_move = null
+    player.process_mode = Node.PROCESS_MODE_DISABLED
+    await _fade_to(1.0)
+    var ok := true
+    if scene == "" or scene == world.scene_name:
+        if not player.pose.is_empty():
+            player.leave_pose()
+        _place_player(world.world_aabb(), spawn_name, false)
+        world.stream_focus = player.global_position
+        world.arm_travel()
+    else:
+        ok = await switch_scene(scene, spawn_name)
+    var p := player.global_position
+    print("travelled: %s" % JSON.stringify({"scene": world.scene_name, "spawn": spawn_name, "ok": ok,
+        "via": travel.get("on", "use"), "x": p.x, "y": p.y, "z": p.z, "yaw": rad_to_deg(player.rotation.y),
+        "room": world.room_at(p + Vector3(0, 0.5, 0))}))
+    if not ok:
+        player.process_mode = Node.PROCESS_MODE_INHERIT
+    await _fade_to(0.0)
+    _travelling = false
+
+
+func _fade_to(alpha: float) -> void:
+    var tween := create_tween()
+    tween.tween_property(_fade, "color:a", alpha, FADE_SECONDS)
+    await tween.finished
+
+
+## F7 / F8: the previous / next exported scene in catalogue order (wrapping).
+func _step_scene(step: int) -> void:
+    var names := world.scene_list().filter(func(s): return s["exported"]).map(func(s): return s["name"])
+    if names.is_empty():
+        return
+    var i := names.find(world.scene_name)
+    switch_scene(names[posmod(i + step, names.size())] if i >= 0 else names[0])
+
+
+func _open_menu() -> void:
+    _menu.open(world.scene_list(), world.scene_name)
+    player.process_mode = Node.PROCESS_MODE_DISABLED
+    Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _menu_closed() -> void:
+    player.process_mode = Node.PROCESS_MODE_INHERIT
+    if DisplayServer.get_name() != "headless" and screenshot_path == "":
+        Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _show_npc_labels() -> void:
+    for npc in world.npcs:
+        if is_instance_valid(npc):
+            npc.label.visible = _npc_labels
+
+
+## --list-scenes
+func _print_scene_list() -> void:
+    var scenes := world.scene_list()
+    for s in scenes:
+        print("%-20s %-9s %-13s %s" % [s["name"], s["group"], "exported" if s["exported"] else "not exported",
+            s["description"]])
+    print("scenes: %s" % JSON.stringify({"default": world.catalogue.get("default", ""), "scenes": scenes}))
+
+
+## The last scene picked with this generated dir (interactive runs only), or "".
+func _remembered_scene() -> String:
+    if DisplayServer.get_name() == "headless":
+        return ""
+    var cfg := ConfigFile.new()
+    if cfg.load(SETTINGS_PATH) != OK:
+        return ""
+    return str(cfg.get_value("last_scene", _settings_key(), ""))
+
+
+func _remember_scene(scene: String) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
+    var cfg := ConfigFile.new()
+    cfg.load(SETTINGS_PATH)
+    cfg.set_value("last_scene", _settings_key(), scene)
+    cfg.save(SETTINGS_PATH)
+
+
+func _settings_key() -> String:
+    return "dir_" + ProjectSettings.globalize_path(world.generated_dir).md5_text()
+
+
+## --switch: run the queued switches on time, then the stats; quit when nothing else is pending.
+func _run_switches(delta: float) -> void:
+    if _stats_in > 0:
+        _stats_in -= 1
+        if _stats_in == 0:
+            _print_switch_stats()
+            if not _queued:
+                return
+            if _switches.is_empty() and _walk_left > 0.0 and _wait_left <= 0.0:
+                player.scripted_move = Vector2(0, 1)
+            if _switches.is_empty() and _walk_left <= 0.0 and not _print_status and screenshot_path == "" \
+                    and _simulate <= 0.0 and quit_after_frames <= 0:
+                get_tree().quit()
+        return
+    if _switches.is_empty() or _switching or _travelling:
+        return
+    _switch_clock += delta
+    if _switch_clock < _switches[0]["at"]:
+        return
+    var next: Dictionary = _switches.pop_front()
+    if world.is_exported(next["name"]):
+        switch_scene(next["name"], "", true)
+    else:
+        print("switched: %s" % JSON.stringify({"scene": next["name"], "error": "not exported"}))
+        _queued = true
+        _stats_in = 1
+
+
+func _print_switch_stats() -> void:
+    var nav_regions := 0
+    for map in NavigationServer3D.get_maps():
+        nav_regions += NavigationServer3D.map_get_regions(map).size()
+    print("switch stats: %s" % JSON.stringify({"scene": world.scene_name,
+        "nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+        "orphans": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)),
+        "objects": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+        "resources": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+        "nav_regions": nav_regions,
+        "bodies": get_tree().root.find_children("*", "CollisionObject3D", true, false).size(),
+        "world_children": world.get_child_count()}))
 
 
 func _frame_overview(aabb: AABB) -> void:
@@ -299,7 +559,13 @@ func _frame_overview(aabb: AABB) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event.is_action_pressed("geogen_toggle_overlay"):
+    if _menu != null and _menu.visible:
+        return
+    if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F6:
+        _open_menu()
+    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_F7, KEY_F8]:
+        _step_scene(-1 if event.physical_keycode == KEY_F7 else 1)
+    elif event.is_action_pressed("geogen_toggle_overlay"):
         overlay.visible = not overlay.visible
     elif event.is_action_pressed("geogen_toggle_colliders"):
         world.show_colliders = not world.show_colliders
@@ -310,9 +576,7 @@ func _unhandled_input(event: InputEvent) -> void:
             _focus.toggle_lock(keys)
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
         _npc_labels = not _npc_labels
-        for npc in world.npcs:
-            if is_instance_valid(npc):
-                npc.label.visible = _npc_labels
+        _show_npc_labels()
     elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_F4:
         if overview.current:
             player.camera.make_current()
@@ -371,6 +635,8 @@ func _physics_process(delta: float) -> void:
         else:
             print("used: %s (%s)" % [_focus_affordance["asset"], _focus_affordance["type"]])
         _press_use()
+    if not _switches.is_empty() or _stats_in > 0 or _switching:
+        return    # --walk / --wait start in the last world switched to
     if _wait_left > 0.0:
         _wait_left -= delta
         if _wait_left <= 0.0 and _walk_left > 0.0:
@@ -382,7 +648,7 @@ func _physics_process(delta: float) -> void:
     if _walk_left <= 0.0:
         player.scripted_move = null
         var p := player.global_position
-        var result := {"x": p.x, "y": p.y, "z": p.z,
+        var result := {"x": p.x, "y": p.y, "z": p.z, "scene": world.scene_name,
             "on_floor": player.is_on_floor(), "room": world.room_at(p + Vector3(0, 0.5, 0))}
         if world.streamer != null:
             result["stream"] = world.stream_report()
@@ -390,7 +656,8 @@ func _physics_process(delta: float) -> void:
         get_tree().quit()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+    _run_switches(delta)
     _follow_npc()
     if _simulate > 0.0:
         return   # --screenshot waits for the simulation
@@ -401,7 +668,7 @@ func _process(_delta: float) -> void:
         var chunk_info := "" if stream.is_empty() else "   chunks %d full / %d lod / %d interiors%s" % [
             stream["full"].size(), stream["lod"].size(), stream["interiors"].size(),
             " (+%d loading)" % stream["pending"] if stream["pending"] > 0 else ""]
-        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Esc mouse" % [
+        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  F6 scenes  F7/F8 prev/next  Esc mouse" % [
             Engine.get_frames_per_second(), clock.label(),
             world.scene_name if world.scene_name != "" else "all exports", chunk_info,
             p.x, p.y, p.z, room if room != "" else "-",
@@ -417,7 +684,7 @@ func _process(_delta: float) -> void:
             f.close()
         if _print_status:
             var p := player.global_position
-            print("status: %s" % JSON.stringify({"pose": player.pose.get("type", "stand"),
+            print("status: %s" % JSON.stringify({"scene": world.scene_name, "pose": player.pose.get("type", "stand"),
                 "pose_asset": player.pose.get("asset", ""), "x": p.x, "y": p.y, "z": p.z,
                 "room": world.room_at(p + Vector3(0, 0.5, 0)), "eye_y": player.camera.global_position.y,
                 "states": world.save_state(), "stream": world.stream_report(),

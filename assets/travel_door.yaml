@@ -1,0 +1,133 @@
+# A freestanding door in a frame that leads somewhere else: press E on the
+# leaf to travel (geogen/travel.py). A glowing transom and a lettered board on
+# top say where it goes; a placement sets the destination:
+#
+#   back_to_hub:
+#     asset: travel_door.yaml
+#     params: { label: Hub }
+#     travel: { scene: hub, spawn: arrival_cottage }
+#
+# Origin: bottom centre; the door faces +Z (usable from both sides).
+
+name: travel_door
+tags: [travel.door]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label:   { default: "", type: text }   # destination lettering ("" = none)
+  width:   { default: 1.0 }              # opening
+  height:  { default: 2.2 }              # opening under the transom
+  transom: { default: 0.45 }
+  frame:   { default: 0.12 }
+  depth:   { default: 0.25 }
+  plinth:  { default: 0.1 }
+  letter:  { default: 0.16 }
+  board:   { default: 1.5 }              # sign board width (fit it to the label)
+
+light: { energy: 0.6, range: 4.0, color: [0.45, 0.8, 1.0], offset: [0, "{plinth + height + transom / 2}", 0.6] }
+
+travel: { on: use, target: leaf }
+
+parts:
+  base:
+    primitive: cube
+    size: ["{width + 2 * frame + 0.4}", "{plinth}", "{depth + 0.7}"]
+    anchor: bottom_center
+    bevel: 0.015
+    material: stone
+    walkable: true
+
+  frame:
+    primitive: extrude
+    shape:
+      polygon:
+        - ["{-width / 2 - frame}", 0]
+        - ["{-width / 2}", 0]
+        - ["{-width / 2}", "{height + transom}"]
+        - ["{width / 2}", "{height + transom}"]
+        - ["{width / 2}", 0]
+        - ["{width / 2 + frame}", 0]
+        - ["{width / 2 + frame}", "{height + transom + frame}"]
+        - ["{-width / 2 - frame}", "{height + transom + frame}"]
+    fit: none
+    axis: z
+    bevel: 0.008
+    size: ["{width + 2 * frame}", "{height + transom + frame}", "{depth}"]
+    anchor: bottom_center
+    offset: [0, "{plinth}", 0]
+    material: wood_dark
+
+  transom_bar:
+    primitive: cube
+    size: ["{width}", 0.08, "{depth - 0.04}"]
+    anchor: bottom_center
+    offset: [0, "{plinth + height}", 0]
+    bevel: 0.005
+    material: wood_dark
+
+  transom_glass:
+    primitive: cube
+    size: ["{width + 0.01}", "{transom - 0.075}", 0.03]
+    anchor: bottom_center
+    offset: [0, "{plinth + height + 0.078}", 0]
+    bevel: 0
+    material: glow_accent
+    collider: none
+
+  leaf:
+    primitive: extrude
+    shape: { rect: ["{width - 0.03}", "{height - 0.03}"], radius: 0.01 }
+    fit: none
+    axis: z
+    bevel: 0.006
+    size: ["{width - 0.03}", "{height - 0.03}", 0.05]
+    anchor: bottom_center
+    offset: [0, "{plinth + 0.02}", 0]
+    material: door_paint
+
+  knob_front: &knob
+    primitive: sphere
+    size: [0.07, 0.07, 0.07]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.12}", "{plinth + 1.0}", 0.045]
+    material: metal
+    collider: none
+  knob_back:
+    <<: *knob
+    offset: ["{width / 2 - 0.12}", "{plinth + 1.0}", -0.045]
+
+  sign:
+    primitive: cube
+    when: "{label}"
+    size: ["{board}", "{letter * 2.3}", 0.12]
+    anchor: bottom_center
+    offset: [0, "{plinth + height + transom + frame - 0.02}", 0]
+    bevel: 0.02
+    material: wood_dark
+  label_front:
+    primitive: text
+    when: "{label}"
+    text: "{label}"
+    height: "{letter}"
+    depth: 0.015
+    attach_to: sign
+    at: front
+    from: back
+    offset: [0, 0, -0.004]
+    material: glow_accent
+    collider: none
+  label_back:
+    primitive: text
+    when: "{label}"
+    text: "{label}"
+    height: "{letter}"
+    depth: 0.015
+    attach_to: sign
+    at: back
+    from: back
+    offset: [0, 0, 0.004]
+    rotation: [0, 180, 0]
+    material: glow_accent
+    collider: none

@@ -133,7 +133,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     for key, value in node.meta.items():
-        if key not in ("collider", "traffic", "railway"):     # lane graphs and railways go in the manifest
+        if key not in ("collider", "traffic", "railway", "travel_spec"):  # lane graphs, railways: the manifest
             data[key] = value.tolist() if hasattr(value, "tolist") else value
     if collider is not None:
         data["collider"] = collider
@@ -337,6 +337,11 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
                                    "forward": [round(float(v), 6) for v in forward]}))
     spawns.sort(key=lambda item: item[0])
     out: dict = {"rooms": rooms, "spawns": [spawn for _, spawn in spawns]}
+    from .travel import travel_summary
+
+    travel = travel_summary(root)       # where the scene's travel points go (catalogue validation)
+    if travel:
+        out["travel"] = travel
     from .traffic import build_traffic
 
     traffic = build_traffic(root)       # the lane graph (geogen-traffic v1), world space

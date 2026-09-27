@@ -15,4 +15,5 @@ slots:
 place:
   house:
     scene: scenes/cottage.yaml
+    params: { hub_portal: 0 }
     slot: house

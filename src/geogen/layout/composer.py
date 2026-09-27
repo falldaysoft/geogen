@@ -18,6 +18,12 @@ from .yaml_utils import safe_load, safe_load_path
 logger = logging.getLogger("geogen.layout")
 
 
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "0", "0.0", "false", "no", "none")
+    return bool(value)
+
 class SceneComposer:
     """Composes scenes by loading and connecting multiple assets.
 
@@ -186,6 +192,10 @@ class SceneComposer:
 
         # Merge compose into place for unified handling
         all_placements = {**compose_data, **place_data}
+        # `when: "{expr}"` drops a placement when it resolves to 0 / false / "" (like parts).
+        all_placements = {k: {kk: vv for kk, vv in v.items() if kk != "when"} if isinstance(v, dict) else v
+                          for k, v in all_placements.items()
+                          if not (isinstance(v, dict) and not _truthy(v.get("when", True)))}
         # Scatter placements run last, once the objects they avoid exist.
         scatters = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "scatter" in v}
         # Traffic placements put vehicles on the lanes, so they run once the streets exist.
@@ -391,7 +401,12 @@ class SceneComposer:
             if self._disk_cache is not None:
                 self._disk_cache.put(key, prototype)
         self._prototypes[key] = prototype
-        return prototype.instance()
+        node = prototype.instance()
+        if obj_def.get("travel"):
+            from ..travel import apply_travel
+
+            apply_travel(node, obj_def["travel"], f"travel of {obj_def.get('asset') or obj_def.get('scene')}")
+        return node
 
     def _load_prototype(self, obj_def: dict[str, Any]) -> SceneNode:
         if "recipe" in obj_def:

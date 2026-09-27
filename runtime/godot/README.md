@@ -21,15 +21,74 @@ To export every runtime scene at once, use the scene catalogue
 (`assets/runtime_scenes.yaml`): `python -m geogen.main --export-catalogue`
 (or `showcase`, `test`, or `NAME,NAME`) exports its scenes and writes
 `generated/catalogue.json`. Started without `--scene`, the runtime loads the
-catalogue's `default` scene. Point it at whatever you're working on and run
+catalogue's `default` scene: the hub (`scenes/hub.yaml`), a plaza with a
+portal to every showcase scene, each of which has a portal or travel door
+back. Point `default` at whatever you're working on and run
 `python -m geogen.main --catalogue` to rewrite the index.
+
+## Switching scenes
+
+F6 opens the scene list: the catalogue's scenes grouped showcase / test with
+their descriptions (scenes not exported yet are greyed out). Picking one
+unloads the current world (models, NPCs, traffic, trains, streamer,
+navmesh, interactions) and loads the new one in place, with the player at
+its first spawn; F7 / F8 step to the previous / next exported scene. The
+last scene picked is remembered in `user://settings.cfg` (per generated
+directory) and loads next time `--scene` isn't given (not in headless runs).
+`--list-scenes` prints the list and quits; `--switch=NAME@S` switches
+headlessly after S seconds and prints `switched: {...}` and, a few frames
+later, `switch stats: {...}` (node, object, orphan, body and nav region
+counts) so tests can check nothing is left behind.
+
+Switching fades to a "Loading ..." screen and parses the new export's GLB on
+a worker thread, so the window keeps drawing; the rest (materials, colliders,
+navmesh) runs on the main thread. Baked navmeshes are cached as packed scenes
+in `<generated>/.navcache/<name>-<key>.scn`, keyed by the export's content,
+the player spec, the bake options and the baking scripts' source, so loading
+an unchanged export again skips the bake (the town: 5.7 s -> 0.05 s).
+Colliders share one shape per shared (instanced) mesh. Streamed exports bake
+their own navigation tiles and aren't cached.
+
+## Travel
+
+Travel points (`geogen/travel.py`) are declared on assets or placements:
+
+```yaml
+place:
+  hotel_door:
+    asset: travel_door.yaml                # on: use (E on the leaf)
+    params: { label: Hotel }
+    travel: {scene: hotel_showcase, spawn: from_hub, prompt: Enter the hotel}
+  to_town:
+    asset: portal.yaml                     # on: enter (walk into its travel_volume)
+    params: { label: Town }
+    travel: {scene: town, spawn: from_hub}
+  shortcut:
+    asset: bookshelf.yaml
+    travel: {spawn: attic}                 # no scene: move within this one (default on: use)
+```
+
+They're exported as `extras.geogen.travel` (`on: use` also gets a `travel`
+interaction that emits `travel`, so aim + E works as for any interaction;
+`on: enter` gets `volume: {center, size}`, turned into an Area3D). Using one
+fades out, loads the target through the same path as the scene switcher (or
+just moves the player for same-scene travel), puts the player at the named
+spawn facing its way, prints `travelled: {...}` and fades back in. Walk-in
+volumes stay quiet for a few physics frames after a load or move, so arriving
+inside one doesn't bounce you back. The manifest lists every travel point
+(`travel: [{node, scene, spawn, on}]`), and `--export-catalogue` fails if one
+goes to a scene outside the catalogue or a spawn its (exported) target
+doesn't have. Tests: `tests/test_travel.py`. Ready-made travel points:
+`portal.yaml` (walk-in arch; `params: {label: Hotel}`) and `travel_door.yaml`
+(press E on the leaf); `signpost.yaml` and `info_plinth.yaml` label the way.
 
 Leave the game running and re-export: the runtime watches the manifests and
 reloads the model within half a second (the player keeps their position).
 
 Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
-(Space/Ctrl up/down), F4 overview camera.
+(Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F6 scene list,
+F7 / F8 previous / next scene, E use, L lock.
 
 ## Layout
 
@@ -103,6 +162,10 @@ User args (after `--`):
 | `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
 | `--quit-after=N` | Quit after N frames |
 | `--manifest=PATH` | Use the player spec from this manifest |
+| `--list-scenes` | Print the scene catalogue (name, group, exported, description) and `scenes: {...}`, then quit |
+| `--switch=NAME[@S]` | Switch to scene NAME after S s (default 1; repeatable); prints `switched:` / `switch stats:`, then quits unless `--walk` / `--status` / `--screenshot` follow |
+| `--menu` | Open the scene list at start (for screenshots) |
+| `--timings` | Print each load's phases as `load timings: {...}` (ms: glTF parse, materials, colliders, NPCs, traffic, navigation, ... and `nav_cache` hit/miss) |
 | `--npc-trace` | Print every NPC decision (top-3 scores) and step as `npc: {...}` lines |
 | `--timescale=N` | Run the world N times faster (physics ticks scale with it, so movement stays exact) |
 | `--simulate=SECONDS` | Run SECONDS of world time, print `npc summary: [...]` and quit (with `--screenshot`, capture then quit) |

@@ -16,7 +16,7 @@ A scene with a ``city:`` block builds a town district::
       landmarks: { "1,0": { asset: hotel.yaml } }   # a whole block for one building
       parks: ["0,1"]
       buildings:                  # catalogue per zone ({asset|scene, params, weight, setback})
-        residential: [{ scene: scenes/cottage.yaml }, { asset: house_simple.yaml }]
+        residential: [{ scene: scenes/cottage.yaml, params: { hub_portal: 0 } }, { asset: house_simple.yaml }]
         commercial:  [{ asset: shop.yaml, setback: 0 }]
       furniture:                  # along the curbs; spacing in metres (0 disables)
         lamp: { asset: street_lamp.yaml, spacing: 22 }

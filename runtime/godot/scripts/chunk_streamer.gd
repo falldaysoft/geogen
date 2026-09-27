@@ -277,12 +277,19 @@ func _bake_tile(key: Vector2i, threaded_bake: bool) -> void:
         return
     tile["baking"] = true
     _bakes += 1
-    var region: NavigationRegion3D = tile["region"]
-    NavigationServer3D.bake_from_source_geometry_data_async(mesh, source, func():
-        _bakes -= 1
-        tile["baking"] = false
-        if is_instance_valid(region):
-            region.navigation_mesh = mesh)
+    # A static callback: the streamer may be freed (scene switch) before the bake finishes.
+    NavigationServer3D.bake_from_source_geometry_data_async(mesh, source,
+        GeogenChunkStreamer._bake_done.bind(weakref(self), tile, mesh))
+
+
+static func _bake_done(streamer_ref: WeakRef, tile: Dictionary, mesh: NavigationMesh) -> void:
+    tile["baking"] = false
+    var streamer = streamer_ref.get_ref()
+    if streamer == null:
+        return
+    streamer._bakes -= 1
+    if is_instance_valid(tile["region"]):
+        tile["region"].navigation_mesh = mesh
 
 
 ## True while navigation tiles near the focus are missing, stale or baking.

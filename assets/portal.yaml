@@ -1,0 +1,116 @@
+# A walk-through portal: a stone arch on a plinth with a glowing rim, a
+# translucent membrane and the destination lettered above the opening.
+# Walking into the opening travels (geogen/travel.py); a placement says where:
+#
+#   to_hotel:
+#     asset: portal.yaml
+#     params: { label: Hotel }
+#     travel: { scene: hotel, spawn: entrance_spawn }
+#
+# Origin: bottom centre; the portal faces +Z (it can be walked through both ways).
+
+name: portal
+tags: [travel.portal]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label:  { default: "", type: text }   # destination lettering ("" = none)
+  width:  { default: 2.0 }              # opening
+  height: { default: 3.0 }
+  band:   { default: 0.35 }             # stone around the opening
+  depth:  { default: 0.5 }
+  plinth: { default: 0.15 }
+  letter: { default: 0.22 }             # cap height of the lettering
+  plaque: { default: 2.6 }              # name plaque width (fit it to the label)
+
+light: { energy: 1.2, range: 6.0, color: [0.45, 0.8, 1.0], offset: [0, 2.0, 0.9] }
+
+travel: { on: enter, prompt: Step through }
+
+parts:
+  base:
+    primitive: cube
+    size: ["{width + 2 * band + 0.6}", "{plinth}", "{depth + 0.7}"]
+    anchor: bottom_center
+    bevel: 0.02
+    material: stone
+    walkable: true
+
+  arch:
+    primitive: extrude
+    shape: { arch: ["{width + 2 * band}", "{height + band}"], inner: ["{width}", "{height}"], segments: 48 }
+    fit: none
+    axis: z
+    bevel: 0.015
+    size: ["{width + 2 * band}", "{height + band}", "{depth}"]
+    anchor: bottom_center
+    offset: [0, "{plinth}", 0]
+    material: stone
+
+  # Glowing rim: 2 cm proud of the stone inside the opening and on both faces.
+  rim:
+    primitive: extrude
+    shape: { arch: ["{width + 0.06}", "{height + 0.03}"], inner: ["{width - 0.04}", "{height - 0.02}"], segments: 48 }
+    fit: none
+    axis: z
+    size: ["{width + 0.06}", "{height + 0.03}", "{depth + 0.04}"]
+    anchor: bottom_center
+    offset: [0, "{plinth + 0.003}", 0]      # 3 mm up: its foot mustn't share the arch's plane
+    material: glow_accent
+    collider: none
+
+  membrane:
+    primitive: extrude
+    shape: { arch: ["{width - 0.02}", "{height - 0.01}"], segments: 48 }
+    fit: none
+    axis: z
+    size: ["{width - 0.02}", "{height - 0.01}", 0.03]
+    anchor: bottom_center
+    offset: [0, "{plinth}", 0]
+    material: portal_glow
+    collider: none
+
+  # Name plaque on the crown, lettered on both faces.
+  plaque:
+    primitive: cube
+    when: "{label}"
+    size: ["{plaque}", "{letter * 2.2}", "{depth * 0.6}"]
+    anchor: bottom_center
+    offset: [0, "{plinth + height + band - 0.1}", 0]
+    bevel: 0.03
+    material: stone
+  label_front:
+    primitive: text
+    when: "{label}"
+    text: "{label}"
+    height: "{letter}"
+    depth: 0.02
+    attach_to: plaque
+    at: front
+    from: back
+    offset: [0, 0, -0.005]
+    material: glow_accent
+    collider: none
+  label_back:
+    primitive: text
+    when: "{label}"
+    text: "{label}"
+    height: "{letter}"
+    depth: 0.02
+    attach_to: plaque
+    at: back
+    from: back
+    offset: [0, 0, 0.005]
+    rotation: [0, 180, 0]
+    material: glow_accent
+    collider: none
+
+  # Walk-in trigger (taken out of the geometry by geogen/travel.py).
+  travel_volume:
+    primitive: cube
+    size: ["{width - 0.3}", 2.2, 0.3]
+    anchor: bottom_center
+    offset: [0, "{plinth}", 0]
+    bevel: 0

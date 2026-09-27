@@ -10,6 +10,8 @@ extends Node3D
 signal world_loaded(aabb: AABB)
 ## An interaction reached a state: (asset name, interaction name, state, emitted event or "").
 signal interaction_event(asset: String, interaction: String, state: String, event: String)
+## The player used or walked into a travel point: its extras.geogen.travel ({scene?, spawn?, prompt, on}).
+signal travel_requested(travel: Dictionary)
 
 const DEFAULT_GENERATED_DIR := "res://generated"
 const POLL_SECONDS := 0.5
@@ -84,14 +86,35 @@ var _poll := 0.0
 var _collider_material: StandardMaterial3D
 ## Prefer a chunked export (<scene>_chunks/<scene>.chunks.json) over a single .glb.
 var prefer_chunks := false
+## --stream: prefer chunked exports for every scene, not just catalogue entries marked stream.
+var force_chunks := false
 ## Where streamed exports load around (main.gd keeps it on the player).
 var stream_focus := Vector3.ZERO
 ## The streamer of a chunked export, or null.
 var streamer: GeogenChunkStreamer = null
 ## Where to prime a streamed export (the player's start when overridden), or null for its first spawn.
 var prime_focus = null
+## Or the name of the spawn to prime a streamed export around (scene switches and travel).
+var prime_spawn := ""
 ## Optional [full, lod, interior] radii for the streamer (metres).
 var stream_radii := PackedFloat64Array()
+## Reuse baked navmeshes from <generated>/.navcache when the export hasn't changed.
+var nav_cache := true
+const NAV_CACHE_VERSION := 1
+## Load phases of the last load_all (ms; streamed chunks' setup adds up too), and whether to
+## print them (--timings).
+var load_timings := {}
+var print_timings := false
+## True while load_all_async is parsing; hot reload waits.
+var loading := false
+var _parse_task := -1
+var _load_started := 0
+## Travel points (extras.geogen.travel): [{node, travel: Dictionary}]
+var travel_points: Array[Dictionary] = []
+## Walk-in travel volumes stay quiet until this physics frame, so arriving inside one doesn't
+## bounce you back (you have to step out and in again).
+var travel_armed_at := 0
+const TRAVEL_ARM_FRAMES := 5
 
 
 func _ready() -> void:
@@ -118,33 +141,116 @@ func read_catalogue() -> Dictionary:
 
 ## The catalogue entry named ``name``, or {}.
 func catalogue_entry(name: String) -> Dictionary:
+    if catalogue.is_empty():
+        read_catalogue()
     for entry in catalogue.get("scenes", []):
         if entry.get("name") == name:
             return entry
     return {}
 
 
-## With no scene chosen, pick the catalogue's default (streamed if its entry
-## says so). Returns the chosen name, or "" to load every export as before.
-func use_catalogue_default() -> String:
-    if scene_name != "" or read_catalogue().is_empty():
+## With no scene chosen, pick ``preferred`` (the last scene picked, if it's still
+## exported) or else the catalogue's default (streamed if its entry says so).
+## Returns the chosen name, or "" to load every export as before.
+func use_catalogue_default(preferred := "") -> String:
+    if scene_name != "":
+        if is_exported(scene_name):
+            select_scene(scene_name)    # --scene NAME: still streamed if its catalogue entry says so
         return scene_name
+    if read_catalogue().is_empty():
+        return scene_name
+    if preferred != "" and is_exported(preferred):
+        select_scene(preferred)
+        print("geogen: last scene %s (from user://settings.cfg)" % preferred)
+        return preferred
     var name: String = catalogue.get("default", "")
-    var entry := catalogue_entry(name)
-    if entry.is_empty() or not FileAccess.file_exists("%s/%s" % [generated_dir, entry.get("manifest", "")]):
+    if not is_exported(name):
         push_warning("geogen: catalogue default '%s' isn't exported; loading every export" % name)
         return ""
-    scene_name = name
-    prefer_chunks = prefer_chunks or bool(entry.get("stream", false))
+    select_scene(name)
     print("geogen: default scene %s (from catalogue.json)" % name)
     return name
 
 
+## Whether scene ``name`` has an export in the generated directory (single file or chunked).
+func is_exported(name: String) -> bool:
+    if name == "":
+        return false
+    var entry := catalogue_entry(name)
+    if not entry.is_empty() and FileAccess.file_exists("%s/%s" % [generated_dir, entry.get("manifest", "")]):
+        return true
+    return FileAccess.file_exists("%s/%s.manifest.json" % [generated_dir, name]) \
+        or FileAccess.file_exists("%s/%s_chunks/%s.chunks.json" % [generated_dir, name, name])
+
+
+## Make ``name`` the scene the next load_all() loads, streamed if its catalogue
+## entry says so (or --stream). False if it isn't exported.
+func select_scene(name: String) -> bool:
+    if not is_exported(name):
+        return false
+    scene_name = name
+    prefer_chunks = force_chunks or bool(catalogue_entry(name).get("stream", false))
+    return true
+
+
+## Scenes the runtime can switch between: the catalogue's entries in order
+## ([{name, group, description, exported}]), or, without a catalogue, every
+## export in the generated directory (group "test").
+func scene_list() -> Array[Dictionary]:
+    read_catalogue()
+    var out: Array[Dictionary] = []
+    if not catalogue.is_empty():
+        for entry in catalogue.get("scenes", []):
+            var name := str(entry.get("name", ""))
+            out.append({"name": name, "group": str(entry.get("group", "test")),
+                "description": str(entry.get("description", "")), "exported": is_exported(name)})
+        return out
+    var names := {}
+    var dir := DirAccess.open(generated_dir)
+    if dir != null:
+        for file in dir.get_files():
+            if file.ends_with(".manifest.json"):
+                names[file.trim_suffix(".manifest.json")] = true
+        for sub in dir.get_directories():
+            if sub.ends_with("_chunks") and is_exported(sub.trim_suffix("_chunks")):
+                names[sub.trim_suffix("_chunks")] = true
+    var sorted := names.keys()
+    sorted.sort()
+    for name in sorted:
+        out.append({"name": name, "group": "test", "description": "", "exported": true})
+    return out
+
+
+## The spawn named ``name`` (the first one when ``name`` is "" or unknown), or {} with no spawns.
+func spawn_named(name := "") -> Dictionary:
+    for s in spawns:
+        if name != "" and s.get("name", "") == name:
+            return s
+    return spawns[0] if not spawns.is_empty() else {}
+
+
 ## Load (or reload) everything requested. Returns the combined bounds.
 func load_all() -> AABB:
+    unload()
+    for manifest in _manifests():
+        _load_model(manifest)
+    var aabb := world_aabb()
+    world_loaded.emit(aabb)
+    _report_timings()
+    return aabb
+
+
+## Free everything loaded (models, NPCs, traffic, trains, streamer, navmesh,
+## interactions) and forget it: the world is empty afterwards.
+func unload() -> void:
+    load_timings = {}
+    var t := Time.get_ticks_usec()
+    _load_started = t
     for child in get_children():
+        remove_child(child)
         child.free()
     streamer = null
+    _lap("unload", t)
     _mtimes.clear()
     _next_x = 0.0
     model_aabbs.clear()
@@ -164,11 +270,8 @@ func load_all() -> AABB:
     _gates.clear()
     _moving.clear()
     _target_of.clear()
-    for manifest in _manifests():
-        _load_model(manifest)
-    var aabb := world_aabb()
-    world_loaded.emit(aabb)
-    return aabb
+    travel_points.clear()
+    arm_travel()
 
 
 ## Player spec from the first loaded manifest, or null if none.
@@ -196,7 +299,7 @@ static func _aabb(root: Node) -> AABB:
 
 func _process(delta: float) -> void:
     _poll += delta
-    if _poll < POLL_SECONDS:
+    if _poll < POLL_SECONDS or loading:
         return
     _poll = 0.0
     for manifest in _manifests():
@@ -227,24 +330,80 @@ func _manifests() -> Array[String]:
 
 
 func _load_model(manifest_path: String) -> void:
+    var manifest := _read_manifest(manifest_path)
+    if manifest.is_empty():
+        return
+    if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
+        var t := Time.get_ticks_usec()
+        _load_chunked(manifest_path, manifest)
+        _lap("stream_prime", t)
+        return
+    var t := Time.get_ticks_usec()
+    var root := GeogenChunkStreamer._load_glb(_model_path(manifest_path, manifest))
+    _lap("gltf_parse", t)
+    _attach_model(manifest_path, manifest, root)
+
+
+## Like load_all(), but single-file exports parse on a worker thread while frames keep
+## drawing (a loading screen stays responsive). Streamed exports prime synchronously.
+func load_all_async() -> AABB:
+    loading = true
+    unload()
+    for manifest_path in _manifests():
+        var manifest := _read_manifest(manifest_path)
+        if manifest.is_empty():
+            continue
+        if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
+            await get_tree().process_frame    # show the loading screen first
+            var t := Time.get_ticks_usec()
+            _load_chunked(manifest_path, manifest)
+            _lap("stream_prime", t)
+            continue
+        var t := Time.get_ticks_usec()
+        var out := []
+        var path := _model_path(manifest_path, manifest)
+        _parse_task = WorkerThreadPool.add_task(func(): out.append(GeogenChunkStreamer._load_glb(path)))
+        while not WorkerThreadPool.is_task_completed(_parse_task):
+            await get_tree().process_frame
+        WorkerThreadPool.wait_for_task_completion(_parse_task)
+        _parse_task = -1
+        _lap("gltf_parse", t)
+        _attach_model(manifest_path, manifest, out[0] if not out.is_empty() else null)
+    loading = false
+    var aabb := world_aabb()
+    world_loaded.emit(aabb)
+    _report_timings()
+    return aabb
+
+
+func _exit_tree() -> void:
+    if _parse_task >= 0:
+        WorkerThreadPool.wait_for_task_completion(_parse_task)
+
+
+func _read_manifest(manifest_path: String) -> Dictionary:
     _mtimes[manifest_path] = FileAccess.get_modified_time(manifest_path)
     var manifest = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
     if not manifest is Dictionary:
         push_error("geogen: bad manifest %s" % manifest_path)
+        return {}
+    return manifest
+
+
+static func _model_path(manifest_path: String, manifest: Dictionary) -> String:
+    return manifest_path.get_base_dir().path_join(manifest.get("model", ""))
+
+
+## Add a parsed export (``root``, null if it failed to parse) to the world and set it up.
+func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) -> void:
+    var model_path := _model_path(manifest_path, manifest)
+    if root == null:
+        push_error("geogen: cannot load %s" % model_path)
         return
-    if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
-        _load_chunked(manifest_path, manifest)
-        return
-    var model_path: String = manifest_path.get_base_dir().path_join(manifest.get("model", ""))
-    var doc := GLTFDocument.new()
-    var state := GLTFState.new()
-    var err := doc.append_from_file(ProjectSettings.globalize_path(model_path), state)
-    if err != OK:
-        push_error("geogen: cannot load %s (%s)" % [model_path, error_string(err)])
-        return
-    var root := doc.generate_scene(state)
     root.name = manifest.get("name", model_path.get_file().get_basename())
+    var t := Time.get_ticks_usec()
     add_child(root)
+    t = _lap("add_to_tree", t)
     # Every export is authored around the origin, so when several load at once
     # (no --scene) lay them out in a row along X instead of on top of each other.
     var offset := Vector3.ZERO
@@ -255,7 +414,9 @@ func _load_model(manifest_path: String) -> void:
             _next_x += box.size.x + MODEL_SPACING
         root.position = offset
     model_aabbs.append(_aabb(root))
+    t = Time.get_ticks_usec()
     _prepare_materials(root)
+    _lap("materials", t)
     if manifest.get("traffic") is Dictionary:
         traffic_graph = manifest["traffic"]
         _traffic_offset = offset
@@ -268,8 +429,9 @@ func _load_model(manifest_path: String) -> void:
                     it.set_state("open", true)
                     it.hold = true
     if bake_navigation:
-        GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake,
-            ground_margin)
+        t = Time.get_ticks_usec()
+        _navigation(root, manifest_path, model_path)
+        _lap("navigation", t)
     for s in manifest.get("spawns", []):
         var f: Array = s.get("forward", [0, 0, -1])
         var p: Array = s.get("position", [0, 0, 0])
@@ -283,6 +445,7 @@ func _load_model(manifest_path: String) -> void:
 ## the tree: LOD levels dropped, interactions, lights, switches, seats,
 ## colliders, gates, rooms, then the scene builder (Areas, spawns, groups).
 func setup_root(root: Node) -> Dictionary:
+    var t := Time.get_ticks_usec()
     # MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
     for node in root.find_children("*", "Node3D", true, false):
         if geogen_extras(node).get("type") == "lod":
@@ -293,14 +456,89 @@ func setup_root(root: Node) -> Dictionary:
     _wire_switches(root)
     _collect_affordances(root)
     _collect_portals(root)
+    _collect_travel(root)
+    t = _lap("setup", t)
     var count := _add_collision(root)
+    t = _lap("colliders", t)
     _spawn_npcs(root)
+    t = _lap("npcs", t)
     _spawn_traffic(root)
+    t = _lap("traffic", t)
     _collect_gates(root)
     _collect_rooms(root)
     var summary := GeogenSceneBuilder.build(root)
+    _lap("scene_builder", t)
     summary["meshes"] = count
     return summary
+
+
+## Add the time since ``since`` (Time usec) to phase ``phase`` of load_timings; returns now.
+func _lap(phase: String, since: int) -> int:
+    var now := Time.get_ticks_usec()
+    load_timings[phase] = snappedf(float(load_timings.get(phase, 0.0)) + (now - since) / 1000.0, 0.1)
+    return now
+
+
+## --timings: print the phases of the last load (ms).
+func _report_timings() -> void:
+    if not print_timings:
+        return
+    # Wall clock: a streamed export's chunk setup phases also count inside stream_prime.
+    var total := (Time.get_ticks_usec() - _load_started) / 1000.0
+    print("load timings: %s" % JSON.stringify({"scene": scene_name, "total_ms": snappedf(total, 0.1),
+        "phases": load_timings}))
+
+
+# --- navigation cache ---------------------------------------------------------------------------
+
+## Bake the model's navmesh, or reuse the one baked last time the same export loaded with the
+## same settings (<generated>/.navcache/<name>-<key>.scn, keyed by the export's files, the
+## player spec, the bake options and the baking scripts' source).
+func _navigation(root: Node3D, manifest_path: String, model_path: String) -> void:
+    var spec := PlayerSpec.from_manifest(manifest_path)
+    var path := _nav_cache_path(root, manifest_path, model_path, spec)
+    if path != "" and FileAccess.file_exists(path):
+        var packed := ResourceLoader.load(path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
+        if packed != null:
+            var nav := packed.instantiate()
+            root.add_child(nav)
+            for region in [nav] + nav.find_children("*", "NavigationRegion3D", true, false):
+                if region is NavigationRegion3D:
+                    region.add_to_group("geogen_navigation")
+            load_timings["nav_cache"] = "hit"
+            return
+    var nav := GeogenSceneBuilder.build_navigation(root, spec, open_before_bake, ground_margin)
+    load_timings["nav_cache"] = "miss"
+    if path == "":
+        return
+    for child in nav.find_children("*", "", true, false):
+        child.owner = nav
+    var packed := PackedScene.new()
+    if packed.pack(nav) != OK:
+        return
+    var dir := path.get_base_dir()
+    DirAccess.make_dir_recursive_absolute(dir)
+    var prefix := path.get_file().get_slice("-", 0) + "-"
+    for old in DirAccess.get_files_at(dir):
+        if old.begins_with(prefix):
+            DirAccess.remove_absolute(dir.path_join(old))    # older bakes of this export
+    var err := ResourceSaver.save(packed, path, ResourceSaver.FLAG_COMPRESS)
+    if err != OK:
+        push_warning("geogen: can't cache navmesh %s (%s)" % [path, error_string(err)])
+
+
+func _nav_cache_path(root: Node3D, manifest_path: String, model_path: String, spec: PlayerSpec) -> String:
+    if not nav_cache:
+        return ""
+    var model_md5 := FileAccess.get_md5(model_path)
+    if model_md5 == "":
+        return ""
+    var key := JSON.stringify([NAV_CACHE_VERSION, ProjectSettings.globalize_path(model_path),
+        model_md5, FileAccess.get_md5(manifest_path),
+        spec.to_dict() if spec else {}, open_before_bake, ground_margin, var_to_str(root.global_transform),
+        FileAccess.get_md5("res://addons/geogen/scene_builder.gd"), FileAccess.get_md5("res://scripts/world_loader.gd")])
+    return generated_dir.path_join(".navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),
+        key.md5_text()])
 
 
 ## Unregister everything ``root`` contributed (before freeing a streamed chunk).
@@ -314,6 +552,7 @@ func forget(root: Node) -> void:
     rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
     affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
     portals = portals.filter(func(p): return not inside.call(p.get("node")))
+    travel_points = travel_points.filter(func(t): return not inside.call(t.get("node")))
     npcs = npcs.filter(func(n): return not inside.call(n))
     _gates = _gates.filter(func(g): return not inside.call(g.get("node")))
     _auto_lights = _auto_lights.filter(func(a): return not inside.call(a.get("fixture")))
@@ -343,7 +582,11 @@ func _load_chunked(index_path: String, index: Dictionary) -> void:
     if prime_focus != null:
         stream_focus = prime_focus
     elif not index.get("spawns", []).is_empty():
-        var p: Array = index["spawns"][0].get("position", [0, 0, 0])
+        var first: Dictionary = index["spawns"][0]
+        for s in index["spawns"]:
+            if prime_spawn != "" and s.get("name", "") == prime_spawn:
+                first = s
+        var p: Array = first.get("position", [0, 0, 0])
         stream_focus = Vector3(p[0], p[1], p[2])
     streamer.prime(stream_focus)
     model_aabbs.append(streamer.bounds)
@@ -526,6 +769,47 @@ func _collect_portals(root: Node) -> void:
             "normal": (xform.basis * Vector3(n[0], n[1], n[2])).normalized(),
             "width": float(p.get("width", 0.9)), "height": float(p.get("height", 2.0)),
             "depth": float(p.get("depth", 0.3)), "clearance": float(p.get("clearance", 0.9))})
+
+
+## Travel points: on: use listens for its "travel" interaction's event, on: enter
+## gets an Area3D over its volume that fires when the player walks in.
+func _collect_travel(root: Node) -> void:
+    for node in root.find_children("*", "Node3D", true, false):
+        var travel = geogen_extras(node).get("travel")
+        if not travel is Dictionary or node.has_meta("geogen_travel"):
+            continue
+        node.set_meta("geogen_travel", true)
+        travel_points.append({"node": node, "travel": travel})
+        if travel.get("on", "use") == "use":
+            for it in interactions:
+                if it.asset == node and it.interaction_name == "travel":
+                    it.state_entered.connect(func(_state: String, event: String):
+                        if event == "travel":
+                            travel_requested.emit(travel))
+            continue
+        var volume: Dictionary = travel.get("volume", {})
+        var c: Array = volume.get("center", [0, 1, 0])
+        var sz: Array = volume.get("size", [1, 2, 1])
+        var area := Area3D.new()
+        area.name = "TravelVolume"
+        area.collision_layer = 0
+        area.collision_mask = 1
+        area.monitorable = false
+        var shape := CollisionShape3D.new()
+        var box := BoxShape3D.new()
+        box.size = Vector3(sz[0], sz[1], sz[2])
+        shape.shape = box
+        shape.position = Vector3(c[0], c[1], c[2])
+        area.add_child(shape)
+        node.add_child(area)
+        area.body_entered.connect(func(body: Node3D):
+            if body is Player and Engine.get_physics_frames() >= travel_armed_at:
+                travel_requested.emit(travel))
+
+
+## Keep walk-in travel volumes quiet for a moment (after loading, or moving the player).
+func arm_travel() -> void:
+    travel_armed_at = Engine.get_physics_frames() + TRAVEL_ARM_FRAMES
 
 
 ## Nodes with extras.geogen type npc become GeogenNpc bodies.
@@ -778,12 +1062,17 @@ func _add_collision(root: Node) -> int:
             if mi.mesh != null:
                 _add_body(mi, mi.mesh.create_trimesh_shape(), Transform3D.IDENTITY)
         return meshes.size()
+    var shapes := {}   # [mesh, convex] -> Shape3D: instances share their collider mesh, so share the shape
     for mi in colliders:
         if mi.mesh != null:
             var convex: bool = String(mi.name).ends_with("-convcolonly") or geogen_extras(mi).get("shape") in ["box", "hull"]
-            var shape: Shape3D = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
-            if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
-                shape = mi.mesh.create_trimesh_shape()
+            var key := [mi.mesh, convex]
+            var shape: Shape3D = shapes.get(key)
+            if shape == null:
+                shape = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
+                if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
+                    shape = mi.mesh.create_trimesh_shape()
+                shapes[key] = shape
             if shape != null:
                 _add_body(mi.get_parent(), shape, mi.transform)
         mi.get_parent().remove_child(mi)
@@ -807,13 +1096,15 @@ static func _is_collider(mi: MeshInstance3D) -> bool:
 func _add_body(parent: Node, shape: Shape3D, xform: Transform3D) -> void:
     # Bodies under a part an interaction moves must be animatable so they
     # push the player and carry their new pose into physics.
-    var body: PhysicsBody3D = StaticBody3D.new()
+    var body: PhysicsBody3D
     if _is_moving(parent):
         var animatable := AnimatableBody3D.new()
         # Moved by its parent part, not by itself: sync_to_physics would only
         # track the body's own transform and leave the collider behind.
         animatable.sync_to_physics = false
         body = animatable
+    else:
+        body = StaticBody3D.new()
     body.name = "Collider"
     body.transform = xform
     var col := CollisionShape3D.new()

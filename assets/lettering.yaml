@@ -1,0 +1,37 @@
+# Review asset for primitive: text (extruded lettering, sans and serif, letters with counters).
+name: lettering
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+params:
+  label: { default: "AB O8 & Hotel", type: text }
+
+parts:
+  board:
+    primitive: cube
+    size: [2.6, 1.3, 0.06]
+    anchor: bottom_center
+    material: wood
+  sans:
+    primitive: text
+    text: "{label}"
+    font: sans
+    height: 0.22
+    depth: 0.03
+    material: metal
+    attach_to: board
+    at: front
+    from: back
+    offset: [0, 0.3, 0]
+  serif:
+    primitive: text
+    text: "Grand Hotel\nest. 1908"
+    font: serif
+    height: 0.14
+    depth: 0.03
+    line_spacing: 0.9
+    material: metal
+    attach_to: board
+    at: front
+    from: back
+    offset: [0, -0.22, 0]

@@ -20,6 +20,7 @@ from ..generators.primitives import (
 )
 from ..generators.architecture import PrismGenerator, RoofGenerator
 from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
+from ..generators.text import TextGenerator
 from ..generators.round_shapes import BevelledCylinderGenerator, CapsuleGenerator, TorusGenerator
 from ..generators.stairs import StairsGenerator
 from ..generators.sweep import SweepGenerator
@@ -56,6 +57,7 @@ PRIMITIVE_REGISTRY = {
     "capsule": CapsuleGenerator,
     "tree": TreeGenerator,
     "rock": RockGenerator,
+    "text": TextGenerator,
 }
 
 
@@ -445,6 +447,10 @@ class LayoutLoader:
             from ..npc import parse_portal
 
             root.meta["portal"] = parse_portal(data["portal"], root.interactions)
+        if data.get("travel"):
+            from ..travel import apply_travel
+
+            apply_travel(root, data["travel"], name)
         if data.get("vehicle"):
             from ..vehicles import parse_vehicle
 
@@ -681,6 +687,18 @@ class LayoutLoader:
             return self._create_lathe_generator(size, extra_config or {})
         elif primitive_type == "sweep":
             return self._create_sweep_generator(extra_config or {})
+        elif primitive_type == "text":
+            config = extra_config or {}
+            text = config.get("text", "")
+            if isinstance(text, float) and text.is_integer():
+                text = int(text)            # "{floor}" resolves to a number
+            return TextGenerator(
+                text=str(text), font=str(config.get("font", "sans")),
+                height=float(config.get("height", 0.2)), depth=float(config.get("depth", 0.02)),
+                align=str(config.get("align", "center")), line_spacing=float(config.get("line_spacing", 1.0)),
+                tracking=float(config.get("tracking", 0.0)), bevel=float(config.get("bevel", 0.0)),
+                detail=self.detail,
+            )
         elif primitive_type == "torus":
             return TorusGenerator(size_x=size[0], size_y=size[1], size_z=size[2],
                                   tube=float((extra_config or {}).get("tube", 0.0)))

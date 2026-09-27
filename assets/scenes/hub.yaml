@@ -1,0 +1,74 @@
+# The hub: a round plaza with one labelled portal per showcase scene. Each
+# portal lands at a named spawn in its scene, and every showcase scene has a
+# portal or travel door back here that lands in front of its own portal
+# (from_<name>). It's the runtime catalogue's default scene.
+
+name: hub
+size: [30, 4, 30]
+tags: [showcase.hub]
+
+spawns:
+  start: { position: [0, 0.1, 7.5], facing: south }      # facing the plinth and the portals
+  from_cottage: { position: [-4.38, 0.1, -4.38], facing: center }
+  from_hotel: { position: [0.0, 0.1, -6.2], facing: center }
+  from_town: { position: [4.38, 0.1, -4.38], facing: center }
+
+slots:
+  portal_cottage: { position: [-6.36, 0.1, -6.36], facing: center }
+  portal_hotel: { position: [0.0, 0.1, -9.0], facing: center }
+  portal_town: { position: [6.36, 0.1, -6.36], facing: center }
+  centre: { position: [0, 0.1, 0], facing: north }
+  sign: { position: [2.4, 0.1, 4.0], facing: north }
+  lamp_e: { position: [11.2, 0.1, 1.5], facing: west }
+  lamp_w: { position: [-11.2, 0.1, 1.5], facing: east }
+  lamp_ne: { position: [7.5, 0.1, 8.5], facing: center }
+  lamp_nw: { position: [-7.5, 0.1, 8.5], facing: center }
+  bench_e: { position: [5.6, 0.1, 3.2], facing: center }
+  bench_w: { position: [-5.6, 0.1, 3.2], facing: center }
+  planter_e: { position: [9.2, 0.1, -2.2], facing: center }
+  planter_w: { position: [-9.2, 0.1, -2.2], facing: center }
+  planter_se: { position: [3.2, 0.1, -10.8], facing: center }
+  planter_sw: { position: [-3.2, 0.1, -10.8], facing: center }
+
+place:
+  plaza:
+    asset: plaza.yaml
+
+  name_plinth:
+    asset: info_plinth.yaml
+    slot: centre
+    params: { label: "Geogen\nHub" }
+
+  portal_cottage:
+    asset: portal.yaml
+    slot: portal_cottage
+    params: { label: Cottage }
+    travel: { scene: cottage, spawn: from_hub }
+
+  portal_hotel:
+    asset: portal.yaml
+    slot: portal_hotel
+    params: { label: Hotel }
+    travel: { scene: hotel_showcase, spawn: from_hub }
+
+  portal_town:
+    asset: portal.yaml
+    slot: portal_town
+    params: { label: Town }
+    travel: { scene: town, spawn: from_hub }
+
+  signpost:
+    asset: signpost.yaml
+    slot: sign
+    params: { arm1: Cottage, dir1: 220, arm2: Hotel, dir2: 190, arm3: Town, dir3: 159 }
+
+  lamp_e: { asset: street_lamp.yaml, slot: lamp_e }
+  lamp_w: { asset: street_lamp.yaml, slot: lamp_w }
+  lamp_ne: { asset: street_lamp.yaml, slot: lamp_ne }
+  lamp_nw: { asset: street_lamp.yaml, slot: lamp_nw }
+  bench_e: { asset: bench.yaml, slot: bench_e }
+  bench_w: { asset: bench.yaml, slot: bench_w }
+  planter_e: { asset: planter.yaml, slot: planter_e }
+  planter_w: { asset: planter.yaml, slot: planter_w }
+  planter_se: { asset: planter.yaml, slot: planter_se }
+  planter_sw: { asset: planter.yaml, slot: planter_sw }

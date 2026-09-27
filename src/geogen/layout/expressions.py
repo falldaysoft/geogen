@@ -11,8 +11,10 @@ Supported syntax:
 - Parentheses: `(a + b) * c`
 - Unit-suffixed literals: `50cm`, `2m`, `1.5mm` (meters-normalised)
 - Percent literals: `20%` → 0.2
+- A few functions: `sind(deg)`, `cosd(deg)`, `min(a, b, ...)`, `max(...)`, `abs(x)`
+  (e.g. placing a signpost's arms around its post)
 
-Not supported (by design): function calls, attribute access, comparison,
+Not supported (by design): other function calls, attribute access, comparison,
 boolean, names other than declared params. The evaluator rejects any AST node
 outside the allow-list.
 """
@@ -20,6 +22,7 @@ outside the allow-list.
 from __future__ import annotations
 
 import ast
+import math
 import re
 from typing import Any
 
@@ -34,6 +37,15 @@ _UNIT_LITERAL_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?)\s*(m|cm|mm|%)\s*$")
 
 class ExpressionError(ValueError):
     """Raised when an expression cannot be safely evaluated."""
+
+
+_FUNCTIONS = {
+    "sind": lambda deg: math.sin(math.radians(deg)),
+    "cosd": lambda deg: math.cos(math.radians(deg)),
+    "min": min,
+    "max": max,
+    "abs": abs,
+}
 
 
 def _literal_with_unit(token: str) -> float | None:
@@ -85,6 +97,14 @@ def _eval_ast(node: ast.AST, params: dict[str, float]) -> float:
         if isinstance(node.op, ast.Div):
             return left / right
         raise ExpressionError(f"Unsupported operator: {type(node.op).__name__}")
+    if isinstance(node, ast.Call):
+        if not isinstance(node.func, ast.Name) or node.func.id not in _FUNCTIONS or node.keywords or not node.args:
+            raise ExpressionError(f"Unsupported call: {ast.unparse(node)} (allowed: {sorted(_FUNCTIONS)})")
+        args = [_eval_ast(a, params) for a in node.args]
+        try:
+            return float(_FUNCTIONS[node.func.id](*args))
+        except TypeError as e:
+            raise ExpressionError(f"Bad arguments in {ast.unparse(node)}: {e}") from e
     if isinstance(node, ast.UnaryOp):
         operand = _eval_ast(node.operand, params)
         if isinstance(node.op, ast.USub):
@@ -134,6 +154,8 @@ def interpolate_string(value: str, params: dict[str, float]) -> str | float:
 
     # Multiple / embedded interpolations → keep as string.
     def _sub(match: re.Match[str]) -> str:
+        if isinstance(params.get(match.group(1).strip()), str):
+            return params[match.group(1).strip()]
         return str(evaluate(match.group(1), params))
 
     return _INTERP_RE.sub(_sub, value)
@@ -165,7 +187,9 @@ def resolve_params(
         {"width": {"default": 6}, "height": {"default": 3}}
 
     A param with ``choices`` is a string selector ({default: bob, choices: [bob, long]}),
-    usable as a whole-value interpolation ("{hair_style}") but not in arithmetic.
+    usable as a whole-value interpolation ("{hair_style}") but not in arithmetic; one with
+    ``type: text`` takes any string ({default: Hotel, type: text}), also inside longer
+    strings ("To the {dest}").
     Overrides take precedence.
     """
     declared = declared or {}
@@ -180,6 +204,9 @@ def resolve_params(
         if "default" not in spec:
             raise ExpressionError(f"Param '{name}' requires a 'default' value")
         default = spec["default"]
+        if spec.get("type") == "text":         # free text: signs' labels ("{label}", "To {dest}")
+            resolved[name] = str(default)
+            continue
         if "choices" in spec:
             if default not in spec["choices"]:
                 raise ExpressionError(f"Param '{name}': default {default!r} not in choices {spec['choices']}")
@@ -197,7 +224,9 @@ def resolve_params(
                 f"Unknown param override '{name}'. Declared params: {sorted(resolved)}"
             )
         choices = declared[name].get("choices")
-        if choices is not None:
+        if declared[name].get("type") == "text":
+            resolved[name] = str(value)
+        elif choices is not None:
             if value not in choices:
                 raise ExpressionError(f"Param '{name}' must be one of {choices}, got {value!r}")
             resolved[name] = value

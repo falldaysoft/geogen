@@ -8,13 +8,16 @@
 #   stream: true              export chunked (--stream) and stream it in the runtime
 #   lods: [0.5, 0.25]         extra LOD levels (single-file exports only)
 kind: scene_catalogue
-default: cottage
+default: hub
 
 scenes:
+  hub:
+    group: showcase
+    description: A plaza with a portal to every showcase scene (each has a way back)
   cottage:
     group: showcase
     description: Brick cottage with a furnished interior, a resident and the people gallery on the lawn
-  hotel:
+  hotel_showcase:
     group: showcase
     description: Four-storey hotel - lobby, furnished guest floors, stairs and a working lift
   town:
@@ -22,6 +25,9 @@ scenes:
     stream: true
     description: The M3 district - streets, shops, the hotel, traffic, pedestrians and a railway
 
+  hotel:
+    group: test
+    description: The hotel building on its own (no hub door)
   crossroads:
     group: test
     description: Small street grid with signals, traffic and pedestrians
