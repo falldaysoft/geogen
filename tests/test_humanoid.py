@@ -191,7 +191,11 @@ def test_face_decal_slot_and_skin_tone(bodies):
     pts = mesh.vertices[np.unique(face)]
     assert pts[:, 2].min() > 0 and pts[:, 1].min() > 1.35
     dark = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "skin_tone": 0.9}).find("body").mesh
-    assert dark.colors[0, 0] < mesh.colors[0, 0] - 0.3
+
+    def skin_tint(m):                  # a vertex on skin faces (slot 0), not clothes or shoes
+        return m.colors[m.faces[m.face_materials == 0][0, 0], 0]
+
+    assert skin_tint(dark) < skin_tint(mesh) - 0.3
     # Face texture: distinct per face spec, shared otherwise.
     again = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "height": 1.6}).find("body").mesh
     assert again.materials[-1] is mesh.materials[-1]
