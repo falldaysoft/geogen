@@ -328,6 +328,13 @@ Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): a
   - NPC bodies take `body: {archetype: ...}`, and the placement `seed` picks the person and seeds the brain.
   - Nodes get `meta.character = {archetype, seed}`. Identical resolved params share one body prototype.
   - Review with `-s archetype_gallery -r out.png --view front_high`. Tests: `tests/test_characters.py`.
+- Clipping QA (`geogen/clipping.py`): `measure(character, pose, seat=...)` reports four metrics, with `report(presets, outfits)` sweeping combinations.
+  - `shell_poke`: body vertices covered by the loose shell in stand but outside it in the pose.
+  - `hands`: hand and forearm vertices inside the rest of the body or the shell.
+  - `feet_skin`: bare heels in shoes.
+  - `seat`: penetration posed on armchair, chair and sofa via `affordance_qa.pose_actor`.
+  - `tests/test_clipping.py` guards `tests/data/clipping_baseline.json`; regenerate it with `python tests/test_clipping.py`. The strict zero-clipping test is xfail until z2b.16.16-.21 land.
+  - Review scene: `-s seated_fit -r out.png --affordances`.
 - Review: `-s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side --zoom 2.6`; `-r out.png --pose sit_at_table`.
 - Review scenes: `-s humanoid_lineup` (presets beside a door and a chair), `-s people_gallery` (11 variants: body types, hair, tones, outfits; the cottage places it on its front lawn at z = 8), `-s clothing_fit` (hourglass in every outfit). Tests: `tests/test_humanoid.py`, `tests/test_skeleton.py`, `tests/test_ringloft.py`.
 

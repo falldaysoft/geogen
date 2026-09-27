@@ -1,0 +1,14 @@
+# Seats for clothing/pose fit review: an armchair, a dining chair and a sofa in a
+# row (clipping QA, geogen/clipping.py). Render people sitting on them with
+#   python -m geogen.main -s seated_fit -r out.png --affordances --views front,side
+name: seated_fit
+
+slots:
+  armchair: { position: [-2.2, 0, 0], facing: north }
+  chair:    { position: [0, 0, 0], facing: north }
+  sofa:     { position: [2.6, 0, 0], facing: north }
+
+place:
+  armchair: { asset: armchair.yaml, slot: armchair }
+  chair:    { asset: chair.yaml, slot: chair }
+  sofa:     { asset: sofa.yaml, slot: sofa }
