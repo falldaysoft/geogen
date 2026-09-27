@@ -1,0 +1,41 @@
+# Traffic signal: a post with a three-lamp head facing +Z (toward the traffic it
+# controls). Origin at the foot of the post. Runtimes light one lamp (lamp_red,
+# lamp_amber, lamp_green) from the intersection's cycle (meta.signal).
+
+name: signal_head
+tags: [street.signal]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+parts:
+  post:
+    primitive: cylinder
+    size: [0.12, 2.9, 0.12]
+    anchor: bottom_center
+    material: lamp_iron
+    collider: hull
+  housing:
+    primitive: cube
+    size: [0.34, 0.95, 0.24]
+    anchor: bottom_center
+    offset: [0, 2.35, 0.05]
+    bevel: 0.03
+    material: lamp_iron
+    collider: none
+  lamp_red: &lamp
+    primitive: cylinder
+    size: [0.2, 0.05, 0.2]
+    rotation: [90, 0, 0]
+    anchor: bottom_center
+    offset: [0, 3.12, 0.18]
+    material: signal_red
+    collider: none
+  lamp_amber:
+    <<: *lamp
+    offset: [0, 2.82, 0.18]
+    material: signal_amber
+  lamp_green:
+    <<: *lamp
+    offset: [0, 2.52, 0.18]
+    material: signal_green

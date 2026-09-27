@@ -264,6 +264,7 @@
         "lod": { "description": "Exterior LOD stand-in of a chunk: {ratio, min_size}.", "type": "object" },
         "interior": { "description": "Root of a streamed building interior chunk: {building}.", "type": "object" },
         "scatter": { "description": "Scattered copy: {group, index, seed}.", "type": "object" },
+        "signal": { "description": "A traffic signal head: the intersection and phase it shows (and the lane it faces), lit by the runtime from the lane graph's cycle.", "type": "object" },
         "character": { "description": "A person drawn from a character archetype: {archetype, seed}.", "type": "object" },
         "vehicle": {
           "description": "A vehicle asset (geogen/vehicles.py), built along +Z with its origin on the ground midway between the axles. Parts named here are descendants of this node: wheels spin about their local X (radius in metres), steer parts turn, paint parts carry the tint, lamps glow by kind. clearance is [length, width, height]; front/rear are the bumper z positions.",

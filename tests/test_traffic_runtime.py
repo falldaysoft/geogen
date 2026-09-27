@@ -33,11 +33,14 @@ def simulate(run_godot, generated, scene, seconds, *extra, timescale=8) -> dict:
 def test_traffic_flows_without_overlaps_or_gridlock(run_godot, crossroads_dir):
     # The player stands on a sidewalk (the scene's spawn), out of the way.
     report = simulate(run_godot, crossroads_dir, "crossroads", 240)
-    assert report["vehicles"] >= 12
+    assert report["vehicles"] >= 8
     assert report["overlaps"] == 0
     assert report["min_moved"] > 150          # every vehicle kept going (no gridlock)
-    # A blocked vehicle picks another exit after `give_up` (25 s), so nobody waits much longer.
-    assert report["max_idle"] < 45 and report["max_wait"] < 45
+    # Red lights and pedestrians hold vehicles up, but a blocked vehicle picks another exit
+    # after `give_up` (25 s), so nobody waits for long.
+    assert report["max_idle"] < 75 and report["max_wait"] < 75
+    # The avenue's intersections have lights: vehicles stop on red and go on green.
+    assert report["red_stops"] >= 5 and report["green_claims"] >= 10
     assert report["claims"] > 100 and set(report["turns"]) == {"left", "right", "straight"}
 
 

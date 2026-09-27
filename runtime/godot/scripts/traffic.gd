@@ -50,6 +50,9 @@ var _templates: Array[Node3D] = []   # detached copies of the starting vehicles 
 var _lamp_materials := {}            # BaseMaterial3D -> [day emission energy, kind]
 var _overlap_timer := 0.0
 var _schedule_timer := 0.0
+var _signals := {}                   # intersection id -> {cycle, offset}
+var _heads: Array[Dictionary] = []   # signal heads: {node, x, phase, lamps: {red|amber|green: [materials]}}
+var _head_timer := 0.0
 var _fleet_size := 0
 var _parked: Array[Dictionary] = []  # vehicles off the road (the schedule's quiet hours)
 
@@ -109,7 +112,7 @@ func _load_graph(graph: Dictionary, offset: Vector3) -> void:
 		lanes.append({"id": ln["id"], "pts": pts, "len": length, "ds": length / maxf(pts.size() - 1, 1),
 			"speed": float(ln["speed"]), "turn": ln.get("turn", ""), "x": ln.get("intersection", ""),
 			"exit": ln.get("end", "") == "exit", "succ_ids": ln.get("successors", []), "succ": [],
-			"crosswalks": crosswalks, "conflicts": [], "rail_stops": []})
+			"crosswalks": crosswalks, "conflicts": [], "rail_stops": [], "signal": ln.get("signal", {})})
 	for lane in lanes:
 		for sid in lane["succ_ids"]:
 			if lane_index.has(sid):
@@ -121,6 +124,9 @@ func _load_graph(graph: Dictionary, offset: Vector3) -> void:
 				if lane_index.has(entry["lane"]):
 					lanes[lane_index[entry["lane"]]]["rail_stops"].append(
 						{"id": crossing["id"], "stop": float(entry["stop"])})
+	for x in graph.get("intersections", []):
+		if x.get("control") == "signals":
+			_signals[x["id"]] = {"cycle": x.get("cycle", {}), "offset": float(x.get("offset", 0.0))}
 	for c in graph.get("conflicts", []):
 		if lane_index.has(c["a"]) and lane_index.has(c["b"]):
 			var a: int = lane_index[c["a"]]
@@ -252,6 +258,10 @@ func _physics_process(delta: float) -> void:
 	var people := _people()
 	for v in vehicles:
 		_drive(v, delta, people)
+	_head_timer += delta
+	if _head_timer >= 0.2:
+		_head_timer = 0.0
+		_update_heads()
 	_schedule_timer += delta
 	if _schedule_timer >= SCHEDULE_CHECK:
 		_schedule_timer = 0.0
@@ -300,7 +310,38 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
 				v["blocked_by"] = "vehicle"
 	# The stop line: lane end before an intersection, until the connector is claimed.
 	var nxt: int = v["next"]
-	if nxt >= 0 and lanes[nxt]["x"] != "" and not v["claimed"]:
+	var sig := _lane_signal(v["lane"]) if nxt >= 0 and lanes[nxt]["x"] != "" else ""
+	if sig != "" and not v["claimed"]:
+		# Traffic lights: go on green (and on amber when too close to stop), claiming the
+		# connector on the way in (turns still yield through the conflict zones); else stop.
+		var to_line: float = remaining - v["half"] - 0.3
+		var cant_stop: bool = to_line < v["v"] * v["v"] / (2.0 * v["decel"]) - 0.5
+		if (sig == "green" or (sig == "amber" and cant_stop)) and to_line < 30.0 and _can_claim(v):
+			v["claimed"] = true
+			stats["claims"] += 1
+			stats["signal_%s" % sig] = int(stats.get("signal_%s" % sig, 0)) + 1
+		if not v["claimed"]:
+			var line_gap := to_line + float(driving.get("gap", 2.5)) - 0.2
+			if line_gap < gap:
+				gap = line_gap
+				lead_v = 0.0
+				v["blocked_by"] = "signal"
+			if to_line < 1.0 and v["v"] < STOP_SPEED:
+				# (Not `waiting`: first-come-first-served is for all-way stops; lights decide here.)
+				if v.get("signal_wait", -1.0) < 0.0:
+					v["signal_wait"] = clock
+				stats["max_wait"] = maxf(stats["max_wait"], clock - v["signal_wait"])
+				if clock - v["signal_wait"] > float(driving.get("give_up", 25.0)) and sig == "green" \
+						and lanes[v["lane"]]["succ"].size() > 1:
+					# Held on green (the way on is full): go another way.
+					var others: Array = lanes[v["lane"]]["succ"].filter(func(x): return x != nxt)
+					v["next"] = others[rng.randi() % others.size()]
+					v["signal_wait"] = clock
+					trace({"t": snappedf(clock, 0.01), "replan": String(v["node"].name), "to": lanes[v["next"]]["id"]})
+				if sig == "red" and not v.get("red_seen", false):
+					v["red_seen"] = true
+					stats["red_stops"] = int(stats.get("red_stops", 0)) + 1
+	elif nxt >= 0 and lanes[nxt]["x"] != "" and not v["claimed"]:
 		var to_line: float = remaining - v["half"] - 0.3
 		# As a standing "leader" the IDM would stop `gap` short of it: fold that in so the
 		# bumper comes to rest at the line.
@@ -401,6 +442,9 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
 		v["lane"] = v["next"]
 		if lanes[old]["x"] != "":
 			v["claimed"] = false        # left the intersection
+		v["waiting"] = -1.0
+		v["signal_wait"] = -1.0
+		v["red_seen"] = false
 		if lanes[v["lane"]]["turn"] != "":
 			var turn: String = lanes[v["lane"]]["turn"]
 			stats["turns"][turn] = int(stats["turns"].get(turn, 0)) + 1
@@ -490,6 +534,70 @@ func _set_active(v: Dictionary, on: bool) -> void:
 		node.remove_from_group(VEHICLE_GROUP)
 
 
+## Seconds of world time (the clock's position in its day; time since load without a clock).
+func world_time() -> float:
+	if world != null and world.clock != null and world.clock.day_length > 0.0:
+		return world.clock.hours / 24.0 * world.clock.day_length
+	return clock
+
+
+## "green" | "amber" | "red" for a phase of a signalled intersection ("" if not signalled).
+## Phases take turns: green, amber, all-red each; the cycle is fixed to world time.
+func signal_state(x: String, phase: int) -> String:
+	if not _signals.has(x):
+		return ""
+	var c: Dictionary = _signals[x]["cycle"]
+	var g := float(c.get("green", 16.0))
+	var a := float(c.get("amber", 3.0))
+	var r := float(c.get("all_red", 1.5))
+	var slot := g + a + r
+	var pos := fposmod(world_time() + float(_signals[x]["offset"]), slot * 2.0)
+	var active := int(pos / slot)
+	var within := pos - active * slot
+	if active != phase:
+		return "red"
+	return "green" if within < g else ("amber" if within < g + a else "red")
+
+
+func _lane_signal(lane: int) -> String:
+	var sig: Dictionary = lanes[lane]["signal"]
+	return "" if sig.is_empty() else signal_state(str(sig["intersection"]), int(sig["phase"]))
+
+
+## Light each signal head's lamp for its phase (heads can arrive with streamed chunks).
+func _update_heads() -> void:
+	for node in get_tree().get_nodes_in_group("geogen_signal"):
+		if node.has_meta("geogen_signal_head"):
+			continue
+		node.set_meta("geogen_signal_head", true)
+		var sig: Dictionary = WorldLoader.geogen_extras(node).get("signal", {})
+		var lamps := {}
+		for colour in ["red", "amber", "green"]:
+			lamps[colour] = []
+			var part := node.find_child("lamp_%s" % colour, true, false)
+			if part == null:
+				continue
+			for mi: MeshInstance3D in ([part] if part is MeshInstance3D else []) + part.find_children("*", "MeshInstance3D", true, false):
+				for i in mi.mesh.get_surface_count() if mi.mesh else 0:
+					var mat := mi.get_active_material(i) as BaseMaterial3D
+					if mat != null:
+						mat = mat.duplicate()
+						mi.set_surface_override_material(i, mat)
+						lamps[colour].append([mat, mat.emission_energy_multiplier])
+		_heads.append({"node": node, "x": str(sig.get("intersection", "")), "phase": int(sig.get("phase", 0)),
+			"lamps": lamps, "shown": ""})
+	for head in _heads:
+		if not is_instance_valid(head["node"]):
+			continue
+		var state := signal_state(head["x"], head["phase"])
+		if state == head["shown"]:
+			continue
+		head["shown"] = state
+		for colour in head["lamps"]:
+			for entry in head["lamps"][colour]:
+				(entry[0] as BaseMaterial3D).emission_energy_multiplier = entry[1] * (25.0 if colour == state else 1.0)
+
+
 func _can_claim(v: Dictionary) -> bool:
 	var target: int = v["next"]
 	var conflicts: Array = lanes[target]["conflicts"]
@@ -530,8 +638,10 @@ func _person_gap(v: Dictionary, people: Array) -> float:
 			var s: float = v["s"] + v["half"] + along
 			var q := _path_point(v, s)
 			var width: float = v["half_w"] + PERSON_RADIUS + 0.3
+			if p.y - q.y > 0.08:
+				break                 # up on the kerb (waiting, sitting, walking by): not in the road
 			if _on_crosswalk(v, s):
-				width += 1.0          # people about to step onto it (not the whole sidewalk)
+				width += 1.0          # people on the crossing
 			if Vector2(q.x - p.x, q.z - p.z).length() < width and absf(q.y - p.y) < 2.0:
 				var gap := along - PERSON_MARGIN
 				stats["min_person_gap"] = minf(stats["min_person_gap"], maxf(along, 0.0))
@@ -645,9 +755,15 @@ static func _boxes_overlap(a: Dictionary, b: Dictionary) -> bool:
 func report() -> Dictionary:
 	var min_moved := INF
 	var max_idle := 0.0
+	var stuck := {}
 	for v in vehicles:
 		min_moved = minf(min_moved, v["moved"])
-		max_idle = maxf(max_idle, v["idle"])
+		if v["idle"] > max_idle:
+			max_idle = v["idle"]
+			stuck = {"vehicle": String(v["node"].name), "lane": lanes[v["lane"]]["id"], "s": snappedf(v["s"], 0.1),
+				"next": lanes[v["next"]]["id"] if v["next"] >= 0 else "", "blocked_by": v["blocked_by"],
+				"signal": _lane_signal(v["lane"]) if v["next"] >= 0 and lanes[v["next"]]["x"] != "" else "",
+				"claimed": v["claimed"]}
 	var gap = stats["min_person_gap"]
 	var player_gap = stats["min_player_gap"]
 	return {"vehicles": vehicles.size(), "parked": _parked.size(), "share": snappedf(scheduled_share(), 0.01),
@@ -657,4 +773,8 @@ func report() -> Dictionary:
 		"max_wait": snappedf(stats["max_wait"], 0.1), "turns": stats["turns"], "exits": stats["exits"],
 		"min_person_gap": snappedf(gap, 0.01) if gap < INF else -1.0,
 		"min_player_gap": snappedf(player_gap, 0.01) if player_gap < INF else -1.0, "clock": snappedf(clock, 0.1),
-		"crossing_violations": int(stats.get("crossing_violations", 0))}
+		"crossing_violations": int(stats.get("crossing_violations", 0)),
+		"red_stops": int(stats.get("red_stops", 0)), "green_claims": int(stats.get("signal_green", 0)),
+		"amber_claims": int(stats.get("signal_amber", 0)), "stuck": stuck,
+		"idle_vehicles": vehicles.filter(func(v): return v["idle"] > 30.0).map(func(v): return [String(v["node"].name),
+			lanes[v["lane"]]["id"], snappedf(v["s"], 0.1), v["blocked_by"], v["claimed"], snappedf(v["idle"], 1)])}

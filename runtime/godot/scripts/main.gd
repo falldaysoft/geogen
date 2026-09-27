@@ -340,12 +340,12 @@ func _physics_process(delta: float) -> void:
     if _nav_query.size() == 2:
         _frames_nav += 1
         # Wait until the navigation map has synced the baked regions (and streamed tiles are baked).
-        var synced := NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map) > 1
+        var synced := NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map) > 1 and _frames_nav > 5
         if world.streamer != null:
             if world.streamer.navigation_busy():
                 _frames_nav = 0
             synced = _frames_nav > 5   # a few physics frames for the map to pick up new tiles
-        if synced or _frames_nav > 120:
+        if synced or _frames_nav > 1800:     # big maps take a while to sync
             _print_nav_path(_nav_query[0], _nav_query[1])
             get_tree().quit()
         return

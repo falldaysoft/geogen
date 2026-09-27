@@ -19,7 +19,7 @@ city:
     tree: { asset: maple_tree.yaml, spacing: 12, params: { height: 6.8, trunk: 0.6 } }
     hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
     bench: { asset: bench.yaml, per_edge: 1 }
-  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13 }
+  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13, signals: avenues }
   parking:
     fill: 0.35
     fleet:
@@ -27,7 +27,7 @@ city:
       - { asset: vehicles/van.yaml, weight: 1 }
 
 place:
-  traffic: { traffic: traffic/town.yaml, seed: 5 }
+  traffic: { traffic: traffic/town.yaml, seed: 5, count: 10 }   # short blocks: fewer vehicles
   pedestrians:                       # townsfolk strolling the sidewalks (npcs/pedestrian.yaml)
     npc: npcs/pedestrian.yaml
     home: { rect: [-42, -40, 42, 40] }

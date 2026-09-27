@@ -33,7 +33,7 @@ city:
     tree:    { asset: maple_tree.yaml, spacing: 10, params: { height: 6.8, trunk: 0.6 } }   # crowns lifted over the road
     bench:   { asset: bench.yaml, per_edge: 1, zones: [commercial, park, landmark] }
     hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
-  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13 }   # lane graph for moving traffic
+  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13, signals: avenues }   # lane graph for moving traffic
   parking:                           # parked cars along the kerbs (vehicles/*.yaml)
     fill: 0.45
     fleet:

@@ -161,6 +161,7 @@ class CityBuilder:
         self.catalogue = spec.get("buildings", {}) or {}
         self._prototypes: dict[str, tuple[SceneNode, dict[str, Any]]] = {}
         self._hydrants: list[np.ndarray] = []
+        self._reserved: list[np.ndarray] = []   # plan points street furniture keeps clear of
 
         # Street centre lines and widths along each axis.
         self.ns_width = [self.avenue if i in self.ns_avenues else self.street for i in range(self.nx + 1)]
@@ -262,13 +263,15 @@ class CityBuilder:
                 for k, lot in enumerate(lt for lt in lots if lt.block == (i, j)):
                     block.add_child(self._lot_node(lot, k))
                 city.add_child(block)
-        self._furnish_streets(city, lots)
-        self._park_cars(city)
+        # Lanes and traffic lights first: street furniture keeps clear of the signal posts.
         from ..traffic import city_graph
 
         lanes = city_graph(self)
         if lanes is not None:
             city.meta["traffic"] = lanes
+            self._place_signals(city, lanes)
+        self._furnish_streets(city, lots)
+        self._park_cars(city)
         root.add_child(city)
         return lots
 
@@ -533,7 +536,7 @@ class CityBuilder:
         if not spec:
             return
         group = SceneNode(name="street_furniture", tags=["street.furniture"])
-        taken: list[np.ndarray] = []
+        taken: list[np.ndarray] = list(self._reserved)      # signal posts
         inset = 0.7          # from the curb face
         corner_clear = self.sidewalk + 2.5
         for i in range(self.nx):
@@ -589,6 +592,30 @@ class CityBuilder:
         if kind == "hydrant":
             self._hydrants.append(p)
         return True
+
+    # --- traffic lights --------------------------------------------------------------------------
+
+    def _place_signals(self, city: SceneNode, graph: dict[str, Any]) -> None:
+        """A signal head at each signalled stop line, on the pavement beside it, facing the traffic."""
+        heads = [ln for ln in graph["lanes"] if ln.get("signal")]
+        if not heads:
+            return
+        group = SceneNode(name="signals", tags=["street.signals"])
+        proto, _, _ = self._prototype({"asset": "signal_head.yaml"})
+        for ln in heads:
+            pts = np.asarray(ln["points"], dtype=float)
+            end, d = pts[-1], pts[-1] - pts[-2]
+            d = d / max(np.linalg.norm(d), 1e-9)
+            right = np.array([-d[2], 0.0, d[0]])
+            p = end + right * (float(ln.get("kerb", 1.5)) + 0.6)
+            node = _instance(proto)
+            node.name = f"signal_{ln['id']}"
+            node.transform = Transform(translation=np.array([p[0], self.curb, p[2]]),
+                                       rotation=np.array([0.0, float(np.arctan2(-d[0], -d[2])), 0.0]))
+            node.meta["signal"] = {**ln["signal"], "lane": ln["id"]}
+            group.add_child(node)
+            self._reserved.append(np.array([p[0], p[2]]))
+        city.add_child(group)
 
     # --- parked cars -----------------------------------------------------------------------------
 

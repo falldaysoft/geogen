@@ -501,6 +501,9 @@ func _spawn_npcs(root: Node) -> void:
 
 ## Nodes with extras.geogen type traffic drive their vehicles over the lane graph (traffic.gd).
 func _spawn_traffic(root: Node) -> void:
+	for node in root.find_children("signal_*", "Node3D", true, false):
+		if geogen_extras(node).has("signal"):
+			node.add_to_group("geogen_signal")
 	for node in root.find_children("*", "Node3D", true, false):
 		if not is_instance_valid(node):      # a vehicle's collider, freed as its traffic was set up
 			continue

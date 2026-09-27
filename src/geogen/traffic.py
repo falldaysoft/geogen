@@ -41,7 +41,8 @@ LANE_ENTRY = 4.0            # lanes start this far past the crosswalk (m): turni
 STOP_SETBACK = 3.0          # stop lines sit this far before the crosswalk (m)
 PARKING_DEPTH = 2.3         # kerb to the outer edge of a parked car (m)
 CONFLICT_GAP = 3.6          # connector paths closer than this conflict (m): a bus plus its off-tracking in turns
-TRAFFIC_KEYS = {"drive", "lanes", "avenue_lanes", "speed", "avenue_speed", "turns", "control"}
+TRAFFIC_KEYS = {"drive", "lanes", "avenue_lanes", "speed", "avenue_speed", "turns", "control", "signals", "cycle"}
+SIGNAL_CYCLE = {"green": 16.0, "amber": 3.0, "all_red": 1.5}
 ROUTE_KEYS = {"path", "lanes", "drive", "speed", "loop", "lane_width", "y", "surface"}
 # Vehicle classes swept along every lane for clearance: (width, height) in metres.
 CLEARANCE_CLASSES = {"car": (1.9, 1.6), "van": (2.1, 2.4), "bus": (2.6, 3.2)}
@@ -59,6 +60,8 @@ class Lane:
     successors: list[str] = field(default_factory=list)
     crosswalks: list[list[float]] = field(default_factory=list)
     end: str = ""                     # "exit" when vehicles leave the world at the lane's end
+    signal: dict | None = None        # {intersection, phase} for lanes ending at traffic lights
+    kerb: float = 0.0                 # distance from the lane centre to the kerb on its right
 
     @property
     def length(self) -> float:
@@ -74,6 +77,10 @@ class Lane:
                 out[key] = getattr(self, key)
         if self.crosswalks:
             out["crosswalks"] = [[round(a, 3), round(b, 3)] for a, b in self.crosswalks]
+        if self.signal:
+            out["signal"] = dict(self.signal)
+        if self.kerb:
+            out["kerb"] = round(self.kerb, 3)
         return out
 
 
@@ -180,6 +187,8 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
                     pts = np.array([[s0, 0.0, lateral], [s1, 0.0, lateral]])
                 src, dst = (n0, n1) if direction > 0 else (n1, n0)
                 lane = Lane(f"{road}_{'p' if direction > 0 else 'n'}{m}", "lane", resample(pts), limit, road=road)
+                # The kerb on the lane's right: the street edge on the side it keeps to.
+                lane.kerb = float(lateral - a if sign < 0 else b - lateral)
                 lane.kerb_index = m  # type: ignore[attr-defined]  # 0 = kerb lane
                 lanes.append(lane)
                 # Leaving src (outgoing on src's arm), arriving at dst (incoming on dst's arm).
@@ -199,6 +208,18 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
 
     heading = {"north": np.array([0.0, 1.0]), "south": np.array([0.0, -1.0]),
                "east": np.array([1.0, 0.0]), "west": np.array([-1.0, 0.0])}
+    # Traffic lights: at every intersection ("all") or where an avenue meets ("avenues").
+    signals = spec.get("signals", "none")
+    if signals not in ("none", "avenues", "all"):
+        raise ValueError(f"city traffic: signals must be none | avenues | all, got {signals!r}")
+    for node, sides in arms.items():
+        i, j = node
+        avenue = i in builder.ns_avenues or j in builder.ew_avenues
+        if len(sides) < 3 or signals == "none" or (signals == "avenues" and not avenue):
+            continue
+        for side, (incoming, _) in sides.items():
+            for ln in incoming:     # phase 0: arriving from north/south; phase 1: east/west
+                ln.signal = {"intersection": f"x_{i}_{j}", "phase": 0 if side in ("north", "south") else 1}
     for node, sides in arms.items():
         iid = f"x_{node[0]}_{node[1]}"
         for in_side, (incoming, _) in sides.items():
@@ -355,18 +376,24 @@ def _conflicts(lanes: list[Lane]) -> list[dict[str, Any]]:
     return out
 
 
-def graph(lanes: list[Lane], drive: str = "right") -> dict[str, Any]:
+def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None) -> dict[str, Any]:
     """A JSON-ready lane graph from lanes (points in one frame)."""
     ids = {lane.id for lane in lanes}
     for lane in lanes:
         lane.successors = [s for s in lane.successors if s in ids]
     intersections: dict[str, dict[str, Any]] = {}
     by_id = {lane.id: lane for lane in lanes}
+    signalled = {ln.signal["intersection"] for ln in lanes if ln.signal}
     for lane in lanes:
         if lane.intersection:
             x = intersections.setdefault(lane.intersection, {"id": lane.intersection, "control": "all_way",
                                                                "connectors": []})
             x["connectors"].append(lane.id)
+            if lane.intersection in signalled:
+                x["control"] = "signals"
+                x["cycle"] = dict(cycle or SIGNAL_CYCLE)
+                # Stagger neighbouring lights so the town doesn't flash in unison.
+                x["offset"] = round(float(sum(ord(c) for c in lane.intersection) % 7) * 3.0, 3)
     for x in intersections.values():
         pts = np.vstack([by_id[c].points for c in x["connectors"]])
         x["center"] = [round(float(v), 3) for v in pts.mean(axis=0)]
@@ -381,7 +408,8 @@ def city_graph(builder) -> dict[str, Any] | None:
     if not spec:
         return None
     spec = {} if spec is True else dict(spec)
-    return graph(_city_lanes(builder, spec), spec.get("drive", "right"))
+    cycle = {**SIGNAL_CYCLE, **(spec.get("cycle") or {})}
+    return graph(_city_lanes(builder, spec), spec.get("drive", "right"), cycle)
 
 
 def route_surface(name: str, spec: dict[str, Any], materials) -> SceneNode | None:
@@ -651,6 +679,8 @@ def place_traffic(root: SceneNode, name: str, spec: dict[str, Any], load, graph:
     from .characters import draw_params
 
     fleet = load_fleet(Path(assets_dir) / spec["traffic"])
+    if "count" in spec:        # the placement can size the fleet to its streets
+        fleet["count"] = int(spec["count"])
     seed = int(spec.get("seed", fleet["seed"]))
     rng = np.random.default_rng(seed)
     node = SceneNode(name, tags=["traffic"])

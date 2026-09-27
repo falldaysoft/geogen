@@ -185,6 +185,10 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   once no conflicting movement is occupied or claimed. They're served first come, first served.
   They don't enter unless the lane beyond has room ("don't block the box"). After `give_up`
   seconds a vehicle picks another exit.
+- **Traffic lights**: signalled intersections (`control: signals`) cycle their phases from world
+  time (green, amber, all-red; the phases take turns). Vehicles go on green, or on amber if too
+  close to stop, and still claim conflict zones, so turns yield. They wait at red. Signal heads
+  (`extras.geogen.signal`) light the lamp for their phase.
 - **Yielding**: the player and NPCs (group `geogen_character`) in the corridor ahead, or on a
   crosswalk about to be crossed, are obstacles to stop for.
 - **Bodies**: vehicles are `AnimatableBody3D` boxes. They block the player, stay out of the

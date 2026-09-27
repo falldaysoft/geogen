@@ -1,0 +1,6 @@
+# Traffic signal lens, amber.
+name: signal_amber
+texture: { type: painted_wall, params: { base_color: [95, 60, 8], seed: 322 } }
+size: [32, 32]
+tile_size: 1.0
+pbr: { roughness: 0.2, metallic: 0.0, normal_strength: 0.0, ao_strength: 0.0, emissive: [1.0, 0.6, 0.05], emissive_strength: 0.15 }

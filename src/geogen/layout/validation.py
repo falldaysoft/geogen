@@ -48,7 +48,7 @@ SLOT_KNOWN_KEYS = {
 
 PLACEMENT_KNOWN_KEYS = {
     "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params", "scatter",
-    "npc", "home", "seed", "archetype", "traffic", "train", "railway",
+    "npc", "home", "seed", "archetype", "traffic", "train", "railway", "count",
 }
 
 # Known primitive types

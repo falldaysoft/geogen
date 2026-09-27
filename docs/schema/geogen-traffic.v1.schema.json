@@ -25,6 +25,8 @@
           "turn": { "enum": ["straight", "left", "right"] },
           "intersection": { "type": "string" },
           "end": { "description": "exit: vehicles leave the world at this lane's end (open routes).", "const": "exit" },
+          "signal": { "description": "Lanes ending at traffic lights: which intersection and phase they follow.", "type": "object", "required": ["intersection", "phase"] },
+          "kerb": { "description": "Distance from the lane centre to the kerb on its right (m).", "type": "number" },
           "crosswalks": { "description": "s-ranges (metres along the lane) that cross a crosswalk: yield to people there.", "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } }
         }
       }
@@ -48,6 +50,8 @@
         "properties": {
           "id": { "type": "string" },
           "control": { "enum": ["all_way", "signals"] },
+          "cycle": { "description": "signals: seconds of green, amber and all-red per phase (phases take turns).", "type": "object" },
+          "offset": { "description": "signals: seconds the cycle is shifted by (world time).", "type": "number" },
           "connectors": { "type": "array", "items": { "type": "string" } },
           "center": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
         }

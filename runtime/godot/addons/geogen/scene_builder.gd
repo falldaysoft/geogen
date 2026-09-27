@@ -124,13 +124,45 @@ static func _own(child: Node, parent: Node) -> void:
 ## don't block the navmesh; agents open them).
 ## ``ground_margin`` > 0 adds the runtime's ground plane (y = 0, which isn't
 ## part of the export) under the model and that far around it.
-static func build_navigation(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> NavigationRegion3D:
-	var region := NavigationRegion3D.new()
-	region.name = "Navigation"
-	region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving, ground_margin)
-	region.add_to_group("geogen_navigation")
-	root.add_child(region)
-	return region
+const NAV_SINGLE_BAKE := 160.0   # m: models larger than this bake in tiles
+const NAV_TILE := 48.0
+const NAV_BORDER := 1.0
+
+
+static func build_navigation(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> Node3D:
+	var box := WorldLoader._aabb(root).grow(ground_margin)
+	if maxf(box.size.x, box.size.z) <= NAV_SINGLE_BAKE:
+		var region := NavigationRegion3D.new()
+		region.name = "Navigation"
+		region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving, ground_margin)
+		region.add_to_group("geogen_navigation")
+		root.add_child(region)
+		return region
+	# Large models (a town with a railway): one bake over the whole area overflows the voxel
+	# grid, so parse once and bake NAV_TILE-metre tiles clipped edge to edge.
+	var parsed := _parse_source(root, spec, include_moving, ground_margin)
+	var source: NavigationMeshSourceGeometryData3D = parsed[1]
+	var group := Node3D.new()
+	group.name = "Navigation"
+	root.add_child(group)
+	var nx := ceili(box.size.x / NAV_TILE)
+	var nz := ceili(box.size.z / NAV_TILE)
+	for i in nx:
+		for j in nz:
+			var tile := AABB(Vector3(box.position.x + i * NAV_TILE, box.position.y - 1.0, box.position.z + j * NAV_TILE),
+				Vector3(NAV_TILE, box.size.y + 2.0, NAV_TILE))
+			var mesh := nav_mesh_for(spec)
+			mesh.filter_baking_aabb = tile.grow(NAV_BORDER)
+			mesh.border_size = NAV_BORDER
+			NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+			if mesh.get_polygon_count() == 0:
+				continue
+			var region := NavigationRegion3D.new()
+			region.name = "NavTile_%d_%d" % [i, j]
+			region.navigation_mesh = mesh
+			region.add_to_group("geogen_navigation")
+			group.add_child(region)
+	return group
 
 
 ## Navigation mesh settings for the player (cell size matches the project's map).
@@ -175,6 +207,14 @@ static func parse_tile(roots: Array, tile: AABB, spec, border: float) -> Array:
 
 
 static func bake_navigation_mesh(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> NavigationMesh:
+	var parsed := _parse_source(root, spec, include_moving, ground_margin)
+	NavigationServer3D.bake_from_source_geometry_data(parsed[0], parsed[1])
+	return parsed[0]
+
+
+## The navmesh settings and the source geometry (static colliders, moving parts left out or
+## as obstructions, the runtime ground around the model) for a model: [mesh, source].
+static func _parse_source(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> Array:
 	var mesh := NavigationMesh.new()
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
@@ -217,5 +257,4 @@ static func bake_navigation_mesh(root: Node3D, spec, include_moving := false, gr
 		var c := Vector3(box.end.x, 0, box.end.z)
 		var d := Vector3(box.position.x, 0, box.end.z)
 		source.add_faces(PackedVector3Array([a, b, c, a, c, d]), Transform3D.IDENTITY)
-	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-	return mesh
+	return [mesh, source]
