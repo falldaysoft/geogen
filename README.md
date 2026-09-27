@@ -17,13 +17,13 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 **Walking the town in Godot**: the district streams in chunks around the player (left). Buildings have furnished interiors, like the hotel lobby (right):
 
 | Streamed street | Hotel lobby |
-|---|---|
+|---|---|---|
 | ![Godot town street](docs/images/godot_town_street.png) | ![Godot hotel lobby](docs/images/godot_hotel_lobby.png) |
 
 **Hotel**: a multi-storey building generated from floor-plan layouts: a lobby floor, guest floors, scissor stairs, a working lift, a façade and a roof (left). A guest room furnished by the furnishing solver, shown with the ceiling cut away (right):
 
 | Hotel | Furnished room (cutaway) |
-|---|---|
+|---|---|---|
 | ![Hotel](docs/images/geogen_hotel.png) | ![Hotel room](docs/images/geogen_hotel_room.png) |
 
 **Park**: seeded scatter placement of space-colonisation trees and displaced rocks around a cottage and a lamp-lit path:
@@ -43,20 +43,20 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 ![Dining set](docs/images/geogen_dining_set.png)
 
 | Chair | Room |
-|---|---|
+|---|---|---|
 | ![Chair](docs/images/geogen_chair.png) | ![Room](docs/images/geogen_room.png) |
 
 **Godot runtime**: the cottage exported with `--export-godot` and walked in first person (left); F2 shows the collision shapes (right):
 
 | First person | Collider wireframes |
-|---|---|
+|---|---|---|
 | ![Godot first person](docs/images/godot_first_person.png) | ![Godot colliders](docs/images/godot_colliders.png) |
 
-**NPCs**: the cottage has a resident (a placeholder capsule body for now). Everything they do is data: the furniture, windows and door advertise what can be done there, and the Godot runtime just scores those offers against the resident's needs and runs the chosen action's steps. Here they're resting in the armchair (left) and have opened the front door to step outside (right):
+**NPCs**: the cottage has a resident, a young woman drawn from a character archetype (skinned body, painted face, hair and clothes), walking with procedural clips. Everything she does is data: the furniture, windows and door advertise what can be done there, and the Godot runtime scores those offers against her needs and runs the chosen action's steps. Here she walks over to the armchair, rests in it, and later steps out of the front door:
 
-| Resting | On the doorstep |
-|---|---|
-| ![NPC in the armchair](docs/images/godot_npc_armchair.png) | ![NPC on the doorstep](docs/images/godot_npc_doorstep.png) |
+| Walking | Resting | On the doorstep |
+|---|---|---|
+| ![NPC walking](docs/images/godot_npc_walking.png) | ![NPC in the armchair](docs/images/godot_npc_armchair.png) | ![NPC on the doorstep](docs/images/godot_npc_doorstep.png) |
 
 **Interactive viewer** (Qt/OpenGL) viewport: shadows, PBR, grid, picking:
 
@@ -278,7 +278,7 @@ city:
 ## Architecture
 
 | Package | Contents |
-|---|---|
+|---|---|---|
 | `core/` | `SceneNode` hierarchy (with instancing), `Mesh` (material groups, vertex colours), `Transform`; `meshops` (normals, welding, tangents, decimation, `validate`), `uvmap` (metric projections), `profile` (2D shapes), `csg` (manifold3d booleans), `subdiv` (Loop subdivision, displacement) |
 | `generators/` | Primitives, profiles, sweeps, stairs, roofs, doors, floor plans and plan layouts, multi-storey buildings, façades, interior finishes, trees and rocks |
 | `textures/`, `materials/` | Tiling procedural texture generators; PBR materials loaded from `assets/materials/*.yaml` with a metric `tile_size` |
