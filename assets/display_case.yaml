@@ -1,0 +1,44 @@
+# A glass-topped display case (cakes in a cafe, books or jewellery in a
+# shop): a cabinet with a glass box on top holding a few items.
+
+name: display_case
+tags: [shop.display_case, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.4 }
+
+clearance: { front: 0.9 }
+
+parts:
+  cabinet:
+    primitive: cube
+    size: ["{width}", 0.85, 0.6]
+    anchor: bottom_center
+    bevel: 0.01
+    material: wood_dark
+  glass:
+    primitive: cube
+    size: ["{width - 0.04}", 0.4, 0.56]
+    anchor: bottom_center
+    offset: [0, 0.85, 0]
+    bevel: 0.004
+    material: glass
+  item_1: &item
+    primitive: cylinder
+    size: [0.2, 0.1, 0.2]
+    anchor: bottom_center
+    offset: ["{-width / 4}", 0.86, 0]
+    material: cloth
+    tint: beige
+    collider: none
+  item_2:
+    <<: *item
+    offset: [0, 0.86, 0.05]
+    tint: maroon
+  item_3:
+    <<: *item
+    offset: ["{width / 4}", 0.86, -0.05]
+    tint: car_white

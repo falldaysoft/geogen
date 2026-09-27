@@ -1,0 +1,35 @@
+# A cafe: the counter with the espresso machine at the back, a cake display
+# beside it, and small tables for two by the window.
+
+name: cafe
+finishes: { walls: paint_sage, floor: hardwood_floor }
+
+items:
+  counter:
+    asset: cafe_counter.yaml
+    against: none
+    facing: north
+    prefer: [far_door, centered]
+  cakes:
+    asset: display_case.yaml
+    against: wall
+    prefer: [{near: counter}, no_door_wall]
+    optional: true
+  table:
+    asset: table.yaml
+    params: { width: 0.8, depth: 0.7 }
+    against: none
+    facing: north
+    count: 3
+    min: 1
+    clearance: { front: 0.8, back: 0.8, left: 0.7, right: 0.7 }
+    prefer: [near_window, {far: table}]
+  chair:
+    asset: chair.yaml
+    around: table
+    min: 2
+  planter:
+    asset: planter.yaml
+    against: wall
+    prefer: [corner]
+    optional: true

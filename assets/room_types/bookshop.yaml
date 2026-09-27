@@ -1,0 +1,23 @@
+# A bookshop: bookcases along the walls, the till, and a reading chair
+# (the middle of the floor stays open so the back of the shop is reachable).
+
+name: bookshop
+finishes: { walls: paint_navy, floor: hardwood_floor }
+
+items:
+  till:
+    asset: till_counter.yaml
+    against: none
+    facing: north
+    prefer: [near_door]
+  bookcase:
+    asset: bookshelf.yaml
+    against: wall
+    count: 5
+    min: 2
+    prefer: [no_window_wall, no_door_wall]
+  armchair:
+    asset: armchair.yaml
+    against: wall
+    prefer: [corner, near_window]
+    optional: true

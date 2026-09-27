@@ -1,0 +1,69 @@
+# The main street showcase: one lively high street (the east-west avenue of a
+# small 3 x 2 grid). Shop rows line it on both sides with furnished shops
+# (a cafe, a grocer, a bookshop, a clothes shop), fascia signs and awnings;
+# the side streets have houses. Parked cars, traffic with signals where the
+# avenue crosses the side streets, a bus shelter, pedestrians, and a portal
+# back to the hub.
+
+name: main_street
+tags: [showcase.main_street, city.district]
+
+city:
+  seed: 11
+  blocks: [3, 2]
+  block_size: [36, 30]
+  street_width: 8
+  avenues: { ew: [1] }
+  avenue_width: 12
+  sidewalk: 3
+  curb_height: 0.15
+  lot_width: [9, 11]
+  buildings:
+    commercial:
+      - { recipe: shop_row, shop: cafe, sign: "Cafe Aroma", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: grocer, sign: "Fresh Grocer", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: bookshop, sign: "Chapter One", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: clothing, sign: "Threads", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: cafe, sign: "The Bakery", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+    residential:
+      - { recipe: detached_house, storeys: [1, 2], style: [brick_hotel, stucco], interior: shell }
+  furniture:
+    lamp:    { asset: street_lamp.yaml, spacing: 18 }
+    tree:    { asset: maple_tree.yaml, spacing: 12, params: { height: 6.8, trunk: 0.6 } }
+    bench:   { asset: bench.yaml, per_edge: 1, zones: [commercial] }
+    hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+  traffic: { drive: right, lanes: 1, speed: 10, avenue_speed: 12, signals: avenues }
+  parking:
+    fill: 0.35
+    fleet:
+      - asset: vehicles/car.yaml
+        weight: 5
+        params:
+          preset: { choice: [sedan, hatchback, estate], weights: [3, 3, 1] }
+          paint: { choice: [car_white, silver, graphite, car_black, car_red, car_blue, teal_green, beige] }
+      - { asset: vehicles/car.yaml, weight: 1, params: { preset: taxi } }
+      - { asset: vehicles/van.yaml, weight: 1, params: { paint: car_white } }
+
+slots:
+  bus_stop:   { position: [22, 0.15, -7.8], facing: north }   # south pavement, clear of shop canopies and furniture
+  hub_portal: { position: [75, 0, 0], facing: west }           # just past the east end of the avenue
+
+place:
+  bus_shelter:
+    asset: bus_shelter.yaml
+    slot: bus_stop
+    params: { label: "High Street" }
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_main_street }
+  traffic: { traffic: traffic/town.yaml, seed: 5, count: 6 }
+  pedestrians:
+    npc: npcs/pedestrian.yaml
+    home: { rect: [-60, -30, 60, 30] }
+    scatter: { on_tag: street.sidewalk, count: 10, spacing: 8, seed: 9, radius: 0.5 }
+
+spawns:
+  start: { position: [0, 0.15, 7.6], facing: east }   # on the avenue's north pavement, looking down the high street
+  from_hub: { position: [72.6, 0, 0], facing: west }  # in front of the hub portal, looking up the avenue

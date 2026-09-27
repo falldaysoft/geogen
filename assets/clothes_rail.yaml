@@ -1,0 +1,112 @@
+# A clothes rail: a chrome rail on two uprights with a row of garments on
+# hangers (thin boxes in mixed colours). Free-standing; runs along X.
+
+name: clothes_rail
+tags: [shop.clothes_rail]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: { default: 1.5 }
+
+clearance: { front: 0.8, back: 0.8 }
+
+parts:
+  foot_l: &foot
+    primitive: cube
+    size: [0.06, 0.03, 0.55]
+    anchor: bottom_center
+    offset: ["{-length / 2}", 0, 0]
+    bevel: 0.005
+    material: chrome
+  foot_r:
+    <<: *foot
+    offset: ["{length / 2}", 0, 0]
+  upright_l: &upright
+    primitive: cylinder
+    size: [0.03, 1.55, 0.03]
+    anchor: bottom_center
+    offset: ["{-length / 2}", 0.03, 0]
+    material: chrome
+  upright_r:
+    <<: *upright
+    offset: ["{length / 2}", 0.03, 0]
+  rail:
+    primitive: sweep
+    profile: { circle: 0.015, segments: 8 }
+    path: [["{-length / 2}", 1.56, 0], ["{length / 2}", 1.56, 0]]
+    center: false
+    material: chrome
+  garment_0:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 0 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: car_navy
+    collider: none
+  garment_1:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 1 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: maroon
+    collider: none
+  garment_2:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 2 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: beige
+    collider: none
+  garment_3:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 3 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: teal_green
+    collider: none
+  garment_4:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 4 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: car_white
+    collider: none
+  garment_5:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 5 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: graphite
+    collider: none
+  garment_6:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 6 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: car_red
+    collider: none
+  garment_7:
+    primitive: cube
+    size: [0.05, 0.9, 0.46]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.2 + 7 * (length - 0.4) / 7}", 0.6, 0]
+    bevel: 0.02
+    material: cloth
+    tint: car_blue
+    collider: none

@@ -1,0 +1,56 @@
+# A shop counter with a till: a wooden counter, a till screen and card
+# reader on top. Staff stand behind it (-Z), customers in front (+Z).
+
+name: till_counter
+tags: [shop.counter, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.6 }
+
+clearance: { front: 1.0, back: 0.8 }
+
+parts:
+  body:
+    primitive: cube
+    size: ["{width}", 0.92, 0.6]
+    anchor: bottom_center
+    bevel: 0.01
+    material: wood_dark
+  top:
+    primitive: cube
+    size: ["{width + 0.06}", 0.04, 0.66]
+    anchor: bottom_center
+    offset: [0, 0.92, 0]
+    bevel: 0.006
+    material: wood
+  till:
+    primitive: cube
+    size: [0.36, 0.1, 0.32]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.35}", 0.96, -0.05]
+    bevel: 0.015
+    material: plastic_black
+  screen:
+    primitive: cube
+    size: [0.3, 0.22, 0.03]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.35}", 1.06, -0.1]
+    rotation: [-15, 0, 0]
+    bevel: 0.006
+    material: screen
+    collider: none
+  card_reader:
+    primitive: cube
+    size: [0.08, 0.03, 0.14]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.7}", 0.96, 0.15]
+    bevel: 0.006
+    material: plastic_black
+    collider: none
+
+affordances:
+  - { type: stand, at: [0, 0, -0.75], approach: [0, 0, 0], facing: 0, duration: [40, 90],
+      advertises: { work: 1.0 }, tags: [staff, shop] }

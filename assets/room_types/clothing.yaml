@@ -1,0 +1,36 @@
+# A clothes shop: rails of garments on the floor, shelving on the walls, a
+# long mirror and the till.
+
+name: clothing
+finishes: { walls: paint_greige, floor: hardwood_floor }
+
+items:
+  till:                   # by the street door: toward the stock-room door it can seal the back in
+    asset: till_counter.yaml
+    against: none
+    facing: north
+    prefer: [near_door]
+  rail:
+    asset: clothes_rail.yaml
+    against: none
+    facing: north
+    count: 2
+    min: 1
+    prefer: [{far: rail}, centered]
+  shelving:
+    asset: wall_shelving.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [no_window_wall]
+  mirror:
+    asset: wall_mirror.yaml
+    mount: wall
+    height: 0.5
+    prefer: [no_window_wall]
+    optional: true
+  armchair:
+    asset: armchair.yaml
+    against: wall
+    prefer: [corner]
+    optional: true

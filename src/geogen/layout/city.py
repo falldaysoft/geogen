@@ -402,6 +402,9 @@ class CityBuilder:
             params["style"] = str(styles[int(self.rng.integers(len(styles)))])
         elif styles:
             params["style"] = str(styles)
+        for key in ("shop", "sign", "awning"):      # shop_row: the shop's kind, its fascia and awning colour
+            if key in entry:
+                params[key] = entry[key]
         return params
 
     def _fit(self, entries: list[dict[str, Any]], lot: Lot) -> SceneNode | None:

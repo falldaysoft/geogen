@@ -1,0 +1,156 @@
+# A gondola: a free-standing double-sided shop shelf with stock on both
+# faces and an end cap. Runs along X; shoppers use both long sides.
+
+name: gondola
+tags: [shop.gondola, furniture.shelving]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: { default: 2.0 }
+
+clearance: { front: 0.9, back: 0.9 }
+
+parts:
+  spine:
+    primitive: cube
+    size: ["{length}", 1.33, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.12, 0]           # on the base (bottoms level on a raised floor z-fight)
+    bevel: 0.004
+    material: paint_white
+  base:
+    primitive: cube
+    size: ["{length}", 0.12, 0.9]
+    anchor: bottom_center
+    bevel: 0.01
+    material: paint_white
+  shelf_f_0:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 0.12, 0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_f_0:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.13999999999999999, 0.21]
+    bevel: 0.01
+    material: cloth
+    tint: car_blue
+    collider: none
+  shelf_f_1:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 0.5, 0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_f_1:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.52, 0.21]
+    bevel: 0.01
+    material: cloth
+    tint: beige
+    collider: none
+  shelf_f_2:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 0.88, 0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_f_2:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.9, 0.21]
+    bevel: 0.01
+    material: cloth
+    tint: car_red
+    collider: none
+  shelf_f_3:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 1.24, 0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_f_3:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 1.26, 0.21]
+    bevel: 0.01
+    material: cloth
+    tint: teal_green
+    collider: none
+  shelf_b_0:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 0.12, -0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_b_0:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.13999999999999999, -0.21]
+    bevel: 0.01
+    material: cloth
+    tint: car_blue
+    collider: none
+  shelf_b_1:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 0.5, -0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_b_1:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.52, -0.21]
+    bevel: 0.01
+    material: cloth
+    tint: beige
+    collider: none
+  shelf_b_2:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 0.88, -0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_b_2:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.9, -0.21]
+    bevel: 0.01
+    material: cloth
+    tint: car_red
+    collider: none
+  shelf_b_3:
+    primitive: cube
+    size: ["{length - 0.04}", 0.02, 0.38]
+    anchor: bottom_center
+    offset: [0, 1.24, -0.21]
+    bevel: 0.003
+    material: paint_white
+  stock_b_3:
+    primitive: cube
+    size: ["{length - 0.1}", 0.2, 0.28]
+    anchor: bottom_center
+    offset: [0, 1.26, -0.21]
+    bevel: 0.01
+    material: cloth
+    tint: teal_green
+    collider: none

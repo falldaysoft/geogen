@@ -1,0 +1,83 @@
+# A cafe counter: a tiled counter with an espresso machine, a grinder, a
+# cake stand and cups. Staff stand behind it (-Z), customers order in front.
+
+name: cafe_counter
+tags: [shop.cafe_counter, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 2.2 }
+
+clearance: { front: 1.0, back: 0.8 }
+
+parts:
+  body:
+    primitive: cube
+    size: ["{width}", 0.95, 0.65]
+    anchor: bottom_center
+    bevel: 0.01
+    material: tile_subway
+  top:
+    primitive: cube
+    size: ["{width + 0.06}", 0.04, 0.7]
+    anchor: bottom_center
+    offset: [0, 0.95, 0]
+    bevel: 0.006
+    material: wood
+  machine:
+    primitive: cube
+    size: [0.62, 0.42, 0.45]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.45}", 0.99, -0.08]
+    bevel: 0.03
+    material: chrome
+  group_heads:
+    primitive: cube
+    size: [0.5, 0.06, 0.12]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.45}", 1.2, 0.18]
+    bevel: 0.01
+    material: plastic_black
+    collider: none
+  grinder:
+    primitive: lathe
+    profile: [[0, 0], [0.09, 0], [0.09, 0.2], [0.06, 0.22], [0.1, 0.36], [0, 0.36]]
+    fit: none
+    segments: 16
+    size: [0.2, 0.36, 0.2]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.95}", 0.99, -0.12]
+    material: chrome
+    collider: none
+  cake_stand:
+    primitive: lathe
+    profile: [[0, 0], [0.07, 0], [0.03, 0.02], [0.03, 0.12], [0.16, 0.13], [0.16, 0.15], [0, 0.15]]
+    fit: none
+    segments: 20
+    size: [0.32, 0.15, 0.32]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.4}", 0.99, 0.1]
+    material: ceramic_white
+    collider: none
+  cake:
+    primitive: cylinder
+    size: [0.24, 0.1, 0.24]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.4}", 1.14, 0.1]
+    material: cloth
+    tint: maroon
+    collider: none
+  cups:
+    primitive: cube
+    size: [0.3, 0.08, 0.1]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.45}", 1.41, -0.12]
+    bevel: 0.02
+    material: ceramic_white
+    collider: none
+
+affordances:
+  - { type: stand, at: [0, 0, -0.75], approach: [0, 0, 0], facing: 0, duration: [40, 90],
+      advertises: { work: 1.0 }, tags: [staff, shop] }

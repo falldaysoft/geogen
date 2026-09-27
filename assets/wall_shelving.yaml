@@ -1,0 +1,112 @@
+# Shop wall shelving: a tall steel unit with five shelves of stock (rows of
+# boxes and tins in mixed colours). Against a wall, back at -Z.
+
+name: wall_shelving
+tags: [shop.shelving, furniture.shelving]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.2 }
+
+clearance: { front: 0.9 }
+
+parts:
+  back:
+    primitive: cube
+    size: ["{width}", 2.0, 0.03]
+    anchor: bottom_center
+    offset: [0, 0, -0.2]
+    bevel: 0.004
+    material: paint_white
+  side_l: &side
+    primitive: cube
+    size: [0.03, 2.0, 0.42]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.015}", 0, 0]
+    bevel: 0.004
+    material: paint_white
+  side_r:
+    <<: *side
+    offset: ["{width / 2 - 0.015}", 0, 0]
+  shelf_0:
+    primitive: cube
+    size: ["{width - 0.06}", 0.025, 0.4]
+    anchor: bottom_center
+    offset: [0, 0.1, 0]
+    bevel: 0.003
+    material: paint_white
+  stock_0:
+    primitive: cube
+    size: ["{width - 0.12}", 0.24, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.125, 0.02]
+    bevel: 0.01
+    material: cloth
+    tint: car_red
+    collider: none
+  shelf_1:
+    primitive: cube
+    size: ["{width - 0.06}", 0.025, 0.4]
+    anchor: bottom_center
+    offset: [0, 0.48, 0]
+    bevel: 0.003
+    material: paint_white
+  stock_1:
+    primitive: cube
+    size: ["{width - 0.12}", 0.2, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.505, 0.02]
+    bevel: 0.01
+    material: cloth
+    tint: teal_green
+    collider: none
+  shelf_2:
+    primitive: cube
+    size: ["{width - 0.06}", 0.025, 0.4]
+    anchor: bottom_center
+    offset: [0, 0.86, 0]
+    bevel: 0.003
+    material: paint_white
+  stock_2:
+    primitive: cube
+    size: ["{width - 0.12}", 0.22, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.885, 0.02]
+    bevel: 0.01
+    material: cloth
+    tint: beige
+    collider: none
+  shelf_3:
+    primitive: cube
+    size: ["{width - 0.06}", 0.025, 0.4]
+    anchor: bottom_center
+    offset: [0, 1.24, 0]
+    bevel: 0.003
+    material: paint_white
+  stock_3:
+    primitive: cube
+    size: ["{width - 0.12}", 0.18, 0.3]
+    anchor: bottom_center
+    offset: [0, 1.265, 0.02]
+    bevel: 0.01
+    material: cloth
+    tint: car_blue
+    collider: none
+  shelf_4:
+    primitive: cube
+    size: ["{width - 0.06}", 0.025, 0.4]
+    anchor: bottom_center
+    offset: [0, 1.62, 0]
+    bevel: 0.003
+    material: paint_white
+  stock_4:
+    primitive: cube
+    size: ["{width - 0.12}", 0.2, 0.3]
+    anchor: bottom_center
+    offset: [0, 1.645, 0.02]
+    bevel: 0.01
+    material: cloth
+    tint: maroon
+    collider: none

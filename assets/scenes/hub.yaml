@@ -1,5 +1,5 @@
 # The hub: a round plaza with one labelled portal per showcase scene, spread
-# evenly round the far (-Z) side (angles from -Z: +-75 for five portals;
+# evenly round the far (-Z) side (angles from -Z: +-80 for six portals;
 # re-space them when a showcase is added). Each portal lands at its scene's
 # `from_hub` spawn, and every showcase has a portal or travel door back here
 # that lands in front of its own portal (`from_<name>`). It's the runtime
@@ -11,20 +11,22 @@ tags: [showcase.hub]
 
 spawns:
   start: { position: [0, 0.1, 7.5], facing: south }      # facing the plinth and the portals
-  from_cottage: { position: [-5.99, 0.1, -1.6], facing: center }
-  from_hotel: { position: [-3.77, 0.1, -4.92], facing: center }
-  from_restaurant: { position: [0.0, 0.1, -6.2], facing: center }
-  from_town: { position: [3.77, 0.1, -4.92], facing: center }
-  from_park: { position: [5.99, 0.1, -1.6], facing: center }
+  from_cottage: { position: [-6.5, 0.1, -1.15], facing: center }
+  from_hotel: { position: [-4.9, 0.1, -4.42], facing: center }
+  from_restaurant: { position: [-1.82, 0.1, -6.34], facing: center }
+  from_main_street: { position: [1.82, 0.1, -6.34], facing: center }
+  from_town: { position: [4.9, 0.1, -4.42], facing: center }
+  from_park: { position: [6.5, 0.1, -1.15], facing: center }
 
 slots:
-  portal_cottage: { position: [-8.69, 0.1, -2.33], facing: center }
-  portal_hotel: { position: [-5.48, 0.1, -7.14], facing: center }
-  portal_restaurant: { position: [0.0, 0.1, -9.0], facing: center }
-  portal_town: { position: [5.48, 0.1, -7.14], facing: center }
-  portal_park: { position: [8.69, 0.1, -2.33], facing: center }
+  portal_cottage: { position: [-9.26, 0.1, -1.63], facing: center }
+  portal_hotel: { position: [-6.99, 0.1, -6.29], facing: center }
+  portal_restaurant: { position: [-2.59, 0.1, -9.04], facing: center }
+  portal_main_street: { position: [2.59, 0.1, -9.04], facing: center }
+  portal_town: { position: [6.99, 0.1, -6.29], facing: center }
+  portal_park: { position: [9.26, 0.1, -1.63], facing: center }
   centre: { position: [0, 0.1, 0], facing: north }
-  sign: { position: [2.4, 0.1, 4.0], facing: north }
+  sign: { position: [5.2, 0.1, 5.6], facing: north }   # beside the start, clear of the view to the portals
   lamp_e: { position: [11.2, 0.1, 3.0], facing: west }
   lamp_w: { position: [-11.2, 0.1, 3.0], facing: east }
   lamp_ne: { position: [7.5, 0.1, 8.5], facing: center }
@@ -61,8 +63,14 @@ place:
   portal_restaurant:
     asset: portal.yaml
     slot: portal_restaurant
-    params: { label: Restaurant }
+    params: { label: Restaurant, plaque: 3.2 }
     travel: { scene: restaurant, spawn: from_hub }
+
+  portal_main_street:
+    asset: portal.yaml
+    slot: portal_main_street
+    params: { label: Main Street, plaque: 3.2 }
+    travel: { scene: main_street, spawn: from_hub }
 
   portal_town:
     asset: portal.yaml
@@ -79,7 +87,7 @@ place:
   signpost:
     asset: signpost.yaml
     slot: sign
-    params: { arm1: Cottage, dir1: 240, arm2: Hotel, dir2: 215, arm3: Restaurant, dir3: 190, arm4: Town, dir4: 165 }   # a signpost has four arms: the park (far right) goes unsigned
+    params: { arm1: Hotel, dir1: 226, arm2: Restaurant, dir2: 208, arm3: Main Street, dir3: 190, arm4: Town, dir4: 171 }   # four arms: the two end portals go unsigned
 
   lamp_e: { asset: street_lamp.yaml, slot: lamp_e }
   lamp_w: { asset: street_lamp.yaml, slot: lamp_w }

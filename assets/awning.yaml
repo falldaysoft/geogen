@@ -1,0 +1,37 @@
+# A shopfront awning: a fabric canopy sloping out from the wall over the
+# windows, with a scalloped valance. Wall-mounted: origin on the wall plane
+# at the canopy's top edge centre, projecting along +Z.
+
+name: awning
+tags: [decor.awning, decor.wall]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  { default: 4.0 }
+  reach:  { default: 1.2 }
+  drop:   { default: 0.5 }
+  color:  { default: british_green, choices: [british_green, car_red, car_navy, maroon, teal_green, beige] }
+
+parts:
+  canopy:
+    primitive: extrude
+    shape: { polygon: [[0, 0], ["{-reach}", "{-drop}"], ["{-reach}", "{-drop - 0.03}"], [0, -0.03]] }   # axis x: profile x runs along -Z
+    fit: none
+    axis: x
+    size: ["{width}", "{drop + 0.03}", "{reach}"]
+    anchor: bottom_center
+    offset: [0, "{-drop - 0.03}", "{reach / 2}"]
+    material: fabric_linen
+    tint: "{color}"
+    collider: none
+  valance:
+    primitive: cube
+    size: ["{width}", 0.22, 0.02]
+    anchor: bottom_center
+    offset: [0, "{-drop - 0.22}", "{reach}"]
+    bevel: 0
+    material: fabric_linen
+    tint: "{color}"
+    collider: none

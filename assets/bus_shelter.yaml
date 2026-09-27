@@ -1,0 +1,95 @@
+# A bus shelter: a steel frame with a glass back and ends, a flat roof, a
+# perch bench and a timetable panel with the stop's name. Faces +Z (the kerb).
+
+name: bus_shelter
+tags: [street.bus_stop, street_furniture]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label: { default: "Bus stop", type: text }
+  width: { default: 3.2 }
+
+clearance: { front: 1.0 }
+
+parts:
+  post_1: &post
+    primitive: cube
+    size: [0.06, 2.3, 0.06]
+    anchor: bottom_center
+    offset: ["{-width / 2}", 0, -0.55]
+    bevel: 0.005
+    material: lamp_iron
+  post_2:
+    <<: *post
+    offset: ["{width / 2}", 0, -0.55]
+  post_3:
+    <<: *post
+    offset: ["{-width / 2}", 0, 0.55]
+  post_4:
+    <<: *post
+    offset: ["{width / 2}", 0, 0.55]
+  roof:
+    primitive: cube
+    size: ["{width + 0.2}", 0.08, 1.4]
+    anchor: bottom_center
+    offset: [0, 2.3, 0]
+    bevel: 0.01
+    material: lamp_iron
+  back_glass:
+    primitive: cube
+    size: ["{width - 0.06}", 1.9, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.25, -0.55]
+    bevel: 0
+    material: glass
+  end_glass_l: &end
+    primitive: cube
+    size: [0.02, 1.9, 0.9]
+    anchor: bottom_center
+    offset: ["{-width / 2}", 0.25, -0.1]
+    bevel: 0
+    material: glass
+  end_glass_r:
+    <<: *end
+    offset: ["{width / 2}", 0.25, -0.1]
+  bench:
+    primitive: cube
+    size: ["{width - 0.8}", 0.05, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.5, -0.35]
+    bevel: 0.01
+    material: wood
+  bench_leg_l: &bleg
+    primitive: cube
+    size: [0.05, 0.5, 0.25]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.5}", 0, -0.35]
+    bevel: 0.005
+    material: lamp_iron
+  bench_leg_r:
+    <<: *bleg
+    offset: ["{width / 2 - 0.5}", 0, -0.35]
+  panel:
+    primitive: cube
+    size: [0.9, 0.3, 0.04]
+    anchor: bottom_center
+    offset: [0, 1.95, 0.6]
+    bevel: 0.005
+    material: paint_navy
+  panel_label:
+    primitive: text
+    text: "{label}"
+    height: 0.1
+    depth: 0.01
+    anchor: center
+    offset: [0, "{2.1 - 0.5}", 0.625]
+    material: paint_white
+    collider: none
+
+affordances:
+  - { type: sit, at: [-0.5, 0.55, -0.3], facing: 0, height: 0.55, depth: 0.12, duration: [20, 60],
+      advertises: { rest: 0.3 }, tags: [seat, outside, bus] }
+  - { type: sit, at: [0.5, 0.55, -0.3], facing: 0, height: 0.55, depth: 0.12, duration: [20, 60],
+      advertises: { rest: 0.3 }, tags: [seat, outside, bus] }

@@ -1,0 +1,25 @@
+# A grocer: shelving round the walls, gondola shelves down the middle and
+# the till by the door.
+
+name: grocer
+finishes: { walls: paint_white, floor: tile_floor_grey }
+
+items:
+  till:
+    asset: till_counter.yaml
+    against: none
+    facing: north
+    prefer: [near_door]
+  shelving:
+    asset: wall_shelving.yaml
+    against: wall
+    count: 5
+    min: 2
+    prefer: [no_window_wall, no_door_wall]
+  gondola:
+    asset: gondola.yaml
+    against: none
+    facing: east
+    count: 2
+    min: 1
+    prefer: [centered, {far: gondola}]

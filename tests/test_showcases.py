@@ -80,3 +80,26 @@ def test_restaurant_playtest_and_service(run_godot, restaurant_dir):
     seats = {k.split("#")[0].rstrip("_0123456789") for d in diners for k in d["used"]}
     assert {"booth", "stool"} <= seats and ("chair" in seats), seats
     assert sum(len(n["failures"]) for n in npcs.values()) <= 3
+
+
+@pytest.fixture(scope="module")
+def main_street_dir(tmp_path_factory, built_scene):
+    out = tmp_path_factory.mktemp("generated")
+    export_scene(built_scene("main_street"), out / "main_street.glb")
+    return out
+
+
+def test_main_street_shops_are_furnished_by_kind(built_scene):
+    from geogen.export import gameplay_summary
+
+    kinds = {r["type"] for r in gameplay_summary(built_scene("main_street"))["rooms"]}
+    assert {"cafe", "grocer", "clothing"} <= kinds, kinds
+
+
+def test_main_street_traffic_and_pedestrians_keep_moving(run_godot, main_street_dir):
+    out = run_godot("--scene=main_street", f"--generated={main_street_dir}", "--timescale=4", "--simulate=120")
+    traffic = _json_line(out, "traffic summary: ")[0]
+    assert traffic["vehicles"] >= 4 and traffic["distance"] > 500, traffic
+    assert traffic["overlaps"] == 0 and not traffic["stuck"], traffic
+    walkers = _json_line(out, "npc summary: ")
+    assert len(walkers) == 10 and sum(w["decisions"] for w in walkers) >= 15

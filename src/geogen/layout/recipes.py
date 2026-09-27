@@ -147,13 +147,19 @@ def detached_house(width: float, depth: float, storeys: int = 1, style: str = "b
                      "gable_material": _cladding(style)}}
 
 
-def shop_row(width: float, depth: float, storeys: int = 2, style: str = "stucco") -> dict[str, Any]:
+SHOP_KINDS = ("shop", "cafe", "grocer", "bookshop", "clothing")   # room types for the shop floor
+
+
+def shop_row(width: float, depth: float, storeys: int = 2, style: str = "stucco", shop: str = "shop",
+             sign: str | None = None, awning: str | None = None) -> dict[str, Any]:
+    if shop not in SHOP_KINDS:
+        raise ValueError(f"shop_row: shop must be one of {SHOP_KINDS}, got {shop!r}")
     _need("shop_row", width, depth, 6.0 if storeys <= 1 else 7.5, 8.0 if storeys <= 1 else 9.0)
     w, d = _snap(width), _snap(depth)
     storeys = _cap_storeys(storeys, d, 3.4, 2.7)
     inner = _snap(w - STAIR) if storeys > 1 else w
     front = _snap(d * 0.35)
-    rooms = {"shop": {"rect": _r(0, front, inner, d - front), "type": "shop"},
+    rooms = {"shop": {"rect": _r(0, front, inner, d - front), "type": shop},
              "stock": {"rect": _r(0, 0, inner, front), "type": "storage", "floor": "laminate"}}
     doors = [{"name": "shop_door", "room": "shop", "side": "north", "at": 0.5, "width": 1.2},
              {"between": ["shop", "stock"], "at": 0.8, "width": 0.9}]
@@ -301,9 +307,58 @@ def build_recipe(name: str, params: dict[str, Any], loader) -> SceneNode:
     spec = recipe_spec(name, params)
     node = loader._build_hierarchy({"name": name, "tags": [f"building.{name}"], "building": spec})
     node.meta["recipe"] = {"name": name, **{k: v for k, v in params.items()}}
+    if name == "shop_row":
+        dress_shop_front(node, loader, params.get("shop", "shop"), params.get("sign"), params.get("awning"))
     if interior == "shell":
         make_shell(node, loader._material_loader)
     return node
+
+
+SHOP_SIGNS = {"shop": "General Store", "cafe": "Cafe", "grocer": "Grocer", "bookshop": "Books",
+              "clothing": "Clothing"}
+AWNING_COLORS = ("british_green", "car_red", "car_navy", "maroon", "teal_green", "beige")
+
+
+def dress_shop_front(building: SceneNode, loader, kind: str, sign: str | None, awning: str | None) -> None:
+    """Hang a fascia sign across the shop's street front (+Z) and an awning over each shop
+    window that the facade's door canopies leave clear."""
+    from pathlib import Path
+
+    from ..core.transform import Transform
+
+    assets = Path(__file__).parents[3] / "assets"
+    shop = building.find("shop")
+    walls = next((n for n in building.iter_nodes() if n.name == "walls" and n.mesh is not None), None)
+    if shop is None or walls is None:
+        return
+    to_b = np.linalg.inv(building.world_transform())
+    centre = (to_b @ shop.world_transform())[:3, 3]
+    wv = walls.mesh.vertices @ (to_b @ walls.world_transform())[:3, :3].T + (to_b @ walls.world_transform())[:3, 3]
+    face = float(wv[:, 2].max())
+    canopies = []
+    for n in building.iter_nodes():
+        if n.name == "facade_canopy" and n.mesh is not None:
+            m = to_b @ n.world_transform()
+            v = n.mesh.vertices @ m[:3, :3].T + m[:3, 3]
+            canopies.append((float(v[:, 0].min()), float(v[:, 0].max())))
+    windows = [o for o in shop.meta.get("openings", []) if o["kind"] == "window" and o["side"] == "north"]
+    width = max((o["hi"] for o in windows), default=2.0) - min((o["lo"] for o in windows), default=-2.0)
+    colour = awning or AWNING_COLORS[sum(map(ord, sign or kind)) % len(AWNING_COLORS)]
+    fascia = loader.load(assets / "fascia_sign.yaml",
+                         params={"label": sign or SHOP_SIGNS.get(kind, "Shop"), "width": round(width + 0.4, 2),
+                                 "height": 0.5, "letter": 0.26})
+    fascia.name = "fascia"
+    fascia.transform = Transform(translation=np.array([centre[0], 2.75, face + 0.002]))
+    building.add_child(fascia)
+    for i, o in enumerate(windows):
+        x0, x1 = centre[0] + o["lo"] + 0.15, centre[0] + o["hi"] - 0.15     # inset from the window's edges
+        if any(x0 < c1 and c0 < x1 for c0, c1 in canopies):
+            continue     # the facade's door canopy is already over this window
+        node = loader.load(assets / "awning.yaml",
+                           params={"width": round(x1 - x0, 2), "reach": 1.0, "drop": 0.42, "color": colour})
+        node.name = f"awning_{i}"
+        node.transform = Transform(translation=np.array([(x0 + x1) / 2, 2.72, face + 0.002]))
+        building.add_child(node)
 
 
 def make_shell(building: SceneNode, material_loader) -> None:

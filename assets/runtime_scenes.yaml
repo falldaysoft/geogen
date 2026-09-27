@@ -23,6 +23,9 @@ scenes:
   restaurant:
     group: showcase
     description: A corner restaurant - dining room, bar and kitchen, with diners, a bartender and a chef
+  main_street:
+    group: showcase
+    description: A high street - cafe, grocer, bookshop and clothes shop, traffic lights, a bus stop, pedestrians
   park:
     group: showcase
     description: A railed park - paths round a fountain pond, playground, bandstand, picnic tables, visitors
