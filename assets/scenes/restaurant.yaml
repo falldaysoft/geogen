@@ -1,0 +1,94 @@
+# The restaurant showcase: assets/restaurant_building.yaml on a street corner.
+# Diners at the tables, in the booths and at the bar, a host by the door, a
+# bartender and a chef at work, people walking past, and a portal back to
+# the hub on the grass beside the building.
+#
+# The building is centred on the origin: street door on the south side
+# (entrance_spawn at z = -8.75), dining room and bar at the front, kitchen
+# and restrooms behind.
+
+name: restaurant
+tags: [showcase.restaurant]
+
+spawns:
+  from_hub: { position: [10.3, 0, -2.0], facing: south }   # in front of the hub portal
+
+slots:
+  south_walk:  { position: [-2.0, 0, -8.4], facing: east }
+  west_walk:   { position: [-10.15, 0, 3.0], facing: north }
+  south_road:  { position: [-3.5, 0, -13.7], facing: east }
+  west_road:   { position: [-15.4, 0, 0.8], facing: north }
+  hub_portal:  { position: [12.5, 0, -2.0], facing: west }
+  lamp_1:      { position: [-7.6, 0.12, -7.0], facing: north }     # on the building side: the kerb side stays clear
+  lamp_2:      { position: [4.6, 0.12, -7.0], facing: north }
+  lamp_3:      { position: [-11.7, 0.12, 2.0], facing: east }
+  bench:       { position: [1.5, 0.12, -7.0], facing: south }      # against the bar's front wall
+  fascia:      { position: [2.4, 2.75, -6.42], facing: south }     # across the front, clear of the entrance canopy
+  planter_1:   { position: [-6.2, 0.12, -7.0], facing: south }
+  planter_2:   { position: [-2.8, 0.12, -7.0], facing: south }
+  car_1:       { position: [-12.0, 0.02, -12.2], facing: east }
+  car_2:       { position: [-13.9, 0.02, 4.5], facing: north }
+  host:        { position: [-4.3, 0, -4.9], facing: south }
+  bartender:   { position: [6.9, 0, -2.2], facing: west }
+  chef:        { position: [-3.5, 0, 4.5], facing: north }
+  diner_1:     { position: [-6.5, 0, -2.0], facing: north }
+  diner_2:     { position: [-2.0, 0, 0.5], facing: north }
+  diner_3:     { position: [0.5, 0, -3.5], facing: north }
+  diner_4:     { position: [-5.5, 0, 0.8], facing: north }
+  diner_5:     { position: [4.3, 0, -0.5], facing: north }
+  diner_6:     { position: [4.3, 0, -4.2], facing: north }
+
+place:
+  building:
+    asset: restaurant_building.yaml
+
+  south_walk: { asset: sidewalk.yaml, slot: south_walk, params: { width: 4.0, length: 32, thickness: 0.12 } }
+  west_walk:  { asset: sidewalk.yaml, slot: west_walk, params: { width: 4.0, length: 18.8, thickness: 0.12 } }
+  south_road: { asset: road.yaml, slot: south_road, params: { width: 6.6, length: 31, thickness: 0.02 } }
+  west_road:  { asset: road.yaml, slot: west_road, params: { width: 6.5, length: 22.4, thickness: 0.02 } }
+
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_restaurant }
+
+  lamp_1: { asset: street_lamp.yaml, slot: lamp_1 }
+  lamp_2: { asset: street_lamp.yaml, slot: lamp_2 }
+  lamp_3: { asset: street_lamp.yaml, slot: lamp_3 }
+  bench: { asset: bench.yaml, slot: bench }
+  fascia: { asset: fascia_sign.yaml, slot: fascia, params: { label: "The Corner Bistro", width: 6.4, letter: 0.32 } }
+  planter_1: { asset: planter.yaml, slot: planter_1 }
+  planter_2: { asset: planter.yaml, slot: planter_2 }
+  car_1: { asset: vehicles/car.yaml, slot: car_1, params: { preset: sedan, paint: car_red } }
+  car_2: { asset: vehicles/car.yaml, slot: car_2, params: { preset: hatchback, paint: silver } }
+
+  # Staff: the host by the door, the bartender behind the bar, the chef in the kitchen.
+  host:
+    npc: npcs/hotel_staff.yaml
+    slot: host
+    home: { rect: [-7.8, -6.0, -1.0, -2.0] }
+    seed: 3
+  bartender:
+    npc: npcs/hotel_staff.yaml
+    slot: bartender
+    home: { rect: [5.5, -6.0, 7.8, 1.6] }
+    seed: 4
+  chef:
+    npc: npcs/hotel_staff.yaml
+    slot: chef
+    home: { rect: [-7.8, 1.9, 0.9, 6.0] }
+    seed: 5
+
+  # Diners (dining room and bar).
+  diner_1: &diner { npc: npcs/diner.yaml, slot: diner_1, home: { rect: [-7.8, -6.0, 5.6, 1.6] }, seed: 11 }
+  diner_2: { <<: *diner, slot: diner_2, seed: 12 }
+  diner_3: { <<: *diner, slot: diner_3, seed: 13 }
+  diner_4: { <<: *diner, slot: diner_4, seed: 14 }
+  diner_5: { <<: *diner, slot: diner_5, seed: 15 }
+  diner_6: { <<: *diner, slot: diner_6, seed: 16 }
+
+  pedestrians:
+    npc: npcs/pedestrian.yaml
+    home: { rect: [-12.5, -10.5, 16, 12] }
+    scatter: { on_tag: street.sidewalk, count: 3, spacing: 6, seed: 21, radius: 0.5 }

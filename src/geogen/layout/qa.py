@@ -30,8 +30,9 @@ FLOOR_EPS = 0.05          # items whose lowest point is above this aren't floor 
 CELL = 0.05               # occupancy grid resolution
 NON_OBSTACLES = ("furniture.rug", "furniture.curtains")
 HIGH_SILL = 1.2           # furniture may stand under windows this high (bathrooms, corridors)
-# Pairs allowed to overlap in plan: seats tuck under desks and tables.
-TUCKS = (("furniture.chair", "furniture.desk"), ("furniture.chair", "furniture.table"))
+# Pairs allowed to overlap in plan: seats tuck under desks and tables, toilets stand in cubicles.
+TUCKS = (("furniture.chair", "furniture.desk"), ("furniture.chair", "furniture.table"),
+         ("bathroom.toilet", "bathroom.stall"))
 
 
 @dataclass

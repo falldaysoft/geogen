@@ -1,0 +1,69 @@
+# A restaurant booth: a table between two high-backed upholstered benches.
+# The booth's closed end (-Z) goes against a wall; you slide in from the
+# open end (+Z), so each seat's approach is out in front of the booth.
+
+name: booth
+tags: [furniture.booth, furniture.table]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+clearance: { front: 0.9 }
+
+parts:
+  table:
+    primitive: cube
+    size: [0.66, 0.04, 1.2]
+    anchor: bottom_center
+    offset: [0, 0.73, 0]
+    bevel: 0.01
+    material: wood
+  table_leg:
+    primitive: cylinder
+    size: [0.09, 0.73, 0.09]
+    anchor: bottom_center
+    material: metal
+  table_foot:
+    primitive: cylinder
+    size: [0.5, 0.03, 0.5]
+    anchor: bottom_center
+    material: metal
+  seat_west: &seat
+    primitive: cube
+    size: [0.5, 0.44, 1.3]
+    anchor: bottom_center
+    offset: [-0.62, 0, 0]
+    bevel: 0.04
+    material: fabric_velvet
+  seat_east:
+    <<: *seat
+    offset: [0.62, 0, 0]
+  back_west: &back
+    primitive: cube
+    size: [0.14, 1.15, 1.3]
+    anchor: bottom_center
+    offset: [-0.94, 0, 0]
+    bevel: 0.04
+    material: fabric_velvet
+  back_east:
+    <<: *back
+    offset: [0.94, 0, 0]
+  end_panel:
+    primitive: cube
+    size: [2.02, 1.15, 0.06]
+    anchor: bottom_center
+    offset: [0, 0, -0.62]          # within the benches' length: the booth is symmetric about z = 0
+    bevel: 0.01
+    material: wood_dark
+
+# West bench faces +X (yaw 90: forward +X, right -Z), east bench -X (yaw 270: right +Z);
+# approaches are 0.85 m beyond the open end, in each anchor's frame.
+affordances:
+  - { type: sit, at: [-0.6, 0.46, 0.3], facing: 90, height: 0.46, depth: 0.1, approach: [-0.85, 0, 0],
+      duration: [40, 120], advertises: { rest: 0.4 }, tags: [seat, dining] }
+  - { type: sit, at: [-0.6, 0.46, -0.3], facing: 90, height: 0.46, depth: 0.1, approach: [-1.45, 0, 0],
+      duration: [40, 120], advertises: { rest: 0.4 }, tags: [seat, dining] }
+  - { type: sit, at: [0.6, 0.46, 0.3], facing: 270, height: 0.46, depth: 0.1, approach: [0.85, 0, 0],
+      duration: [40, 120], advertises: { rest: 0.4 }, tags: [seat, dining] }
+  - { type: sit, at: [0.6, 0.46, -0.3], facing: 270, height: 0.46, depth: 0.1, approach: [1.45, 0, 0],
+      duration: [40, 120], advertises: { rest: 0.4 }, tags: [seat, dining] }

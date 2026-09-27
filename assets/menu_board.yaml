@@ -1,0 +1,48 @@
+# A wall-mounted chalkboard menu in a wooden frame. Wall-mounted: origin on
+# the wall plane at the board's bottom centre, depth along +Z.
+
+name: menu_board
+tags: [decor.menu_board, decor.wall]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  title: { default: "Menu", type: text }
+
+parts:
+  frame:
+    primitive: cube
+    size: [1.1, 0.8, 0.04]
+    anchor: bottom_center
+    offset: [0, 0, 0.02]
+    bevel: 0.01
+    material: wood
+  board:
+    primitive: cube
+    size: [1.0, 0.7, 0.012]
+    anchor: bottom_center
+    offset: [0, 0.05, 0.046]
+    bevel: 0
+    material: plastic_black
+  title:
+    primitive: text
+    text: "{title}"
+    font: serif
+    height: 0.07
+    depth: 0.003
+    anchor: center
+    offset: [0, 0.14, 0.0535]
+    material: paint_white
+    collider: none
+  items:
+    primitive: text
+    text: "Soup of the day   6\nRoast chicken   14\nMushroom risotto   12\nApple tart   6"
+    font: sans
+    height: 0.032
+    depth: 0.003
+    line_spacing: 1.25
+    anchor: center
+    offset: [0, -0.1, 0.0535]
+    material: paint_white
+    collider: none

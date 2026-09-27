@@ -1,0 +1,33 @@
+# A tall stainless commercial fridge with one full-height door (press E to
+# open it; it swings on its left side). Against a wall, door facing +Z.
+
+name: fridge
+tags: [kitchen.fridge, appliance]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+clearance: { front: 0.9 }
+
+parts:
+  cabinet:
+    primitive: cube
+    size: [0.75, 2.0, 0.78]
+    anchor: bottom_center
+    bevel: 0.01
+    material: chrome
+  door:
+    primitive: cube
+    size: [0.72, 1.9, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.06, 0.41]
+    bevel: 0.008
+    material: chrome
+    joint: { type: hinge, pivot: left, limits: [0, 100], with: [handle] }
+  handle:
+    primitive: cylinder
+    size: [0.03, 0.5, 0.03]
+    anchor: bottom_center
+    offset: [0.3, 0.85, 0.46]
+    material: plastic_black
+    collider: none

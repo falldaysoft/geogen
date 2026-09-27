@@ -1,0 +1,43 @@
+# A shop or restaurant fascia: a painted board with raised lettering and a
+# slim cap, for fixing across a front wall above the door and windows.
+# Wall-mounted: origin on the wall plane at the board's bottom centre, the
+# lettering faces +Z (out of the wall).
+
+name: fascia_sign
+tags: [decor.sign, decor.wall]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label:  { default: "Shop", type: text }
+  width:  { default: 5.0 }
+  height: { default: 0.6 }
+  letter: { default: 0.3 }
+  font:   { default: serif, choices: [serif, sans] }
+
+parts:
+  board:
+    primitive: cube
+    size: ["{width}", "{height}", 0.08]
+    anchor: bottom_center
+    offset: [0, 0, 0.04]
+    bevel: 0.01
+    material: paint_navy
+  cap:
+    primitive: cube
+    size: ["{width + 0.06}", 0.05, 0.12]
+    anchor: bottom_center
+    offset: [0, "{height}", 0.06]
+    bevel: 0.008
+    material: trim_white
+  lettering:
+    primitive: text
+    text: "{label}"
+    font: "{font}"
+    height: "{letter}"
+    depth: 0.02
+    anchor: center
+    offset: [0, "{height / 2 - 0.5}", 0.09]
+    material: trim_white
+    collider: none

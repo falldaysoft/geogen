@@ -1,0 +1,61 @@
+# A bar counter: a panelled front with a marble top, beer taps and a brass
+# foot rail. Its +Z side is the staff side (it faces the back bar across the
+# aisle: room_types/bar.yaml places it front_of back_bar); customers sit on
+# stools at the seat_N attachments on the -Z side.
+# Origin: bottom centre.
+
+name: bar_counter
+tags: [furniture.bar_counter, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 3.6 }
+
+clearance: { back: 1.1 }
+
+parts:
+  counter:
+    primitive: cube
+    size: ["{width}", 1.04, 0.55]
+    anchor: bottom_center
+    bevel: 0.01
+    material: wood_dark
+  counter_top:
+    primitive: cube
+    size: ["{width + 0.1}", 0.05, 0.7]
+    anchor: bottom_center
+    offset: [0, 1.04, 0]
+    bevel: 0.008
+    material: marble
+  foot_rail:
+    primitive: sweep
+    profile: { circle: 0.025, segments: 10 }
+    path: [["{-width / 2}", 0.22, -0.38], ["{width / 2}", 0.22, -0.38]]
+    center: false
+    material: chrome
+  tap_1: &tap
+    primitive: cylinder
+    size: [0.05, 0.35, 0.05]
+    anchor: bottom_center
+    offset: [-0.3, 1.09, 0.18]
+    material: chrome
+    collider: none
+  tap_2:
+    <<: *tap
+    offset: [0, 1.09, 0.18]
+  tap_3:
+    <<: *tap
+    offset: [0.3, 1.09, 0.18]
+
+attachments:
+  seat_1: { anchor: bottom_center, offset: ["{-width * 0.375}", 0, -0.95], facing: north }   # stools face the counter (+Z)
+  seat_2: { anchor: bottom_center, offset: ["{-width * 0.125}", 0, -0.95], facing: north }
+  seat_3: { anchor: bottom_center, offset: ["{width * 0.125}", 0, -0.95], facing: north }
+  seat_4: { anchor: bottom_center, offset: ["{width * 0.375}", 0, -0.95], facing: north }
+
+# The bartender works the staff side (+Z), facing the customers.
+affordances:
+  - { type: stand, at: [0, 0, 0.6], approach: [0, 0, 0], facing: 180, duration: [40, 90],
+      advertises: { work: 1.0 }, tags: [staff, bar] }

@@ -1,0 +1,45 @@
+# A restaurant dining room: booths along a wall, laid tables with chairs, a
+# host stand by the door and a chalkboard menu.
+
+name: dining_room
+finishes: { walls: paint_terracotta, floor: hardwood_floor }
+
+items:
+  host_stand:                  # free-standing: the host stands behind it, facing the door
+    asset: host_stand.yaml
+    against: none
+    facing: south
+    prefer: [near_door]
+  booth:
+    asset: booth.yaml
+    against: wall
+    count: 2
+    min: 1
+    prefer: [no_window_wall, no_door_wall, far_door]
+  table:
+    asset: table.yaml
+    against: none
+    facing: north
+    count: 4
+    min: 2
+    clearance: { front: 0.9, back: 0.9, left: 0.9, right: 0.9 }
+    prefer: [{far: table}, near_window]
+  chair:
+    asset: chair.yaml
+    around: table
+    min: 4
+  setting:
+    asset: table_setting.yaml
+    on: table
+  menu:
+    asset: menu_board.yaml
+    mount: wall
+    height: 1.35
+    prefer: [near_door, no_window_wall]
+    optional: true
+  planter:
+    asset: planter.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [corner]

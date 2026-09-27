@@ -232,6 +232,24 @@ def _obstacle_meshes(scene: SceneNode):
     return out
 
 
+def _clip_band(t: np.ndarray, y0: float, y1: float) -> list[np.ndarray]:
+    """The part of triangle ``t`` (3x3) with y0 <= y <= y1, as a convex polygon (Sutherland-Hodgman)."""
+    poly = [p for p in t]
+    for keep, level in ((lambda p: p[1] >= y0, y0), (lambda p: p[1] <= y1, y1)):
+        out = []
+        for i, a in enumerate(poly):
+            b = poly[(i + 1) % len(poly)]
+            if keep(a):
+                out.append(a)
+            if keep(a) != keep(b):
+                s = (level - a[1]) / (b[1] - a[1])
+                out.append(a + (b - a) * s)
+        poly = out
+        if not poly:
+            break
+    return poly
+
+
 class _Grid:
     """Free floor at one level: collidable geometry between step and head height (projected
     to plan: a table top blocks, a floor or a ceiling doesn't), eroded by the actor radius."""
@@ -247,8 +265,16 @@ class _Grid:
             tri = v[f]
             ys = tri[:, :, 1]
             sel = (ys.max(axis=1) >= y0) & (ys.min(axis=1) <= y1)
-            for t in tri[sel]:
-                self._fill(blocked, t[:, [0, 2]])
+            inside = (ys.min(axis=1) >= y0) & (ys.max(axis=1) <= y1)
+            for t, whole in zip(tri[sel], inside[sel]):
+                if whole:
+                    self._fill(blocked, t[:, [0, 2]])
+                    continue
+                # Only the part within the band blocks: a wall face's long edge running over a
+                # doorway above head height mustn't close the door in plan.
+                poly = _clip_band(t, y0, y1)
+                for i in range(1, len(poly) - 1):
+                    self._fill(blocked, np.array([poly[0], poly[i], poly[i + 1]])[:, [0, 2]])
         free = ~blocked
         r = int(np.ceil(radius / CELL))
         yy, xx = np.mgrid[-r:r + 1, -r:r + 1]

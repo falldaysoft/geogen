@@ -1,0 +1,98 @@
+# A commercial range: a stainless six-burner cooker with oven doors, a
+# splashback and an extractor hood above. Against a wall (back at -Z); the
+# cook stands in front (+Z).
+
+name: kitchen_range
+tags: [kitchen.range, appliance]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.8 }
+
+clearance: { front: 1.0 }
+
+parts:
+  body:
+    primitive: cube
+    size: ["{width}", 0.88, 0.78]
+    anchor: bottom_center
+    offset: [0, 0, 0.01]
+    bevel: 0.01
+    material: chrome
+  top:
+    primitive: cube
+    size: ["{width}", 0.04, 0.8]
+    anchor: bottom_center
+    offset: [0, 0.88, 0]
+    bevel: 0.005
+    material: plastic_black
+  oven_left: &oven
+    primitive: cube
+    size: ["{width / 2 - 0.1}", 0.5, 0.02]
+    anchor: bottom_center
+    offset: ["{-width / 4}", 0.12, 0.41]
+    bevel: 0.004
+    material: plastic_black
+    collider: none
+  oven_right:
+    <<: *oven
+    offset: ["{width / 4}", 0.12, 0.41]
+  burner_1: &burner
+    primitive: cylinder
+    size: [0.22, 0.025, 0.22]
+    anchor: bottom_center
+    offset: ["{-width / 3}", 0.92, -0.18]
+    material: metal
+    collider: none
+  burner_2:
+    <<: *burner
+    offset: [0, 0.92, -0.18]
+  burner_3:
+    <<: *burner
+    offset: ["{width / 3}", 0.92, -0.18]
+  burner_4:
+    <<: *burner
+    offset: ["{-width / 3}", 0.92, 0.18]
+  burner_5:
+    <<: *burner
+    offset: [0, 0.92, 0.18]
+  burner_6:
+    <<: *burner
+    offset: ["{width / 3}", 0.92, 0.18]
+  pot:
+    primitive: lathe
+    profile: [[0, 0], [0.12, 0], [0.125, 0.2], [0.11, 0.2], [0.11, 0.02], [0, 0.02]]
+    fit: none
+    segments: 20
+    size: [0.25, 0.2, 0.25]
+    anchor: bottom_center
+    offset: ["{-width / 3}", 0.945, 0.18]
+    material: chrome
+    collider: none
+  splashback:
+    primitive: cube
+    size: ["{width}", 0.9, 0.03]
+    anchor: bottom_center
+    offset: [0, 0.92, -0.385]
+    bevel: 0.003
+    material: chrome
+  hood:
+    primitive: prism
+    size: ["{width + 0.1}", 0.45, 0.95]
+    anchor: bottom_center
+    offset: [0, 1.95, -0.02]
+    apex: back
+    material: chrome
+  hood_lip:
+    primitive: cube
+    size: ["{width + 0.1}", 0.12, 0.95]
+    anchor: bottom_center
+    offset: [0, 1.83, -0.02]
+    bevel: 0.005
+    material: chrome
+
+affordances:
+  - { type: stand, at: [0, 0, 0.85], approach: [0, 0, 0], facing: 180, duration: [40, 100],
+      advertises: { work: 1.0 }, tags: [staff, cook] }

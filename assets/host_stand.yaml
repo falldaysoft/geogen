@@ -1,0 +1,36 @@
+# A host stand by a restaurant's door: a slim podium with a sloped top.
+# Staff stand behind it (-Z) facing the door (+Z).
+
+name: host_stand
+tags: [furniture.host_stand]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+clearance: { front: 0.8, back: 0.7 }
+
+parts:
+  body:
+    primitive: cube
+    size: [0.6, 1.05, 0.42]
+    anchor: bottom_center
+    bevel: 0.015
+    material: wood_dark
+  top:
+    primitive: prism
+    size: [0.66, 0.1, 0.48]
+    anchor: bottom_center
+    offset: [0, 1.05, 0]
+    apex: back
+    material: wood
+  lamp:
+    primitive: sphere
+    size: [0.08, 0.08, 0.08]
+    anchor: bottom_center
+    offset: [0.22, 1.12, -0.12]
+    material: lamp_glass
+    collider: none
+
+affordances:
+  - { type: stand, at: [0, 0, -0.55], approach: [0, 0, 0], facing: 0, duration: [30, 60],
+      advertises: { work: 0.8 }, tags: [staff, host] }

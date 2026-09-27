@@ -56,3 +56,27 @@ def test_park_visitors_keep_to_the_paths_and_sit_down(run_godot, park_dir):
         x, _, z = v["position"]
         assert abs(x) < 35 and abs(z) < 28, v
         assert len(v["failures"]) <= 2, v["failures"]
+
+
+@pytest.fixture(scope="module")
+def restaurant_dir(tmp_path_factory, built_scene):
+    out = tmp_path_factory.mktemp("generated")
+    export_scene(built_scene("restaurant"), out / "restaurant.glb")
+    return out
+
+
+def test_restaurant_playtest_and_service(run_godot, restaurant_dir):
+    out = run_godot("--scene=restaurant", f"--generated={restaurant_dir}", "--playtest=2",
+                    engine_args=("--fixed-fps", "60"))
+    result = _json_line(out, "playtest: ")
+    assert result["ok"] and not result["unreachable"] and not result["unreachable_targets"], result
+    out = run_godot("--scene=restaurant", f"--generated={restaurant_dir}", "--timescale=8", "--simulate=240",
+                    "--time=19:00")
+    npcs = {n["npc"]: n for n in _json_line(out, "npc summary: ")}
+    works = {"host_npc": "host_stand", "bartender_npc": "bar_counter", "chef_npc": ("range", "prep")}
+    for npc, station in works.items():
+        assert any(k.startswith(station) for k in npcs[npc]["used"]), npcs[npc]
+    diners = [n for k, n in npcs.items() if k.startswith("diner")]
+    seats = {k.split("#")[0].rstrip("_0123456789") for d in diners for k in d["used"]}
+    assert {"booth", "stool"} <= seats and ("chair" in seats), seats
+    assert sum(len(n["failures"]) for n in npcs.values()) <= 3

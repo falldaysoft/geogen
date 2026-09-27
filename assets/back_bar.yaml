@@ -1,0 +1,61 @@
+# A back bar: a low cabinet with a marble top against the wall, and a panel
+# above it carrying two shelves of bottles. The bar counter stands in front
+# of it (room_types/bar.yaml: front_of back_bar), leaving the staff aisle.
+# Origin: bottom centre; back at -Z against the wall.
+
+name: back_bar
+tags: [furniture.back_bar]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 3.6 }
+
+clearance: { front: 1.0 }
+
+parts:
+  cabinet:
+    primitive: cube
+    size: ["{width}", 0.9, 0.46]
+    anchor: bottom_center
+    offset: [0, 0, 0.02]
+    bevel: 0.01
+    material: wood_dark
+  top:
+    primitive: cube
+    size: ["{width + 0.04}", 0.04, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.9, 0.02]
+    bevel: 0.006
+    material: marble
+  board:
+    primitive: cube
+    size: ["{width}", 1.3, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.94, -0.21]
+    bevel: 0.005
+    material: wood_dark
+  shelf_low: &shelf
+    primitive: cube
+    size: ["{width - 0.2}", 0.03, 0.26]
+    anchor: bottom_center
+    offset: [0, 1.4, -0.06]
+    bevel: 0.004
+    material: wood
+  shelf_high:
+    <<: *shelf
+    offset: [0, 1.8, -0.06]
+  bottles_low: &bottles
+    primitive: extrude
+    shape: { rect: ["{width - 0.4}", 0.08], radius: 0.035 }
+    fit: none
+    axis: y
+    size: ["{width - 0.4}", 0.28, 0.08]
+    anchor: bottom_center
+    offset: [0, 1.43, -0.06]
+    material: car_glass
+    collider: none
+  bottles_high:
+    <<: *bottles
+    offset: [0, 1.83, -0.06]

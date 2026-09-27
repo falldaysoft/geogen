@@ -1,0 +1,36 @@
+# A bar: a back bar against the longest plain wall, the counter across a
+# staff aisle from it with stools on the room side, plus a couple of armchairs and some art.
+
+name: bar
+finishes: { walls: paint_navy, floor: hardwood_floor }
+
+items:
+  back_bar:
+    asset: back_bar.yaml
+    against: wall
+    prefer: [longest_wall, no_window_wall, no_door_wall, centered]
+  bar_counter:                   # across a 1 m staff aisle from the back bar
+    asset: bar_counter.yaml
+    front_of: back_bar
+    distance: 1.0
+  stool:
+    asset: bar_stool.yaml
+    around: bar_counter
+    min: 2
+  armchair:
+    asset: armchair.yaml
+    against: wall
+    count: 2
+    min: 0
+    prefer: [near_window, {far: bar_counter}]
+  art:
+    asset: wall_art.yaml
+    mount: wall
+    height: 1.5
+    prefer: [no_window_wall]
+    optional: true
+  planter:
+    asset: planter.yaml
+    against: wall
+    prefer: [corner]
+    optional: true

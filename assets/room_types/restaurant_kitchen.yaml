@@ -1,0 +1,26 @@
+# A restaurant kitchen: the range under its hood on a plain wall, prep tables
+# beside it, a fridge, and the pass by the door to the dining room.
+
+name: restaurant_kitchen
+finishes: { walls: tile_white, floor: tile_floor_grey }
+
+items:
+  range:
+    asset: kitchen_range.yaml
+    against: wall
+    prefer: [no_window_wall, longest_wall, centered]
+  prep:
+    asset: prep_counter.yaml
+    params: { width: 1.2 }
+    flank: range
+    count: 2
+    min: 1
+  fridge:
+    asset: fridge.yaml
+    against: wall
+    prefer: [corner, {far: range}]
+  pass:                           # on the dining-room side, by the door (keeps the floor open)
+    asset: pass.yaml
+    against: wall
+    prefer: [door_wall, near_door]
+    optional: true

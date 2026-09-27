@@ -1,0 +1,60 @@
+# Places laid on a four-seat table (table.yaml, 1.2 x 0.8 m): a plate at each
+# seat, glasses and cutlery at the long sides. Small parts, no colliders.
+# Origin: the table top's centre.
+
+name: table_setting
+tags: [decor.table_setting]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  plate_n: &plate
+    primitive: lathe
+    profile: [[0, 0], [0.09, 0], [0.13, 0.012], [0.135, 0.018], [0.12, 0.016], [0.08, 0.006], [0, 0.006]]
+    fit: none
+    segments: 24
+    size: [0.27, 0.018, 0.27]
+    anchor: bottom_center
+    offset: [0, 0.001, 0.28]
+    material: ceramic_white
+    collider: none
+  plate_s:
+    <<: *plate
+    offset: [0, 0.001, -0.28]
+  plate_e:
+    <<: *plate
+    offset: [0.44, 0.001, 0]
+  plate_w:
+    <<: *plate
+    offset: [-0.44, 0.001, 0]
+  glass_n: &glass
+    primitive: lathe
+    profile: [[0, 0], [0.032, 0], [0.034, 0.1], [0.03, 0.1], [0.028, 0.006], [0, 0.006]]
+    fit: none
+    segments: 16
+    size: [0.068, 0.1, 0.068]
+    anchor: bottom_center
+    offset: [0.3, 0.001, 0.3]
+    material: car_glass
+    collider: none
+  glass_s:
+    <<: *glass
+    offset: [-0.3, 0.001, -0.3]
+  fork_n: &cutlery
+    primitive: cube
+    size: [0.02, 0.006, 0.18]
+    anchor: bottom_center
+    offset: [-0.16, 0.001, 0.28]
+    bevel: 0
+    material: chrome
+    collider: none
+  knife_n:
+    <<: *cutlery
+    offset: [0.16, 0.001, 0.28]
+  fork_s:
+    <<: *cutlery
+    offset: [0.16, 0.001, -0.28]
+  knife_s:
+    <<: *cutlery
+    offset: [-0.16, 0.001, -0.28]

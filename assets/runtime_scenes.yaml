@@ -20,6 +20,9 @@ scenes:
   hotel_showcase:
     group: showcase
     description: Four-storey hotel on a street - lobby with a receptionist, guests upstairs, a working lift, taxis outside
+  restaurant:
+    group: showcase
+    description: A corner restaurant - dining room, bar and kitchen, with diners, a bartender and a chef
   park:
     group: showcase
     description: A railed park - paths round a fountain pond, playground, bandstand, picnic tables, visitors

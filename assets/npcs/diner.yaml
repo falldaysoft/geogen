@@ -1,0 +1,33 @@
+# Out for a meal or a drink: sits at a table or in a booth, or at the bar,
+# and moves between them now and then. Place several in the restaurant with a
+# home covering the dining room and the bar.
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/townsfolk.yaml }
+speed: 1.0
+turn_speed: 300
+
+needs:
+  rest:      { initial: 0.4, decay: 0.012 }
+  curiosity: { initial: 0.8, decay: 0.004 }
+
+preferences:
+  dining: 1.4
+  table: 1.4          # chairs at the laid tables
+  bar: 1.2
+  seat: 1.0
+
+activities:
+  wander: { action: wander, advertises: { curiosity: 0.05 } }
+  idle:   { action: idle, advertises: { rest: 0.02 } }
+
+# Seats only: chairs, booths, bar stools, armchairs.
+affordance_tags: [seat]
+
+scoring: { distance: 0.02, recency: 0.3, memory: 120, noise: 0.06, retry: 30 }
+home_margin: 0.5
+
+flags:
+  closes_doors: true

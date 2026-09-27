@@ -1,15 +1,29 @@
-# Public restroom: toilets along a wall and a basin by the door.
+# Public restroom: toilet cubicles side by side on the wall furthest from the
+# door (each with a toilet inside), a basin and mirror by the door, and a
+# hand dryer beside them.
 
 name: restroom
 finishes: { walls: tile_subway, floor: tile_floor_grey }
 
 items:
+  stall:
+    asset: toilet_stall.yaml
+    against: wall
+    prefer: [far_door, corner]
+  stall_2:
+    asset: toilet_stall.yaml
+    flank: stall
+    count: 1
+    optional: true
   toilet:
     asset: toilet.yaml
-    against: wall
-    count: 2
-    min: 1
-    prefer: [far_door, no_door_wall]
+    under: stall
+    offset: -0.28
+  toilet_2:
+    asset: toilet.yaml
+    under: stall_2
+    offset: -0.28
+    optional: true
   vanity:
     asset: vanity.yaml
     against: wall
@@ -19,3 +33,9 @@ items:
     mount: wall
     above: vanity
     height: 1.2
+  dryer:
+    asset: hand_dryer.yaml
+    mount: wall
+    height: 1.05
+    prefer: [{near: vanity}]
+    optional: true

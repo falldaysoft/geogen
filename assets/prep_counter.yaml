@@ -1,0 +1,74 @@
+# A stainless prep table with an undershelf, a chopping board and a few tubs.
+# Against a wall (back at -Z); staff work from the front (+Z).
+
+name: prep_counter
+tags: [kitchen.prep_counter, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.6 }
+
+clearance: { front: 0.9 }
+
+parts:
+  top:
+    primitive: cube
+    size: ["{width}", 0.04, 0.7]
+    anchor: bottom_center
+    offset: [0, 0.86, 0]
+    bevel: 0.005
+    material: chrome
+  upstand:
+    primitive: cube
+    size: ["{width}", 0.1, 0.03]
+    anchor: bottom_center
+    offset: [0, 0.9, -0.335]
+    bevel: 0.003
+    material: chrome
+  undershelf:
+    primitive: cube
+    size: ["{width - 0.1}", 0.03, 0.62]
+    anchor: bottom_center
+    offset: [0, 0.18, 0]
+    bevel: 0.003
+    material: chrome
+  leg_1: &leg
+    primitive: cylinder
+    size: [0.04, 0.86, 0.04]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.05}", 0, -0.3]
+    material: chrome
+  leg_2:
+    <<: *leg
+    offset: ["{width / 2 - 0.05}", 0, -0.3]
+  leg_3:
+    <<: *leg
+    offset: ["{-width / 2 + 0.05}", 0, 0.3]
+  leg_4:
+    <<: *leg
+    offset: ["{width / 2 - 0.05}", 0, 0.3]
+  board:
+    primitive: cube
+    size: [0.5, 0.025, 0.35]
+    anchor: bottom_center
+    offset: [0.1, 0.9, 0.05]
+    bevel: 0.004
+    material: wood
+    collider: none
+  tub_1: &tub
+    primitive: cube
+    size: [0.18, 0.1, 0.26]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.25}", 0.9, -0.15]
+    bevel: 0.01
+    material: ceramic_white
+    collider: none
+  tub_2:
+    <<: *tub
+    offset: ["{-width / 2 + 0.47}", 0.9, -0.15]
+
+affordances:
+  - { type: stand, at: [0, 0, 0.75], approach: [0, 0, 0], facing: 180, duration: [30, 80],
+      advertises: { work: 0.8 }, tags: [staff, cook] }

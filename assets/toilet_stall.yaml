@@ -1,0 +1,58 @@
+# A toilet cubicle: painted side partitions raised off the floor, a front
+# pilaster and a door that swings out on its left side (press E). The room
+# archetype puts a toilet under it (room_types/restroom.yaml: under: stall).
+# Origin: bottom centre; the back is at -Z against the wall, the door at +Z.
+
+name: toilet_stall
+tags: [bathroom.stall]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 0.95 }
+  depth: { default: 1.5 }
+
+clearance: { front: 0.8 }
+
+parts:
+  side_left: &side
+    primitive: cube
+    size: [0.03, 1.8, "{depth}"]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.015}", 0.15, 0]
+    bevel: 0.006
+    material: paint_sage
+  side_right:
+    <<: *side
+    offset: ["{width / 2 - 0.015}", 0.15, 0]
+  pilaster:
+    primitive: cube
+    size: ["{width - 0.66}", 1.95, 0.03]
+    anchor: bottom_center
+    offset: ["{width / 2 - (width - 0.66) / 2}", 0, "{depth / 2 - 0.015}"]
+    bevel: 0.006
+    material: paint_sage
+  head_rail:
+    primitive: cube
+    size: ["{width}", 0.04, 0.04]
+    anchor: bottom_center
+    offset: [0, 1.95, "{depth / 2 - 0.015}"]
+    bevel: 0
+    material: chrome
+  door:
+    primitive: cube
+    size: [0.6, 1.7, 0.025]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.33}", 0.18, "{depth / 2 - 0.015}"]
+    bevel: 0.005
+    material: paint_sage
+    joint: { type: hinge, pivot: left, limits: [0, 95], with: [latch] }
+  latch:
+    primitive: cube
+    size: [0.03, 0.08, 0.04]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.6}", 0.95, "{depth / 2 + 0.01}"]
+    bevel: 0
+    material: chrome
+    collider: none

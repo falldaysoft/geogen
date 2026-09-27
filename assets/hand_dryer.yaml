@@ -1,0 +1,24 @@
+# A wall-mounted hand dryer (brushed steel). Wall-mounted: origin on the wall
+# plane at its bottom centre, depth along +Z.
+
+name: hand_dryer
+tags: [bathroom.hand_dryer, decor.wall]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  body:
+    primitive: cube
+    size: [0.28, 0.3, 0.2]
+    anchor: bottom_center
+    offset: [0, 0, 0.1]
+    bevel: 0.04
+    material: chrome
+  nozzle:
+    primitive: cylinder
+    size: [0.07, 0.05, 0.07]
+    anchor: bottom_center
+    offset: [0, -0.04, 0.13]
+    material: plastic_black
+    collider: none
