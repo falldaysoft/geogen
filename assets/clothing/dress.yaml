@@ -3,6 +3,7 @@ kind: garment
 name: dress
 type: loose
 material: cloth
+weights: legs            # Hips at the waist, thighs below (humanoid.leg_weights)
 cover:
   leg: [[LeftUpperLeg, -1.0], [LeftUpperLeg, -0.13]]   # the thigh tubes' tops inside the hem line
   torso: [[Hips, 0.3], [UpperChest, 0.85]]

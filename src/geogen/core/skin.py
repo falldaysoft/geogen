@@ -118,17 +118,36 @@ class Track:
 
 
 @dataclass
+class MorphTrack:
+    """Keyframed weights of one mesh node's morph targets: ``times`` (K), ``weights``
+    {target name: K values}. Exported as a glTF ``weights`` channel."""
+
+    times: NDArray[np.float64]
+    weights: dict[str, NDArray[np.float64]]
+
+    def __post_init__(self) -> None:
+        self.times = np.asarray(self.times, dtype=np.float64)
+        self.weights = {k: np.asarray(v, dtype=np.float64) for k, v in self.weights.items()}
+
+    def sample(self, t: float) -> dict[str, float]:
+        return {k: float(np.interp(t, self.times, v)) for k, v in self.weights.items()}
+
+
+@dataclass
 class Clip:
-    """A named animation: joint name -> ``Track``. Joints are found by name under the clip's owner node."""
+    """A named animation: joint name -> ``Track``. Joints are found by name under the clip's owner node.
+    ``morphs`` maps mesh node names (under the owner) to ``MorphTrack``s of their morph weights."""
 
     name: str
     tracks: dict[str, Track] = field(default_factory=dict)
     loop: bool = True
     meta: dict = field(default_factory=dict)      # exported with the clip in extras (e.g. walk speed)
+    morphs: dict[str, MorphTrack] = field(default_factory=dict)
 
     @property
     def duration(self) -> float:
-        return max((float(tr.times[-1]) for tr in self.tracks.values()), default=0.0)
+        return max([float(tr.times[-1]) for tr in self.tracks.values()]
+                   + [float(tr.times[-1]) for tr in self.morphs.values()], default=0.0)
 
     def apply(self, owner: SceneNode, t: float) -> None:
         """Pose ``owner``'s joints at time ``t`` (looped clips wrap)."""
@@ -141,6 +160,11 @@ class Clip:
                 raise KeyError(f"Clip '{self.name}': no joint '{joint_name}' under '{owner.name}'")
             rotation, translation = track.sample(t)
             set_local(node, rotation, translation)
+        for node_name, morph in self.morphs.items():
+            node = by_name.get(node_name)
+            if node is None:
+                raise KeyError(f"Clip '{self.name}': no mesh node '{node_name}' under '{owner.name}'")
+            node.morph_weights.update(morph.sample(t))
 
 
 def set_local(node: SceneNode, rotation: NDArray[np.float64] | None = None,

@@ -4,6 +4,7 @@ kind: garment
 name: skirt
 type: loose
 material: cloth
+weights: legs            # Hips at the waist, thighs below (humanoid.leg_weights)
 chains:
   skirt:
     bones: [Spine, Hips]

@@ -190,7 +190,8 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
                                **({"metadata": metadata} if metadata else {}))
 
     def vertex_attributes(geom: str, mesh: Mesh) -> None:
-        extra = {"COLOR_0": mesh.colors, "JOINTS_0": mesh.joints, "WEIGHTS_0": mesh.weights}
+        extra = {"COLOR_0": mesh.colors, "JOINTS_0": mesh.joints, "WEIGHTS_0": mesh.weights,
+                 "MORPHS": mesh.morphs or None}
         extra = {k: v for k, v in extra.items() if v is not None}
         if extra:
             attributes[geom] = extra
@@ -435,6 +436,7 @@ def add_animations(glb: bytes, animations: list[dict]) -> bytes:
     index = {n.get("name"): i for i, n in enumerate(gltf.get("nodes", []))}
 
     def accessor(values: np.ndarray, kind: str, with_bounds: bool = False) -> int:
+        values = np.asarray(values)
         blob = np.ascontiguousarray(values, dtype="<f4").tobytes()
         data.extend(b"\0" * (-len(data) % 4))
         views.append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob)})
@@ -452,6 +454,12 @@ def add_animations(glb: bytes, animations: list[dict]) -> bytes:
         for ch in anim["channels"]:
             node = index.get(ch["node"])
             if node is None:
+                continue
+            if "weights" in ch:         # morph target weights (K x targets), flattened per keyframe
+                time = accessor(ch["times"], "SCALAR", with_bounds=True)
+                flat = np.asarray(ch["weights"], dtype=np.float64).reshape(-1)
+                samplers.append({"input": time, "output": accessor(flat, "SCALAR"), "interpolation": "LINEAR"})
+                channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": "weights"}})
                 continue
             _to_trs(gltf["nodes"][node], ch["scale"])
             time = accessor(ch["times"], "SCALAR", with_bounds=True)
@@ -486,7 +494,9 @@ VERTEX_ATTRIBUTES = {"COLOR_0": ("<f4", 5126, True), "JOINTS_0": ("<u2", 5123, F
 
 
 def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray]]) -> bytes:
-    """Add per-vertex VEC4 attributes (COLOR_0, JOINTS_0, WEIGHTS_0) to the primitives of the named glTF meshes."""
+    """Add per-vertex VEC4 attributes (COLOR_0, JOINTS_0, WEIGHTS_0) to the primitives of the named glTF meshes,
+    and ``MORPHS`` ({name: position deltas}) as morph targets (``targets``, default ``weights`` 0,
+    ``extras.targetNames``)."""
     import struct
 
     if not attributes:
@@ -496,6 +506,22 @@ def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray
     data = bytearray(rest[8:8 + bin_len])
     for mesh in gltf.get("meshes", []):
         for semantic, values in attributes.get(mesh.get("name"), {}).items():
+            if semantic == "MORPHS":
+                for name, delta in values.items():
+                    blob = np.ascontiguousarray(delta, dtype="<f4").tobytes()
+                    data.extend(b"\0" * (-len(data) % 4))
+                    gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
+                                                "target": 34962})
+                    data.extend(blob)
+                    gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
+                                              "count": int(len(delta)), "type": "VEC3",
+                                              "min": [float(v) for v in delta.min(axis=0)],
+                                              "max": [float(v) for v in delta.max(axis=0)]})
+                    for primitive in mesh.get("primitives", []):
+                        primitive.setdefault("targets", []).append({"POSITION": len(gltf["accessors"]) - 1})
+                mesh["weights"] = [0.0] * len(values)
+                mesh.setdefault("extras", {})["targetNames"] = list(values)
+                continue
             dtype, component, clamp = VERTEX_ATTRIBUTES[semantic]
             if clamp:
                 values = np.clip(values, 0, 1)
@@ -590,6 +616,14 @@ def clip_animations(root: SceneNode, names: dict[int, str]) -> list[dict]:
                     joint.transform.translation, (count, 1))
                 channels.append({"node": names[id(joint)], "times": track.times, "rotation": rotation,
                                  "translation": translation, "scale": joint.transform.scale})
+            for node_name, morph in clip.morphs.items():
+                node = by_name.get(node_name)
+                if node is None or id(node) not in names or node.mesh is None or not node.mesh.morphs:
+                    continue
+                # One weight per target of the mesh, in its order; targets the clip doesn't key hold 0.
+                weights = np.column_stack([morph.weights.get(t, np.zeros(len(morph.times)))
+                                           for t in node.mesh.morphs])
+                channels.append({"node": names[id(node)], "times": morph.times, "weights": weights})
             if channels:
                 animations.append({"name": f"{names[id(owner)]}_{clip.name}", "channels": channels})
     return animations

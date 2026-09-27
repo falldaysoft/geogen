@@ -940,7 +940,7 @@ func _portal_ahead() -> Dictionary:
 
 # --- body -----------------------------------------------------------------
 
-## RESET: every track the clips animate, keyed at the skeleton's rest. The importer drops
+## RESET: every track the clips animate, keyed at the skeleton's rest (blend shapes at 0). The importer drops
 ## tracks equal to the rest (the exported stand pose), so blending from a clip that moves a
 ## bone into one that doesn't must fall back to the rest, not keep the old pose.
 static func _rest_animation(body: Node, anims: Array) -> Animation:
@@ -952,9 +952,15 @@ static func _rest_animation(body: Node, anims: Array) -> Animation:
 			var path := anim.track_get_path(t)
 			var kind := anim.track_get_type(t)
 			var key := "%s|%d" % [path, kind]
-			if seen.has(key) or not kind in [Animation.TYPE_ROTATION_3D, Animation.TYPE_POSITION_3D]:
+			if seen.has(key) or not kind in [Animation.TYPE_ROTATION_3D, Animation.TYPE_POSITION_3D,
+					Animation.TYPE_BLEND_SHAPE]:
 				continue
 			seen[key] = true
+			if kind == Animation.TYPE_BLEND_SHAPE:     # pose correctives (a seated skirt) rest at 0
+				var shape := reset.add_track(kind)
+				reset.track_set_path(shape, path)
+				reset.blend_shape_track_insert_key(shape, 0.0, 0.0)
+				continue
 			var sk := body.get_node_or_null(NodePath(String(path).get_slice(":", 0))) as Skeleton3D
 			var bone := sk.find_bone(String(path).get_slice(":", 1)) if sk != null else -1
 			if bone < 0:

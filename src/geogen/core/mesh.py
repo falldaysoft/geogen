@@ -22,6 +22,9 @@ class Mesh:
     ``materials``; a ``None`` entry falls back to ``material``. ``groups()``
     splits them for renderers and exporters (one glTF primitive each).
     ``colors`` are optional per-vertex RGBA (0-1) tints, exported as COLOR_0.
+    ``morphs`` are named morph targets (blend shapes): per-vertex position deltas in the mesh's
+    rest frame, applied before skinning with the owning node's ``morph_weights``; exported as
+    glTF morph targets (pose correctives, see ``humanoid.fit_corrective``).
     ``joints`` / ``weights`` (Nx4) bind each vertex to up to four joints of
     the owning node's ``Skin`` (see ``core.skin``), exported as JOINTS_0 /
     WEIGHTS_0; weights sum to 1 per vertex.
@@ -39,6 +42,7 @@ class Mesh:
         colors: NDArray[np.float64] | None = None,
         joints: NDArray[np.int64] | None = None,
         weights: NDArray[np.float64] | None = None,
+        morphs: dict[str, NDArray[np.float64]] | None = None,
     ) -> None:
         """Create a mesh from geometry data.
 
@@ -61,6 +65,7 @@ class Mesh:
         self.colors = np.asarray(colors, dtype=np.float64) if colors is not None else None
         self.joints = np.asarray(joints, dtype=np.int64) if joints is not None else None
         self.weights = np.asarray(weights, dtype=np.float64) if weights is not None else None
+        self.morphs = {k: np.asarray(v, dtype=np.float64) for k, v in morphs.items()} if morphs else None
 
         self._trimesh_cache: trimesh.Trimesh | None = None
 
@@ -97,6 +102,8 @@ class Mesh:
                 self.colors = source.colors[vertex_index]
             if source.joints is not None and source.weights is not None:
                 self.joints, self.weights = source.joints[vertex_index], source.weights[vertex_index]
+            if source.morphs:
+                self.morphs = {k: v[vertex_index] for k, v in source.morphs.items()}
         return self
 
     def groups(self) -> list[tuple[Material | None, Mesh]]:
@@ -113,7 +120,8 @@ class Mesh:
                        material=self.face_material(int(slot)),
                        colors=self.colors[used] if self.colors is not None else None,
                        joints=self.joints[used] if self.joints is not None else None,
-                       weights=self.weights[used] if self.weights is not None else None)
+                       weights=self.weights[used] if self.weights is not None else None,
+                       morphs={k: v[used] for k, v in self.morphs.items()} if self.morphs else None)
             out.append((sub.material, sub))
         return out
 
@@ -204,6 +212,7 @@ class Mesh:
             material=self.material,  # Material is preserved through transform
             face_materials=self.face_materials, materials=self.materials, colors=self.colors,
             joints=self.joints, weights=self.weights,
+            morphs={k: v @ matrix[:3, :3].T for k, v in self.morphs.items()} if self.morphs else None,
         )
 
     def copy(self) -> Mesh:
@@ -219,6 +228,7 @@ class Mesh:
             colors=self.colors.copy() if self.colors is not None else None,
             joints=self.joints.copy() if self.joints is not None else None,
             weights=self.weights.copy() if self.weights is not None else None,
+            morphs={k: v.copy() for k, v in self.morphs.items()} if self.morphs else None,
         )
 
     @staticmethod
@@ -282,6 +292,11 @@ class Mesh:
                                 for m in meshes])
             weights = np.vstack([m.weights if m.weights is not None
                                  else np.tile([1.0, 0.0, 0.0, 0.0], (len(m.vertices), 1)) for m in meshes])
+        morphs = None
+        names = [k for m in meshes for k in (m.morphs or {})]
+        if names:
+            morphs = {k: np.vstack([(m.morphs or {}).get(k, np.zeros((len(m.vertices), 3))) for m in meshes])
+                      for k in dict.fromkeys(names)}
         grouped = len(slots) > 1
         return Mesh(
             vertices=np.vstack(all_vertices),
@@ -294,4 +309,5 @@ class Mesh:
             colors=colors,
             joints=joints,
             weights=weights,
+            morphs=morphs,
         )

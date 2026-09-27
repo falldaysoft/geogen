@@ -66,6 +66,8 @@ class SceneNode:
     skin: Skin | None = field(default=None, repr=False)
     # Animation clips (core.skin.Clip) over joints below this node, exported as glTF animations.
     clips: list[Clip] = field(default_factory=list, repr=False)
+    # Current weight of each of the mesh's morph targets (Mesh.morphs), set by clips; 0 if absent.
+    morph_weights: dict[str, float] = field(default_factory=dict, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -110,7 +112,8 @@ class SceneNode:
     def world_mesh(self) -> Mesh | None:
         """Get the mesh transformed to world space.
 
-        A skinned mesh (``skin`` set) is deformed by its joints' current pose.
+        Morph targets (``Mesh.morphs``) are blended in by ``morph_weights``, then a skinned
+        mesh (``skin`` set) is deformed by its joints' current pose.
 
         Returns:
             Transformed mesh or None if this node has no mesh
@@ -118,6 +121,10 @@ class SceneNode:
         if self.mesh is None:
             return None
         mesh = self.mesh
+        if mesh.morphs and any(self.morph_weights.get(k, 0.0) for k in mesh.morphs):
+            mesh = mesh.copy()
+            for name, delta in mesh.morphs.items():
+                mesh.vertices = mesh.vertices + self.morph_weights.get(name, 0.0) * delta
         if self.skin is not None:
             from .skin import skin_mesh
 
@@ -281,6 +288,7 @@ class SceneNode:
             interactions=list(self.interactions),
             skin=self.skin,
             clips=list(self.clips),
+            morph_weights=dict(self.morph_weights),
         )
         if deep:
             for child in self.children:
