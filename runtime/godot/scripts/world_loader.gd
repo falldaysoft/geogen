@@ -457,6 +457,7 @@ func setup_root(root: Node) -> Dictionary:
     _collect_affordances(root)
     _collect_portals(root)
     _collect_travel(root)
+    _apply_water(root)
     t = _lap("setup", t)
     var count := _add_collision(root)
     t = _lap("colliders", t)
@@ -805,6 +806,30 @@ func _collect_travel(root: Node) -> void:
         area.body_entered.connect(func(body: Node3D):
             if body is Player and Engine.get_physics_frames() >= travel_armed_at:
                 travel_requested.emit(travel))
+
+
+## Nodes with extras.geogen.water get the animated water shader (scripts/water.gdshader),
+## tuned by their extras (colours, depth_scale, wave_scale, wave_speed, foam).
+const WATER_SHADER := preload("res://scripts/water.gdshader")
+func _apply_water(root: Node) -> void:
+    for node in root.find_children("*", "Node3D", true, false):
+        var spec = geogen_extras(node).get("water")
+        if not spec is Dictionary:
+            continue
+        var mat := ShaderMaterial.new()
+        mat.shader = WATER_SHADER
+        for key in ["shallow_color", "deep_color"]:
+            if spec.has(key):
+                var c: Array = spec[key]
+                mat.set_shader_parameter(key, Color(c[0], c[1], c[2]))
+        for key in ["depth_scale", "wave_scale", "wave_speed", "foam"]:
+            if spec.has(key):
+                mat.set_shader_parameter(key, float(spec[key]))
+        var meshes: Array = [node] if node is MeshInstance3D else []
+        meshes.append_array(node.get_children().filter(func(c): return c is MeshInstance3D and not _is_collider(c)))
+        for mi: MeshInstance3D in meshes:
+            mi.material_override = mat
+            mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Keep walk-in travel volumes quiet for a moment (after loading, or moving the player).

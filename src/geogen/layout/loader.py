@@ -62,6 +62,7 @@ PRIMITIVE_REGISTRY = {
     "text": TextGenerator,
     "paths": PathsGenerator,
     "fence": FenceGenerator,
+    "water": ExtrudeGenerator,
 }
 
 
@@ -280,6 +281,14 @@ class LayoutLoader:
                 node.mesh = _smooth_part(node.mesh, part_def, self.detail, part_name)
             if "size" not in part_def and node.mesh is not None:
                 actual_size = node.mesh.vertices.max(axis=0) - node.mesh.vertices.min(axis=0)
+            if primitive_type == "water":
+                from ..generators.water import add_barrier, water_meta
+
+                node.meta["water"] = water_meta(part_def)
+                node.meta["collider"] = "none"
+                part_def.setdefault("material", "water")
+                if part_def.get("barrier"):
+                    add_barrier(node, generator.shape, float(part_def["barrier"]), float(actual_size[1]))
 
             # Apply material if specified
             material_name = part_def.get("material")
@@ -697,6 +706,11 @@ class LayoutLoader:
             return PathsGenerator(paths=list(config.get("paths") or []), width=float(config.get("width", 1.8)),
                                   thickness=float(config.get("thickness", 0.04)),
                                   bevel=float(config.get("bevel", 0.01)), detail=self.detail)
+        elif primitive_type == "water":
+            config = dict(extra_config or {})
+            config.setdefault("fit", "none")
+            config["axis"] = "y"
+            return self._create_extrude_generator(size, config)
         elif primitive_type == "fence":
             config = extra_config or {}
             keys = {"height": float, "post": float, "post_spacing": float, "picket": float, "spacing": float,

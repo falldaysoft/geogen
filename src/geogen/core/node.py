@@ -146,13 +146,15 @@ class SceneNode:
             yield from child.iter_nodes(include_self=True)
 
     def iter_meshes(self) -> Iterator[tuple[SceneNode, Mesh]]:
-        """Iterate over all nodes with meshes, yielding world-space meshes.
+        """Iterate over all visible nodes with meshes, yielding world-space meshes.
+
+        Collider-only nodes (``meta.type == "collider"``, e.g. a shore barrier) are skipped.
 
         Yields:
             Tuples of (node, world_space_mesh)
         """
         for node in self.iter_nodes():
-            if node.mesh is not None:
+            if node.mesh is not None and node.meta.get("type") != "collider":   # collider-only: invisible
                 world_mesh = node.world_mesh()
                 if world_mesh is not None:
                     yield node, world_mesh

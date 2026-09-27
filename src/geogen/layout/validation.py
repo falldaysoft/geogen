@@ -39,6 +39,8 @@ PART_KNOWN_KEYS = {
     "text", "font", "height", "depth", "align", "line_spacing", "tracking",
     # paths / fence
     "paths", "post", "post_spacing", "picket", "spacing", "gaps",
+    # water
+    "barrier", "shallow_color", "deep_color", "depth_scale", "wave_scale", "wave_speed", "foam",
 }
 
 # Known keys for scene YAML files
@@ -56,7 +58,7 @@ PLACEMENT_KNOWN_KEYS = {
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock", "text", "paths", "fence"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock", "text", "paths", "fence", "water"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}

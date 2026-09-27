@@ -38,15 +38,12 @@ parts:
     collider: none
 
   water:
-    primitive: extrude
+    primitive: water                 # animated in the Godot runtime (geogen/generators/water.py)
     shape: { ellipse: ["{rx + 0.02}", "{rz + 0.02}"], segments: 72 }
-    fit: none
-    axis: y
     size: ["{2 * (rx + 0.02)}", 0.02, "{2 * (rz + 0.02)}"]
     anchor: bottom_center
     offset: [0, "{rim_height - 0.14}", 0]
-    material: water
-    collider: none
+    depth_scale: 0.4                 # shallow: the bed shows through
 
   # Fountain: a stone column carrying a shallow bowl, a finial and a jet.
   column:
