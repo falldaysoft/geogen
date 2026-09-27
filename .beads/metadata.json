@@ -1,7 +1,10 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_mode": "embedded",
+  "dolt_mode": "server",
+  "dolt_server_host": "hoster.local",
+  "dolt_server_port": 3307,
+  "dolt_server_user": "beads",
   "dolt_database": "geogen",
   "project_id": "96459aaa-1e1a-494c-b613-3f8784bc9bc3"
 }

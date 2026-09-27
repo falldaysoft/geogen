@@ -26,8 +26,6 @@ bd show <issue-id>
 bd update <issue-id> --claim
 bd update <issue-id> --status done
 
-# Sync with Dolt remote
-bd dolt push
 ```
 
 ### Working with Issues
@@ -36,7 +34,7 @@ Issues in Beads are:
 - **Git-native**: Stored in Dolt database with version control and branching
 - **AI-friendly**: CLI-first design works perfectly with AI coding agents
 - **Branch-aware**: Issues can follow your branch workflow
-- **Sync-ready**: Uses Dolt remotes for backup and team sharing
+- **Server-backed**: This project keeps them on the shared Dolt server at `hoster.local:3307`; there is no git sync
 
 ## Why Beads?
 
@@ -47,11 +45,9 @@ Issues in Beads are:
 
 🚀 **Developer Focused**
 - Issues live in your repo, right next to your code
-- Works offline, syncs when you push
 - Fast, lightweight, and stays out of your way
 
 🔧 **Git Integration**
-- Dolt-native sync via bd dolt push / bd dolt pull
 - Branch-aware issue tracking
 - Dolt-native three-way merge resolution
 

@@ -2,16 +2,10 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+> **Architecture in one line:** Issues live on the shared Dolt sql-server at
+> `hoster.local:3307` (user `beads`, database `geogen`). Every `bd` write goes
+> straight to the server: there is no git sync, no `refs/dolt/data`, and no
+> `bd dolt push/pull`. `.beads/issues.jsonl` is only a manual export.
 
 ## Quick Reference
 
@@ -20,7 +14,6 @@ bd ready              # Find available work
 bd show <id>          # View issue details
 bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
 ```
 
 ## Non-Interactive Shell Commands
@@ -47,7 +40,7 @@ cp -rf source dest          # NOT: cp -r source dest
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:46cd31e7 -->
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -67,7 +60,7 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** issues live on the shared Dolt sql-server at `hoster.local:3307` (user `beads`, database `geogen`); every `bd` write goes straight to the server, so there is no git sync and no `bd dolt push/pull`. `.beads/issues.jsonl` is only a manual export (auto-export is off).
 
 ## Agent Context Profiles
 
@@ -91,7 +84,6 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
    # Team-maintainer opt-in only, unless current instructions forbid it:
    git pull --rebase
-   bd dolt push
    git push
    git status
    ```
@@ -124,7 +116,7 @@ bd prime                # Refresh Beads context
 - Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
 - Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** issues live on the shared Dolt sql-server at `hoster.local:3307` (user `beads`, database `geogen`); every `bd` write goes straight to the server, so there is no git sync and no `bd dolt push/pull`. `.beads/issues.jsonl` is only a manual export (auto-export is off).
 <!-- END BEADS CODEX SETUP -->
 
 <!-- bv-agent-instructions-v5 -->

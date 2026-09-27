@@ -704,7 +704,7 @@ Always test changes by:
 - For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn`/`--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
 - `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -724,7 +724,7 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** issues live on the shared Dolt sql-server at `hoster.local:3307` (user `beads`, database `geogen`); every `bd` write goes straight to the server, so there is no git sync and no `bd dolt push/pull`. `.beads/issues.jsonl` is only a manual export (auto-export is off).
 
 ## Agent Context Profiles
 

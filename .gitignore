@@ -11,3 +11,6 @@ __pycache__/
 .beads/issues.jsonl
 .cache/
 .beads/interactions.jsonl
+
+# Beads / Dolt files (added by bd init)
+*.gate.lock*
