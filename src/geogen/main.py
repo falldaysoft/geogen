@@ -24,6 +24,13 @@ def _build_registry() -> SceneRegistry:
     return registry
 
 
+def _refresh_catalogue_index() -> None:
+    """Keep the runtime's catalogue.json in step with what's been exported."""
+    from .catalogue import load_catalogue, write_index
+
+    write_index(load_catalogue(), GODOT_GENERATED)
+
+
 def filmstrip(root, clip_name: str, frames: int, view: str):
     """``frames`` instances of ``root`` posed evenly across clip ``clip_name``, spaced across the view."""
     from .core.node import SceneNode
@@ -135,6 +142,11 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--cache", nargs="?", const=".cache/geogen", default=None, metavar="DIR",
                         help="Cache generated assets on disk (default dir .cache/geogen); any source or asset "
                              "change invalidates it")
+    parser.add_argument("--export-catalogue", nargs="?", const="all", default=None, metavar="SELECT",
+                        help="Export runtime scenes from assets/runtime_scenes.yaml into the Godot runtime "
+                             "and write its catalogue.json: all (default), showcase, test or NAME,NAME")
+    parser.add_argument("--catalogue", action="store_true",
+                        help="Only rewrite the Godot runtime's catalogue.json (e.g. after changing its default)")
     parser.add_argument("--stream", action="store_true",
                         help="With --export-godot: write a chunked export (<scene>_chunks/) the runtime streams")
     parser.add_argument("--chunks", default=None, metavar="DIR",
@@ -165,6 +177,18 @@ def main() -> None:
 
         os.environ["GEOGEN_CACHE"] = args.cache
 
+    if args.export_catalogue or args.catalogue:
+        from .catalogue import export_catalogue, load_catalogue, write_index
+
+        catalogue = load_catalogue()
+        if args.catalogue:
+            print(f"Wrote {write_index(catalogue, GODOT_GENERATED)}")
+            return
+        index = export_catalogue(catalogue, lambda name: registry[name](), GODOT_GENERATED,
+                                 catalogue.select(args.export_catalogue))
+        print(f"Wrote {index} (default: {catalogue.default})")
+        return
+
     root = registry[args.scene]()
 
     # Display scene info
@@ -189,6 +213,7 @@ def main() -> None:
 
         index = export_chunks(root, GODOT_GENERATED / f"{args.scene}_chunks", name=args.scene)
         print(f"\nExported {args.scene} chunks for Godot; index {index}")
+        _refresh_catalogue_index()
         if not (args.render or args.export):
             return
 
@@ -202,6 +227,8 @@ def main() -> None:
             lods = [float(v) for v in args.lods.split(",")] if args.lods else None
             path = export_scene(root, target, lods=lods)
             print(f"\nExported {args.scene} to {path}")
+        if args.export_godot:
+            _refresh_catalogue_index()
         if not args.render:
             return
 

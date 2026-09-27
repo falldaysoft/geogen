@@ -17,6 +17,13 @@ python -m geogen.main -s cottage --export-godot
 godot --path runtime/godot -- --scene cottage
 ```
 
+To export every runtime scene at once, use the scene catalogue
+(`assets/runtime_scenes.yaml`): `python -m geogen.main --export-catalogue`
+(or `showcase`, `test`, or `NAME,NAME`) exports its scenes and writes
+`generated/catalogue.json`. Started without `--scene`, the runtime loads the
+catalogue's `default` scene. Point it at whatever you're working on and run
+`python -m geogen.main --catalogue` to rewrite the index.
+
 Leave the game running and re-export: the runtime watches the manifests and
 reloads the model within half a second (the player keeps their position).
 
@@ -40,8 +47,10 @@ capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 
 Exports are loaded at runtime rather than imported by the editor so a
 running game can reload them. Without `--scene` (e.g. pressing Play in the
-editor) every export in `generated/` loads, laid out in a row along +X so
-they don't overlap, and the player starts in front of the first one. geogen exports a collider child per mesh named
+editor) the default scene from `generated/catalogue.json` loads. With
+`--scene=all`, or when there's no catalogue, every export in `generated/`
+loads, laid out in a row along +X so they don't overlap, and the player starts
+in front of the first one. geogen exports a collider child per mesh named
 with Godot's import suffixes (`<name>-colonly` = trimesh, `<name>-convcolonly`
 = box/convex hull); runtime glTF loading doesn't apply those suffixes, so
 `WorldLoader` turns them into `StaticBody3D`s and drops their meshes (older
@@ -65,7 +74,8 @@ is written as `godot`.
 ```bash
 godot --editor --path runtime/godot                 # open in the editor
 godot --path runtime/godot -- --scene cottage       # play one export
-godot --path runtime/godot                          # play every export in generated/
+godot --path runtime/godot                          # play the catalogue's default scene
+godot --path runtime/godot -- --scene=all           # play every export in generated/ (slow)
 godot --headless --path runtime/godot --import      # first run / CI: build the import cache
 ```
 
@@ -73,7 +83,7 @@ User args (after `--`):
 
 | Arg | Effect |
 |---|---|
-| `--scene NAME` / `--scene=NAME` | Load `generated/NAME.glb` (default: every export) |
+| `--scene NAME` / `--scene=NAME` | Load `generated/NAME.glb` (default: `catalogue.json`'s default, else every export); `--scene=all` loads every export |
 | `--generated=DIR` | Read exports from `DIR` instead of `res://generated` |
 | `--stream` | Prefer the scene's chunked export (`generated/NAME_chunks/`) when a single-file one exists too |
 | `--stream-radius=F,L,I` | Streaming radii in metres: full exterior, LOD, interiors (default 60, 400, 14) |

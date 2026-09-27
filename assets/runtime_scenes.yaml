@@ -1,0 +1,51 @@
+# The scenes the Godot runtime offers. `--export-catalogue` exports them into
+# runtime/godot/generated/ and writes generated/catalogue.json; with no
+# --scene the runtime loads `default` (point it at whatever you're working on).
+#
+# Each entry is a registered scene name (python -m geogen.main --help) with:
+#   group: showcase | test    showcase = curated worlds, test = review/test exports
+#   description: one line for the runtime's scene list
+#   stream: true              export chunked (--stream) and stream it in the runtime
+#   lods: [0.5, 0.25]         extra LOD levels (single-file exports only)
+kind: scene_catalogue
+default: cottage
+
+scenes:
+  cottage:
+    group: showcase
+    description: Brick cottage with a furnished interior, a resident and the people gallery on the lawn
+  hotel:
+    group: showcase
+    description: Four-storey hotel - lobby, furnished guest floors, stairs and a working lift
+  town:
+    group: showcase
+    stream: true
+    description: The M3 district - streets, shops, the hotel, traffic, pedestrians and a railway
+
+  crossroads:
+    group: test
+    description: Small street grid with signals, traffic and pedestrians
+  level_crossing:
+    group: test
+    description: Road crossing a railway with barriers and a commuter train
+  hotel_room:
+    group: test
+    description: Hotel suite furnished by hand
+  hotel_room_auto:
+    group: test
+    description: Hotel suite furnished by the solver
+  hotel_suite:
+    group: test
+    description: Unfurnished hotel suite floor plan
+  dining_set:
+    group: test
+    description: Table with four chairs
+  door:
+    group: test
+    description: A single door asset and its swing interaction
+  humanoid_lineup:
+    group: test
+    description: Humanoid presets beside a door and a chair
+  skin_test:
+    group: test
+    description: Three-joint skinned tube with a sway clip

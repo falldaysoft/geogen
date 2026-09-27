@@ -3,8 +3,10 @@ extends Node3D
 ## first-person player sized from the manifest, and shows a debug overlay.
 ##
 ## User args (after `--`):
-##   --scene NAME | --scene=NAME   load generated/NAME.glb (default: every export); a
-##                                 chunked export (generated/NAME_chunks/) streams around the player
+##   --scene NAME | --scene=NAME   load generated/NAME.glb (default: generated/catalogue.json's
+##                                 default scene, else every export); a chunked export
+##                                 (generated/NAME_chunks/) streams around the player
+##   --scene=all                   load every export side by side, ignoring the catalogue
 ##   --stream                      prefer NAME's chunked export when both exist
 ##   --stream-radius=F,L,I         streaming radii: full exterior, LOD, interiors (m)
 ##   --generated=DIR               read exports from DIR instead of res://generated
@@ -206,6 +208,10 @@ func _ready() -> void:
     clock.environment = ($WorldEnvironment as WorldEnvironment).environment
     clock.world = world
     world.clock = clock
+    if world.scene_name == "all":
+        world.scene_name = ""
+    else:
+        world.use_catalogue_default()
     world.load_all()
     add_child(clock)          # applies the time (night lights) once the world is loaded
     for npc in world.npcs:

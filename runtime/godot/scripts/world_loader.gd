@@ -16,6 +16,9 @@ const POLL_SECONDS := 0.5
 
 ## Scene name to load (e.g. "cottage"); empty loads every export in generated/.
 var scene_name := ""
+## generated/catalogue.json (format geogen-catalogue, written by
+## `python -m geogen.main --export-catalogue`), or {} when there is none.
+var catalogue := {}
 ## Directory holding exports (res:// or absolute path).
 var generated_dir := DEFAULT_GENERATED_DIR
 ## Bake a navigation mesh per loaded model (from its colliders).
@@ -97,6 +100,44 @@ func _ready() -> void:
 	_collider_material.albedo_color = Color(0.2, 1.0, 0.4)
 	_collider_material.albedo_color = Color(0.2, 1.0, 0.4, 0.6)
 	_collider_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+
+## Read generated/catalogue.json into ``catalogue`` ({} if missing or malformed).
+func read_catalogue() -> Dictionary:
+	catalogue = {}
+	var path := "%s/catalogue.json" % generated_dir
+	if not FileAccess.file_exists(path):
+		return catalogue
+	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if data is Dictionary and data.get("format") == "geogen-catalogue":
+		catalogue = data
+	else:
+		push_error("geogen: bad catalogue %s" % path)
+	return catalogue
+
+
+## The catalogue entry named ``name``, or {}.
+func catalogue_entry(name: String) -> Dictionary:
+	for entry in catalogue.get("scenes", []):
+		if entry.get("name") == name:
+			return entry
+	return {}
+
+
+## With no scene chosen, pick the catalogue's default (streamed if its entry
+## says so). Returns the chosen name, or "" to load every export as before.
+func use_catalogue_default() -> String:
+	if scene_name != "" or read_catalogue().is_empty():
+		return scene_name
+	var name: String = catalogue.get("default", "")
+	var entry := catalogue_entry(name)
+	if entry.is_empty() or not FileAccess.file_exists("%s/%s" % [generated_dir, entry.get("manifest", "")]):
+		push_warning("geogen: catalogue default '%s' isn't exported; loading every export" % name)
+		return ""
+	scene_name = name
+	prefer_chunks = prefer_chunks or bool(entry.get("stream", false))
+	print("geogen: default scene %s (from catalogue.json)" % name)
+	return name
 
 
 ## Load (or reload) everything requested. Returns the combined bounds.

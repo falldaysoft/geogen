@@ -35,6 +35,11 @@ python -m geogen.main -s cottage --export-godot               # into runtime/god
 
 # Walk an export in the Godot runtime (macOS binary: /Applications/Godot.app/Contents/MacOS/Godot)
 godot --path runtime/godot -- --scene cottage
+godot --path runtime/godot                                    # the catalogue's default scene
+
+# Runtime scene catalogue (assets/runtime_scenes.yaml): export all / a group / names, or just rewrite the index
+python -m geogen.main --export-catalogue [all|showcase|test|NAME,NAME]
+python -m geogen.main --catalogue
 python -m geogen.main -s town --export-godot --stream        # chunked export the runtime streams
 godot --path runtime/godot -- --scene town --stream
 
@@ -440,6 +445,13 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 - **player.py**: `PlayerSpec` / `load_player_spec()` — player-scale constraints (capsule radius/height, eye and step height, max slope, min door opening, corridor width, reach) from `assets/player.yaml`. Use it for defaults instead of hard-coding clearances. YAML files with a top-level `kind:` (like `player.yaml`) are data, not assets; the registry skips them.
 
 ### Godot runtime (`runtime/godot/`)
+
+Scene catalogue (`catalogue.py`, `assets/runtime_scenes.yaml`, `kind: scene_catalogue`): it lists the runtime's scenes by registry name with `group: showcase | test`, `description`, `stream` and `lods`, plus a `default` (whatever is currently being worked on).
+- `--export-catalogue [SELECT]` exports its scenes into `generated/` and writes `generated/catalogue.json` (`geogen-catalogue` v1: default, scenes with manifest path and `exported`).
+- Every `--export-godot` refreshes that index, and `--catalogue` only rewrites it.
+- Without `--scene` the runtime loads the default (`WorldLoader.use_catalogue_default`). `--scene=all`, or a generated dir with no catalogue.json (the tests' temp dirs), loads every export side by side.
+- Showcase scenes and the in-game switcher are epic geogen-sd5. Tests: `tests/test_catalogue.py`.
+
 
 Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). Single-file models larger than 160 m bake their navmesh in 48 m tiles (`scene_builder.build_navigation`); one 5 cm-cell bake over a town plus railway overflows. Big maps take a few hundred frames to sync. `python -m geogen.main -s cottage --export-godot` writes `.glb` + manifest into `runtime/godot/generated/`; `godot --path runtime/godot -- --scene cottage` walks it in first person. `WorldLoader` loads exports at runtime (GLTFDocument, trimesh colliders, mipmaps) and hot-reloads when a manifest changes; `Player` is a cylinder `CharacterBody3D` sized from `PlayerSpec` with step-up. `--playtest[=N]` (run with `--headless --fixed-fps 60`) is the enterability check: every room volume and interaction target must be reachable on the navmesh from the export's spawn (doors opened and baked as obstacles first), and a bot walks N routes with the real player body; prints `playtest: {...}` and exits 1 on failure (`tests/test_godot_runtime.py`). Buildings add an `entrance_spawn` outside the street door. `addons/geogen/` (`GeogenSceneBuilder`, enabled editor plugin) turns extras into room Area3Ds, spawn markers, tag groups and a navmesh baked from colliders (moving parts excluded, so doorways stay navigable) — both on editor import of a geogen `.glb` and at runtime. Useful args after `--`: `--generated=DIR`, `--spawn=X,Y,Z`, `--walk=SECONDS` (prints the end position; used by `tests/test_godot_runtime.py`), `--nav=AX,AZ:BX,BZ` (prints a navmesh path), `--play=ANIM@T` + `--skeletons` (freeze an animation, print bone positions and skinned bounds), `--screenshot=out.png`, `--camera=overview`, `--colliders`. See `runtime/godot/README.md`. On macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT` and skip without it). Wrap ad-hoc Godot runs in a timeout: a GDScript parse error leaves the process running instead of exiting.
 
