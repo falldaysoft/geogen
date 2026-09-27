@@ -272,6 +272,10 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     for lane in lanes:
         if hasattr(lane, "kerb_index"):
             del lane.kerb_index  # type: ignore[attr-defined]
+    # The painted crossings (inside the district) for pedestrians to use.
+    crossings = [[round(float(v), 3) for v in (*lo, *hi)] for lo, hi in zones
+                 if np.all(lo >= builder.lo - 1e-6) and np.all(hi <= builder.hi + 1e-6)]
+    builder.crosswalk_zones = crossings
     return lanes
 
 
@@ -376,7 +380,8 @@ def _conflicts(lanes: list[Lane]) -> list[dict[str, Any]]:
     return out
 
 
-def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None) -> dict[str, Any]:
+def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None,
+          crosswalks: list | None = None) -> dict[str, Any]:
     """A JSON-ready lane graph from lanes (points in one frame)."""
     ids = {lane.id for lane in lanes}
     for lane in lanes:
@@ -397,10 +402,13 @@ def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None) ->
     for x in intersections.values():
         pts = np.vstack([by_id[c].points for c in x["connectors"]])
         x["center"] = [round(float(v), 3) for v in pts.mean(axis=0)]
-    return {"version": VERSION, "drive": drive, "step": STEP,
-            "lanes": [lane.to_dict() for lane in lanes],
-            "conflicts": _conflicts(lanes),
-            "intersections": list(intersections.values())}
+    out = {"version": VERSION, "drive": drive, "step": STEP,
+           "lanes": [lane.to_dict() for lane in lanes],
+           "conflicts": _conflicts(lanes),
+           "intersections": list(intersections.values())}
+    if crosswalks:
+        out["crosswalks"] = crosswalks
+    return out
 
 
 def city_graph(builder) -> dict[str, Any] | None:
@@ -409,7 +417,8 @@ def city_graph(builder) -> dict[str, Any] | None:
         return None
     spec = {} if spec is True else dict(spec)
     cycle = {**SIGNAL_CYCLE, **(spec.get("cycle") or {})}
-    return graph(_city_lanes(builder, spec), spec.get("drive", "right"), cycle)
+    lanes = _city_lanes(builder, spec)
+    return graph(lanes, spec.get("drive", "right"), cycle, getattr(builder, "crosswalk_zones", None))
 
 
 def route_surface(name: str, spec: dict[str, Any], materials) -> SceneNode | None:
@@ -458,7 +467,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
     Ids of graphs from nested nodes are prefixed with the node name when they'd clash."""
     to_scene = np.linalg.inv(scene.world_transform())
     lanes: list = []
-    conflicts, intersections, seen = [], [], set()
+    conflicts, intersections, seen, crosswalks = [], [], set(), []
     drive = "right"
     for node in scene.iter_nodes():
         g = node.meta.get("traffic")
@@ -478,6 +487,11 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
                           "points": [[round(float(v), 3) for v in q] for q in p]})
             seen.add(rid(ln["id"]))
         conflicts += [{**c, "a": rid(c["a"]), "b": rid(c["b"])} for c in g.get("conflicts", [])]
+        for x0, z0, x1, z1 in g.get("crosswalks", []):
+            corners = (m @ np.array([[x0, 0, z0, 1], [x1, 0, z1, 1]], dtype=np.float64).T).T
+            lo, hi = corners.min(axis=0), corners.max(axis=0)
+            crosswalks.append([round(float(lo[0]), 3), round(float(lo[2]), 3), round(float(hi[0]), 3),
+                               round(float(hi[2]), 3)])
         for x in g.get("intersections", []):
             c = (m @ np.r_[np.asarray(x["center"], dtype=np.float64), 1.0])[:3]
             intersections.append({**x, "id": rid(x["id"]), "connectors": [rid(i) for i in x["connectors"]],
@@ -495,6 +509,8 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
         return None
     out = {"version": VERSION, "drive": drive, "step": STEP, "lanes": lanes, "conflicts": conflicts,
            "intersections": intersections}
+    if crosswalks:
+        out["crosswalks"] = crosswalks
     if railways:
         out["railways"] = railways
     return out

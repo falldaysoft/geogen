@@ -43,6 +43,10 @@
         }
       }
     },
+    "crosswalks": {
+      "description": "Painted pedestrian crossings as plan rectangles [x0, z0, x1, z1]: NPCs cross the road on them.",
+      "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
+    },
     "intersections": {
       "type": "array",
       "items": {

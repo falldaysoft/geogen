@@ -543,7 +543,73 @@ func _plan(target: Vector3) -> String:
 		return "no path"
 	if Vector2(to.x - target.x, to.z - target.z).length() > 0.8:
 		return "target off the navmesh (%.1f m)" % Vector2(to.x - target.x, to.z - target.z).length()
+	_use_crosswalk(map, from, to)
 	return ""
+
+
+var _crossing_ends := []   # [[end a, end b]] of the painted crossings, on the pavement (world)
+var _crossing_bounds := AABB()
+
+
+## A path that walks along the road (below both its ends, inside the streets) is rerouted over
+## the nearest painted crossing when that isn't much longer: to one end, straight across, on.
+func _use_crosswalk(map: RID, from: Vector3, to: Vector3) -> void:
+	if _crossing_ends.is_empty():
+		for r in world.traffic_graph.get("crosswalks", []):
+			var lo := Vector2(float(r[0]), float(r[1]))
+			var hi := Vector2(float(r[2]), float(r[3]))
+			var c := (lo + hi) / 2.0
+			var along_x := (hi.x - lo.x) > (hi.y - lo.y)      # the long side runs across the street
+			var a := Vector2(lo.x - 0.8, c.y) if along_x else Vector2(c.x, lo.y - 0.8)
+			var b := Vector2(hi.x + 0.8, c.y) if along_x else Vector2(c.x, hi.y + 0.8)
+			var pa := NavigationServer3D.map_get_closest_point(map, Vector3(a.x, 0.2, a.y))
+			var pb := NavigationServer3D.map_get_closest_point(map, Vector3(b.x, 0.2, b.y))
+			if Vector2(pa.x - a.x, pa.z - a.y).length() < 1.0 and Vector2(pb.x - b.x, pb.z - b.y).length() < 1.0:
+				_crossing_ends.append([pa, pb])
+				var box := AABB(Vector3(lo.x, -1.0, lo.y), Vector3(hi.x - lo.x, 2.0, hi.y - lo.y))
+				_crossing_bounds = box if _crossing_bounds.size == Vector3.ZERO else _crossing_bounds.merge(box)
+		if _crossing_ends.is_empty():
+			_crossing_ends = [null]            # none: don't look again
+	if _crossing_ends[0] == null or not _on_road(_path):
+		return
+	var direct := _length(_path)
+	var best := PackedVector3Array()
+	var best_len := direct * 2.0 + 25.0
+	for ends in _crossing_ends:
+		for flip in [false, true]:
+			var e1: Vector3 = ends[1] if flip else ends[0]
+			var e2: Vector3 = ends[0] if flip else ends[1]
+			if from.distance_to(e1) > 60.0 and to.distance_to(e2) > 60.0:
+				continue
+			var first := NavigationServer3D.map_get_path(map, from, e1, true)
+			var last := NavigationServer3D.map_get_path(map, e2, to, true)
+			if first.is_empty() or last.is_empty() or _on_road(first) or _on_road(last):
+				continue
+			var total := _length(first) + e1.distance_to(e2) + _length(last)
+			if total < best_len:
+				best_len = total
+				best = first + last
+	if not best.is_empty():
+		_path = best
+		stats["crosswalks"] = int(stats.get("crosswalks", 0)) + 1
+
+
+## Does the path dip to road level (below both its ends) inside the streets?
+func _on_road(path: PackedVector3Array) -> bool:
+	if path.size() < 2:
+		return false
+	var level := minf(path[0].y, path[-1].y) - 0.08
+	for p in path:
+		if p.y < level and _crossing_bounds.grow(2.0).has_point(Vector3(p.x, 0.0, p.z)):
+			return true
+	return false
+
+
+static func _length(path: PackedVector3Array) -> float:
+	var total := 0.0
+	for k in range(1, path.size()):
+		total += path[k].distance_to(path[k - 1])
+	return total
 
 
 func _walk(delta: float) -> String:
@@ -1048,4 +1114,5 @@ func report() -> Dictionary:
 		"decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
 		"outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
 		"position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
-		"aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0))}
+		"aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
+		"crosswalks": int(stats.get("crosswalks", 0))}

@@ -386,6 +386,7 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
   - `affordance_tags: [outside]` keeps pedestrians to benches, not people's chairs;
   - `wander: {tags: [street.sidewalk]}` makes `go_to: random` pick area-weighted points on the up-facing faces of nodes with those tag groups (npc.gd `_random_surface_point`).
 - Scatter `on_tag: street.sidewalk` places copies on those surfaces.
+- Pedestrians cross at the painted crossings (lane graph `crosswalks` rectangles; npc.gd `_use_crosswalk` reroutes road-level paths).
 - `town` has 10 pedestrians and `crossroads` has 6. Traffic yields to them. `tests/test_traffic_runtime.py::test_pedestrians_stroll_and_rest_while_traffic_yields` covers this.
 
 ### Time of day

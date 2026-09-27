@@ -150,6 +150,8 @@ windows or doors:
   navmesh, so paths bend around them on an arc of navmesh points. An NPC whose destination is
   occupied waits, then gives up.
 
+Pedestrians cross at crosswalks. The lane graph exports the painted crossings (`traffic.crosswalks`). A planned path that runs along road level inside the streets is rerouted over the crossing that makes the shortest detour: to one end, straight across, then on. The detour must be no longer than twice the direct path plus 25 m.
+
 Crowds are scatters of an NPC (`npcs/pedestrian.yaml` in `town` and `crossroads`), each copy a
 different person. `affordance_tags` limits which affordances an NPC considers. `wander.tags` makes
 strolls go to random points on surfaces in those tag groups (sidewalks) rather than anywhere in
