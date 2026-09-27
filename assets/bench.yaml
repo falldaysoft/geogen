@@ -162,5 +162,6 @@ parts:
     material: wood
 
 affordances:
-  - { type: sit, at: [-0.3, 0.45, 0.05], facing: 0, height: 0.45, advertises: { rest: 0.3 }, tags: [seat, outside] }
-  - { type: sit, at: [0.3, 0.45, 0.05], facing: 0, height: 0.45, advertises: { rest: 0.3 }, tags: [seat, outside] }
+  # Seated on the slats' top (0.48 of the height).
+  - { type: sit, at: [-0.3, "{0.48 * height}", 0.05], facing: 0, height: "{0.48 * height}", advertises: { rest: 0.3 }, tags: [seat, outside] }
+  - { type: sit, at: [0.3, "{0.48 * height}", 0.05], facing: 0, height: "{0.48 * height}", advertises: { rest: 0.3 }, tags: [seat, outside] }

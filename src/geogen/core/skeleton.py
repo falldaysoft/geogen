@@ -220,7 +220,8 @@ class Pose:
     def solve_ik(self, spec: dict, skeleton: Skeleton) -> None:
         """``{End: {target: [x, y, z], pole: [x, y, z], flat: bool}, mirror: bool}``: place hands/feet
         (body frame, after ``bones``/``hips``). ``flat`` keeps the end bone at its rest orientation
-        (feet flat on the floor); ``mirror`` also solves the Right* twin of each Left* entry."""
+        (feet flat on the floor); ``mirror`` also solves the Right* twin of each Left* entry.
+        ``floor`` marks a floor-relative target, which seat fitting moves (humanoid.fit_seats)."""
         from .ik import LIMBS, solve_limb
 
         entries = {k: v for k, v in spec.items() if k != "mirror"}
@@ -234,7 +235,7 @@ class Pose:
         for end, entry in entries.items():
             if end not in LIMBS:
                 raise ValueError(f"pose ik: '{end}' is not an IK end (one of {sorted(LIMBS)})")
-            unknown = set(entry) - {"target", "pole", "flat"}
+            unknown = set(entry) - {"target", "pole", "flat", "floor"}
             if unknown:
                 raise ValueError(f"pose ik '{end}': unknown keys {sorted(unknown)}")
             solve_limb(skeleton, self, end, entry["target"], entry.get("pole"),

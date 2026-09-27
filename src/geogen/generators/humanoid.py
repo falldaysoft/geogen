@@ -39,6 +39,7 @@ transforms relative to the affordance anchor) place the body.
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 import numpy as np
@@ -428,8 +429,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         clothes.meta["collider"] = "none"
         clothes.skin = Skin.bind(clothes, [nodes[n] for n in skeleton.names], name=f"{name}_clothes_skin")
 
-    poses = spec.get("poses") or {}
+    poses = dict(spec.get("poses") or {})
     root.clips.extend(pose_clips(skeleton, poses))
+    seats = fit_seats(root, skeleton, poses)
     pose_name = spec.get("pose")
     if spec.get("clips"):
         from .clips import generate_clip
@@ -448,5 +450,98 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                              if "head_top" in skeleton.landmarks else round(float(hi[1]), 4),
                              "pose": pose_name, "hair": hair_style, "outfit": outfit_name,
                              "triangles": int(sum(len(n.mesh.faces) for n in root.iter_nodes() if n.mesh is not None))}
+    root.meta["humanoid"]["seats"] = seats
     root.tags = ["character"]
     return root
+
+
+SEAT_SINK = 0.005        # m the seat flesh/cloth presses into a seat
+SEAT_CLEAR = 0.03        # m the calves keep in front of a seat's front edge
+KNEE_OVERHANG = 0.3      # share of the thigh, behind the knee joint, that clears the seat front
+
+
+def seat_contact(root, clip: str) -> tuple[float, SceneNode, np.ndarray, np.ndarray] | None:
+    """The underside of what rests on a seat in ``clip`` (body frame y): the buttocks and the
+    thighs, or cloth just under them. Also returns the posed actor, body mesh
+    and each vertex's dominant bone."""
+    from ..core.skin import pose_clips as apply_clip
+
+    actor = root.instance()
+    apply_clip(actor, clip, 0.0)
+    body = next((n for n in actor.iter_nodes() if n.name == "body" and n.skin is not None), None)
+    if body is None:
+        return None
+    mesh = body.world_mesh()
+    names = np.array([j.name for j in body.skin.joints])
+    dominant = names[mesh.joints[np.arange(len(mesh.vertices)), np.argmax(mesh.weights, axis=1)]]
+    # The knee overhangs the seat's front edge (reach slides the sitter to keep it so).
+    hip = actor.find("LeftUpperLeg").world_transform()[:3, 3]
+    knee = actor.find("LeftLowerLeg").world_transform()[:3, 3]
+    front = knee[2] - KNEE_OVERHANG * np.linalg.norm(knee - hip)
+    seat = np.isin(dominant, ["Hips", "LeftUpperLeg", "RightUpperLeg"]) & (mesh.vertices[:, 2] < front)
+    contact = float(mesh.vertices[seat][:, 1].min())
+    # A skirt under the seat adds its thickness, but not its hanging hem (a seated skirt still
+    # drapes below the thighs: geogen-z2b.16.16), so only cloth just under the flesh counts.
+    clothes = next((n for n in actor.iter_nodes() if n.name == "clothes" and n.mesh is not None), None)
+    if clothes is not None:
+        cv = clothes.world_mesh().vertices
+        under = cv[(cv[:, 1] < contact) & (cv[:, 1] > contact - 0.015) & (cv[:, 2] < front)]
+        if len(under):
+            contact = float(under[:, 1].min())
+    return contact, actor, mesh, dominant
+
+
+def fit_seats(root, skeleton: Skeleton, poses: dict) -> dict[str, float]:
+    """Seated poses declare ``seat``: the seat surface's height in the body frame they were
+    solved for. Measure where this body's seat flesh (and cloth) actually is, move the seat
+    there (SEAT_SINK into it) and re-solve the ``floor: true`` IK targets (feet, hands on a
+    table) by the same amount, so the feet stay on the floor. Returns {pose: seat height}."""
+    seats = {}
+    for name, spec in poses.items():
+        if spec.get("seat") is None:
+            continue
+        spec = copy.deepcopy(spec)
+        for attempt in range(8):
+            clip = pose_clips(skeleton, {name: spec})[0]
+            _replace_clip(root, clip)
+            found = seat_contact(root, clip.name)
+            if found is None:
+                break
+            delta = found[0] + SEAT_SINK - float(spec["seat"])
+            spec["seat"] = float(spec["seat"]) + delta         # the seat as this clip has it
+            if abs(delta) < 0.001 or attempt == 7:
+                break
+            # Lowering the feet swings the thighs down, which moves the contact again: iterate.
+            for entry in (spec.get("ik") or {}).values():
+                if isinstance(entry, dict) and entry.get("floor"):
+                    entry["target"] = [entry["target"][0], float(entry["target"][1]) + delta, entry["target"][2]]
+        poses[name] = spec
+        seats[name] = round(float(spec["seat"]), 4)
+    return seats
+
+
+def _replace_clip(root, clip: Clip) -> None:
+    root.clips[:] = [c for c in root.clips if c.name != clip.name] + [clip]
+
+
+def fit_seated_pose(root, poses: dict) -> None:
+    """Fit the ``sit`` root pose to this body: the seat surface (the anchor's height) goes where
+    the body's fitted ``sit`` seat is (``fit_seats``), and ``reach`` records how far in front of
+    the anchor the backs of the calves are, below seat level. Runtimes (and
+    affordance_qa.pose_actor) slide the sitter forward on deeper seats (the affordance's
+    ``depth`` to the front edge) so the shins clear the seat front."""
+    sit = poses.get("sit")
+    seat = (root.meta.get("humanoid") or {}).get("seats", {}).get("sit")
+    if sit is None or seat is None:
+        return
+    found = seat_contact(root, "pose_sit")
+    if found is None:
+        return
+    contact, _, mesh, dominant = found
+    offset = list(sit["offset"])
+    offset[1] = round(-seat, 4)
+    calves = mesh.vertices[np.isin(dominant, ["LeftLowerLeg", "RightLowerLeg"])]
+    below = calves[calves[:, 1] < contact]
+    poses["sit"] = {**sit, "offset": offset}
+    if len(below):
+        poses["sit"]["reach"] = round(float(below[:, 2].min()) + offset[2], 4)

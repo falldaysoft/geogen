@@ -207,9 +207,11 @@ class LayoutLoader:
             if data.get("preset"):
                 root.meta["preset"] = data["preset"]
             if data.get("poses"):
+                from ..generators.humanoid import fit_seated_pose
                 from ..npc import parse_poses
 
                 root.meta["poses"] = parse_poses(data["poses"])
+                fit_seated_pose(root, root.meta["poses"])
             if data.get("affordances"):
                 root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
             return root
@@ -1005,7 +1007,7 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
-                   "advertises", "tags", "slots", "interaction"}
+                   "advertises", "tags", "slots", "interaction", "depth"}
 
 
 def _apply_tints(parts: dict[str, Any], part_nodes: dict[str, SceneNode]) -> None:
@@ -1021,6 +1023,34 @@ def _apply_tints(parts: dict[str, Any], part_nodes: dict[str, SceneNode]) -> Non
         for child in node.iter_nodes():
             if child.mesh is not None:
                 child.mesh.colors = np.tile(rgba, (len(child.mesh.vertices), 1))
+
+
+def _seat_depth(root: SceneNode, position: np.ndarray, yaw_deg: float) -> float | None:
+    """How far in front of a seat anchor the seat's front edge is: the furthest geometry at the
+    seat's height (within 4 cm) and near the sitter's centre line, in the anchor's frame."""
+    to_root = np.linalg.inv(root.world_transform())
+    yaw = np.radians(yaw_deg)
+    fwd = np.array([np.sin(yaw), 0.0, np.cos(yaw)])
+    right = np.array([np.cos(yaw), 0.0, -np.sin(yaw)])
+    best = None
+    for n in root.iter_nodes():
+        if n.mesh is None or not len(n.mesh.vertices):
+            continue
+        m = to_root @ n.world_transform()
+        w = (m @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3] - position
+        # Points across every face (a long cushion's vertices are all at its ends).
+        tri = w[n.mesh.faces]
+        g = np.linspace(0.0, 1.0, 6)
+        uu, vv = (a.ravel() for a in np.meshgrid(g, g))
+        keep = uu + vv <= 1.0
+        uu, vv = uu[keep], vv[keep]
+        v = (tri[:, None, 0] + (tri[:, None, 1] - tri[:, None, 0]) * uu[None, :, None]
+             + (tri[:, None, 2] - tri[:, None, 0]) * vv[None, :, None]).reshape(-1, 3)
+        near = (np.abs(v[:, 1]) < 0.04) & (np.abs(v @ right) < 0.3)
+        if near.any():
+            z = float((v[near] @ fwd).max())
+            best = z if best is None else max(best, z)
+    return best
 
 
 def _enabled_parts(parts: dict[str, Any]) -> dict[str, Any]:
@@ -1083,6 +1113,10 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
     else:
         position = np.asarray(at, dtype=np.float64)
     out = {"type": kind, "position": [round(float(v), 4) for v in position], "yaw": round(yaw, 3)}
+    if kind == "sit":
+        depth = spec.get("depth", _seat_depth(root, position, yaw))
+        if depth is not None:
+            out["depth"] = round(float(depth), 4)
     for key in ("height", "prompt"):
         if key in spec:
             out[key] = float(spec[key]) if key == "height" else str(spec[key])

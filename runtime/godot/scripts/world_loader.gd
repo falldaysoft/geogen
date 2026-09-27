@@ -455,6 +455,8 @@ func _collect_affordances(root: Node) -> void:
 				"advertises": a.get("advertises", {}), "tags": a.get("tags", []), "slots": int(a.get("slots", 1))}
 			if a.has("duration"):
 				entry["duration"] = a["duration"]
+			if a.has("depth"):
+				entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
 			if a.has("interaction"):
 				for it in interactions_of(String(node.name)):
 					if it.interaction_name == a["interaction"] and it.asset == node:

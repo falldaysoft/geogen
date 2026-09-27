@@ -27,6 +27,7 @@ const SIDESTEP_SECONDS := 0.4
 const FAIL_SECONDS := 4.0         # no progress this long: give up on the step
 const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (until there are clips)
+const SEAT_CLEAR := 0.03          # m the calves keep in front of a seat's front edge
 const POSE_BLEND := 0.4           # s to cross-fade skeletal pose clips (and ease the body into place)
 const LOCOMOTION_BLEND := 0.25    # s to cross-fade walk <-> idle
 const WALK_THRESHOLD := 0.15      # m/s: slower than this counts as standing still
@@ -247,7 +248,7 @@ func _decide() -> void:
 	var a: Dictionary = _option.get("affordance", {})
 	if not a.is_empty():
 		ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
-			"interaction": a.get("interaction"), "duration": a.get("duration")}
+			"interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth")}
 	else:
 		ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y), "approach": global_position,
 			"duration": _option["activity"].get("duration")}
@@ -1011,6 +1012,10 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
 	velocity = Vector3.ZERO
 	_shape.set_deferred("disabled", pose_name != "stand")
 	_pose = pose_name
+	if at == "anchor" and pose.has("reach") and ctx.get("depth") != null:
+		# Deep seats: sit forward until the shins clear the front edge.
+		var forward := Basis(Vector3.UP, yaw) * Vector3.BACK
+		global_position += forward * maxf(0.0, float(ctx["depth"]) + SEAT_CLEAR - float(pose["reach"]))
 	if body != null:
 		var o: Array = pose["offset"]
 		var r: Array = pose["rotation"]

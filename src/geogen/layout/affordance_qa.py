@@ -39,6 +39,7 @@ MARGIN = 3.0             # grid extends this far beyond the spots and seeds
 CLASH_OWN = 0.012        # m³: the body may sink this far into the asset it uses (a mattress, a cushion)
 CLASH_OTHER = 0.0005     # m³: ...but only half a litre into anything else (a thin table top)
 FLOOR_TOL = 0.06         # m: feet may press this far into the floor (a lawn slab, a rug)
+SEAT_CLEAR = 0.03        # m the calves keep in front of a seat's front edge (generators/humanoid.py)
 DEFAULT_BODY = {"asset": "characters/humanoid.yaml", "params": {"preset": "feminine"}}
 
 
@@ -153,8 +154,11 @@ def pose_actor(body: SceneNode, spot: Spot, floor: float | None = None) -> Scene
             place[:3, 3] = spot.approach
         p = poses[name]
         rot = np.radians(p["rotation"])
-        m = place @ Transform(translation=np.asarray(p["offset"]), rotation=rot,
-                              scale=np.asarray(p["scale"])).to_matrix()
+        offset = np.asarray(p["offset"], dtype=float).copy()
+        if at == "anchor" and "reach" in p and "depth" in spot.affordance:
+            # Deep seats: sit forward until the shins clear the front edge (as the runtime does).
+            offset[2] += max(0.0, spot.affordance["depth"] + SEAT_CLEAR - p["reach"])
+        m = place @ Transform(translation=offset, rotation=rot, scale=np.asarray(p["scale"])).to_matrix()
         pose_clips(actor, f"pose_{name}", 0.0)
     else:
         m = spot.anchor.copy()

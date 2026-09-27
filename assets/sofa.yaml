@@ -75,7 +75,8 @@ parts:
 surfaces:
   seat: { from: seat_cushions.top }
 
+# Seats split the space between the arms (0.16 m each), so a sitter clears the armrests.
 affordances:
-  - { type: sit, at: ["{-width / 3}", 0.5, 0.1], facing: 0, height: 0.5, advertises: { rest: 0.5 }, tags: [seat, comfy] }
+  - { type: sit, at: ["{-(width - 0.32) / 3}", 0.5, 0.1], facing: 0, height: 0.5, advertises: { rest: 0.5 }, tags: [seat, comfy] }
   - { type: sit, at: [0, 0.5, 0.1], facing: 0, height: 0.5, advertises: { rest: 0.5 }, tags: [seat, comfy] }
-  - { type: sit, at: ["{width / 3}", 0.5, 0.1], facing: 0, height: 0.5, advertises: { rest: 0.5 }, tags: [seat, comfy] }
+  - { type: sit, at: ["{(width - 0.32) / 3}", 0.5, 0.1], facing: 0, height: 0.5, advertises: { rest: 0.5 }, tags: [seat, comfy] }

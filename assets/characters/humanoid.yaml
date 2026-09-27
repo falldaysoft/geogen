@@ -558,22 +558,24 @@ body:
         LeftThumbMetacarpal: [0, 28, 0]      # fold the rest pose's splayed thumb along the hand
         RightThumbMetacarpal: [0, -28, 0]
     sit:
+      seat: "{hips_h - seat_drop}"   # seat surface this is solved for; refitted per body (humanoid.fit_seats)
       bones: &sit_upper
         LeftThumbMetacarpal: [0, 28, 0]
         RightThumbMetacarpal: [0, -28, 0]
         Spine: [-4, 0, 0]
       ik: &sit_ik
-        LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.07 * k}"], flat: true }
+        LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.07 * k}"], flat: true, floor: true }
         LeftHand: { target: ["{0.12 * k}", "{hips_h + lap}", "{0.25 * k}"], pole: ["{0.3 + 0.7 * build}", -0.3, "{-1 + 0.3 * build}"] }   # heavier: elbows out, clear of the waist
         mirror: true
     sit_at_table:
+      seat: "{hips_h - seat_drop}"
       bones:
         <<: *sit_upper
         Spine: [6, 0, 0]
         Chest: [4, 0, 0]
       ik:
-        LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.04 * k}"], flat: true }
-        LeftHand: { target: ["{0.16 * k}", "{sit_floor + table_height + 0.02}", "{0.34 * k}"], pole: [0.5, -1, -0.4] }
+        LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.04 * k}"], flat: true, floor: true }
+        LeftHand: { target: ["{0.16 * k}", "{sit_floor + table_height + 0.02}", "{0.34 * k}"], pole: [0.5, -1, -0.4], floor: true }
         mirror: true
     lie:
       bones:
