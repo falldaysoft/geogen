@@ -121,9 +121,10 @@ def _add_lift(rooms: dict, doors: list, lobby: str, x: float, width: float, z: f
     side = _snap((width - shaft) / 2)
     rooms["lift_shaft"] = {"rect": _rect(x + side, z, shaft, shaft), "type": "lift_shaft"}
     doors.append({"between": [lobby, "lift_shaft"], "width": 1.1, "style": "opening"})
-    for name, px in (("lift_plant_west", x), ("lift_plant_east", x + side + shaft)):
-        if side >= 1.2:
-            rooms[name] = {"rect": _rect(px, z, side, shaft), "type": "service"}
+    # The east plant room takes the remainder: `side` may have rounded up a grid step.
+    for name, px, w in (("lift_plant_west", x, side), ("lift_plant_east", x + side + shaft, _snap(width - side - shaft))):
+        if w >= 1.2:
+            rooms[name] = {"rect": _rect(px, z, w, shaft), "type": "service"}
             doors.append({"between": [lobby, name], "width": 0.9})
 
 

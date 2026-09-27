@@ -37,10 +37,31 @@ RAIL_TOP = 0.16            # rail head above the ground: a low bed, so road cros
 BED = 0.03                 # ballast top
 SLEEPER = 0.06             # sleeper thickness
 STEP = 0.5
-RAILWAY_KEYS = {"path", "loop", "gauge", "speed", "stations"}
+RAILWAY_KEYS = {"path", "loop", "gauge", "speed", "stations", "around"}
 STATION_KEYS = {"name", "at", "length", "side", "width"}
 PLATFORM_HEIGHT = 0.3      # low platforms: a single step up from the ground
 PLATFORM_EDGE = 1.75       # track centre to platform edge (clears a 2.85 m wide car)
+
+
+def loop_around(extent, margin: float = 20.0, corner: float = 30.0, step: float = 2.0) -> list[list[float]]:
+    """A closed path (x, 0, z) round a ``extent`` = [width, depth] district centred on the origin,
+    ``margin`` metres outside it, with corners rounded to ``corner`` metres; counter-clockwise
+    seen from above, starting where the south-east corner begins (roads leaving the district
+    cross the straight sides, never a corner, so no crossing straddles the start)."""
+    hx, hz = extent[0] / 2 + margin, extent[1] / 2 + margin
+    r = min(corner, hx * 0.9, hz * 0.9)
+    pts = []
+    for cx, cz, a0 in ((hx - r, -hz + r, -90.0), (hx - r, hz - r, 0.0), (-hx + r, hz - r, 90.0), (-hx + r, -hz + r, 180.0)):
+        for a in np.linspace(a0, a0 + 90.0, max(4, int(np.pi * r / 2 / step)), endpoint=False):
+            t = np.radians(a)
+            pts.append([cx + r * np.cos(t), 0.0, cz + r * np.sin(t)])
+    corners = np.array(pts)
+    # Sample the whole perimeter (straights too), then start mid-way along the south side.
+    ring = np.vstack([corners, corners[:1]])
+    seg = np.linalg.norm(np.diff(ring, axis=0), axis=1)
+    cum = np.r_[0.0, np.cumsum(seg)]
+    s = np.arange(0.0, cum[-1], step)
+    return np.column_stack([np.interp(s, cum, ring[:, k]) for k in range(3)]).round(3).tolist()
 
 
 def _path(spec: dict[str, Any], loop: bool) -> np.ndarray:
@@ -252,7 +273,15 @@ def level_crossings(root: SceneNode, railway_node: SceneNode, graph: dict[str, A
         s0 = max(min(h[0] for h in group) - CROSSING_GUARD, 0.0)
         s1 = min(max(h[0] for h in group) + CROSSING_GUARD, rail["length"])
         lanes, barriers = [], []
-        for _, lane, ls in group:
+        posts: list[np.ndarray] = []
+        # One barrier per direction, at the kerb, its arm reaching across every lane that way
+        # (a barrier per lane would stand its post in the next lane over).
+        widest = {}
+        for _, lane, _ in group:
+            if lane["kind"] != "connector":
+                key = lane.get("road", lane["id"])
+                widest[key] = max(widest.get(key, 0.0), float(lane.get("kerb", 0.0) or 0.0))
+        for _, lane, ls in sorted(group, key=lambda g: float(g[1].get("kerb", 0.0) or 0.0)):
             stop = max(ls - CROSSING_STOP, 0.0)
             lanes.append({"lane": lane["id"], "stop": round(float(stop), 3)})
             if lane["kind"] == "connector":
@@ -264,11 +293,18 @@ def level_crossings(root: SceneNode, railway_node: SceneNode, graph: dict[str, A
             d = pts[min(k + 1, len(pts) - 1)] - pts[max(k - 1, 0)]
             d = d / max(np.linalg.norm(d), 1e-9)
             right = np.array([-d[2], 0.0, d[0]])
-            barrier = load({"asset": "crossing_barrier.yaml", "params": {"reach": 3.4}})
+            kerb = float(lane.get("kerb", 0.0) or 0.0)
+            post = p + right * (kerb + 0.35 if kerb else 1.75)
+            if any(np.linalg.norm((post - q)[[0, 2]]) < 2.0 for q in posts):
+                continue           # this direction's kerb barrier is already up
+            posts.append(post)
+            far = widest.get(lane.get("road", lane["id"]), 0.0)
+            reach = max(3.4, far + 1.6 - 0.35) if kerb else 3.4    # from the kerb post to the centre line
+            barrier = load({"asset": "crossing_barrier.yaml", "params": {"reach": round(reach, 2)}})
             barrier.name = f"crossing_{cid}_{len(barriers) + 1}"
             arm = -right                            # across the lane, toward the centre line
             yaw = float(np.arctan2(-arm[2], arm[0]))
-            barrier.transform = Transform(translation=p + right * 1.75, rotation=np.array([0.0, yaw, 0.0]))
+            barrier.transform = Transform(translation=post, rotation=np.array([0.0, yaw, 0.0]))
             barrier.meta["crossing"] = cid
             railway_node.add_child(barrier)
             barriers.append(barrier.name)

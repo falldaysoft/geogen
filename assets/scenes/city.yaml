@@ -1,0 +1,80 @@
+# The busy city showcase: a 5 x 4 grid with avenues through the middle, the
+# hotel, an apartment block and an office tower as landmarks, two parks,
+# shops along the avenues and houses on the side streets. The avenues run on
+# out of town (city exits) and cross a railway that loops round the whole
+# district, with two stations and two trains on the timetable. Dense traffic
+# with signals, parked cars and a crowd on the pavements. Streamed export.
+
+name: city
+tags: [showcase.city, city.district]
+
+city:
+  seed: 21
+  blocks: [5, 4]
+  block_size: [40, 32]
+  street_width: 8
+  avenues: { ew: [2], ns: [2] }
+  avenue_width: 16                 # two lanes each way plus parking on both kerbs (2.9 m lanes)
+  sidewalk: 3
+  curb_height: 0.15
+  lot_width: [10, 14]
+  exits: 70
+  landmarks:
+    "2,1": { recipe: hotel, storeys: 4, interior: lobby }
+    "1,2": { recipe: apartment_block, storeys: [4, 5], interior: shell }
+    "3,2": { recipe: office, storeys: [4, 5], interior: shell, max_width: 20 }
+  parks: ["0,0", "4,3"]
+  buildings:
+    residential:
+      - { recipe: detached_house, storeys: [1, 2], style: [brick_hotel, stucco], interior: shell }
+    commercial:
+      - { recipe: shop_row, shop: cafe, sign: "Metro Cafe", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: grocer, sign: "City Grocer", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: bookshop, sign: "Pages", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: shop_row, shop: clothing, sign: "Mode", storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel] }
+      - { recipe: office, storeys: [3, 4], interior: shell, max_width: 14 }
+  furniture:
+    lamp:    { asset: street_lamp.yaml, spacing: 20 }
+    tree:    { asset: maple_tree.yaml, spacing: 12, params: { height: 6.8, trunk: 0.6 } }
+    bench:   { asset: bench.yaml, per_edge: 1, zones: [commercial, park, landmark] }
+    hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+  traffic: { drive: right, lanes: 1, avenue_lanes: 2, speed: 11, avenue_speed: 13, signals: avenues }
+  parking:
+    fill: 0.4
+    fleet:
+      - asset: vehicles/car.yaml
+        weight: 6
+        params:
+          preset: { choice: [sedan, hatchback, estate], weights: [3, 3, 1] }
+          paint: { choice: [car_white, silver, graphite, car_black, car_red, maroon, car_blue, car_navy, teal_green, beige] }
+      - { asset: vehicles/car.yaml, weight: 1, params: { preset: taxi } }
+      - { asset: vehicles/van.yaml, weight: 1, params: { paint: car_white } }
+
+railways:
+  loop:
+    around: { margin: 26, corner: 35 }
+    speed: 20
+    stations:                     # on straights clear of the four level crossings (mid-side)
+      - { name: Northgate, at: { s: 310 }, length: 80, side: right }
+      - { name: Southgate, at: { s: 940 }, length: 80, side: right }
+
+slots:
+  hub_portal: { position: [60, 0, -104], facing: south }   # between Southgate's platform and the city
+
+place:
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_city }
+  commuter_a: { train: trains/commuter.yaml, railway: loop }
+  commuter_b: { train: trains/commuter.yaml, railway: loop, timetable: { offset: 130 } }
+  traffic: { traffic: traffic/town.yaml, seed: 7, count: 16 }
+  pedestrians:
+    npc: npcs/pedestrian.yaml
+    home: { rect: [-140, -110, 140, 110] }
+    scatter: { on_tag: street.sidewalk, count: 30, spacing: 10, seed: 13, radius: 0.5 }
+
+spawns:
+  start: { position: [2, 0.15, 7.5], facing: east }        # the central avenue's north pavement
+  from_hub: { position: [60, 0, -101.4], facing: north }   # in front of the hub portal, looking into the city

@@ -649,6 +649,7 @@ func _physics_process(delta: float) -> void:
         player.scripted_move = null
         var p := player.global_position
         var result := {"x": p.x, "y": p.y, "z": p.z, "scene": world.scene_name,
+            "fps": Engine.get_frames_per_second(),
             "on_floor": player.is_on_floor(), "room": world.room_at(p + Vector3(0, 0.5, 0))}
         if world.streamer != null:
             result["stream"] = world.stream_report()

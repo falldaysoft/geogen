@@ -26,6 +26,10 @@ scenes:
   main_street:
     group: showcase
     description: A high street - cafe, grocer, bookshop and clothes shop, traffic lights, a bus stop, pedestrians
+  city:
+    group: showcase
+    stream: true
+    description: A busy city - avenues, landmarks, dense traffic and a railway loop with two stations
   park:
     group: showcase
     description: A railed park - paths round a fountain pond, playground, bandstand, picnic tables, visitors
@@ -40,6 +44,9 @@ scenes:
   crossroads:
     group: test
     description: Small street grid with signals, traffic and pedestrians
+  rail_loop_test:
+    group: test
+    description: Small grid with exits and a loop railway (four level crossings, two trains)
   level_crossing:
     group: test
     description: Road crossing a railway with barriers and a commuter train

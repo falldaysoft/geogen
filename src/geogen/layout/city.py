@@ -66,7 +66,7 @@ from ..core.profile import Shape, rect
 from ..core.transform import Transform
 
 KNOWN = {"seed", "blocks", "block_size", "street_width", "avenues", "avenue_width", "sidewalk", "curb_height",
-         "lot_width", "landmarks", "parks", "buildings", "furniture", "corner_radius", "parking", "traffic"}
+         "lot_width", "landmarks", "parks", "buildings", "furniture", "corner_radius", "parking", "traffic", "exits"}
 PARKING_KEYS = {"fleet", "fill", "bay", "drive", "both_sides", "clear", "seed"}
 
 _DEFAULT_SETBACK = {"residential": 3.0, "commercial": 0.0, "landmark": 2.0}
@@ -174,6 +174,8 @@ class CityBuilder:
         self.z_edges = [(a - shift[1], b - shift[1]) for a, b in self.z_edges]
         self.lo = -shift
         self.hi = shift
+        # Avenues run on past the grid this far (roads out of town; their outbound lanes are exits).
+        self.exits = float(spec.get("exits", 0.0) or 0.0)
 
     @staticmethod
     def _edges(widths: list[float], block: float) -> list[tuple[float, float]]:
@@ -241,6 +243,18 @@ class CityBuilder:
                             tags=["street.road"])
         streets.meta["walkable"] = True
         city.add_child(streets)
+        exit_roads = self._exit_roads()
+        if exit_roads:
+            node = SceneNode(name="exit_roads", mesh=self._material(Mesh.merge([m for m, _ in exit_roads]), "asphalt"),
+                             tags=["street.road"])
+            node.meta["walkable"] = True
+            city.add_child(node)
+            lines = [d for _, dashes in exit_roads for d in dashes]
+            if lines:
+                paint = SceneNode(name="exit_markings", mesh=self._material(Mesh.merge(lines), "road_paint_yellow"),
+                                  tags=["street.marking"])
+                paint.meta["collider"] = "none"
+                city.add_child(paint)
         markings = self._markings()
         for material, meshes in markings.items():
             if meshes:
@@ -484,6 +498,40 @@ class CityBuilder:
                                        rotation=np.array([0.0, float(self.rng.uniform(0, 2 * np.pi)), 0.0]))
             node.add_child(tree)
 
+    def exit_spans(self) -> list[tuple[str, int, float, float]]:
+        """Avenue ends that run on out of town: (side, avenue index, span lo, span hi)."""
+        if self.exits <= 0:
+            return []
+        ns_spans = self._street_spans(self.x_edges, self.ns_width, self.lo[0], self.hi[0])
+        ew_spans = self._street_spans(self.z_edges, self.ew_width, self.lo[1], self.hi[1])
+        out = []
+        for j in sorted(self.ew_avenues):
+            out += [("west", j, *ew_spans[j]), ("east", j, *ew_spans[j])]
+        for i in sorted(self.ns_avenues):
+            out += [("south", i, *ns_spans[i]), ("north", i, *ns_spans[i])]
+        return out
+
+    def _exit_roads(self) -> list[tuple[Mesh, list[Mesh]]]:
+        """Asphalt (and a dashed centre line) for each road out of town."""
+        roads = []
+        L = self.exits
+        for side, _, a, b in self.exit_spans():
+            mid = (a + b) / 2
+            if side == "west":
+                lo, hi = [self.lo[0] - L, a], [self.lo[0], b]
+                dash = (np.array([self.lo[0] - L + 1.0, mid]), np.array([self.lo[0] - 1.0, mid]))
+            elif side == "east":
+                lo, hi = [self.hi[0], a], [self.hi[0] + L, b]
+                dash = (np.array([self.hi[0] + 1.0, mid]), np.array([self.hi[0] + L - 1.0, mid]))
+            elif side == "south":
+                lo, hi = [a, self.lo[1] - L], [b, self.lo[1]]
+                dash = (np.array([mid, self.lo[1] - L + 1.0]), np.array([mid, self.lo[1] - 1.0]))
+            else:
+                lo, hi = [a, self.hi[1]], [b, self.hi[1] + L]
+                dash = (np.array([mid, self.hi[1] + 1.0]), np.array([mid, self.hi[1] + L - 1.0]))
+            roads.append((_slab(lo, hi, -0.2, 0.0), self._dashes(*dash, 0.0, 0.004)))
+        return roads
+
     def _markings(self) -> dict[str, list[Mesh]]:
         """Crosswalk stripes at every block corner and dashed centre lines between them."""
         white, yellow = [], []
@@ -605,12 +653,17 @@ class CityBuilder:
             return
         group = SceneNode(name="signals", tags=["street.signals"])
         proto, _, _ = self._prototype({"asset": "signal_head.yaml"})
+        placed: set[tuple[float, float]] = set()
         for ln in heads:
             pts = np.asarray(ln["points"], dtype=float)
             end, d = pts[-1], pts[-1] - pts[-2]
             d = d / max(np.linalg.norm(d), 1e-9)
             right = np.array([-d[2], 0.0, d[0]])
             p = end + right * (float(ln.get("kerb", 1.5)) + 0.6)
+            spot = (round(float(p[0]), 1), round(float(p[2]), 1))
+            if spot in placed:
+                continue        # one head per approach: lanes side by side share the kerb post
+            placed.add(spot)
             node = _instance(proto)
             node.name = f"signal_{ln['id']}"
             node.transform = Transform(translation=np.array([p[0], self.curb, p[2]]),

@@ -1,0 +1,30 @@
+# Test scene for city exits and a loop railway: a 2 x 2 grid whose avenues
+# run on out of town across a railway looping round it (four level
+# crossings), two stations on the straights and two trains. See scenes/city.yaml.
+
+name: rail_loop_test
+city:
+  seed: 3
+  blocks: [2, 2]
+  block_size: [36, 28]
+  street_width: 8
+  avenues: { ew: [1], ns: [1] }
+  avenue_width: 12
+  exits: 50
+  buildings:
+    residential: [{ recipe: detached_house, storeys: 1, interior: shell }]
+    commercial: [{ recipe: shop_row, storeys: 2, interior: shell }]
+  traffic: { drive: right, lanes: 1, signals: avenues }
+railways:
+  loop:
+    around: { margin: 22, corner: 12 }
+    speed: 18
+    stations:
+      - { name: east, at: { s: 103 }, length: 36, side: right }   # just past the east crossing (s 71), before the corner
+      - { name: west, at: { s: 364 }, length: 36, side: right }   # just past the west crossing (s 332)
+place:
+  train_a: { train: trains/commuter.yaml, railway: loop }
+  train_b: { train: trains/commuter.yaml, railway: loop, timetable: { offset: 130 } }
+  traffic: { traffic: traffic/town.yaml, seed: 2, count: 6 }
+spawns:
+  start: { position: [12, 0.15, 12], facing: south }

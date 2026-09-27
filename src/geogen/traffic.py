@@ -60,6 +60,7 @@ class Lane:
     successors: list[str] = field(default_factory=list)
     crosswalks: list[list[float]] = field(default_factory=list)
     end: str = ""                     # "exit" when vehicles leave the world at the lane's end
+    start: str = ""                   # "entry" when vehicles arrive from outside the world here
     signal: dict | None = None        # {intersection, phase} for lanes ending at traffic lights
     kerb: float = 0.0                 # distance from the lane centre to the kerb on its right
 
@@ -72,7 +73,7 @@ class Lane:
                                "length": round(self.length, 3),
                                "points": [[round(float(v), 3) for v in p] for p in self.points],
                                "successors": list(self.successors)}
-        for key in ("road", "turn", "intersection", "end"):
+        for key in ("road", "turn", "intersection", "end", "start"):
             if getattr(self, key):
                 out[key] = getattr(self, key)
         if self.crosswalks:
@@ -158,13 +159,14 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     def arm(node, side):
         return arms.setdefault(node, {}).setdefault(side, ([], []))
 
-    def street(axis: str, k: int, a: float, b: float, lo: float, hi: float, n0, n1, avenue: bool):
+    def street(axis: str, k: int, a: float, b: float, lo: float, hi: float, n0, n1, avenue: bool,
+               parked: bool = True):
         """Lanes on one segment. axis 'z': a north-south street (x in [a, b]) whose crosswalks
         end at z=lo and start at z=hi."""
         width = b - a
         # Parking lanes: on streets narrower than `both`, only the north/east kerb (x = b / z = b).
-        park_lo = PARKING_DEPTH if parking and width >= both else 0.0
-        park_hi = PARKING_DEPTH if parking else 0.0
+        park_lo = PARKING_DEPTH if parking and parked and width >= both else 0.0
+        park_hi = PARKING_DEPTH if parking and parked else 0.0
         c0, c1 = a + park_lo, b - park_hi
         n_way = avenue_per_way if avenue else per_way
         lane_w = min(LANE_WIDTH, (c1 - c0) / (2 * n_way))
@@ -205,6 +207,31 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
         for i in range(builder.nx):
             x0, x1 = builder.x_edges[i]
             street("x", j, a, b, x0 + sw, x1 - sw, (i, j), (i + 1, j), j in builder.ew_avenues)
+
+    # Roads out of town: each avenue end runs on to a node outside the grid, where the outbound
+    # lanes end (vehicles leave the world and come back on an inbound lane).
+    outside = []
+    L = getattr(builder, "exits", 0.0)
+    for side, idx, a, b in builder.exit_spans() if L > 0 else []:
+        if side == "west":
+            out = (-1, idx)
+            street("x", idx, a, b, builder.lo[0] - L, builder.lo[0], out, (0, idx), True, parked=False)
+        elif side == "east":
+            out = (builder.nx + 1, idx)
+            street("x", idx, a, b, builder.hi[0], builder.hi[0] + L, (builder.nx, idx), out, True, parked=False)
+        elif side == "south":
+            out = (idx, -1)
+            street("z", idx, a, b, builder.lo[1] - L, builder.lo[1], out, (idx, 0), True, parked=False)
+        else:
+            out = (idx, builder.nz + 1)
+            street("z", idx, a, b, builder.hi[1], builder.hi[1] + L, (idx, builder.nz), out, True, parked=False)
+        outside.append(out)
+    for node in outside:
+        for incoming, outgoing in arms.get(node, {}).values():
+            for ln in incoming:
+                ln.end = "exit"
+            for ln in outgoing:
+                ln.start = "entry"
 
     heading = {"north": np.array([0.0, 1.0]), "south": np.array([0.0, -1.0]),
                "east": np.array([1.0, 0.0]), "west": np.array([-1.0, 0.0])}
@@ -528,7 +555,7 @@ def check_graph(graph: dict[str, Any]) -> list[str]:
                 issues.append(f"{lid}: unknown successor {s}")
         if not ln["successors"] and ln.get("end") != "exit":
             issues.append(f"{lid}: dead end")
-        if lid not in reached and ln["kind"] != "route":
+        if lid not in reached and ln["kind"] != "route" and ln.get("start") != "entry":
             issues.append(f"{lid}: nothing leads here")
     return issues
 

@@ -348,6 +348,17 @@ class SceneComposer:
 
             roads = build_traffic(root)
             for rail_name, rail_spec in data["railways"].items():
+                if isinstance(rail_spec, dict) and "around" in rail_spec:
+                    # A loop round the district: {around: {margin, corner}} -> the path.
+                    from ..railway import loop_around
+
+                    city_node = next((n for n in root.iter_nodes() if isinstance(n.meta.get("city"), dict)), None)
+                    if city_node is None:
+                        raise ValueError(f"railway '{rail_name}': around needs a city: block")
+                    opts = rail_spec["around"] or {}
+                    rail_spec = {**{k: v for k, v in rail_spec.items() if k != "around"},
+                                 "path": loop_around(city_node.meta["city"]["extent"], float(opts.get("margin", 20.0)),
+                                                     float(opts.get("corner", 30.0))), "loop": True}
                 rail_node = build_railway(rail_name, rail_spec, self._loader._material_loader,
                                           self._load_object, self._assets_dir)
                 root.add_child(rail_node)

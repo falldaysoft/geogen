@@ -24,7 +24,8 @@
           "road": { "type": "string" },
           "turn": { "enum": ["straight", "left", "right"] },
           "intersection": { "type": "string" },
-          "end": { "description": "exit: vehicles leave the world at this lane's end (open routes).", "const": "exit" },
+          "end": { "description": "exit: vehicles leave the world at this lane's end (open routes, roads out of a city).", "const": "exit" },
+          "start": { "description": "entry: vehicles arrive from outside the world at this lane's start (roads into a city).", "const": "entry" },
           "signal": { "description": "Lanes ending at traffic lights: which intersection and phase they follow.", "type": "object", "required": ["intersection", "phase"] },
           "kerb": { "description": "Distance from the lane centre to the kerb on its right (m).", "type": "number" },
           "crosswalks": { "description": "s-ranges (metres along the lane) that cross a crosswalk: yield to people there.", "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } }

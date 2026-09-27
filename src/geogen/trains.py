@@ -125,6 +125,8 @@ def place_train(root: SceneNode, name: str, spec: dict[str, Any], load, assets_d
     """The train placement: ``meta.train`` (definition, railway, run, stops, closures, cars) and
     the consist as children, standing on the line where departure 0 starts."""
     train = load_train(Path(assets_dir) / spec["train"])
+    if spec.get("timetable"):   # a placement may retime its train (several trains on one line)
+        train = {**train, "timetable": {**train["timetable"], **{k: float(v) for k, v in spec["timetable"].items()}}}
     rail_id = spec.get("railway")
     railway = next((n.meta["railway"] for n in root.iter_nodes()
                     if isinstance(n.meta.get("railway"), dict) and (rail_id is None or n.meta["railway"]["id"] == rail_id)),
@@ -166,7 +168,11 @@ def place_train(root: SceneNode, name: str, spec: dict[str, Any], load, assets_d
         d = d % cum[-1] if railway["loop"] else min(max(d, 0.0), cum[-1])
         return np.array([np.interp(d, cum, pts[:, j]) for j in range(3)])
 
-    s_head = float(run[0])
+    # Stand each train as far along its run as its timetable offset is through the headway, so
+    # several trains on one line don't stand on top of each other in the export.
+    tt = train["timetable"]
+    frac = (float(tt.get("offset", 0.0)) % float(tt.get("headway", 300.0))) / float(tt.get("headway", 300.0))
+    s_head = float(run[min(int(frac * len(run)), len(run) - 1)])
     for (car, v), off in zip(cars, offsets):
         centre = s_head - off
         b0, b1 = v["bogie_centers"][0], v["bogie_centers"][-1]
