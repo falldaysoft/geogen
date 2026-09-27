@@ -250,7 +250,8 @@ They're built along +Z (the front) with the origin on the ground midway between 
 - **`vehicle:` block:** handled by `geogen/vehicles.py` and becomes `meta.vehicle` (`meta.type: vehicle`, schema-validated). Its keys:
   - `class`, `wheels`, `steer`, `paint` and `lamps {head, tail, brake}`, all naming parts;
   - `bogies` and `couplers` for rail;
-  - `max_speed`, `turn_radius`, `accel`, `decel`.
+  - `max_speed`, `turn_radius`, `accel`, `decel`;
+  - `sound: {engine: {base, per_speed, volume_db, roughness}, horn: {tones, seconds, volume_db}}`, which the runtime synthesises (`scripts/sound.gd`).
 - **Measured values:** wheel centres and radii, wheelbase, track, `clearance [length, width, height]`, and front/rear bumper z.
 - **Export:** rewrites these part names to the exported (uniquified) node names.
 - City `parking:` (`fleet` weighted with draw params, `fill`, `bay`, `drive`, `both_sides`, `clear`) puts static cars in kerbside bays.

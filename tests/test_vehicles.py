@@ -70,3 +70,13 @@ def test_export_renames_vehicle_parts(tmp_path):
     assert len(vehicles) == 2
     wheels = [w["part"] for v in vehicles for w in v["wheels"]]
     assert len(set(wheels)) == 8 and set(wheels) <= names
+
+
+def test_sound_hooks(loader):
+    from geogen.vehicles import parse_sound
+
+    loco = loader.load(ASSETS / "vehicles" / "loco.yaml").meta["vehicle"]["sound"]
+    assert loco["engine"]["base"] == 24.0 and loco["horn"]["tones"] == [311.0, 370.0]
+    assert parse_sound({"engine": True})["engine"]["per_speed"] == 4.0
+    with pytest.raises(ValueError):
+        parse_sound({"siren": True})

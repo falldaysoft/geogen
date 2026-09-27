@@ -42,6 +42,7 @@ def test_traffic_flows_without_overlaps_or_gridlock(run_godot, crossroads_dir):
     # The avenue's intersections have lights: vehicles stop on red and go on green.
     assert report["red_stops"] >= 5 and report["green_claims"] >= 10
     assert report["claims"] > 100 and set(report["turns"]) == {"left", "right", "straight"}
+    assert report["engines"] == report["vehicles"]      # every vehicle on the road has its engine sound
 
 
 def test_a_player_in_the_lane_stops_traffic(run_godot, crossroads_dir):
@@ -142,6 +143,7 @@ def test_trains_close_the_crossing_and_traffic_waits(run_godot, crossing_dir):
     train = _train_summary(out)
     (traffic,) = json.loads(next(l for l in out.splitlines() if l.startswith("traffic summary: ")).split(": ", 1)[1])
     assert train["departures"] >= 3 and train["closed_time"] > 60
+    assert train["horns"] >= 2                        # the driver sounds the horn for each closure
     events = [json.loads(l.split(": ", 1)[1]) for l in out.splitlines() if l.startswith("interaction event: ")]
     downs = [e for e in events if e["asset"].startswith("crossing_main_x1") and e["state"] == "down"]
     ups = [e for e in events if e["asset"].startswith("crossing_main_x1") and e["state"] == "up"]

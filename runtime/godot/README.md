@@ -234,7 +234,7 @@ and `extras.geogen.train`, all precomputed by geogen/trains.py:
   interaction goes `down`, and road traffic (traffic.gd) waits at the lanes' stop points unless
   a vehicle is already past them.
 
-`--simulate` prints `train summary`. `-s level_crossing` is the test scene; see
+Vehicles with `vehicle.sound` get synthesised audio from `scripts/sound.gd` (no files). The engine is a looping hum whose pitch follows speed, and trains sound their `horn` when a crossing closes ahead. `--simulate` prints `train summary`. `-s level_crossing` is the test scene; see
 `tests/test_traffic_runtime.py` (crossings closed with no vehicle inside, timetable dwell).
 
 ## Time of day

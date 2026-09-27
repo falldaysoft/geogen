@@ -188,3 +188,4 @@ vehicle:
   paint: [body]
   lamps: { head: [headlight_left, headlight_right], tail: [taillight_left, taillight_right] }
   max_speed: 30
+  sound: { engine: { base: 24, per_speed: 1.6, volume_db: -4, roughness: 0.6 }, horn: { tones: [311, 370], seconds: 1.6 } }

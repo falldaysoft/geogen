@@ -30,7 +30,11 @@ from .core.node import SceneNode
 
 CLASSES = {"car", "van", "bus", "truck", "loco", "carriage"}
 KEYS = {"class", "wheels", "steer", "paint", "lamps", "bogies", "couplers", "max_speed", "turn_radius",
-        "clearance", "accel", "decel"}
+        "clearance", "accel", "decel", "sound"}
+SOUND_DEFAULTS = {
+    "engine": {"base": 45.0, "per_speed": 4.0, "volume_db": -10.0, "roughness": 0.35},
+    "horn": {"tones": [370.0, 440.0], "seconds": 1.2, "volume_db": 0.0},
+}
 LAMP_KINDS = {"head", "tail", "brake", "indicator"}
 DEFAULTS = {"car": (16.0, 5.5), "van": (14.0, 6.5), "bus": (12.0, 9.0), "truck": (12.0, 9.0),
             "loco": (30.0, 150.0), "carriage": (30.0, 150.0)}
@@ -52,6 +56,29 @@ def _part(name: str, parts: dict[str, SceneNode], what: str) -> SceneNode:
     if node is None:
         raise ValueError(f"vehicle: {what} names unknown part {name!r} (parts: {sorted(parts)})")
     return node
+
+
+def parse_sound(spec: dict[str, Any]) -> dict[str, Any]:
+    """Sound hooks a runtime synthesises (no audio files)::
+
+        sound:
+          engine: { base: 45, per_speed: 4, volume_db: -10, roughness: 0.35 }  # Hz at rest, Hz per m/s
+          horn: { tones: [370, 440], seconds: 1.2, volume_db: 0 }              # trains sound it before crossings
+
+    ``engine: true`` / ``horn: true`` take the defaults.
+    """
+    unknown = set(spec) - set(SOUND_DEFAULTS)
+    if unknown:
+        raise ValueError(f"vehicle sound: kinds are {sorted(SOUND_DEFAULTS)}, got {sorted(unknown)}")
+    out = {}
+    for kind, value in spec.items():
+        value = {} if value is True else dict(value or {})
+        extra = set(value) - set(SOUND_DEFAULTS[kind])
+        if extra:
+            raise ValueError(f"vehicle sound.{kind}: keys are {sorted(SOUND_DEFAULTS[kind])}, got {sorted(extra)}")
+        merged = {**SOUND_DEFAULTS[kind], **value}
+        out[kind] = {k: ([float(x) for x in v] if isinstance(v, list) else float(v)) for k, v in merged.items()}
+    return out
 
 
 def parse_vehicle(spec: dict[str, Any], root: SceneNode, parts: dict[str, SceneNode]) -> dict[str, Any]:
@@ -111,6 +138,8 @@ def parse_vehicle(spec: dict[str, Any], root: SceneNode, parts: dict[str, SceneN
     if pts is not None:
         out["front"] = round(float(pts[:, 2].max()), 4)     # bumper positions along +Z
         out["rear"] = round(float(pts[:, 2].min()), 4)
+    if "sound" in spec:
+        out["sound"] = parse_sound(spec["sound"])
     max_speed, turn_radius = DEFAULTS[cls]
     out["max_speed"] = float(spec.get("max_speed", max_speed))
     out["turn_radius"] = float(spec.get("turn_radius", turn_radius))

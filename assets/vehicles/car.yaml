@@ -251,3 +251,4 @@ vehicle:
   paint: [body, roof_panel, b_pillar]
   lamps: { head: [headlight_left, headlight_right], tail: [taillight_left, taillight_right],
            brake: [taillight_left, taillight_right] }
+  sound: { engine: { base: 42, per_speed: 4.5, volume_db: -12 } }

@@ -211,3 +211,4 @@ vehicle:
   paint: [body, roof, pillar_1, pillar_2, pillar_3, pillar_4, pillar_5, pillar_6, pillar_7, pillar_rear]
   lamps: { head: [headlight_left, headlight_right, destination], tail: [taillight_left, taillight_right],
            brake: [taillight_left, taillight_right] }
+  sound: { engine: { base: 28, per_speed: 3.0, volume_db: -6, roughness: 0.55 } }

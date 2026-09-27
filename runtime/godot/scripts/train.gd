@@ -84,6 +84,7 @@ func _prepare(car: Node3D) -> void:
 	car.set_meta("geogen_vehicle_box", {"half": float(clearance[0]) / 2.0, "half_w": float(clearance[1]) / 2.0,
 		"offset": 0.0})
 	car.set_meta("geogen_speed", 0.0)
+	GeogenSound.add_engine(car, info)
 	for kind in info.get("lamps", {}):
 		for part_name in info["lamps"][kind]:
 			var part := car.find_child(str(part_name), true, false)
@@ -188,11 +189,21 @@ func _physics_process(delta: float) -> void:
 		if closed != c["closed"]:
 			c["closed"] = closed
 			world.set_crossing(cid, closed)
+			if closed:
+				_sound_horns()
 			for b in c["barriers"]:
 				for it in world.interactions_of(str(b)):
 					if it.states.has("down"):
 						it.set_state("down" if closed else "up")
 			trace({"t": snappedf(t, 0.1), "crossing": cid, "closed": closed})
+
+
+## The lead cars of the trains on the line sound their horns (approaching a crossing).
+func _sound_horns() -> void:
+	for k in _set_of:
+		var lead: Node3D = _sets[_set_of[k]][0]
+		if GeogenSound.horn(lead, WorldLoader.geogen_extras(lead).get("vehicle", {})):
+			stats["horns"] = int(stats.get("horns", 0)) + 1
 
 
 func _clone_set() -> Array:
@@ -223,6 +234,7 @@ func _place(cars: Array, tau: float, delta: float) -> void:
 		var pitch := -atan2(dir.y, Vector2(dir.x, dir.z).length())
 		car.global_transform = Transform3D(Basis.from_euler(Vector3(pitch, yaw, 0.0)), (front + rear) / 2.0)
 		car.set_meta("geogen_speed", speed)
+		GeogenSound.set_speed(car.get_node_or_null("Engine") as AudioStreamPlayer3D, speed)
 		# Bogies turn to the rails under them; wheels spin.
 		var info: Dictionary = WorldLoader.geogen_extras(car).get("vehicle", {})
 		var names: Array = info.get("bogies", [])
@@ -253,4 +265,4 @@ func report() -> Dictionary:
 	for cid in _crossings:
 		crossings[cid] = _crossings[cid]["closed"]
 	return {"train": String(name), "time": snappedf(t, 0.1), "active": trains, "departures": stats["departures"].size(),
-		"sets": _sets.size(), "crossings": crossings, "closed_time": snappedf(stats["closed_time"], 0.1)}
+		"sets": _sets.size(), "crossings": crossings, "horns": int(stats.get("horns", 0)), "closed_time": snappedf(stats["closed_time"], 0.1)}

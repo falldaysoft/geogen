@@ -219,6 +219,7 @@ func _adopt(node: Node3D) -> Dictionary:
 					var mat := mi.get_active_material(i) as BaseMaterial3D
 					if mat != null and mat.emission_enabled and not _lamp_materials.has(mat):
 						_lamp_materials[mat] = [mat.emission_energy_multiplier, kind]
+	var engine := GeogenSound.add_engine(node, info)
 	var wheels := []
 	for w in info.get("wheels", []):
 		var wheel := node.find_child(str(w["part"]), true, false) as Node3D
@@ -230,7 +231,7 @@ func _adopt(node: Node3D) -> Dictionary:
 		"half_w": float(clearance[1]) / 2.0, "base": float(info.get("wheelbase", 2.6)) / 2.0,
 		"accel": minf(float(info.get("accel", 2.0)), float(driving.get("accel", 1.8))),
 		"decel": minf(float(info.get("decel", 4.0)), float(driving.get("decel", 3.0))),
-		"wheels": wheels, "waiting": -1.0, "claimed": false, "moved": 0.0, "idle": 0.0,
+		"wheels": wheels, "engine": engine, "waiting": -1.0, "claimed": false, "moved": 0.0, "idle": 0.0,
 		"blocked_by": "", "yielding": false}
 	if lane >= 0:
 		v["next"] = _choose_next(lane)
@@ -451,6 +452,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
 		v["next"] = _choose_next(v["lane"])
 	_place(v)
 	(v["node"] as Node3D).set_meta("geogen_speed", speed)
+	GeogenSound.set_speed(v["engine"], speed)
 	for w in v["wheels"]:
 		(w["node"] as Node3D).rotate(Vector3.RIGHT, step / float(w["r"]))
 
@@ -526,6 +528,8 @@ func _set_active(v: Dictionary, on: bool) -> void:
 	var node: Node3D = v["node"]
 	node.visible = on
 	node.set_meta("geogen_speed", 0.0)
+	if v.get("engine") != null:
+		(v["engine"] as AudioStreamPlayer3D).playing = on
 	for shape: CollisionShape3D in node.find_children("*", "CollisionShape3D", true, false):
 		shape.set_deferred("disabled", not on)
 	if on:
@@ -766,7 +770,8 @@ func report() -> Dictionary:
 				"claimed": v["claimed"]}
 	var gap = stats["min_person_gap"]
 	var player_gap = stats["min_player_gap"]
-	return {"vehicles": vehicles.size(), "parked": _parked.size(), "share": snappedf(scheduled_share(), 0.01),
+	var engines := vehicles.filter(func(v): return v["engine"] != null and (v["engine"] as AudioStreamPlayer3D).playing).size()
+	return {"vehicles": vehicles.size(), "engines": engines, "parked": _parked.size(), "share": snappedf(scheduled_share(), 0.01),
 		"distance": snappedf(stats["distance"], 0.1),
 		"min_moved": snappedf(min_moved, 0.1) if min_moved < INF else 0.0, "max_idle": snappedf(max_idle, 0.1),
 		"claims": stats["claims"], "yields": stats["yields"], "overlaps": stats["overlaps"],

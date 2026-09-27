@@ -284,7 +284,8 @@
             "clearance": { "$ref": "#/$defs/vec3" },
             "front": { "type": "number" }, "rear": { "type": "number" },
             "max_speed": { "type": "number" }, "turn_radius": { "type": "number" },
-            "accel": { "type": "number" }, "decel": { "type": "number" }
+            "accel": { "type": "number" }, "decel": { "type": "number" },
+            "sound": { "description": "Synthesised sound hooks: engine {base Hz, per_speed Hz per m/s, volume_db, roughness}, horn {tones Hz, seconds, volume_db}.", "type": "object" }
           }
         }
       },
