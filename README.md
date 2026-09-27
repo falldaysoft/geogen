@@ -2,7 +2,7 @@
 
 Procedural 3D geometry generator for game assets. You describe objects and scenes in YAML (parts, profiles, cut-outs, roofs, materials, anchors) and geogen builds watertight, UV-mapped meshes with procedural PBR textures. It renders them, shows them in an interactive viewer, exports them to glTF/OBJ, and runs them in a Godot 4 runtime that you can walk around in first person.
 
-The goal is nested, generated worlds: cities that contain neighbourhoods that contain streets, houses and furnished rooms. A small version of that works today: a town district of generated shops, houses, offices, an apartment block and a hotel, with furnished interiors you can walk into in Godot.
+The goal is nested, generated worlds: cities that contain neighbourhoods that contain streets, houses and furnished rooms. A small version of that works today: a town district of generated shops, houses, offices, an apartment block and a hotel, with furnished interiors you can walk into in Godot. The town has traffic, a railway and people going about their day.
 
 ## Examples
 
@@ -17,13 +17,13 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 **Walking the town in Godot**: the district streams in chunks around the player (left). Buildings have furnished interiors, like the hotel lobby (right):
 
 | Streamed street | Hotel lobby |
-|---|---|---|
+|---|---|
 | ![Godot town street](docs/images/godot_town_street.png) | ![Godot hotel lobby](docs/images/godot_hotel_lobby.png) |
 
 **Hotel**: a multi-storey building generated from floor-plan layouts: a lobby floor, guest floors, scissor stairs, a working lift, a façade and a roof (left). A guest room furnished by the furnishing solver, shown with the ceiling cut away (right):
 
 | Hotel | Furnished room (cutaway) |
-|---|---|---|
+|---|---|
 | ![Hotel](docs/images/geogen_hotel.png) | ![Hotel room](docs/images/geogen_hotel_room.png) |
 
 **Park**: seeded scatter placement of space-colonisation trees and displaced rocks around a cottage and a lamp-lit path:
@@ -43,13 +43,13 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 ![Dining set](docs/images/geogen_dining_set.png)
 
 | Chair | Room |
-|---|---|---|
+|---|---|
 | ![Chair](docs/images/geogen_chair.png) | ![Room](docs/images/geogen_room.png) |
 
 **Godot runtime**: the cottage exported with `--export-godot` and walked in first person (left); F2 shows the collision shapes (right):
 
 | First person | Collider wireframes |
-|---|---|---|
+|---|---|
 | ![Godot first person](docs/images/godot_first_person.png) | ![Godot colliders](docs/images/godot_colliders.png) |
 
 **NPCs**: the cottage has a resident, a young woman drawn from a character archetype (skinned body, painted face, hair and clothes), walking with procedural clips. Everything she does is data: the furniture, windows and door advertise what can be done there, and the Godot runtime scores those offers against her needs and runs the chosen action's steps. Here she walks over to the armchair, rests in it, and later steps out of the front door:
@@ -57,6 +57,14 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 | Walking | Resting | On the doorstep |
 |---|---|---|
 | ![NPC walking](docs/images/godot_npc_walking.png) | ![NPC in the armchair](docs/images/godot_npc_armchair.png) | ![NPC on the doorstep](docs/images/godot_npc_doorstep.png) |
+
+**People**: humanoid characters are generated from a skeleton and a body shape. Presets, body types, skin tones, hair styles and outfits are all parameters, and character archetypes draw them at random, so a crowd is a set of seeds. Bodies are skinned, posed with IK, animated with procedural walk and idle clips, and dressed in garments that follow the body:
+
+![People gallery](docs/images/geogen_people.png)
+
+**Vehicles**: cars (sedan, hatchback, estate, taxi), a van and a bus, plus rolling stock for trains. In the runtime they drive a precomputed lane graph with signals, give way to pedestrians and wait at level crossings:
+
+![Vehicle lineup](docs/images/geogen_vehicles.png)
 
 **Interactive viewer** (Qt/OpenGL) viewport: shadows, PBR, grid, picking:
 
@@ -96,6 +104,17 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
   - hot reload of `assets/**/*.yaml`.
 - **Rendering**: offscreen rendering with shadows and PBR, auto-framed, view presets, cutaways, and multi-view contact sheets.
 - **Export**: glTF/GLB with the node hierarchy, PBR textures, colliders (Godot import suffixes), gameplay extras (a versioned JSON schema), punctual lights, interaction animations and a JSON manifest; or OBJ+MTL+PNG.
+- **Characters**:
+  - a humanoid skeleton (Godot's humanoid profile) sized by body parameters;
+  - a ring-lofted, skinned body with a painted face and hair styles;
+  - poses solved with IK, and procedural walk, idle and wave clips;
+  - clothing that is fitted to the body and follows it when skinned;
+  - archetypes, seeded distributions over all of these, and a clipping QA that checks for poke-through.
+- **Transport**:
+  - vehicles built from profiles with measured wheels and clearance;
+  - a lane graph for city streets and declared routes, with turns, conflicts, crosswalks and traffic signals;
+  - kerbside parking;
+  - railways with stations and level crossings, and timetabled trains.
 - **NPCs**: declarative characters. Assets advertise affordances (sit, lie, look, stand, use) with what they satisfy, doors advertise portals, and actions are step lists (`assets/npcs/actions.yaml`). An NPC definition (`assets/npcs/resident.yaml`) gives a body asset, needs, preferences and scoring weights. The runtime runs these as a generic interpreter: utility selection, navmesh walking, poses, and opening doors on the way.
 - **Player spec**: one file (`assets/player.yaml`) defines the player's size (radius, height, eye and step height, max slope, minimum door and corridor clearances, reach). Generation and the runtime both read it, so "enterable" means the same thing on both sides.
 - **Godot 4 runtime** (`runtime/godot/`):
@@ -103,6 +122,11 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
   - interactions (E to use, L to lock), seats, light switches, save/load and live reload;
   - an automated playtest that checks every room is reachable;
   - NPCs that decide, walk, sit, look out of windows and use doors, with a trace, labels, a follow camera and fast headless simulation;
+  - NPCs that notice the player: they look at you, wave back, and step aside;
+  - pedestrian crowds that stroll the pavements, cross at crossings and sit on benches;
+  - traffic that follows the lane graph and signals, and trains that run to a timetable and close level crossings;
+  - a world clock that drives the sun, the sky, street lamps, NPC routines and the amount of traffic;
+  - a scene catalogue: the runtime starts in one default scene instead of loading every export;
   - chunk streaming (full, LOD and interiors) with navmesh tiles baked around the player.
 
 ## Installation
@@ -147,6 +171,15 @@ python -m geogen.main -s cottage --export-godot                        # -> runt
 godot --path runtime/godot -- --scene cottage
 ```
 
+The runtime's scenes are listed in [`assets/runtime_scenes.yaml`](assets/runtime_scenes.yaml), grouped as `showcase` or `test`. It also names a `default`: the scene the runtime opens when you don't pass `--scene`.
+
+```bash
+python -m geogen.main --export-catalogue              # export every catalogue scene (or: showcase, test, NAME,NAME)
+python -m geogen.main --catalogue                     # rewrite generated/catalogue.json after changing the default
+godot --path runtime/godot                            # open the default scene
+godot --path runtime/godot -- --scene=all             # load every export side by side (slow)
+```
+
 You spawn at the scene's spawn point (or in front of the model). The controls are:
 - WASD moves, Shift sprints, Space jumps, and the mouse looks around (click to capture it, Esc to release).
 - E uses what you're looking at (doors, drawers, switches, the lift) or sits/lies on furniture, and L locks or unlocks a door you hold the key for.
@@ -161,7 +194,7 @@ python -m geogen.main -s town --export-godot --stream                 # -> runti
 godot --path runtime/godot -- --scene town --stream
 ```
 
-NPCs placed in the scene come to life when it loads. F5 shows what each one is doing, `--camera=follow` watches one, and `--timescale=8 --simulate=600 --npc-trace` runs ten minutes of their day headless and prints every decision.
+Traffic, trains and pedestrians start moving when the scene loads (`-s crossroads` and `-s level_crossing` are small test scenes). `--time=21:00` starts at night, when the street lamps and headlights come on. NPCs placed in the scene come to life when it loads. F5 shows what each one is doing, `--camera=follow` watches one, and `--timescale=8 --simulate=600 --npc-trace` runs ten minutes of their day headless and prints every decision.
 
 To check that a building is enterable, export it (`-s hotel --export-godot`) and run `godot --headless --fixed-fps 60 --path runtime/godot -- --scene hotel --playtest`. It reports any rooms or interaction targets the player can't reach from the spawn. See [`runtime/godot/README.md`](runtime/godot/README.md) for all the runtime's options and the manifest and chunk index formats.
 
@@ -278,7 +311,7 @@ city:
 ## Architecture
 
 | Package | Contents |
-|---|---|---|
+|---|---|
 | `core/` | `SceneNode` hierarchy (with instancing), `Mesh` (material groups, vertex colours), `Transform`; `meshops` (normals, welding, tangents, decimation, `validate`), `uvmap` (metric projections), `profile` (2D shapes), `csg` (manifold3d booleans), `subdiv` (Loop subdivision, displacement) |
 | `generators/` | Primitives, profiles, sweeps, stairs, roofs, doors, floor plans and plan layouts, multi-storey buildings, façades, interior finishes, trees and rocks |
 | `textures/`, `materials/` | Tiling procedural texture generators; PBR materials loaded from `assets/materials/*.yaml` with a metric `tile_size` |
@@ -286,8 +319,12 @@ city:
 | `viewer/` | Qt window, OpenGL view (shadows, PBR, debug display modes, picking, sections, night mode), pure-numpy orbit camera |
 | `render.py`, `export.py`, `chunks.py` | Offscreen pyrender renderer; glTF/GLB/OBJ export (colliders, extras, lights, LODs, animations) and the runtime manifest; chunked export |
 | `player.py` | `PlayerSpec`, loaded from `assets/player.yaml` |
+| `characters.py`, `clipping.py` | Character archetypes; clothing and seat clipping QA (the humanoid generator, ring lofting and clips are in `generators/`, and the skeleton, skinning and IK in `core/`) |
+| `npc.py` | NPC definitions, actions, routines and attention |
+| `vehicles.py`, `traffic.py`, `railway.py`, `trains.py` | Vehicle metadata, lane graphs and signals, railways and level crossings, train timetables |
+| `catalogue.py` | The runtime scene catalogue (`assets/runtime_scenes.yaml`) and its `catalogue.json` index |
 | `registry.py` | Discovers YAML assets/scenes and Python-coded scenes |
-| `runtime/godot/` | Godot 4.7 project: runtime glTF loading, first-person player, interactions, playtest, chunk streaming |
+| `runtime/godot/` | Godot 4.7 project: runtime glTF loading, first-person player, interactions, playtest, chunk streaming, NPCs, traffic, trains, the world clock |
 
 [`CLAUDE.md`](CLAUDE.md) has the detailed design notes and conventions.
 
@@ -303,6 +340,8 @@ The tests cover assets, textures, exports and (when Godot is installed) the runt
 - Textures tile, and exports round-trip.
 - The Godot runtime is run headless: the player walks into the cottage (the wall blocks, the door step is climbed, the closed door blocks), rides the hotel lift, and playtests the hotel from the street.
 - In the streamed town, the tests walk the avenue into a shop and the hotel lobby.
+- NPCs, traffic, pedestrians and trains are simulated headless: residents meet their needs, traffic yields and doesn't deadlock, and trains close the level crossings in time.
+- Dressed characters are checked for clipping against a recorded baseline.
 
 The Godot tests are skipped when Godot isn't found.
 

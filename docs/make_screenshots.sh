@@ -21,6 +21,8 @@ render -s town       -r "$OUT/geogen_town.png"       --resolution 1400x800 --zoo
 render -s park       -r "$OUT/geogen_park.png"       --resolution 1280x720 --zoom 1.8
 render -s hotel      -r "$OUT/geogen_hotel.png"      --resolution 1280x720 --view iso_back
 render -s hotel_room_auto -r "$OUT/geogen_hotel_room.png" --resolution 1280x720 --cutaway --view top --zoom 1.3
+render -s people_gallery -r "$OUT/geogen_people.png"  --resolution 1600x600 --view front --zoom 2.5
+render -s vehicle_lineup -r "$OUT/geogen_vehicles.png" --resolution 1400x700 --zoom 1.6
 
 # Godot runtime: export the cottage, then screenshot the first-person view
 # and the collider wireframes.
