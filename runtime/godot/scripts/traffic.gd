@@ -109,11 +109,18 @@ func _load_graph(graph: Dictionary, offset: Vector3) -> void:
 		lanes.append({"id": ln["id"], "pts": pts, "len": length, "ds": length / maxf(pts.size() - 1, 1),
 			"speed": float(ln["speed"]), "turn": ln.get("turn", ""), "x": ln.get("intersection", ""),
 			"exit": ln.get("end", "") == "exit", "succ_ids": ln.get("successors", []), "succ": [],
-			"crosswalks": crosswalks, "conflicts": []})
+			"crosswalks": crosswalks, "conflicts": [], "rail_stops": []})
 	for lane in lanes:
 		for sid in lane["succ_ids"]:
 			if lane_index.has(sid):
 				lane["succ"].append(lane_index[sid])
+	# Level crossings: where on each road lane to wait while a crossing is closed.
+	for rail in graph.get("railways", []):
+		for crossing in rail.get("crossings", []):
+			for entry in crossing.get("lanes", []):
+				if lane_index.has(entry["lane"]):
+					lanes[lane_index[entry["lane"]]]["rail_stops"].append(
+						{"id": crossing["id"], "stop": float(entry["stop"])})
 	for c in graph.get("conflicts", []):
 		if lane_index.has(c["a"]) and lane_index.has(c["b"]):
 			var a: int = lane_index[c["a"]]
@@ -324,6 +331,27 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
 		if to_end < gap:
 			gap = to_end
 			lead_v = 0.0
+	# Level crossings with their barriers down: wait at the stop point unless already past it.
+	for which in [v["lane"], nxt]:
+		if which < 0:
+			continue
+		var base: float = -v["s"] if which == v["lane"] else remaining
+		for rs in lanes[which]["rail_stops"]:
+			if not world.crossing_closed.get(rs["id"], false):
+				continue
+			var to_stop: float = base + float(rs["stop"]) - v["half"]
+			if to_stop < -0.5:
+				continue              # the front is past the stop point: clear the crossing
+			if v["v"] > 0.1 and to_stop < 0.0:
+				continue
+			var stop_gap := to_stop + float(driving.get("gap", 2.5)) - 0.2
+			if stop_gap < gap:
+				gap = stop_gap
+				lead_v = 0.0
+				v["blocked_by"] = "crossing"
+			var occupying: float = base + float(rs["stop"]) + 2.0 * 4.5
+			if base + float(rs["stop"]) < v["half"] and occupying > -v["half"] and which == v["lane"]:
+				stats["crossing_violations"] = int(stats.get("crossing_violations", 0)) + 1
 	# People in the way (or on a crosswalk just ahead).
 	var person_gap := _person_gap(v, people)
 	if person_gap < gap:
@@ -628,4 +656,5 @@ func report() -> Dictionary:
 		"claims": stats["claims"], "yields": stats["yields"], "overlaps": stats["overlaps"],
 		"max_wait": snappedf(stats["max_wait"], 0.1), "turns": stats["turns"], "exits": stats["exits"],
 		"min_person_gap": snappedf(gap, 0.01) if gap < INF else -1.0,
-		"min_player_gap": snappedf(player_gap, 0.01) if player_gap < INF else -1.0, "clock": snappedf(clock, 0.1)}
+		"min_player_gap": snappedf(player_gap, 0.01) if player_gap < INF else -1.0, "clock": snappedf(clock, 0.1),
+		"crossing_violations": int(stats.get("crossing_violations", 0))}

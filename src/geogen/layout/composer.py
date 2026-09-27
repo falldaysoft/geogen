@@ -189,7 +189,7 @@ class SceneComposer:
         # Scatter placements run last, once the objects they avoid exist.
         scatters = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "scatter" in v}
         # Traffic placements put vehicles on the lanes, so they run once the streets exist.
-        fleets = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "traffic" in v}
+        fleets = {k: v for k, v in all_placements.items() if isinstance(v, dict) and ("traffic" in v or "train" in v)}
         all_placements = {k: v for k, v in all_placements.items() if k not in scatters and k not in fleets}
 
         # First pass: load all objects that don't depend on others.
@@ -320,9 +320,29 @@ class SceneComposer:
         if data.get("routes"):
             from ..traffic import routes_graph
 
+            from ..traffic import route_surface
+
             lanes = routes_graph(data["routes"])
             if lanes is not None:
                 root.meta["traffic"] = lanes
+            for route_name, route_spec in data["routes"].items():
+                surface = route_surface(route_name, route_spec, self._loader._material_loader)
+                if surface is not None:
+                    root.add_child(surface)
+                    loaded_objects[surface.name] = surface
+
+        # Railways: track, stations, and barriers where they cross the roads above.
+        if data.get("railways"):
+            from ..railway import build_railway, level_crossings
+            from ..traffic import build_traffic
+
+            roads = build_traffic(root)
+            for rail_name, rail_spec in data["railways"].items():
+                rail_node = build_railway(rail_name, rail_spec, self._loader._material_loader,
+                                          self._load_object, self._assets_dir)
+                root.add_child(rail_node)
+                loaded_objects[rail_node.name] = rail_node
+                level_crossings(root, rail_node, roads, self._load_object)
 
         # Spawn points: slot-style positions exported as empty nodes.
         for spawn_name, transform in self._parse_slots(data.get("spawns", {}), size).items():
@@ -333,9 +353,14 @@ class SceneComposer:
         if fleets:
             from ..traffic import build_traffic, place_traffic
 
+            from ..trains import place_train
+
             graph = build_traffic(root)
             for obj_name, obj_def in fleets.items():
-                node = place_traffic(root, obj_name, obj_def, self._load_object, graph, self._assets_dir)
+                if "train" in obj_def:
+                    node = place_train(root, obj_name, obj_def, self._load_object, self._assets_dir)
+                else:
+                    node = place_traffic(root, obj_name, obj_def, self._load_object, graph, self._assets_dir)
                 root.add_child(node)
                 loaded_objects[obj_name] = node
 

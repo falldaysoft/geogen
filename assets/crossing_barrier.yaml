@@ -1,0 +1,72 @@
+# Level crossing barrier: a post with a red-and-white arm that lowers across a
+# road lane. Origin at the foot of the post; the arm reaches along +X (over the
+# lane). Its `barrier` interaction (up | down) is driven by trains (train.gd);
+# road traffic stops for a lowered barrier.
+
+name: crossing_barrier
+tags: [street.barrier]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+params:
+  reach: { default: 3.6 }       # arm length over the road
+
+parts:
+  post:
+    primitive: cube
+    size: [0.22, 1.25, 0.22]
+    anchor: bottom_center
+    bevel: 0.02
+    material: lamp_iron
+    collider: box
+  housing:
+    primitive: cube
+    size: [0.4, 0.35, 0.34]
+    anchor: bottom_center
+    offset: [0, 0.85, 0]
+    bevel: 0.03
+    material: car_paint
+    tint: car_white
+    collider: none
+  warning_lamp:
+    primitive: sphere
+    size: [0.16, 0.16, 0.16]
+    anchor: bottom_center
+    offset: [0, 1.25, 0.12]
+    material: taillight
+    collider: none
+  arm:
+    primitive: cube
+    size: ["{reach}", 0.09, 0.06]
+    anchor: bottom_center
+    offset: ["{reach / 2 + 0.12}", 1.0, 0.2]
+    bevel: 0
+    material: car_paint
+    tint: car_white
+    collider: none
+  arm_band_1: &band
+    primitive: cube
+    size: [0.45, 0.095, 0.065]
+    anchor: bottom_center
+    offset: ["{0.12 + reach * 0.25}", 0.998, 0.2]
+    bevel: 0
+    material: car_paint
+    tint: car_red
+    collider: none
+  arm_band_2: { <<: *band, offset: ["{0.12 + reach * 0.55}", 0.998, 0.2] }
+  arm_band_3: { <<: *band, offset: ["{0.12 + reach * 0.85}", 0.998, 0.2] }
+
+interactions:
+  barrier:
+    targets: [housing]
+    initial: up
+    duration: 4.0
+    states:
+      up: {}
+      down: {}
+    motions:
+      - parts: [arm, arm_band_1, arm_band_2, arm_band_3]
+        rotate: z
+        pivot: [0.12, 1.045, 0.2]
+        values: { up: 85, down: 0 }

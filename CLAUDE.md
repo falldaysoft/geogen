@@ -280,6 +280,20 @@ They're built along +Z (the front) with the origin on the ground midway between 
   - A placement `{traffic: traffic/town.yaml, seed}` runs after everything else, including spawns. `place_traffic` puts the starting vehicles on lanes (`meta.driving = {lane, s, factor}`), 12 m clear of spawns and NPCs, under a node with `meta.type: traffic` and `meta.fleet`.
   - The Godot interpreter is `runtime/godot/scripts/traffic.gd`; see the Traffic section of `runtime/godot/README.md`. `-s crossroads` is the small test grid. Runtime tests: `tests/test_traffic_runtime.py`. Ad-hoc Godot runs on macOS need a timeout wrapper: there's no `timeout` command, so use `perl -e 'alarm shift; exec @ARGV' 300 godot ...`.
 
+### Railways and trains
+
+- **`railways:`** is a scene key built by `geogen/railway.py`: `{name: {path | {spline}, loop, gauge, speed, stations: [{name, at (fraction | {s}), length, side, width}]}}`.
+  - It sweeps a low track bed along the path (ballast, sleepers, rails; rail head `RAIL_TOP` = 0.16 above the ground, so road crossings are near flush).
+  - It adds 0.3 m platforms (tagged `street.sidewalk`) with benches and lamps.
+  - It records `meta.railway` (points at the rail head, stations), exported to the manifest's `traffic.railways`, not to extras.
+- **Level crossings:** `level_crossings` finds where the line crosses road lanes of the lane graph. Each crossing lane gets a `crossing_barrier.yaml` (interaction `barrier`, up|down) on its kerb side, a stop point 4.5 m before the track, and `crossings[{id, s, barriers, lanes}]`.
+- **Route surfaces:** routes now get an asphalt surface with a centre line (`surface: false` to skip it).
+- **Rolling stock:** `vehicles/loco.yaml` and `vehicles/carriage.yaml` have bogies (with the wheels attached to them) and couplers. `meta.vehicle.bogie_centers` records where each bogie pivots.
+- **Trains:** `kind: train` definitions (`assets/trains/commuter.yaml`) declare a `consist`, `speed`, `accel`, `decel`, `timetable {headway, dwell, offset}` and `warning`.
+  - A placement is `{train: trains/commuter.yaml, railway: <name>}`. `trains.place_train` simulates the run once (`simulate_run`: stops with the train's middle at each station) and computes crossing `closures`.
+  - The runtime is `runtime/godot/scripts/train.gd` (see the README's Trains section).
+  - `-s level_crossing` is the test scene, and `town` has a line along its north edge. Tests: `tests/test_railway.py` and `tests/test_traffic_runtime.py`.
+
 ### Characters
 
 Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): an asset with a `body:` block is a skeleton (`core/skeleton.py`) skinned by ring-lofted chains (`generators/ringloft.py`).

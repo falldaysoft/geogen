@@ -25,13 +25,13 @@ def test_vehicle_meta(loader, path):
     node = loader.load(path)
     v = node.meta["vehicle"]
     assert node.meta["type"] == "vehicle"
-    assert len(v["wheels"]) == 4 and v["wheelbase"] > 2 and v["track"] > 1.2
+    assert len(v["wheels"]) == (8 if "bogies" in v else 4) and v["wheelbase"] > 2 and v["track"] > 1.2
     for w in v["wheels"]:
         # Wheels sit on the ground: centre height == radius.
         assert w["center"][1] == pytest.approx(w["radius"], abs=0.01)
     length, width, height = v["clearance"]
     assert v["front"] > 0 > v["rear"] and length == pytest.approx(v["front"] - v["rear"], abs=0.02)
-    assert 1.5 < width < 3.0 and 1.2 < height < 3.5
+    assert 1.5 < width < 3.0 and 1.2 < height < 4.5      # rail vehicles are taller
     # Every mesh is closed and valid.
     for n, mesh in node.iter_meshes():
         assert not meshops.validate(mesh).issues, n.name

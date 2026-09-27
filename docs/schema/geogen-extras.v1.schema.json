@@ -276,6 +276,7 @@
             "steer": { "type": "array", "items": { "type": "string" } },
             "paint": { "type": "array", "items": { "type": "string" } },
             "bogies": { "type": "array", "items": { "type": "string" } },
+            "bogie_centers": { "description": "Rail: z of each bogie's pivot (vehicle frame).", "type": "array", "items": { "type": "number" } },
             "couplers": { "type": "array", "items": { "type": "string" } },
             "lamps": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
             "wheelbase": { "type": "number" }, "track": { "type": "number" },

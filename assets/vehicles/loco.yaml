@@ -1,0 +1,190 @@
+# A diesel locomotive: cabs with windscreens at both ends, louvred engine
+# sides, head and tail lamps, two bogies. Same frame as carriage.yaml: built
+# along +Z, origin on the rail head midway between the bogies, left = +X,
+# parts in metres.
+
+name: loco
+tags: [vehicle.rail, vehicle.loco]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+params:
+  length:    { default: 17.0 }
+  width:     { default: 2.8 }
+  bogie_gap: { default: 10.5 }
+  wheel_r:   { default: 0.5 }
+  gauge:     { default: 1.435 }
+  floor:     { default: 1.15 }
+  paint:     { default: british_green, choices: [british_green, bus_red, car_navy, maroon, graphite, taxi_yellow, orange] }
+  stripe:    { default: taxi_yellow, choices: [taxi_yellow, car_white, cream, car_red, silver] }
+
+derived:
+  lh: "{length / 2}"
+  bz: "{bogie_gap / 2}"
+  wx: "{gauge / 2 + 0.03}"
+  hw: "{width / 2}"
+
+parts:
+  body:
+    primitive: extrude
+    axis: z
+    fit: none
+    shape:
+      - ["{-hw}", "{floor}"]
+      - ["{hw}", "{floor}"]
+      - ["{hw}", "{floor + 2.0}"]
+      - ["{hw - 0.2}", "{floor + 2.5}"]
+      - ["{hw - 0.75}", "{floor + 2.72}"]
+      - ["{-(hw - 0.75)}", "{floor + 2.72}"]
+      - ["{-(hw - 0.2)}", "{floor + 2.5}"]
+      - ["{-hw}", "{floor + 2.0}"]
+    size: ["{width}", 2.72, "{length}"]
+    anchor: bottom_center
+    offset: [0, "{floor}", 0]
+    bevel: 0.08
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+
+  stripe:
+    primitive: cube
+    size: ["{width + 0.024}", 0.22, "{length - 0.4}"]
+    anchor: bottom_center
+    offset: [0, "{floor + 0.4}", 0]
+    bevel: 0
+    material: car_paint
+    tint: "{stripe}"
+    collider: none
+
+  # Cab glazing: windscreen over the nose and side windows, at both ends.
+  cab_front: &cab
+    primitive: cube
+    size: ["{width - 0.5}", 0.8, 0.06]
+    anchor: bottom_center
+    offset: [0, "{floor + 1.45}", "{lh + 0.01}"]
+    bevel: 0
+    material: car_glass
+    collider: none
+  cab_rear:
+    <<: *cab
+    offset: [0, "{floor + 1.45}", "{-(lh + 0.01)}"]
+  cab_side_front: &cabside
+    primitive: cube
+    size: ["{width + 0.03}", 0.7, 1.2]
+    anchor: bottom_center
+    offset: [0, "{floor + 1.5}", "{lh - 1.1}"]
+    bevel: 0
+    material: car_glass
+    collider: none
+  cab_side_rear:
+    <<: *cabside
+    offset: [0, "{floor + 1.5}", "{-(lh - 1.1)}"]
+
+  louvres:
+    primitive: cube
+    size: ["{width + 0.02}", 1.0, "{length - 6.0}"]
+    anchor: bottom_center
+    offset: [0, "{floor + 0.95}", 0]
+    bevel: 0
+    material: car_trim
+    collider: none
+  exhaust:
+    primitive: cube
+    size: [0.9, 0.25, 1.6]
+    anchor: bottom_center
+    offset: [0, "{floor + 2.66}", 1.2]
+    bevel: 0.05
+    material: car_trim
+    collider: none
+
+  warning_front: &warning
+    primitive: cube
+    size: ["{width - 0.3}", 1.0, 0.05]
+    anchor: bottom_center
+    offset: [0, "{floor + 0.2}", "{lh + 0.015}"]
+    bevel: 0
+    material: car_paint
+    tint: taxi_yellow
+    collider: none
+  warning_rear:
+    <<: *warning
+    offset: [0, "{floor + 0.2}", "{-(lh + 0.015)}"]
+  headlight_left: &head
+    primitive: cube
+    size: [0.3, 0.2, 0.06]
+    anchor: bottom_center
+    offset: ["{hw - 0.45}", "{floor + 0.45}", "{lh + 0.04}"]
+    bevel: 0.02
+    material: headlight
+    collider: none
+  headlight_right: { <<: *head, offset: ["{-(hw - 0.45)}", "{floor + 0.45}", "{lh + 0.04}"] }
+  taillight_left: &tail
+    primitive: cube
+    size: [0.25, 0.18, 0.06]
+    anchor: bottom_center
+    offset: ["{hw - 0.45}", "{floor + 0.45}", "{-(lh + 0.04)}"]
+    bevel: 0.02
+    material: taillight
+    collider: none
+  taillight_right: { <<: *tail, offset: ["{-(hw - 0.45)}", "{floor + 0.45}", "{-(lh + 0.04)}"] }
+
+  underframe:
+    primitive: cube
+    size: ["{width - 0.4}", 0.45, "{bogie_gap - 3.6}"]
+    anchor: bottom_center
+    offset: [0, "{floor - 0.45}", 0]
+    bevel: 0.03
+    material: car_trim
+    collider: none
+  coupler_front: &coupler
+    primitive: cube
+    size: [0.3, 0.25, 0.5]
+    anchor: bottom_center
+    offset: [0, "{floor - 0.35}", "{lh + 0.2}"]
+    bevel: 0.03
+    material: metal
+    collider: none
+  coupler_rear:
+    <<: *coupler
+    offset: [0, "{floor - 0.35}", "{-(lh + 0.2)}"]
+
+  bogie_front: &bogie
+    primitive: cube
+    size: ["{gauge + 0.5}", 0.36, 2.9]
+    anchor: bottom_center
+    offset: [0, "{wheel_r - 0.1}", "{bz}"]
+    bevel: 0.04
+    material: car_trim
+    collider: none
+  bogie_rear:
+    <<: *bogie
+    offset: [0, "{wheel_r - 0.1}", "{-bz}"]
+
+  # Wheels ride on their bogie (attach_to), so a turning bogie carries them.
+  wheel_ff_l: &wheel
+    primitive: cylinder
+    size: ["{2 * wheel_r}", 0.12, "{2 * wheel_r}"]
+    rotation: [0, 0, -90]
+    attach_to: bogie_front
+    at: bottom
+    from: center
+    offset: ["{wx}", 0.1, 1.25]
+    material: metal
+    collider: none
+  wheel_ff_r: { <<: *wheel, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, 1.25] }
+  wheel_fr_l: { <<: *wheel, offset: ["{wx}", 0.1, -1.25] }
+  wheel_fr_r: { <<: *wheel, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, -1.25] }
+  wheel_rf_l: { <<: *wheel, attach_to: bogie_rear }
+  wheel_rf_r: { <<: *wheel, attach_to: bogie_rear, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, 1.25] }
+  wheel_rr_l: { <<: *wheel, attach_to: bogie_rear, offset: ["{wx}", 0.1, -1.25] }
+  wheel_rr_r: { <<: *wheel, attach_to: bogie_rear, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, -1.25] }
+
+vehicle:
+  class: loco
+  wheels: [wheel_ff_l, wheel_ff_r, wheel_fr_l, wheel_fr_r, wheel_rf_l, wheel_rf_r, wheel_rr_l, wheel_rr_r]
+  bogies: [bogie_front, bogie_rear]
+  couplers: [coupler_front, coupler_rear]
+  paint: [body]
+  lamps: { head: [headlight_left, headlight_right], tail: [taillight_left, taillight_right] }
+  max_speed: 30

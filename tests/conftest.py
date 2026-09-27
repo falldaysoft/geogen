@@ -47,7 +47,7 @@ def run_godot():
         """``engine_args`` go before ``--`` (e.g. ("--fixed-fps", "60") to run unthrottled)."""
         result = subprocess.run(
             [godot, "--headless", *engine_args, "--path", str(GODOT_PROJECT), "--", *user_args],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, timeout=240,   # generous: parallel test runs share the CPU
         )
         assert result.returncode == 0, result.stderr
         assert "SCRIPT ERROR" not in result.stdout + result.stderr, result.stdout + result.stderr

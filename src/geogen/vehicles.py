@@ -83,6 +83,14 @@ def parse_vehicle(spec: dict[str, Any], root: SceneNode, parts: dict[str, SceneN
             _part(n, parts, key)
         if names:
             out[key] = names
+    # Rail: where each bogie pivots (it turns on its own to follow the track).
+    centers = []
+    for name in out.get("bogies", []):
+        pts = _points(parts[name], root)
+        if pts is not None:
+            centers.append(round(float((pts[:, 2].min() + pts[:, 2].max()) / 2), 4))
+    if centers:
+        out["bogie_centers"] = centers
     lamps = {}
     for kind, names in (spec.get("lamps") or {}).items():
         if kind not in LAMP_KINDS:

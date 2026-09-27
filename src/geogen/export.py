@@ -133,7 +133,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     for key, value in node.meta.items():
-        if key not in ("collider", "traffic"):     # traffic graphs go in the manifest
+        if key not in ("collider", "traffic", "railway"):     # lane graphs and railways go in the manifest
             data[key] = value.tolist() if hasattr(value, "tolist") else value
     if collider is not None:
         data["collider"] = collider

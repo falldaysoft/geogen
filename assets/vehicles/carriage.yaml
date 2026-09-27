@@ -1,0 +1,167 @@
+# A passenger carriage: a long body with a rounded roof, a window band, two
+# doors a side and two bogies. Built along +Z; the origin is on the rail head
+# midway between the bogies (y = 0 is the top of the rails), left = +X. Parts
+# in metres (unit container, `bounds: geometry`). The bogies turn on their own
+# to follow the track (vehicle: bogies), carrying their wheels.
+
+name: carriage
+tags: [vehicle.rail, vehicle.carriage]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+params:
+  length:    { default: 20.0 }
+  width:     { default: 2.8 }
+  bogie_gap: { default: 14.0 }     # between bogie centres
+  wheel_r:   { default: 0.46 }
+  gauge:     { default: 1.435 }
+  floor:     { default: 1.15 }     # body floor above the rail head
+  paint:     { default: cream, choices: [cream, car_white, silver, car_red, bus_red, british_green, car_navy, maroon] }
+  stripe:    { default: maroon, choices: [maroon, car_red, car_navy, british_green, taxi_yellow, graphite] }
+
+derived:
+  lh: "{length / 2}"
+  bz: "{bogie_gap / 2}"
+  wx: "{gauge / 2 + 0.03}"
+  hw: "{width / 2}"
+  pane: "{(length - 2.4) / 7}"
+
+parts:
+  body:
+    primitive: extrude
+    axis: z
+    fit: none
+    shape:
+      - ["{-hw}", "{floor}"]
+      - ["{hw}", "{floor}"]
+      - ["{hw}", "{floor + 2.0}"]
+      - ["{hw - 0.2}", "{floor + 2.5}"]
+      - ["{hw - 0.75}", "{floor + 2.72}"]
+      - ["{-(hw - 0.75)}", "{floor + 2.72}"]
+      - ["{-(hw - 0.2)}", "{floor + 2.5}"]
+      - ["{-hw}", "{floor + 2.0}"]
+    size: ["{width}", 2.72, "{length}"]
+    anchor: bottom_center
+    offset: [0, "{floor}", 0]
+    bevel: 0.05
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+
+  window_band:
+    primitive: cube
+    size: ["{width + 0.03}", 0.8, "{length - 2.0}"]
+    anchor: bottom_center
+    offset: [0, "{floor + 1.0}", 0]
+    bevel: 0
+    material: car_glass
+    collider: none
+  stripe:
+    primitive: cube
+    size: ["{width + 0.024}", 0.14, "{length - 0.3}"]
+    anchor: bottom_center
+    offset: [0, "{floor + 0.72}", 0]
+    bevel: 0
+    material: car_paint
+    tint: "{stripe}"
+    collider: none
+
+  # Window pillars (full width: both sides), then doors over the band.
+  pillar_1: &pillar
+    primitive: cube
+    size: ["{width + 0.036}", 0.794, 0.16]
+    anchor: bottom_center
+    offset: [0, "{floor + 1.003}", "{lh - 1.2}"]
+    bevel: 0
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+  pillar_2: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - pane}"] }
+  pillar_3: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - 2 * pane}"] }
+  pillar_4: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - 3 * pane}"] }
+  pillar_5: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - 4 * pane}"] }
+  pillar_6: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - 5 * pane}"] }
+  pillar_7: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - 6 * pane}"] }
+  pillar_8: { <<: *pillar, offset: [0, "{floor + 1.003}", "{lh - 1.2 - 7 * pane}"] }
+
+  door_front: &door
+    primitive: cube
+    size: ["{width + 0.05}", 1.95, 1.3]
+    anchor: bottom_center
+    offset: [0, "{floor + 0.12}", "{lh - 3.6}"]
+    bevel: 0.01
+    material: car_trim
+    collider: none
+  door_rear:
+    <<: *door
+    offset: [0, "{floor + 0.12}", "{-(lh - 3.6)}"]
+
+  underframe:
+    primitive: cube
+    size: ["{width - 0.5}", 0.4, "{bogie_gap - 3.6}"]
+    anchor: bottom_center
+    offset: [0, "{floor - 0.4}", 0]
+    bevel: 0.03
+    material: car_trim
+    collider: none
+  gangway_front: &gangway
+    primitive: cube
+    size: [1.1, 2.1, 0.3]
+    anchor: bottom_center
+    offset: [0, "{floor + 0.1}", "{lh + 0.1}"]
+    bevel: 0.05
+    material: car_trim
+    collider: none
+  gangway_rear:
+    <<: *gangway
+    offset: [0, "{floor + 0.1}", "{-(lh + 0.1)}"]
+  coupler_front: &coupler
+    primitive: cube
+    size: [0.3, 0.25, 0.5]
+    anchor: bottom_center
+    offset: [0, "{floor - 0.35}", "{lh + 0.2}"]
+    bevel: 0.03
+    material: metal
+    collider: none
+  coupler_rear:
+    <<: *coupler
+    offset: [0, "{floor - 0.35}", "{-(lh + 0.2)}"]
+
+  bogie_front: &bogie
+    primitive: cube
+    size: ["{gauge + 0.5}", 0.36, 2.9]
+    anchor: bottom_center
+    offset: [0, "{wheel_r - 0.1}", "{bz}"]
+    bevel: 0.04
+    material: car_trim
+    collider: none
+  bogie_rear:
+    <<: *bogie
+    offset: [0, "{wheel_r - 0.1}", "{-bz}"]
+
+  # Wheels ride on their bogie (attach_to), so a turning bogie carries them.
+  wheel_ff_l: &wheel
+    primitive: cylinder
+    size: ["{2 * wheel_r}", 0.12, "{2 * wheel_r}"]
+    rotation: [0, 0, -90]
+    attach_to: bogie_front
+    at: bottom
+    from: center
+    offset: ["{wx}", 0.1, 1.25]
+    material: metal
+    collider: none
+  wheel_ff_r: { <<: *wheel, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, 1.25] }
+  wheel_fr_l: { <<: *wheel, offset: ["{wx}", 0.1, -1.25] }
+  wheel_fr_r: { <<: *wheel, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, -1.25] }
+  wheel_rf_l: { <<: *wheel, attach_to: bogie_rear }
+  wheel_rf_r: { <<: *wheel, attach_to: bogie_rear, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, 1.25] }
+  wheel_rr_l: { <<: *wheel, attach_to: bogie_rear, offset: ["{wx}", 0.1, -1.25] }
+  wheel_rr_r: { <<: *wheel, attach_to: bogie_rear, rotation: [0, 0, 90], offset: ["{-wx}", 0.1, -1.25] }
+
+vehicle:
+  class: carriage
+  wheels: [wheel_ff_l, wheel_ff_r, wheel_fr_l, wheel_fr_r, wheel_rf_l, wheel_rf_r, wheel_rr_l, wheel_rr_r]
+  bogies: [bogie_front, bogie_rear]
+  couplers: [coupler_front, coupler_rear]
+  paint: [body, pillar_1, pillar_2, pillar_3, pillar_4, pillar_5, pillar_6, pillar_7, pillar_8]

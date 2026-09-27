@@ -1,0 +1,22 @@
+# A railway crossing a road: a two-lane road (a route), a line with two
+# stations, barriers where they cross, traffic on the road and a commuter train.
+# Trains lower the barriers (runtime/godot/scripts/train.gd); cars wait for them.
+name: level_crossing
+
+routes:
+  road: { path: [[-90, 0, 0], [90, 0, 0]], lanes: 2, speed: 13 }
+
+railways:
+  main:
+    path: { spline: [[-30, 0, -220], [-10, 0, -60], [10, 0, 60], [30, 0, 220]], samples: 20 }
+    speed: 20
+    stations:
+      - { name: south, at: 0.28, length: 75, side: right }
+      - { name: north, at: 0.72, length: 75, side: right }
+
+place:
+  traffic: { traffic: traffic/town.yaml, seed: 4 }
+  commuter: { train: trains/commuter.yaml, railway: main }
+
+spawns:
+  start: { position: [-12, 0, -8], facing: north }

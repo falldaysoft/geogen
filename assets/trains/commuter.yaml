@@ -1,0 +1,14 @@
+# A commuter train: a locomotive and three carriages, every four minutes.
+# Place on a railway:  place: { commuter: { train: trains/commuter.yaml, railway: main } }
+kind: train
+version: 1
+consist:
+  - vehicles/loco.yaml
+  - { asset: vehicles/carriage.yaml, params: { paint: cream, stripe: maroon } }
+  - { asset: vehicles/carriage.yaml, params: { paint: cream, stripe: maroon } }
+  - { asset: vehicles/carriage.yaml, params: { paint: cream, stripe: maroon } }
+speed: 18            # m/s (the line's speed caps it)
+accel: 0.6           # m/s²
+decel: 0.9
+timetable: { headway: 240, dwell: 20, offset: 10 }   # seconds of world time
+warning: 20          # barriers go down this long before the train reaches a crossing

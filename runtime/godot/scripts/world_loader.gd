@@ -56,6 +56,10 @@ var traffic_graph := {}
 var _traffic_offset := Vector3.ZERO
 ## Traffic controllers (traffic.gd), one per exported traffic node.
 var traffic: Array[GeogenTraffic] = []
+## Trains (train.gd), one per exported train node.
+var trains: Array[GeogenTrain] = []
+## Level crossings: id -> true while the barriers are down (trains set it, traffic reads it).
+var crossing_closed := {}
 ## Print traffic claims, overlaps and respawns (--traffic-trace).
 var traffic_trace := false
 ## The world clock (clock.gd), set by main; NPC routines and traffic schedules read it.
@@ -111,6 +115,8 @@ func load_all() -> AABB:
 	npcs.clear()
 	_auto_lights.clear()
 	traffic.clear()
+	trains.clear()
+	crossing_closed.clear()
 	traffic_graph = {}
 	portals.clear()
 	_reservations.clear()
@@ -405,6 +411,14 @@ func set_night(on: bool) -> void:
 	for t in traffic:
 		if is_instance_valid(t):
 			t.set_night(on)
+	for t in trains:
+		if is_instance_valid(t):
+			t.set_night(on)
+
+
+## A train closed or opened a level crossing (road traffic stops for closed ones).
+func set_crossing(id: String, closed: bool) -> void:
+	crossing_closed[id] = closed
 
 
 ## Dim or restore a fixture's glowing materials (lamp shades) with its light.
@@ -501,6 +515,25 @@ func _spawn_traffic(root: Node) -> void:
 		t.trace_enabled = traffic_trace
 		t.set_night(night)
 		traffic.append(t)
+	for node in root.find_children("*", "Node3D", true, false):
+		if not is_instance_valid(node):
+			continue
+		var g := geogen_extras(node)
+		if g.get("type") != "train" or not g.get("train") is Dictionary or node.has_meta("geogen_train"):
+			continue
+		node.set_meta("geogen_train", true)
+		var rail_id := str(g["train"].get("railway", ""))
+		var railway := {}
+		for r in traffic_graph.get("railways", []):
+			if str(r.get("id", "")) == rail_id:
+				railway = r
+		if railway.is_empty():
+			push_warning("geogen: train %s: no railway '%s' in the export" % [node.name, rail_id])
+			continue
+		var train := GeogenTrain.spawn(self, node, g["train"], railway, _traffic_offset)
+		train.trace_enabled = traffic_trace
+		train.set_night(night)
+		trains.append(train)
 
 
 ## How many NPCs other than ``npc`` hold affordance ``id``.

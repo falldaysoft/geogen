@@ -39,7 +39,7 @@ PART_KNOWN_KEYS = {
 
 # Known keys for scene YAML files
 SCENE_KNOWN_KEYS = {
-    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params", "city", "routes",
+    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params", "city", "routes", "railways",
 }
 
 SLOT_KNOWN_KEYS = {
@@ -48,7 +48,7 @@ SLOT_KNOWN_KEYS = {
 
 PLACEMENT_KNOWN_KEYS = {
     "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params", "scatter",
-    "npc", "home", "seed", "archetype", "traffic",
+    "npc", "home", "seed", "archetype", "traffic", "train", "railway",
 }
 
 # Known primitive types
@@ -164,7 +164,7 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
         if not isinstance(obj_def, dict):
             raise ValidationError(f"Placement '{obj_name}' must be a mapping")
 
-        if not {"asset", "scene", "npc", "archetype", "traffic"} & set(obj_def):
+        if not {"asset", "scene", "npc", "archetype", "traffic", "train"} & set(obj_def):
             raise ValidationError(
                 f"Placement '{obj_name}' requires 'asset', 'scene', 'npc' or 'archetype' field"
             )

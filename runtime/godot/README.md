@@ -203,6 +203,34 @@ godot --headless --fixed-fps 60 --path runtime/godot -- --scene crossroads \
     --timescale=8 --simulate=300 --traffic-trace                                     # 5 minutes in ~10 s
 ```
 
+## Trains
+
+Railways (a scene's `railways:` block, geogen/railway.py) are exported in the manifest's
+`traffic.railways` section:
+- the line resampled at the rail head;
+- its length, loop flag and speed;
+- `stations` (s, length);
+- `crossings`, each with an id, the rail s-range to guard, barrier node names, and `lanes`, which are the road lanes and the s where vehicles wait.
+
+A train placement arrives as a node with `extras.geogen.type = "train"`, its consist as children,
+and `extras.geogen.train`, all precomputed by geogen/trains.py:
+- `run`: the head's position every `dt` seconds after departure, station dwells included;
+- `duration`, `stops`, `timetable` {headway, dwell, offset};
+- `cars` (offset from the front, bogie positions);
+- `closures`: each crossing's closed windows after departure.
+
+`GeogenTrain` (`scripts/train.gd`) only looks these up.
+- **Timing**: departure k leaves at `offset + k * headway` of world time (the clock's position in
+  its day), so a train is where the timetable says whenever the world is loaded.
+- **Placement**: each departure on the line gets a copy of the consist. Each car's bogies sit on
+  the track, the body goes between them, the bogies turn to the rails, and the wheels spin.
+- **Crossings**: during a closure window the crossing is closed. Its barriers' `barrier`
+  interaction goes `down`, and road traffic (traffic.gd) waits at the lanes' stop points unless
+  a vehicle is already past them.
+
+`--simulate` prints `train summary`. `-s level_crossing` is the test scene; see
+`tests/test_traffic_runtime.py` (crossings closed with no vehicle inside, timetable dwell).
+
 ## Time of day
 
 `scripts/clock.gd` (`GeogenClock`) runs a world clock with physics time, so `--timescale` speeds it

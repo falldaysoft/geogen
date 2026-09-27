@@ -71,6 +71,7 @@ PAINT_PALETTE: dict[str, tuple[int, int, int]] = {
 # Vehicle paints (a part's `tint:` may name these or a PAINT_PALETTE colour).
 VEHICLE_PAINT: dict[str, tuple[int, int, int]] = {
     "car_white": (232, 233, 230),
+    "cream": (226, 214, 180),
     "silver": (168, 172, 176),
     "graphite": (78, 82, 88),
     "car_black": (22, 23, 26),

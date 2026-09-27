@@ -42,7 +42,7 @@ STOP_SETBACK = 3.0          # stop lines sit this far before the crosswalk (m)
 PARKING_DEPTH = 2.3         # kerb to the outer edge of a parked car (m)
 CONFLICT_GAP = 3.6          # connector paths closer than this conflict (m): a bus plus its off-tracking in turns
 TRAFFIC_KEYS = {"drive", "lanes", "avenue_lanes", "speed", "avenue_speed", "turns", "control"}
-ROUTE_KEYS = {"path", "lanes", "drive", "speed", "loop", "lane_width", "y"}
+ROUTE_KEYS = {"path", "lanes", "drive", "speed", "loop", "lane_width", "y", "surface"}
 # Vehicle classes swept along every lane for clearance: (width, height) in metres.
 CLEARANCE_CLASSES = {"car": (1.9, 1.6), "van": (2.1, 2.4), "bus": (2.6, 3.2)}
 
@@ -384,6 +384,38 @@ def city_graph(builder) -> dict[str, Any] | None:
     return graph(_city_lanes(builder, spec), spec.get("drive", "right"))
 
 
+def route_surface(name: str, spec: dict[str, Any], materials) -> SceneNode | None:
+    """Asphalt along a route (lanes plus 0.75 m shoulders, top 1 cm above its path) with a centre
+    line; ``surface: false`` for routes over existing roads."""
+    if spec.get("surface", True) is False:
+        return None
+    from .core.profile import catmull_rom
+    from .railway import _sweep
+
+    loop = bool(spec.get("loop", False))
+    path = spec["path"]
+    if isinstance(path, dict):
+        pts = catmull_rom(np.asarray(path["spline"], dtype=np.float64), int(path.get("samples", 12)), closed=loop)
+    else:
+        pts = np.asarray(path, dtype=np.float64)
+    if loop:
+        pts = np.vstack([pts, pts[:1]])
+    pts = resample(pts, 1.0)
+    half = int(spec.get("lanes", 2)) * float(spec.get("lane_width", LANE_WIDTH)) / 2 + 0.75
+    node = SceneNode(f"route_{name}", tags=["street.road"])
+    road = SceneNode(f"route_{name}_surface",
+                     mesh=_sweep([[-half, -0.15], [half, -0.15], [half, 0.01], [-half, 0.01]], pts, loop,
+                                 materials.load("asphalt")), tags=["street.road"])
+    road.meta["walkable"] = True
+    node.add_child(road)
+    if int(spec.get("lanes", 2)) > 1:
+        line = SceneNode(f"route_{name}_line", mesh=_sweep([[-0.06, 0.01], [0.06, 0.01], [0.06, 0.014], [-0.06, 0.014]],
+                                                           pts, loop, materials.load("road_paint_yellow")))
+        line.meta["collider"] = "none"
+        node.add_child(line)
+    return node
+
+
 def routes_graph(routes: dict[str, Any]) -> dict[str, Any] | None:
     lanes, drive = [], "right"
     for name, spec in (routes or {}).items():
@@ -397,7 +429,8 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
     streets, a scene's routes), moved into the scene frame and merged; None if there are none.
     Ids of graphs from nested nodes are prefixed with the node name when they'd clash."""
     to_scene = np.linalg.inv(scene.world_transform())
-    lanes, conflicts, intersections, seen = [], [], [], set()
+    lanes: list = []
+    conflicts, intersections, seen = [], [], set()
     drive = "right"
     for node in scene.iter_nodes():
         g = node.meta.get("traffic")
@@ -421,10 +454,22 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
             c = (m @ np.r_[np.asarray(x["center"], dtype=np.float64), 1.0])[:3]
             intersections.append({**x, "id": rid(x["id"]), "connectors": [rid(i) for i in x["connectors"]],
                                   "center": [round(float(v), 3) for v in c]})
-    if not lanes:
+    railways = []
+    for node in scene.iter_nodes():
+        rail = node.meta.get("railway")
+        if not isinstance(rail, dict):
+            continue
+        m = to_scene @ node.world_transform()
+        p = np.asarray(rail["points"], dtype=np.float64)
+        p = (m @ np.c_[p, np.ones(len(p))].T).T[:, :3]
+        railways.append({**rail, "points": [[round(float(v), 3) for v in q] for q in p]})
+    if not lanes and not railways:
         return None
-    return {"version": VERSION, "drive": drive, "step": STEP, "lanes": lanes, "conflicts": conflicts,
-            "intersections": intersections}
+    out = {"version": VERSION, "drive": drive, "step": STEP, "lanes": lanes, "conflicts": conflicts,
+           "intersections": intersections}
+    if railways:
+        out["railways"] = railways
+    return out
 
 
 def check_graph(graph: dict[str, Any]) -> list[str]:

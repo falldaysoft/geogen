@@ -116,3 +116,43 @@ def test_morning_brings_people_and_traffic_back(run_godot, crossroads_dir):
     assert not any(n["away"] for n in npcs)
     assert sum(n["returns"] for n in npcs) >= 4
     assert traffic["share"] == 1.0 and traffic["parked"] == 0
+
+
+@pytest.fixture(scope="module")
+def crossing_dir(tmp_path_factory):
+    out = tmp_path_factory.mktemp("generated_rail")
+    export_scene(_build_registry()["level_crossing"](), out / "level_crossing.glb")
+    return out
+
+
+def _train_summary(out: str) -> dict:
+    (report,) = json.loads(next(l for l in out.splitlines() if l.startswith("train summary: ")).split(": ", 1)[1])
+    return report
+
+
+def test_trains_close_the_crossing_and_traffic_waits(run_godot, crossing_dir):
+    # 13:00 is 780 s of world time: departure 3 (offset 10, headway 240) is 50 s out,
+    # inside its crossing window. Ten minutes of world time cover two more trains.
+    out = run_godot("--scene", "level_crossing", f"--generated={crossing_dir}", "--time=13:00",
+                    "--day-length=1440", "--timescale=8", "--simulate=600", engine_args=FAST)
+    train = _train_summary(out)
+    (traffic,) = json.loads(next(l for l in out.splitlines() if l.startswith("traffic summary: ")).split(": ", 1)[1])
+    assert train["departures"] >= 3 and train["closed_time"] > 60
+    events = [json.loads(l.split(": ", 1)[1]) for l in out.splitlines() if l.startswith("interaction event: ")]
+    downs = [e for e in events if e["asset"].startswith("crossing_main_x1") and e["state"] == "down"]
+    ups = [e for e in events if e["asset"].startswith("crossing_main_x1") and e["state"] == "up"]
+    assert len(downs) >= 4 and len(ups) >= 4          # both barriers, several trains
+    assert traffic["crossing_violations"] == 0 and traffic["overlaps"] == 0
+    assert traffic["exits"] > 10                      # traffic kept flowing between trains
+
+
+def test_trains_keep_the_timetable(run_godot, crossing_dir):
+    # 12:40 = 760 s: departure 3 left 30 s ago and is dwelling at 'south' (arrive 21.5, depart 41.5).
+    head = []
+    for seconds in (1, 5):
+        out = run_godot("--scene", "level_crossing", f"--generated={crossing_dir}", "--time=12:40",
+                        "--day-length=1440", f"--simulate={seconds}", engine_args=FAST)
+        (active,) = _train_summary(out)["active"]
+        assert active["departure"] == 3
+        head.append(active["head"])
+    assert head[0] == head[1] == pytest.approx(165.6, abs=0.5)     # stopped: middle at the station

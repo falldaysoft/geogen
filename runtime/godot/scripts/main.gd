@@ -326,6 +326,8 @@ func _physics_process(delta: float) -> void:
                 if is_instance_valid(t):
                     traffic_reports.append(t.report())
             print("traffic summary: %s" % JSON.stringify(traffic_reports))
+            if not world.trains.is_empty():
+                print("train summary: %s" % JSON.stringify(world.trains.filter(func(t): return is_instance_valid(t)).map(func(t): return t.report())))
             if screenshot_path != "":
                 _frames = 0
                 quit_after_frames = 3

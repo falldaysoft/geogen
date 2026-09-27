@@ -48,7 +48,16 @@ city:
         weight: 1
         params: { paint: { choice: [car_white, car_white, silver, car_blue, british_green] } }
 
+# A railway along the north edge with a station opposite the park; commuter trains run every 4 minutes.
+railways:
+  north:
+    path: { spline: [[-260, 0, 64], [-80, 0, 60], [80, 0, 60], [260, 0, 64]], samples: 16 }
+    speed: 20
+    stations:
+      - { name: town, at: 0.6, length: 80, side: right }
+
 place:
+  commuter: { train: trains/commuter.yaml, railway: north }
   traffic: { traffic: traffic/town.yaml, seed: 3 }   # moving vehicles on the lanes
   pedestrians:                       # townsfolk strolling the sidewalks, resting on benches
     npc: npcs/pedestrian.yaml
