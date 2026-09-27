@@ -12,8 +12,11 @@ OUTFITS = ["none", "casual", "jeans_tee", "smart", "dress", "skirt_sweater", "sh
 
 
 def _inside(mesh, point) -> bool:
-    """Generalized winding number (closed mesh): ~1 inside, ~0 outside."""
-    a, b, c = (mesh.vertices[mesh.faces[:, i]] - point for i in range(3))
+    """Generalized winding number (closed mesh; a hemmed shell as a solid): ~1 inside, ~0 outside."""
+    from geogen.clipping import _solid
+
+    tris = _solid(mesh)
+    a, b, c = (tris[:, i] - point for i in range(3))
     la, lb, lc = (np.linalg.norm(v, axis=1) for v in (a, b, c))
     det = np.einsum("ij,ij->i", a, np.cross(b, c))
     den = la * lb * lc + np.einsum("ij,ij->i", a, b) * lc + np.einsum("ij,ij->i", b, c) * la \

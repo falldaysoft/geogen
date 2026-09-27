@@ -51,7 +51,7 @@ from ..core.skin import Clip, Skin
 from .ringloft import Chain, Ring, Span, loft_body
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
-              "rings", "cap_rings", "joint_rings", "joint_blend"}
+              "rings", "cap_rings", "joint_rings", "joint_blend", "hem"}
 RING_KEYS = {"offset", "power", "twist"}
 
 
@@ -104,6 +104,7 @@ def parse_chain(name: str, spec: dict, skeleton: Skeleton) -> Chain:
         front=tuple(float(v) for v in spec.get("front", (0, 0, 1))),
         sides=int(spec.get("sides", 10)), spacing=float(spec.get("spacing", 0.08)),
         cap_start=caps[0], cap_end=caps[1], cap_rings=int(spec.get("cap_rings", 3)),
+        hem=float(spec.get("hem", 0.006)),
         blend=float(spec.get("blend", 0.05)),
         bind={k: list(v) for k, v in (spec.get("bind") or {}).items()},
         weight_shift={k: float(v) for k, v in (spec.get("weight_shift") or {}).items()},
@@ -299,7 +300,14 @@ def build_hair(spec: dict, skeleton: Skeleton, material_loader, crease: float) -
     chains = [parse_chain(name, c, skeleton) for name, c in (spec.get("chains") or {}).items()]
     if not chains:
         return None
-    mesh = loft_body(skeleton, chains, crease)
+    base = material_loader.load(spec.get("material", "hair"))
+    materials = None
+    if any(c.cap_end == "hem" for c in chains):
+        # Hemmed (open) garments: the inner wall is its own slot, a copy named <material>_lining.
+        lining = copy.copy(base)
+        lining.name = f"{base.name}{LINING_SUFFIX}"
+        materials = [base, lining]
+    mesh = loft_body(skeleton, chains, crease, materials=materials)
     from ..generators.primitives import EllipsoidGenerator
 
     cutters = []
@@ -319,8 +327,20 @@ def build_hair(spec: dict, skeleton: Skeleton, material_loader, crease: float) -
         from ..core.meshops import collapse_short_edges
 
         mesh = collapse_short_edges(csg.difference(mesh, *cutters, crease_angle=crease), 1e-4)
-    mesh.material = material_loader.load(spec.get("material", "hair"))
+    mesh.material = base
     return mesh
+
+
+LINING_SUFFIX = "_lining"
+LINING_SHADE = 0.8            # the inside of a garment reads a little darker
+
+
+def lining_faces(mesh: Mesh) -> np.ndarray:
+    """Faces of a hemmed garment's inner wall (its ``*_lining`` material slot)."""
+    if mesh.face_materials is None or not mesh.materials:
+        return np.zeros(len(mesh.faces), bool)
+    slots = [i for i, m in enumerate(mesh.materials) if m is not None and m.name.endswith(LINING_SUFFIX)]
+    return np.isin(mesh.face_materials, slots)
 
 
 
@@ -424,6 +444,8 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             if garment.get("weights", "body") == "body":
                 transfer_weights(shell, mesh)
             shell.colors = np.tile([*color, 1.0], (len(shell.vertices), 1))
+            inside = np.unique(shell.faces[lining_faces(shell)])
+            shell.colors[inside, :3] *= LINING_SHADE
             shells.append(shell)
         clothes = root.add_child(SceneNode("clothes", mesh=Mesh.merge(shells)))
         clothes.meta["collider"] = "none"

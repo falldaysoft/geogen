@@ -14,7 +14,10 @@ whatever the bones' rolls are.
 
 Between key rings the loft resamples every ``spacing`` metres, interpolating
 ring parameters with a monotone cubic (few authored rings give smooth limbs
-without overshoot). Ends are ``round`` (hemispherical caps) or ``flat``.
+without overshoot). Ends are ``round`` (hemispherical caps) or ``flat``; a ``hem`` end (loose
+garments) is open fabric: the tube rolls over a rim at the end and runs back inside itself,
+``hem`` metres thinner, closing flat at the first full ring (inside the start cap). It stays watertight, and the inner
+wall's faces are material slot 1 (the lining) so QA can tell the garment's cavity from outside.
 
 Weights come from the arc length: each vertex belongs to its bone, blending
 smoothly into the neighbouring bone within ``blend`` metres of a joint;
@@ -72,6 +75,7 @@ class Chain:
     cap_start: str = "round"
     cap_end: str = "round"
     cap_rings: int = 3
+    hem: float = 0.006            # cloth thickness of a ``hem`` end
     blend: float = 0.05
     bind: dict[str, list[str]] = field(default_factory=dict)
     # Move a bone's weight boundary (its joint) along the chain, metres (e.g. Head: -0.06 so the jaw
@@ -225,6 +229,25 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray, NDAr
     return np.concatenate([s0[::-1], s, s1]), np.vstack([c0[::-1], rings, c1]), np.array(slots, dtype=np.int64)
 
 
+def _hem(s: NDArray, rings: NDArray, slots: NDArray, thickness: float, skip: int = 0):
+    """Extend a chain's rings past its end into a hem: a rolled rim (half a circle of the cloth
+    thickness), then the inner wall back along the chain, ``thickness`` inside the outer one
+    (never thinner than half the ring), up to ring ``skip``. Returns (s, rings, interval slots,
+    lining flag per interval)."""
+    half = thickness / 2
+    a = np.linspace(0, np.pi, 6)[1:-1]
+    rim = np.repeat(rings[-1][None], len(a), axis=0)
+    rim[:, :2] -= (half * (1 - np.cos(a)))[:, None]
+    inner = rings[skip:][::-1].copy()
+    inner[:, :2] = np.maximum(inner[:, :2] - thickness, inner[:, :2] * 0.5)
+    s_all = np.concatenate([s, s[-1] + half * np.sin(a), s[skip:][::-1]])
+    rings_all = np.vstack([rings, rim, inner])
+    n_out, n_in = len(s) - 1, len(inner) - 1
+    slots_all = np.concatenate([slots, np.full(len(a) + 1, slots[-1]), slots[skip:][::-1]])
+    lining = np.concatenate([np.zeros(n_out + len(a) + 1, dtype=np.int64), np.ones(n_in, dtype=np.int64)])
+    return s_all, rings_all, slots_all, lining
+
+
 def _cap_pole(path: ChainPath, chain: Chain, s: NDArray, rings: NDArray, at_end: bool) -> float:
     """Arc length of the pole vertex closing a chain end."""
     edge = rings[-1] if at_end else rings[0]
@@ -267,6 +290,15 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
     """One closed, skinned, UV'd tube for ``chain``."""
     path = ChainPath(skeleton, chain)
     s, rings, interval_slots = _sample_rings(path, chain)
+    hem = chain.cap_end == "hem"
+    lining = np.zeros(len(s) - 1, dtype=np.int64)
+    if hem:
+        if chain.spans:
+            raise ValueError(f"chain '{chain.name}': a hem end can't carry garment spans")
+        # The inner wall stops at the first full ring (a start dome's inside is buried in the body).
+        skip = chain.cap_rings if chain.cap_start == "round" else 0
+        inner_pole = float(s[skip])
+        s, rings, interval_slots, lining = _hem(s, rings, np.asarray(interval_slots), chain.hem, skip)
     sides = chain.sides
     front_hint = np.asarray(chain.front, dtype=np.float64)
     theta = np.linspace(0, 2 * np.pi, sides + 1)          # last column repeats the first (UV seam)
@@ -292,14 +324,15 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
     per = sides + 1
     count = len(s)
     vertices = np.vstack(verts)
-    faces, face_slots = [], []
+    faces, face_slots, face_lining = [], [], []
     for r in range(count - 1):
         a = r * per + np.arange(sides)
         faces += np.column_stack([a, a + 1, a + per + 1]).tolist() + np.column_stack([a, a + per + 1, a + per]).tolist()
         face_slots += [interval_slots[r]] * (2 * sides)
+        face_lining += [lining[r]] * (2 * sides)
     poles = []
     for at_end in (False, True):
-        ps = _cap_pole(path, chain, s, rings, at_end)
+        ps = inner_pole if (hem and at_end) else _cap_pole(path, chain, s, rings, at_end)
         rows = rings[-1] if at_end else rings[0]
         tangent = path.tangent(ps, chain.spacing)
         front = front_hint - np.dot(front_hint, tangent) * tangent
@@ -314,6 +347,7 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
         faces.append([start_pole, k + 1, k])
         faces.append([end_pole, last + k, last + k + 1])
         face_slots += [interval_slots[0], interval_slots[-1]]
+        face_lining += [0, int(hem)]
     faces = np.array(faces, dtype=np.int64)
     all_s = np.concatenate([np.concatenate(ring_s), [poles[0][1], poles[1][1]]])
 
@@ -322,6 +356,8 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
     mesh = Mesh(vertices, faces, uvs=np.column_stack([u, all_s]))
     if chain.spans:
         mesh.face_materials = np.array(face_slots, dtype=np.int64)
+    elif hem:
+        mesh.face_materials = np.array(face_lining, dtype=np.int64)
     if _signed_volume(mesh) < 0:
         mesh.faces = mesh.faces[:, ::-1].copy()
     bone_index = {name: i for i, name in enumerate(skeleton.names)}

@@ -94,6 +94,41 @@ def _tris(mesh, faces=None) -> np.ndarray:
     return mesh.vertices[f]
 
 
+def _solid(mesh) -> np.ndarray:
+    """A garment shell's triangles as a closed solid. A hemmed (open) shell is its outer wall and
+    rim (not the lining) capped across each hem opening with a fan, so the space it wraps is
+    inside, as for a closed shell."""
+    from .generators.humanoid import lining_faces
+
+    inner = lining_faces(mesh)
+    if not inner.any():
+        return mesh.vertices[mesh.faces]
+    outer = mesh.faces[~inner]
+    # Directed boundary edges of the outer wall: a -> b with no b -> a.
+    edges = np.concatenate([outer[:, [0, 1]], outer[:, [1, 2]], outer[:, [2, 0]]])
+    have = {tuple(e) for e in edges.tolist()}
+    boundary = [(a, b) for a, b in edges.tolist() if (b, a) not in have]
+    # Group into loops (connected components) and fan each from its centroid.
+    parent = {}
+
+    def find(x):
+        while parent.setdefault(x, x) != x:
+            x = parent[x]
+        return x
+
+    for a, b in boundary:
+        parent[find(a)] = find(b)
+    loops: dict[int, list] = {}
+    for a, b in boundary:
+        loops.setdefault(find(a), []).append((a, b))
+    tris = [mesh.vertices[outer]]
+    for loop in loops.values():
+        centre = mesh.vertices[np.unique(np.array(loop))].mean(axis=0)
+        fan = np.array([[mesh.vertices[b], mesh.vertices[a], centre] for a, b in loop])
+        tris.append(fan)
+    return np.concatenate(tris)
+
+
 # --- posing -------------------------------------------------------------------------------------
 
 
@@ -160,9 +195,9 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
     out: dict[str, Any] = {}
     # Loose shells: covered at rest, outside now.
     if "clothes" in now:
-        covered = winding(rest["body"].vertices, _tris(rest["clothes"])) > 0.5
+        covered = winding(rest["body"].vertices, _solid(rest["clothes"])) > 0.5
         pts = body.vertices[covered]
-        outside = winding(pts, _tris(now["clothes"])) < 0.5
+        outside = winding(pts, _solid(now["clothes"])) < 0.5
         depth = np.zeros(len(pts))
         if outside.any():
             depth[outside] = distance(pts[outside], _tris(now["clothes"]))
@@ -173,7 +208,7 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
     pts = body.vertices[hand]
     inside = winding(pts, _tris(body, body.faces[others])) > 0.5
     if "clothes" in now:
-        inside |= winding(pts, _tris(now["clothes"])) > 0.5
+        inside |= winding(pts, _solid(now["clothes"])) > 0.5
     depth = np.zeros(len(pts))
     if inside.any():
         tris = _tris(body, body.faces[others])
