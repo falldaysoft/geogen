@@ -449,6 +449,9 @@ class FloorPlan:
             for surf_name, surf in node.surfaces.items():
                 root.surfaces[f"{room.name}.{surf_name}"] = _transformed(surf, to_root)
 
+        for o in self.doors:
+            self._add_thresholds(o, segments, offset, room_nodes, loader, CubeGenerator)
+
         # Openings per room, in the room's frame (for furnishing): which wall,
         # the interval along it and the vertical extent.
         for o in [*self.doors, *self.windows]:
@@ -480,6 +483,46 @@ class FloorPlan:
                                   self.room_materials(room), [c.transform(to_room) for c in cutters],
                                   options, loader)
         return root
+
+    def _add_thresholds(self, o: PlanOpening, segments: list[WallSegment], offset: np.ndarray,
+                        room_nodes: dict[str, SceneNode], loader, CubeGenerator) -> None:
+        """Cover the wall top left under a doorway with each room's floor, up to the wall's centre line.
+
+        The structural walls wear the exterior cladding, so without this a
+        brick strip shows across interior doorways. Strips stand COPLANAR_GAP
+        proud of the wall top (level with it they'd z-fight) and sink 1 mm into
+        it (so their undersides aren't level with a lift gate's). An exterior
+        door only gets the inside half. No collider: the wall top is the floor
+        and a 3 mm lip snags the player capsule.
+        """
+        if o.sill > _EPS:
+            return
+        seg, centre = self._opening_frame(o, segments)
+        rooms = list(o.between) if o.between else [o.room]
+        # A room on the wall's north edge lies toward -Z of it, etc.
+        toward = {"north": -1.0, "south": 1.0, "east": -1.0, "west": 1.0}
+        sink = 0.001
+        height = COPLANAR_GAP + sink
+        for room_name in rooms:
+            side = seg.rooms.get(room_name)
+            if side is None:
+                continue
+            depth = seg.thickness / 2
+            across = seg.line + toward[side] * depth / 2
+            if seg.axis == "z":
+                size, pos = (o.width, height, depth), np.array([centre, 0.0, across])
+            else:
+                size, pos = (depth, height, o.width), np.array([across, 0.0, centre])
+            room_node = room_nodes[room_name]
+            mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
+            move = np.eye(4)
+            move[:3, 3] = pos + np.array([0.0, height / 2 - sink, 0.0]) - offset - room_node.transform.translation
+            mesh = mesh.transform(move)
+            mesh.material = loader.load(self.room_materials(self.rooms[room_name])["floor"])
+            beyond = next((r for r in rooms if r != room_name), "outside")
+            strip = SceneNode(name=f"threshold_{beyond}", mesh=mesh, tags=["threshold"])
+            strip.meta["collider"] = "none"
+            room_node.add_child(strip)
 
     def _door_node(self, o: PlanOpening, index: int, segments: list[WallSegment], offset: np.ndarray,
                    loader, room_nodes: dict[str, SceneNode]) -> SceneNode:

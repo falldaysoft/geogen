@@ -162,7 +162,8 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
         for i, (storey, room) in enumerate(column):
             drop = {"skirting", "cornice", f"{room.name}_light"} | ({"floor"} if i > 0 else set()) \
                 | ({"ceiling"} if i < len(column) - 1 else set())
-            room.children = [c for c in room.children if c.name not in drop and "switch.light" not in c.tags]
+            room.children = [c for c in room.children if c.name not in drop and "switch.light" not in c.tags
+                             and not ("threshold" in c.tags and "floor" in drop)]
             room.meta["nav"] = False  # the shaft volume isn't somewhere to walk
             volume = room.find(f"{room.name}_volume")
             if volume is not None:
