@@ -30,10 +30,10 @@ var ground_margin := 6.0
 var open_before_bake := false
 ## Show collision shapes as wireframe overlays.
 var show_colliders := false:
-	set(value):
-		show_colliders = value
-		for node in get_tree().get_nodes_in_group("geogen_collider_debug"):
-			node.visible = value
+    set(value):
+        show_colliders = value
+        for node in get_tree().get_nodes_in_group("geogen_collider_debug"):
+            node.visible = value
 
 var _mtimes := {}  # manifest path -> modified time at last load
 ## Gap between models when several exports load at once.
@@ -95,734 +95,734 @@ var stream_radii := PackedFloat64Array()
 
 
 func _ready() -> void:
-	_collider_material = StandardMaterial3D.new()
-	_collider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_collider_material.albedo_color = Color(0.2, 1.0, 0.4)
-	_collider_material.albedo_color = Color(0.2, 1.0, 0.4, 0.6)
-	_collider_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    _collider_material = StandardMaterial3D.new()
+    _collider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    _collider_material.albedo_color = Color(0.2, 1.0, 0.4)
+    _collider_material.albedo_color = Color(0.2, 1.0, 0.4, 0.6)
+    _collider_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 
 
 ## Read generated/catalogue.json into ``catalogue`` ({} if missing or malformed).
 func read_catalogue() -> Dictionary:
-	catalogue = {}
-	var path := "%s/catalogue.json" % generated_dir
-	if not FileAccess.file_exists(path):
-		return catalogue
-	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if data is Dictionary and data.get("format") == "geogen-catalogue":
-		catalogue = data
-	else:
-		push_error("geogen: bad catalogue %s" % path)
-	return catalogue
+    catalogue = {}
+    var path := "%s/catalogue.json" % generated_dir
+    if not FileAccess.file_exists(path):
+        return catalogue
+    var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+    if data is Dictionary and data.get("format") == "geogen-catalogue":
+        catalogue = data
+    else:
+        push_error("geogen: bad catalogue %s" % path)
+    return catalogue
 
 
 ## The catalogue entry named ``name``, or {}.
 func catalogue_entry(name: String) -> Dictionary:
-	for entry in catalogue.get("scenes", []):
-		if entry.get("name") == name:
-			return entry
-	return {}
+    for entry in catalogue.get("scenes", []):
+        if entry.get("name") == name:
+            return entry
+    return {}
 
 
 ## With no scene chosen, pick the catalogue's default (streamed if its entry
 ## says so). Returns the chosen name, or "" to load every export as before.
 func use_catalogue_default() -> String:
-	if scene_name != "" or read_catalogue().is_empty():
-		return scene_name
-	var name: String = catalogue.get("default", "")
-	var entry := catalogue_entry(name)
-	if entry.is_empty() or not FileAccess.file_exists("%s/%s" % [generated_dir, entry.get("manifest", "")]):
-		push_warning("geogen: catalogue default '%s' isn't exported; loading every export" % name)
-		return ""
-	scene_name = name
-	prefer_chunks = prefer_chunks or bool(entry.get("stream", false))
-	print("geogen: default scene %s (from catalogue.json)" % name)
-	return name
+    if scene_name != "" or read_catalogue().is_empty():
+        return scene_name
+    var name: String = catalogue.get("default", "")
+    var entry := catalogue_entry(name)
+    if entry.is_empty() or not FileAccess.file_exists("%s/%s" % [generated_dir, entry.get("manifest", "")]):
+        push_warning("geogen: catalogue default '%s' isn't exported; loading every export" % name)
+        return ""
+    scene_name = name
+    prefer_chunks = prefer_chunks or bool(entry.get("stream", false))
+    print("geogen: default scene %s (from catalogue.json)" % name)
+    return name
 
 
 ## Load (or reload) everything requested. Returns the combined bounds.
 func load_all() -> AABB:
-	for child in get_children():
-		child.free()
-	streamer = null
-	_mtimes.clear()
-	_next_x = 0.0
-	model_aabbs.clear()
-	rooms.clear()
-	spawns.clear()
-	interactions.clear()
-	lights_by_name.clear()
-	affordances.clear()
-	npcs.clear()
-	_auto_lights.clear()
-	traffic.clear()
-	trains.clear()
-	crossing_closed.clear()
-	traffic_graph = {}
-	portals.clear()
-	_reservations.clear()
-	_gates.clear()
-	_moving.clear()
-	_target_of.clear()
-	for manifest in _manifests():
-		_load_model(manifest)
-	var aabb := world_aabb()
-	world_loaded.emit(aabb)
-	return aabb
+    for child in get_children():
+        child.free()
+    streamer = null
+    _mtimes.clear()
+    _next_x = 0.0
+    model_aabbs.clear()
+    rooms.clear()
+    spawns.clear()
+    interactions.clear()
+    lights_by_name.clear()
+    affordances.clear()
+    npcs.clear()
+    _auto_lights.clear()
+    traffic.clear()
+    trains.clear()
+    crossing_closed.clear()
+    traffic_graph = {}
+    portals.clear()
+    _reservations.clear()
+    _gates.clear()
+    _moving.clear()
+    _target_of.clear()
+    for manifest in _manifests():
+        _load_model(manifest)
+    var aabb := world_aabb()
+    world_loaded.emit(aabb)
+    return aabb
 
 
 ## Player spec from the first loaded manifest, or null if none.
 func player_spec() -> PlayerSpec:
-	for manifest in _manifests():
-		return PlayerSpec.from_manifest(manifest)
-	return null
+    for manifest in _manifests():
+        return PlayerSpec.from_manifest(manifest)
+    return null
 
 
 func world_aabb() -> AABB:
-	return _aabb(self)
+    return _aabb(self)
 
 
 static func _aabb(root: Node) -> AABB:
-	var aabb := AABB()
-	var first := true
-	for mi in root.find_children("*", "MeshInstance3D", true, false):
-		if mi.is_in_group("geogen_collider_debug"):
-			continue
-		var box: AABB = mi.global_transform * mi.get_aabb()
-		aabb = box if first else aabb.merge(box)
-		first = false
-	return aabb
+    var aabb := AABB()
+    var first := true
+    for mi in root.find_children("*", "MeshInstance3D", true, false):
+        if mi.is_in_group("geogen_collider_debug"):
+            continue
+        var box: AABB = mi.global_transform * mi.get_aabb()
+        aabb = box if first else aabb.merge(box)
+        first = false
+    return aabb
 
 
 func _process(delta: float) -> void:
-	_poll += delta
-	if _poll < POLL_SECONDS:
-		return
-	_poll = 0.0
-	for manifest in _manifests():
-		if FileAccess.get_modified_time(manifest) != _mtimes.get(manifest, -1):
-			print("geogen: %s changed, reloading" % manifest.get_file())
-			load_all()
-			return
+    _poll += delta
+    if _poll < POLL_SECONDS:
+        return
+    _poll = 0.0
+    for manifest in _manifests():
+        if FileAccess.get_modified_time(manifest) != _mtimes.get(manifest, -1):
+            print("geogen: %s changed, reloading" % manifest.get_file())
+            load_all()
+            return
 
 
 func _manifests() -> Array[String]:
-	var result: Array[String] = []
-	if scene_name != "":
-		var path := "%s/%s.manifest.json" % [generated_dir, scene_name]
-		var chunks := "%s/%s_chunks/%s.chunks.json" % [generated_dir, scene_name, scene_name]
-		if FileAccess.file_exists(chunks) and (prefer_chunks or not FileAccess.file_exists(path)):
-			result.append(chunks)
-		elif FileAccess.file_exists(path):
-			result.append(path)
-		return result
-	var dir := DirAccess.open(generated_dir)
-	if dir == null:
-		return result
-	for file in dir.get_files():
-		if file.ends_with(".manifest.json"):
-			result.append("%s/%s" % [generated_dir, file])
-	result.sort()
-	return result
+    var result: Array[String] = []
+    if scene_name != "":
+        var path := "%s/%s.manifest.json" % [generated_dir, scene_name]
+        var chunks := "%s/%s_chunks/%s.chunks.json" % [generated_dir, scene_name, scene_name]
+        if FileAccess.file_exists(chunks) and (prefer_chunks or not FileAccess.file_exists(path)):
+            result.append(chunks)
+        elif FileAccess.file_exists(path):
+            result.append(path)
+        return result
+    var dir := DirAccess.open(generated_dir)
+    if dir == null:
+        return result
+    for file in dir.get_files():
+        if file.ends_with(".manifest.json"):
+            result.append("%s/%s" % [generated_dir, file])
+    result.sort()
+    return result
 
 
 func _load_model(manifest_path: String) -> void:
-	_mtimes[manifest_path] = FileAccess.get_modified_time(manifest_path)
-	var manifest = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
-	if not manifest is Dictionary:
-		push_error("geogen: bad manifest %s" % manifest_path)
-		return
-	if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
-		_load_chunked(manifest_path, manifest)
-		return
-	var model_path: String = manifest_path.get_base_dir().path_join(manifest.get("model", ""))
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	var err := doc.append_from_file(ProjectSettings.globalize_path(model_path), state)
-	if err != OK:
-		push_error("geogen: cannot load %s (%s)" % [model_path, error_string(err)])
-		return
-	var root := doc.generate_scene(state)
-	root.name = manifest.get("name", model_path.get_file().get_basename())
-	add_child(root)
-	# Every export is authored around the origin, so when several load at once
-	# (no --scene) lay them out in a row along X instead of on top of each other.
-	var offset := Vector3.ZERO
-	if scene_name == "":
-		var box := _aabb(root)
-		if box.size != Vector3.ZERO:
-			offset.x = _next_x - box.position.x
-			_next_x += box.size.x + MODEL_SPACING
-		root.position = offset
-	model_aabbs.append(_aabb(root))
-	_prepare_materials(root)
-	if manifest.get("traffic") is Dictionary:
-		traffic_graph = manifest["traffic"]
-		_traffic_offset = offset
-	var summary := setup_root(root)
-	var count: int = summary["meshes"]
-	if open_before_bake:
-		for it in interactions:
-			if it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset):
-				if it.states.has("open"):
-					it.set_state("open", true)
-					it.hold = true
-	if bake_navigation:
-		GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake,
-			ground_margin)
-	for s in manifest.get("spawns", []):
-		var f: Array = s.get("forward", [0, 0, -1])
-		var p: Array = s.get("position", [0, 0, 0])
-		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]) + offset,
-			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2]))), "model": model_aabbs.size() - 1})
-	print("geogen: loaded %s (%d meshes, %d rooms, %d spawns, %d tagged)" % [
-		model_path.get_file(), count, summary["rooms"], summary["spawns"], summary["tagged"]])
+    _mtimes[manifest_path] = FileAccess.get_modified_time(manifest_path)
+    var manifest = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
+    if not manifest is Dictionary:
+        push_error("geogen: bad manifest %s" % manifest_path)
+        return
+    if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
+        _load_chunked(manifest_path, manifest)
+        return
+    var model_path: String = manifest_path.get_base_dir().path_join(manifest.get("model", ""))
+    var doc := GLTFDocument.new()
+    var state := GLTFState.new()
+    var err := doc.append_from_file(ProjectSettings.globalize_path(model_path), state)
+    if err != OK:
+        push_error("geogen: cannot load %s (%s)" % [model_path, error_string(err)])
+        return
+    var root := doc.generate_scene(state)
+    root.name = manifest.get("name", model_path.get_file().get_basename())
+    add_child(root)
+    # Every export is authored around the origin, so when several load at once
+    # (no --scene) lay them out in a row along X instead of on top of each other.
+    var offset := Vector3.ZERO
+    if scene_name == "":
+        var box := _aabb(root)
+        if box.size != Vector3.ZERO:
+            offset.x = _next_x - box.position.x
+            _next_x += box.size.x + MODEL_SPACING
+        root.position = offset
+    model_aabbs.append(_aabb(root))
+    _prepare_materials(root)
+    if manifest.get("traffic") is Dictionary:
+        traffic_graph = manifest["traffic"]
+        _traffic_offset = offset
+    var summary := setup_root(root)
+    var count: int = summary["meshes"]
+    if open_before_bake:
+        for it in interactions:
+            if it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset):
+                if it.states.has("open"):
+                    it.set_state("open", true)
+                    it.hold = true
+    if bake_navigation:
+        GeogenSceneBuilder.build_navigation(root, PlayerSpec.from_manifest(manifest_path), open_before_bake,
+            ground_margin)
+    for s in manifest.get("spawns", []):
+        var f: Array = s.get("forward", [0, 0, -1])
+        var p: Array = s.get("position", [0, 0, 0])
+        spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]) + offset,
+            "yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2]))), "model": model_aabbs.size() - 1})
+    print("geogen: loaded %s (%d meshes, %d rooms, %d spawns, %d tagged)" % [
+        model_path.get_file(), count, summary["rooms"], summary["spawns"], summary["tagged"]])
 
 
 ## Gameplay setup for a freshly loaded export (or streamed chunk) already in
 ## the tree: LOD levels dropped, interactions, lights, switches, seats,
 ## colliders, gates, rooms, then the scene builder (Areas, spawns, groups).
 func setup_root(root: Node) -> Dictionary:
-	# MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
-	for node in root.find_children("*", "Node3D", true, false):
-		if geogen_extras(node).get("type") == "lod":
-			node.get_parent().remove_child(node)
-			node.queue_free()
-	_collect_interactions(root)
-	_add_lights(root)
-	_wire_switches(root)
-	_collect_affordances(root)
-	_collect_portals(root)
-	var count := _add_collision(root)
-	_spawn_npcs(root)
-	_spawn_traffic(root)
-	_collect_gates(root)
-	_collect_rooms(root)
-	var summary := GeogenSceneBuilder.build(root)
-	summary["meshes"] = count
-	return summary
+    # MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
+    for node in root.find_children("*", "Node3D", true, false):
+        if geogen_extras(node).get("type") == "lod":
+            node.get_parent().remove_child(node)
+            node.queue_free()
+    _collect_interactions(root)
+    _add_lights(root)
+    _wire_switches(root)
+    _collect_affordances(root)
+    _collect_portals(root)
+    var count := _add_collision(root)
+    _spawn_npcs(root)
+    _spawn_traffic(root)
+    _collect_gates(root)
+    _collect_rooms(root)
+    var summary := GeogenSceneBuilder.build(root)
+    summary["meshes"] = count
+    return summary
 
 
 ## Unregister everything ``root`` contributed (before freeing a streamed chunk).
 func forget(root: Node) -> void:
-	var inside := func(node) -> bool:
-		return node is Node and is_instance_valid(node) and (node == root or root.is_ancestor_of(node))
-	for it in interactions.duplicate():
-		if inside.call(it.asset):
-			interactions.erase(it)
-			it.queue_free()
-	rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
-	affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
-	portals = portals.filter(func(p): return not inside.call(p.get("node")))
-	npcs = npcs.filter(func(n): return not inside.call(n))
-	_gates = _gates.filter(func(g): return not inside.call(g.get("node")))
-	_auto_lights = _auto_lights.filter(func(a): return not inside.call(a.get("fixture")))
-	for key in lights_by_name.keys():
-		if inside.call(lights_by_name[key]):
-			lights_by_name.erase(key)
-	for key in _moving.keys():
-		if inside.call(key):
-			_moving.erase(key)
-	for key in _target_of.keys():
-		if inside.call(key):
-			_target_of.erase(key)
+    var inside := func(node) -> bool:
+        return node is Node and is_instance_valid(node) and (node == root or root.is_ancestor_of(node))
+    for it in interactions.duplicate():
+        if inside.call(it.asset):
+            interactions.erase(it)
+            it.queue_free()
+    rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
+    affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
+    portals = portals.filter(func(p): return not inside.call(p.get("node")))
+    npcs = npcs.filter(func(n): return not inside.call(n))
+    _gates = _gates.filter(func(g): return not inside.call(g.get("node")))
+    _auto_lights = _auto_lights.filter(func(a): return not inside.call(a.get("fixture")))
+    for key in lights_by_name.keys():
+        if inside.call(lights_by_name[key]):
+            lights_by_name.erase(key)
+    for key in _moving.keys():
+        if inside.call(key):
+            _moving.erase(key)
+    for key in _target_of.keys():
+        if inside.call(key):
+            _target_of.erase(key)
 
 
 func _load_chunked(index_path: String, index: Dictionary) -> void:
-	streamer = GeogenChunkStreamer.new()
-	streamer.name = "ChunkStreamer"
-	streamer.world = self
-	if stream_radii.size() >= 3:
-		streamer.full_radius = stream_radii[0]
-		streamer.lod_radius = stream_radii[1]
-		streamer.interior_radius = stream_radii[2]
-	add_child(streamer)
-	if index.get("traffic") is Dictionary:
-		traffic_graph = index["traffic"]
-	streamer.open(index_path, index)
-	if prime_focus != null:
-		stream_focus = prime_focus
-	elif not index.get("spawns", []).is_empty():
-		var p: Array = index["spawns"][0].get("position", [0, 0, 0])
-		stream_focus = Vector3(p[0], p[1], p[2])
-	streamer.prime(stream_focus)
-	model_aabbs.append(streamer.bounds)
-	for s in index.get("spawns", []):
-		var f: Array = s.get("forward", [0, 0, -1])
-		var p: Array = s.get("position", [0, 0, 0])
-		spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]),
-			"yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
-	print("geogen: streaming %s (%d chunks)" % [index_path.get_file(), streamer.chunks.size()])
+    streamer = GeogenChunkStreamer.new()
+    streamer.name = "ChunkStreamer"
+    streamer.world = self
+    if stream_radii.size() >= 3:
+        streamer.full_radius = stream_radii[0]
+        streamer.lod_radius = stream_radii[1]
+        streamer.interior_radius = stream_radii[2]
+    add_child(streamer)
+    if index.get("traffic") is Dictionary:
+        traffic_graph = index["traffic"]
+    streamer.open(index_path, index)
+    if prime_focus != null:
+        stream_focus = prime_focus
+    elif not index.get("spawns", []).is_empty():
+        var p: Array = index["spawns"][0].get("position", [0, 0, 0])
+        stream_focus = Vector3(p[0], p[1], p[2])
+    streamer.prime(stream_focus)
+    model_aabbs.append(streamer.bounds)
+    for s in index.get("spawns", []):
+        var f: Array = s.get("forward", [0, 0, -1])
+        var p: Array = s.get("position", [0, 0, 0])
+        spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]),
+            "yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
+    print("geogen: streaming %s (%d chunks)" % [index_path.get_file(), streamer.chunks.size()])
 
 
 ## Report of what the streamer has loaded, or {} for single-file exports.
 func stream_report() -> Dictionary:
-	return streamer.report() if streamer != null else {}
+    return streamer.report() if streamer != null else {}
 
 
 ## extras.geogen of a node imported from glTF, or {}.
 static func geogen_extras(node: Node) -> Dictionary:
-	if not node.has_meta("extras"):
-		return {}
-	var extras = node.get_meta("extras")
-	if extras is Dictionary and extras.get("geogen") is Dictionary:
-		return extras["geogen"]
-	return {}
+    if not node.has_meta("extras"):
+        return {}
+    var extras = node.get_meta("extras")
+    if extras is Dictionary and extras.get("geogen") is Dictionary:
+        return extras["geogen"]
+    return {}
 
 
 ## Ceiling fixtures etc. carry extras.geogen.light: add a light just below them.
 func _add_lights(root: Node) -> void:
-	for node in root.find_children("*", "Node3D", true, false):
-		var spec = geogen_extras(node).get("light")
-		if not spec is Dictionary:
-			continue
-		# Exports carry a KHR_lights_punctual light (imported as a Light3D child);
-		# tune it with our energy/range/shadows. Older exports get one added.
-		var light: OmniLight3D = null
-		for child in node.get_children():
-			if child is OmniLight3D:
-				light = child
-			elif geogen_extras(child).get("type") == "light":
-				for grand in child.get_children():
-					if grand is OmniLight3D:
-						light = grand
-				if light == null and child is OmniLight3D:
-					light = child
-		if light == null:
-			light = OmniLight3D.new()
-			var offset = spec.get("offset", [0, -0.5, 0])
-			light.position = Vector3(offset[0], offset[1], offset[2]) if offset is Array else Vector3(0, offset, 0)
-			node.add_child(light)
-		light.name = "Light"
-		var c: Array = spec.get("color", [1, 1, 1])
-		light.light_color = Color(c[0], c[1], c[2])
-		light.light_energy = float(spec.get("energy", 1.0))
-		light.omni_range = float(spec.get("range", 5.0))
-		light.omni_attenuation = 1.0
-		light.shadow_enabled = true
-		light.add_to_group("geogen_light")
-		if spec.get("auto") == "night":
-			# Street lamps: many of them, so no shadows; on when the clock says it's dark.
-			light.shadow_enabled = false
-			_auto_lights.append({"light": light, "fixture": node})
-			light.visible = night
-			_set_emission(node, night)
-		lights_by_name[String(node.name)] = light
-		# The fixture itself mustn't shadow its own light.
-		for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    for node in root.find_children("*", "Node3D", true, false):
+        var spec = geogen_extras(node).get("light")
+        if not spec is Dictionary:
+            continue
+        # Exports carry a KHR_lights_punctual light (imported as a Light3D child);
+        # tune it with our energy/range/shadows. Older exports get one added.
+        var light: OmniLight3D = null
+        for child in node.get_children():
+            if child is OmniLight3D:
+                light = child
+            elif geogen_extras(child).get("type") == "light":
+                for grand in child.get_children():
+                    if grand is OmniLight3D:
+                        light = grand
+                if light == null and child is OmniLight3D:
+                    light = child
+        if light == null:
+            light = OmniLight3D.new()
+            var offset = spec.get("offset", [0, -0.5, 0])
+            light.position = Vector3(offset[0], offset[1], offset[2]) if offset is Array else Vector3(0, offset, 0)
+            node.add_child(light)
+        light.name = "Light"
+        var c: Array = spec.get("color", [1, 1, 1])
+        light.light_color = Color(c[0], c[1], c[2])
+        light.light_energy = float(spec.get("energy", 1.0))
+        light.omni_range = float(spec.get("range", 5.0))
+        light.omni_attenuation = 1.0
+        light.shadow_enabled = true
+        light.add_to_group("geogen_light")
+        if spec.get("auto") == "night":
+            # Street lamps: many of them, so no shadows; on when the clock says it's dark.
+            light.shadow_enabled = false
+            _auto_lights.append({"light": light, "fixture": node})
+            light.visible = night
+            _set_emission(node, night)
+        lights_by_name[String(node.name)] = light
+        # The fixture itself mustn't shadow its own light.
+        for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+            mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Light switches: their interaction's on/off state shows or hides the named light.
 func _wire_switches(root: Node) -> void:
-	for it in interactions:
-		if not root.is_ancestor_of(it.asset):
-			continue   # wired when its own export loaded
-		var spec = geogen_extras(it.asset).get("switch")
-		if not spec is Dictionary:
-			continue
-		var light: Light3D = lights_by_name.get(str(spec.get("light", "")))
-		if light == null:
-			continue
-		var fixture := light.get_parent()
-		while fixture != null and not geogen_extras(fixture).has("light"):
-			fixture = fixture.get_parent()
-		it.state_entered.connect(func(state: String, _event: String):
-			light.visible = state != "off"
-			if fixture != null:
-				_set_emission(fixture, state != "off"))
+    for it in interactions:
+        if not root.is_ancestor_of(it.asset):
+            continue   # wired when its own export loaded
+        var spec = geogen_extras(it.asset).get("switch")
+        if not spec is Dictionary:
+            continue
+        var light: Light3D = lights_by_name.get(str(spec.get("light", "")))
+        if light == null:
+            continue
+        var fixture := light.get_parent()
+        while fixture != null and not geogen_extras(fixture).has("light"):
+            fixture = fixture.get_parent()
+        it.state_entered.connect(func(state: String, _event: String):
+            light.visible = state != "off"
+            if fixture != null:
+                _set_emission(fixture, state != "off"))
 
 
 ## Ways out of the scene for NPCs going `away` (routines): building entrances (their spawns).
 func exit_points() -> Array[Vector3]:
-	var out: Array[Vector3] = []
-	for s in spawns:
-		if String(s.get("name", "")).begins_with("entrance"):
-			out.append(s["position"])
-	return out
+    var out: Array[Vector3] = []
+    for s in spawns:
+        if String(s.get("name", "")).begins_with("entrance"):
+            out.append(s["position"])
+    return out
 
 
 ## Night on/off: `auto: night` lights and their glowing glass, and vehicle lamps.
 func set_night(on: bool) -> void:
-	night = on
-	for a in _auto_lights:
-		if is_instance_valid(a["light"]):
-			a["light"].visible = on
-			_set_emission(a["fixture"], on)
-	for t in traffic:
-		if is_instance_valid(t):
-			t.set_night(on)
-	for t in trains:
-		if is_instance_valid(t):
-			t.set_night(on)
+    night = on
+    for a in _auto_lights:
+        if is_instance_valid(a["light"]):
+            a["light"].visible = on
+            _set_emission(a["fixture"], on)
+    for t in traffic:
+        if is_instance_valid(t):
+            t.set_night(on)
+    for t in trains:
+        if is_instance_valid(t):
+            t.set_night(on)
 
 
 ## A train closed or opened a level crossing (road traffic stops for closed ones).
 func set_crossing(id: String, closed: bool) -> void:
-	crossing_closed[id] = closed
+    crossing_closed[id] = closed
 
 
 ## Dim or restore a fixture's glowing materials (lamp shades) with its light.
 static func _set_emission(fixture: Node, on: bool) -> void:
-	for mi: MeshInstance3D in fixture.find_children("*", "MeshInstance3D", true, false):
-		for i in mi.mesh.get_surface_count() if mi.mesh else 0:
-			var mat := mi.get_active_material(i) as BaseMaterial3D
-			if mat == null or not (mat.emission_enabled or mi.has_meta("geogen_dimmed")):
-				continue
-			if mi.get_surface_override_material(i) == null:
-				mat = mat.duplicate()
-				mi.set_surface_override_material(i, mat)
-			mat.emission_enabled = on
-			mi.set_meta("geogen_dimmed", not on)
+    for mi: MeshInstance3D in fixture.find_children("*", "MeshInstance3D", true, false):
+        for i in mi.mesh.get_surface_count() if mi.mesh else 0:
+            var mat := mi.get_active_material(i) as BaseMaterial3D
+            if mat == null or not (mat.emission_enabled or mi.has_meta("geogen_dimmed")):
+                continue
+            if mi.get_surface_override_material(i) == null:
+                mat = mat.duplicate()
+                mi.set_surface_override_material(i, mat)
+            mat.emission_enabled = on
+            mi.set_meta("geogen_dimmed", not on)
 
 
 func _collect_affordances(root: Node) -> void:
-	for node in root.find_children("*", "Node3D", true, false):
-		var list = geogen_extras(node).get("affordances")
-		if not list is Array:
-			continue
-		var xform := (node as Node3D).global_transform
-		for i in list.size():
-			var a: Dictionary = list[i]
-			var p: Array = a.get("position", [0, 0, 0])
-			var forward := xform.basis * Basis(Vector3.UP, deg_to_rad(float(a.get("yaw", 0.0)))) * Vector3.BACK
-			var ap: Array = a.get("approach", p)
-			var entry := {"type": str(a.get("type", "sit")), "position": xform * Vector3(p[0], p[1], p[2]),
-				"yaw_deg": rad_to_deg(atan2(-forward.x, -forward.z)), "node": node,
-				"height": float(a.get("height", p[1])), "asset": String(node.name),
-				# NPCs (npc.gd): heading of the actor (+Z forward), approach point and the rest.
-				"id": "%s#%d" % [node.name, i], "npc_yaw_deg": rad_to_deg(atan2(forward.x, forward.z)),
-				"action": str(a.get("action", a.get("type", "sit"))), "approach": xform * Vector3(ap[0], ap[1], ap[2]),
-				"advertises": a.get("advertises", {}), "tags": a.get("tags", []), "slots": int(a.get("slots", 1))}
-			if a.has("duration"):
-				entry["duration"] = a["duration"]
-			if a.has("depth"):
-				entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
-			if a.has("interaction"):
-				for it in interactions_of(String(node.name)):
-					if it.interaction_name == a["interaction"] and it.asset == node:
-						entry["interaction"] = it
-			affordances.append(entry)
+    for node in root.find_children("*", "Node3D", true, false):
+        var list = geogen_extras(node).get("affordances")
+        if not list is Array:
+            continue
+        var xform := (node as Node3D).global_transform
+        for i in list.size():
+            var a: Dictionary = list[i]
+            var p: Array = a.get("position", [0, 0, 0])
+            var forward := xform.basis * Basis(Vector3.UP, deg_to_rad(float(a.get("yaw", 0.0)))) * Vector3.BACK
+            var ap: Array = a.get("approach", p)
+            var entry := {"type": str(a.get("type", "sit")), "position": xform * Vector3(p[0], p[1], p[2]),
+                "yaw_deg": rad_to_deg(atan2(-forward.x, -forward.z)), "node": node,
+                "height": float(a.get("height", p[1])), "asset": String(node.name),
+                # NPCs (npc.gd): heading of the actor (+Z forward), approach point and the rest.
+                "id": "%s#%d" % [node.name, i], "npc_yaw_deg": rad_to_deg(atan2(forward.x, forward.z)),
+                "action": str(a.get("action", a.get("type", "sit"))), "approach": xform * Vector3(ap[0], ap[1], ap[2]),
+                "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "slots": int(a.get("slots", 1))}
+            if a.has("duration"):
+                entry["duration"] = a["duration"]
+            if a.has("depth"):
+                entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
+            if a.has("interaction"):
+                for it in interactions_of(String(node.name)):
+                    if it.interaction_name == a["interaction"] and it.asset == node:
+                        entry["interaction"] = it
+            affordances.append(entry)
 
 
 ## Doors' extras.geogen.portal, in world space, with their interaction.
 func _collect_portals(root: Node) -> void:
-	for node in root.find_children("*", "Node3D", true, false):
-		var p = geogen_extras(node).get("portal")
-		if not p is Dictionary:
-			continue
-		var it: GeogenInteraction = null
-		for candidate in interactions:
-			if candidate.asset == node and candidate.interaction_name == p.get("interaction", ""):
-				it = candidate
-		if it == null:
-			push_warning("geogen: portal %s: no interaction '%s'" % [node.name, p.get("interaction", "")])
-			continue
-		var xform := (node as Node3D).global_transform
-		var c: Array = p.get("center", [0, 1, 0])
-		var n: Array = p.get("normal", [0, 0, 1])
-		portals.append({"node": node, "interaction": it, "open": str(p.get("open", "open")),
-			"closed": str(p.get("closed", "closed")), "center": xform * Vector3(c[0], c[1], c[2]),
-			"normal": (xform.basis * Vector3(n[0], n[1], n[2])).normalized(),
-			"width": float(p.get("width", 0.9)), "height": float(p.get("height", 2.0)),
-			"depth": float(p.get("depth", 0.3)), "clearance": float(p.get("clearance", 0.9))})
+    for node in root.find_children("*", "Node3D", true, false):
+        var p = geogen_extras(node).get("portal")
+        if not p is Dictionary:
+            continue
+        var it: GeogenInteraction = null
+        for candidate in interactions:
+            if candidate.asset == node and candidate.interaction_name == p.get("interaction", ""):
+                it = candidate
+        if it == null:
+            push_warning("geogen: portal %s: no interaction '%s'" % [node.name, p.get("interaction", "")])
+            continue
+        var xform := (node as Node3D).global_transform
+        var c: Array = p.get("center", [0, 1, 0])
+        var n: Array = p.get("normal", [0, 0, 1])
+        portals.append({"node": node, "interaction": it, "open": str(p.get("open", "open")),
+            "closed": str(p.get("closed", "closed")), "center": xform * Vector3(c[0], c[1], c[2]),
+            "normal": (xform.basis * Vector3(n[0], n[1], n[2])).normalized(),
+            "width": float(p.get("width", 0.9)), "height": float(p.get("height", 2.0)),
+            "depth": float(p.get("depth", 0.3)), "clearance": float(p.get("clearance", 0.9))})
 
 
 ## Nodes with extras.geogen type npc become GeogenNpc bodies.
 func _spawn_npcs(root: Node) -> void:
-	var spec := player_spec()
-	for node in root.find_children("*", "Node3D", true, false):
-		var g := geogen_extras(node)
-		if g.get("type") != "npc" or not g.get("npc") is Dictionary or node.has_meta("geogen_npc"):
-			continue
-		var npc := GeogenNpc.spawn(self, node, g["npc"])
-		npc.trace_enabled = npc_trace
-		if spec != null:
-			npc.step_height = spec.step_height
-		npcs.append(npc)
+    var spec := player_spec()
+    for node in root.find_children("*", "Node3D", true, false):
+        var g := geogen_extras(node)
+        if g.get("type") != "npc" or not g.get("npc") is Dictionary or node.has_meta("geogen_npc"):
+            continue
+        var npc := GeogenNpc.spawn(self, node, g["npc"])
+        npc.trace_enabled = npc_trace
+        if spec != null:
+            npc.step_height = spec.step_height
+        npcs.append(npc)
 
 
 ## Nodes with extras.geogen type traffic drive their vehicles over the lane graph (traffic.gd).
 func _spawn_traffic(root: Node) -> void:
-	for node in root.find_children("signal_*", "Node3D", true, false):
-		if geogen_extras(node).has("signal"):
-			node.add_to_group("geogen_signal")
-	for node in root.find_children("*", "Node3D", true, false):
-		if not is_instance_valid(node):      # a vehicle's collider, freed as its traffic was set up
-			continue
-		var g := geogen_extras(node)
-		if g.get("type") != "traffic" or not g.get("fleet") is Dictionary or node.has_meta("geogen_traffic"):
-			continue
-		node.set_meta("geogen_traffic", true)
-		if traffic_graph.is_empty():
-			push_warning("geogen: traffic node %s but the export has no lane graph" % node.name)
-			continue
-		var t := GeogenTraffic.spawn(self, node, g["fleet"], traffic_graph, _traffic_offset)
-		t.trace_enabled = traffic_trace
-		t.set_night(night)
-		traffic.append(t)
-	for node in root.find_children("*", "Node3D", true, false):
-		if not is_instance_valid(node):
-			continue
-		var g := geogen_extras(node)
-		if g.get("type") != "train" or not g.get("train") is Dictionary or node.has_meta("geogen_train"):
-			continue
-		node.set_meta("geogen_train", true)
-		var rail_id := str(g["train"].get("railway", ""))
-		var railway := {}
-		for r in traffic_graph.get("railways", []):
-			if str(r.get("id", "")) == rail_id:
-				railway = r
-		if railway.is_empty():
-			push_warning("geogen: train %s: no railway '%s' in the export" % [node.name, rail_id])
-			continue
-		var train := GeogenTrain.spawn(self, node, g["train"], railway, _traffic_offset)
-		train.trace_enabled = traffic_trace
-		train.set_night(night)
-		trains.append(train)
+    for node in root.find_children("signal_*", "Node3D", true, false):
+        if geogen_extras(node).has("signal"):
+            node.add_to_group("geogen_signal")
+    for node in root.find_children("*", "Node3D", true, false):
+        if not is_instance_valid(node):      # a vehicle's collider, freed as its traffic was set up
+            continue
+        var g := geogen_extras(node)
+        if g.get("type") != "traffic" or not g.get("fleet") is Dictionary or node.has_meta("geogen_traffic"):
+            continue
+        node.set_meta("geogen_traffic", true)
+        if traffic_graph.is_empty():
+            push_warning("geogen: traffic node %s but the export has no lane graph" % node.name)
+            continue
+        var t := GeogenTraffic.spawn(self, node, g["fleet"], traffic_graph, _traffic_offset)
+        t.trace_enabled = traffic_trace
+        t.set_night(night)
+        traffic.append(t)
+    for node in root.find_children("*", "Node3D", true, false):
+        if not is_instance_valid(node):
+            continue
+        var g := geogen_extras(node)
+        if g.get("type") != "train" or not g.get("train") is Dictionary or node.has_meta("geogen_train"):
+            continue
+        node.set_meta("geogen_train", true)
+        var rail_id := str(g["train"].get("railway", ""))
+        var railway := {}
+        for r in traffic_graph.get("railways", []):
+            if str(r.get("id", "")) == rail_id:
+                railway = r
+        if railway.is_empty():
+            push_warning("geogen: train %s: no railway '%s' in the export" % [node.name, rail_id])
+            continue
+        var train := GeogenTrain.spawn(self, node, g["train"], railway, _traffic_offset)
+        train.trace_enabled = traffic_trace
+        train.set_night(night)
+        trains.append(train)
 
 
 ## How many NPCs other than ``npc`` hold affordance ``id``.
 func npc_reserved(id: String, npc: Node) -> int:
-	var holders: Array = _reservations.get(id, []).filter(func(n): return is_instance_valid(n) and n != npc)
-	return holders.size()
+    var holders: Array = _reservations.get(id, []).filter(func(n): return is_instance_valid(n) and n != npc)
+    return holders.size()
 
 
 func npc_reserve(id: String, npc: Node) -> void:
-	var holders: Array = _reservations.get(id, [])
-	if not npc in holders:
-		holders.append(npc)
-	_reservations[id] = holders
+    var holders: Array = _reservations.get(id, [])
+    if not npc in holders:
+        holders.append(npc)
+    _reservations[id] = holders
 
 
 func npc_release(id: String, npc: Node) -> void:
-	if _reservations.has(id):
-		_reservations[id].erase(npc)
+    if _reservations.has(id):
+        _reservations[id].erase(npc)
 
 
 ## Nearest affordance within ``radius`` of a world point, or {}.
 ## Only poses the player can take (sit, lie); NPC-only actions (look, stand) are skipped.
 func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
-	var best := {}
-	var best_d := radius
-	for a in affordances:
-		if not a["type"] in ["sit", "lie"]:
-			continue
-		var d: float = (a["position"] as Vector3).distance_to(point)
-		if d < best_d:
-			best_d = d
-			best = a
-	return best
+    var best := {}
+    var best_d := radius
+    for a in affordances:
+        if not a["type"] in ["sit", "lie"]:
+            continue
+        var d: float = (a["position"] as Vector3).distance_to(point)
+        if d < best_d:
+            best_d = d
+            best = a
+    return best
 
 
 ## Interaction state of every interaction, keyed "<asset>/<interaction>".
 func save_state() -> Dictionary:
-	var data := {}
-	for it in interactions:
-		data["%s/%s" % [it.asset.name, it.interaction_name]] = it.snapshot()
-	return data
+    var data := {}
+    for it in interactions:
+        data["%s/%s" % [it.asset.name, it.interaction_name]] = it.snapshot()
+    return data
 
 
 func load_state(data: Dictionary) -> void:
-	for it in interactions:
-		var key := "%s/%s" % [it.asset.name, it.interaction_name]
-		if data.has(key):
-			it.restore(data[key])
+    for it in interactions:
+        var key := "%s/%s" % [it.asset.name, it.interaction_name]
+        if data.has(key):
+            it.restore(data[key])
 
 
 func _collect_rooms(root: Node) -> void:
-	for node in root.find_children("*", "Node3D", true, false):
-		var g := geogen_extras(node)
-		if g.get("type") == "room_volume":
-			var size: Array = g.get("size", [0, 0, 0])
-			var room: Dictionary = g.get("room", {})
-			rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""), "nav": g.get("nav", true),
-				"xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2]),
-				"node": node})
+    for node in root.find_children("*", "Node3D", true, false):
+        var g := geogen_extras(node)
+        if g.get("type") == "room_volume":
+            var size: Array = g.get("size", [0, 0, 0])
+            var room: Dictionary = g.get("room", {})
+            rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""), "nav": g.get("nav", true),
+                "xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2]),
+                "node": node})
 
 
 func _collect_interactions(root: Node) -> void:
-	for node in root.find_children("*", "Node3D", true, false):
-		var data = geogen_extras(node).get("interactions")
-		if not data is Dictionary:
-			continue
-		for iname in data:
-			var it := GeogenInteraction.from_extras(node, iname, data[iname])
-			add_child(it)
-			interactions.append(it)
-			var asset_name := String(node.name)
-			it.state_entered.connect(func(state: String, event: String):
-				interaction_event.emit(asset_name, iname, state, event))
-			for part in it.moving_nodes():
-				_moving[part] = true
-			for t in it.targets:
-				_target_of[t] = it
+    for node in root.find_children("*", "Node3D", true, false):
+        var data = geogen_extras(node).get("interactions")
+        if not data is Dictionary:
+            continue
+        for iname in data:
+            var it := GeogenInteraction.from_extras(node, iname, data[iname])
+            add_child(it)
+            interactions.append(it)
+            var asset_name := String(node.name)
+            it.state_entered.connect(func(state: String, event: String):
+                interaction_event.emit(asset_name, iname, state, event))
+            for part in it.moving_nodes():
+                _moving[part] = true
+            for t in it.targets:
+                _target_of[t] = it
 
 
 ## The interaction whose target contains ``node`` (a hit collider), or null.
 func interaction_for(node: Node) -> GeogenInteraction:
-	while node != null and node != self:
-		if node.has_meta("geogen_interaction"):
-			return node.get_meta("geogen_interaction")
-		if _target_of.has(node):
-			return _target_of[node]
-		node = node.get_parent()
-	return null
+    while node != null and node != self:
+        if node.has_meta("geogen_interaction"):
+            return node.get_meta("geogen_interaction")
+        if _target_of.has(node):
+            return _target_of[node]
+        node = node.get_parent()
+    return null
 
 
 ## Interactions of the asset node named ``asset_name``.
 func interactions_of(asset_name: String) -> Array[GeogenInteraction]:
-	var result: Array[GeogenInteraction] = []
-	for it in interactions:
-		if String(it.asset.name) == asset_name:
-			result.append(it)
-	return result
+    var result: Array[GeogenInteraction] = []
+    for it in interactions:
+        if String(it.asset.name) == asset_name:
+            result.append(it)
+    return result
 
 
 ## Nodes with extras.geogen.gate: solid unless their interaction has arrived at open_in.
 func _collect_gates(root: Node) -> void:
-	for node in root.find_children("*", "Node3D", true, false):
-		var gate = geogen_extras(node).get("gate")
-		if not gate is Dictionary:
-			continue
-		var it: GeogenInteraction = null
-		var ancestor := node.get_parent()
-		while ancestor != null and it == null:
-			for candidate in interactions:
-				if candidate.asset == ancestor and candidate.interaction_name == gate.get("interaction", ""):
-					it = candidate
-			ancestor = ancestor.get_parent()
-		if it == null:
-			push_warning("geogen: gate %s: no interaction '%s'" % [node.name, gate.get("interaction", "")])
-			continue
-		var entry := {"node": node, "interaction": it, "open_in": str(gate.get("open_in", "")), "open": null}
-		_gates.append(entry)
-		_update_gate(entry)
+    for node in root.find_children("*", "Node3D", true, false):
+        var gate = geogen_extras(node).get("gate")
+        if not gate is Dictionary:
+            continue
+        var it: GeogenInteraction = null
+        var ancestor := node.get_parent()
+        while ancestor != null and it == null:
+            for candidate in interactions:
+                if candidate.asset == ancestor and candidate.interaction_name == gate.get("interaction", ""):
+                    it = candidate
+            ancestor = ancestor.get_parent()
+        if it == null:
+            push_warning("geogen: gate %s: no interaction '%s'" % [node.name, gate.get("interaction", "")])
+            continue
+        var entry := {"node": node, "interaction": it, "open_in": str(gate.get("open_in", "")), "open": null}
+        _gates.append(entry)
+        _update_gate(entry)
 
 
 func _update_gate(gate: Dictionary) -> void:
-	var it: GeogenInteraction = gate["interaction"]
-	var open: bool = it.state == gate["open_in"] and it.target == it.state
-	if gate["open"] == open:
-		return
-	gate["open"] = open
-	var node: Node3D = gate["node"]
-	node.visible = not open
-	for shape: CollisionShape3D in node.find_children("*", "CollisionShape3D", true, false):
-		shape.set_deferred("disabled", open)
+    var it: GeogenInteraction = gate["interaction"]
+    var open: bool = it.state == gate["open_in"] and it.target == it.state
+    if gate["open"] == open:
+        return
+    gate["open"] = open
+    var node: Node3D = gate["node"]
+    node.visible = not open
+    for shape: CollisionShape3D in node.find_children("*", "CollisionShape3D", true, false):
+        shape.set_deferred("disabled", open)
 
 
 func _physics_process(_delta: float) -> void:
-	for gate in _gates:
-		_update_gate(gate)
+    for gate in _gates:
+        _update_gate(gate)
 
 
 ## Id of the room volume containing ``pos`` (world space), or "".
 func room_at(pos: Vector3) -> String:
-	for room in rooms:
-		var local: Vector3 = room["xform"].affine_inverse() * pos
-		var half: Vector3 = room["size"] / 2.0
-		if absf(local.x) <= half.x and absf(local.y) <= half.y and absf(local.z) <= half.z:
-			return room["id"]
-	return ""
+    for room in rooms:
+        var local: Vector3 = room["xform"].affine_inverse() * pos
+        var half: Vector3 = room["size"] / 2.0
+        if absf(local.x) <= half.x and absf(local.y) <= half.y and absf(local.z) <= half.z:
+            return room["id"]
+    return ""
 
 
 ## Runtime-loaded glTF textures have no mipmaps, so fine patterns (brick,
 ## shingles) alias badly at a distance. Build mipmaps and filter anisotropically.
 ## Surfaces with vertex colours get them as an albedo tint.
 func _prepare_materials(root: Node) -> void:
-	var done := {}
-	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
-		if mi.mesh == null:
-			continue
-		for surface in mi.mesh.get_surface_count():
-			var mat := mi.mesh.surface_get_material(surface) as BaseMaterial3D
-			if mat == null:
-				continue
-			# COLOR_0 tints (character skin tone, hair colour) multiply the albedo; meshes
-			# without colours read white, so a shared material can always enable it.
-			if mi.mesh.surface_get_format(surface) & Mesh.ARRAY_FORMAT_COLOR:
-				mat.vertex_color_use_as_albedo = true
-			if done.has(mat):
-				continue
-			done[mat] = true
-			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-			for param in [BaseMaterial3D.TEXTURE_ALBEDO, BaseMaterial3D.TEXTURE_METALLIC,
-					BaseMaterial3D.TEXTURE_ROUGHNESS, BaseMaterial3D.TEXTURE_NORMAL,
-					BaseMaterial3D.TEXTURE_AMBIENT_OCCLUSION]:
-				var tex := mat.get_texture(param)
-				if tex == null or done.has(tex):
-					continue
-				var image := tex.get_image()
-				if image == null or image.has_mipmaps():
-					continue
-				if image.is_compressed():
-					image.decompress()
-				image.generate_mipmaps(param == BaseMaterial3D.TEXTURE_NORMAL)
-				var mipped := ImageTexture.create_from_image(image)
-				done[mipped] = true
-				mat.set_texture(param, mipped)
+    var done := {}
+    for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+        if mi.mesh == null:
+            continue
+        for surface in mi.mesh.get_surface_count():
+            var mat := mi.mesh.surface_get_material(surface) as BaseMaterial3D
+            if mat == null:
+                continue
+            # COLOR_0 tints (character skin tone, hair colour) multiply the albedo; meshes
+            # without colours read white, so a shared material can always enable it.
+            if mi.mesh.surface_get_format(surface) & Mesh.ARRAY_FORMAT_COLOR:
+                mat.vertex_color_use_as_albedo = true
+            if done.has(mat):
+                continue
+            done[mat] = true
+            mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+            for param in [BaseMaterial3D.TEXTURE_ALBEDO, BaseMaterial3D.TEXTURE_METALLIC,
+                    BaseMaterial3D.TEXTURE_ROUGHNESS, BaseMaterial3D.TEXTURE_NORMAL,
+                    BaseMaterial3D.TEXTURE_AMBIENT_OCCLUSION]:
+                var tex := mat.get_texture(param)
+                if tex == null or done.has(tex):
+                    continue
+                var image := tex.get_image()
+                if image == null or image.has_mipmaps():
+                    continue
+                if image.is_compressed():
+                    image.decompress()
+                image.generate_mipmaps(param == BaseMaterial3D.TEXTURE_NORMAL)
+                var mipped := ImageTexture.create_from_image(image)
+                done[mipped] = true
+                mat.set_texture(param, mipped)
 
 
 ## Turn exported collider nodes (<name>-colonly / -convcolonly) into static
 ## bodies and drop their meshes. Exports without collider nodes (older
 ## geogen) fall back to a trimesh collider on every mesh.
 func _add_collision(root: Node) -> int:
-	var meshes := root.find_children("*", "MeshInstance3D", true, false)
-	var colliders: Array[MeshInstance3D] = []
-	for mi: MeshInstance3D in meshes:
-		if _is_collider(mi):
-			colliders.append(mi)
-	if colliders.is_empty():
-		for mi: MeshInstance3D in meshes:
-			if mi.mesh != null:
-				_add_body(mi, mi.mesh.create_trimesh_shape(), Transform3D.IDENTITY)
-		return meshes.size()
-	for mi in colliders:
-		if mi.mesh != null:
-			var convex: bool = String(mi.name).ends_with("-convcolonly") or geogen_extras(mi).get("shape") in ["box", "hull"]
-			var shape: Shape3D = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
-			if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
-				shape = mi.mesh.create_trimesh_shape()
-			if shape != null:
-				_add_body(mi.get_parent(), shape, mi.transform)
-		mi.get_parent().remove_child(mi)
-		mi.free()
-	return meshes.size() - colliders.size()
+    var meshes := root.find_children("*", "MeshInstance3D", true, false)
+    var colliders: Array[MeshInstance3D] = []
+    for mi: MeshInstance3D in meshes:
+        if _is_collider(mi):
+            colliders.append(mi)
+    if colliders.is_empty():
+        for mi: MeshInstance3D in meshes:
+            if mi.mesh != null:
+                _add_body(mi, mi.mesh.create_trimesh_shape(), Transform3D.IDENTITY)
+        return meshes.size()
+    for mi in colliders:
+        if mi.mesh != null:
+            var convex: bool = String(mi.name).ends_with("-convcolonly") or geogen_extras(mi).get("shape") in ["box", "hull"]
+            var shape: Shape3D = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
+            if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
+                shape = mi.mesh.create_trimesh_shape()
+            if shape != null:
+                _add_body(mi.get_parent(), shape, mi.transform)
+        mi.get_parent().remove_child(mi)
+        mi.free()
+    return meshes.size() - colliders.size()
 
 
 func _is_moving(node: Node) -> bool:
-	while node != null and node != self:
-		if _moving.has(node):
-			return true
-		node = node.get_parent()
-	return false
+    while node != null and node != self:
+        if _moving.has(node):
+            return true
+        node = node.get_parent()
+    return false
 
 
 static func _is_collider(mi: MeshInstance3D) -> bool:
-	var n := String(mi.name)
-	return n.ends_with("-colonly") or n.ends_with("-convcolonly") or geogen_extras(mi).get("type") == "collider"
+    var n := String(mi.name)
+    return n.ends_with("-colonly") or n.ends_with("-convcolonly") or geogen_extras(mi).get("type") == "collider"
 
 
 func _add_body(parent: Node, shape: Shape3D, xform: Transform3D) -> void:
-	# Bodies under a part an interaction moves must be animatable so they
-	# push the player and carry their new pose into physics.
-	var body: PhysicsBody3D = StaticBody3D.new()
-	if _is_moving(parent):
-		var animatable := AnimatableBody3D.new()
-		# Moved by its parent part, not by itself: sync_to_physics would only
-		# track the body's own transform and leave the collider behind.
-		animatable.sync_to_physics = false
-		body = animatable
-	body.name = "Collider"
-	body.transform = xform
-	var col := CollisionShape3D.new()
-	col.shape = shape
-	body.add_child(col)
-	parent.add_child(body)
-	var debug := MeshInstance3D.new()
-	debug.mesh = shape.get_debug_mesh()
-	debug.material_override = _collider_material
-	debug.visible = show_colliders
-	debug.add_to_group("geogen_collider_debug")
-	body.add_child(debug)
+    # Bodies under a part an interaction moves must be animatable so they
+    # push the player and carry their new pose into physics.
+    var body: PhysicsBody3D = StaticBody3D.new()
+    if _is_moving(parent):
+        var animatable := AnimatableBody3D.new()
+        # Moved by its parent part, not by itself: sync_to_physics would only
+        # track the body's own transform and leave the collider behind.
+        animatable.sync_to_physics = false
+        body = animatable
+    body.name = "Collider"
+    body.transform = xform
+    var col := CollisionShape3D.new()
+    col.shape = shape
+    body.add_child(col)
+    parent.add_child(body)
+    var debug := MeshInstance3D.new()
+    debug.mesh = shape.get_debug_mesh()
+    debug.material_override = _collider_material
+    debug.visible = show_colliders
+    debug.add_to_group("geogen_collider_debug")
+    body.add_child(debug)

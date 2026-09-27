@@ -25,41 +25,41 @@ var reach := 1.5
 ## Load the player spec from a manifest file. Returns null (and pushes an
 ## error) if the file is missing or isn't a compatible geogen manifest.
 static func from_manifest(path: String) -> PlayerSpec:
-	var text := FileAccess.get_file_as_string(path)
-	if text.is_empty():
-		push_error("PlayerSpec: cannot read manifest %s" % path)
-		return null
-	var manifest = JSON.parse_string(text)
-	if not manifest is Dictionary or not manifest.get("format") in [MANIFEST_FORMAT, "geogen-chunks"]:
-		push_error("PlayerSpec: %s is not a geogen manifest" % path)
-		return null
-	return from_dict(manifest.get("player", {}))
+    var text := FileAccess.get_file_as_string(path)
+    if text.is_empty():
+        push_error("PlayerSpec: cannot read manifest %s" % path)
+        return null
+    var manifest = JSON.parse_string(text)
+    if not manifest is Dictionary or not manifest.get("format") in [MANIFEST_FORMAT, "geogen-chunks"]:
+        push_error("PlayerSpec: %s is not a geogen manifest" % path)
+        return null
+    return from_dict(manifest.get("player", {}))
 
 
 static func from_dict(data: Dictionary) -> PlayerSpec:
-	var spec := PlayerSpec.new()
-	if data.get("kind", SPEC_KIND) != SPEC_KIND or int(data.get("version", SPEC_VERSION)) != SPEC_VERSION:
-		push_error("PlayerSpec: unsupported player spec %s v%s" % [data.get("kind"), data.get("version")])
-		return null
-	for key in data:
-		if key in ["kind", "version"]:
-			continue
-		if key in spec:
-			spec.set(key, float(data[key]))
-		else:
-			push_warning("PlayerSpec: ignoring unknown key '%s'" % key)
-	return spec
+    var spec := PlayerSpec.new()
+    if data.get("kind", SPEC_KIND) != SPEC_KIND or int(data.get("version", SPEC_VERSION)) != SPEC_VERSION:
+        push_error("PlayerSpec: unsupported player spec %s v%s" % [data.get("kind"), data.get("version")])
+        return null
+    for key in data:
+        if key in ["kind", "version"]:
+            continue
+        if key in spec:
+            spec.set(key, float(data[key]))
+        else:
+            push_warning("PlayerSpec: ignoring unknown key '%s'" % key)
+    return spec
 
 
 ## Walkable slope in radians, for CharacterBody3D.floor_max_angle.
 func max_slope_rad() -> float:
-	return deg_to_rad(max_slope_deg)
+    return deg_to_rad(max_slope_deg)
 
 
 func to_dict() -> Dictionary:
-	return {
-		"radius": radius, "height": height, "eye_height": eye_height,
-		"step_height": step_height, "max_slope_deg": max_slope_deg,
-		"door_min_width": door_min_width, "door_min_height": door_min_height,
-		"corridor_min_width": corridor_min_width, "reach": reach,
-	}
+    return {
+        "radius": radius, "height": height, "eye_height": eye_height,
+        "step_height": step_height, "max_slope_deg": max_slope_deg,
+        "door_min_width": door_min_width, "door_min_height": door_min_height,
+        "corridor_min_width": corridor_min_width, "reach": reach,
+    }

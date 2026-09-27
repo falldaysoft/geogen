@@ -16,105 +16,105 @@ extends RefCounted
 const SUPPORTED_VERSION := 1
 const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple of the 5 cm cell)
 const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable", "room", "size", "door",
-	"joint", "door_swings", "footprint", "clearance", "interactions", "light", "switch", "openings",
-	"clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan", "gate", "nav", "stairs",
-	"storey", "building", "facade", "walkable", "affordances", "container", "switch", "level", "ratio",
-	"city", "block", "lot", "street_furniture", "recipe", "roof", "lod", "interior", "scatter",
-	"npc", "portal", "poses", "vehicle", "parked", "fleet", "driving", "character", "clips", "preset", "tree"]
+    "joint", "door_swings", "footprint", "clearance", "interactions", "light", "switch", "openings",
+    "clear_height", "wall_inset", "placed_by", "furnish_report", "meta", "floorplan", "gate", "nav", "stairs",
+    "storey", "building", "facade", "walkable", "affordances", "container", "switch", "level", "ratio",
+    "city", "block", "lot", "street_furniture", "recipe", "roof", "lod", "interior", "scatter",
+    "npc", "portal", "poses", "vehicle", "parked", "fleet", "driving", "character", "clips", "preset", "tree"]
 
 
 static func extras(node: Node) -> Dictionary:
-	if not node.has_meta("extras"):
-		return {}
-	var e = node.get_meta("extras")
-	if e is Dictionary and e.get("geogen") is Dictionary:
-		return e["geogen"]
-	return {}
+    if not node.has_meta("extras"):
+        return {}
+    var e = node.get_meta("extras")
+    if e is Dictionary and e.get("geogen") is Dictionary:
+        return e["geogen"]
+    return {}
 
 
 static func is_geogen_scene(root: Node) -> bool:
-	if not extras(root).is_empty():
-		return true
-	for node in root.find_children("*", "", true, false):
-		if not extras(node).is_empty():
-			return true
-	return false
+    if not extras(root).is_empty():
+        return true
+    for node in root.find_children("*", "", true, false):
+        if not extras(node).is_empty():
+            return true
+    return false
 
 
 ## Apply every conversion to the tree under ``root``. Returns a summary.
 static func build(root: Node, options := {}) -> Dictionary:
-	var summary := {"rooms": 0, "spawns": 0, "tagged": 0, "warnings": []}
-	var warned := {}
-	for node in [root] + root.find_children("*", "", true, false):
-		var g := extras(node)
-		if g.is_empty():
-			continue
-		var version := int(g.get("version", 0))
-		if version != SUPPORTED_VERSION and not warned.has("version"):
-			warned["version"] = true
-			summary["warnings"].append("extras.geogen version %d (supported: %d)" % [version, SUPPORTED_VERSION])
-		for key in g:
-			if not key in KNOWN_KEYS and not warned.has(key):
-				warned[key] = true
-				summary["warnings"].append("unknown extras.geogen key '%s'" % key)
-		for tag in g.get("tags", []):
-			_add_tag_groups(node, str(tag))
-			summary["tagged"] += 1
-		match g.get("type", ""):
-			"room_volume":
-				_room_area(node as Node3D, g)
-				summary["rooms"] += 1
-			"spawn":
-				_spawn_marker(node as Node3D)
-				summary["spawns"] += 1
-	for w in summary["warnings"]:
-		push_warning("geogen: %s" % w)
-	return summary
+    var summary := {"rooms": 0, "spawns": 0, "tagged": 0, "warnings": []}
+    var warned := {}
+    for node in [root] + root.find_children("*", "", true, false):
+        var g := extras(node)
+        if g.is_empty():
+            continue
+        var version := int(g.get("version", 0))
+        if version != SUPPORTED_VERSION and not warned.has("version"):
+            warned["version"] = true
+            summary["warnings"].append("extras.geogen version %d (supported: %d)" % [version, SUPPORTED_VERSION])
+        for key in g:
+            if not key in KNOWN_KEYS and not warned.has(key):
+                warned[key] = true
+                summary["warnings"].append("unknown extras.geogen key '%s'" % key)
+        for tag in g.get("tags", []):
+            _add_tag_groups(node, str(tag))
+            summary["tagged"] += 1
+        match g.get("type", ""):
+            "room_volume":
+                _room_area(node as Node3D, g)
+                summary["rooms"] += 1
+            "spawn":
+                _spawn_marker(node as Node3D)
+                summary["spawns"] += 1
+    for w in summary["warnings"]:
+        push_warning("geogen: %s" % w)
+    return summary
 
 
 ## "furniture.bed" -> groups "furniture.bed" and "furniture" (persistent in saved scenes).
 static func _add_tag_groups(node: Node, tag: String) -> void:
-	var parts := tag.split(".")
-	for i in parts.size():
-		var group := ".".join(parts.slice(0, i + 1))
-		if not node.is_in_group(group):
-			node.add_to_group(group, true)
+    var parts := tag.split(".")
+    for i in parts.size():
+        var group := ".".join(parts.slice(0, i + 1))
+        if not node.is_in_group(group):
+            node.add_to_group(group, true)
 
 
 static func _room_area(node: Node3D, g: Dictionary) -> void:
-	if node == null or node.has_node("RoomArea"):
-		return
-	var size: Array = g.get("size", [1, 1, 1])
-	var area := Area3D.new()
-	area.name = "RoomArea"
-	area.monitorable = false
-	area.set_meta("geogen_room", g.get("room", {}))
-	area.add_to_group("geogen_room", true)
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(size[0], size[1], size[2])
-	shape.shape = box
-	area.add_child(shape)
-	node.add_child(area)
-	_own(area, node)
+    if node == null or node.has_node("RoomArea"):
+        return
+    var size: Array = g.get("size", [1, 1, 1])
+    var area := Area3D.new()
+    area.name = "RoomArea"
+    area.monitorable = false
+    area.set_meta("geogen_room", g.get("room", {}))
+    area.add_to_group("geogen_room", true)
+    var shape := CollisionShape3D.new()
+    var box := BoxShape3D.new()
+    box.size = Vector3(size[0], size[1], size[2])
+    shape.shape = box
+    area.add_child(shape)
+    node.add_child(area)
+    _own(area, node)
 
 
 static func _spawn_marker(node: Node3D) -> void:
-	if node == null or node.has_node("SpawnMarker"):
-		return
-	var marker := Marker3D.new()
-	marker.name = "SpawnMarker"
-	marker.add_to_group("geogen_spawn", true)
-	node.add_child(marker)
-	_own(marker, node)
+    if node == null or node.has_node("SpawnMarker"):
+        return
+    var marker := Marker3D.new()
+    marker.name = "SpawnMarker"
+    marker.add_to_group("geogen_spawn", true)
+    node.add_child(marker)
+    _own(marker, node)
 
 
 ## Keep generated nodes when the importer saves the scene.
 static func _own(child: Node, parent: Node) -> void:
-	var owner := parent.owner if parent.owner != null else parent
-	child.owner = owner
-	for c in child.get_children():
-		c.owner = owner
+    var owner := parent.owner if parent.owner != null else parent
+    child.owner = owner
+    for c in child.get_children():
+        c.owner = owner
 
 
 ## Bake a NavigationRegion3D over ``root`` from its static colliders, with the
@@ -130,53 +130,53 @@ const NAV_BORDER := 1.0
 
 
 static func build_navigation(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> Node3D:
-	var box := WorldLoader._aabb(root).grow(ground_margin)
-	if maxf(box.size.x, box.size.z) <= NAV_SINGLE_BAKE:
-		var region := NavigationRegion3D.new()
-		region.name = "Navigation"
-		region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving, ground_margin)
-		region.add_to_group("geogen_navigation")
-		root.add_child(region)
-		return region
-	# Large models (a town with a railway): one bake over the whole area overflows the voxel
-	# grid, so parse once and bake NAV_TILE-metre tiles clipped edge to edge.
-	var parsed := _parse_source(root, spec, include_moving, ground_margin)
-	var source: NavigationMeshSourceGeometryData3D = parsed[1]
-	var group := Node3D.new()
-	group.name = "Navigation"
-	root.add_child(group)
-	var nx := ceili(box.size.x / NAV_TILE)
-	var nz := ceili(box.size.z / NAV_TILE)
-	for i in nx:
-		for j in nz:
-			var tile := AABB(Vector3(box.position.x + i * NAV_TILE, box.position.y - 1.0, box.position.z + j * NAV_TILE),
-				Vector3(NAV_TILE, box.size.y + 2.0, NAV_TILE))
-			var mesh := nav_mesh_for(spec)
-			mesh.filter_baking_aabb = tile.grow(NAV_BORDER)
-			mesh.border_size = NAV_BORDER
-			NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-			if mesh.get_polygon_count() == 0:
-				continue
-			var region := NavigationRegion3D.new()
-			region.name = "NavTile_%d_%d" % [i, j]
-			region.navigation_mesh = mesh
-			region.add_to_group("geogen_navigation")
-			group.add_child(region)
-	return group
+    var box := WorldLoader._aabb(root).grow(ground_margin)
+    if maxf(box.size.x, box.size.z) <= NAV_SINGLE_BAKE:
+        var region := NavigationRegion3D.new()
+        region.name = "Navigation"
+        region.navigation_mesh = bake_navigation_mesh(root, spec, include_moving, ground_margin)
+        region.add_to_group("geogen_navigation")
+        root.add_child(region)
+        return region
+    # Large models (a town with a railway): one bake over the whole area overflows the voxel
+    # grid, so parse once and bake NAV_TILE-metre tiles clipped edge to edge.
+    var parsed := _parse_source(root, spec, include_moving, ground_margin)
+    var source: NavigationMeshSourceGeometryData3D = parsed[1]
+    var group := Node3D.new()
+    group.name = "Navigation"
+    root.add_child(group)
+    var nx := ceili(box.size.x / NAV_TILE)
+    var nz := ceili(box.size.z / NAV_TILE)
+    for i in nx:
+        for j in nz:
+            var tile := AABB(Vector3(box.position.x + i * NAV_TILE, box.position.y - 1.0, box.position.z + j * NAV_TILE),
+                Vector3(NAV_TILE, box.size.y + 2.0, NAV_TILE))
+            var mesh := nav_mesh_for(spec)
+            mesh.filter_baking_aabb = tile.grow(NAV_BORDER)
+            mesh.border_size = NAV_BORDER
+            NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+            if mesh.get_polygon_count() == 0:
+                continue
+            var region := NavigationRegion3D.new()
+            region.name = "NavTile_%d_%d" % [i, j]
+            region.navigation_mesh = mesh
+            region.add_to_group("geogen_navigation")
+            group.add_child(region)
+    return group
 
 
 ## Navigation mesh settings for the player (cell size matches the project's map).
 static func nav_mesh_for(spec) -> NavigationMesh:
-	var mesh := NavigationMesh.new()
-	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	mesh.geometry_collision_mask = 1
-	mesh.cell_size = 0.05
-	mesh.cell_height = 0.05
-	mesh.agent_radius = (spec.radius if spec else 0.3) + NAV_MARGIN
-	mesh.agent_height = spec.height if spec else 1.8
-	mesh.agent_max_climb = spec.step_height if spec else 0.3
-	mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
-	return mesh
+    var mesh := NavigationMesh.new()
+    mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+    mesh.geometry_collision_mask = 1
+    mesh.cell_size = 0.05
+    mesh.cell_height = 0.05
+    mesh.agent_radius = (spec.radius if spec else 0.3) + NAV_MARGIN
+    mesh.agent_height = spec.height if spec else 1.8
+    mesh.agent_max_climb = spec.step_height if spec else 0.3
+    mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
+    return mesh
 
 
 ## Parse the static colliders under ``roots`` for one navigation tile: the source
@@ -184,77 +184,77 @@ static func nav_mesh_for(spec) -> NavigationMesh:
 ## so neighbouring tiles meet edge to edge. Moving parts (doors) are left out.
 ## Bake the result with NavigationServer3D.bake_from_source_geometry_data(_async).
 static func parse_tile(roots: Array, tile: AABB, spec, border: float) -> Array:
-	var mesh := nav_mesh_for(spec)
-	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
-	mesh.geometry_source_group_name = &"geogen_nav_parse"
-	mesh.filter_baking_aabb = tile.grow(border)
-	mesh.border_size = border
-	var moving: Array[CollisionObject3D] = []
-	for root in roots:
-		root.add_to_group("geogen_nav_parse")
-		for body in root.find_children("*", "AnimatableBody3D", true, false):
-			if body.collision_layer & 1:
-				moving.append(body)
-				body.collision_layer &= ~1
-	var source := NavigationMeshSourceGeometryData3D.new()
-	if not roots.is_empty():
-		NavigationServer3D.parse_source_geometry_data(mesh, source, roots[0])
-	for body in moving:
-		body.collision_layer |= 1
-	for root in roots:
-		root.remove_from_group("geogen_nav_parse")
-	return [mesh, source]
+    var mesh := nav_mesh_for(spec)
+    mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+    mesh.geometry_source_group_name = &"geogen_nav_parse"
+    mesh.filter_baking_aabb = tile.grow(border)
+    mesh.border_size = border
+    var moving: Array[CollisionObject3D] = []
+    for root in roots:
+        root.add_to_group("geogen_nav_parse")
+        for body in root.find_children("*", "AnimatableBody3D", true, false):
+            if body.collision_layer & 1:
+                moving.append(body)
+                body.collision_layer &= ~1
+    var source := NavigationMeshSourceGeometryData3D.new()
+    if not roots.is_empty():
+        NavigationServer3D.parse_source_geometry_data(mesh, source, roots[0])
+    for body in moving:
+        body.collision_layer |= 1
+    for root in roots:
+        root.remove_from_group("geogen_nav_parse")
+    return [mesh, source]
 
 
 static func bake_navigation_mesh(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> NavigationMesh:
-	var parsed := _parse_source(root, spec, include_moving, ground_margin)
-	NavigationServer3D.bake_from_source_geometry_data(parsed[0], parsed[1])
-	return parsed[0]
+    var parsed := _parse_source(root, spec, include_moving, ground_margin)
+    NavigationServer3D.bake_from_source_geometry_data(parsed[0], parsed[1])
+    return parsed[0]
 
 
 ## The navmesh settings and the source geometry (static colliders, moving parts left out or
 ## as obstructions, the runtime ground around the model) for a model: [mesh, source].
 static func _parse_source(root: Node3D, spec, include_moving := false, ground_margin := 0.0) -> Array:
-	var mesh := NavigationMesh.new()
-	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
-	mesh.geometry_collision_mask = 1
-	mesh.cell_size = 0.05
-	mesh.cell_height = 0.05
-	mesh.agent_radius = (spec.radius if spec else 0.3) + NAV_MARGIN
-	mesh.agent_height = spec.height if spec else 1.8
-	mesh.agent_max_climb = spec.step_height if spec else 0.3
-	mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
-	var moving: Array[CollisionObject3D] = []
-	if not include_moving:
-		for body in root.find_children("*", "AnimatableBody3D", true, false):
-			if body.collision_layer & 1:
-				moving.append(body)
-				body.collision_layer &= ~1
-	var source := NavigationMeshSourceGeometryData3D.new()
-	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
-	for body in moving:
-		body.collision_layer |= 1
-	if include_moving:
-		# Door leaves are thinner than a voxel and vanish in the bake; add each
-		# moving part's footprint as an obstruction instead.
-		for body in root.find_children("*", "AnimatableBody3D", true, false):
-			var part := body.get_parent() as MeshInstance3D
-			if part == null or part.mesh == null:
-				continue
-			var box: AABB = part.global_transform * part.get_aabb()
-			if minf(box.size.x, box.size.z) > 0.15:
-				continue  # thick enough to rasterise (a lift car floor is walkable)
-			box = box.grow(0.005)
-			var corners := PackedVector3Array([
-				Vector3(box.position.x, 0, box.position.z), Vector3(box.end.x, 0, box.position.z),
-				Vector3(box.end.x, 0, box.end.z), Vector3(box.position.x, 0, box.end.z)])
-			source.add_projected_obstruction(corners, box.position.y, box.size.y, false)
-	if ground_margin > 0.0:
-		var box := WorldLoader._aabb(root).grow(ground_margin)
-		var a := Vector3(box.position.x, 0, box.position.z)
-		var b := Vector3(box.end.x, 0, box.position.z)
-		var c := Vector3(box.end.x, 0, box.end.z)
-		var d := Vector3(box.position.x, 0, box.end.z)
-		source.add_faces(PackedVector3Array([a, b, c, a, c, d]), Transform3D.IDENTITY)
-	return [mesh, source]
+    var mesh := NavigationMesh.new()
+    mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+    mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
+    mesh.geometry_collision_mask = 1
+    mesh.cell_size = 0.05
+    mesh.cell_height = 0.05
+    mesh.agent_radius = (spec.radius if spec else 0.3) + NAV_MARGIN
+    mesh.agent_height = spec.height if spec else 1.8
+    mesh.agent_max_climb = spec.step_height if spec else 0.3
+    mesh.agent_max_slope = spec.max_slope_deg if spec else 40.0
+    var moving: Array[CollisionObject3D] = []
+    if not include_moving:
+        for body in root.find_children("*", "AnimatableBody3D", true, false):
+            if body.collision_layer & 1:
+                moving.append(body)
+                body.collision_layer &= ~1
+    var source := NavigationMeshSourceGeometryData3D.new()
+    NavigationServer3D.parse_source_geometry_data(mesh, source, root)
+    for body in moving:
+        body.collision_layer |= 1
+    if include_moving:
+        # Door leaves are thinner than a voxel and vanish in the bake; add each
+        # moving part's footprint as an obstruction instead.
+        for body in root.find_children("*", "AnimatableBody3D", true, false):
+            var part := body.get_parent() as MeshInstance3D
+            if part == null or part.mesh == null:
+                continue
+            var box: AABB = part.global_transform * part.get_aabb()
+            if minf(box.size.x, box.size.z) > 0.15:
+                continue  # thick enough to rasterise (a lift car floor is walkable)
+            box = box.grow(0.005)
+            var corners := PackedVector3Array([
+                Vector3(box.position.x, 0, box.position.z), Vector3(box.end.x, 0, box.position.z),
+                Vector3(box.end.x, 0, box.end.z), Vector3(box.position.x, 0, box.end.z)])
+            source.add_projected_obstruction(corners, box.position.y, box.size.y, false)
+    if ground_margin > 0.0:
+        var box := WorldLoader._aabb(root).grow(ground_margin)
+        var a := Vector3(box.position.x, 0, box.position.z)
+        var b := Vector3(box.end.x, 0, box.position.z)
+        var c := Vector3(box.end.x, 0, box.end.z)
+        var d := Vector3(box.position.x, 0, box.end.z)
+        source.add_faces(PackedVector3Array([a, b, c, a, c, d]), Transform3D.IDENTITY)
+    return [mesh, source]

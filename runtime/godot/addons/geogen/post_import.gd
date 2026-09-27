@@ -8,7 +8,7 @@ extends EditorScenePostImportPlugin
 
 
 func _post_process(scene: Node) -> void:
-	if GeogenSceneBuilder.is_geogen_scene(scene):
-		var summary := GeogenSceneBuilder.build(scene)
-		print("geogen: imported %s (%d rooms, %d spawns, %d tagged)" % [
-			scene.name, summary["rooms"], summary["spawns"], summary["tagged"]])
+    if GeogenSceneBuilder.is_geogen_scene(scene):
+        var summary := GeogenSceneBuilder.build(scene)
+        print("geogen: imported %s (%d rooms, %d spawns, %d tagged)" % [
+            scene.name, summary["rooms"], summary["spawns"], summary["tagged"]])
