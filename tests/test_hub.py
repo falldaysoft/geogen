@@ -1,6 +1,7 @@
 """The hub (scenes/hub.yaml): a portal to every showcase scene, and a way back from each."""
 
 import json
+import math
 
 import pytest
 
@@ -57,9 +58,17 @@ def _spawn(generated, scene, name) -> dict:
     return next(s for s in manifest["spawns"] if s["name"] == name)
 
 
+def _walk_outward(spawn: dict) -> tuple[str, str]:
+    """--spawn/--yaw to walk from a hub arrival spawn back out through its portal (away from the centre)."""
+    x, y, z = spawn["position"]
+    yaw = math.degrees(math.atan2(-x, -z))   # the player looks along (-sin yaw, -cos yaw)
+    return f"--spawn={x},{y},{z}", f"--yaw={yaw}"
+
+
 def test_walk_from_the_hub_to_the_cottage_and_back(run_godot, hub_dir):
     # From in front of the cottage portal, turn round (the arrival spawn faces the plaza) and walk in.
-    out = run_godot("--generated=%s" % hub_dir, "--scene=hub", "--spawn=-4.38,0.1,-4.38", "--yaw=45", "--walk=3")
+    out = run_godot("--generated=%s" % hub_dir, "--scene=hub",
+                    *_walk_outward(_spawn(hub_dir, "hub", "from_cottage")), "--walk=3")
     travelled = _json_lines(out, "travelled: ")
     assert len(travelled) == 1 and travelled[0]["scene"] == "cottage" and travelled[0]["spawn"] == "from_hub"
     arrival = _spawn(hub_dir, "cottage", "from_hub")["position"]

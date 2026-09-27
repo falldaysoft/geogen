@@ -36,3 +36,23 @@ def test_hotel_showcase_staff_and_guests(run_godot, hotel_dir):
         assert guest["used"], guest
     pedestrians = [n for k, n in npcs.items() if k.startswith("pedestrians")]
     assert len(pedestrians) == 4 and all(p["decisions"] > 2 for p in pedestrians)
+
+
+@pytest.fixture(scope="module")
+def park_dir(tmp_path_factory, built_scene):
+    out = tmp_path_factory.mktemp("generated")
+    export_scene(built_scene("park"), out / "park.glb")
+    return out
+
+
+def test_park_visitors_keep_to_the_paths_and_sit_down(run_godot, park_dir):
+    out = run_godot("--scene=park", f"--generated={park_dir}", "--timescale=8", "--simulate=300", "--time=16:00")
+    visitors = _json_line(out, "npc summary: ")
+    assert len(visitors) == 8
+    used = {k.split("#")[0].rstrip("_0123456789") for v in visitors for k in v["used"]}
+    assert {"bench", "picnic"} <= used, used
+    for v in visitors:
+        assert v["outside"] == 0.0, v                 # never left the railed park
+        x, _, z = v["position"]
+        assert abs(x) < 35 and abs(z) < 28, v
+        assert len(v["failures"]) <= 2, v["failures"]

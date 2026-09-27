@@ -1,0 +1,133 @@
+# An octagonal bandstand: a stone plinth with steps at the front (+Z), eight
+# white posts, a rail on seven sides (open at the steps), a ring beam and an
+# octagonal roof with a finial. People stand inside to look out.
+# Origin: bottom centre.
+
+name: bandstand
+tags: [decor.bandstand]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  radius: { default: 3.2 }    # plinth corner radius
+  deck:   { default: 0.6 }    # deck height
+  posts:  { default: 2.6 }    # post height above the deck
+
+parts:
+  plinth:
+    primitive: extrude
+    shape: { ngon: "{radius}", sides: 8, rotation: 22.5 }
+    fit: none
+    axis: y
+    bevel: 0.02
+    size: ["{2 * radius}", "{deck}", "{2 * radius}"]
+    anchor: bottom_center
+    material: stone
+    walkable: true
+  step_1:
+    primitive: cube
+    size: [2.6, "{deck / 3}", 0.35]      # the plinth's whole flat front (wider than the rail opening)
+    anchor: bottom_center
+    offset: [0, 0, "{radius * 0.924 + 0.525}"]
+    bevel: 0.01
+    material: stone
+    walkable: true
+  step_2:
+    primitive: cube
+    size: [2.6, "{2 * deck / 3}", 0.35]
+    anchor: bottom_center
+    offset: [0, 0, "{radius * 0.924 + 0.175}"]    # against the plinth's front face
+    bevel: 0.01
+    material: stone
+    walkable: true
+  post_0:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(22.5)}", "{deck}", "{(radius - 0.08) * cosd(22.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_1:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(67.5)}", "{deck}", "{(radius - 0.08) * cosd(67.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_2:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(112.5)}", "{deck}", "{(radius - 0.08) * cosd(112.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_3:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(157.5)}", "{deck}", "{(radius - 0.08) * cosd(157.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_4:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(202.5)}", "{deck}", "{(radius - 0.08) * cosd(202.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_5:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(247.5)}", "{deck}", "{(radius - 0.08) * cosd(247.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_6:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(292.5)}", "{deck}", "{(radius - 0.08) * cosd(292.5)}"]
+    bevel: 0.01
+    material: trim_white
+  post_7:
+    primitive: cylinder
+    size: [0.14, "{posts - 0.05}", 0.14]       # tops inside the ring beam
+    anchor: bottom_center
+    offset: ["{(radius - 0.08) * sind(337.5)}", "{deck}", "{(radius - 0.08) * cosd(337.5)}"]
+    bevel: 0.01
+    material: trim_white
+  ring_beam:
+    primitive: sweep
+    profile: { rect: [0.16, 0.2] }
+    path: [["{(radius - 0.08) * sind(22.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(22.5)}"], ["{(radius - 0.08) * sind(67.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(67.5)}"], ["{(radius - 0.08) * sind(112.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(112.5)}"], ["{(radius - 0.08) * sind(157.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(157.5)}"], ["{(radius - 0.08) * sind(202.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(202.5)}"], ["{(radius - 0.08) * sind(247.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(247.5)}"], ["{(radius - 0.08) * sind(292.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(292.5)}"], ["{(radius - 0.08) * sind(337.5)}", "{deck + posts - 0.1}", "{(radius - 0.08) * cosd(337.5)}"]]
+    closed: true
+    center: false
+    material: trim_white
+  rail:
+    primitive: sweep
+    profile: { circle: 0.035, segments: 10 }
+    path: [["{(radius - 0.08) * sind(22.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(22.5)}"], ["{(radius - 0.08) * sind(67.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(67.5)}"], ["{(radius - 0.08) * sind(112.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(112.5)}"], ["{(radius - 0.08) * sind(157.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(157.5)}"], ["{(radius - 0.08) * sind(202.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(202.5)}"], ["{(radius - 0.08) * sind(247.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(247.5)}"], ["{(radius - 0.08) * sind(292.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(292.5)}"], ["{(radius - 0.08) * sind(337.5)}", "{deck + 0.95}", "{(radius - 0.08) * cosd(337.5)}"]]
+    center: false
+    material: trim_white
+  roof:
+    primitive: lathe
+    profile: [[0, 0], ["{radius + 0.45}", 0], ["{radius + 0.45}", 0.12], [0.3, 1.45], [0.14, 1.6], [0, 1.6]]
+    fit: none
+    segments: 8
+    size: ["{2 * radius + 0.9}", 1.6, "{2 * radius + 0.9}"]
+    anchor: bottom_center
+    offset: [0, "{deck + posts}", 0]
+    rotation: [0, 22.5, 0]
+    material: roof_shingle
+  finial:
+    primitive: sphere
+    size: [0.22, 0.22, 0.22]
+    anchor: bottom_center
+    offset: [0, "{deck + posts + 1.55}", 0]
+    material: metal
+
+affordances:
+  - { type: stand, at: [-0.7, "{deck}", 0.2], facing: 180, duration: [15, 40], advertises: { curiosity: 0.4 }, tags: [outside, view] }
+  - { type: stand, at: [1.0, "{deck}", -0.4], facing: 90, duration: [15, 40], advertises: { curiosity: 0.4 }, tags: [outside, view] }
+

@@ -59,6 +59,7 @@ var label: Label3D
 ## Per-NPC counters for tests: used {id: count}, decisions, failures,
 ## max_stall (s), outside (s outside home + margin), passes (doors).
 var stats := {"used": {}, "decisions": 0, "failures": [], "max_stall": 0.0, "outside": 0.0, "passes": 0}
+var _stuck_at = null     # where the last "stuck" failure happened (see _unstick)
 
 var _stack: Array[Dictionary] = []   # frames: {action, steps, index, started, ctx}
 var _option := {}
@@ -363,7 +364,28 @@ func _fail(reason: String) -> void:
     if _pose != "stand":
         _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y)}, "approach")
     velocity = Vector3.ZERO
+    _unstick(reason)
     _finish_option(false, reason)
+
+
+## Wedged (stuck twice running at the same spot, e.g. against a post at the top of some steps):
+## step back onto the nearest point of the navmesh instead of failing every plan from there.
+func _unstick(reason: String) -> void:
+    if not reason.contains("stuck at"):
+        _stuck_at = null
+        return
+    if _stuck_at != null and (_stuck_at as Vector3).distance_to(global_position) < 0.3:
+        var map := get_world_3d().navigation_map
+        var q := NavigationServer3D.map_get_closest_point(map, global_position)
+        if q.distance_to(global_position) > 0.05:
+            global_position = q + Vector3.UP * 0.02
+        else:
+            global_position += -global_basis.z * 0.3   # on the navmesh but snagged: back off
+        stats["unstuck"] = int(stats.get("unstuck", 0)) + 1
+        _trace({"event": "unstuck", "pos": _v(global_position)})
+        _stuck_at = null
+        return
+    _stuck_at = global_position
 
 
 ## Start a step; returns "" or why it can't run.
@@ -1260,6 +1282,7 @@ func report() -> Dictionary:
     var p := global_position
     return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
+        "unstuck": int(stats.get("unstuck", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),

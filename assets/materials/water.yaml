@@ -1,0 +1,15 @@
+# Still water for ponds and fountains: dark, glossy, partly see-through.
+name: water
+texture:
+  type: painted_wall
+  params:
+    base_color: [40, 78, 92]
+    seed: 512
+size: [64, 64]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.04
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  opacity: 0.7

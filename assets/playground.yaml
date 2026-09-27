@@ -1,0 +1,195 @@
+# A small playground on a poured-rubber pad: an A-frame swing set, a slide
+# with a deck and ladder, a climbing frame and a see-saw. Tubes are sweeps in
+# the asset frame (center: false), so the points below are where they go.
+# Origin: bottom centre of the pad; the swings are at the back (-Z).
+
+name: playground
+tags: [decor.playground]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  pad:
+    primitive: extrude
+    shape: { rect: [11, 8.5], radius: 1.0 }
+    fit: none
+    axis: y
+    bevel: 0.01
+    size: [11, 0.04, 8.5]
+    anchor: bottom_center
+    material: rubber_play
+    walkable: true
+
+  # --- swings (back left): A-frames at x = -4.4 and -0.6, bar at 2.3 m -----------------
+  swing_leg_lf: &tube
+    primitive: sweep
+    profile: { circle: 0.04, segments: 12 }
+    path: [[-4.4, 0.04, -1.0], [-4.4, 2.3, -2.2]]
+    center: false
+    material: play_paint
+  swing_leg_lb:
+    <<: *tube
+    path: [[-4.4, 0.04, -3.4], [-4.4, 2.3, -2.2]]
+  swing_leg_rf:
+    <<: *tube
+    path: [[-0.6, 0.04, -1.0], [-0.6, 2.3, -2.2]]
+  swing_leg_rb:
+    <<: *tube
+    path: [[-0.6, 0.04, -3.4], [-0.6, 2.3, -2.2]]
+  swing_bar:
+    <<: *tube
+    profile: { circle: 0.05, segments: 12 }
+    path: [[-4.55, 2.3, -2.2], [-0.45, 2.3, -2.2]]
+  swing_chain_1a: &chain
+    primitive: sweep
+    profile: { circle: 0.008, segments: 6 }
+    path: [[-3.72, 0.47, -2.2], [-3.72, 2.26, -2.2]]
+    center: false
+    material: chrome
+    collider: none
+  swing_chain_1b:
+    <<: *chain
+    path: [[-3.28, 0.47, -2.2], [-3.28, 2.26, -2.2]]
+  swing_chain_2a:
+    <<: *chain
+    path: [[-1.72, 0.47, -2.2], [-1.72, 2.26, -2.2]]
+  swing_chain_2b:
+    <<: *chain
+    path: [[-1.28, 0.47, -2.2], [-1.28, 2.26, -2.2]]
+  swing_seat_1: &seat
+    primitive: cube
+    size: [0.5, 0.04, 0.2]
+    anchor: bottom_center
+    offset: [-3.5, 0.45, -2.2]
+    bevel: 0.015
+    material: play_yellow
+  swing_seat_2:
+    <<: *seat
+    offset: [-1.5, 0.45, -2.2]
+
+  # --- slide (back right): deck at 1.5 m on four posts, ladder behind, chute to the front ---
+  slide_post_1: &post
+    primitive: cylinder
+    size: [0.1, 2.4, 0.1]
+    anchor: bottom_center
+    offset: [2.0, 0.04, -3.2]
+    material: play_paint
+  slide_post_2:
+    <<: *post
+    offset: [3.2, 0.04, -3.2]
+  slide_post_3:
+    <<: *post
+    offset: [2.0, 0.04, -2.0]
+  slide_post_4:
+    <<: *post
+    offset: [3.2, 0.04, -2.0]
+  slide_deck:
+    primitive: cube
+    size: [1.3, 0.06, 1.3]
+    anchor: bottom_center
+    offset: [2.6, 1.5, -2.6]
+    bevel: 0.01
+    material: play_yellow
+  slide_roof:
+    primitive: prism
+    size: [1.5, 0.6, 1.5]
+    anchor: bottom_center
+    offset: [2.6, 2.44, -2.6]
+    material: play_yellow
+  slide_rail_l:
+    <<: *tube
+    profile: { circle: 0.03, segments: 10 }
+    path: [[2.0, 2.2, -3.2], [2.0, 2.2, -2.0]]
+  slide_rail_r:
+    <<: *tube
+    profile: { circle: 0.03, segments: 10 }
+    path: [[3.2, 2.2, -3.2], [3.2, 2.2, -2.0]]
+  ladder_l:
+    <<: *tube
+    profile: { circle: 0.03, segments: 10 }
+    path: [[2.3, 0.04, -4.0], [2.3, 1.55, -3.25]]
+  ladder_r:
+    <<: *tube
+    profile: { circle: 0.03, segments: 10 }
+    path: [[2.9, 0.04, -4.0], [2.9, 1.55, -3.25]]
+  rung_1: &rung
+    <<: *tube
+    profile: { circle: 0.022, segments: 8 }
+    path: [[2.3, 0.4, -3.82], [2.9, 0.4, -3.82]]
+  rung_2:
+    <<: *rung
+    path: [[2.3, 0.75, -3.65], [2.9, 0.75, -3.65]]
+  rung_3:
+    <<: *rung
+    path: [[2.3, 1.1, -3.47], [2.9, 1.1, -3.47]]
+  chute:
+    primitive: sweep
+    profile: { polygon: [[-0.3, 0], [0.3, 0], [0.3, 0.18], [0.26, 0.18], [0.26, 0.04], [-0.26, 0.04], [-0.26, 0.18], [-0.3, 0.18]] }
+    path: { spline: [[2.6, 1.5, -1.95], [2.6, 1.3, -1.4], [2.6, 0.7, -0.1], [2.6, 0.36, 0.7], [2.6, 0.32, 1.1]], samples: 6 }
+    center: false
+    material: play_yellow
+
+  # --- climbing frame (front left): a cube of bars, 2 m on a side ----------------------
+  climb_post_1: &climb_post
+    primitive: cylinder
+    size: [0.07, 2.0, 0.07]
+    anchor: bottom_center
+    offset: [-3.6, 0.04, 1.0]
+    material: play_paint
+  climb_post_2:
+    <<: *climb_post
+    offset: [-1.6, 0.04, 1.0]
+  climb_post_3:
+    <<: *climb_post
+    offset: [-3.6, 0.04, 3.0]
+  climb_post_4:
+    <<: *climb_post
+    offset: [-1.6, 0.04, 3.0]
+  climb_ring_1: &ring
+    primitive: sweep
+    profile: { circle: 0.028, segments: 8 }
+    path: [[-3.6, 0.7, 1.0], [-1.6, 0.7, 1.0], [-1.6, 0.7, 3.0], [-3.6, 0.7, 3.0]]
+    closed: true
+    center: false
+    material: play_paint
+  climb_ring_2:
+    <<: *ring
+    path: [[-3.6, 1.35, 1.0], [-1.6, 1.35, 1.0], [-1.6, 1.35, 3.0], [-3.6, 1.35, 3.0]]
+  climb_ring_3:
+    <<: *ring
+    path: [[-3.6, 2.0, 1.0], [-1.6, 2.0, 1.0], [-1.6, 2.0, 3.0], [-3.6, 2.0, 3.0]]
+  climb_top_1:
+    <<: *rung
+    profile: { circle: 0.028, segments: 8 }
+    path: [[-3.1, 2.0, 1.0], [-3.1, 2.0, 3.0]]
+  climb_top_2:
+    <<: *rung
+    profile: { circle: 0.028, segments: 8 }
+    path: [[-2.6, 2.0, 1.0], [-2.6, 2.0, 3.0]]
+  climb_top_3:
+    <<: *rung
+    profile: { circle: 0.028, segments: 8 }
+    path: [[-2.1, 2.0, 1.0], [-2.1, 2.0, 3.0]]
+
+  # --- see-saw (front right): a pivot and a plank with handles -------------------------
+  seesaw_pivot:
+    primitive: prism
+    size: [0.3, 0.45, 0.5]
+    anchor: bottom_center
+    offset: [2.6, 0.04, 2.3]
+    material: play_paint
+  seesaw_plank:
+    primitive: cube
+    size: [3.2, 0.06, 0.28]
+    anchor: bottom_center
+    offset: [2.6, 0.47, 2.3]
+    rotation: [0, 0, 9]
+    bevel: 0.015
+    material: play_yellow
+  seesaw_handle_l:
+    <<: *rung
+    path: [[1.45, 0.36, 2.2], [1.45, 0.6, 2.2], [1.45, 0.6, 2.4], [1.45, 0.36, 2.4]]
+  seesaw_handle_r:
+    <<: *rung
+    path: [[3.75, 0.72, 2.2], [3.75, 0.96, 2.2], [3.75, 0.96, 2.4], [3.75, 0.72, 2.4]]

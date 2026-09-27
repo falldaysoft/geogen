@@ -1,0 +1,88 @@
+# A park gateway: two stone piers with lanterns, a wrought-iron arch between
+# them and a lettered sign hung from it. The opening is `width` wide (leave a
+# matching gap in the railings). Origin: bottom centre of the opening; faces +Z.
+
+name: park_gate
+tags: [decor.gate]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label:  { default: "Park", type: text }
+  width:  { default: 3.6 }      # clear opening between the piers
+  pier:   { default: 0.6 }
+  height: { default: 2.2 }      # pier height
+
+light: { energy: 0.8, range: 7.0, color: [1.0, 0.85, 0.6], offset: [0, "{height + 1.4}", 0.4], auto: night }
+
+parts:
+  pier_left: &pier
+    primitive: cube
+    size: ["{pier}", "{height}", "{pier}"]
+    anchor: bottom_center
+    offset: ["{-(width + pier) / 2}", 0, 0]
+    bevel: 0.02
+    material: stone
+  pier_right:
+    <<: *pier
+    offset: ["{(width + pier) / 2}", 0, 0]
+  cap_left: &cap
+    primitive: cube
+    size: ["{pier + 0.12}", 0.1, "{pier + 0.12}"]
+    anchor: bottom_center
+    offset: ["{-(width + pier) / 2}", "{height}", 0]
+    bevel: 0.02
+    material: stone
+  cap_right:
+    <<: *cap
+    offset: ["{(width + pier) / 2}", "{height}", 0]
+  lantern_left: &lantern
+    primitive: cube
+    size: [0.22, 0.34, 0.22]
+    anchor: bottom_center
+    offset: ["{-(width + pier) / 2}", "{height + 0.1}", 0]
+    bevel: 0.02
+    material: lamp_glass
+    collider: none
+  lantern_right:
+    <<: *lantern
+    offset: ["{(width + pier) / 2}", "{height + 0.1}", 0]
+  arch:
+    primitive: sweep
+    profile: { rect: [0.05, 0.05] }
+    path: { spline: [["{-width / 2}", "{height - 0.3}", 0], ["{-width / 2 + 0.2}", "{height + 0.4}", 0], [0, "{height + 0.9}", 0], ["{width / 2 - 0.2}", "{height + 0.4}", 0], ["{width / 2}", "{height - 0.3}", 0]], samples: 10 }
+    center: false
+    material: lamp_iron
+  sign:
+    primitive: cube
+    size: [1.6, 0.36, 0.05]
+    anchor: bottom_center
+    offset: [0, "{height + 0.5}", 0]      # the arch runs through its upper corners
+    bevel: 0.01
+    material: lamp_iron
+  label_front:
+    primitive: text
+    text: "{label}"
+    font: serif
+    height: 0.16
+    depth: 0.012
+    attach_to: sign
+    at: front
+    from: back
+    offset: [0, 0, -0.003]
+    material: glow_accent
+    collider: none
+  label_back:
+    primitive: text
+    text: "{label}"
+    font: serif
+    height: 0.16
+    depth: 0.012
+    attach_to: sign
+    at: back
+    from: back
+    offset: [0, 0, 0.003]
+    rotation: [0, 180, 0]
+    material: glow_accent
+    collider: none

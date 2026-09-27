@@ -1,7 +1,9 @@
-# The hub: a round plaza with one labelled portal per showcase scene. Each
-# portal lands at a named spawn in its scene, and every showcase scene has a
-# portal or travel door back here that lands in front of its own portal
-# (from_<name>). It's the runtime catalogue's default scene.
+# The hub: a round plaza with one labelled portal per showcase scene, spread
+# evenly round the far (-Z) side (angles from -Z: +-67.5 for four portals;
+# re-space them when a showcase is added). Each portal lands at its scene's
+# `from_hub` spawn, and every showcase has a portal or travel door back here
+# that lands in front of its own portal (`from_<name>`). It's the runtime
+# catalogue's default scene; tests/test_hub.py checks the round trips.
 
 name: hub
 size: [30, 4, 30]
@@ -9,26 +11,29 @@ tags: [showcase.hub]
 
 spawns:
   start: { position: [0, 0.1, 7.5], facing: south }      # facing the plinth and the portals
-  from_cottage: { position: [-4.38, 0.1, -4.38], facing: center }
-  from_hotel: { position: [0.0, 0.1, -6.2], facing: center }
-  from_town: { position: [4.38, 0.1, -4.38], facing: center }
+  from_cottage: { position: [-5.73, 0.1, -2.37], facing: center }
+  from_hotel: { position: [-2.37, 0.1, -5.73], facing: center }
+  from_town: { position: [2.37, 0.1, -5.73], facing: center }
+  from_park: { position: [5.73, 0.1, -2.37], facing: center }
 
 slots:
-  portal_cottage: { position: [-6.36, 0.1, -6.36], facing: center }
-  portal_hotel: { position: [0.0, 0.1, -9.0], facing: center }
-  portal_town: { position: [6.36, 0.1, -6.36], facing: center }
+  portal_cottage: { position: [-8.31, 0.1, -3.44], facing: center }
+  portal_hotel: { position: [-3.44, 0.1, -8.31], facing: center }
+  portal_town: { position: [3.44, 0.1, -8.31], facing: center }
+  portal_park: { position: [8.31, 0.1, -3.44], facing: center }
   centre: { position: [0, 0.1, 0], facing: north }
   sign: { position: [2.4, 0.1, 4.0], facing: north }
-  lamp_e: { position: [11.2, 0.1, 1.5], facing: west }
-  lamp_w: { position: [-11.2, 0.1, 1.5], facing: east }
+  lamp_e: { position: [11.2, 0.1, 3.0], facing: west }
+  lamp_w: { position: [-11.2, 0.1, 3.0], facing: east }
   lamp_ne: { position: [7.5, 0.1, 8.5], facing: center }
   lamp_nw: { position: [-7.5, 0.1, 8.5], facing: center }
   bench_e: { position: [5.6, 0.1, 3.2], facing: center }
   bench_w: { position: [-5.6, 0.1, 3.2], facing: center }
-  planter_e: { position: [9.2, 0.1, -2.2], facing: center }
-  planter_w: { position: [-9.2, 0.1, -2.2], facing: center }
-  planter_se: { position: [3.2, 0.1, -10.8], facing: center }
-  planter_sw: { position: [-3.2, 0.1, -10.8], facing: center }
+  planter_e: { position: [10.2, 0.1, 6.0], facing: center }
+  planter_w: { position: [-10.2, 0.1, 6.0], facing: center }
+  planter_se: { position: [0, 0.1, -11.3], facing: center }
+  planter_ne: { position: [3.0, 0.1, 10.8], facing: center }
+  planter_nw: { position: [-3.0, 0.1, 10.8], facing: center }
 
 place:
   plaza:
@@ -57,10 +62,16 @@ place:
     params: { label: Town }
     travel: { scene: town, spawn: from_hub }
 
+  portal_park:
+    asset: portal.yaml
+    slot: portal_park
+    params: { label: Park }
+    travel: { scene: park, spawn: from_hub }
+
   signpost:
     asset: signpost.yaml
     slot: sign
-    params: { arm1: Cottage, dir1: 220, arm2: Hotel, dir2: 190, arm3: Town, dir3: 159 }
+    params: { arm1: Cottage, dir1: 235, arm2: Hotel, dir2: 205, arm3: Town, dir3: 175, arm4: Park, dir4: 142 }
 
   lamp_e: { asset: street_lamp.yaml, slot: lamp_e }
   lamp_w: { asset: street_lamp.yaml, slot: lamp_w }
@@ -71,4 +82,5 @@ place:
   planter_e: { asset: planter.yaml, slot: planter_e }
   planter_w: { asset: planter.yaml, slot: planter_w }
   planter_se: { asset: planter.yaml, slot: planter_se }
-  planter_sw: { asset: planter.yaml, slot: planter_sw }
+  planter_ne: { asset: planter.yaml, slot: planter_ne }
+  planter_nw: { asset: planter.yaml, slot: planter_nw }

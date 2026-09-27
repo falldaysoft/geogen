@@ -1,0 +1,103 @@
+# An oval ornamental pond: a knee-high stone rim, a dark bed, still water, and
+# (fountain: 1) a two-tier stone fountain in the middle with a water jet.
+# Origin: bottom centre of the pond; the rim is too high to step over.
+
+name: pond
+tags: [decor.pond, water]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  rx:        { default: 5.0 }    # water half-width (x)
+  rz:        { default: 3.5 }    # water half-depth (z)
+  rim:       { default: 0.45 }   # stone rim width
+  rim_height: { default: 0.4 }
+  fountain:  { default: 1 }
+
+parts:
+  rim:
+    primitive: extrude
+    shape: { outer: { ellipse: ["{rx + rim}", "{rz + rim}"], segments: 72 }, holes: [{ ellipse: ["{rx}", "{rz}"], segments: 72 }] }
+    fit: none
+    axis: y
+    bevel: 0.04
+    size: ["{2 * (rx + rim)}", "{rim_height}", "{2 * (rz + rim)}"]
+    anchor: bottom_center
+    material: stone
+
+  bed:
+    primitive: extrude
+    shape: { ellipse: ["{rx + 0.05}", "{rz + 0.05}"], segments: 72 }
+    fit: none
+    axis: y
+    size: ["{2 * (rx + 0.05)}", 0.03, "{2 * (rz + 0.05)}"]
+    anchor: bottom_center
+    offset: [0, 0.003, 0]        # off the rim's bottom plane
+    material: dirt
+    collider: none
+
+  water:
+    primitive: extrude
+    shape: { ellipse: ["{rx + 0.02}", "{rz + 0.02}"], segments: 72 }
+    fit: none
+    axis: y
+    size: ["{2 * (rx + 0.02)}", 0.02, "{2 * (rz + 0.02)}"]
+    anchor: bottom_center
+    offset: [0, "{rim_height - 0.14}", 0]
+    material: water
+    collider: none
+
+  # Fountain: a stone column carrying a shallow bowl, a finial and a jet.
+  column:
+    primitive: lathe
+    when: "{fountain}"
+    profile: [[0, 0], [0.42, 0], [0.42, 0.12], [0.26, 0.2], [0.2, 0.4], [0.17, 1.0], [0.22, 1.12], [0, 1.12]]
+    fit: none
+    segments: 32
+    size: [0.84, 1.12, 0.84]
+    anchor: bottom_center
+    offset: [0, 0.03, 0]
+    material: stone
+  bowl:
+    primitive: lathe
+    when: "{fountain}"
+    profile: [[0, 0], [0.24, 0], [0.62, 0.14], [0.95, 0.3], [0.95, 0.36], [0.86, 0.36], [0.56, 0.2], [0.2, 0.12], [0, 0.12]]
+    fit: none
+    segments: 48
+    size: [1.9, 0.36, 1.9]
+    anchor: bottom_center
+    offset: [0, 1.1, 0]
+    material: stone
+  bowl_water:
+    primitive: lathe
+    when: "{fountain}"
+    profile: [[0, 0], [0.84, 0], [0.84, 0.02], [0, 0.02]]
+    fit: none
+    segments: 48
+    size: [1.68, 0.02, 1.68]
+    anchor: bottom_center
+    offset: [0, 1.4, 0]
+    material: water
+    collider: none
+  finial:
+    primitive: lathe
+    when: "{fountain}"
+    profile: [[0, 0], [0.12, 0], [0.08, 0.1], [0.06, 0.3], [0.11, 0.38], [0, 0.46]]
+    fit: none
+    segments: 24
+    size: [0.24, 0.46, 0.24]
+    anchor: bottom_center
+    offset: [0, 1.2, 0]
+    material: stone
+  jet:
+    primitive: lathe
+    when: "{fountain}"
+    profile: [[0, 0], [0.05, 0], [0.035, 0.4], [0.02, 0.8], [0.008, 1.0], [0, 1.02]]
+    fit: none
+    segments: 16
+    size: [0.1, 1.02, 0.1]
+    anchor: bottom_center
+    offset: [0, 1.66, 0]
+    material: water
+    collider: none

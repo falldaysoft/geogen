@@ -1,0 +1,14 @@
+# Glossy yellow plastic for slides, seats and panels.
+name: play_yellow
+texture:
+  type: painted_wall
+  params:
+    base_color: [236, 186, 40]
+    seed: 515
+size: [64, 64]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.3
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.3

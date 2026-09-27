@@ -1,0 +1,36 @@
+# Someone spending time in the park: walks the gravel paths, sits on benches
+# and at the picnic tables, stops on the bandstand to look around.
+# Place a crowd with a scatter on the paths:
+#   visitors: { npc: npcs/park_visitor.yaml, home: { rect: [...] }, scatter: { on_tag: park.path, count: 8 } }
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/townsfolk.yaml }
+speed: 1.1
+turn_speed: 300
+
+needs:
+  rest:      { initial: 0.7, decay: 0.006 }
+  curiosity: { initial: 0.5, decay: 0.012 }
+
+preferences:
+  seat: 1.0
+  picnic: 1.2
+  view: 1.1
+
+activities:
+  stroll: { action: wander, advertises: { curiosity: 0.12 } }
+  pause:  { action: idle, advertises: { rest: 0.03, curiosity: 0.02 } }
+
+# Outdoor things only (benches, picnic tables, the bandstand).
+affordance_tags: [outside]
+# Strolls go to points on the paths, not across the lawns.
+wander: { tags: [park.path] }
+
+routine:
+  - { name: night, from: "22:00", to: "07:30", away: true }
+  - { name: lunch, from: "12:00", to: "14:00", preferences: { picnic: 2.5, seat: 1.5 } }
+
+scoring: { distance: 0.005, recency: 0.08, memory: 90, noise: 0.08, retry: 30 }
+home_margin: 1.0

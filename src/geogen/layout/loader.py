@@ -21,6 +21,8 @@ from ..generators.primitives import (
 from ..generators.architecture import PrismGenerator, RoofGenerator
 from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
 from ..generators.text import TextGenerator
+from ..generators.paths import PathsGenerator
+from ..generators.fence import FenceGenerator
 from ..generators.round_shapes import BevelledCylinderGenerator, CapsuleGenerator, TorusGenerator
 from ..generators.stairs import StairsGenerator
 from ..generators.sweep import SweepGenerator
@@ -58,6 +60,8 @@ PRIMITIVE_REGISTRY = {
     "tree": TreeGenerator,
     "rock": RockGenerator,
     "text": TextGenerator,
+    "paths": PathsGenerator,
+    "fence": FenceGenerator,
 }
 
 
@@ -399,8 +403,9 @@ class LayoutLoader:
                 if "bottom" in anchor_name:
                     position[1] += actual_size[1] / 2
 
-                # Uncentred sweeps keep their path in the asset's own frame.
-                if part_def["primitive"] == "sweep" and part_def.get("center") is False:
+                # Uncentred sweeps and path networks keep their points in the asset's own frame.
+                if (part_def["primitive"] == "sweep" and part_def.get("center") is False) \
+                        or part_def["primitive"] in ("paths", "fence"):
                     position = offset_world
 
                 node.transform.translation = position
@@ -687,6 +692,18 @@ class LayoutLoader:
             return self._create_lathe_generator(size, extra_config or {})
         elif primitive_type == "sweep":
             return self._create_sweep_generator(extra_config or {})
+        elif primitive_type == "paths":
+            config = extra_config or {}
+            return PathsGenerator(paths=list(config.get("paths") or []), width=float(config.get("width", 1.8)),
+                                  thickness=float(config.get("thickness", 0.04)),
+                                  bevel=float(config.get("bevel", 0.01)), detail=self.detail)
+        elif primitive_type == "fence":
+            config = extra_config or {}
+            keys = {"height": float, "post": float, "post_spacing": float, "picket": float, "spacing": float,
+                    "rail": float}
+            return FenceGenerator(path=config.get("path") or [], closed=bool(config.get("closed", False)),
+                                  gaps=[[float(a), float(b)] for a, b in config.get("gaps") or []],
+                                  **{k: cast(config[k]) for k, cast in keys.items() if k in config})
         elif primitive_type == "text":
             config = extra_config or {}
             text = config.get("text", "")
@@ -1043,6 +1060,9 @@ def _apply_tints(parts: dict[str, Any], part_nodes: dict[str, SceneNode]) -> Non
                 child.mesh.colors = np.tile(rgba, (len(child.mesh.vertices), 1))
 
 
+MAX_SEAT_DEPTH = 0.9   # m: geometry further in front of a seat anchor is something else
+
+
 def _seat_depth(root: SceneNode, position: np.ndarray, yaw_deg: float) -> float | None:
     """How far in front of a seat anchor the seat's front edge is: the furthest geometry at the
     seat's height (within 4 cm) and near the sitter's centre line, in the anchor's frame."""
@@ -1064,7 +1084,9 @@ def _seat_depth(root: SceneNode, position: np.ndarray, yaw_deg: float) -> float 
         uu, vv = uu[keep], vv[keep]
         v = (tri[:, None, 0] + (tri[:, None, 1] - tri[:, None, 0]) * uu[None, :, None]
              + (tri[:, None, 2] - tri[:, None, 0]) * vv[None, :, None]).reshape(-1, 3)
-        near = (np.abs(v[:, 1]) < 0.04) & (np.abs(v @ right) < 0.3)
+        # Only this seat: another seat facing it at the same height (a picnic table's far bench) is
+        # further ahead than any seat is deep.
+        near = (np.abs(v[:, 1]) < 0.04) & (np.abs(v @ right) < 0.3) & (v @ fwd < MAX_SEAT_DEPTH)
         if near.any():
             z = float((v[near] @ fwd).max())
             best = z if best is None else max(best, z)

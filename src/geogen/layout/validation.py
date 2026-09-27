@@ -37,6 +37,8 @@ PART_KNOWN_KEYS = {
     "points", "levels", "roughness", "crease",
     # text
     "text", "font", "height", "depth", "align", "line_spacing", "tracking",
+    # paths / fence
+    "paths", "post", "post_spacing", "picket", "spacing", "gaps",
 }
 
 # Known keys for scene YAML files
@@ -54,7 +56,7 @@ PLACEMENT_KNOWN_KEYS = {
 }
 
 # Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock", "text"}
+KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock", "text", "paths", "fence"}
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
@@ -110,7 +112,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
             msg = f"Unknown primitive '{prim_type}' in part '{part_name}'.{_suggest(prim_type, KNOWN_PRIMITIVES)}"
             raise ValidationError(msg)
 
-        if "size" not in part_def and prim_type not in ("sweep", "stairs", "text"):
+        if "size" not in part_def and prim_type not in ("sweep", "stairs", "text", "paths", "fence"):
             raise ValidationError(f"Part '{part_name}' requires 'size' field")
 
         for key in part_def:

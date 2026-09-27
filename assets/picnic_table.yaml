@@ -1,0 +1,90 @@
+# A timber picnic table with bench seats on both long sides, carried on two
+# crossbars. Four seats (sit affordances tagged outside, so park visitors use it).
+# Origin: bottom centre; the table runs along X.
+
+name: picnic_table
+tags: [furniture.picnic_table, furniture.table]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: { default: 1.8 }
+
+clearance: { front: 0.5, back: 0.5 }
+
+parts:
+  top:
+    primitive: cube
+    size: ["{length}", 0.05, 0.78]
+    anchor: bottom_center
+    offset: [0, 0.72, 0]
+    bevel: 0.012
+    material: wood
+  seat_front:
+    primitive: cube
+    size: ["{length}", 0.045, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.43, 0.62]
+    bevel: 0.01
+    material: wood
+  seat_back:
+    primitive: cube
+    size: ["{length}", 0.045, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.43, -0.62]
+    bevel: 0.01
+    material: wood
+  crossbar_left: &crossbar
+    primitive: cube
+    size: [0.07, 0.06, 1.56]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.22}", 0.37, 0]
+    bevel: 0.008
+    material: wood_dark
+  crossbar_right:
+    <<: *crossbar
+    offset: ["{length / 2 - 0.22}", 0.37, 0]
+  # Legs: posts under the top, reaching the ground, and short posts under each seat end.
+  leg_lf: &leg
+    primitive: cube
+    size: [0.07, 0.72, 0.07]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.22}", 0, 0.28]
+    bevel: 0.008
+    material: wood_dark
+  leg_lb:
+    <<: *leg
+    offset: ["{-length / 2 + 0.22}", 0, -0.28]
+  leg_rf:
+    <<: *leg
+    offset: ["{length / 2 - 0.22}", 0, 0.28]
+  leg_rb:
+    <<: *leg
+    offset: ["{length / 2 - 0.22}", 0, -0.28]
+  post_lf: &post
+    primitive: cube
+    size: [0.07, 0.37, 0.07]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.22}", 0, 0.7]
+    bevel: 0.008
+    material: wood_dark
+  post_lb:
+    <<: *post
+    offset: ["{-length / 2 + 0.22}", 0, -0.7]
+  post_rf:
+    <<: *post
+    offset: ["{length / 2 - 0.22}", 0, 0.7]
+  post_rb:
+    <<: *post
+    offset: ["{length / 2 - 0.22}", 0, -0.7]
+
+affordances:
+  - { type: sit, at: ["{-length / 4}", 0.475, 0.62], facing: 180, approach: [0, 0, -0.45], height: 0.475, duration: [25, 70],
+      advertises: { rest: 0.4 }, tags: [seat, outside, picnic] }
+  - { type: sit, at: ["{length / 4}", 0.475, 0.62], facing: 180, approach: [0, 0, -0.45], height: 0.475, duration: [25, 70],
+      advertises: { rest: 0.4 }, tags: [seat, outside, picnic] }
+  - { type: sit, at: ["{-length / 4}", 0.475, -0.62], facing: 0, approach: [0, 0, -0.45], height: 0.475, duration: [25, 70],
+      advertises: { rest: 0.4 }, tags: [seat, outside, picnic] }
+  - { type: sit, at: ["{length / 4}", 0.475, -0.62], facing: 0, approach: [0, 0, -0.45], height: 0.475, duration: [25, 70],
+      advertises: { rest: 0.4 }, tags: [seat, outside, picnic] }
