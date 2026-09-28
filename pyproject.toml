@@ -43,7 +43,9 @@ where = ["src"]
 testpaths = ["tests"]
 # Tests sharing an expensive build/export are pinned to one worker (see
 # tests/conftest.py pytest_collection_modifyitems).
-addopts = "-n auto --dist loadgroup"
+# Four workers, not -n auto: each worker keeps every scene it builds (conftest built_scene,
+# up to ~4 GB), and 14 of them froze a 24 GB machine.
+addopts = "-n 4 --dist loadgroup"
 markers = [
     "godot: runs the Godot runtime headless (skipped without Godot); deselect with -m 'not godot'",
 ]

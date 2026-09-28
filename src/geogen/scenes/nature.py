@@ -16,14 +16,13 @@ def create_nature_scene() -> SceneNode:
 
     # Create terrain
     terrain_gen = TerrainGenerator(
-        size_x=15.0,
-        size_z=15.0,
-        subdivisions_x=60,
-        subdivisions_z=60,
-        height_scale=1.5,
+        size=(15.0, 15.0),
+        resolution=0.25,
+        height=1.5,
         octaves=4,
         scale=3.0,
         seed=42,
+        island=False,
     )
     terrain_mesh = terrain_gen.generate()
 
@@ -31,7 +30,7 @@ def create_nature_scene() -> SceneNode:
     material_loader = MaterialLoader()
     try:
         grass_material = material_loader.load("grass")
-        terrain_mesh.material = grass_material
+        terrain_mesh.materials = [grass_material] * 3     # sand / grass / rock slots, all grass here
     except FileNotFoundError:
         warnings.warn("Grass material not found for terrain", stacklevel=2)
 

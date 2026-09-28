@@ -1,0 +1,47 @@
+# An island in the sea: noise hills inside a wobbly coastline (sand at the
+# shore, rock on steep slopes, grass elsewhere), a sea sheet reaching well past
+# the terrain, and an invisible wall where the water gets half a metre deep.
+# The sea sits `sea_level` above y = 0 so the Godot runtime's ground plane
+# (y = 0) is the sea bed beyond the terrain, under the water rather than in it.
+# `pads` flatten ground for buildings: [{center: [x, z], radius, blend, height?}].
+# Origin: the middle of the island at y = 0 (the terrain keeps its own heights).
+
+name: island
+tags: [terrain.island]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  extent:    { default: 160 }    # terrain square (m)
+  peak:      { default: 14 }     # hill height above the sea
+  sea_level: { default: 2.0 }
+  sea:       { default: 420 }    # water sheet (m)
+  seed:      { default: 3 }
+
+parts:
+  ground:
+    primitive: terrain
+    extent: ["{extent}", "{extent}"]
+    resolution: 1.0
+    height: "{peak}"
+    sea_level: "{sea_level}"
+    depth: "{sea_level - 0.1}"   # the sea bed stays just above the runtime's ground plane
+    seed: "{seed}"
+    scale: 38
+    octaves: 4
+    falloff: { radius: 0.36, edge: 0.14, power: 1.4 }
+    materials: { sand: sand, grass: grass, rock: rock }
+    shore: { depth: 0.5, height: 1.5 }
+    collider: mesh
+    walkable: true
+
+  sea:
+    primitive: water
+    shape: { rect: ["{sea}", "{sea}"] }
+    size: ["{sea}", 0.02, "{sea}"]
+    anchor: bottom_center
+    offset: [0, "{sea_level - 0.02}", 0]
+    depth_scale: 2.5
+    wave_scale: 3.0
+    foam: 0.3

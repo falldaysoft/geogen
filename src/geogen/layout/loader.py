@@ -23,6 +23,8 @@ from ..generators.profiles import _AXIS_FRAMES, ExtrudeGenerator, LatheGenerator
 from ..generators.text import TextGenerator
 from ..generators.paths import PathsGenerator
 from ..generators.fence import FenceGenerator
+from ..generators.terrain import MATERIAL_SLOTS as TERRAIN_SLOTS
+from ..generators.terrain import TerrainGenerator
 from ..generators.round_shapes import BevelledCylinderGenerator, CapsuleGenerator, TorusGenerator
 from ..generators.stairs import StairsGenerator
 from ..generators.sweep import SweepGenerator
@@ -62,6 +64,7 @@ PRIMITIVE_REGISTRY = {
     "text": TextGenerator,
     "paths": PathsGenerator,
     "fence": FenceGenerator,
+    "terrain": TerrainGenerator,
     "water": ExtrudeGenerator,
 }
 
@@ -274,6 +277,7 @@ class LayoutLoader:
                 actual_size = np.zeros(3)
 
             generator = self._create_generator(primitive_type, actual_size, part_def)
+            _cap_segments(generator, primitive_type, actual_size)
             if self.detail != 1.0:
                 _apply_detail(generator, self.detail)
             node = generator.to_node(part_name)
@@ -289,6 +293,15 @@ class LayoutLoader:
                 part_def.setdefault("material", "water")
                 if part_def.get("barrier"):
                     add_barrier(node, generator.shape, float(part_def["barrier"]), float(actual_size[1]))
+            if primitive_type == "terrain":
+                node.meta["terrain"] = generator.params()
+                part_def.setdefault("walkable", True)
+                slots = {"sand": "sand", "grass": "grass", "rock": "rock", **(part_def.get("materials") or {})}
+                node.mesh.materials = [self._material_loader.load(slots[k]) for k in TERRAIN_SLOTS]
+                if part_def.get("shore"):
+                    from ..generators.terrain import add_shore
+
+                    add_shore(node, generator, dict(part_def["shore"]))
 
             # Apply material if specified
             material_name = part_def.get("material")
@@ -414,7 +427,7 @@ class LayoutLoader:
 
                 # Uncentred sweeps and path networks keep their points in the asset's own frame.
                 if (part_def["primitive"] == "sweep" and part_def.get("center") is False) \
-                        or part_def["primitive"] in ("paths", "fence"):
+                        or part_def["primitive"] in ("paths", "fence", "terrain"):
                     position = offset_world
 
                 node.transform.translation = position
@@ -661,7 +674,9 @@ class LayoutLoader:
             return CubeGenerator(
                 size_x=size[0], size_y=size[1], size_z=size[2],
                 bevel=config.get("bevel", 0.02),
-                bevel_segments=config.get("bevel_segments", 2),
+                # Small parts (slats, posts, rails) get one step per 45 degrees: the extra
+                # rounding isn't visible at that size and costs ~3x the triangles.
+                bevel_segments=config.get("bevel_segments", 1 if float(np.min(size)) < 0.12 else 2),
             )
         elif primitive_type == "cylinder":
             # Cylinder uses radius (half of x/z) and height
@@ -711,6 +726,16 @@ class LayoutLoader:
             config.setdefault("fit", "none")
             config["axis"] = "y"
             return self._create_extrude_generator(size, config)
+        elif primitive_type == "terrain":
+            config = extra_config or {}
+            extent = config.get("extent") or [size[0], size[2]]
+            return TerrainGenerator(
+                size=(float(extent[0]), float(extent[1])), resolution=float(config.get("resolution", 1.0)),
+                height=float(config.get("height", 12.0)), sea_level=float(config.get("sea_level", 0.0)),
+                depth=float(config.get("depth", 4.0)), seed=int(config.get("seed", 0)),
+                scale=float(config.get("scale", 40.0)), octaves=int(config.get("octaves", 4)),
+                falloff=dict(config.get("falloff") or {}), pads=list(config.get("pads") or []),
+                island=bool(config.get("island", True)))
         elif primitive_type == "fence":
             config = extra_config or {}
             keys = {"height": float, "post": float, "post_spacing": float, "picket": float, "spacing": float,
@@ -916,6 +941,7 @@ class LayoutLoader:
             y_range = max(np.ptp(prof[:, 1]), 1e-12)
             prof[:, 1] = (prof[:, 1] - prof[:, 1].min()) * (size[1] / y_range)
         prof[:, 1] -= (prof[:, 1].min() + prof[:, 1].max()) / 2
+        prof = _simplify_profile(prof)
         return LatheGenerator(
             profile=prof,
             segments=int(config.get("segments", 48)),
@@ -1196,6 +1222,41 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
 
 # Tessellation attributes scaled by LayoutLoader(detail=...) (minimums keep shapes valid).
 _DETAIL_ATTRS = {"segments": 6, "rings": 4, "tube_segments": 6, "cap_segments": 3}
+
+
+# Radial tessellation follows size: about one segment per SEGMENT_EDGE of circumference
+# (never fewer than MIN_SEGMENTS), so a 6 cm chair leg isn't turned with 40 facets.
+SEGMENT_EDGE = 0.025
+MIN_SEGMENTS = 12
+_ROUND_PRIMITIVES = {"cylinder", "cone", "sphere", "ellipsoid", "lathe", "torus", "capsule"}
+
+
+def _simplify_profile(prof: np.ndarray) -> np.ndarray:
+    """Drop lathe profile points that don't change the silhouette (finely sampled splines):
+    Douglas-Peucker to 2% of the radius (thin spindles keep their swell), at most 2 mm."""
+    from shapely.geometry import LineString
+
+    if len(prof) < 4:
+        return prof
+    tol = min(0.02 * float(np.max(prof[:, 0])), 0.002)
+    out = np.array(LineString(prof).simplify(tol, preserve_topology=False).coords)
+    return out if len(out) >= 2 else prof
+
+
+def _cap_segments(generator, primitive_type: str, size: np.ndarray) -> None:
+    if primitive_type not in _ROUND_PRIMITIVES or not isinstance(getattr(generator, "segments", None), int):
+        return
+    if primitive_type == "lathe":
+        radius = float(np.max(generator.profile[:, 0]))
+    elif primitive_type == "sphere":
+        radius = float(np.min(size)) / 2
+    else:
+        radius = float(max(size[0], size[2], size[1] if primitive_type == "ellipsoid" else 0.0)) / 2
+    cap = max(MIN_SEGMENTS, int(np.ceil(2 * np.pi * radius / SEGMENT_EDGE)))
+    if generator.segments > cap:
+        generator.segments = cap
+        if isinstance(getattr(generator, "rings", None), int):
+            generator.rings = max(4, min(generator.rings, cap // 2))
 
 
 def _apply_detail(generator, detail: float) -> None:

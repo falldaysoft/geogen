@@ -1,0 +1,19 @@
+# Fine beach sand for terrain shores.
+name: sand
+texture:
+  type: dirt
+  params:
+    color_base: [214, 196, 158]
+    color_dark: [190, 170, 132]
+    color_light: [232, 218, 186]
+    particle_scale: 60.0
+    pebble_scale: 20.0
+    color_variation: 0.25
+    seed: 317
+size: [512, 512]
+tile_size: 2.0  # metres per texture repeat
+pbr:
+  roughness: 0.95
+  metallic: 0.0
+  normal_strength: 0.5
+  ao_strength: 0.3

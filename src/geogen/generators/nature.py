@@ -29,7 +29,7 @@ from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from .base import MeshGenerator
 
-MAX_CLUSTERS = 130      # leaf clusters per tree
+MAX_CLUSTERS = 44       # leaf clusters per tree (street trees are instanced by the hundred)
 
 
 @dataclass
@@ -158,9 +158,9 @@ class TreeGenerator(MeshGenerator):
             chains.append(chain)
         return chains
 
-    def _tube(self, pts: np.ndarray, radii: np.ndarray) -> Mesh:
+    def _tube(self, pts: np.ndarray, radii: np.ndarray, sides: int | None = None) -> Mesh:
         """Capped tube through ``pts`` with per-point radii (parallel-transport frames)."""
-        k = self.segments
+        k = sides or self.segments
         tangents = np.gradient(pts, axis=0)
         tangents /= np.maximum(np.linalg.norm(tangents, axis=1, keepdims=True), 1e-9)
         ref = np.array([1.0, 0.0, 0.0]) if abs(tangents[0][0]) < 0.9 else np.array([0.0, 0.0, 1.0])
@@ -223,7 +223,8 @@ class TreeGenerator(MeshGenerator):
                 continue
             r = radii[chain].copy()
             r[0] = min(r[0], r[1] * 1.15)      # a branch starts inside its parent, not wider than itself
-            tubes.append(self._tube(nodes[chain], r))
+            # Branches sit inside the crown: fewer sides than the trunk.
+            tubes.append(self._tube(nodes[chain], r, max(4, self.segments - 2)))
         branches = meshops.compute_normals(Mesh.merge(tubes), 60.0) if tubes else None
         return meshops.compute_normals(trunk, 60.0), branches, nodes, parents, radii
 
@@ -238,12 +239,15 @@ class TreeGenerator(MeshGenerator):
         if not len(tips):
             return None
         rng = np.random.default_rng(self.seed + 1)
+        grow = 1.0
         if len(tips) > MAX_CLUSTERS:
+            # Fewer, bigger clusters cover the same crown (area ~ size squared).
+            grow = min(np.sqrt(len(tips) / MAX_CLUSTERS), 1.5)
             tips = np.sort(rng.choice(tips, MAX_CLUSTERS, replace=False))
-        base = SphereGenerator(radius=1.0, segments=10, rings=6).generate()
+        base = SphereGenerator(radius=1.0, segments=8, rings=5).generate()   # displaced: facets don't show
         blobs = []
         for tip in tips:
-            s = self.leaf_size * rng.uniform(0.75, 1.2)
+            s = self.leaf_size * grow * rng.uniform(0.75, 1.2)
             scale = np.array([s, s * (0.45 if self.style == "conifer" else 0.8), s])
             m = np.diag([*scale, 1.0])
             m[:3, 3] = nodes[tip]

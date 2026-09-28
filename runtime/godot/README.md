@@ -151,7 +151,7 @@ User args (after `--`):
 | `--colliders` | Show collider wireframes |
 | `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
 | `--use=ASSET`, `--use=@aim` | Use an asset's interactions (e.g. `door`) or whatever the player looks at, at start |
-| `--nav=AX,AZ:BX,BZ` | Print the navigation path between two floor points (`nav path: {...}`) and quit |
+| `--nav=AX,AZ:BX,BZ` | Print the navigation path between two floor points (`nav path: {...}`) and quit; `X,Y,Z` points snap from that height (terrain), and it waits for tiled navmeshes to settle |
 | `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one |
 | `--lock=@aim` | Press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |

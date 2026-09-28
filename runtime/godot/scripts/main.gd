@@ -89,6 +89,8 @@ var _focus_affordance := {}
 var _focus_npc: GeogenNpc = null
 var _greet := {}                  # --greet: {name prefix: world seconds}
 var _nav_query := []
+var _nav_iteration := -1
+var _nav_settled := 0
 var _frames_nav := 0
 var _playtest_walks := -1
 var _wait_left := 0.0
@@ -161,7 +163,8 @@ func _ready() -> void:
         elif arg.begins_with("--nav="):
             for point in value.split(":"):
                 var xz := point.split_floats(",")
-                _nav_query.append(Vector3(xz[0], 0.0, xz[1]))
+                # X,Z (on the ground) or X,Y,Z (e.g. on a hill).
+                _nav_query.append(Vector3(xz[0], xz[1], xz[2]) if xz.size() == 3 else Vector3(xz[0], 0.0, xz[1]))
         elif arg == "--lights":
             _print_lights = true
         elif arg.begins_with("--keys="):
@@ -616,7 +619,13 @@ func _physics_process(delta: float) -> void:
     if _nav_query.size() == 2:
         _frames_nav += 1
         # Wait until the navigation map has synced the baked regions (and streamed tiles are baked).
-        var synced := NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map) > 1 and _frames_nav > 5
+        # Many regions (tiled bakes) merge over several map iterations, so wait for it to settle.
+        var iteration := NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map)
+        if iteration != _nav_iteration:
+            _nav_iteration = iteration
+            _nav_settled = 0
+        _nav_settled += 1
+        var synced := iteration > 1 and _frames_nav > 5 and _nav_settled > 20
         if world.streamer != null:
             if world.streamer.navigation_busy():
                 _frames_nav = 0

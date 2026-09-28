@@ -5,7 +5,8 @@ import pyrender
 import pytest
 
 from geogen.registry import SceneRegistry
-from geogen.render import _get_renderer
+from geogen.render import RenderOptions, _get_renderer
+from geogen.render import render_scene as geogen_render
 from geogen.scenes.nature import create_nature_scene
 from geogen.viewer import Viewer
 
@@ -22,56 +23,33 @@ _registry = _build_registry()
 SCENES = list(_registry.scenes.items())
 
 def render_scene(root, width: int = 640, height: int = 480) -> np.ndarray:
-    """Render a scene to an image array."""
-    viewer = Viewer(root, color=(0.7, 0.7, 0.8))
-
-    pr_scene = pyrender.Scene(ambient_light=[0.3, 0.3, 0.3])
-
-    for name, geom in viewer.scene.geometry.items():
-        pr_mesh = pyrender.Mesh.from_trimesh(geom, smooth=False)
-        pr_scene.add(pr_mesh)
-
-    # Add camera
-    camera = pyrender.PerspectiveCamera(yfov=np.pi / 4.0)
-    angle = np.radians(20)
-    distance = 5.0
-    cam_pos = np.array([np.sin(angle) * distance, 2.0, np.cos(angle) * distance])
-    target = np.array([0.0, 0.4, 0.0])
-    up = np.array([0.0, 1.0, 0.0])
-
-    forward = target - cam_pos
-    forward = forward / np.linalg.norm(forward)
-    right = np.cross(forward, up)
-    right = right / np.linalg.norm(right)
-    up = np.cross(right, forward)
-
-    camera_pose = np.eye(4)
-    camera_pose[:3, 0] = right
-    camera_pose[:3, 1] = up
-    camera_pose[:3, 2] = -forward
-    camera_pose[:3, 3] = cam_pos
-    pr_scene.add(camera, pose=camera_pose)
-
-    # Add lighting
-    light = pyrender.DirectionalLight(color=np.ones(3), intensity=3.0)
-    pr_scene.add(light, pose=camera_pose)
-
-    # One offscreen context per process: recreating it breaks pyglet on macOS.
-    renderer = _get_renderer(width, height)
-    color, _ = renderer.render(pr_scene)
-
-    return color
+    """Render a scene with the offline renderer (instanced: a city's hundreds of trees share
+    one upload) to an image array."""
+    return np.asarray(geogen_render(root, RenderOptions(width=width, height=height, shadows=False)))
 
 
 @pytest.mark.parametrize("scene_name", [name for name, _ in SCENES])
 def test_scene_renders(scene_name, built_scene):
-    """Each scene converts to trimesh and renders to a non-black image.
+    """Each scene renders to a non-black image.
 
     Loading and geometry checks live in test_asset_quality.py (sharing the build).
     """
     color = render_scene(built_scene(scene_name))
     assert color.shape == (480, 640, 3) and color.dtype == np.uint8
     assert color.max() > 0, f"Scene '{scene_name}' rendered as completely black"
+
+
+@pytest.mark.parametrize("scene_name", ["chair", "dining_set", "cottage"])
+def test_viewer_converts_to_trimesh(scene_name, built_scene):
+    """The legacy trimesh viewer still converts scenes (small ones: it copies every instance)."""
+    viewer = Viewer(built_scene(scene_name), color=(0.7, 0.7, 0.8))
+    assert viewer.scene.geometry and all(len(g.faces) for g in viewer.scene.geometry.values())
+    mesh = pyrender.Mesh.from_trimesh(next(iter(viewer.scene.geometry.values())), smooth=False)
+    renderer = _get_renderer(64, 48)
+    scene = pyrender.Scene()
+    scene.add(mesh)
+    scene.add(pyrender.PerspectiveCamera(yfov=0.8), pose=np.eye(4))
+    renderer.render(scene)
 
 
 def test_registry_discovers_all_yaml():

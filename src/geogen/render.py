@@ -127,6 +127,24 @@ def _primitive(mesh: Mesh, materials: _MaterialCache) -> pyrender.Primitive:
     )
 
 
+def _pyrender_mesh(mesh: Mesh, materials: _MaterialCache) -> pyrender.Mesh:
+    """One primitive per material group."""
+    return pyrender.Mesh([_primitive(sub, materials) for _, sub in meshops.ensure_normals(mesh).groups()])
+
+
+def _instanceable(node: SceneNode, pose: np.ndarray) -> bool:
+    """Can the node's own mesh be drawn with its world pose? Not when skinned or morphed (the
+    world mesh differs), mirrored (winding flips) or scaled unevenly (pyrender transforms
+    normals by the model matrix)."""
+    if node.skin is not None or (node.mesh.morphs and any(node.morph_weights.values())):
+        return False
+    m = pose[:3, :3]
+    if np.linalg.det(m) <= 0:
+        return False
+    scales = np.linalg.svd(m, compute_uv=False)
+    return bool(scales.max() - scales.min() <= 1e-6 * max(scales.max(), 1e-12))
+
+
 def scene_bounds(root: SceneNode) -> np.ndarray:
     """Axis-aligned world bounds ``[[min], [max]]`` of all meshes under root."""
     lo = np.full(3, np.inf)
@@ -193,11 +211,21 @@ class SceneRenderer:
         self.bounds = scene_bounds(root)
         self.scene = pyrender.Scene(ambient_light=[0.25, 0.27, 0.3], bg_color=BACKGROUND)
         materials = _MaterialCache()
-        for _, mesh in root.iter_meshes():
-            if len(mesh.faces):
-                # One primitive per material group.
-                self.scene.add(pyrender.Mesh([_primitive(sub, materials)
-                                              for _, sub in meshops.ensure_normals(mesh).groups()]))
+        shared: dict[int, pyrender.Mesh] = {}
+        for node in root.iter_nodes():
+            if node.mesh is None or node.meta.get("type") == "collider" or not len(node.mesh.faces):
+                continue
+            pose = node.world_transform()
+            if _instanceable(node, pose):
+                # Instanced meshes (street trees, furniture) upload once and are drawn per pose.
+                key = id(node.mesh)
+                if key not in shared:
+                    shared[key] = _pyrender_mesh(node.mesh, materials)
+                self.scene.add(shared[key], pose=pose)
+            else:
+                mesh = node.world_mesh()
+                if mesh is not None and len(mesh.faces):
+                    self.scene.add(_pyrender_mesh(mesh, materials))
         if self.options.ground:
             self.scene.add(_ground_mesh(self.bounds))
 

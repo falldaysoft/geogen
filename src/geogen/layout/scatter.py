@@ -12,6 +12,9 @@ A placement with ``scatter:`` places many copies of its asset::
           # path: [[x, z], ...]  +  spacing: 4  (+ jitter, offset: sideways metres)
           # on: house.floor               (a surface of a placed object)
           # on_tag: street.sidewalk       (the tops of every mesh tagged so, e.g. a city's sidewalks)
+          # on_terrain: island            (a placed object's terrain part; rect: narrows it) with
+          #   height: [1, 8]              (metres above the terrain's sea level) and
+          #   slope: [0, 20]              (degrees) filters
           count: 30                     # at most this many
           spacing: 3                    # minimum distance between copies (Poisson disk)
           avoid: [house, road]          # keep off these placed objects' footprints
@@ -39,7 +42,7 @@ from ..core.node import SceneNode
 from ..core.transform import Transform
 
 KNOWN = {"seed", "rect", "path", "on", "on_tag", "count", "spacing", "avoid", "margin", "yaw", "scale", "jitter",
-         "offset", "radius"}
+         "offset", "radius", "on_terrain", "height", "slope"}
 
 
 def resolve_random_params(params: dict[str, Any] | None, rng: np.random.Generator) -> dict[str, Any] | None:
@@ -149,6 +152,41 @@ def _tagged_surface_points(root: SceneNode, tag: str, rng: np.random.Generator, 
     return [(p, float(height_at(p))) for p in points]
 
 
+def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], loaded: dict[str, SceneNode],
+                    rng: np.random.Generator, spacing: float, clear, to_scene: np.ndarray):
+    """Poisson points on a placed object's terrain, filtered by height above sea level and slope."""
+    from ..generators.terrain import terrain_from_meta
+
+    target = loaded.get(str(spec["on_terrain"]))
+    node = next((n for n in target.iter_nodes() if "terrain" in n.meta), None) if target is not None else None
+    if node is None:
+        raise ValueError(f"scatter '{name}': no terrain in '{spec['on_terrain']}'")
+    terrain = terrain_from_meta(node.meta["terrain"])
+    m = to_scene @ node.world_transform()
+    inv = np.linalg.inv(m)
+    sx, sz = terrain.size
+    corners = np.array([[x, 0.0, z, 1.0] for x in (-sx / 2, sx / 2) for z in (-sz / 2, sz / 2)]) @ m.T
+    lo, hi = corners[:, [0, 2]].min(axis=0), corners[:, [0, 2]].max(axis=0)
+    if "rect" in spec:
+        x0, z0, x1, z1 = (float(v) for v in spec["rect"])
+        lo, hi = np.maximum(lo, [x0, z0]), np.minimum(hi, [x1, z1])
+    h_lo, h_hi = (float(v) for v in spec.get("height", [-1e9, 1e9]))
+    s_lo, s_hi = (float(v) for v in spec.get("slope", [0.0, 90.0]))
+
+    # Sample the whole box (a filtered band may be disconnected), then keep the points that pass.
+    points = np.array(poisson_disk(rng, lo, hi, spacing, clear)).reshape(-1, 2)
+    local = np.c_[points[:, 0], np.zeros(len(points)), points[:, 1], np.ones(len(points))] @ inv.T
+    x, z = local[:, 0], local[:, 2]
+    h = terrain.height_at(x, z)
+    ok = (np.abs(x) <= sx / 2) & (np.abs(z) <= sz / 2)
+    ok &= (h - terrain.sea_level >= h_lo) & (h - terrain.sea_level <= h_hi)
+    slope = terrain.slope_at(x, z)
+    ok &= (slope >= s_lo) & (slope <= s_hi)
+    y = (np.c_[x, h, z, np.ones(len(x))] @ m.T)[:, 1]
+    # Shuffled: Poisson points grow out from one seed, so count: would otherwise take a clump.
+    return [(points[k], float(y[k])) for k in rng.permutation(np.flatnonzero(ok))]
+
+
 def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[str, SceneNode], load,
             occupied: list[tuple[np.ndarray, float]]) -> list[SceneNode]:
     """Place copies for one scatter placement; returns the added nodes."""
@@ -178,7 +216,10 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
 
     # Candidate positions (scene frame x, z) plus surface frames where relevant.
     frames: list[tuple[np.ndarray, float, np.ndarray | None]] = []   # (xz, y, local normal or None)
-    if "rect" in spec:
+    if "on_terrain" in spec:
+        for p, y in _terrain_points(root, name, spec, loaded, rng, spacing, clear, to_scene):
+            frames.append((p, y, None))
+    elif "rect" in spec:
         x0, z0, x1, z1 = (float(v) for v in spec["rect"])
         for p in poisson_disk(rng, np.array([x0, z0]), np.array([x1, z1]), spacing, clear):
             frames.append((p, 0.0, None))
@@ -215,7 +256,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
         for p, y in _tagged_surface_points(root, str(spec["on_tag"]), rng, spacing, clear, to_scene):
             frames.append((p, y, None))
     else:
-        raise ValueError(f"scatter '{name}' needs rect:, path:, on: or on_tag:")
+        raise ValueError(f"scatter '{name}' needs rect:, path:, on:, on_tag: or on_terrain:")
 
     yaw_spec = spec.get("yaw", [0.0, 360.0])
     scale_spec = spec.get("scale", 1.0)

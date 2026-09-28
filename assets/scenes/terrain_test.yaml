@@ -1,0 +1,21 @@
+# Terrain review: an island with palms kept to gentle ground above the beach,
+# rocks on the steep slopes and a flattened pad for a building.
+
+name: terrain_test
+size: [160, 20, 160]
+
+spawns:
+  beach: { position: [0, 3.0, -48], facing: north }
+
+place:
+  island:
+    asset: island.yaml
+    params: { extent: 120, seed: 5 }
+
+  trees:
+    asset: maple_tree.yaml
+    scatter: { seed: 2, on_terrain: island, height: [2.0, 9], slope: [0, 18], spacing: 7, count: 40 }
+
+  rocks:
+    asset: rock_large.yaml
+    scatter: { seed: 4, on_terrain: island, height: [0.2, 20], slope: [22, 90], spacing: 5, count: 30 }

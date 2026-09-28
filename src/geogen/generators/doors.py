@@ -30,10 +30,12 @@ from .base import CompositeGenerator
 STYLES = ("door", "archway")
 
 
-def _box(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float, bevel: float = 0.0) -> Mesh:
+def _box(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float, bevel: float = 0.0,
+         bevel_segments: int = 2) -> Mesh:
     from .primitives import CubeGenerator
 
-    mesh = CubeGenerator(size_x=x1 - x0, size_y=y1 - y0, size_z=z1 - z0, bevel=bevel).generate()
+    mesh = CubeGenerator(size_x=x1 - x0, size_y=y1 - y0, size_z=z1 - z0, bevel=bevel,
+                         bevel_segments=bevel_segments).generate()
     move = np.eye(4)
     move[:3, 3] = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]
     return mesh.transform(move)
@@ -187,7 +189,8 @@ class DoorGenerator(CompositeGenerator):
         leaf.tags = ["door.leaf"]
         pivot.add_child(leaf)
 
-        # Lever handles 1 m up, 6 cm in from the latch edge, on both faces.
+        # Lever handles 1 m up, 6 cm in from the latch edge, on both faces (chamfered: at
+        # this size a rounded bevel costs triangles nobody can see).
         latch_x = sign * (lw - 0.06)
         y = 1.0
         handle_mat = loader.load(self.handle_material)
@@ -195,12 +198,12 @@ class DoorGenerator(CompositeGenerator):
         for face in (1.0, -1.0):
             z_face = 0.0 if face > 0 else -lt
             rose = _box(latch_x - 0.025, latch_x + 0.025, y - 0.025, y + 0.025,
-                        *sorted((z_face, z_face + face * 0.012)), bevel=0.004)
+                        *sorted((z_face, z_face + face * 0.012)), bevel=0.004, bevel_segments=1)
             stem = _box(latch_x - 0.009, latch_x + 0.009, y - 0.009, y + 0.009,
-                        *sorted((z_face, z_face + face * 0.06)), bevel=0.003)
+                        *sorted((z_face, z_face + face * 0.06)), bevel=0.003, bevel_segments=1)
             lever_x = sorted((latch_x, latch_x - sign * 0.13))
             lever = _box(lever_x[0], lever_x[1], y - 0.01, y + 0.01,
-                         *sorted((z_face + face * 0.045, z_face + face * 0.065)), bevel=0.004)
+                         *sorted((z_face + face * 0.045, z_face + face * 0.065)), bevel=0.004, bevel_segments=1)
             meshes += [rose, stem, lever]
         from ..core import csg
 
