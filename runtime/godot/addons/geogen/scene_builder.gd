@@ -68,6 +68,9 @@ static func build(root: Node, options := {}) -> Dictionary:
             "spawn":
                 _spawn_marker(node as Node3D)
                 summary["spawns"] += 1
+        var stairs = g.get("stairs", {})
+        if stairs is Dictionary and stairs.has("ends"):
+            _stairs_link(node as Node3D, stairs["ends"])
     for w in summary["warnings"]:
         push_warning("geogen: %s" % w)
     return summary
@@ -108,6 +111,21 @@ static func _spawn_marker(node: Node3D) -> void:
     marker.add_to_group("geogen_spawn", true)
     node.add_child(marker)
     _own(marker, node)
+
+
+## Spiral stairs: link the bottom and the top on the navigation map. A tall spiral's
+## navmesh can come out in pieces (Recast splits self-overlapping regions and can't
+## join them across a riser), so paths use the link where the climb is cut.
+static func _stairs_link(node: Node3D, ends: Array) -> void:
+    if node == null or node.has_node("StairsLink") or ends.size() != 2:
+        return
+    var link := NavigationLink3D.new()
+    link.name = "StairsLink"
+    link.bidirectional = true
+    link.start_position = Vector3(ends[0][0], ends[0][1], ends[0][2])
+    link.end_position = Vector3(ends[1][0], ends[1][1], ends[1][2])
+    node.add_child(link)
+    _own(link, node)
 
 
 ## Keep generated nodes when the importer saves the scene.

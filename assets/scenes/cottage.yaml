@@ -5,6 +5,7 @@ name: cottage
 
 params:
   hub_portal: { default: 1 }   # the portal back to the hub (0 where the cottage is part of something bigger)
+  gallery: { default: 1 }      # the people gallery on the front lawn (0 for a plain cottage)
 
 slots:
   lawn: { position: [0, 0, 8.0], facing: north }
@@ -87,6 +88,7 @@ place:
   # A gallery of humanoid variants on the front lawn (scenes/people_gallery.yaml),
   # behind the paths the runtime tests walk up to the door (spawns at z = 6.4).
   gallery:
+    when: "{gallery}"
     scene: scenes/people_gallery.yaml
     slot: lawn
 

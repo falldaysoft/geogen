@@ -103,3 +103,31 @@ def test_main_street_traffic_and_pedestrians_keep_moving(run_godot, main_street_
     assert traffic["overlaps"] == 0 and not traffic["stuck"], traffic
     walkers = _json_line(out, "npc summary: ")
     assert len(walkers) == 10 and sum(w["decisions"] for w in walkers) >= 15
+
+
+@pytest.fixture(scope="module")
+def island_dir(tmp_path_factory, built_scene):
+    out = tmp_path_factory.mktemp("generated")
+    export_scene(built_scene("island"), out / "island.glb")
+    return out
+
+
+def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, island_dir):
+    out = run_godot("--scene=island", f"--generated={island_dir}", "--playtest=1", engine_args=("--fixed-fps", "60"))
+    result = _json_line(out, "playtest: ")
+    assert result["ok"] and not result["unreachable_targets"], result
+    # In legs: one query across the whole island hits Godot's path search limit on a 5 cm navmesh.
+    legs = [((0, 2.8, -64), (35.8, 4.3, 7)),            # the jetty's far end -> the lighthouse door
+            ((35.8, 4.3, 7), (42.3, 14.35, 7)),          # -> up the spiral stair, round the gallery
+            ((0, 2.8, -64), (-28, 7.9, -12.5))]          # the jetty -> the west cottage's door
+    for a, b in legs:
+        out = run_godot("--scene=island", f"--generated={island_dir}", "--nav=%s:%s" % (
+            ",".join(map(str, a)), ",".join(map(str, b))))
+        path = _json_line(out, "nav path: ")
+        assert path["reached"] and path["end_gap"] < 0.3, (a, b, path)
+
+
+def test_island_residents_go_about_their_day(run_godot, island_dir):
+    out = run_godot("--scene=island", f"--generated={island_dir}", "--timescale=8", "--simulate=180")
+    npcs = _json_line(out, "npc summary: ")
+    assert len(npcs) == 2 and all(n["used"] and not n["failures"] for n in npcs), npcs

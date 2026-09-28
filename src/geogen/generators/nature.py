@@ -4,7 +4,9 @@
 scattered in a crown volume (Runions et al., "space colonisation"):
 
 - ``style: deciduous`` fills an ellipsoid crown above a clear trunk;
-  ``conifer`` a cone around a tall leader;
+  ``conifer`` a cone around a tall leader; ``palm`` skips the skeleton: a
+  curved, leaning trunk with a crown of arched, V-folded fronds (``fronds``,
+  reaching ``width / 2``) and a few coconuts;
 - branch radii follow the pipe model (``r^2.5`` of a parent = the sum of its
   children's), so limbs taper naturally from ``trunk_radius``;
 - every branch chain is swept into a capped tube (bark mesh, metric UVs:
@@ -37,7 +39,7 @@ class TreeGenerator(MeshGenerator):
     width: float = 4.0
     height: float = 5.0
     depth: float = 4.0
-    style: str = "deciduous"          # deciduous | conifer
+    style: str = "deciduous"          # deciduous | conifer | palm
     seed: int = 0
     trunk_height: float = 0.35        # clear trunk, fraction of height (deciduous)
     trunk_radius: float = 0.16
@@ -45,7 +47,8 @@ class TreeGenerator(MeshGenerator):
     step: float = 0.35                # branch segment length (m)
     leaf_size: float = 0.55           # leaf cluster radius (m)
     segments: int = 7                 # sides of branch tubes
-    foliage_material: str = ""            # default: foliage_green (deciduous) / foliage_pine (conifer)
+    foliage_material: str = ""            # default: foliage_green / foliage_pine / foliage_palm
+    fronds: int = 11                  # palm: fronds in the crown
 
     # --- skeleton -----------------------------------------------------------------------------
 
@@ -259,6 +262,8 @@ class TreeGenerator(MeshGenerator):
     def to_node(self, name: str | None = None) -> SceneNode:
         from ..materials.loader import MaterialLoader
 
+        if self.style == "palm":
+            return self._palm(name)
         trunk, branches, nodes, parents, radii = self._bark()
         # Centre on the trunk base (the skeleton grows from the origin): the part frame
         # puts the bounding box's centre at the origin, so shift down by half the height.
@@ -280,6 +285,98 @@ class TreeGenerator(MeshGenerator):
             leaves.meta["collider"] = "none"
             node.add_child(leaves)
         return node
+
+    # --- palms -------------------------------------------------------------------------------
+
+    def _palm(self, name: str | None) -> SceneNode:
+        from ..core import meshops, uvmap
+        from ..materials.loader import MaterialLoader
+        from .primitives import SphereGenerator
+
+        rng = np.random.default_rng(self.seed)
+        reach = min(self.width, self.depth) / 2
+        crown_y = self.height - reach * 0.25          # fronds arch up a little, then droop
+        # Trunk: a quadratic curve leaning away from the base, tapering, with a swollen foot.
+        lean_dir = rng.uniform(0, 2 * np.pi)
+        lean = np.array([np.sin(lean_dir), 0.0, np.cos(lean_dir)]) * crown_y * rng.uniform(0.08, 0.16)
+        t = np.linspace(0.0, 1.0, 12)
+        pts = np.outer(t ** 2, lean) + np.outer(t, [0.0, crown_y, 0.0])
+        radii = self.trunk_radius * (1.0 - 0.3 * t + 0.35 * np.exp(-t * 18))
+        trunk = meshops.compute_normals(self._tube(pts, radii, max(self.segments, 9)), 60.0)
+        top = pts[-1]
+        tangent = pts[-1] - pts[-2]
+        tangent /= np.linalg.norm(tangent)
+
+        fronds = []
+        for k in range(self.fronds):
+            azimuth = 2 * np.pi * k / self.fronds + rng.uniform(-0.2, 0.2)
+            rise = np.radians(rng.uniform(15, 55))         # start angle above horizontal
+            droop = np.radians(rng.uniform(80, 120))       # how far the frond bends down
+            length = reach * rng.uniform(0.85, 1.1) / max(np.cos(rise * 0.3), 0.5)
+            fronds.append(self._frond(top + tangent * 0.05, azimuth, rise, droop, length,
+                                      width=length * 0.2))
+        leaves = meshops.compute_normals(uvmap.box_project(Mesh.merge(fronds)), 50.0)
+        nut = SphereGenerator(radius=self.trunk_radius * 0.55, segments=10, rings=6).generate()
+        nuts = []
+        for k in range(3):
+            a = lean_dir + 2 * np.pi * k / 3 + rng.uniform(-0.3, 0.3)
+            m = np.eye(4)
+            m[:3, 3] = top + np.array([np.sin(a), 0.0, np.cos(a)]) * self.trunk_radius * 0.9 \
+                - np.array([0.0, self.trunk_radius * 0.9, 0.0])
+            nuts.append(nut.transform(m))
+
+        shift = np.eye(4)
+        shift[1, 3] = -self.height / 2 - 0.02
+        loader = MaterialLoader()
+        node = SceneNode(name=name or "tree", mesh=trunk.transform(shift), tags=["vegetation.trunk"])
+        node.meta["tree"] = {"style": "palm", "seed": self.seed, "fronds": self.fronds}
+        node.meta["collider"] = "hull"
+        crown = Mesh.merge([leaves, meshops.compute_normals(uvmap.box_project(Mesh.merge(nuts)), 60.0)])
+        crown.materials = [loader.load(self.foliage_material or "foliage_palm"), loader.load("bark")]
+        crown.face_materials = np.r_[np.zeros(len(leaves.faces), dtype=np.int64),
+                                     np.ones(len(crown.faces) - len(leaves.faces), dtype=np.int64)]
+        foliage = SceneNode(name="foliage", mesh=crown.transform(shift), tags=["vegetation.foliage"])
+        foliage.meta["collider"] = "none"
+        node.add_child(foliage)
+        return node
+
+    @staticmethod
+    def _frond(start: np.ndarray, azimuth: float, rise: float, droop: float, length: float,
+               width: float, stations: int = 12) -> Mesh:
+        """An arched palm frond: a strip with a V-fold (chevron cross-section), widest a third
+        of the way out and pointed at the tip, bending from ``rise`` above horizontal to
+        ``rise - droop``. A closed 4-sided tube, so it validates."""
+        out = np.array([np.sin(azimuth), 0.0, np.cos(azimuth)])
+        side = np.array([np.cos(azimuth), 0.0, -np.sin(azimuth)])
+        s = np.linspace(0.0, 1.0, stations)
+        angle = rise - droop * s ** 1.6
+        dirs = np.cos(angle)[:, None] * out + np.sin(angle)[:, None] * np.array([0.0, 1.0, 0.0])
+        step = length / (stations - 1)
+        pts = start + np.vstack([np.zeros(3), np.cumsum(dirs[:-1] * step, axis=0)])
+        widths = width * np.maximum(np.sin(np.pi * np.clip(s, 0, 1) ** 0.65), 0.02)
+        rings = []
+        for p, d, w in zip(pts, dirs, widths):
+            up = np.cross(side, d)
+            up /= np.linalg.norm(up)
+            if up[1] < 0:
+                up = -up
+            fold, thick = 0.3 * w, 0.01
+            rings.append([p + side * w - up * fold, p + up * thick, p - side * w - up * fold, p - up * thick])
+        verts = np.array(rings).reshape(-1, 3)
+        faces = []
+        n = len(rings)
+        for i in range(n - 1):
+            for j in range(4):
+                a, b = i * 4 + j, i * 4 + (j + 1) % 4
+                c, d_ = a + 4, b + 4
+                faces += [[a, c, b], [b, c, d_]]
+        faces += [[0, 1, 2], [0, 2, 3]]
+        last = (n - 1) * 4
+        faces += [[last, last + 2, last + 1], [last, last + 3, last + 2]]
+        mesh = Mesh(verts, np.array(faces, dtype=np.int64))
+        if mesh.to_trimesh().volume < 0:          # wound inside out: flip every face
+            mesh = Mesh(verts, mesh.faces[:, [0, 2, 1]])
+        return mesh
 
     def get_attachment_points(self, size: np.ndarray):
         from .primitives import CubeGenerator

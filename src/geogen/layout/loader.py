@@ -261,7 +261,7 @@ class LayoutLoader:
             root.add_child(room_node)
 
         # `when: "{expr}"` drops a part (and parts attached to it) when it resolves to 0 / false.
-        parts = _enabled_parts(data.get("parts", {}))
+        parts = _expand_arrays(_enabled_parts(data.get("parts", {})))
 
         # First pass: create all parts and track which have attachments
         part_nodes: dict[str, SceneNode] = {}
@@ -296,8 +296,15 @@ class LayoutLoader:
             if primitive_type == "terrain":
                 node.meta["terrain"] = generator.params()
                 part_def.setdefault("walkable", True)
-                slots = {"sand": "sand", "grass": "grass", "rock": "rock", **(part_def.get("materials") or {})}
+                slots = {"sand": "sand", "grass": "grass", "rock": "rock", "path": "gravel",
+                         **(part_def.get("materials") or {})}
                 node.mesh.materials = [self._material_loader.load(slots[k]) for k in TERRAIN_SLOTS]
+                ribbons = generator.path_mesh()
+                if ribbons is not None:
+                    ribbons.material = self._material_loader.load(slots["path"])
+                    path_node = SceneNode("paths", mesh=ribbons, tags=["terrain.path"])
+                    path_node.meta["collider"] = "none"      # you walk on the terrain beneath
+                    node.add_child(path_node)
                 if part_def.get("shore"):
                     from ..generators.terrain import add_shore
 
@@ -735,7 +742,7 @@ class LayoutLoader:
                 depth=float(config.get("depth", 4.0)), seed=int(config.get("seed", 0)),
                 scale=float(config.get("scale", 40.0)), octaves=int(config.get("octaves", 4)),
                 falloff=dict(config.get("falloff") or {}), pads=list(config.get("pads") or []),
-                island=bool(config.get("island", True)))
+                island=bool(config.get("island", True)), paths=list(config.get("paths") or []))
         elif primitive_type == "fence":
             config = extra_config or {}
             keys = {"height": float, "post": float, "post_spacing": float, "picket": float, "spacing": float,
@@ -784,7 +791,8 @@ class LayoutLoader:
             seed = int(round(float(config.get("seed", 0))))
             if primitive_type == "tree":
                 keys = {"style": str, "trunk_height": float, "trunk_radius": float, "attractors": int,
-                        "step": float, "leaf_size": float, "segments": int, "foliage_material": str}
+                        "step": float, "leaf_size": float, "segments": int, "foliage_material": str,
+                        "fronds": int}
                 args = {k: cast(config[k]) for k, cast in keys.items() if k in config}
                 return TreeGenerator(width=size[0], height=size[1], depth=size[2], seed=seed, **args)
             keys = {"points": int, "levels": int, "roughness": float}
@@ -1131,6 +1139,38 @@ def _seat_depth(root: SceneNode, position: np.ndarray, yaw_deg: float) -> float 
             z = float((v[near] @ fwd).max())
             best = z if best is None else max(best, z)
     return best
+
+
+def _expand_arrays(parts: dict[str, Any]) -> dict[str, Any]:
+    """``array: {count, step: [x, y, z]}`` repeats a part as ``<part>_0 .. <part>_<n-1>``,
+    each ``step`` further along (the units of ``offset``: metres in a unit container).
+    ``count`` may be an expression (rounded; 0 drops the part). Other parts can't attach to
+    an arrayed part; a ``subtract:`` naming an arrayed cutter takes all its copies."""
+    out: dict[str, Any] = {}
+    for name, part in parts.items():
+        spec = part.get("array")
+        if spec is None:
+            out[name] = part
+            continue
+        unknown = set(spec) - {"count", "step"}
+        if unknown:
+            raise ValueError(f"Part '{name}' array: unknown keys {sorted(unknown)} (count, step)")
+        if any(p.get("attach_to") == name for p in parts.values()):
+            raise ValueError(f"Part '{name}' is arrayed: other parts can't attach_to it")
+        count = int(round(float(spec.get("count", 1))))
+        step = np.array(spec.get("step", [0, 0, 0]), dtype=np.float64)
+        base = np.array(part.get("offset", [0, 0, 0]), dtype=np.float64)
+        for i in range(max(count, 0)):
+            copy = {k: v for k, v in part.items() if k != "array"}
+            copy["offset"] = (base + step * i).tolist()
+            out[f"{name}_{i}"] = copy
+    # A subtract list naming an arrayed cutter means all of its copies.
+    copies = {name: [f"{name}_{i}" for i in range(max(int(round(float(p["array"].get("count", 1)))), 0))]
+              for name, p in parts.items() if p.get("array") is not None}
+    for part in out.values():
+        if copies and part.get("subtract"):
+            part["subtract"] = [c for s_ in part["subtract"] for c in copies.get(s_, [s_])]
+    return out
 
 
 def _enabled_parts(parts: dict[str, Any]) -> dict[str, Any]:

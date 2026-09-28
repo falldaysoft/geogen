@@ -1,0 +1,16 @@
+# Palm fronds: a lighter, yellower green than broadleaf foliage
+name: foliage_palm
+texture:
+  type: painted_wall
+  params:
+    base_color: [88, 138, 52]
+    sheen: 0.1
+    seed: 17
+size: [512, 512]
+tile_size: 1.0  # metres per texture repeat
+shininess: 0.05
+pbr:
+  roughness: 0.95
+  metallic: 0.0
+  normal_strength: 0.2
+  ao_strength: 1.0

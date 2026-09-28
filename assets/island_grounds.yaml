@@ -1,0 +1,52 @@
+# The island showcase's ground (scenes/island.yaml): terrain rising from sandy
+# beaches to a wooded hill, levelled pads for the jetty, the hub portal, two
+# cottages and the lighthouse, gravel paths between them, the sea all round,
+# and an invisible wall where the water gets half a metre deep (with a gap
+# where the jetty runs out over it). Positions are in the scene frame.
+# See assets/island_terrain.yaml for a generic island.
+
+name: island_grounds
+tags: [terrain.island]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  sea_level: { default: 2.0 }
+
+parts:
+  ground:
+    primitive: terrain
+    extent: [170, 170]
+    resolution: 1.0
+    height: 15
+    sea_level: "{sea_level}"
+    depth: "{sea_level - 0.1}"   # the sea bed stays just above the runtime's ground plane
+    seed: 3
+    scale: 36
+    octaves: 4
+    falloff: { radius: 0.27, edge: 0.12, power: 1.3 }
+    pads:
+      - { center: [0, -47.5], radius: 3.5, blend: 5, height: 2.66 }   # jetty root (deck 4 cm above)
+      - { center: [6.5, -44.5], radius: 2.5, blend: 4 }               # hub portal
+      - { center: [-28, -8], radius: 6.5, blend: 11 }                  # cottage A
+      - { center: [15, -24], radius: 6.5, blend: 11 }                  # cottage B
+      - { center: [39.5, 7], radius: 4.2, blend: 8 }                  # lighthouse
+    paths:
+      - { points: { spline: [[0, -46], [3, -40], [8, -34], [14, -30]] }, width: 2.2 }          # jetty -> cottage B
+      - { points: { spline: [[3, -40], [-8, -30], [-20, -20], [-28, -13]] }, width: 2.0 }      # -> cottage A
+      - { points: { spline: [[14, -30], [24, -22], [31, -10], [35, 7]] }, width: 2.0 }         # -> lighthouse
+    materials: { sand: sand, grass: grass, rock: rock, path: gravel }
+    shore: { depth: 0.5, height: 1.5, openings: [[0, -55, 1.6]] }   # just the jetty's width
+    collider: mesh
+    walkable: true
+
+  sea:
+    primitive: water
+    shape: { rect: [420, 420] }
+    size: [420, 0.02, 420]
+    anchor: bottom_center
+    offset: [0, "{sea_level - 0.02}", 0]
+    depth_scale: 2.5
+    wave_scale: 3.0
+    foam: 0.3

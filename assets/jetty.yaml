@@ -1,0 +1,142 @@
+# A timber jetty on piles: a plank deck on stringers and cross bearers, piles
+# driven `pile_depth` below the deck that rise above it as the railing posts,
+# a top and a mid rail on both sides, and a landing at the far end where the
+# left rail stops for boats (a ladder down, a mooring bollard).
+# Origin: the middle of the shore end, at deck-top level; the jetty runs out
+# along +Z. Place it with y = the deck height.
+
+name: jetty
+tags: [structure.jetty]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length:     { default: 18 }
+  width:      { default: 2.4 }
+  pile_depth: { default: 3.5 }    # piles reach this far below the deck top
+  landing:    { default: 4 }      # open length on the left at the far end
+
+derived:
+  bays: "{max(2, round(length / 3))}"     # pile bays along the jetty
+  bay: "{(length - 0.4) / bays}"
+  post_x: "{width / 2 + 0.12}"
+
+parts:
+  deck:
+    primitive: cube
+    size: ["{width}", 0.1, "{length}"]
+    anchor: bottom_center
+    offset: [0, -0.1, "{length / 2}"]
+    bevel: 0
+    material: hardwood_floor
+    walkable: true
+    collider: box
+
+  stringer_left:
+    primitive: cube
+    size: [0.14, 0.22, "{length}"]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - 0.25)}", -0.32, "{length / 2}"]
+    bevel: 0.01
+    material: wood
+  stringer_right:
+    primitive: cube
+    size: [0.14, 0.22, "{length}"]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.25}", -0.32, "{length / 2}"]
+    bevel: 0.01
+    material: wood
+
+  bearer:
+    primitive: cube
+    size: ["{width + 0.5}", 0.2, 0.18]
+    anchor: bottom_center
+    offset: [0, -0.52, 0.2]
+    bevel: 0.01
+    material: wood
+    array: { count: "{bays + 1}", step: [0, 0, "{bay}"] }
+
+  # Piles double as the railing posts.
+  pile_left:
+    primitive: cylinder
+    size: [0.24, "{pile_depth + 1.0}", 0.24]
+    anchor: bottom_center
+    offset: ["{-post_x}", "{-pile_depth}", 0.2]
+    material: wood
+    array: { count: "{bays + 1}", step: [0, 0, "{bay}"] }
+  pile_right:
+    primitive: cylinder
+    size: [0.24, "{pile_depth + 1.0}", 0.24]
+    anchor: bottom_center
+    offset: ["{post_x}", "{-pile_depth}", 0.2]
+    material: wood
+    array: { count: "{bays + 1}", step: [0, 0, "{bay}"] }
+
+  rail_right:
+    primitive: cube
+    size: [0.08, 0.09, "{length - 0.2}"]
+    anchor: bottom_center
+    offset: ["{post_x}", 0.9, "{length / 2 + 0.1}"]
+    bevel: 0.01
+    material: wood
+  midrail_right:
+    primitive: cube
+    size: [0.06, 0.07, "{length - 0.2}"]
+    anchor: bottom_center
+    offset: ["{post_x}", 0.45, "{length / 2 + 0.1}"]
+    bevel: 0.01
+    material: wood
+  rail_left:
+    primitive: cube
+    size: [0.08, 0.09, "{length - landing - 0.2}"]
+    anchor: bottom_center
+    offset: ["{-post_x}", 0.9, "{(length - landing) / 2 + 0.1}"]
+    bevel: 0.01
+    material: wood
+  midrail_left:
+    primitive: cube
+    size: [0.06, 0.07, "{length - landing - 0.2}"]
+    anchor: bottom_center
+    offset: ["{-post_x}", 0.45, "{(length - landing) / 2 + 0.1}"]
+    bevel: 0.01
+    material: wood
+  end_rail:
+    primitive: cube
+    size: ["{width + 0.24}", 0.09, 0.08]
+    anchor: bottom_center
+    offset: [0, 0.9, "{length - 0.04}"]
+    bevel: 0.01
+    material: wood
+
+  # Landing: a ladder down the left side and a bollard to tie up to.
+  ladder_rail_a:
+    primitive: cube
+    size: [0.05, "{pile_depth - 0.6}", 0.05]
+    anchor: bottom_center
+    offset: ["{-(width / 2 + 0.05)}", "{-(pile_depth - 0.6)}", "{length - landing / 2 - 0.25}"]
+    bevel: 0
+    material: wood
+  ladder_rail_b:
+    primitive: cube
+    size: [0.05, "{pile_depth - 0.6}", 0.05]
+    anchor: bottom_center
+    offset: ["{-(width / 2 + 0.05)}", "{-(pile_depth - 0.6)}", "{length - landing / 2 + 0.25}"]
+    bevel: 0
+    material: wood
+  ladder_rung:
+    primitive: cylinder
+    size: [0.04, 0.5, 0.04]
+    anchor: bottom_center              # y: rung centre (-0.35) minus the unrotated half length
+    offset: ["{-(width / 2 + 0.05)}", -0.6, "{length - landing / 2}"]
+    rotation: [90, 0, 0]
+    material: wood
+    array: { count: "{floor((pile_depth - 0.9) / 0.3) + 1}", step: [0, -0.3, 0] }
+  bollard:
+    primitive: lathe
+    profile: [[0, 0], [0.12, 0], [0.12, 0.05], [0.08, 0.1], [0.07, 0.3], [0.12, 0.36], [0.12, 0.42], [0, 0.44]]
+    fit: none
+    size: [0.24, 0.44, 0.24]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - 0.3)}", 0, "{length - 0.6}"]
+    material: lamp_iron

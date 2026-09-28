@@ -1,0 +1,108 @@
+# A small clinker-style rowing boat: a painted hull (a half ellipsoid, hollowed),
+# a wooden rubbing strake, two thwarts and a stern bench, and a pair of oars
+# shipped along the seats. Origin: the middle of the boat on the waterline
+# (the hull draws `draft` below it); the bow points along +Z.
+
+name: rowing_boat
+tags: [vehicle.boat, decor.boat]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: { default: 3.4 }
+  beam:   { default: 1.3 }
+  draft:  { default: 0.2 }       # hull below the waterline
+  freeboard: { default: 0.4 }    # hull above it
+  hull_color: { default: paint_navy, type: text }
+
+derived:
+  depth: "{draft + freeboard}"
+
+parts:
+  hull:
+    primitive: ellipsoid
+    size: ["{beam}", "{2 * depth}", "{length}"]
+    anchor: bottom_center              # centred on the gunwale plane (y = freeboard)
+    offset: [0, "{freeboard - depth}", 0]
+    material: "{hull_color}"
+    subtract: [hull_top, hull_hollow]
+    collider: hull
+  hull_top:
+    primitive: cube
+    size: ["{beam + 0.2}", "{depth + 0.2}", "{length + 0.2}"]
+    anchor: bottom_center
+    offset: [0, "{freeboard}", 0]
+    bevel: 0
+    cutter: true
+  hull_hollow:
+    primitive: ellipsoid
+    size: ["{beam - 0.08}", "{2 * depth - 0.1}", "{length - 0.1}"]
+    anchor: bottom_center
+    offset: [0, "{freeboard + 0.02 - (depth - 0.05)}", 0]
+    cutter: true
+
+  # Seats across the hull (their ends sit in the hull sides).
+  thwart_fore:
+    primitive: cube
+    size: ["{beam * 0.86}", 0.04, 0.24]
+    anchor: bottom_center
+    offset: [0, "{freeboard - 0.14}", "{length * 0.14}"]
+    bevel: 0.008
+    material: wood
+  thwart_aft:
+    primitive: cube
+    size: ["{beam * 0.84}", 0.04, 0.24]
+    anchor: bottom_center
+    offset: [0, "{freeboard - 0.14}", "{-length * 0.14}"]
+    bevel: 0.008
+    material: wood
+  stern_bench:
+    primitive: cube
+    size: ["{beam * 0.62}", 0.04, 0.34]
+    anchor: bottom_center
+    offset: [0, "{freeboard - 0.14}", "{-length * 0.36}"]
+    bevel: 0.008
+    material: wood
+  floorboards:
+    primitive: cube
+    size: ["{beam * 0.28}", 0.03, "{length * 0.45}"]
+    anchor: bottom_center
+    offset: [0, "{-draft + 0.1}", 0]
+    bevel: 0.005
+    material: wood
+    collider: none
+
+  # Oars resting on the thwarts, blades toward the bow.
+  oar_left:
+    primitive: cylinder
+    size: [0.045, "{length * 0.72}", 0.045]
+    anchor: bottom_center              # y: centre minus the unrotated half length
+    offset: ["{beam * 0.24}", "{freeboard - 0.07 - length * 0.36}", 0.05]
+    rotation: [90, 0, 0]
+    material: wood
+    collider: none
+  blade_left:
+    primitive: cube
+    size: [0.14, 0.018, 0.5]
+    anchor: bottom_center
+    offset: ["{beam * 0.24}", "{freeboard - 0.084}", "{0.05 + length * 0.36 - 0.35}"]
+    bevel: 0.006
+    material: wood
+    collider: none
+  oar_right:
+    primitive: cylinder
+    size: [0.045, "{length * 0.72}", 0.045]
+    anchor: bottom_center
+    offset: ["{-beam * 0.24}", "{freeboard - 0.07 - length * 0.36}", 0.05]
+    rotation: [90, 0, 0]
+    material: wood
+    collider: none
+  blade_right:
+    primitive: cube
+    size: [0.14, 0.018, 0.5]
+    anchor: bottom_center
+    offset: ["{-beam * 0.24}", "{freeboard - 0.084}", "{0.05 + length * 0.36 - 0.35}"]
+    bevel: 0.006
+    material: wood
+    collider: none

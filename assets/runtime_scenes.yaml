@@ -33,6 +33,9 @@ scenes:
   park:
     group: showcase
     description: A railed park - paths round a fountain pond, playground, bandstand, picnic tables, visitors
+  island:
+    group: showcase
+    description: An island in the sea - beaches and palms, a jetty and boat, cottages on the hill, a lighthouse to climb
   town:
     group: showcase
     stream: true

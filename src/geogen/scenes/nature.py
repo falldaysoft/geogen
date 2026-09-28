@@ -30,7 +30,7 @@ def create_nature_scene() -> SceneNode:
     material_loader = MaterialLoader()
     try:
         grass_material = material_loader.load("grass")
-        terrain_mesh.materials = [grass_material] * 3     # sand / grass / rock slots, all grass here
+        terrain_mesh.materials = [grass_material] * 4     # sand / grass / rock / path slots, all grass here
     except FileNotFoundError:
         warnings.warn("Grass material not found for terrain", stacklevel=2)
 

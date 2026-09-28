@@ -163,7 +163,8 @@ class LatheGenerator(MeshGenerator):
         profile: (N, 2) array of (r, y) points in metres
         segments: Number of steps around the axis
         sweep: Revolution angle in degrees (360 = closed)
-        cap_bottom / cap_top: Close open profile ends with a flat disc
+        cap_bottom / cap_top: Close open profile ends with a flat disc (never for a closed
+            profile, one whose last point repeats its first: rings, bands and drums)
         crease_angle: Profile corners sharper than this shade hard
     """
 
@@ -181,6 +182,7 @@ class LatheGenerator(MeshGenerator):
         prof = dedupe(np.asarray(self.profile, dtype=np.float64), closed=False)
         prof[:, 0] = np.maximum(prof[:, 0], 0.0)
         full = abs(self.sweep - 360.0) < 1e-6
+        loop = len(prof) >= 4 and np.allclose(prof[0], prof[-1])   # a closed cross-section
         n_seg = max(3, int(self.segments))
         theta = np.radians(np.linspace(0.0, self.sweep, n_seg + 1))  # seam duplicated for UVs
 
@@ -205,7 +207,7 @@ class LatheGenerator(MeshGenerator):
         count = len(verts)
         for idx, is_top in ((0, False), (len(r) - 1, True)):
             want = self.cap_top if is_top else self.cap_bottom
-            if not want or r[idx] < 1e-9 or not full:
+            if not want or r[idx] < 1e-9 or not full or loop:
                 continue
             ring = np.column_stack([r[idx] * sin_t[:-1], np.full(n_seg, y[idx]), r[idx] * cos_t[:-1]])
             center = np.array([[0.0, y[idx], 0.0]])

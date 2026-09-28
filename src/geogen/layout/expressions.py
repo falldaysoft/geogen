@@ -11,7 +11,7 @@ Supported syntax:
 - Parentheses: `(a + b) * c`
 - Unit-suffixed literals: `50cm`, `2m`, `1.5mm` (meters-normalised)
 - Percent literals: `20%` → 0.2
-- A few functions: `sind(deg)`, `cosd(deg)`, `min(a, b, ...)`, `max(...)`, `abs(x)`
+- A few functions: `sind(deg)`, `cosd(deg)`, `min(a, b, ...)`, `max(...)`, `abs(x)`, `round`, `floor`, `ceil`
   (e.g. placing a signpost's arms around its post)
 
 Not supported (by design): other function calls, attribute access, comparison,
@@ -45,6 +45,9 @@ _FUNCTIONS = {
     "min": min,
     "max": max,
     "abs": abs,
+    "round": lambda x: math.floor(x + 0.5),
+    "floor": math.floor,
+    "ceil": math.ceil,
 }
 
 

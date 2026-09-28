@@ -33,12 +33,14 @@ PART_KNOWN_KEYS = {
     # subdivision / displacement
     "subdivide", "displace",
     # tree / rock
-    "seed", "trunk_height", "trunk_radius", "attractors", "step", "leaf_size", "foliage_material",
+    "seed", "trunk_height", "trunk_radius", "attractors", "step", "leaf_size", "foliage_material", "fronds",
     "points", "levels", "roughness", "crease",
     # text
     "text", "font", "height", "depth", "align", "line_spacing", "tracking",
     # paths / fence
     "paths", "post", "post_spacing", "picket", "spacing", "gaps",
+    # repeated parts
+    "array",
     # terrain
     "extent", "resolution", "sea_level", "scale", "octaves", "falloff", "pads", "island", "materials", "shore",
     # water

@@ -9,7 +9,7 @@ spawns:
 
 place:
   island:
-    asset: island.yaml
+    asset: island_terrain.yaml
     params: { extent: 120, seed: 5 }
 
   trees:

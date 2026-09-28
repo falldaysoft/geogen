@@ -18,7 +18,9 @@ def test_terrain_is_a_closed_solid_with_material_groups():
     report = meshops.validate(mesh)
     assert report.issues == [], report
     assert mesh.to_trimesh().volume > 0                       # outward winding
-    assert set(np.unique(mesh.face_materials)) == {SAND, GRASS, ROCK}
+    assert {SAND, GRASS} <= set(np.unique(mesh.face_materials))
+    steep = TerrainGenerator(**{**ISLAND, "height": 40, "scale": 14}).generate()
+    assert ROCK in set(np.unique(steep.face_materials))           # steep ground turns to rock
     assert mesh.uvs is not None
 
 
@@ -50,7 +52,7 @@ def terrain_scene(built_scene):
 def test_island_asset_has_terrain_meta_shore_and_materials(terrain_scene):
     ground = next(n for n in terrain_scene.iter_nodes() if "terrain" in n.meta)
     assert ground.meta.get("walkable")
-    assert [m.name for m in ground.mesh.materials] == ["sand", "grass", "rock"]
+    assert [m.name for m in ground.mesh.materials] == ["sand", "grass", "rock", "gravel"]
     assert any(c.name.startswith("shore_barrier") for c in ground.children)
 
 
@@ -85,3 +87,19 @@ def test_navmesh_covers_the_island(run_godot, terrain_dir):
         path = json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
         assert path["reached"] and path["end_gap"] < 0.5, path
         assert abs(path["points"][0][1] - y) < 0.5, path   # started on the island, not the sea bed
+
+
+def test_island_grounds_paths_and_jetty_gap(built_scene):
+    grounds = next(n for n in built_scene("island").iter_nodes() if "terrain" in n.meta)
+    paths = next(c for c in grounds.children if c.name == "paths")
+    assert paths.mesh.material.name == "gravel" and meshops.validate(paths.mesh).issues == []
+    t = terrain_from_meta(grounds.meta["terrain"])
+    v = paths.world_mesh().vertices
+    top = v[v[:, 1] > t.height_at(v[:, 0], v[:, 2]) + 0.02]
+    assert len(top) > len(v) / 3                          # draped just above the ground
+    wall = next(c for c in grounds.children if c.name.startswith("shore_barrier"))
+    w = wall.world_mesh().vertices
+    assert not np.any(np.hypot(w[:, 0], w[:, 2] + 55) < 0.9)     # the jetty crosses the shore here
+    trees = [n for n in built_scene("island").children if n.meta.get("scatter", {}).get("group") in ("palms", "pines")]
+    xz = np.array([n.transform.translation[[0, 2]] for n in trees])
+    assert not t.on_path(xz).any()                        # scatter keeps off the paths

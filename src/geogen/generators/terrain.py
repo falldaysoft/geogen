@@ -6,7 +6,9 @@ rises from the sea floor (``sea_level - depth``) through the beach to a
 buildings level ground. The mesh is a closed solid (the heightfield on top,
 vertical skirts round the edge, a flat bottom), so it validates; faces are
 grouped by material: ``sand`` near the water line, ``rock`` where it's
-steep, ``grass`` elsewhere. UVs are metric (box-projected). Like ``paths``,
+steep, ``grass`` elsewhere, and ``path`` along ``paths`` (faces within half
+the width of the polylines, so a path follows the ground). UVs are metric
+(box-projected). Like ``paths``,
 the part keeps the asset frame: (0, 0) is the middle of the terrain and y is
 absolute.
 
@@ -24,8 +26,9 @@ YAML::
       octaves: 4
       falloff: { radius: 0.42, edge: 0.18, power: 1.6 }   # fractions of the smaller side
       pads: [{ center: [20, -10], radius: 6, blend: 5 }]  # level ground (height: taken at the centre)
-      materials: { sand: sand, grass: grass, rock: rock }
-      shore: { depth: 0.5, height: 1.5 }   # invisible wall where the water gets this deep
+      materials: { sand: sand, grass: grass, rock: rock, path: gravel }
+      paths: [{ points: [[0, -50], [10, -20], [0, 0]], width: 2.2 }]   # or points: {spline: [...]}
+      shore: { depth: 0.5, height: 1.5, openings: [[4, -60, 3]] }   # invisible wall; gaps [x, z, r]
       walkable: true
 
 ``meta.terrain`` keeps these parameters, so scatter (``on_terrain:``) can
@@ -52,8 +55,8 @@ if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
     from ..layout.surfaces import Surface
 
-SAND, GRASS, ROCK = 0, 1, 2
-MATERIAL_SLOTS = ("sand", "grass", "rock")
+SAND, GRASS, ROCK, PATH = 0, 1, 2, 3
+MATERIAL_SLOTS = ("sand", "grass", "rock", "path")
 SAND_ABOVE_SEA = 1.2        # m: faces this close above the water line are beach
 ROCK_SLOPE = 32.0           # degrees: steeper faces are bare rock
 
@@ -73,6 +76,7 @@ class TerrainGenerator(MeshGenerator):
     falloff: dict[str, float] = field(default_factory=dict)
     pads: list[dict[str, Any]] = field(default_factory=list)
     island: bool = True
+    paths: list[dict[str, Any]] = field(default_factory=list)
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
         return CubeGenerator().get_attachment_points(size)
@@ -85,7 +89,7 @@ class TerrainGenerator(MeshGenerator):
         return {"size": [float(v) for v in self.size], "resolution": self.resolution, "height": self.height,
                 "sea_level": self.sea_level, "depth": self.depth, "seed": self.seed, "scale": self.scale,
                 "octaves": self.octaves, "falloff": dict(self.falloff), "pads": [dict(p) for p in self.pads],
-                "island": self.island}
+                "island": self.island, "paths": [dict(p) for p in self.paths]}
 
     # --- the height function ------------------------------------------------------------------
 
@@ -104,8 +108,10 @@ class TerrainGenerator(MeshGenerator):
         mask = np.clip(1.0 - (dist - 1.0) * radius / max(edge, 1e-6), 0.0, 1.0)
         mask = np.where(dist < 1.0, 1.0, mask)
         inland = np.clip(1.0 - np.hypot(x, z) / (radius * 1.1), 0.0, 1.0) ** power
-        hill = self.height * np.clip(0.25 + 0.75 * inland + 0.35 * (n - 0.5), 0.0, 1.2)
-        land = self.sea_level + 0.4 + hill           # the beach sits just above the water
+        # Hills rise from a beach just above the water; the noise fades out toward the shore
+        # so beaches come out smooth and gentle.
+        hill = self.height * np.clip(0.03 + 0.97 * inland + 0.35 * (n - 0.5) * np.sqrt(inland), 0.0, 1.2)
+        land = self.sea_level + 0.4 + hill
         floor = self.sea_level - self.depth
         return floor + (land - floor) * (mask * mask * (3 - 2 * mask))
 
@@ -130,6 +136,60 @@ class TerrainGenerator(MeshGenerator):
         dx = (self.height_at(x + eps, z) - self.height_at(x - eps, z)) / (2 * eps)
         dz = (self.height_at(x, z + eps) - self.height_at(x, z - eps)) / (2 * eps)
         return np.degrees(np.arctan(np.hypot(dx, dz)))
+
+    def path_mesh(self, lift: float = 0.04, thickness: float = 0.065, step: float = 0.5) -> Mesh | None:
+        """Smooth-edged ribbons along ``paths``, draped ``lift`` above the ground (each path a
+        centimetre higher than the last, so they don't z-fight where they meet). A closed
+        slab per path; the terrain's own path faces sit hidden underneath. The thickness
+        isn't a whole number of centimetres, so no underside lands on the ground level (a
+        pad's floor or a foundation's underside would z-fight with it)."""
+        from shapely.geometry import LineString
+
+        from .paths import path_points
+
+        slabs = []
+        for k, spec in enumerate(self.paths):
+            line = LineString(path_points(spec["points"]))
+            s = np.linspace(0.0, line.length, max(2, int(np.ceil(line.length / step)) + 1))
+            c = np.array([line.interpolate(v).coords[0] for v in s])
+            t = np.gradient(c, axis=0)
+            t /= np.maximum(np.linalg.norm(t, axis=1, keepdims=True), 1e-9)
+            side = np.column_stack([t[:, 1], -t[:, 0]]) * float(spec.get("width", 2.0)) / 2
+            left, right = c + side, c - side
+            up = lift + 0.01 * k
+            yl = self.height_at(left[:, 0], left[:, 1]) + up
+            yr = self.height_at(right[:, 0], right[:, 1]) + up
+            ring = np.stack([np.column_stack([left[:, 0], yl, left[:, 1]]),
+                             np.column_stack([right[:, 0], yr, right[:, 1]]),
+                             np.column_stack([right[:, 0], yr - thickness, right[:, 1]]),
+                             np.column_stack([left[:, 0], yl - thickness, left[:, 1]])], axis=1)
+            verts = ring.reshape(-1, 3)
+            faces = []
+            for i in range(len(c) - 1):
+                for j in range(4):
+                    a, b = i * 4 + j, i * 4 + (j + 1) % 4
+                    faces += [[a, b, b + 4], [a, b + 4, a + 4]]
+            last = (len(c) - 1) * 4
+            faces += [[0, 2, 1], [0, 3, 2], [last, last + 1, last + 2], [last, last + 2, last + 3]]
+            slab = Mesh(verts, np.array(faces, dtype=np.int64))
+            if slab.to_trimesh().volume < 0:
+                slab = Mesh(verts, slab.faces[:, [0, 2, 1]])
+            slabs.append(slab)
+        if not slabs:
+            return None
+        return meshops.compute_normals(uvmap.box_project(Mesh.merge(slabs)), 50.0)
+
+    def on_path(self, xz: np.ndarray, scale: float = 1.0) -> np.ndarray:
+        """Which (x, z) points lie on one of ``paths`` (within half its width, times ``scale``)."""
+        from shapely import contains_xy
+        from shapely.geometry import LineString
+        from shapely.ops import unary_union
+
+        from .paths import path_points
+
+        region = unary_union([LineString(path_points(p["points"])).buffer(float(p.get("width", 2.0)) / 2 * scale)
+                              for p in self.paths])
+        return np.asarray(contains_xy(region, xz[:, 0], xz[:, 1]), dtype=bool)
 
     def coastline(self, level: float, rays: int = 240, step: float = 0.25) -> np.ndarray:
         """The outermost contour where the ground drops below ``level``, as (N, 2) x, z points
@@ -190,9 +250,16 @@ class TerrainGenerator(MeshGenerator):
         groups = np.full(len(tri), GRASS, dtype=np.int64)
         if self.island:
             groups[cy < self.sea_level + SAND_ABOVE_SEA] = SAND
-        groups[(slope > ROCK_SLOPE) & (n[:, 1] > 0.05)] = ROCK
+        if self.paths:
+            on_path = self.on_path(tri[:, :, [0, 2]].mean(axis=1), 0.6)     # hidden under path_mesh()
+            groups[on_path & (n[:, 1] > 0.05) & (cy > self.sea_level)] = PATH
+        # Rock where the ground is steep over a few metres (per-face slope alone leaves lone
+        # square tiles of rock on the grid).
+        cxz = tri[:, :, [0, 2]].mean(axis=1)
+        broad = self.slope_at(cxz[:, 0], cxz[:, 1], eps=1.5)
+        groups[(broad > ROCK_SLOPE) & (slope > ROCK_SLOPE - 6) & (n[:, 1] > 0.05)] = ROCK
         groups[n[:, 1] <= 0.05] = SAND          # skirts and bottom (under water / out of sight)
-        mesh = Mesh(v, f, face_materials=groups, materials=[None, None, None])
+        mesh = Mesh(v, f, face_materials=groups, materials=[None] * len(MATERIAL_SLOTS))
         # Project the whole top from above (steep faces would otherwise flip axis in speckles).
         directions = np.where((n[:, 1] > 0.05)[:, None], [0.0, 1.0, 0.0], n)
         mesh = uvmap.box_project(mesh, directions=directions)
@@ -205,7 +272,8 @@ def terrain_from_meta(meta: dict[str, Any]) -> TerrainGenerator:
                             height=float(meta["height"]), sea_level=float(meta["sea_level"]),
                             depth=float(meta["depth"]), seed=int(meta["seed"]), scale=float(meta["scale"]),
                             octaves=int(meta["octaves"]), falloff=dict(meta.get("falloff") or {}),
-                            pads=list(meta.get("pads") or []), island=bool(meta.get("island", True)))
+                            pads=list(meta.get("pads") or []), island=bool(meta.get("island", True)),
+                            paths=list(meta.get("paths") or []))
 
 
 def add_shore(node, terrain: TerrainGenerator, spec: dict[str, Any]) -> None:
@@ -217,11 +285,12 @@ def add_shore(node, terrain: TerrainGenerator, spec: dict[str, Any]) -> None:
     top = terrain.sea_level + float(spec.get("height", 1.5))
     bottom = level - 0.5
     pts = terrain.coastline(level)
+    openings = [(np.array(o[:2], dtype=np.float64), float(o[2])) for o in spec.get("openings") or []]
     boxes = []
     for a, b in zip(pts, np.roll(pts, -1, axis=0)):
         d = b - a
         length = float(np.linalg.norm(d))
-        if length < 1e-4:
+        if length < 1e-4 or any(np.linalg.norm((a + b) / 2 - c) < r for c, r in openings):
             continue
         mid = (a + b) / 2
         boxes.append(_box(np.array([mid[0], (top + bottom) / 2, mid[1]]),

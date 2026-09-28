@@ -7,7 +7,8 @@ the player's step height). Handrails are swept round bars on posts, in a
 child node with their own material.
 
 Frame: the stairs climb toward -Z (the bottom step faces +Z), centred on the
-origin like other primitives; ``rise`` is the total height climbed.
+origin like other primitives (a spiral's pole is on the origin, its first step
+toward +Z); ``rise`` is the total height climbed.
 """
 
 from __future__ import annotations
@@ -84,8 +85,11 @@ class StairsGenerator(MeshGenerator):
             raise ValueError(f"stairs style must be one of {STYLES}, got {self.style!r}")
         body = {"straight": self._straight, "l": self._l_shaped, "spiral": self._spiral}[self.style]()
         lo, hi = body.vertices.min(axis=0), body.vertices.max(axis=0)
-        # Centre on the origin like other primitives; railings use the same shift.
+        # Centre on the origin like other primitives; railings use the same shift. A spiral
+        # centres on its pole in plan (a partial last turn would pull the bounds off it).
         self._offset = -(lo + hi) / 2
+        if self.style == "spiral":
+            self._offset[[0, 2]] = 0.0
         body = _move(body, *self._offset)
         return meshops.compute_normals(uvmap.box_project(body), 30.0)
 
@@ -148,7 +152,11 @@ class StairsGenerator(MeshGenerator):
         step_angle = self.tread / walk
         sign = 1.0 if self.turn == "left" else -1.0
         parts = [_move(CylinderGenerator(radius=pole, height=self.rise + 1.0).generate(), y=(self.rise + 1.0) / 2)]
-        overlap = 0.25  # each tread overlaps the next a little (walkable, no gaps)
+        # Each step is a solid block down to the tread below (so the union is one solid)
+        # with only a sliver of overlap in plan: every tread top has full headroom, so a
+        # navmesh eroded by the player's radius still climbs it (thin treads overlapping by
+        # a quarter left 13 cm slots that erased the treads from the navmesh).
+        overlap = 0.04
         for i in range(self.steps):
             a0 = sign * i * step_angle
             a1 = sign * (i + 1 + overlap) * step_angle
@@ -156,7 +164,7 @@ class StairsGenerator(MeshGenerator):
             outer = np.c_[np.sin(angles) * r_out, np.cos(angles) * r_out]
             inner = np.c_[np.sin(angles[::-1]) * pole * 0.5, np.cos(angles[::-1]) * pole * 0.5]
             sector = Shape(np.vstack([outer, inner]))
-            thickness = 0.05
+            thickness = min(self.riser + 0.05, (i + 1) * self.riser)
             wedge = ExtrudeGenerator(shape=sector, depth=thickness, axis="y", crease_angle=30.0).generate()
             # axis y maps profile (u, v) to (X, -Z); flip v so angles run as intended.
             wedge = wedge.transform(np.diag([1.0, 1.0, -1.0, 1.0]))
@@ -236,10 +244,70 @@ class StairsGenerator(MeshGenerator):
         node.meta["collider"] = "mesh"
         node.meta["stairs"] = {"style": self.style, "rise": self.rise, "steps": self.steps,
                                "riser": round(self.riser, 4), "tread": self.tread}
+        if self.style == "spiral":
+            # Where you step on at the bottom and off at the top (node frame): the Godot
+            # runtime links them (NavigationLink3D), since a tall spiral's navmesh can come
+            # out in pieces (see spiral_ramp).
+            node.meta["stairs"]["ends"] = [[round(float(v), 4) for v in p] for p in self.spiral_ends()]
         rails = self.railing_mesh()
         if rails is not None:
             rails.material = MaterialLoader().load(self.railing_material)
             rail_node = SceneNode(name=f"{node.name}_railing", mesh=uvmap.box_project(rails))
             rail_node.meta["collider"] = "none"
             node.add_child(rail_node)
+        if self.style == "spiral":
+            ramp = SceneNode(name=f"{node.name}_ramp-colonly", mesh=self.spiral_ramp())
+            ramp.meta.update({"type": "collider", "shape": "mesh", "collider": "none", "walkable": True})
+            node.add_child(ramp)
         return node
+
+    def spiral_ends(self) -> list[np.ndarray]:
+        """Bottom (on the floor, a step before the first tread) and top (just past the top
+        tread) on the walking line, in the ``generate()`` frame."""
+        pole = 0.09
+        walk = pole + self.width * 0.6
+        step_angle = self.tread / walk
+        sign = 1.0 if self.turn == "left" else -1.0
+        offset = getattr(self, "_offset", np.zeros(3))
+        ends = []
+        for theta, y in ((-1.5 * step_angle, 0.0), ((self.steps - 0.3) * step_angle, self.rise)):
+            a = sign * theta
+            ends.append(np.array([np.sin(a) * walk, y, np.cos(a) * walk]) + offset)
+        return ends
+
+    def spiral_ramp(self, thickness: float = 0.03) -> Mesh:
+        """An invisible helical ramp over the step nosings (a collider-only child).
+
+        A spiral that winds over itself splits into several navmesh regions, and where a
+        region border falls on a riser Recast can't join the polygons across it (it only
+        welds vertices within two voxels of height), so the navmesh broke part-way up. The
+        ramp's even slope (riser / tread, ~33 degrees) bakes as one surface, and the player
+        walks it smoothly. It starts one step out on the floor and runs flat across the top
+        tread. Same frame as ``generate()``.
+        """
+        pole = 0.09
+        r_out = pole + self.width
+        walk = pole + self.width * 0.6
+        step_angle = self.tread / walk
+        sign = 1.0 if self.turn == "left" else -1.0
+        n = 2 * (self.steps + 1)
+        theta = np.linspace(-step_angle, self.steps * step_angle, n + 1)
+        y = np.minimum(theta / step_angle + 1.0, self.steps) * self.riser
+        radii = np.array([pole, r_out])
+        a = sign * theta
+        top = np.stack([np.sin(a)[:, None] * radii, np.broadcast_to(y[:, None], (len(a), 2)),
+                        np.cos(a)[:, None] * radii], axis=-1)            # (len(a), 2, 3)
+        bottom = top - np.array([0.0, thickness, 0.0])
+        rings = np.concatenate([top, bottom[:, ::-1]], axis=1)          # (len(a), 4, 3): in-top, out-top, out-bot, in-bot
+        verts = rings.reshape(-1, 3)
+        faces = []
+        for i in range(len(a) - 1):
+            for j in range(4):
+                p, q = i * 4 + j, i * 4 + (j + 1) % 4
+                faces += [[p, q + 4, q], [p, p + 4, q + 4]]
+        last = (len(a) - 1) * 4
+        faces += [[0, 1, 2], [0, 2, 3], [last, last + 2, last + 1], [last, last + 3, last + 2]]
+        mesh = Mesh(verts, np.array(faces, dtype=np.int64))
+        if mesh.to_trimesh().volume < 0:
+            mesh = Mesh(verts, mesh.faces[:, [0, 2, 1]])
+        return _move(mesh, *getattr(self, "_offset", np.zeros(3)))

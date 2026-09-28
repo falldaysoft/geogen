@@ -41,10 +41,16 @@ if TYPE_CHECKING:
 
 
 def path_points(spec: Any) -> np.ndarray:
-    """[[x, z], ...] from a list of points or ``{spline: [...], samples: n}``."""
+    """[[x, z], ...] from a list of points, ``{spline: [...], samples: n}`` or
+    ``{circle: r, segments: n, center: [x, z]}`` (a closed loop's points, not repeating the first)."""
     if isinstance(spec, dict):
+        if "circle" in spec:
+            n = int(spec.get("segments", 32))
+            a = np.linspace(0.0, 2 * np.pi, n, endpoint=False)
+            r = float(spec["circle"])
+            return np.column_stack([np.cos(a) * r, np.sin(a) * r]) + np.asarray(spec.get("center", [0, 0]), float)
         if "spline" not in spec:
-            raise ValueError(f"path must be [[x, z], ...] or {{spline: [...]}}, got keys {sorted(spec)}")
+            raise ValueError(f"path must be [[x, z], ...], {{spline: [...]}} or {{circle: r}}, got keys {sorted(spec)}")
         pts = np.asarray(spec["spline"], dtype=np.float64)
         return catmull_rom(pts, int(spec.get("samples", 8)), closed=bool(spec.get("closed", False)))
     pts = np.asarray(spec, dtype=np.float64)

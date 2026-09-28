@@ -1,0 +1,27 @@
+# Palm tree - a curved, leaning trunk with a crown of arched fronds and
+# coconuts (generators/nature.py, style: palm). Origin is at bottom_center.
+# `seed` changes the lean and the frond layout.
+
+name: palm_tree
+tags: [vegetation.tree, vegetation.palm]
+origin: bottom_center
+
+params:
+  scale:  { default: 1 }
+  seed:   { default: 1 }
+  height: { default: 6.5 }     # crown top (m, before scale)
+  fronds: { default: 11 }
+
+size: ["{scale}", "{scale}", "{scale}"]
+bounds: geometry
+
+parts:
+  tree:
+    primitive: tree
+    style: palm
+    size: [5.0, "{height}", 5.0]   # frond spread, height, spread (m, times scale)
+    anchor: bottom_center
+    seed: "{seed}"
+    trunk_radius: "{0.2 * scale}"
+    fronds: "{fronds}"
+    material: palm_bark

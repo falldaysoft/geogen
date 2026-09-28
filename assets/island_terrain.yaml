@@ -6,7 +6,7 @@
 # `pads` flatten ground for buildings: [{center: [x, z], radius, blend, height?}].
 # Origin: the middle of the island at y = 0 (the terrain keeps its own heights).
 
-name: island
+name: island_terrain
 tags: [terrain.island]
 origin: bottom_center
 size: [1, 1, 1]

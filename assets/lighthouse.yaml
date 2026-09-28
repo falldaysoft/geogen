@@ -1,0 +1,200 @@
+# A lighthouse you can climb: a tapering white tower with red bands, a doorway
+# on +Z into the ground floor, a spiral stair round a central column up to the
+# gallery deck, a glazed lantern room (with a doorway out onto the gallery,
+# which has a railing), a red cap, and the lamp on top of the stair column. The
+# lamp's light comes on at night (`light: auto: night`).
+# Origin: bottom centre of the tower; the deck is `height` up.
+
+name: lighthouse
+tags: [structure.lighthouse]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: { default: 10 }        # gallery deck top
+  base_r: { default: 2.6 }       # tower outer radius at the ground
+  top_r:  { default: 1.9 }       # ... under the gallery
+  wall:   { default: 0.35 }
+
+derived:
+  stair_w: 1.1                   # spiral flight width (outer radius stair_w + 0.09): wide enough
+                                 # that the navmesh, eroded by the player radius, climbs it
+  well_r: "{stair_w + 0.09}"     # the deck's opening: exactly the stair's outer radius, so the
+                                 # top tread abuts the deck (a gap splits the navmesh)
+  lantern_r: 2.2                 # a body-wide ring between the stair well and the glazing
+  deck_r: "{top_r + 1.5}"       # a ~1 m gallery between the glazing and the railing
+  lamp_y: "{height + 1.25}"
+
+light: { energy: 12.0, range: 40.0, color: [1.0, 0.9, 0.7], offset: [0, "{lamp_y}", 0], auto: night }
+
+parts:
+  tower:
+    primitive: lathe
+    profile: [[0, 0], ["{base_r}", 0], ["{base_r}", 0.25], ["{top_r}", "{height - 0.2}"], [0, "{height - 0.2}"]]
+    fit: none
+    segments: 48
+    size: ["{2 * base_r}", "{height - 0.2}", "{2 * base_r}"]
+    anchor: bottom_center
+    material: paint_white
+    subtract: [interior, doorway, window]
+    collider: mesh
+  interior:
+    primitive: lathe
+    profile: [[0, -0.1], ["{base_r - wall}", -0.1], ["{top_r - wall}", "{height}"], [0, "{height}"]]
+    fit: none
+    segments: 48
+    size: ["{2 * (base_r - wall)}", "{height + 0.1}", "{2 * (base_r - wall)}"]
+    anchor: bottom_center
+    offset: [0, -0.1, 0]
+    cutter: true
+  doorway:
+    primitive: cube
+    size: [1.1, 2.2, 1.4]
+    anchor: bottom_center
+    offset: [0, -0.05, "{base_r - wall / 2}"]
+    bevel: 0
+    cutter: true
+  window:                        # slit windows up the back of the tower
+    primitive: cube
+    size: [0.35, 0.8, 1.2]
+    anchor: bottom_center
+    offset: [0, 3.0, "{-(base_r - 0.4)}"]
+    bevel: 0
+    cutter: true
+    array: { count: 2, step: [0, 3.2, 0.25] }
+  band_window:                   # the same, 1 cm larger all round for the bands (no coplanar heads)
+    primitive: cube
+    size: [0.37, 0.82, 1.2]
+    anchor: bottom_center
+    offset: [0, 2.99, "{-(base_r - 0.4)}"]
+    bevel: 0
+    cutter: true
+    array: { count: 2, step: [0, 3.2, 0.25] }
+
+  # Red bands hugging the taper (solid rings from inside the wall to 2 cm proud of it).
+  band_1:
+    primitive: lathe
+    profile: [["{base_r - 0.05 - 0.34 * (base_r - top_r)}", 0], ["{base_r + 0.02 - 0.34 * (base_r - top_r)}", 0],
+              ["{base_r + 0.02 - 0.5 * (base_r - top_r)}", "{0.22 * height}"],
+              ["{base_r - 0.05 - 0.5 * (base_r - top_r)}", "{0.22 * height}"],
+              ["{base_r - 0.05 - 0.34 * (base_r - top_r)}", 0]]   # closed: a ring in the wall skin
+    fit: none
+    segments: 48
+    size: ["{2 * base_r}", "{0.22 * height}", "{2 * base_r}"]
+    anchor: bottom_center
+    offset: [0, "{0.34 * (height - 0.45)}", 0]
+    material: paint_terracotta
+    subtract: [band_window]
+    collider: none
+  band_2:
+    primitive: lathe
+    profile: [["{base_r - 0.05 - 0.72 * (base_r - top_r)}", 0], ["{base_r + 0.02 - 0.72 * (base_r - top_r)}", 0],
+              ["{base_r + 0.02 - 0.88 * (base_r - top_r)}", "{0.16 * height}"],
+              ["{base_r - 0.05 - 0.88 * (base_r - top_r)}", "{0.16 * height}"],
+              ["{base_r - 0.05 - 0.72 * (base_r - top_r)}", 0]]
+    fit: none
+    segments: 48
+    size: ["{2 * base_r}", "{0.16 * height}", "{2 * base_r}"]
+    anchor: bottom_center
+    offset: [0, "{0.72 * (height - 0.45)}", 0]
+    material: paint_terracotta
+    subtract: [band_window]
+    collider: none
+
+  ground_floor:
+    primitive: extrude
+    shape: { circle: "{base_r - wall + 0.05}", segments: 40 }
+    fit: none
+    axis: y
+    size: ["{2 * (base_r - wall + 0.05)}", 0.06, "{2 * (base_r - wall + 0.05)}"]
+    anchor: bottom_center
+    offset: [0, 0.004, 0]
+    material: stone
+    walkable: true
+
+  stair:
+    primitive: stairs
+    style: spiral
+    rise: "{height}"
+    width: "{stair_w}"
+    turn: left
+    railing: none                # at the top you step sideways off the last tread onto the deck
+    anchor: bottom_center
+    offset: [0, 0.064, 0]
+    rotation: [0, 180, 0]        # the first step at the back, clear of the doorway
+    material: stone
+
+  deck:                          # the lantern room floor and the gallery round it
+    primitive: extrude
+    shape: { outer: { circle: "{deck_r}", segments: 48 }, holes: [{ circle: "{well_r}", segments: 32 }] }
+    fit: none
+    axis: y
+    size: ["{2 * deck_r}", 0.2, "{2 * deck_r}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.2}", 0]
+    bevel: 0.02
+    material: stone
+    walkable: true
+  gallery_railing:
+    primitive: fence
+    path: { circle: "{deck_r - 0.12}", segments: 24 }
+    closed: true
+    height: 1.05
+    post_spacing: 1.6
+    spacing: 0.22
+    offset: [0, "{height}", 0]
+    material: lamp_iron
+    collider: mesh
+
+  lantern:                       # glazing, with a doorway onto the gallery (+Z)
+    primitive: lathe
+    profile: [["{lantern_r - 0.04}", 0], ["{lantern_r}", 0], ["{lantern_r}", 2.3], ["{lantern_r - 0.04}", 2.3],
+              ["{lantern_r - 0.04}", 0]]   # closed: a glass drum wall, not capped
+    fit: none
+    segments: 16
+    size: ["{2 * lantern_r}", 2.3, "{2 * lantern_r}"]
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    material: glass
+    subtract: [lantern_door]
+    collider: mesh
+  lantern_door:
+    primitive: cube
+    size: [1.1, 2.1, 0.6]
+    anchor: bottom_center
+    offset: [0, "{height - 0.05}", "{lantern_r}"]
+    bevel: 0
+    cutter: true
+  lantern_sill:
+    primitive: lathe
+    profile: [["{lantern_r - 0.08}", 0], ["{lantern_r + 0.05}", 0], ["{lantern_r + 0.05}", 0.35], ["{lantern_r - 0.08}", 0.35],
+              ["{lantern_r - 0.08}", 0]]
+    fit: none
+    segments: 48
+    size: ["{2 * (lantern_r + 0.05)}", 0.35, "{2 * (lantern_r + 0.05)}"]
+    anchor: bottom_center
+    offset: [0, "{height + 2.3}", 0]
+    material: paint_terracotta
+    collider: none
+  cap:
+    primitive: lathe
+    profile: [[0, 0], ["{lantern_r + 0.3}", 0], ["{lantern_r + 0.3}", 0.1], [0.35, 1.3], [0.12, 1.4], [0.2, 1.55], [0, 1.75]]
+    fit: none
+    segments: 32
+    size: ["{2 * (lantern_r + 0.3)}", 1.75, "{2 * (lantern_r + 0.3)}"]
+    anchor: bottom_center
+    offset: [0, "{height + 2.65}", 0]
+    material: paint_terracotta
+    collider: none
+
+  lamp:                          # on the stair column
+    primitive: lathe
+    profile: [[0, 0], [0.18, 0], [0.18, 0.08], [0.3, 0.2], [0.3, 0.55], [0.18, 0.66], [0, 0.7]]
+    fit: none
+    segments: 24
+    size: [0.6, 0.7, 0.6]
+    anchor: bottom_center
+    offset: [0, "{height + 0.95}", 0]
+    material: lamp_glass
+    collider: none

@@ -14,7 +14,7 @@ A placement with ``scatter:`` places many copies of its asset::
           # on_tag: street.sidewalk       (the tops of every mesh tagged so, e.g. a city's sidewalks)
           # on_terrain: island            (a placed object's terrain part; rect: narrows it) with
           #   height: [1, 8]              (metres above the terrain's sea level) and
-          #   slope: [0, 20]              (degrees) filters
+          #   slope: [0, 20]              (degrees) filters; never on the terrain's paths
           count: 30                     # at most this many
           spacing: 3                    # minimum distance between copies (Poisson disk)
           avoid: [house, road]          # keep off these placed objects' footprints
@@ -182,6 +182,8 @@ def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], loaded: di
     ok &= (h - terrain.sea_level >= h_lo) & (h - terrain.sea_level <= h_hi)
     slope = terrain.slope_at(x, z)
     ok &= (slope >= s_lo) & (slope <= s_hi)
+    if terrain.paths:
+        ok &= ~terrain.on_path(np.column_stack([x, z]))     # keep the terrain's paths clear
     y = (np.c_[x, h, z, np.ones(len(x))] @ m.T)[:, 1]
     # Shuffled: Poisson points grow out from one seed, so count: would otherwise take a clump.
     return [(points[k], float(y[k])) for k in rng.permutation(np.flatnonzero(ok))]

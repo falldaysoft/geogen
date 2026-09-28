@@ -1,0 +1,74 @@
+# The island showcase: a small island in the sea. You arrive by the hub portal
+# on the south beach beside a timber jetty with a rowing boat at its landing;
+# gravel paths climb to two cottages (the western one has a resident) and on
+# along the ridge to the lighthouse on the eastern headland, which you can
+# climb to the gallery. Palms line the beaches, pines cover the hill, rocks
+# sit on the steep ground. The ground is assets/island_grounds.yaml (its pads
+# and paths are in this scene's frame; heights below come from it).
+
+name: island
+size: [170, 20, 170]
+tags: [showcase.island]
+
+spawns:
+  start: { position: [1.0, 2.72, -45.5], facing: north }       # at the jetty root, looking up the path
+  from_hub: { position: [4.6, 3.4, -44.5], facing: west }      # in front of the hub portal
+
+slots:
+  jetty: { position: [0, 2.7, -47.5], facing: south }
+  boat: { position: [2.75, 2.0, -62.5], facing: south }         # alongside the jetty's landing (its open side)
+  hub_portal: { position: [6.5, 3.363, -44.5], facing: west }
+  cottage_a: { position: [-28, 7.835, -8], facing: south }
+  cottage_b: { position: [15, 8.251, -24], facing: south }
+  lighthouse: { position: [39.5, 4.254, 7], facing: west }      # door toward the path
+  bench_beach: { position: [-4.5, 2.9, -46.0], facing: south }
+
+place:
+  grounds:
+    asset: island_grounds.yaml
+
+  jetty:
+    asset: jetty.yaml
+    slot: jetty
+    params: { length: 18 }
+  boat:
+    asset: rowing_boat.yaml
+    slot: boat
+
+  cottage_a:
+    scene: scenes/cottage.yaml
+    slot: cottage_a
+    params: { hub_portal: 0, gallery: 0 }
+  cottage_b:
+    scene: scenes/cottage.yaml
+    slot: cottage_b
+    params: { hub_portal: 0, gallery: 0 }
+
+  lighthouse:
+    asset: lighthouse.yaml
+    slot: lighthouse
+
+  bench_beach: { asset: bench.yaml, slot: bench_beach }
+
+  # The way back to the hub.
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_island }
+
+  palms:
+    asset: palm_tree.yaml
+    params: { seed: { choice: [1, 2, 3, 4, 5, 6, 7, 8] }, scale: { random: [0.85, 1.15] } }
+    scatter: { seed: 5, on_terrain: grounds, height: [0.5, 2.6], slope: [0, 16], spacing: 6, count: 26,
+               avoid: [jetty, hub_portal, bench_beach, lighthouse], margin: 1.5 }
+  pines:
+    asset: pine_tree.yaml
+    params: { seed: { choice: [1, 2, 3, 4, 5, 6] }, scale: { random: [0.8, 1.2] } }
+    scatter: { seed: 9, on_terrain: grounds, height: [5.5, 20], slope: [0, 24], spacing: 6.5, count: 40,
+               avoid: [cottage_a, cottage_b, lighthouse], margin: 5.0 }
+  rocks:
+    asset: rock_large.yaml
+    params: { seed: { choice: [1, 2, 3, 4, 5, 6, 7] } }
+    scatter: { seed: 13, on_terrain: grounds, height: [1.0, 20], slope: [15, 90], spacing: 5, count: 14,
+               avoid: [cottage_a, cottage_b, lighthouse, jetty], margin: 1.0 }
