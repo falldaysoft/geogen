@@ -747,57 +747,19 @@ Always test changes by:
 - `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
 - `pytest` runs 4 xdist workers (`pyproject.toml`); each keeps the scenes it builds (`built_scene`), up to ~4 GB. Don't raise it to `-n auto`: 14 workers froze a 24 GB Mac. Ad-hoc runs of big scenes (city, town) should be serial (`-n0`).
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
-## Beads Issue Tracker
+## Task Tracking
 
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
+Work is tracked in the project's room on bots.fallday.ca (`.fdbot.json`) with the `fdbot` CLI; use the `fdbot` skill. Run `fdbot prime` at the start of a session (room, project notes, your tasks, ready work).
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
+fdbot task ready                      # Find available work
+fdbot task show 1.2                   # Details (refs are geogen.1.2; the key is optional)
+fdbot task start 1.2                  # Claim work
+fdbot task close 1.2 --reason "..."   # Complete work
+fdbot note add "..." --key <slug>     # Durable project knowledge, shown by prime
 ```
 
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-**Architecture in one line:** issues live on the shared Dolt sql-server at `hoster.local:3307` (user `beads`, database `geogen`); every `bd` write goes straight to the server, so there is no git sync and no `bd dolt push/pull`. `.beads/issues.jsonl` is only a manual export (auto-export is off).
-
-## Agent Context Profiles
-
-The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
-
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
-
-## Session Completion
-
-This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
-
-1. **File issues for remaining work** - Create beads for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
-   ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
-
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   git push
-   git status
-   ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
-
-**Critical rules:**
-- Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
-<!-- END BEADS INTEGRATION -->
+- Use the room's task list for all task tracking — not TodoWrite, TaskCreate or markdown TODO lists.
+- Mention the task ref in commit messages, e.g. `Fix stair railing (geogen.6.18)`.
+- Tasks imported from Beads keep their old id in the body ("Imported from Beads geogen-o3s.13"), so older commit messages that cite Beads ids can still be traced.
+- Do not commit or push unless asked. At handoff, report changed files, validation, and suggested next commands.

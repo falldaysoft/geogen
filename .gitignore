@@ -3,14 +3,4 @@ __pycache__/
 
 .claude/settings.local.json
 
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
-.beads/proxieddb/
-.beads/issues.jsonl
 .cache/
-.beads/interactions.jsonl
-
-# Beads / Dolt files (added by bd init)
-*.gate.lock*
