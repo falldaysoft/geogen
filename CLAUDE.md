@@ -28,6 +28,11 @@ python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
 python -m geogen.main -s hotel_room_auto -r out.png --views iso,top --cutaway   # hide ceilings/roofs to see inside
 python -m geogen.main -s skin_test -r out.png --clip sway@1.0   # pose skeletal clips before rendering
 
+# Check placement from numbers: resolved tree (world bounds, assets, meta) + every QA check
+python -m geogen.main -s hotel_room_auto --inspect
+python -m geogen.main -s hotel --inspect --depth 2 --checks none   # big scenes: limit depth or --select
+python -m geogen.main -s hotel --inspect --select "*bedroom*" --json --checks overlaps,layout
+
 # Export for game engines (hierarchy + PBR textures)
 python -m geogen.main -s town --chunks out/town_chunks --cache    # streamable chunks + index
 python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj
@@ -369,7 +374,16 @@ Fixtures carry `meta.light` (`{type: omni, color, energy, range, offset: [x, y, 
 
 `layout/qa.py`: `check_layout(scene, player)` finds furniture overlaps (chairs may tuck under desks/tables), items in walls, items in door swing arcs, tall items in front of windows (sills below 1.2 m), doors narrower than `player.door_min_width`, and items whose front can't be reached from a door (2D occupancy grid eroded by the player radius, flood-filled from doorways). The furnishing solver uses `room_reachability` to reject placements that would wall off earlier items; the viewer inspector shows a "Layout check" section; `tests/test_asset_quality.py` requires every registered scene to pass.
 
-Layout QA also requires every affordance's `approach` point on an item to be reachable. Erosion is by radius + half a cell, so a gap exactly one body wide counts as shut.
+Layout QA also requires every affordance's `approach` point on an item to be reachable.
+
+`qa.object_overlaps(scene)` intersects (manifold3d) closed meshes of different placed objects (the nearest asset root, `meta.source`, else the top-level placement) and reports ones more than 2 cm deep, e.g. a car through a garage wall. It skips openings in their host (sills, steps), anything sunk into a walkable slab no higher than its top, skinned bodies and colliders.
+
+`--inspect` (`inspection.py`) prints the resolved tree for checking a scene from numbers rather than renders:
+- **Tree:** asset roots, rooms, doors, lights, spawns, NPCs and other tagged nodes, with world position, yaw, box, asset and params, a meta summary and interactions. Mesh parts fold into their object's line (`--parts` lists them). Identical siblings collapse to `×N` with each copy's position.
+- **Checks:** `mesh`, `layout`, `affordances`, `coplanar`, `overlaps` and `traffic` (`--checks`), one line per finding, with repeats folded.
+- **Options:** `--depth`, `--select GLOB` (adds attachments and surfaces), `--detail`, `--json`.
+
+`LayoutLoader.load` records `meta.source = {asset, params}` on every asset root; it isn't exported. Erosion is by radius + half a cell, so a gap exactly one body wide counts as shut.
 
 ### Affordance QA
 

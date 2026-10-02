@@ -143,7 +143,10 @@ class LayoutLoader:
             )
 
         data = self._resolve_params(data, params)
-        return self._build_hierarchy(data)
+        root = self._build_hierarchy(data)
+        # Where it came from, for --inspect (not exported).
+        root.meta["source"] = {"asset": _asset_ref(path), "params": dict(params or {})}
+        return root
 
     def load_string(
         self, yaml_string: str, params: dict[str, float] | None = None
@@ -1355,6 +1358,15 @@ def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
     mesh = meshops.compute_normals(uvmap.box_project(mesh, directions=directions), crease if crease is not None else 75.0)
     mesh.material = material
     return mesh
+
+
+def _asset_ref(path: Path) -> str:
+    """``path`` relative to the assets directory when it's inside it (``vehicles/car.yaml``)."""
+    assets = Path(__file__).parents[3] / "assets"
+    try:
+        return Path(path).resolve().relative_to(assets.resolve()).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def _params_key(params: dict | None) -> str:

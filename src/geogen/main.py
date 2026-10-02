@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .inspection import CHECKS
 from .registry import SceneRegistry
 from .scenes.nature import create_nature_scene
 from .scenes.skin_test import create_skin_test_scene
@@ -169,6 +170,16 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="Render with --clip NAME: N copies posed across the clip, side by side")
     parser.add_argument("--state", default=None,
                         help="Viewer: pose every interaction in this state (e.g. open)")
+    parser.add_argument("--inspect", action="store_true",
+                        help="Print the resolved scene (world bounds, assets, meta) and QA findings, then quit")
+    parser.add_argument("--json", action="store_true", help="--inspect: JSON instead of text")
+    parser.add_argument("--depth", type=int, default=None, metavar="N", help="--inspect: tree depth limit")
+    parser.add_argument("--select", default=None, metavar="PATTERN",
+                        help="--inspect: only nodes whose name or path matches (glob), with attachments/surfaces")
+    parser.add_argument("--parts", action="store_true", help="--inspect: list every mesh part too")
+    parser.add_argument("--detail", action="store_true", help="--inspect: attachments and surfaces for every node")
+    parser.add_argument("--checks", default=",".join(CHECKS), metavar="C1,C2",
+                        help=f"--inspect: checks to run, or 'none' (default: {','.join(CHECKS)})")
     return parser.parse_args()
 
 
@@ -194,6 +205,17 @@ def main() -> None:
         return
 
     root = registry[args.scene]()
+
+    if args.inspect:
+        from .inspection import inspect_scene
+
+        checks = () if args.checks == "none" else tuple(c.strip() for c in args.checks.split(",") if c.strip())
+        unknown = set(checks) - set(CHECKS)
+        if unknown:
+            raise SystemExit(f"--checks: unknown {', '.join(sorted(unknown))} (choose from {', '.join(CHECKS)})")
+        print(inspect_scene(root, as_json=args.json, depth=args.depth, pattern=args.select,
+                            parts=args.parts, detail=args.detail, checks=checks))
+        return
 
     # Display scene info
     print("Geogen - Procedural 3D Geometry Generator")

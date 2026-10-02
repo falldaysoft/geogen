@@ -398,3 +398,109 @@ def coplanar_overlaps(scene: SceneNode, min_area: float = ZFIGHT_MIN_AREA) -> li
                                         f"{node.name} and {other.name} are coplanar at y={h:.3f}"
                                         f" ({'up' if sign > 0 else 'down'}-facing, {area:.2f} m² overlap)"))
     return issues
+
+
+OVERLAP_MIN_DEPTH = 0.02    # m: shallower interpenetration (feet on a rug, a base sunk into paving) is fine
+OVERLAP_MIN_VOLUME = 2e-5   # m³ (20 cm³)
+
+
+def object_overlaps(scene: SceneNode, min_depth: float = OVERLAP_MIN_DEPTH,
+                    min_volume: float = OVERLAP_MIN_VOLUME) -> list[Issue]:
+    """Solid parts of different placed objects that run into each other, e.g. a car through a wall.
+
+    An object is the nearest asset root above a mesh (``meta.source``, set by the loader), or
+    else the scene's top-level placement. Pairs whose world bounds overlap are intersected
+    exactly (manifold3d); the depth is the smallest extent of the shared volume. Only closed
+    meshes can be measured; skinned bodies and collider-only nodes are left out (affordance QA
+    poses bodies). Returns ``overlap`` issues naming both nodes.
+
+    Deliberate embedding isn't reported: openings (objects with host cutters: sills and steps
+    set into their wall) and anything sunk into a walkable slab no higher than its top
+    (foundations in the ground, a road over the ground plane).
+    """
+    from ..core import meshops
+
+    owners: dict[int, SceneNode] = {}
+    entries = []          # (node, owner, world matrix, lo, hi)
+
+    def visit(node: SceneNode, owner: SceneNode | None, world: np.ndarray) -> None:
+        if "source" in node.meta or owner is None:
+            owner = node
+        world = world @ node.transform.to_matrix()
+        if (node.mesh is not None and len(node.mesh.faces) and node.skin is None
+                and node.meta.get("type") != "collider"):
+            v = node.mesh.vertices @ world[:3, :3].T + world[:3, 3]
+            entries.append((node, owner, world, v.min(axis=0), v.max(axis=0)))
+        for child in node.children:
+            visit(child, owner, world)
+
+    for child in scene.children:
+        visit(child, None, scene.world_transform())
+
+    local: dict[int, object] = {}
+
+    def solid(node: SceneNode, world: np.ndarray):
+        key = id(node.mesh)
+        if key not in local:
+            mesh = node.mesh
+            closed = meshops.validate(mesh).watertight
+            local[key] = _solid(mesh.vertices, mesh.faces) if closed else None
+        man = local[key]
+        return None if man is None else man.transform(world[:3])
+
+    entries.sort(key=lambda e: e[3][0])
+    issues: list[Issue] = []
+    unmeasured = 0
+    active: list = []
+    for e in entries:
+        active = [a for a in active if a[4][0] > e[3][0] + min_depth]
+        for a in active:
+            if a[1] is e[1] or np.any(np.minimum(a[4], e[4]) - np.maximum(a[3], e[3]) < min_depth):
+                continue
+            if a[1].host_cutters or e[1].host_cutters:
+                continue
+            ma, me = solid(a[0], a[2]), solid(e[0], e[2])
+            if ma is None or me is None:
+                unmeasured += 1
+                continue
+            shared = ma ^ me
+            if shared.is_empty():
+                continue
+            box = np.array(shared.bounding_box())
+            extent = box[3:] - box[:3]
+            depth, volume = float(extent.min()), float(shared.volume())
+            if depth < min_depth or volume < min_volume:
+                continue
+            ground = [x for x in (a, e) if x[0].meta.get("walkable")]
+            if any(box[4] <= g[4][1] + 0.01 for g in ground):
+                continue
+            centre = (box[:3] + box[3:]) / 2
+            na, ne = _path(a[0], a[1]), _path(e[0], e[1])
+            issues.append(Issue("overlap", a[1].name, (na, ne),
+                                f"{na} and {ne} overlap {depth:.2f} m deep ({volume * 1000:.1f} L)"
+                                f" around [{centre[0]:.2f}, {centre[1]:.2f}, {centre[2]:.2f}]"))
+        active.append(e)
+    issues.sort(key=lambda i: i.message)
+    if unmeasured:
+        issues.append(Issue("overlap_unmeasured", scene.name, (),
+                            f"{unmeasured} touching pair(s) not measured (open meshes)"))
+    return issues
+
+
+def _path(node: SceneNode, owner: SceneNode) -> str:
+    """``owner/part`` naming for a mesh node (just the owner when the mesh is its root)."""
+    names = []
+    while node is not None and node is not owner:
+        names.append(node.name)
+        node = node.parent
+    return "/".join([owner.name, *reversed(names)])
+
+
+def _solid(v: np.ndarray, f: np.ndarray):
+    import manifold3d
+
+    mm = manifold3d.Mesh(vert_properties=np.ascontiguousarray(v, dtype=np.float32),
+                         tri_verts=np.ascontiguousarray(f, dtype=np.uint32))
+    mm.merge()     # stitch seams (vertices split for normals/UVs)
+    man = manifold3d.Manifold(mm)
+    return man if man.status() == manifold3d.Error.NoError and not man.is_empty() else None
