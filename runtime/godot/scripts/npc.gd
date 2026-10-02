@@ -68,6 +68,7 @@ var _retry_at := {}                  # failed option id -> clock when it may be 
 var _shape: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _pose := "stand"
+var _pose_yaw := 0.0                 # world heading the current pose was set to (rad)
 var _anim: AnimationPlayer = null   # the body's skeletal clips (pose_<name>, walk, idle, ...), if any
 var _clip_speed := {}               # clip name -> ground speed it was authored for (m/s)
 # Step state
@@ -269,7 +270,7 @@ func _decide() -> void:
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth")}
     else:
-        ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y), "approach": global_position,
+        ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
             "duration": _option["activity"].get("duration")}
     _trace({"event": "decide", "chosen": _option["id"], "top": ranked.slice(0, 3).map(
         func(o): return {"id": o["id"], "score": snappedf(o["score"], 0.001)}),
@@ -326,7 +327,7 @@ func _physics_process(delta: float) -> void:
             if _away_block() and definition.get("actions", {}).has("leave"):
                 _option = {"id": "self/leave", "action": "leave", "advertises": {}}
                 _trace({"event": "decide", "chosen": "self/leave", "reason": "routine"})
-                _push("leave", {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y),
+                _push("leave", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()),
                     "approach": global_position, "duration": [0.0, 0.0]})
             else:
                 _decide()
@@ -362,7 +363,7 @@ func _fail(reason: String) -> void:
     _stack.clear()
     _playing = false
     if _pose != "stand":
-        _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y)}, "approach")
+        _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw())}, "approach")
     velocity = Vector3.ZERO
     _unstick(reason)
     _finish_option(false, reason)
@@ -451,7 +452,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
     if step.has("go_to"):
         return _walk(delta)
     if step.has("face"):
-        var diff := wrapf(_yaw_goal - rotation.y, -PI, PI)
+        var diff := wrapf(_yaw_goal - _yaw(), -PI, PI)
         var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
         rotation.y += clampf(diff, -turn, turn)
         return "done" if absf(diff) <= turn else "running"
@@ -723,7 +724,7 @@ func _walk(delta: float) -> String:
     var dir := _avoid(Vector3(to.x, 0, to.z).normalized())
     var heading := atan2(dir.x, dir.z)
     var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
-    rotation.y += clampf(wrapf(heading - rotation.y, -PI, PI), -turn, turn)
+    rotation.y += clampf(wrapf(heading - _yaw(), -PI, PI), -turn, turn)
     if _sidestep > 0.0:
         _sidestep -= delta
         dir = (dir + dir.cross(Vector3.UP) * _sidestep_dir * 1.5).normalized()
@@ -1073,6 +1074,20 @@ static func _body_clips(body: Node) -> Dictionary:
     return out
 
 
+## World heading (rad). The NPC sits under its placement's parent, which may be turned
+## (a cottage facing south), while affordance and path headings are in world space.
+func _yaw() -> float:
+    return rotation.y + _parent_yaw()
+
+
+func _parent_yaw() -> float:
+    var parent := get_parent_node_3d()
+    if parent == null:
+        return 0.0
+    var z := parent.global_basis.z
+    return atan2(z.x, z.z)
+
+
 ## Put the body in a pose: sit/lie at the anchor (collider off), stand where it stands.
 func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
     var pose: Dictionary = definition["body"]["poses"][pose_name]
@@ -1082,7 +1097,8 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
         var map := get_world_3d().navigation_map
         place = NavigationServer3D.map_get_closest_point(map, place)
     global_position = place
-    rotation = Vector3(0, yaw, 0)
+    rotation = Vector3(0, yaw - _parent_yaw(), 0)
+    _pose_yaw = yaw
     velocity = Vector3.ZERO
     _shape.set_deferred("disabled", pose_name != "stand")
     _pose = pose_name
@@ -1154,7 +1170,7 @@ func _attend(delta: float) -> void:
             if cam is Camera3D:
                 eye = (cam as Camera3D).global_position
             var to := _flat(eye - global_position)
-            var forward := Basis(Vector3.UP, rotation.y) * Vector3.BACK
+            var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
             if to.length() < float(look["range"]) \
                     and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0:
                 want = 1.0
@@ -1217,7 +1233,7 @@ func _react(action_name: String, extra: Dictionary) -> void:
         _stack.back()["started"] = false
     velocity = Vector3.ZERO
     _path = PackedVector3Array()
-    var ctx := {"anchor": global_position, "yaw_deg": rad_to_deg(rotation.y), "approach": global_position}
+    var ctx := {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position}
     ctx.merge(extra)
     _push(action_name, ctx)
 
@@ -1287,4 +1303,7 @@ func report() -> Dictionary:
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
-        "yields": int(stats.get("yields", 0)), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1)}
+        "yields": int(stats.get("yields", 0)), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1),
+        # World heading (deg) and how far it is from the pose's (sitting: the seat's facing).
+        "yaw": snappedf(rad_to_deg(wrapf(_yaw(), -PI, PI)), 0.1),
+        "pose_yaw_error": snappedf(rad_to_deg(absf(wrapf(_yaw() - _pose_yaw, -PI, PI))), 0.1)}

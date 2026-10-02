@@ -21,8 +21,8 @@ def cottage_dir(tmp_path_factory):
     return out
 
 
-def simulate(run_godot, generated, seconds, *extra) -> dict:
-    out = run_godot("--scene", "cottage", f"--generated={generated}", "--timescale=8",
+def simulate(run_godot, generated, seconds, *extra, scene="cottage") -> dict:
+    out = run_godot("--scene", scene, f"--generated={generated}", "--timescale=8",
                     f"--simulate={seconds}", *extra, engine_args=FAST)
     line = next(l for l in out.splitlines() if l.startswith("npc summary: "))
     (report,) = json.loads(line.removeprefix("npc summary: "))
@@ -47,6 +47,17 @@ def test_humanoid_resident_plays_clips(run_godot, cottage_dir):
     assert (sitting["pose"], sitting["clip"]) == ("sit", "pose_sit")
     later = simulate(run_godot, cottage_dir, 100)
     assert (later["pose"], later["clip"]) == ("stand", "idle")
+
+
+def test_resident_sits_facing_the_seat_in_a_turned_cottage(run_godot, cottage_dir, tmp_path):
+    # house_plot turns the cottage to face east, so the NPC's parent is rotated: poses and
+    # turns must use world headings (she used to sit sideways here, backwards on the island).
+    export_scene(_build_registry()["house_plot"](), tmp_path / "house_plot.glb")
+    sitting = simulate(run_godot, tmp_path, 20, scene="house_plot")
+    assert (sitting["pose"], sitting["doing"]) == ("sit", "armchair#0: wait duration")
+    assert sitting["pose_yaw_error"] == pytest.approx(0, abs=1)
+    plain = simulate(run_godot, cottage_dir, 20)
+    assert sitting["yaw"] == pytest.approx(plain["yaw"] + 90, abs=1)
 
 
 def test_resident_lives_in_the_cottage(run_godot, cottage_dir):

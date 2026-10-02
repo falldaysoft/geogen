@@ -888,7 +888,7 @@ func _follow_npc() -> void:
             var space := get_world_3d().direct_space_state
             var best := head + Vector3(0, 6, 0)
             for step in [0, 1, -1, 2, -2, 3, -3, 4]:
-                var dir := Basis(Vector3.UP, npc.rotation.y + step * PI / 4.0) * Vector3(0, 0, 1)
+                var dir := Basis(Vector3.UP, npc.global_rotation.y + step * PI / 4.0) * Vector3(0, 0, 1)
                 var eye := head + dir * 2.6 + Vector3(0, 0.6, 0)
                 var query := PhysicsRayQueryParameters3D.create(head, eye + dir * 0.3)
                 query.exclude = [npc.get_rid()]
