@@ -12,6 +12,9 @@ extends Node3D
 ## - crossings are closed during their windows: barriers go down (their `barrier`
 ##   interaction) and road traffic (traffic.gd) waits at the crossing's stop points.
 
+## Every trace event (the runtime API streams them), printed too with trace_enabled.
+signal traced(event: Dictionary)
+
 const VEHICLE_GROUP := "geogen_vehicle"
 
 var world: WorldLoader
@@ -104,6 +107,7 @@ func set_night(on: bool) -> void:
 
 
 func trace(event: Dictionary) -> void:
+    traced.emit(event)
     if trace_enabled:
         print("train: %s" % JSON.stringify(event))
 

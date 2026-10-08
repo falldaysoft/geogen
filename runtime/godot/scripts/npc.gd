@@ -65,6 +65,7 @@ var _stack: Array[Dictionary] = []   # frames: {action, steps, index, started, c
 var _option := {}
 var _recent := {}                    # option id -> clock when last finished
 var _retry_at := {}                  # failed option id -> clock when it may be tried again
+var _forced := ""                    # option id the next decision takes (force_option)
 var _shape: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _pose := "stand"
@@ -256,12 +257,26 @@ func options() -> Array[Dictionary]:
     return result
 
 
+## Make the next decision take option ``id`` (an affordance id or "self/<activity>") if it is
+## still available then. False if it isn't one of the options now.
+func force_option(id: String) -> bool:
+    if not options().any(func(o): return o["id"] == id):
+        return false
+    _forced = id
+    return true
+
+
 func _decide() -> void:
     var ranked := options()
     stats["decisions"] += 1
     if ranked.is_empty():
         return
     _option = ranked[0]
+    if _forced != "":
+        for o in ranked:
+            if o["id"] == _forced:
+                _option = o
+        _forced = ""
     if _option.has("affordance"):
         world.npc_reserve(_option["id"], self)
     var ctx := {}

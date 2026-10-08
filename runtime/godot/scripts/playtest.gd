@@ -8,11 +8,6 @@ extends Node
 ## WorldLoader.open_before_bake); opening them is an agent's job.
 ## Prints ``playtest: {...}`` (JSON) and quits with exit code 1 on failure.
 
-const WAYPOINT_RADIUS := 0.35
-const STALL_SECONDS := 0.6      # no progress this long: sidestep
-const SIDESTEP_SECONDS := 0.35
-const MAX_SIDESTEPS := 3        # then the route counts as stuck
-
 var world: WorldLoader
 var player: Player
 var start := Vector3.ZERO
@@ -24,12 +19,7 @@ var _report := {"rooms": 0, "reachable": [], "unreachable": [], "targets": 0, "u
     "walked": [], "stuck": []}
 var _routes: Array[Dictionary] = []   # {name, path: PackedVector3Array}
 var _route := -1
-var _waypoint := 0
-var _stuck_time := 0.0
-var _sidesteps := 0
-var _sidestep_left := 0.0
-var _sidestep_dir := 1.0
-var _best_distance := INF
+var _walker: GeogenWalker = null
 var _phase := "sync"
 var _frames := 0
 
@@ -106,61 +96,25 @@ func _next_route() -> void:
         _finish()
         return
     player.spawn(start, start_yaw)
-    _waypoint = 1
-    _stuck_time = 0.0
-    _sidesteps = 0
-    _sidestep_left = 0.0
-    _best_distance = INF
+    _walker = GeogenWalker.new(player, _routes[_route]["path"])
 
 
 func _walk(delta: float) -> void:
     if _route >= _routes.size():
         return
     var route: Dictionary = _routes[_route]
-    var path: PackedVector3Array = route["path"]
-    if _waypoint >= path.size():
-        var room := world.room_at(player.global_position + Vector3(0, 0.5, 0))
-        if room == route["name"]:
-            _report["walked"].append(route["name"])
-        else:
-            _report["stuck"].append("%s (ended in '%s')" % [route["name"], room])
-        player.scripted_move = null
-        _next_route()
-        return
-    var target := path[_waypoint]
-    var to := target - player.global_position
-    var flat := Vector2(to.x, to.z)
-    if flat.length() < WAYPOINT_RADIUS:
-        _waypoint += 1
-        _best_distance = INF
-        return
-    player.rotation.y = atan2(-to.x, -to.z)
-    if _sidestep_left > 0.0:
-        # Slide off whatever we're caught on (a jamb, a leaf edge), then retry.
-        _sidestep_left -= delta
-        player.scripted_move = Vector2(_sidestep_dir, 0.3)
-        return
-    player.scripted_move = Vector2(0, 1)
-    if flat.length() < _best_distance - 0.05:
-        _best_distance = flat.length()
-        _stuck_time = 0.0
-    else:
-        _stuck_time += delta
-        if _stuck_time > STALL_SECONDS:
-            _stuck_time = 0.0
-            _sidesteps += 1
-            if _sidesteps > MAX_SIDESTEPS:
-                var at := player.global_position
-                _report["stuck"].append("%s (at %.1f, %.1f, %.1f)" % [route["name"], at.x, at.y, at.z])
-                player.scripted_move = null
-                _next_route()
-                return
-            # Step toward the side the path continues on (alternate if unsure).
-            var after := path[mini(_waypoint + 1, path.size() - 1)] - player.global_position
-            var right := Vector2(-cos(player.rotation.y), sin(player.rotation.y))
-            var lateral := Vector2(after.x, after.z).dot(right)
-            _sidestep_dir = signf(lateral) if absf(lateral) > 0.05 else (1.0 if _sidesteps % 2 else -1.0)
-            _sidestep_left = SIDESTEP_SECONDS
+    match _walker.step(delta):
+        "arrived":
+            var room := world.room_at(player.global_position + Vector3(0, 0.5, 0))
+            if room == route["name"]:
+                _report["walked"].append(route["name"])
+            else:
+                _report["stuck"].append("%s (ended in '%s')" % [route["name"], room])
+            _next_route()
+        "stuck":
+            var at := player.global_position
+            _report["stuck"].append("%s (at %.1f, %.1f, %.1f)" % [route["name"], at.x, at.y, at.z])
+            _next_route()
 
 
 func _finish() -> void:

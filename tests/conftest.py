@@ -57,6 +57,26 @@ def run_godot():
 
 
 @pytest.fixture(scope="session")
+def godot_runtime(run_godot):
+    """``godot_runtime(scene, generated, *args)``: a long-lived headless runtime driven over its
+    control API (geogen.runtime_client.RuntimeClient); closed at the end of the session.
+    Tests typically hold one per module and ask it many questions."""
+    from geogen.runtime_client import RuntimeClient
+
+    clients = []
+
+    def launch(scene: str, generated, *args: str):
+        client = RuntimeClient.launch(scene, generated=generated, args=args,
+                                      engine_args=("--headless", "--fixed-fps", "60"))
+        clients.append(client)
+        return client
+
+    yield launch
+    for client in clients:
+        client.close()
+
+
+@pytest.fixture(scope="session")
 def scene_registry():
     from geogen.main import _build_registry
     return _build_registry()

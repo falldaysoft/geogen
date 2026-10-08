@@ -23,6 +23,9 @@ extends Node3D
 ## Vehicles are kinematic: AnimatableBody3D boxes that block the player and are
 ## left out of the navmesh; they never push anything.
 
+## Every trace event (the runtime API streams them), printed too with trace_enabled.
+signal traced(event: Dictionary)
+
 const CHARACTER_GROUP := "geogen_character"
 ## Moving vehicles, for NPCs to wait for or walk around (meta geogen_vehicle_box, geogen_speed).
 const VEHICLE_GROUP := "geogen_vehicle"
@@ -93,6 +96,7 @@ func _exit_tree() -> void:
 
 
 func trace(event: Dictionary) -> void:
+    traced.emit(event)
     if trace_enabled:
         print("traffic: %s" % JSON.stringify(event))
 

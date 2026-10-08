@@ -172,6 +172,7 @@ User args (after `--`):
 | `--npc-labels` | Show each NPC's current action and needs above it (F5 toggles) |
 | `--camera=follow[:NAME]` | Watch an NPC (the first, or the one whose name starts with NAME) from a clear viewpoint |
 | `--play=ANIM[@SECONDS]` | Loop every animation named `ANIM` or `<node>_ANIM` (skeletal clips, interaction animations); `@SECONDS` freezes it there |
+| `--api[=PORT]` | Serve the control API on `127.0.0.1:PORT` (default 7878, 0 = a free port); see [Control API](#control-api) |
 | `--skeletons` | Print `skeletons: {...}` on quit: each Skeleton3D's bone positions, its skinned meshes' world bounds (CPU-skinned like the renderer) and the animations |
 
 Skinned exports (glTF skins, e.g. `-s skin_test`) import as `Skeleton3D` +
@@ -193,6 +194,48 @@ it headless (wall blocks, door step is climbed, closed door blocks). The
 `test_m3_*` tests stream the town district and walk into a shop and the
 hotel lobby; `test_stream_*` check what loads at full, LOD and interior
 detail as the player moves along a five-block street.
+
+## Control API
+
+`--api[=PORT]` (`scripts/api.gd`) keeps one world running and answers newline-delimited
+JSON on a localhost socket, so tools, tests and agents ask many questions of one process
+instead of launching one per `--walk` / `--nav` / `--status`. Requests are
+`{"id", "cmd", "args"}`, replies `{"id", "ok", "result" | "error"}`; after
+`events.subscribe` the connection also gets `{"event", "data"}` lines (streams `interaction`,
+`npc` traces, `room` enter/exit, `travel`, `traffic` incl. trains). Points are `[x, y, z]`
+metres, angles degrees. `help` lists every command; the groups are:
+
+- `world.*`: `info`, `scenes`, `query` (objects by tag / type / name glob / room), `node`
+  (transform, world bounds, extras, colliders, children, interactions with part bounds),
+  `room_at`, `raycast` (hit node, asset, room, interaction), `nav_path`, `switch`, `reload`
+  (re-read the export after re-exporting; the player stays put).
+- `player.*`: `status` (pose, room, what's aimed at), `teleport`, `look` (`yaw`/`pitch` or `at`),
+  `move`, `walk_to` (follows the navmesh with the real body, `GeogenWalker`; returns status
+  arrived/stuck/timeout, a 0.25 s position `trace` and `blocked_by`: the node, asset and
+  interaction state of whatever stopped it), `use` (aimed, or a named asset), `sit`, `stand`, `keys`.
+- `interactions.*`: `list`, `set` / `use` (`wait: true` returns once the parts arrive, with their
+  world bounds), `lock`; `state.save` / `state.load`.
+- `npcs.*`: `list` (reports), `options` (scored), `force` (the next decision takes an option),
+  `greet`, `pause`, `resume`.
+- `time.*`: `pause` / `resume` (the API keeps serving), `step` (exactly N physics frames),
+  `advance` (S seconds of world time at a high scale, then NPC reports), `scale`, `clock`.
+- `capture.*`: `screenshot` (current camera, a `from`/`at` pose, or framed on a `node` from a
+  `view`: iso, front, back, left, right, top; `isolate` hides everything else; `zoom`), `views`
+  (a contact sheet of those), `camera` (player / overview / follow an NPC). Needs a window, not
+  `--headless`.
+- `batch` (several commands, one reply), `wait_ready` (loaded and the navmesh answers), `quit`.
+
+Python: `geogen.runtime_client.RuntimeClient` (`launch(scene, generated=...)`, `call(cmd, **args)`,
+`wait_event(predicate)`); tests use the `godot_runtime` fixture (`tests/test_runtime_api.py`).
+From a shell, keep one runtime in the background:
+
+```bash
+python -m geogen.runtime_client --launch cottage [--generated DIR] [--headless] [-- runtime args]
+python -m geogen.runtime_client player.walk_to pos=0,0.3,0.5          # key=value or one JSON object
+python -m geogen.runtime_client capture.views node=bookshelf isolate=true path=/tmp/shelf.png
+python -m geogen.runtime_client --watch npc,interaction
+python -m geogen.runtime_client --log | --stop
+```
 
 ## NPCs
 

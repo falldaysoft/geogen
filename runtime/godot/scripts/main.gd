@@ -36,6 +36,8 @@ extends Node3D
 ##   --traffic-trace               print traffic claims, overlaps and respawns ("traffic: {...}")
 ##                                 (--simulate also prints "traffic summary: [...]")
 ##   --camera=follow[:NAME]        watch an NPC (the first, or the one whose name starts with NAME)
+##   --api[=PORT]                  serve the runtime control API on 127.0.0.1:PORT (default 7878; 0 picks
+##                                 a free port), printed as "api listening: {...}" (see api.gd)
 ##
 ## E uses the focused interaction, sits/lies on the furniture you look at, or greets an NPC
 ## (E or walking stands you up); L locks/unlocks with a held key.
@@ -120,6 +122,7 @@ const FADE_SECONDS := 0.25
 
 const SETTINGS_PATH := "user://settings.cfg"
 var _day_length := 1440.0
+var _api_port := -1
 
 @onready var world: WorldLoader = $World
 @onready var overview: Camera3D = $OverviewCamera
@@ -229,6 +232,10 @@ func _ready() -> void:
             var at := float(value.get_slice("@", 1)) if "@" in value else 1.0
             var after: float = _switches[-1]["at"] if not _switches.is_empty() else 0.0
             _switches.append({"name": value.get_slice("@", 0), "at": maxf(at, after)})
+        elif arg == "--api":
+            _api_port = 7878
+        elif arg.begins_with("--api="):
+            _api_port = int(value)
         elif arg.begins_with("--manifest="):
             var spec := PlayerSpec.from_manifest(value)
             if spec:
@@ -328,6 +335,12 @@ func _ready() -> void:
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
     if _open_menu_at_start:
         _open_menu()
+    if _api_port >= 0:
+        var api := GeogenApi.new()
+        api.name = "Api"
+        api.main = self
+        api.port = _api_port
+        add_child(api)
 
 
 func _on_world_loaded(aabb: AABB) -> void:
@@ -848,6 +861,44 @@ func _update_focus() -> void:
                 _focus_affordance["type"], "Use")
         else:
             _prompt.text = ""
+
+
+## For the runtime API: refresh what the player aims at now.
+func update_focus() -> void:
+    _update_focus()
+
+
+## What the player aims at (the E prompt's subject), or {}.
+func focus_info() -> Dictionary:
+    if _focus_npc != null:
+        return {"kind": "npc", "npc": String(_focus_npc.name), "prompt": _focus_npc.greet_prompt()}
+    if _focus != null:
+        return {"kind": "interaction", "asset": String(_focus.asset.name), "interaction": _focus.interaction_name,
+            "prompt": _focus.prompt(keys)}
+    if not _focus_affordance.is_empty():
+        return {"kind": "affordance", "asset": str(_focus_affordance.get("asset", "")),
+            "type": _focus_affordance["type"]}
+    return {}
+
+
+## Press E on whatever is aimed at now (the runtime API); returns what that was, or {}.
+func press_use() -> Dictionary:
+    _update_focus()
+    var used := focus_info()
+    if not player.pose.is_empty():
+        used = {"kind": "stand"}
+    if not used.is_empty():
+        _press_use()
+    return used
+
+
+func is_switching() -> bool:
+    return _switching or _travelling
+
+
+## Follow an NPC (name prefix) with the overview camera, or stop following (null).
+func set_follow(prefix) -> void:
+    _follow = prefix
 
 
 func _press_use() -> void:
