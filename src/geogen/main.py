@@ -172,7 +172,7 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
                         help="Viewer: pose every interaction in this state (e.g. open)")
     parser.add_argument("--inspect", action="store_true",
                         help="Print the resolved scene (world bounds, assets, meta) and QA findings, then quit")
-    parser.add_argument("--json", action="store_true", help="--inspect: JSON instead of text")
+    parser.add_argument("--json", action="store_true", help="--inspect / --describe: JSON instead of text")
     parser.add_argument("--depth", type=int, default=None, metavar="N", help="--inspect: tree depth limit")
     parser.add_argument("--select", default=None, metavar="PATTERN",
                         help="--inspect: only nodes whose name or path matches (glob), with attachments/surfaces")
@@ -180,6 +180,14 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--detail", action="store_true", help="--inspect: attachments and surfaces for every node")
     parser.add_argument("--checks", default=",".join(CHECKS), metavar="C1,C2",
                         help=f"--inspect: checks to run, or 'none' (default: {','.join(CHECKS)})")
+    parser.add_argument("--describe", nargs="*", default=None, metavar="NAME",
+                        help="Print the vocabulary: every primitive, asset, scene and data kind with its keys and "
+                             "params; with names (a primitive, asset, scene or kind), those entries in full "
+                             "(assets are built for sizes, attachments, surfaces and interactions). Takes --json")
+    parser.add_argument("--markdown", default=None, metavar="DIR",
+                        help="--describe: write the browsable catalogue (docs/catalogue) into DIR")
+    parser.add_argument("--thumbnails", choices=["changed", "all", "none"], default="changed",
+                        help="--describe --markdown: which thumbnails to render (default: changed assets only)")
     return parser.parse_args()
 
 
@@ -202,6 +210,18 @@ def main() -> None:
         index = export_catalogue(catalogue, lambda name: registry[name](), GODOT_GENERATED,
                                  catalogue.select(args.export_catalogue))
         print(f"Wrote {index} (default: {catalogue.default})")
+        return
+
+    if args.describe is not None:
+        from .describe import describe, write_markdown
+
+        if args.markdown:
+            print(f"Wrote {write_markdown(args.markdown, thumbnails=args.thumbnails != 'none', force=args.thumbnails == 'all')}")
+            return
+        try:
+            print(describe(args.describe, as_json=args.json))
+        except KeyError as exc:
+            raise SystemExit(exc.args[0])
         return
 
     root = registry[args.scene]()

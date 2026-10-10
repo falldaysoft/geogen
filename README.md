@@ -323,6 +323,7 @@ city:
 | `npc.py` | NPC definitions, actions, routines and attention |
 | `vehicles.py`, `traffic.py`, `railway.py`, `trains.py` | Vehicle metadata, lane graphs and signals, railways and level crossings, train timetables |
 | `catalogue.py` | The runtime scene catalogue (`assets/runtime_scenes.yaml`) and its `catalogue.json` index |
+| `describe.py` | `--describe`: the vocabulary (primitives, assets, scenes, kinds) as text, JSON and the [catalogue](docs/catalogue/README.md) |
 | `registry.py` | Discovers YAML assets/scenes and Python-coded scenes |
 | `runtime/godot/` | Godot 4.7 project: runtime glTF loading, first-person player, interactions, playtest, chunk streaming, NPCs, traffic, trains, the world clock |
 
@@ -346,6 +347,10 @@ The tests cover assets, textures, exports and (when Godot is installed) the runt
 The Godot tests are skipped when Godot isn't found.
 
 To regenerate the screenshots in this README, run `docs/make_screenshots.sh`.
+
+## Catalogue
+
+[docs/catalogue](docs/catalogue/README.md) lists every primitive, asset and scene with thumbnails, params, attachment points, surfaces and interactions. The same data prints with `python -m geogen.main --describe [NAME] [--json]`, compact enough to hand to an LLM. Regenerate the pages with `docs/make_catalogue.sh`.
 
 ## License
 

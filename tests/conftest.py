@@ -104,7 +104,7 @@ def built_scene(scene_registry):
 # The town district joins the town scene's QA tests so town is built once.
 SHARED_FIXTURE_GROUPS = {"district": "scene:town"}
 SHARED_FIXTURES = ("cottage_dir", "auto_room_dir", "suite_dir", "small_building_dir", "strip_dir", "district")
-SCENE_PARAM_MODULES = ("test_asset_quality.py", "test_scenes.py")
+SCENE_PARAM_MODULES = ("test_asset_quality.py", "test_scenes.py", "test_describe.py")
 
 
 @pytest.hookimpl(tryfirst=True)   # before xdist reads the xdist_group marks

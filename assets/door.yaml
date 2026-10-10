@@ -14,9 +14,9 @@ params:
   height: { default: 2.1 }
   frame:  { default: 0.07 }
   recess: { default: 0.1 }
-  step_height: { default: 0.3 }
+  step_height: { default: 0.3 }   # match the host's foundation so the step meets the ground
   leaf_gap: { default: 0.03 }     # gap under the leaf
-  open_angle: { default: 100 }    # how far the leaf swings in (degrees)   # match the host's foundation so the step meets the ground
+  open_angle: { default: 100 }    # how far the leaf swings in (degrees)
 
 size: ["{width}", "{height}", 1]
 

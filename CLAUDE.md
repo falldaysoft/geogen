@@ -33,6 +33,11 @@ python -m geogen.main -s hotel_room_auto --inspect
 python -m geogen.main -s hotel --inspect --depth 2 --checks none   # big scenes: limit depth or --select
 python -m geogen.main -s hotel --inspect --select "*bedroom*" --json --checks overlaps,layout
 
+# Find the vocabulary: primitives, assets (params, attachments, surfaces, interactions), scenes, kinds
+python -m geogen.main --describe                      # everything, compact (paste into a prompt); --json
+python -m geogen.main --describe door car cube npc    # full entries (assets are built)
+docs/make_catalogue.sh                                # regenerate docs/catalogue (pages + changed thumbnails)
+
 # Export for game engines (hierarchy + PBR textures)
 python -m geogen.main -s town --chunks out/town_chunks --cache    # streamable chunks + index
 python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj
@@ -382,6 +387,16 @@ Layout QA also requires every affordance's `approach` point on an item to be rea
 - **Tree:** asset roots, rooms, doors, lights, spawns, NPCs and other tagged nodes, with world position, yaw, box, asset and params, a meta summary and interactions. Mesh parts fold into their object's line (`--parts` lists them). Identical siblings collapse to `×N` with each copy's position.
 - **Checks:** `mesh`, `layout`, `affordances`, `coplanar`, `overlaps` and `traffic` (`--checks`), one line per finding, with repeats folded.
 - **Options:** `--depth`, `--select GLOB` (adds attachments and surfaces), `--detail`, `--json`.
+
+### Vocabulary catalogue (`--describe`)
+
+`describe.py` lists what there is to build with, from one set of dicts rendered as text, JSON and markdown.
+- **Key vocabulary:** `layout/schema.py` documents every part key (common `PART_KEYS`, per-primitive `PRIMITIVES` with type, default, doc and an `example` part) and the asset, scene, slot and placement keys. `validation.py`'s known-key sets are derived from it, so a new YAML key is added there (with its meaning), not in validation.
+- **`--describe`** (no name) reads only the YAML: primitives, keys, assets by category with params, scenes, kinds (`describe.KINDS`, keys from the loaders' `*_KEYS` sets), room types and materials. A one-line summary is the first sentence of the file's header comment, and a param's trailing comment is its note.
+- **`--describe NAME...`** (primitive, asset name or file, scene, kind, or a data file) builds assets with default params and adds size, geometry bounds, attachment positions, surfaces, interaction states, affordances, light/vehicle/travel/portal meta and an example placement.
+- **`docs/catalogue/`** is committed: `README.md` (thumbnail grid per category), `assets/<name>.md`, `primitives.md`, `vocabulary.md`, `scenes.md`, and `img/` (256 px palette PNGs; `img/hashes.json` holds each asset's YAML hash, so only changed assets re-render: `docs/make_catalogue.sh all` redoes them after a material or generator change).
+- `tests/test_describe.py` fails when the committed pages are stale (text only): run `docs/make_catalogue.sh` after changing an asset, a key or a header comment.
+- Placements take `state: open` (every interaction with that state) or `state: {swing: open}`: the object starts, and is exported, in that state.
 
 `LayoutLoader.load` records `meta.source = {asset, params}` on every asset root; it isn't exported. Erosion is by radius + half a cell, so a gap exactly one body wide counts as shut.
 

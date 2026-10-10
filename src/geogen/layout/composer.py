@@ -19,6 +19,29 @@ logger = logging.getLogger("geogen.layout")
 
 
 
+def _set_states(node: SceneNode, spec: Any, where: str) -> None:
+    """Placement ``state: open`` (every interaction that has that state) or
+    ``state: {swing: open}``: the object starts, and is exported, in that state."""
+    from .interactions import apply_state
+
+    wanted = spec if isinstance(spec, dict) else None
+    found = False
+    for owner in node.iter_nodes():
+        for interaction in owner.interactions:
+            state = wanted.get(interaction.name) if wanted is not None else str(spec)
+            if state is None or (wanted is None and state not in interaction.states):
+                continue
+            if state not in interaction.states:
+                raise ValueError(f"state of {where}: interaction '{interaction.name}' has no state '{state}' "
+                                 f"(states: {sorted(interaction.states)})")
+            interaction.initial = state
+            apply_state(owner, interaction, state)
+            found = True
+    if not found:
+        names = sorted({i.name for n in node.iter_nodes() for i in n.interactions})
+        raise ValueError(f"state of {where}: nothing takes {spec!r} (interactions: {names})")
+
+
 def _truthy(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() not in ("", "0", "0.0", "false", "no", "none")
@@ -417,6 +440,8 @@ class SceneComposer:
             from ..travel import apply_travel
 
             apply_travel(node, obj_def["travel"], f"travel of {obj_def.get('asset') or obj_def.get('scene')}")
+        if obj_def.get("state"):
+            _set_states(node, obj_def["state"], obj_def.get("asset") or obj_def.get("scene") or "object")
         return node
 
     def _load_prototype(self, obj_def: dict[str, Any]) -> SceneNode:

@@ -3,66 +3,16 @@
 import difflib
 from typing import Any
 
+from .schema import ASSET_KEYS, PLACEMENT_KEYS, PRIMITIVES, SCENE_KEYS, SLOT_KEYS, part_known_keys
 
-# Known keys for asset YAML files
-ASSET_KNOWN_KEYS = {
-    "name", "origin", "size", "parts", "attachments", "room", "params",
-    "surfaces", "floorplan", "tags", "interactions", "clearance", "building", "bounds", "light",
-    "affordances", "container", "poses", "portal", "travel", "vehicle", "body", "presets", "preset", "derived", "_params",
-}
 
-PART_KNOWN_KEYS = {
-    "primitive", "size", "anchor", "offset", "material", "tint", "when",
-    "attach_to", "at", "from", "rotation", "bevel", "bevel_segments",
-    # extrude / lathe
-    "shape", "profile", "axis", "fit", "crease_angle", "caps", "segments", "sweep",
-    "cap_bottom", "cap_top",
-    # sweep
-    "path", "closed", "up", "twist", "scale", "center",
-    # stairs
-    "rise", "width", "max_riser", "tread", "turn", "landing_at", "waist", "railing", "rail_height",
-    "railing_material",
-    # torus
-    "tube",
-    # booleans
-    "subtract", "cutter", "cut_host", "reveal",
-    # gameplay metadata
-    "tags", "collider", "walkable", "joint",
-    # roof / prism
-    "style", "overhang", "thickness", "ridge_axis", "ridge_cap", "apex",
-    # subdivision / displacement
-    "subdivide", "displace",
-    # tree / rock
-    "seed", "trunk_height", "trunk_radius", "attractors", "step", "leaf_size", "foliage_material", "fronds",
-    "points", "levels", "roughness", "crease",
-    # text
-    "text", "font", "height", "depth", "align", "line_spacing", "tracking",
-    # paths / fence
-    "paths", "post", "post_spacing", "picket", "spacing", "gaps",
-    # repeated parts
-    "array",
-    # terrain
-    "extent", "resolution", "sea_level", "scale", "octaves", "falloff", "pads", "island", "materials", "shore",
-    # water
-    "barrier", "shallow_color", "deep_color", "depth_scale", "wave_scale", "wave_speed", "foam",
-}
-
-# Known keys for scene YAML files
-SCENE_KNOWN_KEYS = {
-    "name", "size", "slots", "place", "compose", "attachments", "tags", "spawns", "params", "city", "routes", "railways",
-}
-
-SLOT_KNOWN_KEYS = {
-    "anchor", "offset", "facing", "position",
-}
-
-PLACEMENT_KNOWN_KEYS = {
-    "asset", "scene", "slot", "attach_to", "at", "on", "tags", "facing", "yaw", "furnish", "params", "scatter",
-    "npc", "home", "seed", "archetype", "traffic", "train", "railway", "count", "travel", "when", "timetable",
-}
-
-# Known primitive types
-KNOWN_PRIMITIVES = {"cube", "cylinder", "sphere", "cone", "plane", "room", "ellipsoid", "extrude", "lathe", "roof", "prism", "sweep", "stairs", "torus", "capsule", "tree", "rock", "text", "paths", "fence", "water", "terrain"}
+# Known keys come from the documented vocabulary (schema.py), which --describe prints too.
+ASSET_KNOWN_KEYS = set(ASSET_KEYS)
+PART_KNOWN_KEYS = part_known_keys()
+SCENE_KNOWN_KEYS = set(SCENE_KEYS)
+SLOT_KNOWN_KEYS = set(SLOT_KEYS)
+PLACEMENT_KNOWN_KEYS = set(PLACEMENT_KEYS)
+KNOWN_PRIMITIVES = set(PRIMITIVES)
 
 # Known facing directions
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
