@@ -316,6 +316,7 @@ def build_recipe(name: str, params: dict[str, Any], loader) -> SceneNode:
 
 SHOP_SIGNS = {"shop": "General Store", "cafe": "Cafe", "grocer": "Grocer", "bookshop": "Books",
               "clothing": "Clothing"}
+FASCIA_Y = 2.75      # bottom of a shop's fascia board (awnings hang just under it)
 AWNING_COLORS = ("british_green", "car_red", "car_navy", "maroon", "teal_green", "beige")
 
 
@@ -348,7 +349,16 @@ def dress_shop_front(building: SceneNode, loader, kind: str, sign: str | None, a
                          params={"label": sign or SHOP_SIGNS.get(kind, "Shop"), "width": round(width + 0.4, 2),
                                  "height": 0.5, "letter": 0.26})
     fascia.name = "fascia"
-    fascia.transform = Transform(translation=np.array([centre[0], 2.75, face + 0.002]))
+    # Under the facade's string course (or cornice), whose depth depends on the style.
+    drop = 0.0
+    for n in building.iter_nodes():
+        if n.name == "facade_trim" and n.mesh is not None:
+            m = to_b @ n.world_transform()
+            v = n.mesh.vertices @ m[:3, :3].T + m[:3, 3]
+            above = v[(v[:, 2] > face) & (v[:, 1] > FASCIA_Y + 0.3), 1]
+            if len(above):
+                drop = max(drop, FASCIA_Y + float(fascia.size[1]) + 0.01 - float(above.min()))
+    fascia.transform = Transform(translation=np.array([centre[0], FASCIA_Y - drop, face + 0.002]))
     building.add_child(fascia)
     for i, o in enumerate(windows):
         x0, x1 = centre[0] + o["lo"] + 0.15, centre[0] + o["hi"] - 0.15     # inset from the window's edges
@@ -357,7 +367,7 @@ def dress_shop_front(building: SceneNode, loader, kind: str, sign: str | None, a
         node = loader.load(assets / "awning.yaml",
                            params={"width": round(x1 - x0, 2), "reach": 1.0, "drop": 0.42, "color": colour})
         node.name = f"awning_{i}"
-        node.transform = Transform(translation=np.array([(x0 + x1) / 2, 2.72, face + 0.002]))
+        node.transform = Transform(translation=np.array([(x0 + x1) / 2, FASCIA_Y - drop - 0.03, face + 0.002]))
         building.add_child(node)
 
 

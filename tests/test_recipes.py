@@ -134,3 +134,16 @@ def test_city_fits_recipes_to_lots():
             front = pts[:, 2].max() if lot["side"] == "north" else pts[:, 2].min()
             assert front == pytest.approx(edge, abs=0.05)
     assert placed == len(lots) and placed >= 6
+
+
+@pytest.mark.parametrize("style", ["brick_hotel", "stucco", "modern"])
+def test_shop_fascia_clears_the_facade_trim(style):
+    """geogen.28: the fascia's cap ran into the brick style's deeper string course."""
+    from geogen.layout import LayoutLoader
+    from geogen.layout.qa import object_overlaps
+    from geogen.layout.recipes import build_recipe
+
+    shop = build_recipe("shop_row", {"width": 12, "depth": 10, "storeys": 2, "interior": "lobby", "style": style,
+                                     "seed": 1}, LayoutLoader())
+    assert shop.find("fascia") is not None
+    assert [str(o) for o in object_overlaps(shop) if "fascia" in str(o) or "awning" in str(o)] == []
