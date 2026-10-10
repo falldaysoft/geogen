@@ -76,6 +76,7 @@ STEP = 0.05         # candidate spacing along walls / grid
 DOOR_APPROACH = 0.9  # free depth in front of every door
 MAX_REACH_TRIES = 300 # candidates tried per item before giving up on reachability
 WINDOW_OVERLAP = 0.4  # items may rise this far above a sill in front of a window
+CURTAIN_HEADROOM = 0.03  # gap between a curtain rod's height and the cornice above it
 HANGING_BELOW = 1.5   # parts of a window-mounted item reaching below this reserve the floor under them
 
 
@@ -597,13 +598,25 @@ class _RoomSolver:
             node = self.load(spec, params)
             along = (window["lo"] + window["hi"]) / 2
             side = window["side"]
-            if abs(along) + node.size[0] / 2 > self.wall_length(side) / 2 + 1e-6:
-                node = self.load(spec, {"width": width + 0.1} if params else None)
+            if params and abs(along) + node.size[0] / 2 > self.wall_length(side) / 2 + 1e-6:
+                params["width"] = width + 0.1
+            # The rod hangs under the cornice (or ceiling) of a low room.
+            headroom = self._headroom()
+            if params and headroom is not None and node.size[1] > headroom - CURTAIN_HEADROOM:
+                params["height"] = round(headroom - CURTAIN_HEADROOM, 3)
+            if params:
+                node = self.load(spec, params)
             wall_face = self.wall_point(side, along) - _WALLS[side][2] * (self.floor_inset - self.mount_inset)
             self.add(name, placed, node, wall_face, _WALLS[side][2].copy(), 0.0, None, [], side, along)
             self.reserved += self._hanging_footprints(node)
             placed += 1
         return placed
+
+    def _headroom(self) -> float | None:
+        """Height of the lowest point of the room's ceiling and cornice."""
+        lows = [float(c.mesh.vertices[:, 1].min() + c.transform.translation[1]) for c in self.room.children
+                if c.mesh is not None and len(c.mesh.vertices) and (c.name == "ceiling" or "trim.cornice" in c.tags)]
+        return min(lows) if lows else None
 
     def _hanging_footprints(self, node: SceneNode) -> list[Rect]:
         """Floor rectangles (room frame) under the parts of ``node`` that hang low: a curtain's

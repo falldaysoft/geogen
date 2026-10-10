@@ -125,3 +125,18 @@ def test_floor_items_keep_off_curtain_panels():
                 lo, hi = _rect(item)
                 for plo, phi in panels:
                     assert not ((np.minimum(hi, phi) - np.maximum(lo, plo)) > 0.005).all(), (room.name, item.name)
+
+
+def test_curtains_hang_under_the_cornice_of_low_rooms():
+    """geogen.27: an upper storey's 2.4 m rooms are lower than the curtains' default rod height."""
+    from geogen.layout.qa import object_overlaps
+    from geogen.layout.recipes import build_recipe
+
+    house = build_recipe("detached_house", {"width": 10, "depth": 8, "storeys": 2, "interior": "full", "seed": 1},
+                         LayoutLoader())
+    curtains = [c for c in house.iter_nodes() if c.name.startswith("curtains") and c.meta.get("placed_by") == "furnish"]
+    assert curtains
+    for c in curtains:
+        cornice = c.parent.find("cornice")
+        assert c.size[1] < cornice.mesh.vertices[:, 1].min(), c.parent.name
+    assert [str(o) for o in object_overlaps(house) if "curtain" in str(o)] == []
