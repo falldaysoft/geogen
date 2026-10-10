@@ -44,7 +44,9 @@ e.g. chairs round tables; ``at:`` picks attachments), ``flank: <item>``
 tucks in), ``under: <item>`` (centred, ``offset`` toward its front),
 ``on: <item>`` (its ``surface``, default ``top``), ``mount: wall`` with
 ``above: <item>`` or prefer terms (``height`` above the floor),
-``mount: window`` (one per window, sized with ``fit: window``).
+``mount: window`` (one per window, sized with ``fit: window``). Window-mounted
+items are placed first, and floor items keep off the floor under their
+hanging parts (a curtain's panels).
 """
 
 from __future__ import annotations
@@ -74,6 +76,7 @@ STEP = 0.05         # candidate spacing along walls / grid
 DOOR_APPROACH = 0.9  # free depth in front of every door
 MAX_REACH_TRIES = 300 # candidates tried per item before giving up on reachability
 WINDOW_OVERLAP = 0.4  # items may rise this far above a sill in front of a window
+HANGING_BELOW = 1.5   # parts of a window-mounted item reaching below this reserve the floor under them
 
 
 @dataclass
@@ -170,6 +173,8 @@ class _RoomSolver:
         self.doors = [o for o in openings if o["kind"] == "door"]
         self.windows = [o for o in openings if o["kind"] == "window"]
         self.door_zones = self._door_zones()
+        # Floor under hanging curtain panels: floor items keep off it (see place_curtains).
+        self.reserved: list[Rect] = []
 
     # ------------------------------------------------------------- geometry
 
@@ -248,6 +253,8 @@ class _RoomSolver:
             return False
         if any(rect.overlaps(z) for z in self.window_zones(height)):
             return False
+        if any(rect.overlaps(z, GAP) for z in self.reserved):
+            return False
         for name, items in self.placed.items():
             if name in ignore:
                 continue
@@ -325,7 +332,11 @@ class _RoomSolver:
         self.placed.setdefault(name, []).append(Placed(name, node, center, facing, size, rect, keepout, wall, along))
 
     def run(self) -> list[Unsatisfied]:
-        for name, spec in (self.spec.get("items") or {}).items():
+        items = self.spec.get("items") or {}
+        # Curtains first, whatever their priority: they don't compete for floor, but the floor
+        # items placed after them must keep clear of their panels.
+        order = sorted(items, key=lambda name: items[name].get("mount") != "window")
+        for name, spec in ((name, items[name]) for name in order):
             try:
                 placed = self.place_item(name, spec)
             except (FileNotFoundError, ValueError) as exc:
@@ -590,5 +601,20 @@ class _RoomSolver:
                 node = self.load(spec, {"width": width + 0.1} if params else None)
             wall_face = self.wall_point(side, along) - _WALLS[side][2] * (self.floor_inset - self.mount_inset)
             self.add(name, placed, node, wall_face, _WALLS[side][2].copy(), 0.0, None, [], side, along)
+            self.reserved += self._hanging_footprints(node)
             placed += 1
         return placed
+
+    def _hanging_footprints(self, node: SceneNode) -> list[Rect]:
+        """Floor rectangles (room frame) under the parts of ``node`` that hang low: a curtain's
+        panels at the ends of its rod, not the rod or the window between them."""
+        to_room = np.linalg.inv(self.room.world_transform())
+        rects = []
+        for part in node.iter_nodes():
+            if part.mesh is None or not len(part.mesh.vertices):
+                continue
+            m = to_room @ part.world_transform()
+            pts = part.mesh.vertices @ m[:3, :3].T + m[:3, 3]
+            if pts[:, 1].min() < HANGING_BELOW:
+                rects.append(Rect(pts[:, 0].min(), pts[:, 2].min(), pts[:, 0].max(), pts[:, 2].max()))
+        return rects

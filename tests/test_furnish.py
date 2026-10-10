@@ -104,3 +104,24 @@ def test_unsatisfiable_rules_are_reported(tmp_path):
 def test_scene_placement_furnishes_plan():
     scene = SceneComposer().compose(ASSETS / "scenes/hotel_room_auto.yaml")
     assert scene.find("suite").find("bed") is not None
+
+
+def test_floor_items_keep_off_curtain_panels():
+    """Curtains aren't obstacles, but their panels hang to the floor: nothing may stand in them
+    (geogen.26: armchairs, chairs and beds in the window corners)."""
+    from geogen.layout.qa import object_overlaps
+
+    plan = LayoutLoader().load(ASSETS / "hotel_floor.yaml")
+    furnish_plan(plan, ASSETS, seed=0)
+    curtains = [c for c in plan.iter_nodes() if c.meta.get("placed_by") == "furnish" and c.name.startswith("curtains")]
+    assert len(curtains) >= 8
+    assert [str(o) for o in object_overlaps(plan) if "curtain" in str(o)] == []
+    for room in {id(c.parent): c.parent for c in curtains}.values():
+        for c in (c for c in room.children if c.name.startswith("curtains")):
+            panels = [_rect(p) for p in c.children if p.name.startswith("panel")]
+            for item in _placed(room):
+                if item.name.split("_")[0] in FLOOR_ONLY or abs(item.transform.translation[1]) > 1e-9:
+                    continue
+                lo, hi = _rect(item)
+                for plo, phi in panels:
+                    assert not ((np.minimum(hi, phi) - np.maximum(lo, plo)) > 0.005).all(), (room.name, item.name)
