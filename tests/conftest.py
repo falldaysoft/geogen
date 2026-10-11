@@ -1,7 +1,9 @@
-"""Shared fixtures: locating and running the Godot runtime (runtime/godot)."""
+"""Shared fixtures: locating and running the Godot runtime (runtime/godot), built scenes,
+and the fast tier (``pytest --fast``)."""
 
 import fcntl
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -107,13 +109,53 @@ SHARED_FIXTURES = ("cottage_dir", "auto_room_dir", "suite_dir", "small_building_
 SCENE_PARAM_MODULES = ("test_asset_quality.py", "test_scenes.py", "test_describe.py")
 
 
+DURATIONS_KEY = "geogen/durations"     # {test id: seconds}, in .pytest_cache (per machine)
+FAST_BUDGET = 1.0
+_XDIST_GROUP = re.compile(r"@[\w.:\-]+$")      # what --dist loadgroup appends to a test id
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--fast", nargs="?", const=FAST_BUDGET, default=None, type=float, metavar="SECONDS",
+        help="the inner loop: skip Godot runs and every test (or group of tests sharing a build) that "
+             f"took SECONDS or longer when it last ran (default {FAST_BUDGET:g}). Timings are recorded by "
+             "every run; tests never timed are kept.")
+
+
+def _durations(config) -> dict:
+    cache = getattr(config, "cache", None)
+    return dict(cache.get(DURATIONS_KEY, {})) if cache is not None else {}
+
+
+def _group_of(item) -> str:
+    mark = item.get_closest_marker("xdist_group")
+    return mark.args[0] if mark and mark.args else item.nodeid
+
+
+def _deselect_slow(config, items) -> None:
+    budget = config.getoption("fast")
+    if budget is None:
+        return
+    durations = _durations(config)
+    cost: dict[str, float] = {}
+    for item in items:
+        cost[_group_of(item)] = cost.get(_group_of(item), 0.0) + durations.get(item.nodeid, 0.0)
+    slow = [i for i in items if cost[_group_of(i)] >= budget or i.get_closest_marker("godot")]
+    if slow:
+        dropped = set(map(id, slow))
+        items[:] = [i for i in items if id(i) not in dropped]
+        config.hook.pytest_deselected(items=slow)
+
+
 @pytest.hookimpl(tryfirst=True)   # before xdist reads the xdist_group marks
 def pytest_collection_modifyitems(config, items):
-    """Mark Godot tests and pin tests sharing a build to one xdist worker.
+    """Mark Godot tests, pin tests sharing a build to one xdist worker, and drop
+    the slow ones under ``--fast``.
 
     ``--dist loadgroup`` sends each ``xdist_group`` to a single worker, so a
     scene (``built_scene``) or module export fixture is built once per run
-    rather than once per worker that happens to get one of its tests.
+    rather than once per worker that happens to get one of its tests. A group's
+    cost is what its tests took together: the first one pays for the build.
     """
     for item in items:
         if "run_godot" in item.fixturenames:
@@ -130,3 +172,32 @@ def pytest_collection_modifyitems(config, items):
                 break
         if group:
             item.add_marker(pytest.mark.xdist_group(group))
+    _deselect_slow(config, items)
+
+
+# ---- timings for --fast -------------------------------------------------------------------------
+
+_timed: dict[str, float] = {}
+
+
+def pytest_runtest_logreport(report):
+    """Add up each test's setup, call and teardown (on the xdist controller, or in a serial run)."""
+    nodeid = _XDIST_GROUP.sub("", report.nodeid)
+    _timed[nodeid] = _timed.get(nodeid, 0.0) + report.duration
+
+
+def pytest_sessionfinish(session):
+    config = session.config
+    if hasattr(config, "workerinput") or not _timed or getattr(config, "cache", None) is None:
+        return
+    # A run of the whole suite replaces the timings. A partial run only raises one that has clearly
+    # grown (not jitter): a test that was quick because another had built its scene is slow when
+    # it has to build it itself.
+    whole = (config.args_source == pytest.Config.ArgsSource.TESTPATHS and config.getoption("fast") is None
+             and not config.getoption("keyword") and not config.getoption("markexpr"))
+    durations = {} if whole else _durations(config)
+    for nodeid, seconds in _timed.items():
+        known = durations.get(nodeid)
+        if whole or known is None or seconds > max(2 * known, known + 0.5):
+            durations[nodeid] = round(seconds, 3)
+    config.cache.set(DURATIONS_KEY, durations)

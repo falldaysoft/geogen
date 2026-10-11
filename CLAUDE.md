@@ -796,6 +796,11 @@ Always test changes by:
 - When you generate or update an object, render it from the front and side and make sure it looks correct and consistent.
 - For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn`/`--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
 - `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
+- **Test in three tiers** (the whole suite takes about 12 minutes, so don't run it while iterating):
+  - The tests for what you changed, by file: `pytest tests/test_expressions.py` (seconds).
+  - `pytest --fast` before moving on: every test that is cheap (about 1350 of 2000 in 20-25 s). It skips Godot runs and any test, or group of tests sharing a build, that took 1 s or more when last timed (`--fast=0.25` is a 9 s run, `--fast=5` a wider one).
+  - `pytest` (everything) once, before a commit.
+  - Timings are recorded by every run in `.pytest_cache` (per machine, `tests/conftest.py`); a test never timed is kept, so run the whole suite once on a fresh checkout. `--durations=30` shows what is slow.
 - `pytest` runs 4 xdist workers (`pyproject.toml`); each keeps the scenes it builds (`built_scene`), up to ~4 GB. Don't raise it to `-n auto`: 14 workers froze a 24 GB Mac. Ad-hoc runs of big scenes (city, town) should be serial (`-n0`).
 
 ## Task Tracking
