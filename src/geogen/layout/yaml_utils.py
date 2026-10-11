@@ -46,3 +46,71 @@ def safe_load_path(path: str | Path) -> Any:
     """Load a YAML file using GeogenSafeLoader."""
     with open(path) as f:
         return safe_load(f)
+
+
+_composed: dict[str, tuple[float, Any]] = {}
+
+
+def locate(path: str | Path, keys: list[str | int] | tuple[str | int, ...]) -> int | None:
+    """The 1-based line of the value at ``keys`` (mapping keys / list indices) in a YAML file.
+
+    Follows the path as far as it exists, so a missing last key gives its
+    parent's line. None if the file can't be read. Merge keys (``<<``) are
+    looked through.
+    """
+    path = Path(path)
+    try:
+        stamp = path.stat().st_mtime
+        cached = _composed.get(str(path))
+        if cached is None or cached[0] != stamp:
+            with open(path) as f:
+                cached = (stamp, yaml.compose(f, Loader=GeogenSafeLoader))
+            _composed[str(path)] = cached
+    except (OSError, yaml.YAMLError):
+        return None
+    node = cached[1]
+    if node is None:
+        return None
+    line = node.start_mark.line
+    for key in keys:
+        found = _child(node, key)
+        if found is None:
+            break
+        key_line, node = found
+        line = key_line
+    return line + 1
+
+
+def _child(node: Any, key: str | int) -> tuple[int, Any] | None:
+    """(line of the key, value node) for ``key`` in a mapping or sequence node."""
+    if isinstance(node, yaml.SequenceNode):
+        if isinstance(key, int) and 0 <= key < len(node.value):
+            return node.value[key].start_mark.line, node.value[key]
+        return None
+    if not isinstance(node, yaml.MappingNode):
+        return None
+    merged = []
+    for key_node, value in node.value:
+        if key_node.value == str(key):
+            return key_node.start_mark.line, value
+        if key_node.value == "<<":
+            merged.extend(value.value if isinstance(value, yaml.SequenceNode) else [value])
+    for other in merged:
+        found = _child(other, key)
+        if found is not None:
+            return found
+    return None
+
+
+def source_of(path: str | Path | None, keys: list[str | int] | tuple[str | int, ...]) -> str:
+    """Where a value was written, for diagnostics: ``assets/scenes/park.yaml:12: place.bench.on``."""
+    key_path = ".".join(str(k) for k in keys)
+    if path is None:
+        return key_path
+    path = Path(path)
+    try:
+        shown = path.resolve().relative_to(Path.cwd().resolve())
+    except ValueError:
+        shown = path
+    line = locate(path, keys)
+    return f"{shown}:{line}: {key_path}" if line is not None else f"{shown}: {key_path}"
