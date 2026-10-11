@@ -491,7 +491,8 @@ def by_category(assets: dict[str, dict[str, Any]]) -> dict[str, list[dict[str, A
 
 GUIDE = """\
 A scene (assets/scenes/NAME.yaml) places objects; an asset (assets/NAME.yaml) is built from primitive parts.
-Metres, +Y up, +Z front / north, +X east. `{expr}` anywhere interpolates params (+ - * /, min, max, sind, ...).
+Metres, +Y up, +Z front / north, +X east. `{expr}` anywhere interpolates params (+ - * /, min, max, sind, ...;
+comparisons, and / or / not and `a if c else b`, e.g. when: "{storeys > 1 and style == 'brick'}").
 
   name: garage_scene
   size: [14, 5, 14]

@@ -37,7 +37,7 @@ PART_KEYS: dict[str, Key] = {
     "rotation": Key("[x, y, z] deg", "XYZ Euler rotation"),
     "material": Key("material", "a material from assets/materials/ (see Materials)"),
     "tint": Key("colour", "vertex colour over the material: a palette name or [r, g, b]"),
-    "when": Key("expr", "drop the part, and parts attached to it, when it resolves to 0 / false"),
+    "when": Key("expr", "drop the part, and parts attached to it, when it resolves to 0 / false (`\"{paint == 'taxi' and seats >= 4}\"`)"),
     "array": Key("{count, step: [x, y, z]}", "repeat the part as <part>_0..n-1, each `step` further along"),
     "subtract": Key("[part, ...]", "cut these parts out of this one (CSG difference)"),
     "cutter": Key("bool", "helper part: only used by another part's `subtract`, then removed", False),
@@ -315,7 +315,7 @@ PLACEMENT_KEYS: dict[str, str] = {
     "facing": "turn the object: center | outward | north | south | east | west",
     "yaw": "degrees about +Y, added to the facing",
     "state": "initial interaction state: `open`, or {interaction: state}",
-    "when": "drop the placement when the expression is 0 / false",
+    "when": "drop the placement when the expression is 0 / false (comparisons, and / or / not allowed)",
     "tags": "extra tags on the placed object",
     "furnish": "true or a seed: furnish a floor plan's rooms from their room types",
     "scatter": "{seed, rect | path | on | on_terrain | on_tag, count, spacing, avoid, yaw, scale}: many copies "

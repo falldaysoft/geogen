@@ -202,3 +202,65 @@ parts:
         assert body.size[0] == pytest.approx(0.5)
         # 20% → 0.2 frac * container 1 = 0.2
         assert body.size[1] == pytest.approx(0.2)
+
+
+class TestConditionsInExpressions:
+    def test_comparisons(self):
+        params = {"storeys": 3.0, "paint": "taxi"}
+        assert evaluate("storeys > 2", params) == 1.0
+        assert evaluate("storeys <= 2", params) == 0.0
+        assert evaluate("2 <= storeys < 5", params) == 1.0
+        assert evaluate("2 <= storeys < 3", params) == 0.0
+        assert evaluate("paint == 'taxi'", params) == 1.0
+        assert evaluate('paint != "taxi"', params) == 0.0
+        assert evaluate("paint == 3", params) == 0.0            # text never equals a number
+        assert evaluate("paint in ('taxi', 'bus')", params) == 1.0
+        assert evaluate("storeys not in [1, 2]", params) == 1.0
+
+    def test_booleans(self):
+        params = {"a": 1.0, "b": 0.0}
+        assert evaluate("a and not b", params) == 1.0
+        assert evaluate("a and b", params) == 0.0
+        assert evaluate("b or a > 0.5", params) == 1.0
+        assert evaluate("true and not false", {}) == 1.0
+        assert evaluate("not ''", {}) == 1.0
+
+    def test_conditional(self):
+        assert evaluate("2.4 if storeys > 1 else 3", {"storeys": 2.0}) == pytest.approx(2.4)
+        assert evaluate("'brick' if storeys > 1 else 'wood'", {"storeys": 1.0}) == "wood"
+        assert interpolate_string("{'brick' if storeys > 1 else 'wood'}", {"storeys": 2.0}) == "brick"
+
+    def test_type_errors(self):
+        with pytest.raises(ExpressionError, match="can't be used in arithmetic"):
+            evaluate("paint + 1", {"paint": "taxi"})
+        with pytest.raises(ExpressionError, match="Can't order"):
+            evaluate("paint < 3", {"paint": "taxi"})
+        with pytest.raises(ExpressionError, match="needs a list"):
+            evaluate("paint in other", {"paint": "taxi", "other": "x"})
+
+    def test_still_rejects_calls_and_attributes(self):
+        for bad in ("paint.upper()", "len('abc') > 1", "[x for x in (1, 2)]", "(lambda: 1)()", "a := 1"):
+            with pytest.raises(ExpressionError):
+                evaluate(bad, {"paint": "taxi"})
+
+    def test_when_takes_a_condition(self):
+        yaml_str = """
+name: cab
+size: [1, 1, 1]
+params:
+  paint: {default: yellow, choices: [yellow, red]}
+  seats: {default: 4}
+parts:
+  body: {primitive: cube, size: [1, 0.5, 1], anchor: bottom_center}
+  sign:
+    primitive: cube
+    size: [0.2, 0.1, 0.2]
+    attach_to: body
+    at: top
+    when: "{paint == 'yellow' and seats >= 4}"
+"""
+        names = lambda node: {c.name for c in node.children} | {g.name for c in node.children for g in c.children}
+        loader = LayoutLoader()
+        assert "sign" in names(loader.load_string(yaml_str))
+        assert "sign" not in names(loader.load_string(yaml_str, params={"paint": "red"}))
+        assert "sign" not in names(loader.load_string(yaml_str, params={"seats": 2}))

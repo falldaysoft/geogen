@@ -24,7 +24,7 @@ parts:
 | `rotation` | [x, y, z] deg |  | XYZ Euler rotation |
 | `material` | material |  | a material from assets/materials/ (see Materials) |
 | `tint` | colour |  | vertex colour over the material: a palette name or [r, g, b] |
-| `when` | expr |  | drop the part, and parts attached to it, when it resolves to 0 / false |
+| `when` | expr |  | drop the part, and parts attached to it, when it resolves to 0 / false (`"{paint == 'taxi' and seats >= 4}"`) |
 | `array` | {count, step: [x, y, z]} |  | repeat the part as <part>_0..n-1, each `step` further along |
 | `subtract` | [part, ...] |  | cut these parts out of this one (CSG difference) |
 | `cutter` | bool | `false` | helper part: only used by another part's `subtract`, then removed |

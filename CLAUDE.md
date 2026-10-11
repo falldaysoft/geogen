@@ -716,7 +716,13 @@ parts:
     anchor: bottom_center
 ```
 
-Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scale}"]` with part sizes in metres) set `bounds: geometry` so their reported `size` is the real extent. Overrides come in through `LayoutLoader.load(path, params={"width": 12})`, or per placement in scenes: `door: {asset: door.yaml, params: {width: 1.1}, on: ...}`. Scenes can declare `params:` and use `{expr}` too (`SceneComposer.compose(path, params=...)`, or `scene: plot.yaml, params: {...}` from a parent scene). Unknown params raise. The expression evaluator is AST-restricted — only numeric literals, param references, `+ - * /`, parens, and unit literals (`50cm`, `2m`, `20%`). No function calls, no attribute access.
+Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scale}"]` with part sizes in metres) set `bounds: geometry` so their reported `size` is the real extent. Overrides come in through `LayoutLoader.load(path, params={"width": 12})`, or per placement in scenes: `door: {asset: door.yaml, params: {width: 1.1}, on: ...}`. Scenes can declare `params:` and use `{expr}` too (`SceneComposer.compose(path, params=...)`, or `scene: plot.yaml, params: {...}` from a parent scene). Unknown params raise. The expression evaluator is AST-restricted: numeric and text literals, param references, `+ - * /`, parens, unit literals (`50cm`, `2m`, `20%`), comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`, chained, `in [..]`), `and`/`or`/`not`, `a if c else b`, and a fixed list of functions (`sind`, `cosd`, `min`, `max`, `abs`, `round`, `floor`, `ceil`). No other calls, no attribute access. A comparison is 1.0 or 0.0, so `when: "{paint == 'taxi' and seats >= 4}"` works, and `"{'brick' if storeys > 1 else 'wood'}"` picks text.
+
+**Conditions over live state** (`src/geogen/conditions.py`) can't be evaluated at build time, so they are compiled for the runtime, which never parses expression text.
+- **Terms:** `door.swing == "open"` (a thing's state, by reference; `ref("plot/house/door").swing` for longer references), `self.x` (the instance), `world.x` / `actor.x` (package variables), `clock.time|hour|night|day`, `actor.room`, and `all|any|count("<selector>", it.state == ...)`.
+- **Pipeline:** `compile_condition(text, params)` gives a JSON tree, `resolve(tree, root, package)` replaces references and selectors with stable IDs (errors name near states), `validate` checks a tree a runtime may be handed, and `evaluate(tree, lookup)` is the reference evaluator.
+- **Rules:** false, 0 and "" are false; `and`/`or` give booleans; text never equals a number; ordering needs two numbers or two texts ("HH:MM" orders as text).
+- Schema: `docs/schema/geogen-condition.v1.schema.json`. Tests: `tests/test_conditions.py`. Nothing in YAML takes a condition yet (state declarations and rules are geogen.3.2 and 3.6).
 
 Relevant module: `src/geogen/layout/expressions.py`.
 

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geogen.dev/schema/geogen-condition.v1.schema.json",
+  "title": "geogen compiled condition v1",
+  "description": "An expression over live state, compiled by geogen.conditions so a runtime evaluates it without parsing text. A literal is a number, string or boolean; false, 0 and \"\" are false. Things are named by stable ID.",
+  "$ref": "#/$defs/tree",
+  "$defs": {
+    "tree": {
+      "anyOf": [
+        {"type": ["number", "string", "boolean"]},
+        {"$ref": "#/$defs/op"},
+        {"$ref": "#/$defs/quantifier"},
+        {"$ref": "#/$defs/get"}
+      ]
+    },
+    "op": {
+      "type": "object",
+      "description": "args: two for comparisons and + - * /; one for not, neg, abs, round, floor, ceil; three for if (condition, then, else); a value then its candidates for in; two or more for and, or; one or more for min, max.",
+      "properties": {
+        "op": {"enum": ["==", "!=", "<", "<=", ">", ">=", "+", "-", "*", "/", "neg", "not", "and", "or", "if", "in", "min", "max", "abs", "round", "floor", "ceil"]},
+        "args": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/tree"}}
+      },
+      "required": ["op", "args"],
+      "additionalProperties": false
+    },
+    "quantifier": {
+      "type": "object",
+      "description": "Tests `where` against each thing in `over` (stable IDs); inside it, {get: it} reads that thing's state. count gives a number.",
+      "properties": {
+        "op": {"enum": ["all", "any", "count"]},
+        "over": {"type": "array", "items": {"type": "string"}},
+        "where": {"$ref": "#/$defs/tree"}
+      },
+      "required": ["op", "over", "where"],
+      "additionalProperties": false
+    },
+    "get": {
+      "type": "object",
+      "oneOf": [
+        {
+          "description": "A state of one thing: an interaction's state name, or an instance variable.",
+          "properties": {"get": {"const": "instance"}, "id": {"type": "string"}, "name": {"type": "string"}},
+          "required": ["get", "id", "name"],
+          "additionalProperties": false
+        },
+        {
+          "description": "A package variable: shared (world) or one per actor.",
+          "properties": {"get": {"enum": ["world", "actor"]}, "package": {"type": "string"}, "name": {"type": "string"}},
+          "required": ["get", "package", "name"],
+          "additionalProperties": false
+        },
+        {
+          "description": "Built in, about the acting character.",
+          "properties": {"get": {"const": "actor"}, "name": {"enum": ["room", "kind"]}},
+          "required": ["get", "name"],
+          "additionalProperties": false
+        },
+        {
+          "description": "The world clock: time is \"HH:MM\" text, hour a number with a fraction, night a boolean, day whole days.",
+          "properties": {"get": {"const": "clock"}, "name": {"enum": ["time", "hour", "night", "day"]}},
+          "required": ["get", "name"],
+          "additionalProperties": false
+        },
+        {
+          "description": "Inside a quantifier: a state of the thing being tested.",
+          "properties": {"get": {"const": "it"}, "name": {"type": "string"}},
+          "required": ["get", "name"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

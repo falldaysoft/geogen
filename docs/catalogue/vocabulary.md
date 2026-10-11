@@ -70,7 +70,7 @@
 | `facing` | turn the object: center \| outward \| north \| south \| east \| west |
 | `yaw` | degrees about +Y, added to the facing |
 | `state` | initial interaction state: `open`, or {interaction: state} |
-| `when` | drop the placement when the expression is 0 / false |
+| `when` | drop the placement when the expression is 0 / false (comparisons, and / or / not allowed) |
 | `tags` | extra tags on the placed object |
 | `furnish` | true or a seed: furnish a floor plan's rooms from their room types |
 | `scatter` | {seed, rect \| path \| on \| on_terrain \| on_tag, count, spacing, avoid, yaw, scale}: many copies (`avoid` takes references, selectors included: [house, 'bench_*', '[tag=furniture]']) |

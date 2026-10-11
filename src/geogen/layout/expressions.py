@@ -13,10 +13,20 @@ Supported syntax:
 - Percent literals: `20%` → 0.2
 - A few functions: `sind(deg)`, `cosd(deg)`, `min(a, b, ...)`, `max(...)`, `abs(x)`, `round`, `floor`, `ceil`
   (e.g. placing a signpost's arms around its post)
+- Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=` (chained too: `2 <= storeys < 5`), `in` / `not in`
+  a list of literals; numbers compare with numbers and text with text
+- Booleans: `and`, `or`, `not`, `true`, `false`; 0, "" and false are false
+- A conditional: `a if condition else b`
+- Text literals, to compare a choice param (`paint == "taxi"`) or to pick one
+  (`"brick" if storeys > 1 else "wood"`)
 
-Not supported (by design): other function calls, attribute access, comparison,
-boolean, names other than declared params. The evaluator rejects any AST node
-outside the allow-list.
+A comparison or boolean evaluates to 1.0 or 0.0, which is what `when:` reads.
+
+Not supported (by design): other function calls, attribute access, names other
+than declared params. The evaluator rejects any AST node outside the allow-list.
+
+Conditions over live state (a door's state, a quest variable) can't be
+evaluated here: `geogen.conditions` compiles those for the runtime.
 """
 
 from __future__ import annotations
@@ -72,25 +82,55 @@ def _literal_with_unit(token: str) -> float | None:
     raise ExpressionError(f"Unknown unit: {unit!r}")
 
 
-def _eval_ast(node: ast.AST, params: dict[str, float]) -> float:
+def truthy(value: Any) -> bool:
+    """Whether an expression value counts as true: not false, 0 or ""."""
+    return bool(value)
+
+
+def _number(value: Any, node: ast.AST) -> float:
+    if isinstance(value, str):
+        if isinstance(node, ast.Name):
+            raise ExpressionError(f"Choice parameter '{node.id}' can't be used in arithmetic")
+        raise ExpressionError(f"Text {value!r} can't be used in arithmetic")
+    return float(value)
+
+
+def compare(op: str, left: Any, right: Any) -> bool:
+    """One comparison. ``==`` / ``!=`` take any two values (text never equals a
+    number); ordering needs two numbers or two texts."""
+    text = isinstance(left, str), isinstance(right, str)
+    if op in ("==", "!="):
+        return ((left == right) if text[0] == text[1] else False) == (op == "==")
+    if text[0] != text[1]:
+        raise ExpressionError(f"Can't order {left!r} and {right!r}: one is text, the other a number")
+    return {"<": left < right, "<=": left <= right, ">": left > right, ">=": left >= right}[op]
+
+
+COMPARISONS = {ast.Eq: "==", ast.NotEq: "!=", ast.Lt: "<", ast.LtE: "<=", ast.Gt: ">", ast.GtE: ">="}
+
+
+def _eval_ast(node: ast.AST, params: dict[str, Any]) -> float | str | bool:
     """Recursively evaluate a restricted AST."""
     if isinstance(node, ast.Expression):
         return _eval_ast(node.body, params)
     if isinstance(node, ast.Constant):
+        if isinstance(node.value, (bool, str)):
+            return node.value
         if isinstance(node.value, (int, float)):
             return float(node.value)
         raise ExpressionError(f"Unsupported constant: {node.value!r}")
     if isinstance(node, ast.Name):
         if node.id not in params:
+            if node.id in ("true", "false"):
+                return node.id == "true"
             raise ExpressionError(
                 f"Unknown parameter '{node.id}'. Available: {sorted(params)}"
             )
-        if isinstance(params[node.id], str):
-            raise ExpressionError(f"Choice parameter '{node.id}' can't be used in arithmetic")
-        return float(params[node.id])
+        value = params[node.id]
+        return value if isinstance(value, (str, bool)) else float(value)
     if isinstance(node, ast.BinOp):
-        left = _eval_ast(node.left, params)
-        right = _eval_ast(node.right, params)
+        left = _number(_eval_ast(node.left, params), node.left)
+        right = _number(_eval_ast(node.right, params), node.right)
         if isinstance(node.op, ast.Add):
             return left + right
         if isinstance(node.op, ast.Sub):
@@ -100,16 +140,41 @@ def _eval_ast(node: ast.AST, params: dict[str, float]) -> float:
         if isinstance(node.op, ast.Div):
             return left / right
         raise ExpressionError(f"Unsupported operator: {type(node.op).__name__}")
+    if isinstance(node, ast.Compare):
+        left = _eval_ast(node.left, params)
+        for op, comparator in zip(node.ops, node.comparators):
+            if isinstance(op, (ast.In, ast.NotIn)):
+                if not isinstance(comparator, (ast.Tuple, ast.List)):
+                    raise ExpressionError(f"'in' needs a list of values: {ast.unparse(node)}")
+                found = any(compare("==", left, _eval_ast(e, params)) for e in comparator.elts)
+                if found != isinstance(op, ast.In):
+                    return False
+                continue
+            if type(op) not in COMPARISONS:
+                raise ExpressionError(f"Unsupported comparison: {type(op).__name__}")
+            right = _eval_ast(comparator, params)
+            if not compare(COMPARISONS[type(op)], left, right):
+                return False
+            left = right
+        return True
+    if isinstance(node, ast.BoolOp):
+        if isinstance(node.op, ast.And):
+            return all(truthy(_eval_ast(v, params)) for v in node.values)
+        return any(truthy(_eval_ast(v, params)) for v in node.values)
+    if isinstance(node, ast.IfExp):
+        return _eval_ast(node.body if truthy(_eval_ast(node.test, params)) else node.orelse, params)
     if isinstance(node, ast.Call):
         if not isinstance(node.func, ast.Name) or node.func.id not in _FUNCTIONS or node.keywords or not node.args:
             raise ExpressionError(f"Unsupported call: {ast.unparse(node)} (allowed: {sorted(_FUNCTIONS)})")
-        args = [_eval_ast(a, params) for a in node.args]
+        args = [_number(_eval_ast(a, params), a) for a in node.args]
         try:
             return float(_FUNCTIONS[node.func.id](*args))
         except TypeError as e:
             raise ExpressionError(f"Bad arguments in {ast.unparse(node)}: {e}") from e
     if isinstance(node, ast.UnaryOp):
-        operand = _eval_ast(node.operand, params)
+        if isinstance(node.op, ast.Not):
+            return not truthy(_eval_ast(node.operand, params))
+        operand = _number(_eval_ast(node.operand, params), node.operand)
         if isinstance(node.op, ast.USub):
             return -operand
         if isinstance(node.op, ast.UAdd):
@@ -118,11 +183,12 @@ def _eval_ast(node: ast.AST, params: dict[str, float]) -> float:
     raise ExpressionError(f"Unsupported expression node: {type(node).__name__}")
 
 
-def evaluate(expr: str, params: dict[str, float]) -> float:
+def evaluate(expr: str, params: dict[str, float]) -> float | str:
     """Evaluate a single expression string (no surrounding braces).
 
     Handles unit suffixes like `50cm` or `20%` directly, falling back to
-    Python's AST parser for general arithmetic.
+    Python's AST parser for general arithmetic. A number, or text when the
+    expression picks one; true and false are 1.0 and 0.0.
     """
     literal = _literal_with_unit(expr)
     if literal is not None:
@@ -131,7 +197,8 @@ def evaluate(expr: str, params: dict[str, float]) -> float:
         tree = ast.parse(expr, mode="eval")
     except SyntaxError as e:
         raise ExpressionError(f"Could not parse expression {expr!r}: {e}") from e
-    return _eval_ast(tree, params)
+    value = _eval_ast(tree, params)
+    return float(value) if isinstance(value, bool) else value
 
 
 def interpolate_string(value: str, params: dict[str, float]) -> str | float:
