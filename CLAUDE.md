@@ -724,6 +724,14 @@ Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scal
 - **Rules:** false, 0 and "" are false; `and`/`or` give booleans; text never equals a number; ordering needs two numbers or two texts ("HH:MM" orders as text).
 - Schema: `docs/schema/geogen-condition.v1.schema.json`. Tests: `tests/test_conditions.py`. Nothing in YAML takes a condition yet (state declarations and rules are geogen.3.2 and 3.6).
 
+**State, events, rules and bindings** (`docs/rules.md` is the contract, `src/geogen/rules.py` the reference evaluator): the declarative layer under wiring, quests, dialogue and inventory. The Godot runtime is one implementation of it.
+- **State:** a variable's key names its owner: `<thing id>#<name>` (an instance; interaction states are these, plus `#<interaction>_locked`), `world:<pkg>.<name>`, `actor:<pkg>.<name>` (one value per actor: the player or an NPC).
+- **Rules:** `{id, on: {type, subject, name, key, to, actor}, when, do: [{set, to} | {emit, subject}], after, once}`. A rule with no `on` watches its condition and fires when it becomes true (per actor if it reads actor state). **Bindings** `{set, to}` are standing relations: never set by rules, never saved.
+- **Order:** one input at a time; a matching event's rules run in program order, what they caused is processed after them, then bindings, then watches. Cascades stop 16 events deep.
+- **API:** `check_program(program)` (what export must reject), `Machine(program, actors)` with `post` / `use` / `set` / `advance` / `set_clock` / `get` / `save` / `load`, and `run_trace(path)`.
+- **Traces:** `tests/data/rules/*.json` are the conformance tests for any runtime; edit them in `tests/data/rules/make_traces.py` and run it. Tests: `tests/test_rules.py`.
+- Programs are built by hand so far: compiling YAML to them is geogen.3.2 and 3.6, and the Godot interpreter 3.3.
+
 Relevant module: `src/geogen/layout/expressions.py`.
 
 ### Surfaces (2D regions on assets)

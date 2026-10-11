@@ -1,0 +1,298 @@
+{
+ "name": "time",
+ "about": "Delayed rules, a door that closes itself, locks, the clock, and a save in the middle of it all.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "world:demo.alarm": {
+    "type": "bool",
+    "default": false
+   },
+   "world:demo.open_hours": {
+    "type": "bool",
+    "default": false
+   },
+   "demo:lamp#lit": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "interactions": {
+   "demo:door#swing": {
+    "initial": "closed",
+    "duration": 1.0,
+    "locked": true,
+    "states": {
+     "closed": {
+      "next": "open"
+     },
+     "open": {
+      "next": "closed",
+      "then": "closed",
+      "after": 6,
+      "emit": "opened"
+     }
+    }
+   },
+   "demo:bell#ring": {
+    "initial": "rest",
+    "duration": 0.2,
+    "states": {
+     "rest": {
+      "next": "struck"
+     },
+     "struck": {
+      "then": "rest",
+      "emit": "rang"
+     }
+    }
+   }
+  },
+  "bindings": [
+   {
+    "set": "world:demo.open_hours",
+    "to": {
+     "op": "and",
+     "args": [
+      {
+       "op": ">=",
+       "args": [
+        {
+         "get": "clock",
+         "name": "time"
+        },
+        "09:00"
+       ]
+      },
+      {
+       "op": "<",
+       "args": [
+        {
+         "get": "clock",
+         "name": "time"
+        },
+        "17:30"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rules": [
+   {
+    "id": "unlock",
+    "on": {
+     "type": "changed",
+     "key": "world:demo.open_hours"
+    },
+    "do": [
+     {
+      "set": "demo:door#swing_locked",
+      "to": {
+       "op": "not",
+       "args": [
+        {
+         "get": "world",
+         "name": "open_hours",
+         "package": "demo"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "alarm",
+    "on": {
+     "type": "signal",
+     "subject": "demo:door",
+     "name": "opened"
+    },
+    "after": 3,
+    "do": [
+     {
+      "set": "world:demo.alarm",
+      "to": true
+     }
+    ]
+   },
+   {
+    "id": "dusk",
+    "on": {
+     "type": "clock",
+     "name": "night"
+    },
+    "do": [
+     {
+      "set": "demo:lamp#lit",
+      "to": true
+     }
+    ]
+   },
+   {
+    "id": "dawn",
+    "on": {
+     "type": "clock",
+     "name": "day"
+    },
+    "do": [
+     {
+      "set": "demo:lamp#lit",
+      "to": false
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  }
+ },
+ "steps": [
+  {
+   "clock": {
+    "time": "08:00"
+   }
+  },
+  {
+   "use": "demo:door#swing",
+   "actor": "player",
+   "used": false
+  },
+  {
+   "expect": {
+    "signals": [
+     [
+      "demo:door",
+      "locked"
+     ]
+    ],
+    "state": {
+     "demo:door#swing": "closed"
+    }
+   }
+  },
+  {
+   "clock": {
+    "time": "09:00"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:door#swing_locked": false
+    },
+    "fired": [
+     "unlock"
+    ]
+   }
+  },
+  {
+   "use": "demo:door#swing",
+   "actor": "player",
+   "used": true
+  },
+  {
+   "advance": 1.5
+  },
+  {
+   "expect": {
+    "signals": [
+     [
+      "demo:door",
+      "opened"
+     ]
+    ],
+    "fired": [
+     "alarm"
+    ],
+    "state": {
+     "world:demo.alarm": false
+    }
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "advance": 3.0
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.alarm": true,
+     "demo:door#swing": "open"
+    }
+   }
+  },
+  {
+   "advance": 3.0
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:door#swing": "closed"
+    },
+    "signals": [],
+    "fired": []
+   }
+  },
+  {
+   "use": "demo:bell#ring"
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:bell#ring": "rest"
+    },
+    "signals": [
+     [
+      "demo:bell",
+      "rang"
+     ]
+    ]
+   }
+  },
+  {
+   "clock": {
+    "time": "21:00",
+    "night": true
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": true,
+     "demo:door#swing_locked": true
+    },
+    "fired": [
+     "dusk",
+     "unlock"
+    ]
+   }
+  },
+  {
+   "clock": {
+    "time": "07:00",
+    "night": false,
+    "day": 1
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": false
+    },
+    "fired": [
+     "dawn"
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

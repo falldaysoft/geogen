@@ -1,0 +1,242 @@
+{
+ "name": "bindings",
+ "about": "Standing relations: a lamp lit while a plate is occupied and the power is on; a binding reading a binding.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "demo:plate#occupants": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.power": {
+    "type": "bool",
+    "default": true
+   },
+   "demo:lamp#lit": {
+    "type": "bool",
+    "default": false
+   },
+   "world:demo.dark": {
+    "type": "bool",
+    "default": true
+   }
+  },
+  "bindings": [
+   {
+    "set": "world:demo.dark",
+    "to": {
+     "op": "not",
+     "args": [
+      {
+       "get": "instance",
+       "name": "lit",
+       "id": "demo:lamp"
+      }
+     ]
+    }
+   },
+   {
+    "set": "demo:lamp#lit",
+    "to": {
+     "op": "and",
+     "args": [
+      {
+       "op": ">",
+       "args": [
+        {
+         "get": "instance",
+         "name": "occupants",
+         "id": "demo:plate"
+        },
+        0
+       ]
+      },
+      {
+       "get": "world",
+       "name": "power",
+       "package": "demo"
+      }
+     ]
+    }
+   }
+  ],
+  "rules": [
+   {
+    "id": "step_on",
+    "on": {
+     "type": "enter",
+     "subject": "demo:plate"
+    },
+    "do": [
+     {
+      "set": "demo:plate#occupants",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "instance",
+         "name": "occupants",
+         "id": "demo:plate"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "step_off",
+    "on": {
+     "type": "leave",
+     "subject": "demo:plate"
+    },
+    "do": [
+     {
+      "set": "demo:plate#occupants",
+      "to": {
+       "op": "max",
+       "args": [
+        {
+         "op": "-",
+         "args": [
+          {
+           "get": "instance",
+           "name": "occupants",
+           "id": "demo:plate"
+          },
+          1
+         ]
+        },
+        0
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "lamp_came_on",
+    "on": {
+     "type": "changed",
+     "key": "demo:lamp#lit",
+     "to": true
+    },
+    "do": [
+     {
+      "emit": "lit",
+      "subject": "demo:lamp"
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:a": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": false,
+     "world:demo.dark": true
+    }
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:plate",
+    "actor": "npc:a"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": true,
+     "world:demo.dark": false
+    },
+    "signals": [
+     [
+      "demo:lamp",
+      "lit"
+     ]
+    ],
+    "fired": [
+     "step_on",
+     "lamp_came_on"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:plate",
+    "actor": "player"
+   }
+  },
+  {
+   "event": {
+    "type": "leave",
+    "subject": "demo:plate",
+    "actor": "npc:a"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plate#occupants": 1,
+     "demo:lamp#lit": true
+    },
+    "signals": []
+   }
+  },
+  {
+   "set": "world:demo.power",
+   "to": false
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": false,
+     "world:demo.dark": true
+    }
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": false,
+     "demo:plate#occupants": 1
+    },
+    "signals": [],
+    "fired": []
+   }
+  },
+  {
+   "set": "world:demo.power",
+   "to": true
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lamp#lit": true
+    },
+    "signals": [
+     [
+      "demo:lamp",
+      "lit"
+     ]
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

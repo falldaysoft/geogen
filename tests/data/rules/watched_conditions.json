@@ -1,0 +1,237 @@
+{
+ "name": "watched_conditions",
+ "about": "Rules with no event fire when their condition becomes true: every light off (what a quest objective compiles to), per actor when the condition reads actor state.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "world:demo.dark_count": {
+    "type": "number",
+    "default": 0
+   },
+   "actor:demo.asked": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.done": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "interactions": {
+   "demo:l1#switch": {
+    "initial": "on",
+    "duration": 0.1,
+    "states": {
+     "off": {
+      "next": "on"
+     },
+     "on": {
+      "next": "off"
+     }
+    }
+   },
+   "demo:l2#switch": {
+    "initial": "on",
+    "duration": 0.1,
+    "states": {
+     "off": {
+      "next": "on"
+     },
+     "on": {
+      "next": "off"
+     }
+    }
+   },
+   "demo:l3#switch": {
+    "initial": "on",
+    "duration": 0.1,
+    "states": {
+     "off": {
+      "next": "on"
+     },
+     "on": {
+      "next": "off"
+     }
+    }
+   }
+  },
+  "rules": [
+   {
+    "id": "all_dark",
+    "when": {
+     "op": "all",
+     "where": {
+      "op": "==",
+      "args": [
+       {
+        "get": "it",
+        "name": "switch"
+       },
+       "off"
+      ]
+     },
+     "over": [
+      "demo:l1",
+      "demo:l2",
+      "demo:l3"
+     ]
+    },
+    "do": [
+     {
+      "set": "world:demo.dark_count",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "world",
+         "name": "dark_count",
+         "package": "demo"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "objective",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "get": "actor",
+       "name": "asked",
+       "package": "demo"
+      },
+      {
+       "op": "==",
+       "args": [
+        {
+         "op": "count",
+         "where": {
+          "op": "==",
+          "args": [
+           {
+            "get": "it",
+            "name": "switch"
+           },
+           "off"
+          ]
+         },
+         "over": [
+          "demo:l1",
+          "demo:l2",
+          "demo:l3"
+         ]
+        },
+        3
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.done",
+      "to": true
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:a": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "set": "actor:demo.asked",
+   "to": true,
+   "actor": "npc:a"
+  },
+  {
+   "use": "demo:l1#switch",
+   "actor": "npc:a"
+  },
+  {
+   "use": "demo:l2#switch",
+   "actor": "npc:a"
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.dark_count": 0
+    },
+    "fired": []
+   }
+  },
+  {
+   "use": "demo:l3#switch",
+   "actor": "player"
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.dark_count": 1
+    },
+    "actors": {
+     "npc:a": {
+      "actor:demo.done": true
+     },
+     "player": {
+      "actor:demo.done": false
+     }
+    },
+    "fired": [
+     "all_dark",
+     "objective"
+    ]
+   }
+  },
+  {
+   "use": "demo:l2#switch"
+  },
+  {
+   "use": "demo:l2#switch"
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.dark_count": 2
+    },
+    "fired": [
+     "all_dark",
+     "objective"
+    ]
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "set": "actor:demo.asked",
+   "to": true,
+   "actor": "player"
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.dark_count": 2
+    },
+    "actors": {
+     "player": {
+      "actor:demo.done": true
+     }
+    },
+    "fired": [
+     "objective"
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

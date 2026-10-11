@@ -1,0 +1,181 @@
+{
+ "name": "lever_opens_gate",
+ "about": "Wiring with no player: a lever's signal opens a gate; pulling it back closes it.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "interactions": {
+   "demo:lever#pull": {
+    "initial": "up",
+    "duration": 0.5,
+    "states": {
+     "up": {
+      "next": "down",
+      "emit": "released"
+     },
+     "down": {
+      "next": "up",
+      "emit": "pulled"
+     }
+    }
+   },
+   "demo:gate#gate": {
+    "initial": "closed",
+    "duration": 2.0,
+    "states": {
+     "closed": {
+      "emit": "shut"
+     },
+     "open": {
+      "emit": "opened"
+     }
+    }
+   }
+  },
+  "rules": [
+   {
+    "id": "open",
+    "on": {
+     "type": "signal",
+     "subject": "demo:lever",
+     "name": "pulled"
+    },
+    "do": [
+     {
+      "set": "demo:gate#gate",
+      "to": "open"
+     }
+    ]
+   },
+   {
+    "id": "close",
+    "on": {
+     "type": "signal",
+     "subject": "demo:lever",
+     "name": "released"
+    },
+    "do": [
+     {
+      "set": "demo:gate#gate",
+      "to": "closed"
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "npc:keeper": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "use": "demo:gate#gate",
+   "used": false
+  },
+  {
+   "use": "demo:lever#pull",
+   "actor": "npc:keeper",
+   "used": true
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lever#pull": "down",
+     "demo:gate#gate": "closed"
+    },
+    "signals": [],
+    "fired": []
+   }
+  },
+  {
+   "advance": 0.6
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:gate#gate": "open"
+    },
+    "signals": [
+     [
+      "demo:lever",
+      "pulled"
+     ]
+    ],
+    "fired": [
+     "open"
+    ]
+   }
+  },
+  {
+   "advance": 2.1
+  },
+  {
+   "expect": {
+    "signals": [
+     [
+      "demo:gate",
+      "opened"
+     ]
+    ],
+    "fired": []
+   }
+  },
+  {
+   "use": "demo:lever#pull"
+  },
+  {
+   "advance": 0.2
+  },
+  {
+   "use": "demo:lever#pull"
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:lever#pull": "down",
+     "demo:gate#gate": "open"
+    },
+    "signals": [
+     [
+      "demo:lever",
+      "pulled"
+     ]
+    ],
+    "fired": [
+     "open"
+    ]
+   }
+  },
+  {
+   "use": "demo:lever#pull"
+  },
+  {
+   "advance": 3.0
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:gate#gate": "closed"
+    },
+    "signals": [
+     [
+      "demo:lever",
+      "released"
+     ],
+     [
+      "demo:gate",
+      "shut"
+     ]
+    ],
+    "fired": [
+     "close"
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

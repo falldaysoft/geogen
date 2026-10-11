@@ -1,0 +1,213 @@
+{
+ "name": "actors_and_once",
+ "about": "Actor state is one value per actor; 'once' is per actor; events turn into lasting state.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.seen_gallery": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.visits": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.visitors": {
+    "type": "number",
+    "default": 0
+   }
+  },
+  "rules": [
+   {
+    "id": "discover",
+    "on": {
+     "type": "enter",
+     "subject": "demo:gallery"
+    },
+    "once": true,
+    "do": [
+     {
+      "set": "actor:demo.seen_gallery",
+      "to": true
+     },
+     {
+      "set": "world:demo.visitors",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "world",
+         "name": "visitors",
+         "package": "demo"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "count",
+    "on": {
+     "type": "enter",
+     "subject": "demo:gallery"
+    },
+    "do": [
+     {
+      "set": "actor:demo.visits",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "actor",
+         "name": "visits",
+         "package": "demo"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "players_only",
+    "on": {
+     "type": "enter",
+     "subject": "demo:gallery",
+     "actor": "player"
+    },
+    "when": {
+     "op": ">=",
+     "args": [
+      {
+       "get": "actor",
+       "name": "visits",
+       "package": "demo"
+      },
+      2
+     ]
+    },
+    "do": [
+     {
+      "emit": "regular",
+      "subject": "demo:gallery"
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:a": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "npc:a"
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "npc:a"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.visitors": 2
+    },
+    "actors": {
+     "player": {
+      "actor:demo.seen_gallery": true,
+      "actor:demo.visits": 1
+     },
+     "npc:a": {
+      "actor:demo.seen_gallery": true,
+      "actor:demo.visits": 2
+     }
+    },
+    "fired": [
+     "discover",
+     "count",
+     "discover",
+     "count",
+     "count"
+    ],
+    "signals": []
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.visitors": 2
+    },
+    "actors": {
+     "player": {
+      "actor:demo.visits": 2
+     }
+    },
+    "fired": [
+     "count",
+     "players_only"
+    ],
+    "signals": [
+     [
+      "demo:gallery",
+      "regular"
+     ]
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:elsewhere",
+    "actor": "player"
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.visitors": 3
+    },
+    "fired": [
+     "discover",
+     "count"
+    ],
+    "errors": 2
+   }
+  }
+ ]
+}

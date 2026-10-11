@@ -1,0 +1,203 @@
+{
+ "name": "cascades",
+ "about": "Rules trigger rules in a fixed order; a loop is cut off after 16 events and reported.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "world:demo.a": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.b": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.c": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.ping": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.order": {
+    "type": "number",
+    "default": 0
+   }
+  },
+  "rules": [
+   {
+    "id": "a_to_b",
+    "on": {
+     "type": "changed",
+     "key": "world:demo.a"
+    },
+    "do": [
+     {
+      "set": "world:demo.b",
+      "to": {
+       "op": "*",
+       "args": [
+        {
+         "get": "world",
+         "name": "a",
+         "package": "demo"
+        },
+        2
+       ]
+      }
+     },
+     {
+      "set": "world:demo.order",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "op": "*",
+         "args": [
+          {
+           "get": "world",
+           "name": "order",
+           "package": "demo"
+          },
+          10
+         ]
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "a_to_c",
+    "on": {
+     "type": "changed",
+     "key": "world:demo.a"
+    },
+    "do": [
+     {
+      "set": "world:demo.c",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "world",
+         "name": "b",
+         "package": "demo"
+        },
+        1
+       ]
+      }
+     },
+     {
+      "set": "world:demo.order",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "op": "*",
+         "args": [
+          {
+           "get": "world",
+           "name": "order",
+           "package": "demo"
+          },
+          10
+         ]
+        },
+        2
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "b_seen",
+    "on": {
+     "type": "changed",
+     "key": "world:demo.b"
+    },
+    "do": [
+     {
+      "set": "world:demo.order",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "op": "*",
+         "args": [
+          {
+           "get": "world",
+           "name": "order",
+           "package": "demo"
+          },
+          10
+         ]
+        },
+        3
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "loop",
+    "on": {
+     "type": "changed",
+     "key": "world:demo.ping"
+    },
+    "do": [
+     {
+      "set": "world:demo.ping",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "world",
+         "name": "ping",
+         "package": "demo"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "steps": [
+  {
+   "set": "world:demo.a",
+   "to": 5
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.b": 10,
+     "world:demo.c": 11,
+     "world:demo.order": 123
+    },
+    "fired": [
+     "a_to_b",
+     "a_to_c",
+     "b_seen"
+    ],
+    "errors": 0
+   }
+  },
+  {
+   "set": "world:demo.ping",
+   "to": 1
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.ping": 17
+    },
+    "errors": 1
+   }
+  }
+ ]
+}
