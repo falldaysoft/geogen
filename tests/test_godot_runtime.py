@@ -389,7 +389,10 @@ def test_save_and_restore_interaction_state(run_godot, auto_room_dir, tmp_path):
     save = tmp_path / "save.json"
     run_godot(*base, "--use=bedroom_switch_1", "--use=nightstand", "--quit-after=60", f"--save={save}")
     saved = json.loads(save.read_text())
-    assert saved["bedroom_switch_1/switch"]["state"] == "off" and saved["nightstand/drawer"]["state"] == "open"
+    # Keyed by stable ID (geogen.refs), not by exported node name.
+    room = "hotel_room_auto:suite/bedroom"
+    assert saved[f"{room}/bedroom_switch_1#switch"]["state"] == "off"
+    assert saved[f"{room}/nightstand#drawer"]["state"] == "open"
     out = run_godot(*base, f"--load={save}", "--lights", "--quit-after=5")
     assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
 
@@ -408,13 +411,14 @@ def test_m4_interactive_hotel_room(run_godot, built_scene, auto_room_dir):
     assert _lines(out, "walk result: ")[0]["room"] in ("corridor", "bedroom")   # through the door
     # L with the key toggles the lock (here: unlocks it), without opening the door.
     out = run_godot(*base, "--keys=key_suite", "--lock=@aim", "--quit-after=10", "--status")
-    entry = _lines(out, "status: ")[0]["states"]["entry/swing"]
+    entry = _lines(out, "status: ")[0]["states"]["hotel_room_auto:suite/entry#swing"]
     assert entry == {"locked": False, "state": "closed"}
     # Wardrobe doors, a drawer and the bedroom light.
     out = run_godot(*base, "--use=wardrobe", "--use=nightstand", "--use=bedroom_switch_1", "--quit-after=90",
                     "--status", "--lights")
     states = _lines(out, "status: ")[0]["states"]
-    assert states["wardrobe/doors"]["state"] == "open" and states["nightstand/drawer"]["state"] == "open"
+    room = "hotel_room_auto:suite/bedroom"
+    assert states[f"{room}/wardrobe#doors"]["state"] == "open" and states[f"{room}/nightstand#drawer"]["state"] == "open"
     assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
     # Sit on the chair (looking down at it from in front), lie on the bed.
     out = run_godot(*base, f"--spawn={chair[0]},0,{chair[2] + 1.0}", "--yaw=0", "--pitch=-50", "--use=@aim",

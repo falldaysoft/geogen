@@ -47,6 +47,11 @@ var model_aabbs: Array[AABB] = []
 var rooms: Array[Dictionary] = []
 ## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
 var spawns: Array[Dictionary] = []
+## Loaded nodes by stable ID (extras.geogen.uid: "<package>:<authored path>", geogen/refs.py).
+## Content and saved state name nodes by these, never by exported node names.
+var nodes_by_uid: Dictionary = {}
+## Saved interaction state for things that aren't loaded right now (streamed chunks), by save key.
+var _pending_state: Dictionary = {}
 ## Fixture lights by their fixture node's name (light switches refer to them).
 var lights_by_name := {}
 ## Actor poses from extras.geogen.affordances, world space:
@@ -221,12 +226,32 @@ func scene_list() -> Array[Dictionary]:
     return out
 
 
-## The spawn named ``name`` (the first one when ``name`` is "" or unknown), or {} with no spawns.
+## The spawn ``name`` (the first one when ``name`` is "" or unknown), or {} with no spawns.
+## ``name`` is a spawn's stable ID, its authored path in this scene (street/hotel/entrance_spawn)
+## or just its name (the shallowest spawn called that).
 func spawn_named(name := "") -> Dictionary:
-    for s in spawns:
-        if name != "" and s.get("name", "") == name:
-            return s
+    if name != "":
+        for s in spawns:
+            var uid := str(s.get("uid", ""))
+            if uid != "" and (uid == name or uid == "%s:%s" % [scene_name, name]):
+                return s
+        for s in spawns:
+            if s.get("name", "") == name:
+                return s
     return spawns[0] if not spawns.is_empty() else {}
+
+
+## The loaded node with stable ID ``uid`` ("cottage:door", or "door" in the current scene), or null.
+func node_by_uid(uid: String) -> Node:
+    var node = nodes_by_uid.get(uid)
+    if node == null and not ":" in uid:
+        node = nodes_by_uid.get("%s:%s" % [scene_name, uid])
+    return node if node != null and is_instance_valid(node) else null
+
+
+## The stable ID of ``node`` ("" if it has none).
+static func uid_of(node: Node) -> String:
+    return str(geogen_extras(node).get("uid", ""))
 
 
 ## Load (or reload) everything requested. Returns the combined bounds.
@@ -256,6 +281,8 @@ func unload() -> void:
     model_aabbs.clear()
     rooms.clear()
     spawns.clear()
+    nodes_by_uid.clear()
+    _pending_state.clear()
     interactions.clear()
     lights_by_name.clear()
     affordances.clear()
@@ -435,7 +462,8 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
     for s in manifest.get("spawns", []):
         var f: Array = s.get("forward", [0, 0, -1])
         var p: Array = s.get("position", [0, 0, 0])
-        spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]) + offset,
+        spawns.append({"name": s.get("name", ""), "uid": s.get("uid", ""),
+            "position": Vector3(p[0], p[1], p[2]) + offset,
             "yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2]))), "model": model_aabbs.size() - 1})
     print("geogen: loaded %s (%d meshes, %d rooms, %d spawns, %d tagged)" % [
         model_path.get_file(), count, summary["rooms"], summary["spawns"], summary["tagged"]])
@@ -451,6 +479,10 @@ func setup_root(root: Node) -> Dictionary:
         if geogen_extras(node).get("type") == "lod":
             node.get_parent().remove_child(node)
             node.queue_free()
+    for node in [root] + root.find_children("*", "Node3D", true, false):
+        var uid := uid_of(node)
+        if uid != "":
+            nodes_by_uid[uid] = node
     _collect_interactions(root)
     _add_lights(root)
     _wire_switches(root)
@@ -548,8 +580,13 @@ func forget(root: Node) -> void:
         return node is Node and is_instance_valid(node) and (node == root or root.is_ancestor_of(node))
     for it in interactions.duplicate():
         if inside.call(it.asset):
+            if uid_of(it.asset) != "":       # remembered until its chunk loads again
+                _pending_state[_state_key(it)] = it.snapshot()
             interactions.erase(it)
             it.queue_free()
+    for uid in nodes_by_uid.keys():
+        if inside.call(nodes_by_uid[uid]):
+            nodes_by_uid.erase(uid)
     rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
     affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
     portals = portals.filter(func(p): return not inside.call(p.get("node")))
@@ -594,7 +631,7 @@ func _load_chunked(index_path: String, index: Dictionary) -> void:
     for s in index.get("spawns", []):
         var f: Array = s.get("forward", [0, 0, -1])
         var p: Array = s.get("position", [0, 0, 0])
-        spawns.append({"name": s.get("name", ""), "position": Vector3(p[0], p[1], p[2]),
+        spawns.append({"name": s.get("name", ""), "uid": s.get("uid", ""), "position": Vector3(p[0], p[1], p[2]),
             "yaw_deg": rad_to_deg(atan2(-float(f[0]), -float(f[2])))})
     print("geogen: streaming %s (%d chunks)" % [index_path.get_file(), streamer.chunks.size()])
 
@@ -924,19 +961,37 @@ func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
     return best
 
 
-## Interaction state of every interaction, keyed "<asset>/<interaction>".
+## The key an interaction's state is saved under: "<stable ID>#<interaction>", so a save
+## survives a re-export that renames nodes (exports without IDs: "<node name>/<interaction>").
+static func _state_key(it: GeogenInteraction) -> String:
+    var uid := uid_of(it.asset)
+    if uid == "":
+        return "%s/%s" % [it.asset.name, it.interaction_name]
+    return "%s#%s" % [uid, it.interaction_name]
+
+
+## Interaction state of every interaction, by ``_state_key``: the loaded ones, plus what was
+## last known of those in chunks that aren't loaded.
 func save_state() -> Dictionary:
-    var data := {}
+    var data := _pending_state.duplicate(true)
     for it in interactions:
-        data["%s/%s" % [it.asset.name, it.interaction_name]] = it.snapshot()
+        data[_state_key(it)] = it.snapshot()
     return data
 
 
+## Restore a save. Entries for things that aren't loaded yet apply when they load.
 func load_state(data: Dictionary) -> void:
+    _pending_state = data.duplicate(true)
     for it in interactions:
-        var key := "%s/%s" % [it.asset.name, it.interaction_name]
-        if data.has(key):
-            it.restore(data[key])
+        _restore_pending(it)
+
+
+func _restore_pending(it: GeogenInteraction) -> void:
+    for key in [_state_key(it), "%s/%s" % [it.asset.name, it.interaction_name]]:   # the second: older saves
+        if _pending_state.has(key):
+            it.restore(_pending_state[key])
+            _pending_state.erase(key)
+            return
 
 
 func _collect_rooms(root: Node) -> void:
@@ -966,6 +1021,7 @@ func _collect_interactions(root: Node) -> void:
                 _moving[part] = true
             for t in it.targets:
                 _target_of[t] = it
+            _restore_pending(it)
 
 
 ## The interaction whose target contains ``node`` (a hit collider), or null.

@@ -163,10 +163,23 @@ def test_sit_and_stand(rt):
 def test_state_save_and_load(rt):
     reset(rt, "open")
     saved = rt.call("state.save")
-    assert saved["door/swing"]["state"] == "open"
+    assert saved["cottage:door#swing"]["state"] == "open"         # keyed by stable ID
     rt.call("interactions.set", asset="door", state="closed", instant=True)
     restored = rt.call("state.load", state=saved)
-    assert restored["door/swing"]["state"] == "open"
+    assert restored["cottage:door#swing"]["state"] == "open"
+    # A save from before IDs (keyed by node name) still loads.
+    rt.call("interactions.set", asset="door", state="closed", instant=True)
+    assert rt.call("state.load", state={"door/swing": {"state": "open"}})["cottage:door#swing"]["state"] == "open"
+
+
+def test_nodes_are_found_by_stable_id(rt):
+    door = rt.call("world.node", uid="cottage:door")
+    assert door["name"] == "door" and door["uid"] == "cottage:door"
+    assert rt.call("world.node", uid="door")["node_path"] == door["node_path"]    # this scene's package implied
+    chairs = rt.call("world.query", uid="cottage:dining/chairs_*")
+    assert sorted(c["uid"] for c in chairs) == [f"cottage:dining/chairs_{i}" for i in range(4)]
+    with pytest.raises(ApiError, match="no node cottage:nope"):
+        rt.call("world.node", uid="cottage:nope")
 
 
 def test_pause_freezes_the_world_and_step_advances_it(rt):

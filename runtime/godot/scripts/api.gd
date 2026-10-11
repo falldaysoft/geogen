@@ -21,13 +21,13 @@ const COMMANDS := {
     "wait_ready": "{timeout?} wait until the world is loaded and the navmesh answers queries",
     "world.info": "scene, bounds, spawns, rooms, npc names, player spec, clock",
     "world.scenes": "the scene catalogue",
-    "world.query": "{tag?, type?, name? (glob), room?, interactive?, limit?} nodes carrying extras.geogen",
+    "world.query": "{tag?, type?, name? (glob), uid? (glob), room?, interactive?, limit?} nodes carrying extras.geogen",
     "world.room_at": "{pos} room id at a point",
     "world.raycast": "{from, to} first hit: position, normal, node, room, interaction",
     "world.nav_path": "{from, to} navmesh path: points, length, reached",
     "world.switch": "{scene, spawn?} load another exported scene",
     "world.reload": "{keep_player?} re-read the current scene's export (after a re-export)",
-    "world.node": "{name | node_path} one node: transform, world bounds, extras, colliders, children, interactions",
+    "world.node": "{name | uid | node_path} one node: transform, world bounds, extras, colliders, children, interactions",
     "player.status": "position, yaw, pitch, room, pose, focus, keys, on_floor",
     "player.teleport": "{pos, yaw?} put the player's feet at pos",
     "player.look": "{yaw?, pitch?} or {at: point}",
@@ -273,7 +273,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return _info()
         "world.node":
             var node := _find_node(args)
-            return _err("no node %s" % args.get("node_path", args.get("name", args.get("node", "")))) \
+            return _err("no node %s" % args.get("node_path", args.get("uid", args.get("name", args.get("node", ""))))) \
                 if node == null else _node_info(node)
         "player.status":
             return _status()
@@ -457,6 +457,7 @@ func _query(args: Dictionary) -> Array:
     var tag := str(args.get("tag", ""))
     var type := str(args.get("type", ""))
     var pattern := str(args.get("name", ""))
+    var uid := str(args.get("uid", ""))
     var room := str(args.get("room", ""))
     var interactive := bool(args.get("interactive", false))
     var limit := int(args.get("limit", 200))
@@ -472,12 +473,14 @@ func _query(args: Dictionary) -> Array:
             continue
         if pattern != "" and not String(node.name).matchn(pattern):
             continue
+        if uid != "" and not str(g.get("uid", "")).match(uid):
+            continue
         if interactive and not g.has("interactions"):
             continue
         var pos := node.global_position
         if room != "" and world.room_at(pos + Vector3(0, 0.3, 0)) != room:
             continue
-        out.append({"name": String(node.name), "node_path": String(world.get_path_to(node)), "position": _v(pos),
+        out.append({"name": String(node.name), "uid": str(g.get("uid", "")), "node_path": String(world.get_path_to(node)), "position": _v(pos),
             "yaw": snappedf(rad_to_deg(node.global_rotation.y), 0.1), "room": world.room_at(pos + Vector3(0, 0.3, 0)),
             "extras": g})
         if out.size() >= limit:
@@ -867,6 +870,8 @@ func _find_node(args: Dictionary) -> Node3D:
     var world: WorldLoader = main.world
     if args.has("node_path"):
         return world.get_node_or_null(NodePath(str(args["node_path"]))) as Node3D
+    if args.has("uid"):          # a stable ID (extras.geogen.uid); the scene's package may be left off
+        return world.node_by_uid(str(args["uid"])) as Node3D
     var pattern := str(args.get("name", args.get("node", "")))
     if pattern == "":
         return null
@@ -916,7 +921,8 @@ func _node_info(node: Node3D) -> Dictionary:
         if child is Node3D and not child is CollisionObject3D:
             children.append({"name": String(child.name), "type": child.get_class(),
                 "object": _is_object(WorldLoader.geogen_extras(child))})
-    return {"name": String(node.name), "node_path": String(world.get_path_to(node)), "type": node.get_class(),
+    return {"name": String(node.name), "uid": WorldLoader.uid_of(node),
+        "node_path": String(world.get_path_to(node)), "type": node.get_class(),
         "position": _v(xform.origin), "rotation_deg": _v(xform.basis.get_euler() * (180.0 / PI)),
         "scale": _v(xform.basis.get_scale()), "visible": node.is_visible_in_tree(),
         "bounds": _box(_bounds(node)), "room": world.room_at(xform.origin + Vector3(0, 0.3, 0)),
