@@ -26,7 +26,8 @@ const STALL_SECONDS := 0.6        # no progress this long: sidestep
 const SIDESTEP_SECONDS := 0.4
 const FAIL_SECONDS := 4.0         # no progress this long: give up on the step
 const USE_TIMEOUT := 6.0
-const POSE_SECONDS := 0.5         # hold after changing pose (until there are clips)
+const POSE_SECONDS := 0.5         # hold after changing pose (bodies without a transition clip)
+const TRANSITION_BLEND := 0.12    # s to cross-fade into and out of a transition clip (sit_down, ...)
 const SEAT_CLEAR := 0.03          # m the calves keep in front of a seat's front edge
 const POSE_BLEND := 0.4           # s to cross-fade skeletal pose clips (and ease the body into place)
 const LOCOMOTION_BLEND := 0.25    # s to cross-fade walk <-> idle
@@ -72,6 +73,13 @@ var _pose := "stand"
 var _pose_yaw := 0.0                 # world heading the current pose was set to (rad)
 var _anim: AnimationPlayer = null   # the body's skeletal clips (pose_<name>, walk, idle, ...), if any
 var _clip_speed := {}               # clip name -> ground speed it was authored for (m/s)
+## "from>to" (poses) -> {clip, times, positions, rotations}: the clip that moves the body between
+## them and its root path, in the frame of where the NPC ends up (the clip's extras `root`).
+var _transitions := {}
+var _transition := {}               # the one playing: {move, t, start, target, pose}
+var _pose_tween: Tween = null
+var _cost_usec := 0                 # script time spent in _physics_process (report: cost_us per frame)
+var _cost_frames := 0
 # Step state
 var _timer := 0.0
 var _path := PackedVector3Array()
@@ -111,6 +119,15 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
         for clip in WorldLoader.geogen_extras(npc.body).get("clips", []):
             if clip.has("speed"):
                 npc._clip_speed[clip["name"]] = float(clip["speed"])
+            if clip.has("root") and clips.has(clip["name"]):
+                var root: Dictionary = clip["root"]
+                var move := {"clip": clip["name"], "times": PackedFloat32Array(root["times"]),
+                    "positions": PackedVector3Array(), "rotations": []}
+                for q in root["positions"]:
+                    move["positions"].append(Vector3(q[0], q[1], q[2]))
+                for q in root["rotations"]:
+                    move["rotations"].append(Quaternion(q[0], q[1], q[2], q[3]))
+                npc._transitions["%s>%s" % [clip["from"], clip["to"]]] = move
         npc.body.reparent(npc, false)
         npc.body.transform = Transform3D.IDENTITY
         if not clips.is_empty():
@@ -322,11 +339,19 @@ func _finish_option(ok: bool, reason := "") -> void:
 # --- running --------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+    var started := Time.get_ticks_usec()
+    _step(delta)
+    _cost_usec += Time.get_ticks_usec() - started
+    _cost_frames += 1
+
+
+func _step(delta: float) -> void:
     clock += delta
     if away:
         if not _away_block():
             _reappear()
         return
+    _advance_transition(delta)
     _animate_locomotion()
     _attend(delta)
     for need in needs:
@@ -472,6 +497,8 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         rotation.y += clampf(diff, -turn, turn)
         return "done" if absf(diff) <= turn else "running"
     if step.has("pose"):
+        if not _transition.is_empty():
+            return "running"              # the transition clip sets the pace
         _timer += delta
         return "done" if _timer >= POSE_SECONDS else "running"
     if step.has("wait"):
@@ -1108,6 +1135,8 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
     var pose: Dictionary = definition["body"]["poses"][pose_name]
     var yaw := deg_to_rad(float(ctx["yaw_deg"]))
     var place: Vector3 = ctx["anchor"] if at == "anchor" else ctx["approach"]
+    var was := _pose
+    var before := body.global_transform if body != null else Transform3D.IDENTITY
     if pose_name == "stand":
         var map := get_world_3d().navigation_map
         place = NavigationServer3D.map_get_closest_point(map, place)
@@ -1127,12 +1156,58 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
         var s: Array = pose["scale"]
         var basis := Basis.from_euler(Vector3(deg_to_rad(r[0]), deg_to_rad(r[1]), deg_to_rad(r[2])))
         var target := Transform3D(basis.scaled_local(Vector3(s[0], s[1], s[2])), Vector3(o[0], o[1], o[2]))
+        if _pose_tween != null:
+            _pose_tween.kill()
+        _transition = {}
+        var move: Dictionary = _transitions.get("%s>%s" % [was, pose_name], {})
+        if _anim != null and not move.is_empty():
+            # A keyframed move (sit_down, stand_up, ...): the clip poses the skeleton while the
+            # body follows the clip's root path from where it was to where the pose puts it.
+            _transition = {"move": move, "t": 0.0, "start": global_transform.affine_inverse() * before,
+                "target": target, "pose": pose_name}
+            body.transform = _transition["start"]
+            _anim.speed_scale = 1.0
+            _anim.play(move["clip"], TRANSITION_BLEND)
+            _timer = POSE_SECONDS             # no extra hold once it has played
+            stats["transitions"] = int(stats.get("transitions", 0)) + 1
+            return
         if _anim != null:
-            # Skeletal bodies ease into place while the clips cross-fade.
-            create_tween().tween_property(body, "transform", target, POSE_BLEND)
+            # No clip for this change: ease into place while the pose clips cross-fade.
+            _pose_tween = create_tween()
+            _pose_tween.tween_property(body, "transform", target, POSE_BLEND)
         else:
             body.transform = target
     _play_pose_clip(pose_name, POSE_BLEND)
+
+
+## Follow the playing transition's root path. The path was made for the action's default
+## approach and seat height; what differs here (a deeper or lower seat) is spread over the move.
+func _advance_transition(delta: float) -> void:
+    if _transition.is_empty():
+        return
+    var move: Dictionary = _transition["move"]
+    var times: PackedFloat32Array = move["times"]
+    var positions: PackedVector3Array = move["positions"]
+    var last := times.size() - 1
+    var target: Transform3D = _transition["target"]
+    _transition["t"] += delta
+    var t := minf(_transition["t"], times[last])
+    if t >= times[last]:
+        body.transform = target
+        var pose_name: String = _transition["pose"]
+        _transition = {}
+        _play_pose_clip(pose_name, TRANSITION_BLEND)
+        return
+    var i := 0
+    while i < last - 1 and times[i + 1] <= t:
+        i += 1
+    var f := clampf((t - times[i]) / maxf(times[i + 1] - times[i], 1e-6), 0.0, 1.0)
+    var g := smoothstep(0.0, 1.0, t / times[last])
+    var start: Transform3D = _transition["start"]
+    var origin := positions[i].lerp(positions[i + 1], f) + (start.origin - positions[0]) * (1.0 - g) \
+        + (target.origin - positions[last]) * g
+    var turn: Quaternion = (move["rotations"][i] as Quaternion).slerp(move["rotations"][i + 1], f)
+    body.transform = Transform3D(Basis(turn).scaled_local(target.basis.get_scale()), origin)
 
 
 ## Skeletal bodies: hold the pose's clip (pose_<name>; standing: walk or idle); capsules have none.
@@ -1150,7 +1225,8 @@ func _play_pose_clip(pose_name: String, blend: float) -> void:
 ## Standing skeletal bodies walk while moving (playback scaled to the ground speed so the
 ## feet don't slide) and idle when still.
 func _animate_locomotion() -> void:
-    if _anim == null or _pose != "stand" or _playing or not _anim.has_animation("walk"):
+    if _anim == null or _pose != "stand" or _playing or not _transition.is_empty() \
+            or not _anim.has_animation("walk"):
         return
     var speed := Vector2(velocity.x, velocity.z).length()
     var clip := "walk" if speed > WALK_THRESHOLD else ("idle" if _anim.has_animation("idle") else "pose_stand")
@@ -1194,7 +1270,8 @@ func _attend(delta: float) -> void:
         if want > 0.0:
             stats["looking"] = float(stats.get("looking", 0.0)) + delta
     var yield_spec: Dictionary = attention.get("yield", {})
-    if who == null or yield_spec.is_empty() or _pose != "stand" or clock - _yielded_at < YIELD_COOLDOWN:
+    if who == null or yield_spec.is_empty() or _pose != "stand" or not _transition.is_empty() \
+            or clock - _yielded_at < YIELD_COOLDOWN:
         return
     if not _stack.is_empty() and (_stack.back()["action"] in ["greet", yield_spec["action"]]
             or _stack.back()["steps"][mini(_stack.back()["index"], _stack.back()["steps"].size() - 1)].has("go_to")):
@@ -1223,7 +1300,8 @@ func _attend(delta: float) -> void:
 ## Whether the player can greet this NPC now (their E prompt).
 func can_greet() -> bool:
     var greet: Dictionary = definition.get("attention", {}).get("greet", {})
-    return not greet.is_empty() and not away and _pose == "stand" and clock - _greeted_at >= float(greet["cooldown"]) \
+    return not greet.is_empty() and not away and _pose == "stand" and _transition.is_empty() \
+        and clock - _greeted_at >= float(greet["cooldown"]) \
         and (_stack.is_empty() or _stack.back()["action"] != greet["action"])
 
 
@@ -1318,7 +1396,8 @@ func report() -> Dictionary:
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
-        "yields": int(stats.get("yields", 0)), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1),
+        "yields": int(stats.get("yields", 0)), "transitions": int(stats.get("transitions", 0)),
+        "cost_us": snappedf(float(_cost_usec) / maxi(_cost_frames, 1), 0.1), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1),
         # World heading (deg) and how far it is from the pose's (sitting: the seat's facing).
         "yaw": snappedf(rad_to_deg(wrapf(_yaw(), -PI, PI)), 0.1),
         "pose_yaw_error": snappedf(rad_to_deg(absf(wrapf(_yaw() - _pose_yaw, -PI, PI))), 0.1)}

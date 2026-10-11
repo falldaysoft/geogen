@@ -212,18 +212,18 @@ class LayoutLoader:
         if "floorplan" in data:
             return self._build_floorplan(name, data)
         if "body" in data:
-            from ..generators.humanoid import build_humanoid
+            from ..generators.humanoid import build_humanoid, fit_seated_pose
+            from ..npc import parse_poses
 
+            root_poses = parse_poses(data["poses"]) if data.get("poses") else None
             root = build_humanoid(data["body"], name, self._material_loader,
-                                  assets_dir=Path(__file__).parents[3] / "assets", params=data.get("_params"))
+                                  assets_dir=Path(__file__).parents[3] / "assets", params=data.get("_params"),
+                                  root_poses=root_poses)
             root.tags = [*root.tags, *data.get("tags", [])]
             if data.get("preset"):
                 root.meta["preset"] = data["preset"]
-            if data.get("poses"):
-                from ..generators.humanoid import fit_seated_pose
-                from ..npc import parse_poses
-
-                root.meta["poses"] = parse_poses(data["poses"])
+            if root_poses:
+                root.meta["poses"] = root_poses
                 fit_seated_pose(root, root.meta["poses"])
             if data.get("affordances"):
                 root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]

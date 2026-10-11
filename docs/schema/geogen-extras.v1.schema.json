@@ -74,7 +74,21 @@
               "name": { "type": "string" },
               "animation": { "type": "string" },
               "duration": { "type": "number", "minimum": 0 },
-              "loop": { "type": "boolean" }
+              "loop": { "type": "boolean" },
+              "speed": { "description": "Locomotion clips: the ground speed (m/s) the cycle was made for; scale playback by actual speed / this.", "type": "number" },
+              "stride": { "type": "number" },
+              "from": { "description": "Transition clips (sit_down, stand_up, ...): the pose the clip starts in.", "type": "string" },
+              "to": { "description": "Transition clips: the pose the clip ends in. Play the clip when changing pose from 'from' to 'to'.", "type": "string" },
+              "root": {
+                "description": "Transition clips: the body root's path while the clip plays, in the frame of where the character ends up (the affordance anchor; the approach point when 'to' is stand), x right, y up, z forward. Made for the action's default approach offset and seat height: blend the difference to the actual start and end placements over the clip.",
+                "type": "object",
+                "required": ["times", "positions", "rotations"],
+                "properties": {
+                  "times": { "type": "array", "items": { "type": "number" } },
+                  "positions": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } },
+                  "rotations": { "description": "Quaternions x, y, z, w.", "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 } }
+                }
+              }
             }
           }
         },

@@ -183,9 +183,22 @@ from the Python clip by the slerp-vs-chord error (a few mm on the test tube).
 NPC bodies with skeletal clips (the humanoid) get their own AnimationPlayer
 under the body, plus a `RESET` animation at the rest pose (the importer drops
 tracks equal to the rest, the exported stand pose, so blends need it).
-`npc.gd` cross-fades `pose_sit` / `pose_lie` when the NPC sits or lies, and
-while standing plays `walk` (speed-scaled to the NPC's velocity over the
-clip's recorded speed, so feet don't slide) or `idle`.
+When the NPC changes pose, `npc.gd` plays the body's transition clip for that
+change (extras `from` / `to`: `sit_down`, `stand_up`, `lie_down`, `get_up`)
+and moves the body along the clip's `root` path, so the feet stay where they
+stood while the hips go to the seat; the path was made for the default approach
+and seat height, and the difference to the actual ones is blended in over the
+clip. Then it holds `pose_sit` / `pose_lie`. Bodies without a transition clip
+cross-fade into the pose clip instead. While standing it plays `walk`
+(speed-scaled to the NPC's velocity over the clip's recorded speed, so feet
+don't slide) or `idle`.
+
+`--simulate` also prints `npc cost: {npcs, script_us, process_ms, physics_ms,
+frame_ms}`: mean NPC script time per physics frame (also per NPC as `cost_us`
+in the summary) and the engine's process / physics time per frame. Measured
+headless on an M-series Mac: one resident costs about 15 us of script and
+40 us of animation per frame; in a crowd the script cost per NPC grows (54 us
+each at 10, about 80 to 100 us each at 40) because every NPC scans the others.
 `tools/dump_skeleton_profile.gd` prints `SkeletonProfileHumanoid`
 (saved as `assets/skeletons/humanoid_profile.json`).
 

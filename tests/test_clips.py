@@ -96,3 +96,75 @@ def test_clip_speed_is_exported(tmp_path):
     assert clips["walk"]["speed"] == pytest.approx(1.2) and clips["walk"]["loop"]
     assert {"idle", "pose_sit", "pose_lie", "pose_stand"} <= set(clips)
     assert {a["name"] for a in gltf["animations"]} >= {"humanoid_walk", "humanoid_idle"}
+
+
+def _placed(body, clip, t):
+    """The body at ``t`` of a transition clip, its root following the clip's ``meta.root``."""
+    from geogen.core.transform import Transform
+    from geogen.generators.clips import root_at
+
+    actor = body.instance()
+    _clip(actor, clip.name).apply(actor, t)
+    actor.transform = Transform.from_matrix(root_at(clip.meta["root"], t))
+    return actor
+
+
+@pytest.mark.parametrize("name", ["sit_down", "stand_up"])
+def test_sitting_down_keeps_the_feet_planted(body, name):
+    """The transition clips move the root from the approach to the seat (or back) while leg IK
+    holds both feet on the floor: the ankles stay level and only shuffle between the two poses'
+    foot positions."""
+    clip = _clip(body, name)
+    assert (clip.meta["from"], clip.meta["to"]) == (("stand", "sit") if name == "sit_down" else ("sit", "stand"))
+    assert not clip.loop
+    ankles, hips = [], []
+    for t in np.linspace(0.0, clip.duration, 15):
+        actor = _placed(body, clip, t)
+        ankles.append(actor.find("LeftFoot").world_transform()[:3, 3])
+        hips.append(actor.find("Hips").world_transform()[:3, 3])
+    ankles, hips = np.array(ankles), np.array(hips)
+    assert np.ptp(ankles[:, 1]) < 0.005                        # on the floor throughout
+    assert np.ptp(ankles[:, 2]) < 0.2 and np.ptp(ankles[:, 0]) < 0.03
+    steps = np.diff(ankles[:, 2])
+    assert (steps <= 1e-6).all() or (steps >= -1e-6).all()      # one way, no wobble
+    assert np.ptp(hips[:, 1]) > 0.2 and np.ptp(hips[:, 2]) > 0.4   # the hips do the travelling
+
+
+def test_transitions_start_and_end_in_their_poses(body):
+    """A transition's first and last frames are the two poses where the runtime holds them: the
+    root path ends at the pose's root offset, and the skeleton matches the pose clip."""
+    from geogen.generators.clips import root_at
+
+    sit = np.array(body.meta["poses"]["sit"]["offset"])
+    down, up = _clip(body, "sit_down"), _clip(body, "stand_up")
+    np.testing.assert_allclose(root_at(down.meta["root"], down.duration)[:3, 3], sit, atol=2e-4)
+    np.testing.assert_allclose(root_at(up.meta["root"], up.duration), np.eye(4), atol=2e-4)
+    # Sitting down starts where standing up ends, in front of the seat and on the floor below it.
+    start = root_at(down.meta["root"], 0.0)[:3, 3]
+    np.testing.assert_allclose(root_at(up.meta["root"], 0.0)[:3, 3], sit - start, atol=2e-4)   # approach frame
+    assert start[2] == pytest.approx(0.5) and start[1] == pytest.approx(-0.45, abs=0.03)
+    for clip, t, pose in ((down, down.duration, "pose_sit"), (up, 0.0, "pose_sit"), (down, 0.0, "pose_stand")):
+        moved, held = body.instance(), body.instance()
+        _clip(moved, clip.name).apply(moved, t)
+        _clip(held, pose).apply(held, 0.0)
+        for bone in ("LeftLowerLeg", "LeftFoot", "Head", "RightHand"):
+            np.testing.assert_allclose(moved.find(bone).world_transform()[:3, 3],
+                                       held.find(bone).world_transform()[:3, 3], atol=0.01, err_msg=f"{clip.name} {bone}")
+
+
+def test_lying_down_turns_the_body_onto_its_back(body):
+    clip = _clip(body, "lie_down")
+    lie = body.meta["poses"]["lie"]
+    start, end = _placed(body, clip, 0.0), _placed(body, clip, clip.duration)
+    np.testing.assert_allclose(end.transform.translation, lie["offset"], atol=2e-4)
+    head = end.find("Head").world_transform()[:3, 3] - end.find("Hips").world_transform()[:3, 3]
+    assert abs(head[1]) < 0.05 and head[2] < -0.4               # flat, head toward the pillow
+    assert start.find("Hips").world_transform()[0, 3] == pytest.approx(0.8)   # beside the bed
+    assert _clip(body, "get_up").meta["to"] == "stand"
+
+
+def test_transition_ramps_the_seated_corrective():
+    body = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "outfit": "skirt_sweater"})
+    weights = {name: _clip(body, name).morphs["clothes"].weights["seated"] for name in ("sit_down", "stand_up", "walk")}
+    assert list(weights["sit_down"]) == [0.0, 1.0] and list(weights["stand_up"]) == [1.0, 0.0]
+    assert list(weights["walk"]) == [0.0, 0.0]

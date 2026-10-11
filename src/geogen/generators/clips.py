@@ -16,6 +16,10 @@ the head stays level. The stride is chosen from the leg length so the IK can
 reach it. The clip's ``meta.speed`` is recorded in extras so the runtime
 scales playback to the NPC's actual velocity.
 
+Transitions between poses (``generator: transition``: sit_down, stand_up, lie_down,
+get_up) are keyed too, with the root's path between the two placements in ``meta.root``
+for the runtime to follow.
+
 Every clip keys every bone (absolute local rotations) plus the Hips
 translation, sampled at ``fps`` and exported as glTF LINEAR channels.
 """
@@ -27,13 +31,17 @@ import numpy as np
 from ..core import ik
 from ..core.skeleton import Pose, Skeleton
 from ..core.skin import Clip, Track
-from ..core.transform import quat_from_matrix
+from ..core.transform import Transform, matrix_from_quat, quat_from_matrix, slerp
 
 WALK_DEFAULTS = {"speed": 1.2, "duty": 0.6, "knee_drop": 0.03, "bob": 0.026, "hip_sway": 0.02,
                  "pelvis_yaw": 6.0, "pelvis_list": 3.0, "chest_yaw": 8.0, "arm_swing": 16.0,
                  "lift": 0.07, "heel_raise": 34.0, "stance_width": 0.0, "fps": 30}
 IDLE_DEFAULTS = {"duration": 6.0, "breathe": 1.5, "sway": 0.012, "glance": 12.0, "fps": 15}
 WAVE_DEFAULTS = {"duration": 2.4, "waves": 3, "swing": 18.0, "raise": 15.0, "ease": 0.45, "fps": 20}
+TRANSITION_DEFAULTS = {"from": None, "to": None, "duration": 1.4, "approach": [0.0, 0.0, 0.5],
+                       "anchor_height": None, "plant": False, "lean": 0.0, "via": None, "via_at": 0.5,
+                       "move": [0.0, 1.0], "turn": [0.0, 1.0], "fps": 20}
+STANDING = "stand"          # the pose held at the approach point; every other pose is at the anchor
 
 
 def _rx(a: float) -> np.ndarray:
@@ -225,8 +233,6 @@ def wave_clip(skeleton: Skeleton, base: Pose, name: str = "wave", **params) -> C
         pose = base.copy()
         for bone, target in up.items():
             q0 = pose.rotations.get(bone, s.body_quat(bone, np.eye(3)))
-            from ..core.transform import slerp
-
             pose.rotations[bone] = slerp(q0, s.body_quat(bone, target), w)
         swing = np.radians(p["swing"]) * np.sin(2 * np.pi * p["waves"] * max(t - ease, 0.0)
                                                 / max(duration - 2 * ease, 1e-6))
@@ -239,12 +245,133 @@ def wave_clip(skeleton: Skeleton, base: Pose, name: str = "wave", **params) -> C
     return Clip(name, tracks_from_poses(s, poses, times), loop=False)
 
 
-GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip}
+def _blend(a: Pose, b: Pose, t: float) -> Pose:
+    """``a`` to ``b``: rotations slerped per bone, offsets lerped."""
+    identity, zero = np.array([0.0, 0.0, 0.0, 1.0]), np.zeros(3)
+    out = Pose(root=(1 - t) * a.root + t * b.root)
+    for bone in {*a.rotations, *b.rotations}:
+        out.rotations[bone] = slerp(a.rotations.get(bone, identity), b.rotations.get(bone, identity), t)
+    for bone in {*a.offsets, *b.offsets}:
+        out.offsets[bone] = (1 - t) * a.offsets.get(bone, zero) + t * b.offsets.get(bone, zero)
+    return out
 
 
-def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict) -> Clip:
+def _window(u: float, span) -> float:
+    return _smooth((u - float(span[0])) / max(float(span[1]) - float(span[0]), 1e-6))
+
+
+def root_at(root: dict, t: float) -> np.ndarray:
+    """A transition clip's ``meta.root`` sampled at ``t``: the body's 4x4 transform in the frame
+    of where the character ends up (the anchor; the approach point when it ends standing)."""
+    times = np.asarray(root["times"])
+    t = float(np.clip(t, times[0], times[-1]))
+    i = int(np.clip(np.searchsorted(times, t, side="right") - 1, 0, len(times) - 2))
+    f = (t - times[i]) / max(times[i + 1] - times[i], 1e-9)
+    m = np.eye(4)
+    m[:3, :3] = matrix_from_quat(slerp(root["rotations"][i], root["rotations"][i + 1], f))
+    m[:3, 3] = (1 - f) * np.asarray(root["positions"][i]) + f * np.asarray(root["positions"][i + 1])
+    return m
+
+
+def transition_clip(skeleton: Skeleton, base: Pose, name: str = "transition", *, poses: dict | None = None,
+                    roots: dict | None = None, **params) -> Clip:
+    """A one-shot move from pose ``from`` to pose ``to`` (sitting down, standing up, lying down).
+
+    The body's root moves too: standing, it is on the floor at ``approach`` (anchor frame: x
+    right, z forward) ``anchor_height`` below the anchor; in any other pose it is where the
+    asset's root ``poses:`` put it. The hips travel between the two (over the ``move`` share of
+    the clip) while the body turns about them (``turn``), the skeleton blends from one pose to
+    the other (through ``via`` at ``via_at``, if given) and the torso leans ``lean`` degrees
+    forward mid-way. ``plant`` keeps both feet where they stand, by leg IK, sliding only as
+    far as the two poses' foot positions differ; it also sets ``anchor_height`` from them.
+
+    ``meta`` records ``from``, ``to`` and ``root`` (``times``, ``positions``, ``rotations``
+    xyzw): the root's path in the frame of where the character ends up, which a runtime
+    replays while the clip plays (see ``root_at``)."""
+    p = {**TRANSITION_DEFAULTS, **params}
+    unknown = set(params) - set(TRANSITION_DEFAULTS)
+    if unknown:
+        raise ValueError(f"transition clip '{name}': unknown params {sorted(unknown)}")
+    poses, roots = poses or {}, roots or {}
+    for key in ("from", "to", "via"):
+        if p[key] is not None and p[key] not in poses:
+            raise ValueError(f"transition clip '{name}': unknown pose '{p[key]}'. Poses: {sorted(poses)}")
+    if p["from"] is None or p["to"] is None:
+        raise ValueError(f"transition clip '{name}' needs 'from' and 'to' poses")
+    s = skeleton
+    ends = [Pose.from_spec(poses[p[key]], s) for key in ("from", "to")]
+    via = Pose.from_spec(poses[p["via"]], s) if p["via"] is not None else None
+    fks = [s.fk(pose) for pose in ends]
+    feet = ("LeftFoot", "RightFoot") if p["plant"] else ()
+
+    def placed(pose_name: str) -> np.ndarray:
+        spec = roots.get(pose_name) or {}
+        return Transform(translation=np.asarray(spec.get("offset", [0, 0, 0]), dtype=np.float64),
+                         rotation=np.radians(np.asarray(spec.get("rotation", [0, 0, 0]), dtype=np.float64))).to_matrix()
+
+    height = p["anchor_height"]
+    if height is None:
+        seated = [i for i, key in enumerate(("from", "to")) if p[key] != STANDING]
+        if not feet or len(seated) != 1:
+            raise ValueError(f"transition clip '{name}' needs 'anchor_height' (or 'plant' feet to take it from)")
+        i = seated[0]
+        there = placed(p[("from", "to")[i]])
+        height = -float(np.mean([(there @ fks[i][f])[1, 3] - fks[1 - i][f][1, 3] for f in feet]))
+    standing = np.eye(4)
+    standing[:3, 3] = np.asarray(p["approach"], dtype=np.float64) - [0.0, height, 0.0]
+    places = [standing if p[key] == STANDING else placed(p[key]) for key in ("from", "to")]
+    quats = [quat_from_matrix(m[:3, :3]) for m in places]
+    hips = [(m @ fk["Hips"])[:3, 3] for m, fk in zip(places, fks)]
+    ankles = {f: [(m @ fk[f])[:3, 3] for m, fk in zip(places, fks)] for f in feet}
+    legs = {f: _Legs(s, f.removesuffix("Foot")) for f in feet}
+
+    duration = float(p["duration"])
+    frames = max(8, int(round(duration * p["fps"])))
+    times = np.linspace(0.0, duration, frames + 1)
+    keyed, positions, rotations = [], [], []
+    for t in times:
+        u = t / duration
+        if via is None:
+            pose = _blend(ends[0], ends[1], _smooth(u))
+        elif u < p["via_at"]:
+            pose = _blend(ends[0], via, _smooth(u / p["via_at"]))
+        else:
+            pose = _blend(via, ends[1], _smooth((u - p["via_at"]) / (1 - p["via_at"])))
+        lean = np.radians(p["lean"]) * np.sin(np.pi * u) / 2
+        for bone in ("Spine", "Chest"):
+            # A body-frame rotation on top of the blended one.
+            q = pose.rotations.get(bone, np.array([0.0, 0.0, 0.0, 1.0]))
+            pose.rotations[bone] = quat_from_matrix(matrix_from_quat(s.body_quat(bone, _rx(lean))) @ matrix_from_quat(q))
+        q = slerp(quats[0], quats[1], _window(u, p["turn"]))
+        turn = matrix_from_quat(q)
+        g = _window(u, p["move"])
+        position = (1 - g) * hips[0] + g * hips[1] - turn @ s.fk(pose)["Hips"][:3, 3]
+        for foot, (a, b) in ankles.items():
+            e = _smooth(u)
+            legs[foot].solve(pose, turn.T @ ((1 - e) * a + e * b - position), turn.T, 0.0)
+        keyed.append(pose)
+        positions.append(position)
+        rotations.append(q if not rotations or np.dot(q, rotations[-1]) >= 0 else -q)
+    clip = Clip(name, tracks_from_poses(s, keyed, times), loop=False)
+    end = places[1][:3, 3] if p["to"] == STANDING else np.zeros(3)     # where the character's node ends up
+    clip.meta = {"from": p["from"], "to": p["to"],
+                 "root": {"times": [round(float(t), 4) for t in times],
+                          "positions": [[round(float(v), 4) for v in pos - end] for pos in positions],
+                          "rotations": [[round(float(v), 5) for v in q] for q in rotations]}}
+    return clip
+
+
+GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip, "transition": transition_clip}
+
+
+def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict, poses: dict | None = None,
+                  roots: dict | None = None) -> Clip:
+    """``poses`` are the body's skeletal pose specs and ``roots`` its root placements per pose
+    (the asset's top-level ``poses:``); transitions need both."""
     spec = dict(spec)
     kind = spec.pop("generator", name)
     if kind not in GENERATORS:
         raise ValueError(f"clip '{name}': unknown generator '{kind}'. Known: {sorted(GENERATORS)}")
+    if kind == "transition":
+        return transition_clip(skeleton, base, name=name, poses=poses, roots=roots, **spec)
     return GENERATORS[kind](skeleton, base, name=name, **spec)

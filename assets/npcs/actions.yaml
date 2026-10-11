@@ -15,7 +15,8 @@
 #                                toward the player
 #   play: <clip>                 play one of the body's clips once (a skeletal body; others wait
 #                                a moment) and return to standing
-#   pose: <name>                 put the body in a pose from its body asset's `poses:`
+#   pose: <name>                 put the body in a pose from its body asset's `poses:` (a skeletal
+#                                body plays its transition clip for the change: sit_down, ...)
 #       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
 #   wait: duration | S | [lo, hi]  seconds (duration = the affordance's range)
 #   use: <state>                 drive the affordance's/portal's interaction to <state>

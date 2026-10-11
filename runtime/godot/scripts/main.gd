@@ -98,6 +98,11 @@ var _playtest_walks := -1
 var _wait_left := 0.0
 var _focus: GeogenInteraction = null
 var _simulate := 0.0
+var _sim_started := 0           # ticks (usec) and process frame when --simulate began
+var _sim_frame := 0
+var _sim_process := 0.0         # summed Performance TIME_PROCESS / TIME_PHYSICS_PROCESS (s) over the run
+var _sim_physics := 0.0
+var _sim_samples := 0
 var _sim_clock := 0.0
 var _npc_labels := false
 var _follow = null       # NPC name prefix to follow with the overview camera, or null
@@ -605,6 +610,9 @@ func _physics_process(delta: float) -> void:
         world.stream_focus = player.global_position
     _sim_greet()
     if _simulate > 0.0:
+        if _sim_clock == 0.0:
+            _sim_started = Time.get_ticks_usec()
+            _sim_frame = Engine.get_process_frames()
         _sim_clock += delta
         if _sim_clock >= _simulate:
             _simulate = 0.0
@@ -613,6 +621,17 @@ func _physics_process(delta: float) -> void:
                 if is_instance_valid(npc):
                     reports.append(npc.report())
             print("npc summary: %s" % JSON.stringify(reports))
+            # What the NPCs cost: their script time per physics frame, the engine's process and
+            # physics time per frame (animation is in process_ms) and the whole frame. Compare
+            # runs with and without them; frame_ms needs a window and --disable-vsync.
+            var script_us := 0.0
+            for r in reports:
+                script_us += float(r["cost_us"])
+            print("npc cost: %s" % JSON.stringify({"npcs": reports.size(),
+                "script_us": snappedf(script_us / maxi(reports.size(), 1), 0.1),
+                "process_ms": snappedf(_sim_process / maxi(_sim_samples, 1) * 1000.0, 0.001),
+                "physics_ms": snappedf(_sim_physics / maxi(_sim_samples, 1) * 1000.0, 0.001),
+                "frame_ms": snappedf(float(Time.get_ticks_usec() - _sim_started) / 1000.0 / maxi(Engine.get_process_frames() - _sim_frame, 1), 0.001)}))
             var traffic_reports := []
             for t in world.traffic:
                 if is_instance_valid(t):
@@ -683,6 +702,9 @@ func _process(delta: float) -> void:
     _run_switches(delta)
     _follow_npc()
     if _simulate > 0.0:
+        _sim_process += Performance.get_monitor(Performance.TIME_PROCESS)
+        _sim_physics += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+        _sim_samples += 1
         return   # --screenshot waits for the simulation
     if overlay.visible:
         var p := player.global_position

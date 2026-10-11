@@ -619,6 +619,14 @@ body:
     walk: { generator: walk, speed: 1.2, arm_swing: "{12 + 6 * (1 - bust)}", hip_sway: "{0.012 + 0.012 * hips * bust}" }
     idle: { generator: idle }
     wave: { generator: wave }          # greeting (npc actions: greet)
+    # Between poses (the runtime plays `from` -> `to` when an action changes pose). `approach` is
+    # where the action has the body stand (npcs/actions.yaml), in the anchor's frame.
+    sit_down: { generator: transition, from: stand, to: sit, duration: 1.4, plant: true, lean: 32 }
+    stand_up: { generator: transition, from: sit, to: stand, duration: 1.3, plant: true, lean: 38 }
+    lie_down: { generator: transition, from: stand, to: lie, via: sit, via_at: 0.45, duration: 2.6,
+                approach: [0.8, 0, 0], anchor_height: 0.5, move: [0, 0.7], turn: [0.3, 1], lean: 20 }
+    get_up:   { generator: transition, from: lie, to: stand, via: sit, via_at: 0.55, duration: 2.6,
+                approach: [0.8, 0, 0], anchor_height: 0.5, move: [0.3, 1], turn: [0, 0.7], lean: 20 }
 
 # Where the NPC runtime puts the body (Root, on the floor under the hips) for each
 # pose, relative to the affordance anchor (x right, y up, z forward): sit drops

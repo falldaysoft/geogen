@@ -376,7 +376,10 @@ def pose_clips(skeleton: Skeleton, poses: dict) -> list[Clip]:
                  loop=False) for name, spec in poses.items()]
 
 
-def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, params: dict | None = None) -> SceneNode:
+def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, params: dict | None = None,
+                   root_poses: dict | None = None) -> SceneNode:
+    """``root_poses`` are the asset's top-level ``poses:`` (where the root goes per pose), which
+    transition clips move the body between."""
     import copy
 
     skeleton = load_skeleton(Path(assets_dir) / spec.get("skeleton", "skeletons/humanoid.yaml"),
@@ -485,7 +488,10 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         from .clips import generate_clip
 
         base = Pose.from_spec(poses.get(pose_name) or {}, skeleton)
-        root.clips.extend(generate_clip(skeleton, base, clip_name, clip_spec or {})
+        roots = {n: dict(r) for n, r in (root_poses or {}).items()}
+        if "sit" in roots and "sit" in seats:                  # as fit_seated_pose will place it
+            roots["sit"]["offset"] = [roots["sit"]["offset"][0], -seats["sit"], roots["sit"]["offset"][2]]
+        root.clips.extend(generate_clip(skeleton, base, clip_name, clip_spec or {}, poses=poses, roots=roots)
                           for clip_name, clip_spec in spec["clips"].items())
     fit_corrective(root, seats)
     if pose_name is not None:
@@ -580,7 +586,7 @@ def fit_corrective(root, seats: dict[str, float], smooth: int = 0) -> None:
     of the knees that hangs below the seat plane (the seat flesh's contact)
     up onto it (the lining one cloth thickness above), smooth the lift over the shell, and store it as the rest-space morph
     target ``seated`` (inverting each vertex's blended skinning matrix). Seated pose clips key its
-    weight to 1 and every other clip to 0."""
+    weight to 1 and every other clip to 0; transitions ramp it between their two poses."""
     clothes = next((n for n in root.children if n.name == "clothes" and n.mesh is not None), None)
     if clothes is None or "sit" not in seats or not any(c.name == "pose_sit" for c in root.clips):
         return
@@ -629,7 +635,9 @@ def fit_corrective(root, seats: dict[str, float], smooth: int = 0) -> None:
     for clip in root.clips:
         end = max(clip.duration, POSE_CLIP_SECONDS)
         value = 1.0 if clip.name in seated else 0.0
-        clip.morphs["clothes"] = MorphTrack([0.0, end], {SEATED_MORPH: [value, value]})
+        values = [float(f"pose_{clip.meta[key]}" in seated) for key in ("from", "to")] if "to" in clip.meta \
+            else [value, value]
+        clip.morphs["clothes"] = MorphTrack([0.0, end], {SEATED_MORPH: values})
 
 
 def _replace_clip(root, clip: Clip) -> None:

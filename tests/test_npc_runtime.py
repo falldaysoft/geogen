@@ -39,14 +39,17 @@ def test_resident_idles_before_deciding(run_godot, cottage_dir):
 
 def test_humanoid_resident_plays_clips(run_godot, cottage_dir):
     # The resident is a skinned humanoid: she walks to her first window (walk clip), idles
-    # there, sits in the armchair ~14 s in (pose_sit on her own AnimationPlayer) and later
-    # stands and idles again.
+    # there, sits down in the armchair ~14 s in (the sit_down transition clip, then pose_sit on
+    # her own AnimationPlayer) and later stands up (stand_up) and idles again.
     assert simulate(run_godot, cottage_dir, 0.9)["clip"] == "walk"
     assert simulate(run_godot, cottage_dir, 4)["clip"] == "idle"
+    lowering = simulate(run_godot, cottage_dir, 15)
+    assert (lowering["pose"], lowering["clip"], lowering["transitions"]) == ("sit", "sit_down", 1)
     sitting = simulate(run_godot, cottage_dir, 20)
     assert (sitting["pose"], sitting["clip"]) == ("sit", "pose_sit")
     later = simulate(run_godot, cottage_dir, 100)
-    assert (later["pose"], later["clip"]) == ("stand", "idle")
+    assert (later["pose"], later["clip"], later["transitions"]) == ("stand", "idle", 2)
+    assert later["cost_us"] > 0                           # script time per physics frame
 
 
 def test_resident_sits_facing_the_seat_in_a_turned_cottage(run_godot, cottage_dir, tmp_path):
