@@ -306,19 +306,22 @@ PLACEMENT_KEYS: dict[str, str] = {
     "scene": "nested scene file (scenes/cottage.yaml)",
     "params": "{name: value}: overrides of the asset's params (or `preset: name`)",
     "slot": "place at a named slot of this scene",
-    "attach_to": "another placement to attach to, with `at`",
+    "attach_to": "another placement to attach to, with `at` (a reference: `table`, or `plot/table` inside a "
+                 "placed scene)",
     "at": "attachment name(s) on the `attach_to` object (a list places one copy each), "
           "or {u, v, depth} on an `on` surface (0-1 fractions; {abs: m} for metres)",
-    "on": "<object>.<surface> to place on (walls, floors, table tops); openings cut their host",
+    "on": "<object>.<surface> to place on (walls, floors, table tops); openings cut their host. The object is a "
+          "reference: `house.floor`, `plot/house.floor` inside a placed scene, `suite/[tag=furniture.desk].top`",
     "facing": "turn the object: center | outward | north | south | east | west",
     "yaw": "degrees about +Y, added to the facing",
     "state": "initial interaction state: `open`, or {interaction: state}",
     "when": "drop the placement when the expression is 0 / false",
     "tags": "extra tags on the placed object",
     "furnish": "true or a seed: furnish a floor plan's rooms from their room types",
-    "scatter": "{seed, rect | path | on | on_terrain | on_tag, count, spacing, avoid, yaw, scale}: many copies",
+    "scatter": "{seed, rect | path | on | on_terrain | on_tag, count, spacing, avoid, yaw, scale}: many copies "
+               "(`avoid` takes references, selectors included: [house, 'bench_*', '[tag=furniture]'])",
     "npc": "an NPC definition (npcs/resident.yaml), with `on`/`home`",
-    "home": "<object>.<surface> or {rect, y}: the area an NPC lives in",
+    "home": "<object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in",
     "seed": "random seed (which person an archetype or NPC is)",
     "archetype": "a random person (characters/archetypes/adult.yaml)",
     "traffic": "a moving fleet (traffic/town.yaml) on the scene's lanes",
@@ -326,7 +329,8 @@ PLACEMENT_KEYS: dict[str, str] = {
     "train": "a train (trains/commuter.yaml), with `railway`",
     "railway": "the railway a train runs on",
     "timetable": "{headway, dwell, offset}: overrides of a train's timetable",
-    "travel": "{scene, spawn, prompt}: overrides of the asset's travel target",
+    "travel": "{scene, spawn, prompt}: overrides of the asset's travel target (spawn: a spawn's name, or its "
+              "full path in the target: street/hotel/entrance_spawn)",
 }
 
 ANCHORS_DOC = ("center, or any of top|bottom + front|back + left|right|center, e.g. bottom_center, top_front_left, "

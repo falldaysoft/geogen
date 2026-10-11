@@ -155,7 +155,7 @@ User args (after `--`):
 | `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one |
 | `--lock=@aim` | Press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |
-| `--save=PATH`, `--load=PATH` | Write interaction state (doors, drawers, switches, locks) on quit / restore it at start |
+| `--save=PATH`, `--load=PATH` | Write interaction state (doors, drawers, switches, locks) on quit / restore it at start. Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
 | `--status` | Print the player's pose, room and interaction states on quit |
 | `--lights` | Print fixture lights on quit |
 | `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
@@ -432,6 +432,29 @@ Navigation comes as 24 m tiles within 30 m of the player, baked from the loaded 
 - `--nav` queries wait until the nearby tiles are baked.
 
 The overlay shows full / LOD / interior counts, and `--walk` / `--status` results carry a `stream` report (including `nav_tiles`). `--playtest` still needs a single-file export, since it checks every room at once.
+
+## Stable IDs
+
+Nodes that matter to gameplay (placed assets and scenes, tagged or typed nodes, anything
+with interactions) carry `extras.geogen.uid`: `<package>:<authored path>`, e.g.
+`cottage:door` or `hotel_room_auto:suite/bedroom/wardrobe`. The package is the scene's
+registry name and the path is made of the names things were authored with (placement keys,
+part names, room ids), never the uniquified node names of the export, so an ID stays the
+same when the scene is re-exported. geogen resolves references and selectors
+(`geogen/refs.py`, `python -m geogen.main -s cottage --resolve "house/[tag=furniture]"`) to
+these IDs at export; the runtime only ever compares IDs.
+
+- `WorldLoader.nodes_by_uid` / `node_by_uid(uid)` find a loaded node (the scene's own
+  package may be left off: `door`). Streamed chunks add and remove their nodes as they load.
+- Saved state (`--save`, `state.save`) is keyed `<uid>#<interaction>`. Saves from before IDs
+  (`<node name>/<interaction>`) still load.
+- Manifest `spawns`, `rooms` and `travel` entries carry `uid`; a travel `spawn` may be a
+  spawn's name or its path (`street/hotel/entrance_spawn`).
+- API: `world.node` and every command that takes a node accept `uid`; `world.query` takes a
+  `uid` glob and returns each node's `uid`.
+- `<name>.refs.json` beside the manifest (`geogen-refs` v1) lists every ID with its tags,
+  type and asset. geogen checks references from other packages against it; the runtime
+  doesn't read it.
 
 ## Manifest
 

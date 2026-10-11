@@ -33,6 +33,9 @@ python -m geogen.main -s hotel_room_auto --inspect
 python -m geogen.main -s hotel --inspect --depth 2 --checks none   # big scenes: limit depth or --select
 python -m geogen.main -s hotel --inspect --select "*bedroom*" --json --checks overlaps,layout
 
+# What a reference names in a scene, as stable IDs (see References and stable IDs)
+python -m geogen.main -s cottage --resolve "[tag=furniture]"
+
 # Find the vocabulary: primitives, assets (params, attachments, surfaces, interactions), scenes, kinds
 python -m geogen.main --describe                      # everything, compact (paste into a prompt); --json
 python -m geogen.main --describe door car cube npc    # full entries (assets are built)
@@ -457,6 +460,16 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
   - `npcs/pedestrian.yaml` goes home 22:30–07:00, sits more at lunch, and strolls more in the evening.
 - **Traffic `schedule:`:** `[["HH:MM", share], ...]` parks surplus vehicles out of the player's sight. `traffic/town.yaml` drops to 15% at night.
 - Details are in the runtime README's "Time of day" section.
+
+### References and stable IDs
+
+`geogen/refs.py` is the one way to name things in a scene; `on:`, `attach_to`, NPC `home:`, scatter `on:` / `on_terrain:` / `avoid:` and travel spawns all go through it.
+- **Syntax:** `house` (a placement of this scene), `plot/house` (inside a placed scene), `town:park/bench` (in another package: a registry scene name), `[tag=furniture.bench]`, `park/[tag=door, type=..., asset=..., name=glob]`. Keys that take a member add it after the first dot: `plot/house.front_wall`.
+- **Scopes:** a path step names nodes by their authored name (placement key, part name, room id) within the scope of the step before it. Every asset and placed scene is a scope, so `door` in the cottage is its door placement, not a wardrobe's `door` part, and `suite/bed` skips the room in between. Filter steps search the whole subtree: use them for generated content (city lots, recipes), whose names are only stable per seed. Names may be globs; of same-named siblings the first is `chair`, the next `chair#2`.
+- **API:** `refs.resolve` (exactly one) / `refs.select` (any number) raise `RefError` with near names and what exists at the failing step. `SceneRefs` is the composer's wrapper: it adds `file:line: place.x.on` (`yaml_utils.source_of`) and a hint when the target is a placement that isn't placed yet. Placements wait for the one their `on:` / `attach_to` names, whatever the order in the file.
+- **Stable IDs:** `<package>:<authored path>` (`cottage:dining/chairs_2`). Exports write them as `extras.geogen.uid` on placed assets and scenes, tagged or typed nodes and anything with interactions (`refs.assign_ids`), on manifest spawns, rooms and travel points, and in `<name>.refs.json` beside the manifest (`geogen-refs` v1; `refs.load_index` gives a stand-in tree that references resolve on, which is how another package's refs are checked: `travel.check_travel`). The runtime never parses a selector: it looks IDs up (`WorldLoader.node_by_uid`) and keys saved state by them.
+- **New content that names things** (quests, dialogue anchors, items) should store references in YAML, resolve them at export with `refs.resolve`/`select` and write the IDs to extras or the manifest.
+- `python -m geogen.main -s cottage --resolve "house/[tag=furniture]"` prints what a reference matches (`"*"`: the top-level names). Tests: `tests/test_refs.py`.
 
 ### Scatter placement
 
