@@ -166,7 +166,8 @@ class SceneComposer:
             warnings.warn(warning, stacklevel=2)
 
         # Pre-validate references
-        ref_errors = pre_validate_scene_references(data)
+        # attach_to targets are resolved (with file:line) when composing: see geogen.refs.
+        ref_errors = pre_validate_scene_references(data, attach=False)
         if ref_errors:
             raise ValueError(
                 f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)

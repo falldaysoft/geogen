@@ -423,3 +423,12 @@ place:
     assert "'yard/box' in 'there' isn't a spawn" in problem
     [problem] = problems("yard/prch")
     assert "no 'prch' in 'yard' in 'there'. Did you mean 'porch'?" in problem
+
+
+def test_unknown_attach_target_names_its_line(scene_dir):
+    with pytest.raises(RefError, match=r"scene.yaml:4: place.marker.attach_to: 'bax': no 'bax' in 'scene'. Did you mean 'box'"):
+        _compose(scene_dir, """name: scene
+place:
+  box: { asset: box.yaml }
+  marker: { asset: marker.yaml, attach_to: bax, at: beside }
+""")

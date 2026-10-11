@@ -162,6 +162,7 @@ def pre_validate_asset_references(
 
 def pre_validate_scene_references(
     data: dict[str, Any],
+    attach: bool = True,
 ) -> list[str]:
     """Pre-validate all slot/attach_to references in a scene YAML.
 
@@ -181,7 +182,7 @@ def pre_validate_scene_references(
                     f"Placement '{obj_name}' references unknown slot '{slot_name}'.{suggestion}"
                 )
 
-        if "attach_to" in obj_def:
+        if attach and "attach_to" in obj_def:
             target_name = obj_def["attach_to"]
             # A plain name must be a placement; paths and selectors are resolved when composing.
             if target_name not in obj_names and not any(c in str(target_name) for c in "/[:*#"):
