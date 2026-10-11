@@ -141,3 +141,158 @@ def test_surface_errors_name_near_ones():
     assert refs.surface_of(house, "floor") is house.surfaces["floor"]
     with pytest.raises(RefError, match="has no surface 'front_wal'. Did you mean 'front_wall'"):
         refs.surface_of(house, "front_wal")
+
+
+def test_source_locations(tmp_path):
+    from geogen.layout.yaml_utils import locate, source_of
+
+    path = tmp_path / "scene.yaml"
+    path.write_text(
+        "name: scene\n"                                  # 1
+        "defaults: &chair\n"                             # 2
+        "  asset: chair.yaml\n"                          # 3
+        "  attach_to: table\n"                           # 4
+        "place:\n"                                       # 5
+        "  table: {asset: table.yaml}\n"                 # 6
+        "  chair:\n"                                     # 7
+        "    <<: *chair\n"                               # 8
+        "    at: [seat_front, seat_back]\n"              # 9
+        "  trees:\n"                                     # 10
+        "    scatter:\n"                                 # 11
+        "      avoid:\n"                                 # 12
+        "        - house\n"                              # 13
+        "        - road\n")                              # 14
+    assert locate(path, ["place", "chair", "at"]) == 9
+    assert locate(path, ["place", "chair", "attach_to"]) == 4         # through the merge key
+    assert locate(path, ["place", "trees", "scatter", "avoid", 1]) == 14
+    assert locate(path, ["place", "trees", "missing"]) == 10          # as far as the path exists
+    assert locate(tmp_path / "nope.yaml", ["place"]) is None
+    assert source_of(path, ["place", "chair", "at"]).endswith("scene.yaml:9: place.chair.at")
+    assert source_of(None, ["place", "chair"]) == "place.chair"
+
+
+# -- references in scenes ----------------------------------------------------------------------
+
+BOX = """
+name: box
+size: [2, 2, 2]
+parts:
+  shell: { primitive: cube, size: [1, 1, 1], anchor: bottom_center }
+surfaces:
+  top: { from: shell.top }
+  front: { from: shell.front }
+attachments:
+  beside: { anchor: bottom_center, offset: [3, 0, 0] }
+"""
+MARKER = """
+name: marker
+size: [0.2, 0.2, 0.2]
+tags: [decor.marker]
+parts:
+  body: { primitive: cube, size: [1, 1, 1], anchor: bottom_center }
+"""
+PLOT = """
+name: plot
+slots:
+  east: { position: [10, 0, 0] }
+place:
+  box: { asset: box.yaml, slot: east }
+"""
+
+
+@pytest.fixture
+def scene_dir(tmp_path):
+    (tmp_path / "box.yaml").write_text(BOX)
+    (tmp_path / "marker.yaml").write_text(MARKER)
+    (tmp_path / "plot.yaml").write_text(PLOT)
+    return tmp_path
+
+
+def _compose(scene_dir, text):
+    from geogen.layout import SceneComposer
+
+    (scene_dir / "scene.yaml").write_text(text)
+    return SceneComposer(assets_dir=scene_dir).compose(scene_dir / "scene.yaml")
+
+
+def test_placements_reach_into_nested_scenes(scene_dir):
+    scene = _compose(scene_dir, """name: scene
+place:
+  plot: { scene: plot.yaml }
+  on_top: { asset: marker.yaml, on: plot/box.top }
+  beside: { asset: marker.yaml, attach_to: plot/box, at: beside }
+""")
+    # The box is 2 m tall at x = 10 inside the plot; the marker lands on its top.
+    assert scene.find("on_top").transform.translation == pytest.approx([10, 2, 0])
+    assert scene.find("beside").transform.translation == pytest.approx([13, 0, 0])
+    assert refs.node_id(refs.resolve(scene, "plot/box"), "scene") == "scene:plot/box"
+
+
+def test_placements_wait_for_what_they_refer_to(scene_dir):
+    scene = _compose(scene_dir, """name: scene
+place:
+  top: { asset: marker.yaml, on: upper.top }
+  upper: { asset: box.yaml, on: lower.top }
+  lower: { asset: box.yaml }
+""")
+    assert scene.find("top").transform.translation[1] == pytest.approx(4.0)
+    with pytest.raises(RefError, match=r"scene.yaml:3: place.a: placements refer to each other in a circle: a -> b -> a"):
+        _compose(scene_dir, """name: scene
+place:
+  a: { asset: box.yaml, on: b.top }
+  b: { asset: box.yaml, on: a.top }
+""")
+
+
+def test_scene_reference_errors_carry_file_and_line(scene_dir):
+    with pytest.raises(RefError) as err:
+        _compose(scene_dir, """name: scene
+place:
+  box: { asset: box.yaml }
+  marker:
+    asset: marker.yaml
+    on: bax.top
+""")
+    assert "scene.yaml:6: place.marker.on: 'bax.top': no 'bax' in 'scene'. Did you mean 'box'?" in str(err.value)
+    with pytest.raises(RefError, match=r"scene.yaml:4: place.marker.on: 'box' has no surface 'tap'. Did you mean 'top'"):
+        _compose(scene_dir, """name: scene
+place:
+  box: { asset: box.yaml }
+  marker: { asset: marker.yaml, on: box.tap }
+""")
+    with pytest.raises(RefError, match=r"scene.yaml:7: place.crowd.scatter.avoid.1: 'bx': no 'bx' in 'scene'. Did you mean 'box'"):
+        _compose(scene_dir, """name: scene
+place:
+  box: { asset: box.yaml }
+  crowd:
+    asset: marker.yaml
+    scatter:
+      avoid: [box, bx]
+      rect: [-5, -5, 5, 5]
+""")
+    with pytest.raises(RefError, match="is in package 'town': a placement can only refer to things in its own scene"):
+        _compose(scene_dir, """name: scene
+place:
+  marker: { asset: marker.yaml, attach_to: "town:box", at: beside }
+""")
+
+
+def test_scatter_avoids_a_selection(scene_dir):
+    text = """name: scene
+slots:
+  a: { position: [-2, 0, 0] }
+  b: { position: [2, 0, 0] }
+place:
+  box_a: { asset: box.yaml, slot: a }
+  box_b: { asset: box.yaml, slot: b }
+  crowd:
+    asset: marker.yaml
+    scatter: { seed: 1, rect: [-4, -1, 4, 1], spacing: 0.4, radius: 0.1, margin: 0, avoid: ['%s'] }
+"""
+    for selector in ("box_*", "[asset=box]", "scene:[asset=box]"):
+        scene = _compose(scene_dir, text % selector)
+        xs = [c.transform.translation[0] for c in scene.children if c.meta.get("scatter")]
+        assert len(xs) > 10
+        assert not any(1 <= abs(x) <= 3 for x in xs), selector
+    # A selector may match nothing; a name must exist.
+    assert _compose(scene_dir, text % "[tag=furniture.sofa]")

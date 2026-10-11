@@ -365,11 +365,12 @@ def build_npc(definition: dict[str, Any], loader, assets_dir: Path, seed: int | 
     return node
 
 
-def resolve_home(node: SceneNode, spec: Any, loaded: dict[str, SceneNode]) -> None:
+def resolve_home(node: SceneNode, spec: Any, refs: Any, keys: list | None = None) -> None:
     """Record the NPC's home region in its own frame: ``meta.npc.home = {polygon: [[x, z], ...], y}``.
 
     ``spec`` is ``<object>.<surface>`` (a horizontal surface such as a
-    house floor) or ``{rect: [x0, z0, x1, z1], y: <floor height>}`` in the scene
+    house floor; the object is a reference resolved by ``refs``, a
+    ``geogen.refs.SceneRefs``, and ``keys`` the key path it was written at) or ``{rect: [x0, z0, x1, z1], y: <floor height>}`` in the scene
     frame (``y`` defaults to 0; set it for an upper storey). Without one, the
     NPC's home is a 6 m square around where it is placed.
     """
@@ -383,17 +384,11 @@ def resolve_home(node: SceneNode, spec: Any, loaded: dict[str, SceneNode]) -> No
         y = float(spec.get("y", 0.0))
         corners = [np.array([x, y, z]) for x, z in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))]
     elif isinstance(spec, str) and "." in spec:
-        target_name, surface_name = spec.split(".", 1)
-        target = loaded.get(target_name)
-        if target is None:
-            raise ValueError(f"npc home: unknown object {target_name!r} (known: {sorted(loaded)})")
-        surface = target.surfaces.get(surface_name)
-        if surface is None:
-            raise ValueError(f"npc home: {target_name} has no surface {surface_name!r} "
-                             f"(surfaces: {target.list_surfaces()})")
+        keys = list(keys or ["home"])
+        target, surface = refs.surface(spec, keys)
         if abs(surface.normal[1]) < 0.9:
-            raise ValueError(f"npc home: {spec} is not a horizontal surface")
-        to_scene = target.transform.to_matrix()
+            raise refs.fail(f"npc home: {spec} is not a horizontal surface", keys, spec)
+        to_scene = np.linalg.inv(refs.root.world_transform()) @ target.world_transform()
         corners = []
         for u, v in ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)):
             local = surface.resolve(u, v).translation

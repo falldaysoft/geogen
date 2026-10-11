@@ -152,15 +152,15 @@ def _tagged_surface_points(root: SceneNode, tag: str, rng: np.random.Generator, 
     return [(p, float(height_at(p))) for p in points]
 
 
-def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], loaded: dict[str, SceneNode],
+def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], refs, keys: list,
                     rng: np.random.Generator, spacing: float, clear, to_scene: np.ndarray):
     """Poisson points on a placed object's terrain, filtered by height above sea level and slope."""
     from ..generators.terrain import terrain_from_meta
 
-    target = loaded.get(str(spec["on_terrain"]))
-    node = next((n for n in target.iter_nodes() if "terrain" in n.meta), None) if target is not None else None
+    target = refs.node(str(spec["on_terrain"]), [*keys, "on_terrain"])
+    node = next((n for n in target.iter_nodes() if "terrain" in n.meta), None)
     if node is None:
-        raise ValueError(f"scatter '{name}': no terrain in '{spec['on_terrain']}'")
+        raise refs.fail(f"scatter '{name}': no terrain in '{spec['on_terrain']}'", [*keys, "on_terrain"])
     terrain = terrain_from_meta(node.meta["terrain"])
     m = to_scene @ node.world_transform()
     inv = np.linalg.inv(m)
@@ -189,10 +189,15 @@ def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], loaded: di
     return [(points[k], float(y[k])) for k in rng.permutation(np.flatnonzero(ok))]
 
 
-def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[str, SceneNode], load,
-            occupied: list[tuple[np.ndarray, float]]) -> list[SceneNode]:
-    """Place copies for one scatter placement; returns the added nodes."""
+def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
+            occupied: list[tuple[np.ndarray, float]], keys: list | None = None) -> list[SceneNode]:
+    """Place copies for one scatter placement; returns the added nodes.
+
+    ``refs`` (``geogen.refs.SceneRefs``) resolves ``on:``, ``on_terrain:`` and
+    ``avoid:``; ``keys`` is the scatter block's key path in the scene file.
+    """
     spec = obj_def["scatter"]
+    keys = list(keys or ["place", name, "scatter"])
     unknown = set(spec) - KNOWN
     if unknown:
         raise ValueError(f"scatter '{name}': unknown keys {sorted(unknown)}. Known: {sorted(KNOWN)}")
@@ -204,12 +209,12 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
     to_scene = np.linalg.inv(root.world_transform())
 
     avoid_boxes = []
-    for other in spec.get("avoid", []):
-        if other not in loaded:
-            raise ValueError(f"scatter '{name}': avoid refers to unknown object '{other}'")
-        box = _footprint(loaded[other], to_scene)
-        if box is not None:
-            avoid_boxes.append((box[0] - margin, box[1] + margin))
+    for i, other in enumerate(spec.get("avoid", [])):
+        # A name is one object; a selector ([tag=...], bench_*) may match several, or none.
+        for node in refs.nodes(other, [*keys, "avoid", i], optional=any(c in str(other) for c in "[*?")):
+            box = _footprint(node, to_scene)
+            if box is not None:
+                avoid_boxes.append((box[0] - margin, box[1] + margin))
 
     def clear(p: np.ndarray) -> bool:
         if any(np.all(p >= lo) and np.all(p <= hi) for lo, hi in avoid_boxes):
@@ -219,7 +224,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
     # Candidate positions (scene frame x, z) plus surface frames where relevant.
     frames: list[tuple[np.ndarray, float, np.ndarray | None]] = []   # (xz, y, local normal or None)
     if "on_terrain" in spec:
-        for p, y in _terrain_points(root, name, spec, loaded, rng, spacing, clear, to_scene):
+        for p, y in _terrain_points(root, name, spec, refs, keys, rng, spacing, clear, to_scene):
             frames.append((p, y, None))
     elif "rect" in spec:
         x0, z0, x1, z1 = (float(v) for v in spec["rect"])
@@ -242,11 +247,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
             if clear(p):
                 frames.append((p, 0.0, None))
     elif "on" in spec:
-        target_name, surface_name = str(spec["on"]).split(".", 1)
-        target = loaded.get(target_name)
-        surface = target.surfaces.get(surface_name) if target is not None else None
-        if target is None or surface is None:
-            raise ValueError(f"scatter '{name}': no surface '{spec['on']}'")
+        target, surface = refs.surface(str(spec["on"]), [*keys, "on"])
         m = to_scene @ target.world_transform()
         for uv in poisson_disk(rng, np.zeros(2), np.array([surface.u_extent, surface.v_extent]), spacing):
             local = surface.origin + surface.u_axis * uv[0] + surface.v_axis * uv[1]
@@ -278,7 +279,6 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], loaded: dict[st
                                    scale=np.array([scale, scale, scale]))
         node.meta["scatter"] = {"group": name, "index": k + 1, "seed": int(spec.get("seed", 0))}
         root.add_child(node)
-        loaded[node.name] = node
         occupied.append((p, radius))
         placed.append(node)
     return placed

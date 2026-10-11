@@ -183,7 +183,8 @@ def pre_validate_scene_references(
 
         if "attach_to" in obj_def:
             target_name = obj_def["attach_to"]
-            if target_name not in obj_names:
+            # A plain name must be a placement; paths and selectors are resolved when composing.
+            if target_name not in obj_names and not any(c in str(target_name) for c in "/[:*#"):
                 suggestion = _suggest(target_name, obj_names)
                 errors.append(
                     f"Placement '{obj_name}' attaches to unknown object '{target_name}'.{suggestion}"

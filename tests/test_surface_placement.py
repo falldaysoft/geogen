@@ -130,7 +130,7 @@ place:
 """
     )
     composer = SceneComposer(assets_dir=tmp_assets)
-    with pytest.raises(ValueError, match="unknown object 'nobody'"):
+    with pytest.raises(ValueError, match=r"scene.yaml:7: place.marker.on: 'nobody.front': no 'nobody' in 'test_scene'"):
         composer.compose(scene_path)
 
 
@@ -150,5 +150,5 @@ place:
 """
     )
     composer = SceneComposer(assets_dir=tmp_assets)
-    with pytest.raises(ValueError, match="'ghost_wall' not found on 'box'"):
+    with pytest.raises(ValueError, match="'box' has no surface 'ghost_wall'"):
         composer.compose(scene_path)

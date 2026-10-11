@@ -397,3 +397,91 @@ def index_tree(index: dict[str, Any]) -> SceneNode:
             if key in entry:
                 node.meta[key] = entry[key]
     return root
+
+
+# -- references while a scene is being composed ------------------------------------------------
+
+class SceneRefs:
+    """A scene's references, resolved against what has been placed so far.
+
+    ``source`` is the scene's YAML file; every lookup takes the key path of
+    the reference in it, so errors read ``file:line: place.bench.on: ...``.
+    """
+
+    def __init__(self, root: SceneNode, source: Any = None, pending: Iterable[str] = ()) -> None:
+        self.root = root
+        self.source = source
+        self.pending = set(pending)               # placement keys of the scene (placed or still to come)
+        self.names = {root.name}
+        if source is not None:
+            from pathlib import Path
+
+            self.names.add(Path(source).stem)
+
+    def where(self, keys: Iterable[str | int]) -> str:
+        from .layout.yaml_utils import source_of
+
+        return source_of(self.source, list(keys))
+
+    def _run(self, keys: Iterable[str | int], call: Callable[[], Any]) -> Any:
+        try:
+            return call()
+        except RefError as exc:
+            raise exc.with_source(self.where(keys)) from None
+
+    def _parse(self, text: Any, member: bool = False) -> Ref:
+        ref = parse(text, member=member)
+        if ref.package is not None and ref.package not in self.names:
+            raise RefError(f"'{ref.text}' is in package '{ref.package}': a placement can only refer to "
+                           f"things in its own scene ('{sorted(self.names)[0]}')", ref.text)
+        return ref
+
+    def _not_yet(self, exc: RefError, ref: Ref) -> RefError:
+        first = ref.steps[0].name if ref.steps else None
+        if first in self.pending and not _named(self.root, first):
+            return RefError(f"{exc.message} ('{first}' is a placement of this scene that isn't placed yet)",
+                            exc.ref)
+        return exc
+
+    def node(self, text: Any, keys: Iterable[str | int]) -> SceneNode:
+        """The one node ``text`` names."""
+        return self.member(text, keys, member=False)[0]
+
+    def member(self, text: Any, keys: Iterable[str | int], member: bool = True) -> tuple[SceneNode, str | None]:
+        """(node, member name) for ``<ref>.<member>``."""
+        def call() -> tuple[SceneNode, str | None]:
+            ref = self._parse(text, member)
+            try:
+                return resolve(self.root, ref), ref.member
+            except RefError as exc:
+                raise self._not_yet(exc, ref) from None
+
+        return self._run(keys, call)
+
+    def nodes(self, text: Any, keys: Iterable[str | int], optional: bool = False) -> list[SceneNode]:
+        """Every node ``text`` names (at least one unless ``optional``)."""
+        def call() -> list[SceneNode]:
+            ref = self._parse(text)
+            try:
+                return select(self.root, ref, optional=optional)
+            except RefError as exc:
+                raise self._not_yet(exc, ref) from None
+
+        return self._run(keys, call)
+
+    def surface(self, text: Any, keys: Iterable[str | int]) -> tuple[SceneNode, Any]:
+        """(node, Surface) for ``<ref>.<surface>``."""
+        def call() -> tuple[SceneNode, Any]:
+            ref = self._parse(text, True)
+            if ref.member is None:
+                raise RefError(f"'{ref.text}' should be <object>.<surface>", ref.text)
+            try:
+                node = resolve(self.root, ref)
+            except RefError as exc:
+                raise self._not_yet(exc, ref) from None
+            return node, surface_of(node, ref.member, ref.text)
+
+        return self._run(keys, call)
+
+    def fail(self, message: str, keys: Iterable[str | int], ref: str = "") -> RefError:
+        return RefError(message, ref, self.where(keys))

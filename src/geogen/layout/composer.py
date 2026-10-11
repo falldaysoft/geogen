@@ -172,7 +172,7 @@ class SceneComposer:
                 f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
             )
 
-        return self._build_scene(self._resolve_params(data, params))
+        return self._build_scene(self._resolve_params(data, params), source=path)
 
     @staticmethod
     def _resolve_params(data: dict[str, Any], overrides: dict[str, float] | None) -> dict[str, Any]:
@@ -196,8 +196,8 @@ class SceneComposer:
         data = safe_load(yaml_string)
         return self._build_scene(self._resolve_params(data, None))
 
-    def _build_scene(self, data: dict[str, Any]) -> SceneNode:
-        """Build scene from parsed YAML data."""
+    def _build_scene(self, data: dict[str, Any], source: Path | None = None) -> SceneNode:
+        """Build scene from parsed YAML data (``source``: its file, for diagnostics)."""
         name = data.get("name", "composed_scene")
         root = SceneNode(name)
 
@@ -230,7 +230,13 @@ class SceneComposer:
         # (defined by the scene's `size` and any composed parts) so they can
         # resolve in pass 1 too. Object-to-object surface placements run in
         # pass 2 alongside attach_to.
+        from ..refs import SceneRefs
+
         loaded_objects: dict[str, SceneNode] = {}
+        refs = SceneRefs(root, source, [*all_placements, *scatters, *fleets])
+
+        def key_of(obj_name: str) -> str:
+            return "place" if obj_name in place_data else "compose"
 
         for obj_name, obj_def in all_placements.items():
             if "attach_to" in obj_def:
@@ -256,38 +262,27 @@ class SceneComposer:
                 node.transform = slots[slot_name]
             elif "on" in obj_def:
                 # Placement on a scene-level (root) surface.
-                node.transform = self._resolve_surface_placement(
-                    obj_def, root, loaded_objects
-                )
+                node.transform = self._resolve_surface_placement(obj_def, root, refs, [key_of(obj_name), obj_name])
 
             root.add_child(node)
             loaded_objects[obj_name] = node
 
-        # Second pass: attach objects to their targets
-        for obj_name, obj_def in all_placements.items():
+        # Second pass: attach objects to their targets, each after the placement it refers to.
+        for obj_name in self._after_targets(all_placements, refs, key_of):
+            obj_def = all_placements[obj_name]
+            keys = [key_of(obj_name), obj_name]
             if "on" in obj_def and self._surface_target_is_object(obj_def["on"]):
                 node = self._load_object(obj_def)
                 node.name = obj_name
-                node.transform = self._resolve_surface_placement(
-                    obj_def, root, loaded_objects
-                )
+                node.transform = self._resolve_surface_placement(obj_def, root, refs, keys)
                 root.add_child(node)
                 loaded_objects[obj_name] = node
-                self._cut_host(node, obj_name, obj_def["on"], loaded_objects)
+                self._cut_host(node, obj_name, obj_def["on"], refs.surface(obj_def["on"], [*keys, "on"])[1])
                 continue
 
             if "attach_to" in obj_def:
                 target_name = obj_def["attach_to"]
-                target = loaded_objects.get(target_name)
-                if target is None:
-                    import difflib
-                    available = sorted(loaded_objects.keys())
-                    suggestion = difflib.get_close_matches(target_name, available, n=1, cutoff=0.5)
-                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                    raise ValueError(
-                        f"Cannot attach '{obj_name}': target '{target_name}' not found.{hint}"
-                        f" Available objects: {available}"
-                    )
+                target = refs.node(target_name, [*keys, "attach_to"])
 
                 attachment_names = obj_def.get("at", [])
                 if isinstance(attachment_names, str):
@@ -303,14 +298,14 @@ class SceneComposer:
                         available = target.list_attachments()
                         suggestion = difflib.get_close_matches(attach_name, available, n=1, cutoff=0.5)
                         hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                        raise ValueError(
+                        raise refs.fail(
                             f"Attachment point '{attach_name}' not found on '{target_name}'.{hint}"
-                            f" Available: {available}"
-                        )
+                            f" Available: {available}", [*keys, "at"], str(attach_name))
                     logger.debug("Attaching '%s' to '%s' at '%s'", obj_name, target_name, attach_name)
 
                     node.transform = attach_transform
                     root.add_child(node)
+                    loaded_objects.setdefault(obj_name, node)
 
         if "city" in data:
             from .city import build_city
@@ -323,13 +318,15 @@ class SceneComposer:
 
             occupied: list = []
             for obj_name, obj_def in scatters.items():
-                placed = scatter(root, obj_name, obj_def, loaded_objects,
-                                 lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied)
+                keys = [key_of(obj_name), obj_name]
+                placed = scatter(root, obj_name, obj_def, refs,
+                                 lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied,
+                                 keys=[*keys, "scatter"])
                 if "npc" in obj_def:          # a crowd: every copy shares the placement's home
                     from ..npc import resolve_home
 
                     for node in placed:
-                        resolve_home(node, obj_def.get("home"), loaded_objects)
+                        resolve_home(node, obj_def.get("home"), refs, [*keys, "home"])
 
         # NPCs: home region (in the NPC's frame) and per-placement seed.
         for obj_name, obj_def in all_placements.items():
@@ -337,7 +334,7 @@ class SceneComposer:
             if node is not None and "npc" in obj_def:
                 from ..npc import resolve_home
 
-                resolve_home(node, obj_def.get("home"), loaded_objects)
+                resolve_home(node, obj_def.get("home"), refs, [key_of(obj_name), obj_name, "home"])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
 
@@ -436,6 +433,8 @@ class SceneComposer:
                 self._disk_cache.put(key, prototype)
         self._prototypes[key] = prototype
         node = prototype.instance()
+        if "source" not in node.meta:
+            node.meta["scope"] = True       # a placed scene / recipe / NPC: its own namespace (geogen.refs)
         if obj_def.get("travel"):
             from ..travel import apply_travel
 
@@ -475,7 +474,7 @@ class SceneComposer:
             raise ValueError("Object must have 'asset', 'scene', 'recipe', 'npc' or 'archetype' specified")
 
     @staticmethod
-    def _cut_host(node: SceneNode, obj_name: str, spec: str, loaded_objects: dict[str, SceneNode]) -> None:
+    def _cut_host(node: SceneNode, obj_name: str, spec: str, surface: Any) -> None:
         """Subtract ``node``'s host cutters from the part that owns surface ``spec``
         (and any parts the surface export lists under ``cut:``), then line the
         opening's reveals if the surface declares a ``reveal`` finish."""
@@ -483,8 +482,6 @@ class SceneComposer:
             return
         from ..core import csg
 
-        target_name, surface_name = spec.split(".", 1)
-        surface = loaded_objects[target_name].surfaces.get(surface_name)
         host = surface.source if surface is not None else None
         if host is None or host.mesh is None:
             logger.warning("'%s' has openings but surface '%s' has no source part to cut", obj_name, spec)
@@ -554,17 +551,54 @@ class SceneComposer:
         """Return True when `on: <spec>` refers to `<object>.<surface>`."""
         return "." in spec
 
+    def _after_targets(self, placements: dict[str, Any], refs: Any, key_of: Any) -> list[str]:
+        """Placement keys ordered so each comes after the placement its ``on:`` /
+        ``attach_to:`` names (declaration order otherwise)."""
+        from ..refs import RefError, parse
+
+        def target(obj_def: Any) -> str | None:
+            text = obj_def.get("attach_to") if "attach_to" in obj_def else obj_def.get("on")
+            if not isinstance(text, str) or ("attach_to" not in obj_def and "." not in text):
+                return None
+            try:
+                steps = parse(text, member="attach_to" not in obj_def).steps
+            except RefError:
+                return None                 # reported, with its source, when it is resolved
+            return steps[0].name if steps else None
+
+        order: list[str] = []
+        state: dict[str, int] = {}
+
+        def visit(name: str, chain: list[str]) -> None:
+            if state.get(name) == 2:
+                return
+            if state.get(name) == 1:
+                loop = " -> ".join([*chain[chain.index(name):], name])
+                raise refs.fail(f"placements refer to each other in a circle: {loop}", [key_of(name), name], name)
+            state[name] = 1
+            dep = target(placements[name])
+            if dep in placements and dep != name:
+                visit(dep, [*chain, name])
+            state[name] = 2
+            order.append(name)
+
+        for name in placements:
+            visit(name, [])
+        return order
+
     def _resolve_surface_placement(
         self,
         obj_def: dict[str, Any],
         root: SceneNode,
-        loaded_objects: dict[str, SceneNode],
+        refs: Any,
+        keys: list[str],
     ) -> Transform:
         """Resolve an `on: <surface>` + `at: {u,v,depth}` placement to a Transform.
 
         Forms:
-          on: floor            # root-level surface
-          on: house.floor      # surface on a placed object
+          on: floor                 # root-level surface
+          on: house.floor           # surface on a placed object
+          on: plot/house.floor      # ... on something inside a placed scene (see geogen.refs)
 
         Objects face out of the surface (+Z along its normal); on horizontal
         surfaces that is +Z (north). ``facing:`` (north/south/east/west/
@@ -581,37 +615,16 @@ class SceneComposer:
         depth = at.get("depth", 0.0)
 
         if "." in spec:
-            target_name, surface_name = spec.split(".", 1)
-            target = loaded_objects.get(target_name)
-            if target is None:
-                import difflib
-                available = sorted(loaded_objects)
-                suggestion = difflib.get_close_matches(target_name, available, n=1, cutoff=0.5)
-                hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                raise ValueError(
-                    f"Placement references unknown object '{target_name}' in `on:`.{hint}"
-                    f" Available: {available}"
-                )
-            transform = target.get_surface(surface_name, u=u, v=v, depth=depth)
-            if transform is None:
-                import difflib
-                available = target.list_surfaces()
-                suggestion = difflib.get_close_matches(surface_name, available, n=1, cutoff=0.5)
-                hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                raise ValueError(
-                    f"Surface '{surface_name}' not found on '{target_name}'.{hint}"
-                    f" Available: {available}"
-                )
-            return self._orient(transform, obj_def)
+            target, surface = refs.surface(spec, [*keys, "on"])
+            local = surface.resolve(u=u, v=v, depth=depth).to_matrix()
+            return self._orient(Transform.from_matrix(target.world_transform() @ local), obj_def)
 
         # Root-level surface
         transform = root.get_surface(spec, u=u, v=v, depth=depth)
         if transform is None:
             available = root.list_surfaces()
-            raise ValueError(
-                f"Surface '{spec}' not defined on scene root."
-                f" Available: {available}"
-            )
+            raise refs.fail(f"Surface '{spec}' not defined on scene root. Available: {available}",
+                            [*keys, "on"], spec)
         return self._orient(transform, obj_def)
 
     def _orient(self, transform: Transform, obj_def: dict[str, Any]) -> Transform:
