@@ -121,7 +121,8 @@ def test_overriding_travel_replaces_the_interaction(scenes):
 def test_manifest_lists_travel_points(scenes):
     summary = gameplay_summary(scenes["travel_a"])
     by_node = {t["node"]: t for t in summary["travel"]}
-    assert by_node["shelf"] == {"node": "shelf", "scene": "travel_b", "spawn": "arrival", "on": "use"}
+    shelf = {k: v for k, v in by_node["shelf"].items() if k != "source"}
+    assert shelf == {"node": "shelf", "scene": "travel_b", "spawn": "arrival", "on": "use"}
     assert by_node["portal"]["on"] == "enter"
 
 

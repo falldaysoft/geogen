@@ -5,7 +5,8 @@ placement's ``travel:`` overrides its keys::
 
     travel:
       scene: hotel            # a catalogue scene (assets/runtime_scenes.yaml); omitted = this scene
-      spawn: arrival          # a named spawn in the target (default: its first)
+      spawn: arrival          # a spawn in the target (default: its first): its name, or its
+                              # full authored path (street/hotel/entrance_spawn, see geogen.refs)
       prompt: Enter the hotel # UI text (default "Go to <scene>" / "Go")
       on: use                 # use: press E on it; enter: walk into its trigger volume
       target: frame           # on: use only: the part aimed at (default the whole asset)
@@ -22,7 +23,8 @@ exported as ``extras.geogen.travel``:
 
 The runtime unloads the current world, loads the target and puts the player
 at the spawn (``runtime/godot/scripts/main.gd``). ``check_travel`` validates
-exported targets against the catalogue.
+exported targets against the catalogue, resolving each spawn in the target's
+reference index (``<name>.refs.json``).
 """
 
 from __future__ import annotations
@@ -62,6 +64,8 @@ def apply_travel(root: SceneNode, spec: dict[str, Any], where: str = "") -> None
     """
     merged = {**root.meta.get("travel_spec", {}), **parse_travel(spec, where or root.name)}
     root.meta["travel_spec"] = merged       # what was declared (not exported): later overrides merge over it
+    if where:
+        root.meta["travel_source"] = where  # for export diagnostics (not exported)
     on = merged.get("on", "use")
     scene = merged.get("scene")
     travel: dict[str, Any] = {"on": on,
@@ -128,7 +132,9 @@ def travel_summary(root: SceneNode) -> list[dict[str, Any]]:
     for node in root.iter_nodes():
         travel = node.meta.get("travel")
         if isinstance(travel, dict):
-            out.append({"node": node.name, **{k: travel[k] for k in ("scene", "spawn", "on") if k in travel}})
+            out.append({"node": node.name, **{k: node.meta[k] for k in ("uid",) if k in node.meta},
+                        **{k: travel[k] for k in ("scene", "spawn", "on") if k in travel},
+                        **({"source": node.meta["travel_source"]} if node.meta.get("travel_source") else {})})
     return out
 
 
@@ -136,31 +142,63 @@ def check_travel(catalogue, out_dir: str | Path) -> list[str]:
     """Problems with the travel points of the catalogue's exported scenes in ``out_dir``.
 
     Every target must be a catalogue scene; when that scene is exported, the
-    named spawn must exist in it (same-scene travel: in the scene itself).
-    Targets that aren't exported yet can't be checked for their spawn.
+    spawn must resolve in it (same-scene travel: in the scene itself): a
+    plain name is any spawn of that name, a path is one spawn's full authored
+    path. Targets that aren't exported yet can't be checked for their spawn.
+    Each problem starts with where the travel was written, when known.
     """
     import json
 
+    from . import refs
     from .catalogue import entry_manifest
 
     out_dir = Path(out_dir)
     manifests: dict[str, dict] = {}
+    trees: dict[str, SceneNode | None] = {}
     for name, entry in catalogue.entries.items():
         path = out_dir / entry_manifest(entry)
         if path.exists():
             manifests[name] = json.loads(path.read_text())
+            trees[name] = refs.load_index(path)
     problems = []
     for name, manifest in manifests.items():
         for point in manifest.get("travel", []):
             target = point.get("scene", name)
-            where = f"{name}: travel point '{point.get('node')}'"
+            where = point.get("source") or f"{name}: travel point '{point.get('uid') or point.get('node')}'"
             if target not in catalogue.entries:
-                problems.append(f"{where} goes to '{target}', which isn't in the catalogue")
+                near = refs._near(target, catalogue.entries)
+                problems.append(f"{where}: goes to '{target}', which isn't in the catalogue.{near}")
                 continue
             spawn = point.get("spawn")
             if spawn is None or target not in manifests:
                 continue
-            spawns = [s.get("name") for s in manifests[target].get("spawns", [])]
-            if spawn not in spawns:
-                problems.append(f"{where} goes to spawn '{spawn}' in '{target}', which has {spawns or 'no spawns'}")
+            problem = _check_spawn(target, str(spawn), manifests[target], trees.get(target))
+            if problem:
+                problems.append(f"{where}: {problem}")
     return problems
+
+
+def _check_spawn(target: str, spawn: str, manifest: dict, tree: SceneNode | None) -> str | None:
+    """Why ``spawn`` doesn't name a spawn of the exported ``target`` (None if it does)."""
+    from . import refs
+
+    names = [s.get("name") for s in manifest.get("spawns", [])]
+    uids = [s.get("uid") for s in manifest.get("spawns", []) if s.get("uid")]
+    if spawn in names or f"{target}:{spawn}" in uids:
+        return None
+    paths = [u.partition(":")[2] for u in uids]
+    if tree is not None and any(c in spawn for c in "/[*#:"):
+        try:
+            found = [n for n in refs.select(tree, spawn, package=target, optional=False)
+                     if n.meta.get("type") == "spawn"]
+        except refs.RefError as exc:
+            return f"spawn {exc.message}"
+        if len(found) == 1:
+            full = str(found[0].meta["uid"]).partition(":")[2]
+            return f"spawn '{spawn}' in '{target}' should be written as its full path '{full}'"
+        if found:
+            return (f"spawn '{spawn}' matches {len(found)} spawns in '{target}': "
+                    + ", ".join(sorted(str(n.meta["uid"]).partition(":")[2] for n in found)[:6]))
+        return f"'{spawn}' in '{target}' isn't a spawn. Spawns: {refs._listed(paths or names)}"
+    return (f"goes to spawn '{spawn}' in '{target}', which has {refs._listed(paths or names, 20) if names else 'no spawns'}."
+            f"{refs._near(spawn, [*names, *paths])}")

@@ -176,6 +176,9 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     name = name or root.name
+    from . import refs
+
+    refs.assign_ids(root, name)       # before the tree is split: IDs are paths in the whole scene
     units = find_units(root)
     chunks = []
     used: set[str] = set()
@@ -225,6 +228,7 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
         "chunks": chunks,
     }
     path = out_dir / f"{_safe(name)}.chunks.json"
+    refs.write_index(root, name, path)
     previous = _index_files(path)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(index, indent=2) + "\n")

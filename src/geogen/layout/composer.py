@@ -219,6 +219,13 @@ class SceneComposer:
         all_placements = {k: {kk: vv for kk, vv in v.items() if kk != "when"} if isinstance(v, dict) else v
                           for k, v in all_placements.items()
                           if not (isinstance(v, dict) and not _truthy(v.get("when", True)))}
+        if source is not None:      # where each travel was written, for export diagnostics
+            from .yaml_utils import source_of
+
+            all_placements = {
+                k: ({**v, "_travel_where": source_of(source, ["place" if k in place_data else "compose", k, "travel"])}
+                    if isinstance(v, dict) and v.get("travel") else v)
+                for k, v in all_placements.items()}
         # Scatter placements run last, once the objects they avoid exist.
         scatters = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "scatter" in v}
         # Traffic placements put vehicles on the lanes, so they run once the streets exist.
@@ -438,7 +445,8 @@ class SceneComposer:
         if obj_def.get("travel"):
             from ..travel import apply_travel
 
-            apply_travel(node, obj_def["travel"], f"travel of {obj_def.get('asset') or obj_def.get('scene')}")
+            apply_travel(node, obj_def["travel"],
+                         obj_def.get("_travel_where") or f"travel of {obj_def.get('asset') or obj_def.get('scene')}")
         if obj_def.get("state"):
             _set_states(node, obj_def["state"], obj_def.get("asset") or obj_def.get("scene") or "object")
         return node

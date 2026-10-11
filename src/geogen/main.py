@@ -180,6 +180,9 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument("--detail", action="store_true", help="--inspect: attachments and surfaces for every node")
     parser.add_argument("--checks", default=",".join(CHECKS), metavar="C1,C2",
                         help=f"--inspect: checks to run, or 'none' (default: {','.join(CHECKS)})")
+    parser.add_argument("--resolve", metavar="REF", default=None,
+                        help="print the stable IDs a reference matches in the scene, e.g. 'house/[tag=furniture]' "
+                             "(see geogen/refs.py); '*' lists the scene's top-level names")
     parser.add_argument("--describe", nargs="*", default=None, metavar="NAME",
                         help="Print the vocabulary: every primitive, asset, scene and data kind with its keys and "
                              "params; with names (a primitive, asset, scene or kind), those entries in full "
@@ -235,6 +238,19 @@ def main() -> None:
             raise SystemExit(f"--checks: unknown {', '.join(sorted(unknown))} (choose from {', '.join(CHECKS)})")
         print(inspect_scene(root, as_json=args.json, depth=args.depth, pattern=args.select,
                             parts=args.parts, detail=args.detail, checks=checks))
+        return
+
+    if args.resolve is not None:
+        from . import refs
+
+        try:
+            found = refs.select(root, args.resolve, package=args.scene, optional=False)
+        except refs.RefError as exc:
+            raise SystemExit(str(exc)) from None
+        for node in found:
+            tags = f"  [{', '.join(node.tags)}]" if node.tags else ""
+            asset = f"  asset: {refs.asset_of(node)}" if refs.asset_of(node) else ""
+            print(f"{refs.node_id(node, args.scene, root)}{asset}{tags}")
         return
 
     # Display scene info

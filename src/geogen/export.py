@@ -133,7 +133,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     for key, value in node.meta.items():
-        if key not in ("collider", "traffic", "railway", "travel_spec", "source", "scope", "ref_key"):  # lane graphs, railways: the manifest
+        if key not in ("collider", "traffic", "railway", "travel_spec", "travel_source", "source", "scope", "ref_key"):  # lane graphs, railways: the manifest
             data[key] = value.tolist() if hasattr(value, "tolist") else value
     if collider is not None:
         data["collider"] = collider
@@ -325,6 +325,7 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
             rooms.append({
                 **room,
                 "node": node.name,
+                **({"uid": node.meta["uid"]} if "uid" in node.meta else {}),
                 "center": position,
                 "size": [float(v) for v in node.meta.get("size", [0, 0, 0])],
                 "yaw_deg": round(float(np.degrees(np.arctan2(world[0, 2], world[2, 2]))), 6),
@@ -333,7 +334,8 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
             depth, parent = 0, node.parent
             while parent is not None:
                 depth, parent = depth + 1, parent.parent
-            spawns.append((depth, {"name": node.name, "position": position,
+            spawns.append((depth, {"name": node.name, **({"uid": node.meta["uid"]} if "uid" in node.meta else {}),
+                                   "position": position,
                                    "forward": [round(float(v), 6) for v in forward]}))
     spawns.sort(key=lambda item: item[0])
     out: dict = {"rooms": rooms, "spawns": [spawn for _, spawn in spawns]}
@@ -825,7 +827,8 @@ def _vehicle_exported(vehicle: dict, node: SceneNode, name_of) -> dict:
 
 def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = None,
                  lods: list[float] | None = None, manifest: bool = True,
-                 textures_dir: str | Path | None = None, animations: bool = True) -> Path:
+                 textures_dir: str | Path | None = None, animations: bool = True,
+                 package: str | None = None) -> Path:
     """Export ``root`` to ``path``; the format is chosen by the file extension.
 
     glTF/GLB exports also get a manifest (see ``write_manifest``); ``player``
@@ -837,12 +840,22 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     don't read extras.geogen, and one per skeletal clip (``SceneNode.clips``,
     always written). Skinned nodes become glTF skins. ``textures_dir`` (GLB only) writes
     images there, shared by content hash, instead of embedding them.
+
+    With a manifest, nodes get stable IDs (``extras.geogen.uid``, see
+    ``geogen.refs``) in ``package`` (default: the file's stem), and
+    ``<name>.refs.json`` beside the manifest indexes them for references
+    from other packages.
     """
+    from . import refs
+
     path = Path(path)
     suffix = path.suffix.lower()
     if suffix not in FORMATS:
         raise ValueError(f"Unsupported export format '{suffix}'. Use one of {sorted(FORMATS)}")
     path.parent.mkdir(parents=True, exist_ok=True)
+    package = package or path.stem
+    if manifest and suffix != ".obj":
+        refs.assign_ids(root, package)
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
     scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
     if suffix == ".obj":
@@ -867,9 +880,12 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         tmp.write_bytes(glb)
         tmp.replace(path)
         if manifest:
+            refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
             write_manifest(path, player, root)
     else:
         scene.export(str(path), file_type=suffix[1:])
         if manifest:
+            names = scene.metadata["geogen_names"]
+            refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
             write_manifest(path, player, root)
     return path

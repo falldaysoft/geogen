@@ -11,6 +11,10 @@
       "required": ["version"],
       "properties": {
         "version": { "const": 1 },
+        "uid": {
+          "description": "Stable ID: '<package>:<authored path>' (cottage:house/door), from the names things were authored with, never the exported node name. Present on placed assets and scenes, tagged or typed nodes and anything with interactions. Content and saved state refer to nodes by it, so it survives a re-export; <name>.refs.json beside the manifest lists every one.",
+          "type": "string", "pattern": "^[A-Za-z0-9_\\-]+:"
+        },
         "tags": {
           "description": "Semantic tags, dotted from general to specific (room, room.hotel_bedroom, furniture.bed, door.interior).",
           "type": "array",

@@ -29,7 +29,7 @@ stable per seed.
 ``RefError`` with near names and what exists at the failing step.
 
 A node's stable ID is ``<package>:<authored names from the root>``
-(``cottage:house/door_frame``); ``assign_ids`` writes it to ``meta.id`` for
+(``cottage:house/door_frame``); ``assign_ids`` writes it to ``meta.uid`` for
 export, and an ID is itself a reference that resolves to that node. Saved
 state is keyed by these IDs, so it survives a re-export.
 """
@@ -335,14 +335,14 @@ def identified(node: SceneNode) -> bool:
 
 
 def assign_ids(root: SceneNode, package: str) -> dict[str, SceneNode]:
-    """Write ``meta.id`` on every identified node below ``root``; returns ID -> node."""
+    """Write ``meta.uid`` on every identified node below ``root``; returns ID -> node."""
     out: dict[str, SceneNode] = {}
 
     def visit(node: SceneNode, path: str) -> None:
-        node.meta.pop("id", None)
+        node.meta.pop("uid", None)
         if identified(node) or node is root:
-            node.meta["id"] = f"{package}:{path}"
-            out[node.meta["id"]] = node  # type: ignore[index]
+            node.meta["uid"] = f"{package}:{path}"
+            out[node.meta["uid"]] = node  # type: ignore[index]
         for key, child in zip(child_keys(node), node.children):
             visit(child, f"{path}/{key}" if path else key)
 
@@ -357,9 +357,9 @@ def build_index(root: SceneNode, package: str, names: Callable[[SceneNode], str]
     """
     nodes = []
     for node in root.iter_nodes():
-        if "id" not in node.meta:
+        if "uid" not in node.meta:
             continue
-        entry: dict[str, Any] = {"id": node.meta["id"]}
+        entry: dict[str, Any] = {"uid": node.meta["uid"]}
         if names is not None:
             entry["node"] = names(node)
         if node.tags:
@@ -390,9 +390,9 @@ def index_tree(index: dict[str, Any]) -> SceneNode:
         return node
 
     for entry in index.get("nodes", []):
-        node = ensure(entry["id"].partition(":")[2])
+        node = ensure(entry["uid"].partition(":")[2])
         node.tags = list(entry.get("tags", []))
-        node.meta["id"] = entry["id"]
+        node.meta["uid"] = entry["uid"]
         for key in ("type", "asset", "scope", "node"):
             if key in entry:
                 node.meta[key] = entry[key]
@@ -485,3 +485,32 @@ class SceneRefs:
 
     def fail(self, message: str, keys: Iterable[str | int], ref: str = "") -> RefError:
         return RefError(message, ref, self.where(keys))
+
+
+def index_path(manifest: Any) -> Any:
+    """Where the reference index of an export lives, given its manifest or chunk index path
+    (``cottage.manifest.json`` / ``town.chunks.json`` -> ``<name>.refs.json`` beside it)."""
+    from pathlib import Path
+
+    manifest = Path(manifest)
+    return manifest.with_name(manifest.name.split(".")[0] + ".refs.json")
+
+
+def write_index(root: SceneNode, package: str, manifest: Any,
+                names: Callable[[SceneNode], str] | None = None) -> Any:
+    """Write the reference index for an export beside its manifest; returns the path."""
+    import json
+
+    path = index_path(manifest)
+    path.write_text(json.dumps(build_index(root, package, names)) + "\n")
+    return path
+
+
+def load_index(manifest: Any) -> SceneNode | None:
+    """The stand-in tree of an exported package (see ``index_tree``), or None if it has no index."""
+    import json
+
+    try:
+        return index_tree(json.loads(index_path(manifest).read_text()))
+    except (OSError, ValueError, KeyError):
+        return None
