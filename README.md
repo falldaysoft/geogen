@@ -4,6 +4,8 @@ Procedural 3D geometry generator for game assets. You describe objects and scene
 
 The goal is nested, generated worlds: cities that contain neighbourhoods that contain streets, houses and furnished rooms. A small version of that works today: a town district of generated shops, houses, offices, an apartment block and a hotel, with furnished interiors you can walk into in Godot. The town has traffic, a railway and people going about their day.
 
+**[Browse the asset catalogue](https://falldaysoft.github.io/geogen/)**: every primitive, asset and scene, with thumbnails and parameters.
+
 ## Examples
 
 **Town**: a `city:` scene. It has a street grid with an avenue and sidewalks, zoned lots and street furniture. Buildings are generated to fit their lots:
@@ -350,7 +352,7 @@ To regenerate the screenshots in this README, run `docs/make_screenshots.sh`.
 
 ## Catalogue
 
-[docs/catalogue](docs/catalogue/README.md) lists every primitive, asset and scene with thumbnails, params, attachment points, surfaces and interactions. The same data prints with `python -m geogen.main --describe [NAME] [--json]`, compact enough to hand to an LLM. Regenerate the pages with `docs/make_catalogue.sh`.
+The catalogue lists every primitive, asset and scene with thumbnails, params, attachment points, surfaces and interactions. The same data prints with `python -m geogen.main --describe [NAME] [--json]`, compact enough to hand to an LLM. Browse it at [falldaysoft.github.io/geogen](https://falldaysoft.github.io/geogen/), or as Markdown in [docs/catalogue](docs/catalogue/README.md). Regenerate the pages with `docs/make_catalogue.sh`; the site is rebuilt from them by `docs/make_site.py` when they change on `main`.
 
 ## License
 
