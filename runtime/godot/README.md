@@ -592,6 +592,14 @@ The host owns what panels share: a column per screen corner (`top_left`,
 overlay's three lines), sizes that follow the window (`panel_width()`,
 `slot_height(slot)`), a coalesced refresh, key presses and `report()`.
 
+The HUD also has the aim point (`scripts/hud_crosshair.gd`): a dot in the middle
+of the screen, with a gold ring while E would do something, and the E prompt
+("E: Lights off") under it. Aiming is forgiving: when the aim line lands on
+nothing usable, the usable interaction whose target is within `AIM_SLACK`
+(20 cm) of the line, within reach and with nothing in the way, takes the focus
+(`main._assisted_focus`), so a light switch doesn't need a pixel-exact aim.
+`hud.aim` on the control API returns `{visible, active, focus}`.
+
 A panel is a `Control` added with `hud.add_panel(panel, slot)`; its node name
 is its name in `hud.report()` and `hud.panel(name)`. It may define:
 

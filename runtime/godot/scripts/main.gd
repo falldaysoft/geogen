@@ -138,6 +138,8 @@ var _loading: Label
 var _open_menu_at_start := false
 var _fade: ColorRect
 const FADE_SECONDS := 0.25
+## An interaction target this far off the aim line (m) still takes the E prompt.
+const AIM_SLACK := 0.2
 
 const SETTINGS_PATH := "user://settings.cfg"
 var _day_length := 1440.0
@@ -337,8 +339,10 @@ func _ready() -> void:
     _prompt = Label.new()
     _prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+    _prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH     # stays centred as its text changes
     _prompt.position.y += 40
-    $Overlay.add_child(_prompt)
+    _prompt.add_theme_constant_override("outline_size", 6)
+    _prompt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
     var spec := world.player_spec()
     if spec and not _manifest_arg:
         player_spec = spec
@@ -366,6 +370,7 @@ func _ready() -> void:
     hud.world = world
     hud.input_blocked = func(): return _menu.visible
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
+    hud.add_child(_prompt)                    # the E prompt, under the crosshair: part of the HUD, not the F1 overlay
     add_child(hud)
     move_child(hud, $Overlay.get_index())     # under the overlay, so its fade covers the HUD
     _place_player(world.world_aabb())
@@ -921,6 +926,11 @@ func _update_focus() -> void:
                 _focus = it
             else:
                 _focus_affordance = world.affordance_near(hit["position"])
+        if _focus == null and _focus_npc == null and _focus_affordance.is_empty():
+            _focus = _assisted_focus(from, -cam.global_basis.z)
+    if hud != null:
+        hud.crosshair.aim(not focus_info().is_empty(),
+            player != null and player.camera.current and player.pose.is_empty())
     if _prompt:
         if player != null and not player.pose.is_empty():
             _prompt.text = "E: Stand up"
@@ -933,6 +943,43 @@ func _update_focus() -> void:
                 _focus_affordance["type"], "Use")
         else:
             _prompt.text = ""
+
+
+## Aim assist: the usable interaction whose target is nearest the aim line, when the line
+## itself lands on nothing usable. Small targets (a light switch is 8 cm wide) are hard to
+## hit exactly; within AIM_SLACK of one, and with nothing in the way, E takes it.
+func _assisted_focus(from: Vector3, forward: Vector3) -> GeogenInteraction:
+    var best: GeogenInteraction = null
+    var best_miss := AIM_SLACK
+    var space := get_world_3d().direct_space_state
+    for it in world.interactions:
+        if not is_instance_valid(it) or not it.can_use():
+            continue
+        for target in it.targets:
+            if not is_instance_valid(target) or target.global_position.distance_to(from) > player_spec.reach + 2.0:
+                continue
+            var centre := target.global_position
+            if target is MeshInstance3D:
+                centre = target.global_transform * (target as MeshInstance3D).get_aabb().get_center()
+            else:
+                var box := WorldLoader._aabb(target)
+                if box.size != Vector3.ZERO:
+                    centre = box.get_center()
+            var along := (centre - from).dot(forward)
+            if along <= 0.0 or centre.distance_to(from) > player_spec.reach:
+                continue
+            var miss := (centre - from - forward * along).length()
+            if miss >= best_miss:
+                continue
+            var query := PhysicsRayQueryParameters3D.create(from, centre)
+            query.exclude = [player.get_rid()]
+            var hit := space.intersect_ray(query)
+            if hit and world.interaction_for(hit["collider"]) != it \
+                    and (hit["position"] as Vector3).distance_to(centre) > 0.1:
+                continue        # something else is in the way
+            best = it
+            best_miss = miss
+    return best
 
 
 ## For the runtime API: refresh what the player aims at now.

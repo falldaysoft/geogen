@@ -147,3 +147,22 @@ def test_the_yard_is_played_and_the_tracker_follows(rt):
     assert statuses(rt)["yard_dash"] == "complete"
     rt.call("time.advance", seconds=8)                       # time runs out on a finished quest: still complete
     assert statuses(rt) == {"yard_round": "complete", "yard_lamps": "complete", "yard_dash": "complete"}
+
+
+def test_switches_can_be_aimed_at_loosely(rt):
+    """A switch plate is 8.5 cm wide: the crosshair takes one when the aim is close to it, and
+    shows that E would do something."""
+    rt.call("player.teleport", pos=[-6.5, 0.1, -1.9], yaw=0)             # a metre in front of the board
+
+    def aim(x, y):
+        rt.call("player.look", at=[x, y, -2.96])
+        return rt.call("hud.aim")
+
+    exact = aim(-6.5, 1.29)
+    assert exact["visible"] and exact["active"] and exact["focus"]["asset"] == "switch_2"
+    near = aim(-6.38, 1.4)                                               # 16 cm off the plate, on the bare board
+    assert near["active"] and near["focus"]["asset"] == "switch_2"
+    assert aim(-6.9, 1.2)["focus"]["asset"] == "switch_1"                # the nearest one wins
+    between = aim(-6.275, 1.29)                                          # half way between two: neither
+    assert not between["active"] and between["focus"] == {}
+    assert not aim(-6.5, 2.4)["active"]                                  # over the top of the board

@@ -50,6 +50,7 @@ const COMMANDS := {
     "quests.list": "{actor?} every quest's state for an actor (default player): status, objectives "
         + "(done | open | waiting, progress, markers)",
     "state.load": "{state} restore a save",
+    "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
     "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
         + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
         + "progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how "
@@ -365,6 +366,11 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return world.rules.stored()
         "quests.list":
             return world.rules.report(str(args.get("actor", "player")))
+        "hud.aim":
+            main.update_focus()
+            var aim: Dictionary = main.hud.crosshair.hud_report()
+            aim["focus"] = main.focus_info()
+            return aim
         "hud.quests":
             var tracker: GeogenHudQuestTracker = main.hud.panel("quests")
             if args.has("linger"):

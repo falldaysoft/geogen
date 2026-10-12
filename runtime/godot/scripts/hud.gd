@@ -42,6 +42,8 @@ var input_blocked := Callable()
 
 var _panels := {}           # name -> Control, in the order added
 var _slots := {}            # slot -> VBoxContainer
+## The aim point in the middle of the screen (hud_crosshair.gd); main sets it with the focus.
+var crosshair := GeogenHudCrosshair.new()
 var _queued := false
 
 
@@ -70,6 +72,8 @@ func _init() -> void:
         column.offset_bottom = y
         add_child(column)
         _slots[slot] = column
+    add_child(crosshair)
+    _panels[String(crosshair.name)] = crosshair
 
 
 func _ready() -> void:
