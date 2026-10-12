@@ -1,0 +1,111 @@
+# Pedestrian signal: a post with a two-lamp head facing +Z (toward the person
+# about to cross to it). Origin at the foot of the post. Runtimes light the red
+# standing figure (lamp_dont: steady for don't walk, flashing while the crossing
+# clears) or the green walking figure (lamp_walk) from the crossing's intervals
+# (meta.signal.crossing).
+
+name: pedestrian_signal
+tags: [street.signal, street.pedestrian_signal]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+parts:
+  post:
+    primitive: cylinder
+    size: [0.1, 2.5, 0.1]
+    anchor: bottom_center
+    material: lamp_iron
+    collider: hull
+  housing:
+    primitive: cube
+    size: [0.3, 0.62, 0.2]
+    anchor: bottom_center
+    offset: [0, 2.1, 0.06]
+    bevel: 0.02
+    bevel_segments: 1
+    material: lamp_iron
+    collider: none
+  # A hood over the lamps, so they read in daylight.
+  visor:
+    primitive: cube
+    size: [0.32, 0.02, 0.1]
+    anchor: bottom_center
+    offset: [0, 2.723, 0.2]
+    bevel: 0
+    material: lamp_iron
+    collider: none
+  # Standing figure (red): don't walk.
+  lamp_dont:
+    primitive: extrude
+    shape:
+      polygon:
+        - [-0.04, -0.11]
+        - [-0.008, -0.11]
+        - [-0.008, -0.03]
+        - [0.008, -0.03]
+        - [0.008, -0.11]
+        - [0.04, -0.11]
+        - [0.04, -0.02]
+        - [0.062, -0.02]
+        - [0.062, 0.05]
+        - [0.045, 0.062]
+        - [0.012, 0.062]
+        - [0.02, 0.07]
+        - [0.028, 0.082]
+        - [0.028, 0.096]
+        - [0.018, 0.11]
+        - [-0.018, 0.11]
+        - [-0.028, 0.096]
+        - [-0.028, 0.082]
+        - [-0.02, 0.07]
+        - [-0.012, 0.062]
+        - [-0.045, 0.062]
+        - [-0.062, 0.05]
+        - [-0.062, -0.02]
+        - [-0.04, -0.02]
+    fit: none
+    axis: z
+    size: [0.124, 0.22, 0.012]
+    anchor: bottom_center
+    offset: [0, 2.445, 0.164]
+    material: signal_red
+    collider: none
+  # Walking figure (green): walk.
+  lamp_walk:
+    primitive: extrude
+    shape:
+      polygon:
+        - [-0.062, -0.11]
+        - [-0.036, -0.11]
+        - [0.0, -0.04]
+        - [0.038, -0.11]
+        - [0.064, -0.11]
+        - [0.028, -0.02]
+        - [0.028, 0.01]
+        - [0.058, -0.012]
+        - [0.068, 0.002]
+        - [0.036, 0.045]
+        - [0.03, 0.062]
+        - [0.016, 0.066]
+        - [0.024, 0.07]
+        - [0.034, 0.082]
+        - [0.034, 0.096]
+        - [0.024, 0.11]
+        - [-0.012, 0.11]
+        - [-0.022, 0.096]
+        - [-0.022, 0.082]
+        - [-0.012, 0.07]
+        - [-0.006, 0.066]
+        - [-0.03, 0.062]
+        - [-0.062, 0.02]
+        - [-0.054, 0.006]
+        - [-0.028, 0.03]
+        - [-0.028, -0.02]
+    fit: none
+    axis: z
+    size: [0.13, 0.22, 0.012]
+    anchor: bottom_center
+    offset: [0, 2.155, 0.164]
+    material: signal_green
+    collider: none

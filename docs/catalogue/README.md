@@ -291,22 +291,25 @@ place:
 <tr>
 <td align="center"><a href="assets/park_gate.md"><img src="img/park_gate.png" width="150" alt="park_gate"><br>park_gate</a></td>
 <td align="center"><a href="assets/park_grounds.md"><img src="img/park_grounds.png" width="150" alt="park_grounds"><br>park_grounds</a></td>
+<td align="center"><a href="assets/pedestrian_signal.md"><img src="img/pedestrian_signal.png" width="150" alt="pedestrian_signal"><br>pedestrian_signal</a></td>
 <td align="center"><a href="assets/picnic_table.md"><img src="img/picnic_table.png" width="150" alt="picnic_table"><br>picnic_table</a></td>
 <td align="center"><a href="assets/playground.md"><img src="img/playground.png" width="150" alt="playground"><br>playground</a></td>
-<td align="center"><a href="assets/plaza.md"><img src="img/plaza.png" width="150" alt="plaza"><br>plaza</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/plaza.md"><img src="img/plaza.png" width="150" alt="plaza"><br>plaza</a></td>
 <td align="center"><a href="assets/portal.md"><img src="img/portal.png" width="150" alt="portal"><br>portal</a></td>
 <td align="center"><a href="assets/road.md"><img src="img/road.png" width="150" alt="road"><br>road</a></td>
 <td align="center"><a href="assets/road_section.md"><img src="img/road_section.png" width="150" alt="road_section"><br>road_section</a></td>
 <td align="center"><a href="assets/rowing_boat.md"><img src="img/rowing_boat.png" width="150" alt="rowing_boat"><br>rowing_boat</a></td>
-<td align="center"><a href="assets/sidewalk.md"><img src="img/sidewalk.png" width="150" alt="sidewalk"><br>sidewalk</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/sidewalk.md"><img src="img/sidewalk.png" width="150" alt="sidewalk"><br>sidewalk</a></td>
 <td align="center"><a href="assets/signal_head.md"><img src="img/signal_head.png" width="150" alt="signal_head"><br>signal_head</a></td>
 <td align="center"><a href="assets/signpost.md"><img src="img/signpost.png" width="150" alt="signpost"><br>signpost</a></td>
 <td align="center"><a href="assets/street_lamp.md"><img src="img/street_lamp.png" width="150" alt="street_lamp"><br>street_lamp</a></td>
 <td align="center"><a href="assets/trashcan.md"><img src="img/trashcan.png" width="150" alt="trashcan"><br>trashcan</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/travel_door.md"><img src="img/travel_door.png" width="150" alt="travel_door"><br>travel_door</a></td>
 </tr>
 </table>
@@ -325,6 +328,7 @@ place:
 | [mailbox](assets/mailbox.md) | US rural-style mailbox on a post. | `width`, `height`, `depth` |
 | [park_gate](assets/park_gate.md) | A park gateway: two stone piers with lanterns, a wrought-iron arch between them and a lettered sign hung from it. | `label`, `width`, `pier`, `height` |
 | [park_grounds](assets/park_grounds.md) | The park's grounds: a lawn, a network of gravel paths (tagged park.path, which park visitors walk) and railings round the edge with a gap for the gate at the south (-Z) end. |  |
+| [pedestrian_signal](assets/pedestrian_signal.md) | Pedestrian signal: a post with a two-lamp head facing +Z (toward the person about to cross to it). |  |
 | [picnic_table](assets/picnic_table.md) | A timber picnic table with bench seats on both long sides, carried on two crossbars. | `length` |
 | [playground](assets/playground.md) | A small playground on a poured-rubber pad: an A-frame swing set, a slide with a deck and ladder, a climbing frame and a see-saw. |  |
 | [plaza](assets/plaza.md) | A round paved plaza: grey tiles inside a pale stone border, 10 cm high. | `radius`, `border`, `thickness` |

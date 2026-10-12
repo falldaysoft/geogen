@@ -48,6 +48,24 @@
       "description": "Painted pedestrian crossings as plan rectangles [x0, z0, x1, z1]: NPCs cross the road on them.",
       "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
     },
+    "pedestrian_signals": {
+      "description": "Crosswalks of signalled intersections. With pos = (world time + the intersection's offset) mod (2 * (green + amber + all_red)) and t = pos - phase * (green + amber + all_red): walk while 0 <= t < walk, flashing don't-walk (finish, don't start) while walk <= t < walk + clearance, don't-walk otherwise.",
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["id", "intersection", "phase", "crosswalk", "length", "walk", "clearance"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "intersection": { "description": "The signalled intersection whose cycle and offset it follows.", "type": "string" },
+          "arm": { "description": "The side of the intersection whose street it crosses.", "enum": ["north", "south", "east", "west"] },
+          "phase": { "description": "The vehicle phase it is walked in: the traffic beside it has green, the traffic across it is stopped (turning traffic yields).", "enum": [0, 1] },
+          "crosswalk": { "description": "Its rectangle [x0, z0, x1, z1], one of 'crosswalks'.", "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
+          "length": { "description": "Kerb to kerb (m).", "type": "number", "exclusiveMinimum": 0 },
+          "walk": { "description": "Seconds of walk from the start of the phase's green.", "type": "number", "exclusiveMinimum": 0 },
+          "clearance": { "description": "Seconds of flashing don't-walk after it: time to walk 'length' at the design speed.", "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
     "intersections": {
       "type": "array",
       "items": {

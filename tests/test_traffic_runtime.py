@@ -91,6 +91,37 @@ def test_pedestrians_stroll_and_rest_while_traffic_yields(run_godot, crossroads_
     assert traffic["min_moved"] > 50                                   # traffic still flows
 
 
+def test_pedestrians_wait_for_the_walk_signal(run_godot, crossroads_dir):
+    # The avenue's three intersections are signalled: six crossings with pavement at both ends,
+    # a head at each end. 240 s is nearly six 41 s cycles.
+    out = run_godot("--scene", "crossroads", f"--generated={crossroads_dir}", "--timescale=8",
+                    "--simulate=240", "--npc-trace", engine_args=FAST)
+    npcs = json.loads(next(l for l in out.splitlines() if l.startswith("npc summary: ")).split(": ", 1)[1])
+    (traffic,) = json.loads(next(l for l in out.splitlines() if l.startswith("traffic summary: ")).split(": ", 1)[1])
+    # The heads cycle walk -> flashing -> don't walk with the vehicle phases: about six times each,
+    # and never showing walk or flashing while the traffic across the crossing isn't at red.
+    assert traffic["pedestrian_heads"] == 12
+    assert 30 <= traffic["walks"] <= 42 and 30 <= traffic["flashes"] <= 42 and 30 <= traffic["dont_walks"] <= 42
+    assert traffic["walk_conflicts"] == 0
+    # Nobody steps off a kerb onto a signalled crossing while it says don't walk: they wait
+    # there (for less than a cycle), and they do get across.
+    trace = [json.loads(l.split(": ", 1)[1]) for l in out.splitlines() if l.startswith("npc: ")]
+    steps = [e for e in trace if e.get("event") == "signal_step"]
+    waits = [e for e in trace if e.get("event") == "signal_wait"]
+    # (A step is the frame the kerb line is crossed, half a second after setting off on walk,
+    # so the flashing interval may just have begun; a steady don't-walk is never right.)
+    assert len(steps) >= 4 and all(e["state"] in ("walk", "flash") for e in steps)
+    assert sum(1 for e in steps if e["state"] == "walk") >= len(steps) - 1
+    assert len(waits) >= 3 and all(e["state"] in ("dont", "flash") for e in waits)
+    assert sum(n["signal_violations"] for n in npcs) == 0
+    assert sum(n["signal_crossings"] for n in npcs) == len(steps)
+    assert sum(n["signal_waits"] for n in npcs) == len(waits)
+    assert 1.0 < max(n["signal_wait"] for n in npcs) < 41.0
+    # Traffic keeps flowing, and still yields to people in the road.
+    assert traffic["overlaps"] == 0 and traffic["min_moved"] > 150 and traffic["max_idle"] < 75
+    assert traffic["yields"] >= 1 and traffic["green_claims"] >= 10
+
+
 def _summaries(out: str) -> tuple[list, dict, dict]:
     lines = out.splitlines()
     npcs = json.loads(next(l for l in lines if l.startswith("npc summary: ")).split(": ", 1)[1])

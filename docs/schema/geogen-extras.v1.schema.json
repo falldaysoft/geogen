@@ -392,12 +392,13 @@
           "properties": { "group": { "type": "string" }, "index": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer" } }
         },
         "signal": {
-          "description": "A traffic signal head: the intersection and phase it shows and the lane it faces (ids of the manifest's traffic section). The runtime lights its lamp_red | lamp_amber | lamp_green parts from that intersection's cycle.",
+          "description": "A traffic signal head: the intersection and phase it shows and the lane it faces (ids of the manifest's traffic section). The runtime lights its lamp_red | lamp_amber | lamp_green parts from that intersection's cycle. With 'crossing' it is a pedestrian head: the runtime lights lamp_walk or lamp_dont from that entry of the traffic section's pedestrian_signals.",
           "type": "object", "required": ["intersection", "phase"], "additionalProperties": false,
           "properties": {
             "intersection": { "type": "string" },
             "phase": { "type": "integer", "minimum": 0 },
-            "lane": { "type": "string" }
+            "lane": { "type": "string" },
+            "crossing": { "description": "Pedestrian heads: the id of the pedestrian signal (a crosswalk's walk and clearance intervals) they show.", "type": "string" }
           }
         },
         "character": {

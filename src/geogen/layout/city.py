@@ -671,7 +671,36 @@ class CityBuilder:
             node.meta["signal"] = {**ln["signal"], "lane": ln["id"]}
             group.add_child(node)
             self._reserved.append(np.array([p[0], p[2]]))
+        self._place_pedestrian_signals(group, graph)
         city.add_child(group)
+
+    def _place_pedestrian_signals(self, group: SceneNode, graph: dict[str, Any]) -> None:
+        """A pedestrian head at each end of every signalled crosswalk, facing back across it (at
+        whoever is about to cross toward it). They stand on the pavement at the kerb (the visor
+        stops short of it), just outside the stripes on the side away from the intersection: off
+        the line people walk to the crossing by, clear of the rounded corner and 2.7 m from the
+        vehicle head at the stop line."""
+        crossings = graph.get("pedestrian_signals") or []
+        if not crossings:
+            return
+        proto, _, _ = self._prototype({"asset": "pedestrian_signal.yaml"})
+        back, beside = 0.3, 0.3
+        for x in crossings:
+            x0, z0, x1, z1 = x["crosswalk"]
+            if x["arm"] in ("west", "east"):        # walked along z
+                px = x0 - beside if x["arm"] == "west" else x1 + beside
+                ends = [("a", np.array([px, z0 - back]), 0.0), ("b", np.array([px, z1 + back]), np.pi)]
+            else:                                   # walked along x
+                pz = z0 - beside if x["arm"] == "south" else z1 + beside
+                ends = [("a", np.array([x0 - back, pz]), np.pi / 2), ("b", np.array([x1 + back, pz]), -np.pi / 2)]
+            for end, p, yaw in ends:
+                node = _instance(proto)
+                node.name = f"signal_walk_{x['id']}_{end}"
+                node.transform = Transform(translation=np.array([p[0], self.curb, p[1]]),
+                                           rotation=np.array([0.0, float(yaw), 0.0]))
+                node.meta["signal"] = {"intersection": x["intersection"], "phase": x["phase"], "crossing": x["id"]}
+                group.add_child(node)
+                self._reserved.append(p)
 
     # --- parked cars -----------------------------------------------------------------------------
 
