@@ -9,7 +9,8 @@ extends Node
 ##
 ## Types rules can trigger on:
 ##   signal   a thing raised `name`: an interaction arriving at a state with an
-##            emit, a refused use ("locked"), or a signal an asset declares
+##            emit, a refused use ("locked"), or one the rules program raises (a rule's
+##            emit, a signal an asset declares)
 ##   changed  state took a new value: `key`, data.from, data.to
 ##   use      an actor used an interaction (`name`), before it moves
 ##   enter, leave   an actor entered or left a place or room (data.kind, data.place)
@@ -19,6 +20,9 @@ extends Node
 ## Runtime-only types, for tools and tests (no rule sees them):
 ##   arrived  an interaction reached a state (`name`; data.state, data.emit, data.asset)
 ##   npc      an NPC's trace (`name`: decide, step, done, fail, greet, ...; data: the trace)
+##
+## An event the rules program caused (a variable it set, a signal it raised)
+## also has `origin: "rules"`.
 ##
 ## Listeners get events in the order they were posted. An event posted while
 ## another is being delivered waits its turn, so every listener sees the same
@@ -43,12 +47,13 @@ var _listeners := {}                    # id -> {call, types, subjects}
 var _next_id := 1
 var _queue: Array[Dictionary] = []
 var _delivering := false
-var _declared: Array[Dictionary] = []   # signals with a source: {subject, name, from}
 
 
-func post(type: String, subject := "", event_name := "", actor := "", data := {}) -> void:
+func post(type: String, subject := "", event_name := "", actor := "", data := {}, origin := "") -> void:
     var event := {"type": type, "subject": subject, "name": event_name, "actor": actor,
         "package": subject.get_slice(":", 0) if ":" in subject else package, "data": data}
+    if origin != "":
+        event["origin"] = origin        # "rules": caused by the rules program, not by the world
     if type == "changed" and data.has("key"):
         event["key"] = data["key"]
         data.erase("key")
@@ -72,20 +77,6 @@ func listen(callable: Callable, types: Array = [], subjects: Array = []) -> int:
 
 func unlisten(id: int) -> void:
     _listeners.erase(id)
-
-
-## The signals a loaded package declares (its manifest's `state` section): one
-## with a source is raised whenever an event matching the source is delivered.
-func declare(state: Dictionary) -> void:
-    var signals: Dictionary = state.get("signals", {})
-    for key in signals:
-        var entry: Dictionary = signals[key]
-        if entry.has("from"):
-            _declared.append(entry)
-
-
-func forget_declarations() -> void:
-    _declared.clear()
 
 
 ## Whether `event` is one a rule's or signal's `on` asks for (docs/rules.md "Rules").
@@ -113,10 +104,6 @@ func _deliver(event: Dictionary) -> void:
         history.pop_front()
     if "*" in print_types or event["type"] in print_types:
         print("event: %s" % JSON.stringify(event))
-    for entry in _declared:            # before anyone else, as a rule placed first would
-        if matches(entry["from"], event):
-            _queue.append({"type": "signal", "subject": entry["subject"], "name": entry["name"],
-                "actor": event["actor"], "package": str(entry["subject"]).get_slice(":", 0), "data": {}})
     posted.emit(event)
     for id in _listeners.keys():
         var entry: Dictionary = _listeners.get(id, {})

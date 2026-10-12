@@ -512,8 +512,8 @@ and `package` is the scene the subject belongs to.
   (a timer, `interactions.set`, `interactions.use` with no `actor`) has none.
 - Jumping to a state (`interactions.set` with `instant`, loading a save) raises
   nothing: nothing happened.
-- A declared signal with a source (the manifest's `state.signals` entry has
-  `from`) is raised when a matching event is delivered, with that event's actor.
+- An event the rules program caused (a variable it set, a signal it raised,
+  a declared asset signal) also has `origin: "rules"`.
 - An event posted while another is being delivered waits its turn, so every
   listener sees one order.
 - `events.listen(callable, types, subjects)` filters by type and subject ID
@@ -525,8 +525,45 @@ and `subjects`), `events.history {since, types, subjects}` returns what already
 happened, and the `place` and `npc` streams are views of it. The older console
 lines (`interaction event:`, `place event:`, `travelled:`) are unchanged.
 
-Rules, state and quests are not interpreted yet (geogen.3.3, 3.6, 15.2): they
-will listen here.
+## Rules, state and quests
+
+`WorldLoader.rules` (`scripts/rules.gd`, `GeogenRules`) runs the loaded
+package's rules program: the manifest's `state` (variables, interactions) and
+`rules` (bindings, rules) sections, with `quests` for reporting. The semantics
+are `docs/rules.md`; nothing here knows what a quest is beyond printing it.
+
+- `scripts/machine.gd` (`GeogenMachine`) is a GDScript port of the reference
+  evaluator, with `scripts/conditions.gd` for condition trees. It is pure data.
+  `godot --headless --path runtime/godot -- --trace=FILE` replays a conformance
+  trace (`tests/data/rules/*.json`) with no world loaded, prints
+  `trace: {"name", "problems"}` and exits 1 on a mismatch.
+- `GeogenRules` is its host. Loaded interactions stay the world's own: the
+  machine reads their state from the nodes and drives them with `set_state`,
+  and their arrivals come back as events. Every rule event on the bus is an
+  input; what the machine changes or raises goes back on the bus. The world
+  clock is its clock, checked each minute, and time passes with physics.
+- Actors are `player` and each NPC by stable ID.
+- A package's state is kept when its world unloads and resumes when it loads
+  again, so progress survives a trip to another scene. `--save` / `--load` and
+  `state.save` / `state.load` carry it under the key `geogen:rules`.
+
+```
+quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"started","status":"active","from":"available"}
+quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"objective_done","objective":"gallery","text":"Climb to the lighthouse gallery"}
+quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"complete","status":"complete","from":"active"}
+```
+
+- `--quests` prints `quests: [...]` for the player once the world is loaded:
+  each quest's status and objectives (`done | open | waiting`, `progress: [n, of]`,
+  and `markers`: the world position of an open objective's subjects).
+- `--set=KEY=VALUE` sets a variable at start (`world:pkg.name`, `actor:pkg.name`
+  for the player, `<uid>#<state>`).
+- Control API: `quests.list {actor}`, `state.get {key, actor}`, `state.set
+  {key, value, actor}`, `state.list`, and the `quest` stream.
+
+Not built: a HUD (geogen.15.10 to 15.13), markers that point at the portal for a
+subject in another scene, NPCs working on quests (15.8), and state for
+interactions in chunks that aren't loaded (they are simulated, not restored).
 
 ## Manifest
 

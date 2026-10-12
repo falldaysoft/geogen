@@ -152,7 +152,9 @@ that run the quests are in the manifest's `rules` section with the scene's own
 (`quest:<id>:...`, after the wiring that can give them). The quest variables join
 the manifest's `state` section.
 
-## Runtime (not built yet)
+## Runtime
+
+The console part is built (`runtime/godot/README.md`, "Rules, state and quests"); the rest is planned.
 
 - **Console** (15.2): `quest event: {...}` on every quest and objective
   transition, `--quests` and the control API's `quests.list` dump every deployed
@@ -190,11 +192,13 @@ in Godot.
 | Named places with enter / leave events | 3.9 | done |
 | Quest kind, compilation, export checks | 15.1 | done |
 | Event bus in Godot (`runtime/godot/scripts/events.gd`) | 3.5 | done |
-| State store and save format in Godot | 3.3, 3.4 | open |
+| State store in Godot; progress in saves | 3.3, 3.4 | done (`scripts/rules.gd`); the save file's own format and schema are open |
 | Rules authoring (`rules:`, `wire:`, `bind:`: `geogen.wiring`) | 3.6 | done: a scene rule gives a quest with `{start_quest: id}` |
-| The rules interpreter in Godot | 3.3, 3.6 | open |
+| The rules interpreter in Godot (`scripts/machine.gd`, passes the traces) | 3.3, 3.6 | done |
 | Content packages (quests that span scenes) | 3.10 | open |
-| Runtime quests, HUD, archetypes | 15.2 to 15.13 | open |
+| Runtime quests: `quest event:`, `--quests`, `quests.list`, markers as data | 15.2 | done |
+| The lighthouse quest, the first archetype, in Godot | 15.3 | runs (`tests/test_quests_runtime.py`); a walked playthrough is open |
+| Other archetypes, NPC holders, playtest bot, HUD | 15.4 to 15.13 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

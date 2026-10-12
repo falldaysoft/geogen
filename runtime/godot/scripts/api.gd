@@ -42,6 +42,11 @@ const COMMANDS := {
     "interactions.use": "{asset, interaction?, wait?} advance to the next state (honours locks)",
     "interactions.lock": "{asset, interaction?, locked} lock or unlock without a key",
     "state.save": "interaction states keyed asset/interaction",
+    "state.get": "{key, actor?} a variable's value (world:pkg.name, actor:pkg.name, <uid>#<state>); actor: player",
+    "state.set": "{key, value, actor?} set one, as a console would: rules and bindings react",
+    "state.list": "-> {world, actors}: every stored value that differs from its default",
+    "quests.list": "{actor?} every quest's state for an actor (default player): status, objectives "
+        + "(done | open | waiting, progress, markers)",
     "state.load": "{state} restore a save",
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
     "npcs.options": "{npc} the NPC's scored options now",
@@ -67,7 +72,7 @@ const COMMANDS := {
 ## extras.geogen keys every mesh part may carry; a node with only these isn't listed by world.query.
 const PART_KEYS := ["version", "collider", "walkable"]
 const TRACE_SECONDS := 0.25          # walk/move position samples
-const STREAMS := ["events", "interaction", "npc", "room", "place", "travel", "traffic"]
+const STREAMS := ["events", "quest", "interaction", "npc", "room", "place", "travel", "traffic"]
 
 var main: Node                 # main.gd (player, world, overview, clock, switch_scene, ...)
 var port := 7878
@@ -91,6 +96,7 @@ func _ready() -> void:
         _emit("interaction", {"asset": asset, "interaction": interaction, "state": state, "event": event}))
     world.travel_requested.connect(func(travel: Dictionary): _emit("travel", travel))
     world.events.posted.connect(_on_event)
+    world.rules.quest_event.connect(func(event: Dictionary): _emit("quest", event))
 
 
 ## The streams are views of the event bus: `events` is all of it, the others one kind each.
@@ -332,7 +338,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 elif cmd == "interactions.use":
                     it.use(str(args.get("actor", "")))
                 else:
-                    it.locked = bool(args.get("locked", true))
+                    it.set_locked(bool(args.get("locked", true)), str(args.get("actor", "")))
             if cmd != "interactions.lock" and bool(args.get("wait", false)):
                 var waited := 0.0
                 while found.any(func(i): return i.state != i.target) and waited < 10.0:
@@ -341,6 +347,18 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                         waited += get_physics_process_delta_time()
                 return found.map(func(it): return _interaction(it, true))
             return found.map(func(it): return _interaction(it))
+        "state.get":
+            var got = world.rules.get_value(str(args.get("key", "")), str(args.get("actor", "player")))
+            return _err("no state '%s'" % args.get("key", "")) if got == null else {"value": got}
+        "state.set":
+            var problem: String = world.rules.set_value(str(args.get("key", "")), args.get("value"),
+                str(args.get("actor", "player")))
+            return _err(problem) if problem != "" else {"value": world.rules.get_value(str(args["key"]),
+                str(args.get("actor", "player")))}
+        "state.list":
+            return world.rules.stored()
+        "quests.list":
+            return world.rules.report(str(args.get("actor", "player")))
         "state.save":
             return world.save_state()
         "state.load":

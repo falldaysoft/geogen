@@ -4,8 +4,9 @@ This is the contract for the layer under object wiring, quests, dialogue and
 inventory. It is declarative: content is data, and a runtime is anything that
 obeys the rules below. `geogen/rules.py` is the reference implementation
 (`Machine`), and the traces in `tests/data/rules/` say what must happen for
-given inputs. The Godot runtime is one implementation and must pass the same
-traces.
+given inputs. The Godot runtime is one implementation
+(`runtime/godot/scripts/machine.gd`) and passes the same traces
+(`tests/test_rules_godot.py`).
 
 This document covers what is exported and how it behaves; "Authoring" below is
 the YAML that compiles to it.

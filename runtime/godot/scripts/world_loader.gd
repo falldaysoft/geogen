@@ -19,6 +19,10 @@ signal place_event(event: Dictionary)
 
 ## Everything that happens, as one stream (events.gd): the signals above are views of it.
 var events := GeogenEvents.new()
+## The loaded package's rules program, running (rules.gd): state, rules, quests.
+var rules := GeogenRules.new()
+## "<uid>#<interaction>" -> GeogenInteraction, for the ones that are loaded.
+var interactions_by_key := {}
 
 const DEFAULT_GENERATED_DIR := "res://generated"
 const POLL_SECONDS := 0.5
@@ -135,6 +139,9 @@ const TRAVEL_ARM_FRAMES := 5
 func _ready() -> void:
     events.name = "Events"
     add_child(events)
+    rules.name = "Rules"
+    rules.world = self
+    add_child(rules)
     _collider_material = StandardMaterial3D.new()
     _collider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     _collider_material.albedo_color = Color(0.2, 1.0, 0.4)
@@ -284,11 +291,12 @@ func unload() -> void:
     var t := Time.get_ticks_usec()
     _load_started = t
     for child in get_children():
-        if child == events:
+        if child == events or child == rules:
             continue
         remove_child(child)
         child.free()
-    events.forget_declarations()
+    rules.unload()
+    interactions_by_key.clear()
     streamer = null
     _lap("unload", t)
     _mtimes.clear()
@@ -446,7 +454,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
         return
     root.name = manifest.get("name", model_path.get_file().get_basename())
     events.package = scene_name if scene_name != "" else String(root.name)
-    events.declare(manifest.get("state", {}))
+    rules.load_package(events.package, manifest)
     var t := Time.get_ticks_usec()
     add_child(root)
     t = _lap("add_to_tree", t)
@@ -637,7 +645,7 @@ func _load_chunked(index_path: String, index: Dictionary) -> void:
         streamer.interior_radius = stream_radii[2]
     add_child(streamer)
     events.package = scene_name
-    events.declare(index.get("state", {}))
+    rules.load_package(scene_name, index)
     if index.get("traffic") is Dictionary:
         traffic_graph = index["traffic"]
     streamer.open(index_path, index)
@@ -917,6 +925,7 @@ func _spawn_npcs(root: Node) -> void:
         npc.trace_enabled = npc_trace
         var actor := actor_id(npc)
         npc.traced.connect(func(event: Dictionary): events.post("npc", actor, str(event.get("event", "")), actor, event))
+        rules.add_actor(actor, "npc")
         if spec != null:
             npc.step_height = spec.step_height
         npcs.append(npc)
@@ -997,6 +1006,9 @@ func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
 
 ## The key an interaction's state is saved under: "<stable ID>#<interaction>", so a save
 ## survives a re-export that renames nodes (exports without IDs: "<node name>/<interaction>").
+const RULES_SAVE := "geogen:rules"       # the save's entry for the rules program (not an interaction)
+
+
 static func _state_key(it: GeogenInteraction) -> String:
     var uid := uid_of(it.asset)
     if uid == "":
@@ -1010,12 +1022,18 @@ func save_state() -> Dictionary:
     var data := _pending_state.duplicate(true)
     for it in interactions:
         data[_state_key(it)] = it.snapshot()
+    if rules.machine != null:
+        data[RULES_SAVE] = rules.save()      # variables, quest progress, timers (docs/rules.md "Saving")
     return data
 
 
 ## Restore a save. Entries for things that aren't loaded yet apply when they load.
 func load_state(data: Dictionary) -> void:
     _pending_state = data.duplicate(true)
+    var saved = _pending_state.get(RULES_SAVE)
+    _pending_state.erase(RULES_SAVE)
+    if saved is Dictionary:
+        rules.load_save(saved)
     for it in interactions:
         _restore_pending(it)
 
@@ -1148,6 +1166,7 @@ func _collect_interactions(root: Node) -> void:
                 interaction_event.emit(asset_name, iname, state, event))
             var uid := uid_of(node)
             var key := "%s#%s" % [uid, iname]
+            interactions_by_key[key] = it
             it.used.connect(func(actor: String): events.post("use", uid, iname, actor))
             it.target_changed.connect(func(from: String, to: String, actor: String):
                 events.post("changed", uid, iname, actor, {"key": key, "from": from, "to": to}))

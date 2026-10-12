@@ -156,6 +156,15 @@ func toggle_lock(keys: Array, by := "") -> bool:
     return true
 
 
+## Lock or unlock without a key (a rule, a tool).
+func set_locked(value: bool, by := "") -> void:
+    if value == locked:
+        return
+    locked = value
+    state_entered.emit(state, "locked" if locked else "unlocked")
+    lock_changed.emit(locked, by)
+
+
 ## Serializable state (for save/restore).
 func snapshot() -> Dictionary:
     return {"state": target, "locked": locked}

@@ -27,6 +27,10 @@ extends Node3D
 ##   --save=PATH / --load=PATH     write interaction state on quit / restore it at start
 ##   --status                      print the player's pose/room/focus when quitting
 ##   --npc-trace                   print every NPC decision and step ("npc: {...}")
+##   --quests                      print every quest's state for the player ("quests: [...]") once the world
+##                                 is loaded; quest and objective changes always print "quest event: {...}"
+##   --set=KEY=VALUE               set a state variable at start (world:pkg.name, actor:pkg.name for the
+##                                 player, <uid>#<state>); VALUE is JSON, or text
 ##   --events[=TYPE,...]           print the event bus ("event: {...}"): every type, or only these
 ##                                 (signal, changed, use, enter, leave, travel, clock, start, arrived, npc)
 ##   --timescale=N                 run the world N times faster (physics ticks scale too)
@@ -91,6 +95,8 @@ var _pitch := 0.0
 var _save_path := ""
 var _load_path := ""
 var _started := false
+var _print_quests := false
+var _sets: Array[String] = []
 var _print_status := false
 var _focus_affordance := {}
 var _focus_npc: GeogenNpc = null
@@ -193,6 +199,10 @@ func _ready() -> void:
             _load_path = value
         elif arg == "--npc-trace":
             world.npc_trace = true
+        elif arg == "--quests":
+            _print_quests = true
+        elif arg.begins_with("--set="):
+            _sets.append(arg.trim_prefix("--set="))
         elif arg == "--events" or arg.begins_with("--events="):
             world.events.print_types = ["*"] if value == "" else Array(value.split(","))
         elif arg.begins_with("--timescale="):
@@ -282,7 +292,16 @@ func _ready() -> void:
         if not _started:
             _started = true
             if _load_path == "":
-                world.events.post("start", "", "", "player"))
+                world.events.post("start", "", "", "player")
+            for entry in _sets:
+                var key := entry.get_slice("=", 0)
+                var text := entry.substr(key.length() + 1)
+                var value = JSON.parse_string(text)
+                var problem := world.rules.set_value(key, text if value == null else value, "player")
+                if problem != "":
+                    push_warning("geogen: --set=%s: %s" % [entry, problem])
+            if _print_quests:
+                print("quests: %s" % JSON.stringify(world.rules.report("player"))))
     clock = GeogenClock.new()
     clock.name = "Clock"
     clock.night_changed.connect(func(night: bool): world.events.post("clock", "", "night" if night else "day"))
