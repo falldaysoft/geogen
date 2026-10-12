@@ -37,6 +37,8 @@ const COMMANDS := {
     "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",
     "player.stand": "leave a sit/lie pose",
     "player.keys": "{keys?} set (or get) the keys the player holds",
+    "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
+    "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
     "interactions.list": "{asset?} interactions with states",
     "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
     "interactions.use": "{asset, interaction?, wait?} advance to the next state (honours locks)",
@@ -48,6 +50,10 @@ const COMMANDS := {
     "quests.list": "{actor?} every quest's state for an actor (default player): status, objectives "
         + "(done | open | waiting, progress, markers)",
     "state.load": "{state} restore a save",
+    "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
+        + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
+        + "progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how "
+        + "long a finished quest stays up",
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
     "npcs.options": "{npc} the NPC's scored options now",
     "npcs.force": "{npc, option} make its next decision take that option",
@@ -359,6 +365,37 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return world.rules.stored()
         "quests.list":
             return world.rules.report(str(args.get("actor", "player")))
+        "hud.quests":
+            var tracker: GeogenHudQuestTracker = main.hud.panel("quests")
+            if args.has("linger"):
+                tracker.linger = float(args["linger"])
+            var pick := str(args.get("track", ""))
+            if pick in ["next", "previous"]:
+                tracker.cycle(1 if pick == "next" else -1)
+            elif pick != "" and not tracker.track(pick):
+                return _err("'%s' isn't an active quest of the player" % pick)
+            if args.has("linger") or pick != "":
+                main.hud.refresh()
+            return tracker.hud_report()
+        "window.size":
+            if args.get("size") is Array and args["size"].size() == 2:
+                get_window().size = Vector2i(int(args["size"][0]), int(args["size"][1]))
+                await get_tree().process_frame      # layouts follow over the next frames
+                await get_tree().process_frame
+            return {"size": [get_window().size.x, get_window().size.y]}
+        "input.key":
+            var code := OS.find_keycode_from_string(str(args.get("key", "")))
+            if code == KEY_NONE:
+                return _err("key: a key's name (Q, F5, Escape), got '%s'" % args.get("key", ""))
+            for pressed in [true, false]:
+                var press := InputEventKey.new()
+                press.keycode = code
+                press.physical_keycode = code
+                press.pressed = pressed
+                Input.parse_input_event(press)
+            await get_tree().process_frame          # delivered with the next frame's input
+            await get_tree().process_frame
+            return {"key": OS.get_keycode_string(code)}
         "state.save":
             return world.save_state()
         "state.load":

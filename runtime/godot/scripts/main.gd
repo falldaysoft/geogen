@@ -46,7 +46,8 @@ extends Node3D
 ##                                 a free port), printed as "api listening: {...}" (see api.gd)
 ##
 ## E uses the focused interaction, sits/lies on the furniture you look at, or greets an NPC
-## (E or walking stands you up); L locks/unlocks with a held key.
+## (E or walking stands you up); L locks/unlocks with a held key; Q tracks the next active
+## quest in the HUD (hud.gd).
 ##   --playtest[=N]                check every room/interaction is reachable, walk N routes
 ##                                 with a bot (default 6), print "playtest: {...}", quit
 ##
@@ -124,6 +125,7 @@ var _print_skeletons := false
 var clock: GeogenClock
 var _start_time := 13.0
 var _menu: GeogenSceneMenu
+var hud: GeogenHud                # the game HUD (hud.gd): the quest tracker and later panels
 var _switches: Array[Dictionary] = []   # --switch: [{name, at: seconds}]
 var _switch_clock := 0.0
 var _stats_in := -1                     # frames until the post-switch stats print
@@ -360,6 +362,12 @@ func _ready() -> void:
     _menu.picked.connect(func(scene: String): switch_scene(scene))
     _menu.closed.connect(_menu_closed)
     add_child(_menu)
+    hud = GeogenHud.new()
+    hud.world = world
+    hud.input_blocked = func(): return _menu.visible
+    hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
+    add_child(hud)
+    move_child(hud, $Overlay.get_index())     # under the overlay, so its fade covers the HUD
     _place_player(world.world_aabb())
     _frame_overview(world.world_aabb())
     # The viewport auto-selects the first camera to enter the tree (the
@@ -755,7 +763,7 @@ func _process(delta: float) -> void:
         var chunk_info := "" if stream.is_empty() else "   chunks %d full / %d lod / %d interiors%s" % [
             stream["full"].size(), stream["lod"].size(), stream["interiors"].size(),
             " (+%d loading)" % stream["pending"] if stream["pending"] > 0 else ""]
-        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  F6 scenes  F7/F8 prev/next  Esc mouse" % [
+        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Q quest  F6 scenes  F7/F8 prev/next  Esc mouse" % [
             Engine.get_frames_per_second(), clock.label(),
             world.scene_name if world.scene_name != "" else "all exports", chunk_info,
             p.x, p.y, p.z, room if room != "" else "-",
