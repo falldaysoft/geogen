@@ -142,6 +142,9 @@ def test_the_island_quest_is_walked_from_the_jetty(scene_export, built_scene, go
     assert tracked["id"] == "lighthouse_gallery" and tracked["status"] == "active"     # start: auto
     (marker,) = tracked["objectives"][0]["markers"]
     assert marker["subject"] == "island:lighthouse/gallery"
+    (shown,) = rt.call("hud.markers")["markers"]             # the HUD marks it, with how far it is
+    assert (shown["kind"], shown["subject"]) == ("point", marker["subject"]) and shown["distance"] > 60
+    assert shown["position"] == pytest.approx(marker["position"], abs=1e-3)
     rt.subscribe("quest")
     rt.call("time.scale", scale=4)
     for leg in ([35.8, 4.3, 7], [42.3, 14.35, 7]):           # the lighthouse door, then up and round the gallery
@@ -154,6 +157,7 @@ def test_the_island_quest_is_walked_from_the_jetty(scene_export, built_scene, go
     rt.unsubscribe()
     assert [(e["event"], e.get("objective")) for e in events] == [("objective_done", "gallery"), ("complete", None)]
     assert quest(rt)["status"] == "complete" and objectives(rt) == {"gallery": "done"}
+    assert rt.call("hud.markers")["markers"] == []           # done: nothing left to point at
     # the marker led to where it happened: the player stands on the deck it points at
     position = rt.call("player.status")["position"]
     assert abs(position[1] - marker["position"][1]) < 1.3

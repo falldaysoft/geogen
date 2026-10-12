@@ -59,6 +59,9 @@ const COMMANDS := {
     "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: "
         + "{open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; "
         + "track makes the tracker follow the selected quest",
+    "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: "
+        + "{visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, "
+        + "distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
     "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's quest toasts: "
         + "visible, showing [{seq, kind: started | objective_done | complete | failed, package, quest, "
         + "objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, hold, "
@@ -408,6 +411,12 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 await get_tree().process_frame      # laid out before its rect is read
                 await get_tree().process_frame
             return quest_log.hud_report()
+        "hud.markers":
+            var marks: GeogenHudMarkers = main.hud.panel("markers")
+            if args.has("enabled"):
+                marks.enabled = bool(args["enabled"])
+            main.hud.refresh()
+            return marks.hud_report()
         "hud.notifications":
             var toasts: GeogenHudNotifications = main.hud.panel("notifications")
             if args.has("hold"):

@@ -84,3 +84,41 @@ def test_walk_from_the_hub_to_the_cottage_and_back(run_godot, hub_dir):
     result = _json_lines(out, "walk result: ")[0]
     assert result["scene"] == "hub" and (result["x"], result["z"]) == pytest.approx(
         (arrival[0], arrival[2]), abs=0.05)
+
+
+@pytest.mark.exhaustive
+def test_an_island_quest_is_marked_at_the_hub_portal_to_the_island(godot_runtime, built_scene, tmp_path_factory):
+    """A quest's subject in another scene is marked at the portal that leads there: with the island's
+    lighthouse quest going, the hub's island portal carries its marker (and no other portal does)."""
+    out = tmp_path_factory.mktemp("generated_hub_island")
+    catalogue = load_catalogue()
+    export_catalogue(catalogue, built_scene, out, catalogue.select("hub,island"), log=lambda *_: None)
+    rt = godot_runtime("island", out)
+    rt.call("wait_ready")
+    rt.call("window.size", size=[1280, 720])
+    (here,) = rt.call("hud.markers")["markers"]
+    assert here["kind"] == "point" and here["subject"] == "island:lighthouse/gallery"
+
+    rt.call("world.switch", scene="hub")
+    rt.call("wait_ready")
+    (portal,) = rt.call("hud.markers")["markers"]
+    assert portal["kind"] == "portal" and portal["scene"] == "island" and portal["label"] == "Island"
+    assert (portal["quest"], portal["objective"], portal["package"]) == ("lighthouse_gallery", "gallery", "island")
+    assert portal["subject"] == "hub:portal_island"
+    manifest = json.loads((out / "hub.manifest.json").read_text())
+    (point,) = [t for t in manifest["travel"] if t.get("scene") == "island"]
+    assert point["uid"] == portal["subject"]
+    # facing it, the marker is in the portal's opening; turned away, it is on the screen's edge
+    rt.call("player.look", at=portal["position"])
+    (portal,) = rt.call("hud.markers")["markers"]
+    assert portal["on_screen"] and not portal["clamped"] and portal["screen"] == pytest.approx([640, 360], abs=2)
+    yaw = rt.call("player.status")["yaw"]
+    rt.call("player.look", yaw=yaw + 180, pitch=0)
+    (portal,) = rt.call("hud.markers")["markers"]
+    assert portal["behind"] and portal["clamped"] and not portal["on_screen"]
+
+    # through the portal's scene and back on the island, the gallery itself is marked again
+    rt.call("world.switch", scene="island")
+    rt.call("wait_ready")
+    (here,) = rt.call("hud.markers")["markers"]
+    assert here["kind"] == "point" and here["subject"] == "island:lighthouse/gallery"

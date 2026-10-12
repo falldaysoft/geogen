@@ -328,6 +328,8 @@ func _described(entries: Array, loaded: bool) -> Array:
         entry["loaded"] = loaded
         entry["description"] = str(quests.get("quests", {}).get(entry["id"], {}).get("description", ""))
         for objective in entry["objectives"]:
+            if objective.has("markers"):
+                objective["marked"] = true      # it has somewhere to point (hud_markers.gd: the portal there)
             objective.erase("markers")          # positions in a world that may not be the loaded one
             objective.erase("area")
     return entries

@@ -241,6 +241,7 @@ metres, angles degrees. `help` lists every command; the groups are:
   `--headless`.
 - `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
 - `hud.log`: the HUD's quest log (see "HUD"); `open`, `select` and `track` change it first.
+- `hud.markers`: the HUD's world markers (see "HUD"): each one's kind, world and screen position, distance and whether it is clamped to the edge.
 - `hud.notifications`: the HUD's quest toasts, on screen and waiting (see "HUD"); `hold`, `gap`, `limit`,
   `muted` and `clear` change them first.
 - `input.key` (press a key by name, as the keyboard would), `window.size` (get or set it; headless
@@ -772,6 +773,59 @@ is the frame (`[]` while closed). `select` takes a quest id, `<package>/<id>`,
 `next` or `previous` (an error if it isn't listed); `track: true` tracks the
 selected quest (an error if it isn't active). Headless `--quests` and
 `quests.list` print the same data as before. Tests: `tests/test_hud_log_runtime.py`.
+
+**Markers** (`scripts/hud_markers.gd`, panel `markers`, slot `screen`, drawn
+under the other panels): an indicator in the world over what each open
+objective of the tracked quest is about, with the distance to it. They follow
+the tracker: the quest it shows is the one marked (Q and the quest log change
+both), objectives that are done or still waiting on another have none, and
+neither has one with `marker: hidden`.
+
+- Positions are the manifest's `quests.markers` (through
+  `GeogenRules.report`), by stable ID, so a subject in a chunk that isn't
+  loaded is marked. A place is marked at the middle of its volume. Markers
+  show through walls and terrain.
+- **Edge**: an indicator that is off screen or behind the camera sits on the
+  edge of the screen (`edge_margin` in: 7% of the smaller side, at most 44 px)
+  with an arrow pointing the way to turn; one straight behind is on the bottom
+  edge.
+- **Area** (`marker: {area: r}`): a ring of that radius on the ground (its
+  height taken from the colliders under it), and an indicator with the distance
+  to the ring's edge until the player is inside it. The ring is not centred on
+  the subject: its middle is 0.45 r off, in a direction fixed by the subject's
+  id, so the subject is somewhere inside. Several subjects share one ring round
+  their middle.
+- **Portal**: a quest of another scene can't be marked where it is. Every
+  travel point of the loaded scene that goes straight to that scene is marked
+  instead (an arch, labelled with the scene's name), for one quest per package
+  visited this session: the one tracked there (the quest log's pick), else its
+  first active one, if it has an open objective with a marker. With the
+  island's lighthouse quest going, the hub's Island portal is marked. No route
+  over several scenes is worked out: with no direct travel point nothing shows.
+- The list is rebuilt on quest events, `changed` events and the host's
+  refreshes; only the projection runs per frame. They are hidden while a modal
+  panel (the quest log) is up.
+
+`hud.markers {enabled?}` returns what is displayed:
+
+```json
+{"visible": true, "package": "island", "tracked": "lighthouse_gallery", "viewport": [1280, 720],
+ "edge_margin": 44.0,
+ "markers": [{"quest": "lighthouse_gallery", "package": "island", "objective": "gallery",
+              "subject": "island:lighthouse/gallery", "kind": "point", "position": [39.5, 15.454, 7.0],
+              "screen": [1232.7, 676.0], "distance": 80.3, "distance_text": "80 m",
+              "on_screen": false, "clamped": true, "behind": true, "turn_deg": 28.1}]}
+```
+
+`kind` is `point | area | portal`; `position` is what is pointed at (a ring's
+middle, a portal's middle) and `distance` how far the camera is from it (from
+a ring's edge); `screen` is where the indicator is drawn; `turn_deg` (clamped
+ones) is the arrow's direction in screen axes. An area has `radius` and
+`inside`; a portal has `scene`, `label` and the travel point's ID as
+`subject`. `enabled: false` hides them. Not handled: a subject already done
+within a counted objective (every light of "3 of 5" stays marked), and the
+side-by-side layout of `--scene=all` for portals. Tests:
+`tests/test_hud_markers_runtime.py`, `tests/test_hub.py` (the hub's portal).
 
 ## Node extras
 
