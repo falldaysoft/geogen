@@ -92,7 +92,8 @@ def test_main_street_traffic_and_pedestrians_keep_moving(run_godot, main_street_
     out = run_godot("--scene=main_street", f"--generated={main_street_dir}", "--timescale=4", "--simulate=120")
     traffic = _json_line(out, "traffic summary: ")[0]
     assert traffic["vehicles"] >= 4 and traffic["distance"] > 500, traffic
-    assert traffic["overlaps"] == 0 and not traffic["stuck"], traffic
+    # "stuck" names whoever has stood longest when the run ends: a car at a stop line isn't stuck.
+    assert traffic["overlaps"] == 0 and traffic["max_idle"] < 30 and traffic["max_wait"] < 75, traffic
     walkers = _json_line(out, "npc summary: ")
     assert len(walkers) == 10 and sum(w["decisions"] for w in walkers) >= 15
 
