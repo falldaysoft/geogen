@@ -14,7 +14,7 @@ place:
 
 ## Size
 
-30.3 x 3.65 x 15.3 m (x, y, z); geometry (-15.15, -0.05, -7.668) to (15.15, 3.6, 7.65) from the origin; 34292 triangles
+30.3 x 3.65 x 15.3 m (x, y, z); geometry (-15.15, -0.05, -7.668) to (15.15, 3.6, 7.65) from the origin; 25460 triangles
 
 ## Rooms
 

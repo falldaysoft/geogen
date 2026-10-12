@@ -67,9 +67,53 @@ def test_light_and_switches():
     assert light.meta["light"]["type"] == "omni"
     switch = bedroom.find("bedroom_switch_1")
     assert switch.meta["switch"] == {"light": "bedroom_light"}
-    assert switch.world_transform()[1, 3] == pytest.approx(1.1)
+    plate = _world(switch.find("plate"))
+    assert (plate[:, 1].min() + plate[:, 1].max()) / 2 == pytest.approx(1.1)
     door_z = root.find("door_corridor_bedroom").world_transform()[2, 3]
     assert abs(switch.world_transform()[2, 3] - door_z) > 0.45  # beside, not over, the door
+    # On the lining face, proud of it: nothing sunk into the wall finish.
+    lining = _world(bedroom.find("lining"))
+    assert plate[:, 0].max() == pytest.approx(lining[:, 0].max() - 0.01)
+    assert plate[:, 0].min() == pytest.approx(lining[:, 0].max() - 0.02)
+
+
+def test_switches_are_the_light_switch_asset_and_can_be_aimed_at(tmp_path):
+    """Floor-plan switches are light_switch.yaml: the plate has a box collider (what the
+    player's focus ray hits) and the interaction's targets are exported with it."""
+    import json
+    import struct
+
+    from geogen.export import export_scene, resolve_collider, switched_light
+
+    root = FloorPlan.from_spec(SPEC).build("suite")
+    switches = [n for n in root.iter_nodes() if "switch.light" in n.tags]
+    assert {s.name for s in switches} >= {"bedroom_switch_1", "corridor_switch_1"}
+    for switch in switches:
+        assert switch.meta["source"]["asset"] == "light_switch.yaml"
+        assert resolve_collider(switch.find("plate")) == "box"
+        (interaction,) = switch.interactions
+        assert interaction.name == "switch" and interaction.initial == "on"
+        assert [t.name for t in interaction.targets] == ["rocker", "plate"]
+        assert all(t in list(switch.iter_nodes()) for t in interaction.targets)   # its own copies
+        assert switched_light(switch).name == f"{switch.parent.name}_light"
+    a, b = switches[0], switches[1]
+    assert a.find("plate").mesh is b.find("plate").mesh                           # instanced
+
+    data = export_scene(root, tmp_path / "suite.glb").read_bytes()
+    nodes = json.loads(data[20:20 + struct.unpack("<I", data[12:16])[0]])["nodes"]
+    names = [n["name"] for n in nodes]
+    exported = [n for n in nodes if "switch" in n.get("extras", {}).get("geogen", {})]
+    assert len(exported) == len(switches)
+    for node in exported:
+        extras = node["extras"]["geogen"]
+        assert extras["switch"]["light"] in names
+        targets = extras["interactions"]["switch"]["targets"]
+        assert len(targets) == 2 and set(targets) <= set(names)
+        children = [nodes[i] for i in node["children"]]
+        plate = next(c for c in children if c["name"] in targets and c["extras"]["geogen"].get("collider") == "box")
+        colliders = [nodes[i] for i in plate.get("children", [])]
+        assert [c["extras"]["geogen"]["shape"] for c in colliders] == ["box"]
+        assert colliders[0]["name"].endswith("-convcolonly")
 
 
 def test_finishes_can_be_turned_off():
