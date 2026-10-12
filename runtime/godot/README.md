@@ -374,6 +374,11 @@ and `extras.geogen.train`, all precomputed by geogen/trains.py:
 - `cars` (offset from the front, bogie positions);
 - `closures`: each crossing's closed windows after departure.
 
+While a train of the service stands at a station (between a stop's `arrive` and `depart`), the
+train's `at_<station>` state is true: `GeogenTrain.standing` reports the change and `WorldLoader`
+sets the variable in the rules program, so rules and quests can wait for a train or notice it
+leaving (`quests/catch_train.yaml`). Each platform is a place (`station_<name>`).
+
 `GeogenTrain` (`scripts/train.gd`) only looks these up.
 - **Timing**: departure k leaves at `offset + k * headway` of world time (the clock's position in
   its day), so a train is where the timetable says whenever the world is loaded.

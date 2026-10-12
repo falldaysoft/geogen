@@ -14,6 +14,9 @@ extends Node3D
 
 ## Every trace event (the runtime API streams them), printed too with trace_enabled.
 signal traced(event: Dictionary)
+## A train of this service stopped at `station` (here) or left it: the rules read it as the
+## train's `at_<station>` state (WorldLoader passes it on).
+signal standing(station: String, here: bool)
 
 const VEHICLE_GROUP := "geogen_vehicle"
 
@@ -23,6 +26,9 @@ var railway := {}
 var trace_enabled := false
 var clock := 0.0                 # physics time since load (the fallback world time)
 var stats := {"departures": {}, "closed_time": 0.0}
+## The train node's stable ID, and the stations a train stands at now: station -> true.
+var uid := ""
+var standing_at := {}
 
 var _pts := PackedVector3Array()
 var _cum := PackedFloat32Array()
@@ -179,6 +185,20 @@ func _physics_process(delta: float) -> void:
                 shape.disabled = not used.has(i)
     for k in active:
         _place(_sets[_set_of[k]], active[k], delta)
+    # Stations: a train stands at one from its arrival there to its departure.
+    for stop in data.get("stops", []):
+        var here := false
+        for k in active:
+            if active[k] >= float(stop["arrive"]) and active[k] < float(stop["depart"]):
+                here = true
+        var station := str(stop["station"])
+        if here != standing_at.has(station):
+            if here:
+                standing_at[station] = true
+            else:
+                standing_at.erase(station)
+            standing.emit(station, here)
+            trace({"t": snappedf(t, 0.1), "station": station, "standing": here})
     # Level crossings: closed during their windows of any train on the line.
     var closures: Dictionary = data.get("closures", {})
     for cid in _crossings:

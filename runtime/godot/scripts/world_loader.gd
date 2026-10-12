@@ -140,6 +140,7 @@ func _ready() -> void:
     events.name = "Events"
     add_child(events)
     rules.name = "Rules"
+    rules.reset.connect(_sync_trains)
     rules.world = self
     add_child(rules)
     _collider_material = StandardMaterial3D.new()
@@ -969,7 +970,26 @@ func _spawn_traffic(root: Node) -> void:
         var train := GeogenTrain.spawn(self, node, g["train"], railway, _traffic_offset)
         train.trace_enabled = traffic_trace
         train.set_night(night)
+        train.uid = uid_of(node)
+        train.standing.connect(func(station: String, here: bool): _train_standing(train, station, here))
         trains.append(train)
+
+
+## A train stopped at a station or left it: its `at_<station>` state (declared with
+## `driven: train`), which rules and quests read. Stations it doesn't declare are skipped.
+func _train_standing(train: GeogenTrain, station: String, here: bool) -> void:
+    var key := "%s#at_%s" % [train.uid, station]
+    if rules.machine != null and rules.machine.variables.has(key):
+        rules.set_value(key, here)
+
+
+## After the rules program is loaded or a save is read: the trains say where they stand.
+func _sync_trains() -> void:
+    for train in trains:
+        if not is_instance_valid(train):
+            continue
+        for stop in train.data.get("stops", []):
+            _train_standing(train, str(stop["station"]), train.standing_at.has(str(stop["station"])))
 
 
 ## How many NPCs other than ``npc`` hold affordance ``id``.

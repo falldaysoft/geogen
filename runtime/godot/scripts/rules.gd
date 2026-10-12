@@ -61,13 +61,19 @@ func load_package(name_: String, manifest: Dictionary) -> void:
         "interactions": state.get("interactions", {}), "bindings": rules.get("bindings", []),
         "rules": rules.get("rules", [])}
     var saved: Dictionary = _saves.get(package, {})
-    # A package coming back resumes; watches only fire on a fresh one.
-    machine = GeogenMachine.new(program, {} if not saved.is_empty() else _actors(),
+    machine = GeogenMachine.new(program, {},
         {"host_get": _host_get, "host_set": _host_set, "on_changed": _on_changed, "on_signal": _on_signal})
     if not saved.is_empty():
         machine.load_save(saved)
-        for actor in _actors():
-            machine.add_actor(actor, _actors()[actor]["kind"])
+    # The world's time before anyone is there: the machine starts at noon, and a quest that
+    # opens at a clock time would open at once.
+    _sync_clock()
+    var actors := _actors()
+    for actor in actors:
+        if saved.is_empty():
+            add_actor(actor, actors[actor]["kind"])        # a fresh package: its watches fire for them
+        else:
+            machine.add_actor(actor, actors[actor]["kind"])    # one coming back resumes
     _minute = -1
     _report_errors()
     reset.emit()

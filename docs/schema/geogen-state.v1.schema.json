@@ -99,7 +99,8 @@
       "properties": {
         "type": {"enum": ["bool", "number", "text", "choice"]},
         "default": {"$ref": "#/$defs/value"},
-        "choices": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        "choices": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "driven": {"type": "string", "description": "Set by the runtime, not by rules: what drives it ('train': true while a train of this service stands at the station, from its timetable)."}
       },
       "allOf": [
         {"if": {"properties": {"type": {"const": "bool"}}}, "then": {"properties": {"default": {"type": "boolean"}}}},

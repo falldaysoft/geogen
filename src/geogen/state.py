@@ -210,9 +210,9 @@ def declare_scene(root: SceneNode, data: dict[str, Any], source: Any = None) -> 
 
 
 def instance_state(node: SceneNode) -> dict[str, dict[str, Any]]:
-    """The instance variables ``node`` declares (not its interactions)."""
+    """The instance variables ``node`` declares or has (a train's stations), not its interactions."""
     declared = (node.meta.get(META) or {}).get("state", {})
-    return {name: var for name, var in declared.items() if "scope" not in var}
+    return {**{name: var for name, var in declared.items() if "scope" not in var}, **train_state(node)}
 
 
 def state_names(node: SceneNode) -> list[str]:
@@ -384,6 +384,18 @@ def npc_signal(node: SceneNode) -> str | None:
     return str(greet["signal"]) if greet.get("signal") else None
 
 
+def train_state(node: SceneNode) -> dict[str, dict[str, Any]]:
+    """The variables a train has: ``at_<station>`` for every station it calls at, true while
+    a train of that service stands there. The runtime sets them from the timetable
+    (``driven``), so rules can read them and react to them changing but not set them."""
+    train = node.meta.get("train")
+    if node.meta.get("type") != "train" or not isinstance(train, dict):
+        return {}
+    names = dict.fromkeys(str(stop["station"]) for stop in train.get("stops", []))
+    return {f"at_{name}": {"type": "bool", "default": False, "driven": "train"}
+            for name in names if _NAME.match(name)}
+
+
 def collect(root: SceneNode, package: str) -> Declarations:
     """Everything the built scene ``root`` declares, as package ``package``.
 
@@ -402,9 +414,12 @@ def collect(root: SceneNode, package: str) -> Declarations:
     for node in root.iter_nodes():
         declares = node.meta.get(META)
         greeting = npc_signal(node)
-        if not node.interactions and not declares and not greeting:
+        timetable = train_state(node)
+        if not node.interactions and not declares and not greeting and not timetable:
             continue
         thing = uid(node)
+        for name, spec in timetable.items():
+            out.variables[f"{thing}#{name}"] = spec
         if greeting:
             out.signals[f"{thing}#{greeting}"] = {"subject": thing, "name": greeting}
         for interaction in node.interactions:

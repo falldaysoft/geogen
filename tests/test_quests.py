@@ -487,3 +487,54 @@ def test_a_nested_cottage_contributes_no_quest(built_scene):
     assert list(quests.quests) == ["lighthouse_gallery"] and not quests.wiring
     # its residents can still be greeted, and rules of the bigger scene could listen
     assert {"island:cottage_a/resident#greeted", "island:cottage_b/resident#greeted"} <= set(quests.declarations.signals)
+
+
+def test_level_crossing_has_the_timed_quest(built_scene):
+    """Open from 08:00, done by being on the north platform while the train stands there, failed
+    when that train leaves first. The train's `at_north` is the runtime's to set (its timetable)."""
+    quests = collect(built_scene("level_crossing"), "level_crossing")
+    train, platform = "level_crossing:commuter#at_north", "level_crossing:railway_main/station_north"
+    assert quests.declarations.variables[train] == {"type": "bool", "default": False, "driven": "train"}
+    assert "level_crossing:commuter#at_south" in quests.declarations.variables
+    board = quests.quests["catch_train"]["objectives"][0]
+    assert board["subjects"] == [platform]                              # the marker: the platform, not the train
+
+    def play():
+        machine = Machine(quests.program())
+        machine.set_clock(time="07:50")                     # before anyone is there: it isn't open yet
+        machine.add_actor("player", kind="player")
+        machine.add_actor("npc:late", kind="npc")
+        return machine, lambda actor="player": quests.status(machine, "catch_train", actor)
+
+    def stand(machine, actor, on=True):
+        machine.post({"type": "enter" if on else "leave", "subject": platform, "actor": actor})
+
+    machine, status = play()                                # made it: waiting on the platform as it pulls in
+    assert status() == "unavailable"
+    stand(machine, "player")
+    machine.set(train, True)                                # the 07:5x: before the quest opens, it doesn't count
+    machine.set(train, False)
+    machine.set_clock(time="08:00")
+    assert status() == "active" and status("npc:late") == "unavailable"     # only the player holds it
+    machine.set(train, True)
+    assert status() == "complete"
+    machine.set(train, False)                               # it leaves: nothing to fail
+    assert status() == "complete" and machine.get("world:level_crossing.north_train_left") is True
+
+    machine, status = play()                                # missed it: off the platform when it left
+    machine.set_clock(time="08:00")
+    stand(machine, "player")
+    stand(machine, "player", on=False)
+    machine.set(train, True)
+    assert status() == "active"
+    machine.set(train, False)
+    assert status() == "failed"
+    stand(machine, "player")
+    machine.set(train, True)                                # the next one is too late
+    assert status() == "failed" and machine.errors == []
+
+    machine, status = play()                                # arriving while it stands there counts too
+    machine.set_clock(time="08:00")
+    machine.set(train, True)
+    stand(machine, "player")
+    assert status() == "complete"

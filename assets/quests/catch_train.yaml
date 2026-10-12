@@ -1,0 +1,15 @@
+# Catch the train: the "timed, can fail" quest. From eight in the morning, be
+# on the north platform while the commuter train stands there. It fails when
+# that train leaves without you (a rule in scenes/level_crossing.yaml notes it).
+kind: quest
+version: 1
+title: Catch the train
+description: Be on the north platform when the next train stops there.
+start: auto
+available: 'clock.time >= "08:00"'
+objectives:
+  - id: board
+    text: Be on the north platform when the train stops
+    done: 'actor.on_north_platform and commuter.at_north'
+    marker: railway_main/station_north
+fail: 'world.north_train_left'

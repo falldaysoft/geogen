@@ -799,6 +799,9 @@ class _Compiler:
 
         for binding in self.out.bindings:               # a bound variable follows what it reads
             settable[binding["set"]] = None
+        for key, spec in self.decls.variables.items():  # the runtime sets these (a train's timetable)
+            if spec.get("driven"):
+                settable[key] = None
 
         def reachable(key: str) -> set[Any] | None:
             """The values a variable can take (None: any of its type)."""

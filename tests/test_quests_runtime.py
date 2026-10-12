@@ -237,3 +237,53 @@ def test_the_resident_gives_the_lights_out_quest_and_it_counts_the_switches(cott
     rt.call("player.use", asset="sitting_switch")             # a light back on: done stays done
     assert lights() == ("complete", "done", [2, 3])
     assert quest(rt, actor="cottage:resident")["status"] == "available"       # the resident holds nothing
+
+
+def test_the_train_is_caught_or_missed(scene_export, godot_runtime):
+    """The 'timed, can fail' archetype: open from 08:00, done by standing on the north platform
+    while the commuter train stands there, failed when it leaves without you. The train's
+    `at_north` comes from its timetable (it is at the north station from 09:24 to 09:44)."""
+    rt = godot_runtime("level_crossing", scene_export("level_crossing"), "--time=07:55")
+    rt.call("wait_ready")
+    at_north, platform = "level_crossing:commuter#at_north", [13.5, 0.4, 110]
+
+    def status():
+        return quest(rt)["status"]
+
+    assert status() == "unavailable" and rt.call("state.get", key=at_north)["value"] is False
+    fresh = rt.call("state.save")
+    rt.call("time.clock", time="08:01")
+    rt.call("time.step", frames=5)
+    rt.call("time.resume")
+    assert status() == "active"                                           # it opened with the clock
+    (marker,) = quest(rt)["objectives"][0]["markers"]
+    assert marker["subject"] == "level_crossing:railway_main/station_north"
+
+    # Missed: nowhere near the platform while the train calls.
+    rt.subscribe("quest", "events", types=["changed"], subjects=["level_crossing:commuter"])
+    rt.call("time.clock", time="09:23")
+    rt.call("time.advance", seconds=8, scale=4)
+    assert rt.call("state.get", key=at_north)["value"] is True and status() == "active"
+    rt.call("time.advance", seconds=24, scale=4)
+    assert rt.call("state.get", key=at_north)["value"] is False
+    assert status() == "failed" and rt.call("state.get", key="world:level_crossing.north_train_left")["value"] is True
+    seen = rt.clear_events()
+    stood = [e["data"]["data"]["to"] for e in seen if e["event"] == "events" and e["data"]["name"] == "at_north"]
+    assert stood == [True, False]                                         # the train's own events, on the bus
+    assert [e["data"]["event"] for e in seen if e["event"] == "quest"] == ["failed"]
+    rt.unsubscribe()
+
+    # Caught: the same morning again, waiting on the platform as it pulls in.
+    rt.call("time.clock", time="07:55")
+    rt.call("time.step", frames=5)
+    rt.call("time.resume")
+    rt.call("state.load", state=fresh)
+    assert status() == "unavailable"
+    rt.call("time.clock", time="09:23")
+    rt.call("player.teleport", pos=platform, yaw=0)
+    rt.call("time.advance", seconds=1, scale=1)
+    assert status() == "active" and rt.call("state.get", key="actor:level_crossing.on_north_platform")["value"] is True
+    rt.call("time.advance", seconds=8, scale=4)
+    assert status() == "complete"
+    rt.call("time.advance", seconds=24, scale=4)                          # it leaves: nothing left to fail
+    assert status() == "complete" and objectives(rt) == {"board": "done"}

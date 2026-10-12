@@ -32,6 +32,7 @@ from .core.mesh import Mesh
 from .core.node import SceneNode
 from .core.profile import Shape
 from .core.transform import Transform
+from .places import build_places
 
 RAIL_TOP = 0.16            # rail head above the ground: a low bed, so road crossings are near flush
 BED = 0.03                 # ballast top
@@ -118,8 +119,9 @@ def _sleepers(points: np.ndarray, spacing: float, material) -> Mesh:
 
 
 def _platform(points: np.ndarray, s: np.ndarray, s0: float, s1: float, side: float, width: float,
-              material) -> Mesh | None:
-    """A low platform beside the track between s0 and s1 (side +1 right, -1 left)."""
+              material) -> tuple[Mesh, np.ndarray, float] | None:
+    """A low platform beside the track between s0 and s1 (side +1 right, -1 left): its mesh,
+    its outline ([x, z] points) and the height of the ground under it."""
     from shapely.geometry import Polygon
 
     from .core import meshops, uvmap
@@ -136,6 +138,7 @@ def _platform(points: np.ndarray, s: np.ndarray, s0: float, s1: float, side: flo
     if poly.is_empty or poly.geom_type != "Polygon":
         return None
     poly = poly.simplify(0.02)
+    outline = np.asarray(poly.simplify(0.15).exterior.coords)[:-1]
     shape = Shape(np.asarray(poly.exterior.coords)[:-1])
     # ExtrudeGenerator (axis y) maps profile (x, y) to world (x, -z) and centres on the origin.
     shape = Shape(np.column_stack([shape.outer[:, 0], -shape.outer[:, 1]]))
@@ -144,7 +147,7 @@ def _platform(points: np.ndarray, s: np.ndarray, s0: float, s1: float, side: flo
     mesh = mesh.transform(Transform(translation=np.array([0.0, base_y + PLATFORM_HEIGHT / 2, 0.0])).to_matrix())
     mesh = meshops.compute_normals(uvmap.box_project(mesh), 35.0)
     mesh.material = material
-    return mesh
+    return mesh, outline, base_y
 
 
 def build_railway(name: str, spec: dict[str, Any], materials, load, assets_dir) -> SceneNode:
@@ -185,15 +188,21 @@ def build_railway(name: str, spec: dict[str, Any], materials, load, assets_dir) 
         sides = {"right": [1.0], "left": [-1.0], "both": [-1.0, 1.0]}[st.get("side", "right")]
         width = float(st.get("width", 3.5))
         for side in sides:
-            mesh = _platform(ground, s, centre - length / 2, centre + length / 2, side, width,
-                             materials.load("concrete"))
-            if mesh is None:
+            built = _platform(ground, s, centre - length / 2, centre + length / 2, side, width,
+                              materials.load("concrete"))
+            if built is None:
                 continue
+            mesh, outline, base_y = built
             plat = SceneNode(f"platform_{station['name']}_{'r' if side > 0 else 'l'}", mesh=mesh,
                              tags=["railway.platform", "street.sidewalk"])
             plat.meta["walkable"] = True
             node.add_child(plat)
             _station_furniture(node, plat.name, ground, s, centre, length, side, width, load)
+            # Standing on the platform is being at the station: a place rules and quests can name
+            # (`railway_<line>/station_<name>`; `_l` / `_r` when it has a platform on both sides).
+            place = f"station_{station['name']}" + (("_r" if side > 0 else "_l") if len(sides) > 1 else "")
+            build_places(node, {place: {"polygon": outline.tolist(), "y": base_y, "height": PLATFORM_HEIGHT + 2.4,
+                                        "tags": ["outside", "railway.station"]}}, f"railway '{name}'")
     node.meta["railway"] = {
         "id": name, "loop": loop, "gauge": gauge, "length": round(float(s[-1]), 3),
         "speed": float(spec.get("speed", 22.0)),

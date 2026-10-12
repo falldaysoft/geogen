@@ -3,6 +3,27 @@
 # Trains lower the barriers (runtime/godot/scripts/train.gd); cars wait for them.
 name: level_crossing
 
+# "Catch the train" (docs/quests.md): the quest reads who is on the north platform
+# (a station is a place) and whether the train stands there (`commuter.at_north`,
+# which the runtime sets from the timetable), and fails once a train has left.
+quests: [quests/catch_train.yaml]
+
+state:
+  on_north_platform: { scope: actor, type: bool, default: false }
+  north_train_left: { scope: world, type: bool, default: false }
+
+rules:
+  - id: onto_platform
+    on: { enter: railway_main/station_north }
+    do: [{ set: actor.on_north_platform, to: true }]
+  - id: off_platform
+    on: { leave: railway_main/station_north }
+    do: [{ set: actor.on_north_platform, to: false }]
+  - id: train_left
+    on: { changed: commuter.at_north, to: false }
+    when: 'clock.time >= "08:00"'
+    do: [{ set: world.north_train_left, to: true }]
+
 routes:
   road: { path: [[-90, 0, 0], [90, 0, 0]], lanes: 2, speed: 13 }
 

@@ -205,6 +205,24 @@ in Godot.
 | Fetch and deliver: the room key and the parcel (15.7) | hotel_showcase | items, an NPC giver, giving to an NPC |
 | An NPC does one: the resident switches off the lights (15.8) | cottage | NPC holders |
 
+## A timed quest
+
+`quests/catch_train.yaml` (scene `level_crossing`) is the pattern for "be there
+in time". Nothing in it is a timer: it reads the world.
+
+- `available: 'clock.time >= "08:00"'` opens it, and `start: auto` starts it then.
+- `done: 'actor.on_north_platform and commuter.at_north'` is a condition, so it
+  holds whether the player or the train arrives first. `commuter.at_north` is
+  the train's own state, set by the runtime from its timetable. The scene keeps
+  `actor.on_north_platform` with two rules on entering and leaving the station
+  (conditions have no "is in this place" term yet).
+- `fail: 'world.north_train_left'`: a scene rule sets that when the train leaves
+  after 08:00. An event with no actor (a train leaving) can't write actor
+  state, so it notes the fact in world state and each holder's quest reads it.
+
+A fixed limit after an event is a delayed rule instead: the quest yard's dash
+has `{on: {enter: start_line}, after: 6, do: [{fail_quest: yard_dash}]}`.
+
 ## Trying them
 
 The quest yard (`assets/scenes/quest_yard.yaml`, the Quests portal in the hub)
@@ -243,7 +261,8 @@ three in the evaluator and in Godot.
 | The lighthouse quest, the first archetype, in Godot | 15.3 | done: walked from the spawn to the gallery with the real body, and the reference evaluator, fed the runtime's place events, ends in the same state (`tests/test_quests_runtime.py`) |
 | The lights-out quest, given by greeting the cottage's resident | 15.4 | runs in the evaluator (`tests/test_quests.py`) and in Godot over the control API (`tests/test_quests_runtime.py`): greeted, three real switches, the count rising, complete |
 | HUD layer and quest tracker (`scripts/hud.gd`, `scripts/hud_quest_tracker.gd`, `hud.quests`) | 15.10 | done (`tests/test_hud_runtime.py`) |
-| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5 to 15.13 | open |
+| Catch the train: opens at a clock time, fails when the train leaves | 15.6 | runs in the evaluator (`tests/test_quests.py`) and in Godot, both outcomes (`tests/test_quests_runtime.py`): `quests/catch_train.yaml` in `level_crossing` |
+| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5, 15.7 to 15.13 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

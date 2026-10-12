@@ -63,7 +63,15 @@ inputs:
 
 A place is a named trigger volume a scene or asset declares (`places:`, see
 `geogen.places`): `plate` above is one of the asset's. `enter` and `leave` also
-take a room of a floor plan; anything else is an error.
+take a room of a floor plan; anything else is an error. A railway station's
+platform is a place too (`railway_<line>/station_<name>`).
+
+Some instance state is the runtime's to set, not a rule's: it is declared with
+`driven: <what drives it>`. A train has `at_<station>` (a bool, `driven:
+train`) for every station it calls at, true while a train of that service
+stands there by its timetable. Rules and quests read it and react to it
+changing (`{changed: commuter.at_north, to: false}`: the train left); export
+counts it as state that changes.
 
 Export collects all of it (`geogen.state.collect`) into the `state` section of
 the manifest and chunk index (schema `docs/schema/geogen-state.v1.schema.json`):
