@@ -7,8 +7,8 @@ obeys the rules below. `geogen/rules.py` is the reference implementation
 given inputs. The Godot runtime is one implementation and must pass the same
 traces.
 
-Authoring syntax (the YAML that compiles to this) belongs to the loaders; this
-document covers what is exported and how it behaves.
+This document covers what is exported and how it behaves; "Authoring" below is
+the YAML that compiles to it.
 
 ## State
 
@@ -213,6 +213,47 @@ without raising events: nothing changed while saved.
   `clock` event, `actor: none`, a watched condition over world state only)
 - an unresolved reference or selector in a condition
 - a rule with neither `on` nor `when`, or with no effects
+
+## Authoring
+
+Scenes and assets write rules in YAML (`geogen.wiring`), compiled at export
+with the scene's quests into the manifest's and chunk index's `rules` section:
+this program without its variables and interactions, which `state` holds.
+
+```yaml
+rules:
+  - id: open_gate                       # optional
+    on: {signal: lever.pulled}          # an event; without one, `when` is watched
+    when: "world.power"
+    do:
+      - {set: gate.gate, to: open}      # <thing>.<state> | world.<name> | actor.<name>
+      - {input: lamp.light, value: true}
+      - {emit: opened, of: gate}
+      - {start_quest: lights_out}       # also fail_quest, complete_objective (quests.md)
+    after: 2
+    once: true
+wire:
+  - {from: lever.pulled, to: gate.open}     # a declared signal drives a declared input
+bind:
+  lamp.lit: "plate.occupants > 0 and world.power"
+```
+
+- **Events:** `{enter | leave: <place or room>}`, `{signal: <thing>.<name>}`,
+  `{use: <thing>[.<interaction>]}`, `{changed: <state>, to}`, `{start: true}`,
+  `{clock: night | day}`, `{travel: true | <scene>}`, each with an optional
+  `actor: player | npc | none | any`.
+- **In a scene** names are references from that scene. **In an asset** they are
+  relative to it and every placed instance gets its own copy: `self` is the
+  instance (`self.lit`, `{signal: self.pulled}`), other names are things inside it.
+- **Order in the program:** declared signals, then wiring (scene order), then the
+  quests, so a rule that gives a quest runs before that quest's objectives.
+- A rule's id is its `id`, or `rule_<n>` / `wire_<n>`; below the package's own
+  scene it is prefixed with the owner's ID (`yard:plate#step_off`).
+- Mistakes fail the export with file and line: an unknown signal, input, state
+  or quest, an event that isn't one, and everything `check_program` rejects.
+
+Not built: `when:` on an interaction (a condition to use it), and rules that
+reach into another package (geogen.3.10).
 
 ## Traces
 

@@ -251,7 +251,7 @@ def objective(done, **parts):
     (quest(rewards=[{"set": "world.alarm", "to": 3}]), "is a bool: it can't be 3"),
     (quest(rewards=[{"start_quest": "nope"}]), "no quest 'nope'"),
     (quest(rewards=[{"complete_objective": "lights_out.nope"}]), "has no objective 'nope'"),
-    (quest(rewards=[{"explode": 1}]), "an effect is one of set, emit, start_quest"),
+    (quest(rewards=[{"explode": 1}]), "an effect is one of set, emit, input, start_quest"),
 ])
 def test_bad_quests_say_what_is_wrong(spec, message):
     with pytest.raises(QuestError, match=message):
@@ -380,7 +380,11 @@ def test_manifest_lists_quests_and_matches_schema(assets, tmp_path):
     jsonschema.validate(manifest["quests"], json.loads(SCHEMA.read_text()))
     jsonschema.validate(manifest["state"], json.loads(STATE_SCHEMA.read_text()))
     assert manifest["quests"]["package"] == "yard" and list(manifest["quests"]["quests"]) == ["open_up"]
-    assert [r["id"] for r in manifest["quests"]["rules"]] == [
+    quest_rules = [r for r in manifest["rules"]["rules"] if r["id"].startswith("quest:")]
+    jsonschema.validate(quest_rules[0]["when"],
+                        json.loads(SCHEMA.with_name("geogen-condition.v1.schema.json").read_text()))
+    assert manifest["rules"]["format"] == "geogen-rules" and manifest["rules"]["bindings"] == []
+    assert [r["id"] for r in quest_rules] == [
         "quest:open_up:start", "quest:open_up:lever", "quest:open_up:porch", "quest:open_up:twice",
         "quest:open_up:rewards"]
     # quest progress is declared state like any other
@@ -389,11 +393,11 @@ def test_manifest_lists_quests_and_matches_schema(assets, tmp_path):
     assert "Pull the lever" not in path.read_bytes().decode("latin-1")     # not node extras
     # what was exported runs as it is
     program = {"format": "geogen-rules", "version": 1, "variables": manifest["state"]["variables"],
-               "interactions": manifest["state"]["interactions"], "rules": manifest["quests"]["rules"]}
+               "interactions": manifest["state"]["interactions"], "rules": manifest["rules"]["rules"]}
     assert check_program(program) == []
 
     index = json.loads(export_chunks(compose(assets), out / "chunks", name="yard").read_text())
-    assert index["quests"] == manifest["quests"]
+    assert index["quests"] == manifest["quests"] and index["rules"] == manifest["rules"]
 
 
 @pytest.mark.parametrize("old, new, message", [

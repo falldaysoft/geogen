@@ -133,7 +133,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     for key, value in node.meta.items():
-        if key not in ("collider", "traffic", "railway", "travel_spec", "travel_source", "source", "scope", "ref_key", "declares", "quests"):  # lane graphs, railways: the manifest
+        if key not in ("collider", "traffic", "railway", "travel_spec", "travel_source", "source", "scope", "ref_key", "declares", "quests", "wiring"):  # lane graphs, railways: the manifest
             data[key] = value.tolist() if hasattr(value, "tolist") else value
     if collider is not None:
         data["collider"] = collider
@@ -351,11 +351,7 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
         out["places"] = places
     from .quests import summary
 
-    state, quests = summary(root)       # variables, interactions, signals and inputs (geogen-state v1),
-    if state:                           # with the variables of the quests (geogen-quests v1)
-        out["state"] = state
-    if quests:
-        out["quests"] = quests
+    out.update(summary(root))           # state (geogen-state v1), rules (geogen-rules v1), quests (geogen-quests v1)
     from .traffic import build_traffic
 
     traffic = build_traffic(root)       # the lane graph (geogen-traffic v1), world space

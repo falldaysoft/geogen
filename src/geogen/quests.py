@@ -76,6 +76,7 @@ EVENT_KEYS = {*EVENT_SOURCES, "to", "when", "count"}
 EFFECTS = {
     "set": "<thing>.<state> | world.<name> | actor.<name>, with `to`: a value or an expression",
     "emit": "raise a signal of this name (`of`: the thing it comes from; default: the scene)",
+    "input": "<thing>.<input>: drive an input an asset declares (`value` when the input takes one)",
     "start_quest": "start a quest (by id) for the actor, if it is available to them",
     "fail_quest": "fail an active quest",
     "complete_objective": "<quest>.<objective>: mark an open objective done",
@@ -116,6 +117,7 @@ class _Quest:
     spec: dict[str, Any]
     source: Any = None              # the file it was written in, for diagnostics
     node: SceneNode | None = None   # the scene that contributes it: references resolve from here
+    self_node: SceneNode | None = None  # what `self` means (rules written in an asset: the instance)
     status: str = ""
     objectives: list[_Objective] = field(default_factory=list)
 
@@ -307,7 +309,9 @@ class Quests:
         self.declarations = declarations
         self.package = declarations.package
         self.quests: dict[str, dict[str, Any]] = {}     # id -> the manifest entry
-        self.rules: list[dict[str, Any]] = []
+        self.rules: list[dict[str, Any]] = []           # the rules that run the quests
+        self.wiring: list[dict[str, Any]] = []          # the scene's own rules (geogen.wiring)
+        self.bindings: list[dict[str, Any]] = []
 
     def __bool__(self) -> bool:
         return bool(self.quests)
@@ -358,13 +362,23 @@ class Quests:
         raise QuestError(f"not a quest effect: {sorted(spec)} (start_quest, fail_quest, complete_objective)")
 
     def program(self, rules: Iterable[dict[str, Any]] = (), bindings: Iterable[dict[str, Any]] = ()) -> dict[str, Any]:
-        """A rules program (``geogen.rules``) that runs these quests, with other rules after them."""
-        return self.declarations.program([*self.rules, *rules], bindings)
+        """The rules program (``geogen.rules``) of the package: declared signals, the scene's
+        wiring and ``rules`` (so whatever gives a quest runs before its objectives), then the quests."""
+        return self.declarations.program([*self.wiring, *rules, *self.rules], [*self.bindings, *bindings])
 
     def to_json(self) -> dict[str, Any]:
-        """The manifest's ``quests`` section."""
+        """The manifest's ``quests`` section. The rules that run them are in ``rules_json``."""
         return {"format": FORMAT, "version": VERSION, "schema": SCHEMA, "package": self.package,
-                "quests": self.quests, "rules": self.rules}
+                "quests": self.quests}
+
+    def rules_json(self) -> dict[str, Any] | None:
+        """The manifest's ``rules`` section: the program without the variables and interactions,
+        which the ``state`` section holds (None when there is nothing to run)."""
+        program = self.program()
+        if not program["rules"] and not program["bindings"]:
+            return None
+        return {"format": program["format"], "version": program["version"], "package": self.package,
+                "bindings": program["bindings"], "rules": program["rules"]}
 
     # -- reading a running machine ---------------------------------------------------------------
 
@@ -425,6 +439,8 @@ class _Compiler:
         if self.by_name:
             head, dot, tail = text.rpartition(".") if member else (text, "", "")
             return (f"{self.package}:{head if dot else text}", None, tail if dot else None)
+        if quest.self_node is not None and (text == "self" or member and text.startswith("self.")):
+            return self.uid(quest.self_node), quest.self_node, text.partition(".")[2] or None
         try:
             ref = refs.parse(text, member=member)
             node = refs.resolve(quest.node, ref)
@@ -451,7 +467,7 @@ class _Compiler:
                             raise ConditionError(f"no things given for selector '{node['select']}'")
                         node["over"] = list(self.selectors[node.pop("select")])
             else:
-                tree = conditions.resolve(tree, quest.node, self.package)
+                tree = conditions.resolve(tree, quest.node, self.package, self_node=quest.self_node)
             conditions.validate(tree)
         except (ConditionError, refs.RefError) as exc:
             raise QuestError(str(exc)) from None
@@ -507,18 +523,28 @@ class _Compiler:
                 self.bad(quest.where("id"), f"quest state '{key.partition('.')[2]}' is already declared: another "
                                             f"quest, objective or the scene's state has that name")
 
-    def event(self, quest: _Quest, objective: _Objective) -> None:
-        """An event objective's ``done: {enter: gallery}`` as the ``on`` of its rule."""
-        done = objective.spec["done"]
-        sources = [k for k in EVENT_SOURCES if k in done]
+    def event(self, quest: _Quest, done: dict[str, Any], sources: dict[str, str] = EVENT_SOURCES,
+              keys: Iterable[str] = EVENT_KEYS) -> dict[str, Any]:
+        """An event written in YAML (``{enter: gallery}``) as the ``on`` of a rule.
+        ``sources`` are the kinds allowed here and ``keys`` everything the mapping may hold."""
+        keys = {*keys}
         for key in done:
-            if key not in EVENT_KEYS:
-                hint = (" The clock is state, not an event: write a condition (clock.night)" if key == "clock"
-                        else refs._near(str(key), EVENT_KEYS))
-                raise QuestError(f"unknown key '{key}'.{hint} Events: {', '.join(EVENT_SOURCES)}")
-        if len(sources) != 1:
-            raise QuestError(f"an event is one of {', '.join(EVENT_SOURCES)}")
-        kind = sources[0]
+            if key not in keys:
+                hint = (" The clock is state, not an event: write a condition (clock.night)"
+                        if key == "clock" else refs._near(str(key), keys))
+                raise QuestError(f"unknown key '{key}'.{hint} Events: {', '.join(sources)}")
+        found = [k for k in sources if k in done]
+        if len(found) != 1:
+            raise QuestError(f"an event is one of {', '.join(sources)}")
+        kind = found[0]
+        on = self._event(quest, done, kind)
+        if "actor" in done:
+            if done["actor"] not in ("player", "npc", "none", "any"):
+                raise QuestError(f"actor is player, npc, none or any, got {done['actor']!r}")
+            on["actor"] = done["actor"]
+        return on
+
+    def _event(self, quest: _Quest, done: dict[str, Any], kind: str) -> dict[str, Any]:
         if "to" in done and kind != "changed":
             raise QuestError("only changed: takes to:")
         if kind in ("enter", "leave"):
@@ -527,30 +553,38 @@ class _Compiler:
                 here = [n.name for n in quest.node.iter_nodes() if n.meta.get("type") == "place"]  # type: ignore[union-attr]
                 raise QuestError(f"'{done[kind]}' is not a place or a room. "
                                  + (f"Places here: {refs._listed(here)}" if here else "Declare one under places:"))
-            objective.on = {"type": kind, "subject": subject}
-        elif kind == "signal":
+            return {"type": kind, "subject": subject}
+        if kind == "start":
+            return {"type": "start"}
+        if kind == "clock":
+            if done[kind] not in ("night", "day"):
+                raise QuestError(f"clock: night or day, got {done[kind]!r}")
+            return {"type": "clock", "name": done[kind]}
+        if kind == "travel":
+            return {"type": "travel", **({} if done[kind] is True else {"name": str(done[kind])})}
+        if kind == "signal":
             subject, _, name = self.thing(quest, done[kind], member=True)
             if not name:
                 raise QuestError(f"write signal: <thing>.<name>, got '{done[kind]}'")
-            objective.on = {"type": "signal", "subject": subject, "name": name}
-        elif kind == "use":
+            return {"type": "signal", "subject": subject, "name": name}
+        if kind == "use":
             subject, _, name = self.thing(quest, done[kind], member=True)
             known = [k.rpartition("#")[2] for k in self.decls.interactions if k.rpartition("#")[0] == subject]
             if name is not None and name not in known or not known:
                 raise QuestError(f"'{subject}' has no interaction{'' if name is None else f' {name!r}'} to use."
                                  f"{refs._near(name or '', known)} "
                                  + (f"It has: {', '.join(known)}" if known else "It has none"))
-            objective.on = {"type": "use", "subject": subject, **({"name": name} if name else {})}
-        else:
-            key = self.key(quest, done[kind])
-            objective.on = {"type": "changed", "key": key}
-            if "to" in done:
-                spec = self.decls.spec(key) or {}
-                if not fits(spec, done["to"]):
-                    raise QuestError(f"'{done[kind]}' is a {spec.get('type')}"
-                                     + (f" ({', '.join(spec['choices'])})" if spec.get("type") == "choice" else "")
-                                     + f": it can't change to {done['to']!r}")
-                objective.on["to"] = done["to"]
+            return {"type": "use", "subject": subject, **({"name": name} if name else {})}
+        key = self.key(quest, done[kind])
+        on = {"type": "changed", "key": key}
+        if "to" in done:
+            spec = self.decls.spec(key) or {}
+            if not fits(spec, done["to"]):
+                raise QuestError(f"'{done[kind]}' is a {spec.get('type')}"
+                                 + (f" ({', '.join(spec['choices'])})" if spec.get("type") == "choice" else "")
+                                 + f": it can't change to {done['to']!r}")
+            on["to"] = done["to"]
+        return on
 
     def effects(self, quest: _Quest, listed: Any, *at: str | int) -> list[dict[str, Any]]:
         """Authored effects (``EFFECTS``) as the ``do`` of a rule."""
@@ -565,7 +599,7 @@ class _Compiler:
                 if len(kinds) != 1:
                     raise QuestError(f"an effect is one of {', '.join(EFFECTS)}")
                 kind = kinds[0]
-                unknown = set(effect) - {kind, *({"set": ["to"], "emit": ["of"]}.get(kind, []))}
+                unknown = set(effect) - {kind, *({"set": ["to"], "emit": ["of"], "input": ["value"]}.get(kind, []))}
                 if unknown:
                     raise QuestError(f"unknown keys {sorted(unknown)} on a {kind} effect")
                 if kind == "set":
@@ -580,6 +614,23 @@ class _Compiler:
                     elif not fits(spec, value):
                         raise QuestError(f"'{effect['set']}' is a {spec.get('type')}: it can't be {value!r}")
                     out.append({"set": key, "to": value})
+                elif kind == "input":
+                    thing, _, name = self.thing(quest, effect["input"], member=True)
+                    if not name:
+                        raise QuestError(f"write input: <thing>.<input>, got '{effect['input']}'")
+                    try:
+                        wired = self.decls.input(thing, name)
+                    except StateError as exc:
+                        raise QuestError(str(exc)) from None
+                    if ("to" in wired) == ("value" in effect):
+                        raise QuestError(f"input '{name}' " + ("sets a fixed value: it takes no value" if "to" in wired
+                                                               else "takes a value: add value:"))
+                    value, spec = wired.get("to", effect.get("value")), self.decls.spec(wired["set"]) or {}
+                    if isinstance(value, str) and not fits(spec, value):
+                        value = self.condition(quest, value)
+                    elif not fits(spec, value):
+                        raise QuestError(f"input '{name}' is a {spec.get('type')}: it can't be {value!r}")
+                    out.append({"set": wired["set"], "to": value})
                 elif kind == "emit":
                     if not isinstance(effect["emit"], str) or not effect["emit"]:
                         raise QuestError("emit takes a signal name")
@@ -612,7 +663,7 @@ class _Compiler:
             done, subjects = objective.spec.get("done"), []
             try:
                 if isinstance(done, dict):
-                    self.event(quest, objective)
+                    objective.on = self.event(quest, done)
                     if "when" in done:
                         objective.when = self.condition(quest, done["when"])
                     subjects = [objective.on["subject"]] if objective.on.get("subject") else []   # type: ignore[union-attr]
@@ -700,7 +751,7 @@ class _Compiler:
         """Every objective must be something the world can bring about."""
         from .rules import _reads as reads
 
-        rules = [*self.decls.signal_rules(), *self.out.rules, *self.other_rules]
+        rules = [*self.decls.signal_rules(), *self.out.wiring, *self.out.rules, *self.other_rules]
         settable: dict[str, set[Any] | None] = {}       # key -> the values rules set it to (None: any)
         emitted: set[tuple[str | None, str]] = set()
         for rule in rules:
@@ -713,6 +764,9 @@ class _Compiler:
                         settable.setdefault(effect["set"], set()).add(value)     # type: ignore[union-attr]
                 elif "emit" in effect:
                     emitted.add((effect.get("subject"), effect["emit"]))
+
+        for binding in self.out.bindings:               # a bound variable follows what it reads
+            settable[binding["set"]] = None
 
         def reachable(key: str) -> set[Any] | None:
             """The values a variable can take (None: any of its type)."""
@@ -814,18 +868,24 @@ def _reads(tree: Tree) -> list[str]:
 
 def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, SceneNode | None]],
                    declarations: Declarations, selectors: dict[str, list[str]] | None = None,
-                   rules: Iterable[dict[str, Any]] = ()) -> Quests:
+                   rules: Iterable[dict[str, Any]] = (), wiring: Iterable[Any] = (),
+                   by_name: bool | None = None) -> Quests:
     """Compile quest specs against ``declarations`` (their variables are added to it).
 
     A spec is the dict of a quest file, or ``(spec, source file, scene node)``. With a
     scene node, references resolve from it (``collect`` does this). Without one, a thing
     ``x`` is simply ``<package>:x`` and ``selectors`` gives the things each selector
     matches: enough to compile a quest for a trace or a test with no scene.
-    ``rules`` are the package's other compiled rules: what else can set state.
+    ``rules`` are other compiled rules: what else can set state. ``wiring`` is what scenes and
+    assets wrote under ``rules:`` / ``wire:`` / ``bind:`` (``geogen.wiring.Source`` entries),
+    compiled here so its effects can name quests and quests can count on what it sets.
     Raises ``QuestError`` listing every problem.
     """
     entries = [(s, None, None) if isinstance(s, dict) else s for s in specs]
-    compiler = _Compiler(declarations, all(node is None for _, _, node in entries), selectors, rules)
+    wiring = list(wiring)
+    if by_name is None:
+        by_name = all(node is None for _, _, node in entries) and not wiring
+    compiler = _Compiler(declarations, by_name, selectors, rules)
     problems: list[str] = []
     for spec, source, node in entries:
         quest = _parse(spec, source, node, problems)
@@ -842,6 +902,10 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
         compiler.declare(quest)
     for quest in compiler.quests:               # every entry exists before effects name quests
         compiler.compile(quest)
+    if wiring:
+        from .wiring import compile_wiring
+
+        compiler.out.wiring, compiler.out.bindings = compile_wiring(compiler, wiring)
     for quest in compiler.quests:
         rules_of = compiler.quest_rules.get(quest.id, [])
         if quest.spec.get("rewards"):
@@ -869,17 +933,43 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     """
     from .state import collect as collect_state
 
+    from .wiring import sources
+
     declarations = collect_state(root, package)
-    specs = [(entry["spec"], entry.get("source"), node)
-             for node in root.iter_nodes() for entry in node.meta.get(META) or []]
-    if not specs:
+    specs, wiring = [], sources(root)
+    for node in root.iter_nodes():
+        specs.extend((entry["spec"], entry.get("source"), node) for entry in node.meta.get(META) or [])
+    if not specs and not wiring:
         return Quests(declarations)
-    return compile_quests(specs, declarations, rules=rules)
+    return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False)
 
 
-def summary(root: SceneNode, package: str | None = None) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """The manifest's ``state`` and ``quests`` sections for ``root`` (None for one with nothing in it)."""
+def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
+    """Where each objective's subjects are, in world space: ``{stable id: [x, y, z]}``.
+    A place or room is marked at the middle of its volume, anything else at its origin.
+    A runtime marks objectives from this, so subjects in chunks that aren't loaded still show."""
+    wanted = {subject for quest in quests.quests.values() for o in quest["objectives"] for subject in o["subjects"]}
+    out: dict[str, list[float]] = {}
+    for node in root.iter_nodes():
+        uid = node.meta.get("uid")
+        if uid not in wanted:
+            continue
+        point = [0.0, 0.0, 0.0, 1.0]
+        place = node.meta.get("place")
+        if isinstance(place, dict):         # the node is the middle of the volume's bottom
+            point[1] = float(place.get("height", (place.get("size") or [0, 0, 0])[1])) / 2
+        out[uid] = [round(float(v), 4) for v in (node.world_transform() @ point)[:3]]
+    return dict(sorted(out.items()))
+
+
+def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
+    """The manifest's ``state``, ``rules`` and ``quests`` sections for ``root`` (those with anything in them)."""
     if package is None:
         package = str(root.meta.get("uid", "")).partition(":")[0] or root.name
     found = collect(root, package)
-    return (found.declarations.to_json() if found.declarations else None, found.to_json() if found else None)
+    quests = found.to_json() if found else None
+    if quests:
+        quests["markers"] = markers(root, found)
+    sections = {"state": found.declarations.to_json() if found.declarations else None,
+                "rules": found.rules_json(), "quests": quests}
+    return {name: section for name, section in sections.items() if section}

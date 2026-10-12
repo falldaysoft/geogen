@@ -148,6 +148,9 @@ class LayoutLoader:
         from ..state import declare_asset
 
         declare_asset(root, data, path)
+        from ..wiring import declare as declare_wiring
+
+        declare_wiring(root, data, path, asset=True)
         # Where it came from, for --inspect (not exported).
         root.meta["source"] = {"asset": _asset_ref(path), "params": dict(params or {})}
         return root

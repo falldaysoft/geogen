@@ -146,7 +146,10 @@ The manifest and chunk index get a `quests` section (`geogen-quests` v1,
 `docs/schema/geogen-quests.v1.schema.json`): per quest its title, holder, the
 status key, and per objective its text, latch key, `after`, subjects and
 progress (`{value: <condition tree>, of: n}`, derived from an `all(...)` so a
-tracker can say "3 of 5"), plus the compiled `rules`. The quest variables join
+tracker can say "3 of 5"), plus `markers`: the world position of every
+subject, so a marker shows for things in chunks that aren't loaded. The rules
+that run the quests are in the manifest's `rules` section with the scene's own
+(`quest:<id>:...`, after the wiring that can give them). The quest variables join
 the manifest's `state` section.
 
 ## Runtime (not built yet)
@@ -188,7 +191,8 @@ in Godot.
 | Quest kind, compilation, export checks | 15.1 | done |
 | Event bus in Godot (`runtime/godot/scripts/events.gd`) | 3.5 | done |
 | State store and save format in Godot | 3.3, 3.4 | open |
-| Rules authoring (`rules:`, `wire:`, `bind:`) and the Godot interpreter | 3.6 | open: until then nothing in YAML can give a quest, so authored quests are `start: auto` |
+| Rules authoring (`rules:`, `wire:`, `bind:`: `geogen.wiring`) | 3.6 | done: a scene rule gives a quest with `{start_quest: id}` |
+| The rules interpreter in Godot | 3.3, 3.6 | open |
 | Content packages (quests that span scenes) | 3.10 | open |
 | Runtime quests, HUD, archetypes | 15.2 to 15.13 | open |
 | Items for fetch quests | 18 | open |

@@ -151,6 +151,56 @@
   "bindings": [],
   "rules": [
    {
+    "id": "give",
+    "on": {
+     "type": "signal",
+     "subject": "demo:resident",
+     "name": "greeted"
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_lights_out",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_lights_out"
+            },
+            "available"
+           ]
+          },
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "name": "kind"
+            },
+            "player"
+           ]
+          }
+         ]
+        },
+        "active",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_lights_out"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
     "id": "quest:lights_out:lights",
     "when": {
      "op": "and",
@@ -398,56 +448,6 @@
      {
       "emit": "rested",
       "subject": "demo:resident"
-     }
-    ]
-   },
-   {
-    "id": "give",
-    "on": {
-     "type": "signal",
-     "subject": "demo:resident",
-     "name": "greeted"
-    },
-    "do": [
-     {
-      "set": "actor:demo.quest_lights_out",
-      "to": {
-       "op": "if",
-       "args": [
-        {
-         "op": "and",
-         "args": [
-          {
-           "op": "==",
-           "args": [
-            {
-             "get": "actor",
-             "package": "demo",
-             "name": "quest_lights_out"
-            },
-            "available"
-           ]
-          },
-          {
-           "op": "==",
-           "args": [
-            {
-             "get": "actor",
-             "name": "kind"
-            },
-            "player"
-           ]
-          }
-         ]
-        },
-        "active",
-        {
-         "get": "actor",
-         "package": "demo",
-         "name": "quest_lights_out"
-        }
-       ]
-      }
      }
     ]
    }
