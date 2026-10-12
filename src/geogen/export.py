@@ -17,6 +17,8 @@ with JOINTS_0/WEIGHTS_0, and their clips as animations on the joint nodes.
 Gameplay metadata (schema: docs/schema/geogen-extras.v1.schema.json) rides
 along in glTF node extras as ``extras.geogen`` -- tags, room ids, trigger
 volumes, spawn points, walkable flags and the collider chosen for each mesh.
+The schema is the whole contract: only meta keys it declares are exported
+(``geogen.extras``), and an undeclared one that isn't build-only fails the export.
 Colliders are extra child nodes named with Godot's import suffixes, so the
 editor importer builds physics with no plugin: ``<name>-convcolonly`` (box or
 convex hull) and ``<name>-colonly`` (trimesh). Runtimes that don't know the
@@ -36,6 +38,7 @@ from .core import meshops
 from .core.mesh import Mesh
 from .core.node import SceneNode
 from .core.transform import quat_from_matrix as _quat
+from .extras import SCHEMA as EXTRAS_SCHEMA, exported_meta
 from .materials.material import Material
 from .player import PlayerSpec, load_player_spec
 
@@ -45,7 +48,6 @@ FORMATS = {".glb", ".gltf", ".obj"}
 MANIFEST_FORMAT = "geogen-manifest"
 MANIFEST_VERSION = 1
 EXTRAS_VERSION = 1
-EXTRAS_SCHEMA = "docs/schema/geogen-extras.v1.schema.json"
 
 # Colliders smaller than this in every dimension are skipped by ``auto``.
 MIN_COLLIDER_SIZE = 0.03
@@ -128,18 +130,61 @@ def collider_mesh(mesh: Mesh, kind: str) -> trimesh.Trimesh:
 
 
 def node_extras(node: SceneNode, collider: str | None = None) -> dict:
-    """``extras`` for one node: {"geogen": {...}} or {} when there is nothing to say."""
+    """``extras`` for one node: {"geogen": {...}} or {} when there is nothing to say.
+
+    Only meta keys the extras schema declares are written (``geogen.extras``):
+    build-only keys are left out, and an undeclared one raises ``ExtrasError``.
+    ``collider`` is the collider chosen for the node's mesh (``resolve_collider``);
+    the ``collider`` meta is only the request (it may be ``auto``).
+    """
     data: dict = {}
     if node.tags:
         data["tags"] = list(node.tags)
-    for key, value in node.meta.items():
-        if key not in ("collider", "traffic", "railway", "travel_spec", "travel_source", "source", "scope", "ref_key", "declares", "quests", "wiring"):  # lane graphs, railways: the manifest
-            data[key] = value.tolist() if hasattr(value, "tolist") else value
+    data.update(exported_meta(node))
+    data.pop("collider", None)
     if collider is not None:
         data["collider"] = collider
     if not data:
         return {}
     return {"geogen": {"version": EXTRAS_VERSION, **data}}
+
+
+def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda n: n.name) -> dict:
+    """``node_extras`` plus what refers to other nodes, by exported name (``name_of``):
+    the NPC body, vehicle parts, the switched light, interactions and clips."""
+    extras = node_extras(node, collider)
+    npc = extras.get("geogen", {}).get("npc")
+    if isinstance(npc, dict) and isinstance(npc.get("body"), dict):
+        # The body child may be renamed on export (other 'body' nodes): point at the exported name.
+        body = next((c for c in node.children if c.name == npc["body"].get("node", "body")), None)
+        if body is not None:
+            extras["geogen"]["npc"] = {**npc, "body": {**npc["body"], "node": name_of(body)}}
+    vehicle = extras.get("geogen", {}).get("vehicle")
+    if isinstance(vehicle, dict):
+        extras["geogen"]["vehicle"] = _vehicle_exported(vehicle, node, name_of)
+    switch = extras.get("geogen", {}).get("switch")
+    if isinstance(switch, dict):
+        light = switched_light(node)
+        if light is not None:
+            try:
+                extras["geogen"]["switch"] = {**switch, "light": name_of(light)}
+            except KeyError:    # the light is outside this export (a chunk split)
+                pass
+    if node.interactions:
+        exported = {}
+        for interaction in node.interactions:
+            try:
+                exported[interaction.name] = interaction.to_extras(name_of)
+            except KeyError:   # drives nodes outside this export (a chunk split); runtime can't use it
+                logger.warning("Skipping interaction '%s' on '%s': its nodes aren't all in this export",
+                               interaction.name, node.name)
+        if exported:
+            extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = exported
+    if node.clips:
+        extras.setdefault("geogen", {"version": EXTRAS_VERSION})["clips"] = [
+            {"name": clip.name, "animation": f"{name_of(node)}_{clip.name}", "duration": round(clip.duration, 6),
+             "loop": clip.loop, **clip.meta} for clip in node.clips]
+    return extras
 
 
 LOD_MIN_TRIANGLES = 200   # meshes smaller than this don't get LODs
@@ -230,35 +275,7 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
         matrix = node.transform.to_matrix()
         has_mesh = node.mesh is not None and len(node.mesh.faces) > 0
         collider = collider_of(node) if has_mesh else None
-        extras = node_extras(node, collider)
-        npc = extras.get("geogen", {}).get("npc")
-        if isinstance(npc, dict) and isinstance(npc.get("body"), dict):
-            # The body child may be renamed on export (other 'body' nodes): point at the exported name.
-            body = next((c for c in node.children if c.name == npc["body"].get("node", "body")), None)
-            if body is not None:
-                extras["geogen"]["npc"] = {**npc, "body": {**npc["body"], "node": name_of(body)}}
-        vehicle = extras.get("geogen", {}).get("vehicle")
-        if isinstance(vehicle, dict):
-            extras["geogen"]["vehicle"] = _vehicle_exported(vehicle, node, name_of)
-        switch = extras.get("geogen", {}).get("switch")
-        if isinstance(switch, dict):
-            light = switched_light(node)
-            if light is not None and id(light) in names:
-                extras["geogen"]["switch"] = {**switch, "light": name_of(light)}
-        if node.interactions:
-            exported = {}
-            for interaction in node.interactions:
-                try:
-                    exported[interaction.name] = interaction.to_extras(name_of)
-                except KeyError:   # drives nodes outside this export (a chunk split); runtime can't use it
-                    logger.warning("Skipping interaction '%s' on '%s': its nodes aren't all in this export",
-                                   interaction.name, node.name)
-            if exported:
-                extras.setdefault("geogen", {"version": EXTRAS_VERSION})["interactions"] = exported
-        if node.clips:
-            extras.setdefault("geogen", {"version": EXTRAS_VERSION})["clips"] = [
-                {"name": clip.name, "animation": f"{name}_{clip.name}", "duration": round(clip.duration, 6),
-                 "loop": clip.loop, **clip.meta} for clip in node.clips]
+        extras = exported_extras(node, collider, name_of)
         if has_mesh:
             mesh = node.mesh
             add_mesh(("mesh", id(mesh)), mesh, name, parent_name, matrix, extras or None)

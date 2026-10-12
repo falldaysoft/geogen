@@ -70,12 +70,12 @@ def test_export_writes_shared_meshes_once(tmp_path):
     root = SceneNode("root")
     for i in range(5):
         root.add_child(SceneNode(f"n{i}", mesh=box, transform=Transform(translation=np.array([2.0 * i, 0, 0])),
-                                 meta={"collider": "hull", "index": i}))
+                                 meta={"collider": "hull", "street_furniture": f"kind{i}"}))
     gltf = _gltf(export_scene(root, tmp_path / "shared.glb"))
     named = {n["name"]: n for n in gltf["nodes"]}
     assert len(gltf["meshes"]) == 2                      # the mesh and its hull collider
     assert {named[f"n{i}"]["mesh"] for i in range(5)} == {named["n0"]["mesh"]}
-    assert [named[f"n{i}"]["extras"]["geogen"]["index"] for i in range(5)] == list(range(5))
+    assert [named[f"n{i}"]["extras"]["geogen"]["street_furniture"] for i in range(5)] == [f"kind{i}" for i in range(5)]
     assert all(f"n{i}-convcolonly" in named for i in range(5))
 
 

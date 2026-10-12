@@ -370,7 +370,7 @@ def _place_flight(room: SceneNode, above: SceneNode, gen, rise: float, run: floa
             continue
         cutter = _box(np.array([lo[0], y0, lo[2]]), np.array([hi[0], y1, hi[2]]))
         target.mesh = csg.difference(target.mesh, cutter, crease_angle=30.0)
-    room.meta.setdefault("stairs", []).append({"to": above.meta["room"]["id"], "rise": rise, "steps": gen.steps})
+    room.meta.setdefault("stair_flights", []).append({"to": above.meta["room"]["id"], "rise": rise, "steps": gen.steps})
 
 
 def _roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], material_loader) -> SceneNode:
