@@ -6,6 +6,9 @@ extends RefCounted
 ##
 ## - type: room_volume -> Area3D "<id>_area" (group "geogen_room", meta
 ##   geogen_room = {id, type}) with a BoxShape3D of the volume's size
+## - type: place       -> Area3D "PlaceArea" (group "geogen_place", meta geogen_place
+##   = {id, uid}) with a box or an extruded polygon; WorldLoader reports actors
+##   entering and leaving it and the room areas
 ## - type: spawn       -> Marker3D child (group "geogen_spawn")
 ## - tags              -> node groups, e.g. "furniture.bed" and "furniture"
 ## - navigation        -> NavigationRegion3D baked from the static colliders
@@ -21,7 +24,7 @@ const KNOWN_KEYS := ["version", "tags", "type", "shape", "collider", "walkable",
     "storey", "building", "facade", "walkable", "affordances", "container", "switch", "level", "ratio",
     "city", "block", "lot", "street_furniture", "recipe", "roof", "lod", "interior", "scatter",
     "npc", "portal", "poses", "vehicle", "parked", "fleet", "driving", "character", "clips", "preset", "tree",
-    "travel", "humanoid", "signal", "train", "water", "terrain", "uid"]
+    "travel", "humanoid", "signal", "train", "water", "terrain", "uid", "place"]
 
 
 static func extras(node: Node) -> Dictionary:
@@ -44,7 +47,7 @@ static func is_geogen_scene(root: Node) -> bool:
 
 ## Apply every conversion to the tree under ``root``. Returns a summary.
 static func build(root: Node, options := {}) -> Dictionary:
-    var summary := {"rooms": 0, "spawns": 0, "tagged": 0, "warnings": []}
+    var summary := {"rooms": 0, "places": 0, "spawns": 0, "tagged": 0, "warnings": []}
     var warned := {}
     for node in [root] + root.find_children("*", "", true, false):
         var g := extras(node)
@@ -65,6 +68,9 @@ static func build(root: Node, options := {}) -> Dictionary:
             "room_volume":
                 _room_area(node as Node3D, g)
                 summary["rooms"] += 1
+            "place":
+                _place_area(node as Node3D, g)
+                summary["places"] += 1
             "spawn":
                 _spawn_marker(node as Node3D)
                 summary["spawns"] += 1
@@ -92,6 +98,7 @@ static func _room_area(node: Node3D, g: Dictionary) -> void:
     var area := Area3D.new()
     area.name = "RoomArea"
     area.monitorable = false
+    area.collision_mask = 1 | 2   # the player, and NPC bodies (GeogenNpc.LAYER)
     area.set_meta("geogen_room", g.get("room", {}))
     area.add_to_group("geogen_room", true)
     var shape := CollisionShape3D.new()
@@ -99,6 +106,44 @@ static func _room_area(node: Node3D, g: Dictionary) -> void:
     box.size = Vector3(size[0], size[1], size[2])
     shape.shape = box
     area.add_child(shape)
+    node.add_child(area)
+    _own(area, node)
+
+
+## A named place: the node is the middle of the volume's bottom, and the volume
+## (a box, or a footprint polygon extruded upward) rises along its +Y.
+static func _place_area(node: Node3D, g: Dictionary) -> void:
+    var place = g.get("place")
+    if node == null or not place is Dictionary or node.has_node("PlaceArea"):
+        return
+    var area := Area3D.new()
+    area.name = "PlaceArea"
+    area.monitorable = false
+    area.collision_layer = 0
+    area.collision_mask = 1 | 2   # the player, and NPC bodies (GeogenNpc.LAYER)
+    area.set_meta("geogen_place", {"id": str(place.get("id", node.name)), "uid": str(g.get("uid", ""))})
+    area.add_to_group("geogen_place", true)
+    if place.has("polygon"):
+        # CollisionPolygon3D extrudes along its Z: turned a quarter about X, its
+        # (x, y) points are (x, z) on the ground and the depth is the height.
+        var height := float(place.get("height", 2.5))
+        var shape := CollisionPolygon3D.new()
+        var points := PackedVector2Array()
+        for p in place["polygon"]:
+            points.append(Vector2(p[0], p[1]))
+        shape.polygon = points
+        shape.depth = height
+        shape.rotation = Vector3(PI / 2, 0, 0)
+        shape.position = Vector3(0, height / 2.0, 0)
+        area.add_child(shape)
+    else:
+        var size: Array = place.get("size", [1, 1, 1])
+        var shape := CollisionShape3D.new()
+        var box := BoxShape3D.new()
+        box.size = Vector3(size[0], size[1], size[2])
+        shape.shape = box
+        shape.position = Vector3(0, size[1] / 2.0, 0)
+        area.add_child(shape)
     node.add_child(area)
     _own(area, node)
 

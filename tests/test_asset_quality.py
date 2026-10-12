@@ -95,3 +95,11 @@ def test_affordances_are_usable(scene):
     name, root = scene
     # Each affordance is posed with the bodies of the NPCs that may use it (default body otherwise).
     assert [str(i) for i in check_affordances(root)] == [], name
+
+
+def test_state_declarations_resolve(scene):
+    """Every scene's state, signals and inputs collect without problems (what an export requires)."""
+    from geogen.state import collect
+
+    name, root = scene
+    collect(root, name)

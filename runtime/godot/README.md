@@ -215,7 +215,7 @@ JSON on a localhost socket, so tools, tests and agents ask many questions of one
 instead of launching one per `--walk` / `--nav` / `--status`. Requests are
 `{"id", "cmd", "args"}`, replies `{"id", "ok", "result" | "error"}`; after
 `events.subscribe` the connection also gets `{"event", "data"}` lines (streams `interaction`,
-`npc` traces, `room` enter/exit, `travel`, `traffic` incl. trains). Points are `[x, y, z]`
+`npc` traces, `room` enter/exit, `place` enter/leave by any actor, `travel`, `traffic` incl. trains). Points are `[x, y, z]`
 metres, angles degrees. `help` lists every command; the groups are:
 
 - `world.*`: `info`, `scenes`, `query` (objects by tag / type / name glob / room), `node`
@@ -455,6 +455,33 @@ these IDs at export; the runtime only ever compares IDs.
 - `<name>.refs.json` beside the manifest (`geogen-refs` v1) lists every ID with its tags,
   type and asset. geogen checks references from other packages against it; the runtime
   doesn't read it.
+
+## Places
+
+Scenes and assets declare named trigger volumes with `places:` (`geogen/places.py`:
+a box, a footprint polygon, or the box round something). Each is exported as an
+empty node with `extras.geogen.type: place`, a stable ID and `place: {id, size}`
+or `{id, polygon, height}`, and listed in the manifest's `places` in world space.
+
+`GeogenSceneBuilder` gives each a `PlaceArea` (`Area3D`, group `geogen_place`),
+beside the `RoomArea` of every room volume. `WorldLoader` watches both and emits
+`place_event` when the player or an NPC walks in or out:
+
+```
+place event: {"type":"enter","subject":"island:lighthouse/gallery","place":"gallery","kind":"place","actor":"player"}
+```
+
+- `kind` is `place` or `room`; a room's `subject` is the room's ID, not its volume's.
+- `actor` is `player` or the NPC's stable ID (`island:resident_a`).
+- An arrival counts once the body is still inside two physics frames on, so
+  bodies passing through the origin while a world loads don't count.
+- Sitting or lying turns an actor's collision shape off; they stay in the place
+  until they walk out, or an NPC vanishes.
+- Unloading a world or a streamed chunk raises no `leave`.
+
+`main.gd` prints the line above, the control API streams them as `place`, and
+`world.info` lists `places` with the actors in each. `WorldLoader.places` holds
+`{id, uid, kind, node, area, actors}`.
 
 ## Manifest
 

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/falldaysoft/geogen/docs/schema/geogen-state.v1.schema.json",
+  "title": "geogen state declarations v1",
+  "description": "The `state` section of a manifest or chunk index: every variable of the package with its owner in its key, every interaction as the instance state it is, and the signals and inputs assets offer to wiring. Semantics: docs/rules.md. `variables` and `interactions` are those of a rules program.",
+  "type": "object",
+  "required": ["format", "version", "package", "variables", "interactions", "signals", "inputs"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "geogen-state"},
+    "version": {"const": 1},
+    "schema": {"type": "string"},
+    "package": {"type": "string", "description": "The package the world: and actor: keys and the stable IDs belong to."},
+    "variables": {
+      "description": "Declared variables. The key names the owner: '<thing id>#<name>' (one placed instance), 'world:<package>.<name>' (one shared value) or 'actor:<package>.<name>' (one value per actor: the player or an NPC).",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/variableKey"},
+      "additionalProperties": {"$ref": "#/$defs/variable"}
+    },
+    "interactions": {
+      "description": "Every interaction, keyed '<thing id>#<interaction>'. Its state is a choice over `states` starting at `initial`; '<key>_locked' is its lock, a bool.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/instanceKey"},
+      "additionalProperties": {
+        "type": "object",
+        "required": ["initial", "duration", "states"],
+        "additionalProperties": false,
+        "properties": {
+          "initial": {"type": "string"},
+          "duration": {"type": "number", "minimum": 0, "description": "Seconds from being used or driven to arriving."},
+          "locked": {"type": "boolean", "description": "Starts locked (default false)."},
+          "states": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "next": {"type": "string", "description": "The state `use` heads to from here; absent: not usable."},
+                "then": {"type": "string", "description": "The state it moves on to after arriving."},
+                "after": {"type": "number", "minimum": 0, "description": "With `then`: seconds to stay first."},
+                "emit": {"type": "string", "description": "Signal raised from the thing on arrival."}
+              }
+            }
+          }
+        }
+      }
+    },
+    "signals": {
+      "description": "Named outputs, keyed '<thing id>#<signal>'. Each is the signal event {type: signal, subject, name}. With `from`, the runtime raises it whenever an event matching `from` is processed (as a rule with that `on` and one emit effect would); without, an interaction of the subject already emits it.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/instanceKey"},
+      "additionalProperties": {
+        "type": "object",
+        "required": ["subject", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "subject": {"type": "string"},
+          "name": {"type": "string"},
+          "from": {
+            "oneOf": [
+              {"type": "object", "required": ["type", "subject", "name"], "additionalProperties": false,
+               "properties": {"type": {"const": "signal"}, "subject": {"type": "string"}, "name": {"type": "string"}}},
+              {"type": "object", "required": ["type", "key"], "additionalProperties": false,
+               "properties": {"type": {"const": "changed"}, "key": {"$ref": "#/$defs/instanceKey"}, "to": {"$ref": "#/$defs/value"}}},
+              {"type": "object", "required": ["type", "subject"], "additionalProperties": false,
+               "properties": {"type": {"enum": ["enter", "leave"]}, "subject": {"type": "string"}}}
+            ]
+          }
+        }
+      }
+    },
+    "inputs": {
+      "description": "Named things a thing accepts, keyed '<thing id>#<input>': driving one sets `set` to `to`, or to the value the driver gives when there is no `to`.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/instanceKey"},
+      "additionalProperties": {
+        "type": "object",
+        "required": ["set"],
+        "additionalProperties": false,
+        "properties": {
+          "set": {"$ref": "#/$defs/instanceKey"},
+          "to": {"$ref": "#/$defs/value"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "value": {"type": ["boolean", "number", "string"]},
+    "instanceKey": {"type": "string", "pattern": "^[A-Za-z0-9_\\-]+:.*#[A-Za-z_][A-Za-z0-9_]*$"},
+    "variableKey": {
+      "type": "string",
+      "pattern": "^((world|actor):[A-Za-z0-9_\\-]+\\.[A-Za-z_][A-Za-z0-9_]*|[A-Za-z0-9_\\-]+:.*#[A-Za-z_][A-Za-z0-9_]*)$"
+    },
+    "variable": {
+      "type": "object",
+      "required": ["type", "default"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["bool", "number", "text", "choice"]},
+        "default": {"$ref": "#/$defs/value"},
+        "choices": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"const": "bool"}}}, "then": {"properties": {"default": {"type": "boolean"}}}},
+        {"if": {"properties": {"type": {"const": "number"}}}, "then": {"properties": {"default": {"type": "number"}}}},
+        {"if": {"properties": {"type": {"enum": ["text", "choice"]}}}, "then": {"properties": {"default": {"type": "string"}}}},
+        {"if": {"properties": {"type": {"const": "choice"}}}, "then": {"required": ["choices"]}}
+      ]
+    }
+  }
+}

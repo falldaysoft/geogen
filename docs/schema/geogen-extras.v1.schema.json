@@ -21,8 +21,8 @@
           "items": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" }
         },
         "type": {
-          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced). npc: a character placed here (see 'npc'); its body asset is the child named by npc.body.node. vehicle: a vehicle asset root (see 'vehicle').",
-          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group", "npc", "vehicle"]
+          "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced). npc: a character placed here (see 'npc'); its body asset is the child named by npc.body.node. vehicle: a vehicle asset root (see 'vehicle'). place: a named trigger volume (see 'place').",
+          "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group", "npc", "vehicle", "place"]
         },
         "shape": {
           "description": "Collider nodes only: how the collision geometry was made.",
@@ -208,6 +208,20 @@
             "clearance": { "type": "number" }
           }
         },
+        "place": {
+          "description": "type place only: a named trigger volume (geogen/places.py). The node is the middle of the volume's bottom and the volume rises along its +Y: a box of 'size' [x, y, z], or the footprint 'polygon' ([x, z] points in the node's frame) extruded 'height'. Actors (the player, NPCs) entering and leaving it are events whose subject is the node's uid.",
+          "type": "object",
+          "required": ["id"],
+          "additionalProperties": false,
+          "oneOf": [{ "required": ["size"] }, { "required": ["polygon", "height"] }],
+          "properties": {
+            "id": { "type": "string" },
+            "size": { "$ref": "#/$defs/vec3" },
+            "polygon": { "type": "array", "minItems": 3,
+                         "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } },
+            "height": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
         "travel": {
           "description": "A travel point (geogen/travel.py): 'use' it (its 'travel' interaction emits 'travel') or walk into 'volume' (asset frame, on: enter) to go to spawn 'spawn' (default: the first) of catalogue scene 'scene' (absent: this scene). 'target' names the part aimed at for on: use.",
           "type": "object",
@@ -328,6 +342,8 @@
       "allOf": [
         { "if": { "properties": { "type": { "const": "room_volume" } }, "required": ["type"] },
           "then": { "required": ["room", "size"] } },
+        { "if": { "properties": { "type": { "const": "place" } }, "required": ["type"] },
+          "then": { "required": ["place"] } },
         { "if": { "properties": { "type": { "const": "collider" } }, "required": ["type"] },
           "then": { "required": ["shape"] } }
       ]

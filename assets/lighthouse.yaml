@@ -198,3 +198,9 @@ parts:
     offset: [0, "{height + 0.95}", 0]
     material: lamp_glass
     collider: none
+
+places:
+  gallery:                       # the deck level: the lantern room and the gallery round it
+    box: ["{2 * deck_r}", 2.4, "{2 * deck_r}"]
+    position: [0, "{height}", 0]
+    tags: [outside]

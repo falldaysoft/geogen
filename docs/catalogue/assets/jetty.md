@@ -32,3 +32,7 @@ place:
 ## Parts
 
 `deck` (cube), `stringer_left` (cube), `stringer_right` (cube), `bearer` (cube), `pile_left` (cylinder), `pile_right` (cylinder), `rail_right` (cube), `midrail_right` (cube), `rail_left` (cube), `midrail_left` (cube), `end_rail` (cube), `ladder_rail_a` (cube), `ladder_rail_b` (cube), `ladder_rung` (cylinder), `bollard` (lathe)
+
+## Named places
+
+on_deck: box 2.4 x 2.1 x 18 m at (0, -0.1, 9)

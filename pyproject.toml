@@ -43,9 +43,11 @@ where = ["src"]
 testpaths = ["tests"]
 # Tests sharing an expensive build/export are pinned to one worker (see
 # tests/conftest.py pytest_collection_modifyitems).
-# Four workers, not -n auto: each worker keeps every scene it builds (conftest built_scene,
-# up to ~4 GB), and 14 of them froze a 24 GB machine.
-addopts = "-n 4 --dist loadgroup"
+# -n auto is not one worker per core: conftest's pytest_xdist_auto_num_workers gives 8 for the
+# default tier (about 2 GB in all) and 4 for --all, whose workers keep the big scenes they build
+# (up to ~4 GB each; 14 of them froze a 24 GB machine).
+addopts = "-n auto --dist loadgroup"
 markers = [
+    "exhaustive: slow, wide coverage (big composite scenes, long simulations); only runs with --all",
     "godot: runs the Godot runtime headless (skipped without Godot); deselect with -m 'not godot'",
 ]

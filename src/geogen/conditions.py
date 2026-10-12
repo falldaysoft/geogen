@@ -206,7 +206,9 @@ def walk(tree: Tree) -> Iterable[dict[str, Any]]:
 # ---- resolving ----------------------------------------------------------------------------------
 
 def _state_names(node: SceneNode) -> list[str]:
-    return [i.name for i in node.interactions]
+    from .state import state_names
+
+    return state_names(node)
 
 
 def resolve(tree: Tree, root: SceneNode, package: str, self_node: SceneNode | None = None,

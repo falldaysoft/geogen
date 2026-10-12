@@ -133,7 +133,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     for key, value in node.meta.items():
-        if key not in ("collider", "traffic", "railway", "travel_spec", "travel_source", "source", "scope", "ref_key"):  # lane graphs, railways: the manifest
+        if key not in ("collider", "traffic", "railway", "travel_spec", "travel_source", "source", "scope", "ref_key", "declares"):  # lane graphs, railways: the manifest
             data[key] = value.tolist() if hasattr(value, "tolist") else value
     if collider is not None:
         data["collider"] = collider
@@ -344,6 +344,16 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
     travel = travel_summary(root)       # where the scene's travel points go (catalogue validation)
     if travel:
         out["travel"] = travel
+    from .places import places_summary
+
+    places = places_summary(root)       # named trigger volumes, world space
+    if places:
+        out["places"] = places
+    from .state import summary
+
+    state = summary(root)               # variables, interactions, signals and inputs (geogen-state v1)
+    if state:
+        out["state"] = state
     from .traffic import build_traffic
 
     traffic = build_traffic(root)       # the lane graph (geogen-traffic v1), world space
@@ -855,7 +865,10 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     path.parent.mkdir(parents=True, exist_ok=True)
     package = package or path.stem
     if manifest and suffix != ".obj":
+        from .state import collect
+
         refs.assign_ids(root, package)
+        collect(root, package)          # bad declarations fail the export before anything is written
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
     scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
     if suffix == ".obj":

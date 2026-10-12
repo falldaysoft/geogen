@@ -21,10 +21,18 @@ logger = logging.getLogger("geogen.layout")
 
 def _set_states(node: SceneNode, spec: Any, where: str) -> None:
     """Placement ``state: open`` (every interaction that has that state) or
-    ``state: {swing: open}``: the object starts, and is exported, in that state."""
+    ``state: {swing: open}``: the object starts, and is exported, in that state.
+    Names of variables the asset declares (``state: {lit: true}``) set their starting value."""
+    from ..state import instance_state, set_values
     from .interactions import apply_state
 
     wanted = spec if isinstance(spec, dict) else None
+    declared = instance_state(node)
+    if wanted is not None and any(k in declared for k in wanted):
+        set_values(node, {k: v for k, v in wanted.items() if k in declared}, f"state of {where}")
+        wanted = {k: v for k, v in wanted.items() if k not in declared}
+        if not wanted:
+            return
     found = False
     for owner in node.iter_nodes():
         for interaction in owner.interactions:
@@ -39,7 +47,8 @@ def _set_states(node: SceneNode, spec: Any, where: str) -> None:
             found = True
     if not found:
         names = sorted({i.name for n in node.iter_nodes() for i in n.interactions})
-        raise ValueError(f"state of {where}: nothing takes {spec!r} (interactions: {names})")
+        raise ValueError(f"state of {where}: nothing takes {spec!r} (interactions: {names}"
+                         + (f", state: {sorted(declared)})" if declared else ")"))
 
 
 def _truthy(value: Any) -> bool:
@@ -206,6 +215,9 @@ class SceneComposer:
         size = np.array(data.get("size", [1.0, 1.0, 1.0]), dtype=np.float64)
         root.size = size
         logger.debug("Building scene: %s (size=%s)", name, size)
+        from ..state import declare_scene
+
+        declare_scene(root, data, source)
 
         # Parse slot definitions
         slots = self._parse_slots(data.get("slots", {}), size)
@@ -397,6 +409,17 @@ class SceneComposer:
         for spawn_name, transform in self._parse_slots(data.get("spawns", {}), size).items():
             root.add_child(SceneNode(name=spawn_name, transform=transform, tags=["spawn"],
                                      meta={"type": "spawn"}))
+
+        # Named places: trigger volumes, positioned like slots or round something placed.
+        if data.get("places"):
+            from ..places import build_places
+
+            def place_position(place_name: str, entry: dict[str, Any]) -> np.ndarray:
+                return (resolve_anchor(entry.get("anchor", "center"), size)
+                        + np.array(entry.get("offset", [0, 0, 0]), dtype=np.float64))
+
+            build_places(root, data["places"], str(source) if source is not None else name, locate=place_position,
+                         resolve=lambda place_name, ref: refs.node(ref, ["places", place_name, "around"]))
 
         # Traffic last: it needs the lanes, and keeps clear of the spawns.
         if fleets:

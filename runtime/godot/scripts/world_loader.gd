@@ -12,6 +12,10 @@ signal world_loaded(aabb: AABB)
 signal interaction_event(asset: String, interaction: String, state: String, event: String)
 ## The player used or walked into a travel point: its extras.geogen.travel ({scene?, spawn?, prompt, on}).
 signal travel_requested(travel: Dictionary)
+## An actor entered or left a named place or a room: {type: enter | leave, subject
+## (the place's or room's stable ID), place (its id), kind: place | room, actor
+## ("player" or the NPC's stable ID)}.
+signal place_event(event: Dictionary)
 
 const DEFAULT_GENERATED_DIR := "res://generated"
 const POLL_SECONDS := 0.5
@@ -45,6 +49,9 @@ var _next_x := 0.0    # where the next model's -X edge goes when loading several
 var model_aabbs: Array[AABB] = []
 ## Room volumes: [{id, type, xform: Transform3D (global), size: Vector3}]
 var rooms: Array[Dictionary] = []
+## Named places and rooms with an area: {id, uid, kind: place | room, node, area, actors: {actor: true}}.
+var places: Array[Dictionary] = []
+var _held: Array[Dictionary] = []   # {entry, body, actor}: occupants whose body stopped colliding (seated, lying)
 ## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
 var spawns: Array[Dictionary] = []
 ## Loaded nodes by stable ID (extras.geogen.uid: "<package>:<authored path>", geogen/refs.py).
@@ -280,6 +287,8 @@ func unload() -> void:
     _next_x = 0.0
     model_aabbs.clear()
     rooms.clear()
+    places.clear()
+    _held.clear()
     spawns.clear()
     nodes_by_uid.clear()
     _pending_state.clear()
@@ -500,6 +509,7 @@ func setup_root(root: Node) -> Dictionary:
     _collect_gates(root)
     _collect_rooms(root)
     var summary := GeogenSceneBuilder.build(root)
+    _collect_places(root)
     _lap("scene_builder", t)
     summary["meshes"] = count
     return summary
@@ -588,6 +598,8 @@ func forget(root: Node) -> void:
         if inside.call(nodes_by_uid[uid]):
             nodes_by_uid.erase(uid)
     rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
+    places = places.filter(func(p): return not inside.call(p.get("node")))
+    _held = _held.filter(func(h): return not inside.call(h["entry"].get("node")))
     affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
     portals = portals.filter(func(p): return not inside.call(p.get("node")))
     travel_points = travel_points.filter(func(t): return not inside.call(t.get("node")))
@@ -882,6 +894,8 @@ func _spawn_npcs(root: Node) -> void:
         if g.get("type") != "npc" or not g.get("npc") is Dictionary or node.has_meta("geogen_npc"):
             continue
         var npc := GeogenNpc.spawn(self, node, g["npc"])
+        if uid_of(node) != "":
+            npc.set_meta("geogen_uid", uid_of(node))
         npc.trace_enabled = npc_trace
         if spec != null:
             npc.step_height = spec.step_height
@@ -1005,6 +1019,97 @@ func _collect_rooms(root: Node) -> void:
                 "node": node})
 
 
+## Place and room areas (made by the scene builder) report the actors that walk
+## in and out: the player and NPCs.
+func _collect_places(root: Node) -> void:
+    for area: Area3D in root.find_children("*", "Area3D", true, false):
+        var is_room := area.is_in_group("geogen_room")
+        if not (is_room or area.is_in_group("geogen_place")) or area.has_meta("geogen_wired"):
+            continue
+        area.set_meta("geogen_wired", true)
+        var node := area.get_parent()
+        var entry := {"kind": "room" if is_room else "place", "node": node, "area": area, "actors": {}}
+        if is_room:      # the room is the volume's parent; rules name it, not its volume
+            var room: Dictionary = area.get_meta("geogen_room", {})
+            entry["id"] = str(room.get("id", node.name))
+            entry["uid"] = uid_of(node.get_parent()) if node.get_parent() != null else ""
+            if entry["uid"] == "":
+                entry["uid"] = uid_of(node)
+        else:
+            var place: Dictionary = area.get_meta("geogen_place", {})
+            entry["id"] = str(place.get("id", node.name))
+            entry["uid"] = str(place.get("uid", ""))
+        places.append(entry)
+        area.body_entered.connect(func(body: Node3D): _place_crossed(entry, body, true))
+        area.body_exited.connect(func(body: Node3D): _place_crossed(entry, body, false))
+
+
+func _place_crossed(entry: Dictionary, body: Node3D, entered: bool) -> void:
+    var actor := actor_id(body)
+    if actor == "":
+        return
+    if entered:
+        # Bodies sit at the origin for a frame while a world loads or they spawn:
+        # an arrival counts once the body is still inside two frames on.
+        for i in 2:
+            await get_tree().physics_frame
+        var area = entry["area"]
+        if not is_instance_valid(body) or not is_instance_valid(area) or not area.overlaps_body(body) \
+                or entry["actors"].has(actor):
+            return
+        entry["actors"][actor] = true
+    elif not entry["actors"].has(actor):
+        return
+    elif _parked(body):
+        _held.append({"entry": entry, "body": body, "actor": actor})
+        return
+    else:
+        entry["actors"].erase(actor)
+    place_event.emit({"type": "enter" if entered else "leave", "subject": entry["uid"], "place": entry["id"],
+        "kind": entry["kind"], "actor": actor})
+
+
+## Seated and lying actors turn their collision shape off, which an area reads as
+## walking out: they stay in the place until the shape is back (or they vanish).
+func _parked(body: Node3D) -> bool:
+    if not is_instance_valid(body) or not body.is_inside_tree() or not body.visible:
+        return false
+    for child in body.get_children():
+        if child is CollisionShape3D and not child.disabled:
+            return false
+    return true
+
+
+func _release_held() -> void:
+    for held in _held.duplicate():
+        if _parked(held["body"]):
+            continue
+        _held.erase(held)
+        _leave_unless_inside(held)
+
+
+func _leave_unless_inside(held: Dictionary) -> void:
+    for i in 2:      # the area sees a shape that came back on the next physics frame
+        await get_tree().physics_frame
+    var entry: Dictionary = held["entry"]
+    var body = held["body"]
+    var area = entry["area"]
+    if is_instance_valid(body) and is_instance_valid(area) and body.visible and area.overlaps_body(body):
+        return
+    if entry["actors"].erase(held["actor"]):
+        place_event.emit({"type": "leave", "subject": entry["uid"], "place": entry["id"], "kind": entry["kind"],
+            "actor": held["actor"]})
+
+
+## What events call ``body``: "player", an NPC's stable ID (its name without one), or "" for anything else.
+static func actor_id(body: Node) -> String:
+    if body is Player:
+        return "player"
+    if body is GeogenNpc:
+        return str(body.get_meta("geogen_uid", body.name))
+    return ""
+
+
 func _collect_interactions(root: Node) -> void:
     for node in root.find_children("*", "Node3D", true, false):
         var data = geogen_extras(node).get("interactions")
@@ -1080,6 +1185,8 @@ func _update_gate(gate: Dictionary) -> void:
 func _physics_process(_delta: float) -> void:
     for gate in _gates:
         _update_gate(gate)
+    if not _held.is_empty():
+        _release_held()
 
 
 ## Id of the room volume containing ``pos`` (world space), or "".

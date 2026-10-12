@@ -15,7 +15,10 @@ ASSETS = Path(__file__).parent.parent / "assets"
 BASELINE = Path(__file__).parent / "data" / "clipping_baseline.json"
 PRESETS = [["feminine"], ["masculine"], ["feminine", "hourglass"], ["masculine", "heavy"], ["feminine", "petite"]]
 OUTFITS = ["casual_f", "dress", "jeans_tee", "smart"]
+CORE = [(["feminine"], "casual_f"), (["masculine"], "jeans_tee"), (["feminine", "hourglass"], "dress")]
 COMBOS = [(p, o) for p in PRESETS for o in OUTFITS]
+GUARDED = [pytest.param(p, o, marks=() if (p, o) in CORE else pytest.mark.exhaustive)    # the rest: pytest --all
+           for p, o in COMBOS]
 
 
 def _report(preset, outfit):
@@ -38,7 +41,7 @@ def _worse(now: dict, then: dict, where: str) -> list[str]:
     return out
 
 
-@pytest.mark.parametrize("preset,outfit", COMBOS, ids=lambda x: "+".join(x) if isinstance(x, list) else x)
+@pytest.mark.parametrize("preset,outfit", GUARDED, ids=lambda x: "+".join(x) if isinstance(x, list) else x)
 def test_clipping_no_worse_than_baseline(preset, outfit):
     key = f"{'+'.join(preset)}/{outfit}"
     baseline = json.loads(BASELINE.read_text())[key]

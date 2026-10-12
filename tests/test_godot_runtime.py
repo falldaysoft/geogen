@@ -19,10 +19,8 @@ RADIUS = load_player_spec().radius
 
 
 @pytest.fixture(scope="module")
-def cottage_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(built_scene("cottage"), out / "cottage.glb")
-    return out
+def cottage_dir(scene_export):
+    return scene_export("cottage")
 
 
 def walk(run_godot, generated, spawn, seconds=4.0, *extra) -> dict:
@@ -146,10 +144,8 @@ def _nav(run_godot, generated, scene, a, b) -> dict:
 
 
 @pytest.fixture(scope="module")
-def auto_room_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated_auto")
-    export_scene(built_scene("hotel_room_auto"), out / "hotel_room_auto.glb")
-    return out
+def auto_room_dir(scene_export):
+    return scene_export("hotel_room_auto")
 
 
 def test_scene_builder_summary(run_godot, auto_room_dir):

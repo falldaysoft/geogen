@@ -140,3 +140,6 @@ parts:
     anchor: bottom_center
     offset: ["{-(width / 2 - 0.3)}", 0, "{length - 0.6}"]
     material: lamp_iron
+
+places:
+  on_deck: { around: deck, headroom: 2.0, tags: [outside] }    # standing anywhere on the planks

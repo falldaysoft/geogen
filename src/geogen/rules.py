@@ -37,12 +37,12 @@ from typing import Any, Iterable
 
 from . import conditions
 from .conditions import ConditionError
+from .state import TYPES, fits as _fits
 
 FORMAT = "geogen-rules"
 VERSION = 1
 SAVE_FORMAT = "geogen-save"
 MAX_DEPTH = 16             # how many events deep one input may cascade
-TYPES = ("bool", "number", "text", "choice")
 EVENT_TYPES = {
     "signal": "a thing raised a named signal: an interaction arriving at a state with `emit`, or a rule's emit",
     "changed": "a variable took a new value (key, data.from, data.to)",
@@ -221,17 +221,6 @@ def check_program(program: dict[str, Any]) -> list[str]:
             else:
                 problems.append(f"{where}: unknown effect {sorted(effect)} (effects: set, emit)")
     return problems
-
-
-def _fits(spec: dict[str, Any], value: Any) -> bool:
-    kind = spec.get("type")
-    if kind == "bool":
-        return isinstance(value, bool)
-    if kind == "number":
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
-    if kind == "text":
-        return isinstance(value, str)
-    return value in spec.get("choices", [])
 
 
 # ---- the machine -------------------------------------------------------------------------------

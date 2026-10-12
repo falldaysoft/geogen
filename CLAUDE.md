@@ -473,6 +473,16 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 - **New content that names things** (quests, dialogue anchors, items) should store references in YAML, resolve them at export with `refs.resolve`/`select` and write the IDs to extras or the manifest.
 - `python -m geogen.main -s cottage --resolve "house/[tag=furniture]"` prints what a reference matches (`"*"`: the top-level names). Tests: `tests/test_refs.py`.
 
+### Named places
+
+`geogen/places.py`: a scene or asset `places: {name: {...}}` declares trigger volumes for anywhere that isn't a room: the lighthouse `gallery`, the jetty's `on_deck`.
+- **Shapes** (keys in `schema.PLACE_KEYS`): `box: [x, y, z]` standing on `position` (scenes also take `anchor` + `offset`; `yaw`), `polygon: [[x, z], ...]` from `y` up `height`, or `around: <reference>` (a placement, or a part in an asset) with `margin` and `headroom` (more above it, so standing on a deck counts).
+- **Nodes:** each is an empty child of the scene or asset root named after the place, `meta.type: place`, `meta.place` (`{id, size}` or `{id, polygon, height}`; the node is the middle of the volume's bottom), tag `place` plus its `tags`. A place can't share a name with a placement or part.
+- **IDs and wiring:** places get stable IDs (`island:lighthouse/gallery`), so references and `[type=place]` find them, and asset `signals: {occupied: {enter: plate}}` resolves to one (`enter` / `leave` only take a place or a room).
+- **Export:** node extras (`place` in the extras schema), and the manifest's and chunk index's `places` in world space (`places_summary`). `--inspect` and `--describe NAME` list them.
+- **Runtime:** `GeogenSceneBuilder` adds a `PlaceArea`; `WorldLoader` watches those and the room areas and emits `place_event` `{type: enter | leave, subject, place, kind: place | room, actor}` for the player and NPCs (printed as `place event: {...}`, API stream `place`). Seated actors stay in their place. See "Places" in `runtime/godot/README.md`. The event bus (geogen.3.5) will carry these.
+- Tests: `tests/test_places.py`, `tests/test_showcases.py::test_island_places_report_the_player_arriving`.
+
 ### Scatter placement
 
 `layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.
@@ -730,7 +740,11 @@ Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scal
 - **Order:** one input at a time; a matching event's rules run in program order, what they caused is processed after them, then bindings, then watches. Cascades stop 16 events deep.
 - **API:** `check_program(program)` (what export must reject), `Machine(program, actors)` with `post` / `use` / `set` / `advance` / `set_clock` / `get` / `save` / `load`, and `run_trace(path)`.
 - **Traces:** `tests/data/rules/*.json` are the conformance tests for any runtime; edit them in `tests/data/rules/make_traces.py` and run it. Tests: `tests/test_rules.py`.
-- Programs are built by hand so far: compiling YAML to them is geogen.3.2 and 3.6, and the Godot interpreter 3.3.
+- **Declarations** (`src/geogen/state.py`, "Declarations" in `docs/rules.md`): asset `state: {name: {type: bool | number | text | choice, default, choices}}` is per placed instance; scene `state:` needs `scope: world | actor` on each variable (nested scenes share the exported package). Asset `signals: {name: {emit | changed | enter | leave, of, to}}` and `inputs: {name: {set, to, of}}` name what wiring can listen to and drive, relative to the asset. A placement's `state: {lit: true}` starts a declared variable elsewhere.
+  - Loaders only record them in `meta.declares` (not exported). `state.collect(root, package)` gives a `Declarations` (variables, every interaction, signals, inputs, keyed by stable ID) or raises `StateError` listing each problem with file:line and near names. Exports run it before writing anything and put `to_json()` in the manifest and chunk index as `state` (schema `docs/schema/geogen-state.v1.schema.json`).
+  - `Declarations.program(rules, bindings)` is a rules program; `check_condition(tree)` reports undeclared or wrongly scoped reads; `declare(key, spec)` adds variables (for quests and packages); `from_json` reads another package's from its manifest.
+  - Tests: `tests/test_state.py`; `test_asset_quality.py::test_state_declarations_resolve` runs every scene.
+- Rules, bindings and wiring are still built by hand: compiling YAML to them is geogen.3.6, and the Godot interpreter 3.3.
 
 Relevant module: `src/geogen/layout/expressions.py`.
 
@@ -804,12 +818,16 @@ Always test changes by:
 - When you generate or update an object, render it from the front and side and make sure it looks correct and consistent.
 - For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn`/`--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
 - `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
-- **Test in three tiers** (the whole suite takes about 12 minutes, so don't run it while iterating):
+- **Test in tiers** (don't run more than the change needs):
   - The tests for what you changed, by file: `pytest tests/test_expressions.py` (seconds).
-  - `pytest --fast` before moving on: every test that is cheap (about 1350 of 2000 in 20-25 s). It skips Godot runs and any test, or group of tests sharing a build, that took 1 s or more when last timed (`--fast=0.25` is a 9 s run, `--fast=5` a wider one).
-  - `pytest` (everything) once, before a commit.
-  - Timings are recorded by every run in `.pytest_cache` (per machine, `tests/conftest.py`); a test never timed is kept, so run the whole suite once on a fresh checkout. `--durations=30` shows what is slow.
-- `pytest` runs 4 xdist workers (`pyproject.toml`); each keeps the scenes it builds (`built_scene`), up to ~4 GB. Don't raise it to `-n auto`: 14 workers froze a 24 GB Mac. Ad-hoc runs of big scenes (city, town) should be serial (`-n0`).
+  - `pytest --fast` before moving on: every cheap test (about 20 s). It skips Godot runs and any test, or group of tests sharing a build, that took 1 s or more when last timed (`--fast=0.25` is quicker, `--fast=5` wider).
+  - `pytest` before a commit: the default tier, about 2.5 minutes. Everything except the exhaustive tier.
+  - `pytest --all` before a release, or after a change to city layout, traffic at scale, streaming or the showcases: adds the exhaustive tier, about 10 minutes.
+- **The exhaustive tier** is tests marked `@pytest.mark.exhaustive` and anything that builds a scene in `conftest.EXHAUSTIVE_SCENES` (city, town, main_street, street, street_side, hotel_showcase, restaurant, archetype_gallery, people_gallery): compositions of things the default tier checks piece by piece. Per-scene tests of those are deselected; other tests that call `built_scene` on one are skipped with a reason. It holds `tests/test_showcases.py`, the M3 district tests, the hub round trip, the rail loop simulation and most of the clipping sweep. A new slow test of a big scene belongs there; core behaviour needs a small scene in the default tier (`crossroads` for cities and traffic, `cottage`, `hotel`, `park`, `island`).
+- **Shared builds:** `built_scene(name)` and `scene_export(name)` (a `--generated` directory holding the scene's GLB, read-only) build once and keep the result in `.pytest_cache/geogen-built/<fingerprint of assets and src/geogen>/`: every worker and module shares it, and later runs reuse it until a source or asset file changes (GDScript and test edits don't invalidate it; navmesh bakes are cached beside the exports). Use these fixtures rather than building or exporting a registry scene in a test. `GEOGEN_TEST_CACHE=off` builds everything afresh; `pytest --cache-clear` empties it.
+- Timings are recorded by every run in `.pytest_cache` (per machine, `tests/conftest.py`); a test never timed is kept by `--fast`. `--durations=30` shows what is slow.
+- **Workers:** `-n auto` in `pyproject.toml` means 8 workers for the default tier (about 2 GB in all) and 4 for `--all`, whose workers keep the big scenes they build (up to ~4 GB each; 14 froze a 24 GB Mac). Don't raise them. Ad-hoc runs of big scenes (city, town) should be serial (`-n0`).
+- Render tests need a display: with the screen asleep pyglet finds no screen and `test_scene_renders` fails with an IndexError in `pyglet/canvas/base.py`.
 
 ## Task Tracking
 

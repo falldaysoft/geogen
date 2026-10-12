@@ -264,7 +264,12 @@ ASSET_KEYS: dict[str, str] = {
     "surfaces": "{name: {from: part.surface, cut, reveal}}: 2D regions other assets are placed `on`",
     "tags": "dotted gameplay tags (furniture.chair, door.exterior)",
     "interactions": "{name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers)",
+    "state": "{name: {type: bool | number | text | choice, default, choices}}: variables each placed instance "
+             "holds (read as `thing.name` in conditions)",
+    "signals": "{name: {emit | changed | enter | leave: <name>, of, to}}: named outputs wiring can listen to",
+    "inputs": "{name: {set: <state or interaction>, to, of}}: named things wiring can drive",
     "affordances": "[{type: sit | lie | use | stand | look, at, facing, ...}]: what actors can do here",
+    "places": "{name: {box | polygon | around}}: trigger volumes",
     "clearance": "{front, back, left, right}: free space the furnishing solver keeps around it",
     "container": "{capacity, part}: the asset holds items",
     "light": "{type: omni, color, energy, range, offset, auto: night}: the asset is a light fixture",
@@ -288,7 +293,10 @@ SCENE_KEYS: dict[str, str] = {
     "compose": "same as `place`",
     "attachments": "named points on the scene, for parent scenes",
     "tags": "dotted gameplay tags on the scene root",
+    "state": "{name: {scope: world | actor, type, default, choices}}: the package's shared (`world.name`) and "
+             "per-actor (`actor.name`) variables",
     "spawns": "{name: {position | anchor, facing}}: where the player can start",
+    "places": "{name: {box | polygon | around}}: trigger volumes (enter / leave events)",
     "city": "a street grid with zoned lots, buildings, street furniture, parking and traffic",
     "routes": "{name: {path, lanes, speed, loop}}: roads with traffic lanes",
     "railways": "{name: {path, loop, gauge, stations}}: track beds with platforms",
@@ -299,6 +307,21 @@ SLOT_KEYS: dict[str, str] = {
     "offset": "[x, y, z] metres from the anchor",
     "position": "[x, y, z] metres, instead of anchor + offset",
     "facing": "center | outward | north (+Z) | south | east (+X) | west",
+}
+
+PLACE_KEYS: dict[str, str] = {
+    "box": "[x, y, z] m: a box standing on `position`",
+    "polygon": "[[x, z], ...]: a footprint, from `y` up `height`",
+    "around": "a reference: the box round it",
+    "position": "[x, y, z]: the middle of a box's bottom",
+    "anchor": "scenes: an anchor of the scene box, instead",
+    "offset": "scenes: m from the anchor",
+    "yaw": "degrees a box is turned",
+    "y": "a polygon's base (0)",
+    "height": "a polygon's height (2.5)",
+    "margin": "m round an `around` box, or [x, y, z]",
+    "headroom": "m above an `around` box, to stand on it",
+    "tags": "dotted tags",
 }
 
 PLACEMENT_KEYS: dict[str, str] = {
@@ -314,7 +337,8 @@ PLACEMENT_KEYS: dict[str, str] = {
           "reference: `house.floor`, `plot/house.floor` inside a placed scene, `suite/[tag=furniture.desk].top`",
     "facing": "turn the object: center | outward | north | south | east | west",
     "yaw": "degrees about +Y, added to the facing",
-    "state": "initial interaction state: `open`, or {interaction: state}",
+    "state": "initial interaction state: `open`, or {interaction: state}; {variable: value} starts a declared "
+             "variable of the asset with another value",
     "when": "drop the placement when the expression is 0 / false (comparisons, and / or / not allowed)",
     "tags": "extra tags on the placed object",
     "furnish": "true or a seed: furnish a floor plan's rooms from their room types",

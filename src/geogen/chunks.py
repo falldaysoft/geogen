@@ -178,7 +178,10 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
     name = name or root.name
     from . import refs
 
+    from .state import collect
+
     refs.assign_ids(root, name)       # before the tree is split: IDs are paths in the whole scene
+    collect(root, name)               # bad declarations fail the export before anything is written
     units = find_units(root)
     chunks = []
     used: set[str] = set()

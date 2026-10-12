@@ -36,3 +36,7 @@ place:
 ## Light
 
 type omni, color [1,0.9,0.7], energy 12, range 40, offset [0,11.25,0], auto night
+
+## Named places
+
+gallery: box 6.8 x 2.4 x 6.8 m at (0, 10, 0)

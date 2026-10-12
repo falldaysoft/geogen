@@ -144,6 +144,10 @@ class LayoutLoader:
 
         data = self._resolve_params(data, params)
         root = self._build_hierarchy(data)
+        _add_places(root, data, path.name)
+        from ..state import declare_asset
+
+        declare_asset(root, data, path)
         # Where it came from, for --inspect (not exported).
         root.meta["source"] = {"asset": _asset_ref(path), "params": dict(params or {})}
         return root
@@ -162,7 +166,9 @@ class LayoutLoader:
         """
         data = safe_load(yaml_string)
         data = self._resolve_params(data, params)
-        return self._build_hierarchy(data)
+        root = self._build_hierarchy(data)
+        _add_places(root, data, str(data.get("name", "asset")))
+        return root
 
     def _resolve_params(
         self, data: dict[str, Any], overrides: dict[str, float] | None
@@ -1198,6 +1204,23 @@ def _enabled_parts(parts: dict[str, Any]) -> dict[str, Any]:
             v["subtract"] = [c for c in v["subtract"] if c in kept]
         out[k] = v
     return out
+
+
+def _add_places(root: SceneNode, data: dict[str, Any], where: str) -> None:
+    """An asset's ``places:``: trigger volumes in the asset frame (geogen.places)."""
+    if not data.get("places"):
+        return
+    from .. import refs
+    from ..places import build_places
+    from .schema import PLACE_KEYS
+
+    def around(place: str, ref: str) -> SceneNode:
+        try:
+            return refs.resolve(root, ref)
+        except refs.RefError as exc:
+            raise ValueError(f"{where}: place '{place}': around: {exc.message}") from None
+
+    build_places(root, data["places"], where, resolve=around, known=set(PLACE_KEYS) - {"anchor", "offset"})
 
 
 def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:

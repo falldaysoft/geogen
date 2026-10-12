@@ -262,6 +262,7 @@ func _ready() -> void:
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         print("interaction event: %s" % JSON.stringify(
             {"asset": asset, "interaction": interaction, "state": state, "event": event})))
+    world.place_event.connect(func(event: Dictionary): print("place event: %s" % JSON.stringify(event)))
     clock = GeogenClock.new()
     clock.name = "Clock"
     clock.hours = _start_time

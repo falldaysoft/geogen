@@ -16,10 +16,8 @@ FAST = ("--fixed-fps", "60")
 
 
 @pytest.fixture(scope="module")
-def crossroads_dir(tmp_path_factory):
-    out = tmp_path_factory.mktemp("generated_traffic")
-    export_scene(_build_registry()["crossroads"](), out / "crossroads.glb")
-    return out
+def crossroads_dir(scene_export):
+    return scene_export("crossroads")
 
 
 def simulate(run_godot, generated, scene, seconds, *extra, timescale=8) -> dict:
@@ -124,10 +122,8 @@ def test_morning_brings_people_and_traffic_back(run_godot, crossroads_dir):
 
 
 @pytest.fixture(scope="module")
-def crossing_dir(tmp_path_factory):
-    out = tmp_path_factory.mktemp("generated_rail")
-    export_scene(_build_registry()["level_crossing"](), out / "level_crossing.glb")
-    return out
+def crossing_dir(scene_export):
+    return scene_export("level_crossing")
 
 
 def _train_summary(out: str) -> dict:

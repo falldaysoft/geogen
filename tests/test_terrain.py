@@ -73,10 +73,8 @@ def test_scatter_on_terrain_respects_height_and_slope(terrain_scene):
 
 
 @pytest.fixture(scope="module")
-def terrain_dir(tmp_path_factory, terrain_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(terrain_scene, out / "terrain_test.glb")
-    return out
+def terrain_dir(scene_export):
+    return scene_export("terrain_test")
 
 
 def test_navmesh_covers_the_island(run_godot, terrain_dir):

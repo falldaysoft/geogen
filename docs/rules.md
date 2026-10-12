@@ -28,6 +28,68 @@ default, and exactly one owner. Its key says which:
   over its states, and `<thing id>#<interaction>_locked` is a `bool`.
 - Only values that differ from the default are stored.
 
+## Declarations
+
+Every variable is declared, and where it is declared says who owns it. An
+asset's `state:` belongs to each placed instance; a scene's `state:` must give
+each variable `scope: world` or `scope: actor`.
+
+```yaml
+state:                                      # in an asset: one value per instance
+  lit: {type: bool, default: false}
+state:                                      # in a scene: the package's
+  bridge_down: {scope: world, type: bool, default: false}
+  has_ticket:  {scope: actor, type: bool, default: false}
+```
+
+A nested scene's state belongs to the package being exported, so two scenes
+declaring one name must agree. A placement's `state: {lit: true}` starts that
+instance with another value.
+
+Assets also declare what they offer to wiring, by names relative to themselves
+(`of: <reference>` for something inside the asset), so every instance wires
+itself:
+
+```yaml
+signals:
+  pulled:   {emit: pulled}              # an interaction arriving at a state with that emit
+  switched: {changed: lit, to: true}    # a variable or interaction taking a value
+  occupied: {enter: plate}              # an actor entering a place of the asset (leave: too)
+inputs:
+  open:  {set: gate, to: open}          # drive an interaction, or set a variable
+  light: {set: lit}                     # no `to`: the driver gives the value
+```
+
+A place is a named trigger volume a scene or asset declares (`places:`, see
+`geogen.places`): `plate` above is one of the asset's. `enter` and `leave` also
+take a room of a floor plan; anything else is an error.
+
+Export collects all of it (`geogen.state.collect`) into the `state` section of
+the manifest and chunk index (schema `docs/schema/geogen-state.v1.schema.json`):
+
+```json
+{"format": "geogen-state", "version": 1, "package": "demo",
+ "variables": {"demo:lamp#lit": {"type": "bool", "default": false},
+               "world:demo.bridge_down": {"type": "bool", "default": false}},
+ "interactions": {"demo:lever#pull": {"initial": "up", "duration": 0.5, "states": {...}}},
+ "signals": {"demo:lever#pulled": {"subject": "demo:lever", "name": "pulled"},
+             "demo:lamp#switched": {"subject": "demo:lamp", "name": "switched",
+                                    "from": {"type": "changed", "key": "demo:lamp#lit", "to": true}}},
+ "inputs": {"demo:gate#open": {"set": "demo:gate#gate", "to": "open"}}}
+```
+
+- `interactions` lists every interaction of the scene, declared or not: they
+  are instance state, and a runtime needs them for things that aren't loaded.
+- A **signal** is the event `{type: signal, subject, name}`. One with `from` is
+  raised whenever an event matching `from` is processed, exactly as a rule
+  `{on: <from>, do: [{emit: name, subject}]}` placed before every other rule
+  would (`Declarations.signal_rules`). One without is an interaction's own emit.
+- An **input** is an effect: driving it sets `set` to `to`.
+
+A declaration that clashes, or a signal or input naming state, an emit or a
+thing that isn't there, fails the export with the file and line it was written
+at and the near names.
+
 ## Interactions
 
 An interaction's variable holds the state it is heading to, and changes the
@@ -56,7 +118,7 @@ An event is `{type, subject, name, actor, data}`. `subject` is a stable ID,
 | `signal` | a thing raised `name`: an interaction arriving at a state with `emit`, an asset's declared signal, or a rule's `emit` |
 | `changed` | a variable took a new value: `key`, `data.from`, `data.to` |
 | `use` | an actor used an interaction, before it moves |
-| `enter`, `leave` | an actor entered or left a place or room (`subject`) |
+| `enter`, `leave` | an actor entered or left a place or room (`subject`: its ID). An actor who sits or lies down there has not left |
 | `travel` | an actor travelled to another scene or spawn |
 | `clock` | dusk or dawn: `name` is `night` or `day`. Never has an actor |
 | `start` | a new game began for an actor |

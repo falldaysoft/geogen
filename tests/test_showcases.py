@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from geogen.export import export_scene
+pytestmark = pytest.mark.exhaustive      # each showcase lived in for minutes: pytest --all
 
 
 def _json_line(out: str, prefix: str):
@@ -12,10 +12,8 @@ def _json_line(out: str, prefix: str):
 
 
 @pytest.fixture(scope="module")
-def hotel_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(built_scene("hotel_showcase"), out / "hotel_showcase.glb")
-    return out
+def hotel_dir(scene_export):
+    return scene_export("hotel_showcase")
 
 
 def test_hotel_showcase_playtest_from_the_street(run_godot, hotel_dir):
@@ -39,10 +37,8 @@ def test_hotel_showcase_staff_and_guests(run_godot, hotel_dir):
 
 
 @pytest.fixture(scope="module")
-def park_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(built_scene("park"), out / "park.glb")
-    return out
+def park_dir(scene_export):
+    return scene_export("park")
 
 
 def test_park_visitors_keep_to_the_paths_and_sit_down(run_godot, park_dir):
@@ -59,10 +55,8 @@ def test_park_visitors_keep_to_the_paths_and_sit_down(run_godot, park_dir):
 
 
 @pytest.fixture(scope="module")
-def restaurant_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(built_scene("restaurant"), out / "restaurant.glb")
-    return out
+def restaurant_dir(scene_export):
+    return scene_export("restaurant")
 
 
 def test_restaurant_playtest_and_service(run_godot, restaurant_dir):
@@ -83,10 +77,8 @@ def test_restaurant_playtest_and_service(run_godot, restaurant_dir):
 
 
 @pytest.fixture(scope="module")
-def main_street_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(built_scene("main_street"), out / "main_street.glb")
-    return out
+def main_street_dir(scene_export):
+    return scene_export("main_street")
 
 
 def test_main_street_shops_are_furnished_by_kind(built_scene):
@@ -106,10 +98,8 @@ def test_main_street_traffic_and_pedestrians_keep_moving(run_godot, main_street_
 
 
 @pytest.fixture(scope="module")
-def island_dir(tmp_path_factory, built_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(built_scene("island"), out / "island.glb")
-    return out
+def island_dir(scene_export):
+    return scene_export("island")
 
 
 def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, island_dir):
@@ -125,6 +115,18 @@ def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, island_
             ",".join(map(str, a)), ",".join(map(str, b))))
         path = _json_line(out, "nav path: ")
         assert path["reached"] and path["end_gap"] < 0.3, (a, b, path)
+
+
+def test_island_places_report_the_player_arriving(run_godot, island_dir):
+    # Named places (geogen.places): walking out along the jetty, and standing on the lighthouse gallery.
+    def events(*args):
+        out = run_godot("--scene=island", f"--generated={island_dir}", *args, engine_args=("--fixed-fps", "60"))
+        return [json.loads(l.removeprefix("place event: ")) for l in out.splitlines() if l.startswith("place event: ")]
+
+    assert {"type": "enter", "kind": "place", "place": "on_deck", "subject": "island:jetty/on_deck",
+            "actor": "player"} in events("--spawn=0,2.9,-44.5", "--yaw=0", "--walk=3")
+    assert {"type": "enter", "kind": "place", "place": "gallery", "subject": "island:lighthouse/gallery",
+            "actor": "player"} in events("--spawn=39.5,14.4,8.2", "--walk=0.5")
 
 
 def test_island_residents_go_about_their_day(run_godot, island_dir):

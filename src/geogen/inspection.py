@@ -182,6 +182,11 @@ def _meta_summary(node: SceneNode) -> list[str]:
         out.append(f"travel → {t.get('scene')}:{t.get('spawn')} on {t.get('on')}")
     if m.get("type") == "spawn":
         out.append("spawn")
+    if m.get("type") == "place" and isinstance(m.get("place"), dict):
+        place = m["place"]
+        shape = (f"polygon ×{len(place['polygon'])}, {_num(float(place.get('height', 0)))} m high"
+                 if "polygon" in place else "box " + "×".join(_num(float(v)) for v in place.get("size", [])) + " m")
+        out.append(f"place {shape}")
     if m.get("affordances"):
         kinds = Counter(a.get("type", "?") for a in m["affordances"] if isinstance(a, dict))
         out.append("affords " + ", ".join(f"{k}×{n}" if n > 1 else k for k, n in kinds.items()))
@@ -190,7 +195,7 @@ def _meta_summary(node: SceneNode) -> list[str]:
     if m.get("furnish_report"):
         out.append(f"unmet furnishing rules: {len(m['furnish_report'])}")
     handled = SUMMARISED_META | {"room", "light", "switch", "door", "npc", "vehicle", "travel", "affordances",
-                                 "container", "interactions"}
+                                 "container", "interactions", "place"}
     rest = sorted(k for k in m if k not in handled)
     if rest:
         out.append("meta " + ",".join(rest))

@@ -58,13 +58,13 @@ const COMMANDS := {
     "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
     "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
     "capture.camera": "{mode: player|overview|follow, npc?}",
-    "events.subscribe": "{streams: [interaction, npc, room, travel, traffic]}",
+    "events.subscribe": "{streams: [interaction, npc, room, place, travel, traffic]}",
     "events.unsubscribe": "{streams?}",
 }
 ## extras.geogen keys every mesh part may carry; a node with only these isn't listed by world.query.
 const PART_KEYS := ["version", "collider", "walkable"]
 const TRACE_SECONDS := 0.25          # walk/move position samples
-const STREAMS := ["interaction", "npc", "room", "travel", "traffic"]
+const STREAMS := ["interaction", "npc", "room", "place", "travel", "traffic"]
 
 var main: Node                 # main.gd (player, world, overview, clock, switch_scene, ...)
 var port := 7878
@@ -88,6 +88,7 @@ func _ready() -> void:
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         _emit("interaction", {"asset": asset, "interaction": interaction, "state": state, "event": event}))
     world.travel_requested.connect(func(travel: Dictionary): _emit("travel", travel))
+    world.place_event.connect(func(event: Dictionary): _emit("place", event))
 
 
 func _process(_delta: float) -> void:
@@ -415,6 +416,8 @@ func _info() -> Dictionary:
             "yaw": s["yaw_deg"]}),
         "rooms": world.rooms.map(func(r): return {"id": r["id"], "type": r["type"],
             "center": _v((r["xform"] as Transform3D).origin), "size": _v(r["size"])}),
+        "places": world.places.filter(func(p): return p["kind"] == "place").map(func(p): return {"id": p["id"],
+            "uid": p["uid"], "position": _v((p["node"] as Node3D).global_position), "actors": p["actors"].keys()}),
         "npcs": world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return String(n.name)),
         "interactions": world.interactions.size(), "affordances": world.affordances.size(),
         "player_spec": main.player_spec.to_dict(), "time": _time(), "stream": world.stream_report()}

@@ -58,16 +58,15 @@ def test_city_stations_stand_clear_of_the_crossings(built_scene):
 
 
 @pytest.fixture(scope="module")
-def loop_dir(tmp_path_factory, loop_scene):
-    out = tmp_path_factory.mktemp("generated")
-    export_scene(loop_scene, out / "rail_loop_test.glb")
-    return out
+def loop_dir(scene_export):
+    return scene_export("rail_loop_test")
 
 
 def _json_line(out: str, prefix: str):
     return json.loads(next(l for l in out.splitlines() if l.startswith(prefix)).removeprefix(prefix))
 
 
+@pytest.mark.exhaustive      # five simulated minutes of two trains; test_traffic_runtime covers crossings
 def test_trains_and_traffic_share_the_crossings(run_godot, loop_dir):
     out = run_godot("--scene=rail_loop_test", f"--generated={loop_dir}", "--spawn=0,0,90",
                     "--timescale=8", "--simulate=300")

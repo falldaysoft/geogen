@@ -15,10 +15,8 @@ FAST = ("--fixed-fps", "60")   # unthrottled: frames run back to back
 
 
 @pytest.fixture(scope="module")
-def cottage_dir(tmp_path_factory):
-    out = tmp_path_factory.mktemp("generated_npc")
-    export_scene(_build_registry()["cottage"](), out / "cottage.glb")
-    return out
+def cottage_dir(scene_export):
+    return scene_export("cottage")
 
 
 def simulate(run_godot, generated, seconds, *extra, scene="cottage") -> dict:
@@ -52,11 +50,10 @@ def test_humanoid_resident_plays_clips(run_godot, cottage_dir):
     assert later["cost_us"] > 0                           # script time per physics frame
 
 
-def test_resident_sits_facing_the_seat_in_a_turned_cottage(run_godot, cottage_dir, tmp_path):
+def test_resident_sits_facing_the_seat_in_a_turned_cottage(run_godot, cottage_dir, scene_export):
     # house_plot turns the cottage to face east, so the NPC's parent is rotated: poses and
     # turns must use world headings (she used to sit sideways here, backwards on the island).
-    export_scene(_build_registry()["house_plot"](), tmp_path / "house_plot.glb")
-    sitting = simulate(run_godot, tmp_path, 20, scene="house_plot")
+    sitting = simulate(run_godot, scene_export("house_plot"), 20, scene="house_plot")
     assert (sitting["pose"], sitting["doing"]) == ("sit", "armchair#0: wait duration")
     assert sitting["pose_yaw_error"] == pytest.approx(0, abs=1)
     plain = simulate(run_godot, cottage_dir, 20)

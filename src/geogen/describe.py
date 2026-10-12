@@ -33,6 +33,7 @@ from .layout.schema import (
     PLACEMENT_KEYS,
     PRIMITIVES,
     SCENE_KEYS,
+    PLACE_KEYS,
     SLOT_KEYS,
     Key,
 )
@@ -313,6 +314,11 @@ def built_entry(node: SceneNode) -> dict[str, Any]:
     for key in ("light", "container", "clearance", "footprint", "portal", "travel"):
         if node.meta.get(key):
             out[key] = _clean(node.meta[key])
+    named = {n.meta["place"]["id"]: _clean({**{k: v for k, v in n.meta["place"].items() if k != "id"},
+                                            "position": [float(v) for v in n.transform.translation]})
+             for n in node.children if n.meta.get("type") == "place"}
+    if named:
+        out["named_places"] = named
     vehicle = node.meta.get("vehicle")
     if vehicle:
         out["vehicle"] = _clean({k: vehicle[k] for k in ("class", "max_speed", "turn_radius", "accel", "decel",
@@ -472,6 +478,7 @@ def catalogue(assets_dir: Path = ASSETS_DIR) -> dict[str, Any]:
         "part_keys": {k: _key(v) for k, v in PART_KEYS.items()},
         "asset_keys": {k: v for k, v in ASSET_KEYS.items() if not k.startswith("_")},
         "scene_keys": dict(SCENE_KEYS), "slot_keys": dict(SLOT_KEYS), "placement_keys": dict(PLACEMENT_KEYS),
+        "place_keys": dict(PLACE_KEYS),
         "anchors": ANCHORS_DOC,
         "assets": {n: e for n, e in entries.items() if e["type"] == "asset"},
         "scenes": {n: e for n, e in entries.items() if e["type"] == "scene"},
@@ -573,6 +580,7 @@ def list_text(cat: dict[str, Any]) -> str:
     lines += ["", "## Scene keys"] + _keys_text(cat["scene_keys"])
     lines += ["", "## Slot keys"] + _keys_text(cat["slot_keys"])
     lines += ["", "## Placement keys (`place: {name: {...}}`)"] + _keys_text(cat["placement_keys"])
+    lines += ["", "## Place keys (`places:`)"] + _keys_text(cat["place_keys"])
     lines += ["", "## Assets (`asset: <file>`; params with defaults)"]
     for category, entries in by_category(cat["assets"]).items():
         lines.append(f"[{category}]")
@@ -659,6 +667,11 @@ def facts(entry: dict[str, Any]) -> list[tuple[str, list[str]]]:
     for key in ("light", "container", "clearance", "portal", "travel", "vehicle"):
         if entry.get(key):
             out.append((key, [", ".join(f"{k} {_value(v)}" for k, v in entry[key].items())]))
+    if entry.get("named_places"):
+        out.append(("named places", [
+            f"{n}: " + (f"polygon of {len(p['polygon'])} points, {_value(p['height'])} m high" if "polygon" in p
+                        else "box " + " x ".join(_value(v) for v in p["size"]) + " m") + f" at {_vec(p['position'])}"
+            for n, p in entry["named_places"].items()]))
     if entry.get("poses"):
         out.append(("poses", [", ".join(entry["poses"])]))
     if entry.get("clips"):
@@ -871,7 +884,7 @@ def primitives_page(cat: dict[str, Any]) -> str:
 def vocabulary_page(cat: dict[str, Any]) -> str:
     lines = ["# Vocabulary", ""]
     for title, key in (("Asset keys", "asset_keys"), ("Scene keys", "scene_keys"), ("Slot keys", "slot_keys"),
-                       ("Placement keys", "placement_keys")):
+                       ("Placement keys", "placement_keys"), ("Place keys", "place_keys")):
         lines += [f"## {title}", ""] + _keys_table(cat[key])
     lines += ["## Kinds", "", "Data files with a top-level `kind:`.", ""]
     for kind, spec in cat["kinds"].items():
