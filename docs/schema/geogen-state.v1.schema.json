@@ -47,7 +47,7 @@
       }
     },
     "signals": {
-      "description": "Named outputs, keyed '<thing id>#<signal>'. Each is the signal event {type: signal, subject, name}. With `from`, the runtime raises it whenever an event matching `from` is processed (as a rule with that `on` and one emit effect would); without, an interaction of the subject already emits it.",
+      "description": "Named outputs, keyed '<thing id>#<signal>'. Each is the signal event {type: signal, subject, name}. With `from`, the runtime raises it whenever an event matching `from` is processed (as a rule with that `on` and one emit effect would); without, the world raises it: an interaction of the subject emits it, or the subject is an NPC that raises it when an actor greets it.",
       "type": "object",
       "propertyNames": {"$ref": "#/$defs/instanceKey"},
       "additionalProperties": {

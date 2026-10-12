@@ -9,8 +9,9 @@ extends Node
 ##
 ## Types rules can trigger on:
 ##   signal   a thing raised `name`: an interaction arriving at a state with an
-##            emit, a refused use ("locked"), or one the rules program raises (a rule's
-##            emit, a signal an asset declares)
+##            emit, a refused use ("locked"), an NPC an actor greeted ("greeted", from
+##            the NPC, with the greeter as the actor), or one the rules program raises
+##            (a rule's emit, a signal an asset declares)
 ##   changed  state took a new value: `key`, data.from, data.to
 ##   use      an actor used an interaction (`name`), before it moves
 ##   enter, leave   an actor entered or left a place or room (data.kind, data.place)

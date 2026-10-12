@@ -30,7 +30,11 @@ proves the scene it runs through still works.
 
 A quest is a `kind: quest` file in `assets/quests/`. A scene lists the ones it
 contributes with `quests: [quests/lighthouse_gallery.yaml]`; they belong to the
-package being exported, and references in them resolve from that scene.
+package being exported, and references in them resolve from that scene. A
+quest belongs to one placed scene, so a scene that is also nested in others
+(the cottage, twice on the island) lists its quest as
+`{file: quests/lights_out.yaml, if: "{quest}"}` and the scenes that nest it
+pass `quest: 0`.
 
 ```yaml
 kind: quest
@@ -45,7 +49,7 @@ ordered: false                 # true: each objective waits for the one before i
 objectives:
   - id: lights
     text: Switch off every light
-    done: 'all("house/[tag=light_switch]", it.switch == "off")'
+    done: 'all("house/[tag=switch.light]", it.switch == "off")'
   - id: bed
     text: Go to bed
     after: lights              # an id or a list; unordered objectives can be done in any order
@@ -72,7 +76,18 @@ rewards:
 
 **Effects** that other content uses to drive a quest: `{start_quest: id}`,
 `{fail_quest: id}`, `{complete_objective: quest.objective}`. A rule on any event
-can give a quest (E on an NPC, entering a place, another quest's rewards).
+can give a quest (entering a place, another quest's rewards). An NPC gives one
+when the player greets it (E): the NPC raises the signal `greeted` with the
+greeter as the actor ([rules.md](rules.md), "Events"), and a scene rule starts
+the quest:
+
+```yaml
+rules:
+  - id: give_lights_out
+    on: {signal: resident.greeted, actor: player}
+    do: [{start_quest: lights_out}]
+```
+
 `start: auto` covers the tutorial and intro case.
 
 **Markers** come from each objective's subject: the place or thing of its
@@ -159,7 +174,8 @@ and quests" and "HUD"); the rest is planned.
 
 - **Console** (15.2): `quest event: {...}` on every quest and objective
   transition, `--quests` and the control API's `quests.list` dump every deployed
-  quest and its state per actor. Markers are printed.
+  quest and its state per actor, with `progress: [n, of]` evaluated now for an
+  objective that counts ("2 of 3 lights"). Markers are printed.
 - **Tracker** (15.10): the HUD (`scripts/hud.gd`, a layer later panels join) has a
   quest tracker in the top-right corner: the tracked quest's title, its open
   and done objectives and their progress counts ("3 of 5"), read from the same
@@ -183,7 +199,7 @@ in Godot.
 | Quest | Scene | Exercises |
 |---|---|---|
 | Go there: climb to the lighthouse gallery (15.3) | island | places, actor state, a marker, `start: auto` |
-| Change the world: switch off every light (15.4) | cottage | conditions over interaction state, a selector, progress, a quest given by an NPC |
+| Change the world: switch off every light (15.4) | cottage (`quests/lights_out.yaml`) | conditions over interaction state, a selector, progress, a quest given by an NPC |
 | Ordered, across scenes: hub to the jetty and back (15.5) | hub + island | travel events, state surviving a scene switch, markers at portals |
 | Timed, can fail: be on the platform before the train leaves (15.6) | level_crossing | clock conditions, `failed`, events from trains |
 | Fetch and deliver: the room key and the parcel (15.7) | hotel_showcase | items, an NPC giver, giving to an NPC |
@@ -205,8 +221,9 @@ in Godot.
 | Content packages (quests that span scenes) | 3.10 | open |
 | Runtime quests: `quest event:`, `--quests`, `quests.list`, markers as data | 15.2 | done |
 | The lighthouse quest, the first archetype, in Godot | 15.3 | done: walked from the spawn to the gallery with the real body, and the reference evaluator, fed the runtime's place events, ends in the same state (`tests/test_quests_runtime.py`) |
+| The lights-out quest, given by greeting the cottage's resident | 15.4 | runs in the evaluator (`tests/test_quests.py`) and in Godot over the control API (`tests/test_quests_runtime.py`): greeted, three real switches, the count rising, complete |
 | HUD layer and quest tracker (`scripts/hud.gd`, `scripts/hud_quest_tracker.gd`, `hud.quests`) | 15.10 | done (`tests/test_hud_runtime.py`) |
-| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.4 to 15.13 | open |
+| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5 to 15.13 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

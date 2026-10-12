@@ -84,7 +84,11 @@ the manifest and chunk index (schema `docs/schema/geogen-state.v1.schema.json`):
 - A **signal** is the event `{type: signal, subject, name}`. One with `from` is
   raised whenever an event matching `from` is processed, exactly as a rule
   `{on: <from>, do: [{emit: name, subject}]}` placed before every other rule
-  would (`Declarations.signal_rules`). One without is an interaction's own emit.
+  would (`Declarations.signal_rules`). One without is raised by the world: an
+  interaction's own emit, or an NPC being greeted.
+- An NPC that can be greeted (`attention.greet` in its definition, on by
+  default) offers the signal `greeted` with no declaration: `signal` under
+  `attention.greet` renames it. See "Events".
 - An **input** is an effect: driving it sets `set` to `to`.
 
 A declaration that clashes, or a signal or input naming state, an emit or a
@@ -116,13 +120,21 @@ An event is `{type, subject, name, actor, data}`. `subject` is a stable ID,
 
 | Type | Meaning |
 |---|---|
-| `signal` | a thing raised `name`: an interaction arriving at a state with `emit`, an asset's declared signal, or a rule's `emit` |
+| `signal` | a thing raised `name`: an interaction arriving at a state with `emit`, an asset's declared signal, a rule's `emit`, or an NPC being greeted |
 | `changed` | a variable took a new value: `key`, `data.from`, `data.to` |
 | `use` | an actor used an interaction, before it moves |
 | `enter`, `leave` | an actor entered or left a place or room (`subject`: its ID). An actor who sits or lies down there has not left |
 | `travel` | an actor travelled to another scene or spawn |
 | `clock` | dusk or dawn: `name` is `night` or `day`. Never has an actor |
 | `start` | a new game began for an actor |
+
+**Greeting an NPC** (the player pressing E on one) is the signal `greeted`
+from the NPC, with the greeter as the actor: `{type: signal, subject:
+"cottage:resident", name: "greeted", actor: "player"}`. It is raised when the
+NPC takes the greeting, so not while it is sitting, away or inside its
+greeting cooldown. This is how an NPC gives a quest: a rule
+`{on: {signal: resident.greeted, actor: player}, do: [{start_quest: ...}]}`.
+There is no separate "talk" event until dialogue needs one.
 
 An event caused by a rule carries the actor of the event that triggered the
 rule. So "the player pulled the lever, which opened the gate" keeps the player
@@ -233,6 +245,7 @@ rules:
       - {start_quest: lights_out}       # also fail_quest, complete_objective (quests.md)
     after: 2
     once: true
+    if: "{quests}"                      # build time: see below
 wire:
   - {from: lever.pulled, to: gate.open}     # a declared signal drives a declared input
 bind:
@@ -250,8 +263,15 @@ bind:
   quests, so a rule that gives a quest runs before that quest's objectives.
 - A rule's id is its `id`, or `rule_<n>` / `wire_<n>`; below the package's own
   scene it is prefixed with the owner's ID (`yard:plate#step_off`).
-- Mistakes fail the export with file and line: an unknown signal, input, state
-  or quest, an event that isn't one, and everything `check_program` rejects.
+- **`if:`** on a rule or a wire is a param expression (`"{quest}"`), resolved
+  when the file is loaded: when it is 0, false or "" the entry is left out of
+  the build. A rule's `when:` is its condition at run time, hence the other
+  word. A `quests:` entry takes it too (`{file: quests/name.yaml, if: "{quest}"}`).
+  A scene that is also nested in bigger ones uses it to give its quest only
+  when it is the scene being played: the cottage's `quest` param.
+- Mistakes fail the export with file and line: an unknown signal or one the
+  thing never raises (`{signal: lever.pushed}`), an unknown input, state or
+  quest, an event that isn't one, and everything `check_program` rejects.
 
 Not built: `when:` on an interaction (a condition to use it), and rules that
 reach into another package (geogen.3.10).
@@ -276,5 +296,5 @@ and run it to rewrite the JSON.
 | `time` | delayed rules, a self-closing door, locks, the clock, timers in a save |
 | `cascades` | the order rules run in, and a loop being cut off |
 | `quest_go_there` | quests ([quests.md](quests.md)) that start with the game; an event objective, a counted one, a save mid-quest |
-| `quest_change_the_world` | a quest given by a rule; a condition over a selector, `after`, an optional objective, rewards |
+| `quest_change_the_world` | a quest given by a rule when the player (not an NPC) greets someone; a condition over a selector, `after`, an optional objective, rewards |
 | `quest_timed` | availability and failure from the clock; one actor completes and another fails |

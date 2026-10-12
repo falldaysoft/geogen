@@ -24,7 +24,7 @@ city:
   buildings:                         # recipes are sized to each lot; interior: full | lobby | shell
     residential:
       - { recipe: detached_house, storeys: [1, 2], style: [brick_hotel, stucco], weight: 3 }
-      - { scene: scenes/cottage.yaml, params: { hub_portal: 0 } }
+      - { scene: scenes/cottage.yaml, params: { hub_portal: 0, quest: 0 } }
     commercial:
       - { recipe: shop_row, storeys: [2, 3], interior: lobby, style: [stucco, brick_hotel], weight: 3 }
       - { recipe: office, storeys: [3, 4], interior: shell, max_width: 14 }

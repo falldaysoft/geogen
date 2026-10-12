@@ -925,6 +925,7 @@ func _spawn_npcs(root: Node) -> void:
         npc.trace_enabled = npc_trace
         var actor := actor_id(npc)
         npc.traced.connect(func(event: Dictionary): events.post("npc", actor, str(event.get("event", "")), actor, event))
+        npc.greeted.connect(func(signal_name: String, by: String): events.post("signal", actor, signal_name, by))
         rules.add_actor(actor, "npc")
         if spec != null:
             npc.step_height = spec.step_height

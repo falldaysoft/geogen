@@ -1,6 +1,6 @@
 {
  "name": "quest_change_the_world",
- "about": "A quest given by a rule: a condition over every light, then an objective that waits for it, an optional one, a reward.",
+ "about": "A quest given by a rule when the player greets an NPC: a condition over every light, then an objective that waits for it, an optional one, a reward.",
  "quests": {
   "lights_out": {
    "title": "Lights out",
@@ -155,7 +155,8 @@
     "on": {
      "type": "signal",
      "subject": "demo:resident",
-     "name": "greeted"
+     "name": "greeted",
+     "actor": "player"
     },
     "do": [
      {
@@ -456,6 +457,9 @@
  "actors": {
   "player": {
    "kind": "player"
+  },
+  "npc:visitor": {
+   "kind": "npc"
   }
  },
  "steps": [
@@ -471,9 +475,20 @@
    }
   },
   {
+   "event": {
+    "type": "signal",
+    "subject": "demo:resident",
+    "name": "greeted",
+    "actor": "npc:visitor"
+   }
+  },
+  {
    "expect": {
     "actors": {
      "player": {
+      "actor:demo.quest_lights_out": "available"
+     },
+     "npc:visitor": {
       "actor:demo.quest_lights_out": "available"
      }
     },

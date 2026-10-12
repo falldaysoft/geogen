@@ -252,6 +252,12 @@ class LayoutLoader:
         root.tags = list(data.get("tags", []))
         if data.get("light"):
             root.meta["light"] = light_spec(data["light"])
+        if data.get("switch"):
+            spec = data["switch"]
+            if not isinstance(spec, dict) or set(spec) != {"light"}:
+                raise ValueError(f"{name}: switch is {{light: <the light fixture's name>}}, got {spec!r}")
+            if str(spec["light"]):          # "": a switch that isn't wired to anything
+                root.meta["switch"] = {"light": str(spec["light"])}
         if data.get("container"):
             spec = data["container"]
             root.meta["container"] = {"capacity": int(spec.get("capacity", 1)),

@@ -13,6 +13,7 @@ Three keys, in a scene or an asset (``docs/rules.md`` has the semantics)::
           - {start_quest: lights_out}       # also fail_quest, complete_objective
         after: 2                            # seconds before the effects run
         once: true                          # once per actor (once in all with no actor)
+        if: "{quests}"                      # build time: no such rule when the param is 0 (wires too)
     wire:
       - {from: lever.pulled, to: gate.open}     # a signal drives an input (`value`, `when`, `after` too)
     bind:
@@ -43,8 +44,8 @@ from .core.node import SceneNode
 
 META = "wiring"                   # node.meta key the loaders record wiring under
 KEYS = ("rules", "wire", "bind")
-RULE_KEYS = {"id", "on", "when", "do", "after", "once"}
-WIRE_KEYS = {"from", "to", "value", "when", "after"}
+RULE_KEYS = {"id", "on", "when", "do", "after", "once", "if"}
+WIRE_KEYS = {"from", "to", "value", "when", "after", "if"}
 RULE_EVENTS = {
     "enter": "an actor enters this place or room (a reference)",
     "leave": "an actor leaves this place or room",
@@ -113,12 +114,16 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             if unknown:
                 compiler.bad(src.where(*at), f"unknown keys {sorted(unknown)}. Keys: {', '.join(sorted(RULE_KEYS))}")
                 continue
+            if not built(rule):
+                continue
             out: dict[str, Any] = {"id": f"{prefix}{rule.get('id', f'rule_{index + 1}')}"}
             if "on" in rule:
                 on = attempt(src.where(*at, "on"), lambda: _event(compiler, src, rule["on"]))
                 if on is None:
                     continue
                 out["on"] = on
+                if on["type"] == "signal":
+                    compiler.listening.append((src.where(*at, "on"), on))
             elif "when" not in rule:
                 compiler.bad(src.where(*at), "a rule needs on: (an event) or when: (a condition to watch)")
                 continue
@@ -144,6 +149,8 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 compiler.bad(src.where(*at), f"a wire is {{from: <thing>.<signal>, to: <thing>.<input>}} "
                                              f"(also value, when, after)" + (f"; unknown {sorted(unknown)}" if unknown else ""))
                 continue
+            if not built(wire):
+                continue
             on = attempt(src.where(*at, "from"), lambda: _signal(compiler, src, wire["from"]))
             effect = {"input": wire["to"], **({"value": wire["value"]} if "value" in wire else {})}
             do = compiler.effects(src, [effect], *at, "to")
@@ -168,6 +175,12 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             if key is not None and tree is not None:
                 bindings.append({"set": key, "to": tree})
     return rules, bindings
+
+
+def built(entry: dict[str, Any]) -> bool:
+    """Whether a rule, wire or ``quests:`` entry is part of this build: its ``if:`` (a param
+    expression, resolved when the file was loaded) isn't 0, false or ""."""
+    return entry.get("if", True) not in (False, 0, "", None)
 
 
 def _event(compiler: Any, src: Any, spec: Any) -> dict[str, Any]:
