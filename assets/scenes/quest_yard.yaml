@@ -1,0 +1,99 @@
+# A plaza for trying quests and the quest HUD (docs/quests.md).
+#   The round  - starts with the game: three plinths in order, and an optional detour.
+#   Lamps out  - greet the steward (E): three switches at the board (a count), then report back.
+#   The dash   - step onto the start square: reach the finish square within six seconds, or fail.
+# Progress lasts for the session: restart the runtime to play them again.
+# The portal on the north side leads back to the hub.
+
+name: quest_yard
+size: [30, 4, 30]
+tags: [showcase.quests]
+
+quests: [quests/yard_round.yaml, quests/yard_lamps.yaml, quests/yard_dash.yaml]
+
+rules:
+  - id: give_lamps
+    on: { signal: steward.greeted, actor: player }
+    do: [{ start_quest: yard_lamps }]
+  - id: give_dash
+    on: { enter: start_line, actor: player }
+    do: [{ start_quest: yard_dash }]
+  - id: dash_time_up              # no harm once it is complete: only an active quest fails
+    on: { enter: start_line, actor: player }
+    after: 6
+    do: [{ fail_quest: yard_dash }]
+
+places:
+  marker_1: { box: [3, 2.4, 3], position: [9, 0.1, 2] }
+  marker_2: { box: [3, 2.4, 3], position: [6.5, 0.1, -6.5] }
+  marker_3: { box: [3, 2.4, 3], position: [-1, 0.1, -9.5] }
+  behind_portal: { box: [4, 2.4, 1.6], position: [0, 0.1, 11.4] }
+  start_line: { box: [2.4, 2.4, 2.4], position: [-10, 0.1, 3] }
+  finish_line: { box: [2.4, 2.4, 2.4], position: [-5.5, 0.1, -9.3] }
+
+spawns:
+  start: { position: [0, 0.1, 6.5], facing: south }
+  from_hub: { position: [0, 0.1, 7.5], facing: south }      # in front of the hub portal, looking into the yard
+
+slots:
+  hub_portal: { position: [0, 0.1, 10.2], facing: south }
+  name: { position: [2.6, 0.1, 5.2], facing: north }
+  marker_1: { position: [10.6, 0.1, 2], facing: west }
+  marker_2: { position: [6.5, 0.1, -8.1], facing: north }
+  marker_3: { position: [-1, 0.1, -11.05], facing: north }
+  start_sign: { position: [-10, 0.1, 4.7], facing: south }
+  finish_sign: { position: [-5.5, 0.1, -11], facing: north }
+  board: { position: [-6.5, 0.1, -3], facing: north }
+  switch_1: { position: [-6.95, 1.25, -2.97], facing: north }
+  switch_2: { position: [-6.5, 1.25, -2.97], facing: north }
+  switch_3: { position: [-6.05, 1.25, -2.97], facing: north }
+  lamp_1: { position: [-8.6, 0.1, -3.4] }
+  lamp_2: { position: [-4.4, 0.1, -3.4] }
+  lamp_3: { position: [-6.5, 0.1, -4.6] }
+  steward: { position: [-4, 0.1, 0], facing: north }
+  pad_1: { position: [9, 0.1, 2] }
+  pad_2: { position: [6.5, 0.1, -6.5] }
+  pad_3: { position: [-1, 0.1, -9.5] }
+  pad_start: { position: [-10, 0.1, 3] }
+  pad_finish: { position: [-5.5, 0.1, -9.3] }
+
+place:
+  plaza:
+    asset: plaza.yaml
+
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_quests }
+
+  name_plinth: { asset: info_plinth.yaml, slot: name, params: { label: "Quest\nYard" } }
+  plinth_1: { asset: info_plinth.yaml, slot: marker_1, params: { label: "1", letter: 0.3 } }
+  plinth_2: { asset: info_plinth.yaml, slot: marker_2, params: { label: "2", letter: 0.3 } }
+  plinth_3: { asset: info_plinth.yaml, slot: marker_3, params: { label: "3", letter: 0.3 } }
+  start_plinth: { asset: info_plinth.yaml, slot: start_sign, params: { label: Start } }
+  finish_plinth: { asset: info_plinth.yaml, slot: finish_sign, params: { label: Finish } }
+
+  # Painted squares where the places are.
+  pad_1: { asset: floor_pad.yaml, slot: pad_1 }
+  pad_2: { asset: floor_pad.yaml, slot: pad_2 }
+  pad_3: { asset: floor_pad.yaml, slot: pad_3 }
+  pad_start: { asset: floor_pad.yaml, slot: pad_start }
+  pad_finish: { asset: floor_pad.yaml, slot: pad_finish }
+
+  # Three lamps and the board their switches are on.
+  board: { asset: switch_board.yaml, slot: board }
+  lamp_1: { asset: floor_lamp.yaml, slot: lamp_1 }
+  lamp_2: { asset: floor_lamp.yaml, slot: lamp_2 }
+  lamp_3: { asset: floor_lamp.yaml, slot: lamp_3 }
+  switch_1: { asset: light_switch.yaml, slot: switch_1, params: { light: lamp_1 } }
+  switch_2: { asset: light_switch.yaml, slot: switch_2, params: { light: lamp_2 } }
+  switch_3: { asset: light_switch.yaml, slot: switch_3, params: { light: lamp_3 } }
+
+  # The steward gives "Lamps out" when greeted and keeps to the middle of the yard
+  # (nothing to sit on: a seated NPC can't be greeted).
+  steward:
+    npc: npcs/resident.yaml
+    slot: steward
+    home: { rect: [-7, -2, 1, 3] }
+    seed: 4

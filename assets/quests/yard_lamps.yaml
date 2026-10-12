@@ -1,0 +1,14 @@
+# Lamps out: the steward of the quest yard gives it when greeted. Switch off
+# the three lamps at the board (a counted objective), then tell the steward.
+kind: quest
+version: 1
+title: Lamps out
+description: The steward wants the three lamps by the board switched off.
+objectives:
+  - id: lamps
+    text: Switch off every lamp at the board
+    done: 'all("[tag=switch.light]", it.switch == "off")'
+  - id: report
+    text: Tell the steward it's done
+    after: lamps
+    done: { signal: steward.greeted }

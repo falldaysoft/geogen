@@ -15,7 +15,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [hotel_room_auto](#hotel_room_auto) | The hotel suite furnished automatically from its rooms' archetypes (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand). | test |
 | [hotel_showcase](#hotel_showcase) | The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors, stairs and a working lift) on a short street: a paved forecourt with lamps, benches and planters, taxis waiting at the kerb, a receptionist at the desk, guests upstairs, people strolling past, and a travel door back to the hub. | showcase |
 | [house_plot](#house_plot) | House plot - a yard with a house. |  |
-| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side (angles from -Z: +-84, 24 degrees apart, for eight portals; re-space them when a showcase is added). | showcase |
+| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side (angles from -Z: +-84, 21 degrees apart, for nine portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
 | [island](#island) | The island showcase: a small island in the sea. | showcase |
@@ -23,6 +23,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
+| [quest_yard](#quest_yard) | A plaza for trying quests and the quest HUD (docs/quests.md). | showcase |
 | [rail_loop_test](#rail_loop_test) | Test scene for city exits and a loop railway: a 2 x 2 grid whose avenues run on out of town across a railway looping round it (four level crossings), two stations on the straights and two trains. | test |
 | [restaurant](#restaurant) | The restaurant showcase: assets/restaurant_building.yaml on a street corner. | showcase |
 | [room_with_furniture](#room_with_furniture) | Room with furniture - demonstrates nested scene composition. |  |
@@ -188,17 +189,17 @@ Contains a yard (ground) and a house
 `scene: scenes/hub.yaml` · [source](../../assets/scenes/hub.yaml)
 
 The hub: a round plaza with one labelled portal per showcase scene, spread
-evenly round the far (-Z) side (angles from -Z: +-84, 24 degrees apart, for eight portals;
+evenly round the far (-Z) side (angles from -Z: +-84, 21 degrees apart, for nine portals;
 re-space them when a showcase is added). Each portal lands at its scene's
 `from_hub` spawn, and every showcase has a portal or travel door back here
 that lands in front of its own portal (`from_<name>`). It's the runtime
 catalogue's default scene; tests/test_hub.py checks the round trips.
 
-**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
+**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
 
-**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_hotel, portal_island, portal_main_street, portal_park, portal_restaurant, portal_town, sign
+**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_hotel, portal_island, portal_main_street, portal_park, portal_quests, portal_restaurant, portal_town, sign
 
-**Spawns**: from_city, from_cottage, from_hotel, from_island, from_main_street, from_park, from_restaurant, from_town, start
+**Spawns**: from_city, from_cottage, from_hotel, from_island, from_main_street, from_park, from_quests, from_restaurant, from_town, start
 
 ## humanoid_lineup
 
@@ -301,6 +302,27 @@ colours, skin tones and outfits. The cottage places it on the front lawn; faces 
 **Places**: `petite_bob: {asset: characters/humanoid.yaml}`; `slim_ponytail: {asset: characters/humanoid.yaml}`; `curvy_long: {asset: characters/humanoid.yaml}`; `tall_bun: {asset: characters/humanoid.yaml}`; `heavy_crop_f: {asset: characters/humanoid.yaml}`; `lanky_buzz: {asset: characters/humanoid.yaml}`; `athletic_crop: {asset: characters/humanoid.yaml}`; `stocky_bald: {asset: characters/humanoid.yaml}`; `heavy_grey: {asset: characters/humanoid.yaml}`; `tall_long_m: {asset: characters/humanoid.yaml}`; `hourglass: {asset: characters/humanoid.yaml}`
 
 **Slots**: athletic_crop, curvy_long, heavy_crop_f, heavy_grey, hourglass, lanky_buzz, petite_bob, slim_ponytail, stocky_bald, tall_bun, tall_long_m
+
+## quest_yard
+
+`scene: scenes/quest_yard.yaml` · [source](../../assets/scenes/quest_yard.yaml)
+
+A plaza for trying quests and the quest HUD (docs/quests.md).
+
+```yaml
+The round  - starts with the game: three plinths in order, and an optional detour.
+Lamps out  - greet the steward (E): three switches at the board (a count), then report back.
+The dash   - step onto the start square: reach the finish square within six seconds, or fail.
+```
+
+Progress lasts for the session: restart the runtime to play them again.
+The portal on the north side leads back to the hub.
+
+**Places**: `plaza: {asset: plaza.yaml}`; `hub_portal: {asset: portal.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `plinth_1: {asset: info_plinth.yaml}`; `plinth_2: {asset: info_plinth.yaml}`; `plinth_3: {asset: info_plinth.yaml}`; `start_plinth: {asset: info_plinth.yaml}`; `finish_plinth: {asset: info_plinth.yaml}`; `pad_1: {asset: floor_pad.yaml}`; `pad_2: {asset: floor_pad.yaml}`; `pad_3: {asset: floor_pad.yaml}`; `pad_start: {asset: floor_pad.yaml}`; `pad_finish: {asset: floor_pad.yaml}`; `board: {asset: switch_board.yaml}`; `lamp_1: {asset: floor_lamp.yaml}`; `lamp_2: {asset: floor_lamp.yaml}`; `lamp_3: {asset: floor_lamp.yaml}`; `switch_1: {asset: light_switch.yaml}`; `switch_2: {asset: light_switch.yaml}`; `switch_3: {asset: light_switch.yaml}`; `steward: {npc: npcs/resident.yaml}`
+
+**Slots**: board, finish_sign, hub_portal, lamp_1, lamp_2, lamp_3, marker_1, marker_2, marker_3, name, pad_1, pad_2, pad_3, pad_finish, pad_start, start_sign, steward, switch_1, switch_2, switch_3
+
+**Spawns**: from_hub, start
 
 ## rail_loop_test
 

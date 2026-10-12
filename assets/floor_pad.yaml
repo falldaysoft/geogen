@@ -1,0 +1,24 @@
+# A painted square on the ground to stand on. It marks a quest's start line or
+# a waypoint. Origin: bottom centre; 1 cm thick, walkable, no collider.
+
+name: floor_pad
+tags: [decor.marking]
+origin: bottom_center
+
+params:
+  width: { default: 2.4 }
+  depth: { default: 2.4 }
+
+size: ["{width}", 0.01, "{depth}"]
+
+parts:
+  pad:
+    primitive: extrude
+    shape: { rect: ["{width}", "{depth}"], radius: 0.08 }
+    fit: none
+    axis: y
+    size: [1, 1, 1]
+    anchor: bottom_center
+    material: road_paint_yellow
+    walkable: true
+    collider: none

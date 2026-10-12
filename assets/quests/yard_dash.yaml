@@ -1,0 +1,10 @@
+# The dash: stepping onto the start square gives it, and a rule of the quest
+# yard fails it six seconds later unless the finish square was reached.
+kind: quest
+version: 1
+title: The dash
+description: From the start square to the finish square in six seconds.
+objectives:
+  - id: finish
+    text: Reach the finish square in time
+    done: { enter: finish_line }

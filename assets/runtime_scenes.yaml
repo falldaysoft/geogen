@@ -36,6 +36,9 @@ scenes:
   island:
     group: showcase
     description: An island in the sea - beaches and palms, a jetty and boat, cottages on the hill, a lighthouse to climb
+  quest_yard:
+    group: showcase
+    description: A plaza for trying quests and the quest HUD - an ordered round, switches to count, a timed dash
   town:
     group: showcase
     stream: true

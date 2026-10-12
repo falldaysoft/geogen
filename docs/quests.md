@@ -205,6 +205,26 @@ in Godot.
 | Fetch and deliver: the room key and the parcel (15.7) | hotel_showcase | items, an NPC giver, giving to an NPC |
 | An NPC does one: the resident switches off the lights (15.8) | cottage | NPC holders |
 
+## Trying them
+
+The quest yard (`assets/scenes/quest_yard.yaml`, the Quests portal in the hub)
+is a plaza with three quests chosen to exercise the tracker:
+
+| Quest | How it starts | Shows |
+|---|---|---|
+| The round | with the game | objectives that wait for the one before, an optional one |
+| Lamps out | greet the steward (E) | a count ("2 of 3"), then an objective that appears when it is done |
+| The dash | step onto the start square | a quest that fails: a scene rule on the same event, `after: 6`, does `fail_quest` |
+
+```bash
+python -m geogen.main -s quest_yard --export-godot
+godot --path runtime/godot -- --scene quest_yard
+```
+
+Several are active at once, so Q cycles the tracker. Progress lasts for the
+session (restart to play them again). `tests/test_quest_yard.py` plays all
+three in the evaluator and in Godot.
+
 ## Where it stands
 
 | Piece | Task | State |

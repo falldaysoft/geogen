@@ -1,0 +1,24 @@
+# The round: visit the three numbered plinths of the quest yard in order.
+# Starts with the game; each objective waits for the one before it, and the
+# detour behind the portal is optional.
+kind: quest
+version: 1
+title: The round
+description: Walk to plinths 1, 2 and 3 in turn.
+start: auto
+objectives:
+  - id: first
+    text: Walk to plinth 1
+    done: { enter: marker_1 }
+  - id: second
+    text: Walk to plinth 2
+    after: first
+    done: { enter: marker_2 }
+  - id: third
+    text: Walk to plinth 3
+    after: second
+    done: { enter: marker_3 }
+  - id: detour
+    text: Look behind the hub portal
+    optional: true
+    done: { enter: behind_portal }

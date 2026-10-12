@@ -1,0 +1,33 @@
+# A board on two posts for wall switches.
+# Origin: bottom centre; the face is on +Z (switches go on z = depth / 2).
+
+name: switch_board
+tags: [decor.board]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  { default: 1.6 }
+  height: { default: 1.7 }     # top of the panel
+  panel:  { default: 0.8 }     # panel height
+  depth:  { default: 0.06 }
+
+parts:
+  panel:
+    primitive: cube
+    size: ["{width}", "{panel}", "{depth}"]
+    anchor: bottom_center
+    offset: [0, "{height - panel}", 0]
+    bevel: 0.01
+    material: wood
+  post_left: &post
+    primitive: cube
+    size: [0.08, "{height - 0.02}", 0.08]
+    anchor: bottom_center
+    offset: ["{-(width / 2 - 0.12)}", 0, "{-(depth / 2 + 0.04)}"]
+    bevel: 0.008
+    material: lamp_iron
+  post_right:
+    <<: *post
+    offset: ["{width / 2 - 0.12}", 0, "{-(depth / 2 + 0.04)}"]

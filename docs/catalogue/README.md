@@ -120,8 +120,12 @@ place:
 <table>
 <tr>
 <td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
+<td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
+<td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
 </tr>
 </table>
@@ -129,8 +133,10 @@ place:
 | Asset | What it is | Params |
 | --- | --- | --- |
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
+| [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
+| [switch_board](assets/switch_board.md) | A board on two posts for wall switches. | `width`, `height`, `panel`, `depth` |
 | [wall_art](assets/wall_art.md) | Framed print for a wall. | `width`, `height`, `frame`, `mat` |
 
 ## Shops and restaurants

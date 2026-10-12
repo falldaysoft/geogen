@@ -23,7 +23,9 @@ To export every runtime scene at once, use the scene catalogue
 `generated/catalogue.json`. Started without `--scene`, the runtime loads the
 catalogue's `default` scene: the hub (`scenes/hub.yaml`), a plaza with a
 portal to every showcase scene, each of which has a portal or travel door
-back. Point `default` at whatever you're working on and run
+back. Its Quests portal leads to the quest yard (`scenes/quest_yard.yaml`):
+three quests for trying the quest HUD (see "Trying them" in `docs/quests.md`).
+Point `default` at whatever you're working on and run
 `python -m geogen.main --catalogue` to rewrite the index.
 
 ## Switching scenes

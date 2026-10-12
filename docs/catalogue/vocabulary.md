@@ -215,6 +215,9 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | --- | --- |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 | [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |
+| [quests/yard_dash.yaml](../../assets/quests/yard_dash.yaml) | The dash: stepping onto the start square gives it, and a rule of the quest yard fails it six seconds later unless the finish square was reached. |
+| [quests/yard_lamps.yaml](../../assets/quests/yard_lamps.yaml) | Lamps out: the steward of the quest yard gives it when greeted. |
+| [quests/yard_round.yaml](../../assets/quests/yard_round.yaml) | The round: visit the three numbered plinths of the quest yard in order. |
 
 ### scene_catalogue
 

@@ -1,5 +1,5 @@
 # The hub: a round plaza with one labelled portal per showcase scene, spread
-# evenly round the far (-Z) side (angles from -Z: +-84, 24 degrees apart, for eight portals;
+# evenly round the far (-Z) side (angles from -Z: +-84, 21 degrees apart, for nine portals;
 # re-space them when a showcase is added). Each portal lands at its scene's
 # `from_hub` spawn, and every showcase has a portal or travel door back here
 # that lands in front of its own portal (`from_<name>`). It's the runtime
@@ -12,22 +12,24 @@ tags: [showcase.hub]
 spawns:
   start: { position: [0, 0.1, 7.5], facing: south }      # facing the plinth and the portals
   from_cottage: { position: [-6.96, 0.1, -0.73], facing: center }
-  from_hotel: { position: [-6.06, 0.1, -3.5], facing: center }
-  from_restaurant: { position: [-4.11, 0.1, -5.66], facing: center }
-  from_main_street: { position: [-1.46, 0.1, -6.85], facing: center }
-  from_city: { position: [1.46, 0.1, -6.85], facing: center }
-  from_town: { position: [4.11, 0.1, -5.66], facing: center }
-  from_park: { position: [6.06, 0.1, -3.5], facing: center }
+  from_hotel: { position: [-6.24, 0.1, -3.18], facing: center }
+  from_restaurant: { position: [-4.68, 0.1, -5.2], facing: center }
+  from_main_street: { position: [-2.51, 0.1, -6.54], facing: center }
+  from_quests: { position: [0.0, 0.1, -7.0], facing: center }
+  from_city: { position: [2.51, 0.1, -6.54], facing: center }
+  from_town: { position: [4.68, 0.1, -5.2], facing: center }
+  from_park: { position: [6.24, 0.1, -3.18], facing: center }
   from_island: { position: [6.96, 0.1, -0.73], facing: center }
 
 slots:
   portal_cottage: { position: [-9.75, 0.1, -1.02], facing: center }
-  portal_hotel: { position: [-8.49, 0.1, -4.9], facing: center }
-  portal_restaurant: { position: [-5.76, 0.1, -7.93], facing: center }
-  portal_main_street: { position: [-2.04, 0.1, -9.59], facing: center }
-  portal_city: { position: [2.04, 0.1, -9.59], facing: center }
-  portal_town: { position: [5.76, 0.1, -7.93], facing: center }
-  portal_park: { position: [8.49, 0.1, -4.9], facing: center }
+  portal_hotel: { position: [-8.73, 0.1, -4.45], facing: center }
+  portal_restaurant: { position: [-6.56, 0.1, -7.28], facing: center }
+  portal_main_street: { position: [-3.51, 0.1, -9.15], facing: center }
+  portal_quests: { position: [0.0, 0.1, -9.8], facing: center }
+  portal_city: { position: [3.51, 0.1, -9.15], facing: center }
+  portal_town: { position: [6.56, 0.1, -7.28], facing: center }
+  portal_park: { position: [8.73, 0.1, -4.45], facing: center }
   portal_island: { position: [9.75, 0.1, -1.02], facing: center }
   centre: { position: [0, 0.1, 0], facing: north }
   sign: { position: [5.2, 0.1, 5.6], facing: north }   # beside the start, clear of the view to the portals
@@ -39,7 +41,7 @@ slots:
   bench_w: { position: [-5.6, 0.1, 3.2], facing: center }
   planter_e: { position: [10.2, 0.1, 6.0], facing: center }
   planter_w: { position: [-10.2, 0.1, 6.0], facing: center }
-  planter_se: { position: [0, 0.1, -11.3], facing: center }
+  planter_se: { position: [0, 0.1, 11.6], facing: center }
   planter_ne: { position: [3.0, 0.1, 10.8], facing: center }
   planter_nw: { position: [-3.0, 0.1, 10.8], facing: center }
 
@@ -76,6 +78,12 @@ place:
     params: { label: Main Street, plaque: 3.2 }
     travel: { scene: main_street, spawn: from_hub }
 
+  portal_quests:
+    asset: portal.yaml
+    slot: portal_quests
+    params: { label: Quests }
+    travel: { scene: quest_yard, spawn: from_hub }
+
   portal_city:
     asset: portal.yaml
     slot: portal_city
@@ -103,7 +111,7 @@ place:
   signpost:
     asset: signpost.yaml
     slot: sign
-    params: { arm1: Restaurant, dir1: 219, arm2: Main Street, dir2: 205, arm3: City, dir3: 192, arm4: Town, dir4: 178 }   # a signpost has four arms: the middle four portals
+    params: { arm1: Main Street, dir1: 211, arm2: Quests, dir2: 199, arm3: City, dir3: 187, arm4: Town, dir4: 174 }   # a signpost has four arms: four of the middle portals
 
   lamp_e: { asset: street_lamp.yaml, slot: lamp_e }
   lamp_w: { asset: street_lamp.yaml, slot: lamp_w }
