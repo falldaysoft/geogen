@@ -1,0 +1,30 @@
+# NPCs on a spiral stair (test). The lighthouse with two keepers whose homes
+# are at the other end of the stair from where they start: the keeper starts
+# on the ground and lives on the gallery deck, so their first walk climbs the
+# stair; the lookout starts on the gallery and lives on the ground in front of
+# the door, so theirs comes down it.
+
+name: lighthouse_keepers
+size: [16, 14, 16]
+
+spawns:
+  start: { position: [3.5, 0, 6.5], facing: north }
+
+slots:
+  keeper: { position: [0, 0, 5.0], facing: north }
+  lookout: { position: [2.75, 10.0, 0], facing: east }     # on the gallery, between the glazing and the railing
+
+place:
+  lighthouse:
+    asset: lighthouse.yaml
+
+  keeper:
+    npc: npcs/resident.yaml
+    slot: keeper
+    home: { rect: [-3.2, -3.2, 3.2, 3.2], y: 10.0 }        # the gallery deck
+    seed: 1
+  lookout:
+    npc: npcs/resident.yaml
+    slot: lookout
+    home: { rect: [-3.0, 3.5, 3.0, 7.5] }                  # the ground outside the door
+    seed: 2

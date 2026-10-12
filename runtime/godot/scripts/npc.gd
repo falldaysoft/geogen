@@ -28,6 +28,11 @@ const WAYPOINT_RADIUS := 0.15
 const STALL_SECONDS := 0.6        # no progress this long: sidestep
 const SIDESTEP_SECONDS := 0.4
 const FAIL_SECONDS := 4.0         # no progress this long: give up on the step
+const REPLAN_SECONDS := 1.5       # no progress this long on a detour round a character: plan again
+const MAX_REPLANS := 2            # ... this often per go_to
+const STAIR_HOLD := 2.0           # m before a stair to wait while someone is coming along it
+const STAIR_PATIENCE := 45.0      # s waiting for a stair before giving up on the step
+const LEVEL_TOLERANCE := 1.2      # characters further apart in height than this aren't in each other's way
 const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (bodies without a transition clip)
 const TRANSITION_BLEND := 0.12    # s to cross-fade into and out of a transition clip (sit_down, ...)
@@ -404,6 +409,7 @@ func _step(delta: float) -> void:
 
 func _fail(reason: String) -> void:
     _stack.clear()
+    _stair = null
     _playing = false
     if _pose != "stand":
         _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw())}, "approach")
@@ -439,6 +445,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         var target = _target(step["go_to"], ctx)
         if target == null:
             return "no %s point" % step["go_to"]
+        _replans = 0
         return _plan(target)
     if step.has("face"):
         var dir: Vector3
@@ -646,6 +653,9 @@ func _plan(target: Vector3) -> String:
     var from := NavigationServer3D.map_get_closest_point(map, global_position)
     var to := NavigationServer3D.map_get_closest_point(map, target)
     _path = NavigationServer3D.map_get_path(map, from, to, true)
+    _stairs = []
+    _stair = null
+    _stair_wait = 0.0
     _waypoint = 1
     _detour = -1
     _assertive = -1
@@ -659,7 +669,65 @@ func _plan(target: Vector3) -> String:
     if Vector2(to.x - target.x, to.z - target.z).length() > 0.8:
         return "target off the navmesh (%.1f m)" % Vector2(to.x - target.x, to.z - target.z).length()
     _use_crosswalk(map, from, to)
+    # A navigation link on the way (a spiral stair) is two points, a straight line through the
+    # stair: walk its way round instead. Last, so the reroute above sees the navmesh's own path.
+    _path = GeogenWalker.along_links(_path, get_tree(), _stairs)
     return ""
+
+
+# Stairs are walked in single file. A spiral stair's navigation link is one body wide, and two
+# NPCs meeting on it push each other off the treads: whoever gets to an end while someone is
+# coming the other way waits there, a little back from the end so the other can step off.
+var _stairs := []                  # [{link, first, last, down}]: the path's stretches along links
+var _stair: NavigationLink3D       # the link we're on (others read it: see _stair_free)
+var _stair_down := false
+var _stair_wait := 0.0
+var _replans := 0
+
+
+## May we walk on? False while the path is about to take a stair someone is coming along the
+## other way. Taking one marks us as on it, until the path leaves it or is dropped.
+func _stair_free() -> bool:
+    var ahead := 0.0
+    var at := global_position
+    for i in range(_waypoint, _path.size()):
+        ahead += at.distance_to(_path[i])
+        at = _path[i]
+        if ahead > STAIR_HOLD:
+            break
+        for span in _stairs:
+            if i < span["first"] or i > span["last"] or not is_instance_valid(span["link"]):
+                continue
+            if _stair == span["link"]:
+                return true
+            for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+                if other is GeogenNpc and other != self and other._stair == span["link"] \
+                        and other._stair_down != span["down"]:
+                    return false
+            _stair = span["link"]
+            _stair_down = span["down"]
+            return true
+    _stair = null      # no stair in the next few steps: off the one we were on, if any
+    return true
+
+
+## Is waypoint ``index`` on a stair's way round (``after_first``: and not where it starts)?
+## There the line is the only way: nothing is moved aside or walked around.
+func _on_stair(index: int, after_first := false) -> bool:
+    for span in _stairs:
+        if index >= span["first"] + (1 if after_first else 0) and index <= span["last"]:
+            return true
+    return false
+
+
+## A waypoint added in front of ``index`` moves the stair stretches after it along.
+func _insert_waypoint(index: int, point: Vector3) -> void:
+    _path.insert(index, point)
+    for span in _stairs:
+        if span["first"] >= index:
+            span["first"] += 1
+        if span["last"] >= index:
+            span["last"] += 1
 
 
 var _crossing_ends := []   # [[end a, end b]] of the painted crossings, on the pavement (world)
@@ -731,6 +799,7 @@ func _walk(delta: float) -> String:
     if _waypoint >= _path.size():
         velocity.x = 0.0
         velocity.z = 0.0
+        _stair = null
         _move(delta)
         return "done"
     # A closed door ahead: go through it first.
@@ -750,6 +819,14 @@ func _walk(delta: float) -> String:
         _move(delta)
         return "running"
     _vehicle_wait = 0.0
+    if not _stair_free():
+        # Someone is coming along the stair: wait for them (not stalling), but not all day.
+        _stair_wait += delta
+        velocity.x = 0.0
+        velocity.z = 0.0
+        _move(delta)
+        return "stuck: stair in use" if _stair_wait > STAIR_PATIENCE else "running"
+    _stair_wait = 0.0
     if not _detour_around_characters():
         # Someone is standing on our destination: wait (the stall timer gives up eventually).
         velocity.x = 0.0
@@ -761,12 +838,15 @@ func _walk(delta: float) -> String:
     var to := target - global_position
     var flat := Vector2(to.x, to.z)
     var speed := float(definition.get("speed", 1.2))
-    if flat.length() < maxf(WAYPOINT_RADIUS, speed * delta):
+    # (On its own level: a waypoint a turn of a spiral stair above isn't reached from below.)
+    if flat.length() < maxf(WAYPOINT_RADIUS, speed * delta) and absf(to.y) < LEVEL_TOLERANCE:
         _waypoint += 1
         _best = INF
         _stall = 0.0
         return "running"
-    var dir := _avoid(Vector3(to.x, 0, to.z).normalized())
+    var dir := Vector3(to.x, 0, to.z).normalized()
+    if not _on_stair(_waypoint, true):
+        dir = _avoid(dir)
     var heading := atan2(dir.x, dir.z)
     var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
     rotation.y += clampf(wrapf(heading - _yaw(), -PI, PI), -turn, turn)
@@ -784,6 +864,11 @@ func _walk(delta: float) -> String:
         stats["max_stall"] = maxf(stats["max_stall"], _stall)
         if _stall > FAIL_SECONDS:
             return "stuck at %s" % str(_v(global_position))
+        if _stall > REPLAN_SECONDS and _waypoint <= _detour and _replans < MAX_REPLANS:
+            # Held up on a way round someone (who may have gone since): forget it, plan afresh.
+            _replans += 1
+            var err := _plan(_path[-1])
+            return "running" if err == "" else err
         if _stall > STALL_SECONDS and _sidestep <= 0.0 and fmod(_stall, STALL_SECONDS * 2.0) < delta * 1.5:
             _sidestep = SIDESTEP_SECONDS
             _sidestep_dir = -_sidestep_dir
@@ -805,20 +890,20 @@ func _detour_around_characters() -> bool:
             continue
         var c: Vector3 = other.global_position
         var reach := radius + _radius_of(other) + AVOID_MARGIN
-        if _flat(_path[last] - c).length() < reach:
+        if _flat(_path[last] - c).length() < reach and _same_level(_path[last], c):
             return false   # someone is standing where we're going
         if _waypoint <= _detour:
             continue
         # Waypoints inside its reach move out to the edge.
         for i in range(_waypoint, last):
-            if _flat(_path[i] - c).length() < reach:
+            if _flat(_path[i] - c).length() < reach and _same_level(_path[i], c) and not _on_stair(i):
                 var out = _edge_point(c, _path[i], reach + 0.05, map)
                 if out != null:
                     _path[i] = out
         var a := global_position
         var b := _path[_waypoint]
         var seg := _flat(b - a)
-        if seg.length() < 0.05:
+        if seg.length() < 0.05 or not _same_level(a, c) or _on_stair(_waypoint, true):
             continue
         var dir := seg.normalized()
         var rel := _flat(c - a)
@@ -831,7 +916,7 @@ func _detour_around_characters() -> bool:
         if arc.is_empty():
             continue   # boxed in: press on and let the stall timer decide
         for k in arc.size():
-            _path.insert(_waypoint + k, arc[k])
+            _insert_waypoint(_waypoint + k, arc[k])
         _detour = _waypoint + arc.size() - 1
         _best = INF
     return true
@@ -874,7 +959,7 @@ func _clear_of_vehicles() -> bool:
             var detour := _around_box(a, _path[_waypoint], center, fwd, right, hl + 0.05, hw + 0.05, map)
             if not detour.is_empty():
                 for k in detour.size():
-                    _path.insert(_waypoint + k, detour[k])
+                    _insert_waypoint(_waypoint + k, detour[k])
                 _detour = _waypoint + detour.size() - 1
                 _best = INF
     return true
@@ -941,6 +1026,12 @@ static func _flat(v: Vector3) -> Vector3:
     return Vector3(v.x, 0.0, v.z)
 
 
+## Are two points on one level? Someone a storey up, or a turn of a spiral stair above, is
+## not in the way, however near they are in plan.
+static func _same_level(a: Vector3, b: Vector3) -> bool:
+    return absf(a.y - b.y) < LEVEL_TOLERANCE
+
+
 ## ``p`` pushed out from ``c`` to distance ``r`` (turning up to 90 deg either way to stay on the navmesh), or null.
 func _edge_point(c: Vector3, p: Vector3, r: float, map: RID):
     var base := atan2(p.x - c.x, p.z - c.z)
@@ -966,6 +1057,10 @@ func _arc_around(c: Vector3, a: Vector3, b: Vector3, r: float, map: RID) -> Arra
                 points = []
                 break
             points.append(q)
+        # Points we're already standing on are no way round (a stair too narrow for the
+        # circle: they'd count as reached at once, and the detour would be made again).
+        while not points.is_empty() and _flat(points[0] - a).length() < WAYPOINT_RADIUS * 2.0:
+            points.pop_front()
         if not points.is_empty():
             return points
     return []
@@ -993,10 +1088,11 @@ func _avoid(dir: Vector3) -> Vector3:
     for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
         if other == self or not other is CharacterBody3D:
             continue
-        var rel: Vector3 = other.global_position - global_position
-        rel.y = 0.0
+        if not _same_level(other.global_position, global_position):
+            continue
+        var rel := _flat(other.global_position - global_position)
         var along := rel.dot(dir)
-        if along <= 0.0 or along > AVOID_AHEAD or absf(rel.y) > 1.0:
+        if along <= 0.0 or along > AVOID_AHEAD:
             continue
         var lateral := rel - dir * along
         var reach := radius + _radius_of(other) + AVOID_MARGIN
@@ -1333,6 +1429,8 @@ func _react(action_name: String, extra: Dictionary) -> void:
         _stack.back()["started"] = false
     velocity = Vector3.ZERO
     _path = PackedVector3Array()
+    _stairs = []
+    _stair = null
     var ctx := {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position}
     ctx.merge(extra)
     _push(action_name, ctx)

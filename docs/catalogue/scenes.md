@@ -20,6 +20,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
 | [island](#island) | The island showcase: a small island in the sea. | showcase |
 | [level_crossing](#level_crossing) | A railway crossing a road: a two-lane road (a route), a line with two stations, barriers where they cross, traffic on the road and a commuter train. | test |
+| [lighthouse_keepers](#lighthouse_keepers) | NPCs on a spiral stair (test). |  |
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
@@ -255,6 +256,22 @@ Trains lower the barriers (runtime/godot/scripts/train.gd); cars wait for them.
 **Spawns**: start
 
 **Features**: routes, railways
+
+## lighthouse_keepers
+
+`scene: scenes/lighthouse_keepers.yaml` · [source](../../assets/scenes/lighthouse_keepers.yaml)
+
+NPCs on a spiral stair (test). The lighthouse with two keepers whose homes
+are at the other end of the stair from where they start: the keeper starts
+on the ground and lives on the gallery deck, so their first walk climbs the
+stair; the lookout starts on the gallery and lives on the ground in front of
+the door, so theirs comes down it.
+
+**Places**: `lighthouse: {asset: lighthouse.yaml}`; `keeper: {npc: npcs/resident.yaml}`; `lookout: {npc: npcs/resident.yaml}`
+
+**Slots**: keeper, lookout
+
+**Spawns**: start
 
 ## main_street
 
