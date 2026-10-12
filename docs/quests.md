@@ -197,7 +197,7 @@ in Godot.
 | The rules interpreter in Godot (`scripts/machine.gd`, passes the traces) | 3.3, 3.6 | done |
 | Content packages (quests that span scenes) | 3.10 | open |
 | Runtime quests: `quest event:`, `--quests`, `quests.list`, markers as data | 15.2 | done |
-| The lighthouse quest, the first archetype, in Godot | 15.3 | runs (`tests/test_quests_runtime.py`); a walked playthrough is open |
+| The lighthouse quest, the first archetype, in Godot | 15.3 | done: walked from the spawn to the gallery with the real body, and the reference evaluator, fed the runtime's place events, ends in the same state (`tests/test_quests_runtime.py`) |
 | Other archetypes, NPC holders, playtest bot, HUD | 15.4 to 15.13 | open |
 | Items for fetch quests | 18 | open |
 

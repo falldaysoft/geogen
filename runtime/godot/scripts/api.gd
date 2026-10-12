@@ -638,7 +638,7 @@ func _walk_to(args: Dictionary):
     var path := PackedVector3Array()
     for p in route["points"]:
         path.append(Vector3(p[0], p[1], p[2]))
-    var walker := GeogenWalker.new(player, path)
+    var walker := GeogenWalker.new(player, GeogenWalker.along_links(path, get_tree()))
     _walker = walker
     var timeout := float(args.get("timeout", 30.0))
     var motion := {"trace": [_v(player.global_position)], "blocked_by": null, "elapsed": 0.0,

@@ -249,6 +249,9 @@ class StairsGenerator(MeshGenerator):
             # runtime links them (NavigationLink3D), since a tall spiral's navmesh can come
             # out in pieces (see spiral_ramp).
             node.meta["stairs"]["ends"] = [[round(float(v), 4) for v in p] for p in self.spiral_ends()]
+            # The way between them: a navmesh path only has the link's two ends, and a body
+            # that walks has to go round (GeogenWalker.along_links).
+            node.meta["stairs"]["path"] = [[round(float(v), 3) for v in p] for p in self.spiral_walk()]
         rails = self.railing_mesh()
         if rails is not None:
             rails.material = MaterialLoader().load(self.railing_material)
@@ -275,6 +278,17 @@ class StairsGenerator(MeshGenerator):
             ends.append(np.array([np.sin(a) * walk, y, np.cos(a) * walk]) + offset)
         return ends
 
+    def spiral_walk(self) -> np.ndarray:
+        """The walking line from one of ``spiral_ends`` to the other, on the ramp: two points
+        a step, in the ``generate()`` frame."""
+        walk = 0.09 + self.width * 0.6
+        step_angle = self.tread / walk
+        sign = 1.0 if self.turn == "left" else -1.0
+        theta = np.linspace(-1.5, self.steps - 0.3, 2 * self.steps + 3) * step_angle
+        y = np.clip(theta / step_angle + 1.0, 0.0, self.steps) * self.riser
+        a = sign * theta
+        return np.c_[np.sin(a) * walk, y, np.cos(a) * walk] + getattr(self, "_offset", np.zeros(3))
+
     def spiral_ramp(self, thickness: float = 0.03) -> Mesh:
         """An invisible helical ramp over the step nosings (a collider-only child).
 
@@ -293,20 +307,28 @@ class StairsGenerator(MeshGenerator):
         n = 2 * (self.steps + 1)
         theta = np.linspace(-step_angle, self.steps * step_angle, n + 1)
         y = np.minimum(theta / step_angle + 1.0, self.steps) * self.riser
-        radii = np.array([pole, r_out])
+        # In radial bands: a quad from the pole to the rim is twisted, and split in two it is one
+        # gentle triangle and one near-vertical one, a sawtooth no body can walk. A band's two
+        # triangles slope as the helix does at the band's own edges.
+        radii = np.linspace(pole, r_out, max(2, int(np.ceil(self.width / 0.14))) + 1)
+        m = len(radii)
         a = sign * theta
-        top = np.stack([np.sin(a)[:, None] * radii, np.broadcast_to(y[:, None], (len(a), 2)),
-                        np.cos(a)[:, None] * radii], axis=-1)            # (len(a), 2, 3)
+        top = np.stack([np.sin(a)[:, None] * radii, np.broadcast_to(y[:, None], (len(a), m)),
+                        np.cos(a)[:, None] * radii], axis=-1)            # (len(a), m, 3)
         bottom = top - np.array([0.0, thickness, 0.0])
-        rings = np.concatenate([top, bottom[:, ::-1]], axis=1)          # (len(a), 4, 3): in-top, out-top, out-bot, in-bot
+        rings = np.concatenate([top, bottom[:, ::-1]], axis=1)          # a closed loop of 2m points per angle
         verts = rings.reshape(-1, 3)
+        loop = 2 * m
         faces = []
         for i in range(len(a) - 1):
-            for j in range(4):
-                p, q = i * 4 + j, i * 4 + (j + 1) % 4
-                faces += [[p, q + 4, q], [p, p + 4, q + 4]]
-        last = (len(a) - 1) * 4
-        faces += [[0, 1, 2], [0, 2, 3], [last, last + 2, last + 1], [last, last + 3, last + 2]]
+            for j in range(loop):
+                p, q = i * loop + j, i * loop + (j + 1) % loop
+                faces += [[p, q + loop, q], [p, p + loop, q + loop]]
+        last = (len(a) - 1) * loop
+        for j in range(m - 1):                                           # end caps: quads between top and bottom
+            k = loop - 1 - j
+            faces += [[j, j + 1, k - 1], [j, k - 1, k]]
+            faces += [[last + j, last + k - 1, last + j + 1], [last + j, last + k, last + k - 1]]
         mesh = Mesh(verts, np.array(faces, dtype=np.int64))
         if mesh.to_trimesh().volume < 0:
             mesh = Mesh(verts, mesh.faces[:, [0, 2, 1]])

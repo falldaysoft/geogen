@@ -96,7 +96,7 @@ func _next_route() -> void:
         _finish()
         return
     player.spawn(start, start_yaw)
-    _walker = GeogenWalker.new(player, _routes[_route]["path"])
+    _walker = GeogenWalker.new(player, GeogenWalker.along_links(_routes[_route]["path"], get_tree()))
 
 
 func _walk(delta: float) -> void:

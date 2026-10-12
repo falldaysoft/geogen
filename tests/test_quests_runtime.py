@@ -127,3 +127,47 @@ def test_the_island_quest_completes_on_the_gallery(scene_export, run_godot):
     assert listed["status"] == "active" and listed["objectives"][0]["state"] == "open"
     assert listed["objectives"][0]["markers"] == [
         {"subject": "island:lighthouse/gallery", "position": [39.5, 15.454, 7.0]}]
+
+
+def test_the_island_quest_is_walked_from_the_jetty(scene_export, built_scene, godot_runtime):
+    """Played, not teleported: from the game's spawn up the path and the lighthouse stair with the real body,
+    in legs (one path query across the island hits Godot's search limit). The reference evaluator, fed the
+    places the runtime reported, ends in the same state."""
+    from geogen.quests import collect
+    from geogen.rules import Machine
+
+    rt = godot_runtime("island", scene_export("island"))
+    rt.call("wait_ready")
+    tracked = quest(rt)
+    assert tracked["id"] == "lighthouse_gallery" and tracked["status"] == "active"     # start: auto
+    (marker,) = tracked["objectives"][0]["markers"]
+    assert marker["subject"] == "island:lighthouse/gallery"
+    rt.subscribe("quest")
+    rt.call("time.scale", scale=4)
+    for leg in ([35.8, 4.3, 7], [42.3, 14.35, 7]):           # the lighthouse door, then up and round the gallery
+        assert quest(rt)["status"] == "active"               # still to do at the foot of the tower
+        # the walk's own timeout is in world seconds (the client's `timeout` is how long to wait for the reply)
+        walked = rt.send("player.walk_to", pos=leg, timeout=120).get(timeout=300)["result"]
+        assert walked["reached"], (leg, walked["status"], walked["blocked_by"], walked["position"])
+    rt.call("time.scale", scale=1)
+    events = [e["data"] for e in rt.clear_events() if e["event"] == "quest"]
+    rt.unsubscribe()
+    assert [(e["event"], e.get("objective")) for e in events] == [("objective_done", "gallery"), ("complete", None)]
+    assert quest(rt)["status"] == "complete" and objectives(rt) == {"gallery": "done"}
+    # the marker led to where it happened: the player stands on the deck it points at
+    position = rt.call("player.status")["position"]
+    assert abs(position[1] - marker["position"][1]) < 1.3
+    assert ((position[0] - marker["position"][0]) ** 2 + (position[2] - marker["position"][2]) ** 2) ** 0.5 < 4.0
+
+    quests = collect(built_scene("island"), "island")
+    entry = quests.quests["lighthouse_gallery"]
+    machine = Machine(quests.program(), {"player": {"kind": "player"}})
+    assert quests.status(machine, "lighthouse_gallery", "player") == "active"
+    places = rt.call("events.history", types=["enter", "leave"])["events"]
+    assert any(e["subject"] == "island:lighthouse/gallery" and e["type"] == "enter" for e in places)
+    for event in places:
+        machine.post({k: event[k] for k in ("type", "subject", "actor") if k in event})
+    assert quests.status(machine, "lighthouse_gallery", "player") == "complete"
+    stored = rt.call("state.list")["actors"]["player"]
+    for key in (entry["status"], entry["objectives"][0]["done"]):
+        assert machine.get(key, "player") == stored[key]

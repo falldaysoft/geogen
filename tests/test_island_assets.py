@@ -53,6 +53,19 @@ def test_spiral_stairs_have_a_ramp_and_linked_ends():
     assert ramp.meta["type"] == "collider" and meshops.validate(ramp.mesh).issues == []
     lo, hi = node.meta["stairs"]["ends"]
     assert hi[1] - lo[1] == pytest.approx(10.0)
+    # The way round between them, for a body that walks: on the ramp, in steps a walker can't cut across.
+    walk = np.array(node.meta["stairs"]["path"])
+    assert np.allclose(walk[0], lo, atol=1e-3) and np.allclose(walk[-1], hi, atol=1e-3)
+    assert np.linalg.norm(np.diff(walk, axis=0), axis=1).max() < 0.35 and (np.diff(walk[:, 1]) >= 0).all()
+    radius = np.hypot(*(walk[:, [0, 2]] - node.mesh.vertices[:, [0, 2]].mean(axis=0)).T)
+    assert radius.min() > 0.6 and radius.max() < 0.9
+    # The ramp is a helix, not a sawtooth: no facet a body on the walking line touches is steeper than it can climb.
+    v, f = ramp.mesh.vertices, ramp.mesh.faces
+    normals = np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]])
+    normals /= np.linalg.norm(normals, axis=1)[:, None]
+    middle = v[f].mean(axis=1)
+    walked = (normals[:, 1] > 0.2) & (np.hypot(middle[:, 0], middle[:, 2]) > 0.6)
+    assert walked.sum() > 500 and np.degrees(np.arccos(normals[walked, 1])).max() < 38
     # The pole is on the origin in plan; the ramp ends level with the top tread.
     assert np.allclose(node.mesh.vertices[:, [0, 2]].mean(axis=0), 0, atol=0.2)
     assert ramp.mesh.vertices[:, 1].max() == pytest.approx(hi[1], abs=0.01)     # flat across the top tread
@@ -91,6 +104,21 @@ def test_lighthouse_gallery_is_reachable_on_foot(run_godot, lighthouse_dir):
     out = run_godot("--scene=lighthouse", f"--generated={lighthouse_dir}", "--nav=0,0,4:0,10,-2.8")
     path = _nav(out)
     assert path["reached"] and path["end_gap"] < 0.3 and path["points"][-1][1] > 9.9, path
+
+
+def test_lighthouse_stair_is_climbed_by_the_player(godot_runtime, lighthouse_dir):
+    # With the real body, up and back down: the navmesh path has only the stair link's two ends,
+    # and the walker goes round by the stair's own walking line.
+    rt = godot_runtime("lighthouse", lighthouse_dir)
+    rt.call("wait_ready")
+    rt.call("player.teleport", pos=[0, 0.1, 4], yaw=0)
+    rt.call("time.scale", scale=4)
+    for target, height in (([0, 10, -2.8], 10.0), ([0, 0.1, 4], 0.0)):
+        walked = rt.send("player.walk_to", pos=target, timeout=60).get(timeout=200)["result"]
+        assert walked["reached"] and walked["distance"] < 0.4, (target, walked["status"], walked["blocked_by"])
+        assert walked["position"][1] == pytest.approx(height, abs=0.1)
+        assert max(p[1] for p in walked["trace"]) <= 10.2                # it went round, never over
+    rt.call("time.scale", scale=1)
 
 
 def test_lighthouse_lamp_comes_on_at_night(run_godot, lighthouse_dir):
