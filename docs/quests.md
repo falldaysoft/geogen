@@ -263,7 +263,7 @@ three in the evaluator and in Godot.
 | State store in Godot; progress in saves | 3.3, 3.4 | done (`scripts/rules.gd`); the save file's own format and schema are open |
 | Rules authoring (`rules:`, `wire:`, `bind:`: `geogen.wiring`) | 3.6 | done: a scene rule gives a quest with `{start_quest: id}` |
 | The rules interpreter in Godot (`scripts/machine.gd`, passes the traces) | 3.3, 3.6 | done |
-| Content packages (quests that span scenes) | 3.10 | open |
+| Content packages (quests that span scenes) | 3.10 | done (`geogen.content`, "Content packages" in `docs/rules.md`): a `kind: package` lists `quests:` whose objectives name things as `<scene>:<thing>`, one scene per objective; its progress is the package's actor state, kept across scene switches (`tests/test_content.py`, `tests/test_content_runtime.py`). No markers yet |
 | Runtime quests: `quest event:`, `--quests`, `quests.list`, markers as data | 15.2 | done |
 | The lighthouse quest, the first archetype, in Godot | 15.3 | done: walked from the spawn to the gallery with the real body, and the reference evaluator, fed the runtime's place events, ends in the same state (`tests/test_quests_runtime.py`) |
 | The lights-out quest, given by greeting the cottage's resident | 15.4 | runs in the evaluator (`tests/test_quests.py`) and in Godot over the control API (`tests/test_quests_runtime.py`): greeted, three real switches, the count rising, complete |

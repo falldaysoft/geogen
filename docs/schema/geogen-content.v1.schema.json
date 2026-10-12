@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/falldaysoft/geogen/docs/schema/geogen-content.v1.schema.json",
+  "title": "geogen content package v1",
+  "description": "An exported content package (`<name>.content.json` beside catalogue.json, which lists it): state, rules and quests that span scenes they don't own. References are stable IDs of the scenes they are in and conditions are compiled. While one of `scenes` is loaded a runtime adds `variables`, and the `rules` and `bindings` with no `scene` or with that one, to the scene's own rules program (after the scene's own), and keeps the package's values when the scene unloads. Contract: docs/rules.md, \"Content packages\".",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "package",
+    "scenes",
+    "variables",
+    "bindings",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "geogen-content"
+    },
+    "version": {
+      "const": 1
+    },
+    "schema": {
+      "type": "string"
+    },
+    "package": {
+      "description": "The package's name: what its variables (`world:<package>.<name>`, `actor:<package>.<name>`) and rule ids (`<package>:<id>`) carry. Never a scene's name.",
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "scenes": {
+      "description": "The scenes (catalogue names) the package runs in.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "variables": {
+      "description": "The package's own variables, as in a geogen-state section: world and actor state only. Their values outlive the scene that is loaded.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(world|actor):[^.]+\\..+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "bindings": {
+      "description": "Standing relations (docs/rules.md): each sets state of its `scene`.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "set",
+          "to"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "set": {
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/$defs/condition"
+          },
+          "scene": {
+            "$ref": "#/$defs/scene"
+          }
+        }
+      }
+    },
+    "rules": {
+      "description": "Rules of a geogen-rules program (docs/rules.md), in order: the package's wiring, then its quests'. Ids start '<package>:'.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "quests": {
+      "description": "The package's quests: a geogen-quests section (geogen-quests.v1.schema.json) without markers. Their state is the package's actor variables; their rules are in `rules`.",
+      "type": "object",
+      "required": [
+        "format",
+        "version",
+        "package",
+        "quests"
+      ],
+      "properties": {
+        "format": {
+          "const": "geogen-quests"
+        },
+        "version": {
+          "const": 1
+        },
+        "quests": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "description": "A compiled, resolved condition tree (geogen-condition.v1.schema.json)."
+    },
+    "scene": {
+      "description": "The one scene the entry touches: it runs only while that scene is loaded. Without it the entry reads and writes only the package's own state and runs in every scene of the package.",
+      "type": "string"
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "id",
+        "do"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "scene": {
+          "$ref": "#/$defs/scene"
+        },
+        "on": {
+          "description": "The event that triggers it; without one, `when` is watched.",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          }
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "do": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "oneOf": [
+              {
+                "required": [
+                  "set",
+                  "to"
+                ]
+              },
+              {
+                "required": [
+                  "emit",
+                  "subject"
+                ]
+              }
+            ]
+          }
+        },
+        "after": {
+          "type": "number"
+        },
+        "once": {
+          "type": "boolean"
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "required": [
+        "type",
+        "default"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "bool",
+            "number",
+            "text",
+            "choice"
+          ]
+        },
+        "default": {
+          "type": [
+            "boolean",
+            "number",
+            "string"
+          ]
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

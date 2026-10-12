@@ -1319,6 +1319,7 @@ func _collect_interactions(root: Node) -> void:
             for t in it.targets:
                 _target_of[t] = it
             _restore_pending(it)
+            rules.adopt(key, it)        # what rules made of it before its node existed
 
 
 ## The interaction whose target contains ``node`` (a hit collider), or null.

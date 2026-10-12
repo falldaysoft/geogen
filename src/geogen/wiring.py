@@ -141,6 +141,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 if rule.get(key):
                     out[key] = float(rule[key]) if key == "after" else True
             rules.append(out)
+            compiler.out.written[out["id"]] = src.where(*at)
 
         for index, wire in listed("wire", "{from: <thing>.<signal>, to: <thing>.<input>}"):
             at = ("wire", index)
@@ -163,6 +164,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             if wire.get("after"):
                 out["after"] = float(wire["after"])
             rules.append(out)
+            compiler.out.written[out["id"]] = src.where(*at)
 
         bind = entry.spec.get("bind") or {}
         if not isinstance(bind, dict):
@@ -174,6 +176,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             tree = attempt(src.where(*at), lambda: compiler.condition(src, expression))
             if key is not None and tree is not None:
                 bindings.append({"set": key, "to": tree})
+                compiler.out.written[f"bind:{key}"] = src.where(*at)
     return rules, bindings
 
 

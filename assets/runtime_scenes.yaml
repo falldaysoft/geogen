@@ -7,6 +7,10 @@
 #   description: one line for the runtime's scene list
 #   stream: true              export chunked (--stream) and stream it in the runtime
 #   lods: [0.5, 0.25]         extra LOD levels (single-file exports only)
+#
+# `packages: [name, ...]` deploys content packages (packages/<name>.yaml, kind: package):
+# state, rules and quests that span scenes. Each is compiled against the exported scenes it
+# names into generated/<name>.content.json (docs/rules.md, "Content packages").
 kind: scene_catalogue
 default: hub
 

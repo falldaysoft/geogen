@@ -581,6 +581,23 @@ are `docs/rules.md`; nothing here knows what a quest is beyond printing it.
 - Actors are `player` and each NPC by stable ID.
 - A package's state is kept when its world unloads and resumes when it loads
   again, so progress survives a trip to another scene.
+- **Content packages** ("Content packages" in `docs/rules.md`) are state, rules
+  and quests that belong to no scene. `catalogue.json` lists the deployed ones
+  under `packages`: `[{name, file, exported, scenes}]`, each `file` a
+  `geogen-content` JSON beside it (`docs/schema/geogen-content.v1.schema.json`).
+  `GeogenRules.content_packages()` reads them once (again when catalogue.json
+  is rewritten). When a scene one of them lists loads, its variables and the
+  rules and bindings with no `scene` or with that scene join the scene's
+  program after the scene's own (`geogen: content package errand runs in camp`),
+  and its quests are reported with the scene's, with their own `package`. Its
+  values (`world:<package>.`, `actor:<package>.`, `once:` latches) are kept
+  apart from any scene's and given to the next scene's program, so what a rule
+  set in one scene a rule reads in the next, across `--switch`, F7 / F8 and
+  travel. A scene with no state of its own still gets a program when a package
+  runs in it.
+- A rule can fire as a scene loads, before its interactions' nodes exist (a
+  condition a content package's state already satisfies). `GeogenRules.adopt`
+  gives each interaction that state as its node appears.
 - **Saving.** `--save` / `--load` and `state.save` / `state.load` write and take up one
   `geogen-save` (`docs/schema/geogen-save.v1.schema.json`, "Saving" in `docs/rules.md`):
   `{format, version, package, now, clock, world, actors, actor_info, timers}`.
