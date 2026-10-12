@@ -284,7 +284,15 @@ windows or doors:
   - It walks round a stopped vehicle past the nearer end: in front of a car that stopped for it, behind one that's queuing.
 - **Other characters** (the player, other NPCs; group `geogen_character`) aren't in the
   navmesh, so paths bend around them on an arc of navmesh points. An NPC whose destination is
-  occupied waits, then gives up.
+  occupied waits, then gives up. Only characters on the NPC's own level count (within 1.2 m in
+  height: not someone a storey up, or a turn of a spiral stair above). An NPC held up for 1.5 s
+  on such a way round plans its path again (twice per `go_to` at most).
+- **Stairs**: a path through a spiral stair's navigation link has only the link's two ends, so
+  `_plan` puts the stair's walking line in their place (`GeogenWalker.along_links`, as the
+  player's `walk_to` does). On that line nothing is moved aside or walked around, and it is
+  taken in single file: an NPC arriving within 2 m of a stair that another NPC is on, coming
+  the other way, waits there until it is clear (`stuck: stair in use` after 45 s). Test scene:
+  `lighthouse_keepers`, two NPCs who start at the wrong ends of the lighthouse stair.
 
 - **The player** (the definition's `attention:`, on by default; `false` or a part `false` turns it off):
   - *look*: within `range` m and a `cone` ahead, a standing or seated skeletal NPC turns its neck

@@ -105,3 +105,38 @@ def test_resident_steps_aside_for_the_player(run_godot, cottage_dir):
     steps = [json.loads(l.removeprefix("npc: ")) for l in out.splitlines() if l.startswith("npc: ")]
     aside = [s for s in steps if s.get("action") == "step_aside" and s.get("step") == {"face": "player"}]
     assert aside and abs(aside[0]["pos"][2] - 0.03) > 0.2          # moved off the player's line
+
+
+# --- spiral stairs (scenes/lighthouse_keepers.yaml) --------------------------------------------
+
+def keepers(run_godot, generated, seconds) -> dict:
+    out = run_godot("--scene", "lighthouse_keepers", f"--generated={generated}", "--timescale=8",
+                    f"--simulate={seconds}", engine_args=FAST)
+    line = next(l for l in out.splitlines() if l.startswith("npc summary: "))
+    return {r["npc"].removesuffix("_npc"): r for r in json.loads(line.removeprefix("npc summary: "))}
+
+
+def test_npcs_take_a_spiral_stair_by_its_walking_line(run_godot, scene_export):
+    # The keeper starts on the ground and lives on the lighthouse gallery, 10 m up; the lookout
+    # starts up there and lives outside the door. The navmesh path between has the stair's
+    # navigation link in it: two points, a straight line through the treads. Walking that left
+    # each stuck against the stair; they follow the link's walking line round instead.
+    generated = scene_export("lighthouse_keepers")
+    axis = lambda r: (r["position"][0] ** 2 + r["position"][2] ** 2) ** 0.5
+
+    # 14 s in the lookout is half way down, on the treads (0.09 .. 1.19 m from the axis). The
+    # stair is one body wide, so the keeper waits at its foot rather than meet them on it.
+    early = keepers(run_godot, generated, 14)
+    assert 2.0 < early["lookout"]["position"][1] < 8.0 and 0.3 < axis(early["lookout"]) < 1.0, early["lookout"]
+    assert early["keeper"]["position"][1] < 0.3 and axis(early["keeper"]) > 1.3, early["keeper"]
+    assert early["keeper"]["doing"] == "self/wander: go_to random"
+
+    # A minute in they have changed places, and neither was ever stuck.
+    late = keepers(run_godot, generated, 60)
+    assert late["keeper"]["position"][1] == pytest.approx(10.0, abs=0.1), late["keeper"]
+    assert 1.2 < axis(late["keeper"]) < 3.4                               # on the deck, off the stair well
+    assert late["lookout"]["position"][1] == pytest.approx(0.0, abs=0.1) and late["lookout"]["position"][2] > 3.0
+    for report in late.values():
+        assert report["failures"] == [] and report["unstuck"] == 0, report
+        assert report["max_stall"] < 2.0, report
+        assert report["used"].get("self/wander", 0) >= 1

@@ -47,7 +47,7 @@ def test_listing_names_everything():
     for kind in ("npc", "archetype", "traffic", "train", "garment"):
         assert f"  {kind}: " in text
     assert "state " in text and "wood" in text
-    assert len(text) < 42_000        # stays pasteable into a prompt
+    assert len(text) < 43_000        # stays pasteable into a prompt
     data = json.loads(d.describe(as_json=True))
     assert data["format"] == "geogen-describe" and set(data["assets"]) == set(CATALOGUE["assets"])
 

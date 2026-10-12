@@ -35,8 +35,9 @@ func _init(player_: Player, path_: PackedVector3Array) -> void:
 
 ## A navmesh path with each navigation link it takes (a spiral stair, see
 ## GeogenSceneBuilder._stairs_link) replaced by the way round: the path itself only
-## has the link's two ends, a straight line through the stair.
-static func along_links(path: PackedVector3Array, tree: SceneTree) -> PackedVector3Array:
+## has the link's two ends, a straight line through the stair. `spans`, when given, gets
+## one `{link, first, last, down}` per link taken: the indices of its way round in the result.
+static func along_links(path: PackedVector3Array, tree: SceneTree, spans = null) -> PackedVector3Array:
     var links := tree.get_nodes_in_group("geogen_nav_link")
     if links.is_empty() or path.size() < 2:
         return path
@@ -51,6 +52,8 @@ static func along_links(path: PackedVector3Array, tree: SceneTree) -> PackedVect
                     and path[i].distance_to(to) < LINK_RADIUS)):
                 continue
             var frame := link.global_transform
+            if spans != null:
+                spans.append({"link": link, "first": out.size(), "last": out.size() + line.size() - 1, "down": down})
             for k in line.size():
                 out.append(frame * line[line.size() - 1 - k if down else k])
             break
