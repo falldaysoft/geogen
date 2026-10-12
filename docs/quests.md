@@ -154,14 +154,21 @@ the manifest's `state` section.
 
 ## Runtime
 
-The console part is built (`runtime/godot/README.md`, "Rules, state and quests"); the rest is planned.
+The console and the HUD's quest tracker are built (`runtime/godot/README.md`, "Rules, state
+and quests" and "HUD"); the rest is planned.
 
 - **Console** (15.2): `quest event: {...}` on every quest and objective
   transition, `--quests` and the control API's `quests.list` dump every deployed
   quest and its state per actor. Markers are printed.
-- **HUD** (15.10 to 15.13): a tracker for the active quest with progress
-  counts, toasts for started / objective done / complete / failed, world
-  markers clamped to the screen edge, and a quest log screen.
+- **Tracker** (15.10): the HUD (`scripts/hud.gd`, a layer later panels join) has a
+  quest tracker in the top-right corner: the tracked quest's title, its open
+  and done objectives and their progress counts ("3 of 5"), read from the same
+  report as `quests.list` and redrawn on quest and state events. Q tracks the
+  next active quest; a finished one stays up a few seconds marked complete or
+  failed. The control API's `hud.quests` returns what is displayed.
+- **Rest of the HUD** (15.11 to 15.13): toasts for started / objective done /
+  complete / failed, world markers clamped to the screen edge, and a quest log
+  screen.
 - **NPC holders** (15.8): the NPC planner turns the open objective's subject
   into a goal with its existing action vocabulary: go to a place, use an
   interaction or affordance.
@@ -198,7 +205,8 @@ in Godot.
 | Content packages (quests that span scenes) | 3.10 | open |
 | Runtime quests: `quest event:`, `--quests`, `quests.list`, markers as data | 15.2 | done |
 | The lighthouse quest, the first archetype, in Godot | 15.3 | runs (`tests/test_quests_runtime.py`); a walked playthrough is open |
-| Other archetypes, NPC holders, playtest bot, HUD | 15.4 to 15.13 | open |
+| HUD layer and quest tracker (`scripts/hud.gd`, `scripts/hud_quest_tracker.gd`, `hud.quests`) | 15.10 | done (`tests/test_hud_runtime.py`) |
+| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.4 to 15.13 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

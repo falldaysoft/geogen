@@ -88,7 +88,7 @@ reloads the model within half a second (the player keeps their position).
 Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 (Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F6 scene list,
-F7 / F8 previous / next scene, E use, L lock.
+F7 / F8 previous / next scene, E use, L lock, Q track the next active quest.
 
 ## Layout
 
@@ -236,6 +236,9 @@ metres, angles degrees. `help` lists every command; the groups are:
   `view`: iso, front, back, left, right, top; `isolate` hides everything else; `zoom`), `views`
   (a contact sheet of those), `camera` (player / overview / follow an NPC). Needs a window, not
   `--headless`.
+- `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
+- `input.key` (press a key by name, as the keyboard would), `window.size` (get or set it; headless
+  runs start at 64 x 64, so set a size before checking a layout).
 - `batch` (several commands, one reply), `wait_ready` (loaded and the navmesh answers), `quit`.
 
 Python: `geogen.runtime_client.RuntimeClient` (`launch(scene, generated=...)`, `call(cmd, **args)`,
@@ -561,9 +564,68 @@ quest event: {"quest":"lighthouse_gallery","title":"The view from the top","acto
 - Control API: `quests.list {actor}`, `state.get {key, actor}`, `state.set
   {key, value, actor}`, `state.list`, and the `quest` stream.
 
-Not built: a HUD (geogen.15.10 to 15.13), markers that point at the portal for a
+Not built: the rest of the HUD (notifications, world markers and the quest log:
+geogen.15.11 to 15.13), markers that point at the portal for a
 subject in another scene, NPCs working on quests (15.8), and state for
 interactions in chunks that aren't loaded (they are simulated, not restored).
+
+## HUD
+
+`scripts/hud.gd` (`GeogenHud`, `main.hud`) is the game HUD: one `CanvasLayer`
+under the debug overlay (so a scene switch's fade covers it) that panels join.
+The host owns what panels share: a column per screen corner (`top_left`,
+`top_right`, `bottom_left`, `bottom_right`; the top ones start under the debug
+overlay's three lines), sizes that follow the window (`panel_width()`,
+`slot_height(slot)`), a coalesced refresh, key presses and `report()`.
+
+A panel is a `Control` added with `hud.add_panel(panel, slot)`; its node name
+is its name in `hud.report()` and `hud.panel(name)`. It may define:
+
+| Method | Called |
+|---|---|
+| `hud_attach(hud)` | once, before it enters the tree: connect to what it shows (`hud.world.events`, `hud.world.rules`) and call `hud.queue_refresh()` from those handlers |
+| `hud_refresh()` | once per frame at most, after `queue_refresh()`; and whenever the program or its state is replaced (a scene loaded or unloaded, a save restored: `GeogenRules.reset`) or the window resizes |
+| `hud_key(keycode) -> bool` | a key was pressed (not while the scene list is open); true if the panel used it |
+| `hud_report() -> Dictionary` | what it displays, for the control API and tests |
+
+Panels hold presentation state only and read what the console reads, so a
+panel never needs to know about scene switches.
+
+**Quest tracker** (`scripts/hud_quest_tracker.gd`, panel `quests`, top right):
+the tracked quest's title and its objectives, from `GeogenRules.report("player")`.
+Open objectives have a ring, done ones a tick, counted ones their progress
+("3 of 5"), optional ones say so, and ones still waiting on another (`after`)
+aren't listed. Text wraps to two lines and the panel clips at the bottom of a
+small window.
+
+- It redraws on quest events, on any `changed` event while a quest is shown
+  (progress counts) and on the host's refreshes. Nothing is polled.
+- The first active quest is tracked. **Q** tracks the next one (a line under
+  the title says "1 of 2    Q: next quest" when there are several); the pick
+  is remembered per package across scene switches. A quest that starts doesn't
+  take over from the tracked one.
+- A tracked quest that completes or fails stays up for 4 s marked "Quest
+  complete" / "Quest failed", then the next active one replaces it. With no
+  active quest the panel is hidden.
+- Only the player's quests are shown.
+
+`hud.quests {track?, linger?}` returns what is on screen:
+
+```json
+{"visible": true, "tracked": "lights_out", "package": "cottage", "title": "Lights out",
+ "status": "active", "note": "1 of 2    Q: next quest", "active": ["lights_out", "errand"],
+ "lines": [{"id": "lights", "text": "Switch off every light", "state": "open", "optional": false,
+            "progress": [3, 5], "progress_text": "3 of 5"},
+           {"id": "window", "text": "Close the window (optional)", "state": "open", "optional": true,
+            "progress_text": ""}],
+ "waiting": 1, "clipped": false, "rect": [948, 84, 320, 106], "viewport": [1280, 720]}
+```
+
+`status` is `active`, or `complete` / `failed` while a finished quest is still
+up; `waiting` counts objectives not listed yet; `rect` is the panel on screen
+(`[]` when hidden). `track: <quest id> | next | previous` picks the quest
+first (an error if it isn't active), and `linger: <s>` sets how long a finished
+quest stays (0 dismisses one that is up). Tests: `tests/test_hud_runtime.py`.
 
 ## Manifest
 

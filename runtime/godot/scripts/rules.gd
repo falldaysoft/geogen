@@ -22,6 +22,9 @@ extends Node
 ## a quest's state or an objective's latch changes, and `report(actor)`.
 
 signal quest_event(event: Dictionary)
+## The program or all of its state was replaced (a package loaded or unloaded, a save
+## restored): nothing fired, so whoever shows state re-reads it.
+signal reset
 
 var world: WorldLoader
 var machine: GeogenMachine = null
@@ -67,6 +70,7 @@ func load_package(name_: String, manifest: Dictionary) -> void:
             machine.add_actor(actor, _actors()[actor]["kind"])
     _minute = -1
     _report_errors()
+    reset.emit()
 
 
 func unload() -> void:
@@ -77,6 +81,7 @@ func unload() -> void:
     quests = {}
     _watched.clear()
     _expected.clear()
+    reset.emit()
 
 
 func _actors() -> Dictionary:
@@ -209,6 +214,7 @@ func load_save(data: Dictionary) -> void:
             if not machine.actor_info.has(actor):
                 machine.add_actor(actor, str(actors[actor].get("kind", "npc")))
     _report_errors()
+    reset.emit()
 
 
 # -- state, for tools --------------------------------------------------------------------------
