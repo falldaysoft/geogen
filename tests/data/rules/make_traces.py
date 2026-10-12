@@ -122,7 +122,7 @@ traces["actors_and_once"] = {
                     "actors": {"player": {"actor:demo.seen_gallery": True, "actor:demo.visits": 1},
                                "npc:a": {"actor:demo.seen_gallery": True, "actor:demo.visits": 2}},
                     "fired": ["discover", "count", "discover", "count", "count"], "signals": []}},
-        {"save_load": True},
+        {"save_load": {"without": ["actor_info"]}},                       # the host still knows who its actors are
         {"event": {"type": "enter", "subject": "demo:gallery", "actor": "player"}},
         {"expect": {"state": {"world:demo.visitors": 2}, "actors": {"player": {"actor:demo.visits": 2}},
                     "fired": ["count", "players_only"], "signals": [["demo:gallery", "regular"]]}},

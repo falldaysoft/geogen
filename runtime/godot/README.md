@@ -157,7 +157,7 @@ User args (after `--`):
 | `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one |
 | `--lock=@aim` | Press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |
-| `--save=PATH`, `--load=PATH` | Write interaction state (doors, drawers, switches, locks) on quit / restore it at start. Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
+| `--save=PATH`, `--load=PATH` | Write the game's state on quit / restore it at start: a `geogen-save` (see "Saving" below). Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
 | `--status` | Print the player's pose, room and interaction states on quit |
 | `--lights` | Print fixture lights on quit |
 | `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
@@ -229,7 +229,7 @@ metres, angles degrees. `help` lists every command; the groups are:
   arrived/stuck/timeout, a 0.25 s position `trace` and `blocked_by`: the node, asset and
   interaction state of whatever stopped it), `use` (aimed, or a named asset), `sit`, `stand`, `keys`.
 - `interactions.*`: `list`, `set` / `use` (`wait: true` returns once the parts arrive, with their
-  world bounds), `lock`; `state.save` / `state.load`.
+  world bounds), `lock`; `state.save` (`path` also writes the file) / `state.load` (`state` or `path`).
 - `npcs.*`: `list` (reports), `options` (scored), `force` (the next decision takes an option),
   `greet`, `pause`, `resume`.
 - `time.*`: `pause` / `resume` (the API keeps serving), `step` (exactly N physics frames),
@@ -469,8 +469,8 @@ these IDs at export; the runtime only ever compares IDs.
 
 - `WorldLoader.nodes_by_uid` / `node_by_uid(uid)` find a loaded node (the scene's own
   package may be left off: `door`). Streamed chunks add and remove their nodes as they load.
-- Saved state (`--save`, `state.save`) is keyed `<uid>#<interaction>`. Saves from before IDs
-  (`<node name>/<interaction>`) still load.
+- Saved state (`--save`, `state.save`) is keyed `<uid>#<interaction>`. Flat saves from before
+  IDs (`<node name>/<interaction>`) still load.
 - Manifest `spawns`, `rooms` and `travel` entries carry `uid`; a travel `spawn` may be a
   spawn's name or its path (`street/hotel/entrance_spawn`).
 - API: `world.node` and every command that takes a node accept `uid`; `world.query` takes a
@@ -567,8 +567,17 @@ are `docs/rules.md`; nothing here knows what a quest is beyond printing it.
   clock is its clock, checked each minute, and time passes with physics.
 - Actors are `player` and each NPC by stable ID.
 - A package's state is kept when its world unloads and resumes when it loads
-  again, so progress survives a trip to another scene. `--save` / `--load` and
-  `state.save` / `state.load` carry it under the key `geogen:rules`.
+  again, so progress survives a trip to another scene.
+- **Saving.** `--save` / `--load` and `state.save` / `state.load` write and take up one
+  `geogen-save` (`docs/schema/geogen-save.v1.schema.json`, "Saving" in `docs/rules.md`):
+  `{format, version, package, now, clock, world, actors, actor_info, timers}`.
+  `WorldLoader.save_state()` is the machine's save with every interaction added to `world`
+  as the instance state it is (`"cottage:door#swing": "open"`, `"cottage:door#swing_locked": true`),
+  loaded or last seen in a chunk that has since unloaded. Only what differs from how things
+  start is stored, so `load_state()` puts everything a save doesn't mention back as it was
+  exported. A flat save from before the format (`{"<uid>#<interaction>": {state, locked}}`,
+  the rules state under `geogen:rules`) still loads, and only moves what it names. The save
+  is of the loaded package; `--status` still prints `states` as `{key: {state, locked}}`.
 
 ```
 quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"started","status":"active","from":"available"}

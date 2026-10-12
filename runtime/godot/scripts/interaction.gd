@@ -30,6 +30,9 @@ var targets: Array[Node3D] = []
 ## Lock: key id ("" = no lock) and whether it's currently locked.
 var lock_key := ""
 var locked := false
+## How it was exported: a save only holds what differs from these.
+var initial := ""
+var initial_locked := false
 ## Who caused the move under way: "player", an NPC's ID, or "" (a rule, a timer, a tool).
 var actor := ""
 var _dwell := 0.0          # seconds spent in the current state (for 'after')
@@ -50,10 +53,12 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
     it.duration = maxf(float(data.get("duration", 0.9)), 0.01)
     it.state = str(data.get("initial", ""))
     it.target = it.state
+    it.initial = it.state
     var lock = data.get("lock")
     if lock is Dictionary:
         it.lock_key = str(lock.get("key", ""))
         it.locked = bool(lock.get("locked", false))
+        it.initial_locked = it.locked
     for n in data.get("targets", []):
         var node := _find(asset_node, n)
         if node:

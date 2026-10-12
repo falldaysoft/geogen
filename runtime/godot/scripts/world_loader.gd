@@ -1027,7 +1027,8 @@ func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
 
 ## The key an interaction's state is saved under: "<stable ID>#<interaction>", so a save
 ## survives a re-export that renames nodes (exports without IDs: "<node name>/<interaction>").
-const RULES_SAVE := "geogen:rules"       # the save's entry for the rules program (not an interaction)
+const SAVE_FORMAT := "geogen-save"       # docs/schema/geogen-save.v1.schema.json
+const RULES_SAVE := "geogen:rules"       # where saves from before that format kept the rules program's state
 
 
 static func _state_key(it: GeogenInteraction) -> String:
@@ -1037,26 +1038,141 @@ static func _state_key(it: GeogenInteraction) -> String:
     return "%s#%s" % [uid, it.interaction_name]
 
 
-## Interaction state of every interaction, by ``_state_key``: the loaded ones, plus what was
+## {state, locked} of every interaction, by ``_state_key``: the loaded ones, plus what was
 ## last known of those in chunks that aren't loaded.
-func save_state() -> Dictionary:
+func interaction_states() -> Dictionary:
     var data := _pending_state.duplicate(true)
     for it in interactions:
         data[_state_key(it)] = it.snapshot()
-    if rules.machine != null:
-        data[RULES_SAVE] = rules.save()      # variables, quest progress, timers (docs/rules.md "Saving")
     return data
 
 
-## Restore a save. Entries for things that aren't loaded yet apply when they load.
-func load_state(data: Dictionary) -> void:
-    _pending_state = data.duplicate(true)
-    var saved = _pending_state.get(RULES_SAVE)
-    _pending_state.erase(RULES_SAVE)
-    if saved is Dictionary:
-        rules.load_save(saved)
+## The game as a save (docs/rules.md "Saving"): the rules program's world and actor sections,
+## clock and timers, with every interaction in ``world`` as the instance state it is ("<key>":
+## its state, "<key>_locked": its lock). Only what differs from how things start is there.
+func save_state() -> Dictionary:
+    var data := rules.save()
+    if data.is_empty():                  # no rules program: only interactions
+        data = {"format": SAVE_FORMAT, "version": 1, "now": 0.0, "clock": _clock_now(), "world": {},
+            "actors": {}, "actor_info": {}, "timers": []}
+    data["package"] = rules.package if rules.machine != null else scene_name
+    var stored: Dictionary = data["world"]
+    var live := _live_interactions()
+    var states := interaction_states()
+    for key in states:
+        var snap: Dictionary = states[key]
+        var it: GeogenInteraction = live.get(key)
+        _store(stored, key, snap.get("state"), it.initial if it != null else _default_of(key))
+        _store(stored, key + "_locked", snap.get("locked"),
+            it.initial_locked if it != null else _default_of(key + "_locked"))
+    return data
+
+
+func _live_interactions() -> Dictionary:
+    var live := {}
     for it in interactions:
-        _restore_pending(it)
+        live[_state_key(it)] = it
+    return live
+
+
+static func _store(stored: Dictionary, key: String, value: Variant, default: Variant) -> void:
+    if value == null or (default != null and value == default):
+        stored.erase(key)
+    else:
+        stored[key] = value
+
+
+## What the package says a variable starts as (null: it doesn't say).
+func _default_of(key: String) -> Variant:
+    if rules.machine == null:
+        return null
+    return rules.machine.variables.get(key, {}).get("default")
+
+
+func _clock_now() -> Dictionary:
+    if clock == null:
+        return {"time": "12:00", "hour": 12.0, "night": false, "day": 0}
+    var total := int(clock.hours * 60.0) % 1440
+    return {"time": "%02d:%02d" % [total / 60, total % 60], "hour": total / 60.0, "night": clock.night, "day": 0}
+
+
+## Restore a save: whatever it doesn't mention goes back to how it started. Entries for
+## things that aren't loaded yet apply when they load. A save from before the format (a flat
+## {key: {state, locked}}, the rules state under "geogen:rules") still loads; it only moves
+## what it names.
+func load_state(data: Dictionary) -> void:
+    if data.get("format") != SAVE_FORMAT:
+        _pending_state = {}
+        for key in data:
+            if key != RULES_SAVE and data[key] is Dictionary:
+                _pending_state[key] = data[key].duplicate(true)
+        for it in interactions:
+            _restore_pending(it)
+        if data.get(RULES_SAVE) is Dictionary:
+            rules.load_save(data[RULES_SAVE])
+        return
+    if rules.machine != null and data.get("package", rules.package) != rules.package:
+        push_warning("geogen: the save is of '%s', not '%s'" % [data["package"], rules.package])
+    # The interactions in the world section. A loaded one is its node's to hold; the others
+    # wait for their chunk, and the rules program simulates them meanwhile.
+    var live := _live_interactions()
+    var for_rules: Dictionary = data.duplicate(true)
+    var stored: Dictionary = for_rules.get("world", {})
+    _pending_state = {}
+    for key in stored.keys():
+        var owner_key := _saved_interaction(key, stored[key])
+        if owner_key == "":
+            continue
+        if not _pending_state.has(owner_key):
+            _pending_state[owner_key] = {}
+        _pending_state[owner_key]["state" if owner_key == key else "locked"] = stored[key]
+        if live.has(owner_key) or rules.machine == null or not rules.machine.variables.has(key):
+            stored.erase(key)
+    for key in live:
+        var it: GeogenInteraction = live[key]
+        var snap: Dictionary = _pending_state.get(key, {})
+        _pending_state.erase(key)
+        it.restore({"state": snap.get("state", it.initial), "locked": snap.get("locked", it.initial_locked)})
+    rules.load_save(for_rules)           # after the nodes: bindings are recomputed from them
+
+
+## Write a save as one JSON file; "" when done, else why not.
+static func write_save(path: String, data: Dictionary) -> String:
+    var f := FileAccess.open(path, FileAccess.WRITE)
+    if f == null:
+        return "can't write %s: %s" % [path, error_string(FileAccess.get_open_error())]
+    f.store_string(JSON.stringify(data, "  "))
+    f.close()
+    return ""
+
+
+## The save in a file (a Dictionary), or null.
+static func read_save(path: String) -> Variant:
+    if not FileAccess.file_exists(path):
+        return null
+    return JSON.parse_string(FileAccess.get_file_as_string(path))
+
+
+## The interaction a key of a save's world section belongs to ("" for a variable or a
+## latch): the key itself for its state, the key less "_locked" for its lock.
+func _saved_interaction(key: String, value: Variant) -> String:
+    var base := key.trim_suffix("_locked")
+    if rules.machine != null:
+        if rules.machine.interactions.has(key):
+            return key
+        if base != key and rules.machine.interactions.has(base):
+            return base
+        if rules.machine.variables.has(key):
+            return ""
+    if key.begins_with("world:") or key.begins_with("once:") or key.begins_with("watch:"):
+        return ""
+    for it in interactions:              # an export without stable IDs or a state section
+        var own := _state_key(it)
+        if own == key or own == base:
+            return own
+    if rules.machine != null:
+        return ""
+    return base if value is bool and base != key else key
 
 
 func _restore_pending(it: GeogenInteraction) -> void:

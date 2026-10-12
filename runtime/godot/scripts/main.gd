@@ -24,7 +24,7 @@ extends Node3D
 ##   --keys=K1,K2                  keys the player holds (lock/unlock doors with L)
 ##   --lock=@aim                   press L on whatever the player looks at
 ##   --pitch=DEG                   look up (+) or down (-) at spawn
-##   --save=PATH / --load=PATH     write interaction state on quit / restore it at start
+##   --save=PATH / --load=PATH     write the game's state (a geogen-save) on quit / restore one at start
 ##   --status                      print the player's pose/room/focus when quitting
 ##   --npc-trace                   print every NPC decision and step ("npc: {...}")
 ##   --quests                      print every quest's state for the player ("quests: [...]") once the world
@@ -333,9 +333,11 @@ func _ready() -> void:
     if not world.npcs.is_empty():
         print("npcs: %s" % JSON.stringify(world.npcs.map(func(n): return String(n.name))))
     if _load_path != "":
-        var saved = JSON.parse_string(FileAccess.get_file_as_string(_load_path))
+        var saved = WorldLoader.read_save(_load_path)
         if saved is Dictionary:
             world.load_state(saved)
+        else:
+            push_warning("geogen: --load=%s: not a save" % _load_path)
     for asset_name in _use_assets:
         var found := world.interactions_of(asset_name)
         if found.is_empty():
@@ -781,15 +783,15 @@ func _process(delta: float) -> void:
     _frames += 1
     if _frames >= quit_after_frames:
         if _save_path != "":
-            var f := FileAccess.open(_save_path, FileAccess.WRITE)
-            f.store_string(JSON.stringify(world.save_state()))
-            f.close()
+            var problem := WorldLoader.write_save(_save_path, world.save_state())
+            if problem != "":
+                push_warning("geogen: --save: %s" % problem)
         if _print_status:
             var p := player.global_position
             print("status: %s" % JSON.stringify({"scene": world.scene_name, "pose": player.pose.get("type", "stand"),
                 "pose_asset": player.pose.get("asset", ""), "x": p.x, "y": p.y, "z": p.z,
                 "room": world.room_at(p + Vector3(0, 0.5, 0)), "eye_y": player.camera.global_position.y,
-                "states": world.save_state(), "stream": world.stream_report(),
+                "states": world.interaction_states(), "stream": world.stream_report(),
                 "clock": clock.label(), "night": world.night,
                 "lamps_on": world.lights_by_name.values().filter(func(l): return is_instance_valid(l) and l.visible).size()}))
         if _print_lights:

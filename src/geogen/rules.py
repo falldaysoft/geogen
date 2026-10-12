@@ -42,6 +42,7 @@ from .state import TYPES, fits as _fits
 FORMAT = "geogen-rules"
 VERSION = 1
 SAVE_FORMAT = "geogen-save"
+SAVE_VERSION = 1
 MAX_DEPTH = 16             # how many events deep one input may cascade
 EVENT_TYPES = {
     "signal": "a thing raised a named signal: an interaction arriving at a state with `emit`, or a rule's emit",
@@ -519,18 +520,28 @@ class Machine:
     # -- saving --------------------------------------------------------------------------------
 
     def save(self) -> dict[str, Any]:
-        """Everything needed to carry on later. World and actor state stay apart; bindings aren't saved."""
-        return copy.deepcopy({"format": SAVE_FORMAT, "version": 1, "now": self.now, "clock": self.clock,
+        """Everything needed to carry on later (docs/schema/geogen-save.v1.schema.json).
+
+        World and actor state stay apart, each a flat ``{key: value}`` of what differs from the
+        defaults (the keys name their owners) plus its hidden latches; bindings aren't saved.
+        """
+        return copy.deepcopy({"format": SAVE_FORMAT, "version": SAVE_VERSION, "now": self.now, "clock": self.clock,
                               "world": self.world, "actors": self.actors, "actor_info": self.actor_info,
                               "timers": self.timers})
 
     def load(self, data: dict[str, Any]) -> None:
+        """Take up a save. Sections it leaves out are empty; actors it doesn't describe stay as they were."""
         if data.get("format") != SAVE_FORMAT:
             raise RuleError(f"not a {SAVE_FORMAT} file")
+        if data.get("version", SAVE_VERSION) != SAVE_VERSION:
+            raise RuleError(f"a {SAVE_FORMAT} of version {data['version']}, not {SAVE_VERSION}")
         data = copy.deepcopy(data)
-        self.now, self.clock = data["now"], data["clock"]
-        self.world, self.actors, self.actor_info = data["world"], data["actors"], data["actor_info"]
-        self.timers = data["timers"]
+        self.now, self.clock = float(data.get("now", 0.0)), data.get("clock", self.clock)
+        self.world, self.actors = data.get("world", {}), data.get("actors", {})
+        known, saved = self.actor_info, data.get("actor_info", {})
+        self.actor_info = {actor: saved.get(actor) or known.get(actor) or {"kind": "npc", "room": ""}
+                           for actor in {**self.actors, **saved}}
+        self.timers = data.get("timers", [])
         self._seq = max((t["seq"] for t in self.timers), default=0)
         self.derived = {}
         self._rebind([], 0)             # recompute, silently: nothing changed while saved
@@ -568,6 +579,8 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
             machine.set_clock(**step["clock"])
         elif "save_load" in step:
             saved = json.loads(json.dumps(machine.save()))
+            for section in step["save_load"].get("without", []) if isinstance(step["save_load"], dict) else []:
+                del saved[section]
             logs = machine.signals, machine.fired, machine.errors
             machine = Machine(trace["program"], trace.get("actors"))
             machine.load(saved)

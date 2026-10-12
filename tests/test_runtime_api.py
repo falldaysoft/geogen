@@ -161,13 +161,16 @@ def test_sit_and_stand(rt):
 def test_state_save_and_load(rt):
     reset(rt, "open")
     saved = rt.call("state.save")
-    assert saved["cottage:door#swing"]["state"] == "open"         # keyed by stable ID
+    assert saved["format"] == "geogen-save" and saved["package"] == "cottage"
+    assert saved["world"]["cottage:door#swing"] == "open"         # instance state, keyed by stable ID
     rt.call("interactions.set", asset="door", state="closed", instant=True)
+    assert "cottage:door#swing" not in rt.call("state.save")["world"]        # as it started: not stored
     restored = rt.call("state.load", state=saved)
-    assert restored["cottage:door#swing"]["state"] == "open"
-    # A save from before IDs (keyed by node name) still loads.
-    rt.call("interactions.set", asset="door", state="closed", instant=True)
-    assert rt.call("state.load", state={"door/swing": {"state": "open"}})["cottage:door#swing"]["state"] == "open"
+    assert restored["world"]["cottage:door#swing"] == "open"
+    # Saves from before the format still load: flat, keyed by stable ID or (before IDs) by node name.
+    for old in ("cottage:door#swing", "door/swing"):
+        rt.call("interactions.set", asset="door", state="closed", instant=True)
+        assert rt.call("state.load", state={old: {"state": "open"}})["world"]["cottage:door#swing"] == "open"
 
 
 def test_nodes_are_found_by_stable_id(rt):

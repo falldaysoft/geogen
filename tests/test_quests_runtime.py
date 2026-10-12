@@ -104,7 +104,7 @@ def test_state_is_read_and_set_like_a_console(rt):
 
 def test_progress_survives_a_save_and_a_reload(rt):
     saved = rt.call("state.save")
-    assert saved["geogen:rules"]["actors"]["player"][QUEST_KEY] == "complete"
+    assert saved["actors"]["player"][QUEST_KEY] == "complete"
     rt.call("state.set", key=QUEST_KEY, value="active")
     rt.call("state.set", key="actor:yard.pulls", value=7)
     assert quest(rt)["status"] == "active"

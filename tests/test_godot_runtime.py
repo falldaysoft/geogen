@@ -409,8 +409,9 @@ def test_save_and_restore_interaction_state(run_godot, auto_room_dir, tmp_path):
     saved = json.loads(save.read_text())
     # Keyed by stable ID (geogen.refs), not by exported node name.
     room = "hotel_room_auto:suite/bedroom"
-    assert saved[f"{room}/bedroom_switch_1#switch"]["state"] == "off"
-    assert saved[f"{room}/nightstand#drawer"]["state"] == "open"
+    assert saved["format"] == "geogen-save"
+    assert saved["world"][f"{room}/bedroom_switch_1#switch"] == "off"
+    assert saved["world"][f"{room}/nightstand#drawer"] == "open"
     out = run_godot(*base, f"--load={save}", "--lights", "--quit-after=5")
     assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
 

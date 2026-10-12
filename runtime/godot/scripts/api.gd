@@ -43,13 +43,14 @@ const COMMANDS := {
     "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
     "interactions.use": "{asset, interaction?, wait?} advance to the next state (honours locks)",
     "interactions.lock": "{asset, interaction?, locked} lock or unlock without a key",
-    "state.save": "interaction states keyed asset/interaction",
+    "state.save": "{path?} -> the game as a geogen-save (docs/schema/geogen-save.v1.schema.json): world and actor "
+        + "sections, clock, timers; interactions are instance state in world. path: also write it there",
     "state.get": "{key, actor?} a variable's value (world:pkg.name, actor:pkg.name, <uid>#<state>); actor: player",
     "state.set": "{key, value, actor?} set one, as a console would: rules and bindings react",
     "state.list": "-> {world, actors}: every stored value that differs from its default",
     "quests.list": "{actor?} every quest's state for an actor (default player): status, objectives "
         + "(done | open | waiting, progress, markers)",
-    "state.load": "{state} restore a save",
+    "state.load": "{state | path} restore a save (one from before the format still loads); -> the save now",
     "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
     "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
         + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
@@ -421,11 +422,19 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             await get_tree().process_frame
             return {"key": OS.get_keycode_string(code)}
         "state.save":
-            return world.save_state()
+            var saved := world.save_state()
+            if args.has("path"):
+                var problem := WorldLoader.write_save(str(args["path"]), saved)
+                if problem != "":
+                    return _err(problem)
+            return saved
         "state.load":
-            if not args.get("state") is Dictionary:
-                return _err("state: {asset/interaction: {state, locked}}")
-            world.load_state(args["state"])
+            var state = args.get("state")
+            if args.has("path"):
+                state = WorldLoader.read_save(str(args["path"]))
+            if not state is Dictionary:
+                return _err("state: a save (state.save), or path: a file holding one")
+            world.load_state(state)
             return world.save_state()
         "npcs.list":
             return world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return n.report())

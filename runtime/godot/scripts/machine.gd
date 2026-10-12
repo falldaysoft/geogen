@@ -58,6 +58,7 @@ extends RefCounted
 
 const MAX_DEPTH := 16               # how many events deep one input may cascade
 const SAVE_FORMAT := "geogen-save"
+const SAVE_VERSION := 1
 const DEFAULT_DURATION := 0.9       # seconds an interaction takes when it doesn't say
 
 var program: Dictionary
@@ -623,25 +624,33 @@ func _order_binding(key: String, by_key: Dictionary, done: Dictionary, order: Ar
 ## Everything needed to carry on later. World and actor state stay apart;
 ## bindings aren't saved (nor is anything the host owns).
 func save() -> Dictionary:
-    return {"format": SAVE_FORMAT, "version": 1, "now": now, "clock": clock, "world": world, "actors": actors,
-        "actor_info": actor_info, "timers": timers}.duplicate(true)
+    return {"format": SAVE_FORMAT, "version": SAVE_VERSION, "now": now, "clock": clock, "world": world,
+        "actors": actors, "actor_info": actor_info, "timers": timers}.duplicate(true)
 
 
 ## Take up a save. Loading is not an input: bindings are recomputed, silently,
-## since nothing changed while saved. False when `data` isn't a save.
+## since nothing changed while saved. Sections it leaves out are empty; actors it
+## doesn't describe stay as they were. False when `data` isn't a save.
 func load_save(data: Dictionary) -> bool:
     if _refused("load"):
         return false
     if data.get("format") != SAVE_FORMAT:
         last_error = "not a %s file" % SAVE_FORMAT
         return false
+    if int(data.get("version", SAVE_VERSION)) != SAVE_VERSION:
+        last_error = "a %s of version %s, not %d" % [SAVE_FORMAT, data["version"], SAVE_VERSION]
+        return false
     var copy := data.duplicate(true)
-    now = float(copy["now"])
-    clock = copy["clock"]
-    world = copy["world"]
-    actors = copy["actors"]
-    actor_info = copy["actor_info"]
-    timers = copy["timers"]
+    now = float(copy.get("now", 0.0))
+    clock = copy.get("clock", clock)
+    world = copy.get("world", {})
+    actors = copy.get("actors", {})
+    var known := actor_info
+    var saved: Dictionary = copy.get("actor_info", {})
+    actor_info = {}
+    for actor in actors.keys() + saved.keys():
+        actor_info[actor] = saved.get(actor, known.get(actor, {"kind": "npc", "room": ""}))
+    timers = copy.get("timers", [])
     _seq = 0
     for timer in timers:
         _seq = maxi(_seq, int(timer["seq"]))

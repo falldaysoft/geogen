@@ -44,6 +44,9 @@ static func run(trace: Dictionary) -> Array[String]:
         elif step.has("save_load"):
             var saved: Variant = JSON.parse_string(JSON.stringify(machine.save(), "", false, true))
             var fresh := GeogenMachine.new(program, actors)
+            if saved is Dictionary and step["save_load"] is Dictionary:
+                for section in step["save_load"].get("without", []):
+                    saved.erase(section)
             if not saved is Dictionary or not fresh.load_save(saved):
                 problems.append("%s: the save didn't load: %s" % [where, fresh.last_error])
                 continue

@@ -218,10 +218,36 @@ skipped; the rule's other effects still run.
 ## Saving
 
 A save holds the stored world values, the stored values of every actor, the
-clock and the pending timers. World and actor state are separate sections.
-`once` and watch latches are kept as hidden values (`once:<rule>`,
-`watch:<rule>`) with the state they belong to. Loading recomputes bindings
-without raising events: nothing changed while saved.
+clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
+`Machine.save` / `Machine.load`):
+
+```json
+{"format": "geogen-save", "version": 1, "now": 12.5,
+ "clock": {"time": "21:10", "hour": 21.17, "night": true, "day": 0},
+ "world": {"yard:gate#gate": "open", "yard:gate#gate_locked": true,
+           "yard:plate#occupants": 1, "world:yard.power": false, "watch:crowded": true},
+ "actors": {"player": {"actor:yard.pulls": 2, "once:discover": true},
+            "yard:steward": {}},
+ "actor_info": {"player": {"kind": "player", "room": ""}, "yard:steward": {"kind": "npc", "room": ""}},
+ "timers": [{"at": 13.0, "seq": 4, "kind": "rule", "rule": "close_later", "actor": "player"}]}
+```
+
+- World and actor state are separate sections, and each is flat: a key names
+  its owner, so instance state (`<thing id>#<name>`) and world variables sit
+  side by side in `world`, and every actor has its own `actor:` values. A
+  single-player game writes all of it to one file.
+- An interaction is instance state like any other: `<thing id>#<interaction>`
+  is the state it is in or heading to, `<thing id>#<interaction>_locked` its lock.
+- Only values that differ from their defaults are stored. A key a save doesn't
+  have is at its default, so loading puts everything else back as it started.
+- `once` and watch latches are kept as hidden values (`once:<rule>`,
+  `watch:<rule>`) with the state they belong to.
+- Bindings are never saved. Loading recomputes them without raising events:
+  nothing changed while saved.
+- `timers` are what is still to happen (`rule`: a delayed rule; `arrive` and
+  `dwell`: an interaction on its way or waiting to move on), on `now`'s scale.
+- `actor_info` (kind, room) may be left out: actors a save doesn't describe stay
+  as the host knows them.
 
 ## What export must reject
 
@@ -290,7 +316,8 @@ A trace is `{program, actors, steps}`. Steps are inputs (`use`, `event`, `set`,
 `advance`, `clock`, `save_load`) and `expect` blocks that check `state`,
 `actors`, and exactly which `signals` and rules (`fired`) happened since the
 last one. `geogen.rules.run_trace` replays one and returns the mismatches. A `save_load`
-step is not an input: nothing fires because of it.
+step is not an input: nothing fires because of it (`{"save_load": {"without": [section]}}`
+drops sections of the save before loading it).
 
 Edit traces in `tests/data/rules/make_traces.py`, which compiles the conditions,
 and run it to rewrite the JSON.

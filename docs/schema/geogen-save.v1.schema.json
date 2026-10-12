@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/falldaysoft/geogen/docs/schema/geogen-save.v1.schema.json",
+  "title": "geogen save v1",
+  "description": "A saved game: what `geogen.rules.Machine.save` returns and what the Godot runtime writes (`--save`, API `state.save`). Semantics: docs/rules.md, 'Saving'. World and actor state are separate sections, each a flat {key: value}: a key names its owner, so nothing is nested. Only values that differ from their declared defaults are stored; a key that is absent has its default. Bindings are never saved. A single-player game writes every section to one file; a server can keep the actor sections apart.",
+  "type": "object",
+  "required": ["format", "version", "now", "clock", "world", "actors", "timers"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "geogen-save"},
+    "version": {"const": 1},
+    "schema": {"type": "string"},
+    "package": {"type": "string", "description": "The package that was loaded when it was saved (written by the runtime)."},
+    "now": {"type": "number", "minimum": 0, "description": "Seconds the rules program has run: what timers' `at` is measured on."},
+    "clock": {
+      "description": "The world clock the conditions read.",
+      "type": "object",
+      "required": ["time", "hour", "night", "day"],
+      "additionalProperties": false,
+      "properties": {
+        "time": {"type": "string", "pattern": "^[0-9]{2}:[0-9]{2}$"},
+        "hour": {"type": "number", "minimum": 0, "exclusiveMaximum": 24},
+        "night": {"type": "boolean"},
+        "day": {"type": "number", "minimum": 0}
+      }
+    },
+    "world": {
+      "description": "Shared state. '<thing id>#<name>' is instance state: a declared variable of one placed instance, or an interaction ('<thing id>#<interaction>' is the state it is in or heading to, '<thing id>#<interaction>_locked' its lock). 'world:<package>.<name>' is a world variable. 'once:<rule>' and 'watch:<rule>' are the latches of rules that aren't per actor. An export without stable IDs keys its interactions '<node name>/<interaction>'.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/worldKey"},
+      "additionalProperties": {"$ref": "#/$defs/value"}
+    },
+    "actors": {
+      "description": "Per actor ('player', or an NPC's stable ID) its 'actor:<package>.<name>' values and the latches of per-actor rules.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "propertyNames": {"$ref": "#/$defs/actorKey"},
+        "additionalProperties": {"$ref": "#/$defs/value"}
+      }
+    },
+    "actor_info": {
+      "description": "What the program knows of each actor besides its state. Optional: actors a save doesn't describe stay as the host knows them.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": {"enum": ["player", "npc"]},
+          "room": {"type": "string", "description": "The room it is in ('' for none): `actor.room`."}
+        }
+      }
+    },
+    "timers": {
+      "description": "What is still to happen, in firing order (`at`, then `seq`).",
+      "type": "array",
+      "items": {"$ref": "#/$defs/timer"}
+    }
+  },
+  "$defs": {
+    "value": {"type": ["boolean", "number", "string"]},
+    "latchKey": {"type": "string", "pattern": "^(once|watch):.+$"},
+    "worldKey": {
+      "anyOf": [
+        {"$ref": "#/$defs/latchKey"},
+        {"type": "string", "pattern": "^world:[A-Za-z0-9_\\-]+\\.[A-Za-z_][A-Za-z0-9_]*$"},
+        {"type": "string", "pattern": "^[A-Za-z0-9_\\-]+:.*#[A-Za-z_][A-Za-z0-9_]*$"},
+        {"type": "string", "pattern": "^[^#:]+/[A-Za-z_][A-Za-z0-9_]*$"}
+      ]
+    },
+    "actorKey": {
+      "anyOf": [
+        {"$ref": "#/$defs/latchKey"},
+        {"type": "string", "pattern": "^actor:[A-Za-z0-9_\\-]+\\.[A-Za-z_][A-Za-z0-9_]*$"}
+      ]
+    },
+    "timer": {
+      "type": "object",
+      "required": ["at", "seq", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "at": {"type": "number", "description": "When it fires, on `now`'s scale."},
+        "seq": {"type": "number", "description": "The order it was scheduled in: ties go to the lower."},
+        "kind": {"enum": ["rule", "arrive", "dwell"], "description": "rule: a rule's `after` ran out, its effects are due. arrive: an interaction reaches the state it is heading to. dwell: a state's own `after` ran out, it moves on to its `then`."},
+        "rule": {"type": "string", "description": "kind rule: the rule's id."},
+        "key": {"type": "string", "description": "kind arrive, dwell: the interaction."},
+        "state": {"type": "string", "description": "kind arrive, dwell: the state it arrives at or dwells in."},
+        "actor": {"type": ["string", "null"], "description": "The actor behind it ('' or null: nobody)."}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "rule"}}}, "then": {"required": ["rule"]}, "else": {"required": ["key", "state"]}}
+      ]
+    }
+  }
+}
