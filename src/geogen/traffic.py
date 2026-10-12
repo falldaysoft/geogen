@@ -17,6 +17,8 @@ Everything is precomputed here so a runtime only follows curves:
 - **Conflicts**: connector pairs in one intersection whose paths come
   closer than a vehicle width, with the s-range on each (claim before entering).
 - **Crosswalks**: s-ranges where a lane crosses a crosswalk (yield to people).
+- **Pedestrian signals**: each crosswalk of a signalled intersection gets a walk interval, a
+  flashing clearance interval and the vehicle phase they run in (``pedestrian_timing``).
 
 ``build_traffic(scene)`` returns the graph as a JSON-ready dict (the manifest's
 ``traffic`` section, schema ``docs/schema/geogen-traffic.v1.schema.json``);
@@ -43,6 +45,8 @@ PARKING_DEPTH = 2.3         # kerb to the outer edge of a parked car (m)
 CONFLICT_GAP = 3.6          # connector paths closer than this conflict (m): a bus plus its off-tracking in turns
 TRAFFIC_KEYS = {"drive", "lanes", "avenue_lanes", "speed", "avenue_speed", "turns", "control", "signals", "cycle"}
 SIGNAL_CYCLE = {"green": 16.0, "amber": 3.0, "all_red": 1.5}
+PEDESTRIAN_SPEED = 1.2      # design walking speed for crossing clearance (m/s)
+MIN_WALK = 4.0              # shortest walk interval (s)
 ROUTE_KEYS = {"path", "lanes", "drive", "speed", "loop", "lane_width", "y", "surface"}
 # Vehicle classes swept along every lane for clearance: (width, height) in metres.
 CLEARANCE_CLASSES = {"car": (1.9, 1.6), "van": (2.1, 2.4), "bus": (2.6, 3.2)}
@@ -129,6 +133,47 @@ def capped_speed(points: np.ndarray, limit: float) -> float:
 
 def _cumulative(points: np.ndarray) -> np.ndarray:
     return np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))]
+
+
+def pedestrian_timing(length: float, cycle: dict[str, float]) -> tuple[float, float]:
+    """(walk, clearance) seconds for a crosswalk ``length`` metres long (kerb to kerb).
+
+    The crosswalk is walked in the phase of the traffic running beside it, when the traffic that
+    crosses it is stopped. From the start of that phase's green: *walk* (step off the kerb), then
+    *clearance* (flashing don't-walk: finish, don't start), long enough to walk the whole
+    crossing at ``PEDESTRIAN_SPEED``, then don't-walk. The clearance ends with the phase's amber,
+    so the all-red is spare before the crossing traffic gets its green; walk takes what is left
+    of green + amber, but at least ``MIN_WALK`` (``check_graph`` reports a cycle too short for
+    both). Turning traffic of the same phase isn't held: it yields to people on the crossing.
+    """
+    clearance = float(np.ceil(length / PEDESTRIAN_SPEED * 2.0 - 1e-9) / 2.0)
+    walk = max(float(cycle["green"]) + float(cycle["amber"]) - clearance, MIN_WALK)
+    return round(walk, 3), round(clearance, 3)
+
+
+def signal_state(intersection: dict[str, Any], phase: int, time: float) -> str:
+    """green | amber | red: what a signalled intersection shows ``phase`` at world ``time`` (s).
+    The reference for runtimes: the two phases take turns at green, amber, all-red."""
+    cycle = intersection["cycle"]
+    green, amber = float(cycle["green"]), float(cycle["amber"])
+    slot = green + amber + float(cycle["all_red"])
+    pos = (time + float(intersection.get("offset", 0.0))) % (2.0 * slot)
+    t = pos - phase * slot
+    if not 0.0 <= t < slot:
+        return "red"
+    return "green" if t < green else ("amber" if t < green + amber else "red")
+
+
+def pedestrian_state(signal: dict[str, Any], intersection: dict[str, Any], time: float) -> str:
+    """walk | flash | dont: what a ``pedestrian_signals`` entry shows at world ``time`` (s), on the
+    clock of its intersection (see ``pedestrian_timing``)."""
+    cycle = intersection["cycle"]
+    slot = float(cycle["green"]) + float(cycle["amber"]) + float(cycle["all_red"])
+    pos = (time + float(intersection.get("offset", 0.0))) % (2.0 * slot)
+    t = pos - signal["phase"] * slot
+    if not 0.0 <= t < slot:
+        return "dont"
+    return "walk" if t < signal["walk"] else ("flash" if t < signal["walk"] + signal["clearance"] else "dont")
 
 
 # --- city ---------------------------------------------------------------------------------------
@@ -239,11 +284,13 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     signals = spec.get("signals", "none")
     if signals not in ("none", "avenues", "all"):
         raise ValueError(f"city traffic: signals must be none | avenues | all, got {signals!r}")
+    signalled: set[tuple[int, int]] = set()
     for node, sides in arms.items():
         i, j = node
         avenue = i in builder.ns_avenues or j in builder.ew_avenues
         if len(sides) < 3 or signals == "none" or (signals == "avenues" and not avenue):
             continue
+        signalled.add(node)
         for side, (incoming, _) in sides.items():
             for ln in incoming:     # phase 0: arriving from north/south; phase 1: east/west
                 ln.signal = {"intersection": f"x_{i}_{j}", "phase": 0 if side in ("north", "south") else 1}
@@ -281,18 +328,33 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
                     lanes.append(con)
                     src.successors.append(con.id)
     # Crosswalk zones: the first/last `sidewalk` metres beyond each intersection box are crossings.
-    boxes = [(np.array([ns_spans[i][0], ew_spans[j][0]]), np.array([ns_spans[i][1], ew_spans[j][1]]))
-             for i in range(len(ns_spans)) for j in range(len(ew_spans))]
-    zones = []
-    for lo, hi in boxes:
-        for d in (np.array([sw, 0.0]), np.array([0.0, sw])):
+    cycle = {**SIGNAL_CYCLE, **(spec.get("cycle") or {})}
+    zones, pedestrian = [], []
+    for i in range(len(ns_spans)):
+        for j in range(len(ew_spans)):
+            lo = np.array([ns_spans[i][0], ew_spans[j][0]])
+            hi = np.array([ns_spans[i][1], ew_spans[j][1]])
             # Crosswalks run across the streets leaving the box on each side.
-            if d[0]:
-                zones += [(np.array([lo[0] - sw, lo[1]]), np.array([lo[0], hi[1]])),
-                          (np.array([hi[0], lo[1]]), np.array([hi[0] + sw, hi[1]]))]
-            else:
-                zones += [(np.array([lo[0], lo[1] - sw]), np.array([hi[0], lo[1]])),
-                          (np.array([lo[0], hi[1]]), np.array([hi[0], hi[1] + sw]))]
+            for side, zlo, zhi in (("west", [lo[0] - sw, lo[1]], [lo[0], hi[1]]),
+                                   ("east", [hi[0], lo[1]], [hi[0] + sw, hi[1]]),
+                                   ("south", [lo[0], lo[1] - sw], [hi[0], lo[1]]),
+                                   ("north", [lo[0], hi[1]], [hi[0], hi[1] + sw])):
+                zlo, zhi = np.array(zlo), np.array(zhi)
+                zones.append((zlo, zhi))
+                inside = np.all(zlo >= builder.lo - 1e-6) and np.all(zhi <= builder.hi + 1e-6)
+                # The crossing over the west or east arm is crossed by east-west traffic (phase 1),
+                # so people walk it in phase 0, beside the north-south traffic; and the other way.
+                across = side in ("west", "east")
+                # A crossing over a street on the district's edge leads to no pavement: no signal.
+                kerbs = 0 < j < len(ew_spans) - 1 if across else 0 < i < len(ns_spans) - 1
+                if (i, j) not in signalled or not inside or not kerbs:
+                    continue
+                length = float(hi[1] - lo[1] if across else hi[0] - lo[0])
+                walk, clearance = pedestrian_timing(length, cycle)
+                pedestrian.append({"id": f"x_{i}_{j}_{side}", "intersection": f"x_{i}_{j}", "arm": side,
+                                   "phase": 0 if across else 1,
+                                   "crosswalk": [round(float(v), 3) for v in (*zlo, *zhi)],
+                                   "length": round(length, 3), "walk": walk, "clearance": clearance})
     for lane in lanes:
         if lane.kind == "connector":
             lane.crosswalks = _zone_ranges(lane.points, zones)
@@ -303,6 +365,7 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     crossings = [[round(float(v), 3) for v in (*lo, *hi)] for lo, hi in zones
                  if np.all(lo >= builder.lo - 1e-6) and np.all(hi <= builder.hi + 1e-6)]
     builder.crosswalk_zones = crossings
+    builder.pedestrian_signals = pedestrian
     return lanes
 
 
@@ -408,7 +471,7 @@ def _conflicts(lanes: list[Lane]) -> list[dict[str, Any]]:
 
 
 def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None,
-          crosswalks: list | None = None) -> dict[str, Any]:
+          crosswalks: list | None = None, pedestrian_signals: list | None = None) -> dict[str, Any]:
     """A JSON-ready lane graph from lanes (points in one frame)."""
     ids = {lane.id for lane in lanes}
     for lane in lanes:
@@ -435,6 +498,8 @@ def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None,
            "intersections": list(intersections.values())}
     if crosswalks:
         out["crosswalks"] = crosswalks
+    if pedestrian_signals:
+        out["pedestrian_signals"] = pedestrian_signals
     return out
 
 
@@ -445,7 +510,8 @@ def city_graph(builder) -> dict[str, Any] | None:
     spec = {} if spec is True else dict(spec)
     cycle = {**SIGNAL_CYCLE, **(spec.get("cycle") or {})}
     lanes = _city_lanes(builder, spec)
-    return graph(lanes, spec.get("drive", "right"), cycle, getattr(builder, "crosswalk_zones", None))
+    return graph(lanes, spec.get("drive", "right"), cycle, getattr(builder, "crosswalk_zones", None),
+                 getattr(builder, "pedestrian_signals", None))
 
 
 def route_surface(name: str, spec: dict[str, Any], materials) -> SceneNode | None:
@@ -494,7 +560,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
     Ids of graphs from nested nodes are prefixed with the node name when they'd clash."""
     to_scene = np.linalg.inv(scene.world_transform())
     lanes: list = []
-    conflicts, intersections, seen, crosswalks = [], [], set(), []
+    conflicts, intersections, seen, crosswalks, pedestrian = [], [], set(), [], []
     drive = "right"
     for node in scene.iter_nodes():
         g = node.meta.get("traffic")
@@ -514,11 +580,15 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
                           "points": [[round(float(v), 3) for v in q] for q in p]})
             seen.add(rid(ln["id"]))
         conflicts += [{**c, "a": rid(c["a"]), "b": rid(c["b"])} for c in g.get("conflicts", [])]
-        for x0, z0, x1, z1 in g.get("crosswalks", []):
+        def rect(r, m=m):
+            x0, z0, x1, z1 = r
             corners = (m @ np.array([[x0, 0, z0, 1], [x1, 0, z1, 1]], dtype=np.float64).T).T
             lo, hi = corners.min(axis=0), corners.max(axis=0)
-            crosswalks.append([round(float(lo[0]), 3), round(float(lo[2]), 3), round(float(hi[0]), 3),
-                               round(float(hi[2]), 3)])
+            return [round(float(lo[0]), 3), round(float(lo[2]), 3), round(float(hi[0]), 3), round(float(hi[2]), 3)]
+
+        crosswalks += [rect(r) for r in g.get("crosswalks", [])]
+        pedestrian += [{**p, "id": rid(p["id"]), "intersection": rid(p["intersection"]),
+                        "crosswalk": rect(p["crosswalk"])} for p in g.get("pedestrian_signals", [])]
         for x in g.get("intersections", []):
             c = (m @ np.r_[np.asarray(x["center"], dtype=np.float64), 1.0])[:3]
             intersections.append({**x, "id": rid(x["id"]), "connectors": [rid(i) for i in x["connectors"]],
@@ -538,6 +608,8 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
            "intersections": intersections}
     if crosswalks:
         out["crosswalks"] = crosswalks
+    if pedestrian:
+        out["pedestrian_signals"] = pedestrian
     if railways:
         out["railways"] = railways
     return out
@@ -545,7 +617,9 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
 
 def check_graph(graph: dict[str, Any]) -> list[str]:
     """Structural problems: dead ends (a lane with no successor that isn't an exit), unknown
-    successors, and lanes nothing leads to (except route starts)."""
+    successors, lanes nothing leads to (except route starts), and pedestrian signals that don't
+    belong to a signalled intersection and a painted crossing or whose walk and clearance don't
+    fit in their phase."""
     lanes = {ln["id"]: ln for ln in graph["lanes"]}
     issues = []
     reached = {s for ln in lanes.values() for s in ln["successors"]}
@@ -557,6 +631,24 @@ def check_graph(graph: dict[str, Any]) -> list[str]:
             issues.append(f"{lid}: dead end")
         if lid not in reached and ln["kind"] != "route" and ln.get("start") != "entry":
             issues.append(f"{lid}: nothing leads here")
+    signalled = {x["id"]: x for x in graph.get("intersections", []) if x.get("control") == "signals"}
+    painted = {tuple(r) for r in graph.get("crosswalks", [])}
+    for p in graph.get("pedestrian_signals", []):
+        x = signalled.get(p["intersection"])
+        if x is None:
+            issues.append(f"{p['id']}: pedestrian signal at {p['intersection']}, which has no signals")
+            continue
+        if tuple(p["crosswalk"]) not in painted:
+            issues.append(f"{p['id']}: pedestrian signal on no painted crossing")
+        cycle = x["cycle"]
+        slot = float(cycle["green"]) + float(cycle["amber"]) + float(cycle["all_red"])
+        if p["phase"] not in (0, 1):
+            issues.append(f"{p['id']}: unknown phase {p['phase']}")
+        if p["clearance"] * PEDESTRIAN_SPEED < p["length"] - 1e-6:
+            issues.append(f"{p['id']}: {p['clearance']} s clearance is too short to walk {p['length']} m")
+        if p["walk"] + p["clearance"] > slot + 1e-6:
+            issues.append(f"{p['id']}: walk {p['walk']} s + clearance {p['clearance']} s is longer than "
+                          f"the phase ({slot} s): lengthen the signal cycle's green")
     return issues
 
 

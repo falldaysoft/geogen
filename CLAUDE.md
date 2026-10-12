@@ -313,6 +313,10 @@ They're built along +Z (the front) with the origin on the ground midway between 
   - The city places `signal_head.yaml` at each signalled stop line on the pavement (`meta.signal`).
   - The runtime runs the cycle from world time and lights `lamp_red|amber|green`. Vehicles claim on green, or on amber when too close to stop, and wait at red. A car held on green longer than `give_up` picks another exit.
 - Traffic placements take `count:` to size the fleet (`crossroads` uses 10).
+  - **Pedestrian signals:** the graph's `pedestrian_signals` lists each crosswalk of a signalled intersection with pavement at both ends (not the ones over the district's edge streets): `{id, intersection, arm, phase, crosswalk, length, walk, clearance}`.
+    - `phase` is the vehicle phase it is walked in: a crossing over the west or east arm is crossed by east/west traffic, so it is walked in phase 0, beside the north/south traffic. Turning traffic of that phase isn't held; it yields to people on the crossing.
+    - `traffic.pedestrian_timing`: from the start of the phase's green, walk, then a flashing don't-walk `clearance` (length / `PEDESTRIAN_SPEED` 1.2 m/s, rounded up to 0.5 s) that ends with the amber, then don't-walk. Walk is what is left of green + amber, at least `MIN_WALK` 4 s; `check_graph` reports a cycle too short for both. `traffic.signal_state` / `pedestrian_state` are the reference for runtimes.
+    - The city places `pedestrian_signal.yaml` (parts `lamp_walk`, `lamp_dont`) at both ends of each, at the kerb just outside the stripes, facing across, named `signal_walk_<id>_a|b` with `meta.signal = {intersection, phase, crossing}`. `traffic.gd` lights them (`pedestrian_state(id)`; the summary's `pedestrian_heads`, `walks`, `walk_conflicts`).
 - Stop lines are set back 3 m (`STOP_SETBACK`) and connectors within 3.6 m conflict, so buses' swept turns clear waiting cars.
 - **Moving traffic:** `kind: traffic` definitions live in `assets/traffic/*.yaml`.
   - They declare the fleet (weighted assets with draw params, optional `lanes` id prefixes), `count`, `spacing`, `driving` (IDM `accel`, `decel`, `headway`, `gap`, `speed_factor`, `stop_wait`, `look_ahead`, `give_up`), `turns` weights and `yield: [player, npc]`.
@@ -453,6 +457,7 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
   - `wander: {tags: [street.sidewalk]}` makes `go_to: random` pick area-weighted points on the up-facing faces of nodes with those tag groups (npc.gd `_random_surface_point`).
 - Scatter `on_tag: street.sidewalk` places copies on those surfaces.
 - Pedestrians cross at the painted crossings (lane graph `crosswalks` rectangles; npc.gd `_use_crosswalk` reroutes road-level paths).
+- At a signalled crossing they wait on the kerb, facing across, until walk (npc.gd `_wait_for_walk`: on a kerb with the crossing's road within `KERB_STEP` ahead, whatever the path). They don't start on the flashing don't-walk and finish once on the road. The summary reports `signal_waits`, `signal_wait`, `signal_crossings` and `signal_violations`. `tests/test_traffic_runtime.py::test_pedestrians_wait_for_the_walk_signal` covers it on `crossroads`.
 - `town` has 10 pedestrians and `crossroads` has 6. Traffic yields to them. `tests/test_traffic_runtime.py::test_pedestrians_stroll_and_rest_while_traffic_yields` covers this.
 
 ### Time of day

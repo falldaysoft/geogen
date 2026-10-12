@@ -55,6 +55,8 @@ var _overlap_timer := 0.0
 var _schedule_timer := 0.0
 var _signals := {}                   # intersection id -> {cycle, offset}
 var _heads: Array[Dictionary] = []   # signal heads: {node, x, phase, lamps: {red|amber|green: [materials]}}
+var _crossings := {}                 # pedestrian signal id -> {x, phase, walk, clearance}
+var _crossing_shown := {}            # pedestrian signal id -> the state last seen (for the report's counts)
 var _head_timer := 0.0
 var _fleet_size := 0
 var _parked: Array[Dictionary] = []  # vehicles off the road (the schedule's quiet hours)
@@ -131,6 +133,9 @@ func _load_graph(graph: Dictionary, offset: Vector3) -> void:
     for x in graph.get("intersections", []):
         if x.get("control") == "signals":
             _signals[x["id"]] = {"cycle": x.get("cycle", {}), "offset": float(x.get("offset", 0.0))}
+    for c in graph.get("pedestrian_signals", []):
+        _crossings[c["id"]] = {"x": str(c["intersection"]), "phase": int(c["phase"]), "walk": float(c["walk"]),
+            "clearance": float(c["clearance"])}
     for c in graph.get("conflicts", []):
         if lane_index.has(c["a"]) and lane_index.has(c["b"]):
             var a: int = lane_index[c["a"]]
@@ -567,6 +572,34 @@ func signal_state(x: String, phase: int) -> String:
     return "green" if within < g else ("amber" if within < g + a else "red")
 
 
+## "walk" | "flash" (flashing don't-walk: finish crossing, don't start) | "dont" for a pedestrian
+## signal of the graph's `pedestrian_signals` ("" if there is none of that id). The same clock as
+## the vehicle phases: walk starts with the green of the crossing's phase.
+func pedestrian_state(id: String) -> String:
+    if not _crossings.has(id) or not _signals.has(_crossings[id]["x"]):
+        return ""
+    var c: Dictionary = _crossings[id]
+    var cycle: Dictionary = _signals[c["x"]]["cycle"]
+    var slot := float(cycle.get("green", 16.0)) + float(cycle.get("amber", 3.0)) + float(cycle.get("all_red", 1.5))
+    var pos := fposmod(world_time() + float(_signals[c["x"]]["offset"]), slot * 2.0)
+    var t := pos - float(c["phase"]) * slot
+    if t < 0.0 or t >= slot:
+        return "dont"
+    return "walk" if t < c["walk"] else ("flash" if t < c["walk"] + c["clearance"] else "dont")
+
+
+## Count the pedestrian signals' changes, and any moment one lets people walk while the traffic
+## across it isn't held at red (`walk_conflicts`: the precomputed intervals don't fit the cycle).
+func _watch_crossings() -> void:
+    for id in _crossings:
+        var state := pedestrian_state(id)
+        if state != "dont" and signal_state(_crossings[id]["x"], 1 - int(_crossings[id]["phase"])) != "red":
+            stats["walk_conflicts"] = int(stats.get("walk_conflicts", 0)) + 1
+        if state != _crossing_shown.get(id, ""):
+            _crossing_shown[id] = state
+            stats["shown_%s" % state] = int(stats.get("shown_%s" % state, 0)) + 1
+
+
 func _lane_signal(lane: int) -> String:
     var sig: Dictionary = lanes[lane]["signal"]
     return "" if sig.is_empty() else signal_state(str(sig["intersection"]), int(sig["phase"]))
@@ -580,7 +613,7 @@ func _update_heads() -> void:
         node.set_meta("geogen_signal_head", true)
         var sig: Dictionary = WorldLoader.geogen_extras(node).get("signal", {})
         var lamps := {}
-        for colour in ["red", "amber", "green"]:
+        for colour in ["red", "amber", "green", "walk", "dont"]:
             lamps[colour] = []
             var part := node.find_child("lamp_%s" % colour, true, false)
             if part == null:
@@ -593,11 +626,18 @@ func _update_heads() -> void:
                         mi.set_surface_override_material(i, mat)
                         lamps[colour].append([mat, mat.emission_energy_multiplier])
         _heads.append({"node": node, "x": str(sig.get("intersection", "")), "phase": int(sig.get("phase", 0)),
-            "lamps": lamps, "shown": ""})
+            "crossing": str(sig.get("crossing", "")), "lamps": lamps, "shown": ""})
+    _watch_crossings()
+    # The flashing don't-walk is on for the first half of each second of world time.
+    var blink := fposmod(world_time(), 1.0) < 0.5
     for head in _heads:
         if not is_instance_valid(head["node"]):
             continue
         var state := signal_state(head["x"], head["phase"])
+        if head["crossing"] != "":
+            # Pedestrian heads: the walking figure, or the standing one (flashing while it clears).
+            var ped := pedestrian_state(head["crossing"])
+            state = "walk" if ped == "walk" else ("dont" if ped == "dont" or (ped == "flash" and blink) else "off")
         if state == head["shown"]:
             continue
         head["shown"] = state
@@ -785,5 +825,10 @@ func report() -> Dictionary:
         "crossing_violations": int(stats.get("crossing_violations", 0)),
         "red_stops": int(stats.get("red_stops", 0)), "green_claims": int(stats.get("signal_green", 0)),
         "amber_claims": int(stats.get("signal_amber", 0)), "stuck": stuck,
+        # Pedestrian signals: heads lit, how often they turned to walk / flashing / don't-walk, and
+        # checks that found one saying walk while the traffic across it wasn't at red.
+        "pedestrian_heads": _heads.filter(func(h): return h["crossing"] != "" and is_instance_valid(h["node"])).size(),
+        "walks": int(stats.get("shown_walk", 0)), "flashes": int(stats.get("shown_flash", 0)),
+        "dont_walks": int(stats.get("shown_dont", 0)), "walk_conflicts": int(stats.get("walk_conflicts", 0)),
         "idle_vehicles": vehicles.filter(func(v): return v["idle"] > 30.0).map(func(v): return [String(v["node"].name),
             lanes[v["lane"]]["id"], snappedf(v["s"], 0.1), v["blocked_by"], v["claimed"], snappedf(v["idle"], 1)])}

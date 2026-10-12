@@ -324,6 +324,8 @@ windows or doors:
 
 Pedestrians cross at crosswalks. The lane graph exports the painted crossings (`traffic.crosswalks`). A planned path that runs along road level inside the streets is rerouted over the crossing that makes the shortest detour: to one end, straight across, then on. The detour must be no longer than twice the direct path plus 25 m.
 
+At a signalled crossing (`traffic.pedestrian_signals`, see Traffic) they wait for walk. The rule is where an NPC stands and where it is headed, not the path it planned: on a kerb of the crossing with its road within 0.7 m ahead, it stands still, facing across, until the signal shows walk. It doesn't start on the flashing don't-walk, and once on the road it carries on. Unsignalled crossings, and scenes with no traffic to run the signals, are walked as before. The summary reports `signal_waits` (and `signal_wait`, the longest, in seconds), `signal_crossings` (steps off a kerb onto a signalled crossing) and `signal_violations` (the ones made on a steady don't-walk); `--npc-trace` prints `signal_wait` and `signal_step` events with the state.
+
 Crowds are scatters of an NPC (`npcs/pedestrian.yaml` in `town` and `crossroads`), each copy a
 different person. `affordance_tags` limits which affordances an NPC considers. `wander.tags` makes
 strolls go to random points on surfaces in those tag groups (sidewalks) rather than anywhere in
@@ -363,6 +365,16 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   time (green, amber, all-red; the phases take turns). Vehicles go on green, or on amber if too
   close to stop, and still claim conflict zones, so turns yield. They wait at red. Signal heads
   (`extras.geogen.signal`) light the lamp for their phase.
+- **Pedestrian signals**: `traffic.pedestrian_signals` lists the crosswalks of signalled
+  intersections that have pavement at both ends: `intersection`, the `phase` they are walked in
+  (the one whose traffic runs beside the crossing, so the traffic across it is at red), `walk`
+  and `clearance` seconds. From the start of that phase's green a crossing shows walk for `walk`
+  seconds, then a flashing don't-walk for `clearance` (long enough to walk it at 1.2 m/s, ending
+  with the amber), then don't-walk: `GeogenTraffic.pedestrian_state(id)` gives `walk | flash |
+  dont` on the same clock as `signal_state`. Heads with `extras.geogen.signal.crossing`
+  (`pedestrian_signal.yaml`, one at each end facing across) light `lamp_walk`, or `lamp_dont`
+  (blinking once a second while it clears). Turning traffic of the walk phase isn't held: it
+  yields to people on the crossing, as anywhere. NPCs wait for walk (see Pedestrians).
 - **Yielding**: the player and NPCs (group `geogen_character`) in the corridor ahead, or on a
   crosswalk about to be crossed, are obstacles to stop for.
 - **Bodies**: vehicles are `AnimatableBody3D` boxes. They block the player, stay out of the
@@ -370,7 +382,9 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   come back at a route start.
 
 `--simulate=S` also prints `traffic summary: [...]`: vehicles, distance, overlaps, idle and wait
-times, claims, turns, yields and the closest stop to a person. `--traffic-trace` prints claims,
+times, claims, turns, yields and the closest stop to a person, and for pedestrian signals
+`pedestrian_heads`, how often they turned (`walks`, `flashes`, `dont_walks`) and `walk_conflicts`
+(checks that found one not at don't-walk while the traffic across it wasn't at red). `--traffic-trace` prints claims,
 replans, respawns and overlaps. `tests/test_traffic_runtime.py` covers flow without overlaps or
 gridlock, a player in the lane stopping traffic, determinism, and open routes.
 
@@ -813,7 +827,7 @@ A new key needs a schema entry and a row here.
 | `vehicle` | `scripts/traffic.gd`, `scripts/train.gd` | wheels, lamps, clearance, sound |
 | `driving` | `scripts/traffic.gd` | where a fleet vehicle starts on the lane graph |
 | `fleet` | `scripts/world_loader.gd` | a `GeogenTraffic` (`scripts/traffic.gd`) |
-| `signal` | `scripts/world_loader.gd`, `scripts/traffic.gd` | signal heads lit from their intersection's cycle |
+| `signal` | `scripts/world_loader.gd`, `scripts/traffic.gd` | signal heads lit from their intersection's cycle (with `crossing`: pedestrian heads, lit from that pedestrian signal) |
 | `train` | `scripts/world_loader.gd` | a `GeogenTrain` (`scripts/train.gd`) |
 | `city`, `block`, `lot`, `building`, `street_furniture`, `recipe`, `roof`, `scatter`, `character` | - | where generated content came from |
 | `lod`, `interior` | - | roots of a chunk's LOD stand-in and interior (the streamer works from the chunk index) |

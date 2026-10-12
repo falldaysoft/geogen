@@ -101,6 +101,8 @@ var _detour := -1                 # index in _path of the last detour waypoint
 var _vehicle_wait := 0.0          # s spent waiting for traffic at this waypoint
 var _assertive := -1              # waypoint we're walking to regardless of moving traffic
 var _vehicle_detours := 0         # detours round stopped vehicles on this path
+var _signal_wait := 0.0           # s spent on the kerb waiting for the walk signal this time
+var _was_at := Vector2.ZERO       # where we were a frame ago (plan)
 ## Off the map during a routine's `away` block (vanished into a building), back when it ends.
 var away := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
@@ -111,6 +113,7 @@ var _attend_until := -INF         # keep looking at whoever greeted us until the
 const GESTURE_BONES := ["RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand"]
 var _yielded_at := -INF
 const YIELD_COOLDOWN := 3.0       # s between stepping aside
+const KERB_STEP := 0.7            # wait for the walk signal when the road of a crossing is this close ahead (m)
 const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
 
 
@@ -664,6 +667,7 @@ func _plan(target: Vector3) -> String:
     _assertive = -1
     _vehicle_wait = 0.0
     _vehicle_detours = 0
+    _signal_wait = 0.0
     _best = INF
     _stall = 0.0
     _sidestep = 0.0
@@ -734,6 +738,7 @@ func _insert_waypoint(index: int, point: Vector3) -> void:
 
 
 var _crossing_ends := []   # [[end a, end b]] of the painted crossings, on the pavement (world)
+var _signal_rects = null   # [[Rect2 (plan), signal id, walked along x?]] of the signalled crossings
 var _crossing_bounds := AABB()
 
 
@@ -780,6 +785,77 @@ func _use_crosswalk(map: RID, from: Vector3, to: Vector3) -> void:
         stats["crosswalks"] = int(stats.get("crosswalks", 0)) + 1
 
 
+## The walk signal of a pedestrian crossing ("" where nothing runs the signals: no traffic).
+func _pedestrian_state(id: String) -> String:
+    for t in world.traffic:
+        if is_instance_valid(t):
+            return t.pedestrian_state(id)
+    return ""
+
+
+## The signalled crossing whose road `to` is on, reached from `from` on one of its kerbs (beyond
+## an end of its long side; the other two sides are road); "" if none.
+func _crossing_from_kerb(from: Vector2, to: Vector2) -> String:
+    if _signal_rects == null:
+        _signal_rects = []
+        for sig in world.traffic_graph.get("pedestrian_signals", []):
+            var r: Array = sig["crosswalk"]
+            var rect := Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1]))
+            _signal_rects.append([rect, str(sig["id"]), rect.size.x > rect.size.y])
+    for entry in _signal_rects:
+        var rect: Rect2 = entry[0]
+        if not rect.has_point(to) or rect.has_point(from):
+            continue
+        var along: float = from.x if entry[2] else from.y
+        var lo: float = rect.position.x if entry[2] else rect.position.y
+        var hi: float = rect.end.x if entry[2] else rect.end.y
+        if along <= lo or along >= hi:
+            return entry[1]
+    return ""
+
+
+## On the kerb with a signalled crossing's road in the next step: wait for walk. Not once we've
+## stepped off (someone caught by the flashing don't-walk finishes crossing), and whatever the
+## path: the rule is where we stand and where we're headed. True while waiting.
+func _wait_for_walk(delta: float) -> bool:
+    var here := Vector2(global_position.x, global_position.z)
+    var to := _flat(_path[_waypoint] - global_position)
+    var step := to.normalized() * minf(to.length(), KERB_STEP)
+    var id := _crossing_from_kerb(here, here + Vector2(step.x, step.z))
+    var state := "" if id == "" else _pedestrian_state(id)
+    if state == "walk" or state == "":
+        _signal_wait = 0.0
+        return false
+    if _signal_wait == 0.0:
+        stats["signal_waits"] = int(stats.get("signal_waits", 0)) + 1
+        _trace({"event": "signal_wait", "crossing": id, "state": state})
+    _signal_wait += delta
+    stats["signal_wait"] = maxf(float(stats.get("signal_wait", 0.0)), _signal_wait)
+    # Stand facing the crossing.
+    if to.length() > 0.05:
+        var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
+        rotation.y += clampf(wrapf(atan2(to.x, to.z) - _yaw(), -PI, PI), -turn, turn)
+    velocity.x = 0.0
+    velocity.z = 0.0
+    _move(delta)
+    return true
+
+
+## Count our steps off a kerb onto a signalled crossing: `signal_crossings`, and
+## `signal_violations` for the ones made while it showed a steady don't-walk.
+func _watch_crossing() -> void:
+    var here := Vector2(global_position.x, global_position.z)
+    # (A frame's step: not where we were before sitting down, or before being put back on the navmesh.)
+    var id := _crossing_from_kerb(_was_at, here) if _was_at.distance_to(here) < 0.5 else ""
+    _was_at = here
+    if id == "":
+        return
+    var state := _pedestrian_state(id)
+    var key := "signal_violations" if state == "dont" else "signal_crossings"
+    stats[key] = int(stats.get(key, 0)) + 1
+    _trace({"event": "signal_step", "crossing": id, "state": state, "position": _v(global_position)})
+
+
 ## Does the path dip to road level (below both its ends) inside the streets?
 func _on_road(path: PackedVector3Array) -> bool:
     if path.size() < 2:
@@ -810,6 +886,9 @@ func _walk(delta: float) -> String:
     if not door.is_empty():
         stats["passes"] += 1
         _push("pass", door)
+        return "running"
+    _watch_crossing()
+    if _wait_for_walk(delta):
         return "running"
     if _waypoint != _assertive and not _clear_of_vehicles():
         # Traffic coming: wait at the kerb (not stalling), but not forever: after a while step
@@ -1553,6 +1632,11 @@ func report() -> Dictionary:
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
+        # Signalled crossings: waits on the kerb for walk (and the longest, s), steps onto one, and
+        # steps onto one showing a steady don't-walk.
+        "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),
+        "signal_crossings": int(stats.get("signal_crossings", 0)),
+        "signal_violations": int(stats.get("signal_violations", 0)),
         "waves": int(stats.get("waves", 0)),
         "yields": int(stats.get("yields", 0)), "transitions": int(stats.get("transitions", 0)),
         "cost_us": snappedf(float(_cost_usec) / maxi(_cost_frames, 1), 0.1), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1),
