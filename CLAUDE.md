@@ -356,7 +356,8 @@ Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): a
   - Outfits are selected by the `outfit` choice param (`none`, `casual`, `jeans_tee`, `smart`, `shorts_tee`, `casual_f`, `skirt_sweater`, `dress`), with `top_color`/`bottom_color`/`shoe_color` choices from `CLOTH_COLORS`.
   - Tight garments `cover: {chain: [[bone, t], [bone, t]]}` are `ringloft.Span`s: covered rings grow by `thickness`, edges become 2 mm hem ring pairs, and the highest `layer` wins (tops 2 over trousers 1; shoes 3). Tops also cover the thigh tubes' tops so trousers can't show through at the hips.
   - Each garment gets its own material copy so slots survive the union; `split_by_slot` then colours vertices per slot and merges slots per base material (`cloth`, `denim`, `leather`).
-  - Loose garments (`chains:`, e.g. skirt, dress) are shells like hair, with weights transferred from the body underneath (`transfer_weights`), so skirts follow the thighs without poke-through (`tests/test_clothing.py`).
+  - Loose garments (`chains:`, e.g. skirt, dress) are shells like hair, with weights transferred from the body underneath (`transfer_weights`), so skirts follow the thighs without poke-through (`tests/test_clothing.py`). `hug_body` moves a shell's walls out to the body under them plus a clearance (`HIP_ROOM` more round the hip joints, for the thigh tops to lift into), so one authored skirt fits every build; chain `samples: [[bone, t], ...]` adds rings where it bends over the seat.
+  - The waist (geogen.11.5.19): garments declare `part: top | bottom | dress | shoes`. `lap_waist` makes a top and a bottom overlap by `WAIST_OVERLAP` (3 cm) as geometry: a tight bottom's span runs on up under the top's hem, and a top's hem comes down under a loose bottom's waistband (`meta.humanoid.waist_overlap`). The leg chain has `root: Hips`: the tube above the hip joint is pelvis and stays put when the thigh swings (it used to swing out behind a seated body, taking the top's hem with it). A top covers the thigh tubes' tops with `leg: [[LeftUpperLeg, -1.0], {level: torso}]` (level with its torso hem). `smooth_hem` runs after decimation: teeth in the top's waist hem go to the other side, hem vertices are levelled, and the hem takes trunk weights only, so it is one smooth loop that follows the pelvis. `meta.humanoid.garments` lists what is worn with each garment's vertices.
   - A dressed character is about 3.5-4k triangles (body budget `max_triangles: 2600`); crowd LODs are geogen-z2b.16.11.
 - Archetypes (`src/geogen/characters.py`, `assets/characters/archetypes/*.yaml`, `kind: archetype`):
   - An archetype is a seeded distribution over a body's params: `{random: [lo, hi]}`, `{normal: [mean, sd], clamp}`, `{choice: [...], weights}`.
@@ -366,11 +367,15 @@ Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): a
   - NPC bodies take `body: {archetype: ...}`, and the placement `seed` picks the person and seeds the brain.
   - Nodes get `meta.character = {archetype, seed}`. Identical resolved params share one body prototype.
   - Review with `-s archetype_gallery -r out.png --view front_high`. Tests: `tests/test_characters.py`.
-- Clipping QA (`geogen/clipping.py`): `measure(character, pose, seat=...)` reports four metrics, with `report(presets, outfits)` sweeping combinations.
+- Clipping QA (`geogen/clipping.py`): `measure(character, pose, seat=...)` reports four metrics, plus three at the waist of an outfit with a separate top and bottom, with `report(presets, outfits)` sweeping combinations.
   - `shell_poke`: body vertices covered by the loose shell in stand but outside it in the pose.
   - `hands`: hand and forearm vertices inside the rest of the body or the shell.
   - `feet_skin`: bare heels in shoes.
   - `seat`: penetration posed on armchair, chair and sofa via `affordance_qa.pose_actor`.
+  - `waist_gap`: skin showing between top and bottom: face samples of bare pelvis, spine and thigh within 12 cm of the top's hem that a loose bottom doesn't cover (any at all when the bottom is tight).
+  - `waist_overlap`: `min_mm`, the least the two overlap round the hem in the pose: from the hem to the nearest body surface that shows past a loose bottom (negative when the hem itself shows; capped at 120), or the lapped spans for tight on tight.
+  - `hem`: the top's waist hem as a loop: vertices more than 8 mm out of line with their neighbours (above or below at rest, plus what the pose adds), and `ends`.
+  - `tests/test_clipping.py::test_tops_overlap_bottoms_in_every_pose` is strict: no gap, 15 mm of overlap and a smooth hem in all eight poses (four combinations in the default tier, 5 presets x 6 outfits with `--all`; three skirt combinations on `masculine+heavy` and `feminine+petite` are xfail: a 2-3 mm sliver at the hip crease).
   - `tests/test_clipping.py` guards `tests/data/clipping_baseline.json`; regenerate it with `python tests/test_clipping.py`. The strict zero-clipping test is xfail until z2b.16.16-.21 land.
   - Review scene: `-s seated_fit -r out.png --affordances`.
 - Review: `-s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side --zoom 2.6`; `-r out.png --pose sit_at_table`.

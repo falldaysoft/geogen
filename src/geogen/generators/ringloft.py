@@ -20,7 +20,9 @@ garments) is open fabric: the tube rolls over a rim at the end and runs back ins
 wall's faces are material slot 1 (the lining) so QA can tell the garment's cavity from outside.
 
 Weights come from the arc length: each vertex belongs to its bone, blending
-smoothly into the neighbouring bone within ``blend`` metres of a joint;
+smoothly into the neighbouring bone within ``blend`` metres of a joint; with a
+``root`` bone, what lies before the chain's first joint follows that (a leg
+tube's top is part of the pelvis, so it stays put when the thigh swings);
 ``bind`` spreads a bone's share over other bones (a mitten hand over the four
 finger chains). ``loft_body`` unions all chains (manifold3d) into one
 watertight mesh with metric UVs (cylindrical per chain) and JOINTS/WEIGHTS
@@ -86,6 +88,11 @@ class Chain:
     # bones whose joint (head) gets them, e.g. [LeftLowerArm] for the elbow only.
     joint_rings: bool | list[str] = True
     spans: list[Span] = field(default_factory=list)   # tight garments (see Span)
+    # The bone the chain grows out of: what lies before the first bone's head follows it (a leg
+    # tube's top, above the hip joint, is pelvis flesh), blending across that joint like the others.
+    root: str | None = None
+    # Extra resampled rings at (bone, t) positions: where the tube has to bend (a skirt over the seat).
+    samples: list[tuple[str, float]] = field(default_factory=list)
 
 
 def _smoothstep(x: NDArray) -> NDArray:
@@ -162,6 +169,8 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray, NDAr
         joints = np.array([j for j, bone in zip(joints, chain.bones[1:]) if bone in wanted])
     if len(joints):
         extra.append((joints[:, None] + np.array([-0.6, 0.0, 0.6]) * chain.blend).reshape(-1))
+    if chain.samples:
+        extra.append(np.array([path.s_of(bone, t) for bone, t in chain.samples]))
     s = np.concatenate([s_keys, *extra])
     s = np.unique(s[(s >= s_keys[0]) & (s <= s_keys[-1])])
     # Drop samples crowding a key ring or joint ring (keep those exact).
@@ -283,6 +292,13 @@ def chain_weights(path: ChainPath, chain: Chain, s: NDArray, bone_index: dict[st
         targets = chain.bind.get(bone, [bone])
         for target in targets:
             dense[:, bone_index[target]] += raw[:, i] / len(targets)
+    if chain.root is not None:
+        first = chain.bones[0]
+        width = chain.joint_blend.get(first, chain.blend)
+        joint = path.starts[0] + chain.weight_shift.get(first, 0.0)
+        share = 1 - _smoothstep((s - joint + width) / (2 * width))
+        dense *= (1 - share)[:, None]
+        dense[:, bone_index[chain.root]] += share
     return dense / np.maximum(dense.sum(axis=1, keepdims=True), 1e-12)
 
 

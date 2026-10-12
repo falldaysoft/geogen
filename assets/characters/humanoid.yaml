@@ -311,6 +311,7 @@ body:
 
     leg:
       bones: [LeftUpperLeg, LeftLowerLeg]
+      root: Hips                              # above the hip joint the tube is pelvis: it stays put when the thigh swings
       end: LeftFoot
       mirror: true
       sides: 12
