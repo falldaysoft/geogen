@@ -13,9 +13,12 @@ extends CanvasLayer
 ##   (a scene loaded or unloaded, a save restored) and when the window resizes,
 ##   so panels survive scene switches without tracking them;
 ## - key presses, offered to panels in the order they were added;
+## - one modal panel at a time (`set_modal`: the quest log): while it is up it alone gets
+##   keys, and `modal_changed` tells main.gd to park the player and free the mouse;
 ## - `report()`: what every panel is displaying, for the control API and tests.
 ##
-## A panel is a Control added with `add_panel(panel, slot)`. It may define
+## A panel is a Control added with `add_panel(panel, slot)`; the slot "screen" gives it the
+## whole window instead of a corner (a screen like the quest log). It may define
 ## (all optional):
 ##   hud_attach(hud)         called once, before it enters the tree: keep `hud`, connect to
 ##                           what it shows (hud.world.events, hud.world.rules, ...) and call
@@ -27,6 +30,9 @@ extends CanvasLayer
 ##
 ## The layer sits under main.gd's $Overlay (debug text, prompt, fade), so a
 ## scene switch's fade covers the HUD too.
+
+## A modal panel opened (true) or closed (false).
+signal modal_changed(open: bool)
 
 const SLOTS := ["top_left", "top_right", "bottom_left", "bottom_right"]
 const MARGIN := 12
@@ -45,6 +51,8 @@ var _slots := {}            # slot -> VBoxContainer
 ## The aim point in the middle of the screen (hud_crosshair.gd); main sets it with the focus.
 var crosshair := GeogenHudCrosshair.new()
 var _queued := false
+## The panel that has the keyboard to itself (the quest log while open), or null.
+var modal: Control = null
 
 
 func _init() -> void:
@@ -85,16 +93,29 @@ func _ready() -> void:
 
 ## Add a panel to a corner's column. Its node name is its name in `report()` and `panel()`.
 func add_panel(panel: Control, slot := "top_right") -> void:
-    assert(slot in SLOTS, "hud slot: one of %s" % [SLOTS])
+    assert(slot in SLOTS or slot == "screen", "hud slot: one of %s or screen" % [SLOTS])
     _panels[String(panel.name)] = panel
     if panel.has_method("hud_attach"):
         panel.hud_attach(self)
-    _slots[slot].add_child(panel)
+    if slot == "screen":
+        panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+        add_child(panel)
+    else:
+        _slots[slot].add_child(panel)
     queue_refresh()
 
 
 func panel(panel_name: String) -> Control:
     return _panels.get(panel_name)
+
+
+## A panel takes the keyboard for itself (`on`) or gives it back. While one has it, keys go
+## only to its `hud_key`, and no other input reaches the game.
+func set_modal(panel: Control, on: bool) -> void:
+    if on == (modal == panel) or (not on and modal != panel):
+        return
+    modal = panel if on else null
+    modal_changed.emit(on)
 
 
 ## Width for a side panel: about a third of the window, within readable limits.
@@ -139,9 +160,15 @@ func report() -> Dictionary:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if not (event is InputEventKey and event.pressed and not event.echo):
-        return
     if input_blocked.is_valid() and input_blocked.call():
+        return
+    if modal != null:
+        if event is InputEventKey or event is InputEventMouseButton:
+            if event is InputEventKey and event.pressed and modal.has_method("hud_key"):
+                modal.hud_key(event.physical_keycode)       # repeats too: holding an arrow moves down a list
+            get_viewport().set_input_as_handled()
+        return
+    if not (event is InputEventKey and event.pressed and not event.echo):
         return
     for panel_name in _panels:
         if _panels[panel_name].has_method("hud_key") and _panels[panel_name].hud_key(event.physical_keycode):

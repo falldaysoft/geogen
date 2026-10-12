@@ -325,6 +325,8 @@ func _ready() -> void:
     hud.input_blocked = func(): return _menu.visible
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
     hud.add_panel(GeogenHudNotifications.new(), "bottom_left")
+    hud.add_panel(GeogenHudQuestLog.new(), "screen")
+    hud.modal_changed.connect(_hud_modal)
     world.load_all()
     add_child(clock)          # applies the time (night lights) once the world is loaded
     _show_npc_labels()
@@ -544,6 +546,17 @@ func _open_menu() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+## A HUD screen (the quest log) opened or closed: the player stands still and the mouse is free while it is up.
+func _hud_modal(open: bool) -> void:
+    if player == null:
+        return
+    if open:
+        player.process_mode = Node.PROCESS_MODE_DISABLED
+        Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+    else:
+        _menu_closed()
+
+
 func _menu_closed() -> void:
     player.process_mode = Node.PROCESS_MODE_INHERIT
     if DisplayServer.get_name() != "headless" and screenshot_path == "":
@@ -639,7 +652,7 @@ func _frame_overview(aabb: AABB) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if _menu != null and _menu.visible:
+    if (_menu != null and _menu.visible) or (hud != null and hud.modal != null):
         return
     if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F6:
         _open_menu()

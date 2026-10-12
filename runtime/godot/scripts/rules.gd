@@ -33,6 +33,7 @@ var package := ""
 var quests := {}
 
 var _saves := {}            # package -> its machine's save, while another world is loaded
+var _reports := {}          # package -> {actor: its report()} as it unloaded: what the quest log lists of it
 var _watched := {}          # variable key -> {quest, objective?}: what quest events come from
 var _expected := {}         # interaction key -> [values we asked the node for]: their echoes aren't inputs
 var _minute := -1
@@ -77,6 +78,16 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     _minute = -1
     _report_errors()
     reset.emit()
+
+
+## Keep what the quest log lists of this package once it is gone (`report_all`). WorldLoader
+## calls it before it frees the world: counts over interactions are read from their nodes.
+func remember_reports() -> void:
+    if machine == null:
+        return
+    _reports[package] = {}
+    for actor in machine.actor_info:
+        _reports[package][actor] = _described(report(actor), false)
 
 
 func unload() -> void:
@@ -299,6 +310,27 @@ func report(actor := "player") -> Array:
             "objectives": objectives})
     machine.errors.clear()
     return out
+
+
+## Every quest of every package this session has loaded, for an actor: the loaded package's
+## `report()`, then the others' as they stood when they unloaded. Each entry also has
+## `loaded` (its package is the one running) and `description`.
+func report_all(actor := "player") -> Array:
+    var out := _described(report(actor), true)
+    for other in _reports:
+        if other != package or machine == null:
+            out.append_array(_reports[other].get(actor, []).duplicate(true))
+    return out
+
+
+func _described(entries: Array, loaded: bool) -> Array:
+    for entry in entries:
+        entry["loaded"] = loaded
+        entry["description"] = str(quests.get("quests", {}).get(entry["id"], {}).get("description", ""))
+        for objective in entry["objectives"]:
+            objective.erase("markers")          # positions in a world that may not be the loaded one
+            objective.erase("area")
+    return entries
 
 
 func _quest_changed(event: Dictionary) -> void:

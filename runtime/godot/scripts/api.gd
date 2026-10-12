@@ -56,6 +56,9 @@ const COMMANDS := {
         + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
         + "progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how "
         + "long a finished quest stays up",
+    "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: "
+        + "{open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; "
+        + "track makes the tracker follow the selected quest",
     "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's quest toasts: "
         + "visible, showing [{seq, kind: started | objective_done | complete | failed, package, quest, "
         + "objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, hold, "
@@ -389,6 +392,22 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if args.has("linger") or pick != "":
                 main.hud.refresh()
             return tracker.hud_report()
+        "hud.log":
+            var quest_log: GeogenHudQuestLog = main.hud.panel("log")
+            if args.has("open"):
+                quest_log.set_open(bool(args["open"]))
+            var chosen := str(args.get("select", ""))
+            if chosen in ["next", "previous"]:
+                quest_log.step(1 if chosen == "next" else -1)
+            elif chosen != "" and not quest_log.select(chosen):
+                return _err("'%s' isn't a quest in the log" % chosen)
+            if bool(args.get("track", false)) and not quest_log.track_selected():
+                return _err("the selected quest isn't active, so it can't be tracked")
+            if not args.is_empty():
+                main.hud.refresh()
+                await get_tree().process_frame      # laid out before its rect is read
+                await get_tree().process_frame
+            return quest_log.hud_report()
         "hud.notifications":
             var toasts: GeogenHudNotifications = main.hud.panel("notifications")
             if args.has("hold"):

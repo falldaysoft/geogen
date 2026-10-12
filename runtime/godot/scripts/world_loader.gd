@@ -291,6 +291,7 @@ func unload() -> void:
     load_timings = {}
     var t := Time.get_ticks_usec()
     _load_started = t
+    rules.remember_reports()      # for the quest log, while the interactions it counts are still here
     for child in get_children():
         if child == events or child == rules:
             continue
