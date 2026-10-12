@@ -298,15 +298,26 @@ windows or doors:
   - *look*: within `range` m and a `cone` ahead, a standing or seated skeletal NPC turns its neck
     and head toward the player's eyes, clamped to `yaw`/`pitch` degrees and eased
     (`scripts/head_look.gd`, a `SkeletonModifier3D` run after the clips).
-  - *greet*: aiming at a standing NPC shows `E: <prompt>`. E runs its `greet` action on top of
-    whatever it was doing: `face: player`, `play: wave` (the body's one-shot wave clip), a pause.
-    Then the interrupted step starts again. It won't greet again for `cooldown` s.
-    A greeting that is taken goes on the event bus as the signal `greeted` from the NPC
-    (`attention.greet.signal`) with the greeter as the actor, so a rule can act on it: the
-    cottage's resident gives the `lights_out` quest this way.
+  - *greet*: aiming at an NPC that is here (not `away`) shows `E: <prompt>`, in any pose and
+    whatever it is doing. A seated or lying NPC has no collider, so the aim line passing its
+    body (hips to head, `npc.aim_distance`) finds it. E is a greeting every time, except a
+    second press within `debounce` s (0.5): it goes on the event bus as the signal `greeted`
+    from the NPC (`attention.greet.signal`) with the greeter as the actor, so a rule can act
+    on it. The cottage's resident gives the `lights_out` quest this way, from her armchair too.
+    What the NPC does about it fits what it is doing:
+    - standing: its `greet` action on top of whatever it was doing: `face: player`,
+      `play: wave` (the body's one-shot wave clip), a pause. Then the interrupted step starts
+      again.
+    - seated: it keeps its seat and its action, looks at the greeter for `acknowledge` s (3)
+      wherever they stand, and waves from the chair: the wave clip's right-arm tracks laid
+      over the sit pose (`GeogenHeadLook.gesture`).
+    - lying down, or part way through sitting down or getting up: nothing to see.
+
+    It waves once per `cooldown` s (8); a greeting inside that is still a greeting.
   - *yield*: an NPC standing within `distance` m of the player walking straight at it runs
     `step_aside` (`go_to: aside`, `step` m off the player's line, then `face: player`).
-  - The summary reports `greets`, `yields` and `looking` (seconds). `--greet=NAME[@S]` greets
+  - The summary reports `greets` (greetings taken, each one a signal), `waves` (the ones it
+    waved back at), `yields` and `looking` (seconds). `--greet=NAME[@S]` greets
     headlessly.
 
 Pedestrians cross at crosswalks. The lane graph exports the painted crossings (`traffic.crosswalks`). A planned path that runs along road level inside the streets is rerouted over the crossing that makes the shortest detour: to one end, straight across, then on. The detour must be no longer than twice the direct path plus 25 m.

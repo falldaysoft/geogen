@@ -119,12 +119,8 @@ def test_the_yard_is_played_and_the_tracker_follows(rt):
     assert rt.call("hud.quests", linger=0)["visible"] is False          # nothing else is active yet
 
     # Lamps out: the steward gives it, the board's switches count, the steward hears it's done.
-    def greet():
-        for _ in range(30):
-            if rt.call("npcs.greet", npc="steward")["ok"]:
-                return
-            rt.call("time.advance", seconds=2)
-        pytest.fail("the steward never stood still to be greeted")
+    def greet():                                             # taken whatever the steward is doing
+        assert rt.call("npcs.greet", npc="steward")["ok"]
 
     greet()
     assert statuses(rt)["yard_lamps"] == "active"
@@ -133,7 +129,7 @@ def test_the_yard_is_played_and_the_tracker_follows(rt):
         rt.call("player.use", asset=f"switch_{n}")
         assert rt.call("quests.list")[1]["objectives"][0]["progress"] == [n, 3]
     assert shown(rt) == ("yard_lamps", [("lamps", "done", "3 of 3"), ("report", "open", "")])
-    rt.call("time.advance", seconds=10)                      # past the greeting's cooldown
+    rt.call("time.advance", seconds=1)                       # a second press right away is debounced
     greet()
     assert statuses(rt)["yard_lamps"] == "complete"
     rt.call("hud.quests", linger=0)

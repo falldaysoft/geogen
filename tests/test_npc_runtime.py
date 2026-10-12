@@ -91,7 +91,7 @@ def test_resident_greets_and_carries_on(run_godot, cottage_dir):
     assert 'greeted: {"npc":"resident_npc","ok":true}' in out
     line = next(l for l in out.splitlines() if l.startswith("npc summary: "))
     (report,) = json.loads(line.removeprefix("npc summary: "))
-    assert report["greets"] == 1
+    assert (report["greets"], report["waves"]) == (1, 1)
     assert report["looking"] > 1.0
     assert report["failures"] == []
     assert report["decisions"] >= 1 and report["clip"] != "wave"

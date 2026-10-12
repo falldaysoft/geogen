@@ -930,6 +930,18 @@ func _update_focus() -> void:
                 _focus = it
             else:
                 _focus_affordance = world.affordance_near(hit["position"])
+        if _focus == null and _focus_npc == null:
+            # A seated or lying NPC has no collider: the aim line passing its body finds it,
+            # unless something (not the seat it is in) is in the way.
+            var limit: float = player_spec.reach
+            if hit:
+                limit = minf(limit, from.distance_to(hit["position"]) + 0.4)
+            for npc in world.npcs:
+                if is_instance_valid(npc) and npc.can_greet() and npc.posed() \
+                        and npc.aim_distance(from, -cam.global_basis.z) <= limit:
+                    _focus_npc = npc
+                    _focus_affordance = {}
+                    break
         if _focus == null and _focus_npc == null and _focus_affordance.is_empty():
             _focus = _assisted_focus(from, -cam.global_basis.z)
     if hud != null:

@@ -138,9 +138,10 @@ An event is `{type, subject, name, actor, data}`. `subject` is a stable ID,
 
 **Greeting an NPC** (the player pressing E on one) is the signal `greeted`
 from the NPC, with the greeter as the actor: `{type: signal, subject:
-"cottage:resident", name: "greeted", actor: "player"}`. It is raised when the
-NPC takes the greeting, so not while it is sitting, away or inside its
-greeting cooldown. This is how an NPC gives a quest: a rule
+"cottage:resident", name: "greeted", actor: "player"}`. It is raised whenever
+the NPC is there to be greeted, in any pose and in the middle of any action
+(seated, it waves from its chair): not while it is away, and not for a second
+press within its greeting's `debounce` (half a second). This is how an NPC gives a quest: a rule
 `{on: {signal: resident.greeted, actor: player}, do: [{start_quest: ...}]}`.
 There is no separate "talk" event until dialogue needs one.
 
