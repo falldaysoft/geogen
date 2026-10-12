@@ -9,12 +9,13 @@ at y = 0):
 - ``cornice``: a cove swept around the ceiling line;
 - ``light``: a pendant at the ceiling centre carrying ``meta.light`` (the
   Godot runtime turns it into an OmniLight3D);
-- ``switch_*``: a light switch 1.1 m up beside each door's latch side
-  (``meta.switch`` names the light, for interaction components).
+- ``switch_*``: a light switch (``assets/light_switch.yaml``) 1.1 m up beside
+  each door's latch side; ``meta.switch`` names the room's light.
 """
 
 from __future__ import annotations
 
+import weakref
 from typing import Any
 
 import numpy as np
@@ -182,10 +183,31 @@ def _pendant(name: str, ceiling: float, loader) -> SceneNode:
     return node
 
 
-def _switch(name: str, door: dict[str, Any], hx: float, hz: float, swings: list[dict], loader) -> SceneNode | None:
-    """Switch plate beside the door's latch side (away from the hinge), 1.1 m up."""
-    from .primitives import CubeGenerator
+SWITCH_ASSET = "light_switch.yaml"
+SWITCH_HEIGHT = 1.1    # the plate's centre above the floor
+_switch_loaders: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()   # material loader -> LayoutLoader
 
+
+def _switch_asset(material_loader) -> SceneNode:
+    """An instance of ``light_switch.yaml``: the same plate (with its box collider, which is
+    what the player aims at), rocker and ``switch`` interaction as a switch placed in a scene.
+    One layout loader per material loader, so a plan's switches share their meshes and use
+    the plan's own materials (one ``paint_white``, not a second copy)."""
+    from pathlib import Path
+
+    from ..layout.loader import LayoutLoader
+
+    layout = _switch_loaders.get(material_loader)
+    if layout is None:
+        layout = LayoutLoader()
+        layout._material_loader = material_loader
+        _switch_loaders[material_loader] = layout
+    return layout.load(Path(__file__).parents[3] / "assets" / SWITCH_ASSET)
+
+
+def _switch(name: str, door: dict[str, Any], hx: float, hz: float, swings: list[dict], loader) -> SceneNode | None:
+    """A ``light_switch.yaml`` beside the door's latch side (away from the hinge), its centre
+    1.1 m up, on the lining face. The caller wires it (``meta.switch``)."""
     side = door["side"]
     along_axis = 0 if side in ("north", "south") else 1
     half = hx if along_axis == 0 else hz
@@ -205,31 +227,9 @@ def _switch(name: str, door: dict[str, Any], hx: float, hz: float, swings: list[
     wall = {"north": (along, hz), "south": (along, -hz), "east": (hx, along), "west": (-hx, along)}[side]
     face = np.array(wall) + np.array(inward) * LINING
     yaw = float(np.arctan2(inward[0], inward[1]))
-    node = SceneNode(name=name, transform=Transform(translation=np.array([face[0], 1.1, face[1]]),
-                                                    rotation=np.array([0.0, yaw, 0.0])), tags=["switch.light"])
-    plate = CubeGenerator(size_x=0.085, size_y=0.085, size_z=0.01, bevel=0.002).generate()
-    rocker = CubeGenerator(size_x=0.03, size_y=0.05, size_z=0.008, bevel=0.002).generate()
-    move = np.eye(4)
-    move[2, 3] = 0.005
-    plate = plate.transform(move)
-    move[2, 3] = 0.013
-    rocker = rocker.transform(move)
-    node.add_child(_part("plate", plate, loader.load("paint_white"), collider="none"))
-    rocker_node = _part("rocker", rocker, loader.load("paint_white"), collider="none")
-    node.add_child(rocker_node)
-    node.interactions = [_switch_interaction(rocker_node)]
+    node = _switch_asset(loader)
+    node.name = name
+    # The asset's origin is the bottom-centre of the plate, on the wall, facing +Z.
+    node.transform = Transform(translation=np.array([face[0], SWITCH_HEIGHT - float(node.size[1]) / 2, face[1]]),
+                               rotation=np.array([0.0, yaw, 0.0]))
     return node
-
-
-def _switch_interaction(rocker: SceneNode):
-    """On/off: the rocker tips 12 degrees; runtimes toggle meta.switch.light on arrival."""
-    from ..layout.interactions import Interaction, Motion, State
-
-    return Interaction(
-        name="switch",
-        states={"on": State(next="off", prompt="Lights off", emit="lights_on"),
-                "off": State(next="on", prompt="Lights on", emit="lights_off")},
-        motions=[Motion([rocker], "rotate", np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.01]),
-                        {"on": 0.0, "off": 12.0})],
-        targets=[rocker], initial="on", duration=0.15,
-    )

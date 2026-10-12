@@ -14,7 +14,7 @@ place:
 
 ## Size
 
-8.3 x 6.95 x 9.3 m (x, y, z); geometry (-4.29, -0.05, -4.79) to (4.29, 7.2, 6.25) from the origin; 7292 triangles
+8.3 x 6.95 x 9.3 m (x, y, z); geometry (-4.29, -0.05, -4.79) to (4.29, 7.2, 6.25) from the origin; 6140 triangles
 
 ## Rooms
 

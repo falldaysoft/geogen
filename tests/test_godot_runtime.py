@@ -326,6 +326,28 @@ def test_godot_fixture_lights_and_switch(run_godot, auto_room_dir):
     assert report["fixtures"]["bathroom_light"]["visible"] is True
 
 
+def test_floor_plan_switch_can_be_aimed_at_and_used(godot_runtime, built_scene, auto_room_dir):
+    """Floor-plan switches are light_switch.yaml, plate collider included: the focus ray
+    finds one, and E throws it."""
+    switch = built_scene("hotel_room_auto").find("bedroom_switch_1")
+    world = switch.world_transform()
+    centre = world[:3, 3] + [0.0, 0.0425, 0.0]
+    out = world[:3, 2]                                  # the plate faces +Z of the asset
+    rt = godot_runtime("hotel_room_auto", auto_room_dir)
+    rt.call("wait_ready")
+    stand = centre + out * 0.8
+    rt.call("player.teleport", pos=[float(stand[0]), 0.0, float(stand[2])])
+    rt.call("player.look", at=[float(c) for c in centre])
+    focus = rt.call("player.status")["focus"]
+    assert focus["kind"] == "interaction" and focus["asset"] == "bedroom_switch_1"
+    hit = rt.call("world.raycast", **{"from": [float(stand[0]), 1.5, float(stand[2])],
+                                      "to": [float(c) for c in centre - out * 0.05]})
+    assert hit["interaction"]["asset"] == "bedroom_switch_1"
+    assert rt.call("hud.aim")["active"] is True
+    assert rt.call("player.use")["asset"] == "bedroom_switch_1"
+    assert rt.call("interactions.list", asset="bedroom_switch_1")[0]["target"] == "off"
+
+
 def _lines(out, prefix):
     return [json.loads(l.removeprefix(prefix)) for l in out.splitlines() if l.startswith(prefix)]
 
