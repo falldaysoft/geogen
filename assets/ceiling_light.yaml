@@ -1,0 +1,39 @@
+# Ceiling pendant: a canopy, a thin stem and a tapered shade. It hangs below
+# its origin, so place it at the underside of a ceiling.
+
+name: ceiling_light
+tags: [light.ceiling]
+origin: bottom_center
+
+params:
+  drop:  { default: 0.45 }   # ceiling to the bottom of the shade
+  shade: { default: 0.4 }    # shade diameter
+
+size: ["{shade}", "{drop}", "{shade}"]
+
+# A warm point light just below the shade.
+light: { energy: 1.2, range: 6.0, offset: [0, "{-drop - 0.02}", 0] }
+
+parts:
+  canopy:
+    primitive: cylinder
+    size: ["{0.12 / shade}", "{0.025 / drop}", "{0.12 / shade}"]
+    anchor: bottom_center
+    offset: [0, "{-0.025 / drop}", 0]
+    material: chrome
+    collider: none
+  stem:
+    primitive: cylinder
+    size: ["{0.012 / shade}", "{(drop - 0.2) / drop}", "{0.012 / shade}"]
+    anchor: bottom_center
+    offset: [0, "{-(drop - 0.175) / drop}", 0]
+    material: chrome
+    collider: none
+  shade:
+    primitive: lathe
+    profile: [[0.02, 0], [1.0, 0], [0.85, 1.0], [0.02, 1.0]]
+    size: [1, "{0.18 / drop}", 1]
+    anchor: bottom_center
+    offset: [0, -1, 0]
+    material: lamp_shade
+    collider: none

@@ -39,11 +39,11 @@ place:
   cottage_a:
     scene: scenes/cottage.yaml
     slot: cottage_a
-    params: { hub_portal: 0, gallery: 0 }
+    params: { hub_portal: 0, gallery: 0, quest: 0 }
   cottage_b:
     scene: scenes/cottage.yaml
     slot: cottage_b
-    params: { hub_portal: 0, gallery: 0 }
+    params: { hub_portal: 0, gallery: 0, quest: 0 }
 
   lighthouse:
     asset: lighthouse.yaml

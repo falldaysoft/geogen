@@ -1,0 +1,11 @@
+# Switch off every light in the cottage: the "change the world" quest.
+# The resident gives it when greeted (a rule in scenes/cottage.yaml); it is
+# done when every light switch is off, and reports how many are.
+kind: quest
+version: 1
+title: Lights out
+description: The resident would like every light in the cottage switched off.
+objectives:
+  - id: lights
+    text: Switch off every light in the cottage
+    done: 'all("[tag=switch.light]", it.switch == "off")'

@@ -20,14 +20,15 @@
 | `state` | {name: {type: bool \| number \| text \| choice, default, choices}}: variables each placed instance holds (read as `thing.name` in conditions) |
 | `signals` | {name: {emit \| changed \| enter \| leave: <name>, of, to}}: named outputs wiring can listen to |
 | `inputs` | {name: {set: <state or interaction>, to, of}}: named things wiring can drive |
-| `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once}]: what happens when (geogen.wiring) |
-| `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after}]: a signal drives an input |
+| `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
+| `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
 | `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, ...}]: what actors can do here |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes |
 | `clearance` | {front, back, left, right}: free space the furnishing solver keeps around it |
 | `container` | {capacity, part}: the asset holds items |
 | `light` | {type: omni, color, energy, range, offset, auto: night}: the asset is a light fixture |
+| `switch` | {light: <name>}: the asset's `switch` interaction (on \| off) turns that light fixture on and off: the nearest placement of that name (meta.switch) |
 | `portal` | a doorway NPC paths pass through (opening the interaction first) |
 | `travel` | {scene, spawn, prompt, on: use \| enter, target}: moves the player to another scene |
 | `vehicle` | {class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle) |
@@ -50,10 +51,10 @@
 | `attachments` | named points on the scene, for parent scenes |
 | `tags` | dotted gameplay tags on the scene root |
 | `state` | {name: {scope: world \| actor, type, default, choices}}: the package's shared (`world.name`) and per-actor (`actor.name`) variables |
-| `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once}]: what happens when (geogen.wiring) |
-| `wire` | [{from: <thing>.<signal>, to: <thing>.<input>, value, when, after}]: a signal drives an input |
+| `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
+| `wire` | [{from: <thing>.<signal>, to: <thing>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
-| `quests` | [quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md) |
+| `quests` | [quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md); `{file, if: "{expr}"}` contributes one only when the expression isn't 0 |
 | `spawns` | {name: {position \| anchor, facing}}: where the player can start |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes (enter / leave events) |
 | `city` | a street grid with zoned lots, buildings, street furniture, parking and traffic |
@@ -213,6 +214,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | File | What it is |
 | --- | --- |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
+| [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |
 
 ### scene_catalogue
 

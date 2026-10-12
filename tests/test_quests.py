@@ -440,3 +440,50 @@ def test_island_has_the_go_there_quest(built_scene):
     machine = Machine(quests.program(), {"player": {"kind": "player"}})
     machine.post({"type": "enter", "subject": "island:lighthouse/gallery", "actor": "player"})
     assert quests.status(machine, "lighthouse_gallery", "player") == "complete"
+
+
+def test_cottage_has_the_change_the_world_quest(built_scene):
+    """Given by greeting the resident, done when every light switch is off, counted on the way."""
+    quests = collect(built_scene("cottage"), "cottage")
+    switches = [f"cottage:{name}_switch" for name in ("dining", "sitting", "lamp")]
+    lights = quests.quests["lights_out"]["objectives"][0]
+    assert sorted(lights["subjects"]) == sorted(switches) and lights["progress"]["of"] == 3
+    # the resident's greeting is a signal the export knows about
+    assert quests.declarations.signals["cottage:resident#greeted"] == {"subject": "cottage:resident", "name": "greeted"}
+    give = next(r for r in quests.wiring if r["id"] == "give_lights_out")
+    assert give["on"] == {"type": "signal", "subject": "cottage:resident", "name": "greeted", "actor": "player"}
+
+    machine = Machine(quests.program(), {"player": {"kind": "player"}, "cottage:resident": {"kind": "npc"}})
+
+    def progress():
+        (objective,) = quests.report(machine, "player")["lights_out"]["objectives"]
+        return objective["state"], objective["progress"]
+
+    def greet(actor):
+        machine.post({"type": "signal", "subject": "cottage:resident", "name": "greeted", "actor": actor})
+
+    assert quests.status(machine, "lights_out", "player") == "available" and progress() == ("waiting", [0, 3])
+    machine.use(f"{switches[0]}#switch", "player")              # before the quest: the count moves anyway
+    assert progress() == ("waiting", [1, 3])
+    machine.use(f"{switches[0]}#switch", "player")
+    greet("cottage:resident")                                   # not the player's greeting
+    assert quests.status(machine, "lights_out", "player") == "available"
+    greet("player")
+    assert quests.status(machine, "lights_out", "player") == "active" and progress() == ("open", [0, 3])
+    for count, switch in enumerate(switches, 1):
+        assert quests.status(machine, "lights_out", "player") == "active"
+        machine.use(f"{switch}#switch", "player")
+        assert progress()[1] == [count, 3]
+    assert quests.status(machine, "lights_out", "player") == "complete" and progress()[0] == "done"
+    machine.use(f"{switches[1]}#switch", "player")              # back on: done stays done
+    greet("player")
+    assert quests.status(machine, "lights_out", "player") == "complete" and progress() == ("done", [2, 3])
+    assert quests.status(machine, "lights_out", "cottage:resident") == "available" and machine.errors == []
+
+
+def test_a_nested_cottage_contributes_no_quest(built_scene):
+    """The cottage is part of bigger scenes (two on the island): there it gives no quest."""
+    quests = collect(built_scene("island"), "island")
+    assert list(quests.quests) == ["lighthouse_gallery"] and not quests.wiring
+    # its residents can still be greeted, and rules of the bigger scene could listen
+    assert {"island:cottage_a/resident#greeted", "island:cottage_b/resident#greeted"} <= set(quests.declarations.signals)

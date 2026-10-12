@@ -373,6 +373,17 @@ def _machine(interaction: Any) -> dict[str, Any]:
     return out
 
 
+def npc_signal(node: SceneNode) -> str | None:
+    """The signal an NPC raises when an actor greets it (``attention.greet.signal`` of its
+    definition, ``greeted`` by default), with the greeter as the event's actor. None for
+    anything else, and for an NPC that can't be greeted."""
+    npc = node.meta.get("npc")
+    if node.meta.get("type") != "npc" or not isinstance(npc, dict):
+        return None
+    greet = (npc.get("attention") or {}).get("greet") or {}
+    return str(greet["signal"]) if greet.get("signal") else None
+
+
 def collect(root: SceneNode, package: str) -> Declarations:
     """Everything the built scene ``root`` declares, as package ``package``.
 
@@ -390,9 +401,12 @@ def collect(root: SceneNode, package: str) -> Declarations:
 
     for node in root.iter_nodes():
         declares = node.meta.get(META)
-        if not node.interactions and not declares:
+        greeting = npc_signal(node)
+        if not node.interactions and not declares and not greeting:
             continue
         thing = uid(node)
+        if greeting:
+            out.signals[f"{thing}#{greeting}"] = {"subject": thing, "name": greeting}
         for interaction in node.interactions:
             out.interactions[f"{thing}#{interaction.name}"] = _machine(interaction)
         if not declares:

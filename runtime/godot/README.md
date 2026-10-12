@@ -286,6 +286,9 @@ windows or doors:
   - *greet*: aiming at a standing NPC shows `E: <prompt>`. E runs its `greet` action on top of
     whatever it was doing: `face: player`, `play: wave` (the body's one-shot wave clip), a pause.
     Then the interrupted step starts again. It won't greet again for `cooldown` s.
+    A greeting that is taken goes on the event bus as the signal `greeted` from the NPC
+    (`attention.greet.signal`) with the greeter as the actor, so a rule can act on it: the
+    cottage's resident gives the `lights_out` quest this way.
   - *yield*: an NPC standing within `distance` m of the player walking straight at it runs
     `step_aside` (`go_to: aside`, `step` m off the player's line, then `face: player`).
   - The summary reports `greets`, `yields` and `looking` (seconds). `--greet=NAME[@S]` greets
@@ -560,6 +563,10 @@ quest event: {"quest":"lighthouse_gallery","title":"The view from the top","acto
   for the player, `<uid>#<state>`).
 - Control API: `quests.list {actor}`, `state.get {key, actor}`, `state.set
   {key, value, actor}`, `state.list`, and the `quest` stream.
+- The cottage has a quest given by an NPC: `godot --path runtime/godot --
+  --scene cottage --quests`, press E on the resident (or `npcs.greet
+  npc=resident`), then switch off the three light switches. `quests.list`
+  reports `progress: [n, 3]` as they go off.
 
 Not built: a HUD (geogen.15.10 to 15.13), markers that point at the portal for a
 subject in another scene, NPCs working on quests (15.8), and state for

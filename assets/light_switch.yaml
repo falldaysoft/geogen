@@ -1,0 +1,47 @@
+# Wall light switch: a plate with a rocker that tips when switched off.
+# Origin: bottom-centre on the wall, faces +Z. `light` names the fixture it
+# turns on and off: a placement of the same scene.
+
+name: light_switch
+tags: [switch.light]
+origin: bottom_center
+
+params:
+  light: { default: "", type: text }   # the light fixture it switches (a placement's name)
+
+size: [0.085, 0.085, 0.02]
+
+switch: { light: "{light}" }
+
+parts:
+  plate:
+    primitive: cube
+    size: [1, 1, 0.5]
+    anchor: bottom_center
+    offset: [0, 0, 0.25]
+    bevel: 0.002
+    material: paint_white
+    collider: box          # thin, but what the player aims at
+  rocker:
+    primitive: cube
+    size: ["{0.03 / 0.085}", "{0.05 / 0.085}", 0.4]
+    anchor: bottom_center
+    offset: [0, "{0.0175 / 0.085}", 0.65]
+    bevel: 0.002
+    material: paint_white
+    collider: none
+
+# Runtimes show or hide the light when the switch arrives at a state.
+interactions:
+  switch:
+    targets: [rocker, plate]
+    initial: "on"
+    duration: 0.15
+    states:
+      "on":  { prompt: Lights off, next: "off", emit: lights_on }
+      "off": { prompt: Lights on, next: "on", emit: lights_off }
+    motions:
+      - parts: [rocker]
+        rotate: x
+        pivot: [0, 0.0425, 0.01]
+        values: { "off": 12 }

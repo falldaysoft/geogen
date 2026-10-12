@@ -19,6 +19,9 @@ extends CharacterBody3D
 ## CharacterBody3D; poses are root transforms the body asset declares.
 
 signal traced(event: Dictionary)
+## An actor greeted this NPC: `signal_name` is its definition's `attention.greet.signal`,
+## which WorldLoader posts on the event bus as a signal from the NPC (docs/rules.md).
+signal greeted(signal_name: String, by: String)
 
 const LAYER := 2                  # NPC bodies; the navmesh bakes layer 1 only
 const WAYPOINT_RADIUS := 0.15
@@ -1309,14 +1312,18 @@ func greet_prompt() -> String:
     return str(definition.get("attention", {}).get("greet", {}).get("prompt", "Say hello"))
 
 
-## The player greets this NPC: it stops, turns to them and greets back, then carries on.
-func greet() -> bool:
+## An actor (the player by default) greets this NPC: it stops, turns to them and greets
+## back, then carries on. Rules hear it as the NPC's `greeted` signal, with `by` as the actor.
+func greet(by := "player") -> bool:
     if not can_greet():
         return false
     _greeted_at = clock
     stats["greets"] = int(stats.get("greets", 0)) + 1
     _trace({"event": "greet", "pos": _v(global_position)})
     _react(str(definition["attention"]["greet"]["action"]), {})
+    var signal_name := str(definition["attention"]["greet"].get("signal", ""))
+    if signal_name != "":
+        greeted.emit(signal_name, by)
     return true
 
 

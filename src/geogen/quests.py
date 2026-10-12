@@ -13,7 +13,7 @@ under ``quests:``. ``docs/quests.md`` is the design; in short::
     ordered: false                  # true: each objective waits for the one before
     objectives:
       - {id: lights, text: Switch off every light,
-         done: 'all("house/[tag=light_switch]", it.switch == "off")'}      # a condition: latches when true
+         done: 'all("house/[tag=switch.light]", it.switch == "off")'}      # a condition: latches when true
       - {id: bed, text: Go to bed, after: lights, done: {enter: house/bedroom}}   # or an event
       - {id: window, text: Close the window, optional: true, done: 'window.swing == "closed"'}
     fail: 'clock.time >= "06:00" and not clock.night'
@@ -144,23 +144,35 @@ def load_quest(path: str | Path) -> dict[str, Any]:
 
 
 def declare_scene(root: SceneNode, data: dict[str, Any], source: Any, assets_dir: Path) -> None:
-    """Record a scene's ``quests: [file, ...]`` on its root (``meta.quests``, not exported)."""
+    """Record a scene's ``quests: [file, ...]`` on its root (``meta.quests``, not exported).
+
+    An entry may be ``{file: quests/name.yaml, if: "{param}"}``: the scene only contributes
+    the quest when the expression isn't 0 (a scene that is also nested in bigger ones)."""
     from .layout.yaml_utils import source_of
+    from .wiring import built
 
     listed = data.get("quests")
     if not listed:
         return
-    if not isinstance(listed, list) or not all(isinstance(item, str) for item in listed):
-        raise QuestError(f"{source_of(source, ['quests'])}: quests is a list of quest files (quests/name.yaml)")
+    if not isinstance(listed, list) or not all(
+            isinstance(item, str) or isinstance(item, dict) and isinstance(item.get("file"), str)
+            and not set(item) - {"file", "if"} for item in listed):
+        raise QuestError(f"{source_of(source, ['quests'])}: quests is a list of quest files (quests/name.yaml, "
+                         f"or {{file: quests/name.yaml, if: <param expression>}})")
     found = []
     for index, name in enumerate(listed):
+        if isinstance(name, dict):
+            if not built(name):
+                continue
+            name = name["file"]
         path = Path(assets_dir) / name
         if not path.is_file():
             known = [p.relative_to(assets_dir).as_posix() for p in sorted(Path(assets_dir).glob("quests/*.yaml"))]
             raise QuestError(f"{source_of(source, ['quests', index])}: no quest file '{name}'."
                              f"{refs._near(name, known)}")
         found.append({"source": str(path), "spec": load_quest(path)})
-    root.meta[META] = found
+    if found:
+        root.meta[META] = found
 
 
 def _parse(spec: Any, source: Any, node: SceneNode | None, problems: list[str]) -> _Quest | None:
@@ -421,6 +433,7 @@ class _Compiler:
         self.problems: dict[str, None] = {}
         self.quests: list[_Quest] = []
         self.quest_rules: dict[str, list[dict[str, Any]]] = {}
+        self.listening: list[tuple[str, dict[str, Any]]] = []   # (where, on) of rules on a signal
 
     def bad(self, where: str, message: str) -> None:
         self.problems[f"{where}: {message}"] = None
@@ -745,6 +758,25 @@ class _Compiler:
                           "do": [move("active", "failed")]})
         self.quest_rules.setdefault(quest.id, []).extend(rules)
 
+    def raised(self, thing: str) -> set[str]:
+        """The signals a thing can raise: its interactions' emits (and ``locked``), what it or
+        an NPC definition declares, and what rules emit from it."""
+        machines = [m for key, m in self.decls.interactions.items() if key.rpartition("#")[0] == thing]
+        out = {state["emit"] for machine in machines for state in machine["states"].values() if state.get("emit")}
+        out |= {"locked"} if machines else set()
+        out |= {s["name"] for s in self.decls.signals.values() if s["subject"] == thing}
+        for rule in (*self.out.wiring, *self.out.rules, *self.other_rules):
+            out |= {e["emit"] for e in rule.get("do", []) if e.get("emit") and e.get("subject") == thing}
+        return out
+
+    def heard(self) -> None:
+        """A rule that waits for a signal nothing raises never fires: a misspelt name."""
+        for where, on in self.listening:
+            raised = self.raised(on["subject"])
+            if on["name"] not in raised:
+                self.bad(where, f"'{on['subject']}' never raises '{on['name']}'.{refs._near(on['name'], raised)} "
+                                + (f"It raises: {refs._listed(raised)}" if raised else "It raises nothing"))
+
     # -- can it be done? -----------------------------------------------------------------------
 
     def causes(self) -> None:
@@ -914,6 +946,7 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
                 rules_of.append({"id": f"quest:{quest.id}:rewards",
                                  "on": {"type": "changed", "key": quest.status, "to": "complete"}, "do": do})
         compiler.out.rules.extend(rules_of)
+    compiler.heard()
     if not compiler.problems:
         compiler.causes()
     if not compiler.problems:

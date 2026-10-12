@@ -119,6 +119,7 @@ place:
 
 <table>
 <tr>
+<td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
@@ -127,6 +128,7 @@ place:
 
 | Asset | What it is | Params |
 | --- | --- | --- |
+| [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
 | [wall_art](assets/wall_art.md) | Framed print for a wall. | `width`, `height`, `frame`, `mat` |
@@ -344,3 +346,15 @@ place:
 | --- | --- | --- |
 | [capsule](assets/capsule.md) | Placeholder character body: a capsule with a visor showing which way it faces (+Z). | `height`, `radius` |
 | [humanoid](assets/humanoid.md) | Parametric humanoid body: the humanoid skeleton (assets/skeletons/humanoid.yaml) skinned by ring-lofted chains (generators/ringloft.py). | `height`, `build`, `shoulder_width`, `hip_width`, `leg_ratio`, `hips`, `waist`, `bust`, `glutes`, `limb`, `limb_scale`, `belly`, `head_size`, `jaw_width`, `neck_length`, `hand_size`, `foot_length`, `skin_tone`, `hair_style`, `hair_color`, `eye_color`, `outfit`, `top_color`, `bottom_color`, `shoe_color`, `lashes`, `lip_strength`, `blush`, `freckles`, `brow_thickness`, `brow_arch`, `seat_height`, `table_height`, `sill_height` |
+
+## Other
+
+<table>
+<tr>
+<td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
+</tr>
+</table>
+
+| Asset | What it is | Params |
+| --- | --- | --- |
+| [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |

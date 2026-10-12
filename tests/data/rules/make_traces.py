@@ -281,18 +281,21 @@ traces["quest_go_there"] = quest_trace(
     ])
 
 traces["quest_change_the_world"] = quest_trace(
-    "A quest given by a rule: a condition over every light, then an objective that waits for it, an optional one, a reward.",
+    "A quest given by a rule when the player greets an NPC: a condition over every light, then an objective that waits for it, an optional one, a reward.",
     [{"id": "lights_out", "title": "Lights out",
       "objectives": [
-          {"id": "lights", "text": "Switch off every light", "done": 'all("[tag=light_switch]", it.switch == "off")'},
+          {"id": "lights", "text": "Switch off every light", "done": 'all("[tag=switch.light]", it.switch == "off")'},
           {"id": "bed", "text": "Go to bed", "after": "lights", "done": {"enter": "bedroom"}},
           {"id": "window", "text": "Close the window", "optional": True, "done": 'window.swing == "closed"'}],
       "rewards": [{"set": "actor.slept_well", "to": True}, {"emit": "rested", "of": "resident"}]}],
-    {"player": {"kind": "player"}},
+    {"player": {"kind": "player"}, "npc:visitor": {"kind": "npc"}},
     [
         {"use": "demo:hall#switch", "actor": "player"},                   # before the quest: the world changes anyway
         {"event": {"type": "enter", "subject": "demo:bedroom", "actor": "player"}},
-        {"expect": {"actors": {"player": {q("lights_out"): "available"}}, "fired": []}},
+        # the resident gives it to the player who greets them, not to another NPC who does
+        {"event": {"type": "signal", "subject": "demo:resident", "name": "greeted", "actor": "npc:visitor"}},
+        {"expect": {"actors": {"player": {q("lights_out"): "available"}, "npc:visitor": {q("lights_out"): "available"}},
+                    "fired": []}},
         {"event": {"type": "signal", "subject": "demo:resident", "name": "greeted", "actor": "player"}},
         {"expect": {"actors": {"player": {q("lights_out"): "active", q("lights_out", "lights"): False}}, "fired": ["give"]}},
         {"event": {"type": "enter", "subject": "demo:bedroom", "actor": "player"}},    # too early: it waits on the lights
@@ -317,8 +320,8 @@ traces["quest_change_the_world"] = quest_trace(
                   "demo:window#swing": {"initial": "open", "duration": 0.5,
                                         "states": {"open": {"next": "closed"}, "closed": {"next": "open"}}}},
     variables={"actor:demo.slept_well": {"type": "bool", "default": False}},
-    selectors={"[tag=light_switch]": ["demo:hall", "demo:kitchen", "demo:lounge"]},
-    rules=[{"id": "give", "on": {"type": "signal", "subject": "demo:resident", "name": "greeted"},
+    selectors={"[tag=switch.light]": ["demo:hall", "demo:kitchen", "demo:lounge"]},
+    rules=[{"id": "give", "on": {"type": "signal", "subject": "demo:resident", "name": "greeted", "actor": "player"},
             "do": [{"start_quest": "lights_out"}]}])
 
 traces["quest_timed"] = quest_trace(

@@ -127,3 +127,69 @@ def test_the_island_quest_completes_on_the_gallery(scene_export, run_godot):
     assert listed["status"] == "active" and listed["objectives"][0]["state"] == "open"
     assert listed["objectives"][0]["markers"] == [
         {"subject": "island:lighthouse/gallery", "position": [39.5, 15.454, 7.0]}]
+
+
+@pytest.fixture(scope="module")
+def cottage(scene_export, godot_runtime):
+    client = godot_runtime("cottage", scene_export("cottage"))
+    client.call("wait_ready")
+    return client
+
+
+def test_the_resident_gives_the_lights_out_quest_and_it_counts_the_switches(cottage):
+    """The 'change the world' archetype end to end: greeting the resident gives it, each real
+    switch moves the count, and the last one completes it."""
+    rt = cottage
+
+    def lights():
+        (entry,) = rt.call("quests.list")
+        (objective,) = entry["objectives"]
+        return entry["status"], objective["state"], objective["progress"]
+
+    assert rt.call("quests.list")[0]["id"] == "lights_out" and lights() == ("available", "waiting", [0, 3])
+    rt.call("player.use", asset="dining_switch")             # nobody asked yet: the count moves, the quest doesn't
+    assert lights() == ("available", "waiting", [1, 3])
+    rt.call("player.use", asset="dining_switch")
+    assert lights() == ("available", "waiting", [0, 3])
+
+    rt.subscribe("quest", "events", types=["signal"], subjects=["cottage:resident"])
+    for _ in range(30):                                       # they greet standing: wait out a sit or a turn
+        if rt.call("npcs.greet", npc="resident")["ok"]:
+            break
+        rt.call("time.advance", seconds=2)
+    else:
+        pytest.fail("the resident never stood still to be greeted")
+    greeted = rt.wait_event(lambda m: m["event"] == "events")["data"]
+    assert (greeted["type"], greeted["subject"], greeted["name"], greeted["actor"]) == (
+        "signal", "cottage:resident", "greeted", "player")
+    started = rt.wait_event(lambda m: m["event"] == "quest")["data"]
+    assert started == {"quest": "lights_out", "title": "Lights out", "actor": "player", "event": "started",
+                       "status": "active", "from": "available"}
+    status, state, progress = lights()
+    assert (status, state, progress) == ("active", "open", [0, 3])
+    markers = rt.call("quests.list")[0]["objectives"][0]["markers"]
+    assert sorted(m["subject"] for m in markers) == ["cottage:dining_switch", "cottage:lamp_switch",
+                                                     "cottage:sitting_switch"]
+
+    # One by aiming at it and pressing E, as a player would; the others by name.
+    light = "cottage/world/cottage/dining_light/Light"
+    rt.call("player.teleport", pos=[0.9, 0.32, 1.9], yaw=180)
+    rt.call("player.look", at=[0.85, 1.42, 2.67])
+    focus = rt.call("player.status")["focus"]
+    assert focus == {"kind": "interaction", "asset": "dining_switch", "interaction": "switch", "prompt": "Lights off"}
+    assert rt.call("world.node", node_path=light)["visible"] is True
+    assert rt.call("player.use")["asset"] == "dining_switch"
+    assert lights() == ("active", "open", [1, 3])
+    rt.call("interactions.set", asset="dining_switch", state="off", wait=True)    # the rocker arrives
+    assert rt.call("world.node", node_path=light)["visible"] is False             # and the light is out
+    rt.call("player.use", asset="lamp_switch")
+    assert lights() == ("active", "open", [2, 3])
+    rt.call("player.use", asset="sitting_switch")
+    events = [rt.wait_event(lambda m: m["event"] == "quest")["data"] for _ in range(2)]
+    assert [(e["event"], e.get("objective")) for e in events] == [("objective_done", "lights"), ("complete", None)]
+    assert events[0]["text"] == "Switch off every light in the cottage" and events[1]["from"] == "active"
+    rt.unsubscribe()
+    assert lights() == ("complete", "done", [3, 3])
+    rt.call("player.use", asset="sitting_switch")             # a light back on: done stays done
+    assert lights() == ("complete", "done", [2, 3])
+    assert quest(rt, actor="cottage:resident")["status"] == "available"       # the resident holds nothing

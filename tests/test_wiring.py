@@ -191,6 +191,10 @@ def test_manifest_has_the_program(assets, tmp_path):
      "sets actor state 'actor:yard.pulls', but nothing here says which actor"),
     ("yard", "{start_quest: stand}", "{start_quest: stnad}", r"rules.0.do.1: no quest 'stnad'. Did you mean 'stand'\?"),
     ("yard", "    once: true", "    once: true\n    often: true", r"rules.2: unknown keys \['often'\]"),
+    # a rule that waits for a signal nothing raises
+    ("yard", "on: {clock: night}", "on: {signal: lever.pushed}",
+     r"yard.yaml:\d+: rules.1.on: 'yard:lever' never raises 'pushed'. Did you mean 'pulled'\?"),
+    ("yard", "on: {clock: night}", "on: {signal: lamp.greeted}", r"rules.1.on: 'yard:lamp' never raises 'greeted'"),
     ("yard", '    when: "plate.occupants >= 2"\n', "", r"rules.2: a rule needs on: \(an event\) or when:"),
     ("plate", "on: {enter: top}", "on: {enter: tpo}", r"plate.yaml:\d+: rules.0.on: .*'tpo'"),
     ("plate", "set: self.occupants, to: \"self.occupants + 1\"", "set: self.ocupants, to: 1",
@@ -203,3 +207,23 @@ def test_bad_wiring_fails_with_file_and_line(assets, name, old, new, message):
     rewrite(assets, name, old, new)
     with pytest.raises(QuestError, match=message):
         collect(compose(assets), "yard")
+
+
+def test_if_leaves_rules_wires_and_quests_out_of_a_build(assets):
+    """A scene that is also nested in bigger ones gates what it contributes on a param."""
+    rewrite(assets, "yard", "name: yard\n", "name: yard\nparams:\n  quest: {default: 1}\n")
+    rewrite(assets, "yard", "quests: [quests/stand.yaml]", 'quests: [{file: quests/stand.yaml, if: "{quest}"}]')
+    rewrite(assets, "yard", "    on: {use: lever, actor: player}\n    do: [{set: actor.pulls, to: \"actor.pulls + 1\"}, "
+                            "{start_quest: stand}]",
+            '    if: "{quest}"\n    on: {use: lever, actor: player}\n    do: [{start_quest: stand}]')
+    rewrite(assets, "yard", "{from: lever.released, to: gate.close, after: 1}",
+            '{from: lever.released, to: gate.close, after: 1, if: "{quest}"}')
+    path = assets / "yard.yaml"
+    with_quest = collect(SceneComposer(assets_dir=assets).compose(path), "yard")
+    assert list(with_quest.quests) == ["stand"]
+    assert [r["id"] for r in with_quest.wiring[:4]] == ["count_pulls", "nightfall", "crowded", "wire_1"]
+    assert "wire_2" in [r["id"] for r in with_quest.wiring]
+    without = collect(SceneComposer(assets_dir=assets).compose(path, params={"quest": 0}), "yard")
+    assert not without.quests and not [r for r in without.rules if r["id"].startswith("quest:")]
+    ids = [r["id"] for r in without.wiring]
+    assert "count_pulls" not in ids and "wire_2" not in ids and {"nightfall", "crowded", "wire_1"} <= set(ids)

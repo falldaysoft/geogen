@@ -193,3 +193,24 @@ def test_animations_can_be_disabled(built_scene, tmp_path):
              for c in (n.get("extras") or {}).get("geogen", {}).get("clips", [])}
     assert names and names == clips
     assert not any("->" in n for n in names)
+
+
+def test_switches_name_their_own_scenes_lights(built_scene, tmp_path):
+    """meta.switch.light is a placement's name; exports write the node's exported name, and a
+    scene placed twice keeps each copy's switches on its own lights."""
+    from geogen.export import switched_light
+
+    island = built_scene("island")
+    switches = [n for n in island.iter_nodes() if "switch" in n.meta]
+    assert len(switches) == 6
+    for switch in switches:
+        light = switched_light(switch)
+        assert light.name == switch.meta["switch"]["light"] and "light" in light.meta
+        assert light.parent is switch.parent                    # the same cottage
+
+    nodes = _gltf_json(export_scene(built_scene("cottage"), tmp_path / "cottage.glb"))["nodes"]
+    lights = {n["name"] for n in nodes if "light" in n.get("extras", {}).get("geogen", {})}
+    wired = {n["name"]: n["extras"]["geogen"]["switch"]["light"] for n in nodes
+             if "switch" in n.get("extras", {}).get("geogen", {})}
+    assert wired == {"dining_switch": "dining_light", "sitting_switch": "sitting_light", "lamp_switch": "reading_lamp"}
+    assert set(wired.values()) <= lights
