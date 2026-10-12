@@ -187,8 +187,11 @@ and quests" and "HUD"); the rest is planned.
   complete, quest complete, quest failed. Several at once queue and appear one
   by one. Restored and resumed state raises none. The control API's
   `hud.notifications` returns what is showing and what is queued.
-- **Rest of the HUD** (15.12 and 15.13): world markers clamped to the screen
-  edge, and a quest log screen.
+- **Quest log** (`scripts/hud_quest_log.gd`): J opens a screen listing active,
+  completed and failed quests of every package loaded this session, with each
+  one's objectives; Enter makes the tracker follow the selected one. The
+  control API's `hud.log` returns what it holds.
+- **Rest of the HUD** (15.12): world markers clamped to the screen edge.
 - **NPC holders** (15.8): the NPC planner turns the open objective's subject
   into a goal with its existing action vocabulary: go to a place, use an
   interaction or affordance.
@@ -267,7 +270,8 @@ three in the evaluator and in Godot.
 | HUD layer and quest tracker (`scripts/hud.gd`, `scripts/hud_quest_tracker.gd`, `hud.quests`) | 15.10 | done (`tests/test_hud_runtime.py`) |
 | Catch the train: opens at a clock time, fails when the train leaves | 15.6 | runs in the evaluator (`tests/test_quests.py`) and in Godot, both outcomes (`tests/test_quests_runtime.py`): `quests/catch_train.yaml` in `level_crossing` |
 | Quest notifications (`scripts/hud_notifications.gd`, `hud.notifications`) | 15.11 | done (`tests/test_hud_runtime.py`) |
-| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5, 15.7 to 15.9, 15.12, 15.13 | open |
+| Quest log screen (`scripts/hud_quest_log.gd`, `hud.log`) | 15.13 | done (`tests/test_hud_log_runtime.py`) |
+| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5, 15.7 to 15.9, 15.12 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

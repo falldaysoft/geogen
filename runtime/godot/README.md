@@ -90,7 +90,8 @@ reloads the model within half a second (the player keeps their position).
 Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 (Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F6 scene list,
-F7 / F8 previous / next scene, E use, L lock, Q track the next active quest.
+F7 / F8 previous / next scene, E use, L lock, Q track the next active quest,
+J quest log.
 
 ## Layout
 
@@ -239,6 +240,7 @@ metres, angles degrees. `help` lists every command; the groups are:
   (a contact sheet of those), `camera` (player / overview / follow an NPC). Needs a window, not
   `--headless`.
 - `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
+- `hud.log`: the HUD's quest log (see "HUD"); `open`, `select` and `track` change it first.
 - `hud.notifications`: the HUD's quest toasts, on screen and waiting (see "HUD"); `hold`, `gap`, `limit`,
   `muted` and `clear` change them first.
 - `input.key` (press a key by name, as the keyboard would), `window.size` (get or set it; headless
@@ -588,8 +590,7 @@ quest event: {"quest":"lighthouse_gallery","title":"The view from the top","acto
   npc=resident`), then switch off the three light switches. `quests.list`
   reports `progress: [n, 3]` as they go off.
 
-Not built: the rest of the HUD (world markers and the quest log:
-geogen.15.12 and 15.13), markers that point at the portal for a
+Not built: the rest of the HUD (world markers: geogen.15.12), markers that point at the portal for a
 subject in another scene, NPCs working on quests (15.8), and state for
 interactions in chunks that aren't loaded (they are simulated, not restored).
 
@@ -622,6 +623,12 @@ is its name in `hud.report()` and `hud.panel(name)`. It may define:
 
 Panels hold presentation state only and read what the console reads, so a
 panel never needs to know about scene switches.
+
+The slot `screen` gives a panel the whole window instead of a corner, and
+`hud.set_modal(panel, on)` gives it the keyboard: while one panel is modal
+(`hud.modal`), keys go only to its `hud_key`, nothing else reaches the game,
+and `modal_changed` has `main.gd` park the player and free the mouse (as the
+scene list does), then put both back.
 
 **Quest tracker** (`scripts/hud_quest_tracker.gd`, panel `quests`, top right):
 the tracked quest's title and its objectives, from `GeogenRules.report("player")`.
@@ -697,6 +704,54 @@ mark, and a short chime when it appears (`GeogenSound.chime`, synthesised in
 too, where nothing is played). Tests set `hold` (0 dismisses
 what is up; a large value keeps it), `gap` and `limit` to make the queue
 deterministic, and `clear: true` drops everything.
+
+**Quest log** (`scripts/hud_quest_log.gd`, panel `log`, slot `screen`): **J**
+opens a screen over the game listing the player's quests in three sections,
+Active, Completed and Failed, with the selected one's description and every
+objective beside the list: a tick when done (with its count), a ring while
+open, a dimmed dash for one that waits on another ("later") or was left undone
+when the quest ended ("not done"). J or Esc closes it.
+
+- While it is open the player doesn't move or look, E and the other game keys
+  do nothing, and the mouse is free. The world keeps running.
+- Up / Down (or W / S, or a click) select a quest. Enter (or Space, a double
+  click, or the "Track this quest" button) makes the tracker follow it. Only an
+  active quest can be tracked.
+- It lists every package the session has loaded: the loaded one from
+  `GeogenRules.report`, the others as they stood when their world unloaded
+  (`GeogenRules.report_all`: `WorldLoader.unload` has the rules keep each
+  actor's report first). Those rows carry the scene's name; tracking one sets
+  what the tracker follows when that scene loads again.
+- It redraws on quest events, on `changed` events while open and on the
+  host's refreshes, so it stays right, and stays open, across a scene switch,
+  a reload and a restored save. A save holds the loaded package only, so
+  restoring one doesn't change what is listed of other scenes.
+- Quests of packages not visited this session aren't listed (none of theirs
+  has started), and neither are quests still `available` or `unavailable`.
+
+`hud.log {open?, select?, track?}` returns what it holds, open or not:
+
+```json
+{"open": true, "tracked": "quest_yard/yard_round",
+ "quests": [{"key": "quest_yard/yard_round", "package": "quest_yard", "id": "yard_round", "title": "The round",
+             "status": "active", "loaded": true, "tracked": true, "done": 1, "of": 3}],
+ "sections": {"active": ["quest_yard/yard_round", "quest_yard/yard_lamps"], "complete": [],
+              "failed": ["quest_yard/yard_dash"]},
+ "selected": {"key": "quest_yard/yard_lamps", "title": "Lamps out", "status": "active", "loaded": true,
+              "tracked": false, "can_track": true, "description": "The steward wants ...",
+              "objectives": [{"id": "lamps", "text": "Switch off every lamp at the board", "state": "open",
+                              "optional": false, "progress": [2, 3], "progress_text": "2 of 3"},
+                             {"id": "report", "text": "Tell the steward it's done", "state": "waiting",
+                              "optional": false, "progress_text": ""}]},
+ "hint": "Up / Down: select    Enter: track    J / Esc: close",
+ "rect": [200, 100, 880, 520], "viewport": [1280, 720]}
+```
+
+`quests` is in display order; `done` / `of` count required objectives; `rect`
+is the frame (`[]` while closed). `select` takes a quest id, `<package>/<id>`,
+`next` or `previous` (an error if it isn't listed); `track: true` tracks the
+selected quest (an error if it isn't active). Headless `--quests` and
+`quests.list` print the same data as before. Tests: `tests/test_hud_log_runtime.py`.
 
 ## Manifest
 

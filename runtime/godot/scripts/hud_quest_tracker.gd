@@ -164,6 +164,17 @@ func track(quest: String) -> bool:
     return true
 
 
+## The quest tracked in a package ("" if none): the one shown for the loaded package, the
+## pick waiting for another to load again.
+func tracked_in(package: String) -> String:
+    return _tracked if package == _hud.world.rules.package else str(_choice.get(package, ""))
+
+
+## Pick the quest to track in a package that isn't loaded: it is tracked when that loads again.
+func prefer(package: String, quest: String) -> void:
+    _choice[package] = quest
+
+
 func hud_key(keycode: int) -> bool:
     if keycode != CYCLE_KEY or _tracked == "":
         return false
