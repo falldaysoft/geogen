@@ -97,6 +97,16 @@ def test_affordances_are_usable(scene):
     assert [str(i) for i in check_affordances(root)] == [], name
 
 
+def test_extras_match_closed_schema(scene):
+    """Every scene exports only declared node extras, shaped as the schema says (geogen.extras)."""
+    pytest.importorskip("jsonschema")
+    from geogen.extras import scene_problems
+
+    name, root = scene
+    problems = scene_problems(root, name)
+    assert not problems, f"{name}:\n" + "\n".join(problems)
+
+
 def test_state_declarations_resolve(scene):
     """Every scene's state, signals, inputs and quests collect without problems (what an export requires)."""
     from geogen.quests import collect
