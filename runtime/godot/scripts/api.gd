@@ -55,6 +55,11 @@ const COMMANDS := {
         + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
         + "progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how "
         + "long a finished quest stays up",
+    "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's quest toasts: "
+        + "visible, showing [{seq, kind: started | objective_done | complete | failed, package, quest, "
+        + "objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, hold, "
+        + "gap, limit, rect, viewport; hold sets how long a toast stays, gap the time between two appearing, "
+        + "limit how many are up at once; clear drops them all",
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
     "npcs.options": "{npc} the NPC's scored options now",
     "npcs.force": "{npc, option} make its next decision take that option",
@@ -383,6 +388,19 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if args.has("linger") or pick != "":
                 main.hud.refresh()
             return tracker.hud_report()
+        "hud.notifications":
+            var toasts: GeogenHudNotifications = main.hud.panel("notifications")
+            if args.has("hold"):
+                toasts.hold = maxf(float(args["hold"]), 0.0)
+            if args.has("gap"):
+                toasts.gap = maxf(float(args["gap"]), 0.0)
+            if args.has("limit"):
+                toasts.limit = maxi(int(args["limit"]), 1)
+            if args.has("muted"):
+                toasts.muted = bool(args["muted"])
+            if bool(args.get("clear", false)):
+                toasts.clear()
+            return toasts.hud_report()
         "window.size":
             if args.get("size") is Array and args["size"].size() == 2:
                 get_window().size = Vector2i(int(args["size"][0]), int(args["size"][1]))

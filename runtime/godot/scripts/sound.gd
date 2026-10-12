@@ -4,8 +4,17 @@ extends RefCounted
 ## audio files. An engine is a short seamless loop (a few harmonics of `base` Hz plus some
 ## noise for `roughness`) whose pitch follows the vehicle's speed; a horn is a two-tone chord.
 ## Streams are cached per spec, so a fleet shares a handful of samples.
+##
+## The HUD's chimes (`CHIMES`, `chime`) are made the same way: a few bell notes per kind.
 
 const RATE := 22050
+## HUD chimes: per kind, the notes [Hz, start s, length s] of a soft bell.
+const CHIMES := {
+	"started": [[523.25, 0.0, 0.22], [783.99, 0.11, 0.3]],
+	"objective_done": [[880.0, 0.0, 0.2]],
+	"complete": [[523.25, 0.0, 0.2], [659.25, 0.09, 0.2], [783.99, 0.18, 0.2], [1046.5, 0.27, 0.42]],
+	"failed": [[311.13, 0.0, 0.26], [233.08, 0.16, 0.42]],
+}
 static var _cache := {}
 
 
@@ -59,6 +68,45 @@ static func horn_stream(spec: Dictionary) -> AudioStreamWAV:
 	var stream := _wav(data, n)
 	_cache[key] = stream
 	return stream
+
+
+## A chime for a HUD notification of ``kind`` (a key of CHIMES): each note is a sine with a
+## little of its octave, struck and left to die away.
+static func chime_stream(kind: String) -> AudioStreamWAV:
+	var key := "chime:%s" % kind
+	if _cache.has(key):
+		return _cache[key]
+	var notes: Array = CHIMES[kind]
+	var seconds := 0.0
+	for note in notes:
+		seconds = maxf(seconds, float(note[1]) + float(note[2]))
+	var n := int(seconds * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in n:
+		var t := float(i) / RATE
+		var v := 0.0
+		for note in notes:
+			var at := t - float(note[1])
+			var length := float(note[2])
+			if at < 0.0 or at > length:
+				continue
+			var env := minf(at / 0.006, 1.0) * exp(-at * 4.5 / length) * minf((length - at) / 0.02, 1.0)
+			var ph := at * float(note[0]) * TAU
+			v += (sin(ph) + 0.25 * sin(2.0 * ph)) * env
+		data.encode_s16(i * 2, int(clampf(v * 0.4, -1.0, 1.0) * 30000.0))
+	var stream := _wav(data, n)
+	_cache[key] = stream
+	return stream
+
+
+## Play ``kind``'s chime on ``player`` (not positional: it is the HUD's); false if there is none.
+static func chime(player: AudioStreamPlayer, kind: String) -> bool:
+	if player == null or not CHIMES.has(kind):
+		return false
+	player.stream = chime_stream(kind)
+	player.play()
+	return true
 
 
 static func _wav(data: PackedByteArray, _n: int) -> AudioStreamWAV:
