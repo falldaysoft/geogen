@@ -325,6 +325,8 @@ func _ready() -> void:
     hud.input_blocked = func(): return _menu.visible
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
     hud.add_panel(GeogenHudNotifications.new(), "bottom_left")
+    hud.add_panel(GeogenHudMarkers.new(), "screen")
+    hud.move_child(hud.panel("markers"), 0)         # under the corner panels and the quest log
     hud.add_panel(GeogenHudQuestLog.new(), "screen")
     hud.modal_changed.connect(_hud_modal)
     world.load_all()

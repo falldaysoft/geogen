@@ -1,7 +1,7 @@
 class_name GeogenHud
 extends CanvasLayer
-## The game HUD: one layer that panels join (the quest tracker, notifications; later
-## world markers, the quest log, inventory, dialogue).
+## The game HUD: one layer that panels join (the quest tracker, notifications, world
+## markers, the quest log; later inventory, dialogue).
 ##
 ## The host owns what panels share and nothing a panel shows:
 ## - a slot per screen corner (`SLOTS`), each a column inside the screen margin,

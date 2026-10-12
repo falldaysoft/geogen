@@ -169,7 +169,7 @@ the manifest's `state` section.
 
 ## Runtime
 
-The console and the HUD's quest tracker and notifications are built (`runtime/godot/README.md`, "Rules, state
+The console and the HUD's quest tracker, notifications, log and markers are built (`runtime/godot/README.md`, "Rules, state
 and quests" and "HUD"); the rest is planned.
 
 - **Console** (15.2): `quest event: {...}` on every quest and objective
@@ -191,7 +191,12 @@ and quests" and "HUD"); the rest is planned.
   completed and failed quests of every package loaded this session, with each
   one's objectives; Enter makes the tracker follow the selected one. The
   control API's `hud.log` returns what it holds.
-- **Rest of the HUD** (15.12): world markers clamped to the screen edge.
+- **Markers** (15.12, `scripts/hud_markers.gd`): an indicator with the distance
+  over each subject of the tracked quest's open objectives, clamped to the
+  screen's edge with an arrow when it is off screen or behind; a ring on the
+  ground, off-centre, for `{area}`; nothing for `hidden`; and for a quest of
+  another scene, the travel point that goes straight there. The control API's
+  `hud.markers` returns what is displayed.
 - **NPC holders** (15.8): the NPC planner turns the open objective's subject
   into a goal with its existing action vocabulary: go to a place, use an
   interaction or affordance.
@@ -271,7 +276,8 @@ three in the evaluator and in Godot.
 | Catch the train: opens at a clock time, fails when the train leaves | 15.6 | runs in the evaluator (`tests/test_quests.py`) and in Godot, both outcomes (`tests/test_quests_runtime.py`): `quests/catch_train.yaml` in `level_crossing` |
 | Quest notifications (`scripts/hud_notifications.gd`, `hud.notifications`) | 15.11 | done (`tests/test_hud_runtime.py`) |
 | Quest log screen (`scripts/hud_quest_log.gd`, `hud.log`) | 15.13 | done (`tests/test_hud_log_runtime.py`) |
-| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5, 15.7 to 15.9, 15.12 | open |
+| World markers (`scripts/hud_markers.gd`, `hud.markers`) | 15.12 | done (`tests/test_hud_markers_runtime.py`); a direct portal only, no routes over several scenes |
+| Other archetypes, NPC holders, playtest bot | 15.5, 15.7 to 15.9 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest
