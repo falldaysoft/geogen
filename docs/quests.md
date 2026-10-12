@@ -169,7 +169,7 @@ the manifest's `state` section.
 
 ## Runtime
 
-The console and the HUD's quest tracker are built (`runtime/godot/README.md`, "Rules, state
+The console and the HUD's quest tracker and notifications are built (`runtime/godot/README.md`, "Rules, state
 and quests" and "HUD"); the rest is planned.
 
 - **Console** (15.2): `quest event: {...}` on every quest and objective
@@ -182,9 +182,13 @@ and quests" and "HUD"); the rest is planned.
   report as `quests.list` and redrawn on quest and state events. Q tracks the
   next active quest; a finished one stays up a few seconds marked complete or
   failed. The control API's `hud.quests` returns what is displayed.
-- **Rest of the HUD** (15.11 to 15.13): toasts for started / objective done /
-  complete / failed, world markers clamped to the screen edge, and a quest log
-  screen.
+- **Notifications** (15.11): a HUD panel in the bottom-left corner shows a toast
+  with a chime for each of the player's quest events: started, objective
+  complete, quest complete, quest failed. Several at once queue and appear one
+  by one. Restored and resumed state raises none. The control API's
+  `hud.notifications` returns what is showing and what is queued.
+- **Rest of the HUD** (15.12 and 15.13): world markers clamped to the screen
+  edge, and a quest log screen.
 - **NPC holders** (15.8): the NPC planner turns the open objective's subject
   into a goal with its existing action vocabulary: go to a place, use an
   interaction or affordance.
@@ -262,7 +266,8 @@ three in the evaluator and in Godot.
 | The lights-out quest, given by greeting the cottage's resident | 15.4 | runs in the evaluator (`tests/test_quests.py`) and in Godot over the control API (`tests/test_quests_runtime.py`): greeted, three real switches, the count rising, complete |
 | HUD layer and quest tracker (`scripts/hud.gd`, `scripts/hud_quest_tracker.gd`, `hud.quests`) | 15.10 | done (`tests/test_hud_runtime.py`) |
 | Catch the train: opens at a clock time, fails when the train leaves | 15.6 | runs in the evaluator (`tests/test_quests.py`) and in Godot, both outcomes (`tests/test_quests_runtime.py`): `quests/catch_train.yaml` in `level_crossing` |
-| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5, 15.7 to 15.13 | open |
+| Quest notifications (`scripts/hud_notifications.gd`, `hud.notifications`) | 15.11 | done (`tests/test_hud_runtime.py`) |
+| Other archetypes, NPC holders, playtest bot, the rest of the HUD | 15.5, 15.7 to 15.9, 15.12, 15.13 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

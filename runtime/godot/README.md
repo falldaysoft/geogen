@@ -239,6 +239,8 @@ metres, angles degrees. `help` lists every command; the groups are:
   (a contact sheet of those), `camera` (player / overview / follow an NPC). Needs a window, not
   `--headless`.
 - `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
+- `hud.notifications`: the HUD's quest toasts, on screen and waiting (see "HUD"); `hold`, `gap`, `limit`,
+  `muted` and `clear` change them first.
 - `input.key` (press a key by name, as the keyboard would), `window.size` (get or set it; headless
   runs start at 64 x 64, so set a size before checking a layout).
 - `batch` (several commands, one reply), `wait_ready` (loaded and the navmesh answers), `quit`.
@@ -578,8 +580,8 @@ quest event: {"quest":"lighthouse_gallery","title":"The view from the top","acto
   npc=resident`), then switch off the three light switches. `quests.list`
   reports `progress: [n, 3]` as they go off.
 
-Not built: the rest of the HUD (notifications, world markers and the quest log:
-geogen.15.11 to 15.13), markers that point at the portal for a
+Not built: the rest of the HUD (world markers and the quest log:
+geogen.15.12 and 15.13), markers that point at the portal for a
 subject in another scene, NPCs working on quests (15.8), and state for
 interactions in chunks that aren't loaded (they are simulated, not restored).
 
@@ -648,6 +650,45 @@ up; `waiting` counts objectives not listed yet; `rect` is the panel on screen
 (`[]` when hidden). `track: <quest id> | next | previous` picks the quest
 first (an error if it isn't active), and `linger: <s>` sets how long a finished
 quest stays (0 dismisses one that is up). Tests: `tests/test_hud_runtime.py`.
+
+**Notifications** (`scripts/hud_notifications.gd`, panel `notifications`, bottom
+left): a toast for each quest event of the player's (`GeogenRules.quest_event`):
+"Quest started" and "Quest complete" / "Quest failed" with the quest's title,
+"Objective complete" with the objective's text. Each has its kind's colour and
+mark, and a short chime when it appears (`GeogenSound.chime`, synthesised in
+`scripts/sound.gd` like the horns: `CHIMES` holds each kind's notes).
+
+- A toast stays 4 s (`hold`) from when it appears, then fades. At most three
+  (`limit`) are up at once, and one appears no sooner than 0.6 s (`gap`) after
+  the one before. So a last objective, its quest completing and the next one
+  starting arrive one by one in the order they happened, each with its chime;
+  the rest wait in a queue. New toasts join below the ones being read.
+- Only events raise them. A scene switch, a reload or a restored save resume
+  state without events, so they raise none; a quest that starts with the game
+  does (`main.gd` registers the panels before the first world loads). Toasts
+  that are up or waiting carry over a switch. When the program or its state is
+  replaced (`GeogenRules.reset`), a toast about the loaded package that its
+  state no longer bears out (a save from before the quest was done) is dropped.
+- Only the player's quests: an NPC's raise nothing.
+
+`hud.notifications {hold?, gap?, limit?, muted?, clear?}` returns the queue:
+
+```json
+{"visible": true,
+ "showing": [{"seq": 3, "kind": "objective_done", "package": "quest_yard", "quest": "yard_round",
+              "objective": "third", "heading": "Objective complete", "text": "Walk to plinth 3", "age": 0.84}],
+ "queued": [{"seq": 4, "kind": "complete", "package": "quest_yard", "quest": "yard_round",
+             "heading": "Quest complete", "text": "The round"}],
+ "raised": 4, "chimes": 3, "hold": 4.0, "gap": 0.6, "limit": 3,
+ "rect": [12, 656, 320, 52], "viewport": [1280, 720]}
+```
+
+`kind` is `started | objective_done | complete | failed`; `showing` and
+`queued` are oldest first; `raised` counts every toast so far (the last one's
+`seq`) and `chimes` the ones that have sounded (counted in a headless run
+too, where nothing is played). Tests set `hold` (0 dismisses
+what is up; a large value keeps it), `gap` and `limit` to make the queue
+deterministic, and `clear: true` drops everything.
 
 ## Manifest
 

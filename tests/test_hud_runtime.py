@@ -1,5 +1,6 @@
-"""The runtime HUD (runtime/godot/scripts/hud.gd) and its quest tracker (hud_quest_tracker.gd):
-`hud.quests` returns what is on screen, which follows the quests' state through events."""
+"""The runtime HUD (runtime/godot/scripts/hud.gd), its quest tracker (hud_quest_tracker.gd:
+`hud.quests` returns what is on screen, which follows the quests' state through events) and
+its quest toasts (hud_notifications.gd: `hud.notifications` returns the ones up and waiting)."""
 
 import time
 
@@ -212,3 +213,124 @@ def test_another_actors_quests_are_not_shown(rt):
     assert rt.call("quests.list", actor="npc:someone")[1]["status"] == "active"
     time.sleep(0.2)
     assert not rt.call("hud.quests")["visible"]
+
+
+# -- notifications (hud_notifications.gd) -----------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def fresh(camp_dir, godot_runtime):
+    """A camp nothing has happened in yet, for the toasts."""
+    client = godot_runtime("camp", camp_dir)
+    client.call("wait_ready")
+    return client
+
+
+def toasts(rt, want=lambda hud: True, timeout=10.0, **args):
+    """What `hud.notifications` shows and holds back, once it matches `want` (toasts appear a frame
+    or more after what raised them)."""
+    end = time.time() + timeout
+    hud = rt.call("hud.notifications", **args)
+    while not want(hud) and time.time() < end:
+        time.sleep(0.05)
+        hud = rt.call("hud.notifications")
+    return hud
+
+
+def kinds(notes):
+    return [(note["kind"], note.get("objective", note["quest"])) for note in notes]
+
+
+def test_toasts_that_arrive_together_queue_in_order(fresh):
+    rt = fresh
+    start = rt.call("hud.notifications")
+    assert start["raised"] == 1                               # `levers` started with the game, and said so
+    assert (start["hold"], start["limit"]) == (4.0, 3)
+    hud = toasts(rt, hold=1000, gap=1000, limit=2, clear=True)
+    assert not hud["visible"] and hud["showing"] == [] and hud["queued"] == [] and hud["rect"] == []
+
+    for lever in ("lever", "lever_2", "lever_3"):
+        rt.call("state.set", key=f"camp:{lever}#pull", value="down")
+    rt.call("state.set", key="camp:gate#gate", value="open")
+    hud = toasts(rt, lambda h: len(h["showing"]) == 1 and len(h["queued"]) == 2)
+    # the first is up at once; the others wait their turn, in the order they happened
+    assert kinds(hud["showing"]) == [("objective_done", "all")]
+    assert kinds(hud["queued"]) == [("objective_done", "gate"), ("complete", "levers")]
+    assert [n["seq"] for n in hud["showing"] + hud["queued"]] == [2, 3, 4] and hud["raised"] == 4
+    first = hud["showing"][0]
+    assert first["heading"] == "Objective complete" and first["text"] == "Pull every lever"
+    assert first["package"] == "camp" and first["quest"] == "levers"
+    assert hud["chimes"] == start["chimes"] + 1               # a chime as each appears, not as it is raised
+
+    hud = toasts(rt, lambda h: len(h["showing"]) == 2, gap=0)
+    assert kinds(hud["showing"]) == [("objective_done", "all"), ("objective_done", "gate")]     # `limit` at once
+    assert kinds(hud["queued"]) == [("complete", "levers")]
+    hud = toasts(rt, lambda h: len(h["showing"]) == 3, limit=3)
+    assert kinds(hud["showing"])[-1] == ("complete", "levers") and hud["queued"] == []
+    assert (hud["showing"][-1]["heading"], hud["showing"][-1]["text"]) == ("Quest complete", "Throw the switches")
+    assert hud["chimes"] == start["chimes"] + 3
+    ages = [n["age"] for n in hud["showing"]]
+    assert ages == sorted(ages, reverse=True)                 # oldest first: new ones join below
+
+    hud = toasts(rt, lambda h: not h["visible"], hold=0)       # their time is up: they fade and go
+    assert hud["showing"] == [] and hud["queued"] == [] and hud["rect"] == [] and hud["raised"] == 4
+
+
+@pytest.mark.parametrize("size", [(1280, 720), (640, 360)])
+def test_a_quest_given_and_failed_is_announced_bottom_left(fresh, size):
+    rt = fresh
+    width, height = size
+    rt.call("window.size", size=list(size))
+    for key, value in (("world:camp.alarm", False), ("actor:camp.quest_errand", "available")):
+        rt.call("state.set", key=key, value=value)
+    rt.call("interactions.set", asset="lever", state="up", wait=True)
+    saved = rt.call("state.save")
+    before = toasts(rt, hold=1000, gap=0, limit=3, clear=True)["raised"]
+
+    rt.call("player.use", asset="lever")                      # the scene's rule gives the errand
+    hud = toasts(rt, lambda h: len(h["showing"]) == 1)
+    assert kinds(hud["showing"]) == [("started", "errand")]
+    assert (hud["showing"][0]["heading"], hud["showing"][0]["text"]) == ("Quest started", LONG_TITLE)
+    rt.call("state.set", key="world:camp.alarm", value=True)
+    hud = toasts(rt, lambda h: len(h["showing"]) == 2 and h["viewport"] == [width, height]
+                 and h["rect"][1] + h["rect"][3] == height - 12 and h["rect"][3] > 2 * 52)
+    assert kinds(hud["showing"]) == [("started", "errand"), ("failed", "errand")]
+    assert hud["showing"][1]["heading"] == "Quest failed" and hud["raised"] == before + 2
+
+    # the bottom-left corner: clear of the tracker (top right) and the prompt under the crosshair
+    x, y, w, h = hud["rect"]
+    assert x == 12 and y + h == height - 12 and 170 <= w <= 320
+    assert x + w <= width / 2 - 60
+    assert h > 2 * 52 and y > height / 2                      # two toasts, the long title wrapped
+    tracker = rt.call("hud.quests", track="next", linger=1000)["rect"]
+    assert not tracker or tracker[0] >= x + w or tracker[1] + tracker[3] <= y
+
+    # a reload resumes the state: no events, so nothing new, and what is up stays
+    rt.call("world.reload")
+    hud = toasts(rt)
+    assert kinds(hud["showing"]) == [("started", "errand"), ("failed", "errand")] and hud["raised"] == before + 2
+    # a save from before the errand: nothing fires, and the toasts that are no longer true go
+    rt.call("state.load", state=saved)
+    hud = toasts(rt, lambda h: h["showing"] == [])
+    assert hud["showing"] == [] and hud["queued"] == [] and hud["raised"] == before + 2
+    assert rt.call("quests.list")[1]["status"] == "available"
+
+
+def test_another_actors_quests_raise_no_toasts(fresh):
+    rt = fresh
+    rt.call("state.set", key="world:camp.alarm", value=False)
+    before = toasts(rt, hold=1000, gap=0, clear=True)
+    rt.call("state.set", key="actor:camp.quest_errand", value="active", actor="npc:someone")
+    rt.call("state.set", key="actor:camp.quest_errand_stand", value=True, actor="npc:someone")
+    rt.call("state.set", key="actor:camp.quest_errand", value="complete", actor="npc:someone")
+    assert rt.call("quests.list", actor="npc:someone")[1]["status"] == "complete"
+    # the quest events did happen (the console has them): they just aren't the player's
+    end = time.time() + 10
+    while rt.log_path.read_text().count('"actor":"npc:someone"') < 3 and time.time() < end:
+        time.sleep(0.05)
+    events = [line for line in rt.log_path.read_text().splitlines()
+              if line.startswith("quest event:") and '"actor":"npc:someone"' in line]
+    assert [e.split('"event":"')[1].split('"')[0] for e in events] == ["started", "objective_done", "complete"]
+    time.sleep(0.2)
+    hud = rt.call("hud.notifications")
+    assert hud["raised"] == before["raised"] and hud["showing"] == [] and hud["queued"] == []
+    assert hud["chimes"] == before["chimes"] and not hud["visible"]

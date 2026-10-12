@@ -125,7 +125,7 @@ var _print_skeletons := false
 var clock: GeogenClock
 var _start_time := 13.0
 var _menu: GeogenSceneMenu
-var hud: GeogenHud                # the game HUD (hud.gd): the quest tracker and later panels
+var hud: GeogenHud                # the game HUD (hud.gd): the quest tracker, notifications and later panels
 var _switches: Array[Dictionary] = []   # --switch: [{name, at: seconds}]
 var _switch_clock := 0.0
 var _stats_in := -1                     # frames until the post-switch stats print
@@ -319,6 +319,12 @@ func _ready() -> void:
         world.scene_name = ""
     else:
         world.use_catalogue_default(_remembered_scene())
+    # The HUD's panels listen before the first world loads: a quest that starts with the game is news.
+    hud = GeogenHud.new()
+    hud.world = world
+    hud.input_blocked = func(): return _menu.visible
+    hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
+    hud.add_panel(GeogenHudNotifications.new(), "bottom_left")
     world.load_all()
     add_child(clock)          # applies the time (night lights) once the world is loaded
     _show_npc_labels()
@@ -366,10 +372,6 @@ func _ready() -> void:
     _menu.picked.connect(func(scene: String): switch_scene(scene))
     _menu.closed.connect(_menu_closed)
     add_child(_menu)
-    hud = GeogenHud.new()
-    hud.world = world
-    hud.input_blocked = func(): return _menu.visible
-    hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
     hud.add_child(_prompt)                    # the E prompt, under the crosshair: part of the HUD, not the F1 overlay
     add_child(hud)
     move_child(hud, $Overlay.get_index())     # under the overlay, so its fade covers the HUD
