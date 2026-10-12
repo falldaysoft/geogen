@@ -568,8 +568,10 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
             machine.set_clock(**step["clock"])
         elif "save_load" in step:
             saved = json.loads(json.dumps(machine.save()))
+            logs = machine.signals, machine.fired, machine.errors
             machine = Machine(trace["program"], trace.get("actors"))
             machine.load(saved)
+            machine.signals, machine.fired, machine.errors = logs    # loading is not an input: nothing fires
         elif "expect" in step:
             expect = step["expect"]
             for key, want in expect.get("state", {}).items():

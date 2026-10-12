@@ -231,6 +231,130 @@ traces["cascades"] = {
         {"expect": {"state": {"world:demo.ping": 17}, "errors": 1}},
     ]}
 
+
+# ---- quests: compiled by geogen.quests, so a runtime that passes these runs quests (docs/quests.md) ----
+
+from geogen.quests import compile_quests
+from geogen.state import Declarations
+
+def quest_trace(about, quests, actors, steps, interactions=None, variables=None, selectors=None, rules=()):
+    declarations = Declarations(PKG)
+    declarations.interactions = dict(interactions or {})
+    declarations.variables = dict(variables or {})
+    compiled = compile_quests(quests, declarations, selectors=selectors)
+    rules = [{**r, "do": [e for effect in r["do"] for e in (compiled.effect(effect) if "set" not in effect and "emit" not in effect else [effect])]}
+             for r in rules]
+    return {"about": about, "quests": compiled.quests, "program": compiled.program(rules), "actors": actors, "steps": steps}
+
+def q(quest, objective=None, suffix=""):
+    return f"actor:{PKG}.quest_{quest}" + (f"_{objective}" if objective else "") + suffix
+
+SWITCH = {"initial": "on", "duration": 0.2, "states": {"on": {"next": "off"}, "off": {"next": "on"}}}
+
+traces["quest_go_there"] = quest_trace(
+    "Quests that start with the game: reach a place, and reach it three times. Only the holder's own arrival counts.",
+    [{"id": "view", "title": "The view from the top", "start": "auto",
+      "objectives": [{"id": "gallery", "text": "Climb to the gallery", "done": {"enter": "gallery"}}]},
+     {"id": "regular", "title": "A regular", "start": "auto",
+      "objectives": [{"id": "visits", "text": "Visit the gallery three times", "done": {"enter": "gallery", "count": 3}}]}],
+    {"player": {"kind": "player"}, "npc:keeper": {"kind": "npc"}},
+    [
+        {"expect": {"actors": {"player": {q("view"): "active", q("regular"): "active"},
+                               "npc:keeper": {q("view"): "available"}},        # an NPC can't hold it: never started
+                    "fired": ["quest:view:start", "quest:regular:start"], "errors": 0}},
+        {"event": {"type": "enter", "subject": "demo:gallery", "actor": "npc:keeper"}},
+        {"expect": {"actors": {"player": {q("view"): "active", q("view", "gallery"): False}}, "fired": []}},
+        {"save_load": True},
+        {"event": {"type": "enter", "subject": "demo:gallery", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("view"): "complete", q("view", "gallery"): True,
+                                          q("regular"): "active", q("regular", "visits", "_count"): 1}},
+                    "fired": ["quest:view:gallery", "quest:regular:visits"]}},
+        {"event": {"type": "leave", "subject": "demo:gallery", "actor": "player"}},
+        {"event": {"type": "enter", "subject": "demo:gallery", "actor": "player"}},
+        {"save_load": True},
+        {"event": {"type": "enter", "subject": "demo:gallery", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("regular"): "complete", q("regular", "visits", "_count"): 3,
+                                          q("view"): "complete"}},
+                    "fired": ["quest:regular:visits", "quest:regular:visits"]}},
+        {"event": {"type": "enter", "subject": "demo:gallery", "actor": "player"}},     # finished: counts no more
+        {"expect": {"actors": {"player": {q("regular", "visits", "_count"): 3}}, "fired": [], "errors": 0}},
+    ])
+
+traces["quest_change_the_world"] = quest_trace(
+    "A quest given by a rule: a condition over every light, then an objective that waits for it, an optional one, a reward.",
+    [{"id": "lights_out", "title": "Lights out",
+      "objectives": [
+          {"id": "lights", "text": "Switch off every light", "done": 'all("[tag=light_switch]", it.switch == "off")'},
+          {"id": "bed", "text": "Go to bed", "after": "lights", "done": {"enter": "bedroom"}},
+          {"id": "window", "text": "Close the window", "optional": True, "done": 'window.swing == "closed"'}],
+      "rewards": [{"set": "actor.slept_well", "to": True}, {"emit": "rested", "of": "resident"}]}],
+    {"player": {"kind": "player"}},
+    [
+        {"use": "demo:hall#switch", "actor": "player"},                   # before the quest: the world changes anyway
+        {"event": {"type": "enter", "subject": "demo:bedroom", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("lights_out"): "available"}}, "fired": []}},
+        {"event": {"type": "signal", "subject": "demo:resident", "name": "greeted", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("lights_out"): "active", q("lights_out", "lights"): False}}, "fired": ["give"]}},
+        {"event": {"type": "enter", "subject": "demo:bedroom", "actor": "player"}},    # too early: it waits on the lights
+        {"use": "demo:kitchen#switch", "actor": "player"},
+        {"expect": {"actors": {"player": {q("lights_out", "bed"): False, q("lights_out", "lights"): False}}, "fired": []}},
+        {"use": "demo:lounge#switch", "actor": "player"},
+        {"expect": {"actors": {"player": {q("lights_out", "lights"): True}}, "fired": ["quest:lights_out:lights"]}},
+        {"use": "demo:hall#switch", "actor": "player"},                   # back on: done stays done
+        {"save_load": True},
+        {"expect": {"actors": {"player": {q("lights_out", "lights"): True, q("lights_out"): "active"}}, "fired": []}},
+        {"event": {"type": "enter", "subject": "demo:bedroom", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("lights_out"): "complete", q("lights_out", "bed"): True,
+                                          "actor:demo.slept_well": True}},
+                    "signals": [["demo:resident", "rested"]],
+                    "fired": ["quest:lights_out:bed", "quest:lights_out:rewards"]}},
+        {"use": "demo:window#swing", "actor": "player"},                  # optional, and too late
+        {"event": {"type": "signal", "subject": "demo:resident", "name": "greeted", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("lights_out"): "complete", q("lights_out", "window"): False}},
+                    "fired": ["give"], "errors": 0}},
+    ],
+    interactions={**{f"demo:{room}#switch": SWITCH for room in ("hall", "kitchen", "lounge")},
+                  "demo:window#swing": {"initial": "open", "duration": 0.5,
+                                        "states": {"open": {"next": "closed"}, "closed": {"next": "open"}}}},
+    variables={"actor:demo.slept_well": {"type": "bool", "default": False}},
+    selectors={"[tag=light_switch]": ["demo:hall", "demo:kitchen", "demo:lounge"]},
+    rules=[{"id": "give", "on": {"type": "signal", "subject": "demo:resident", "name": "greeted"},
+            "do": [{"start_quest": "lights_out"}]}])
+
+traces["quest_timed"] = quest_trace(
+    "A quest anyone can hold, open from a clock time, that fails at another: one actor makes it and one doesn't.",
+    [{"id": "catch_train", "title": "Catch the 17:05", "holder": "any", "start": "auto",
+      "available": 'clock.time >= "17:00"',
+      "objectives": [{"id": "board", "text": "Be on the platform while the doors are open",
+                      "done": {"enter": "platform", "when": 'train.doors == "open"'}}],
+      "fail": 'clock.time >= "17:10"'}],
+    {"player": {"kind": "player"}, "npc:late": {"kind": "npc"}},
+    [
+        {"expect": {"actors": {"player": {q("catch_train"): "unavailable"}, "npc:late": {q("catch_train"): "unavailable"}},
+                    "fired": []}},
+        {"event": {"type": "enter", "subject": "demo:platform", "actor": "player"}},
+        {"clock": {"time": "17:00"}},
+        {"expect": {"actors": {"player": {q("catch_train"): "active"}, "npc:late": {q("catch_train"): "active"}},
+                    "fired": ["quest:catch_train:available", "quest:catch_train:available",
+                              "quest:catch_train:start", "quest:catch_train:start"]}},
+        {"event": {"type": "leave", "subject": "demo:platform", "actor": "player"}},
+        {"event": {"type": "enter", "subject": "demo:platform", "actor": "player"}},      # the doors are shut
+        {"expect": {"actors": {"player": {q("catch_train"): "active"}}, "fired": []}},
+        {"set": "demo:train#doors", "to": "open"},
+        {"event": {"type": "leave", "subject": "demo:platform", "actor": "player"}},
+        {"event": {"type": "enter", "subject": "demo:platform", "actor": "player"}},
+        {"expect": {"actors": {"player": {q("catch_train"): "complete"}, "npc:late": {q("catch_train"): "active"}},
+                    "fired": ["quest:catch_train:board"]}},
+        {"clock": {"time": "17:10"}},
+        {"expect": {"actors": {"player": {q("catch_train"): "complete"}, "npc:late": {q("catch_train"): "failed"}},
+                    "fired": ["quest:catch_train:fail"]}},
+        {"event": {"type": "enter", "subject": "demo:platform", "actor": "npc:late"}},      # failed is final
+        {"clock": {"time": "16:00"}},
+        {"expect": {"actors": {"npc:late": {q("catch_train"): "failed", q("catch_train", "board"): False}},
+                    "fired": [], "errors": 0}},
+    ],
+    interactions={"demo:train#doors": {"initial": "closed", "duration": 1.0, "states": {"closed": {}, "open": {}}}})
+
 out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent
 for name, trace in traces.items():
     (out / f"{name}.json").write_text(json.dumps({"name": name, **trace}, indent=1) + "\n")

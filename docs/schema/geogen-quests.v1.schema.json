@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/falldaysoft/geogen/docs/schema/geogen-quests.v1.schema.json",
+  "title": "geogen quests v1",
+  "description": "The `quests` section of a manifest or chunk index: every quest of the package, and the rules that run them. A quest has no logic of its own: its progress is actor state (declared in the `state` section) moved by `rules`, which are rules of a geogen-rules program (docs/rules.md). The rest is what a quest log, tracker or marker needs to show it. Design: docs/quests.md.",
+  "type": "object",
+  "required": ["format", "version", "package", "quests", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "geogen-quests"},
+    "version": {"const": 1},
+    "schema": {"type": "string"},
+    "package": {"type": "string"},
+    "quests": {
+      "description": "Quests by id.",
+      "type": "object",
+      "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+      "additionalProperties": {"$ref": "#/$defs/quest"}
+    },
+    "rules": {
+      "description": "The compiled rules, in program order, ids 'quest:<quest>:<available | unavailable | start | fail | rewards | objective id>'. Every `set` is conditional on the state it expects.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/rule"}
+    }
+  },
+  "$defs": {
+    "actorKey": {"type": "string", "pattern": "^actor:[^.]+\\..+$"},
+    "condition": {"description": "A compiled, resolved condition tree (geogen-condition.v1.schema.json)."},
+    "quest": {
+      "type": "object",
+      "required": ["title", "holder", "start", "status", "objectives"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "holder": {"enum": ["player", "npc", "any"], "description": "The kind of actor that can hold it."},
+        "start": {"enum": ["given", "auto"], "description": "given: a start effect starts it. auto: it starts as soon as it is available."},
+        "status": {"$ref": "#/$defs/actorKey", "description": "The variable holding its lifecycle state: unavailable | available | active | complete | failed."},
+        "available": {"$ref": "#/$defs/condition", "description": "It is unavailable while this is false."},
+        "fail": {"$ref": "#/$defs/condition", "description": "It fails when this becomes true while active."},
+        "objectives": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/objective"}}
+      }
+    },
+    "objective": {
+      "type": "object",
+      "required": ["id", "text", "optional", "after", "done", "subjects"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "text": {"type": "string"},
+        "optional": {"type": "boolean", "description": "Not needed for the quest to complete."},
+        "after": {"type": "array", "items": {"type": "string"}, "description": "Objectives that must be done first. It is open while the quest is active, these are done and it is not."},
+        "done": {"$ref": "#/$defs/actorKey", "description": "Its done latch, a bool."},
+        "count": {
+          "type": "object",
+          "required": ["key", "of"],
+          "additionalProperties": false,
+          "properties": {
+            "key": {"$ref": "#/$defs/actorKey", "description": "How many times its event has happened, a number."},
+            "of": {"type": "integer", "minimum": 1}
+          }
+        },
+        "progress": {
+          "description": "For 'n of m' displays: `value` evaluated for the actor, out of `of`.",
+          "type": "object",
+          "required": ["value", "of"],
+          "additionalProperties": false,
+          "properties": {"value": {"$ref": "#/$defs/condition"}, "of": {"type": "integer", "minimum": 1}}
+        },
+        "subjects": {"type": "array", "items": {"type": "string"}, "description": "Stable IDs of what it is about (a place, the things its condition reads): where markers go."},
+        "marker": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hidden": {"const": true, "description": "Show no marker."},
+            "area": {"type": "number", "exclusiveMinimum": 0, "description": "Mark a ring of this radius (m), not the exact spot."}
+          }
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["id", "do"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^quest:"},
+        "on": {"type": "object", "required": ["type"], "description": "The event that triggers it; without one, `when` is watched."},
+        "when": {"$ref": "#/$defs/condition"},
+        "do": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+      }
+    }
+  }
+}

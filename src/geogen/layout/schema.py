@@ -295,6 +295,7 @@ SCENE_KEYS: dict[str, str] = {
     "tags": "dotted gameplay tags on the scene root",
     "state": "{name: {scope: world | actor, type, default, choices}}: the package's shared (`world.name`) and "
              "per-actor (`actor.name`) variables",
+    "quests": "[quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md)",
     "spawns": "{name: {position | anchor, facing}}: where the player can start",
     "places": "{name: {box | polygon | around}}: trigger volumes (enter / leave events)",
     "city": "a street grid with zoned lots, buildings, street furniture, parking and traffic",

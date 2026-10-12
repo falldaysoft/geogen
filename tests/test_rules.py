@@ -18,7 +18,8 @@ def test_trace_conforms(path):
 
 def test_traces_cover_the_semantics():
     assert {p.stem for p in TRACES} >= {"lever_opens_gate", "bindings", "actors_and_once", "watched_conditions",
-                                       "time", "cascades"}
+                                       "time", "cascades", "quest_go_there", "quest_change_the_world",
+                                       "quest_timed"}
 
 
 def test_a_wrong_expectation_is_reported():

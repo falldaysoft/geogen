@@ -219,7 +219,8 @@ without raising events: nothing changed while saved.
 A trace is `{program, actors, steps}`. Steps are inputs (`use`, `event`, `set`,
 `advance`, `clock`, `save_load`) and `expect` blocks that check `state`,
 `actors`, and exactly which `signals` and rules (`fired`) happened since the
-last one. `geogen.rules.run_trace` replays one and returns the mismatches.
+last one. `geogen.rules.run_trace` replays one and returns the mismatches. A `save_load`
+step is not an input: nothing fires because of it.
 
 Edit traces in `tests/data/rules/make_traces.py`, which compiles the conditions,
 and run it to rewrite the JSON.
@@ -232,3 +233,6 @@ and run it to rewrite the JSON.
 | `watched_conditions` | conditions that fire when they become true, per actor |
 | `time` | delayed rules, a self-closing door, locks, the clock, timers in a save |
 | `cascades` | the order rules run in, and a loop being cut off |
+| `quest_go_there` | quests ([quests.md](quests.md)) that start with the game; an event objective, a counted one, a save mid-quest |
+| `quest_change_the_world` | a quest given by a rule; a condition over a selector, `after`, an optional objective, rewards |
+| `quest_timed` | availability and failure from the clock; one actor completes and another fails |

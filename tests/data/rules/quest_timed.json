@@ -1,0 +1,536 @@
+{
+ "name": "quest_timed",
+ "about": "A quest anyone can hold, open from a clock time, that fails at another: one actor makes it and one doesn't.",
+ "quests": {
+  "catch_train": {
+   "title": "Catch the 17:05",
+   "holder": "any",
+   "start": "auto",
+   "status": "actor:demo.quest_catch_train",
+   "objectives": [
+    {
+     "id": "board",
+     "text": "Be on the platform while the doors are open",
+     "optional": false,
+     "after": [],
+     "done": "actor:demo.quest_catch_train_board",
+     "subjects": [
+      "demo:platform"
+     ]
+    }
+   ],
+   "available": {
+    "op": ">=",
+    "args": [
+     {
+      "get": "clock",
+      "name": "time"
+     },
+     "17:00"
+    ]
+   },
+   "fail": {
+    "op": ">=",
+    "args": [
+     {
+      "get": "clock",
+      "name": "time"
+     },
+     "17:10"
+    ]
+   }
+  }
+ },
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.quest_catch_train": {
+    "type": "choice",
+    "choices": [
+     "unavailable",
+     "available",
+     "active",
+     "complete",
+     "failed"
+    ],
+    "default": "unavailable"
+   },
+   "actor:demo.quest_catch_train_board": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "interactions": {
+   "demo:train#doors": {
+    "initial": "closed",
+    "duration": 1.0,
+    "states": {
+     "closed": {},
+     "open": {}
+    }
+   }
+  },
+  "bindings": [],
+  "rules": [
+   {
+    "id": "quest:catch_train:available",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        },
+        "unavailable"
+       ]
+      },
+      {
+       "op": ">=",
+       "args": [
+        {
+         "get": "clock",
+         "name": "time"
+        },
+        "17:00"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_catch_train",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train"
+          },
+          "unavailable"
+         ]
+        },
+        "available",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:catch_train:unavailable",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        },
+        "available"
+       ]
+      },
+      {
+       "op": "not",
+       "args": [
+        {
+         "op": ">=",
+         "args": [
+          {
+           "get": "clock",
+           "name": "time"
+          },
+          "17:00"
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_catch_train",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train"
+          },
+          "available"
+         ]
+        },
+        "unavailable",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:catch_train:start",
+    "when": {
+     "op": "==",
+     "args": [
+      {
+       "get": "actor",
+       "package": "demo",
+       "name": "quest_catch_train"
+      },
+      "available"
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_catch_train",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train"
+          },
+          "available"
+         ]
+        },
+        "active",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:catch_train:board",
+    "on": {
+     "type": "enter",
+     "subject": "demo:platform"
+    },
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "and",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train"
+          },
+          "active"
+         ]
+        },
+        {
+         "op": "not",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train_board"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "instance",
+         "name": "doors",
+         "id": "demo:train"
+        },
+        "open"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_catch_train_board",
+      "to": true
+     },
+     {
+      "set": "actor:demo.quest_catch_train",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_catch_train"
+            },
+            "active"
+           ]
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train_board"
+          }
+         ]
+        },
+        "complete",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:catch_train:fail",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        },
+        "active"
+       ]
+      },
+      {
+       "op": ">=",
+       "args": [
+        {
+         "get": "clock",
+         "name": "time"
+        },
+        "17:10"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_catch_train",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_catch_train"
+          },
+          "active"
+         ]
+        },
+        "failed",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_catch_train"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:late": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_catch_train": "unavailable"
+     },
+     "npc:late": {
+      "actor:demo.quest_catch_train": "unavailable"
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:platform",
+    "actor": "player"
+   }
+  },
+  {
+   "clock": {
+    "time": "17:00"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_catch_train": "active"
+     },
+     "npc:late": {
+      "actor:demo.quest_catch_train": "active"
+     }
+    },
+    "fired": [
+     "quest:catch_train:available",
+     "quest:catch_train:available",
+     "quest:catch_train:start",
+     "quest:catch_train:start"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "leave",
+    "subject": "demo:platform",
+    "actor": "player"
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:platform",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_catch_train": "active"
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "set": "demo:train#doors",
+   "to": "open"
+  },
+  {
+   "event": {
+    "type": "leave",
+    "subject": "demo:platform",
+    "actor": "player"
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:platform",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_catch_train": "complete"
+     },
+     "npc:late": {
+      "actor:demo.quest_catch_train": "active"
+     }
+    },
+    "fired": [
+     "quest:catch_train:board"
+    ]
+   }
+  },
+  {
+   "clock": {
+    "time": "17:10"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_catch_train": "complete"
+     },
+     "npc:late": {
+      "actor:demo.quest_catch_train": "failed"
+     }
+    },
+    "fired": [
+     "quest:catch_train:fail"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:platform",
+    "actor": "npc:late"
+   }
+  },
+  {
+   "clock": {
+    "time": "16:00"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "npc:late": {
+      "actor:demo.quest_catch_train": "failed",
+      "actor:demo.quest_catch_train_board": false
+     }
+    },
+    "fired": [],
+    "errors": 0
+   }
+  }
+ ]
+}

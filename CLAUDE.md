@@ -746,6 +746,17 @@ Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scal
   - Tests: `tests/test_state.py`; `test_asset_quality.py::test_state_declarations_resolve` runs every scene.
 - Rules, bindings and wiring are still built by hand: compiling YAML to them is geogen.3.6, and the Godot interpreter 3.3.
 
+**Quests** (`src/geogen/quests.py`; `docs/quests.md` is the design and says what is built): a `kind: quest` file in `assets/quests/` that a scene lists under `quests: [quests/name.yaml]`. A quest has no runtime logic: it compiles to actor state and rules.
+- **Authoring:** `id` (default: the file name), `title`, `description`, `holder: player | npc | any`, `start: given | auto`, `available` and `fail` (conditions), `ordered`, `rewards` (effects) and `objectives: [{id, text, after, done, optional, marker}]`.
+  - `done` is a condition (it latches when true) or an event: `{enter | leave: <place or room>}`, `{signal: thing.name}`, `{use: thing[.interaction]}`, `{changed: <state>, to}`, with `when:` and `count:`. The event must be the holder's own.
+  - Effects: `{set: <state>, to}`, `{emit, of}`, `{start_quest: id}`, `{fail_quest: id}`, `{complete_objective: quest.objective}`.
+- **Compiles to:** `actor:<pkg>.quest_<id>` (unavailable | available | active | complete | failed), a bool latch `..._<objective>` and a `..._count` for counted events, and rules `quest:<id>:<available | unavailable | start | fail | rewards | objective>`. Every `set` is conditional on the state it expects. A last objective beats a `fail` at the same moment.
+- **API:** `collect(root, package)` (the scene's quests plus `state.collect`; exports call it before writing anything) and `compile_quests(specs, declarations, selectors, rules)` (no scene: thing `x` is `<pkg>:x`) give a `Quests`: `quests` (the manifest entries), `rules`, `declarations`, `program(rules)`, `effect(spec)` (a quest effect as `set` effects, for other rules) and `status` / `report(machine, actor)` (per objective `done | open | waiting`, progress `[n, of]`).
+- **Checks** (`QuestError`, every problem with file:line): unknown keys, `after` loops, references and state that don't resolve, a choice compared with a value it can't have, and objectives nothing can cause: a condition that reads no live state, state no use or rule sets (pass the package's other compiled rules as `rules`; a declared input doesn't count until something is wired to it), a signal nothing raises.
+- **Export:** the manifest's and chunk index's `quests` (`docs/schema/geogen-quests.v1.schema.json`); the variables join `state`.
+- Until rules can be authored (3.6) nothing in YAML can give a quest, so authored ones are `start: auto`. The island has `quests/lighthouse_gallery.yaml`. The runtime doesn't read quests yet (geogen.15.2).
+- Tests: `tests/test_quests.py`; traces `tests/data/rules/quest_*.json`.
+
 Relevant module: `src/geogen/layout/expressions.py`.
 
 ### Surfaces (2D regions on assets)

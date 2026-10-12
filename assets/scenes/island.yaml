@@ -9,6 +9,7 @@
 name: island
 size: [170, 20, 170]
 tags: [showcase.island]
+quests: [quests/lighthouse_gallery.yaml]
 
 spawns:
   start: { position: [1.0, 2.72, -45.5], facing: north }       # at the jetty root, looking up the path

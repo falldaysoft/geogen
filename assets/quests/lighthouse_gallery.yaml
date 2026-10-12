@@ -1,0 +1,11 @@
+# Climb to the lighthouse gallery: the "go there" quest, one place to reach.
+# It starts with the game and is done on stepping out onto the gallery deck.
+kind: quest
+version: 1
+title: The view from the top
+description: Climb the lighthouse and step out onto the gallery.
+start: auto
+objectives:
+  - id: gallery
+    text: Climb to the lighthouse gallery
+    done: { enter: lighthouse/gallery }

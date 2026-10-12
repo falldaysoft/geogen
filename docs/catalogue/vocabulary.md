@@ -47,6 +47,7 @@
 | `attachments` | named points on the scene, for parent scenes |
 | `tags` | dotted gameplay tags on the scene root |
 | `state` | {name: {scope: world \| actor, type, default, choices}}: the package's shared (`world.name`) and per-actor (`actor.name`) variables |
+| `quests` | [quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md) |
 | `spawns` | {name: {position \| anchor, facing}}: where the player can start |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes (enter / leave events) |
 | `city` | a street grid with zoned lots, buildings, street furniture, parking and traffic |
@@ -194,6 +195,18 @@ Keys: `corridor_min_width`, `door_min_height`, `door_min_width`, `eye_height`, `
 | File | What it is |
 | --- | --- |
 | [player.yaml](../../assets/player.yaml) | Player-scale constraints shared by generation and the Godot runtime. |
+
+### quest
+
+A quest: objectives done by conditions or events, compiled to actor state and rules.
+
+Use: `quests: [quests/lighthouse_gallery.yaml]   (a scene key; see docs/quests.md)`
+
+Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered`, `rewards`, `start`, `title`
+
+| File | What it is |
+| --- | --- |
+| [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 
 ### scene_catalogue
 

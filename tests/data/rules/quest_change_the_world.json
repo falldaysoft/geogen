@@ -1,0 +1,615 @@
+{
+ "name": "quest_change_the_world",
+ "about": "A quest given by a rule: a condition over every light, then an objective that waits for it, an optional one, a reward.",
+ "quests": {
+  "lights_out": {
+   "title": "Lights out",
+   "holder": "player",
+   "start": "given",
+   "status": "actor:demo.quest_lights_out",
+   "objectives": [
+    {
+     "id": "lights",
+     "text": "Switch off every light",
+     "optional": false,
+     "after": [],
+     "done": "actor:demo.quest_lights_out_lights",
+     "progress": {
+      "value": {
+       "op": "count",
+       "where": {
+        "op": "==",
+        "args": [
+         {
+          "get": "it",
+          "name": "switch"
+         },
+         "off"
+        ]
+       },
+       "over": [
+        "demo:hall",
+        "demo:kitchen",
+        "demo:lounge"
+       ]
+      },
+      "of": 3
+     },
+     "subjects": [
+      "demo:hall",
+      "demo:kitchen",
+      "demo:lounge"
+     ]
+    },
+    {
+     "id": "bed",
+     "text": "Go to bed",
+     "optional": false,
+     "after": [
+      "lights"
+     ],
+     "done": "actor:demo.quest_lights_out_bed",
+     "subjects": [
+      "demo:bedroom"
+     ]
+    },
+    {
+     "id": "window",
+     "text": "Close the window",
+     "optional": true,
+     "after": [],
+     "done": "actor:demo.quest_lights_out_window",
+     "subjects": [
+      "demo:window"
+     ]
+    }
+   ]
+  }
+ },
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.slept_well": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.quest_lights_out": {
+    "type": "choice",
+    "choices": [
+     "unavailable",
+     "available",
+     "active",
+     "complete",
+     "failed"
+    ],
+    "default": "available"
+   },
+   "actor:demo.quest_lights_out_lights": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.quest_lights_out_bed": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.quest_lights_out_window": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "interactions": {
+   "demo:hall#switch": {
+    "initial": "on",
+    "duration": 0.2,
+    "states": {
+     "on": {
+      "next": "off"
+     },
+     "off": {
+      "next": "on"
+     }
+    }
+   },
+   "demo:kitchen#switch": {
+    "initial": "on",
+    "duration": 0.2,
+    "states": {
+     "on": {
+      "next": "off"
+     },
+     "off": {
+      "next": "on"
+     }
+    }
+   },
+   "demo:lounge#switch": {
+    "initial": "on",
+    "duration": 0.2,
+    "states": {
+     "on": {
+      "next": "off"
+     },
+     "off": {
+      "next": "on"
+     }
+    }
+   },
+   "demo:window#swing": {
+    "initial": "open",
+    "duration": 0.5,
+    "states": {
+     "open": {
+      "next": "closed"
+     },
+     "closed": {
+      "next": "open"
+     }
+    }
+   }
+  },
+  "bindings": [],
+  "rules": [
+   {
+    "id": "quest:lights_out:lights",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "and",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out"
+          },
+          "active"
+         ]
+        },
+        {
+         "op": "not",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out_lights"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "op": "all",
+       "where": {
+        "op": "==",
+        "args": [
+         {
+          "get": "it",
+          "name": "switch"
+         },
+         "off"
+        ]
+       },
+       "over": [
+        "demo:hall",
+        "demo:kitchen",
+        "demo:lounge"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_lights_out_lights",
+      "to": true
+     },
+     {
+      "set": "actor:demo.quest_lights_out",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_lights_out"
+            },
+            "active"
+           ]
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out_lights"
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out_bed"
+          }
+         ]
+        },
+        "complete",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_lights_out"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:lights_out:bed",
+    "on": {
+     "type": "enter",
+     "subject": "demo:bedroom"
+    },
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_lights_out"
+        },
+        "active"
+       ]
+      },
+      {
+       "op": "not",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_lights_out_bed"
+        }
+       ]
+      },
+      {
+       "get": "actor",
+       "package": "demo",
+       "name": "quest_lights_out_lights"
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_lights_out_bed",
+      "to": true
+     },
+     {
+      "set": "actor:demo.quest_lights_out",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_lights_out"
+            },
+            "active"
+           ]
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out_lights"
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out_bed"
+          }
+         ]
+        },
+        "complete",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_lights_out"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:lights_out:window",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "and",
+       "args": [
+        {
+         "op": "==",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out"
+          },
+          "active"
+         ]
+        },
+        {
+         "op": "not",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_lights_out_window"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "instance",
+         "name": "swing",
+         "id": "demo:window"
+        },
+        "closed"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_lights_out_window",
+      "to": true
+     }
+    ]
+   },
+   {
+    "id": "quest:lights_out:rewards",
+    "on": {
+     "type": "changed",
+     "key": "actor:demo.quest_lights_out",
+     "to": "complete"
+    },
+    "do": [
+     {
+      "set": "actor:demo.slept_well",
+      "to": true
+     },
+     {
+      "emit": "rested",
+      "subject": "demo:resident"
+     }
+    ]
+   },
+   {
+    "id": "give",
+    "on": {
+     "type": "signal",
+     "subject": "demo:resident",
+     "name": "greeted"
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_lights_out",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_lights_out"
+            },
+            "available"
+           ]
+          },
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "name": "kind"
+            },
+            "player"
+           ]
+          }
+         ]
+        },
+        "active",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_lights_out"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  }
+ },
+ "steps": [
+  {
+   "use": "demo:hall#switch",
+   "actor": "player"
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:bedroom",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out": "available"
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:resident",
+    "name": "greeted",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out": "active",
+      "actor:demo.quest_lights_out_lights": false
+     }
+    },
+    "fired": [
+     "give"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:bedroom",
+    "actor": "player"
+   }
+  },
+  {
+   "use": "demo:kitchen#switch",
+   "actor": "player"
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out_bed": false,
+      "actor:demo.quest_lights_out_lights": false
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "use": "demo:lounge#switch",
+   "actor": "player"
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out_lights": true
+     }
+    },
+    "fired": [
+     "quest:lights_out:lights"
+    ]
+   }
+  },
+  {
+   "use": "demo:hall#switch",
+   "actor": "player"
+  },
+  {
+   "save_load": true
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out_lights": true,
+      "actor:demo.quest_lights_out": "active"
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:bedroom",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out": "complete",
+      "actor:demo.quest_lights_out_bed": true,
+      "actor:demo.slept_well": true
+     }
+    },
+    "signals": [
+     [
+      "demo:resident",
+      "rested"
+     ]
+    ],
+    "fired": [
+     "quest:lights_out:bed",
+     "quest:lights_out:rewards"
+    ]
+   }
+  },
+  {
+   "use": "demo:window#swing",
+   "actor": "player"
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:resident",
+    "name": "greeted",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_lights_out": "complete",
+      "actor:demo.quest_lights_out_window": false
+     }
+    },
+    "fired": [
+     "give"
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

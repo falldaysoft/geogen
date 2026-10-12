@@ -1,0 +1,541 @@
+{
+ "name": "quest_go_there",
+ "about": "Quests that start with the game: reach a place, and reach it three times. Only the holder's own arrival counts.",
+ "quests": {
+  "view": {
+   "title": "The view from the top",
+   "holder": "player",
+   "start": "auto",
+   "status": "actor:demo.quest_view",
+   "objectives": [
+    {
+     "id": "gallery",
+     "text": "Climb to the gallery",
+     "optional": false,
+     "after": [],
+     "done": "actor:demo.quest_view_gallery",
+     "subjects": [
+      "demo:gallery"
+     ]
+    }
+   ]
+  },
+  "regular": {
+   "title": "A regular",
+   "holder": "player",
+   "start": "auto",
+   "status": "actor:demo.quest_regular",
+   "objectives": [
+    {
+     "id": "visits",
+     "text": "Visit the gallery three times",
+     "optional": false,
+     "after": [],
+     "done": "actor:demo.quest_regular_visits",
+     "count": {
+      "key": "actor:demo.quest_regular_visits_count",
+      "of": 3
+     },
+     "progress": {
+      "value": {
+       "get": "actor",
+       "package": "demo",
+       "name": "quest_regular_visits_count"
+      },
+      "of": 3
+     },
+     "subjects": [
+      "demo:gallery"
+     ]
+    }
+   ]
+  }
+ },
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.quest_view": {
+    "type": "choice",
+    "choices": [
+     "unavailable",
+     "available",
+     "active",
+     "complete",
+     "failed"
+    ],
+    "default": "available"
+   },
+   "actor:demo.quest_view_gallery": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.quest_regular": {
+    "type": "choice",
+    "choices": [
+     "unavailable",
+     "available",
+     "active",
+     "complete",
+     "failed"
+    ],
+    "default": "available"
+   },
+   "actor:demo.quest_regular_visits": {
+    "type": "bool",
+    "default": false
+   },
+   "actor:demo.quest_regular_visits_count": {
+    "type": "number",
+    "default": 0
+   }
+  },
+  "interactions": {},
+  "bindings": [],
+  "rules": [
+   {
+    "id": "quest:view:start",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_view"
+        },
+        "available"
+       ]
+      },
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "name": "kind"
+        },
+        "player"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_view",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_view"
+            },
+            "available"
+           ]
+          },
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "name": "kind"
+            },
+            "player"
+           ]
+          }
+         ]
+        },
+        "active",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_view"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:view:gallery",
+    "on": {
+     "type": "enter",
+     "subject": "demo:gallery"
+    },
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_view"
+        },
+        "active"
+       ]
+      },
+      {
+       "op": "not",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_view_gallery"
+        }
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_view_gallery",
+      "to": true
+     },
+     {
+      "set": "actor:demo.quest_view",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_view"
+            },
+            "active"
+           ]
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_view_gallery"
+          }
+         ]
+        },
+        "complete",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_view"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:regular:start",
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular"
+        },
+        "available"
+       ]
+      },
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "name": "kind"
+        },
+        "player"
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_regular",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_regular"
+            },
+            "available"
+           ]
+          },
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "name": "kind"
+            },
+            "player"
+           ]
+          }
+         ]
+        },
+        "active",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "quest:regular:visits",
+    "on": {
+     "type": "enter",
+     "subject": "demo:gallery"
+    },
+    "when": {
+     "op": "and",
+     "args": [
+      {
+       "op": "==",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular"
+        },
+        "active"
+       ]
+      },
+      {
+       "op": "not",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular_visits"
+        }
+       ]
+      }
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.quest_regular_visits_count",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular_visits_count"
+        },
+        1
+       ]
+      }
+     },
+     {
+      "set": "actor:demo.quest_regular_visits",
+      "to": {
+       "op": ">=",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular_visits_count"
+        },
+        3
+       ]
+      }
+     },
+     {
+      "set": "actor:demo.quest_regular",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "op": "and",
+         "args": [
+          {
+           "op": "==",
+           "args": [
+            {
+             "get": "actor",
+             "package": "demo",
+             "name": "quest_regular"
+            },
+            "active"
+           ]
+          },
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "quest_regular_visits"
+          }
+         ]
+        },
+        "complete",
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "quest_regular"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:keeper": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_view": "active",
+      "actor:demo.quest_regular": "active"
+     },
+     "npc:keeper": {
+      "actor:demo.quest_view": "available"
+     }
+    },
+    "fired": [
+     "quest:view:start",
+     "quest:regular:start"
+    ],
+    "errors": 0
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "npc:keeper"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_view": "active",
+      "actor:demo.quest_view_gallery": false
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_view": "complete",
+      "actor:demo.quest_view_gallery": true,
+      "actor:demo.quest_regular": "active",
+      "actor:demo.quest_regular_visits_count": 1
+     }
+    },
+    "fired": [
+     "quest:view:gallery",
+     "quest:regular:visits"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "leave",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_regular": "complete",
+      "actor:demo.quest_regular_visits_count": 3,
+      "actor:demo.quest_view": "complete"
+     }
+    },
+    "fired": [
+     "quest:regular:visits",
+     "quest:regular:visits"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "enter",
+    "subject": "demo:gallery",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.quest_regular_visits_count": 3
+     }
+    },
+    "fired": [],
+    "errors": 0
+   }
+  }
+ ]
+}

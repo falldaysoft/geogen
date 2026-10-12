@@ -98,8 +98,8 @@ def test_affordances_are_usable(scene):
 
 
 def test_state_declarations_resolve(scene):
-    """Every scene's state, signals and inputs collect without problems (what an export requires)."""
-    from geogen.state import collect
+    """Every scene's state, signals, inputs and quests collect without problems (what an export requires)."""
+    from geogen.quests import collect
 
     name, root = scene
     collect(root, name)
