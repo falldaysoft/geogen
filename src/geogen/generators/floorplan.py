@@ -453,10 +453,12 @@ class FloorPlan:
             self._add_thresholds(o, segments, offset, room_nodes, loader, CubeGenerator)
 
         # Openings per room, in the room's frame (for furnishing): which wall,
-        # the interval along it and the vertical extent.
+        # the interval along it, the vertical extent and the room on the other
+        # side (None: outdoors), which layout QA follows to find the ways in.
         for o in [*self.doors, *self.windows]:
             seg, centre = self._opening_frame(o, segments)
             for room_name, side in seg.rooms.items():
+                beyond = next((r for r in seg.rooms if r != room_name), None)
                 room_node = room_nodes[room_name]
                 origin = room_node.transform.translation + offset  # plan coords of the room centre
                 along0 = origin[0] if seg.axis == "z" else origin[2]
@@ -464,7 +466,7 @@ class FloorPlan:
                     "kind": o.kind, "side": side,
                     "lo": round(float(centre - o.width / 2 - along0), 6),
                     "hi": round(float(centre + o.width / 2 - along0), 6),
-                    "sill": o.sill, "top": o.sill + o.height,
+                    "sill": o.sill, "top": o.sill + o.height, "to": beyond,
                 })
 
         for index, door in enumerate(self.doors):

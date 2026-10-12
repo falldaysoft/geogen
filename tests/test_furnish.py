@@ -140,3 +140,30 @@ def test_curtains_hang_under_the_cornice_of_low_rooms():
         cornice = c.parent.find("cornice")
         assert c.size[1] < cornice.mesh.vertices[:, 1].min(), c.parent.name
     assert [str(o) for o in object_overlaps(house) if "curtain" in str(o)] == []
+
+
+def test_solver_does_not_seal_off_floor_reached_only_from_a_dead_end(tmp_path):
+    """A till across a narrow shop: its staff side would only be reached from the stock room (geogen.23)."""
+    from geogen.generators.floorplan import FloorPlan
+    from geogen.layout.qa import check_layout
+
+    (tmp_path / "room_types").mkdir()
+    (tmp_path / "room_types" / "kiosk.yaml").write_text(
+        "name: kiosk\nitems:\n  till: { asset: till_counter.yaml, against: none, facing: north }\n")
+    (tmp_path / "till_counter.yaml").write_text((ASSETS / "till_counter.yaml").read_text())
+
+    def kiosk(back_door):
+        doors = [{"room": "shop", "side": "north", "width": 1.0}, {"between": ["shop", "stock"], "width": 0.9}]
+        if back_door:
+            doors.append({"room": "stock", "side": "south", "width": 0.9})
+        plan = FloorPlan.from_spec({"rooms": {"shop": {"rect": [0, 3, 2.1, 5], "type": "kiosk"},
+                                              "stock": {"rect": [0, 0, 2.1, 3]}}, "doors": doors}).build()
+        return plan, [str(r) for r in furnish_plan(plan, tmp_path)]
+
+    # The 1.66 m till spans the 2.1 m shop wherever it stands, so with the street as the only way in
+    # there is nowhere for it; a back door makes the stock room a way in and it fits.
+    plan, report = kiosk(back_door=False)
+    assert report == ["shop: till: placed 0 of 1"]
+    plan, report = kiosk(back_door=True)
+    assert report == [] and plan.find("till") is not None
+    assert [str(i) for i in check_layout(plan)] == []
