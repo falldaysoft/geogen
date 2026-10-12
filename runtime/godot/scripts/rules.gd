@@ -18,6 +18,13 @@ extends Node
 ## state is kept when its world unloads and comes back when it loads again, so
 ## a quest survives a trip to another scene.
 ##
+## Content packages (docs/rules.md "Content packages": the `packages` of
+## catalogue.json, each a geogen-content file) belong to no scene. They are read
+## once; when a scene one of them names loads, its variables and the rules and
+## bindings that run there join the scene's program, after the scene's own, and
+## its quests join the scene's. Their values are kept apart from any scene's
+## (`_carried`), so what a rule set in one scene is read by a rule in the next.
+##
 ## Quests are only reported here (docs/quests.md): `quest event: {...}` whenever
 ## a quest's state or an objective's latch changes, and `report(actor)`.
 
@@ -33,6 +40,11 @@ var package := ""
 var quests := {}
 
 var _saves := {}            # package -> its machine's save, while another world is loaded
+var _content := {}          # content package name -> its geogen-content file, as deployed (catalogue.json)
+var _content_stamp := ""    # the catalogue.json they were read from, and when it was written
+var _applied: Array = []    # the content packages running with the loaded scene
+var _carried := {"world": {}, "actors": {}}     # content packages' values, whatever scene is loaded
+var _at_load := {}          # the machine's stored world values as the package loaded (see `adopt`)
 var _reports := {}          # package -> {actor: its report()} as it unloaded: what the quest log lists of it
 var _watched := {}          # variable key -> {quest, objective?}: what quest events come from
 var _expected := {}         # interaction key -> [values we asked the node for]: their echoes aren't inputs
@@ -48,33 +60,65 @@ func _ready() -> void:
 func load_package(name_: String, manifest: Dictionary) -> void:
     var state: Dictionary = manifest.get("state", {})
     var rules: Dictionary = manifest.get("rules", {})
-    if machine != null or (state.is_empty() and rules.is_empty()):
+    var content: Array = []
+    if machine == null:
+        for other in content_packages().values():
+            if name_ in other.get("scenes", []):
+                content.append(other)
+    if machine != null or (state.is_empty() and rules.is_empty() and content.is_empty()):
         return
     package = name_
-    quests = manifest.get("quests", {})
+    quests = manifest.get("quests", {}).duplicate(true)
+    # The scene's program, then what each content package adds to it here: its variables, and
+    # the rules and bindings that touch this scene or none.
+    var variables: Dictionary = state.get("variables", {}).duplicate()
+    var bindings: Array = rules.get("bindings", []).duplicate()
+    var program_rules: Array = rules.get("rules", []).duplicate()
+    _applied = content
+    for other in content:
+        variables.merge(other.get("variables", {}))
+        for section in [["rules", program_rules], ["bindings", bindings]]:
+            for entry in other.get(section[0], []):
+                if entry.get("scene", name_) == name_:
+                    section[1].append(entry)
+        var theirs: Dictionary = other.get("quests", {}).get("quests", {})
+        if not theirs.is_empty() and not quests.has("quests"):
+            quests["quests"] = {}
+        for id in theirs:
+            var quest: Dictionary = theirs[id].duplicate(true)
+            quest["package"] = other["package"]
+            quests["quests"][id] = quest
+        print("geogen: content package %s runs in %s" % [other["package"], name_])
     _watched.clear()
     for id in quests.get("quests", {}):
         var quest: Dictionary = quests["quests"][id]
         _watched[quest["status"]] = {"quest": id}
         for objective in quest["objectives"]:
             _watched[objective["done"]] = {"quest": id, "objective": objective["id"]}
-    var program := {"format": "geogen-rules", "version": 1, "variables": state.get("variables", {}),
-        "interactions": state.get("interactions", {}), "bindings": rules.get("bindings", []),
-        "rules": rules.get("rules", [])}
+    var program := {"format": "geogen-rules", "version": 1, "variables": variables,
+        "interactions": state.get("interactions", {}), "bindings": bindings, "rules": program_rules}
     var saved: Dictionary = _saves.get(package, {})
+    var resumed := not saved.is_empty()
+    var actors := _actors()
+    saved = _with_carried(saved, actors.keys())
     machine = GeogenMachine.new(program, {},
         {"host_get": _host_get, "host_set": _host_set, "on_changed": _on_changed, "on_signal": _on_signal})
     if not saved.is_empty():
         machine.load_save(saved)
+        for key in machine.interactions:        # their nodes are about to load, as they start
+            machine.world.erase(key)
+            machine.world.erase(key + "_locked")
+    _at_load = machine.world.duplicate()
     # The world's time before anyone is there: the machine starts at noon, and a quest that
     # opens at a clock time would open at once.
     _sync_clock()
-    var actors := _actors()
     for actor in actors:
-        if saved.is_empty():
-            add_actor(actor, actors[actor]["kind"])        # a fresh package: its watches fire for them
-        else:
-            machine.add_actor(actor, actors[actor]["kind"])    # one coming back resumes
+        machine.add_actor(actor, actors[actor]["kind"])
+        # A fresh package: its watches fire for them (no rule's event: it settles the watches).
+        # One coming back resumes, but a content package's rules here haven't seen what its
+        # state became in the scenes between.
+        if not resumed or not content.is_empty():
+            machine.post({"type": "actor", "subject": actor, "actor": actor})
     _minute = -1
     _report_errors()
     reset.emit()
@@ -86,19 +130,147 @@ func remember_reports() -> void:
     if machine == null:
         return
     _reports[package] = {}
+    for other in _applied:
+        _reports[other["package"]] = {}
     for actor in machine.actor_info:
-        _reports[package][actor] = _described(report(actor), false)
+        _reports[package][actor] = []
+        for entry in _described(report(actor), false):      # each quest under the package it belongs to
+            var theirs: Dictionary = _reports[entry["package"]]
+            theirs[actor] = theirs.get(actor, []) + [entry]
 
 
 func unload() -> void:
     if machine != null:
         _saves[package] = machine.save()
         _saves[package]["timers"] = []          # arrivals of things that no longer exist
+        _carry(_saves[package])
     machine = null
+    _applied = []
     quests = {}
     _watched.clear()
     _expected.clear()
     reset.emit()
+
+
+# -- content packages ------------------------------------------------------------------------
+
+## The deployed content packages by name (catalogue.json's `packages` that are exported),
+## read once per catalogue: again only when catalogue.json is rewritten.
+func content_packages() -> Dictionary:
+    var path := "%s/catalogue.json" % world.generated_dir
+    var stamp := "%s@%d" % [path, FileAccess.get_modified_time(path) if FileAccess.file_exists(path) else 0]
+    if stamp == _content_stamp:
+        return _content
+    _content_stamp = stamp
+    _content = {}
+    var catalogue = JSON.parse_string(FileAccess.get_file_as_string(path)) if FileAccess.file_exists(path) else null
+    if not catalogue is Dictionary:
+        return _content
+    for entry in catalogue.get("packages", []):
+        if not entry.get("exported", false):
+            continue
+        var file := "%s/%s" % [world.generated_dir, entry.get("file", "")]
+        var data = JSON.parse_string(FileAccess.get_file_as_string(file)) if FileAccess.file_exists(file) else null
+        if data is Dictionary and data.get("format") == "geogen-content" and int(data.get("version", 0)) == 1:
+            _content[str(data["package"])] = data
+        else:
+            push_warning("geogen: bad content package %s" % file)
+    return _content
+
+
+## The package a variable key or a hidden latch belongs to ("world:<pkg>.x", "actor:<pkg>.x",
+## "once:<pkg>:<rule>", "watch:<pkg>:<rule>", "<pkg>:thing#state"); "" when it says none.
+static func package_of(key: String) -> String:
+    if not ":" in key:
+        return ""
+    var head := key.get_slice(":", 0)
+    var rest := key.substr(head.length() + 1)
+    if not "#" in key and head in ["world", "actor"]:
+        return rest.get_slice(".", 0)
+    if head in ["once", "watch"]:
+        return rest.get_slice(":", 0) if ":" in rest else ""
+    return head
+
+
+## Keep the applied content packages' values from a save of the scene that is unloading.
+## A watch latch of a rule tied to this scene is left behind: the scene's things start
+## over when it loads again, so the condition is judged afresh.
+func _carry(saved: Dictionary) -> void:
+    if _applied.is_empty():
+        return
+    var names := {}
+    var afresh := {}
+    for other in _applied:
+        names[other["package"]] = true
+        for rule in other.get("rules", []):
+            if rule.has("scene"):
+                afresh["watch:%s" % rule["id"]] = true
+    _swap(_carried["world"], saved.get("world", {}), names, afresh)
+    for actor in saved.get("actors", {}):
+        if not _carried["actors"].has(actor):
+            _carried["actors"][actor] = {}
+        _swap(_carried["actors"][actor], saved["actors"][actor], names, afresh)
+
+
+static func _swap(kept: Dictionary, values: Dictionary, names: Dictionary, afresh: Dictionary) -> void:
+    for key in kept.keys():
+        if names.has(package_of(key)):
+            kept.erase(key)                 # back at its default: a save only holds what differs
+    for key in values:
+        if names.has(package_of(key)) and not afresh.has(key):
+            kept[key] = values[key]
+
+
+## The save the loading scene's program starts from: its own from last time ({}: never
+## loaded) with the applied content packages' values as they are now, for the actors here.
+func _with_carried(saved: Dictionary, here: Array) -> Dictionary:
+    if _applied.is_empty():
+        return saved
+    var names := {}
+    for other in _applied:
+        names[other["package"]] = true
+    var out := saved.duplicate(true)
+    var world_values := {}
+    for key in out.get("world", {}):
+        if not names.has(package_of(key)):
+            world_values[key] = out["world"][key]
+    for key in _carried["world"]:
+        if names.has(package_of(key)):
+            world_values[key] = _carried["world"][key]
+    var people := {}
+    for actor in out.get("actors", {}):
+        people[actor] = {}
+        for key in out["actors"][actor]:
+            if not names.has(package_of(key)):
+                people[actor][key] = out["actors"][actor][key]
+    for actor in here:
+        var theirs: Dictionary = _carried["actors"].get(actor, {})
+        for key in theirs:
+            if names.has(package_of(key)):
+                if not people.has(actor):
+                    people[actor] = {}
+                people[actor][key] = theirs[key]
+    if out.is_empty():
+        if world_values.is_empty() and people.is_empty():
+            return {}
+        out = {"format": GeogenMachine.SAVE_FORMAT, "version": GeogenMachine.SAVE_VERSION}
+    out["world"] = world_values
+    out["actors"] = people
+    return out
+
+
+## An interaction's node now exists (WorldLoader calls this as a model or chunk loads).
+## The program runs from the moment the manifest is read, so a rule may already have driven
+## it (a condition true as the scene loads: state a content package brought along): that is
+## its state, taken up silently, as the machine has processed the change.
+func adopt(key: String, it: GeogenInteraction) -> void:
+    if machine == null:
+        return
+    var lock := key + "_locked"
+    if machine.world.has(lock) and (not _at_load.has(lock) or _at_load[lock] != machine.world[lock]):
+        it.locked = bool(machine.world[lock])
+    if machine.world.has(key) and (not _at_load.has(key) or _at_load[key] != machine.world[key]):
+        it.set_state(str(machine.world[key]), true)
 
 
 func _actors() -> Dictionary:
@@ -306,8 +478,8 @@ func report(actor := "player") -> Array:
                     if objective.get("marker", {}).has("area"):
                         entry["area"] = objective["marker"]["area"]
             objectives.append(entry)
-        out.append({"id": id, "package": package, "title": quest["title"], "status": status,
-            "objectives": objectives})
+        out.append({"id": id, "package": str(quest.get("package", package)), "title": quest["title"],
+            "status": status, "objectives": objectives})
     machine.errors.clear()
     return out
 
@@ -317,8 +489,9 @@ func report(actor := "player") -> Array:
 ## `loaded` (its package is the one running) and `description`.
 func report_all(actor := "player") -> Array:
     var out := _described(report(actor), true)
+    var running := [package] + _applied.map(func(other): return other["package"])
     for other in _reports:
-        if other != package or machine == null:
+        if machine == null or not other in running:
             out.append_array(_reports[other].get(actor, []).duplicate(true))
     return out
 

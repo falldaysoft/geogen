@@ -9,6 +9,7 @@ world runs::
     ref("plot/house/door").swing == "open"     # ... when the reference isn't a plain name
     self.power == "on"                         # the instance the condition is written on
     world.bridge_down and not actor.has_ticket # the package's shared and per-actor variables
+    world("town").bridge_down                  # ... another package's (a content package reading a scene's)
     clock.time >= "22:30" or clock.night       # the world clock
     actor.room == "lobby"                      # where the acting character is
     all("[tag=light]", it.power == "off")      # every thing a selector matches
@@ -181,6 +182,11 @@ def _term(node: ast.Attribute, inside: bool) -> dict[str, Any]:
                 or not isinstance(owner.args[0].value, str):
             raise ConditionError(f"'{ast.unparse(node)}': write ref(\"<reference>\").<state>")
         return {"get": "ref", "ref": owner.args[0].value, "name": node.attr}
+    if isinstance(owner, ast.Call) and isinstance(owner.func, ast.Name) and owner.func.id in ("world", "actor"):
+        if owner.keywords or len(owner.args) != 1 or not isinstance(owner.args[0], ast.Constant) \
+                or not isinstance(owner.args[0].value, str):
+            raise ConditionError(f"'{ast.unparse(node)}': write {owner.func.id}(\"<package>\").<name>")
+        return {"get": owner.func.id, "package": owner.args[0].value, "name": node.attr}
     if not isinstance(owner, ast.Name):
         raise ConditionError(f"'{ast.unparse(node)}': a term is <thing>.<state>; "
                              f"write a longer reference as ref(\"path/to/thing\").<state>")

@@ -28,11 +28,13 @@ def _build_registry() -> SceneRegistry:
 def _refresh_catalogue_index() -> None:
     """Keep the runtime's catalogue.json in step with what's been exported."""
     from .catalogue import load_catalogue, write_index
+    from .content import export_packages
     from .travel import check_travel
 
     catalogue = load_catalogue()
+    problems = export_packages(catalogue, GODOT_GENERATED)      # content packages, against what is exported now
     write_index(catalogue, GODOT_GENERATED)
-    for problem in check_travel(catalogue, GODOT_GENERATED):
+    for problem in [*problems, *check_travel(catalogue, GODOT_GENERATED)]:
         print(f"warning: {problem}")
 
 
@@ -208,6 +210,10 @@ def main() -> None:
 
         catalogue = load_catalogue()
         if args.catalogue:
+            from .content import export_packages
+
+            for problem in export_packages(catalogue, GODOT_GENERATED):
+                print(f"warning: {problem}")
             print(f"Wrote {write_index(catalogue, GODOT_GENERATED)}")
             return
         index = export_catalogue(catalogue, lambda name: registry[name](), GODOT_GENERATED,

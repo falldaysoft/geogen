@@ -3,11 +3,14 @@
 A ``kind: scene_catalogue`` file lists the scenes the Godot runtime offers,
 each a registered scene name with a ``group`` (``showcase`` or ``test``), a
 one-line ``description`` and export options (``stream``, ``lods``), plus the
-``default`` scene the runtime loads when it isn't given ``--scene``.
+``default`` scene the runtime loads when it isn't given ``--scene``. Its
+``packages: [name, ...]`` are the content packages deployed with them
+(``geogen.content``: ``packages/<name>.yaml`` beside the catalogue).
 
 ``export_catalogue`` exports entries into a generated directory and
 ``write_index`` writes ``catalogue.json`` there (format ``geogen-catalogue``
-v1) for the runtime, which has no YAML parser.
+v1) for the runtime, which has no YAML parser. ``export_packages`` compiles
+the content packages against the exported scenes (``<name>.content.json``).
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ class CatalogueEntry:
 class Catalogue:
     default: str
     entries: dict[str, CatalogueEntry] = field(default_factory=dict)
+    packages: dict[str, Path] = field(default_factory=dict)    # deployed content packages: name -> its file
 
     def select(self, selector: str | None = None) -> list[CatalogueEntry]:
         """Entries named by ``selector``: all (None/'all'), a group, or comma-separated names."""
@@ -56,7 +60,7 @@ def load_catalogue(path: str | Path = CATALOGUE_PATH) -> Catalogue:
     data = safe_load_path(path) or {}
     if data.get("kind") != "scene_catalogue":
         raise ValueError(f"{path}: expected kind: scene_catalogue")
-    unknown_top = set(data) - {"kind", "default", "scenes"}
+    unknown_top = set(data) - {"kind", "default", "scenes", "packages"}
     if unknown_top:
         raise ValueError(f"{path}: unknown keys {sorted(unknown_top)}")
     entries = {}
@@ -74,7 +78,18 @@ def load_catalogue(path: str | Path = CATALOGUE_PATH) -> Catalogue:
     default = data.get("default")
     if default not in entries:
         raise ValueError(f"{path}: default {default!r} is not one of its scenes")
-    return Catalogue(default, entries)
+    listed = data.get("packages") or []
+    if not isinstance(listed, list) or not all(isinstance(name, str) for name in listed):
+        raise ValueError(f"{path}: packages is a list of content package names (packages/<name>.yaml)")
+    packages = {}
+    for name in listed:
+        from .content import DIRECTORY
+
+        packages[name] = Path(path).parent / DIRECTORY / f"{name}.yaml"
+        if name in entries or not packages[name].is_file():
+            raise ValueError(f"{path}: package '{name}': " + ("is also a scene" if name in entries
+                                                             else f"no file {packages[name]}"))
+    return Catalogue(default, entries, packages)
 
 
 def entry_manifest(entry: CatalogueEntry) -> str:
@@ -85,7 +100,10 @@ def entry_manifest(entry: CatalogueEntry) -> str:
 
 
 def write_index(catalogue: Catalogue, out_dir: str | Path) -> Path:
-    """Write ``catalogue.json`` (every entry, with whether its export exists yet) into ``out_dir``."""
+    """Write ``catalogue.json`` (every entry, with whether its export exists yet) into ``out_dir``.
+    ``packages`` lists the deployed content packages as ``export_packages`` left them."""
+    from .content import index_entries
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     index = {
@@ -103,6 +121,7 @@ def write_index(catalogue: Catalogue, out_dir: str | Path) -> Path:
             }
             for e in catalogue.entries.values()
         ],
+        "packages": index_entries(catalogue, out_dir),
     }
     path = out_dir / INDEX_NAME
     path.write_text(json.dumps(index, indent=2) + "\n")
@@ -126,16 +145,21 @@ def export_catalogue(catalogue: Catalogue, build: Callable[[str], object], out_d
     """Build and export ``entries`` (default: all) with ``build(name)``, then write the index.
 
     Raises ValueError (after writing everything) if a travel point goes to a
-    scene outside the catalogue or to a spawn its target doesn't have.
+    scene outside the catalogue or to a spawn its target doesn't have, or a
+    content package doesn't fit the scenes it names.
     """
     for entry in list(entries) if entries is not None else list(catalogue.entries.values()):
         log(f"exporting {entry.name}{' (streamed)' if entry.stream else ''}...")
         path = export_entry(entry, build(entry.name), out_dir)
         log(f"  -> {path}")
-    index = write_index(catalogue, out_dir)
+    from .content import export_packages
     from .travel import check_travel
 
+    content = export_packages(catalogue, out_dir, log)
+    index = write_index(catalogue, out_dir)
     problems = check_travel(catalogue, out_dir)
     if problems:
         raise ValueError("bad travel targets:\n  " + "\n  ".join(problems))
+    if content:
+        raise ValueError("bad content packages:\n  " + "\n  ".join(content))
     return index

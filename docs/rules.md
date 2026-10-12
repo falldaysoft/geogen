@@ -308,8 +308,102 @@ bind:
   thing never raises (`{signal: lever.pushed}`), an unknown input, state or
   quest, an event that isn't one, and everything `check_program` rejects.
 
-Not built: `when:` on an interaction (a condition to use it), and rules that
-reach into another package (geogen.3.10).
+Not built: `when:` on an interaction (a condition to use it).
+
+## Content packages
+
+A scene's own `state:`, `rules:` and `quests:` are its implicit package, named
+after the scene. Content that belongs to no one scene (a quest from the hub to
+the island and back) is a **content package**: a `kind: package` file,
+`assets/packages/<name>.yaml` (`geogen.content`).
+
+```yaml
+kind: package
+version: 1
+id: errand                        # default: the file name; never a scene's name
+title: The errand                 # optional, with description
+scenes: [camp, annex]             # the catalogue scenes it runs in and may reach into
+state:                            # its own variables: scope world | actor, as in a scene
+  lever_pulled: {scope: world, type: bool, default: false}
+rules:                            # rules, wire and bind, as in "Authoring"
+  - on: {signal: "camp:lever.pulled"}
+    do: [{set: world.lever_pulled, to: true}]
+  - when: "world.lever_pulled"
+    do: [{input: "annex:gate.open"}]
+bind:
+  'ref("annex:lamp").lit': "world.lever_pulled"
+quests: [quests/errand.yaml]      # kind: quest files (quests.md)
+```
+
+- **Names.** Everything in a scene is named with its scene: `camp:lever`,
+  `annex:plate/top`, in a condition `ref("camp:lever").pull == "down"` and
+  `all("camp:[tag=light]", ...)`. `world.x` and `actor.x` are the package's own
+  variables (`world:errand.x`); `world("camp").fire` reads a scene's.
+- **One scene at a time.** Only one scene is loaded, so a rule, binding or
+  objective may touch one scene, plus the package's own state: that is what
+  crosses. One that touches two is an export error; split it into a rule that
+  sets package state in the first scene and one that reads it in the second.
+  A binding can't bind the package's own state to a scene's (it would only hold
+  while that scene is loaded): set it with a rule.
+- **Deploying.** The catalogue lists them (`packages: [errand]` in
+  `assets/runtime_scenes.yaml`). `--export-catalogue`, and every
+  `--export-godot`, compiles each against the *exported* scenes it names:
+  references resolve on the scene's reference index (`<scene>.refs.json`), and
+  conditions, inputs and signals are checked against its manifest's `state` and
+  `rules`, exactly as the scene's own rules are. A package whose scenes aren't
+  all exported yet waits. Mistakes are reported with file and line, and the
+  package is not written:
+
+  ```
+  packages/errand.yaml:12: rules.0.on: 'camp:levr.pulled': no 'levr' in 'camp'. Did you mean 'lever'? It has: lever
+  ```
+
+The export is `<name>.content.json` beside `catalogue.json` (format
+`geogen-content`, schema `docs/schema/geogen-content.v1.schema.json`):
+
+```json
+{"format": "geogen-content", "version": 1, "package": "errand", "scenes": ["camp", "annex"],
+ "variables": {"world:errand.lever_pulled": {"type": "bool", "default": false}},
+ "bindings": [{"set": "annex:lamp#lit", "to": {...}, "scene": "annex"}],
+ "rules": [{"id": "errand:rule_1", "scene": "camp",
+            "on": {"type": "signal", "subject": "camp:lever", "name": "pulled"},
+            "do": [{"set": "world:errand.lever_pulled", "to": true}]},
+           {"id": "errand:rule_2", "scene": "annex", "when": {...},
+            "do": [{"set": "annex:gate#gate", "to": "open"}]}],
+ "quests": {"format": "geogen-quests", ...}}
+```
+
+`scene` is the one scene an entry touches; without it the entry only reads and
+writes the package's own state. Rule ids start `<package>:`.
+
+**What a runtime does** (`content.apply`, `carried` and `resume` are the
+reference; the rules semantics above don't change):
+
+1. It reads the deployed packages once.
+2. When a scene loads, for each package that lists it: the package's
+   `variables` join the scene's program, and its `rules` and `bindings` with no
+   `scene` or with that scene are appended after the scene's own. Its quests
+   are listed with the scene's.
+3. When the scene unloads, the package's values are kept apart from the
+   scene's: its `world:<package>.` and `actor:<package>.` values and its rules'
+   `once:` and `watch:` latches. The next scene's program starts with them, so
+   state set in one scene is read in the next.
+4. The watch latch of a rule with a `scene` is not kept: that scene's things
+   start over when it loads again, so the rule's condition is judged afresh
+   (the gate above opens on every visit). `once` holds for the whole game.
+5. Arriving in a scene settles the watches for the actors there, as a new
+   actor does.
+
+A save made in a scene holds the packages' values with that scene's. Pending
+delayed effects (`after`) don't survive leaving the scene, as for a scene's own
+rules.
+
+Not built: packages that place geometry into a scene, a package that runs
+where a scene it names isn't deployed (soft dependencies), a rule that reads
+two scenes at once, signals and inputs declared by a package, and markers for
+a package's quests (an objective in another scene should point at the way
+there: geogen.15.5). An NPC's package state is kept by its stable ID, so it
+means something only in the NPC's own scene.
 
 ## Traces
 

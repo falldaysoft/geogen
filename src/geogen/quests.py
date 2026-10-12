@@ -324,6 +324,7 @@ class Quests:
         self.rules: list[dict[str, Any]] = []           # the rules that run the quests
         self.wiring: list[dict[str, Any]] = []          # the scene's own rules (geogen.wiring)
         self.bindings: list[dict[str, Any]] = []
+        self.written: dict[str, str] = {}               # rule id (bind:<key>) -> where it was written
 
     def __bool__(self) -> bool:
         return bool(self.quests)
@@ -423,12 +424,15 @@ class Quests:
 
 class _Compiler:
     def __init__(self, declarations: Declarations, by_name: bool, selectors: dict[str, list[str]] | None,
-                 rules: Iterable[dict[str, Any]]) -> None:
+                 rules: Iterable[dict[str, Any]], trees: dict[str, SceneNode] | None = None,
+                 bindings: Iterable[dict[str, Any]] = ()) -> None:
         self.decls = declarations
         self.package = declarations.package
         self.by_name = by_name                   # no scene: thing 'x' is '<package>:x', unchecked
         self.selectors = selectors or {}
         self.other_rules = list(rules)
+        self.other_bindings = list(bindings)
+        self.trees = trees                       # a content package: its scenes' trees, by name
         self.out = Quests(declarations)
         self.problems: dict[str, None] = {}
         self.quests: list[_Quest] = []
@@ -442,8 +446,28 @@ class _Compiler:
 
     def uid(self, node: SceneNode) -> str:
         known = node.meta.get("uid")
+        if self.trees is not None and isinstance(known, str):
+            return known                         # another package's thing, by the ID its export gave it
         return (known if isinstance(known, str) and known.startswith(self.package + ":")
                 else refs.node_id(node, self.package, node.root))
+
+    def scene_of(self, text: str) -> SceneNode:
+        """The tree a content package's reference is in: it must say which scene (``island:jetty``)."""
+        trees = self.trees or {}
+        ref = refs.parse(text)
+        if ref.package is None:
+            raise QuestError(f"'{text}': say which scene it is in, e.g. '{next(iter(trees), 'scene')}:{text}' "
+                             f"(this package's scenes: {refs._listed(trees)})")
+        if ref.package not in trees:
+            raise QuestError(f"'{text}': '{ref.package}' isn't one of this package's scenes."
+                             f"{refs._near(ref.package, trees)} Its scenes: {refs._listed(trees)}")
+        return trees[ref.package]
+
+    def area(self, node: SceneNode) -> bool:
+        """Whether actors can enter and leave ``node``: a place or a room."""
+        if self.trees is not None:              # an index's stand-in: what the export recorded
+            return node.meta.get("type") == "place" or "room" in node.tags
+        return node.meta.get("type") == "place" or isinstance(node.meta.get("room"), dict)
 
     def thing(self, quest: _Quest, text: Any, member: bool = False) -> tuple[str, SceneNode | None, str | None]:
         """(ID, node, member) of ``<reference>[.<member>]``; QuestError when it names nothing."""
@@ -456,9 +480,14 @@ class _Compiler:
             return self.uid(quest.self_node), quest.self_node, text.partition(".")[2] or None
         try:
             ref = refs.parse(text, member=member)
-            node = refs.resolve(quest.node, ref)
+            node = refs.resolve(self.scene_of(text) if self.trees is not None else quest.node, ref)
         except refs.RefError as exc:
             raise QuestError(exc.message) from None
+        if self.trees is not None:
+            if "uid" not in node.meta:
+                raise QuestError(f"'{text}' has no ID in its scene's export: name an asset, a place, a room, "
+                                 f"or something tagged or with interactions")
+            return node.meta["uid"], node, ref.member
         if not refs.identified(node):
             raise QuestError(f"'{text}' is a plain part, which has no ID: name an asset, a place, a room, "
                              f"or something tagged or with interactions")
@@ -479,6 +508,12 @@ class _Compiler:
                         if node["select"] not in self.selectors:
                             raise ConditionError(f"no things given for selector '{node['select']}'")
                         node["over"] = list(self.selectors[node.pop("select")])
+            elif self.trees is not None:
+                for node in conditions.walk(tree):
+                    if node.get("get") == "ref" or "select" in node:
+                        self.scene_of(node.get("ref") or node["select"])
+                tree = conditions.resolve(tree, quest.node, self.package, packages=self.trees.get,
+                                          states=lambda n: self.decls.names(str(n.meta.get("uid", ""))))
             else:
                 tree = conditions.resolve(tree, quest.node, self.package, self_node=quest.self_node)
             conditions.validate(tree)
@@ -562,8 +597,8 @@ class _Compiler:
             raise QuestError("only changed: takes to:")
         if kind in ("enter", "leave"):
             subject, node, _ = self.thing(quest, done[kind])
-            if node is not None and node.meta.get("type") != "place" and not isinstance(node.meta.get("room"), dict):
-                here = [n.name for n in quest.node.iter_nodes() if n.meta.get("type") == "place"]  # type: ignore[union-attr]
+            if node is not None and not self.area(node):
+                here = [n.name for n in node.root.iter_nodes() if n.meta.get("type") == "place"]
                 raise QuestError(f"'{done[kind]}' is not a place or a room. "
                                  + (f"Places here: {refs._listed(here)}" if here else "Declare one under places:"))
             return {"type": kind, "subject": subject}
@@ -757,6 +792,10 @@ class _Compiler:
             rules.append({"id": rule + "fail", "when": _all(_is(status, "active"), guards["fail"]),
                           "do": [move("active", "failed")]})
         self.quest_rules.setdefault(quest.id, []).extend(rules)
+        for compiled in rules:
+            objective = quest.objective(compiled["id"].rpartition(":")[2])
+            self.out.written[compiled["id"]] = (quest.where("objectives", objective.index, "done") if objective
+                                               else quest.where(compiled["id"].rpartition(":")[2]))
 
     def raised(self, thing: str) -> set[str]:
         """The signals a thing can raise: its interactions' emits (and ``locked``), what it or
@@ -797,7 +836,7 @@ class _Compiler:
                 elif "emit" in effect:
                     emitted.add((effect.get("subject"), effect["emit"]))
 
-        for binding in self.out.bindings:               # a bound variable follows what it reads
+        for binding in (*self.out.bindings, *self.other_bindings):  # a bound variable follows what it reads
             settable[binding["set"]] = None
         for key, spec in self.decls.variables.items():  # the runtime sets these (a train's timetable)
             if spec.get("driven"):
@@ -904,7 +943,8 @@ def _reads(tree: Tree) -> list[str]:
 def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, SceneNode | None]],
                    declarations: Declarations, selectors: dict[str, list[str]] | None = None,
                    rules: Iterable[dict[str, Any]] = (), wiring: Iterable[Any] = (),
-                   by_name: bool | None = None) -> Quests:
+                   by_name: bool | None = None, trees: dict[str, SceneNode] | None = None,
+                   bindings: Iterable[dict[str, Any]] = ()) -> Quests:
     """Compile quest specs against ``declarations`` (their variables are added to it).
 
     A spec is the dict of a quest file, or ``(spec, source file, scene node)``. With a
@@ -914,13 +954,16 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     ``rules`` are other compiled rules: what else can set state. ``wiring`` is what scenes and
     assets wrote under ``rules:`` / ``wire:`` / ``bind:`` (``geogen.wiring.Source`` entries),
     compiled here so its effects can name quests and quests can count on what it sets.
+    ``trees`` makes this a content package (``geogen.content``): every reference names its
+    scene (``island:jetty``) and resolves on that scene's tree (a reference index's stand-in),
+    with ``declarations`` holding those scenes' state and ``rules`` / ``bindings`` their programs.
     Raises ``QuestError`` listing every problem.
     """
     entries = [(s, None, None) if isinstance(s, dict) else s for s in specs]
     wiring = list(wiring)
     if by_name is None:
         by_name = all(node is None for _, _, node in entries) and not wiring
-    compiler = _Compiler(declarations, by_name, selectors, rules)
+    compiler = _Compiler(declarations, by_name, selectors, rules, trees, bindings)
     problems: list[str] = []
     for spec, source, node in entries:
         quest = _parse(spec, source, node, problems)
@@ -948,6 +991,7 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
             if do:
                 rules_of.append({"id": f"quest:{quest.id}:rewards",
                                  "on": {"type": "changed", "key": quest.status, "to": "complete"}, "do": do})
+                compiler.out.written[f"quest:{quest.id}:rewards"] = quest.where("rewards")
         compiler.out.rules.extend(rules_of)
     compiler.heard()
     if not compiler.problems:
@@ -955,7 +999,8 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     if not compiler.problems:
         from .rules import check_program
 
-        compiler.problems.update(dict.fromkeys(check_program(compiler.out.program(compiler.other_rules))))
+        compiler.problems.update(dict.fromkeys(check_program(
+            compiler.out.program(compiler.other_rules, compiler.other_bindings))))
     if compiler.problems:
         raise QuestError("\n".join(compiler.problems))
     return compiler.out
