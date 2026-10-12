@@ -57,6 +57,8 @@ extends Node3D
 ##   --timings                     print each load's phases ("load timings: {...}", ms) and whether
 ##                                 the navmesh came from <generated>/.navcache
 ##   --list-scenes                 print the scene catalogue (name, group, exported, description), quit
+##   --trace=FILE                  replay a rules conformance trace (docs/rules.md) without loading a
+##                                 world; prints "trace: {name, problems}", exits 1 on problems (repeatable)
 ##   --switch=NAME[@S]             switch to scene NAME after S s (default 1; repeatable, in order);
 ##                                 prints "switched: {...}" and "switch stats: {...}" (node/object
 ##                                 counts), then quits unless --walk / --status / --screenshot follow
@@ -121,6 +123,7 @@ var _switch_clock := 0.0
 var _stats_in := -1                     # frames until the post-switch stats print
 var _queued := false                    # the last switch came from --switch (not the menu or travel)
 var _list_scenes := false
+var _traces: Array[String] = []         # --trace: rules traces to replay instead of loading a world
 var _travelling := false
 var _switching := false
 var _loading: Label
@@ -238,6 +241,8 @@ func _ready() -> void:
             _open_menu_at_start = true
         elif arg == "--list-scenes":
             _list_scenes = true
+        elif arg.begins_with("--trace="):
+            _traces.append(arg.trim_prefix("--trace="))
         elif arg.begins_with("--switch="):
             var at := float(value.get_slice("@", 1)) if "@" in value else 1.0
             var after: float = _switches[-1]["at"] if not _switches.is_empty() else 0.0
@@ -253,6 +258,11 @@ func _ready() -> void:
                 _manifest_arg = true
         i += 1
     print("geogen runtime ready (Godot %s)" % Engine.get_version_info().string)
+    if not _traces.is_empty():
+        set_process(false)
+        set_physics_process(false)
+        get_tree().quit(GeogenTraceRunner.run_files(_traces))
+        return
     if _list_scenes:
         _print_scene_list()
         set_process(false)
