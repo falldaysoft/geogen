@@ -386,6 +386,8 @@ Fixtures carry `meta.light` (`{type: omni, color, energy, range, offset: [x, y, 
 
 Layout QA also requires every affordance's `approach` point on an item to be reachable.
 
+Reachability starts from the ways in, not from every door. `check_layout` floods a storey from its entrances (doors from outdoors and the doors of `stair` / `lift_shaft` rooms, `qa.ARRIVAL_ROOM_TYPES`) through the doorways. `room_reachability` (one room, for the solver) starts from the doors people come into that room by (`qa._room_entrances`): a door to a dead end (a shop's stock room, a staff toilet off that) isn't one, so a till can't count on its staff side being reached from the stock room; the dead end's own door is its entrance. Floor-plan openings record the room beyond as `to` (None: outdoors). Rooms that no door joins to a way in keep every door.
+
 `qa.object_overlaps(scene)` intersects (manifold3d) closed meshes of different placed objects (the nearest asset root, `meta.source`, else the top-level placement) and reports ones more than 2 cm deep, e.g. a car through a garage wall. It skips openings in their host (sills, steps), anything sunk into a walkable slab no higher than its top, skinned bodies and colliders.
 
 `--inspect` (`inspection.py`) prints the resolved tree for checking a scene from numbers rather than renders:

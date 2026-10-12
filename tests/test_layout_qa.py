@@ -87,3 +87,93 @@ def test_coplanar_overlaps_finds_z_fighting_floors():
     assert [i.items for i in issues] == [("lot", "floor")] and "y=0.150" in issues[0].message
     root.children[1].transform.translation[1] += 0.003     # 3 mm proud: fine
     assert coplanar_overlaps(root) == []
+
+
+# --- ways in: dead-end rooms aren't entrances (geogen.23) ----------------------------------------
+
+STREET_DOOR = {"room": "shop", "side": "north", "width": 1.2}
+
+
+def _shop(doors, rooms=None, counter=True, items=()):
+    """A shop (4 x 5 m, north) with a stock room behind it, joined by one door.
+
+    The counter spans the shop, customers' side to the street, so its staff
+    side can only be reached through the stock room. ``items`` are
+    nightstands, one in each room named.
+    """
+    from geogen.generators.floorplan import FloorPlan
+
+    spec = {"rooms": {"shop": {"rect": [0, 3, 4, 5]}, "stock": {"rect": [0, 0, 4, 3]}, **(rooms or {})},
+            "doors": [{"between": ["shop", "stock"], "at": 0.8, "width": 0.9}, *doors]}
+    root = FloorPlan.from_spec(spec).build()
+    if counter:
+        till = LayoutLoader().load("assets/till_counter.yaml", params={"width": 3.7})
+        till.name = "till"
+        root.find("shop").add_child(till)
+    for room in items:
+        node = LayoutLoader().load("assets/nightstand.yaml")
+        node.name = f"{room}_item"
+        root.find(room).add_child(node)
+    return root
+
+
+def _unreachable(root):
+    return sorted({i.items[0] for i in check_layout(root) if i.kind == "unreachable"})
+
+
+def test_a_dead_end_back_room_is_not_a_way_in():
+    from geogen.layout.qa import room_reachability
+
+    root = _shop([STREET_DOOR])
+    assert {o["to"] for o in root.find("shop").meta["openings"]} == {"stock", None}
+    # The staff side of the counter is cut off from the street: only the stock room's door reaches it.
+    issues = [i for i in check_layout(root) if i.kind == "unreachable"]
+    assert [i.items for i in issues] == [("till",)] and "where you stand" in issues[0].message
+    assert room_reachability(root.find("shop")) == ["till"]          # what the furnishing solver asks
+
+
+def test_a_chain_of_dead_ends_is_not_a_way_in():
+    from geogen.layout.qa import room_reachability
+
+    toilet = {"toilet": {"rect": [4, 0, 2, 3]}}
+    doors = [STREET_DOOR, {"between": ["stock", "toilet"], "width": 0.9}]
+    root = _shop(doors, toilet)
+    assert room_reachability(root.find("shop")) == ["till"]
+    assert "till" in _unreachable(root)
+    # Without the counter the dead ends are reached through the shop: their one door counts.
+    root = _shop(doors, toilet, counter=False, items=("shop", "stock", "toilet"))
+    assert _unreachable(root) == []
+    for room in ("shop", "stock", "toilet"):
+        assert room_reachability(root.find(room)) == []
+
+
+def test_a_back_room_with_another_way_in_is_an_entrance():
+    from geogen.layout.qa import room_reachability
+
+    variants = {
+        "a back door": ([STREET_DOOR, {"room": "stock", "side": "south", "width": 0.9}], None),
+        "a back door two rooms on": ([STREET_DOOR, {"between": ["stock", "yard"], "width": 0.9},
+                                      {"room": "yard", "side": "south", "width": 0.9}],
+                                     {"yard": {"rect": [4, 0, 2, 3]}}),
+        "a stair room": ([STREET_DOOR], {"stock": {"rect": [0, 0, 4, 3], "type": "stair"}}),
+        "a lift": ([STREET_DOOR, {"between": ["stock", "shaft"], "width": 0.9}],
+                   {"shaft": {"rect": [4, 0, 2, 3], "type": "lift_shaft"}}),
+    }
+    for name, (doors, rooms) in variants.items():
+        root = _shop(doors, rooms)
+        assert _unreachable(root) == [], name
+        assert room_reachability(root.find("shop")) == [], name
+
+
+def test_a_plan_with_no_way_in_keeps_every_door():
+    from geogen.layout.qa import room_reachability
+
+    root = _shop([], items=("stock",))       # no street door: nothing says which side is the dead end
+    assert _unreachable(root) == []
+    assert room_reachability(root.find("shop")) == [] and room_reachability(root.find("stock")) == []
+
+
+def test_rooms_behind_a_blocked_room_are_unreachable_too():
+    # QA floods the storey from its entrances, so what's only reached past the counter is cut off as well.
+    root = _shop([STREET_DOOR], items=("stock",))
+    assert _unreachable(root) == ["stock_item", "till"]

@@ -25,7 +25,8 @@ of the zone in front of it. Remaining
 candidates are scored by ``prefer`` terms; ties break by a seeded jitter, so
 results are deterministic for a seed. A candidate is rejected if it can't
 itself be reached, or would leave an already-placed item out of reach, from
-the room's doors (see ``qa.room_reachability``). Rules that can't be met are reported
+the doors people come into the room by (not doors to dead-end rooms: see
+``qa.room_reachability``). Rules that can't be met are reported
 (``furnish_room`` returns them); ``optional: true`` items are skipped
 quietly.
 

@@ -9,8 +9,11 @@ scene and reports:
 - ``window_blocked``: a tall item standing in front of a window;
 - ``narrow_door``: a doorway narrower than the player's ``door_min_width``;
 - ``unreachable``: an item's access point (in front of it) that the player
-  can't reach from the room's entrances, found by flood-filling a 2D
-  occupancy grid of free floor eroded by the player radius.
+  can't reach from the storey's entrances (doors from outdoors, stair and
+  lift rooms), found by flood-filling a 2D occupancy grid of free floor
+  eroded by the player radius. The furnishing solver asks the same of one
+  room (``room_reachability``), from the doors people come into it by: a
+  door to a dead end (a shop's stock room) is not a way in.
 
 Items are asset roots with a ``furniture.*``/``bathroom.*`` tag (or anything
 the furnishing solver placed). Items raised off the floor (a lamp on a
@@ -85,12 +88,17 @@ def _is_item(node: SceneNode) -> bool:
     return node.meta.get("placed_by") == "furnish" or any(t.startswith(ITEM_TAG_PREFIXES) for t in node.tags)
 
 
+def _is_room(node: SceneNode) -> bool:
+    return (isinstance(node.meta.get("room"), dict) and node.meta.get("type") != "room_volume"
+            and node.size is not None)
+
+
 def _rooms(scene: SceneNode) -> list[_Room]:
     rooms = []
     for node in scene.iter_nodes():
-        room = node.meta.get("room")
-        if not isinstance(room, dict) or node.meta.get("type") == "room_volume" or node.size is None:
+        if not _is_room(node):
             continue
+        room = node.meta["room"]
         # Work in the parent's frame, so moving or turning a whole building
         # (a city lot) never changes the result.
         frame = np.linalg.inv(node.parent.world_transform()) if node.parent is not None else np.eye(4)
@@ -182,7 +190,7 @@ def check_layout(scene: SceneNode, player=None) -> list[Issue]:
         key = (id(room.node.parent), round(float(room.matrix[1, 3]), 2))
         levels.setdefault(key, []).append(room)
     for level_rooms in levels.values():
-        issues += _check_reachability(level_rooms, player)
+        issues += _check_reachability(level_rooms, player, _storey_entrances(level_rooms))
     return issues
 
 
@@ -227,8 +235,92 @@ def _check_room(room: _Room, player) -> list[Issue]:
     return issues
 
 
-def _check_reachability(rooms: list[_Room], player) -> list[Issue]:
-    """Flood-fill free floor from every door; each item's front must be within reach."""
+# Room types people arrive in from another storey.
+ARRIVAL_ROOM_TYPES = ("stair", "lift_shaft")
+
+
+def _room_name(node: SceneNode) -> str:
+    return str(node.meta["room"].get("id", node.name))
+
+
+def _room_doors(node: SceneNode) -> list[dict]:
+    return [o for o in node.meta.get("openings", []) if o["kind"] == "door"]
+
+
+def _arrivals(nodes: list[SceneNode]) -> tuple[dict[str, set[str]], set[str]]:
+    """The door graph of one storey's rooms, and the rooms people come into the storey by.
+
+    People arrive through a door from outdoors, or in a stair or lift room.
+    A door that doesn't say where it leads (not from a floor plan), or that
+    leads to a room that isn't in ``nodes``, counts as one from outdoors.
+    """
+    names = {_room_name(n): n for n in nodes}
+    graph: dict[str, set[str]] = {name: set() for name in names}
+    arrivals = set()
+    for name, node in names.items():
+        if node.meta["room"].get("type") in ARRIVAL_ROOM_TYPES:
+            arrivals.add(name)
+        for o in _room_doors(node):
+            beyond = o.get("to")
+            if beyond in names:
+                graph[name].add(beyond)
+                graph[beyond].add(name)
+            else:
+                arrivals.add(name)
+    return graph, arrivals
+
+
+def _reaches(graph: dict[str, set[str]], start: str, goals: set[str], without: str | None = None) -> bool:
+    """Can you walk from ``start`` to one of ``goals`` room by room, never entering ``without``?"""
+    seen, todo = {start, without}, [start]
+    while todo:
+        name = todo.pop()
+        if name in goals:
+            return True
+        new = graph.get(name, set()) - seen
+        seen |= new
+        todo += new
+    return False
+
+
+def _room_entrances(node: SceneNode, siblings: list[SceneNode]) -> list[dict]:
+    """The doors of a room that people come in by, given the rooms of its storey.
+
+    Not its doors to dead ends: a shop's stock room (and a staff toilet off
+    that) is reached through the shop, so nothing in the shop may count on
+    being reached from there. The dead end's own door to the shop is its
+    entrance. A room that no door joins to a way into the storey keeps every
+    door: a plan with no way in is not a furnishing fault.
+    """
+    doors = _room_doors(node)
+    graph, arrivals = _arrivals(siblings if any(s is node for s in siblings) else [*siblings, node])
+    name = _room_name(node)
+    if node.meta["room"].get("type") in ARRIVAL_ROOM_TYPES:
+        return doors
+    entrances = [o for o in doors
+                 if o.get("to") not in graph or _reaches(graph, o["to"], arrivals, without=name)]
+    return entrances or doors
+
+
+def _storey_entrances(rooms: list[_Room]) -> list[tuple[_Room, dict]]:
+    """Where a storey's flood fill starts: doors from outdoors and the doors of stair and lift rooms.
+
+    Everything else is reached through the doorways from those. Rooms that
+    no door joins to any of them start from their own doors.
+    """
+    graph, arrivals = _arrivals([r.node for r in rooms])
+    seeds = []
+    for room in rooms:
+        cut_off = not _reaches(graph, room.name, arrivals)
+        arrival_room = room.node.meta["room"].get("type") in ARRIVAL_ROOM_TYPES
+        for o in _room_doors(room.node):
+            if cut_off or arrival_room or o.get("to") not in graph:
+                seeds.append((room, o))
+    return seeds
+
+
+def _check_reachability(rooms: list[_Room], player, entrances: list[tuple[_Room, dict]]) -> list[Issue]:
+    """Flood-fill free floor from the ``entrances`` (room, door); each item's front must be within reach."""
     from scipy import ndimage
 
     if not rooms:
@@ -250,15 +342,14 @@ def _check_reachability(rooms: list[_Room], player) -> list[Issue]:
     free = np.zeros(shape, dtype=bool)
     for room in rooms:
         free |= cells(room.center - room.half, room.center + room.half)
-    seeds = np.zeros(shape, dtype=bool)
     for room in rooms:
         for o in room.openings:
-            if o["kind"] != "door":
-                continue
-            # The doorway itself (through the wall) is floor too.
-            d_lo, d_hi = _opening_rect(room, o, -0.4)
-            free |= cells(d_lo, d_hi)
-            seeds |= cells(*_opening_rect(room, o, 0.3))
+            if o["kind"] == "door":
+                # The doorway itself (through the wall) is floor too.
+                free |= cells(*_opening_rect(room, o, -0.4))
+    seeds = np.zeros(shape, dtype=bool)
+    for room, o in entrances:
+        seeds |= cells(*_opening_rect(room, o, 0.3))
     for room in rooms:
         for item in room.items:
             if _obstacle(item):
@@ -333,7 +424,11 @@ def _reachable_front(item: _Item, reachable: np.ndarray, gx: np.ndarray, gz: np.
 
 
 def room_reachability(room_node: SceneNode, player=None) -> list[str]:
-    """Names of items under ``room_node`` whose front can't be reached (for the furnishing solver)."""
+    """Names of items under ``room_node`` whose front can't be reached (for the furnishing solver).
+
+    Reached from the doors people come into the room by (``_room_entrances``),
+    which takes the room's siblings in its floor plan: alone, every door counts.
+    """
     from ..player import load_player_spec
 
     player = player or load_player_spec()
@@ -341,8 +436,10 @@ def room_reachability(room_node: SceneNode, player=None) -> list[str]:
     if not rooms:
         return []
     _collect_items(room_node, rooms)
-    return [i.items[0] for i in _check_reachability(rooms, player)]
-
+    parent = room_node.parent
+    siblings = [c for c in parent.children if _is_room(c)] if parent is not None else []
+    entrances = [(rooms[0], o) for o in _room_entrances(room_node, siblings)]
+    return [i.items[0] for i in _check_reachability(rooms, player, entrances)]
 
 
 # --- z-fighting --------------------------------------------------------------------------------
