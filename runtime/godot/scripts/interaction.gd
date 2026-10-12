@@ -11,6 +11,14 @@ extends Node
 ## `duration` seconds), so use() mid-motion simply reverses.
 
 signal state_entered(state: String, event: String)
+## What the event bus carries (events.gd): an actor used it (before it moves), the
+## state it is heading to changed, it reached a state, it raised a signal (a
+## state's emit, or "locked" for a refused use), its lock was turned.
+signal used(actor: String)
+signal target_changed(from: String, to: String, actor: String)
+signal reached(state: String, emit: String)
+signal raised(event: String, actor: String)
+signal lock_changed(now_locked: bool, actor: String)
 
 var asset: Node3D
 var interaction_name := ""
@@ -22,6 +30,8 @@ var targets: Array[Node3D] = []
 ## Lock: key id ("" = no lock) and whether it's currently locked.
 var lock_key := ""
 var locked := false
+## Who caused the move under way: "player", an NPC's ID, or "" (a rule, a timer, a tool).
+var actor := ""
 var _dwell := 0.0          # seconds spent in the current state (for 'after')
 ## Freeze timed transitions (playtests keep doors open).
 var hold := false
@@ -111,26 +121,38 @@ func can_use() -> bool:
     return states.get(target, {}).has("next")
 
 
-## Returns false (and emits a "locked" event) when locked.
-func use() -> bool:
+## Returns false (and emits a "locked" event) when locked. ``by`` is the actor using it.
+func use(by := "") -> bool:
     var t: Dictionary = states.get(target, {})
     if not t.has("next"):
         return false
     if locked:
         state_entered.emit(state, "locked")
+        raised.emit("locked", by)
         return false
-    target = str(t["next"])
+    used.emit(by)
+    _head_to(str(t["next"]), by)
     return true
 
 
+func _head_to(new_state: String, by: String) -> void:
+    if new_state == target:
+        return
+    var from := target
+    target = new_state
+    actor = by
+    target_changed.emit(from, new_state, by)
+
+
 ## Lock or unlock with a key the user holds. Only closed (initial-state) doors lock.
-func toggle_lock(keys: Array) -> bool:
+func toggle_lock(keys: Array, by := "") -> bool:
     if lock_key == "" or not keys.has(lock_key):
         return false
     if not locked and state != target:
         return false  # still moving
     locked = not locked
     state_entered.emit(state, "locked" if locked else "unlocked")
+    lock_changed.emit(locked, by)
     return true
 
 
@@ -144,8 +166,12 @@ func restore(data: Dictionary) -> void:
     set_state(str(data.get("state", state)), true)
 
 
-## Jump or animate to a state (e.g. restoring a save).
-func set_state(new_state: String, instant := false) -> void:
+## Jump or animate to a state. Jumping (restoring a save, a tool) is silent: no
+## events, since nothing happened. ``by`` is the actor behind an animated move.
+func set_state(new_state: String, instant := false, by := "") -> void:
+    if not instant:
+        _head_to(new_state, by)
+        return
     target = new_state
     if instant:
         for motion in _motions:
@@ -164,7 +190,7 @@ func _physics_process(delta: float) -> void:
             _dwell += delta
             if _dwell >= float(s["after"]):
                 _dwell = 0.0
-                target = str(s["then"])
+                _head_to(str(s["then"]), actor)
         return
     _dwell = 0.0
     var arrived := true
@@ -182,8 +208,11 @@ func _physics_process(delta: float) -> void:
         var s: Dictionary = states.get(state, {})
         _apply_emission()
         state_entered.emit(state, str(s.get("emit", "")))
+        reached.emit(state, str(s.get("emit", "")))
+        if s.has("emit"):
+            raised.emit(str(s["emit"]), actor)
         if s.has("then") and not s.has("after"):
-            target = str(s["then"])
+            _head_to(str(s["then"]), actor)
 
 
 ## States named on/off light up or dim the targets' emissive materials (TV screens).

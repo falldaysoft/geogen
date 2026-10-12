@@ -185,10 +185,11 @@ class RuntimeClient:
             raise ApiError(f"{cmd}: {reply.get('error')}")
         return reply.get("result")
 
-    def subscribe(self, *streams: str) -> None:
-        """Start receiving ``streams`` (interaction, npc, room, travel, traffic) from now on:
-        events already queued are dropped."""
-        self.call("events.subscribe", streams=list(streams))
+    def subscribe(self, *streams: str, **filters: Any) -> None:
+        """Start receiving ``streams`` (events, interaction, npc, room, place, travel, traffic) from
+        now on: events already queued are dropped. ``events`` is the whole event bus; ``types=[...]``
+        and ``subjects=[<stable id>, ...]`` narrow it."""
+        self.call("events.subscribe", streams=list(streams), **filters)
         self.clear_events()
 
     def unsubscribe(self, *streams: str) -> None:

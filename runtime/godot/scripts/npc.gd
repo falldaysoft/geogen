@@ -482,7 +482,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if not it.states.has(state):
             return ""
         if it.target != state:
-            if not it.use():
+            if not it.use(WorldLoader.actor_id(self)):
                 return "can't use %s (locked?)" % it.name
         return ""
     return "unknown step"
@@ -532,7 +532,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             return "done"
         _timer += delta
         if it.target != state and it.can_use():
-            it.use()   # someone turned it back: press again
+            it.use(WorldLoader.actor_id(self))   # someone turned it back: press again
         return "running" if _timer < USE_TIMEOUT else "%s never reached '%s'" % [it.name, state]
     return "unknown step"
 

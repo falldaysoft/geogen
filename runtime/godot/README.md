@@ -214,7 +214,7 @@ detail as the player moves along a five-block street.
 JSON on a localhost socket, so tools, tests and agents ask many questions of one process
 instead of launching one per `--walk` / `--nav` / `--status`. Requests are
 `{"id", "cmd", "args"}`, replies `{"id", "ok", "result" | "error"}`; after
-`events.subscribe` the connection also gets `{"event", "data"}` lines (streams `interaction`,
+`events.subscribe` the connection also gets `{"event", "data"}` lines (streams `events`: the whole event bus, `interaction`,
 `npc` traces, `room` enter/exit, `place` enter/leave by any actor, `travel`, `traffic` incl. trains). Points are `[x, y, z]`
 metres, angles degrees. `help` lists every command; the groups are:
 
@@ -482,6 +482,51 @@ place event: {"type":"enter","subject":"island:lighthouse/gallery","place":"gall
 `main.gd` prints the line above, the control API streams them as `place`, and
 `world.info` lists `places` with the actors in each. `WorldLoader.places` holds
 `{id, uid, kind, node, area, actors}`.
+
+## Events
+
+`WorldLoader.events` (`scripts/events.gd`, `GeogenEvents`) is the one stream of
+what happens in the world, in the vocabulary of `docs/rules.md`. Every event is
+
+```
+event: {"type":"changed","subject":"cottage:door","name":"swing","actor":"player","package":"cottage","key":"cottage:door#swing","data":{"from":"closed","to":"open"}}
+```
+
+`subject` is a stable ID, `actor` is `player`, an NPC's ID or `""` for nobody,
+and `package` is the scene the subject belongs to.
+
+| Type | When | Carries |
+|---|---|---|
+| `use` | an actor used an interaction, before it moves | `name`: the interaction |
+| `changed` | the state an interaction is heading to changed, or its lock was turned | `key`, `data.from`, `data.to` |
+| `signal` | an interaction arrived at a state with an `emit`, a use was refused (`locked`), or a signal an asset declares was raised | `name` |
+| `enter`, `leave` | an actor walked into or out of a place or room | `data.place`, `data.kind` |
+| `travel` | an actor went through a travel point | `name`: the target scene, `data.spawn` |
+| `clock` | dusk or dawn; never has an actor | `name`: `night` or `day` |
+| `start` | a new game began for the player: the first world of a run, unless `--load` | |
+| `arrived` | an interaction reached a state (runtime only) | `data.state`, `data.emit`, `data.asset` |
+| `npc` | an NPC's trace: decide, step, done, ... (runtime only) | `name`, `data`: the trace |
+
+- The actor of a move follows it: whoever used a door is the actor of its
+  `changed`, its arrival and the signal it raises there. A move nobody is behind
+  (a timer, `interactions.set`, `interactions.use` with no `actor`) has none.
+- Jumping to a state (`interactions.set` with `instant`, loading a save) raises
+  nothing: nothing happened.
+- A declared signal with a source (the manifest's `state.signals` entry has
+  `from`) is raised when a matching event is delivered, with that event's actor.
+- An event posted while another is being delivered waits its turn, so every
+  listener sees one order.
+- `events.listen(callable, types, subjects)` filters by type and subject ID
+  (empty: any) and returns an id for `unlisten`. `events.history` keeps the last 256.
+
+`--events` prints every event as above; `--events=use,signal` only those types.
+The control API's `events` stream is the bus (`events.subscribe` takes `types`
+and `subjects`), `events.history {since, types, subjects}` returns what already
+happened, and the `place` and `npc` streams are views of it. The older console
+lines (`interaction event:`, `place event:`, `travelled:`) are unchanged.
+
+Rules, state and quests are not interpreted yet (geogen.3.3, 3.6, 15.2): they
+will listen here.
 
 ## Manifest
 

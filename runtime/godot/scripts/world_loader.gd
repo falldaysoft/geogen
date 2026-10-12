@@ -17,6 +17,9 @@ signal travel_requested(travel: Dictionary)
 ## ("player" or the NPC's stable ID)}.
 signal place_event(event: Dictionary)
 
+## Everything that happens, as one stream (events.gd): the signals above are views of it.
+var events := GeogenEvents.new()
+
 const DEFAULT_GENERATED_DIR := "res://generated"
 const POLL_SECONDS := 0.5
 
@@ -130,6 +133,8 @@ const TRAVEL_ARM_FRAMES := 5
 
 
 func _ready() -> void:
+    events.name = "Events"
+    add_child(events)
     _collider_material = StandardMaterial3D.new()
     _collider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     _collider_material.albedo_color = Color(0.2, 1.0, 0.4)
@@ -279,8 +284,11 @@ func unload() -> void:
     var t := Time.get_ticks_usec()
     _load_started = t
     for child in get_children():
+        if child == events:
+            continue
         remove_child(child)
         child.free()
+    events.forget_declarations()
     streamer = null
     _lap("unload", t)
     _mtimes.clear()
@@ -437,6 +445,8 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
         push_error("geogen: cannot load %s" % model_path)
         return
     root.name = manifest.get("name", model_path.get_file().get_basename())
+    events.package = scene_name if scene_name != "" else String(root.name)
+    events.declare(manifest.get("state", {}))
     var t := Time.get_ticks_usec()
     add_child(root)
     t = _lap("add_to_tree", t)
@@ -626,6 +636,8 @@ func _load_chunked(index_path: String, index: Dictionary) -> void:
         streamer.lod_radius = stream_radii[1]
         streamer.interior_radius = stream_radii[2]
     add_child(streamer)
+    events.package = scene_name
+    events.declare(index.get("state", {}))
     if index.get("traffic") is Dictionary:
         traffic_graph = index["traffic"]
     streamer.open(index_path, index)
@@ -835,7 +847,7 @@ func _collect_travel(root: Node) -> void:
                 if it.asset == node and it.interaction_name == "travel":
                     it.state_entered.connect(func(_state: String, event: String):
                         if event == "travel":
-                            travel_requested.emit(travel))
+                            _request_travel(node, travel, it.actor))
             continue
         var volume: Dictionary = travel.get("volume", {})
         var c: Array = volume.get("center", [0, 1, 0])
@@ -854,7 +866,13 @@ func _collect_travel(root: Node) -> void:
         node.add_child(area)
         area.body_entered.connect(func(body: Node3D):
             if body is Player and Engine.get_physics_frames() >= travel_armed_at:
-                travel_requested.emit(travel))
+                _request_travel(node, travel, "player"))
+
+
+func _request_travel(node: Node, travel: Dictionary, actor: String) -> void:
+    events.post("travel", uid_of(node), str(travel.get("scene", scene_name)), actor if actor != "" else "player",
+        {"spawn": travel.get("spawn", ""), "on": travel.get("on", "use")})
+    travel_requested.emit(travel)
 
 
 ## Nodes with extras.geogen.water get the animated water shader (scripts/water.gdshader),
@@ -897,6 +915,8 @@ func _spawn_npcs(root: Node) -> void:
         if uid_of(node) != "":
             npc.set_meta("geogen_uid", uid_of(node))
         npc.trace_enabled = npc_trace
+        var actor := actor_id(npc)
+        npc.traced.connect(func(event: Dictionary): events.post("npc", actor, str(event.get("event", "")), actor, event))
         if spec != null:
             npc.step_height = spec.step_height
         npcs.append(npc)
@@ -1065,8 +1085,7 @@ func _place_crossed(entry: Dictionary, body: Node3D, entered: bool) -> void:
         return
     else:
         entry["actors"].erase(actor)
-    place_event.emit({"type": "enter" if entered else "leave", "subject": entry["uid"], "place": entry["id"],
-        "kind": entry["kind"], "actor": actor})
+    _post_place("enter" if entered else "leave", entry, actor)
 
 
 ## Seated and lying actors turn their collision shape off, which an area reads as
@@ -1097,8 +1116,13 @@ func _leave_unless_inside(held: Dictionary) -> void:
     if is_instance_valid(body) and is_instance_valid(area) and body.visible and area.overlaps_body(body):
         return
     if entry["actors"].erase(held["actor"]):
-        place_event.emit({"type": "leave", "subject": entry["uid"], "place": entry["id"], "kind": entry["kind"],
-            "actor": held["actor"]})
+        _post_place("leave", entry, held["actor"])
+
+
+func _post_place(type: String, entry: Dictionary, actor: String) -> void:
+    events.post(type, entry["uid"], "", actor, {"place": entry["id"], "kind": entry["kind"]})
+    place_event.emit({"type": type, "subject": entry["uid"], "place": entry["id"], "kind": entry["kind"],
+        "actor": actor})
 
 
 ## What events call ``body``: "player", an NPC's stable ID (its name without one), or "" for anything else.
@@ -1122,6 +1146,17 @@ func _collect_interactions(root: Node) -> void:
             var asset_name := String(node.name)
             it.state_entered.connect(func(state: String, event: String):
                 interaction_event.emit(asset_name, iname, state, event))
+            var uid := uid_of(node)
+            var key := "%s#%s" % [uid, iname]
+            it.used.connect(func(actor: String): events.post("use", uid, iname, actor))
+            it.target_changed.connect(func(from: String, to: String, actor: String):
+                events.post("changed", uid, iname, actor, {"key": key, "from": from, "to": to}))
+            it.lock_changed.connect(func(now_locked: bool, actor: String):
+                events.post("changed", uid, iname + "_locked", actor,
+                    {"key": key + "_locked", "from": not now_locked, "to": now_locked}))
+            it.reached.connect(func(state: String, emit: String):
+                events.post("arrived", uid, iname, it.actor, {"state": state, "emit": emit, "asset": asset_name}))
+            it.raised.connect(func(event: String, actor: String): events.post("signal", uid, event, actor))
             for part in it.moving_nodes():
                 _moving[part] = true
             for t in it.targets:

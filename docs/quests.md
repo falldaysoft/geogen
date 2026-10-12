@@ -186,7 +186,7 @@ in Godot.
 | State declarations in the manifest | 3.2 | done |
 | Named places with enter / leave events | 3.9 | done |
 | Quest kind, compilation, export checks | 15.1 | done |
-| Event bus in Godot | 3.5 | open |
+| Event bus in Godot (`runtime/godot/scripts/events.gd`) | 3.5 | done |
 | State store and save format in Godot | 3.3, 3.4 | open |
 | Rules authoring (`rules:`, `wire:`, `bind:`) and the Godot interpreter | 3.6 | open: until then nothing in YAML can give a quest, so authored quests are `start: auto` |
 | Content packages (quests that span scenes) | 3.10 | open |

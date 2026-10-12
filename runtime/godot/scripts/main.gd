@@ -27,6 +27,8 @@ extends Node3D
 ##   --save=PATH / --load=PATH     write interaction state on quit / restore it at start
 ##   --status                      print the player's pose/room/focus when quitting
 ##   --npc-trace                   print every NPC decision and step ("npc: {...}")
+##   --events[=TYPE,...]           print the event bus ("event: {...}"): every type, or only these
+##                                 (signal, changed, use, enter, leave, travel, clock, start, arrived, npc)
 ##   --timescale=N                 run the world N times faster (physics ticks scale too)
 ##   --simulate=SECONDS            run for SECONDS of world time, print "npc summary: [...]", quit
 ##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
@@ -86,6 +88,7 @@ var _lock_aim := false
 var _pitch := 0.0
 var _save_path := ""
 var _load_path := ""
+var _started := false
 var _print_status := false
 var _focus_affordance := {}
 var _focus_npc: GeogenNpc = null
@@ -187,6 +190,8 @@ func _ready() -> void:
             _load_path = value
         elif arg == "--npc-trace":
             world.npc_trace = true
+        elif arg == "--events" or arg.begins_with("--events="):
+            world.events.print_types = ["*"] if value == "" else Array(value.split(","))
         elif arg.begins_with("--timescale="):
             var scale := maxf(float(value), 0.01)
             Engine.time_scale = scale
@@ -263,8 +268,14 @@ func _ready() -> void:
         print("interaction event: %s" % JSON.stringify(
             {"asset": asset, "interaction": interaction, "state": state, "event": event})))
     world.place_event.connect(func(event: Dictionary): print("place event: %s" % JSON.stringify(event)))
+    world.world_loaded.connect(func(_aabb: AABB):       # a new game: once, not on a scene switch or a loaded save
+        if not _started:
+            _started = true
+            if _load_path == "":
+                world.events.post("start", "", "", "player"))
     clock = GeogenClock.new()
     clock.name = "Clock"
+    clock.night_changed.connect(func(night: bool): world.events.post("clock", "", "night" if night else "day"))
     clock.hours = _start_time
     clock.day_length = _day_length
     clock.sun = $Sun
@@ -291,7 +302,7 @@ func _ready() -> void:
         if found.is_empty():
             push_warning("geogen: --use=%s: no interactions on that node" % asset_name)
         for it in found:
-            it.use()
+            it.use("player")
     _prompt = Label.new()
     _prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -453,6 +464,7 @@ func _travel(travel: Dictionary) -> void:
         _place_player(world.world_aabb(), spawn_name, false)
         world.stream_focus = player.global_position
         world.arm_travel()
+        player.process_mode = Node.PROCESS_MODE_INHERIT     # switch_scene does this for the other case
     else:
         ok = await switch_scene(scene, spawn_name)
     var p := player.global_position
@@ -595,7 +607,7 @@ func _unhandled_input(event: InputEvent) -> void:
         _press_use()
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
         if _focus != null:
-            _focus.toggle_lock(keys)
+            _focus.toggle_lock(keys, "player")
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
         _npc_labels = not _npc_labels
         _show_npc_labels()
@@ -669,7 +681,7 @@ func _physics_process(delta: float) -> void:
         return
     if _lock_aim and _focus != null:
         _lock_aim = false
-        print("lock: %s -> %s" % [_focus.asset.name, _focus.toggle_lock(keys)])
+        print("lock: %s -> %s" % [_focus.asset.name, _focus.toggle_lock(keys, "player")])
     if _use_aim and (_focus != null or not _focus_affordance.is_empty()):
         _use_aim = false
         if _focus != null:
@@ -930,7 +942,7 @@ func _press_use() -> void:
     elif _focus_npc != null:
         _focus_npc.greet()
     elif _focus != null:
-        _focus.use()
+        _focus.use("player")
     elif not _focus_affordance.is_empty():
         player.take_pose(_focus_affordance)
 

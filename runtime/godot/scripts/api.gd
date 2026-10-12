@@ -58,19 +58,21 @@ const COMMANDS := {
     "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
     "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
     "capture.camera": "{mode: player|overview|follow, npc?}",
-    "events.subscribe": "{streams: [interaction, npc, room, place, travel, traffic]}",
+    "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: "
+        + "`events` is the whole bus (events.gd), narrowed to these types and subject IDs",
+    "events.history": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; "
+        + "since: only those after that number)",
     "events.unsubscribe": "{streams?}",
 }
 ## extras.geogen keys every mesh part may carry; a node with only these isn't listed by world.query.
 const PART_KEYS := ["version", "collider", "walkable"]
 const TRACE_SECONDS := 0.25          # walk/move position samples
-const STREAMS := ["interaction", "npc", "room", "place", "travel", "traffic"]
+const STREAMS := ["events", "interaction", "npc", "room", "place", "travel", "traffic"]
 
 var main: Node                 # main.gd (player, world, overview, clock, switch_scene, ...)
 var port := 7878
 var _server := TCPServer.new()
 var _peers: Array[Dictionary] = []   # {peer: StreamPeerTCP, buffer: String, streams: {}}
-var _connected_npcs := {}            # GeogenNpc -> true (traced wired)
 var _connected_traffic := {}
 var _room := ""
 var _walker: GeogenWalker = null
@@ -88,7 +90,21 @@ func _ready() -> void:
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         _emit("interaction", {"asset": asset, "interaction": interaction, "state": state, "event": event}))
     world.travel_requested.connect(func(travel: Dictionary): _emit("travel", travel))
-    world.place_event.connect(func(event: Dictionary): _emit("place", event))
+    world.events.posted.connect(_on_event)
+
+
+## The streams are views of the event bus: `events` is all of it, the others one kind each.
+func _on_event(event: Dictionary) -> void:
+    match event["type"]:
+        "enter", "leave":
+            _emit("place", {"type": event["type"], "subject": event["subject"], "place": event["data"]["place"],
+                "kind": event["data"]["kind"], "actor": event["actor"]})
+        "npc":
+            _emit("npc", event["data"])
+
+
+static func _wanted(event: Dictionary, types: Array, subjects: Array) -> bool:
+    return (types.is_empty() or event["type"] in types) and (subjects.is_empty() or event["subject"] in subjects)
 
 
 func _process(_delta: float) -> void:
@@ -100,6 +116,7 @@ func _process(_delta: float) -> void:
         var peer: StreamPeerTCP = entry["peer"]
         peer.poll()
         if peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+            main.world.events.unlisten(entry.get("listener", 0))
             _peers.erase(entry)
             continue
         var available := peer.get_available_bytes()
@@ -165,15 +182,9 @@ func _emit(stream: String, data: Dictionary) -> void:
             _send(entry, {"event": stream, "data": data})
 
 
-## NPCs and traffic come and go with scene switches: wire their trace signals when subscribed.
+## Traffic comes and goes with scene switches: wire its trace signals when subscribed.
 func _wire_streams() -> void:
-    var want_npc := _peers.any(func(e): return e["streams"].has("npc"))
     var want_traffic := _peers.any(func(e): return e["streams"].has("traffic"))
-    if want_npc:
-        for npc in main.world.npcs:
-            if is_instance_valid(npc) and not _connected_npcs.has(npc):
-                _connected_npcs[npc] = true
-                npc.traced.connect(func(event: Dictionary): _emit("npc", event))
     if want_traffic:
         var movers: Array = []
         movers.append_array(main.world.traffic)
@@ -256,7 +267,6 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             var ok: bool = await main.switch_scene(scene, str(args.get("spawn", "")))
             if not ok:
                 return _err("a switch is already under way")
-            _connected_npcs.clear()
             _connected_traffic.clear()
             return _info()
         "world.reload":
@@ -267,7 +277,6 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             var ok: bool = await main.switch_scene(world.scene_name)
             if not ok:
                 return _err("can't reload '%s'" % world.scene_name)
-            _connected_npcs.clear()
             _connected_traffic.clear()
             if keep:
                 player.spawn(pos, yaw)
@@ -319,9 +328,9 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     if not it.states.has(str(args.get("state", ""))):
                         return _err("'%s' has no state '%s' (states: %s)" % [it.interaction_name,
                             args.get("state", ""), ", ".join(it.states.keys())])
-                    it.set_state(str(args["state"]), bool(args.get("instant", false)))
+                    it.set_state(str(args["state"]), bool(args.get("instant", false)), str(args.get("actor", "")))
                 elif cmd == "interactions.use":
-                    it.use()
+                    it.use(str(args.get("actor", "")))
                 else:
                     it.locked = bool(args.get("locked", true))
             if cmd != "interactions.lock" and bool(args.get("wait", false)):
@@ -401,7 +410,22 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     entry["streams"][s] = true
                 else:
                     entry["streams"].erase(s)
+            if "events" in streams:                 # the bus does the filtering: one listener per peer
+                main.world.events.unlisten(entry.get("listener", 0))
+                if cmd == "events.subscribe":
+                    entry["listener"] = main.world.events.listen(
+                        func(event: Dictionary): _send(entry, {"event": "events", "data": event}),
+                        args.get("types", []), args.get("subjects", []))
             return {"streams": entry["streams"].keys()}
+        "events.history":
+            var bus: GeogenEvents = main.world.events
+            var first := bus.count - bus.history.size() + 1          # the number of history[0]
+            var out := []
+            for index in bus.history.size():
+                if first + index > int(args.get("since", 0)) \
+                        and _wanted(bus.history[index], args.get("types", []), args.get("subjects", [])):
+                    out.append(bus.history[index])
+            return {"count": bus.count, "events": out}
     return _err("unhandled command '%s'" % cmd)
 
 
@@ -656,7 +680,7 @@ func _use(args: Dictionary):
         return _err("no interaction %s on '%s'" % [args.get("interaction", ""), args["asset"]])
     var results := []
     for it in found:
-        var ok: bool = it.use()
+        var ok: bool = it.use("player")
         var info := _interaction(it)
         info["ok"] = ok
         results.append(info)
