@@ -28,6 +28,7 @@ from .core.node import SceneNode
 
 TOLERANCE = 0.002            # m: penetration below this doesn't count
 HAND_BONES = ("Hand", "LowerArm", "Thumb", "Index", "Middle", "Ring", "Little")
+ARM_BONES = HAND_BONES + ("UpperArm", "Shoulder")
 FOOT_BONES = ("Foot", "Toes")
 
 
@@ -183,6 +184,108 @@ def _metric(depths: np.ndarray) -> dict[str, float]:
     return {"count": int(len(bad)), "max_mm": round(float(bad.max() * 1000), 1) if len(bad) else 0.0}
 
 
+# --- the waist ----------------------------------------------------------------------------------
+
+WAIST_BAND = 0.12            # m either side of the top's hem that the waist checks look at
+TRUNK_BONES = ("Hips", "Spine", "Chest", "UpperChest", "LeftUpperLeg", "RightUpperLeg")
+HEM_SPIKE = 0.008            # m a hem vertex may be out of line with its neighbours
+_BARY = np.array([[i, j, 4 - i - j] for i in range(5) for j in range(5 - i)]) / 4.0     # 15 points a face
+
+
+def _dominant(actor: SceneNode, mesh) -> np.ndarray:
+    """Each body vertex's heaviest bone, by name."""
+    from .generators.humanoid import dominant_bones
+
+    skin_node = next(n for n in actor.iter_nodes() if n.name == "body")
+    return dominant_bones(mesh, [j.name for j in skin_node.skin.joints])
+
+
+def worn(character: SceneNode, part: str) -> dict | None:
+    """The garment worn as ``part`` (top | bottom | dress | shoes): ``meta.humanoid.garments``."""
+    garments = (character.meta.get("humanoid") or {}).get("garments") or []
+    return next((g for g in garments if g["part"] == part), None)
+
+
+def _waist(character: SceneNode, actor: SceneNode, rest: dict, now: dict) -> dict[str, Any]:
+    """The waist of an outfit with a separate top and bottom, in the measured pose:
+
+    - ``waist_gap``: skin showing between them: skin vertices of the pelvis, spine and thighs
+      within ``WAIST_BAND`` of the top's hem (rest pose) that a loose bottom doesn't cover
+      (``max_mm``: how far outside its shell), or any at all when the bottom is tight too
+      (``max_mm``: how far from the hem).
+    - ``waist_overlap``: ``min_mm``, the least the two overlap anywhere round the hem. Under a
+      loose bottom: from the hem to the nearest body surface that shows (negative: how far the
+      hem itself is outside the shell). Tight on tight they are one surface, so it is how far
+      the bottom runs on under the top (``meta.humanoid.waist_overlap``), whatever the pose.
+    - ``hem``: the hem as a smooth loop: vertices more than ``HEM_SPIKE`` out of line with their
+      two neighbours (``max_mm`` the worst), and ``ends``, hem vertices without two neighbours.
+      Out of line is how far above or below the line between them the vertex is in the rest
+      pose (a level hem; the body's girth isn't a fault), plus how much further off it, any way,
+      the pose takes it (a hem torn into spikes).
+    """
+    from scipy.spatial import cKDTree
+
+    from .generators.humanoid import hem_shape, waist_hem
+
+    top, bottom = worn(character, "top"), worn(character, "bottom")
+    if top is None or bottom is None or not len(top["body"]):
+        return {}
+    body_rest, body = rest["body"], now["body"]
+    dominant = _dominant(actor, body)
+    mine = np.zeros(len(body.vertices), bool)
+    mine[top["body"]] = True
+    edges = waist_hem(body_rest, mine[body.faces].all(axis=1), dominant)
+    if not len(edges):
+        return {}
+    hem = np.unique(edges)
+    out: dict[str, Any] = {}
+    # The body round the waist, sampled over its faces (vertices alone miss a face that shows).
+    hem_tree = cKDTree(body_rest.vertices[hem])
+    band = hem_tree.query(body_rest.vertices)[0] < WAIST_BAND
+    trunk = np.isin(dominant, TRUNK_BONES)
+    faces = body.faces[band[body.faces].any(axis=1) & trunk[body.faces].all(axis=1)]
+    samples = np.einsum("bk,fkd->fbd", _BARY, body.vertices[faces])
+    at_rest = np.einsum("bk,fkd->fbd", _BARY, body_rest.vertices[faces])
+    skin = np.ones(len(body.vertices), bool)
+    for g in character.meta["humanoid"]["garments"]:
+        skin[g["body"]] = False
+    bare = skin[faces].all(axis=1)
+    in_band = hem_tree.query(at_rest[bare].reshape(-1, 3))[0] < WAIST_BAND if bare.any() else np.zeros(0, bool)
+    pts = samples[bare].reshape(-1, 3)[in_band]
+    samples = samples.reshape(-1, 3)
+    if len(bottom["clothes"]) and "clothes" in now:
+        solid, shell = _solid(now["clothes"]), _tris(now["clothes"])
+        depth = np.zeros(len(pts))
+        outside = winding(pts, solid) < 0.5
+        if outside.any():
+            depth[outside] = distance(pts[outside], shell)
+        out["waist_gap"] = _metric(depth)
+        showing = samples[winding(samples, solid) < 0.5]
+        hem_pts = body.vertices[hem]
+        hem_out = winding(hem_pts, solid) < 0.5
+        overlap = np.full(len(hem_pts), WAIST_BAND)
+        if len(showing):
+            overlap = np.minimum(cKDTree(showing).query(hem_pts)[0], WAIST_BAND)
+        if hem_out.any():
+            overlap[hem_out] = -distance(hem_pts[hem_out], shell)
+        out["waist_overlap"] = {"min_mm": round(float(overlap.min() * 1000), 1)}
+    else:
+        depth = cKDTree(body.vertices[hem]).query(pts)[0] if len(pts) else np.zeros(0)
+        out["waist_gap"] = _metric(depth)
+        declared = character.meta["humanoid"].get("waist_overlap")
+        if declared is not None:
+            out["waist_overlap"] = {"min_mm": round(float(declared) * 1000, 1)}
+    was, ends = hem_shape(body_rest.vertices, edges)
+    shape, _ = hem_shape(body.vertices, edges)
+    level = np.array([abs(body_rest.vertices[v][1] - entry[1][1]) for v, entry in was.items()])
+    torn = np.array([max(shape[v][0] - entry[0], 0.0) for v, entry in was.items()])
+    off = level + torn
+    bad = off[off > HEM_SPIKE]
+    out["hem"] = {"count": int(len(bad)), "max_mm": round(float(off.max() * 1000), 1) if len(off) else 0.0,
+                  "ends": int(ends)}
+    return out
+
+
 # --- measuring ----------------------------------------------------------------------------------
 
 
@@ -196,6 +299,7 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
     # Loose shells: covered at rest, outside now.
     if "clothes" in now:
         covered = winding(rest["body"].vertices, _solid(rest["clothes"])) > 0.5
+        covered &= ~_bone_mask(actor, body, ARM_BONES)       # a hand resting in a skirt's folds isn't under it
         pts = body.vertices[covered]
         outside = winding(pts, _solid(now["clothes"])) < 0.5
         depth = np.zeros(len(pts))
@@ -228,6 +332,8 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
             below = body.vertices[:, 1] < m[1, 3] - 0.02         # under the ankle (not the ankle itself)
             heel |= (local[:, 1] < 0.0) & (np.linalg.norm(local, axis=1) < 0.2) & below
         out["feet_skin"] = {"count": int((skin_feet & heel).sum()), "max_mm": 0.0}
+    # Top over bottom round the waist.
+    out.update(_waist(character, actor, rest, now))
     # Posed on a seat.
     if seat is not None:
         from .layout.affordance_qa import pose_actor

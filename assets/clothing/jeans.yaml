@@ -1,6 +1,7 @@
 kind: garment
 name: jeans
 type: tight
+part: bottom
 material: denim
 layer: 1
 thickness: 0.007

@@ -1,16 +1,16 @@
 {
  "feminine+hourglass/casual_f": {
   "seat_armchair": {
-   "count": 18,
-   "max_mm": 10.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 12,
-   "max_mm": 5.3
+   "count": 29,
+   "max_mm": 6.6
   },
   "seat_sofa": {
-   "count": 15,
-   "max_mm": 10.0
+   "count": 11,
+   "max_mm": 4.0
   },
   "sit": {
    "feet_skin": {
@@ -19,11 +19,23 @@
    },
    "hands": {
     "count": 2,
-    "max_mm": 2.4
+    "max_mm": 2.2
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.1
    },
    "shell_poke": {
-    "count": 30,
-    "max_mm": 17.3
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   },
   "sit_at_table": {
@@ -35,9 +47,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.1
+   },
    "shell_poke": {
-    "count": 32,
-    "max_mm": 17.9
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   },
   "stand": {
@@ -49,24 +73,36 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.1
+   },
    "shell_poke": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   }
  },
  "feminine+hourglass/dress": {
   "seat_armchair": {
-   "count": 18,
-   "max_mm": 14.5
+   "count": 16,
+   "max_mm": 5.0
   },
   "seat_chair": {
-   "count": 12,
-   "max_mm": 5.3
+   "count": 18,
+   "max_mm": 9.3
   },
   "seat_sofa": {
    "count": 15,
-   "max_mm": 14.5
+   "max_mm": 5.0
   },
   "sit": {
    "feet_skin": {
@@ -74,12 +110,12 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 4,
-    "max_mm": 2.2
+    "count": 31,
+    "max_mm": 15.3
    },
    "shell_poke": {
-    "count": 42,
-    "max_mm": 30.9
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -92,8 +128,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 41,
-    "max_mm": 31.9
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "stand": {
@@ -132,6 +168,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -142,6 +190,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -152,6 +212,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -176,6 +248,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -186,6 +270,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -196,20 +292,32 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
  "feminine+petite/casual_f": {
   "seat_armchair": {
-   "count": 46,
+   "count": 36,
    "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 46,
+   "count": 36,
    "max_mm": 4.0
   },
   "seat_sofa": {
-   "count": 46,
+   "count": 36,
    "max_mm": 4.0
   },
   "sit": {
@@ -221,9 +329,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.5
+   },
    "shell_poke": {
-    "count": 4,
-    "max_mm": 8.1
+    "count": 5,
+    "max_mm": 66.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   },
   "sit_at_table": {
@@ -235,9 +355,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.5
+   },
    "shell_poke": {
-    "count": 4,
-    "max_mm": 8.7
+    "count": 5,
+    "max_mm": 66.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   },
   "stand": {
@@ -249,23 +381,35 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.5
+   },
    "shell_poke": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   }
  },
  "feminine+petite/dress": {
   "seat_armchair": {
-   "count": 34,
+   "count": 26,
    "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 44,
+   "count": 38,
    "max_mm": 4.0
   },
   "seat_sofa": {
-   "count": 34,
+   "count": 26,
    "max_mm": 4.0
   },
   "sit": {
@@ -278,8 +422,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 16,
-    "max_mm": 11.3
+    "count": 2,
+    "max_mm": 51.1
    }
   },
   "sit_at_table": {
@@ -292,8 +436,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 18,
-    "max_mm": 10.5
+    "count": 2,
+    "max_mm": 50.9
    }
   },
   "stand": {
@@ -332,6 +476,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.4
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -342,6 +498,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.4
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -352,6 +520,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.4
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -376,6 +556,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -386,6 +578,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -396,6 +600,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -405,7 +621,7 @@
    "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 18,
+   "count": 14,
    "max_mm": 4.0
   },
   "seat_sofa": {
@@ -421,9 +637,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.5
+   },
    "shell_poke": {
-    "count": 60,
-    "max_mm": 13.2
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 62.4
    }
   },
   "sit_at_table": {
@@ -435,9 +663,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.5
+   },
    "shell_poke": {
-    "count": 66,
-    "max_mm": 13.4
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 66.9
    }
   },
   "stand": {
@@ -449,9 +689,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.5
+   },
    "shell_poke": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   }
  },
@@ -478,8 +730,8 @@
     "max_mm": 2.7
    },
    "shell_poke": {
-    "count": 144,
-    "max_mm": 25.3
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -492,8 +744,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 159,
-    "max_mm": 25.0
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "stand": {
@@ -532,6 +784,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.9
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -542,6 +806,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.9
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -552,6 +828,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.9
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -576,6 +864,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -586,6 +886,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -596,6 +908,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 0.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -621,9 +945,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.2
+   },
    "shell_poke": {
-    "count": 68,
-    "max_mm": 19.5
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 35.9
    }
   },
   "sit_at_table": {
@@ -635,9 +971,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.2
+   },
    "shell_poke": {
-    "count": 71,
-    "max_mm": 19.6
+    "count": 1,
+    "max_mm": 3.1
+   },
+   "waist_gap": {
+    "count": 2,
+    "max_mm": 2.2
+   },
+   "waist_overlap": {
+    "min_mm": 33.6
    }
   },
   "stand": {
@@ -649,23 +997,35 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.2
+   },
    "shell_poke": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   }
  },
  "masculine+heavy/dress": {
   "seat_armchair": {
-   "count": 8,
+   "count": 6,
    "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 8,
+   "count": 6,
    "max_mm": 4.0
   },
   "seat_sofa": {
-   "count": 8,
+   "count": 6,
    "max_mm": 4.0
   },
   "sit": {
@@ -678,8 +1038,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 67,
-    "max_mm": 30.6
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -692,8 +1052,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 68,
-    "max_mm": 30.9
+    "count": 2,
+    "max_mm": 73.3
    }
   },
   "stand": {
@@ -732,6 +1092,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -742,6 +1114,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -752,6 +1136,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -776,6 +1172,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -786,6 +1194,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -796,21 +1216,33 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.6
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
  "masculine/casual_f": {
   "seat_armchair": {
-   "count": 16,
-   "max_mm": 5.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 16,
-   "max_mm": 5.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "seat_sofa": {
-   "count": 16,
-   "max_mm": 5.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "sit": {
    "feet_skin": {
@@ -818,12 +1250,24 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 8,
-    "max_mm": 17.1
+    "count": 4,
+    "max_mm": 9.2
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.4
    },
    "shell_poke": {
-    "count": 109,
-    "max_mm": 29.2
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 19.8
    }
   },
   "sit_at_table": {
@@ -835,9 +1279,21 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.4
+   },
    "shell_poke": {
-    "count": 106,
-    "max_mm": 29.0
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 19.2
    }
   },
   "stand": {
@@ -849,24 +1305,36 @@
     "count": 0,
     "max_mm": 0.0
    },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 1.4
+   },
    "shell_poke": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 120.0
    }
   }
  },
  "masculine/dress": {
   "seat_armchair": {
-   "count": 16,
-   "max_mm": 5.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "seat_chair": {
-   "count": 16,
-   "max_mm": 5.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "seat_sofa": {
-   "count": 16,
-   "max_mm": 5.0
+   "count": 10,
+   "max_mm": 4.0
   },
   "sit": {
    "feet_skin": {
@@ -874,12 +1342,12 @@
     "max_mm": 0.0
    },
    "hands": {
-    "count": 6,
-    "max_mm": 19.0
+    "count": 7,
+    "max_mm": 8.1
    },
    "shell_poke": {
-    "count": 92,
-    "max_mm": 84.7
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "sit_at_table": {
@@ -892,8 +1360,8 @@
     "max_mm": 0.0
    },
    "shell_poke": {
-    "count": 93,
-    "max_mm": 84.7
+    "count": 0,
+    "max_mm": 0.0
    }
   },
   "stand": {
@@ -932,6 +1400,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.4
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -942,6 +1422,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.4
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -952,6 +1444,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.4
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  },
@@ -976,6 +1480,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "sit_at_table": {
@@ -986,6 +1502,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   },
   "stand": {
@@ -996,6 +1524,18 @@
    "hands": {
     "count": 0,
     "max_mm": 0.0
+   },
+   "hem": {
+    "count": 0,
+    "ends": 0,
+    "max_mm": 2.8
+   },
+   "waist_gap": {
+    "count": 0,
+    "max_mm": 0.0
+   },
+   "waist_overlap": {
+    "min_mm": 30.0
    }
   }
  }

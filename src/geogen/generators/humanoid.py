@@ -22,6 +22,8 @@ built here instead of from ``parts:``::
           bind: {LeftMiddleProximal: [LeftIndexProximal, ...]}
           weight_shift: {Head: -0.06}
           joint_blend: {LeftMiddleProximal: 0.02}  # per-joint blend width (the joint at that bone's head)
+          root: Hips                          # legs: the tube above its first joint follows this bone
+          samples: [[Hips, 0.2]]              # extra resampled rings (where a skirt bends over the seat)
           rings:
             - [LeftUpperArm, 0.0, 0.05, 0.05]                     # bone, t, rx, rz
             - [LeftLowerArm, 1.0, 0.02, 0.03, {offset: [0, 0.01], power: 2.5, twist: 0}]
@@ -51,7 +53,7 @@ from ..core.skin import Clip, MorphTrack, Skin
 from .ringloft import Chain, Ring, Span, loft_body
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
-              "rings", "cap_rings", "joint_rings", "joint_blend", "hem"}
+              "rings", "cap_rings", "joint_rings", "joint_blend", "hem", "root", "samples"}
 RING_KEYS = {"offset", "power", "twist"}
 
 
@@ -111,7 +113,11 @@ def parse_chain(name: str, spec: dict, skeleton: Skeleton) -> Chain:
         joint_blend={k: float(v) for k, v in (spec.get("joint_blend") or {}).items()},
         joint_rings=(list(spec["joint_rings"]) if isinstance(spec.get("joint_rings"), list)
                      else bool(spec.get("joint_rings", True))),
+        root=str(spec["root"]) if spec.get("root") else None,
+        samples=[(str(b), float(t)) for b, t in spec.get("samples") or []],
     )
+    if chain.root is not None and chain.root not in skeleton.bones:
+        raise ValueError(f"chain '{name}': unknown root bone '{chain.root}'")
     for ring in chain.rings:
         if ring.bone not in bones:
             raise ValueError(f"chain '{name}': ring bone '{ring.bone}' is not in the chain")
@@ -216,7 +222,8 @@ CLOTH_COLORS = {"white": (0.95, 0.95, 0.94), "cream": (0.94, 0.9, 0.8), "black":
                 "mustard": (0.86, 0.66, 0.22), "olive": (0.42, 0.45, 0.24), "green": (0.22, 0.5, 0.32),
                 "teal": (0.12, 0.47, 0.5), "lavender": (0.67, 0.6, 0.82), "brown": (0.42, 0.28, 0.18),
                 "tan": (0.73, 0.59, 0.41), "sky": (0.55, 0.72, 0.9)}
-GARMENT_KEYS = {"kind", "name", "type", "material", "layer", "thickness", "cover", "chains", "cut", "weights"}
+GARMENT_KEYS = {"kind", "name", "type", "part", "material", "layer", "thickness", "cover", "chains", "cut", "weights"}
+GARMENT_PARTS = ("top", "bottom", "dress", "shoes")      # what a garment is worn as (clipping QA's waist check)
 
 
 def load_garment(assets_dir: Path, name: str, params: dict) -> dict:
@@ -233,12 +240,15 @@ def load_garment(assets_dir: Path, name: str, params: dict) -> dict:
     unknown = set(spec) - GARMENT_KEYS
     if unknown:
         raise ValueError(f"{path}: unknown keys {sorted(unknown)}")
+    if spec.get("part") not in (None, *GARMENT_PARTS):
+        raise ValueError(f"{path}: part '{spec['part']}' is not one of {list(GARMENT_PARTS)}")
     return resolve_value(spec, params)
 
 
-def split_by_slot(mesh: Mesh, slot_colors: list) -> Mesh:
+def split_by_slot(mesh: Mesh, slot_colors: list, slots_out: list | None = None) -> Mesh:
     """Give every material slot its own vertices (colour-coded per slot), then merge slots sharing a
-    base material so garments of one fabric draw together. ``slot_colors[i]`` is (rgb, base material)."""
+    base material so garments of one fabric draw together. ``slot_colors[i]`` is (rgb, base material).
+    ``slots_out`` (a list) receives the new vertices' slots."""
     slots, _ = mesh.effective_face_materials()
     corner_slot = np.repeat(slots, 3)
     key = np.column_stack([mesh.faces.reshape(-1), corner_slot])
@@ -250,6 +260,8 @@ def split_by_slot(mesh: Mesh, slot_colors: list) -> Mesh:
     if mesh.joints is not None:
         out.joints, out.weights = mesh.joints[src], mesh.weights[src]
     out.colors = np.array([[*slot_colors[k][0], 1.0] for k in uniq[:, 1]])
+    if slots_out is not None:
+        slots_out.append(uniq[:, 1].copy())
     bases: list = []
     remap = []
     for _, base in slot_colors:
@@ -263,6 +275,209 @@ def split_by_slot(mesh: Mesh, slot_colors: list) -> Mesh:
         out.materials = bases
         out.face_materials = np.asarray(remap)[slots]
     return out
+
+
+WAIST_BONES = ("Hips", "Spine", "LeftUpperLeg", "RightUpperLeg")
+HEM_SMOOTH = 0.003            # m a waist hem vertex may stand above or below the line between its neighbours
+
+
+def dominant_bones(mesh: Mesh, names) -> np.ndarray:
+    """Each vertex's heaviest bone, by name (``names``: the skin's joint names)."""
+    return np.asarray(names)[mesh.joints[np.arange(len(mesh.vertices)), np.argmax(mesh.weights, axis=1)]]
+
+
+def _welded(mesh: Mesh) -> np.ndarray:
+    """An index per distinct vertex position (slots and creases have their own vertices)."""
+    return np.unique(np.round(mesh.vertices / 1e-5).astype(np.int64), axis=0, return_inverse=True)[1].ravel()
+
+
+def waist_hem(mesh: Mesh, mine: np.ndarray, dominant: np.ndarray) -> np.ndarray:
+    """A top's hem round the hips: the boundary edges of its faces (the mask ``mine`` over a
+    rest-pose ``mesh``'s faces) between vertices on the pelvis, spine or thighs (not its neck or
+    cuffs), as (n, 2) vertex indices. Positions are welded first, so creases and other slots'
+    copies of a vertex don't count as edges."""
+    faces = mesh.faces[mine]
+    if not len(faces):
+        return np.empty((0, 2), dtype=np.int64)
+    canon = _welded(mesh)
+    rep = np.full(int(canon.max()) + 1, -1)
+    rep[canon[faces.ravel()]] = faces.ravel()          # one of the top's vertices stands for each position
+    f = canon[faces]
+    edges = np.sort(np.concatenate([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]), axis=1)
+    uniq, count = np.unique(edges, axis=0, return_counts=True)
+    edges = rep[uniq[count == 1]]
+    waist = np.isin(dominant, WAIST_BONES)
+    return edges[waist[edges].all(axis=1)]
+
+
+def hem_shape(vertices: np.ndarray, edges: np.ndarray) -> tuple[dict[int, tuple[float, np.ndarray, int, int]], int]:
+    """How smooth a hem loop is: {vertex: (how far it stands off the segment between its two
+    neighbours, the nearest point of that segment's middle 40%, the neighbours)} for vertices
+    with two neighbours, and the number without (ends and junctions)."""
+    near: dict[int, list[int]] = {}
+    for a, b in edges.tolist():
+        near.setdefault(a, []).append(b)
+        near.setdefault(b, []).append(a)
+    out, ends = {}, 0
+    for v, others in near.items():
+        if len(others) != 2:
+            ends += 1
+            continue
+        a, b = vertices[others[0]], vertices[others[1]]
+        ab = b - a
+        t = float(np.dot(vertices[v] - a, ab) / max(float(np.dot(ab, ab)), 1e-12))
+        off = float(np.linalg.norm(vertices[v] - (a + np.clip(t, 0.0, 1.0) * ab)))
+        out[v] = (off, a + np.clip(t, 0.3, 0.7) * ab, others[0], others[1])
+    return out, ends
+
+
+def _level_hem(mesh: Mesh, slot: int, names, passes: int = 24) -> None:
+    """Straighten the waist hem of the top in material slot ``slot``, in place (before the slots
+    get their own vertices). Decimation leaves teeth in it (a triangle of trouser up in the
+    shirt, or of shirt down in the trousers) and drags the odd hem vertex along the body. A
+    face with two edges on the hem is a tooth and goes to the other side; a hem vertex further
+    than ``HEM_SMOOTH`` above or below the line between its neighbours moves level with it
+    (with every vertex at its position, so the mesh stays closed; no further than leaves its
+    faces whole) and takes their weights."""
+    from ..core.skin import normalize_weights
+
+    canon = _welded(mesh)
+    count = int(mesh.joints.max()) + 1
+
+    def normals(faces):
+        tri = mesh.vertices[faces]
+        return np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+
+    for _ in range(passes):
+        mine = mesh.face_materials == slot
+        edges = waist_hem(mesh, mine, dominant_bones(mesh, names))
+        if not len(edges):
+            return
+        hem = {tuple(sorted(e)) for e in canon[edges].tolist()}
+        f = canon[mesh.faces]
+        sides = [[tuple(sorted((int(row[k]), int(row[(k + 1) % 3])))) for k in range(3)] for row in f]
+        across: dict[tuple, list[int]] = {}
+        for i, row in enumerate(sides):
+            for edge in row:
+                if edge in hem:
+                    across.setdefault(edge, []).append(i)
+        teeth = [i for i, row in enumerate(sides) if sum(edge in hem for edge in row) >= 2]
+        if teeth:
+            # One side's teeth a pass (each shortens the hem, so this ends): flipping a tooth and
+            # the one it meshes with together would only swap them.
+            ours = [i for i in teeth if mine[i]]
+            slots = mesh.face_materials.copy()
+            for i in ours:
+                other = next((j for edge in sides[i] for j in across.get(edge, []) if j != i and not mine[j]), None)
+                if other is not None:
+                    slots[i] = mesh.face_materials[other]
+            if not ours:
+                slots[teeth] = slot
+            mesh.face_materials = slots
+            continue
+        shape, _ = hem_shape(mesh.vertices, edges)
+        moved = False
+        for v, (_, target, a, b) in shape.items():
+            # Along the body only (up, in the rest pose): the loop keeps its girth.
+            target = np.array([mesh.vertices[v][0], target[1], mesh.vertices[v][2]])
+            if abs(target[1] - mesh.vertices[v][1]) <= HEM_SMOOTH:
+                continue
+            group = np.flatnonzero(canon == canon[v])
+            faces = mesh.faces[np.isin(mesh.faces, group).any(axis=1)]
+            before, old = normals(faces), mesh.vertices[group].copy()
+            for step in (1.0, 0.6, 0.3):                 # as far onto the line as leaves its faces whole
+                mesh.vertices[group] = old + step * (target - old)
+                after = normals(faces)
+                flat = np.linalg.norm(after, axis=1) < 0.1 * np.linalg.norm(before, axis=1)
+                if not (flat | (np.einsum("ij,ij->i", before, after) <= 0)).any():
+                    break
+            else:
+                mesh.vertices[group] = old
+                continue
+            dense = np.zeros((2, count))
+            np.put_along_axis(dense, mesh.joints[[a, b]], mesh.weights[[a, b]], axis=1)
+            joints, weights = normalize_weights(np.arange(count)[None], dense.mean(axis=0)[None])
+            mesh.joints[group], mesh.weights[group] = joints[0], weights[0]
+            moved = True
+        if not moved:
+            return
+
+
+HEM_BONES = ("Hips", "Spine", "Chest", "UpperChest")
+HEM_LIP = 0.004               # m: the bare ring of a hem pair sits 2 mm from the garment's
+
+
+def smooth_hem(mesh: Mesh, slot: int, names) -> None:
+    """Make the waist hem of the top in material slot ``slot`` one smooth loop that moves as one
+    (in place, before the slots get their own vertices): level it (``_level_hem``), then give
+    it, and the ring under its lip, to the trunk alone. A hem that crosses the tops of the leg
+    tubes would otherwise swing with the thighs there: it follows the pelvis, not the legs."""
+    from scipy.spatial import cKDTree
+
+    from ..core.skin import normalize_weights
+
+    _level_hem(mesh, slot, names)
+    edges = waist_hem(mesh, mesh.face_materials == slot, dominant_bones(mesh, names))
+    if not len(edges):
+        return
+    lip = np.flatnonzero(cKDTree(mesh.vertices[np.unique(edges)]).query(mesh.vertices)[0] < HEM_LIP)
+    trunk = np.isin(np.asarray(names), HEM_BONES)
+    dense = np.zeros((len(lip), len(names)))
+    np.put_along_axis(dense, mesh.joints[lip], mesh.weights[lip], axis=1)
+    dense[:, ~trunk] = 0.0
+    dense[dense.sum(axis=1) < 1e-6, list(names).index("Hips")] = 1.0
+    mesh.joints[lip], mesh.weights[lip] = normalize_weights(
+        np.tile(np.arange(len(names)), (len(lip), 1)), dense / dense.sum(axis=1, keepdims=True))
+
+
+WAIST_OVERLAP = 0.03          # m a top and a bottom overlap at the waist, at least
+
+
+def _position(path, s: float, bone: str) -> tuple[str, float]:
+    """Arc length ``s`` of a chain path as a (bone, t) position on ``bone``'s line."""
+    i = path.bones.index(bone)
+    return bone, float((s - path.starts[i]) / path.lengths[i])
+
+
+def lap_waist(worn: list, by_name: dict, skeleton: Skeleton, shells: list) -> float | None:
+    """Make the outfit's top and bottom overlap by ``WAIST_OVERLAP`` at least, as geometry: a
+    tight bottom that stops short of that under the top's hem runs on up under it (hidden: the
+    top's layer wins), and a top whose hem is less than that below a loose bottom's waistband
+    (its highest ring) comes down. Returns the overlap in metres (None without both)."""
+    from .ringloft import ChainPath
+
+    top = next((g for g in worn if g["part"] == "top" and g["spans"]), None)
+    bottom = next((g for g in worn if g["part"] == "bottom"), None)
+    if top is None or bottom is None:
+        return None
+    laps = []
+    for name, low in bottom["spans"].items():
+        high = top["spans"].get(name)
+        if high is None:
+            continue
+        path = ChainPath(skeleton, by_name[name])
+        a0, a1 = path.s_of(*high.start), path.s_of(*high.end)
+        b0, b1 = path.s_of(*low.start), path.s_of(*low.end)
+        if b1 < a1 and b1 - a0 < WAIST_OVERLAP and high.layer > low.layer:
+            b1 = a0 + WAIST_OVERLAP
+            low.end = _position(path, b1, low.end[0])
+        laps.append(min(a1, b1) - max(a0, b0))
+    if bottom["shell"] is not None:
+        for chain_name, chain_spec in shells[bottom["shell"]][0]["chains"].items():
+            chain = parse_chain(chain_name, chain_spec, skeleton)
+            shell_path = ChainPath(skeleton, chain)
+            band = max(float(shell_path.point(shell_path.s_of(r.bone, r.t))[1]) for r in chain.rings)
+            for name, high in top["spans"].items():
+                if not set(chain.bones) & set(by_name[name].bones):
+                    continue                                  # not what the waistband goes round
+                path = ChainPath(skeleton, by_name[name])
+                a0 = path.s_of(*high.start)
+                lap = band - float(path.point(a0)[1])
+                if lap < WAIST_OVERLAP:
+                    high.start = _position(path, a0 - (WAIST_OVERLAP - lap), high.start[0])
+                    lap = WAIST_OVERLAP
+                laps.append(lap)
+    return min(laps) if laps else None
 
 
 def transfer_weights(shell: Mesh, body: Mesh, neighbours: int = 12, smooth: int = 2) -> None:
@@ -289,6 +504,60 @@ def transfer_weights(shell: Mesh, body: Mesh, neighbours: int = 12, smooth: int 
         dense = acc / count[:, None]
     index = np.tile(np.arange(joints), (len(dense), 1))
     shell.joints, shell.weights = normalize_weights(index, dense)
+
+
+HUG_BONES = ("Hips", "Spine", "Chest", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg")
+HUG_CLEARANCE = 0.01          # m a loose garment's outer wall stands off the body
+HUG_REACH = 0.05              # m: how far inside the body's surface a wall vertex is still brought out
+HIP_ROOM = 0.015              # m more round the hip joints, where the thigh tops rise when they lift
+HIP_ZONE = (-0.16, 0.1)       # m below / above the hip joints that the room is added over
+HIP_EASE = 0.08               # m over which it eases in at each end
+
+
+def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE, hip_y: float | None = None) -> None:
+    """Fit a loose garment round the trunk and legs it hangs on (rest pose, in place): a wall
+    vertex nearer the body's centre line than the body's own surface plus ``clearance`` (wide
+    hips under a waistband authored for narrower ones) moves straight out to it, the lining one
+    cloth thickness inside the outer wall. So the waistband sits on the body under the top's hem
+    for every build, with no skin showing through. Round the hip joints (height ``hip_y``) it
+    keeps ``HIP_ROOM`` more, for the thigh tops to lift into. The buried start cap is left alone."""
+    keep = np.isin(dominant_bones(body, names), HUG_BONES)
+    tris = body.vertices[body.faces[keep[body.faces].all(axis=1)]]
+    if not len(tris):
+        return
+    origin = shell.vertices * [0.0, 1.0, 0.0]
+    radial = shell.vertices - origin
+    radius = np.linalg.norm(radial, axis=1)
+    ok = radius > 1e-6
+    direction = np.where(ok[:, None], radial / np.maximum(radius, 1e-9)[:, None], 0.0)
+    # Furthest crossing of each ray (centre line -> vertex) with the body: Moeller-Trumbore.
+    a, e1, e2 = tris[:, 0], tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]
+    extent = np.zeros(len(radius))
+    for i in range(0, len(radius), 256):
+        d, o = direction[i:i + 256, None, :], origin[i:i + 256, None, :]
+        p = np.cross(d, e2[None])
+        det = np.einsum("fk,rfk->rf", e1, p)
+        inv = 1.0 / np.where(np.abs(det) < 1e-12, 1e-12, det)
+        t = o - a[None]
+        u = np.einsum("rfk,rfk->rf", t, p) * inv
+        q = np.cross(t, e1[None])
+        v = np.einsum("rfk,rfk->rf", np.broadcast_to(d, q.shape), q) * inv
+        dist = np.einsum("fk,rfk->rf", e2, q) * inv
+        hit = (np.abs(det) > 1e-12) & (u >= 0) & (v >= 0) & (u + v <= 1) & (dist > 0)
+        extent[i:i + 256] = np.where(hit, dist, 0.0).max(axis=1)
+    lining = np.zeros(len(radius), bool)
+    outer = np.zeros(len(radius), bool)
+    inner_faces = lining_faces(shell)
+    lining[shell.faces[inner_faces].ravel()] = True
+    outer[shell.faces[~inner_faces].ravel()] = True
+    want = extent + np.where(lining & ~outer, clearance * 0.4, clearance)
+    if hip_y is not None:
+        y = shell.vertices[:, 1] - hip_y
+        lo = np.clip((y - HIP_ZONE[0]) / HIP_EASE, 0.0, 1.0)
+        hi = np.clip((HIP_ZONE[1] - y) / HIP_EASE, 0.0, 1.0)
+        want = want + HIP_ROOM * np.minimum(lo, hi)
+    move = ok & (radius < want) & (radius > want - HUG_REACH)
+    shell.vertices[move] = origin[move] + direction[move] * want[move, None]
 
 
 def leg_weights(shell: Mesh, skeleton: Skeleton, fall: float = 0.12, seam: float = 0.06) -> None:
@@ -405,23 +674,45 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     slot_colors = [(tone, skin)]
     materials = [skin]
     loose = []
+    worn = []                     # meta.humanoid.garments: what is worn, and (below) its vertices
+    levels = []                   # span ends given as {level: chain}
     for item in outfits[outfit_name] or []:
         garment = load_garment(assets_dir, item["garment"], params or {})
         color = _color(item.get("color", "grey"), CLOTH_COLORS, "cloth colour")
         base = material_loader.load(garment.get("material", "cloth"))
+        worn.append({"name": item["garment"], "part": garment.get("part"), "slot": None, "shell": None, "spans": {}})
         if garment.get("cover"):
             slot = len(materials)
+            worn[-1]["slot"] = slot
             materials.append(copy.copy(base))
             slot_colors.append((color, base))
             for chain_name, (start, end) in garment["cover"].items():
                 if chain_name not in by_name:
                     raise ValueError(f"garment '{item['garment']}': body has no chain '{chain_name}'")
-                by_name[chain_name].spans.append(
-                    Span((start[0], float(start[1])), (end[0], float(end[1])), float(garment.get("thickness", 0.005)),
-                         slot, int(garment.get("layer", 1))))
+                # An end may be {level: <chain>}: level with where this garment's cover of that chain starts.
+                ends = [(e.get("bone"), 0.0) if isinstance(e, dict) else (e[0], float(e[1])) for e in (start, end)]
+                ends = [(bone or ends[1 - k][0], t) for k, (bone, t) in enumerate(ends)]
+                span = Span(ends[0], ends[1], float(garment.get("thickness", 0.005)), slot, int(garment.get("layer", 1)))
+                by_name[chain_name].spans.append(span)
+                worn[-1]["spans"][chain_name] = span
+                levels += [(worn[-1], chain_name, k, e["level"]) for k, e in enumerate((start, end)) if isinstance(e, dict)]
         if garment.get("chains"):
+            worn[-1]["shell"] = len(loose)
             loose.append((garment, color, base))
 
+    waist_overlap = lap_waist(worn, by_name, skeleton, loose)
+    for entry, chain_name, k, ref in levels:
+        from .ringloft import ChainPath
+
+        if ref not in entry["spans"]:
+            raise ValueError(f"garment '{entry['name']}': level '{ref}' is not a chain it covers")
+        ref_path = ChainPath(skeleton, by_name[ref])
+        height = ref_path.point(ref_path.s_of(*entry["spans"][ref].start))[1]
+        span, path = entry["spans"][chain_name], ChainPath(skeleton, by_name[chain_name])
+        bone = (span.start, span.end)[k][0]
+        i = path.bones.index(bone)
+        at = (bone, float((height - path.points[i][1]) / (path.points[i + 1][1] - path.points[i][1])))
+        span.start, span.end = (at, span.end) if k == 0 else (span.start, at)
     mesh = loft_body(skeleton, chains, crease, mirrored, materials if len(materials) > 1 else None)
     budget = spec.get("max_triangles")
     if budget and len(mesh.faces) > int(budget):
@@ -434,10 +725,16 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         ours = [next(i for i, m in enumerate(materials) if m is r) for r in result_materials]
         mesh.face_materials = np.asarray(ours)[slots]
         mesh.materials = list(materials)
-        mesh = split_by_slot(mesh, slot_colors)
+        for entry in worn:
+            if entry["part"] == "top" and entry["slot"] is not None:
+                smooth_hem(mesh, entry["slot"], skeleton.names)
+        slots_out: list = []
+        mesh = split_by_slot(mesh, slot_colors, slots_out)
+        vertex_slot = slots_out[0]
     else:
         mesh.material = skin
         mesh.colors = np.tile([*tone, 1.0], (len(mesh.vertices), 1))
+        vertex_slot = np.zeros(len(mesh.vertices), dtype=np.int64)
     if spec.get("face"):
         face = dict(spec["face"])
         mesh = apply_face(mesh, face["box"], face_material(face, skin), float(face.get("min_normal", 0.25)))
@@ -462,9 +759,11 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             hair.skin = Skin.bind(hair, [nodes[n] for n in skeleton.names], name=f"{name}_hair_skin")
     if loose:
         shells = []
+        starts = [0]
         for garment, color, base in loose:
             shell = build_hair({"chains": garment["chains"], "cut": garment.get("cut"),
                                 "material": garment.get("material", "cloth")}, skeleton, material_loader, crease)
+            hug_body(shell, mesh, skeleton.names, hip_y=float(skeleton["LeftUpperLeg"].head[1]))
             mode = garment.get("weights", "body")
             if mode == "body":
                 transfer_weights(shell, mesh)
@@ -476,6 +775,10 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             inside = np.unique(shell.faces[lining_faces(shell)])
             shell.colors[inside, :3] *= LINING_SHADE
             shells.append(shell)
+            starts.append(starts[-1] + len(shell.vertices))
+        for entry in worn:
+            if entry["shell"] is not None:
+                entry["shell_vertices"] = np.arange(starts[entry["shell"]], starts[entry["shell"] + 1])
         clothes = root.add_child(SceneNode("clothes", mesh=Mesh.merge(shells)))
         clothes.meta["collider"] = "none"
         clothes.skin = Skin.bind(clothes, [nodes[n] for n in skeleton.names], name=f"{name}_clothes_skin")
@@ -506,6 +809,14 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                              "pose": pose_name, "hair": hair_style, "outfit": outfit_name,
                              "triangles": int(sum(len(n.mesh.faces) for n in root.iter_nodes() if n.mesh is not None))}
     root.meta["humanoid"]["seats"] = seats
+    if waist_overlap is not None:
+        root.meta["humanoid"]["waist_overlap"] = round(float(waist_overlap), 4)
+    # What is worn, for clipping QA: each garment's vertices of `body` (tight) and of `clothes` (loose).
+    # (The face's vertices are copies appended after the split: bare skin.)
+    root.meta["humanoid"]["garments"] = [
+        {"name": g["name"], "part": g["part"],
+         "body": np.flatnonzero(vertex_slot == g["slot"]) if g["slot"] is not None else np.empty(0, dtype=np.int64),
+         "clothes": g.get("shell_vertices", np.empty(0, dtype=np.int64))} for g in worn]
     root.tags = ["character"]
     return root
 
