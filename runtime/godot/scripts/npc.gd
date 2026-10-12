@@ -105,7 +105,10 @@ var _vehicle_detours := 0         # detours round stopped vehicles on this path
 var away := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
 var _playing := false             # a `play:` step holds the body's animation
-var _greeted_at := -INF           # clock of the last greeting (attention.greet cooldown)
+var _greeted_at := -INF           # clock of the last greeting taken (attention.greet debounce)
+var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
+var _attend_until := -INF         # keep looking at whoever greeted us until then (acknowledge)
+const GESTURE_BONES := ["RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand"]
 var _yielded_at := -INF
 const YIELD_COOLDOWN := 3.0       # s between stepping aside
 const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
@@ -1361,10 +1364,13 @@ func _attend(delta: float) -> void:
                 eye = (cam as Camera3D).global_position
             var to := _flat(eye - global_position)
             var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
-            if to.length() < float(look["range"]) \
-                    and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0:
+            # Just greeted: look their way wherever they stand (the head's own limits clamp it).
+            if clock < _attend_until or (to.length() < float(look["range"])
+                    and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0):
                 want = 1.0
                 _look.target = eye
+        if _look.gesturing() and (_pose != "sit" or not _transition.is_empty()):
+            _look.stop_gesture()               # they got up: the arm goes with the body's clip
         _look.want = want
         if want > 0.0:
             stats["looking"] = float(stats.get("looking", 0.0)) + delta
@@ -1396,28 +1402,74 @@ func _attend(delta: float) -> void:
     _react(str(yield_spec["action"]), {"aside": aside})
 
 
-## Whether the player can greet this NPC now (their E prompt).
+## Whether the player can greet this NPC now (their E prompt): it has a greeting and is here,
+## whatever it is doing (standing, walking, seated, lying down).
 func can_greet() -> bool:
-    var greet: Dictionary = definition.get("attention", {}).get("greet", {})
-    return not greet.is_empty() and not away and _pose == "stand" and _transition.is_empty() \
-        and clock - _greeted_at >= float(greet["cooldown"]) \
-        and (_stack.is_empty() or _stack.back()["action"] != greet["action"])
+    return not definition.get("attention", {}).get("greet", {}).is_empty() and not away
+
+
+## Seated or lying: out of its standing collider.
+func posed() -> bool:
+    return _pose != "stand"
+
+
+## How far along an aim line (from `from`, unit `forward`) it passes this NPC's posed body, or
+## INF if it misses. A seated or lying NPC has no collider for the player's aim ray to hit, so
+## the E prompt asks this instead: the body is the line from its hips to its head (the root
+## to head height without a skeleton), `radius` thick.
+func aim_distance(from: Vector3, forward: Vector3) -> float:
+    var radius := float(definition.get("radius", 0.25))
+    var a := global_position + Vector3.UP * 0.3
+    var b := global_position + Vector3.UP * (float(definition.get("height", 1.75)) - radius)
+    var skeletons := body.find_children("*", "Skeleton3D", true, false) if body != null else []
+    if not skeletons.is_empty():
+        var skeleton := skeletons[0] as Skeleton3D
+        var hips := skeleton.find_bone("Hips")
+        var head := skeleton.find_bone("Head")
+        if hips >= 0 and head >= 0:
+            a = skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
+            b = skeleton.global_transform * skeleton.get_bone_global_pose(head).origin
+    var best := INF
+    for i in 5:
+        var p := a.lerp(b, i / 4.0)
+        var along := (p - from).dot(forward)
+        if along > 0.0 and (p - from - forward * along).length() <= radius:
+            best = minf(best, along)
+    return best
 
 
 func greet_prompt() -> String:
     return str(definition.get("attention", {}).get("greet", {}).get("prompt", "Say hello"))
 
 
-## An actor (the player by default) greets this NPC: it stops, turns to them and greets
-## back, then carries on. Rules hear it as the NPC's `greeted` signal, with `by` as the actor.
+## An actor (the player by default) greets this NPC. Rules hear it as the NPC's `greeted`
+## signal, with `by` as the actor, in any pose and in the middle of any action: only a second
+## press within `debounce` s is ignored. What the NPC does about it fits what it is doing:
+## standing, it runs its greet action (turns to them and waves) and then carries on; seated, it
+## stays put, looks at them for `acknowledge` s and waves from the chair; lying down or in
+## the middle of sitting down, it only takes the greeting. It waves once per `cooldown` s.
 func greet(by := "player") -> bool:
-    if not can_greet():
+    var spec: Dictionary = definition.get("attention", {}).get("greet", {})
+    if not can_greet() or clock - _greeted_at < float(spec.get("debounce", 0.5)):
         return false
     _greeted_at = clock
     stats["greets"] = int(stats.get("greets", 0)) + 1
-    _trace({"event": "greet", "pos": _v(global_position)})
-    _react(str(definition["attention"]["greet"]["action"]), {})
-    var signal_name := str(definition["attention"]["greet"].get("signal", ""))
+    _attend_until = clock + float(spec.get("acknowledge", 3.0))
+    var response := "none"
+    var action := str(spec["action"])
+    var reacting: bool = not _stack.is_empty() and _stack.back()["action"] == action
+    if clock - _waved_at >= float(spec["cooldown"]) and _transition.is_empty() and not reacting:
+        if _pose == "stand":
+            response = "action"
+            _react(action, {})
+        elif _pose == "sit" and _look != null and _anim != null and _anim.has_animation("wave") \
+                and _look.gesture(_anim.get_animation("wave"), GESTURE_BONES):
+            response = "gesture"
+    if response != "none":
+        _waved_at = clock
+        stats["waves"] = int(stats.get("waves", 0)) + 1
+    _trace({"event": "greet", "pos": _v(global_position), "pose": _pose, "response": response})
+    var signal_name := str(spec.get("signal", ""))
     if signal_name != "":
         greeted.emit(signal_name, by)
     return true
@@ -1501,6 +1553,7 @@ func report() -> Dictionary:
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
+        "waves": int(stats.get("waves", 0)),
         "yields": int(stats.get("yields", 0)), "transitions": int(stats.get("transitions", 0)),
         "cost_us": snappedf(float(_cost_usec) / maxi(_cost_frames, 1), 0.1), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1),
         # World heading (deg) and how far it is from the pose's (sitting: the seat's facing).

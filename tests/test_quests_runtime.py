@@ -180,6 +180,60 @@ def cottage(scene_export, godot_runtime):
     return client
 
 
+def test_a_seated_resident_takes_a_greeting_and_gives_the_quest(cottage):
+    """A quest giver can be greeted in any pose: seated, the resident keeps her seat, waves from
+    it, and the greeting still reaches the rules. A second press right away is debounced, and
+    one inside the wave's cooldown is still a greeting."""
+    rt = cottage
+    fresh = rt.call("state.save")
+
+    def resident():
+        (report,) = rt.call("npcs.list")
+        return report
+
+    sit = next(o["id"] for o in rt.call("npcs.options", npc="resident") if o["action"] == "sit")
+    rt.call("npcs.force", npc="resident", option=sit)
+    for _ in range(40):
+        if resident()["pose"] == "sit" and resident()["doing"].endswith("wait duration"):
+            break
+        rt.call("time.advance", seconds=1)
+    else:
+        pytest.fail(f"the resident never sat down: {resident()}")
+    rt.call("time.advance", seconds=2, scale=1)               # the sit-down clip has run out
+    before = resident()
+    assert before["pose"] == "sit" and quest(rt)["status"] == "available"
+
+    # The E prompt is there for the player standing in front of her, aiming at her chest
+    # (seated, she has no collider: the aim line finds her body).
+    x, y, z = before["position"]                              # her hips, on the armchair, facing -X
+    rt.call("player.teleport", pos=[x - 1.0, 0.32, z], yaw=0)
+    rt.call("player.look", at=[x, 2.4, z])
+    assert rt.call("player.status")["focus"] == {}            # over her head: nothing
+    rt.call("player.look", at=[x, y + 0.4, z])
+    assert rt.call("player.status")["focus"] == {"kind": "npc", "npc": "resident_npc", "prompt": "Say hello"}
+
+    rt.subscribe("quest", "events", types=["signal"], subjects=["cottage:resident"])
+    assert rt.call("player.use") == {"kind": "npc", "npc": "resident_npc", "prompt": "Say hello"}
+    greeted = rt.wait_event(lambda m: m["event"] == "events")["data"]
+    assert (greeted["subject"], greeted["name"], greeted["actor"]) == ("cottage:resident", "greeted", "player")
+    assert rt.wait_event(lambda m: m["event"] == "quest")["data"]["event"] == "started"
+    assert quest(rt)["status"] == "active"
+    assert rt.call("npcs.greet", npc="resident")["ok"] is False            # the same press, bouncing
+    rt.call("time.advance", seconds=1, scale=1)
+    after = resident()
+    assert (after["pose"], after["doing"], after["position"]) == ("sit", before["doing"], before["position"])
+    assert (after["greets"], after["waves"]) == (before["greets"] + 1, before["waves"] + 1)
+    assert after["looking"] > before["looking"]
+
+    assert rt.call("npcs.greet", npc="resident")["ok"]                     # again: a greeting, no second wave
+    again = resident()
+    assert (again["pose"], again["greets"], again["waves"]) == ("sit", after["greets"] + 1, after["waves"])
+    rt.unsubscribe()
+    rt.call("state.load", state=fresh)
+    assert quest(rt)["status"] == "available"
+    rt.call("time.advance", seconds=1, scale=1)
+
+
 def test_the_resident_gives_the_lights_out_quest_and_it_counts_the_switches(cottage):
     """The 'change the world' archetype end to end: greeting the resident gives it, each real
     switch moves the count, and the last one completes it."""
@@ -197,13 +251,8 @@ def test_the_resident_gives_the_lights_out_quest_and_it_counts_the_switches(cott
     assert lights() == ("available", "waiting", [0, 3])
 
     rt.subscribe("quest", "events", types=["signal"], subjects=["cottage:resident"])
-    for _ in range(30):                                       # they greet standing: wait out a sit or a turn
-        if rt.call("npcs.greet", npc="resident")["ok"]:
-            break
-        rt.call("time.advance", seconds=2)
-    else:
-        pytest.fail("the resident never stood still to be greeted")
-    greeted = rt.wait_event(lambda m: m["event"] == "events")["data"]
+    assert rt.call("npcs.greet", npc="resident")["ok"]        # whatever they are doing
+    greeted =rt.wait_event(lambda m: m["event"] == "events")["data"]
     assert (greeted["type"], greeted["subject"], greeted["name"], greeted["actor"]) == (
         "signal", "cottage:resident", "greeted", "player")
     started = rt.wait_event(lambda m: m["event"] == "quest")["data"]

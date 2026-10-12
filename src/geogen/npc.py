@@ -53,12 +53,15 @@ POSE_KEYS = {"offset", "rotation", "scale"}
 # How an NPC notices the player (runtime/godot/scripts/npc.gd): turn its head toward them
 # (``look``: within ``range`` m and a ``cone`` of degrees ahead, head/neck turned up to ``yaw`` /
 # ``pitch`` degrees, eased at ``speed``), greet them when they press E on it (``greet``: the
-# action it runs, the player's prompt, seconds before it greets again, and the ``signal`` the NPC
-# raises with the greeter as the actor, which rules listen to), and step ``step`` m aside
-# when it stands within ``distance`` m of the player walking at it (``yield``).
+# action it runs when standing, the player's prompt, and the ``signal`` the NPC raises with the
+# greeter as the actor, which rules listen to. The signal is raised in any pose and mid-action;
+# only a second press within ``debounce`` s is ignored. ``cooldown`` is the seconds before it
+# waves again, and ``acknowledge`` how long it keeps looking at the greeter), and step
+# ``step`` m aside when it stands within ``distance`` m of the player walking at it (``yield``).
 ATTENTION_DEFAULTS = {
     "look": {"range": 4.0, "cone": 150.0, "yaw": 70.0, "pitch": 25.0, "speed": 4.0},
-    "greet": {"action": "greet", "prompt": "Say hello", "cooldown": 8.0, "signal": "greeted"},
+    "greet": {"action": "greet", "prompt": "Say hello", "cooldown": 8.0, "signal": "greeted",
+              "debounce": 0.5, "acknowledge": 3.0},
     "yield": {"distance": 1.0, "step": 0.9, "action": "step_aside"},
 }
 PORTAL_KEYS = {"interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"}
