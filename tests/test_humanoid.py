@@ -137,7 +137,7 @@ def test_sit_puts_feet_on_the_floor_and_hips_on_the_seat(bodies, preset):
         assert ankle[1] == pytest.approx(0.045 * height, abs=0.01), side
         assert ankle[2] > 0.3                                   # feet out in front of the seat
     hips = body.find("Hips").world_transform()[:3, 3]
-    assert 0.45 < hips[1] < 0.6
+    assert 0.45 < hips[1] < 0.61                                # (a skirt adds its cloth under the seat flesh)
     lowest = body.find("body").world_mesh().vertices[:, 1].min()
     assert lowest > -0.02
 

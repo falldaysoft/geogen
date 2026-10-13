@@ -2,8 +2,9 @@
 
 The baseline (tests/data/clipping_baseline.json, regenerate with
 ``python tests/test_clipping.py``) records today's penetration per preset x outfit x pose
-and seat. The guard fails if anything gets worse; the strict test is the goal (nothing past
-2 mm) and flips to passing as the clothing fixes land (z2b.16.16-.21).
+and seat. The guard fails if anything gets worse; the strict tests are the goal (nothing past
+2 mm): skirts and dresses in every pose and clip (generators/drape.py, geogen.11.5.5), and
+everything at once for two outfits.
 
 The waist tests (geogen.11.5.19) are strict already: an outfit with a separate top and bottom
 shows no skin between them, the two overlap and the top's hem stays a smooth loop, in every pose.
@@ -54,9 +55,10 @@ def test_clipping_no_worse_than_baseline(preset, outfit):
     assert _worse(_report(preset, outfit), baseline, key) == []
 
 
-@pytest.mark.xfail(reason="seated clothing and seat fit: geogen-z2b.16.16-.21", strict=False)
-@pytest.mark.parametrize("preset,outfit", [(["feminine"], "casual_f"), (["masculine"], "jeans_tee")],
-                         ids=["feminine_casual_f", "masculine_jeans_tee"])
+@pytest.mark.parametrize("preset,outfit", [
+    pytest.param(["feminine"], "casual_f", marks=pytest.mark.xfail(
+        reason="long hair lies 3 mm in the dining chair's top rail (hair has no pose correctives)", strict=False)),
+    (["masculine"], "jeans_tee")], ids=["feminine_casual_f", "masculine_jeans_tee"])
 def test_no_clipping_beyond_tolerance(preset, outfit):
     def bad(d):
         return [k for k, v in d.items() if isinstance(v, dict) and (v.get("count", 0) > 0 if "count" in v else bad(v))]
@@ -64,16 +66,45 @@ def test_no_clipping_beyond_tolerance(preset, outfit):
     assert bad(_report(preset, outfit)) == []
 
 
+SKIRTED = [(["feminine"], "casual_f"), (["feminine", "hourglass"], "dress"), (["masculine"], "casual_f"),
+           (["feminine", "petite"], "skirt_sweater"), (["feminine", "curvy"], "dress")]
+CLIP_FRAMES = {"walk": 8, "idle": 3, "sit_down": 5, "stand_up": 5, "lie_down": 4, "get_up": 4}
+
+
+@pytest.mark.parametrize("preset,outfit", [pytest.param(p, o, marks=() if i == 0 else pytest.mark.exhaustive)
+                                           for i, (p, o) in enumerate(SKIRTED)],
+                         ids=lambda x: "+".join(x) if isinstance(x, list) else x)
+def test_nothing_pokes_through_a_skirt_in_any_pose_or_clip(preset, outfit):
+    """The body stays inside a skirt or dress (generators/drape.py) in every static pose and
+    through the walk, idle and transition clips, to QA's 2 mm tolerance; seated, the cloth isn't
+    in the seat. (Heavy builds are left out: a belly that overhangs the lap still shows through
+    it by ~1 cm when crouching or leaning forward on a seat.)"""
+    import numpy as np
+
+    from geogen.clipping import measure, report
+    from geogen.layout import LayoutLoader
+
+    character = LayoutLoader().load(ASSETS / "characters" / "humanoid.yaml", params={"preset": preset, "outfit": outfit})
+    drape = character.meta["humanoid"]["drape"]
+    assert 1 <= drape["morphs"] <= 8
+    faults = {}
+    for pose in POSES:
+        faults[pose] = measure(character, pose)["shell_poke"]
+    for clip, count in CLIP_FRAMES.items():
+        duration = next(c.duration for c in character.clips if c.name == clip)
+        for t in np.linspace(0.0, duration, count, endpoint=False):
+            faults[f"{clip}@{t:.2f}"] = measure(character, None, clip, float(t))["shell_poke"]
+    assert {k: v for k, v in faults.items() if v["count"]} == {}
+    seats = report([preset], [outfit], poses=())["+".join(preset) + "/" + outfit]
+    assert max(v["max_mm"] for v in seats.values()) < 10.0, seats
+
+
 POSES = ["stand", "sit", "sit_at_table", "lie", "lean_on_sill", "reach_low", "look", "t_pose"]
 SEPARATES = ["casual", "jeans_tee", "smart", "shorts_tee", "casual_f", "skirt_sweater"]      # a top and a bottom
 WAIST_CORE = [(["feminine"], "casual_f"), (["feminine"], "jeans_tee"), (["masculine"], "jeans_tee"),
               (["feminine"], "skirt_sweater")]
 WAIST_MIN_OVERLAP = 15.0     # mm, in any pose (the generator laps them 30 mm at rest: humanoid.WAIST_OVERLAP)
-# Seated or crouching, a sliver of thigh still shows at the hip crease of a skirt on these builds.
-WAIST_OPEN = {("masculine+heavy", "casual_f"), ("masculine+heavy", "skirt_sweater"), ("feminine+petite", "skirt_sweater")}
-WAIST = [pytest.param(p, o, marks=[] if (p, o) in WAIST_CORE else
-                      [pytest.mark.exhaustive] + ([pytest.mark.xfail(reason="a skirt at the hip crease (left by geogen.11.5.19)", strict=False)]
-                                                  if ("+".join(p), o) in WAIST_OPEN else []))
+WAIST = [pytest.param(p, o, marks=[] if (p, o) in WAIST_CORE else [pytest.mark.exhaustive])
          for p in PRESETS for o in SEPARATES]
 
 

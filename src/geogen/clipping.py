@@ -5,7 +5,8 @@ and reports, in millimetres:
 
 - ``shell_poke``: loose garments (the ``clothes`` shell: skirts, dresses). A body vertex is
   *covered* when it lies inside the shell in the pose the garment was built in (stand); in the
-  measured pose, covered vertices outside the shell poke through.
+  measured pose, covered vertices outside the shell poke through (unless they are nearer its
+  hem's opening than its cloth: they left by the opening).
 - ``hands``: hand and forearm vertices inside the rest of the body (thighs, hips, belly) or
   inside the loose shell (a palm through the skirt).
 - ``feet_skin``: skin (not shoe) vertices on the heels of a body wearing shoes: behind and below
@@ -95,15 +96,15 @@ def _tris(mesh, faces=None) -> np.ndarray:
     return mesh.vertices[f]
 
 
-def _solid(mesh) -> np.ndarray:
+def _solid(mesh, caps: bool = False):
     """A garment shell's triangles as a closed solid. A hemmed (open) shell is its outer wall and
     rim (not the lining) capped across each hem opening with a fan, so the space it wraps is
-    inside, as for a closed shell."""
+    inside, as for a closed shell. With ``caps``: (the solid, the cap fans alone)."""
     from .generators.humanoid import lining_faces
 
     inner = lining_faces(mesh)
     if not inner.any():
-        return mesh.vertices[mesh.faces]
+        return (mesh.vertices[mesh.faces], np.empty((0, 3, 3))) if caps else mesh.vertices[mesh.faces]
     outer = mesh.faces[~inner]
     # Directed boundary edges of the outer wall: a -> b with no b -> a.
     edges = np.concatenate([outer[:, [0, 1]], outer[:, [1, 2]], outer[:, [2, 0]]])
@@ -127,6 +128,8 @@ def _solid(mesh) -> np.ndarray:
         centre = mesh.vertices[np.unique(np.array(loop))].mean(axis=0)
         fan = np.array([[mesh.vertices[b], mesh.vertices[a], centre] for a, b in loop])
         tris.append(fan)
+    if caps:
+        return np.concatenate(tris), np.concatenate(tris[1:]) if len(tris) > 1 else np.empty((0, 3, 3))
     return np.concatenate(tris)
 
 
@@ -301,10 +304,14 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
         covered = winding(rest["body"].vertices, _solid(rest["clothes"])) > 0.5
         covered &= ~_bone_mask(actor, body, ARM_BONES)       # a hand resting in a skirt's folds isn't under it
         pts = body.vertices[covered]
-        outside = winding(pts, _solid(now["clothes"])) < 0.5
+        solid, opening = _solid(now["clothes"], caps=True)
+        outside = winding(pts, solid) < 0.5
         depth = np.zeros(len(pts))
         if outside.any():
-            depth[outside] = distance(pts[outside], _tris(now["clothes"]))
+            wall = distance(pts[outside], _tris(now["clothes"]))
+            # Out through the hem's opening (a knee below a skirt that rode up) is not through the cloth.
+            left = distance(pts[outside], opening) < wall if len(opening) else np.zeros(len(wall), bool)
+            depth[outside] = np.where(left, 0.0, wall)
         out["shell_poke"] = _metric(depth)
     # Hands and forearms in the rest of the body, or in the shell.
     hand = _bone_mask(actor, body, HAND_BONES)

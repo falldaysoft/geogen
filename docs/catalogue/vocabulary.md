@@ -145,7 +145,7 @@ A piece of clothing fitted to the humanoid; outfits are picked with its `outfit`
 
 Use: `place: {x: {asset: characters/humanoid.yaml, params: {outfit: dress}}}`
 
-Keys: `chains`, `cover`, `cut`, `layer`, `material`, `name`, `part`, `thickness`, `type`, `weights`
+Keys: `chains`, `cover`, `cut`, `ease`, `layer`, `material`, `name`, `part`, `thickness`, `type`, `weights`
 
 | File | What it is |
 | --- | --- |

@@ -24,7 +24,7 @@ class Mesh:
     ``colors`` are optional per-vertex RGBA (0-1) tints, exported as COLOR_0.
     ``morphs`` are named morph targets (blend shapes): per-vertex position deltas in the mesh's
     rest frame, applied before skinning with the owning node's ``morph_weights``; exported as
-    glTF morph targets (pose correctives, see ``humanoid.fit_corrective``).
+    glTF morph targets (pose correctives, see ``generators.drape``).
     ``joints`` / ``weights`` (Nx4) bind each vertex to up to four joints of
     the owning node's ``Skin`` (see ``core.skin``), exported as JOINTS_0 /
     WEIGHTS_0; weights sum to 1 per vertex.

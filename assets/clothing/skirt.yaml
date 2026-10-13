@@ -10,10 +10,9 @@ chains:
   skirt:
     bones: [Spine, Hips]
     end: [0, "{height * 0.3}", 0]
-    sides: 16
-    spacing: 0.2
+    sides: 20
+    spacing: 0.065    # rings close enough to bend over a lap (generators/drape.py)
     joint_rings: false
-    samples: [[Hips, 0.1], [Hips, 0.2]]   # rings to bend over the seat with
     caps: [round, hem]      # open, double-walled hem (ringloft)
     rings:
       - [Spine, 0.05, "{(hips_rx + waist_rx) / 2 + 0.018}", "{(0.084 + 0.03 * belly) * tf + 0.018}", { offset: [0, "{0.018 * belly * tf}"], power: 2.3 }]

@@ -49,7 +49,7 @@ import numpy as np
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
-from ..core.skin import Clip, MorphTrack, Skin
+from ..core.skin import Clip, Skin
 from .ringloft import Chain, Ring, Span, loft_body
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
@@ -222,7 +222,8 @@ CLOTH_COLORS = {"white": (0.95, 0.95, 0.94), "cream": (0.94, 0.9, 0.8), "black":
                 "mustard": (0.86, 0.66, 0.22), "olive": (0.42, 0.45, 0.24), "green": (0.22, 0.5, 0.32),
                 "teal": (0.12, 0.47, 0.5), "lavender": (0.67, 0.6, 0.82), "brown": (0.42, 0.28, 0.18),
                 "tan": (0.73, 0.59, 0.41), "sky": (0.55, 0.72, 0.9)}
-GARMENT_KEYS = {"kind", "name", "type", "part", "material", "layer", "thickness", "cover", "chains", "cut", "weights"}
+GARMENT_KEYS = {"kind", "name", "type", "part", "material", "layer", "thickness", "cover", "chains", "cut", "weights",
+                "ease"}
 GARMENT_PARTS = ("top", "bottom", "dress", "shoes")      # what a garment is worn as (clipping QA's waist check)
 
 
@@ -560,22 +561,38 @@ def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE, h
     shell.vertices[move] = origin[move] + direction[move] * want[move, None]
 
 
-def leg_weights(shell: Mesh, skeleton: Skeleton, fall: float = 0.12, seam: float = 0.06) -> None:
-    """Skirt weights: the waist rides the Hips; below the hip joints the shell hands over to the
-    thighs within ``fall`` metres (left of the centre line to LeftUpperLeg, right to Right, blended
-    across a ``seam`` either side). No shin weights, so a hem near the knee doesn't swing down
-    with the lower leg when seated, and the lap lies across the thighs."""
+LEG_SPLIT = 0.25               # how much more of its own side's thigh a skirt vertex follows (0: both alike .. 0.5)
+
+
+def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise: float = 0.07,
+                fall: float = 0.11, split: float = LEG_SPLIT, seam: float = 0.08) -> None:
+    """Skirt weights: the waist rides the Hips; from ``rise`` above the hip joints to ``fall``
+    below them the shell hands over to the two thighs: half each, ``split`` more of its own
+    side's (eased across ``seam`` either side of the centre line), so the cloth mostly hangs
+    between the legs in a stride but leans the way its leg goes. With the
+    ``body``, ``rise`` is at least how far its thighs' fronts stand off the hip joints: how high
+    their tops come when they lift level, so no ring that stays level is in their way. So it goes
+    where the legs go together (up onto the lap when seated) and hangs from the pelvis when they
+    part (a stride), and its rings fan round the hip like an elbow's. ``drape`` then gives each
+    ring its girth back and room for the legs. No shin weights: a hem near the knee doesn't swing
+    down with the lower leg when seated."""
     from ..core.skin import normalize_weights
 
     names = skeleton.names
-    hip_y = float(skeleton["LeftUpperLeg"].head[1])
-    y, x = shell.vertices[:, 1], shell.vertices[:, 0]
-    t = np.clip((hip_y - y) / fall, 0.0, 1.0)
+    hip = skeleton["LeftUpperLeg"].head
+    hip_y = float(hip[1])
+    if body is not None:
+        thighs = np.isin(dominant_bones(body, names), ("LeftUpperLeg", "RightUpperLeg"))
+        top = body.vertices[thighs & (body.vertices[:, 1] > hip_y - 0.15)]
+        if len(top):
+            rise = max(rise, float((top[:, 2] - hip[2]).max()) + 0.02)
+    y = shell.vertices[:, 1]
+    t = np.clip((hip_y + rise - y) / (rise + fall), 0.0, 1.0)
     thigh = t * t * (3 - 2 * t)
-    u = np.clip((x + seam) / (2 * seam), 0.0, 1.0)
-    left = u * u * (3 - 2 * u)
     dense = np.zeros((len(y), len(names)))
     dense[:, names.index("Hips")] = 1 - thigh
+    u = np.clip((shell.vertices[:, 0] + seam) / (2 * seam), 0.0, 1.0)
+    left = 0.5 + split * (2 * u * u * (3 - 2 * u) - 1)
     dense[:, names.index("LeftUpperLeg")] = thigh * left
     dense[:, names.index("RightUpperLeg")] = thigh * (1 - left)
     shell.joints, shell.weights = normalize_weights(np.tile(np.arange(len(names)), (len(y), 1)), dense)
@@ -692,7 +709,10 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                 # An end may be {level: <chain>}: level with where this garment's cover of that chain starts.
                 ends = [(e.get("bone"), 0.0) if isinstance(e, dict) else (e[0], float(e[1])) for e in (start, end)]
                 ends = [(bone or ends[1 - k][0], t) for k, (bone, t) in enumerate(ends)]
-                span = Span(ends[0], ends[1], float(garment.get("thickness", 0.005)), slot, int(garment.get("layer", 1)))
+                # (stiffness is for the trunk: a sleeve or a trouser leg has no hollows to span)
+                ease = float(garment.get("ease", 0.0)) if chain_name == "torso" else 0.0
+                span = Span(ends[0], ends[1], float(garment.get("thickness", 0.005)), slot, int(garment.get("layer", 1)),
+                            ease)
                 by_name[chain_name].spans.append(span)
                 worn[-1]["spans"][chain_name] = span
                 levels += [(worn[-1], chain_name, k, e["level"]) for k, e in enumerate((start, end)) if isinstance(e, dict)]
@@ -757,6 +777,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             hair = root.add_child(SceneNode("hair", mesh=hair_mesh))
             hair.meta["collider"] = "none"
             hair.skin = Skin.bind(hair, [nodes[n] for n in skeleton.names], name=f"{name}_hair_skin")
+    draped = []                   # loose shells drape.fit bakes pose correctives for
     if loose:
         shells = []
         starts = [0]
@@ -768,7 +789,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             if mode == "body":
                 transfer_weights(shell, mesh)
             elif mode == "legs":
-                leg_weights(shell, skeleton)
+                leg_weights(shell, skeleton, mesh)
             else:
                 raise ValueError(f"garment '{garment.get('name')}': unknown weights '{mode}' (body | legs)")
             shell.colors = np.tile([*color, 1.0], (len(shell.vertices), 1))
@@ -779,6 +800,14 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         for entry in worn:
             if entry["shell"] is not None:
                 entry["shell_vertices"] = np.arange(starts[entry["shell"]], starts[entry["shell"] + 1])
+        for k, (garment, _, _) in enumerate(loose):
+            if len(garment["chains"]) == 1 and not garment.get("cut"):      # a single tube: drape.py can drape it
+                from .ringloft import ChainPath
+
+                chain = parse_chain(*next(iter(garment["chains"].items())), skeleton)
+                path = ChainPath(skeleton, chain)
+                keys = [path.s_of(r.bone, r.t) for r in chain.rings]
+                draped.append({"vertices": np.arange(starts[k], starts[k + 1]), "s_range": (min(keys), max(keys))})
         clothes = root.add_child(SceneNode("clothes", mesh=Mesh.merge(shells)))
         clothes.meta["collider"] = "none"
         clothes.skin = Skin.bind(clothes, [nodes[n] for n in skeleton.names], name=f"{name}_clothes_skin")
@@ -796,7 +825,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             roots["sit"]["offset"] = [roots["sit"]["offset"][0], -seats["sit"], roots["sit"]["offset"][2]]
         root.clips.extend(generate_clip(skeleton, base, clip_name, clip_spec or {}, poses=poses, roots=roots)
                           for clip_name, clip_spec in spec["clips"].items())
-    fit_corrective(root, seats)
+    from . import drape
+
+    drape_report = drape.fit(root, draped, set(seats)) if draped else {}
     if pose_name is not None:
         if pose_name not in poses:
             raise ValueError(f"'{name}': unknown pose '{pose_name}'. Poses: {sorted(poses)}")
@@ -809,6 +840,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                              "pose": pose_name, "hair": hair_style, "outfit": outfit_name,
                              "triangles": int(sum(len(n.mesh.faces) for n in root.iter_nodes() if n.mesh is not None))}
     root.meta["humanoid"]["seats"] = seats
+    root.meta["humanoid"]["shells"] = draped            # for drape.Draper (review, tests)
+    if drape_report:
+        root.meta["humanoid"]["drape"] = drape_report
     if waist_overlap is not None:
         root.meta["humanoid"]["waist_overlap"] = round(float(waist_overlap), 4)
     # What is worn, for clipping QA: each garment's vertices of `body` (tight) and of `clothes` (loose).
@@ -821,7 +855,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     return root
 
 
-SEAT_SINK = 0.005        # m the seat flesh/cloth presses into a seat
+SEAT_SINK = 0.0015       # m the seat flesh/cloth presses into a seat (within clipping QA's tolerance)
 SEAT_CLEAR = 0.03        # m the calves keep in front of a seat's front edge
 KNEE_OVERHANG = 0.3      # share of the thigh, behind the knee joint, that clears the seat front
 
@@ -846,14 +880,14 @@ def seat_contact(root, clip: str) -> tuple[float, SceneNode, np.ndarray, np.ndar
     front = knee[2] - KNEE_OVERHANG * np.linalg.norm(knee - hip)
     seat = np.isin(dominant, ["Hips", "LeftUpperLeg", "RightUpperLeg"]) & (mesh.vertices[:, 2] < front)
     contact = float(mesh.vertices[seat][:, 1].min())
-    # A skirt under the seat adds its thickness, but not its hanging hem (a seated skirt still
-    # drapes below the thighs: geogen-z2b.16.16), so only cloth just under the flesh counts.
+    # A skirt under the seat flesh adds its thickness (drape.py lays it on the seat plane).
     clothes = next((n for n in actor.iter_nodes() if n.name == "clothes" and n.mesh is not None), None)
     if clothes is not None:
+        from .drape import SEAT_CLOTH
+
         cv = clothes.world_mesh().vertices
-        under = cv[(cv[:, 1] < contact) & (cv[:, 1] > contact - 0.015) & (cv[:, 2] < front)]
-        if len(under):
-            contact = float(under[:, 1].min())
+        if ((cv[:, 1] < contact + 0.1) & (cv[:, 2] < front)).any():
+            contact -= SEAT_CLOTH
     return contact, actor, mesh, dominant
 
 
@@ -884,71 +918,6 @@ def fit_seats(root, skeleton: Skeleton, poses: dict) -> dict[str, float]:
         poses[name] = spec
         seats[name] = round(float(spec["seat"]), 4)
     return seats
-
-
-SEATED_MORPH = "seated"
-
-
-def fit_corrective(root, seats: dict[str, float], smooth: int = 0) -> None:
-    """A pose-space corrective for the loose garment shell (``clothes``) when seated.
-
-    Skinned to the thighs, a skirt's back panel swings down under them as the legs lift and
-    hangs through the seat. In the ``sit`` pose, lift every shell vertex below the hips and short
-    of the knees that hangs below the seat plane (the seat flesh's contact)
-    up onto it (the lining one cloth thickness above), smooth the lift over the shell, and store it as the rest-space morph
-    target ``seated`` (inverting each vertex's blended skinning matrix). Seated pose clips key its
-    weight to 1 and every other clip to 0; transitions ramp it between their two poses."""
-    clothes = next((n for n in root.children if n.name == "clothes" and n.mesh is not None), None)
-    if clothes is None or "sit" not in seats or not any(c.name == "pose_sit" for c in root.clips):
-        return
-    found = seat_contact(root, "pose_sit")
-    if found is None:
-        return
-    contact, actor, body, dominant = found
-    node = next(n for n in actor.iter_nodes() if n.name == "clothes")
-    shell = node.mesh
-    posed = node.world_mesh()
-    knee = actor.find("LeftLowerLeg").world_transform()[:3, 3]
-    inner = np.zeros(len(shell.vertices), bool)
-    outer_used = np.zeros(len(shell.vertices), bool)
-    lining = lining_faces(shell)
-    inner[shell.faces[lining].ravel()] = True
-    outer_used[shell.faces[~lining].ravel()] = True
-    inner &= ~outer_used
-    # The floor: the seat plane (the seat flesh's contact), under everything below the hip joints
-    # and short of the knees. (Following the thigh undersides instead makes the coarse shell's
-    # faces cut through the buttocks between lifted and unlifted vertices.)
-    hip_y = float(actor.find("LeftUpperLeg").world_transform()[1, 3])
-    y, z = posed.vertices[:, 1], posed.vertices[:, 2]
-    floor = contact + 0.001 + np.where(inner, 0.006, 0.0)
-    need = np.where((z < knee[2]) & (y < hip_y), np.maximum(floor - y, 0.0), 0.0)
-    if not need.any():
-        return
-    # Smooth the lift over the shell's edges (no crease where it starts), never below what's needed.
-    edges = np.vstack([shell.faces[:, [0, 1]], shell.faces[:, [1, 2]], shell.faces[:, [2, 0]]])
-    lift = need.copy()
-    for _ in range(smooth):
-        acc, count = lift.copy(), np.ones(len(lift))
-        np.add.at(acc, edges[:, 0], lift[edges[:, 1]])
-        np.add.at(count, edges[:, 0], 1)
-        lift = np.maximum(acc / count, need)
-    # Posed displacement (straight up) -> rest-space delta through the blended skinning matrix.
-    mats = node.skin.matrices(node)
-    blended = np.einsum("vk,vkij->vij", shell.weights, mats[shell.joints])[:, :3, :3]
-    to_world = node.world_transform()[:3, :3]
-    world_disp = np.column_stack([np.zeros(len(lift)), lift, np.zeros(len(lift))])
-    local_disp = world_disp @ np.linalg.inv(to_world).T
-    delta = np.linalg.solve(blended, local_disp[:, :, None])[:, :, 0]
-    mesh = clothes.mesh.copy()
-    mesh.morphs = {**(mesh.morphs or {}), SEATED_MORPH: delta}
-    clothes.mesh = mesh
-    seated = {f"pose_{name}" for name in seats}
-    for clip in root.clips:
-        end = max(clip.duration, POSE_CLIP_SECONDS)
-        value = 1.0 if clip.name in seated else 0.0
-        values = [float(f"pose_{clip.meta[key]}" in seated) for key in ("from", "to")] if "to" in clip.meta \
-            else [value, value]
-        clip.morphs["clothes"] = MorphTrack([0.0, end], {SEATED_MORPH: values})
 
 
 def _replace_clip(root, clip: Clip) -> None:

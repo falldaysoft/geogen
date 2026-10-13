@@ -5,6 +5,7 @@ part: top
 material: cloth
 layer: 2
 thickness: 0.005
+ease: 0.12               # stiffness: spans hollows a ball this big (m) can't get into (ringloft.Span)
 cover:
   leg: [[LeftUpperLeg, -1.0], { level: torso }]   # the thigh tubes' tops, down to the hem line
   torso: [[Hips, 0.35], [Neck, 0.18]]

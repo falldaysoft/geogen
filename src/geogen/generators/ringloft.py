@@ -63,6 +63,10 @@ class Span:
     thickness: float
     slot: int
     layer: int = 0
+    # Stiffness: the radius (m) of a ball rolled along the outside of the covered body, front,
+    # back and sides. The cloth goes where the ball touches, so it spans hollows the ball can't
+    # get into (under a bust, a narrow waist) instead of clinging to them. 0: skin tight.
+    ease: float = 0.0
 
 
 @dataclass
@@ -187,6 +191,9 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray, NDAr
         s = s[[np.any(np.isclose(bounds, x)) or np.min(np.abs(np.asarray(bounds) - x)) > min_gap * 0.5
                for x in s]]
     rings = _interpolate(s_keys, params, s)
+    for a, e, sp in spans:
+        if sp.ease > 0 and e - a > 1e-6:
+            _span_hollows(rings, s, s_keys, params, max(a, s_keys[0]), min(e, s_keys[-1]), sp.ease)
 
     def cover(x: float) -> tuple[float, int]:
         """(thickness, slot) of the topmost garment at arc length x (0, 0 for bare skin)."""
@@ -236,6 +243,35 @@ def _sample_rings(path: ChainPath, chain: Chain) -> tuple[NDArray, NDArray, NDAr
     end_slots = (slots[0] if slots else cover(s[0])[1], slots[-1] if slots else cover(s[-1])[1])
     slots = [end_slots[0]] * len(s0) + slots + [end_slots[1]] * len(s1)
     return np.concatenate([s0[::-1], s, s1]), np.vstack([c0[::-1], rings, c1]), np.array(slots, dtype=np.int64)
+
+
+def _roll(profile: NDArray, s: NDArray, radius: float) -> NDArray:
+    """A profile (heights over ``s``) closed by a ball of ``radius`` rolled along its top: equal
+    to it wherever the ball can touch, spanning the hollows it can't reach into. The ball rolls
+    on off both ends, so the ends themselves stay where they are."""
+    step = max(float(np.diff(s).min()), radius / 200)
+    beyond = np.arange(step, radius + step, step)
+    centres = np.concatenate([s[0] - beyond[::-1], s, s[-1] + beyond])      # where the ball's centre may be
+    gap = centres[:, None] - s[None, :]
+    cap = np.sqrt(np.maximum(radius ** 2 - gap ** 2, 0.0))
+    near = np.abs(gap) <= radius
+    height = np.where(near, profile[None, :] + cap, -np.inf).max(axis=1)     # the centre's, resting on the profile
+    return np.maximum(np.where(near, height[:, None] - cap, np.inf).min(axis=0), profile)
+
+
+def _span_hollows(rings: NDArray, s: NDArray, s_keys: NDArray, params: NDArray, start: float, end: float,
+                  ease: float) -> None:
+    """Widen ``rings`` (in place) between arc lengths ``start`` and ``end`` so that their front,
+    back and side outlines span the body's hollows as a cloth of stiffness ``ease`` would
+    (``Span.ease``). The outlines are rolled over a fine resampling of the body, not the rings."""
+    fine = np.unique(np.concatenate([np.linspace(start, end, max(int((end - start) / 0.005), 2)), s[(s >= start) & (s <= end)]]))
+    body = _interpolate(s_keys, params, fine)
+    side, front, back = (_roll(v, fine, ease) for v in (body[:, 0], body[:, 3] + body[:, 1], body[:, 1] - body[:, 3]))
+    inside = (s >= start - 1e-9) & (s <= end + 1e-9)
+    at = np.searchsorted(fine, s[inside])
+    rings[inside, 0] = side[at]
+    rings[inside, 1] = (front[at] + back[at]) / 2
+    rings[inside, 3] = (front[at] - back[at]) / 2
 
 
 def _hem(s: NDArray, rings: NDArray, slots: NDArray, thickness: float, skip: int = 0):

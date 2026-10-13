@@ -38,7 +38,7 @@ def test_outfits_build_clean_meshes(loader, outfit):
     materials = {m.name for n in body.iter_nodes() if n.mesh is not None
                  for m in (n.mesh.materials or [n.mesh.material])}
     assert len(materials) <= 6                      # skin, face, hair + at most three fabrics
-    assert body.meta["humanoid"]["triangles"] <= 4200
+    assert body.meta["humanoid"]["triangles"] <= 4650      # a skirt is ~1.1k: rings close enough to drape
     clothes = body.find("clothes")
     if outfit in ("dress", "skirt_sweater", "casual_f"):
         assert clothes is not None and meshops.validate(clothes.mesh).watertight

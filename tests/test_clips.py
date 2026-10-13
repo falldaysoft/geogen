@@ -163,8 +163,19 @@ def test_lying_down_turns_the_body_onto_its_back(body):
     assert _clip(body, "get_up").meta["to"] == "stand"
 
 
-def test_transition_ramps_the_seated_corrective():
+def test_clips_key_the_drape_correctives():
+    """A skirt's pose correctives (generators/drape.py) are morph targets the clips key: none
+    standing, the seated drape at the seated end of a transition, and a walk that loops."""
     body = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "outfit": "skirt_sweater"})
-    weights = {name: _clip(body, name).morphs["clothes"].weights["seated"] for name in ("sit_down", "stand_up", "walk")}
-    assert list(weights["sit_down"]) == [0.0, 1.0] and list(weights["stand_up"]) == [1.0, 0.0]
-    assert list(weights["walk"]) == [0.0, 0.0]
+    morphs = body.find("clothes").mesh.morphs
+    assert 1 <= len(morphs) <= 8
+    tracks = {name: _clip(body, name).morphs["clothes"] for name in ("pose_stand", "pose_sit", "sit_down", "stand_up", "walk")}
+    for track in tracks.values():
+        assert set(track.weights) == set(morphs)
+        assert all(np.abs(w).max() <= 1 + 1e-9 for w in track.weights.values())
+    at = lambda name, k: np.array([tracks[name].weights[m][k] for m in morphs])
+    assert np.abs(at("pose_stand", 0)).max() < 1e-6 and np.abs(at("pose_sit", 0)).max() > 0.5
+    np.testing.assert_allclose(at("sit_down", -1), at("pose_sit", 0), atol=1e-6)
+    np.testing.assert_allclose(at("stand_up", 0), at("pose_sit", 0), atol=1e-6)
+    np.testing.assert_allclose(at("sit_down", 0), 0.0, atol=0.02)      # (its first frame plants the feet)
+    np.testing.assert_allclose(at("walk", 0), at("walk", -1), atol=1e-9)
