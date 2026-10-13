@@ -28,6 +28,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [rail_loop_test](#rail_loop_test) | Test scene for city exits and a loop railway: a 2 x 2 grid whose avenues run on out of town across a railway looping round it (four level crossings), two stations on the straights and two trains. | test |
 | [restaurant](#restaurant) | The restaurant showcase: assets/restaurant_building.yaml on a street corner. | showcase |
 | [room_with_furniture](#room_with_furniture) | Room with furniture - demonstrates nested scene composition. |  |
+| [sandwich_kitchen](#sandwich_kitchen) | A kitchen to make a sandwich in. | test |
 | [seated_fit](#seated_fit) | Seats for clothing/pose fit review: an armchair, a dining chair and a sofa in a row (clipping QA, geogen/clipping.py). |  |
 | [street](#street) | Street scene - hierarchical composition. |  |
 | [street_side](#street_side) | One side of a street - sidewalk with house plots behind it. |  |
@@ -384,6 +385,27 @@ A room containing a dining set
 **Places**: `dining_set: {scene: scenes/dining_set.yaml}`
 
 **Slots**: back_wall_center, corner_back_left, corner_back_right, room_center
+
+## sandwich_kitchen
+
+`scene: scenes/sandwich_kitchen.yaml` · [source](../../assets/scenes/sandwich_kitchen.yaml)
+
+A kitchen to make a sandwich in. An architecture test, built from assets,
+interactions and rules alone: the room, counter, plate, knife, loaf and jars
+are shared assets that know nothing of sandwiches; what is this scene's own
+is in assets/sandwich/ (the sandwich and the quest) and the rules below.
+
+```yaml
+- E on the loaf takes a slice, E on a jar's lid opens it, E on the jar
+  takes a knifeful. Those are the things' own interactions.
+- The rules below decide what that does to the plate: bread first, a
+  spread only from an open jar onto bread, the second slice only once both
+  spreads are on (taken too soon, it goes back on the loaf).
+```
+
+**Places**: `kitchen: {asset: kitchen.yaml}`; `fridge: {asset: fridge.yaml}`; `counter: {asset: kitchen_counter.yaml}`; `range: {asset: kitchen_range.yaml}`; `plate: {asset: plate.yaml}`; `sandwich: {asset: sandwich/sandwich.yaml}`; `knife: {asset: butter_knife.yaml}`; `loaf: {asset: loaf.yaml}`; `peanut_butter: {asset: jar.yaml}`; `jam: {asset: jar.yaml}`
+
+**Spawns**: start
 
 ## seated_fit
 

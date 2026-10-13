@@ -1,0 +1,25 @@
+# A butter knife lying flat, handle toward +Z. Origin: under its middle.
+
+name: butter_knife
+tags: [decor.cutlery]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  blade:
+    primitive: cube
+    size: [0.018, 0.003, 0.12]
+    anchor: bottom_center
+    offset: [0, 0, -0.045]
+    bevel: 0
+    material: chrome
+    collider: none
+  handle:
+    primitive: cube
+    size: [0.02, 0.012, 0.09]
+    anchor: bottom_center
+    offset: [0, 0, 0.06]
+    bevel: 0.004
+    material: wood_dark
+    collider: none

@@ -1,0 +1,74 @@
+# The sandwich of scenes/sandwich_kitchen.yaml, private to that scene: four
+# layers that appear one at a time. Origin: the surface it is made on (a
+# plate's `center`). Nothing can hide a part, so the layers wait just under
+# the origin, inside whatever the plate stands on, and rise into place when
+# the inputs are driven (`add_bread`, `spread_peanut_butter`, `spread_jam`,
+# `add_top`). Only rules move them; `made` is raised when the top goes on.
+
+name: sandwich
+tags: [food.sandwich]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  # Waiting heights are staggered so no two hidden faces share a plane.
+  layer_bread: &slice
+    primitive: extrude
+    shape: { rect: [0.12, 0.11], radius: 0.028 }
+    fit: none
+    axis: y
+    size: [0.12, 0.012, 0.11]
+    anchor: bottom_center
+    offset: [0, -0.021, 0]
+    material: bread_crumb
+    collider: none
+  layer_top:
+    <<: *slice
+    offset: [0, -0.024, 0]
+  layer_peanut_butter: &spread
+    primitive: extrude
+    shape: { rect: [0.106, 0.096], radius: 0.022 }
+    fit: none
+    axis: y
+    size: [0.106, 0.002, 0.096]
+    anchor: bottom_center
+    offset: [0, -0.0165, 0]
+    material: peanut_butter
+    collider: none
+  layer_jam:
+    <<: *spread
+    offset: [0, -0.0195, 0]
+    material: jam
+
+# No state has a `next`, so nobody can use these: rules drive them.
+interactions:
+  bread:
+    duration: 0.3
+    states: { away: {}, placed: {} }
+    motions:
+      - { parts: [layer_bread], translate: y, values: { placed: 0.021 } }
+  peanut_butter:
+    duration: 0.3
+    states: { away: {}, spread: {} }
+    motions:
+      - { parts: [layer_peanut_butter], translate: y, values: { spread: 0.0285 } }
+  jam:
+    duration: 0.3
+    states: { away: {}, spread: {} }
+    motions:
+      - { parts: [layer_jam], translate: y, values: { spread: 0.0335 } }
+  top_slice:
+    duration: 0.3
+    states: { away: {}, placed: { emit: made } }
+    motions:
+      - { parts: [layer_top], translate: y, values: { placed: 0.040 } }
+
+signals:
+  made: { emit: made }
+
+inputs:
+  add_bread:            { set: bread, to: placed }
+  spread_peanut_butter: { set: peanut_butter, to: spread }
+  spread_jam:           { set: jam, to: spread }
+  add_top:              { set: top_slice, to: placed }

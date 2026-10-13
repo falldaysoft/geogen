@@ -1,0 +1,29 @@
+# Make a peanut butter and jam sandwich in the sandwich kitchen. The steps are
+# the rules of scenes/sandwich_kitchen.yaml; the spreads go on in either order.
+kind: quest
+version: 1
+title: Make a sandwich
+description: Peanut butter and jam, on the plate by the window.
+start: auto
+objectives:
+  - id: bread
+    text: Put a slice of bread on the plate
+    done: 'sandwich.bread == "placed"'
+  - id: open_peanut_butter
+    text: Take the lid off the peanut butter
+    done: 'peanut_butter.lid == "open"'
+  - id: peanut_butter
+    text: Spread peanut butter on the bread
+    after: [bread, open_peanut_butter]
+    done: 'sandwich.peanut_butter == "spread"'
+  - id: open_jam
+    text: Take the lid off the jam
+    done: 'jam.lid == "open"'
+  - id: jam
+    text: Spread jam on the bread
+    after: [bread, open_jam]
+    done: 'sandwich.jam == "spread"'
+  - id: top
+    text: Put a second slice on top
+    after: [peanut_butter, jam]
+    done: { signal: sandwich.made }

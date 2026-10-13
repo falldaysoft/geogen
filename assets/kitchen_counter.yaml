@@ -1,0 +1,67 @@
+# A fitted kitchen counter: base units under a worktop. Against a wall (back
+# at -Z), worked from the front. Things go on the `top` surface.
+
+name: kitchen_counter
+tags: [kitchen.counter, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.9 }
+
+derived:
+  door_w: "{(width - 0.04) / 3}"
+
+clearance: { front: 0.9 }
+
+parts:
+  plinth:
+    primitive: cube
+    size: ["{width - 0.04}", 0.1, 0.5]
+    anchor: bottom_center
+    offset: [0, 0, -0.03]
+    bevel: 0
+    material: plastic_black
+  carcass:
+    primitive: cube
+    size: ["{width}", 0.76, 0.58]
+    anchor: bottom_center
+    offset: [0, 0.1, -0.02]
+    bevel: 0.003
+    material: paint_sage
+  door:
+    primitive: cube
+    size: ["{door_w - 0.008}", 0.72, 0.018]
+    anchor: bottom_center
+    offset: ["{-door_w}", 0.12, 0.279]
+    bevel: 0.003
+    material: paint_sage
+    collider: none
+    array: { count: 3, step: ["{door_w}", 0, 0] }
+  handle:
+    primitive: cube
+    size: [0.14, 0.014, 0.022]
+    anchor: bottom_center
+    offset: ["{-door_w}", 0.79, 0.293]
+    bevel: 0.004
+    material: chrome
+    collider: none
+    array: { count: 3, step: ["{door_w}", 0, 0] }
+  worktop:
+    primitive: cube
+    size: ["{width + 0.02}", 0.04, 0.64]
+    anchor: bottom_center
+    offset: [0, 0.86, 0]
+    bevel: 0.006
+    material: wood
+  upstand:
+    primitive: cube
+    size: ["{width + 0.02}", 0.08, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.9, -0.31]
+    bevel: 0.003
+    material: wood
+
+surfaces:
+  top: { from: worktop.top }

@@ -1,0 +1,61 @@
+# A loaf of bread with two slices cut at its +Z end. Press E to take a slice:
+# they go one at a time (`slices`: two, one, none), raising `taken` each time.
+# What becomes of a slice is up to the scene's rules, which can also put one
+# back by setting `slices`. Origin: the middle of its base.
+
+name: loaf
+tags: [food.bread]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  body:
+    primitive: extrude
+    shape: { rect: [0.12, 0.11], radius: 0.028 }
+    fit: none
+    axis: z
+    size: [0.12, 0.11, 0.2]
+    anchor: bottom_center
+    material: bread_crust
+    collider: box
+  cut_face:
+    primitive: extrude
+    shape: { rect: [0.108, 0.098], radius: 0.022 }
+    fit: none
+    axis: z
+    size: [0.108, 0.098, 0.002]
+    anchor: bottom_center
+    offset: [0, 0.006, 0.101]
+    material: bread_crumb
+    collider: none
+  slice_1: &slice               # a touch smaller than the loaf, so a taken one is hidden inside it
+    primitive: extrude
+    shape: { rect: [0.114, 0.104], radius: 0.025 }
+    fit: none
+    axis: z
+    size: [0.114, 0.104, 0.012]
+    anchor: bottom_center
+    offset: [0, 0, 0.111]
+    material: bread_crumb
+    collider: box
+  slice_2:
+    <<: *slice
+    offset: [0, 0, 0.126]
+
+# A taken slice slides away inside the loaf: there is no way to hide a part.
+interactions:
+  slices:
+    targets: [body, slice_1, slice_2]
+    initial: two
+    duration: 0.35
+    states:
+      two:  { prompt: Take a slice of bread, next: one }
+      one:  { prompt: Take a slice of bread, next: none, emit: taken }
+      none: { emit: taken }
+    motions:
+      - { parts: [slice_2], translate: z, values: { one: -0.07, none: -0.07 } }
+      - { parts: [slice_1], translate: z, values: { none: -0.055 } }
+
+signals:
+  taken: { emit: taken }

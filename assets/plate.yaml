@@ -1,0 +1,24 @@
+# A white dinner plate. Origin: the middle of its base; `center` is the middle
+# of the well, where food goes.
+
+name: plate
+tags: [decor.plate]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  plate:
+    primitive: lathe
+    profile: [[0, 0], [0.09, 0], [0.13, 0.012], [0.135, 0.018], [0.12, 0.016], [0.08, 0.006], [0, 0.006]]
+    fit: none
+    segments: 24
+    size: [0.27, 0.018, 0.27]
+    anchor: bottom_center
+    material: ceramic_white
+    collider: none
+
+attachments:
+  center:
+    anchor: bottom_center
+    offset: [0, 0.006, 0]

@@ -1,0 +1,84 @@
+# A glass jar of peanut butter or jam. Press E
+# on the lid to take it off (it lands upside down beside the jar, on +X) and on
+# the jar to take a knifeful, which raises `scooped`; whether anything gets
+# spread is up to the scene's rules. Origin: the middle of its base.
+
+name: jar
+tags: [food.jar]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  spread:      { default: peanut butter, type: text }   # what the prompts call it
+  contents:    { default: peanut_butter, type: text }   # material of what's inside
+  lid_color:   { default: car_red, type: text }         # tint names (materials/loader.py)
+  label_color: { default: cream, type: text }
+
+presets:
+  peanut_butter: {}
+  jam:
+    spread: jam
+    contents: jam
+    lid_color: british_green
+    label_color: white
+
+parts:
+  glass:
+    primitive: lathe
+    profile: [[0, 0], [0.04, 0], [0.04, 0.095], [0.034, 0.104], [0.034, 0.114], [0.03, 0.114],
+              [0.03, 0.105], [0.037, 0.094], [0.037, 0.004], [0, 0.004]]
+    fit: none
+    segments: 24
+    size: [0.08, 0.114, 0.08]
+    anchor: bottom_center
+    material: glass
+    collider: hull
+  contents:
+    primitive: cylinder
+    size: [0.072, 0.08, 0.072]
+    anchor: bottom_center
+    offset: [0, 0.005, 0]
+    material: "{contents}"
+    collider: none
+  label:
+    primitive: lathe
+    profile: [[0.0403, 0.025], [0.041, 0.025], [0.041, 0.075], [0.0403, 0.075], [0.0403, 0.025]]
+    fit: none
+    segments: 24
+    size: [0.082, 0.05, 0.082]
+    anchor: bottom_center
+    offset: [0, 0.025, 0]
+    material: paint_white
+    tint: "{label_color}"
+    collider: none
+  lid:
+    primitive: cylinder
+    size: [0.076, 0.018, 0.076]
+    anchor: bottom_center
+    offset: [0, 0.1, 0]
+    bevel: 0.003
+    material: paint_white
+    tint: "{lid_color}"
+    collider: hull
+
+interactions:
+  lid:
+    targets: [lid]
+    duration: 0.6
+    states:
+      closed: { prompt: "Open the {spread}", next: open }
+      open:   { prompt: "Put the lid back on the {spread}", next: closed }
+    motions:
+      # Half a turn over the side: the lid ends upside down on the counter.
+      - { parts: [lid], rotate: z, pivot: [0.07, 0.059, 0], values: { open: -180 } }
+  scoop:
+    targets: [glass]
+    duration: 0.3
+    states:
+      ready:    { prompt: "Spread the {spread}", next: scooping }
+      scooping: { emit: scooped, then: ready }
+    motions: []
+
+signals:
+  scooped: { emit: scooped }

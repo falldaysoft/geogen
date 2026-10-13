@@ -1,0 +1,14 @@
+# The baked brown crust of a loaf.
+name: bread_crust
+texture:
+  type: painted_wall
+  params:
+    base_color: [168, 108, 52]
+    seed: 611
+size: [64, 64]
+tile_size: 0.25  # metres per texture repeat
+pbr:
+  roughness: 0.85
+  metallic: 0.0
+  normal_strength: 0.4
+  ao_strength: 0.6

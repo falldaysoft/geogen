@@ -119,23 +119,27 @@ place:
 
 <table>
 <tr>
+<td align="center"><a href="assets/butter_knife.md"><img src="img/butter_knife.png" width="150" alt="butter_knife"><br>butter_knife</a></td>
 <td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
 <td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
-<td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/plate.md"><img src="img/plate.png" width="150" alt="plate"><br>plate</a></td>
+<td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
 </tr>
 </table>
 
 | Asset | What it is | Params |
 | --- | --- | --- |
+| [butter_knife](assets/butter_knife.md) | A butter knife lying flat, handle toward +Z. |  |
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
 | [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
+| [plate](assets/plate.md) | A white dinner plate. |  |
 | [switch_board](assets/switch_board.md) | A board on two posts for wall switches. | `width`, `height`, `panel`, `depth` |
 | [wall_art](assets/wall_art.md) | Framed print for a wall. | `width`, `height`, `frame`, `mat` |
 
@@ -150,10 +154,13 @@ place:
 <td align="center"><a href="assets/gondola.md"><img src="img/gondola.png" width="150" alt="gondola"><br>gondola</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/kitchen_counter.md"><img src="img/kitchen_counter.png" width="150" alt="kitchen_counter"><br>kitchen_counter</a></td>
 <td align="center"><a href="assets/kitchen_range.md"><img src="img/kitchen_range.png" width="150" alt="kitchen_range"><br>kitchen_range</a></td>
 <td align="center"><a href="assets/pass.md"><img src="img/pass.png" width="150" alt="pass"><br>pass</a></td>
 <td align="center"><a href="assets/prep_counter.md"><img src="img/prep_counter.png" width="150" alt="prep_counter"><br>prep_counter</a></td>
 <td align="center"><a href="assets/till_counter.md"><img src="img/till_counter.png" width="150" alt="till_counter"><br>till_counter</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/wall_shelving.md"><img src="img/wall_shelving.png" width="150" alt="wall_shelving"><br>wall_shelving</a></td>
 </tr>
 </table>
@@ -165,6 +172,7 @@ place:
 | [display_case](assets/display_case.md) | A glass-topped display case (cakes in a cafe, books or jewellery in a shop): a cabinet with a glass box on top holding a few items. | `width` |
 | [fridge](assets/fridge.md) | A tall stainless commercial fridge with one full-height door (press E to open it; it swings on its left side). |  |
 | [gondola](assets/gondola.md) | A gondola: a free-standing double-sided shop shelf with stock on both faces and an end cap. | `length` |
+| [kitchen_counter](assets/kitchen_counter.md) | A fitted kitchen counter: base units under a worktop. | `width` |
 | [kitchen_range](assets/kitchen_range.md) | A commercial range: a stainless six-burner cooker with oven doors, a splashback and an extractor hood above. | `width` |
 | [pass](assets/pass.md) | The pass: a stainless counter where plates wait to go out, under a gantry of heat lamps. | `width` |
 | [prep_counter](assets/prep_counter.md) | A stainless prep table with an undershelf, a chopping board and a few tubs. | `width` |
@@ -189,13 +197,14 @@ place:
 <td align="center"><a href="assets/house_simple.md"><img src="img/house_simple.png" width="150" alt="house_simple"><br>house_simple</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/kitchen.md"><img src="img/kitchen.png" width="150" alt="kitchen"><br>kitchen</a></td>
 <td align="center"><a href="assets/lighthouse.md"><img src="img/lighthouse.png" width="150" alt="lighthouse"><br>lighthouse</a></td>
 <td align="center"><a href="assets/restaurant_building.md"><img src="img/restaurant_building.png" width="150" alt="restaurant_building"><br>restaurant_building</a></td>
 <td align="center"><a href="assets/room.md"><img src="img/room.png" width="150" alt="room"><br>room</a></td>
 <td align="center"><a href="assets/shop.md"><img src="img/shop.png" width="150" alt="shop"><br>shop</a></td>
-<td align="center"><a href="assets/staircase.md"><img src="img/staircase.png" width="150" alt="staircase"><br>staircase</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/staircase.md"><img src="img/staircase.png" width="150" alt="staircase"><br>staircase</a></td>
 <td align="center"><a href="assets/window.md"><img src="img/window.png" width="150" alt="window"><br>window</a></td>
 </tr>
 </table>
@@ -212,6 +221,7 @@ place:
 | [hotel_suite](assets/hotel_suite.md) | Hotel suite floor plan: bedroom, ensuite bathroom and an entry corridor. |  |
 | [house_peaked](assets/house_peaked.md) | Brick cottage shell with a pitched (gable) roof. | `width`, `depth`, `wall_height`, `roof_height`, `foundation`, `wall_thickness`, `overhang`, `floor_thickness`, `lining_thickness`, `ceiling_thickness` |
 | [house_simple](assets/house_simple.md) | Simple house — parametric rectangular house with flat roof. | `width`, `depth`, `height` |
+| [kitchen](assets/kitchen.md) | A small domestic kitchen: one tiled room. |  |
 | [lighthouse](assets/lighthouse.md) | A lighthouse you can climb: a tapering white tower with red bands, a doorway on +Z into the ground floor, a spiral stair round a central column up to the gallery deck, a glazed lantern room (with a doorway out onto the gallery, which has a railing), a red cap, and the lamp on top of the stair column. | `height`, `base_r`, `top_r`, `wall` |
 | [restaurant_building](assets/restaurant_building.md) | A corner restaurant: a dining room and a bar at the front (street door on the south side), the kitchen and two restrooms behind, and a back door out of the kitchen. |  |
 | [room](assets/room.md) | Single room with a door and windows, built as a one-room floor plan (clean wall corners, finishes, a hinged door). |  |
@@ -361,10 +371,14 @@ place:
 
 <table>
 <tr>
+<td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
+<td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 </tr>
 </table>
 
 | Asset | What it is | Params |
 | --- | --- | --- |
+| [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |
+| [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |

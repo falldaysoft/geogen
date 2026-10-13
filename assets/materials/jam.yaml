@@ -1,0 +1,14 @@
+# Glossy strawberry jam.
+name: jam
+texture:
+  type: painted_wall
+  params:
+    base_color: [142, 18, 38]
+    seed: 614
+size: [64, 64]
+tile_size: 0.25  # metres per texture repeat
+pbr:
+  roughness: 0.15
+  metallic: 0.0
+  normal_strength: 0.1
+  ao_strength: 0.6

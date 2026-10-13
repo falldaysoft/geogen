@@ -219,6 +219,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | [quests/yard_dash.yaml](../../assets/quests/yard_dash.yaml) | The dash: stepping onto the start square gives it, and a rule of the quest yard fails it six seconds later unless the finish square was reached. |
 | [quests/yard_lamps.yaml](../../assets/quests/yard_lamps.yaml) | Lamps out: the steward of the quest yard gives it when greeted. |
 | [quests/yard_round.yaml](../../assets/quests/yard_round.yaml) | The round: visit the three numbered plinths of the quest yard in order. |
+| [sandwich/make_sandwich.yaml](../../assets/sandwich/make_sandwich.yaml) | Make a peanut butter and jam sandwich in the sandwich kitchen. |
 
 ### scene_catalogue
 
@@ -308,6 +309,8 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `asphalt` | asphalt |
 | `bark` | wood |
 | `bedding_white` | fabric |
+| `bread_crumb` | painted_wall |
+| `bread_crust` | painted_wall |
 | `brick` | brick |
 | `car_glass` | metal |
 | `car_paint` | painted_wall |
@@ -334,6 +337,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `hair` | hair |
 | `hardwood_floor` | hardwood_floor |
 | `headlight` | painted_wall |
+| `jam` | painted_wall |
 | `laminate` | hardwood_floor |
 | `lamp_glass` | painted_wall |
 | `lamp_iron` | painted_wall |
@@ -348,6 +352,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `paint_terracotta` | painted_wall |
 | `paint_white` | painted_wall |
 | `palm_bark` | wood |
+| `peanut_butter` | painted_wall |
 | `plastic_black` | painted_wall |
 | `play_paint` | painted_wall |
 | `play_yellow` | painted_wall |

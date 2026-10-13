@@ -1,0 +1,90 @@
+# A kitchen to make a sandwich in. An architecture test, built from assets,
+# interactions and rules alone: the room, counter, plate, knife, loaf and jars
+# are shared assets that know nothing of sandwiches; what is this scene's own
+# is in assets/sandwich/ (the sandwich and the quest) and the rules below.
+#   - E on the loaf takes a slice, E on a jar's lid opens it, E on the jar
+#     takes a knifeful. Those are the things' own interactions.
+#   - The rules below decide what that does to the plate: bread first, a
+#     spread only from an open jar onto bread, the second slice only once both
+#     spreads are on (taken too soon, it goes back on the loaf).
+
+name: sandwich_kitchen
+tags: [level.kitchen]
+
+quests: [sandwich/make_sandwich.yaml]
+
+rules:
+  - id: first_slice
+    on: { signal: loaf.taken }
+    when: 'loaf.slices == "one"'
+    do: [{ input: sandwich.add_bread }]
+  - id: spread_peanut_butter
+    on: { signal: peanut_butter.scooped }
+    when: 'peanut_butter.lid == "open" and sandwich.bread == "placed"'
+    do: [{ input: sandwich.spread_peanut_butter }]
+  - id: spread_jam
+    on: { signal: jam.scooped }
+    when: 'jam.lid == "open" and sandwich.bread == "placed"'
+    do: [{ input: sandwich.spread_jam }]
+  - id: second_slice
+    on: { signal: loaf.taken }
+    when: 'loaf.slices == "none" and sandwich.peanut_butter == "spread" and sandwich.jam == "spread"'
+    do: [{ input: sandwich.add_top }]
+  - id: slice_too_soon
+    on: { signal: loaf.taken }
+    when: 'loaf.slices == "none" and not (sandwich.peanut_butter == "spread" and sandwich.jam == "spread")'
+    do: [{ set: loaf.slices, to: one }]
+
+spawns:
+  start: { position: [0, 0.05, -0.6], facing: north }
+
+place:
+  kitchen:
+    asset: kitchen.yaml
+
+  # Along the north wall: fridge, counter under the window, cooker.
+  fridge:
+    asset: fridge.yaml
+    on: kitchen.kitchen.floor
+    at: { u: { abs: 0.45 }, v: { abs: 2.87 } }
+    facing: south
+  counter:
+    asset: kitchen_counter.yaml
+    on: kitchen.kitchen.floor
+    at: { u: { abs: 1.85 }, v: { abs: 2.94 } }
+    facing: south
+  range:
+    asset: kitchen_range.yaml
+    params: { width: 1.0 }
+    on: kitchen.kitchen.floor
+    at: { u: { abs: 3.36 }, v: { abs: 2.77 } }
+    facing: south
+
+  plate:
+    asset: plate.yaml
+    on: counter.top
+    at: { u: 0.5, v: 0.65 }
+  sandwich:
+    asset: sandwich/sandwich.yaml
+    attach_to: plate
+    at: center
+  knife:
+    asset: butter_knife.yaml
+    on: counter.top
+    at: { u: 0.6, v: 0.65 }
+
+  loaf:
+    asset: loaf.yaml
+    on: counter.top
+    at: { u: 0.2, v: 0.5 }
+    yaw: 270
+  peanut_butter:
+    asset: jar.yaml
+    params: { preset: peanut_butter }
+    on: counter.top
+    at: { u: 0.72, v: 0.5 }
+  jam:
+    asset: jar.yaml
+    params: { preset: jam }
+    on: counter.top
+    at: { u: 0.87, v: 0.5 }
