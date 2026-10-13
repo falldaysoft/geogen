@@ -199,6 +199,32 @@ surfaces:
         assert t is not None
         np.testing.assert_allclose(t.translation, [-1.0, 0.0, 2.0])
 
+    def test_flipped_export_faces_the_other_way(self):
+        # The same region seen from behind: the normal turns round and u still
+        # runs left to right for whoever faces it.
+        loader = LayoutLoader()
+        yaml_str = """
+name: box
+size: [2, 3, 4]
+parts:
+  shell:
+    primitive: cube
+    size: [1, 1, 1]
+    anchor: bottom_center
+surfaces:
+  front: { from: shell.front }
+  front_inside: { from: shell.front, flip: true }
+"""
+        node = loader.load_string(yaml_str)
+        inside = node.surfaces["front_inside"]
+        np.testing.assert_allclose(inside.normal, [0.0, 0.0, -1.0])
+        np.testing.assert_allclose(inside.u_axis, [-1.0, 0.0, 0.0])
+        np.testing.assert_allclose(node.get_surface("front_inside", u=0.0, v=0.0).translation, [1.0, 0.0, 2.0])
+        np.testing.assert_allclose(
+            node.get_surface("front_inside", u=0.25, v=0.5).translation,
+            node.get_surface("front", u=0.75, v=0.5).translation,
+        )
+
     def test_bad_export_source_raises(self):
         loader = LayoutLoader()
         yaml_str = """

@@ -536,6 +536,7 @@ class LayoutLoader:
                 from: walls.back
                 cut: [lining]
                 reveal: { material: wall_plaster, thickness: 0.015 }
+              front_inside: { from: lining_void.front, flip: true }  # seen from the other side
         """
         from .surfaces import Surface
 
@@ -592,12 +593,19 @@ class LayoutLoader:
             rotation = part_matrix[:3, :3]
             translation = part_matrix[:3, 3]
 
+            # A flipped surface is the same region seen from behind: it faces
+            # the other way and u still runs left to right for whoever faces it.
+            origin, u_axis, normal = src.origin, src.u_axis, src.normal
+            if spec.get("flip"):
+                origin = origin + src.u_extent * u_axis
+                u_axis, normal = -u_axis, -normal
+
             root.surfaces[export_name] = Surface(
                 name=export_name,
-                origin=rotation @ src.origin + translation,
-                u_axis=rotation @ src.u_axis,
+                origin=rotation @ origin + translation,
+                u_axis=rotation @ u_axis,
                 v_axis=rotation @ src.v_axis,
-                normal=rotation @ src.normal,
+                normal=rotation @ normal,
                 u_extent=src.u_extent,
                 v_extent=src.v_extent,
                 source=part_node,

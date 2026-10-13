@@ -104,11 +104,13 @@ parts:
     offset: [0, "{(foundation + wall_height) / (foundation + wall_height + roof_height)}", 0]
     material: roof_shingle
 
+  # Starts 3 mm above the ceiling slab (any lower shows brick in the room; level
+  # with it, its underside z-fights the gables' and the roof's) and reaches the cap.
   chimney:
     primitive: cube
-    size: ["{0.6 / width}", "{(roof_height + 0.9) / (foundation + wall_height + roof_height)}", "{0.6 / depth}"]
+    size: ["{0.6 / width}", "{(roof_height + 0.897) / (foundation + wall_height + roof_height)}", "{0.6 / depth}"]
     anchor: bottom_center
-    offset: [0.28, "{(foundation + wall_height - 0.05) / (foundation + wall_height + roof_height)}", -0.18]
+    offset: [0.28, "{(foundation + wall_height + 0.003) / (foundation + wall_height + roof_height)}", -0.18]
     bevel: 0.01
     material: brick
 
@@ -130,3 +132,11 @@ surfaces:
   right_wall: { from: walls.right, cut: [lining], reveal: *plaster_reveal }
   # Interior floor (top of the floorboards) for furniture: on: house.floor
   floor: { from: floor.top }
+  # Inside the room: the faces of the lining (v = 0 at the foundation top, u left
+  # to right as you face the wall) and the underside of the ceiling (u along
+  # +X, v back to front), for switches, pictures and ceiling lights.
+  front_inside: { from: lining_void.front, flip: true }
+  back_inside:  { from: lining_void.back,  flip: true }
+  left_inside:  { from: lining_void.left,  flip: true }
+  right_inside: { from: lining_void.right, flip: true }
+  ceiling: { from: ceiling.bottom }

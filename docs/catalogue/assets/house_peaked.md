@@ -49,3 +49,8 @@ place:
 | `left_wall` | 6 x 2.8 | -X |
 | `right_wall` | 6 x 2.8 | +X |
 | `floor` | 7.4 x 5.4 | +Y |
+| `front_inside` | 7.37 x 3.8 | -Z |
+| `back_inside` | 7.37 x 3.8 | +Z |
+| `left_inside` | 5.37 x 3.8 | +X |
+| `right_inside` | 5.37 x 3.8 | -X |
+| `ceiling` | 7.4 x 5.4 | -Y |

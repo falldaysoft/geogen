@@ -21,13 +21,6 @@ rules:
 slots:
   lawn: { position: [0, 0, 8.0], facing: north }
   west_lawn: { position: [-7.5, 0, 3.5], facing: east }
-  # Lights hang from the ceiling (its underside is 3.07 m up) and their switches
-  # are on the inside faces of the walls, 1.1 m above the floor.
-  over_table: { position: [-1.7, 3.07, -0.4] }
-  over_seats: { position: [1.8, 3.07, 0.8] }
-  by_door_1: { position: [0.85, 1.38, 2.685], facing: south }
-  by_door_2: { position: [1.0, 1.38, 2.685], facing: south }
-  by_armchair: { position: [3.685, 1.38, 1.0], facing: west }
 
 # The player starts on the path to the front door (the gallery would otherwise
 # push the runtime's default start, 3 m past the model bounds, out to z = 11).
@@ -95,13 +88,17 @@ place:
     yaw: 15
 
   # Two ceiling lights with their switches inside the front door, and a
-  # reading lamp by the armchair with its switch on the wall beside it.
+  # reading lamp by the armchair with its switch on the wall beside it. Inside
+  # walls run left to right as you face them, v from the foundation top (the
+  # floorboards are 2 cm above it).
   dining_light:
     asset: ceiling_light.yaml
-    slot: over_table
+    on: house.ceiling
+    at: { u: { abs: 2.0 }, v: { abs: 2.3 } }     # over the dining table
   sitting_light:
     asset: ceiling_light.yaml
-    slot: over_seats
+    on: house.ceiling
+    at: { u: { abs: 5.5 }, v: { abs: 3.5 } }
   reading_lamp:
     asset: floor_lamp.yaml
     on: house.floor
@@ -109,15 +106,18 @@ place:
   dining_switch:
     asset: light_switch.yaml
     params: { light: dining_light }
-    slot: by_door_1
+    on: house.front_inside
+    at: { u: { abs: 2.835 }, v: { abs: 1.08 } }
   sitting_switch:
     asset: light_switch.yaml
     params: { light: sitting_light }
-    slot: by_door_2
+    on: house.front_inside
+    at: { u: { abs: 2.685 }, v: { abs: 1.08 } }
   lamp_switch:
     asset: light_switch.yaml
     params: { light: reading_lamp }
-    slot: by_armchair
+    on: house.right_inside
+    at: { u: { abs: 1.685 }, v: { abs: 1.08 } }
 
   # Someone lives here (assets/npcs/resident.yaml). They stay within the
   # floor (plus a margin that reaches the doorstep).

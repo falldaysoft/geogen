@@ -14,7 +14,7 @@
 | `derived` | {name: expr}: values computed from params, in order |
 | `parts` | {name: part}: the primitives the asset is built from |
 | `attachments` | {name: {anchor, offset, facing}}: named points other assets attach to (`attach_to` + `at`) |
-| `surfaces` | {name: {from: part.surface, cut, reveal}}: 2D regions other assets are placed `on` |
+| `surfaces` | {name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` (`flip: true` faces the other way, e.g. a cutter's face seen from inside the room) |
 | `tags` | dotted gameplay tags (furniture.chair, door.exterior) |
 | `interactions` | {name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers) |
 | `state` | {name: {type: bool \| number \| text \| choice, default, choices}}: variables each placed instance holds (read as `thing.name` in conditions) |
