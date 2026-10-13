@@ -48,7 +48,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from . import conditions, refs
+from . import conditions, refs, roots
 from .core.node import SceneNode
 
 KIND = "package"
@@ -217,9 +217,9 @@ def compile_package(spec: dict[str, Any], scenes: dict[str, Scene], source: Any 
         problems[f"{where('quests')}: quests is a list of quest files (quests/name.yaml)"] = None
         files = []
     for index, file in enumerate(files):
-        path = assets_dir / file
+        path = roots.find(file, assets_dir)
         if not path.is_file():
-            known = [p.relative_to(assets_dir).as_posix() for p in sorted(assets_dir.glob("quests/*.yaml"))]
+            known = [roots.relative(p, assets_dir) for p in roots.glob("quests/*.yaml", assets_dir)]
             problems[f"{where('quests', index)}: no quest file '{file}'.{refs._near(file, known)}"] = None
             continue
         try:

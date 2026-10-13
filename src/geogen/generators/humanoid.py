@@ -46,6 +46,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .. import roots as content_roots
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
@@ -232,7 +233,7 @@ def load_garment(assets_dir: Path, name: str, params: dict) -> dict:
     from ..layout.expressions import resolve_value
     from ..layout.yaml_utils import safe_load_path
 
-    path = Path(assets_dir) / "clothing" / f"{name}.yaml"
+    path = content_roots.find(f"clothing/{name}.yaml", assets_dir)
     if not path.exists():
         raise ValueError(f"unknown garment '{name}' (no {path})")
     spec = safe_load_path(path)
@@ -668,7 +669,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     transition clips move the body between."""
     import copy
 
-    skeleton = load_skeleton(Path(assets_dir) / spec.get("skeleton", "skeletons/humanoid.yaml"),
+    skeleton = load_skeleton(content_roots.find(spec.get("skeleton", "skeletons/humanoid.yaml"), assets_dir),
                              spec.get("skeleton_params"))
     chains, mirrored = [], set()
     for chain_name, chain_spec in (spec.get("chains") or {}).items():

@@ -219,7 +219,6 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | [quests/yard_dash.yaml](../../assets/quests/yard_dash.yaml) | The dash: stepping onto the start square gives it, and a rule of the quest yard fails it six seconds later unless the finish square was reached. |
 | [quests/yard_lamps.yaml](../../assets/quests/yard_lamps.yaml) | Lamps out: the steward of the quest yard gives it when greeted. |
 | [quests/yard_round.yaml](../../assets/quests/yard_round.yaml) | The round: visit the three numbered plinths of the quest yard in order. |
-| [sandwich/make_sandwich.yaml](../../assets/sandwich/make_sandwich.yaml) | Make a peanut butter and jam sandwich in the sandwich kitchen. |
 
 ### scene_catalogue
 

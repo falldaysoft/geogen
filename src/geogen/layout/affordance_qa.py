@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .. import roots
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from .qa import Issue
@@ -137,7 +138,7 @@ def _load_body(body, loader, assets_dir: Path) -> SceneNode:
         from ..characters import load_character
 
         return load_character(loader, assets_dir, spec["archetype"], int(spec.get("seed", 0)), spec.get("params"))
-    return loader.load(Path(assets_dir) / spec["asset"], params=spec.get("params"))
+    return loader.load(roots.find(spec["asset"], assets_dir), params=spec.get("params"))
 
 
 def pose_actor(body: SceneNode, spot: Spot, floor: float | None = None) -> SceneNode:

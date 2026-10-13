@@ -33,6 +33,7 @@ from typing import Any
 
 import numpy as np
 
+from . import roots
 from .core.node import SceneNode
 
 VERSION = 1
@@ -813,7 +814,7 @@ def place_traffic(root: SceneNode, name: str, spec: dict[str, Any], load, graph:
 
     from .characters import draw_params
 
-    fleet = load_fleet(Path(assets_dir) / spec["traffic"])
+    fleet = load_fleet(roots.find(spec["traffic"], assets_dir))
     if "count" in spec:        # the placement can size the fleet to its streets
         fleet["count"] = int(spec["count"])
     seed = int(spec.get("seed", fleet["seed"]))

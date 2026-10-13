@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
-from . import conditions, refs
+from . import conditions, refs, roots
 from .conditions import ConditionError
 from .core.node import SceneNode
 from .state import Declarations, StateError, fits
@@ -165,9 +165,9 @@ def declare_scene(root: SceneNode, data: dict[str, Any], source: Any, assets_dir
             if not built(name):
                 continue
             name = name["file"]
-        path = Path(assets_dir) / name
+        path = roots.find(name, assets_dir)
         if not path.is_file():
-            known = [p.relative_to(assets_dir).as_posix() for p in sorted(Path(assets_dir).glob("quests/*.yaml"))]
+            known = [roots.relative(p, assets_dir) for p in roots.glob("quests/*.yaml", assets_dir)]
             raise QuestError(f"{source_of(source, ['quests', index])}: no quest file '{name}'."
                              f"{refs._near(name, known)}")
         found.append({"source": str(path), "spec": load_quest(path)})

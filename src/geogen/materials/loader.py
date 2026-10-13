@@ -129,9 +129,10 @@ class MaterialLoader:
                          Defaults to ['assets/materials/'] relative to project root.
         """
         if search_paths is None:
-            # Default to assets/materials/ relative to this file
-            project_root = Path(__file__).parent.parent.parent.parent
-            self.search_paths = [project_root / "assets" / "materials"]
+            # materials/ of every content root: a project's, then the core's
+            from .. import roots
+
+            self.search_paths = [root / "materials" for root in roots.roots()]
         else:
             self.search_paths = search_paths
 

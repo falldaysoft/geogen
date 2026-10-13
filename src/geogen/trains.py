@@ -29,6 +29,7 @@ from typing import Any
 
 import numpy as np
 
+from . import roots
 from .core.node import SceneNode
 from .core.transform import Transform
 from .layout.yaml_utils import safe_load_path
@@ -124,7 +125,7 @@ def closures(run: np.ndarray, train_length: float, crossings: list[dict], warnin
 def place_train(root: SceneNode, name: str, spec: dict[str, Any], load, assets_dir) -> SceneNode:
     """The train placement: ``meta.train`` (definition, railway, run, stops, closures, cars) and
     the consist as children, standing on the line where departure 0 starts."""
-    train = load_train(Path(assets_dir) / spec["train"])
+    train = load_train(roots.find(spec["train"], assets_dir))
     if spec.get("timetable"):   # a placement may retime its train (several trains on one line)
         train = {**train, "timetable": {**train["timetable"], **{k: float(v) for k, v in spec["timetable"].items()}}}
     rail_id = spec.get("railway")

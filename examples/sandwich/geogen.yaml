@@ -1,0 +1,6 @@
+# A project built on geogen: its own scene, asset and quest, on core assets.
+# Run from this directory, or with --project examples/sandwich:
+#   python -m geogen.main --project examples/sandwich -s sandwich_kitchen --export-godot
+kind: project
+name: sandwich
+description: A kitchen and a quest to make a sandwich in it

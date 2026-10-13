@@ -29,6 +29,7 @@ from typing import Any
 
 import numpy as np
 
+from . import roots
 from .core.node import SceneNode
 from .layout.yaml_utils import safe_load_path
 
@@ -348,7 +349,7 @@ def build_npc(definition: dict[str, Any], loader, assets_dir: Path, seed: int | 
 
         body = load_character(loader, assets_dir, body_spec["archetype"], seed or 0, body_spec.get("params"))
     else:
-        body = loader.load(Path(assets_dir) / body_spec["asset"], params=body_spec.get("params"))
+        body = loader.load(roots.find(body_spec["asset"], assets_dir), params=body_spec.get("params"))
     body.name = "body"
     poses = body.meta.get("poses") or {"stand": parse_poses({"stand": {}})["stand"]}
     npc = copy.deepcopy(definition)

@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, fields
 from functools import lru_cache
 from pathlib import Path
 
+from . import roots
 from .layout.yaml_utils import safe_load_path
 
 SPEC_KIND = "player_spec"
@@ -77,4 +78,4 @@ def load_player_spec(path: str | Path | None = None) -> PlayerSpec:
 
 @lru_cache(maxsize=1)
 def _default_spec() -> PlayerSpec:
-    return PlayerSpec.from_dict(safe_load_path(DEFAULT_PATH) or {})
+    return PlayerSpec.from_dict(safe_load_path(roots.find(DEFAULT_PATH.name)) or {})

@@ -503,6 +503,16 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 
 `layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.
 
+### Projects and content roots
+
+`geogen/roots.py`: a project that builds on geogen keeps its content outside `assets/`, in a directory laid out the same way (`scenes/`, `materials/`, `quests/`, `npcs/`, `room_types/`, ...), searched before the core.
+- **Choosing one:** `--project DIR` (repeatable), `$GEOGEN_PROJECT` (path-separated), or the nearest `geogen.yaml` in or above the working directory. `DIR/geogen.yaml` is `{kind: project, name, assets: <dir, default assets>, overrides: [...]}`; without one, `DIR/assets` (else `DIR`) is the root.
+- **Lookup:** anything named relative to `assets/` (`asset:`, `scene:`, `npc:`, `archetype:`, `traffic:`, `train:`, quests, room types, garments, skeletons, materials, `player.yaml`) resolves with `roots.find(name, assets_dir)`: the first root that has it. Listings use `roots.glob(pattern, assets_dir)`. New code that joins a name onto an assets directory should call these instead. An `assets_dir` that isn't a root (a test's temporary directory) stands alone.
+- **Shadowing is explicit:** a project file with the same relative path as a core file is an error unless `overrides:` lists it; a project scene can't take a core scene's name any other way.
+- The registry discovers scenes in every root, `--describe` lists them, the viewer hot-reloads them and the prototype cache's fingerprint covers them.
+- Not yet per project: the runtime catalogue and `generated/` dir (geogen.39.3), scene-private folders (geogen.39.2).
+- `examples/sandwich/` is the worked example (`--project examples/sandwich -s sandwich_kitchen`): a scene, the sandwich asset and its quest on the core's kitchen, counter, plate, loaf and jars. Tests: `tests/test_roots.py`.
+
 ### Scenes & Registry
 
 - **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).

@@ -60,9 +60,6 @@ scenes:
   level_crossing:
     group: test
     description: Road crossing a railway with barriers and a commuter train
-  sandwich_kitchen:
-    group: test
-    description: A kitchen and a quest to make a sandwich - loaf, jars and plate driven by rules alone
   hotel_room:
     group: test
     description: Hotel suite furnished by hand

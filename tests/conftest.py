@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+os.environ.pop("GEOGEN_PROJECT", None)         # the tests are of the core: no project (geogen.roots)
+
 GODOT_PROJECT = Path(__file__).parent.parent / "runtime" / "godot"
 
 # Keep test processes out of the macOS Dock (one bouncing icon per xdist

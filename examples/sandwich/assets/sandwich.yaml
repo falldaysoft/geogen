@@ -1,4 +1,4 @@
-# The sandwich of scenes/sandwich_kitchen.yaml, private to that scene: four
+# The sandwich of scenes/sandwich_kitchen.yaml: four
 # layers that appear one at a time. Origin: the surface it is made on (a
 # plate's `center`). Nothing can hide a part, so the layers wait just under
 # the origin, inside whatever the plate stands on, and rise into place when

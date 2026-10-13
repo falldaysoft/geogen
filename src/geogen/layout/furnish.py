@@ -60,6 +60,7 @@ from typing import Any
 
 import numpy as np
 
+from .. import roots
 from ..core.node import SceneNode
 from ..core.transform import Transform
 
@@ -127,7 +128,7 @@ class Unsatisfied:
 def load_room_type(name: str, assets_dir: Path) -> dict[str, Any] | None:
     from .yaml_utils import safe_load_path
 
-    path = assets_dir / "room_types" / f"{name}.yaml"
+    path = roots.find(f"room_types/{name}.yaml", assets_dir)
     return safe_load_path(path) if path.exists() else None
 
 
@@ -321,7 +322,7 @@ class _RoomSolver:
     def load(self, spec: dict[str, Any], extra_params: dict[str, float] | None = None) -> SceneNode:
         params = dict(spec.get("params", {}))
         params.update(extra_params or {})
-        return self.loader.load(self.assets_dir / spec["asset"], params=params or None)
+        return self.loader.load(roots.find(spec["asset"], self.assets_dir), params=params or None)
 
     def add(self, name: str, index: int, node: SceneNode, center: np.ndarray, facing: np.ndarray, y: float,
             rect: Rect | None, keepout: list[Rect], wall: str | None = None, along: float = 0.0) -> None:

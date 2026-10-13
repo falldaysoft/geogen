@@ -27,11 +27,14 @@ _ROOT = Path(__file__).resolve().parents[3]
 
 @functools.lru_cache(maxsize=1)
 def source_fingerprint() -> str:
-    """Hash of every asset YAML and geogen source file (paths and contents)."""
+    """Hash of every asset YAML (in every content root) and geogen source file (paths and contents)."""
+    from .. import roots
+
     digest = hashlib.sha1()
-    for base, pattern in ((_ROOT / "assets", "*.yaml"), (_ROOT / "src" / "geogen", "*.py")):
+    for base, pattern in (*((root, "*.yaml") for root in roots.roots()), (_ROOT / "src" / "geogen", "*.py")):
         for path in sorted(base.rglob(pattern)):
-            digest.update(str(path.relative_to(_ROOT)).encode())
+            # core paths as before; a project's by where it is
+            digest.update(str(path.relative_to(_ROOT) if path.is_relative_to(_ROOT) else path).encode())
             digest.update(path.read_bytes())
     return digest.hexdigest()
 

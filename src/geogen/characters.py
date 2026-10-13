@@ -46,6 +46,7 @@ from typing import Any
 
 import numpy as np
 
+from . import roots
 from .layout.yaml_utils import safe_load_path
 
 ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
@@ -180,8 +181,8 @@ def _person(path: str | Path, seed: int, overrides: dict[str, Any] | None) -> di
 def load_character(loader, assets_dir: Path, path: str | Path, seed: int = 0,
                    overrides: dict[str, Any] | None = None):
     """Build the archetype's person for ``seed`` (a body asset node, tagged and annotated)."""
-    person = _person(Path(assets_dir) / path, seed, overrides)
-    node = loader.load(Path(assets_dir) / person["body"], params=person["params"])
+    person = _person(roots.find(path, assets_dir), seed, overrides)
+    node = loader.load(roots.find(person["body"], assets_dir), params=person["params"])
     node.tags = [*node.tags, *[t for t in person["tags"] if t not in node.tags]]
     node.meta["character"] = {"archetype": "/".join(person["names"]), "seed": int(seed)}
     return node

@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from .. import roots
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from .loader import LayoutLoader
@@ -490,7 +491,7 @@ class SceneComposer:
         if "npc" in obj_def:
             from ..npc import build_npc, load_definition
 
-            return build_npc(load_definition(self._assets_dir / obj_def["npc"]), self._loader, self._assets_dir,
+            return build_npc(load_definition(roots.find(obj_def["npc"], self._assets_dir)), self._loader, self._assets_dir,
                              seed=int(obj_def.get("seed", 0)))
         if "archetype" in obj_def:
             from ..characters import load_character
@@ -498,7 +499,7 @@ class SceneComposer:
             return load_character(self._loader, self._assets_dir, obj_def["archetype"], int(obj_def.get("seed", 0)),
                                   obj_def.get("params"))
         if "asset" in obj_def:
-            asset_path = self._assets_dir / obj_def["asset"]
+            asset_path = roots.find(obj_def["asset"], self._assets_dir)
             node = self._loader.load(asset_path, params=obj_def.get("params"))
             if obj_def.get("furnish"):
                 from .furnish import furnish_plan
@@ -507,7 +508,7 @@ class SceneComposer:
                 furnish_plan(node, self._assets_dir, seed=seed, loader=self._loader)
             return node
         elif "scene" in obj_def:
-            scene_path = self._assets_dir / obj_def["scene"]
+            scene_path = roots.find(obj_def["scene"], self._assets_dir)
             return self.compose(scene_path, params=obj_def.get("params"))
         else:
             raise ValueError("Object must have 'asset', 'scene', 'recipe', 'npc' or 'archetype' specified")

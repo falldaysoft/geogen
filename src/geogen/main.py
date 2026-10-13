@@ -70,6 +70,11 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
+        "--project", action="append", metavar="DIR",
+        help="A project directory whose assets are searched before geogen's own (see geogen.roots); "
+             "default: $GEOGEN_PROJECT, else the nearest geogen.yaml above the working directory",
+    )
+    parser.add_argument(
         "-r", "--render",
         metavar="PATH",
         help="Render the scene to an image file and quit",
@@ -198,6 +203,17 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
 
 def main() -> None:
     """Run the geogen demo."""
+    # The project decides which scenes there are, so it is read before the other arguments.
+    early = argparse.ArgumentParser(add_help=False)
+    early.add_argument("--project", action="append")
+    chosen = early.parse_known_args()[0].project
+    if chosen:
+        from . import roots
+
+        try:
+            roots.use(*chosen)
+        except roots.RootsError as exc:
+            raise SystemExit(f"error: {exc}")
     registry = _build_registry()
     args = parse_args(registry)
     if args.cache:

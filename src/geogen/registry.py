@@ -5,6 +5,7 @@ from typing import Callable
 
 import yaml
 
+from . import roots
 from .core.node import SceneNode
 from .layout import LayoutLoader, SceneComposer
 
@@ -25,6 +26,9 @@ class SceneRegistry:
     def __init__(self, assets_dir: Path | None = None) -> None:
         self._factories: dict[str, SceneFactory] = {}
         self._assets_dir = assets_dir or self._default_assets_dir()
+        # Every content root (a project's, then the core's) unless one directory was asked for.
+        self._roots = [Path(assets_dir)] if assets_dir is not None else roots.roots()
+        self._files: dict[str, Path] = {}
 
     @staticmethod
     def _default_assets_dir() -> Path:
@@ -55,30 +59,53 @@ class SceneRegistry:
         - ``assets/*.yaml`` are loaded as individual assets via LayoutLoader
         - ``assets/scenes/*.yaml`` are loaded as composed scenes via SceneComposer
         - ``assets/<sub>/*.yaml`` for ``ASSET_SUBDIRS`` (vehicles) are assets too
+
+        With a project (``geogen.roots``) its directory is scanned the same way, first.
+        A project scene may only take a core scene's name by replacing that very file
+        (``overrides:`` in its geogen.yaml).
         """
-        # Discover assets and composed scenes in root assets dir
-        for yaml_path in sorted(self._assets_dir.glob("*.yaml")):
+        for index, root in enumerate(self._roots):
+            earlier = {name for name, path in self._files.items() if not path.is_relative_to(root)}
+            self._discover_root(root, earlier if index else set())
+
+    def _discover_root(self, assets_dir: Path, earlier: set[str]) -> None:
+        def free(yaml_path: Path) -> bool:
             name = yaml_path.stem
-            if name not in self._factories and not self._is_spec(yaml_path):
+            if name in earlier:
+                first = self._files[name]
+                if roots.relative(first) != yaml_path.relative_to(assets_dir).as_posix():
+                    raise roots.RootsError(
+                        f"scene name '{name}' is both {first} and {yaml_path}: rename the project's")
+                return False                    # the project's file replaces this one (an override)
+            return name not in self._factories
+
+        # Discover assets and composed scenes in root assets dir
+        for yaml_path in sorted(assets_dir.glob("*.yaml")):
+            name = yaml_path.stem
+            if yaml_path.name != roots.CONFIG and not self._is_spec(yaml_path) and free(yaml_path):
                 if self._is_composed_scene(yaml_path):
-                    self._register_composed_scene(name, yaml_path)
+                    self._register_composed_scene(name, yaml_path, assets_dir)
                 else:
                     self._register_asset(name, yaml_path)
 
         # Asset libraries in subdirectories (vehicles/sedan.yaml -> "sedan").
         for sub in ASSET_SUBDIRS:
-            for yaml_path in sorted((self._assets_dir / sub).glob("*.yaml")):
+            for yaml_path in sorted((assets_dir / sub).glob("*.yaml")):
                 name = yaml_path.stem
-                if name not in self._factories and not self._is_spec(yaml_path):
+                if not self._is_spec(yaml_path) and free(yaml_path):
                     self._register_asset(name, yaml_path)
 
         # Discover composed scenes
-        scenes_dir = self._assets_dir / "scenes"
+        scenes_dir = assets_dir / "scenes"
         if scenes_dir.is_dir():
             for yaml_path in sorted(scenes_dir.glob("*.yaml")):
                 name = yaml_path.stem
-                if name not in self._factories:
-                    self._register_composed_scene(name, yaml_path)
+                if free(yaml_path):
+                    self._register_composed_scene(name, yaml_path, assets_dir)
+
+    def path(self, name: str) -> Path | None:
+        """The YAML file a discovered scene is built from (None for Python-coded ones)."""
+        return self._files.get(name)
 
     @staticmethod
     def _is_spec(yaml_path: Path) -> bool:
@@ -104,10 +131,12 @@ class SceneRegistry:
             root.add_child(asset)
             return root
         self._factories[name] = factory
+        self._files[name] = yaml_path
 
-    def _register_composed_scene(self, name: str, yaml_path: Path) -> None:
+    def _register_composed_scene(self, name: str, yaml_path: Path, assets_dir: Path | None = None) -> None:
         """Register a YAML composed scene that loads via SceneComposer."""
         def factory(path: Path = yaml_path) -> SceneNode:
-            composer = SceneComposer(self._assets_dir)
+            composer = SceneComposer(assets_dir or self._assets_dir)
             return composer.compose(path)
         self._factories[name] = factory
+        self._files[name] = yaml_path

@@ -603,8 +603,10 @@ class FloorPlan:
         if room.type:
             from ..layout.yaml_utils import safe_load_path
 
-            types_dir = self.room_types_dir or Path(__file__).parents[3] / "assets" / "room_types"
-            path = types_dir / f"{room.type}.yaml"
+            from .. import roots
+
+            path = (self.room_types_dir / f"{room.type}.yaml" if self.room_types_dir
+                    else roots.find(f"room_types/{room.type}.yaml"))
             if path.exists():
                 result.update((safe_load_path(path) or {}).get("finishes") or {})
         for key in ("floor", "walls", "ceiling"):

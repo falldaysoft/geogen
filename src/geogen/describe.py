@@ -25,6 +25,7 @@ from typing import Any, Callable
 
 import numpy as np
 
+from . import roots
 from .core.node import SceneNode
 from .layout.schema import (
     ANCHORS_DOC,
@@ -189,16 +190,16 @@ def _params(data: dict[str, Any], text: str) -> dict[str, dict[str, Any]]:
 def asset_files(assets_dir: Path = ASSETS_DIR) -> dict[str, tuple[str, Path]]:
     """Every asset and scene file: ``{name: ("asset" | "scene", path)}`` (data files with a ``kind:`` are skipped)."""
     out: dict[str, tuple[str, Path]] = {}
-    for path in sorted(assets_dir.glob("*.yaml")):
+    for path in roots.glob("*.yaml", assets_dir):
         data = safe_load_path(path)
         if isinstance(data, dict) and "kind" not in data:
             out[path.stem] = ("scene" if {"place", "compose", "city"} & set(data) else "asset", path)
     for sub in ASSET_SUBDIRS:
-        for path in sorted((assets_dir / sub).glob("*.yaml")):
+        for path in roots.glob(f"{sub}/*.yaml", assets_dir):
             data = safe_load_path(path)
             if isinstance(data, dict) and "kind" not in data:
                 out.setdefault(path.stem, ("asset", path))
-    for path in sorted((assets_dir / "scenes").glob("*.yaml")):
+    for path in roots.glob("scenes/*.yaml", assets_dir):
         out.setdefault(path.stem, ("scene", path))
     return out
 
@@ -221,7 +222,7 @@ def static_entry(name: str, kind: str, path: Path, assets_dir: Path = ASSETS_DIR
     """What the YAML alone says about an asset or scene."""
     text = path.read_text()
     data = safe_load(text) or {}
-    file = path.relative_to(assets_dir).as_posix()
+    file = roots.relative(path, assets_dir)
     description = header_comment(text)
     tags = [str(t) for t in data.get("tags") or []]
     entry: dict[str, Any] = {
@@ -381,7 +382,7 @@ def load_asset(entry: dict[str, Any], assets_dir: Path = ASSETS_DIR) -> SceneNod
     """Build an asset with its default params."""
     from .layout import LayoutLoader
 
-    return LayoutLoader().load(assets_dir / entry["file"])
+    return LayoutLoader().load(roots.find(entry["file"], assets_dir))
 
 
 # ---- the rest of the vocabulary ---------------------------------------------------------------
@@ -427,7 +428,7 @@ def _kind_keys(spec: str) -> list[str]:
 def kinds(assets_dir: Path = ASSETS_DIR) -> dict[str, dict[str, Any]]:
     """Data files by ``kind:``, with the keys their loaders accept."""
     out: dict[str, dict[str, Any]] = {}
-    for path in sorted(assets_dir.rglob("*.yaml")):
+    for path in roots.glob("**/*.yaml", assets_dir):
         text = path.read_text()
         match = re.search(r"^kind:\s*(\w+)", text, re.M)
         if not match:
@@ -439,7 +440,7 @@ def kinds(assets_dir: Path = ASSETS_DIR) -> dict[str, dict[str, Any]]:
         data = safe_load(text) or {}
         if not entry["keys"]:
             entry["keys"] = sorted(set(entry["keys"]) | (set(data) - {"kind", "version"}))
-        entry["files"][path.relative_to(assets_dir).as_posix()] = (
+        entry["files"][roots.relative(path, assets_dir)] = (
             summary_of(header_comment(text)) or str(data.get("description", "")))
     return dict(sorted(out.items()))
 
@@ -447,7 +448,7 @@ def kinds(assets_dir: Path = ASSETS_DIR) -> dict[str, dict[str, Any]]:
 def room_types(assets_dir: Path = ASSETS_DIR) -> dict[str, dict[str, Any]]:
     """Room archetypes the furnishing solver knows (a floor-plan room's ``type:``)."""
     out = {}
-    for path in sorted((assets_dir / "room_types").glob("*.yaml")):
+    for path in roots.glob("room_types/*.yaml", assets_dir):
         text = path.read_text()
         data = safe_load(text) or {}
         items = sorted({str(i["asset"]).removesuffix(".yaml") for i in (data.get("items") or {}).values()
@@ -459,7 +460,7 @@ def room_types(assets_dir: Path = ASSETS_DIR) -> dict[str, dict[str, Any]]:
 def materials(assets_dir: Path = ASSETS_DIR) -> dict[str, str]:
     """Material names with their texture type."""
     out = {}
-    for path in sorted((assets_dir / "materials").glob("*.yaml")):
+    for path in roots.glob("materials/*.yaml", assets_dir):
         data = safe_load_path(path) or {}
         out[path.stem] = str((data.get("texture") or {}).get("type", ""))
     return out
@@ -737,7 +738,7 @@ def lookup(cat: dict[str, Any], name: str, assets_dir: Path = ASSETS_DIR,
             return group[:-1], describe_asset(entry, build(entry) if group == "assets" else None)
     if stem in cat["kinds"]:
         return "kind", cat["kinds"][stem]
-    path = assets_dir / f"{stem}.yaml"
+    path = roots.find(f"{stem}.yaml", assets_dir)
     if path.is_file():
         return "file", {"file": f"{stem}.yaml", "text": path.read_text(), "data": safe_load_path(path)}
     import difflib
@@ -966,7 +967,7 @@ def write_thumbnails(out_dir: Path, cat: dict[str, Any], nodes: dict[str, SceneN
     hashes = json.loads(hashes_path.read_text()) if hashes_path.is_file() else {}
     jobs: list[tuple[str, str, list[tuple[Path, list[str]]], Callable[[], SceneNode]]] = []
     for name, entry in cat["assets"].items():
-        digest = hashlib.sha1((assets_dir / entry["file"]).read_bytes() + bytes([THUMB_VERSION])).hexdigest()
+        digest = hashlib.sha1(roots.find(entry["file"], assets_dir).read_bytes() + bytes([THUMB_VERSION])).hexdigest()
         jobs.append((name, digest, [(img / f"{name}.png", ["iso"]), (img / f"{name}_views.png", ["front", "side"])],
                      lambda name=name: nodes[name]))
     for name, prim in cat["primitives"].items():

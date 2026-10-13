@@ -434,8 +434,14 @@ class ViewerWindow(QMainWindow):
         self._inspector.setPlainText(f"Error building '{name}'\n\n{traceback.format_exc()}")
 
     def _refresh_watch_list(self) -> None:
-        paths = [str(p) for p in self._watch_dir.rglob("*.yaml")]
-        paths += [str(p) for p in self._watch_dir.rglob("*") if p.is_dir()] + [str(self._watch_dir)]
+        from .. import roots
+
+        # A project's own assets hot-reload too.
+        watched = [self._watch_dir, *([p.root for p in roots.projects()] if self._watch_dir == DEFAULT_ASSETS_DIR else [])]
+        paths = []
+        for directory in watched:
+            paths += [str(p) for p in directory.rglob("*.yaml")]
+            paths += [str(p) for p in directory.rglob("*") if p.is_dir()] + [str(directory)]
         existing = set(self._watcher.files()) | set(self._watcher.directories())
         new = [p for p in paths if p not in existing]
         if new:

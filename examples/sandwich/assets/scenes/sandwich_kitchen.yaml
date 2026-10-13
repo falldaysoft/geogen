@@ -1,7 +1,7 @@
 # A kitchen to make a sandwich in. An architecture test, built from assets,
 # interactions and rules alone: the room, counter, plate, knife, loaf and jars
-# are shared assets that know nothing of sandwiches; what is this scene's own
-# is in assets/sandwich/ (the sandwich and the quest) and the rules below.
+# are shared assets that know nothing of sandwiches; what is this project's
+# own is the sandwich (sandwich.yaml), the quest and the rules below.
 #   - E on the loaf takes a slice, E on a jar's lid opens it, E on the jar
 #     takes a knifeful. Those are the things' own interactions.
 #   - The rules below decide what that does to the plate: bread first, a
@@ -11,7 +11,7 @@
 name: sandwich_kitchen
 tags: [level.kitchen]
 
-quests: [sandwich/make_sandwich.yaml]
+quests: [quests/make_sandwich.yaml]
 
 rules:
   - id: first_slice
@@ -65,7 +65,7 @@ place:
     on: counter.top
     at: { u: 0.5, v: 0.65 }
   sandwich:
-    asset: sandwich/sandwich.yaml
+    asset: sandwich.yaml
     attach_to: plate
     at: center
   knife:
