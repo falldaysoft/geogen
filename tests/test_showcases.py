@@ -88,6 +88,16 @@ def test_main_street_shops_are_furnished_by_kind(built_scene):
     assert {"cafe", "grocer", "clothing"} <= kinds, kinds
 
 
+def test_main_street_lanes_are_clear_of_what_stands_by_them(built_scene):
+    # The bus shelter once stood in the mouth of a side street.
+    from geogen.traffic import build_traffic, check_clearance, check_graph
+
+    scene = built_scene("main_street")
+    graph = build_traffic(scene)
+    assert check_graph(graph) == []
+    assert check_clearance(scene, graph) == []
+
+
 def test_main_street_traffic_and_pedestrians_keep_moving(run_godot, main_street_dir):
     out = run_godot("--scene=main_street", f"--generated={main_street_dir}", "--timescale=4", "--simulate=120")
     traffic = _json_line(out, "traffic summary: ")[0]

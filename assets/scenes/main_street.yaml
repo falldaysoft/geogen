@@ -45,7 +45,7 @@ city:
       - { asset: vehicles/van.yaml, weight: 1, params: { paint: car_white } }
 
 slots:
-  bus_stop:   { position: [22, 0.15, -7.8], facing: north }   # south pavement, clear of shop canopies and furniture
+  bus_stop:   { position: [43.5, 0.15, -7.8], facing: north }   # south pavement of the east block (x 26..62), clear of doors, canopies and furniture
   hub_portal: { position: [75, 0, 0], facing: west }           # just past the east end of the avenue
 
 place:
