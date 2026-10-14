@@ -151,7 +151,7 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
     the car is standing at that floor (``meta.gate``; see the Godot runtime).
     """
     from ..core import uvmap
-    from ..layout.interactions import Interaction, Motion, State
+    from ..layout.interactions import Interaction, Motion, State, apply_state
     from .primitives import CubeGenerator
 
     for shaft_id in sorted(set().union(*(_shaft_rooms(s).keys() for s in storeys))):
@@ -223,13 +223,11 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
             nxt = (k + 1) % len(column)
             states[f"floor_{k}"] = State(next=f"floor_{nxt}", prompt=f"Go to floor {nxt}", emit=f"arrived_{k}")
         travel = max(elevations) - min(elevations)
-        lift.interactions = [Interaction(
-            name="lift", states=states,
-            motions=[Motion([car], "translate", np.array([0.0, 1.0, 0.0]), np.zeros(3),
-                            {f"floor_{k}": e - elevations[0] for k, e in enumerate(elevations)})],
-            targets=[panel], initial="floor_0", duration=max(1.0, travel / LIFT_SPEED),
-        )]
-        # Gates in each floor's shaft doorway (the wall's centre line).
+        motions = [Motion([car], "translate", np.array([0.0, 1.0, 0.0]), np.zeros(3),
+                          {f"floor_{k}": e - elevations[0] for k, e in enumerate(elevations)})]
+        # Gates in each floor's shaft doorway (the wall's centre line): each is shown, and solid,
+        # unless the car is standing at its floor (a visibility motion shows it as soon as the car
+        # heads away and hides it once the car has arrived).
         for k, (storey, room) in enumerate(column):
             door = next((o for o in room.meta.get("openings", []) if o["kind"] == "door"), None)
             if door is None:
@@ -250,8 +248,12 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
             centre[1] = elevations[k] + door["top"] / 2
             gate = part(f"lift_gate_{k}", centre - extent - m[:3, 3], centre + extent - m[:3, 3], steel)
             gate.tags = ["lift.gate"]
-            gate.meta["gate"] = {"interaction": "lift", "open_in": f"floor_{k}"}
             lift.add_child(gate)
+            motions.append(Motion([gate], "visible", np.zeros(3), np.zeros(3),
+                                  {f"floor_{j}": float(j != k) for j in range(len(column))}))
+        lift.interactions = [Interaction(name="lift", states=states, motions=motions, targets=[panel],
+                                         initial="floor_0", duration=max(1.0, travel / LIFT_SPEED))]
+        apply_state(lift, lift.interactions[0], "floor_0")
         root.add_child(lift)
 
 

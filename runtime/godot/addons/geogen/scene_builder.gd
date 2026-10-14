@@ -21,8 +21,8 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 ## Every key of extras.geogen: the properties of docs/schema/geogen-extras.v1.schema.json, in its order
 ## (tests/test_extras_contract.py fails when the two differ). The exporter writes no others.
 const KNOWN_KEYS := ["version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
-    "joint", "clips", "interactions", "footprint", "clearance", "door_swings", "light", "switch",
-    "affordances", "portal", "place", "travel", "poses", "npc", "container", "gate", "nav", "size",
+    "joint", "clips", "interactions", "footprint", "clearance", "door_swings", "light",
+    "affordances", "portal", "place", "travel", "poses", "npc", "container", "nav", "size",
     "city", "block", "lot", "building", "street_furniture", "recipe", "roof", "lod", "interior",
     "scatter", "signal", "character", "stairs", "water", "driving", "fleet", "train", "vehicle"]
 

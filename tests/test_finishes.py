@@ -83,7 +83,8 @@ def test_switches_are_the_light_switch_asset_and_can_be_aimed_at(tmp_path):
     import json
     import struct
 
-    from geogen.export import export_scene, resolve_collider, switched_light
+    from geogen.export import export_scene, resolve_collider
+    from geogen.state import switched_light
 
     root = FloorPlan.from_spec(SPEC).build("suite")
     switches = [n for n in root.iter_nodes() if "switch.light" in n.tags]
@@ -102,11 +103,10 @@ def test_switches_are_the_light_switch_asset_and_can_be_aimed_at(tmp_path):
     data = export_scene(root, tmp_path / "suite.glb").read_bytes()
     nodes = json.loads(data[20:20 + struct.unpack("<I", data[12:16])[0]])["nodes"]
     names = [n["name"] for n in nodes]
-    exported = [n for n in nodes if "switch" in n.get("extras", {}).get("geogen", {})]
+    exported = [n for n in nodes if "switch" in n.get("extras", {}).get("geogen", {}).get("interactions", {})]
     assert len(exported) == len(switches)
     for node in exported:
         extras = node["extras"]["geogen"]
-        assert extras["switch"]["light"] in names
         targets = extras["interactions"]["switch"]["targets"]
         assert len(targets) == 2 and set(targets) <= set(names)
         children = [nodes[i] for i in node["children"]]

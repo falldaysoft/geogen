@@ -196,9 +196,9 @@ def test_animations_can_be_disabled(built_scene, tmp_path):
 
 
 def test_switches_name_their_own_scenes_lights(built_scene, scene_export):
-    """meta.switch.light is a placement's name; exports write the node's exported name, and a
-    scene placed twice keeps each copy's switches on its own lights."""
-    from geogen.export import switched_light
+    """meta.switch.light is a placement's name; a scene placed twice keeps each copy's switches
+    on its own lights, and the export binds each fixture's lit state to its switch."""
+    from geogen.state import switched_light
 
     island = built_scene("island")
     switches = [n for n in island.iter_nodes() if "switch" in n.meta]
@@ -208,9 +208,10 @@ def test_switches_name_their_own_scenes_lights(built_scene, scene_export):
         assert light.name == switch.meta["switch"]["light"] and "light" in light.meta
         assert light.parent is switch.parent                    # the same cottage
 
+    manifest = json.loads((scene_export("cottage") / "cottage.manifest.json").read_text())
+    wired = {b["set"]: b["to"]["args"][0]["id"] for b in manifest["rules"]["bindings"] if b["set"].endswith("#lit")}
+    assert wired == {"cottage:dining_light#lit": "cottage:dining_switch", "cottage:sitting_light#lit": "cottage:sitting_switch",
+                     "cottage:reading_lamp#lit": "cottage:lamp_switch"}
+    assert set(wired) <= set(manifest["state"]["variables"])
     nodes = _gltf_json(scene_export("cottage") / "cottage.glb")["nodes"]
-    lights = {n["name"] for n in nodes if "light" in n.get("extras", {}).get("geogen", {})}
-    wired = {n["name"]: n["extras"]["geogen"]["switch"]["light"] for n in nodes
-             if "switch" in n.get("extras", {}).get("geogen", {})}
-    assert wired == {"dining_switch": "dining_light", "sitting_switch": "sitting_light", "lamp_switch": "reading_lamp"}
-    assert set(wired.values()) <= lights
+    assert not any("switch" in n.get("extras", {}).get("geogen", {}) for n in nodes)      # build-only now

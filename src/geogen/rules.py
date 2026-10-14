@@ -148,6 +148,7 @@ def check_program(program: dict[str, Any]) -> list[str]:
             for link in ("next", "then"):
                 if state.get(link) is not None and state[link] not in states:
                     problems.append(f"{key}: state '{name}' {link}: '{state[link]}' isn't one of its states")
+    guarded = [(key, spec["when"]) for key, spec in interactions.items() if "when" in spec]
 
     def tree(where: str, t: Any) -> None:
         try:
@@ -158,6 +159,9 @@ def check_program(program: dict[str, Any]) -> list[str]:
         for read in _reads(t):
             if read not in known:
                 problems.append(f"{where}: reads '{read}', which isn't declared")
+
+    for key, when in guarded:
+        tree(f"{key} when", when)
 
     bound = set()
     for binding in program.get("bindings", []):
@@ -311,10 +315,24 @@ class Machine:
         if self.get(f"{key}_locked"):
             self._settle([{"type": "signal", "subject": thing, "name": "locked", "actor": actor, "depth": 0}])
             return False
+        if not self.allows(key, actor):
+            return False
         queue = [{"type": "use", "subject": thing, "name": name, "actor": actor, "depth": 0}]
         self._set(key, state["next"], actor, queue, 0)
         self._settle(queue)
         return True
+
+    def allows(self, key: str, actor: str | None = None) -> bool:
+        """Whether the interaction's ``when`` holds for ``actor`` now (true without one). It only
+        gates use: rules and ``set`` drive the interaction whatever it says."""
+        when = self.interactions[key].get("when")
+        if when is None:
+            return True
+        try:
+            return conditions.truthy(self.value(when, actor))
+        except (RuleError, ConditionError) as e:
+            self.errors.append(f"{key} when: {e}")
+            return False
 
     def set(self, key: str, value: Any, actor: str | None = None) -> None:
         """Set a variable from outside (a test, a console, a loaded tool)."""

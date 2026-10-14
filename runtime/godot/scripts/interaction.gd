@@ -40,6 +40,9 @@ var actor := ""
 var _dwell := 0.0          # seconds spent in the current state (for 'after')
 ## Freeze timed transitions (playtests keep doors open).
 var hold := false
+## The interaction's `when` (set by WorldLoader from the rules program): guard.call(actor) is
+## whether that actor may use it now. Unset: always.
+var guard := Callable()
 
 ## [{parts: [Node3D], type, axis: Vector3, pivot: Vector3, values: {state: float},
 ##   value: float, rest: {Node3D: Transform3D}, speed: float}]
@@ -127,9 +130,9 @@ func moving_nodes() -> Array[Node3D]:
 
 
 ## Prompt for the action use() would take, or "" if not usable now.
-func prompt(keys: Array = []) -> String:
+func prompt(keys: Array = [], by := "player") -> String:
     var t: Dictionary = states.get(target, {})
-    if not t.has("next"):
+    if not t.has("next") or not allowed(by):
         return ""
     if locked:
         return "Unlock (L)" if keys.has(lock_key) else "Locked"
@@ -139,8 +142,13 @@ func prompt(keys: Array = []) -> String:
     return text
 
 
-func can_use() -> bool:
-    return states.get(target, {}).has("next")
+func can_use(by := "player") -> bool:
+    return states.get(target, {}).has("next") and allowed(by)
+
+
+## Whether its `when` lets ``by`` use it now (rules can still drive it either way).
+func allowed(by := "") -> bool:
+    return not guard.is_valid() or bool(guard.call(by))
 
 
 ## Returns false (and emits a "locked" event) when locked. ``by`` is the actor using it.
@@ -151,6 +159,8 @@ func use(by := "") -> bool:
     if locked:
         state_entered.emit(state, "locked")
         raised.emit("locked", by)
+        return false
+    if not allowed(by):
         return false
     used.emit(by)
     _head_to(str(t["next"]), by)

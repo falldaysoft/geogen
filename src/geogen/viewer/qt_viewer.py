@@ -87,7 +87,7 @@ def describe_node(node: SceneNode) -> str:
         lines.append(f"Surfaces  {', '.join(sorted(node.surfaces))}")
     if node.tags:
         lines.append(f"Tags      {', '.join(node.tags)}")
-    for key in ("room", "storey", "collider", "walkable", "joint", "light", "gate", "stairs", "footprint",
+    for key in ("room", "storey", "collider", "walkable", "joint", "light", "stairs", "footprint",
                 "clearance"):
         if key in node.meta:
             lines.append(f"{key:<9} {node.meta[key]}")

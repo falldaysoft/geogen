@@ -408,6 +408,11 @@ func load_save(data: Dictionary) -> void:
 
 # -- state, for tools --------------------------------------------------------------------------
 
+## Whether an interaction's `when` lets ``actor`` use it now (true with no program or no `when`).
+func allows(key: String, actor := "") -> bool:
+    return machine == null or not machine.interactions.has(key) or machine.allows(key, actor)
+
+
 func get_value(key: String, actor := "") -> Variant:
     return null if machine == null else machine.get_value(key, actor)
 

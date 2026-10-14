@@ -227,3 +227,47 @@ def test_if_leaves_rules_wires_and_quests_out_of_a_build(assets):
     assert not without.quests and not [r for r in without.rules if r["id"].startswith("quest:")]
     ids = [r["id"] for r in without.wiring]
     assert "count_pulls" not in ids and "wire_2" not in ids and {"nightfall", "crowded", "wire_1"} <= set(ids)
+
+
+GUARDED = ("  pull:\n    duration: 0.5\n", "  pull:\n    duration: 0.5\n    when: \"world.power and not self.handle_stuck\"\n")
+STUCK = "bounds: geometry\n", "bounds: geometry\nstate:\n  handle_stuck: {type: bool, default: false}\n"
+
+
+def test_an_interaction_only_works_when_its_condition_holds(assets, tmp_path):
+    rewrite(assets, "lever", *GUARDED)
+    rewrite(assets, "lever", *STUCK)
+    found = collect(compose(assets), "yard")
+    when = found.declarations.interactions["yard:lever#pull"]["when"]
+    assert when == {"op": "and", "args": [{"get": "world", "package": "yard", "name": "power"},
+                                          {"op": "not", "args": [{"get": "instance", "id": "yard:lever", "name": "handle_stuck"}]}]}
+    machine = Machine(found.program(), ACTORS)
+    machine.set("world:yard.power", False)
+    assert machine.use("yard:lever#pull", "player") is False and machine.get("yard:lever#pull") == "up"
+    machine.set("world:yard.power", True)
+    assert machine.use("yard:lever#pull", "player") is True
+    machine.set("yard:lever#handle_stuck", True)
+    machine.advance(1.0)
+    assert machine.use("yard:lever#pull", "player") is False and machine.errors == []
+
+    manifest = json.loads(manifest_path(export_scene(compose(assets), tmp_path / "yard.glb")).read_text())
+    assert manifest["state"]["interactions"]["yard:lever#pull"]["when"] == when
+
+
+def test_a_bad_interaction_condition_names_the_interaction(assets):
+    rewrite(assets, "lever", GUARDED[0], GUARDED[0] + '    when: "self.handle_stuk"\n')
+    with pytest.raises(QuestError, match=r"yard:lever#pull: when: .*has no state 'handle_stuk'"):
+        collect(compose(assets), "yard")
+
+
+def test_godot_refuses_an_interaction_while_its_condition_is_false(assets, tmp_path, godot_runtime):
+    rewrite(assets, "lever", *GUARDED)
+    rewrite(assets, "lever", *STUCK)
+    export_scene(compose(assets), tmp_path / "yard.glb")
+    rt = godot_runtime("yard", tmp_path)
+    rt.call("state.set", key="world:yard.power", value=False)
+    assert rt.call("interactions.list", asset="lever")[0]["prompt"] == ""
+    rt.call("interactions.use", asset="lever", wait=True)
+    assert rt.call("state.get", key="yard:lever#pull")["value"] == "up"
+    rt.call("state.set", key="world:yard.power", value=True)
+    rt.call("interactions.use", asset="lever", wait=True)
+    assert rt.call("state.get", key="yard:lever#pull")["value"] == "down"

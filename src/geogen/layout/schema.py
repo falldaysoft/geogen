@@ -280,7 +280,7 @@ ASSET_KEYS: dict[str, str] = {
     "container": "{capacity, part}: the asset holds items",
     "light": "{type: omni, color, energy, range, offset, auto: night}: the asset is a light fixture",
     "switch": "{light: <name>}: the asset's `switch` interaction (on | off) turns that light fixture on and off: "
-              "the nearest placement of that name (meta.switch)",
+              "the nearest placement of that name; compiled to a binding of the fixture's `lit` state",
     "portal": "a doorway NPC paths pass through (opening the interaction first)",
     "travel": "{scene, spawn, prompt, on: use | enter, target}: moves the player to another scene",
     "vehicle": "{class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle)",

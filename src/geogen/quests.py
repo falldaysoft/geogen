@@ -944,7 +944,8 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
                    declarations: Declarations, selectors: dict[str, list[str]] | None = None,
                    rules: Iterable[dict[str, Any]] = (), wiring: Iterable[Any] = (),
                    by_name: bool | None = None, trees: dict[str, SceneNode] | None = None,
-                   bindings: Iterable[dict[str, Any]] = ()) -> Quests:
+                   bindings: Iterable[dict[str, Any]] = (), built: Iterable[dict[str, Any]] = (),
+                   guards: Iterable[tuple[str, str, SceneNode]] = ()) -> Quests:
     """Compile quest specs against ``declarations`` (their variables are added to it).
 
     A spec is the dict of a quest file, or ``(spec, source file, scene node)``. With a
@@ -957,6 +958,9 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     ``trees`` makes this a content package (``geogen.content``): every reference names its
     scene (``island:jetty``) and resolves on that scene's tree (a reference index's stand-in),
     with ``declarations`` holding those scenes' state and ``rules`` / ``bindings`` their programs.
+    ``built`` are bindings the build itself made (a switch's on its light: ``state.switch_bindings``).
+    ``guards`` are interactions' ``when`` conditions as (interaction key, text, owner node): each is
+    compiled with the owner as ``self`` into its entry in ``declarations.interactions``.
     Raises ``QuestError`` listing every problem.
     """
     entries = [(s, None, None) if isinstance(s, dict) else s for s in specs]
@@ -984,6 +988,16 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
         from .wiring import compile_wiring
 
         compiler.out.wiring, compiler.out.bindings = compile_wiring(compiler, wiring)
+    for binding in built:
+        compiler.out.bindings.append(binding)
+        compiler.out.written[f"bind:{binding['set']}"] = "a switch"
+    for key, text, node in guards:
+        src = _Quest(key, {}, None, node, node)
+        src.where = lambda *keys, _k=key: f"{_k}: when"       # type: ignore[method-assign]
+        try:
+            declarations.interactions[key]["when"] = compiler.condition(src, text)
+        except QuestError as exc:
+            compiler.bad(src.where(), str(exc))
     for quest in compiler.quests:
         rules_of = compiler.quest_rules.get(quest.id, [])
         if quest.spec.get("rewards"):
@@ -1012,7 +1026,7 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
 
     Raises ``StateError`` or ``QuestError`` listing every problem.
     """
-    from .state import collect as collect_state
+    from .state import collect as collect_state, switch_bindings
 
     from .wiring import sources
 
@@ -1020,9 +1034,18 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     specs, wiring = [], sources(root)
     for node in root.iter_nodes():
         specs.extend((entry["spec"], entry.get("source"), node) for entry in node.meta.get(META) or [])
-    if not specs and not wiring:
+
+    def uid(node: SceneNode) -> str:
+        known = node.meta.get("uid")
+        return known if isinstance(known, str) and known.startswith(package + ":") else refs.node_id(node, package, root)
+
+    built = switch_bindings(root, uid)
+    guards = [(f"{uid(node)}#{it.name}", it.when, node) for node in root.iter_nodes()
+              for it in node.interactions if it.when]
+    if not specs and not wiring and not built and not guards:
         return Quests(declarations)
-    return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False)
+    return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False, built=built,
+                          guards=guards)
 
 
 def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:

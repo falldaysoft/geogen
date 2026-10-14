@@ -31,7 +31,7 @@ PART_TAGS = {"door.leaf"}
 PART_TYPES = {"collider", "room_volume"}
 # Meta that makes an untagged node worth a line of its own.
 SHOWN_META = {"source", "npc", "vehicle", "travel", "light", "switch", "room", "storey", "door",
-              "spawn", "signal", "gate", "lift", "building", "lot"}
+              "spawn", "signal", "lift", "building", "lot"}
 SUMMARISED_META = {"source", "collider", "walkable", "placed_by", "footprint", "clearance",
                    "furnish_report", "openings", "door_swings", "wall_inset", "clear_height",
                    "size", "type"}

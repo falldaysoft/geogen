@@ -197,6 +197,8 @@ func use(key: String, actor := "") -> bool:
     if GeogenConditions.truthy(_read("%s_locked" % key, "")):
         _input([{"type": "signal", "subject": thing, "name": "locked", "actor": actor, "depth": 0, "own": true}])
         return false
+    if not allows(key, actor):
+        return false
     var queue: Array = [{"type": "use", "subject": thing, "name": interaction_name, "actor": actor, "depth": 0}]
     var problem := _write(key, state["next"], actor, queue, 0)
     _input(queue)
@@ -475,6 +477,19 @@ func _effects(rule: Dictionary, actor: String, queue: Array, depth: int) -> void
         else:
             queue.append({"type": "signal", "subject": _text(effect.get("subject")), "name": effect["emit"],
                 "actor": actor, "depth": depth + 1, "own": true})
+
+
+## Whether the interaction's `when` holds for `actor` now (true without one). It only gates
+## use: rules and set_value drive the interaction whatever it says.
+func allows(key: String, actor := "") -> bool:
+    var when: Variant = interactions.get(key, {}).get("when")
+    if when == null:
+        return true
+    var found: Variant = _value(when, actor)
+    if found == null:
+        errors.append("%s when: %s" % [key, _fail])
+        return false
+    return GeogenConditions.truthy(found)
 
 
 func _holds(rule: Dictionary, actor: String) -> bool:

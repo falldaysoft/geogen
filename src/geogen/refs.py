@@ -331,7 +331,7 @@ def surface_of(node: SceneNode, name: str, ref: str = ""):
 def identified(node: SceneNode) -> bool:
     """Whether a node gets an exported ID: things placed, tagged, typed or interactive."""
     return (is_scope(node) or bool(node.tags) or bool(node.interactions)
-            or any(k in node.meta for k in ("type", "travel", "npc", "room")))
+            or any(k in node.meta for k in ("type", "travel", "npc", "room", "light")))
 
 
 def assign_ids(root: SceneNode, package: str) -> dict[str, SceneNode]:

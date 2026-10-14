@@ -122,7 +122,7 @@ as `get_meta("extras")`; room volumes drive the overlay's `room:` readout and
 the `room` field of `--walk` results. Without `--spawn`, the player starts at
 the manifest's first spawn point. Interactions in node extras (e.g. the
 cottage door's `swing`) become `GeogenInteraction` nodes (`scripts/interaction.gd`):
-look at the door within reach and press E to open or close it (L locks/unlocks with a held key; timed states like self-closing guest doors advance on their own); colliders on
+look at the door within reach and press E to open or close it (L locks/unlocks with a held key; timed states like self-closing guest doors advance on their own; an interaction with a `when` offers nothing while the rules program says it is false, `GeogenRules.allows`); colliders on
 moving parts are `AnimatableBody3D`s so the open door lets you through. A `visible` motion shows and hides
 parts (`show: [states]` / `hide: [states]` in the asset): a part shows as soon as the interaction heads for a
 state that shows it and hides on arriving at one that doesn't, with its colliders disabled while hidden. glTF has
@@ -441,6 +441,9 @@ up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the 
 - **Sun, sky and moon**: the sun's elevation, azimuth, colour and energy follow the hour, with
   warm light low in the sky. The sky and fog fade through a pink twilight to a blue night, and a
   faint shadowless moonlight keeps shapes readable.
+- **Switches**: every other fixture's rules state `<uid>#lit` shows and hides its light and glow
+  (`WorldLoader._fixtures`). A light switch drives it through a binding in the manifest's `rules`,
+  and any rule may set it.
 - **Night**: fixtures exported with `light.auto: night` switch on after dark, together with
   their glowing glass. Street lamps are these, and have no shadows since there are many.
   Vehicle head and tail lamps brighten. `WorldLoader.set_night` handles the switch.
@@ -888,14 +891,12 @@ A new key needs a schema entry and a row here.
 | `interactions` | `scripts/world_loader.gd` | a `GeogenInteraction` (`scripts/interaction.gd`) each |
 | `clips` | `scripts/npc.gd` | body animations and transition clips |
 | `light` | `scripts/world_loader.gd` | tunes the fixture's imported light; `auto: night` |
-| `switch` | `scripts/world_loader.gd` | the light a switch's interaction turns on and off |
 | `affordances` | `scripts/world_loader.gd` | sit / lie / use points for the player and NPCs |
 | `portal` | `scripts/world_loader.gd` | doorways NPC paths open (`scripts/npc.gd`) |
 | `place` | `scene_builder.gd` | `PlaceArea` trigger volumes |
 | `travel` | `scripts/world_loader.gd` | travel points |
 | `npc` | `scripts/world_loader.gd` | a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition |
 | `poses` | - | on body assets; NPCs read the copy in `npc.body.poses` |
-| `gate` | `scripts/world_loader.gd` | barriers that open with an interaction's state (lift shaft doors) |
 | `stairs` | `scene_builder.gd` | the `NavigationLink3D` and walking path of a spiral stair |
 | `water` | `scripts/world_loader.gd` | parameters of `scripts/water.gdshader` |
 | `vehicle` | `scripts/traffic.gd`, `scripts/train.gd` | wheels, lamps, clearance, sound |

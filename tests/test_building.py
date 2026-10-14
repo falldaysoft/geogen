@@ -82,7 +82,11 @@ def test_lift_serves_every_storey(building):
     assert it.states["floor_2"].next == "floor_0"          # wraps to the lobby
     assert it.motions[0].values == pytest.approx({"floor_0": 0.0, "floor_1": 3.65, "floor_2": 6.4})
     gates = [c for c in lift.children if "lift.gate" in c.tags]
-    assert [g.meta["gate"]["open_in"] for g in gates] == ["floor_0", "floor_1", "floor_2"]
+    shown = [m for m in it.motions if m.kind == "visible"]
+    assert [m.parts for m in shown] == [[g] for g in gates] and len(gates) == 3
+    # Each gate is solid unless the car stands at its floor: open at the lobby to begin with.
+    assert [{s for s, v in m.values.items() if not v} for m in shown] == [{"floor_0"}, {"floor_1"}, {"floor_2"}]
+    assert [g.hidden for g in gates] == [True, False, False]
     # The shaft is open: only the bottom room keeps its floor, only the top its ceiling.
     shafts = [building.find(f"storey_{k}").find("lift_shaft") for k in range(3)]
     assert [s.find("floor") is not None for s in shafts] == [True, False, False]

@@ -5,6 +5,7 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
     interactions:
       swing:
         targets: [leaf, knob]      # parts the player aims at (default: moving parts)
+        when: "world.power"        # optional: a condition that must hold to use it (geogen.conditions)
         initial: closed            # default: first state
         duration: 0.9              # seconds for the widest move (constant speed)
         states:
@@ -24,7 +25,10 @@ arrival, for momentary buttons; with ``after: <seconds>`` it waits first,
 e.g. a door that closes itself), ``emit`` (event name raised on arrival),
 ``prompt`` (UI text). ``lock: {key: <id>, locked: true}`` makes the
 interaction refuse ``use`` while locked; users holding the key can lock and
-unlock it. A ``show``/``hide`` motion
+unlock it. ``when`` is a condition over live state (names relative to the asset, as
+in its wiring: ``self.x``, parts, ``world.x``, ``actor.x``); while it is false nobody can use the
+interaction, though rules can still drive it. ``quests.collect`` compiles it into the interaction's
+entry in the manifest's state. A ``show``/``hide`` motion
 sets parts' visibility (``SceneNode.hidden``) per state, and runtimes turn their colliders off
 with them: a part shows as soon as the interaction heads for a state that shows it and hides
 when it arrives at one that doesn't. Motions may be empty for pure state toggles (a TV's power) as
@@ -103,6 +107,8 @@ class Interaction:
     duration: float = 0.9
     # {"key": id, "locked": bool}: while locked, use() fails unless the user holds the key.
     lock: dict[str, Any] | None = None
+    # A condition (geogen.conditions text) that must hold to use it; compiled by quests.collect.
+    when: str | None = None
 
     def value(self, motion: Motion, state: str) -> float:
         return float(motion.values.get(state, 0.0))
@@ -255,6 +261,9 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
         initial = str(spec.get("initial", next(iter(states))))
         if initial not in states:
             raise ValueError(f"Interaction '{name}' initial state '{initial}' is not a state")
+        when = spec.get("when")
+        if when is not None and not isinstance(when, str):
+            raise ValueError(f"Interaction '{name}': when must be a condition (text), got {when!r}")
         result.append(Interaction(name, states, motions, targets, initial, float(spec.get("duration", 0.9)),
-                                  lock=lock))
+                                  lock=lock, when=when))
     return result

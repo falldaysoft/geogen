@@ -27,6 +27,7 @@ def program(**parts):
     return {"format": "geogen-rules", "version": 1, **parts}
 
 TOGGLE = {"off": {"next": "on"}, "on": {"next": "off"}}
+TOGGLE_SHUT = {"shut": {"next": "open"}, "open": {"next": "shut"}}
 traces = {}
 
 traces["lever_opens_gate"] = {
@@ -206,6 +207,36 @@ traces["time"] = {
         {"expect": {"state": {"demo:lamp#lit": True, "demo:door#swing_locked": True}, "fired": ["dusk", "unlock"]}},      # the event's rules, then what bindings changed
         {"clock": {"time": "07:00", "night": False, "day": 1}},
         {"expect": {"state": {"demo:lamp#lit": False}, "fired": ["dawn"], "errors": 0}},
+    ]}
+
+traces["when"] = {
+    "about": "An interaction's `when`: nobody can use the hatch until the power is on, and only someone "
+             "carrying the key may use the vault; rules drive both whatever their conditions say.",
+    "program": program(
+        variables={"world:demo.power": {"type": "bool", "default": False},
+                   "actor:demo.has_key": {"type": "bool", "default": False}},
+        interactions={
+            "demo:hatch#lid": {"initial": "shut", "duration": 0.5, "when": c("world.power"), "states": TOGGLE_SHUT},
+            "demo:vault#door": {"initial": "shut", "duration": 0.5, "when": c("actor.has_key"), "states": TOGGLE_SHUT}},
+        rules=[{"id": "blackout_opens", "on": {"type": "changed", "key": "world:demo.power", "to": False},
+                "do": [{"set": "demo:hatch#lid", "to": "open"}]}]),
+    "actors": {"player": {"kind": "player"}, "npc:guard": {"kind": "npc"}},
+    "steps": [
+        {"use": "demo:hatch#lid", "actor": "player", "used": False},       # no power: refused, no event
+        {"expect": {"state": {"demo:hatch#lid": "shut"}, "signals": [], "fired": []}},
+        {"set": "world:demo.power", "to": True},
+        {"use": "demo:hatch#lid", "actor": "player", "used": True},
+        {"advance": 0.6},
+        {"expect": {"state": {"demo:hatch#lid": "open"}}},
+        {"use": "demo:hatch#lid", "actor": "player", "used": True},
+        {"advance": 0.6},
+        {"set": "world:demo.power", "to": False},                          # a rule opens it anyway
+        {"expect": {"state": {"demo:hatch#lid": "open"}, "fired": ["blackout_opens"]}},
+        {"set": "actor:demo.has_key", "to": True, "actor": "npc:guard"},
+        {"use": "demo:vault#door", "actor": "player", "used": False},      # actor state: per actor
+        {"use": "demo:vault#door", "actor": "npc:guard", "used": True},
+        {"advance": 0.6},
+        {"expect": {"state": {"demo:vault#door": "open"}, "errors": 0}},
     ]}
 
 traces["cascades"] = {

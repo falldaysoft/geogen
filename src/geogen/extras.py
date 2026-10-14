@@ -36,6 +36,8 @@ BUILD_ONLY: dict[str, str] = {
     "wiring": "rules, wires and bindings as authored: compiled into the manifest's rules",
     "travel_spec": "the travel block as authored; the resolved one is exported as 'travel'",
     "travel_source": "the file a travel block came from, for error messages",
+    "switch": "the light a switch turns on and off: compiled to a binding of that fixture's lit state "
+              "(state.switch_bindings)",
     # References (geogen.refs): only the resulting uid is exported
     "source": "the asset file and params a root was built from (inspection, prototype caching)",
     "scope": "marks a placed scene, recipe or NPC as its own namespace for references",

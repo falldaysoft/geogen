@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.parent
 GEOGEN = extras.schema()["properties"]["geogen"]
 
 # Keys a runtime reads: their sub-objects list their properties and take no others.
-CLOSED = ["room", "door", "joint", "clearance", "light", "switch", "portal", "place", "travel", "container", "gate",
+CLOSED = ["room", "door", "joint", "clearance", "light", "portal", "place", "travel", "container",
           "city", "block", "lot", "building", "roof", "lod", "interior", "scatter", "signal", "character", "stairs",
           "water", "driving", "fleet", "train"]
 

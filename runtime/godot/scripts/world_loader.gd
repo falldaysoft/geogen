@@ -68,6 +68,9 @@ var nodes_by_uid: Dictionary = {}
 var _pending_state: Dictionary = {}
 ## Fixture lights by their fixture node's name (light switches refer to them).
 var lights_by_name := {}
+## Switchable fixtures by stable ID: {uid: {light: OmniLight3D, fixture: Node}}. Their `<uid>#lit`
+## state (rules: a switch's binding, or any rule) shows and hides the light and its glow.
+var _fixtures := {}
 ## Actor poses from extras.geogen.affordances, world space:
 ## [{type, position: Vector3, yaw_deg: float, height: float, node: Node3D}]
 var affordances: Array[Dictionary] = []
@@ -98,8 +101,6 @@ var _reservations := {}   # affordance id -> [GeogenNpc]
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
 var _moving := {}     # Node3D driven by an interaction -> true
-## Gates: [{node: Node3D, interaction: GeogenInteraction, open_in: String, open: bool}]
-var _gates: Array[Dictionary] = []
 var _target_of := {}  # Node3D aimed at -> GeogenInteraction
 var _poll := 0.0
 var _collider_material: StandardMaterial3D
@@ -141,6 +142,8 @@ func _ready() -> void:
     add_child(events)
     rules.name = "Rules"
     rules.reset.connect(_sync_trains)
+    rules.reset.connect(_sync_fixtures)
+    events.posted.connect(_on_lit)
     rules.world = self
     add_child(rules)
     _collider_material = StandardMaterial3D.new()
@@ -312,6 +315,7 @@ func unload() -> void:
     _pending_state.clear()
     interactions.clear()
     lights_by_name.clear()
+    _fixtures.clear()
     affordances.clear()
     npcs.clear()
     _auto_lights.clear()
@@ -321,7 +325,6 @@ func unload() -> void:
     traffic_graph = {}
     portals.clear()
     _reservations.clear()
-    _gates.clear()
     _moving.clear()
     _target_of.clear()
     travel_points.clear()
@@ -500,7 +503,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
 
 ## Gameplay setup for a freshly loaded export (or streamed chunk) already in
 ## the tree: LOD levels dropped, interactions, lights, switches, seats,
-## colliders, gates, rooms, then the scene builder (Areas, spawns, groups).
+## colliders, rooms, then the scene builder (Areas, spawns, groups).
 func setup_root(root: Node) -> Dictionary:
     var t := Time.get_ticks_usec()
     # MSFT_lod levels are detached from the hierarchy; Godot makes its own LODs.
@@ -514,7 +517,7 @@ func setup_root(root: Node) -> Dictionary:
             nodes_by_uid[uid] = node
     _collect_interactions(root)
     _add_lights(root)
-    _wire_switches(root)
+    _sync_fixtures()
     _collect_affordances(root)
     _collect_portals(root)
     _collect_travel(root)
@@ -526,7 +529,6 @@ func setup_root(root: Node) -> Dictionary:
     t = _lap("npcs", t)
     _spawn_traffic(root)
     t = _lap("traffic", t)
-    _collect_gates(root)
     _collect_rooms(root)
     var summary := GeogenSceneBuilder.build(root)
     _collect_places(root)
@@ -624,11 +626,13 @@ func forget(root: Node) -> void:
     portals = portals.filter(func(p): return not inside.call(p.get("node")))
     travel_points = travel_points.filter(func(t): return not inside.call(t.get("node")))
     npcs = npcs.filter(func(n): return not inside.call(n))
-    _gates = _gates.filter(func(g): return not inside.call(g.get("node")))
     _auto_lights = _auto_lights.filter(func(a): return not inside.call(a.get("fixture")))
     for key in lights_by_name.keys():
         if inside.call(lights_by_name[key]):
             lights_by_name.erase(key)
+    for key in _fixtures.keys():
+        if inside.call(_fixtures[key]["fixture"]):
+            _fixtures.erase(key)
     for key in _moving.keys():
         if inside.call(key):
             _moving.erase(key)
@@ -722,30 +726,36 @@ func _add_lights(root: Node) -> void:
             _auto_lights.append({"light": light, "fixture": node})
             light.visible = night
             _set_emission(node, night)
+        else:
+            var uid := uid_of(node)
+            if uid != "":
+                _fixtures[uid] = {"light": light, "fixture": node}
         lights_by_name[String(node.name)] = light
         # The fixture itself mustn't shadow its own light.
         for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
             mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
-## Light switches: their interaction's on/off state shows or hides the named light.
-func _wire_switches(root: Node) -> void:
-    for it in interactions:
-        if not root.is_ancestor_of(it.asset):
-            continue   # wired when its own export loaded
-        var spec = geogen_extras(it.asset).get("switch")
-        if not spec is Dictionary:
-            continue
-        var light: Light3D = lights_by_name.get(str(spec.get("light", "")))
-        if light == null:
-            continue
-        var fixture := light.get_parent()
-        while fixture != null and not geogen_extras(fixture).has("light"):
-            fixture = fixture.get_parent()
-        it.state_entered.connect(func(state: String, _event: String):
-            light.visible = state != "off"
-            if fixture != null:
-                _set_emission(fixture, state != "off"))
+## A fixture's `lit` state (state.light_state) shows or hides its light and glow: a switch's binding
+## sets it, and so may any rule. Synced when a package (or a save) loads and when a chunk adds fixtures.
+func _sync_fixtures() -> void:
+    for uid in _fixtures:
+        var lit = rules.get_value(uid + "#lit")
+        if lit is bool:
+            _light_fixture(uid, lit)
+
+
+func _on_lit(event: Dictionary) -> void:
+    if event["type"] == "changed" and event["name"] == "lit" and _fixtures.has(event["subject"]):
+        _light_fixture(event["subject"], bool(event["data"].get("to", true)))
+
+
+func _light_fixture(uid: String, lit: bool) -> void:
+    var entry: Dictionary = _fixtures[uid]
+    if not is_instance_valid(entry["fixture"]):
+        return
+    entry["light"].visible = lit
+    _set_emission(entry["fixture"], lit)
 
 
 ## Ways out of the scene for NPCs going `away` (routines): building entrances (their spawns).
@@ -1305,6 +1315,7 @@ func _collect_interactions(root: Node) -> void:
             var uid := uid_of(node)
             var key := "%s#%s" % [uid, iname]
             interactions_by_key[key] = it
+            it.guard = func(actor: String) -> bool: return rules.allows(key, actor)
             it.used.connect(func(actor: String): events.post("use", uid, iname, actor))
             it.target_changed.connect(func(from: String, to: String, actor: String):
                 events.post("changed", uid, iname, actor, {"key": key, "from": from, "to": to}))
@@ -1342,42 +1353,7 @@ func interactions_of(asset_name: String) -> Array[GeogenInteraction]:
     return result
 
 
-## Nodes with extras.geogen.gate: solid unless their interaction has arrived at open_in.
-func _collect_gates(root: Node) -> void:
-    for node in root.find_children("*", "Node3D", true, false):
-        var gate = geogen_extras(node).get("gate")
-        if not gate is Dictionary:
-            continue
-        var it: GeogenInteraction = null
-        var ancestor := node.get_parent()
-        while ancestor != null and it == null:
-            for candidate in interactions:
-                if candidate.asset == ancestor and candidate.interaction_name == gate.get("interaction", ""):
-                    it = candidate
-            ancestor = ancestor.get_parent()
-        if it == null:
-            push_warning("geogen: gate %s: no interaction '%s'" % [node.name, gate.get("interaction", "")])
-            continue
-        var entry := {"node": node, "interaction": it, "open_in": str(gate.get("open_in", "")), "open": null}
-        _gates.append(entry)
-        _update_gate(entry)
-
-
-func _update_gate(gate: Dictionary) -> void:
-    var it: GeogenInteraction = gate["interaction"]
-    var open: bool = it.state == gate["open_in"] and it.target == it.state
-    if gate["open"] == open:
-        return
-    gate["open"] = open
-    var node: Node3D = gate["node"]
-    node.visible = not open
-    for shape: CollisionShape3D in node.find_children("*", "CollisionShape3D", true, false):
-        shape.set_deferred("disabled", open)
-
-
 func _physics_process(_delta: float) -> void:
-    for gate in _gates:
-        _update_gate(gate)
     if not _held.is_empty():
         _release_held()
 

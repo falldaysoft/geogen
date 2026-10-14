@@ -111,8 +111,10 @@ there; **arriving** is a separate moment.
 
 - `use` by an actor moves it to the current state's `next`. With no `next`
   nothing happens. While locked it raises the signal `locked` and nothing else.
-- A rule drives it by setting the variable to a state. This ignores `next` and
-  the lock, so a gate with no `next` can only be moved by rules.
+  With a `when` (a condition tree in its entry, read with the user as the actor)
+  that is false, nothing happens and nothing is raised.
+- A rule drives it by setting the variable to a state. This ignores `next`, the
+  lock and `when`, so a gate with no `next` can only be moved by rules.
 - On arrival, the state's `emit` is raised as a signal from the thing. A state
   with `then` moves on: at once, or `after` seconds later if it is still there.
 - Reversing before arrival cancels the arrival: no signal from the state it
@@ -184,6 +186,13 @@ not form a cycle, and cannot involve actor state.
 Use a binding when something should *be* so while a condition holds (a lamp lit
 while a plate is occupied) and a rule when something should *happen* (a gate
 opens when a lever is pulled).
+
+A light switch is one: every light fixture (an asset with a `light:` block that
+doesn't come on with the night) has the bool `lit`, true to begin with, which
+runtimes show and hide its light and glow by. A switch's `switch: {light}`
+compiles to the binding `<fixture>#lit = <switch>#switch == "on"` (with two
+switches on one fixture, either being on), so rules can still set `lit` on a
+fixture no switch controls.
 
 ## Processing order
 
@@ -259,7 +268,7 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
 - a rule that sets a bound variable
 - actor state written or read by a rule whose trigger never has an actor (a
   `clock` event, `actor: none`, a watched condition over world state only)
-- an unresolved reference or selector in a condition
+- an unresolved reference or selector in a condition, including an interaction's `when`
 - a rule with neither `on` nor `when`, or with no effects
 
 ## Authoring

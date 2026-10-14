@@ -42,7 +42,7 @@ those of a rules program (``geogen.rules``), so ``program()`` is one.
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from . import refs
 from .core.node import SceneNode
@@ -384,6 +384,51 @@ def npc_signal(node: SceneNode) -> str | None:
     return str(greet["signal"]) if greet.get("signal") else None
 
 
+def light_state(node: SceneNode) -> dict[str, dict[str, Any]]:
+    """A light fixture's variable: ``lit`` (on to begin with), which the runtime shows and
+    hides the fixture's light and glow by. A switch binds it (``switch_bindings``); any rule
+    can set it. Fixtures that come on with the night (``auto``) have none."""
+    light = node.meta.get("light")
+    if not isinstance(light, dict) or light.get("auto"):
+        return {}
+    return {"lit": {"type": "bool", "default": True}}
+
+
+def switch_bindings(root: SceneNode, uid: Callable[[SceneNode], str]) -> list[dict[str, Any]]:
+    """What ``switch: {light}`` means: the named fixture (``switched_light``: the nearest
+    of that name) is lit while the switch is on. One binding per fixture, so with two switches
+    (a stairwell) it is lit while either is on."""
+    by_light: dict[str, list[str]] = {}
+    for node in root.iter_nodes():
+        if not isinstance(node.meta.get("switch"), dict) or not any(i.name == "switch" for i in node.interactions):
+            continue
+        light = switched_light(node)
+        if light is not None and light_state(light):
+            by_light.setdefault(uid(light), []).append(uid(node))
+    out = []
+    for light, switches in by_light.items():
+        terms = [{"op": "==", "args": [{"get": "instance", "id": s, "name": "switch"}, "on"]} for s in switches]
+        out.append({"set": f"{light}#lit", "to": terms[0] if len(terms) == 1 else {"op": "or", "args": terms}})
+    return out
+
+
+def switched_light(node: SceneNode) -> SceneNode | None:
+    """The light fixture a switch's ``meta.switch.light`` names: the nearest one of that name,
+    looking in the switch's parent, then that node's parent and so on. So a scene placed twice
+    keeps each copy's switches on its own lights, whatever the export renames them to."""
+    name = str((node.meta.get("switch") or {}).get("light", ""))
+    seen, scope = node, node.parent
+    while name and scope is not None:
+        for child in scope.children:
+            if child is seen:
+                continue
+            found = next((n for n in child.iter_nodes() if n.name == name and "light" in n.meta), None)
+            if found is not None:
+                return found
+        seen, scope = scope, scope.parent
+    return None
+
+
 def train_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     """The variables a train has: ``at_<station>`` for every station it calls at, true while
     a train of that service stands there. The runtime sets them from the timetable
@@ -415,10 +460,11 @@ def collect(root: SceneNode, package: str) -> Declarations:
         declares = node.meta.get(META)
         greeting = npc_signal(node)
         timetable = train_state(node)
-        if not node.interactions and not declares and not greeting and not timetable:
+        lit = light_state(node)
+        if not node.interactions and not declares and not greeting and not timetable and not lit:
             continue
         thing = uid(node)
-        for name, spec in timetable.items():
+        for name, spec in {**timetable, **lit}.items():
             out.variables[f"{thing}#{name}"] = spec
         if greeting:
             out.signals[f"{thing}#{greeting}"] = {"subject": thing, "name": greeting}

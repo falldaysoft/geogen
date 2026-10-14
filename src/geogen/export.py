@@ -151,7 +151,7 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
 
 def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda n: n.name) -> dict:
     """``node_extras`` plus what refers to other nodes, by exported name (``name_of``):
-    the NPC body, vehicle parts, the switched light, interactions and clips."""
+    the NPC body, vehicle parts, interactions and clips."""
     extras = node_extras(node, collider)
     npc = extras.get("geogen", {}).get("npc")
     if isinstance(npc, dict) and isinstance(npc.get("body"), dict):
@@ -162,14 +162,6 @@ def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda
     vehicle = extras.get("geogen", {}).get("vehicle")
     if isinstance(vehicle, dict):
         extras["geogen"]["vehicle"] = _vehicle_exported(vehicle, node, name_of)
-    switch = extras.get("geogen", {}).get("switch")
-    if isinstance(switch, dict):
-        light = switched_light(node)
-        if light is not None:
-            try:
-                extras["geogen"]["switch"] = {**switch, "light": name_of(light)}
-            except KeyError:    # the light is outside this export (a chunk split)
-                pass
     if node.interactions:
         exported = {}
         for interaction in node.interactions:
@@ -842,23 +834,6 @@ def add_punctual_lights(glb: bytes) -> bytes:
     payload += b" " * (-len(payload) % 4)
     body = struct.pack("<II", len(payload), json_type) + payload + rest
     return struct.pack("<III", magic, version, 12 + len(body)) + body
-
-
-def switched_light(node: SceneNode) -> SceneNode | None:
-    """The light fixture a switch's ``meta.switch.light`` names: the nearest one of that name,
-    looking in the switch's parent, then that node's parent and so on. So a scene placed twice
-    keeps each copy's switches on its own lights, whatever the export renames them to."""
-    name = str((node.meta.get("switch") or {}).get("light", ""))
-    seen, scope = node, node.parent
-    while name and scope is not None:
-        for child in scope.children:
-            if child is seen:
-                continue
-            found = next((n for n in child.iter_nodes() if n.name == name and "light" in n.meta), None)
-            if found is not None:
-                return found
-        seen, scope = scope, scope.parent
-    return None
 
 
 def _vehicle_exported(vehicle: dict, node: SceneNode, name_of) -> dict:
