@@ -95,6 +95,10 @@ def describe_node(node: SceneNode) -> str:
         lines.append(f"Interact  {interaction.name}: {' -> '.join(interaction.states)} (initial {interaction.initial})")
         for motion in interaction.motions:
             parts = ", ".join(p.name for p in motion.parts)
+            if motion.kind == "visible":
+                shown = [s for s, v in motion.values.items() if v >= 0.5]
+                lines.append(f"            shows in {shown}: {parts}")
+                continue
             lines.append(f"            {motion.kind} {list(np.round(motion.axis, 3))} about "
                          f"{list(np.round(motion.pivot, 3))}: {parts}")
 

@@ -142,11 +142,16 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["nodes", "type", "axis", "pivot", "values"],
+                  "required": ["nodes", "type", "values"],
                   "additionalProperties": false,
+                  "if": { "properties": { "type": { "enum": ["rotate", "translate"] } } },
+                  "then": { "required": ["axis", "pivot"] },
                   "properties": {
                     "nodes": { "type": "array", "items": { "type": "string" } },
-                    "type": { "enum": ["rotate", "translate"] },
+                    "type": {
+                      "description": "rotate: values in degrees about axis through pivot; translate: metres along axis; visible: 1 shown, 0 hidden (with their colliders), no axis or pivot.",
+                      "enum": ["rotate", "translate", "visible"]
+                    },
                     "axis": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
                     "pivot": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
                     "values": { "type": "object", "additionalProperties": { "type": "number" } }

@@ -123,7 +123,10 @@ the `room` field of `--walk` results. Without `--spawn`, the player starts at
 the manifest's first spawn point. Interactions in node extras (e.g. the
 cottage door's `swing`) become `GeogenInteraction` nodes (`scripts/interaction.gd`):
 look at the door within reach and press E to open or close it (L locks/unlocks with a held key; timed states like self-closing guest doors advance on their own); colliders on
-moving parts are `AnimatableBody3D`s so the open door lets you through. Looking at furniture with affordances (chairs, sofas, the bed) offers E: Sit / Lie down; E or walking stands up. The
+moving parts are `AnimatableBody3D`s so the open door lets you through. A `visible` motion shows and hides
+parts (`show: [states]` / `hide: [states]` in the asset): a part shows as soon as the interaction heads for a
+state that shows it and hides on arriving at one that doesn't, with its colliders disabled while hidden. glTF has
+no node visibility, so other engines see hidden parts unless they read the interaction. Looking at furniture with affordances (chairs, sofas, the bed) offers E: Sit / Lie down; E or walking stands up. The
 player body is a
 cylinder, not a capsule: a capsule's rounded bottom slides off the edge of
 a step exactly `step_height` tall.

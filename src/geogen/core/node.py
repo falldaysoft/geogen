@@ -68,6 +68,9 @@ class SceneNode:
     clips: list[Clip] = field(default_factory=list, repr=False)
     # Current weight of each of the mesh's morph targets (Mesh.morphs), set by clips; 0 if absent.
     morph_weights: dict[str, float] = field(default_factory=dict, repr=False)
+    # Hidden with everything below it (an interaction's state hides it: layout.interactions); renderers and
+    # iter_meshes skip it, exports still write it (runtimes hide it from the interaction's state).
+    hidden: bool = field(default=False, repr=False)
 
     def add_child(self, node: SceneNode) -> SceneNode:
         """Add a child node.
@@ -145,15 +148,23 @@ class SceneNode:
         for child in self.children:
             yield from child.iter_nodes(include_self=True)
 
+    def iter_visible(self) -> Iterator[SceneNode]:
+        """This node and its descendants, leaving out hidden subtrees (``hidden``)."""
+        if self.hidden:
+            return
+        yield self
+        for child in self.children:
+            yield from child.iter_visible()
+
     def iter_meshes(self) -> Iterator[tuple[SceneNode, Mesh]]:
         """Iterate over all visible nodes with meshes, yielding world-space meshes.
 
-        Collider-only nodes (``meta.type == "collider"``, e.g. a shore barrier) are skipped.
+        Collider-only nodes (``meta.type == "collider"``, e.g. a shore barrier) and hidden subtrees are skipped.
 
         Yields:
             Tuples of (node, world_space_mesh)
         """
-        for node in self.iter_nodes():
+        for node in self.iter_visible():
             if node.mesh is not None and node.meta.get("type") != "collider":   # collider-only: invisible
                 world_mesh = node.world_mesh()
                 if world_mesh is not None:
@@ -291,6 +302,7 @@ class SceneNode:
             skin=self.skin,
             clips=list(self.clips),
             morph_weights=dict(self.morph_weights),
+            hidden=self.hidden,
         )
         if deep:
             for child in self.children:

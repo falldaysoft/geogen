@@ -15,6 +15,8 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
             rotate: y              # x|y|z|-x|... or [x, y, z], asset frame
             pivot: [-0.4, 0, -0.1] # metres in the asset frame, or <part>.<anchor>
             values: { open: 95 }   # degrees (rotate) or metres (translate) per state
+          - parts: [note]
+            show: [open]           # or hide: [...]: shown only in (hidden only in) these states
 
 State keys: ``next`` (the state ``use`` heads to when this is the target
 state; absent = not usable, e.g. a latched button), ``then`` (auto-advance on
@@ -22,7 +24,10 @@ arrival, for momentary buttons; with ``after: <seconds>`` it waits first,
 e.g. a door that closes itself), ``emit`` (event name raised on arrival),
 ``prompt`` (UI text). ``lock: {key: <id>, locked: true}`` makes the
 interaction refuse ``use`` while locked; users holding the key can lock and
-unlock it. Motions may be empty for pure state toggles (a TV's power) as
+unlock it. A ``show``/``hide`` motion
+sets parts' visibility (``SceneNode.hidden``) per state, and runtimes turn their colliders off
+with them: a part shows as soon as the interaction heads for a state that shows it and hides
+when it arrives at one that doesn't. Motions may be empty for pure state toggles (a TV's power) as
 long as ``targets`` says what to aim at. ``use`` applies ``next`` of the *target* state, so a
 moving door reverses mid-swing.
 
@@ -64,7 +69,7 @@ class Motion:
     """Move ``parts`` about ``pivot``/along ``axis`` (asset frame) by a value per state."""
 
     parts: list[SceneNode]
-    kind: str                       # "rotate" (degrees) | "translate" (metres)
+    kind: str                       # "rotate" (degrees) | "translate" (metres) | "visible" (1 shown, 0 hidden)
     axis: np.ndarray
     pivot: np.ndarray
     values: dict[str, float]
@@ -74,6 +79,8 @@ class Motion:
     def matrix(self, value: float) -> np.ndarray:
         """Asset-frame transform for ``value``."""
         m = np.eye(4)
+        if self.kind == "visible":
+            return m
         if self.kind == "translate":
             m[:3, 3] = self.axis * value
             return m
@@ -107,16 +114,17 @@ class Interaction:
             "initial": self.initial,
             "duration": self.duration,
             "states": {k: s.to_dict() for k, s in self.states.items()},
-            "motions": [{
-                "nodes": [name_of(n) for n in m.parts],
-                "type": m.kind,
-                "axis": [float(v) for v in m.axis],
-                "pivot": [round(float(v), 6) for v in m.pivot],
-                "values": {s: self.value(m, s) for s in self.states},
-            } for m in self.motions],
+            "motions": [self._motion_extras(m, name_of) for m in self.motions],
         }
         if self.lock:
             out["lock"] = dict(self.lock)
+        return out
+
+    def _motion_extras(self, m: Motion, name_of: Callable[[SceneNode], str]) -> dict[str, Any]:
+        out: dict[str, Any] = {"nodes": [name_of(n) for n in m.parts], "type": m.kind}
+        if m.kind != "visible":
+            out |= {"axis": [float(v) for v in m.axis], "pivot": [round(float(v), 6) for v in m.pivot]}
+        out["values"] = {s: self.value(m, s) for s in self.states}
         return out
 
 
@@ -126,6 +134,11 @@ def apply_state(root: SceneNode, interaction: Interaction, state: str) -> None:
     root_inv = np.linalg.inv(root_world)
     for motion in interaction.motions:
         value = interaction.value(motion, state)
+        if motion.kind == "visible":
+            for part in motion.parts:
+                part.hidden = value < 0.5
+            motion.applied = value
+            continue
         m = motion.matrix(value) @ np.linalg.inv(motion.matrix(motion.applied))
         motion.applied = value
         if np.allclose(m, np.eye(4)):
@@ -201,9 +214,20 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
 
         motions = []
         for mspec in spec.get("motions", []):
-            if ("rotate" in mspec) == ("translate" in mspec):
-                raise ValueError(f"Interaction '{name}': each motion needs exactly one of rotate/translate")
-            kind = "rotate" if "rotate" in mspec else "translate"
+            given = [k for k in ("rotate", "translate", "show", "hide") if k in mspec]
+            if len(given) != 1:
+                raise ValueError(f"Interaction '{name}': each motion needs exactly one of rotate/translate/show/hide")
+            if given[0] in ("show", "hide"):
+                listed = mspec[given[0]]
+                listed = [listed] if isinstance(listed, str) else list(listed or [])
+                for sname in listed:
+                    if sname not in states:
+                        raise ValueError(f"Interaction '{name}': {given[0]} names unknown state '{sname}'")
+                shown = set(listed) if given[0] == "show" else set(states) - set(listed)
+                motions.append(Motion([part(p) for p in mspec.get("parts", [])], "visible", np.zeros(3),
+                                      np.zeros(3), {s: float(s in shown) for s in states}))
+                continue
+            kind = given[0]
             pivot_spec = mspec.get("pivot", [0, 0, 0])
             if isinstance(pivot_spec, str):
                 pname, _, anchor = pivot_spec.partition(".")

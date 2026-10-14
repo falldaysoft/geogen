@@ -8,7 +8,9 @@ extends Node
 ## Exported transforms show the `initial` state, so each part's rest pose is
 ## M(initial value)^-1 * (asset^-1 * part); a value v poses it at
 ## asset * M(v) * rest. Values move at constant speed (the widest move takes
-## `duration` seconds), so use() mid-motion simply reverses.
+## `duration` seconds), so use() mid-motion simply reverses. A `visible` motion shows
+## and hides its parts (and turns their colliders off): shown as soon as it heads for a
+## state that shows them, hidden when it arrives at one that doesn't.
 
 signal state_entered(state: String, event: String)
 ## What the event bus carries (events.gd): an actor used it (before it moves), the
@@ -42,6 +44,8 @@ var hold := false
 ## [{parts: [Node3D], type, axis: Vector3, pivot: Vector3, values: {state: float},
 ##   value: float, rest: {Node3D: Transform3D}, speed: float}]
 var _motions: Array[Dictionary] = []
+## Visibility motions: [{parts: [Node3D], values: {state: 1 shown | 0 hidden}}]
+var _shows: Array[Dictionary] = []
 
 
 static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> GeogenInteraction:
@@ -65,6 +69,14 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
             it.targets.append(node)
     var widest := 0.0
     for m: Dictionary in data.get("motions", []):
+        if m.get("type") == "visible":
+            var shown := {"type": "visible", "values": m.get("values", {}), "parts": []}
+            for n in m.get("nodes", []):
+                var part := _find(asset_node, n)
+                if part != null:
+                    shown["parts"].append(part)
+            it._shows.append(shown)
+            continue
         var a: Array = m.get("axis", [0, 1, 0])
         var p: Array = m.get("pivot", [0, 0, 0])
         var motion := {
@@ -91,7 +103,12 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
     for motion in it._motions:
         var vals: Array = motion["values"].values()
         motion["speed"] = maxf(widest, 1e-6) / it.duration if not vals.is_empty() else 0.0
+    it._apply_visibility()
     return it
+
+
+func _ready() -> void:
+    _apply_visibility.call_deferred()      # again once the loader has given the parts their colliders
 
 
 static func _find(root: Node, node_name: String) -> Node3D:
@@ -103,7 +120,7 @@ static func _find(root: Node, node_name: String) -> Node3D:
 ## Every node whose transform this interaction drives.
 func moving_nodes() -> Array[Node3D]:
     var result: Array[Node3D] = []
-    for motion in _motions:
+    for motion in _motions + _shows:
         for part in motion["parts"]:
             result.append(part)
     return result
@@ -146,6 +163,7 @@ func _head_to(new_state: String, by: String) -> void:
     var from := target
     target = new_state
     actor = by
+    _apply_visibility()
     target_changed.emit(from, new_state, by)
 
 
@@ -193,6 +211,7 @@ func set_state(new_state: String, instant := false, by := "") -> void:
             _apply(motion)
         state = new_state
         _apply_emission()
+        _apply_visibility()
         state_entered.emit(state, "")   # listeners (light switches) sync; no gameplay event
 
 
@@ -221,6 +240,7 @@ func _physics_process(delta: float) -> void:
         state = target
         var s: Dictionary = states.get(state, {})
         _apply_emission()
+        _apply_visibility()
         state_entered.emit(state, str(s.get("emit", "")))
         reached.emit(state, str(s.get("emit", "")))
         if s.has("emit"):
@@ -247,6 +267,17 @@ func _apply_emission() -> void:
                 var base: float = mi.get_meta("geogen_base_emission")
                 (mi.get_surface_override_material(i) as BaseMaterial3D).emission_energy_multiplier = \
                     base * (12.0 if state == "on" else 1.0)
+
+
+## Parts of visibility motions show while the state reached or the one heading for shows them.
+func _apply_visibility() -> void:
+    for shown in _shows:
+        var values: Dictionary = shown["values"]
+        var on := float(values.get(target, 0.0)) >= 0.5 or float(values.get(state, 0.0)) >= 0.5
+        for part: Node3D in shown["parts"]:
+            part.visible = on
+            for col: CollisionShape3D in part.find_children("*", "CollisionShape3D", true, false):
+                col.set_deferred("disabled", not on)
 
 
 func _apply(motion: Dictionary) -> void:

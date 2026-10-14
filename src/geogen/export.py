@@ -434,6 +434,8 @@ def interaction_animations(root: SceneNode, names: dict[int, str]) -> list[dict]
                 channels: dict[int, dict] = {}
                 times = np.linspace(0.0, float(it.duration), ANIMATION_KEYS)
                 for motion in it.motions:
+                    if motion.kind == "visible":       # glTF animations can't show or hide a node
+                        continue
                     va, vb = it.value(motion, a), it.value(motion, b)
                     undo = np.linalg.inv(motion.matrix(motion.applied))
                     for part in motion.parts:

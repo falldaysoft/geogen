@@ -212,7 +212,7 @@ class SceneRenderer:
         self.scene = pyrender.Scene(ambient_light=[0.25, 0.27, 0.3], bg_color=BACKGROUND)
         materials = _MaterialCache()
         shared: dict[int, pyrender.Mesh] = {}
-        for node in root.iter_nodes():
+        for node in root.iter_visible():
             if node.mesh is None or node.meta.get("type") == "collider" or not len(node.mesh.faces):
                 continue
             pose = node.world_transform()

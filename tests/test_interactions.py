@@ -195,3 +195,79 @@ def test_affordances_and_containers_export(tmp_path):
     for n in gltf["nodes"]:
         if "extras" in n:
             jsonschema.validate(n["extras"], schema)
+
+
+SHOW_HIDE = """
+name: note_box
+origin: bottom_center
+size: [0.4, 0.3, 0.4]
+parts:
+  box: { primitive: cube, size: [0.4, 0.2, 0.4], anchor: bottom_center }
+  note: { primitive: cube, size: [0.1, 0.01, 0.1], anchor: bottom_center, offset: [0, 0.2, 0], collider: box }
+  lid: { primitive: cube, size: [0.4, 0.02, 0.4], anchor: bottom_center, offset: [0, 0.25, 0] }
+interactions:
+  open:
+    targets: [box]
+    states: { shut: { next: ajar }, ajar: { next: shut } }
+    motions:
+      - { parts: [note], show: [ajar] }
+      - { parts: [lid], hide: ajar }
+"""
+
+
+def test_show_and_hide_motions_set_part_visibility_per_state(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    root = LayoutLoader().load_string(SHOW_HIDE)
+    (it,) = root.interactions
+    note, lid = root.find("note"), root.find("lid")
+    assert [m.kind for m in it.motions] == ["visible", "visible"]
+    assert it.motions[0].values == {"shut": 0.0, "ajar": 1.0} and it.motions[1].values == {"shut": 1.0, "ajar": 0.0}
+
+    def drawn():
+        return {n.name for n, _ in root.iter_meshes()}
+
+    assert note.hidden and not lid.hidden                     # posed for the initial state
+    assert "note" not in drawn() and {"box", "lid"} <= drawn()
+    apply_state(root, it, "ajar")
+    assert not note.hidden and lid.hidden and "note" in drawn() and "lid" not in drawn()
+    assert root.instance().find("lid").hidden
+
+    apply_state(root, it, "shut")
+    gltf = _gltf_json(export_scene(root, tmp_path / "box.glb"))
+    names = {n["name"] for n in gltf["nodes"]}
+    assert "note" in names                                    # hidden parts are still exported
+    extras = next(n["extras"]["geogen"] for n in gltf["nodes"] if "interactions" in n.get("extras", {}).get("geogen", {}))
+    motions = extras["interactions"]["open"]["motions"]
+    assert motions[0] == {"nodes": ["note"], "type": "visible", "values": {"shut": 0.0, "ajar": 1.0}}
+    jsonschema.validate({"geogen": extras}, json.loads(SCHEMA.read_text()))
+    assert not any("open/" in a["name"] for a in gltf.get("animations", []))   # nothing to animate
+
+
+@pytest.mark.parametrize("motion, match", [
+    ("{ parts: [note], show: [open] }", "unknown state 'open'"),
+    ("{ parts: [note], show: [ajar], translate: y }", "exactly one of"),
+])
+def test_bad_show_motions_raise(motion, match):
+    text = SHOW_HIDE.replace("      - { parts: [note], show: [ajar] }", f"      - {motion}")
+    with pytest.raises(ValueError, match=match):
+        LayoutLoader().load_string(text)
+
+
+def test_godot_shows_and_hides_parts_with_their_colliders(godot_runtime, tmp_path):
+    root = LayoutLoader().load_string(SHOW_HIDE)
+    export_scene(root, tmp_path / "note_box.glb")
+    rt = godot_runtime("note_box", tmp_path)
+
+    def note():
+        info = rt.call("world.node", node="note")
+        return info["visible"], [c["disabled"] for c in info["colliders"]]
+
+    assert note() == (False, [True])
+    rt.call("interactions.set", asset="note_box", interaction="open", state="ajar", wait=True)
+    rt.call("time.step", frames=2)                  # collider switches are deferred to the next frame
+    assert note() == (True, [False])
+    assert rt.call("world.node", node="lid")["visible"] is False
+    rt.call("time.resume")                          # time.step leaves the world paused
+    rt.call("interactions.set", asset="note_box", interaction="open", state="shut", wait=True)
+    rt.call("time.step", frames=2)
+    assert note() == (False, [True])

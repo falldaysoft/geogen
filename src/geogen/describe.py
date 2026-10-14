@@ -627,7 +627,8 @@ def _interaction_text(name: str, spec: dict[str, Any]) -> str:
         if s.get("then"):
             text += f" (then {s['then']}" + (f" after {_value(s['after'])} s" if "after" in s else "") + ")"
         states.append(text)
-    moves = "; ".join(f"{m['type']}s {', '.join(m['parts'])}" for m in spec["motions"])
+    verb = {"rotate": "rotates", "translate": "translates", "visible": "shows/hides"}
+    moves = "; ".join(f"{verb.get(m['type'], m['type'])} {', '.join(m['parts'])}" for m in spec["motions"])
     lock = f"; lock {spec['lock'].get('key')}" if spec.get("lock") else ""
     return f"{name}: {', '.join(states)} (* initial{'; ' + moves if moves else ''}{lock})"
 
