@@ -128,15 +128,21 @@ class MaterialLoader:
             search_paths: Directories to search for material YAML files.
                          Defaults to ['assets/materials/'] relative to project root.
         """
-        if search_paths is None:
-            # materials/ of every content root: a project's, then the core's
+        # None: materials/ of every content root (the composing scene's folder, a project's, the core's)
+        self._search_paths = search_paths
+        self._cache: dict[Path, Material] = {}
+
+    @property
+    def search_paths(self) -> list[Path]:
+        if self._search_paths is None:
             from .. import roots
 
-            self.search_paths = [root / "materials" for root in roots.roots()]
-        else:
-            self.search_paths = search_paths
+            return [root / "materials" for root in roots.roots()]
+        return self._search_paths
 
-        self._cache: dict[str, Material] = {}
+    @search_paths.setter
+    def search_paths(self, paths: list[Path]) -> None:
+        self._search_paths = paths
 
     def load(self, name: str) -> Material:
         """Load a material by name.
@@ -153,11 +159,10 @@ class MaterialLoader:
             FileNotFoundError: If material YAML not found
             ValueError: If YAML format is invalid
         """
-        if name in self._cache:
-            return self._cache[name]
-
-        # Find the YAML file
+        # Find the YAML file (by file, not name: two scene folders may each have a private `brass`)
         yaml_path = self._find_yaml(name)
+        if yaml_path in self._cache:
+            return self._cache[yaml_path]
         if yaml_path is None:
             available = self._list_available()
             import difflib
@@ -170,7 +175,7 @@ class MaterialLoader:
 
         # Load and parse
         material = self._load_yaml(yaml_path)
-        self._cache[name] = material
+        self._cache[yaml_path] = material
         return material
 
     def _find_yaml(self, name: str) -> Path | None:

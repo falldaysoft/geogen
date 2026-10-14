@@ -20,6 +20,14 @@ directory. ``DIR`` holds a ``geogen.yaml``::
 Without a ``geogen.yaml``, ``DIR/assets`` is the root if there is one, else
 ``DIR`` itself.
 
+A scene can also be a folder, ``scenes/<name>/scene.yaml`` in any root, with
+files of its own beside it laid out like a root (``safe.yaml``,
+``materials/brass.yaml``, ``quests/open_safe.yaml``). While that scene is being
+composed its folder is searched first (``scene_scope``), so it names them as it
+names anything else. They are private: no other scene can name them, listings
+leave them out, and they may not share a relative name with a file in a root.
+Only ``scene.yaml`` itself is public (``scene: scenes/<name>/scene.yaml``).
+
 A project file with the same relative path as a core file would silently
 change core assets that load it, so it is an error unless ``overrides`` lists
 it. Everything that takes a file name relative to ``assets/`` resolves it with
@@ -28,6 +36,7 @@ it. Everything that takes a file name relative to ``assets/`` resolves it with
 
 from __future__ import annotations
 
+import contextlib
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,6 +47,8 @@ CORE = Path(__file__).resolve().parents[2] / "assets"
 CONFIG = "geogen.yaml"
 ENV = "GEOGEN_PROJECT"
 CONFIG_KEYS = {"kind", "name", "assets", "overrides", "description"}
+SCENES = "scenes"
+SCENE_FILE = "scene.yaml"           # scenes/<name>/scene.yaml: a scene folder
 
 
 class RootsError(ValueError):
@@ -122,37 +133,86 @@ def projects() -> list[Project]:
 
 
 def roots() -> list[Path]:
-    """Every content root, in search order: projects, then the core."""
-    return [*[p.root for p in projects()], CORE]
+    """Every content root, in search order: the folder of the scene being composed (if it
+    has one), projects, then the core."""
+    return [*reversed(_scopes), *[p.root for p in projects()], CORE]
 
 
-def _layered(base: str | Path | None) -> bool:
-    """Whether names relative to ``base`` are looked up in every root. A directory that
-    isn't a root (a test's temporary assets) stands alone."""
-    return base is None or Path(base).resolve() in roots()
+_scopes: list[Path] = []            # folders of the scenes being composed, outermost first
+
+
+def scene_folder(path: str | Path) -> Path | None:
+    """The scene folder ``path`` is in (or is): the nearest ``scenes/<name>/`` holding a ``scene.yaml``."""
+    path = Path(path).resolve()
+    return next((d for d in (path, *path.parents) if d.parent.name == SCENES and (d / SCENE_FILE).is_file()), None)
+
+
+def _shared(base: str | Path | None) -> list[Path]:
+    """The roots every scene sees: projects and the core, or ``base`` alone when it isn't one of them."""
+    everyone = [*[p.root for p in projects()], CORE]
+    return everyone if base is None or Path(base).resolve() in roots() else [Path(base)]
+
+
+@contextlib.contextmanager
+def scene_scope(folder: str | Path):
+    """Search scene folder ``folder`` first while its scene is composed. Its files may not
+    take a name a root already has: a core asset the scene places would load them instead of
+    the core's."""
+    folder = Path(folder).resolve()
+    shared = _shared(folder.parent.parent if root_of(folder) is None else None)
+    taken = sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*")
+                   if p.is_file() and p != folder / SCENE_FILE
+                   and any((root / p.relative_to(folder)).is_file() for root in shared))
+    if taken:
+        raise RootsError(f"scene folder '{folder.name}' ({folder}) has files with the names of shared ones: "
+                         f"{', '.join(taken)}. Rename them: a scene's private files can't replace shared assets")
+    _scopes.append(folder)
+    try:
+        yield folder
+    finally:
+        _scopes.pop()
+
+
+def scope() -> Path | None:
+    """The folder of the scene being composed, if it has one."""
+    return _scopes[-1] if _scopes else None
+
+
+def _private(path: Path) -> Path | None:
+    """The scene folder ``path`` is private to, unless that scene is the one being composed."""
+    folder = scene_folder(path)
+    if folder is None or folder in _scopes or path.resolve() == folder / SCENE_FILE:
+        return None
+    return folder
 
 
 def find(name: str | Path, base: str | Path | None = None) -> Path:
     """The file ``name`` (relative to an assets directory) in the first root that has
     it. When none has, the path it would have in ``base`` (default: the core), so the
-    caller's own "no such file" error names somewhere sensible."""
+    caller's own "no such file" error names somewhere sensible. A file in another scene's
+    folder is that scene's own: naming it raises ``RootsError``."""
     name = Path(name)
     if name.is_absolute():
         return name
-    if _layered(base):
-        for root in roots():
-            if (root / name).exists():
-                return root / name
+    for root in (*reversed(_scopes), *_shared(base)):
+        if (root / name).exists():
+            owner = _private(root / name)
+            if owner is not None:
+                raise RootsError(f"'{name.as_posix()}' is private to the scene folder '{owner.name}': only "
+                                 f"{SCENES}/{owner.name}/{SCENE_FILE} can name it. Move it out of the folder to share it")
+            return root / name
     return Path(base if base is not None else CORE) / name
 
 
 def glob(pattern: str, base: str | Path | None = None) -> list[Path]:
     """Files matching ``pattern`` in every root, sorted by relative name; a file in an
-    earlier root hides the same relative name in a later one."""
+    earlier root hides the same relative name in a later one. Scene folders' private
+    files are left out (but for the scene being composed)."""
     found: dict[str, Path] = {}
-    for root in (roots() if _layered(base) else [Path(base)]):
+    for root in (*reversed(_scopes), *_shared(base)):
         for path in root.glob(pattern):
-            found.setdefault(path.relative_to(root).as_posix(), path)
+            if _private(path) is None:
+                found.setdefault(path.relative_to(root).as_posix(), path)
     return [found[name] for name in sorted(found)]
 
 

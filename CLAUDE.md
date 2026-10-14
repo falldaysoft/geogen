@@ -512,7 +512,8 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 - **Lookup:** anything named relative to `assets/` (`asset:`, `scene:`, `npc:`, `archetype:`, `traffic:`, `train:`, quests, room types, garments, skeletons, materials, `player.yaml`) resolves with `roots.find(name, assets_dir)`: the first root that has it. Listings use `roots.glob(pattern, assets_dir)`. New code that joins a name onto an assets directory should call these instead. An `assets_dir` that isn't a root (a test's temporary directory) stands alone.
 - **Shadowing is explicit:** a project file with the same relative path as a core file is an error unless `overrides:` lists it; a project scene can't take a core scene's name any other way.
 - The registry discovers scenes in every root, `--describe` lists them, the viewer hot-reloads them and the prototype cache's fingerprint covers them.
-- Not yet per project: the runtime catalogue and `generated/` dir (geogen.39.3), scene-private folders (geogen.39.2).
+- **Scene folders:** `scenes/<name>/scene.yaml` in any root is scene `<name>`, with private files beside it laid out like a root (`safe.yaml`, `materials/brass.yaml`, `quests/open_safe.yaml`). `SceneComposer.compose` searches the folder first while that scene is composed (`roots.scene_scope`; `roots.scope()` is the folder), so the scene names them like anything else. No other scene can name them (`find` raises `RootsError`; a placed `scene: scenes/<name>/scene.yaml` is fine), `roots.glob` and `--describe` leave them out, and a private file may not share a relative name with a shared one. `MaterialLoader` caches by file, and the composer's prototype keys include the folder, so two folders can each have a `brass`.
+- Not yet per project: the runtime catalogue and `generated/` dir (geogen.39.3).
 - `examples/sandwich/` is the worked example (`--project examples/sandwich -s sandwich_kitchen`): a scene, the sandwich asset and its quest on the core's kitchen, counter, plate, loaf and jars. Tests: `tests/test_roots.py`.
 
 ### Scenes & Registry
@@ -874,6 +875,11 @@ Always test changes by:
 - When you generate or update an object, render it from the front and side and make sure it looks correct and consistent.
 - For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn`/`--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
 - `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
+- **Tests are expensive: limit runs.** Waiting on them is the biggest drain on a session.
+  - Any edit under `src/geogen` or `assets` invalidates the shared build cache, so the next default-tier run rebuilds and re-exports every scene: 5 to 6 minutes, not the 2.5 below (which is with a warm cache).
+  - While iterating, run only the test files for what changed, and prefer one narrow check to a sweep that takes minutes.
+  - Run the default tier once per commit, in the background, and carry on with other work while it runs. Don't re-run a tier after a change to docs, comments or tests it doesn't select.
+  - Run `--all`, or an exhaustive-tier file, only when the change touches what that tier covers.
 - **Test in tiers** (don't run more than the change needs):
   - The tests for what you changed, by file: `pytest tests/test_expressions.py` (seconds).
   - `pytest --fast` before moving on: every cheap test (about 20 s). It skips Godot runs and any test, or group of tests sharing a build, that took 1 s or more when last timed (`--fast=0.25` is quicker, `--fast=5` wider).

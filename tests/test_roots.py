@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from geogen import roots
@@ -179,3 +180,116 @@ def test_the_example_project_makes_a_sandwich():
         assert quests.report(machine, "player")["make_sandwich"]["status"] == "complete"
     finally:
         roots.use()
+
+
+# --- scene folders (geogen.39.2) --------------------------------------------------------------------
+
+PUZZLE = """
+name: puzzle
+size: [6, 3, 6]
+quests: [quests/press.yaml]
+slots:
+  a: {position: [0, 0, 0]}
+  b: {position: [2, 0, 0]}
+place:
+  widget: {asset: widget.yaml, slot: a}              # the folder's own, in the folder's own material
+  chair:  {asset: chair.yaml, slot: b}               # the core's
+"""
+
+OTHER = """
+name: other
+size: [6, 3, 6]
+slots: {a: {position: [0, 0, 0]}}
+place:
+  thing: {%s, slot: a}
+"""
+
+
+@pytest.fixture
+def folders(tmp_path):
+    """A project with a scene folder `puzzle`: its scene, a private asset, material and quest."""
+    files = {"geogen.yaml": "kind: project\nname: vaults\n", "assets/scenes/puzzle/scene.yaml": PUZZLE,
+             "assets/scenes/puzzle/widget.yaml": WIDGET, "assets/scenes/puzzle/materials/unobtainium.yaml": MATERIAL,
+             "assets/scenes/puzzle/quests/press.yaml": QUEST}
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    roots.use(tmp_path)
+    yield tmp_path / "assets"
+    roots.use()
+
+
+def _registry():
+    registry = SceneRegistry()
+    registry.discover()
+    return registry
+
+
+def test_a_scene_folder_is_a_scene_with_files_of_its_own(folders):
+    registry = _registry()
+    assert "puzzle" in registry and "scene" not in registry and "widget" not in registry
+    assert registry.path("puzzle") == folders / "scenes" / "puzzle" / "scene.yaml"
+    scene = registry["puzzle"]()
+    assert {"widget", "chair"} <= {n.name for n in scene.iter_nodes()}
+    block = next(n for n in scene.iter_nodes() if n.name == "block")
+    assert block.mesh.material.name == "unobtainium"
+    quests = collect(scene, "puzzle")
+    machine = Machine(quests.program(), {"player": {"kind": "player"}})
+    machine.use("puzzle:widget#press", "player")
+    machine.advance(1.0)
+    assert quests.report(machine, "player")["press"]["status"] == "complete"
+    assert roots.scope() is None                                # the folder is only searched while it is composed
+
+
+@pytest.mark.parametrize("names, message", [
+    ("asset: scenes/puzzle/widget.yaml", "private to the scene folder 'puzzle'"),
+    ("asset: widget.yaml", "widget.yaml"),                      # not found: it isn't this scene's
+])
+def test_another_scene_cannot_name_a_folders_files(folders, names, message):
+    (folders / "scenes" / "other.yaml").write_text(OTHER % names)
+    with pytest.raises((roots.RootsError, FileNotFoundError), match=message):
+        _registry()["other"]()
+
+
+def test_another_scene_cannot_use_a_folders_material(folders):
+    (folders / "plain.yaml").write_text(WIDGET.replace("name: widget", "name: plain"))
+    (folders / "scenes" / "other.yaml").write_text(OTHER % "asset: plain.yaml")
+    with pytest.warns(UserWarning, match="Material 'unobtainium' not found"):
+        scene = _registry()["other"]()
+    assert next(n for n in scene.iter_nodes() if n.name == "block").mesh.material is None
+
+
+def test_a_folders_scene_can_be_placed_and_its_files_are_not_listed(folders):
+    (folders / "scenes" / "other.yaml").write_text(OTHER % "scene: scenes/puzzle/scene.yaml")
+    scene = _registry()["other"]()
+    assert next(n for n in scene.iter_nodes() if n.name == "block").mesh.material.name == "unobtainium"
+    listed = [roots.relative(p) for p in roots.glob("**/*.yaml")]
+    assert "scenes/puzzle/scene.yaml" in listed and "chair.yaml" in listed
+    assert not [name for name in listed if name.startswith("scenes/puzzle/") and name != "scenes/puzzle/scene.yaml"]
+    from geogen.describe import asset_files
+
+    assert asset_files()["puzzle"] == ("scene", folders / "scenes" / "puzzle" / "scene.yaml")
+
+
+def test_two_folders_keep_files_of_the_same_name_apart(folders):
+    second = folders / "scenes" / "second"
+    (second / "materials").mkdir(parents=True)
+    (second / "scene.yaml").write_text(PUZZLE.replace("name: puzzle", "name: second").replace("quests: [quests/press.yaml]\n", ""))
+    (second / "widget.yaml").write_text(WIDGET.replace("[0.3, 0.3, 0.3]", "[0.6, 0.6, 0.6]"))
+    (second / "materials" / "unobtainium.yaml").write_text(MATERIAL.replace("[20, 200, 180]", "[200, 30, 30]"))
+    (folders / "scenes" / "both.yaml").write_text(
+        "name: both\nsize: [9, 3, 6]\nslots: {a: {position: [0, 0, 0]}, b: {position: [5, 0, 0]}}\n"
+        "place:\n  one: {scene: scenes/puzzle/scene.yaml, slot: a}\n  two: {scene: scenes/second/scene.yaml, slot: b}\n")
+    scene = _registry()["both"]()
+    blocks = [n for n in scene.iter_nodes() if n.name == "block"]
+    sizes = sorted(round(float(np.ptp(b.mesh.vertices[:, 0])), 2) for b in blocks)
+    assert sizes == [0.3, 0.6]
+    assert blocks[0].mesh.material is not blocks[1].mesh.material
+
+
+def test_a_folders_file_cannot_take_a_shared_name(folders):
+    (folders / "scenes" / "puzzle" / "chair.yaml").write_text(WIDGET)
+    with pytest.raises(roots.RootsError, match="scene folder 'puzzle'.*chair.yaml"):
+        _registry()["puzzle"]()
+    assert roots.scope() is None

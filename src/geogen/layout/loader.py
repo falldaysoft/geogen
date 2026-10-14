@@ -1401,12 +1401,12 @@ def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
 
 
 def _asset_ref(path: Path) -> str:
-    """``path`` relative to the assets directory when it's inside it (``vehicles/car.yaml``)."""
-    assets = Path(__file__).parents[3] / "assets"
-    try:
-        return Path(path).resolve().relative_to(assets.resolve()).as_posix()
-    except ValueError:
-        return str(path)
+    """``path`` as a scene names it: relative to the content root it is in (``vehicles/car.yaml``;
+    a scene folder's own file relative to the folder)."""
+    from .. import roots
+
+    root = roots.root_of(path)
+    return Path(path).resolve().relative_to(root.resolve()).as_posix() if root is not None else str(path)
 
 
 def _params_key(params: dict | None) -> str:

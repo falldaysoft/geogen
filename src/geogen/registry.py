@@ -58,6 +58,7 @@ class SceneRegistry:
 
         - ``assets/*.yaml`` are loaded as individual assets via LayoutLoader
         - ``assets/scenes/*.yaml`` are loaded as composed scenes via SceneComposer
+        - ``assets/scenes/<name>/scene.yaml`` is scene ``<name>``, a folder with private files
         - ``assets/<sub>/*.yaml`` for ``ASSET_SUBDIRS`` (vehicles) are assets too
 
         With a project (``geogen.roots``) its directory is scanned the same way, first.
@@ -69,8 +70,8 @@ class SceneRegistry:
             self._discover_root(root, earlier if index else set())
 
     def _discover_root(self, assets_dir: Path, earlier: set[str]) -> None:
-        def free(yaml_path: Path) -> bool:
-            name = yaml_path.stem
+        def free(yaml_path: Path, name: str | None = None) -> bool:
+            name = name or yaml_path.stem
             if name in earlier:
                 first = self._files[name]
                 if roots.relative(first) != yaml_path.relative_to(assets_dir).as_posix():
@@ -101,6 +102,11 @@ class SceneRegistry:
             for yaml_path in sorted(scenes_dir.glob("*.yaml")):
                 name = yaml_path.stem
                 if free(yaml_path):
+                    self._register_composed_scene(name, yaml_path, assets_dir)
+            # Scene folders: scenes/<name>/scene.yaml, with private files beside it (geogen.roots).
+            for yaml_path in sorted(scenes_dir.glob(f"*/{roots.SCENE_FILE}")):
+                name = yaml_path.parent.name
+                if free(yaml_path, name):
                     self._register_composed_scene(name, yaml_path, assets_dir)
 
     def path(self, name: str) -> Path | None:

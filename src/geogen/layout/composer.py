@@ -183,7 +183,12 @@ class SceneComposer:
                 f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
             )
 
-        return self._build_scene(self._resolve_params(data, params), source=path)
+        # A scene folder (scenes/<name>/scene.yaml): its own files come first while it is composed.
+        folder = roots.scene_folder(path) if path.name == roots.SCENE_FILE else None
+        if folder is None:
+            return self._build_scene(self._resolve_params(data, params), source=path)
+        with roots.scene_scope(folder):
+            return self._build_scene(self._resolve_params(data, params), source=path)
 
     @staticmethod
     def _resolve_params(data: dict[str, Any], overrides: dict[str, float] | None) -> dict[str, Any]:
@@ -460,7 +465,8 @@ class SceneComposer:
         keys = ("asset", "scene", "recipe", "npc", "archetype", "params", "furnish")
         if "archetype" in obj_def or "npc" in obj_def:
             keys = (*keys, "seed")
-        key = json.dumps({k: obj_def.get(k) for k in keys},
+        # (in a scene folder a name may be one of its private files)
+        key = json.dumps({**{k: obj_def.get(k) for k in keys}, **({"in": str(roots.scope())} if roots.scope() else {})},
                          sort_keys=True,
                          default=str)
         prototype = self._prototypes.get(key)

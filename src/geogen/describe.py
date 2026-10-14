@@ -201,6 +201,8 @@ def asset_files(assets_dir: Path = ASSETS_DIR) -> dict[str, tuple[str, Path]]:
                 out.setdefault(path.stem, ("asset", path))
     for path in roots.glob("scenes/*.yaml", assets_dir):
         out.setdefault(path.stem, ("scene", path))
+    for path in roots.glob(f"scenes/*/{roots.SCENE_FILE}", assets_dir):      # scene folders
+        out.setdefault(path.parent.name, ("scene", path))
     return out
 
 
