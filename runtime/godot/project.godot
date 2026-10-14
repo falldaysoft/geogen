@@ -29,13 +29,10 @@ enabled=PackedStringArray("res://addons/geogen/plugin.cfg")
 3d/default_cell_size=0.05
 3d/default_cell_height=0.05
 
-[threading]
-
-; Per-frame physics and navigation tasks are tiny; waking a thread per core for each costs more
-; kernel time than the work (14 threads: 12 s of system time for 240 simulated seconds, against
-; 3 s with 4). Async loading and navmesh bakes still get four threads.
-worker_pool/max_threads=4
-
 [rendering]
 
 anti_aliasing/quality/msaa_3d=2
+
+[threading]
+
+worker_pool/max_threads=4
