@@ -311,6 +311,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `bread_crumb` | painted_wall |
 | `bread_crust` | painted_wall |
 | `brick` | brick |
+| `brick_paving` | brick |
 | `car_glass` | metal |
 | `car_paint` | painted_wall |
 | `car_trim` | painted_wall |

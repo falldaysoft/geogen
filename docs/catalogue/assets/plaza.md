@@ -4,7 +4,7 @@
 
 <img src="../img/plaza.png" width="256" alt="plaza"> <img src="../img/plaza_views.png" width="512" alt="plaza: front and side">
 
-A round paved plaza: grey tiles inside a pale stone border, 10 cm high.
+A round paved plaza: grey tiles inside a pale stone border (by default), 10 cm high.
 Origin: bottom centre; the top is walkable (scenes place things at y = thickness).
 
 ```yaml
@@ -19,6 +19,8 @@ place:
 | `radius` | `13` |  |  |
 | `border` | `1.5` |  |  |
 | `thickness` | `0.1` |  |  |
+| `paving_material` | `tile_floor_grey` | text | inside the border |
+| `border_material` | `stone` | text |  |
 
 ## Size
 

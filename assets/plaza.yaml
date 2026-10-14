@@ -1,4 +1,4 @@
-# A round paved plaza: grey tiles inside a pale stone border, 10 cm high.
+# A round paved plaza: grey tiles inside a pale stone border (by default), 10 cm high.
 # Origin: bottom centre; the top is walkable (scenes place things at y = thickness).
 
 name: plaza
@@ -11,6 +11,8 @@ params:
   radius:    { default: 13 }
   border:    { default: 1.5 }
   thickness: { default: 0.1 }
+  paving_material: { default: tile_floor_grey, type: text }   # inside the border
+  border_material: { default: stone, type: text }
 
 parts:
   paving:
@@ -20,7 +22,7 @@ parts:
     axis: y
     size: ["{2 * (radius - border)}", "{thickness}", "{2 * (radius - border)}"]
     anchor: bottom_center
-    material: tile_floor_grey
+    material: "{paving_material}"
     walkable: true
   border:
     primitive: extrude
@@ -30,7 +32,7 @@ parts:
     bevel: 0.02
     size: ["{2 * radius}", "{thickness}", "{2 * radius}"]
     anchor: bottom_center
-    material: stone
+    material: "{border_material}"
     walkable: true
 
 surfaces:

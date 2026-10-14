@@ -341,7 +341,7 @@ place:
 | [pedestrian_signal](assets/pedestrian_signal.md) | Pedestrian signal: a post with a two-lamp head facing +Z (toward the person about to cross to it). |  |
 | [picnic_table](assets/picnic_table.md) | A timber picnic table with bench seats on both long sides, carried on two crossbars. | `length` |
 | [playground](assets/playground.md) | A small playground on a poured-rubber pad: an A-frame swing set, a slide with a deck and ladder, a climbing frame and a see-saw. |  |
-| [plaza](assets/plaza.md) | A round paved plaza: grey tiles inside a pale stone border, 10 cm high. | `radius`, `border`, `thickness` |
+| [plaza](assets/plaza.md) | A round paved plaza: grey tiles inside a pale stone border (by default), 10 cm high. | `radius`, `border`, `thickness`, `paving_material`, `border_material` |
 | [portal](assets/portal.md) | A walk-through portal: a stone arch on a plinth with a glowing rim, a translucent membrane and the destination lettered above the opening. | `label`, `width`, `height`, `band`, `depth`, `plinth`, `letter`, `plaque` |
 | [road](assets/road.md) | Road surface - just the asphalt. | `width`, `thickness`, `length` |
 | [road_section](assets/road_section.md) | Road section with sidewalks on both sides. | `width`, `thickness`, `length` |

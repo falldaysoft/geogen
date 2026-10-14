@@ -1,0 +1,20 @@
+# Red clay paving bricks laid in a stretcher bond (the quest yard's floor)
+name: brick_paving
+texture:
+  type: brick
+  params:
+    color_base: [186, 98, 70]
+    color_dark: [150, 76, 55]
+    mortar_color: [165, 140, 120]
+    bricks_x: 5
+    bricks_y: 10
+    mortar_width: 0.05
+    color_variation: 0.35
+    seed: 7
+size: [512, 512]
+tile_size: [1.4, 1.3]  # metres per texture repeat: 28 x 13 cm pavers
+pbr:
+  roughness: 0.9
+  metallic: 0.0
+  normal_strength: 1.2
+  ao_strength: 1.0

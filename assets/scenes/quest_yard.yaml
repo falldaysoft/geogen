@@ -60,6 +60,7 @@ slots:
 place:
   plaza:
     asset: plaza.yaml
+    params: { paving_material: brick_paving, border_material: concrete }   # not the hub's grey tiles
 
   hub_portal:
     asset: portal.yaml
