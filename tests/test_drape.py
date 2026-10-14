@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from geogen.core import meshops
 from geogen.core.skin import pose_clips
 from geogen.generators import drape
 from geogen.generators.ringloft import _roll
@@ -86,3 +87,25 @@ def test_drape_is_baked_to_a_few_morph_targets(skirted):
     assert report["clips"]["pose_sit"][1] < 0.5 and report["clips"]["walk"][1] < 8.0      # mm the targets leave
     plain = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "outfit": "jeans_tee"})
     assert plain.find("clothes") is None and "drape" not in plain.meta["humanoid"]
+
+
+def test_exported_morph_targets_turn_the_normals(skirted, tmp_path):
+    """A morph laying the skirt across the lap must turn its normals too (glTF target NORMAL), or a
+    renderer lights the lap as though it still hung down."""
+    import json, struct
+    from geogen.export import export_scene
+    data = export_scene(skirted, tmp_path / "skirted.glb").read_bytes()
+    length = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20:20 + length])
+    targets = [t for m in gltf["meshes"] for p in m["primitives"] for t in p.get("targets", [])]
+    assert targets and all({"POSITION", "NORMAL"} <= set(t) for t in targets)
+
+    clothes = skirted.find("clothes")
+    actor = skirted.instance()
+    pose_clips(actor, "pose_sit", 0.0)
+    worn = actor.find("clothes")
+    mesh = clothes.mesh
+    delta = sum(w * mesh.morphs[k] for k, w in worn.morph_weights.items())
+    turned = sum(w * meshops.morph_normal_deltas(mesh, mesh.morphs[k]) for k, w in worn.morph_weights.items())
+    moved = np.linalg.norm(delta, axis=1) > 0.03                  # the cloth the drape moves a lot
+    assert moved.sum() > 20 and np.linalg.norm(turned[moved], axis=1).mean() > 0.1

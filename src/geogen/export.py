@@ -236,7 +236,8 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
 
     def vertex_attributes(geom: str, mesh: Mesh) -> None:
         extra = {"COLOR_0": mesh.colors, "JOINTS_0": mesh.joints, "WEIGHTS_0": mesh.weights,
-                 "MORPHS": mesh.morphs or None}
+                 "MORPHS": {name: (delta, meshops.morph_normal_deltas(mesh, delta))
+                            for name, delta in mesh.morphs.items()} if mesh.morphs else None}
         extra = {k: v for k, v in extra.items() if v is not None}
         if extra:
             attributes[geom] = extra
@@ -532,7 +533,7 @@ VERTEX_ATTRIBUTES = {"COLOR_0": ("<f4", 5126, True), "JOINTS_0": ("<u2", 5123, F
 
 def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray]]) -> bytes:
     """Add per-vertex VEC4 attributes (COLOR_0, JOINTS_0, WEIGHTS_0) to the primitives of the named glTF meshes,
-    and ``MORPHS`` ({name: position deltas}) as morph targets (``targets``, default ``weights`` 0,
+    and ``MORPHS`` ({name: (position deltas, normal deltas)}) as morph targets (``targets``, default ``weights`` 0,
     ``extras.targetNames``)."""
     import struct
 
@@ -544,18 +545,23 @@ def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray
     for mesh in gltf.get("meshes", []):
         for semantic, values in attributes.get(mesh.get("name"), {}).items():
             if semantic == "MORPHS":
-                for name, delta in values.items():
-                    blob = np.ascontiguousarray(delta, dtype="<f4").tobytes()
-                    data.extend(b"\0" * (-len(data) % 4))
-                    gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
-                                                "target": 34962})
-                    data.extend(blob)
-                    gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
-                                              "count": int(len(delta)), "type": "VEC3",
-                                              "min": [float(v) for v in delta.min(axis=0)],
-                                              "max": [float(v) for v in delta.max(axis=0)]})
+                for name, (delta, normals) in values.items():
+                    target = {}
+                    for key, vec in (("POSITION", delta), ("NORMAL", normals)):
+                        blob = np.ascontiguousarray(vec, dtype="<f4").tobytes()
+                        data.extend(b"\0" * (-len(data) % 4))
+                        gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
+                                                    "target": 34962})
+                        data.extend(blob)
+                        accessor = {"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
+                                    "count": int(len(vec)), "type": "VEC3"}
+                        if key == "POSITION":       # glTF requires bounds on POSITION only
+                            accessor |= {"min": [float(v) for v in vec.min(axis=0)],
+                                         "max": [float(v) for v in vec.max(axis=0)]}
+                        gltf["accessors"].append(accessor)
+                        target[key] = len(gltf["accessors"]) - 1
                     for primitive in mesh.get("primitives", []):
-                        primitive.setdefault("targets", []).append({"POSITION": len(gltf["accessors"]) - 1})
+                        primitive.setdefault("targets", []).append(dict(target))
                 mesh["weights"] = [0.0] * len(values)
                 mesh.setdefault("extras", {})["targetNames"] = list(values)
                 continue

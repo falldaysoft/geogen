@@ -173,6 +173,30 @@ def compute_normals(
     ).with_attributes_of(mesh, vertex_index=src)
 
 
+def morph_normal_deltas(mesh: Mesh, delta: NDArray[np.float64], tol: float = 1e-6) -> NDArray[np.float64]:
+    """How a morph target (position ``delta`` per vertex) turns each vertex normal, as normal deltas.
+
+    Each vertex is smoothed over the faces round every vertex sharing its position and normal (so
+    hard edges stay hard and UV seams don't show), with the rest and the morphed positions; the
+    difference is what a glTF target's NORMAL holds. Without it a renderer keeps the rest normals,
+    and cloth a morph lays flat across a lap is lit as though it still hung down."""
+    verts, faces = mesh.vertices, mesh.faces
+    keys = [_position_ids(verts, tol)[:, None]]
+    if mesh.normals is not None:
+        keys.append(_quantize(mesh.normals, 1e-3))
+    _, group = np.unique(np.hstack(keys), axis=0, return_inverse=True)
+    group = group.reshape(-1)
+
+    def smooth(positions: NDArray[np.float64]) -> NDArray[np.float64]:
+        fn, area = face_normals(positions, faces)
+        sums = np.zeros((int(group.max()) + 1, 3))
+        np.add.at(sums, group[faces].reshape(-1), np.repeat(fn * area[:, None], 3, axis=0))
+        out = sums[group]
+        return out / np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-20)
+
+    return smooth(verts + delta) - smooth(verts)
+
+
 def ensure_normals(mesh: Mesh, crease_angle: float = DEFAULT_CREASE_ANGLE) -> Mesh:
     """Return ``mesh`` unchanged if it has normals, otherwise compute them."""
     if mesh.normals is not None and len(mesh.normals) == len(mesh.vertices):
