@@ -157,9 +157,8 @@ place:
     assert meshops.validate(reveal.mesh).watertight
 
 
-def test_cottage_furniture_stands_on_house_floor():
-    from pathlib import Path
-    scene = SceneComposer().compose(Path("assets/scenes/cottage.yaml"))
+def test_cottage_furniture_stands_on_house_floor(built_scene):
+    scene = built_scene("cottage")
     house = scene.find("house")
     floor = house.find("floor")
     floor_top = (floor.world_transform() @ np.r_[floor.mesh.vertices.max(axis=0), 1])[1]

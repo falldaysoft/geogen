@@ -75,12 +75,12 @@ def _gltf_json(path):
     return json.loads(data[20:20 + length])
 
 
-def test_node_extras_match_schema(built_scene, tmp_path):
+def test_node_extras_match_schema(scene_export):
     jsonschema = pytest.importorskip("jsonschema")
     from pathlib import Path
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
     for scene in ("hotel_suite", "cottage", "dining_set", "vehicle_lineup", "level_crossing", "lighthouse"):
-        gltf = _gltf_json(export_scene(built_scene(scene), tmp_path / f"{scene}.glb"))
+        gltf = _gltf_json(scene_export(scene) / f"{scene}.glb")       # the shared exports: exported once a run
         extras = [n["extras"] for n in gltf["nodes"] if "extras" in n]
         assert extras, scene
         for e in extras:
@@ -195,7 +195,7 @@ def test_animations_can_be_disabled(built_scene, tmp_path):
     assert not any("->" in n for n in names)
 
 
-def test_switches_name_their_own_scenes_lights(built_scene, tmp_path):
+def test_switches_name_their_own_scenes_lights(built_scene, scene_export):
     """meta.switch.light is a placement's name; exports write the node's exported name, and a
     scene placed twice keeps each copy's switches on its own lights."""
     from geogen.export import switched_light
@@ -208,7 +208,7 @@ def test_switches_name_their_own_scenes_lights(built_scene, tmp_path):
         assert light.name == switch.meta["switch"]["light"] and "light" in light.meta
         assert light.parent is switch.parent                    # the same cottage
 
-    nodes = _gltf_json(export_scene(built_scene("cottage"), tmp_path / "cottage.glb"))["nodes"]
+    nodes = _gltf_json(scene_export("cottage") / "cottage.glb")["nodes"]
     lights = {n["name"] for n in nodes if "light" in n.get("extras", {}).get("geogen", {})}
     wired = {n["name"]: n["extras"]["geogen"]["switch"]["light"] for n in nodes
              if "switch" in n.get("extras", {}).get("geogen", {})}

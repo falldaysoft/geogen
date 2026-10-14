@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from geogen.export import export_scene
-from geogen.layout import LayoutLoader, SceneComposer
+from geogen.layout import LayoutLoader
 from geogen.layout.interactions import apply_state
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json"
@@ -72,10 +72,9 @@ def test_bad_interactions_raise(block, match):
         LayoutLoader().load_string(pyyaml.safe_dump(asset))
 
 
-def test_interactions_exported_with_node_names(tmp_path):
+def test_interactions_exported_with_node_names(scene_export):
     jsonschema = pytest.importorskip("jsonschema")
-    scene = SceneComposer().compose(Path("assets/scenes/cottage.yaml"))
-    gltf = _gltf_json(export_scene(scene, tmp_path / "cottage.glb"))
+    gltf = _gltf_json(scene_export("cottage") / "cottage.glb")
     names = {n["name"] for n in gltf["nodes"]}
     door = next(n for n in gltf["nodes"] if n["name"] == "door")
     swing = door["extras"]["geogen"]["interactions"]["swing"]
