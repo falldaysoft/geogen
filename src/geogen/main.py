@@ -15,6 +15,13 @@ from .viewer import run_viewer
 GODOT_GENERATED = Path(__file__).parent.parent.parent / "runtime" / "godot" / "generated"
 
 
+def _generated() -> Path:
+    """Where runtime exports go: the project's generated directory, or the core runtime's."""
+    from .catalogue import active
+
+    return active()[1]
+
+
 def _build_registry() -> SceneRegistry:
     """Build the scene registry with auto-discovered and Python-coded scenes."""
     registry = SceneRegistry()
@@ -27,14 +34,17 @@ def _build_registry() -> SceneRegistry:
 
 def _refresh_catalogue_index() -> None:
     """Keep the runtime's catalogue.json in step with what's been exported."""
-    from .catalogue import load_catalogue, write_index
+    from .catalogue import active, load_catalogue, write_index
     from .content import export_packages
     from .travel import check_travel
 
-    catalogue = load_catalogue()
-    problems = export_packages(catalogue, GODOT_GENERATED)      # content packages, against what is exported now
-    write_index(catalogue, GODOT_GENERATED)
-    for problem in [*problems, *check_travel(catalogue, GODOT_GENERATED)]:
+    file, generated = active()
+    if file is None:                    # a project without a catalogue: the runtime loads every export
+        return
+    catalogue = load_catalogue(file)
+    problems = export_packages(catalogue, generated)      # content packages, against what is exported now
+    write_index(catalogue, generated)
+    for problem in [*problems, *check_travel(catalogue, generated)]:
         print(f"warning: {problem}")
 
 
@@ -128,7 +138,8 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument(
         "--export-godot",
         action="store_true",
-        help=f"Export the scene as <scene>.glb + manifest into {GODOT_GENERATED} and quit",
+        help=f"Export the scene as <scene>.glb + manifest into {GODOT_GENERATED} (a project's own generated/ "
+             f"directory with --project) and quit",
     )
     parser.add_argument(
         "--viewer-screenshot",
@@ -228,11 +239,11 @@ def main() -> None:
         if args.catalogue:
             from .content import export_packages
 
-            for problem in export_packages(catalogue, GODOT_GENERATED):
+            for problem in export_packages(catalogue, _generated()):
                 print(f"warning: {problem}")
-            print(f"Wrote {write_index(catalogue, GODOT_GENERATED)}")
+            print(f"Wrote {write_index(catalogue, _generated())}")
             return
-        index = export_catalogue(catalogue, lambda name: registry[name](), GODOT_GENERATED,
+        index = export_catalogue(catalogue, lambda name: registry[name](), _generated(),
                                  catalogue.select(args.export_catalogue))
         print(f"Wrote {index} (default: {catalogue.default})")
         return
@@ -295,7 +306,7 @@ def main() -> None:
     if args.export_godot and args.stream:
         from .chunks import export_chunks
 
-        index = export_chunks(root, GODOT_GENERATED / f"{args.scene}_chunks", name=args.scene)
+        index = export_chunks(root, _generated() / f"{args.scene}_chunks", name=args.scene)
         print(f"\nExported {args.scene} chunks for Godot; index {index}")
         _refresh_catalogue_index()
         if not (args.render or args.export):
@@ -306,7 +317,7 @@ def main() -> None:
 
         targets = [args.export] if args.export else []
         if args.export_godot:
-            targets.append(GODOT_GENERATED / f"{args.scene}.glb")
+            targets.append(_generated() / f"{args.scene}.glb")
         for target in targets:
             lods = [float(v) for v in args.lods.split(",")] if args.lods else None
             path = export_scene(root, target, lods=lods)

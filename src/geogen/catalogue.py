@@ -1,4 +1,4 @@
-"""The runtime scene catalogue (``assets/runtime_scenes.yaml``).
+"""The runtime scene catalogue (``assets/runtime_scenes.yaml``; a project has its own, see ``active``).
 
 A ``kind: scene_catalogue`` file lists the scenes the Godot runtime offers,
 each a registered scene name with a ``group`` (``showcase`` or ``test``), a
@@ -56,7 +56,29 @@ class Catalogue:
         return [self.entries[n] for n in names]
 
 
-def load_catalogue(path: str | Path = CATALOGUE_PATH) -> Catalogue:
+CORE_GENERATED = Path(__file__).parent.parent.parent / "runtime" / "godot" / "generated"
+
+
+def active() -> tuple[Path | None, Path]:
+    """What exports are for: (the catalogue file, the generated directory). With a project
+    (``geogen.roots``) they are its own ``runtime_scenes.yaml`` (None if it has none: its
+    exports then have no index, and the runtime loads them all) and ``generated`` directory;
+    otherwise the core's."""
+    from . import roots
+
+    projects = roots.projects()
+    if projects:
+        return projects[0].catalogue, projects[0].generated
+    return CATALOGUE_PATH, CORE_GENERATED
+
+
+def load_catalogue(path: str | Path | None = None) -> Catalogue:
+    """The catalogue in ``path`` (default: the active one, see ``active``)."""
+    if path is None:
+        path = active()[0]
+        if path is None:
+            raise ValueError("this project has no runtime catalogue: add runtime_scenes.yaml "
+                             "(kind: scene_catalogue) to its assets directory")
     data = safe_load_path(path) or {}
     if data.get("kind") != "scene_catalogue":
         raise ValueError(f"{path}: expected kind: scene_catalogue")

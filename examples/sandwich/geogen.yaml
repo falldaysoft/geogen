@@ -1,6 +1,8 @@
 # A project built on geogen: its own scene, asset and quest, on core assets.
 # Run from this directory, or with --project examples/sandwich:
 #   python -m geogen.main --project examples/sandwich -s sandwich_kitchen --export-godot
+# Exports go to generated/ here (assets/runtime_scenes.yaml is this project's scene list):
+#   godot --path runtime/godot -- --generated=$PWD/examples/sandwich/generated
 kind: project
 name: sandwich
 description: A kitchen and a quest to make a sandwich in it

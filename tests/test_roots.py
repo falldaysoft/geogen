@@ -293,3 +293,48 @@ def test_a_folders_file_cannot_take_a_shared_name(folders):
     with pytest.raises(roots.RootsError, match="scene folder 'puzzle'.*chair.yaml"):
         _registry()["puzzle"]()
     assert roots.scope() is None
+
+
+# --- a project's runtime catalogue and exports (geogen.39.3) -----------------------------------------
+
+def test_a_project_exports_its_own_catalogue_to_its_own_directory(project, tmp_path):
+    """Its runtime_scenes.yaml is beside the core's, not instead of it: its own scenes and
+    default (core scenes may be listed), exported under the project, not runtime/godot."""
+    import json
+
+    from geogen import catalogue
+
+    roots.use()
+    assert catalogue.active() == (catalogue.CATALOGUE_PATH, catalogue.CORE_GENERATED)
+    roots.use(project)
+    assert catalogue.active() == (None, (project / "generated").resolve())
+    with pytest.raises(ValueError, match="no runtime catalogue"):
+        catalogue.load_catalogue()
+    (project / "assets" / "runtime_scenes.yaml").write_text(
+        "kind: scene_catalogue\ndefault: vault\nscenes:\n  vault: {group: showcase, description: A vault}\n"
+        "  chair: {description: The core's chair}\n")
+    (project / "geogen.yaml").write_text("kind: project\nname: vaults\ngenerated: build/runtime\n")
+    (found,) = roots.use(project)                               # (the catalogue shares the core's file name: allowed)
+    file, generated = catalogue.active()
+    assert file == found.root / "runtime_scenes.yaml" and generated == (project / "build" / "runtime").resolve()
+    listed = catalogue.load_catalogue()
+    assert (listed.default, list(listed.entries)) == ("vault", ["vault", "chair"])
+    registry = SceneRegistry()
+    registry.discover()
+    catalogue.export_catalogue(listed, lambda name: registry[name](), generated, log=lambda *_: None)
+    index = json.loads((generated / "catalogue.json").read_text())
+    assert index["default"] == "vault" and [s["exported"] for s in index["scenes"]] == [True, True]
+    manifest = json.loads((generated / "vault.manifest.json").read_text())
+    assert manifest["state"] and all(key.startswith("vault:") for key in manifest["state"]["interactions"])
+
+
+def test_the_example_project_has_a_catalogue_of_its_own():
+    from geogen import catalogue
+
+    try:
+        (found,) = roots.use(EXAMPLE)
+        listed = catalogue.load_catalogue()
+        assert listed.default == "sandwich_kitchen" and "hub" not in listed.entries
+        assert catalogue.active()[1] == EXAMPLE / "generated"
+    finally:
+        roots.use()

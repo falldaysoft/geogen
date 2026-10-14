@@ -1,0 +1,10 @@
+# The scenes this project offers in the runtime (its own list: the core's catalogue is not used).
+#   python -m geogen.main --project examples/sandwich --export-catalogue
+#   godot --path runtime/godot -- --generated=$PWD/examples/sandwich/generated
+kind: scene_catalogue
+default: sandwich_kitchen
+
+scenes:
+  sandwich_kitchen:
+    group: showcase
+    description: A kitchen with bread, peanut butter and jam, and a sandwich to make

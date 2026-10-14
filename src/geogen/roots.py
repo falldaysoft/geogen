@@ -16,6 +16,13 @@ directory. ``DIR`` holds a ``geogen.yaml``::
     name: sandwich            # default: the directory's name
     assets: assets            # the content root, relative to this file (default: assets)
     overrides: [player.yaml]  # core files this project replaces on purpose
+    generated: generated      # where its runtime exports go, relative to this file (default: generated)
+
+Its runtime scene catalogue is ``runtime_scenes.yaml`` in its content root (``geogen.catalogue``):
+the project's own list and default scene, which may include core scenes. With one,
+``--export-godot`` and ``--export-catalogue`` write to the project's ``generated`` directory
+(run it with ``godot --path runtime/godot -- --generated=DIR``); the core's catalogue and
+``runtime/godot/generated`` are left alone.
 
 Without a ``geogen.yaml``, ``DIR/assets`` is the root if there is one, else
 ``DIR`` itself.
@@ -46,7 +53,8 @@ import yaml
 CORE = Path(__file__).resolve().parents[2] / "assets"
 CONFIG = "geogen.yaml"
 ENV = "GEOGEN_PROJECT"
-CONFIG_KEYS = {"kind", "name", "assets", "overrides", "description"}
+CONFIG_KEYS = {"kind", "name", "assets", "overrides", "description", "generated"}
+CATALOGUE = "runtime_scenes.yaml"   # a project's own runtime catalogue: beside, not instead of, the core's
 SCENES = "scenes"
 SCENE_FILE = "scene.yaml"           # scenes/<name>/scene.yaml: a scene folder
 
@@ -61,6 +69,13 @@ class Project:
     directory: Path                 # where geogen.yaml is (or would be)
     root: Path                      # its content root
     overrides: frozenset[str] = field(default_factory=frozenset)
+    generated: Path | None = None   # where its runtime exports go
+
+    @property
+    def catalogue(self) -> Path | None:
+        """Its runtime scene catalogue, if it has one."""
+        path = self.root / CATALOGUE
+        return path if path.is_file() else None
 
 
 _projects: list[Project] | None = None      # None: not looked for yet
@@ -89,11 +104,12 @@ def load_project(directory: str | Path) -> Project:
     overrides = spec.get("overrides") or []
     if not isinstance(overrides, list) or not all(isinstance(o, str) for o in overrides):
         raise RootsError(f"{config}: overrides is a list of file names relative to the assets directory")
-    project = Project(str(spec.get("name") or directory.name), directory, root, frozenset(overrides))
+    project = Project(str(spec.get("name") or directory.name), directory, root, frozenset(overrides),
+                      (directory / str(spec.get("generated", "generated"))).resolve())
     if root == CORE:
         raise RootsError(f"{directory}: a project's assets can't be geogen's own")
     shadowed = sorted(p.relative_to(root).as_posix() for p in root.rglob("*")
-                      if p.is_file() and p.name != CONFIG and (CORE / p.relative_to(root)).is_file()
+                      if p.is_file() and p.name != CONFIG and p != root / CATALOGUE and (CORE / p.relative_to(root)).is_file()
                       and p.relative_to(root).as_posix() not in project.overrides)
     if shadowed:
         raise RootsError(f"project '{project.name}' ({root}) has files that are also in geogen's assets: "
