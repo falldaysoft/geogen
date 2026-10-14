@@ -3,7 +3,8 @@
 The baseline (tests/data/clipping_baseline.json, regenerate with
 ``python tests/test_clipping.py``) records today's penetration per preset x outfit x pose
 and seat. The guard fails if anything gets worse; the strict tests are the goal (nothing past
-2 mm): skirts and dresses in every pose and clip (generators/drape.py, geogen.11.5.5), and
+2 mm): skirts and dresses in every pose and clip (generators/drape.py, geogen.11.5.5),
+everyone in the two review scenes (the task's acceptance; arms: generators/arms.py), and
 everything at once for two outfits.
 
 The waist tests (geogen.11.5.19) are strict already: an outfit with a separate top and bottom
@@ -97,6 +98,45 @@ def test_nothing_pokes_through_a_skirt_in_any_pose_or_clip(preset, outfit):
     assert {k: v for k, v in faults.items() if v["count"]} == {}
     seats = report([preset], [outfit], poses=())["+".join(preset) + "/" + outfit]
     assert max(v["max_mm"] for v in seats.values()) < 10.0, seats
+
+
+def _people(scene: str) -> dict:
+    from geogen.layout.yaml_utils import safe_load_path
+
+    return {name: entry["params"] for name, entry in safe_load_path(ASSETS / "scenes" / f"{scene}.yaml")["place"].items()}
+
+
+REVIEWED = [(scene, name) for scene in ("clothing_fit", "people_gallery") for name in _people(scene)]
+REVIEW_CORE = [("clothing_fit", "dress"), ("people_gallery", "athletic_crop")]
+REVIEW_POSES = ["stand", "sit", "sit_at_table", "lie"]
+REVIEW_FRAMES = {"walk": 8, "idle": 3, "sit_down": 6, "stand_up": 6, "lie_down": 5, "get_up": 5}
+
+
+@pytest.mark.parametrize("scene,name", [pytest.param(s, n, marks=() if (s, n) in REVIEW_CORE else pytest.mark.exhaustive)
+                                        for s, n in REVIEWED], ids=lambda x: x)
+def test_review_scenes_pass_the_penetration_check(scene, name):
+    """geogen.11.5.5's acceptance: everyone in `clothing_fit` and `people_gallery`, standing,
+    seated and lying and through the walk, idle and the transitions: no body through loose
+    cloth, no hand or forearm in the body or the clothes (generators/arms.py), no heel through a
+    shoe. And what that costs at runtime: four influences a vertex and at most 8 morph targets."""
+    import numpy as np
+
+    from geogen.clipping import measure
+    from geogen.layout import LayoutLoader
+
+    character = LayoutLoader().load(ASSETS / "characters" / "humanoid.yaml", params=_people(scene)[name])
+    frames = {pose: measure(character, pose) for pose in REVIEW_POSES}
+    for clip, count in REVIEW_FRAMES.items():
+        duration = next(c.duration for c in character.clips if c.name == clip)
+        for t in np.linspace(0.0, duration, count, endpoint=False):
+            frames[f"{clip}@{t:.2f}"] = measure(character, None, clip, float(t))
+    faults = {f"{frame}/{key}": m[key] for frame, m in frames.items() for key in ("shell_poke", "hands", "feet_skin")
+              if key in m and m[key]["count"]}
+    assert faults == {}
+    for node in character.iter_nodes():
+        if node.mesh is not None and node.skin is not None:
+            assert node.mesh.weights.shape[1] == 4
+            assert len(node.mesh.morphs or {}) <= 8
 
 
 POSES = ["stand", "sit", "sit_at_table", "lie", "lean_on_sill", "reach_low", "look", "t_pose"]

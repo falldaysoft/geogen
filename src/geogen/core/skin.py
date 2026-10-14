@@ -49,8 +49,17 @@ class Skin:
 
     def matrices(self, mesh_node: SceneNode) -> NDArray[np.float64]:
         """Per-joint skinning matrices taking bind-pose mesh vertices to posed ones, in the mesh node's frame."""
-        to_mesh = np.linalg.inv(mesh_node.world_transform())
-        return np.array([to_mesh @ j.world_transform() @ ibm for j, ibm in zip(self.joints, self.inverse_bind)])
+        worlds: dict[int, NDArray[np.float64]] = {}
+
+        def world(node: SceneNode) -> NDArray[np.float64]:       # each ancestor's matrix once, not once per joint
+            found = worlds.get(id(node))
+            if found is None:
+                local = node.transform.to_matrix()
+                found = worlds[id(node)] = local if node.parent is None else world(node.parent) @ local
+            return found
+
+        to_mesh = np.linalg.inv(world(mesh_node))
+        return to_mesh @ np.array([world(j) for j in self.joints]) @ self.inverse_bind
 
 
 def skin_mesh(mesh: Mesh, matrices: NDArray[np.float64]) -> Mesh:

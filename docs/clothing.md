@@ -1,10 +1,10 @@
 # Clothing
 
 How dressed humanoids are built, how clothes are kept on the body when it moves, what was tried
-on the way, and what is still open. Task: geogen.11.5.5 (and the bugs it blocks, geogen.11.5.7 and
-geogen.11.5.22). Written 2026-10-12.
+on the way, and what is still open. Task: geogen.11.5.5 (and the bugs it blocked, geogen.11.5.7 and
+geogen.11.5.22). Written 2026-10-12; arms added 2026-10-13.
 
-The code is in `src/geogen/generators/` (`humanoid.py`, `ringloft.py`, `drape.py`), the garments in
+The code is in `src/geogen/generators/` (`humanoid.py`, `ringloft.py`, `drape.py`, `arms.py`), the garments in
 `assets/clothing/*.yaml`, the outfits in `assets/characters/humanoid.yaml`, and the measurements
 in `src/geogen/clipping.py`.
 
@@ -15,9 +15,9 @@ in `src/geogen/clipping.py`.
 | 1. Garments that span the body's hollows instead of shrink-wrapping them | Done for tight garments, as a stiffness (`ease`) on the garment. Not done as an SDF: see "Tight garments". |
 | 2. Offline cloth simulation over poses and clips | Replaced by a geometric drape (`drape.py`). A simulation was tried first and not finished: see "What was tried". |
 | 3. A runtime rig fitted to the drape: skinning plus a few blend shapes | Done for skirts and dresses: linear blend skinning and at most 8 morph targets, keyed by every clip. No extra bones, no secondary motion. |
-| 4. Poses and clips that keep the arms clear of the body and the clothes | Not done. Hands still pass through thighs and skirts in the middle of the sit, stand and lie transitions (20 to 60 mm), and rest in the hips of wide builds when lying. |
-| 5. Deleting body faces that clothes always hide | Not done. |
-| 6. A test: nothing past 2 mm over presets, outfits and sampled clip frames | Done for cloth against body and cloth against seats, on five skirted bodies (`tests/test_clipping.py::test_nothing_pokes_through_a_skirt_in_any_pose_or_clip`). Heavy builds and hands are left out. |
+| 4. Poses and clips that keep the arms clear of the body and the clothes | Done (`arms.py`): each body's upper arms swing out by what its own hips, thighs and skirt need, in every static pose and every clip. See "Arms". |
+| 5. Deleting body faces that clothes always hide | Not done, and not wanted as it stands: see "What is open" (geogen.11.5.24). |
+| 6. A test: nothing past 2 mm over presets, outfits and sampled clip frames | Done. Cloth against body and seats on five skirted bodies (`tests/test_clipping.py::test_nothing_pokes_through_a_skirt_in_any_pose_or_clip`), and the task's acceptance: all 18 people of `clothing_fit` and `people_gallery`, standing, seated, lying and through the walk, idle and the four transitions (`test_review_scenes_pass_the_penetration_check`). A heavy build in a skirt is still left out. |
 
 Clipping of skirts and dresses, before and after (worst depth in mm, and how many vertices):
 
@@ -27,10 +27,16 @@ Clipping of skirts and dresses, before and after (worst depth in mm, and how man
 | Body through the cloth, walking | not measured; 60 to 110 reported, mostly knees leaving by the hem (not a fault, see "Measuring") | 0 on the five tested bodies |
 | Cloth in the seat (armchair, chair, sofa) | 4 to 9, up to 38 vertices | 0 |
 | Seated hands in the skirt | up to 15 (hourglass dress) | 0 |
+| Hands and forearms in thighs, hips and skirts through sit_down, stand_up, lie_down, get_up (18 people) | 7 to 54, up to 180 vertices, on every one | 0 |
+| Hands in the hips or the skirt, lying (wide builds) | 15 to 28, up to 250 vertices | 0 |
+| Hands brushing a skirt in the walk and idle (hourglass) | 3 to 14 | 0 |
 | Skin at the hip crease of a skirt (three builds were expected failures) | a 2 to 3 mm sliver | none; the expected failures are removed |
 
 Costs: a skirt is about 1,100 triangles (was 670), so a dressed character with one is up to about
-4,650 (the test's limit was 4,200); building one takes about 2.5 s instead of 1.9 s.
+4,650 (the test's limit was 4,200). Building a character takes about 2.2 s in trousers (1.7 s
+before the arms pass) and 3.3 s in a skirt (2.4 s): the drape is about 0.65 s of that and the
+arms 0.5 s, or 1 s with a skirt to keep out of. Nothing is added at runtime: the arms' swing is
+in the clips' keys.
 
 ## The system
 
@@ -119,6 +125,41 @@ and its `RESET` rests them at 0. The report is in `meta.humanoid.drape`: the num
 and per clip the largest correction and the largest error the targets leave (typically 2 to 6 mm
 in the walk and the transitions, 6 to 12 mm on heavy builds).
 
+### Arms (`arms.py`)
+
+Poses and clips are authored once for every build. A hand that hangs beside a slim hip is inside
+a wide one, and a blend from standing to sitting takes every body's hands through its thighs.
+`clear_arms` runs last in the build, when the clips exist and the skirt is draped. It changes
+nothing but the upper arms' rotation keys.
+
+- **What is kept clear:** the forearm and hand of each side (what `clipping.measure` reports as
+  `hands`), by the vertices on their convex hulls.
+- **Of what:** the body without its arms, head and feet, and the loose shell's outer wall with
+  its hem capped (the same solid clipping QA uses), in the pose of the frame, drape morphs
+  included. Depth is the distance to the nearest triangle, signed by the triangle the point is
+  most squarely in front of or behind among those that meet there. That goes wrong at a rolled
+  hem's lip, so a point found inside a shell is confirmed with the winding number.
+- **How:** if anything is more than 1 mm inside, the arm turns about the shoulder joint so that
+  the hand moves outward, away from the body's centre plane, until everything is 4 mm clear. The
+  angle is found in a few steps, each as far as the deepest vertex still lacks.
+- **Over time:** static poses are solved exactly. A clip is solved at 14 frames (the walk 12,
+  idle 3); each frame then takes the most its neighbours need, blurred, and never less than it
+  needs itself, so the swing comes on before it is needed and goes off after. A transition's
+  first and last frames take the swing of the static poses it runs between, so the hand-over to
+  the pose clip doesn't pop. A clip that is another played backwards (get_up, lie_down) reuses
+  its answer.
+
+A pose that is clear already is left exactly as authored: a slim body's stand, sit and lie are
+untouched. Typical swings are 7 to 12 degrees in the transitions and 5 to 10 lying for wide
+hips; `meta.humanoid.arms` records the largest per clip. The body option `clear_arms: false`
+turns it off.
+
+Tried and dropped: swinging the way the surface the hand is in faces (up off a lap, out from a
+hip). It is the shortest way out in any one frame, but the direction changes from frame to frame
+and blending two swings about different axes puts the hand back in the body between them
+(55 mm in the hourglass body's sit_down). Outward is the same in every frame, so more of it is
+always further out. The surface's direction is still the fallback when outward clears nothing.
+
 ### Weights
 
 How the skirt is skinned decides how much the drape has to correct, and so how well 8 targets can
@@ -192,6 +233,8 @@ In order. The first four are earlier work, from the commit history and the task 
 
 ## What is open
 
+Tracked as geogen.11.5.25 (hidden faces: geogen.11.5.24; build time: geogen.11.5.23).
+
 - **A belly over a lap.** On the `heavy` build, leaning forward on a seat or crouching, the
   belly's underside shows through the cloth by 4 to 10 mm. Rings on the thighs pass under the
   belly and rings on the pelvis go round it, and the faces between the two cut through it. This
@@ -200,10 +243,12 @@ In order. The first four are earlier work, from the commit history and the task 
 - **Hems over wide hips.** A top's hem still stands out over the hips of the `hourglass` build
   like a peplum: it ends on the widest part of the body and steps out by its own thickness over
   the trousers' there. Stiffness doesn't change a garment's ends.
-- **Arms and hands** (part 4 of the proposal). Nothing here moves an arm. The static sit pose is
-  clean; the transitions take the hands through the thighs and the skirt, and wide builds lie
-  with their hands in their hips. The lap's surface is now known in every frame (thigh top plus
-  clearance), which an arm target could use.
+- **Arms only swing at the shoulder.** The elbow never bends to get a hand out of the way, the
+  upper arm isn't kept out of the bust or the ribs (it isn't measured either), and a hand is not
+  kept out of the other hand, the hair, or furniture. A wide skirt holds the arms of the
+  `hourglass` body out about 20 degrees while it walks, which a bent elbow would do better.
+- **Arms between sampled frames.** The 14 frames a transition is solved at are not the frames
+  it is checked at (`REVIEW_FRAMES`), and those are clean, but nothing checks every key.
 - **Between sampled frames and in blends.** The runtime cross-fades clips and scales the walk's
   speed. Weights blend linearly, which is right for morphs, but only sampled frames are checked.
 - **The moment of sitting down.** For about a tenth of the clip before the character lands, the
@@ -215,15 +260,18 @@ In order. The first four are earlier work, from the commit history and the task 
   the rings found another way, and the choice of body parts to go round (`drape.LEGS`, `TRUNK`)
   is the skirt's.
 - **No secondary motion**: a skirt does not swing or lag. That needs bones or a runtime solve.
-- **Deleting hidden body faces** (part 5): not started. A character in a long skirt still carries
-  the thighs under it.
+- **Deleting hidden body faces** (part 5, geogen.11.5.24): not done. A character in a long
+  skirt still carries the thighs under it, about 300 triangles, and deleting them would also
+  end the heavy build's belly showing through. But the body would no longer be closed, and four
+  things need it closed: `affordance_qa`'s `pose_clash` (a manifold3d volume), `fit_seats` and
+  `fit_seated_pose` (the underside of the seat flesh), `drape.Draper` on a posed instance (the
+  hull of the pelvis and thighs' section) and `clipping`'s winding numbers. It needs the build
+  to keep the closed body beside the one that is drawn.
 - **Crowd cost.** Eight morph targets on about 600 vertices per skirted character, and about 450
   more triangles than before. Character LODs are geogen.11.5.17.
 - **Knees and hips losing volume in deep bends** (geogen.11.5.22) is a fault of the body's own
   skinning and is untouched. The drape's method (a corrective per pose, reduced to a few targets)
   would apply to the body mesh too, with a different rule for where the surface should be.
-- `clothing_fit` and `people_gallery` as scenes are not swept by a test: the strict test builds
-  five bodies directly.
 
 ## Looking at it
 

@@ -30,6 +30,7 @@ built here instead of from ``parts:``::
       poses: {stand: {bones: {LeftUpperArm: [0, 0, -72]}}}    # body-frame degrees (core.skeleton.Pose)
       pose: stand                             # the pose the asset is built (and exported) in
       clips: {walk: {generator: walk, speed: 1.2}, idle: {}}   # generators/clips.py, over `pose`
+      clear_arms: true                        # swing the arms clear of this body in every pose and clip (arms.py)
 
 The node tree is ``<name>`` > ``Root`` (joint hierarchy, every profile bone)
 and ``body`` (the skinned mesh, no collider). ``meta.humanoid`` records the
@@ -829,6 +830,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     from . import drape
 
     drape_report = drape.fit(root, draped, set(seats)) if draped else {}
+    from .arms import clear_arms
+
+    arms_report = clear_arms(root) if spec.get("clear_arms", True) else {}
     if pose_name is not None:
         if pose_name not in poses:
             raise ValueError(f"'{name}': unknown pose '{pose_name}'. Poses: {sorted(poses)}")
@@ -844,6 +848,8 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     root.meta["humanoid"]["shells"] = draped            # for drape.Draper (review, tests)
     if drape_report:
         root.meta["humanoid"]["drape"] = drape_report
+    if arms_report:
+        root.meta["humanoid"]["arms"] = arms_report     # {clip: degrees its arms swing out to clear this body}
     if waist_overlap is not None:
         root.meta["humanoid"]["waist_overlap"] = round(float(waist_overlap), 4)
     # What is worn, for clipping QA: each garment's vertices of `body` (tight) and of `clothes` (loose).
