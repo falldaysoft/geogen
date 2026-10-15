@@ -1,6 +1,6 @@
 # A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items
 # (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a
-# second; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end).
+# second, or `waves` a waves file it plays instead; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end).
 # It starts `initial: running`, or stopped until a rule or wire starts it. Origin: on the
 # ground between the posts; items come out facing +Z.
 
@@ -12,6 +12,7 @@ bounds: geometry
 
 params:
   item:      {default: items/parcel.yaml, type: text}
+  waves:     {default: "", type: text}
   rate:      {default: 0.5}
   drop:      {default: 0}
   initial:   {default: running, type: text}
@@ -22,6 +23,7 @@ params:
 
 source:
   items: "{item}"
+  waves: "{waves}"
   rate: "{rate}"
   at: mouth
   initial: "{initial}"

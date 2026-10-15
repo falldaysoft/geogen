@@ -27,6 +27,14 @@ extends Node
 ## reference: sources and tracks are stepped in the same order (by position), and a source's
 ## pick among its items is the same smooth weighted round robin, so both agree.
 ##
+## Effectors (extras.geogen.flows.effector) come last each frame, in position order: one that
+## is `enabled` and ready (every 1 / rate s) acts on the track item in range it `targets`.
+## Damage lands as it fires (the projectile is the look of it): at hp 0 the item is destroyed
+## (it shrinks away) and its source counts `killed` and raises `killed {item, ...data}`; take
+## removes it (`taken`, signal `took`). Aim parts turn toward the target at `turn_rate`.
+## A waves source (`waves`) sends its waves' groups in turn while running and stops when a
+## wave is cleared (or goes on, `auto`), raising wave_started / wave_cleared / all_cleared.
+##
 ## Owned by WorldLoader (`world.flows`); the control API's `flows.list` reports it.
 
 ## An item was made or taken away (why: sink | lifetime | stuck | fell | cleared).
@@ -44,6 +52,8 @@ var world: WorldLoader
 var sources := {}
 ## [{uid, node, data, points (world), cum, length, next, received}], in stepping order
 var tracks: Array = []
+## [{uid, node, data, at (world), cool, taken, target, yaw, pitch, ...}], in stepping order
+var effectors: Array = []
 ## Physics frames the sources and tracks have run (simulate's `ticks`).
 var ticks := 0
 ## id -> {id, source, item, mode, node (the item's root), body, data, born, still}
@@ -86,6 +96,26 @@ func setup(root: Node) -> void:
                     cum.append(cum[cum.size() - 1] + points[points.size() - 2].distance_to(points[points.size() - 1]))
             tracks.append({"uid": WorldLoader.uid_of(node), "node": node, "data": track, "points": points,
                 "cum": cum, "length": cum[cum.size() - 1], "next": -1, "received": 0})
+    for node: Node3D in root.find_children("*", "Node3D", true, false):
+        var effector: Variant = (WorldLoader.geogen_extras(node).get("flows", {}) as Dictionary).get("effector")
+        if effector is Dictionary:
+            var entry := {"uid": WorldLoader.uid_of(node), "node": node, "data": effector, "cool": 0.0, "taken": 0,
+                "target": -1, "at": node.global_transform * _vec(effector.get("at", [0, 0, 0]))}
+            var aim: Dictionary = effector.get("aim", {})
+            for key in ["yaw", "pitch"]:
+                if aim.has(key):
+                    var part := node.find_child(str(aim[key]), true, false) as Node3D
+                    if part != null:
+                        entry[key] = part
+                        entry[key + "_rest"] = part.basis
+                        entry[key + "_angle"] = 0.0
+            var sound := AudioStreamPlayer3D.new()
+            sound.stream = GeogenSound.chime_stream("shot")
+            sound.unit_size = 6.0
+            sound.position = _vec(effector.get("at", [0, 0, 0]))
+            node.add_child(sound)
+            entry["sound"] = sound
+            effectors.append(entry)
     for node in found:
         var uid := WorldLoader.uid_of(node)
         var data: Dictionary = WorldLoader.geogen_extras(node)["flows"]["source"]
@@ -99,6 +129,7 @@ func setup(root: Node) -> void:
                 child.visible = true
                 entry["templates"][str(item["name"])] = child
         entry["at"] = node.global_transform * _vec(data.get("at", [0, 0, 0]))
+        entry.merge({"killed": 0, "wave": 0, "phase": "idle", "timer": 0.0, "group": 0, "left": 0})
         sources[uid] = entry
     _join()
 
@@ -110,6 +141,7 @@ func _join() -> void:
     for track in tracks:
         track.erase("ref")
     tracks.sort_custom(func(a, b): return _before(a["points"][0], b["points"][0]))
+    effectors.sort_custom(func(a, b): return _before(a["at"], b["at"]))
     for k in tracks.size():
         tracks[k]["index"] = k
     for track in tracks:
@@ -162,6 +194,9 @@ func forget(root: Node) -> void:
                 if items[id].get("track", -1) == track["index"]:
                     remove(id, "cleared")
             tracks.erase(track)
+    for effector in effectors.duplicate():
+        if not is_instance_valid(effector["node"]) or root.is_ancestor_of(effector["node"]):
+            effectors.erase(effector)
     _join()
 
 
@@ -174,6 +209,7 @@ func clear() -> void:
         _free_templates(entry)
     sources.clear()
     tracks.clear()
+    effectors.clear()
     ticks = 0
 
 
@@ -189,13 +225,19 @@ func _physics_process(delta: float) -> void:
         return
     ticks += 1
     for uid in sources:
-        if sources[uid]["track"] >= 0 and _on_track(sources[uid]):
-            _feed(sources[uid], delta)
+        var entry: Dictionary = sources[uid]
+        if entry["track"] >= 0 and _on_track(entry):
+            if entry["data"].get("waves") is Dictionary:
+                _waves(entry, delta)
+            else:
+                _feed(entry, delta)
         else:
-            _run(sources[uid], delta)
+            _run(entry, delta)
     var moved := {}
     for track in tracks:
         _move(track, delta, moved)
+    for effector in effectors:
+        _act(effector, delta)
     var gone: Array = []
     for id in items:
         var item: Dictionary = items[id]
@@ -255,20 +297,255 @@ func _feed(entry: Dictionary, delta: float) -> void:
     var count := int(data.get("count", 0))
     if (queued > 0 or entry["due"] >= 1.0) and alive(uid) < int(data.get("max_alive", 10)) \
             and (count == 0 or entry["made"] < count):
-        var track: Dictionary = tracks[entry["track"]]
         var pick := _pick(entry)
-        var radius := float(WorldLoader.geogen_extras(entry["templates"][pick])["item"].get("radius", 0.25))
-        for item in items.values():
-            if item.get("track", -1) == track["index"] and item["s"] < maxf(float(track["data"].get("spacing", 0.0)),
-                    radius + float(item["def"].get("radius", 0.25))):
-                entry["pending"] = pick            # the same pick waits for room
-                return
+        if not _start_clear(entry, pick):
+            entry["pending"] = pick                # the same pick waits for room
+            return
         entry.erase("pending")
         if queued > 0:
             _write(uid, "queued", queued - 1)
         else:
             entry["due"] -= 1.0
         spawn(entry, pick)
+
+
+## Whether a source's track has room at its start for an item ``item_name``.
+func _start_clear(entry: Dictionary, item_name: String) -> bool:
+    var track: Dictionary = tracks[entry["track"]]
+    var radius := float(WorldLoader.geogen_extras(entry["templates"][item_name])["item"].get("radius", 0.25))
+    for item in items.values():
+        if item.get("track", -1) == track["index"] and item["s"] < maxf(float(track["data"].get("spacing", 0.0)),
+                radius + float(item["def"].get("radius", 0.25))):
+            return false
+    return true
+
+
+## A waves source (geogen/flows.py `simulate`'s `waves` is the reference).
+func _waves(entry: Dictionary, delta: float) -> void:
+    var plan: Dictionary = entry["data"]["waves"]
+    var list: Array = plan.get("list", [])
+    var uid: String = entry["uid"]
+    if entry["phase"] == "clearing":
+        if alive(uid) == 0:
+            world.events.post("signal", uid, "wave_cleared", "", {"wave": float(entry["wave"])})
+            entry["phase"] = "idle"
+            if entry["wave"] >= list.size():
+                world.events.post("signal", uid, "all_cleared", "", {"wave": float(entry["wave"])})
+                _write(uid, "running", false)
+            elif not plan.get("auto", false):
+                _write(uid, "running", false)
+        return
+    if not GeogenConditions.truthy(_read(uid, "running", entry["data"].get("initial", "running") == "running")):
+        return
+    match entry["phase"]:
+        "idle":
+            if entry["wave"] < list.size():
+                entry["phase"] = "delay"
+                entry["timer"] = float(list[entry["wave"]].get("delay", 2.0))
+        "delay":
+            entry["timer"] -= delta
+            if entry["timer"] <= 0.0:
+                entry["wave"] += 1
+                _write(uid, "wave", entry["wave"])
+                world.events.post("signal", uid, "wave_started", "", {"wave": float(entry["wave"])})
+                entry["phase"] = "spawning"
+                entry["group"] = 0
+                entry["timer"] = 0.0
+                entry["left"] = int(list[entry["wave"] - 1]["items"][0]["count"])
+        "spawning":
+            var groups: Array = list[entry["wave"] - 1]["items"]
+            entry["timer"] -= delta
+            if entry["timer"] > 0.0 or alive(uid) >= int(entry["data"].get("max_alive", 10)):
+                return
+            var group: Dictionary = groups[entry["group"]]
+            if not _start_clear(entry, str(group["name"])):
+                return
+            spawn(entry, str(group["name"]))
+            entry["left"] -= 1
+            entry["timer"] = float(group.get("gap", 1.0))
+            if entry["left"] <= 0:
+                entry["group"] += 1
+                if entry["group"] >= groups.size():
+                    entry["phase"] = "clearing"
+                else:
+                    entry["left"] = int(groups[entry["group"]]["count"])
+
+
+## An effector's frame: aim, and act when ready (geogen/flows.py `simulate` is the reference).
+func _act(e: Dictionary, delta: float) -> void:
+    var data: Dictionary = e["data"]
+    _aim(e, delta)
+    if not GeogenConditions.truthy(_read(e["uid"], "enabled", data.get("enabled", true))):
+        e["target"] = -1
+        return
+    e["cool"] -= delta
+    if e["cool"] > 0.0:
+        return
+    var effect: Dictionary = data.get("effect", {})
+    var damage := effect.has("damage")
+    var accepts: Array = data.get("accepts", [])
+    var best := {}
+    var best_d := 0.0
+    var mode := str(data.get("targets", "first"))
+    for id in items:
+        var it: Dictionary = items[id]
+        if not it.has("track") or (not accepts.is_empty() and not it["item"] in accepts) \
+                or (damage and not it["data"].has("hp")):
+            continue
+        var d := _at(tracks[it["track"]], it["s"]).distance_to(e["at"])
+        if d > float(data.get("range", 5.0)):
+            continue
+        if best.is_empty() or _better(mode, it, d, best, best_d):
+            best = it
+            best_d = d
+    if best.is_empty():
+        e["cool"] = 0.0
+        e["target"] = -1
+        return
+    e["cool"] = 1.0 / float(data.get("rate", 1.0))
+    e["target"] = best["id"]
+    var hit_at := _at(tracks[best["track"]], best["s"]) + Vector3.UP * float(best["def"].get("radius", 0.25))
+    _shot(e, hit_at)
+    if damage:
+        best["data"]["hp"] = float(best["data"]["hp"]) - float(effect["damage"])
+        if float(best["data"]["hp"]) <= 0.0:
+            _killed(best)
+        else:
+            _health(best)
+    else:
+        remove(best["id"], "taken")
+        e["taken"] += 1
+        _write(e["uid"], "taken", e["taken"])
+        var sent: Dictionary = best["data"].duplicate()
+        sent["item"] = best["item"]
+        world.events.post("signal", e["uid"], "took", "", sent)
+
+
+## Whether ``it`` (``d`` m away) is a better target than ``best`` (``best_d``) for ``mode``.
+static func _better(mode: String, it: Dictionary, d: float, best: Dictionary, best_d: float) -> bool:
+    match mode:
+        "last":
+            return it["travelled"] < best["travelled"] or (it["travelled"] == best["travelled"] and it["id"] < best["id"])
+        "nearest":
+            return d < best_d or (d == best_d and it["id"] < best["id"])
+        "strongest":
+            var a := float(it["data"]["hp"])
+            var b := float(best["data"]["hp"])
+            if a != b:
+                return a > b
+            if it["travelled"] != best["travelled"]:
+                return it["travelled"] > best["travelled"]
+            return it["id"] < best["id"]
+    return it["travelled"] > best["travelled"] or (it["travelled"] == best["travelled"] and it["id"] < best["id"])
+
+
+## Turn an effector's aim parts toward its target (the look of it: firing doesn't wait).
+func _aim(e: Dictionary, delta: float) -> void:
+    if not e.has("yaw") and not e.has("pitch"):
+        return
+    var target: Dictionary = items.get(e["target"], {})
+    if target.is_empty() or not target.has("track"):
+        return
+    var at := _at(tracks[target["track"]], target["s"]) + Vector3.UP * float(target["def"].get("radius", 0.25))
+    var step := deg_to_rad(float(e["data"].get("aim", {}).get("turn_rate", 360.0))) * delta
+    if e.has("yaw") and is_instance_valid(e["yaw"]):
+        var part: Node3D = e["yaw"]
+        var local: Vector3 = part.get_parent().to_local(at) - part.position
+        var want := atan2(local.x, local.z)
+        e["yaw_angle"] = e["yaw_angle"] + clampf(wrapf(want - e["yaw_angle"], -PI, PI), -step, step)
+        part.basis = Basis(Vector3.UP, e["yaw_angle"]) * e["yaw_rest"]
+    if e.has("pitch") and is_instance_valid(e["pitch"]):
+        var part: Node3D = e["pitch"]
+        var from: Vector3 = part.global_position
+        var want := atan2(at.y - from.y, Vector2(at.x - from.x, at.z - from.z).length())
+        e["pitch_angle"] = e["pitch_angle"] + clampf(want - e["pitch_angle"], -step, step)
+        part.basis = Basis(Vector3.RIGHT, -e["pitch_angle"]) * e["pitch_rest"]
+
+
+## What a shot looks like: a tracer flash, or a bolt that flies to the target.
+func _shot(e: Dictionary, to: Vector3) -> void:
+    var projectile: Dictionary = e["data"].get("projectile", {})
+    var headless := DisplayServer.get_name() == "headless"
+    var sound: AudioStreamPlayer3D = e.get("sound")
+    if sound != null and is_instance_valid(sound) and not headless:
+        sound.play()
+    var kind := str(projectile.get("kind", "tracer"))
+    if kind == "instant" or headless:
+        return
+    var from: Vector3 = e["at"]
+    var c: Array = projectile.get("color", [1.0, 0.75, 0.3])
+    var material := StandardMaterial3D.new()
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    material.albedo_color = Color(float(c[0]), float(c[1]), float(c[2]))
+    var mesh := MeshInstance3D.new()
+    mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    _layer.add_child(mesh)
+    if kind == "tracer":
+        var box := BoxMesh.new()
+        box.size = Vector3(0.03, 0.03, maxf(from.distance_to(to), 0.01))
+        box.material = material
+        mesh.mesh = box
+        if from.distance_to(to) > 0.01:
+            mesh.global_transform = Transform3D(Basis.looking_at(to - from, Vector3.UP), (from + to) / 2.0)
+        get_tree().create_timer(0.08, false, true).timeout.connect(mesh.queue_free)
+    else:
+        var ball := SphereMesh.new()
+        ball.radius = 0.06
+        ball.height = 0.12
+        ball.material = material
+        mesh.mesh = ball
+        mesh.global_position = from
+        var tween := mesh.create_tween()
+        tween.tween_property(mesh, "global_position", to, from.distance_to(to) / maxf(float(projectile.get("speed", 20.0)), 0.1))
+        tween.tween_callback(mesh.queue_free)
+
+
+## An item's hp ran out: its source counts and signals it, and it shrinks away.
+func _killed(it: Dictionary) -> void:
+    var source: Dictionary = sources.get(it["source"], {})
+    if not source.is_empty():
+        source["killed"] += 1
+        _write(it["source"], "killed", source["killed"])
+    var sent: Dictionary = it["data"].duplicate()
+    sent["item"] = it["item"]
+    remove(it["id"], "killed")
+    world.events.post("signal", it["source"], "killed", "", sent)
+
+
+## Show (or refresh) the health bar over a damaged item.
+func _health(it: Dictionary) -> void:
+    var node: Node3D = it["node"]
+    if not is_instance_valid(node):
+        return
+    var full := float((it["def"].get("data", {}) as Dictionary).get("hp", 1.0))
+    var bar := node.get_node_or_null("health") as MeshInstance3D
+    if bar == null:
+        bar = MeshInstance3D.new()
+        bar.name = "health"
+        var quad := QuadMesh.new()
+        quad.size = Vector2(0.6, 0.08)
+        bar.mesh = quad
+        bar.material_override = _bar_material()
+        bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        bar.position = Vector3.UP * (float(it["def"].get("radius", 0.25)) * 1.6 + 0.2)
+        node.add_child(bar)
+    bar.set_instance_shader_parameter("fill", clampf(float(it["data"]["hp"]) / maxf(full, 0.001), 0.0, 1.0))
+
+
+static var _bar: ShaderMaterial
+
+
+static func _bar_material() -> ShaderMaterial:
+    if _bar == null:
+        var shader := Shader.new()
+        shader.code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, shadows_disabled;\n" \
+            + "instance uniform float fill = 1.0;\n" \
+            + "void vertex() {\n    MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], " \
+            + "INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);\n}\n" \
+            + "void fragment() {\n    ALBEDO = UV.x < fill ? vec3(0.35, 0.9, 0.35) : vec3(0.25, 0.06, 0.05);\n}\n"
+        _bar = ShaderMaterial.new()
+        _bar.shader = shader
+    return _bar
 
 
 ## Step a track: its items, leaders first (geogen/flows.py `simulate` is the reference).
@@ -299,6 +576,7 @@ func _move(track: Dictionary, delta: float, moved: Dictionary) -> void:
             if not lead.is_empty():
                 limit = length + lead["s"] - _gap(it, lead, tracks[track["next"]]["data"])
         target = maxf(it["s"], minf(target, limit))
+        it["travelled"] += target - it["s"]
         if loop:
             it["s"] = fmod(target, length)
         elif target >= length:
@@ -453,7 +731,7 @@ func spawn(entry: Dictionary, item_name := "") -> int:
             mi.free()
     var item := {"id": id, "source": entry["uid"], "item": item_name, "mode": str(def.get("mode", "physics")),
         "def": def, "data": (def.get("data", {}) as Dictionary).duplicate(), "node": copy, "body": null,
-        "prop": "", "age": 0.0, "still": 0.0}
+        "prop": "", "age": 0.0, "still": 0.0, "travelled": 0.0}
     if entry.get("track", -1) >= 0 and item["mode"] != "physics":
         item["track"] = entry["track"]
         item["s"] = 0.0
@@ -504,7 +782,14 @@ func remove(id: int, why: String) -> bool:
     if item["prop"] != "":
         world.props.remove_clone(item["prop"])
     elif is_instance_valid(item["node"]):
-        item["node"].queue_free()
+        if why == "killed" and DisplayServer.get_name() != "headless":
+            var node: Node3D = item["node"]          # it shrinks and sinks away
+            var tween := node.create_tween().set_parallel()
+            tween.tween_property(node, "scale", Vector3.ONE * 0.05, 0.35)
+            tween.tween_property(node, "global_position", node.global_position + Vector3.DOWN * 0.2, 0.35)
+            tween.chain().tween_callback(node.queue_free)
+        else:
+            item["node"].queue_free()
     if why != "cleared":
         _write(item["source"], "alive", alive(item["source"]))
     item_removed.emit(id, why)
@@ -543,7 +828,7 @@ func _read(uid: String, name_: String, fallback: Variant) -> Variant:
 func _write(uid: String, name_: String, value: Variant) -> void:
     var key := "%s#%s" % [uid, name_]
     if world.rules.machine != null and world.rules.machine.variables.has(key):
-        world.rules.set_value(key, float(value))
+        world.rules.set_value(key, value if typeof(value) == TYPE_BOOL else float(value))
 
 
 ## {sources: [{uid, running, queued, emitted, alive, items: [names]}], items: [{id, source, item,
@@ -555,7 +840,8 @@ func report() -> Dictionary:
         var entry: Dictionary = sources[uid]
         out["sources"].append({"uid": uid, "running": GeogenConditions.truthy(_read(uid, "running",
             entry["data"].get("initial", "running") == "running")), "queued": int(_read(uid, "queued", 0)),
-            "emitted": entry["made"], "alive": alive(uid), "items": entry["templates"].keys()})
+            "emitted": entry["made"], "alive": alive(uid), "items": entry["templates"].keys(),
+            "killed": entry["killed"], "wave": entry["wave"], "phase": entry["phase"]})
     for id in items:
         var item: Dictionary = items[id]
         var at: Node3D = item["body"] if item["body"] != null else item["node"]
@@ -566,9 +852,12 @@ func report() -> Dictionary:
         if item.has("track"):
             entry["track"] = item["track"]
             entry["s"] = item["s"]
+            entry["travelled"] = item["travelled"]
         out["items"].append(entry)
     out["tracks"] = tracks.map(func(t): return {"uid": t["uid"], "index": t["index"], "length": t["length"],
         "next": t["next"], "received": t["received"], "running": GeogenConditions.truthy(_read(t["uid"], "running", true))})
+    out["effectors"] = effectors.map(func(e): return {"uid": e["uid"], "taken": e["taken"], "target": e["target"],
+        "enabled": GeogenConditions.truthy(_read(e["uid"], "enabled", e["data"].get("enabled", true)))})
     out["ticks"] = ticks
     return out
 

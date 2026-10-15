@@ -11,7 +11,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
 | [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic (assets/traffic/town.yaml) and a few pedestrians (npcs/pedestrian.yaml). | test |
 | [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
-| [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own. | test |
+| [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two waves of raiders (6 hp) down a lane past a turret. | test |
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
 | [hotel_room](#hotel_room) | Furnished hotel suite (hand-placed; the furnishing solver, geogen-3cc.6, will do this from room archetypes). | test |
 | [hotel_room_auto](#hotel_room_auto) | The hotel suite furnished automatically from its rooms' archetypes (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand). | test |
@@ -146,12 +146,12 @@ runtime/godot/README.md.
 
 Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which
 hands them to a second belt at right angles, whose end takes them in; a second spawner
-sends rovers driving round a gravel lane to a sink of their own. The yard's HUD counts
-both. Review: -s flow_test -r out.png; runtime: godot ... -- --scene flow_test.
+sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two
+waves of raiders (6 hp) down a lane past a turret. The yard's HUD counts it all. Review: -s flow_test -r out.png; runtime: godot ... -- --scene flow_test.
 
-**Places**: `ground: {asset: ground.yaml}`; `parcels: {asset: spawner.yaml}`; `belt_a: {asset: conveyor.yaml}`; `belt_b: {asset: conveyor.yaml}`; `garage: {asset: spawner.yaml}`
+**Places**: `ground: {asset: ground.yaml}`; `parcels: {asset: spawner.yaml}`; `belt_a: {asset: conveyor.yaml}`; `belt_b: {asset: conveyor.yaml}`; `garage: {asset: spawner.yaml}`; `raid_gate: {asset: spawner.yaml}`; `turret: {asset: turret.yaml}`
 
-**Slots**: belt_a, belt_b, garage, parcels
+**Slots**: belt_a, belt_b, garage, parcels, raid, turret
 
 **Spawns**: start
 

@@ -381,6 +381,7 @@ place:
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
+<td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 </tr>
 </table>
 
@@ -393,4 +394,5 @@ place:
 | [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |
 | [parcel](assets/parcel.md) | A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). | `width`, `height`, `depth` |
 | [rover](assets/rover.md) | A little yellow delivery rover on four wheels with a sensor dome: a walking item for tracks (items/rover.yaml). |  |
-| [spawner](assets/spawner.md) | A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a second; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end). | `item`, `rate`, `drop`, `initial`, `max_alive`, `count`, `width`, `height` |
+| [spawner](assets/spawner.md) | A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a second, or `waves` a waves file it plays instead; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end). | `item`, `waves`, `rate`, `drop`, `initial`, `max_alive`, `count`, `width`, `height` |
+| [turret](assets/turret.md) | A small gun turret: a steel drum base, a post and a turning head with a barrel. | `range`, `rate`, `damage`, `targets`, `enabled` |

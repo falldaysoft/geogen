@@ -1,7 +1,7 @@
 # Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which
 # hands them to a second belt at right angles, whose end takes them in; a second spawner
-# sends rovers driving round a gravel lane to a sink of their own. The yard's HUD counts
-# both. Review: -s flow_test -r out.png; runtime: godot ... -- --scene flow_test.
+# sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two
+# waves of raiders (6 hp) down a lane past a turret. The yard's HUD counts it all. Review: -s flow_test -r out.png; runtime: godot ... -- --scene flow_test.
 
 name: flow_test
 size: [14, 3, 14]
@@ -18,6 +18,8 @@ slots:
   belt_a:   {position: [0, 0, 0]}
   belt_b:   {position: [1.85, 0, 1.75], facing: east}
   garage:   {position: [-5, 0, -3], facing: north}
+  raid:     {position: [5.5, 0, -5], facing: north}
+  turret:   {position: [4.2, 0, 0], facing: east}
 
 place:
   ground:
@@ -39,6 +41,14 @@ place:
     asset: spawner.yaml
     params: {item: items/rover.yaml, rate: 0.25, max_alive: 6}
     slot: garage
+  raid_gate:
+    asset: spawner.yaml
+    params: {waves: waves/raid.yaml}
+    slot: raid
+  turret:
+    asset: turret.yaml
+    params: {range: 4, rate: 1.2, damage: 2}
+    slot: turret
 
 tracks:
   lane:
@@ -47,12 +57,20 @@ tracks:
     speed: 0.9
     spacing: 0.8
     surface: {width: 1.0, material: gravel, height: 0}
+  raid:
+    path: [[5.5, 0.07, -5], [5.5, 0.07, 5.5]]
+    mode: walk
+    spacing: 0.8
+    surface: {width: 1.0, material: dirt, height: 0}
 
 hud:
   stats:
     - {label: Parcels, value: belt_b.received}
     - {label: Rovers, value: lane.received}
     - {label: Points, value: world.delivered}
+    - {label: Wave, value: raid_gate.wave, of: 2}
+    - {label: Stopped, value: raid_gate.killed}
+    - {label: Got through, value: raid.received}
 
 rules:
   - id: parcel_in

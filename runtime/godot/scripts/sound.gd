@@ -19,6 +19,10 @@ const CHIMES := {
 	"refused": [[196.0, 0.0, 0.12], [185.0, 0.1, 0.2]],
 	"success": [[587.33, 0.0, 0.16], [880.0, 0.1, 0.34]],
 	"click": [[1760.0, 0.0, 0.04]],
+	# Spawned items (flows.gd): an effector's shot, a hit, an item destroyed.
+	"shot": [[1318.51, 0.0, 0.05]],
+	"hit": [[220.0, 0.0, 0.06]],
+	"destroyed": [[392.0, 0.0, 0.08], [196.0, 0.05, 0.18]],
 }
 static var _cache := {}
 

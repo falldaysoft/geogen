@@ -1,0 +1,8 @@
+# Two short waves of raiders, for flow_test: the second follows the first by itself.
+kind: waves
+auto: true
+waves:
+  - delay: 1
+    items: [{item: items/raider.yaml, count: 3, gap: 1.5}]
+  - delay: 3
+    items: [{item: items/raider.yaml, count: 4, gap: 1.0}]

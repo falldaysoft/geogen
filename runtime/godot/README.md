@@ -652,7 +652,20 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
   in position order, and sources pick among their items by smooth weighted round robin,
   so `geogen/flows.py` `simulate` gives the same items at the same distances
   (`tests/test_flow_tracks.py` checks it on `flow_test`).
-- Control API: `flows.list` (`ticks`, sources, tracks, items with `track` and `s`).
+- **Effectors** (`flows.effector`: `turret.yaml`) step last each frame, in position
+  order: one whose `enabled` state is true and that is ready (every `1 / rate` s) acts on
+  the track item within `range` of its `at` point that it `targets` (`first`: furthest
+  travelled, `last`, `nearest`, `strongest`: most hp). Damage lands as it fires (the
+  tracer or bolt is the look of it): an item at hp 0 shrinks away and its source counts
+  `killed` and raises `killed {item, ...data}`; `take` removes the item (`taken`, signal
+  `took`). Aim parts (`aim.yaw` / `pitch`, exported names) turn toward the target at
+  `turn_rate`; damaged items get a billboard health bar; shots play the `shot` chime.
+- **Waves:** a source with `waves` (a `kind: waves` file, read at build) waits each
+  wave's `delay`, sends its groups (`count` items `gap` s apart), and when the wave's
+  items are all gone raises `wave_cleared {wave}` and sets its `running` false (or goes
+  on with `auto`); after the last, `all_cleared`. `wave` counts them.
+- Control API: `flows.list` (`ticks`, sources, tracks, effectors, items with `track`, `s`
+  and `travelled`).
   Tests: `tests/test_flows.py`, `tests/test_flow_tracks.py`.
 
 ## Events

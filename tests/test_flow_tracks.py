@@ -34,7 +34,8 @@ def test_flow_test_joins_its_belts_and_feeds_its_tracks(built_scene):
     a, b, lane = names.index("belt_a"), names.index("belt_b"), names.index("lane")
     assert net["tracks"][a]["next"] == b and net["tracks"][b]["next"] is None and net["tracks"][lane]["next"] is None
     feeds = {s["node"].name: s["track"] for s in net["sources"]}
-    assert feeds == {"parcels": a, "garage": lane}
+    assert feeds == {"parcels": a, "garage": lane, "raid_gate": names.index("raid")}
+    assert [e["node"].name for e in net["effectors"]] == ["turret"]
     assert flows.check_network(built_scene(SCENE)) == []
 
 
@@ -51,6 +52,33 @@ def test_the_reference_moves_items_along_queues_them_and_takes_them_in(built_sce
     assert dict(zip(names, held["received"]))["belt_b"] == 0
     on_a = sorted(it["s"] for it in held["items"] if names[it["track"]] == "belt_a")
     assert len(on_a) >= 8 and all(b - a >= 0.3 for a, b in zip(on_a, on_a[1:])), on_a
+
+
+def test_waves_go_out_in_turn_and_the_turret_stops_raiders(built_scene):
+    scene = built_scene(SCENE)
+    net = flows.network(scene)
+    gate = [s["node"].name for s in net["sources"]].index("raid_gate")
+    out = flows.simulate(scene, 60 * 40)
+    waves = [(e[1], e[3]) for e in out["events"] if e[1] in ("wave_started", "wave_cleared", "all_cleared")]
+    assert waves == [("wave_started", 1), ("wave_cleared", 1), ("wave_started", 2), ("wave_cleared", 2),
+                     ("all_cleared", 2)]
+    assert out["emitted"][gate] == 7 and out["killed"][gate] == 7 and out["wave"][gate] == 2
+    # Without the turret they all get through.
+    quiet = flows.simulate(scene, 60 * 40, running={"turret": False})
+    raid = [t["node"].name for t in net["tracks"]].index("raid")
+    assert quiet["killed"][gate] == 0 and quiet["received"][raid] == 7
+    # The first raider in range is shot first: three shots of 2 for 6 hp.
+    fired = [e for e in out["events"] if e[1] in ("fired", "killed")]
+    assert [e[1] for e in fired[:4]] == ["fired", "fired", "fired", "killed"] and len({e[3] for e in fired[:4]}) == 1
+
+
+def test_effectors_are_checked():
+    with pytest.raises(flows.FlowError, match="effect is"):
+        LayoutLoader().load_string(open("assets/turret.yaml").read().replace('effect: {damage: "{damage}"}', "effect: {heal: 1}"))
+    with pytest.raises(flows.FlowError, match="targets is one of"):
+        LayoutLoader().load("assets/turret.yaml", params={"targets": "weakest"})
+    with pytest.raises(flows.FlowError, match="no part 'gun'"):
+        LayoutLoader().load_string(open("assets/turret.yaml").read().replace("yaw: head", "yaw: gun"))
 
 
 def test_bad_track_networks_are_reported(tmp_path):
@@ -87,6 +115,12 @@ def test_godot_steps_tracks_as_the_reference_does(runtime, built_scene):
         assert s_got[it["id"]] == pytest.approx(it["s"], abs=1e-3), it
     assert [t["received"] for t in report["tracks"]] == expected["received"]
     assert [s["emitted"] for s in report["sources"]] == expected["emitted"]
+    assert [s["killed"] for s in report["sources"]] == expected["killed"]
+    assert [s["wave"] for s in report["sources"]] == expected["wave"]
+    hp = {it["id"]: it["data"].get("hp") for it in report["items"]}
+    for it in expected["items"]:
+        if "hp" in it:
+            assert hp[it["id"]] == pytest.approx(it["hp"]), it
 
 
 def test_godot_rules_count_what_the_tracks_take_in(runtime):
@@ -95,7 +129,7 @@ def test_godot_rules_count_what_the_tracks_take_in(runtime):
     by_uid = {t["uid"]: t["received"] for t in report["tracks"]}
     assert points == by_uid["flow_test:belt_b"] + 5 * by_uid["flow_test:lane"]
     shown = runtime.call("hud.stats")["stats"]["stats"]
-    assert [s["label"] for s in shown] == ["Parcels", "Rovers", "Points"]
+    assert [s["label"] for s in shown] == ["Parcels", "Rovers", "Points", "Wave", "Stopped", "Got through"]
 
 
 def test_godot_stopping_a_belt_backs_items_up(runtime):

@@ -35,6 +35,7 @@
 | `physics` | {mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics) |
 | `source` | {items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows) |
 | `track` | {path, speed, spacing, mode: belt \| walk, loop, end, accepts}: items follow it (geogen.flows) |
+| `effector` | {range, rate, targets, effect: {damage} \| {take}, at, aim, projectile}: acts on items (geogen.flows) |
 | `poses` | NPC root transforms per pose name (body assets) |
 | `room` | legacy single room (prefer `floorplan`) |
 | `floorplan` | rooms, doors and windows instead of parts; surfaces are <room>.<surface> |
@@ -182,6 +183,7 @@ Keys: `body`, `data`, `lifetime`, `mode`, `name`, `radius`, `speed`, `stuck`
 | File | What it is |
 | --- | --- |
 | [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
+| [items/raider.yaml](../../assets/items/raider.yaml) | A raiding rover: walks a track at its own pace, takes 6 damage to stop, is worth 2 when it is and does 1 harm if it gets through. |
 | [items/rover.yaml](../../assets/items/rover.yaml) | A delivery rover that drives along walk tracks at its own pace. |
 
 ### npc
@@ -302,6 +304,18 @@ Keys: `accel`, `consist`, `decel`, `description`, `speed`, `timetable`, `warning
 | File | What it is |
 | --- | --- |
 | [trains/commuter.yaml](../../assets/trains/commuter.yaml) | A commuter train: a locomotive and three carriages, every four minutes. |
+
+### waves
+
+Waves a source sends in turn: each a list of item groups (count, gap) after a delay.
+
+Use: `source: {waves: waves/raid.yaml}   (an asset key; see geogen.flows)`
+
+Keys: `auto`, `waves`
+
+| File | What it is |
+| --- | --- |
+| [waves/raid.yaml](../../assets/waves/raid.yaml) | Two short waves of raiders, for flow_test: the second follows the first by itself. |
 
 ## Room types
 

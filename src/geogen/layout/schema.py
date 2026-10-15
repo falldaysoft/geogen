@@ -287,6 +287,7 @@ ASSET_KEYS: dict[str, str] = {
     "physics": "{mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics)",
     "source": "{items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows)",
     "track": "{path, speed, spacing, mode: belt | walk, loop, end, accepts}: items follow it (geogen.flows)",
+    "effector": "{range, rate, targets, effect: {damage} | {take}, at, aim, projectile}: acts on items (geogen.flows)",
     "poses": "NPC root transforms per pose name (body assets)",
     "room": "legacy single room (prefer `floorplan`)",
     "floorplan": "rooms, doors and windows instead of parts; surfaces are <room>.<surface>",

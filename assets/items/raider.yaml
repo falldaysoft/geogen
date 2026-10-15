@@ -1,0 +1,7 @@
+# A raiding rover: walks a track at its own pace, takes 6 damage to stop, is worth 2 when it
+# is and does 1 harm if it gets through.
+kind: item
+body: rover.yaml
+mode: walk
+speed: 1.1
+data: {hp: 6, value: 2, harm: 1}

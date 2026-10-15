@@ -1,0 +1,59 @@
+# A small gun turret: a steel drum base, a post and a turning head with a barrel. Its
+# effector (geogen.flows) shoots spawned items with hp in `range`, `rate` times a second for
+# `damage` each, turning its head toward the target; `enabled: 0` keeps it quiet until a rule
+# or wire enables it. Origin: on the ground under the post; the barrel points +Z at rest.
+
+name: turret
+tags: [machine.turret]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  range:   {default: 5}
+  rate:    {default: 1.5}
+  damage:  {default: 2}
+  targets: {default: first, type: text}
+  enabled: {default: 1}
+
+effector:
+  range: "{range}"
+  rate: "{rate}"
+  targets: "{targets}"
+  effect: {damage: "{damage}"}
+  at: muzzle
+  aim: {yaw: head, turn_rate: 300}
+  projectile: {kind: tracer, color: [1.0, 0.6, 0.2]}
+  enabled: "{enabled}"
+
+parts:
+  base:
+    primitive: cylinder
+    size: [0.7, 0.3, 0.7]
+    anchor: bottom_center
+    bevel: 0.03
+    material: metal
+  post:
+    primitive: cylinder
+    size: [0.18, 0.45, 0.18]
+    attach_to: base
+    at: top
+    material: plastic_black
+  head:
+    primitive: cube
+    size: [0.42, 0.26, 0.48]
+    attach_to: post
+    at: top
+    bevel: 0.04
+    material: red_metal
+  barrel:
+    primitive: cylinder
+    size: [0.08, 0.5, 0.08]
+    attach_to: head
+    at: front
+    from: bottom
+    rotation: [90, 0, 0]
+    material: metal
+
+attachments:
+  muzzle: {anchor: bottom_center, offset: [0, 0.88, 0]}

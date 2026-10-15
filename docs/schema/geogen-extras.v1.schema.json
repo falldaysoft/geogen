@@ -308,7 +308,91 @@
                 "seed": { "type": "integer" },
                 "spread": { "type": "number", "minimum": 0 },
                 "at": { "$ref": "#/$defs/vec3" },
-                "velocity": { "$ref": "#/$defs/vec3" }
+                "velocity": { "$ref": "#/$defs/vec3" },
+                "waves": {
+                  "description": "Instead of items at a rate: while running, wave by wave. A wave starts 'delay' s after the source runs; its groups go out in order, 'count' items of 'name' each 'gap' s apart; when all of the wave's items are gone it is cleared (signal wave_cleared {wave}), and the source stops (running false) unless 'auto'. After the last, all_cleared. State 'wave' counts them. A file name: the asset was built alone (no waves read).",
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "auto",
+                        "list"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "auto": {
+                          "type": "boolean"
+                        },
+                        "list": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "delay",
+                              "items"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                              "delay": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "name",
+                                    "count",
+                                    "gap"
+                                  ],
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "gap": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "effector": {
+              "description": "Acts on track items in 'range' m of 'at' (this node's frame), 'rate' times a second while its 'enabled' state is true: 'effect' damage (items with data.hp lose that much; at 0 they are destroyed and their source raises killed {item, ...data}) or take (the item goes; its 'taken' state counts, signal took). 'targets': first (furthest along), last, nearest, strongest (most hp); 'accepts' limits it to those items. 'aim' parts (exported node names) turn toward the target, yaw about their Y and pitch about their X, 'turn_rate' deg/s; 'projectile' is what a shot looks like (damage lands as it fires).",
+              "type": "object",
+              "required": ["range", "rate", "targets", "accepts", "effect", "enabled", "at", "projectile"],
+              "additionalProperties": false,
+              "properties": {
+                "range": { "type": "number", "exclusiveMinimum": 0 },
+                "rate": { "type": "number", "exclusiveMinimum": 0 },
+                "targets": { "enum": ["first", "last", "nearest", "strongest"] },
+                "accepts": { "type": "array", "items": { "type": "string" } },
+                "effect": { "type": "object", "additionalProperties": false,
+                            "properties": { "damage": { "type": "number" }, "take": { "const": true } } },
+                "enabled": { "type": "boolean" },
+                "at": { "$ref": "#/$defs/vec3" },
+                "aim": { "type": "object", "additionalProperties": false,
+                         "properties": { "yaw": { "type": "string" }, "pitch": { "type": "string" }, "turn_rate": { "type": "number" } } },
+                "projectile": { "type": "object", "required": ["kind", "speed", "color"], "additionalProperties": false,
+                                "properties": { "kind": { "enum": ["instant", "bolt", "tracer"] }, "speed": { "type": "number" },
+                                                "color": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } } }
               }
             },
             "track": {

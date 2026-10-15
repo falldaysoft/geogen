@@ -15,7 +15,11 @@ outlives its time. Four parts, each a block on an asset:
 - **Sink** (``sink:`` on a place, ``geogen.places``): takes in the items that enter it
   (``accepts``: only those items). Its state ``received`` counts them (driven) and it raises
   ``received {item, ...}`` with the item's data.
-- Tracks and effectors (later): paths items follow, things that act on items in range.
+- **Track** (asset ``track:`` or scene ``tracks:``): a path belt and walk items follow.
+- **Effector** (asset ``effector:``): acts on items in range: ``damage`` (items with
+  ``data.hp``; at 0 the item is destroyed and its source raises ``killed``) or ``take``.
+- **Waves** (``kind: waves``, ``assets/waves/*.yaml``): what a source sends in turn, wave by
+  wave (``source: {waves: waves/x.yaml}``).
 
 Items have no stable IDs and no rules state: the contract (``docs/rules.md``) stays closed.
 The rules see a source's counts as its state (``running`` and ``queued``, which rules set;
@@ -54,7 +58,8 @@ ITEM_KEYS = {
     "stuck": "s a physics item may rest anywhere but a sink before it is taken away (0: never; default 10)",
 }
 SOURCE_KEYS = {
-    "items": "an item file, or [{item, weight}]: what it makes (weighted at random)",
+    "items": "an item file, or [{item, weight}]: what it makes (weighted, in turn)",
+    "waves": "a waves file: it sends those, wave by wave, instead of items at a rate",
     "rate": "items a second while it runs (default 1)",
     "at": "the attachment items appear at (default: the asset's origin)",
     "max_alive": "most of its items in the world at once (default 10)",
@@ -129,10 +134,17 @@ def parse_source(spec: Any, root: SceneNode, name: str) -> dict[str, Any]:
     if unknown:
         raise FlowError(f"{name}: source: unknown keys {sorted(unknown)}; known: {sorted(SOURCE_KEYS)}")
     items = spec.get("items")
+    waves = spec.get("waves")
     if isinstance(items, str):
         items = [{"item": items}]
-    if not isinstance(items, list) or not items or not all(isinstance(i, dict) and isinstance(i.get("item"), str)
-                                                           for i in items):
+    if waves == "":
+        waves = None                            # a param left empty: items at a rate
+    if waves is not None:
+        if not isinstance(waves, str):
+            raise FlowError(f"{name}: source waves is a waves file (it wins over items)")
+        items = []
+    elif not isinstance(items, list) or not items or not all(isinstance(i, dict) and isinstance(i.get("item"), str)
+                                                             for i in items):
         raise FlowError(f"{name}: source items is an item file or [{{item, weight}}]")
     out: dict[str, Any] = {
         "items": [{"item": i["item"], "weight": float(i.get("weight", 1.0))} for i in items],
@@ -155,6 +167,8 @@ def parse_source(spec: Any, root: SceneNode, name: str) -> dict[str, Any]:
                             f"(it has: {', '.join(root.attachments) or 'none'})")
         at = attachment.resolve(root.size).to_matrix()[:3, 3]
     out["at"] = [round(float(v), 6) for v in at]
+    if waves is not None:
+        out["waves"] = waves                    # the file: attach_templates reads it
     if "velocity" in spec:
         velocity = spec["velocity"]
         if not isinstance(velocity, list) or len(velocity) != 3:
@@ -177,8 +191,14 @@ def attach_templates(root: SceneNode, loader: Any, assets_dir: Path | str | None
 
     for node in list(root.iter_nodes()):
         source = source_of(node)
-        if source is None or all("name" in entry for entry in source["items"]):
+        if source is None or (not isinstance(source.get("waves"), str) and all("name" in e for e in source["items"])):
             continue                            # attached already (an inner scene did it)
+        if isinstance(source.get("waves"), str):
+            waves = load_waves(roots.find(source["waves"], assets_dir))
+            source["waves"] = waves
+            files = list(dict.fromkeys(group["item"] for wave in waves["list"] for group in wave["items"]))
+            source["items"] = [{"item": f, "weight": 1.0} for f in files]
+        names: dict[str, str] = {}
         for entry in source["items"]:
             path = roots.find(entry["item"], assets_dir)
             item = load_item(path)
@@ -191,12 +211,124 @@ def attach_templates(root: SceneNode, loader: Any, assets_dir: Path | str | None
             if "radius" not in item:
                 lo, hi = _bounds(body)
                 item["radius"] = round(float(max(hi[0] - lo[0], hi[2] - lo[2])) / 2, 4) if lo is not None else 0.25
-            entry["name"] = item["name"]
+            entry["name"] = names[entry["item"]] = item["name"]
             body.name = f"{item['name']}_template"
             body.meta[ITEM_META] = item
             body.hidden = True
             body.transform.translation = np.array(source["at"], dtype=float)
             node.add_child(body)
+        if isinstance(source.get("waves"), dict):
+            for wave in source["waves"]["list"]:
+                for group in wave["items"]:
+                    group["name"] = names[group.pop("item")]
+
+
+WAVES_KEYS = {
+    "kind": "waves",
+    "waves": "[{items: [{item, count, gap}], delay}]: each wave's groups, in order",
+    "auto": "true: the next wave follows when one is cleared; false (default): the source stops until started again",
+}
+
+
+def load_waves(path: str | Path) -> dict[str, Any]:
+    """A ``kind: waves`` file: ``{auto, list: [{delay, items: [{item, count, gap}]}]}``."""
+    from .layout.yaml_utils import safe_load_path
+
+    path = Path(path)
+    if not path.exists():
+        raise FlowError(f"no waves file {path}")
+    spec = safe_load_path(path) or {}
+    where = str(path)
+    if spec.get("kind") != "waves":
+        raise FlowError(f"{where}: a waves file has kind: waves")
+    unknown = set(spec) - set(WAVES_KEYS) - {"version", "description"}
+    if unknown:
+        raise FlowError(f"{where}: unknown keys {sorted(unknown)}; known: {sorted(WAVES_KEYS)}")
+    waves = spec.get("waves")
+    if not isinstance(waves, list) or not waves:
+        raise FlowError(f"{where}: waves is a list of {{items: [{{item, count, gap}}], delay}}")
+    out = []
+    for k, wave in enumerate(waves):
+        groups = wave.get("items") if isinstance(wave, dict) else None
+        if not isinstance(groups, list) or not groups or set(wave) - {"items", "delay"}:
+            raise FlowError(f"{where}: waves.{k} is {{items: [{{item, count, gap}}], delay}}")
+        entry = {"delay": float(wave.get("delay", 2.0)), "items": []}
+        for g, group in enumerate(groups):
+            if not isinstance(group, dict) or not isinstance(group.get("item"), str) or set(group) - {"item", "count", "gap"}:
+                raise FlowError(f"{where}: waves.{k}.items.{g} is {{item, count, gap}}")
+            entry["items"].append({"item": group["item"], "count": int(group.get("count", 1)),
+                                   "gap": float(group.get("gap", 1.0))})
+        out.append(entry)
+    return {"auto": bool(spec.get("auto", False)), "list": out}
+
+
+# ---- effectors ----------------------------------------------------------------------------------
+
+EFFECTOR_KEYS = {
+    "range": "m from its `at` point (default 5)",
+    "rate": "goes a second (default 1)",
+    "targets": "first (furthest along) | last | nearest | strongest (most hp): which item in range",
+    "accepts": "[item names] it acts on (empty: any)",
+    "effect": "{damage: n} (items with data.hp) | {take: true}",
+    "at": "the attachment it acts from (default: the origin)",
+    "aim": "{yaw: part, pitch: part, turn_rate: deg/s}: parts turned toward the target (the look of it)",
+    "projectile": "{kind: instant | bolt | tracer, speed, color: [r, g, b]}: what a shot looks like",
+    "enabled": "true (default) | false: its `enabled` state at the start (inputs enable / disable)",
+}
+TARGETS = ("first", "last", "nearest", "strongest")
+PROJECTILES = ("instant", "bolt", "tracer")
+
+
+def parse_effector(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode], name: str) -> dict[str, Any]:
+    """Normalise an asset's ``effector:`` block."""
+    if not isinstance(spec, dict):
+        raise FlowError(f"{name}: effector is {{{', '.join(EFFECTOR_KEYS)}}}, got {spec!r}")
+    unknown = set(spec) - set(EFFECTOR_KEYS)
+    if unknown:
+        raise FlowError(f"{name}: effector: unknown keys {sorted(unknown)}; known: {sorted(EFFECTOR_KEYS)}")
+    effect = spec.get("effect", {"damage": 1})
+    if not isinstance(effect, dict) or len(effect) != 1 or not ({"damage", "take"} & set(effect)):
+        raise FlowError(f"{name}: effector effect is {{damage: n}} or {{take: true}}, got {effect!r}")
+    out: dict[str, Any] = {
+        "range": float(spec.get("range", 5.0)),
+        "rate": float(spec.get("rate", 1.0)),
+        "targets": str(spec.get("targets", "first")),
+        "accepts": [str(a) for a in spec.get("accepts", [])],
+        "effect": {"damage": float(effect["damage"])} if "damage" in effect else {"take": True},
+        "enabled": bool(spec.get("enabled", True)),
+    }
+    if out["targets"] not in TARGETS:
+        raise FlowError(f"{name}: effector targets is one of {', '.join(TARGETS)}, got {out['targets']!r}")
+    if out["range"] <= 0 or out["rate"] <= 0:
+        raise FlowError(f"{name}: effector range and rate must be positive")
+    at = np.zeros(3)
+    if spec.get("at"):
+        attachment = root.attachments.get(str(spec["at"]))
+        if attachment is None:
+            raise FlowError(f"{name}: effector at: no attachment '{spec['at']}' (it has: {', '.join(root.attachments) or 'none'})")
+        at = attachment.resolve(root.size).to_matrix()[:3, 3]
+    out["at"] = [round(float(v), 6) for v in at]
+    aim = spec.get("aim")
+    if aim:
+        if not isinstance(aim, dict) or set(aim) - {"yaw", "pitch", "turn_rate"}:
+            raise FlowError(f"{name}: effector aim is {{yaw: part, pitch: part, turn_rate}}")
+        for key in ("yaw", "pitch"):
+            if key in aim and aim[key] not in part_nodes:
+                raise FlowError(f"{name}: effector aim {key}: no part '{aim[key]}'")
+        out["aim"] = {**{k: str(aim[k]) for k in ("yaw", "pitch") if k in aim},
+                      "turn_rate": float(aim.get("turn_rate", 360.0))}
+    projectile = spec.get("projectile", {"kind": "tracer"})
+    if not isinstance(projectile, dict) or projectile.get("kind", "tracer") not in PROJECTILES \
+            or set(projectile) - {"kind", "speed", "color"}:
+        raise FlowError(f"{name}: effector projectile is {{kind: {' | '.join(PROJECTILES)}, speed, color}}")
+    out["projectile"] = {"kind": projectile.get("kind", "tracer"), "speed": float(projectile.get("speed", 20.0)),
+                         "color": [float(c) for c in projectile.get("color", [1.0, 0.75, 0.3])]}
+    return out
+
+
+def effector_of(node: SceneNode) -> dict[str, Any] | None:
+    flows = node.meta.get(META)
+    return flows.get("effector") if isinstance(flows, dict) else None
 
 
 def _bounds(node: SceneNode) -> tuple[np.ndarray | None, np.ndarray | None]:
@@ -230,12 +362,18 @@ def flow_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     if track_of(node) is not None and source is None:
         return {"running": {"type": "bool", "default": True},
                 "received": {"type": "number", "default": 0, "driven": "flows"}}
+    effector = effector_of(node)
+    if effector is not None and source is None:
+        return {"enabled": {"type": "bool", "default": effector["enabled"]},
+                "taken": {"type": "number", "default": 0, "driven": "flows"}}
     if source is None:
         return {}
     return {"running": {"type": "bool", "default": source["initial"] == "running"},
             "queued": {"type": "number", "default": 0},
             "emitted": {"type": "number", "default": 0, "driven": "flows"},
-            "alive": {"type": "number", "default": 0, "driven": "flows"}}
+            "alive": {"type": "number", "default": 0, "driven": "flows"},
+            "killed": {"type": "number", "default": 0, "driven": "flows"},
+            "wave": {"type": "number", "default": 0, "driven": "flows"}}
 
 
 def flow_signals(node: SceneNode, fields: dict[str, str] | None = None) -> dict[str, dict[str, Any]]:
@@ -243,9 +381,15 @@ def flow_signals(node: SceneNode, fields: dict[str, str] | None = None) -> dict[
     ``received {item, ...}`` with ``fields`` (``item_fields``: what the scene's items carry)."""
     if sink_of(node) is not None or (track_of(node) is not None and source_of(node) is None):
         return {"received": {**(fields or {}), "item": "text"}}
-    if source_of(node) is None:
+    if effector_of(node) is not None and source_of(node) is None:
+        return {"took": {**(fields or {}), "item": "text"}}
+    source = source_of(node)
+    if source is None:
         return {}
-    return {"emitted": {"item": "text"}}
+    out = {"emitted": {"item": "text"}, "killed": {**(fields or {}), "item": "text"}}
+    if source.get("waves"):
+        out.update({name: {"wave": "number"} for name in ("wave_started", "wave_cleared", "all_cleared")})
+    return out
 
 
 def item_fields(root: SceneNode) -> dict[str, str]:
@@ -263,6 +407,8 @@ def flow_inputs(node: SceneNode, thing: str) -> dict[str, dict[str, Any]]:
     ``start`` / ``stop``."""
     if track_of(node) is not None and source_of(node) is None:
         return {"start": {"set": f"{thing}#running", "to": True}, "stop": {"set": f"{thing}#running", "to": False}}
+    if effector_of(node) is not None and source_of(node) is None:
+        return {"enable": {"set": f"{thing}#enabled", "to": True}, "disable": {"set": f"{thing}#enabled", "to": False}}
     if source_of(node) is None:
         return {}
     queued = f"{thing}#queued"
@@ -405,7 +551,13 @@ def network(root: SceneNode) -> dict[str, Any]:
             track = None
         sources.append({**source, "node": node, "world_at": at, "templates": templates, "track": track})
     sources.sort(key=lambda s: tuple(round(float(v), 3) for v in s["world_at"]))
-    return {"tracks": tracks, "sources": sources}
+    effectors = []
+    for node in root.iter_nodes():
+        effector = effector_of(node)
+        if effector is not None:
+            effectors.append({**effector, "node": node, "world_at": (node.world_transform() @ np.r_[effector["at"], 1.0])[:3]})
+    effectors.sort(key=lambda e: tuple(round(float(v), 3) for v in e["world_at"]))
+    return {"tracks": tracks, "sources": sources, "effectors": effectors}
 
 
 def check_network(root: SceneNode) -> list[str]:
@@ -420,6 +572,10 @@ def check_network(root: SceneNode) -> list[str]:
                        f"{JOIN} m of its spawn point")
         if "physics" in modes and len(modes) > 1:
             out.append(f"{name}: makes physics items and track items: a source makes one kind")
+    for effector in net["effectors"]:
+        reach = [t for t in net["tracks"] if np.min(np.linalg.norm(t["world"] - effector["world_at"], axis=1)) <= effector["range"]]
+        if net["tracks"] and not reach:
+            out.append(f"{effector['node'].name}: no track comes within its range ({effector['range']} m)")
     return out
 
 
@@ -449,50 +605,110 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
     """The reference for what the runtime does with track items (belt and walk modes; physics
     items and sinks on places are the physics engine's, so they aren't simulated): ``ticks``
     steps of ``dt`` from an empty world. ``running`` overrides sources' and tracks' running
-    state by node name. Returns ``{items: [{id, item, track (index), s}], emitted: [per source],
-    received: [per track], events: [[tick, kind, ...]]}``. flows.gd steps the same way."""
+    and effectors' enabled state by node name. Returns ``{items: [{id, item, track (index), s,
+    hp?}], emitted, killed, wave: [per source], received: [per track], taken: [per effector],
+    events: [[tick, kind, ...]]}``. flows.gd steps the same way: sources (in position order),
+    then tracks, then effectors."""
     net = network(root)
     running = running or {}
-    tracks, sources = net["tracks"], net["sources"]
+    tracks, sources, effectors = net["tracks"], net["sources"], net["effectors"]
     for t in tracks:
         t["received"] = 0
         t["on"] = running.get(t["node"].name, True)
     for s in sources:
-        s["due"], s["made"] = 0.0, 0
+        s.update(due=0.0, made=0, killed=0, wave=0, phase="idle", timer=0.0, group=0, left=0)
         s.pop("_current", None)
         s.pop("_pending", None)
         s["on"] = running.get(s["node"].name, s["initial"] == "running")
+    for e in effectors:
+        e.update(cool=0.0, taken=0)
+        e["on"] = running.get(e["node"].name, e["enabled"])
     items: list[dict[str, Any]] = []
     events: list[list[Any]] = []
-    next_id = 1
+    state = {"next_id": 1}
 
     def gap(a: dict[str, Any], b: dict[str, Any], track: dict[str, Any]) -> float:
         return max(track["spacing"], a["radius"] + b["radius"])
+
+    def try_spawn(k: int, s: dict[str, Any], tick: int, name: str | None) -> bool:
+        """Put the source's next item (``name``, else its pick) on its track if the start is clear."""
+        track = tracks[s["track"]]
+        if name is None:
+            pick = s.pop("_pending", None)
+            if pick is None:
+                pick = _pick(s, [e["weight"] for e in s["items"]])
+            name = s["items"][pick]["name"]
+        else:
+            pick = None
+        item = s["templates"][name]
+        if not all(it["s"] >= gap(item, it, track) for it in items if it["track"] == s["track"]):
+            if pick is not None:
+                s["_pending"] = pick            # the same pick waits for room
+            return False
+        s["made"] += 1
+        new = {"id": state["next_id"], "item": name, "source": k, "track": s["track"], "s": 0.0, "travelled": 0.0,
+               "radius": item["radius"], "speed": item.get("speed", track["speed"]), "data": dict(item["data"])}
+        items.append(new)
+        events.append([tick, "emitted", k, state["next_id"]])
+        state["next_id"] += 1
+        return True
+
+    def waves(k: int, s: dict[str, Any], tick: int) -> None:
+        plan, alive = s["waves"], any(it["source"] == k for it in items)
+        if s["phase"] == "clearing":
+            if not alive:
+                events.append([tick, "wave_cleared", k, s["wave"]])
+                s["phase"] = "idle"
+                if s["wave"] >= len(plan["list"]):
+                    events.append([tick, "all_cleared", k, s["wave"]])
+                    s["on"] = False
+                elif not plan["auto"]:
+                    s["on"] = False
+            return
+        if not s["on"]:
+            return
+        if s["phase"] == "idle":
+            if s["wave"] < len(plan["list"]):
+                s["phase"], s["timer"] = "delay", plan["list"][s["wave"]]["delay"]
+            return
+        if s["phase"] == "delay":
+            s["timer"] -= dt
+            if s["timer"] <= 0:
+                s["wave"] += 1
+                events.append([tick, "wave_started", k, s["wave"]])
+                s.update(phase="spawning", group=0, timer=0.0, left=plan["list"][s["wave"] - 1]["items"][0]["count"])
+            return
+        groups = plan["list"][s["wave"] - 1]["items"]
+        s["timer"] -= dt
+        if s["timer"] > 0 or sum(1 for it in items if it["source"] == k) >= s["max_alive"]:
+            return
+        group = groups[s["group"]]
+        if not try_spawn(k, s, tick, group["name"]):
+            return
+        s["left"] -= 1
+        s["timer"] = group["gap"]
+        if s["left"] <= 0:
+            s["group"] += 1
+            if s["group"] >= len(groups):
+                s["phase"] = "clearing"
+            else:
+                s["left"] = groups[s["group"]]["count"]
+
+    def remove(it: dict[str, Any]) -> None:
+        items.remove(it)
 
     for tick in range(ticks):
         for k, s in enumerate(sources):                     # sources first
             if s["track"] is None or all(t["mode"] == "physics" for t in s["templates"].values()):
                 continue
+            if s.get("waves"):
+                waves(k, s, tick)
+                continue
             s["due"] = min(s["due"] + dt * s["rate"], 1.0) if s["on"] and s["rate"] > 0 else 0.0
-            track = tracks[s["track"]]
             alive = sum(1 for it in items if it["source"] == k)
             if s["due"] >= 1.0 and alive < s["max_alive"] and (s["count"] == 0 or s["made"] < s["count"]):
-                pick = s.pop("_pending", None)
-                if pick is None:
-                    pick = _pick(s, [e["weight"] for e in s["items"]])
-                item = s["templates"][s["items"][pick]["name"]]
-                new = {"radius": item["radius"]}
-                on_track = [it for it in items if it["track"] == s["track"]]
-                if not all(it["s"] >= gap(new, it, track) for it in on_track):
-                    s["_pending"] = pick                    # the same pick waits for room
-                else:
+                if try_spawn(k, s, tick, None):
                     s["due"] -= 1.0
-                    s["made"] += 1
-                    items.append({"id": next_id, "item": item["name"], "source": k, "track": s["track"], "s": 0.0,
-                                  "radius": item["radius"], "speed": item.get("speed", track["speed"]),
-                                  "data": dict(item["data"])})
-                    events.append([tick, "emitted", k, next_id])
-                    next_id += 1
         moved: set[int] = set()
         for index, track in enumerate(tracks):
             if not track["on"]:
@@ -516,6 +732,7 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                         lead = min(ahead, key=lambda o: o["s"])
                         limit = length + lead["s"] - gap(it, lead, tracks[track["next"]])
                 target = max(it["s"], min(target, limit))
+                it["travelled"] += target - it["s"]
                 if track["loop"]:
                     it["s"] = target % length
                 elif target >= length:
@@ -525,15 +742,55 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                     elif track["end"] == "stop":
                         it["s"] = length
                     elif track["end"] in ("auto", "sink") and (not track["accepts"] or it["item"] in track["accepts"]):
-                        items.remove(it)
+                        remove(it)
                         track["received"] += 1
                         events.append([tick, "received", index, it["id"]])
                     elif track["end"] == "drop":
-                        items.remove(it)
+                        remove(it)
                         events.append([tick, "dropped", index, it["id"]])
                     else:
                         it["s"] = length
                 else:
                     it["s"] = target
-    return {"items": [{"id": it["id"], "item": it["item"], "track": it["track"], "s": round(it["s"], 6)} for it in items],
-            "emitted": [s["made"] for s in sources], "received": [t["received"] for t in tracks], "events": events}
+        for index, e in enumerate(effectors):              # then effectors
+            if not e["on"]:
+                continue
+            e["cool"] -= dt
+            if e["cool"] > 0:
+                continue
+            damage = "damage" in e["effect"]
+            found = []
+            for it in items:
+                if (e["accepts"] and it["item"] not in e["accepts"]) or (damage and "hp" not in it["data"]):
+                    continue
+                d = float(np.linalg.norm(at_distance(tracks[it["track"]], it["s"]) - e["world_at"]))
+                if d <= e["range"]:
+                    found.append((it, d))
+            if not found:
+                e["cool"] = 0.0
+                continue
+            if e["targets"] == "first":
+                it, _ = min(found, key=lambda f: (-f[0]["travelled"], f[0]["id"]))
+            elif e["targets"] == "last":
+                it, _ = min(found, key=lambda f: (f[0]["travelled"], f[0]["id"]))
+            elif e["targets"] == "nearest":
+                it, _ = min(found, key=lambda f: (f[1], f[0]["id"]))
+            else:
+                it, _ = min(found, key=lambda f: (-f[0]["data"]["hp"], -f[0]["travelled"], f[0]["id"]))
+            e["cool"] = 1.0 / e["rate"]
+            events.append([tick, "fired", index, it["id"]])
+            if damage:
+                it["data"]["hp"] = it["data"]["hp"] - e["effect"]["damage"]
+                if it["data"]["hp"] <= 0:
+                    remove(it)
+                    sources[it["source"]]["killed"] += 1
+                    events.append([tick, "killed", it["source"], it["id"]])
+            else:
+                remove(it)
+                e["taken"] += 1
+                events.append([tick, "took", index, it["id"]])
+    return {"items": [{"id": it["id"], "item": it["item"], "track": it["track"], "s": round(it["s"], 6),
+                       **({"hp": it["data"]["hp"]} if "hp" in it["data"] else {})} for it in items],
+            "emitted": [s["made"] for s in sources], "killed": [s["killed"] for s in sources],
+            "wave": [s["wave"] for s in sources], "received": [t["received"] for t in tracks],
+            "taken": [e["taken"] for e in effectors], "events": events}

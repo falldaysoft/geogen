@@ -524,6 +524,10 @@ class LayoutLoader:
             from ..flows import parse_track
 
             root.meta.setdefault("flows", {})["track"] = parse_track(data["track"], name)
+        if data.get("effector"):
+            from ..flows import parse_effector
+
+            root.meta.setdefault("flows", {})["effector"] = parse_effector(data["effector"], root, part_nodes, name)
 
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,

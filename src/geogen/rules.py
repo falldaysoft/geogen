@@ -67,7 +67,8 @@ FEEDBACK = {
     "play": "a named sound (SOUNDS) played for the rule's actor",
 }
 # The sounds `play` names: runtime/godot/scripts/sound.gd CHIMES has each.
-SOUNDS = ("notice", "refused", "success", "click", "started", "objective_done", "complete", "failed")
+SOUNDS = ("notice", "refused", "success", "click", "started", "objective_done", "complete", "failed",
+          "shot", "hit", "destroyed")
 
 State = dict[str, Any]
 Event = dict[str, Any]
