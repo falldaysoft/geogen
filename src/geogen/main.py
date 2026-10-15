@@ -1,6 +1,7 @@
 """Main entry point for geogen."""
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -214,6 +215,10 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
 
 def main() -> None:
     """Run the geogen demo."""
+    if sys.argv[1:2] == ["check"]:          # `geogen check ...`: the project QA (geogen.check)
+        from .check import main as check_main
+
+        raise SystemExit(check_main(sys.argv[2:]))
     # The project decides which scenes there are, so it is read before the other arguments.
     early = argparse.ArgumentParser(add_help=False)
     early.add_argument("--project", action="append")
@@ -270,7 +275,7 @@ def main() -> None:
         if unknown:
             raise SystemExit(f"--checks: unknown {', '.join(sorted(unknown))} (choose from {', '.join(CHECKS)})")
         print(inspect_scene(root, as_json=args.json, depth=args.depth, pattern=args.select,
-                            parts=args.parts, detail=args.detail, checks=checks))
+                            parts=args.parts, detail=args.detail, checks=checks, package=args.scene))
         return
 
     if args.resolve is not None:

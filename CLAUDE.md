@@ -33,6 +33,9 @@ python -m geogen.main -s hotel_room_auto --inspect
 python -m geogen.main -s hotel --inspect --depth 2 --checks none   # big scenes: limit depth or --select
 python -m geogen.main -s hotel --inspect --select "*bedroom*" --json --checks overlaps,layout
 
+# A project's QA without the core test suite: its own scenes (every check) and materials; exit 1 on findings
+python -m geogen.main check --project examples/sandwich          # or `geogen check`; SCENE..., --checks, --all, --json
+
 # What a reference names in a scene, as stable IDs (see References and stable IDs)
 python -m geogen.main -s cottage --resolve "[tag=furniture]"
 
@@ -406,7 +409,7 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 
 `--inspect` (`inspection.py`) prints the resolved tree for checking a scene from numbers rather than renders:
 - **Tree:** asset roots, rooms, doors, lights, spawns, NPCs and other tagged nodes, with world position, yaw, box, asset and params, a meta summary and interactions. Mesh parts fold into their object's line (`--parts` lists them). Identical siblings collapse to `×N` with each copy's position.
-- **Checks:** `mesh`, `layout`, `affordances`, `coplanar`, `overlaps` and `traffic` (`--checks`), one line per finding, with repeats folded.
+- **Checks:** `mesh`, `uvs` (metric), `layout`, `affordances`, `coplanar`, `overlaps`, `traffic`, `extras` (the closed contract) and `state` (state, wiring and quests compile) (`--checks`), one line per finding, with repeats folded.
 - **Options:** `--depth`, `--select GLOB` (adds attachments and surfaces), `--detail`, `--json`.
 
 ### Vocabulary catalogue (`--describe`)
@@ -514,6 +517,7 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 - The registry discovers scenes in every root, `--describe` lists them, the viewer hot-reloads them and the prototype cache's fingerprint covers them.
 - **Scene folders:** `scenes/<name>/scene.yaml` in any root is scene `<name>`, with private files beside it laid out like a root (`safe.yaml`, `materials/brass.yaml`, `quests/open_safe.yaml`). `SceneComposer.compose` searches the folder first while that scene is composed (`roots.scene_scope`; `roots.scope()` is the folder), so the scene names them like anything else. No other scene can name them (`find` raises `RootsError`; a placed `scene: scenes/<name>/scene.yaml` is fine), `roots.glob` and `--describe` leave them out, and a private file may not share a relative name with a shared one. `MaterialLoader` caches by file, and the composer's prototype keys include the folder, so two folders can each have a `brass`.
 - **A project's runtime catalogue:** `runtime_scenes.yaml` in its content root is its own list and default scene (core scenes may be listed; it is the one core file name a project may reuse without `overrides:`), and its exports go to `generated:` in `geogen.yaml` (default `<project>/generated`). `catalogue.active()` gives (catalogue file, generated dir): the first project's, else the core's; `load_catalogue()` and `--export-godot` / `--export-catalogue` / `--catalogue` use it, so with a project the core's catalogue and `runtime/godot/generated` are untouched. A project without a catalogue exports with no index (the runtime loads everything). Run it with `godot --path runtime/godot -- --generated=<project>/generated`. Stable IDs and save keys are `<scene name>:...`, and the registry refuses a project scene with a core scene's name, so they can't collide.
+- **`geogen check`** (`geogen/check.py`): builds the active projects' own scenes (every scene without a project, or `--all`) and runs every `--inspect` check, plus `textures` (their materials tile; `check.seam_ratio` is what `tests/test_textures_tile.py` uses), and exits 1 on findings; `overlap_unmeasured` is only a note. The `--describe` size budget in `tests/test_describe.py` counts the core's entries only, so a project's assets don't break it. Tests: `tests/test_check.py`.
 - `examples/sandwich/` is the worked example (`--project examples/sandwich -s sandwich_kitchen`; `--export-catalogue` writes `examples/sandwich/generated/`): a scene, the sandwich asset and its quest on the core's kitchen, counter, plate, loaf and jars. Tests: `tests/test_roots.py`.
 
 ### Scenes & Registry

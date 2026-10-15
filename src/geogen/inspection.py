@@ -374,7 +374,7 @@ def _round(v) -> list[float]:
 
 # Checks ---------------------------------------------------------------------------------
 
-CHECKS = ("mesh", "layout", "affordances", "coplanar", "overlaps", "traffic")
+CHECKS = ("mesh", "uvs", "layout", "affordances", "coplanar", "overlaps", "traffic", "extras", "state")
 
 
 @dataclass
@@ -385,12 +385,16 @@ class Finding:
     items: tuple[str, ...] = ()
 
 
-def run_checks(root: SceneNode, checks: tuple[str, ...] = CHECKS) -> list[Finding]:
-    """Every QA check over ``root``; a check that raises becomes an ``error`` finding."""
+def run_checks(root: SceneNode, checks: tuple[str, ...] = CHECKS, package: str | None = None) -> list[Finding]:
+    """Every QA check over ``root``; a check that raises becomes an ``error`` finding.
+    ``package`` is the name it exports as (stable IDs, state keys): default the root's name."""
     findings: list[Finding] = []
     for check in checks:
         try:
-            findings.extend(_CHECKS[check](root))
+            if check in ("extras", "state"):
+                findings.extend(_CHECKS[check](root, package or root.name))
+            else:
+                findings.extend(_CHECKS[check](root))
         except Exception as exc:  # noqa: BLE001 - report, don't abort the dump
             findings.append(Finding(check, "error", f"{type(exc).__name__}: {exc}"))
     return findings
@@ -416,6 +420,42 @@ def _mesh_check(root: SceneNode) -> list[Finding]:
             more = f" (+{len(names) - 1} instances)" if len(names) > 1 else ""
             out.append(Finding("mesh", "invalid", f"{names[0]}{more}: {', '.join(report.issues)}", (names[0],)))
     return out
+
+
+def _uv_check(root: SceneNode) -> list[Finding]:
+    """Textured meshes need metric UVs (1 unit = 1 m), give or take what transforms scale."""
+    from .core import uvmap
+
+    out, seen = [], set()
+    for node, mesh in root.iter_meshes():
+        if mesh.material is None or id(mesh) in seen:
+            continue
+        seen.add(id(mesh))
+        if mesh.uvs is None:
+            out.append(Finding("uvs", "missing", f"{node.name}: textured but no UVs", (node.name,)))
+            continue
+        density = uvmap.texel_density(mesh)
+        if not 0.2 < density < 5.0:
+            out.append(Finding("uvs", "density", f"{node.name}: UV density {density:.2f} (metric is 1.0)", (node.name,)))
+    return out
+
+
+def _extras_check(root: SceneNode, package: str) -> list[Finding]:
+    from .extras import scene_problems
+
+    return [Finding("extras", "contract", problem) for problem in scene_problems(root, package)]
+
+
+def _state_check(root: SceneNode, package: str) -> list[Finding]:
+    """State, signals, inputs, wiring and quests compile, as an export requires."""
+    from .quests import QuestError, collect
+    from .state import StateError
+
+    try:
+        collect(root, package)
+    except (QuestError, StateError) as exc:
+        return [Finding("state", "compile", line) for line in str(exc).splitlines() if line.strip()]
+    return []
 
 
 def _qa(kind: str):
@@ -447,8 +487,9 @@ def _traffic_check(root: SceneNode) -> list[Finding]:
     return [Finding("traffic", "lane", str(i)) for i in check_graph(graph) + check_clearance(root, graph)]
 
 
-_CHECKS = {"mesh": _mesh_check, "layout": _qa("layout"), "affordances": _affordance_check,
-           "coplanar": _qa("coplanar"), "overlaps": _qa("overlaps"), "traffic": _traffic_check}
+_CHECKS = {"mesh": _mesh_check, "uvs": _uv_check, "layout": _qa("layout"), "affordances": _affordance_check,
+           "coplanar": _qa("coplanar"), "overlaps": _qa("overlaps"), "traffic": _traffic_check,
+           "extras": _extras_check, "state": _state_check}
 
 _COORDS = re.compile(r" around \[[^\]]*\]")
 _LONG_PATH = re.compile(r"(?<![\w/])[\w.-]+(?:/[\w.-]+)*/([\w.-]+/[\w.-]+)(?![\w/])")
@@ -474,11 +515,11 @@ def format_findings(findings: list[Finding]) -> list[str]:
 
 def inspect_scene(root: SceneNode, *, as_json: bool = False, depth: int | None = None,
                   pattern: str | None = None, parts: bool = False, detail: bool = False,
-                  checks: tuple[str, ...] = CHECKS) -> str:
-    """The ``--inspect`` report for ``root`` as text (or JSON)."""
+                  checks: tuple[str, ...] = CHECKS, package: str | None = None) -> str:
+    """The ``--inspect`` report for ``root`` as text (or JSON); ``package``: the scene's name."""
     tree = build_tree(root, parts=parts)
     chosen = select(tree, pattern) if pattern else None
-    findings = run_checks(root, checks) if checks else []
+    findings = run_checks(root, checks, package) if checks else []
     if chosen is not None:
         names = {x.node.name for c in chosen for x in _iter(c)}
         findings = [f for f in findings if names & set(f.items) or any(n in f.message for n in names)]
