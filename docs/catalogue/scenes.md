@@ -35,6 +35,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [town](#town) | A small town district: a 3 x 2 street grid with a commercial avenue down the middle (shop rows with flats above, the odd office), a hotel and an apartment block as landmarks, a park, and houses on the side streets. | showcase |
 | [trees](#trees) | Tree demo scene. |  |
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
+| [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
 
 ## dining_set
 
@@ -487,3 +488,29 @@ Vehicles for review: the car presets in a few paints, a van and a bus. Faces +X.
 **Places**: `sedan: {asset: vehicles/car.yaml}`; `hatchback: {asset: vehicles/car.yaml}`; `estate: {asset: vehicles/car.yaml}`; `taxi: {asset: vehicles/car.yaml}`; `sedan_red: {asset: vehicles/car.yaml}`; `van: {asset: vehicles/van.yaml}`; `bus: {asset: vehicles/bus.yaml}`
 
 **Slots**: bus, estate, hatchback, sedan, sedan_red, taxi, van
+
+## state_test
+
+`scene: scenes/state_test/scene.yaml` · [source](../../assets/scenes/state_test/scene.yaml)
+
+Review scene for state, events and conditions (docs/rules.md): every piece of the
+rules layer in one small yard. In the runtime catalogue's test group.
+
+```yaml
+- Two copies of one puzzle scene (lever_puzzle.yaml, private to this folder), each
+  with its own `solved` (instance state), a signal and inputs the yard wires.
+- The right lever starts jammed (an input driven on a new game) and says so when
+  tried (`refused`); solving the left one frees it (a wire).
+- With both solved (a watch over `all(...)`), the barrier lifts two seconds later
+  (`after`); only rules move it.
+- The lamp by the switch is bound to it (switch: {light}); the lamp by the barrier
+  is bound to the clock and the puzzles (`bind`).
+- Stepping into the yard's middle greets you once (a place, `once`), and the
+  quest (quests/two_levers.yaml) walks the whole thing.
+```
+
+**Places**: `ground: {asset: plaza.yaml}`; `puzzle_a: {scene: lever_puzzle.yaml}`; `puzzle_b: {scene: lever_puzzle.yaml}`; `barrier: {asset: crossing_barrier.yaml}`; `barrier_lamp: {asset: floor_lamp.yaml}`; `board: {asset: switch_board.yaml}`; `switch: {asset: light_switch.yaml}`; `switch_lamp: {asset: floor_lamp.yaml}`; `sign: {asset: info_plinth.yaml}`
+
+**Slots**: barrier, barrier_lamp, puzzle_a, puzzle_b, sign, switch, switch_lamp, switch_post
+
+**Spawns**: start

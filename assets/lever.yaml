@@ -1,0 +1,70 @@
+# A floor lever: a cast base with a handle that throws forward and back.
+# Origin: bottom centre; the handle leans back (-Z) when up and forward (+Z) when
+# pulled. Wiring hears `pulled` / `released`; `jam` / `free` stop and allow it
+# (a jammed lever says so when someone tries it).
+
+name: lever
+tags: [switch.lever]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: { default: 0.9 }     # handle length, base to knob
+
+state:
+  enabled: { type: bool, default: true }
+
+parts:
+  base:
+    primitive: cube
+    size: [0.34, 0.14, 0.24]
+    anchor: bottom_center
+    bevel: 0.02
+    material: metal
+  slot:
+    primitive: cube
+    size: [0.06, 0.012, 0.18]
+    anchor: bottom_center
+    offset: [0, 0.14, 0]
+    bevel: 0.004
+    material: tyre
+    collider: none
+  handle:
+    primitive: cylinder
+    size: [0.04, "{height}", 0.04]
+    anchor: bottom_center
+    offset: [0, 0.12, 0]
+    material: red_metal
+  knob:
+    primitive: sphere
+    size: [0.09, 0.09, 0.09]
+    attach_to: handle
+    at: top
+    from: center
+    material: tyre
+
+interactions:
+  pull:
+    targets: [handle, knob]
+    when: "self.enabled"
+    refused: "The lever is jammed"
+    initial: up
+    duration: 0.6
+    states:
+      up:   { prompt: Pull the lever, next: down, emit: released }
+      down: { prompt: Push the lever back, next: up, emit: pulled }
+    motions:
+      - parts: [handle]          # the knob is attached to it
+        rotate: x
+        pivot: [0, 0.13, 0]
+        values: { up: -30, down: 30 }
+
+signals:
+  pulled:   { emit: pulled }
+  released: { emit: released }
+inputs:
+  jam:  { set: enabled, to: false }
+  free: { set: enabled, to: true }
+
+clearance: { front: 0.6, back: 0.6 }

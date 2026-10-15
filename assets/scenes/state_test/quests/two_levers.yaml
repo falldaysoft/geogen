@@ -1,0 +1,11 @@
+# The state test's quest: both puzzles, in order, then through the barrier.
+kind: quest
+version: 1
+title: Two levers
+description: Pull the free lever, then the one it frees, and walk through the barrier they lift.
+start: auto
+ordered: true
+objectives:
+  - { id: first, text: Pull the lever on the left, done: "puzzle_a.solved" }
+  - { id: second, text: Pull the lever it freed, done: "puzzle_b.solved" }
+  - { id: through, text: Walk through the barrier, done: { enter: beyond } }

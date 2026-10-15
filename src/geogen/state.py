@@ -226,9 +226,10 @@ def instance_state(node: SceneNode) -> dict[str, dict[str, Any]]:
 
 
 def state_names(node: SceneNode) -> list[str]:
-    """Every state name a thing has: its interactions, their locks and its declared variables."""
+    """Every state name a thing has: its interactions, their locks, its declared variables and
+    what it has by being what it is (a train's stations, a light fixture's `lit`)."""
     return ([i.name for i in node.interactions] + [f"{i.name}{LOCKED}" for i in node.interactions]
-            + list(instance_state(node)))
+            + list(instance_state(node)) + list(light_state(node)))
 
 
 def set_values(node: SceneNode, values: dict[str, Any], where: str) -> None:

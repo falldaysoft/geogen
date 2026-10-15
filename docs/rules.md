@@ -9,7 +9,21 @@ given inputs. The Godot runtime is one implementation
 (`tests/test_rules_godot.py`).
 
 This document covers what is exported and how it behaves; "Authoring" below is
-the YAML that compiles to it.
+the YAML that compiles to it. `-s state_test` (`assets/scenes/state_test/`, in the
+runtime catalogue's test group) uses every piece in one small yard:
+instance state on a puzzle scene placed twice, signals, inputs, a wire, binds over
+the clock and a switch, a watch over `all(...)` with `after`, a place with `once`,
+an interaction's `when` and `refused`, feedback, and a quest
+(`tests/test_state_scene.py` walks it in both machines).
+
+Schemas (`docs/schema/`): `geogen-state.v1` (the manifest's `state`),
+`geogen-condition.v1` (compiled conditions), `geogen-quests.v1` (the manifest's
+`quests`), `geogen-content.v1` (content packages), `geogen-save.v1` (saves) and
+`geogen-extras.v1` (node extras). The rules program in the manifest's `rules` is
+a `geogen-rules` program as below, without its variables and interactions.
+
+Not built: phasing, per-player views of world state (geogen.24). Every actor
+sees one world.
 
 ## State
 
@@ -476,6 +490,8 @@ and run it to rewrite the JSON.
 | `watched_conditions` | conditions that fire when they become true, per actor |
 | `time` | delayed rules, a self-closing door, locks, the clock, timers in a save |
 | `cascades` | the order rules run in, and a loop being cut off |
+| `when` | an interaction's `when`: refused uses, per-actor conditions, rules driving it anyway |
+| `feedback` | `notify` / `play`, a refused use's text, feedback isn't saved |
 | `quest_go_there` | quests ([quests.md](quests.md)) that start with the game; an event objective, a counted one, a save mid-quest |
 | `quest_change_the_world` | a quest given by a rule when the player (not an NPC) greets someone; a condition over a selector, `after`, an optional objective, rewards |
 | `quest_timed` | availability and failure from the clock; one actor completes and another fails |

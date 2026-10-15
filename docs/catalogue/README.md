@@ -372,6 +372,7 @@ place:
 <table>
 <tr>
 <td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
+<td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 </tr>
@@ -380,5 +381,6 @@ place:
 | Asset | What it is | Params |
 | --- | --- | --- |
 | [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
+| [lever](assets/lever.md) | A floor lever: a cast base with a handle that throws forward and back. | `height` |
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |
 | [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |

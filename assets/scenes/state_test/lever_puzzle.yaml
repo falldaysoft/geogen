@@ -1,0 +1,39 @@
+# One lever puzzle, a unit the state test places twice (instance state: geogen.40.4).
+# Pull the lever and the puzzle is solved: its own `solved`, read as `self.solved`
+# here and `puzzle_a.solved` by the scene that places it. It says so (`solved`), and
+# takes `reset` (unsolve it), `jam` and `free` (stop and allow its lever).
+
+name: lever_puzzle
+size: [3, 2, 3]
+tags: [puzzle]
+
+state:
+  solved: { scope: instance, type: bool, default: false }
+  pulls:  { scope: actor, type: number, default: 0 }        # the package's: shared by every copy
+
+signals:
+  done: { changed: solved, to: true }
+inputs:
+  reset: { set: solved, to: false }
+  jam:   { set: enabled, of: lever, to: false }
+  free:  { set: enabled, of: lever, to: true }
+
+rules:
+  - id: solve
+    on: { signal: lever.pulled }
+    when: "not self.solved"
+    do:
+      - { set: self.solved, to: true }
+      - { notify: "Puzzle solved" }
+      - { play: success }
+  - id: count
+    on: { use: lever.pull, actor: player }
+    do: [{ set: actor.pulls, to: "actor.pulls + 1" }]
+
+slots:
+  lever: { position: [0, 0.1, 0] }                 # its front (+Z) toward the pad
+  pad:   { position: [0, 0.1, 1.1] }
+
+place:
+  pad:   { asset: floor_pad.yaml, slot: pad, params: { width: 1.6, depth: 1.2 } }
+  lever: { asset: lever.yaml, slot: lever }

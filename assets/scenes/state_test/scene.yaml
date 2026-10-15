@@ -1,0 +1,77 @@
+# Review scene for state, events and conditions (docs/rules.md): every piece of the
+# rules layer in one small yard. In the runtime catalogue's test group.
+#   - Two copies of one puzzle scene (lever_puzzle.yaml, private to this folder), each
+#     with its own `solved` (instance state), a signal and inputs the yard wires.
+#   - The right lever starts jammed (an input driven on a new game) and says so when
+#     tried (`refused`); solving the left one frees it (a wire).
+#   - With both solved (a watch over `all(...)`), the barrier lifts two seconds later
+#     (`after`); only rules move it.
+#   - The lamp by the switch is bound to it (switch: {light}); the lamp by the barrier
+#     is bound to the clock and the puzzles (`bind`).
+#   - Stepping into the yard's middle greets you once (a place, `once`), and the
+#     quest (quests/two_levers.yaml) walks the whole thing.
+
+name: state_test
+size: [16, 3, 16]
+tags: [test.state]
+
+quests: [quests/two_levers.yaml]
+
+state:
+  power:    { scope: world, type: bool, default: true }
+  greeted:  { scope: actor, type: bool, default: false }
+
+places:
+  middle: { box: [3, 2.4, 3], position: [0, 0.1, 1] }
+  beyond: { box: [4, 2.4, 2], position: [0, 0.1, -6] }
+
+rules:
+  - id: jam_right
+    on: { start: true }
+    do: [{ input: puzzle_b.jam }]
+  - id: welcome
+    on: { enter: middle, actor: player }
+    once: true
+    do:
+      - { set: actor.greeted, to: true }
+      - { notify: "Two levers: the left one frees the right" }
+      - { play: notice }
+  - id: lift
+    when: 'all("[tag=puzzle]", it.solved)'
+    after: 2
+    do:
+      - { set: barrier.barrier, to: up }
+      - { notify: "The barrier lifts" }
+wire:
+  - { from: puzzle_a.done, to: puzzle_b.free }
+bind:
+  barrier_lamp.lit: "world.power and (clock.night or puzzle_a.solved)"
+
+spawns:
+  start: { position: [0, 0.1, 5], facing: north }
+
+slots:
+  puzzle_a: { position: [-3, 0, -1] }
+  puzzle_b: { position: [3, 0, -1] }
+  barrier:  { position: [-2.2, 0.1, -4.5] }
+  barrier_lamp: { position: [2.4, 0.1, -4.3] }
+  switch_post: { position: [-4.2, 0.1, 3] }
+  switch: { position: [-4.2, 1.25, 3.03] }               # on the board's face
+  switch_lamp: { position: [-5.6, 0.1, 3.4] }
+  sign: { position: [0, 0.1, 3.6], facing: south }
+
+place:
+  ground:
+    asset: plaza.yaml
+    params: { radius: 8, border: 0.8, paving_material: brick_paving, border_material: concrete }
+  puzzle_a: { scene: lever_puzzle.yaml, slot: puzzle_a }
+  puzzle_b: { scene: lever_puzzle.yaml, slot: puzzle_b }
+  barrier:
+    asset: crossing_barrier.yaml
+    slot: barrier
+    state: down
+  barrier_lamp: { asset: floor_lamp.yaml, slot: barrier_lamp }
+  board: { asset: switch_board.yaml, slot: switch_post }
+  switch: { asset: light_switch.yaml, slot: switch, params: { light: switch_lamp } }
+  switch_lamp: { asset: floor_lamp.yaml, slot: switch_lamp }
+  sign: { asset: info_plinth.yaml, slot: sign, params: { label: "State\ntest" } }

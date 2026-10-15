@@ -51,6 +51,9 @@ scenes:
   hotel:
     group: test
     description: The hotel building on its own (no hub door)
+  state_test:
+    group: test
+    description: Every piece of the rules layer - a puzzle placed twice, wires, binds, a watch, a jammed lever, a quest
   crossroads:
     group: test
     description: Small street grid with signals, traffic and pedestrians

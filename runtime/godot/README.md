@@ -588,6 +588,9 @@ lines (`interaction event:`, `place event:`, `travelled:`) are unchanged.
 package's rules program: the manifest's `state` (variables, interactions) and
 `rules` (bindings, rules) sections, with `quests` for reporting. The semantics
 are `docs/rules.md`; nothing here knows what a quest is beyond printing it.
+`--scene state_test` (catalogue test group) exercises all of it in one yard: two
+copies of a lever puzzle, a jammed lever that says so, a barrier only rules
+lift, a switch and bound lamps, a place and a quest.
 
 - `scripts/machine.gd` (`GeogenMachine`) is a GDScript port of the reference
   evaluator, with `scripts/conditions.gd` for condition trees. It is pure data.
