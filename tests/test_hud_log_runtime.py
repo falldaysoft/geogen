@@ -258,6 +258,15 @@ def test_a_save_holds_every_scene_visited(rt, godot_runtime):
     assert {q["key"]: q["status"] for q in log(fresh, lambda h: h["quests"][-1]["loaded"])["quests"]} == statuses
 
 
+def test_the_tracker_and_toasts_are_hidden_under_the_log(rt):
+    rt.call("state.set", key="actor:camp.quest_levers", value="active")
+    assert log(rt, lambda h: h["open"], open=True)["open"]
+    assert rt.call("hud.quests")["visible"] and not rt.call("hud.quests")["on_screen"]
+    assert not rt.call("hud.notifications")["on_screen"]
+    rt.call("hud.log", open=False)
+    assert rt.call("hud.quests")["on_screen"]
+
+
 @pytest.mark.parametrize("size", [(640, 360), (320, 200)])
 def test_the_log_fits_a_small_window(rt, size):
     width, height = size

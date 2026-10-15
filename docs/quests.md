@@ -197,7 +197,9 @@ and quests" and "HUD"); the rest is planned.
   over each subject of the tracked quest's open objectives, clamped to the
   screen's edge with an arrow when it is off screen or behind; a ring on the
   ground, off-centre, for `{area}`; nothing for `hidden`; and for a quest of
-  another scene, the travel point that goes straight there. The control API's
+  another scene, the travel points that lead there (straight, else the first
+  step of the shortest route). They fade with distance and dim when hidden, and
+  a counted objective's done subjects aren't marked. The control API's
   `hud.markers` returns what is displayed.
 - **NPC holders** (15.8): the NPC planner turns the open objective's subject
   into a goal with its existing action vocabulary: go to a place, use an
@@ -270,7 +272,7 @@ three in the evaluator and in Godot.
 | State store in Godot; progress in saves | 3.3, 3.4 | done (`scripts/rules.gd`); the save file's own format and schema are open |
 | Rules authoring (`rules:`, `wire:`, `bind:`: `geogen.wiring`) | 3.6 | done: a scene rule gives a quest with `{start_quest: id}` |
 | The rules interpreter in Godot (`scripts/machine.gd`, passes the traces) | 3.3, 3.6 | done |
-| Content packages (quests that span scenes) | 3.10 | done (`geogen.content`, "Content packages" in `docs/rules.md`): a `kind: package` lists `quests:` whose objectives name things as `<scene>:<thing>`, one scene per objective; its progress is the package's actor state, kept across scene switches (`tests/test_content.py`, `tests/test_content_runtime.py`). No markers yet |
+| Content packages (quests that span scenes) | 3.10 | done (`geogen.content`, "Content packages" in `docs/rules.md`): a `kind: package` lists `quests:` whose objectives name things as `<scene>:<thing>`, one scene per objective; its progress is the package's actor state, kept across scene switches (`tests/test_content.py`, `tests/test_content_runtime.py`). Marked in the HUD like a scene's quests (`tests/test_content_hud_runtime.py`) |
 | Runtime quests: `quest event:`, `--quests`, `quests.list`, markers as data | 15.2 | done |
 | The lighthouse quest, the first archetype, in Godot | 15.3 | done: walked from the spawn to the gallery with the real body, and the reference evaluator, fed the runtime's place events, ends in the same state (`tests/test_quests_runtime.py`) |
 | The lights-out quest, given by greeting the cottage's resident | 15.4 | runs in the evaluator (`tests/test_quests.py`) and in Godot over the control API (`tests/test_quests_runtime.py`): greeted, three real switches, the count rising, complete |
@@ -278,7 +280,7 @@ three in the evaluator and in Godot.
 | Catch the train: opens at a clock time, fails when the train leaves | 15.6 | runs in the evaluator (`tests/test_quests.py`) and in Godot, both outcomes (`tests/test_quests_runtime.py`): `quests/catch_train.yaml` in `level_crossing` |
 | Quest notifications (`scripts/hud_notifications.gd`, `hud.notifications`) | 15.11 | done (`tests/test_hud_runtime.py`) |
 | Quest log screen (`scripts/hud_quest_log.gd`, `hud.log`) | 15.13 | done (`tests/test_hud_log_runtime.py`) |
-| World markers (`scripts/hud_markers.gd`, `hud.markers`) | 15.12 | done (`tests/test_hud_markers_runtime.py`); a direct portal only, no routes over several scenes |
+| World markers (`scripts/hud_markers.gd`, `hud.markers`) | 15.12 | done (`tests/test_hud_markers_runtime.py`); routes over several scenes, fade and occlusion, counted objectives (geogen.37, `tests/test_hud_markers_routes_runtime.py`) |
 | Other archetypes, NPC holders, playtest bot | 15.5, 15.7 to 15.9 | open |
 | Items for fetch quests | 18 | open |
 

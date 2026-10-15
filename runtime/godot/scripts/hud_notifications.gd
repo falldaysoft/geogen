@@ -206,7 +206,7 @@ func hud_report() -> Dictionary:
         showing.append(note)
     var rect := get_global_rect()
     var view := get_viewport_rect().size if is_inside_tree() else Vector2.ZERO
-    return {"visible": visible, "showing": showing, "queued": _queue.duplicate(true), "raised": _raised,
+    return {"visible": visible, "on_screen": visible and is_visible_in_tree(), "showing": showing, "queued": _queue.duplicate(true), "raised": _raised,
         "chimes": _chimes, "sounds": _sounds.duplicate(), "hold": hold, "gap": gap, "limit": limit,
         "rect": [rect.position.x, rect.position.y, rect.size.x, rect.size.y] if visible else [],
         "viewport": [view.x, view.y]}

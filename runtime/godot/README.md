@@ -664,9 +664,8 @@ quest event: {"quest":"lighthouse_gallery","title":"The view from the top","acto
   npc=resident`), then switch off the three light switches. `quests.list`
   reports `progress: [n, 3]` as they go off.
 
-Not built: the rest of the HUD (world markers: geogen.15.12), markers that point at the portal for a
-subject in another scene, NPCs working on quests (15.8), and state for
-interactions in chunks that aren't loaded (they are simulated, not restored).
+Not built: NPCs working on quests (15.8). (Interactions in chunks that aren't
+loaded are held by the rules program: see "Saving".)
 
 ## HUD
 

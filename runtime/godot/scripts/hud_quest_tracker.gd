@@ -335,6 +335,7 @@ func hud_report() -> Dictionary:
     var view := get_viewport_rect().size if is_inside_tree() else Vector2.ZERO
     out["rect"] = [rect.position.x, rect.position.y, rect.size.x, rect.size.y] if visible else []
     out["viewport"] = [view.x, view.y]
+    out["on_screen"] = bool(out["visible"]) and is_visible_in_tree()     # not under a modal panel
     return out
 
 

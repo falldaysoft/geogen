@@ -115,6 +115,8 @@ func set_modal(panel: Control, on: bool) -> void:
     if on == (modal == panel) or (not on and modal != panel):
         return
     modal = panel if on else null
+    for column in _slots.values():          # the corner panels (tracker, toasts) don't show through it
+        column.visible = modal == null
     modal_changed.emit(on)
 
 

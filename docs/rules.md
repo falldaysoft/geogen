@@ -375,7 +375,8 @@ bind:
   thing never raises (`{signal: lever.pushed}`), an unknown input, state or
   quest, an event that isn't one, and everything `check_program` rejects.
 
-Not built: `when:` on an interaction (a condition to use it).
+Interactions take `when:` (a condition to use them) and `refused:` (what a use
+it stops says): see "Interactions" and "Feedback".
 
 ## Content packages
 
@@ -467,9 +468,9 @@ rules.
 
 Not built: packages that place geometry into a scene, a package that runs
 where a scene it names isn't deployed (soft dependencies), a rule that reads
-two scenes at once, signals and inputs declared by a package, and markers for
-a package's quests (an objective in another scene should point at the way
-there: geogen.15.5). An NPC's package state is kept by its stable ID, so it
+two scenes at once, and signals and inputs declared by a package. A package's
+quests are marked like a scene's: subjects in the loaded scene where they are,
+ones in another scene at the portals that lead there (geogen.34, 37). An NPC's package state is kept by its stable ID, so it
 means something only in the NPC's own scene.
 
 ## Traces
