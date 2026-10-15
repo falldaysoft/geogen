@@ -121,7 +121,13 @@ def runtime(godot_runtime, tmp_path_factory):
 
 
 def _cube(runtime) -> dict:
-    return next(b for b in runtime.call("world.bodies") if b["uid"].startswith("flow#"))
+    """The dropper's cube (it may still be on its way: whichever test runs first waits for it)."""
+    for _ in range(10):
+        found = [b for b in runtime.call("world.bodies") if b["uid"].startswith("flow#")]
+        if found and (found[0]["held"] or found[0]["speed"] < 0.05):
+            return found[0]
+        runtime.call("time.advance", seconds=0.5, scale=1)
+    raise AssertionError(f"the dropper's cube never landed: {runtime.call('world.bodies')}")
 
 
 def _get(runtime, k: str):

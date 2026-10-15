@@ -133,6 +133,7 @@ def test_godot_rules_count_what_the_tracks_take_in(runtime):
 
 
 def test_godot_stopping_a_belt_backs_items_up(runtime):
+    runtime.call("time.advance", seconds=14.0, scale=1)     # parcels have reached the second belt
     runtime.call("state.set", key="flow_test:belt_b#running", value=False)
     before = runtime.call("flows.list")
     runtime.call("time.advance", seconds=8.0, scale=1)

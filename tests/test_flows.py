@@ -245,6 +245,7 @@ def test_godot_sinks_take_items_in(sink_assets, tmp_path, godot_runtime):
     runtime.call("wait_ready", timeout=60)
     runtime.call("state.set", key="yard:hopper#running", value=True)
     runtime.call("time.advance", seconds=3.0, scale=1)
+    runtime.call("time.pause")                          # read everything at one moment
     emitted = _get(runtime, "hopper#emitted")
     received = _get(runtime, "hole#received")
     # Every ball drops (moving 1 m/s toward +z) into the hole: none are left, and each paid 2 * 100.
@@ -254,6 +255,7 @@ def test_godot_sinks_take_items_in(sink_assets, tmp_path, godot_runtime):
 
 
 def test_godot_saves_keep_physics_items(runtime):
+    runtime.call("state.set", key="yard:hopper#running", value=True)
     runtime.call("time.advance", seconds=1.0, scale=1)
     runtime.call("time.pause")
     saved = runtime.call("state.save")
