@@ -1,0 +1,13 @@
+# The jetty trip (packages/jetty_trip.yaml gives it when the player takes the
+# hub's portal to the island).
+kind: quest
+version: 1
+title: A trip to the jetty
+description: You came through the portal to the island. Walk out along the jetty, then go back to the hub.
+ordered: true
+objectives:
+  - { id: jetty, text: Walk out along the jetty, done: { enter: "island:jetty/on_deck" } }
+  - id: home
+    text: Go back to the hub
+    done: "actor.came_back"
+    marker: "island:hub_portal"

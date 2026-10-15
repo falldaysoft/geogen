@@ -212,7 +212,7 @@ in Godot.
 |---|---|---|
 | Go there: climb to the lighthouse gallery (15.3) | island | places, actor state, a marker, `start: auto` |
 | Change the world: switch off every light (15.4) | cottage (`quests/lights_out.yaml`) | conditions over interaction state, a selector, progress, a quest given by an NPC |
-| Ordered, across scenes: hub to the jetty and back (15.5) | hub + island | travel events, state surviving a scene switch, markers at portals |
+| Ordered, across scenes: hub to the jetty and back (15.5) | hub + island (content package `packages/jetty_trip.yaml`, deployed by the catalogue) | travel events (taking the island portal gives it; coming back through the hub portal finishes it), state surviving a scene switch, markers at portals (`tests/test_hub.py`) |
 | Timed, can fail: be on the platform before the train leaves (15.6) | level_crossing | clock conditions, `failed`, events from trains |
 | Fetch and deliver: the room key and the parcel (15.7) | hotel_showcase | items, an NPC giver, giving to an NPC |
 | An NPC does one: the resident switches off the lights (15.8) | cottage | NPC holders |

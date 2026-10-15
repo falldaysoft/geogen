@@ -154,10 +154,13 @@ func _portals(quest: Dictionary, package: String, objective: Dictionary) -> void
         var scene := str(travel.get("scene", ""))
         if not scene in scenes or scene == world.scene_name or not is_instance_valid(node) or not node is Node3D:
             continue
+        var uid := WorldLoader.uid_of(node)
+        if _markers.any(func(m): return m["kind"] == "portal" and m["subject"] == uid):
+            continue                # one marker a portal: the tracked quest's, which is marked first
         var box := WorldLoader._aabb(node)
         _markers.append({"quest": quest["id"], "package": package, "objective": objective["id"],
             "title": quest["title"], "text": objective["text"], "kind": "portal", "scene": scene,
-            "subject": WorldLoader.uid_of(node), "label": scene.capitalize(),
+            "subject": uid, "label": scene.capitalize(),
             "at": box.get_center() if box.size != Vector3.ZERO else (node as Node3D).global_position})
 
 

@@ -1,0 +1,20 @@
+# A trip from the hub to the island's jetty and back: a quest across two scenes
+# (docs/quests.md, "Ordered, across scenes"). Taking the hub's island portal gives
+# it; its progress is the package's actor state, so it carries over each switch.
+kind: package
+version: 1
+title: A trip to the jetty
+description: Through the portal to the island, out along the jetty, and back to the hub.
+scenes: [hub, island]
+state:
+  came_back: { scope: actor, type: bool, default: false }
+rules:
+  - id: off_to_the_island
+    on: { travel: island, actor: player }
+    do:
+      - { set: actor.came_back, to: false }
+      - { start_quest: jetty_trip }
+  - id: home_again
+    on: { travel: hub, actor: player }
+    do: [{ set: actor.came_back, to: true }]
+quests: [quests/jetty_trip.yaml]

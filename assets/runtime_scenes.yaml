@@ -13,6 +13,7 @@
 # names into generated/<name>.content.json (docs/rules.md, "Content packages").
 kind: scene_catalogue
 default: hub
+packages: [jetty_trip]
 
 scenes:
   hub:

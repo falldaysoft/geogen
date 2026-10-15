@@ -122,3 +122,60 @@ def test_an_island_quest_is_marked_at_the_hub_portal_to_the_island(godot_runtime
     rt.call("wait_ready")
     (here,) = rt.call("hud.markers")["markers"]
     assert here["kind"] == "point" and here["subject"] == "island:lighthouse/gallery"
+
+
+def _middle_of(rt, uid):
+    box = rt.call("world.node", uid=uid)["bounds"]
+    return [(box["min"][0] + box["max"][0]) / 2, box["min"][1] + 0.05, (box["min"][2] + box["max"][2]) / 2]
+
+
+def _until(call, want, timeout=20.0):
+    import time
+
+    end = time.time() + timeout
+    while not want(got := call()) and time.time() < end:
+        time.sleep(0.1)
+    return got
+
+
+@pytest.mark.exhaustive
+def test_the_jetty_trip_goes_from_the_hub_to_the_jetty_and_back(godot_runtime, built_scene, tmp_path_factory):
+    """The content package jetty_trip (geogen.15.5): travelling to the island gives its quest, the
+    jetty is the first step, coming back through the hub portal the last; its state carries over."""
+    out = tmp_path_factory.mktemp("generated_jetty_trip")
+    catalogue = load_catalogue()
+    export_catalogue(catalogue, built_scene, out, catalogue.select("hub,island"), log=lambda *_: None)
+    rt = godot_runtime("hub", out)
+    rt.call("wait_ready")
+
+    def trip():
+        (quest,) = [q for q in rt.call("quests.list") if q["id"] == "jetty_trip"]
+        return quest["status"], [(o["id"], o["state"]) for o in quest["objectives"]]
+
+    def scene():
+        return rt.call("world.info")["scene"]
+
+    assert trip()[0] == "available"
+    rt.call("player.teleport", pos=_middle_of(rt, "hub:portal_island"))          # into the portal: travel
+    _until(scene, lambda s: s == "island")
+    rt.call("wait_ready")
+    assert _until(trip, lambda t: t[0] == "active") == ("active", [("jetty", "open"), ("home", "waiting")])
+    assert rt.call("hud.quests", track="jetty_trip")["package"] == "jetty_trip"
+    assert [m["subject"] for m in rt.call("hud.markers")["markers"]] == ["island:jetty/on_deck"]
+
+    rt.call("world.switch", scene="hub")                                          # back early, not by travel
+    rt.call("wait_ready")
+    portals = _until(lambda: rt.call("hud.markers")["markers"], lambda m: m)
+    assert [(m["kind"], m["subject"], m["quest"]) for m in portals] == [("portal", "hub:portal_island", "jetty_trip")]
+    rt.call("world.switch", scene="island")
+    rt.call("wait_ready")
+
+    x, y, z = rt.call("world.node", uid="island:jetty/on_deck")["position"]
+    rt.call("player.teleport", pos=[x, y + 0.1, z])
+    assert _until(trip, lambda t: t[1][0][1] == "done")[1] == [("jetty", "done"), ("home", "open")]
+    marker = _until(lambda: rt.call("hud.markers")["markers"], lambda m: m and m[0]["subject"] == "island:hub_portal")
+    assert [m["subject"] for m in marker] == ["island:hub_portal"]
+    rt.call("player.teleport", pos=_middle_of(rt, "island:hub_portal"))
+    _until(scene, lambda s: s == "hub")
+    rt.call("wait_ready")
+    assert _until(trip, lambda t: t[0] == "complete") == ("complete", [("jetty", "done"), ("home", "done")])

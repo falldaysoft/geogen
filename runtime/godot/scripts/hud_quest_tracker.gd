@@ -40,6 +40,7 @@ var linger := 4.0:
 var _hud: GeogenHud
 var _tracked := ""              # quest id, in the loaded package
 var _choice := {}               # package -> the quest tracked there
+var _last := {}                 # {package, quest}: the latest pick, which wins where it is running
 var _finished := {}             # {package, quest}: the tracked quest ended and is still shown
 var _shown := {}                # what hud_report() returns
 var _timer: Timer
@@ -181,6 +182,7 @@ func tracked_here() -> String:
 ## Pick the quest to track in a package that isn't loaded: it is tracked when that loads again.
 func prefer(package: String, quest: String) -> void:
     _choice[package] = quest
+    _last = {"package": package, "quest": quest}
 
 
 func hud_key(keycode: int) -> bool:
@@ -207,13 +209,18 @@ func hud_refresh() -> void:
         # scenes its package runs in); else the first.
         if not _tracked in active:
             _tracked = active[0] if not active.is_empty() else ""
-            for name in rules.running():
-                var before: String = _choice.get(name, "")
-                if before in active and rules.quest_package(before) == name:
-                    _tracked = before
-                    break
+            var last: String = _last.get("quest", "")
+            if last in active and rules.quest_package(last) == _last.get("package", ""):
+                _tracked = last
+            else:
+                for name in rules.running():
+                    var before: String = _choice.get(name, "")
+                    if before in active and rules.quest_package(before) == name:
+                        _tracked = before
+                        break
         if _tracked != "":
             _choice[rules.quest_package(_tracked)] = _tracked
+            _last = {"package": rules.quest_package(_tracked), "quest": _tracked}
     var quest := {}
     for entry in report:
         if entry["id"] == _tracked and (lingering or entry["status"] == "active"):

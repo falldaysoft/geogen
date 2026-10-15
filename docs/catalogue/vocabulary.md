@@ -193,6 +193,18 @@ Keys: `face`, `go_to`, `play`, `pose`, `use`, `vanish`, `wait`
 | --- | --- |
 | [npcs/actions.yaml](../../assets/npcs/actions.yaml) | What NPCs do, as data. |
 
+### package
+
+A content package: state, rules and quests that span the scenes it names.
+
+Use: `packages: [name]   (in runtime_scenes.yaml; see docs/rules.md, Content packages)`
+
+Keys: `bind`, `description`, `id`, `quests`, `rules`, `scenes`, `state`, `title`, `wire`
+
+| File | What it is |
+| --- | --- |
+| [packages/jetty_trip.yaml](../../assets/packages/jetty_trip.yaml) | A trip from the hub to the island's jetty and back: a quest across two scenes (docs/quests.md, "Ordered, across scenes"). |
+
 ### player_spec
 
 Player-scale constraints (capsule, eye and step height, door and corridor widths).
@@ -216,6 +228,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | File | What it is |
 | --- | --- |
 | [quests/catch_train.yaml](../../assets/quests/catch_train.yaml) | Catch the train: the "timed, can fail" quest. |
+| [quests/jetty_trip.yaml](../../assets/quests/jetty_trip.yaml) | The jetty trip (packages/jetty_trip.yaml gives it when the player takes the hub's portal to the island). |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 | [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |
 | [quests/yard_dash.yaml](../../assets/quests/yard_dash.yaml) | The dash: stepping onto the start square gives it, and a rule of the quest yard fails it six seconds later unless the finish square was reached. |
@@ -228,7 +241,7 @@ The Godot runtime's scenes (showcase | test) and its default.
 
 Use: `python -m geogen.main --export-catalogue`
 
-Keys: `default`, `scenes`
+Keys: `default`, `packages`, `scenes`
 
 | File | What it is |
 | --- | --- |
