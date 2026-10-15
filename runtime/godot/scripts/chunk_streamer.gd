@@ -93,7 +93,7 @@ func _process(_delta: float) -> void:
         var out := []
         var path := _path(file)
         var w := world
-        var id := WorkerThreadPool.add_task(func(): out.append(GeogenChunkStreamer._load_glb(path, w)))
+        var id := WorkerThreadPool.add_task(func(): out.append(GeogenChunkStreamer._load_glb(path, w)), true)
         _tasks[file] = {"id": id, "out": out}
     for file in _tasks.keys():
         var task: Dictionary = _tasks[file]

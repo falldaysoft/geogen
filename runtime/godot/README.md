@@ -589,6 +589,14 @@ actors, in `things`, and sets its `<uid>#occupants` state to how many there are
 
 ## Physics props
 
+The runtime uses Jolt (`physics/3d/physics_engine` in `project.godot`; geogen.49).
+Write new physics code for it. Godot Physics snagged spheres on the internal edges of a
+subdivided trimesh, so a ball couldn't roll down a swept trough. Two things changed
+with the switch: the player's and NPCs' cylinders have a 1 mm `margin` (Jolt rounds the
+rim by it, which tilted a step's contact) and step-up allows a landing 3 cm over
+`step_height`. Chunk loads are high-priority `WorkerThreadPool` tasks: a low-priority
+one was never run under Jolt.
+
 An asset with `physics:` (`geogen/physics.py`) is exported with
 `extras.geogen.physics` (`mass`, `friction`, `bounce`, `carry`, a box `size` and
 `center`; with `shape`, a sphere `radius` or an upright capsule `radius` and
@@ -655,9 +663,8 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
 - **Roll tracks** (`mode: roll`): gravity drives each item from the track's `speed`
   ((5/7) g sin(slope), less `damping` per second), it spins about its middle, and a
   source puts physics items on one too: balls down a chute, which fall off a `drop` end
-  as bodies moving at their speed. It exists because Godot Physics snags a sphere on
-  the internal edges of a subdivided trimesh (a swept trough), so balls can't roll down
-  one as bodies (geogen.49). `examples/marble_run` uses it.
+  as bodies moving at their speed. Use it where an item must follow a set path; a ball
+  that should bounce and roll freely is a plain physics item (`examples/marble_run`).
 - **Effectors** (`flows.effector`: `turret.yaml`) step last each frame, in position
   order: one whose `enabled` state is true and that is ready (every `1 / rate` s) acts on
   the track item within `range` of its `at` point that it `targets` (`first`: furthest

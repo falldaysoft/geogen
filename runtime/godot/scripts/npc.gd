@@ -200,6 +200,7 @@ func _ready() -> void:
     var cyl := CylinderShape3D.new()   # flat bottom: climbs steps (see Player)
     cyl.radius = float(definition.get("radius", 0.25))
     cyl.height = float(definition.get("height", 1.75))
+    cyl.margin = Player.SHAPE_MARGIN
     _shape.shape = cyl
     _shape.position.y = cyl.height / 2.0
     add_child(_shape)

@@ -18,6 +18,12 @@ const MOUSE_SENSITIVITY := 0.0025
 ## Extra lift when probing a step, so a ledge of exactly step_height isn't
 ## rejected by the collision margin; the actual climb is still capped.
 const STEP_PROBE_MARGIN := 0.05
+## Jolt rounds a cylinder's rim by its margin, so a step's edge pushes back at a
+## tilt; a near-zero margin keeps the bottom flat (NPCs use it too).
+const SHAPE_MARGIN := 0.001
+## How far over step_height a landing may be: Jolt stands bodies right on the
+## floor, so the probe's landing can be a few centimetres above the start.
+const STEP_TOLERANCE := 0.03
 
 var spec := PlayerSpec.new()
 ## Noclip flying for inspecting geometry.
@@ -59,6 +65,7 @@ func apply_spec(new_spec: PlayerSpec) -> void:
     var body := _shape.shape as CylinderShape3D
     body.radius = spec.radius
     body.height = spec.height
+    body.margin = SHAPE_MARGIN
     _shape.position.y = spec.height / 2.0
     head.position.y = spec.eye_height
     floor_max_angle = spec.max_slope_rad()
@@ -194,7 +201,7 @@ static func step_up(body: CharacterBody3D, motion: Vector3, step_height: float) 
     if hit.get_normal().angle_to(Vector3.UP) > body.floor_max_angle:
         return false
     var landed := ahead.origin + hit.get_travel()
-    if landed.y - from.origin.y > step_height + 0.01:
+    if landed.y - from.origin.y > step_height + STEP_TOLERANCE:
         return false
     body.global_position = landed
     body.velocity.y = 0.0
