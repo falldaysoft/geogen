@@ -247,7 +247,10 @@
                          "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } },
             "height": { "type": "number", "exclusiveMinimum": 0 },
             "detect": { "description": "What the place reports, when not only actors: with 'props', physics props in it count too, and the runtime keeps its 'occupants' state (the number of things in it).",
-                        "type": "array", "items": { "enum": ["actors", "props"] }, "minItems": 1, "uniqueItems": true }
+                        "type": "array", "items": { "enum": ["actors", "props"] }, "minItems": 1, "uniqueItems": true },
+            "sink": { "description": "Spawned items (geogen/flows.py) entering it are taken in: only those named in 'accepts' (empty: any). The runtime keeps its 'received' state (how many) and raises 'received' {item, ...the item's data}.",
+                      "type": "object", "required": ["accepts"], "additionalProperties": false,
+                      "properties": { "accepts": { "type": "array", "items": { "type": "string" } } } }
           }
         },
         "physics": {

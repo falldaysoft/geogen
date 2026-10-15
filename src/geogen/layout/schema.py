@@ -340,6 +340,7 @@ PLACE_KEYS: dict[str, str] = {
     "margin": "m round an `around` box, or [x, y, z]",
     "headroom": "m above an `around` box, to stand on it",
     "detect": "[actors, props]: props count too, in its `occupants` state",
+    "sink": "true or {accepts: [item names]}: spawned items entering it are taken in (geogen.flows)",
     "tags": "dotted tags",
 }
 

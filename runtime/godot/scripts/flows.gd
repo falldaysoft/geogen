@@ -10,6 +10,9 @@ extends Node
 ## has made fewer than `count` (0: no limit). It reads `running` and `queued` from the rules
 ## program and drives `emitted` and `alive` there, and raises `emitted {item}` on the event bus.
 ##
+## A source waits while its last item is still within two of its radii of the spawn point (two
+## bodies made in one place would fly apart).
+##
 ## A physics item is a clone prop (props.gd `add_clone`): carried like any prop. An item is
 ## taken away when a sink takes it in (`take`), when it outlives `lifetime`, when a physics
 ## item has rested `stuck` seconds, or when it falls out of the world.
@@ -21,6 +24,9 @@ signal item_added(id: int)
 signal item_removed(id: int, why: String)
 
 const STILL_SPEED := 0.05       ## m/s: slower than this, a physics item is at rest
+## Physics frames sources wait after the world loads: bodies (the player's) sit at the origin
+## for a frame or two before they go where they start.
+const SETTLE_FRAMES := 5
 
 var world: WorldLoader
 ## uid -> {uid, node, data, templates: {item name: Node3D}, rng, due, made}
@@ -29,6 +35,7 @@ var sources := {}
 var items := {}
 var _next_id := 1
 var _layer: Node3D               # where items live, in world space
+var _settle := -1                # frames until sources run (-1: the world isn't loaded)
 
 
 func _init(owner_world: WorldLoader) -> void:
@@ -41,6 +48,7 @@ func _ready() -> void:
     _layer.name = "Items"
     add_child(_layer)
     world.props.clone_fell.connect(func(uid: String): remove(_id_of(uid), "fell"), CONNECT_DEFERRED)
+    world.world_loaded.connect(func(_aabb: AABB): _settle = SETTLE_FRAMES)
 
 
 ## Take the item templates out of a freshly loaded export (before uids, interactions,
@@ -82,6 +90,7 @@ func forget(root: Node) -> void:
 
 ## Forget everything (WorldLoader.unload).
 func clear() -> void:
+    _settle = -1
     for id in items.keys():
         remove(id, "cleared")
     for entry in sources.values():
@@ -96,6 +105,9 @@ func _free_templates(entry: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
+    if _settle != 0:
+        _settle = maxi(_settle - 1, -1) if _settle > 0 else -1
+        return
     for uid in sources:
         _run(sources[uid], delta)
     var gone: Array = []
@@ -129,7 +141,7 @@ func _run(entry: Dictionary, delta: float) -> void:
         entry["due"] = 0.0
     var count := int(data.get("count", 0))
     while (queued > 0 or entry["due"] >= 1.0) and alive(uid) < int(data.get("max_alive", 10)) \
-            and (count == 0 or entry["made"] < count):
+            and (count == 0 or entry["made"] < count) and _clear(entry):
         if queued > 0:
             queued -= 1
             _write(uid, "queued", queued)
@@ -137,6 +149,24 @@ func _run(entry: Dictionary, delta: float) -> void:
             entry["due"] -= 1.0
         if spawn(entry) < 0:
             break
+
+
+## Whether a source's spawn point is free of the last item it made.
+func _clear(entry: Dictionary) -> bool:
+    var last: Dictionary = items.get(entry.get("last", -1), {})
+    if last.is_empty():
+        return true
+    var at: Node3D = last["body"] if last["body"] != null else last["node"]
+    if not is_instance_valid(at):
+        return true
+    var spawn_point: Vector3 = entry["node"].global_transform * _vec(entry["data"].get("at", [0, 0, 0]))
+    var centre := at.global_position
+    if last["body"] != null:
+        centre = at.global_transform * _vec(WorldLoader.geogen_extras(entry["templates"][last["item"]]).get("physics", {})
+            .get("center", [0, 0, 0]))
+        spawn_point += entry["node"].global_transform.basis * _vec(WorldLoader.geogen_extras(
+            entry["templates"][last["item"]]).get("physics", {}).get("center", [0, 0, 0]))
+    return centre.distance_to(spawn_point) > 2.0 * float(last["def"].get("radius", 0.25)) + 0.01
 
 
 ## Make one item of a source (its weighted pick); the item's id, or -1.
@@ -185,12 +215,31 @@ func spawn(entry: Dictionary, item_name := "") -> int:
         _layer.add_child(copy)
         copy.global_transform = xform
     items[id] = item
+    entry["last"] = id
     entry["made"] += 1
     _write(entry["uid"], "emitted", entry["made"])
     _write(entry["uid"], "alive", alive(entry["uid"]))
     world.events.post("signal", entry["uid"], "emitted", "", {"item": item_name})
     item_added.emit(id)
     return id
+
+
+## A sink (a place entry of WorldLoader.places with `sink`) takes an item in, if it accepts
+## it: the item goes, the sink's `received` counts it and it raises `received {item, ...data}`.
+func take(id: int, sink: Dictionary) -> bool:
+    var item: Dictionary = items.get(id, {})
+    var accepts: Array = (sink.get("sink", {}) as Dictionary).get("accepts", [])
+    if item.is_empty() or (not accepts.is_empty() and not item["item"] in accepts):
+        return false
+    remove(id, "sink")
+    sink["received"] = int(sink.get("received", 0)) + 1
+    var key := "%s#received" % sink["uid"]
+    if world.rules.machine != null and world.rules.machine.variables.has(key):
+        world.rules.set_value(key, float(sink["received"]))
+    var data: Dictionary = item["data"].duplicate()
+    data["item"] = item["item"]
+    world.events.post("signal", sink["uid"], "received", "", data)
+    return true
 
 
 ## Take an item away (why: sink, lifetime, stuck, fell, cleared). False if there is no such item.

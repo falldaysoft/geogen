@@ -628,6 +628,13 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
   raise it with the `emit` input), while it has fewer than `max_alive` in the world
   and has made fewer than `count`. The pick among its items is weighted and seeded
   per source. It drives `emitted` and `alive` and posts the signal `emitted {item}`.
+  Sources start `SETTLE_FRAMES` after `world_loaded` (the player's body sits at the
+  origin for a frame or two), and wait while their last item is still within two of
+  its radii of the spawn point (two bodies made in one place fly apart).
+- **Sinks:** a place with `sink` (`{accepts: [item names]}`; empty: any) takes in a
+  flow item whose body enters its area (`WorldLoader._place_crossed` ->
+  `GeogenFlows.take`): the item goes, the sink's `received` counts it, and it posts
+  `received {item, ...the item's data}`.
 - **Physics items** are clone props (`GeogenProps.add_clone`): rigid bodies like
   any prop, carryable, keyed `flow#<id>`, not saved with the props. Items live under
   `Flows/Items` in world space.

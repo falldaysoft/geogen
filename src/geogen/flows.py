@@ -12,7 +12,9 @@ outlives its time. Four parts, each a block on an asset:
   ``stuck`` (s at rest before a physics item is taken away; 0: never).
 - **Source** (asset ``source:``): puts items out at an attachment, ``rate`` a second while
   it runs, up to ``max_alive`` at once and ``count`` in all (0: no limit).
-- **Sink** (``sink:`` on a place, ``geogen.places``): takes in the items that enter it.
+- **Sink** (``sink:`` on a place, ``geogen.places``): takes in the items that enter it
+  (``accepts``: only those items). Its state ``received`` counts them (driven) and it raises
+  ``received {item, ...}`` with the item's data.
 - Tracks and effectors (later): paths items follow, things that act on items in range.
 
 Items have no stable IDs and no rules state: the contract (``docs/rules.md``) stays closed.
@@ -213,10 +215,17 @@ def is_template(node: SceneNode) -> bool:
 
 # ---- what the rules see -------------------------------------------------------------------------
 
+def sink_of(node: SceneNode) -> dict[str, Any] | None:
+    place = node.meta.get("place")
+    return place.get("sink") if node.meta.get("type") == "place" and isinstance(place, dict) else None
+
+
 def flow_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     """The variables a source has: ``running`` and ``queued`` (rules set them), ``emitted``
-    and ``alive`` (the runtime drives them)."""
+    and ``alive`` (the runtime drives them); a sink's ``received``."""
     source = source_of(node)
+    if sink_of(node) is not None:
+        return {"received": {"type": "number", "default": 0, "driven": "flows"}}
     if source is None:
         return {}
     return {"running": {"type": "bool", "default": source["initial"] == "running"},
@@ -225,11 +234,24 @@ def flow_state(node: SceneNode) -> dict[str, dict[str, Any]]:
             "alive": {"type": "number", "default": 0, "driven": "flows"}}
 
 
-def flow_signals(node: SceneNode) -> dict[str, dict[str, Any]]:
-    """The signals a source raises, with the data they carry: ``emitted {item}``."""
+def flow_signals(node: SceneNode, fields: dict[str, str] | None = None) -> dict[str, dict[str, Any]]:
+    """The signals a source or sink raises, with the data they carry: ``emitted {item}``;
+    ``received {item, ...}`` with ``fields`` (``item_fields``: what the scene's items carry)."""
+    if sink_of(node) is not None:
+        return {"received": {**(fields or {}), "item": "text"}}
     if source_of(node) is None:
         return {}
     return {"emitted": {"item": "text"}}
+
+
+def item_fields(root: SceneNode) -> dict[str, str]:
+    """{field: number | text} of the data every item in ``root`` carries (by template)."""
+    out: dict[str, str] = {}
+    for node in root.iter_nodes():
+        if is_template(node):
+            for field, value in node.meta[ITEM_META]["data"].items():
+                out[field] = "text" if isinstance(value, str) else "number"
+    return out
 
 
 def flow_inputs(node: SceneNode, thing: str) -> dict[str, dict[str, Any]]:

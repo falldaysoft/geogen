@@ -1291,6 +1291,8 @@ func _collect_places(root: Node) -> void:
             entry["uid"] = str(place.get("uid", ""))
             entry["detect"] = place.get("detect", ["actors"])
             entry["things"] = {}
+            if place.get("sink") is Dictionary:
+                entry["sink"] = place["sink"]
         places.append(entry)
         area.body_entered.connect(func(body: Node3D): _place_crossed(entry, body, true))
         area.body_exited.connect(func(body: Node3D): _place_crossed(entry, body, false))
@@ -1298,6 +1300,9 @@ func _collect_places(root: Node) -> void:
 
 func _place_crossed(entry: Dictionary, body: Node3D, entered: bool) -> void:
     var actor := actor_id(body)
+    if actor == "" and entered and entry.has("sink") and flows.item_of(body) >= 0:
+        flows.take(flows.item_of(body), entry)
+        return
     if actor == "":
         var prop := props.prop_of(body)
         if prop != "" and "props" in entry.get("detect", []):

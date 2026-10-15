@@ -122,7 +122,7 @@ static func _place_area(node: Node3D, g: Dictionary) -> void:
     area.collision_layer = 0
     area.collision_mask = 1 | 2   # the player, and NPC bodies (GeogenNpc.LAYER)
     area.set_meta("geogen_place", {"id": str(place.get("id", node.name)), "uid": str(g.get("uid", "")),
-        "detect": place.get("detect", ["actors"])})
+        "detect": place.get("detect", ["actors"]), "sink": place.get("sink")})
     area.add_to_group("geogen_place", true)
     if place.has("polygon"):
         # CollisionPolygon3D extrudes along its Z: turned a quarter about X, its

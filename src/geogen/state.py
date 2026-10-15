@@ -50,7 +50,7 @@ from typing import Any, Callable, Iterable
 
 from . import refs
 from .core.node import SceneNode
-from .flows import flow_inputs, flow_signals, flow_state
+from .flows import flow_inputs, flow_signals, flow_state, item_fields
 from .places import place_state
 
 FORMAT = "geogen-state"
@@ -470,6 +470,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
         known = node.meta.get("uid")
         return known if isinstance(known, str) and known.startswith(package + ":") else refs.node_id(node, package, root)
 
+    fields = item_fields(root)                  # what a sink's `received` carries
     for node in root.iter_nodes():
         declares = node.meta.get(META)
         greeting = npc_signal(node)
@@ -482,7 +483,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
             out.variables[f"{thing}#{name}"] = spec
         if greeting:
             out.signals[f"{thing}#{greeting}"] = {"subject": thing, "name": greeting}
-        for name, data in flow_signals(node).items():
+        for name, data in flow_signals(node, fields).items():
             out.signals[f"{thing}#{name}"] = {"subject": thing, "name": name, "data": data}
         for name, spec in flow_inputs(node, thing).items():
             out.inputs[f"{thing}#{name}"] = spec

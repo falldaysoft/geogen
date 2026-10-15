@@ -191,3 +191,63 @@ def test_godot_makes_queued_items_then_runs_up_to_its_limit(runtime):
     runtime.call("time.advance", seconds=4.0, scale=1)
     report = runtime.call("flows.list")
     assert report["sources"][0]["emitted"] > 4 and _get(runtime, "hopper#alive") <= 3, report
+
+
+# --- sinks --------------------------------------------------------------------------------------
+
+SINK_SCENE = SCENE.replace("""place:
+  floor:""", """places:
+  hole: {box: [1.2, 0.8, 1.2], position: [0, 0, 0.6], sink: {accepts: [ball]}}
+  bin:  {box: [1, 1, 1], position: [4, 0, 4], sink: true}
+place:
+  floor:""").replace("""  - id: one_more""", """  - id: banked
+    on: {signal: hole.received}
+    do: [{set: world.given, to: "world.given + event.value * 100"}]
+  - id: one_more""")
+
+
+@pytest.fixture
+def sink_assets(assets):
+    (assets / "yard.yaml").write_text(SINK_SCENE)
+    return assets
+
+
+def test_a_sink_place_counts_and_signals_with_the_items_data(sink_assets):
+    scene = compose(sink_assets)
+    hole = next(n for n in scene.iter_nodes() if n.name == "hole")
+    assert hole.meta["place"]["sink"] == {"accepts": ["ball"]}
+    decls = collect(scene, "yard").declarations
+    assert decls.variables["yard:hole#received"]["driven"] == "flows"
+    assert decls.signals["yard:hole#received"]["data"] == {"value": "number", "colour": "text", "item": "text"}
+    assert next(n for n in scene.iter_nodes() if n.name == "bin").meta["place"]["sink"] == {"accepts": []}
+
+
+def test_reading_a_field_items_dont_carry_fails(sink_assets):
+    path = sink_assets / "yard.yaml"
+    path.write_text(path.read_text().replace("event.value * 100", "event.weight"))
+    from geogen.quests import QuestError
+    with pytest.raises(QuestError, match=r"event.weight: a signal event here carries colour, item, value"):
+        collect(compose(sink_assets), "yard")
+
+
+def test_bad_sinks_fail(sink_assets):
+    path = sink_assets / "yard.yaml"
+    path.write_text(path.read_text().replace("sink: true", "sink: {take: [ball]}"))
+    with pytest.raises(ValueError, match=r"sink is true or \{accepts"):
+        compose(sink_assets)
+
+
+def test_godot_sinks_take_items_in(sink_assets, tmp_path, godot_runtime):
+    out = tmp_path / "gen"
+    out.mkdir()
+    export_scene(compose(sink_assets), out / "yard.glb")
+    runtime = godot_runtime("yard", out)
+    runtime.call("wait_ready", timeout=60)
+    runtime.call("state.set", key="yard:hopper#running", value=True)
+    runtime.call("time.advance", seconds=3.0, scale=1)
+    emitted = _get(runtime, "hopper#emitted")
+    received = _get(runtime, "hole#received")
+    # Every ball drops (moving 1 m/s toward +z) into the hole: none are left, and each paid 2 * 100.
+    assert emitted >= 8 and received >= emitted - 3, (emitted, received)
+    assert runtime.call("state.get", key="world:yard.given")["value"] == emitted + received * 200
+    assert _get(runtime, "hopper#alive") == emitted - received

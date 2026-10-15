@@ -13,6 +13,9 @@ jetty, this platform. In a scene or an asset::
         polygon: [[-4, -3], [4, -3], [4, 3], [-4, 3]]
         y: 0
         height: 2.5
+      hole:                            # a sink: spawned items that enter are taken in
+        box: [0.4, 0.3, 0.4]
+        sink: {accepts: [marble]}      # (true: any item); state `received`, signal received {item, ...}
       deck:                            # a box round something, by reference
         around: deck
         margin: 0.3                    # or [x, y, z]
@@ -143,6 +146,13 @@ def build_places(root: SceneNode, spec: Any, where: str,
             raise ValueError(f"{at}: detect is one or both of {', '.join(DETECT)}, got {entry.get('detect')!r}")
         if detect != ["actors"]:
             place["detect"] = [d for d in DETECT if d in detect]
+        if entry.get("sink"):
+            sink = entry["sink"]
+            sink = {} if sink is True else sink
+            accepts = sink.get("accepts", []) if isinstance(sink, dict) else None
+            if not isinstance(sink, dict) or set(sink) - {"accepts"} or not isinstance(accepts, list):
+                raise ValueError(f"{at}: sink is true or {{accepts: [item names]}}, got {entry['sink']!r}")
+            place["sink"] = {"accepts": [str(a) for a in accepts]}
         tags = [str(t) for t in entry.get("tags", [])]
         node = SceneNode(name=str(name),
                          transform=Transform(translation=position, rotation=np.array([0.0, np.radians(yaw), 0.0])),
