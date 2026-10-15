@@ -50,6 +50,7 @@ from typing import Any, Callable, Iterable
 
 from . import refs
 from .core.node import SceneNode
+from .flows import flow_inputs, flow_signals, flow_state
 from .places import place_state
 
 FORMAT = "geogen-state"
@@ -472,7 +473,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
     for node in root.iter_nodes():
         declares = node.meta.get(META)
         greeting = npc_signal(node)
-        timetable = {**train_state(node), **place_state(node)}
+        timetable = {**train_state(node), **place_state(node), **flow_state(node)}
         lit = light_state(node)
         if not node.interactions and not declares and not greeting and not timetable and not lit:
             continue
@@ -481,6 +482,10 @@ def collect(root: SceneNode, package: str) -> Declarations:
             out.variables[f"{thing}#{name}"] = spec
         if greeting:
             out.signals[f"{thing}#{greeting}"] = {"subject": thing, "name": greeting}
+        for name, data in flow_signals(node).items():
+            out.signals[f"{thing}#{name}"] = {"subject": thing, "name": name, "data": data}
+        for name, spec in flow_inputs(node, thing).items():
+            out.inputs[f"{thing}#{name}"] = spec
         for interaction in node.interactions:
             out.interactions[f"{thing}#{interaction.name}"] = _machine(interaction)
         if not declares:

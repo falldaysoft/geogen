@@ -22,7 +22,7 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 ## (tests/test_extras_contract.py fails when the two differ). The exporter writes no others.
 const KNOWN_KEYS := ["version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
     "joint", "clips", "interactions", "footprint", "clearance", "door_swings", "light",
-    "affordances", "portal", "place", "physics", "travel", "poses", "npc", "container", "nav", "size",
+    "affordances", "portal", "place", "physics", "flows", "item", "travel", "poses", "npc", "container", "nav", "size",
     "city", "block", "lot", "building", "street_furniture", "recipe", "roof", "lod", "interior",
     "scatter", "signal", "character", "stairs", "water", "driving", "fleet", "train", "vehicle"]
 

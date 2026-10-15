@@ -274,6 +274,58 @@
             }
           }
         },
+        "flows": {
+          "description": "Spawned items (geogen/flows.py). 'source': this asset makes copies of the item templates among its descendants (nodes with 'item') while it runs: 'rate' a second, and at once for each one its 'queued' state asks for, while it has fewer than 'max_alive' in the world and has made fewer than 'count' (0: no limit). They appear at 'at' (this node's frame), up to 'spread' m off it across x and z, physics items moving at 'velocity' (this node's frame). Its state: running, queued (rules set them), emitted and alive (the runtime drives them); signal emitted {item}.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "object",
+              "required": ["items", "rate", "max_alive", "count", "initial", "seed", "spread", "at"],
+              "additionalProperties": false,
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": ["item", "weight", "name"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "item": { "type": "string", "description": "The item file, relative to assets/." },
+                      "weight": { "type": "number", "minimum": 0 },
+                      "name": { "type": "string", "description": "The item's name: its template's 'item.name'." }
+                    }
+                  }
+                },
+                "rate": { "type": "number", "minimum": 0 },
+                "max_alive": { "type": "integer", "minimum": 1 },
+                "count": { "type": "integer", "minimum": 0 },
+                "initial": { "enum": ["running", "stopped"] },
+                "seed": { "type": "integer" },
+                "spread": { "type": "number", "minimum": 0 },
+                "at": { "$ref": "#/$defs/vec3" },
+                "velocity": { "$ref": "#/$defs/vec3" }
+              }
+            }
+          }
+        },
+        "item": {
+          "description": "An item template (geogen/flows.py): not part of the world (the runtime takes it out on load) but what its source copies. 'mode': physics (a rigid body, from this node's 'physics'), belt or walk (along a track). 'data' is what each copy carries; 'lifetime' and 'stuck' (s) take a copy away (0: never).",
+          "type": "object",
+          "required": ["name", "mode", "body", "data", "lifetime", "stuck", "radius"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "mode": { "enum": ["physics", "belt", "walk"] },
+            "body": { "type": "object", "properties": { "asset": { "type": "string" }, "params": { "type": "object" } } },
+            "data": { "type": "object", "additionalProperties": { "type": ["number", "string"] } },
+            "speed": { "type": "number", "minimum": 0 },
+            "radius": { "type": "number", "minimum": 0 },
+            "lifetime": { "type": "number", "minimum": 0 },
+            "stuck": { "type": "number", "minimum": 0 }
+          }
+        },
         "travel": {
           "description": "A travel point (geogen/travel.py): 'use' it (its 'travel' interaction emits 'travel') or walk into 'volume' (asset frame, on: enter) to go to spawn 'spawn' (default: the first) of catalogue scene 'scene' (absent: this scene). 'target' names the part aimed at for on: use.",
           "type": "object",

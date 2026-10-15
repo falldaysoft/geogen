@@ -32,7 +32,8 @@
 | `portal` | a doorway NPC paths pass through (opening the interaction first) |
 | `travel` | {scene, spawn, prompt, on: use \| enter, target}: moves the player to another scene |
 | `vehicle` | {class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle) |
-| `physics` | {mass, friction, bounce, carry, spawn, initial}: a rigid body (geogen.physics) |
+| `physics` | {mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics) |
+| `source` | {items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows) |
 | `poses` | NPC root transforms per pose name (body assets) |
 | `room` | legacy single room (prefer `floorplan`) |
 | `floorplan` | rooms, doors and windows instead of parts; surfaces are <room>.<surface> |
@@ -58,6 +59,7 @@
 | `wire` | [{from: <thing>.<signal>, to: <thing>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
 | `quests` | [quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md); `{file, if: "{expr}"}` contributes one only when the expression isn't 0 |
+| `hud` | {stats: [{label, value, of}], banners: [{when, text, tone}]}: on-screen numbers (geogen.hud) |
 | `spawns` | {name: {position \| anchor, facing}}: where the player can start |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes (enter / leave events) |
 | `city` | a street grid with zoned lots, buildings, street furniture, parking and traffic |

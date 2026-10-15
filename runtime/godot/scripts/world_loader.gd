@@ -103,6 +103,8 @@ var _reservations := {}   # affordance id -> [GeogenNpc]
 var interactions: Array[GeogenInteraction] = []
 ## Physics props (extras.geogen.physics): rigid bodies, carrying, spawn and stow.
 var props: GeogenProps
+## Spawned items (extras.geogen.flows / item): sources, templates and the items in the world.
+var flows: GeogenFlows
 var _moving := {}     # Node3D driven by an interaction -> true
 var _target_of := {}  # Node3D aimed at -> GeogenInteraction
 var _poll := 0.0
@@ -151,6 +153,8 @@ func _ready() -> void:
     add_child(rules)
     props = GeogenProps.new(self)
     add_child(props)
+    flows = GeogenFlows.new(self)
+    add_child(flows)
     _collider_material = StandardMaterial3D.new()
     _collider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     _collider_material.albedo_color = Color(0.2, 1.0, 0.4)
@@ -301,10 +305,11 @@ func unload() -> void:
     _load_started = t
     rules.remember_reports()      # for the quest log, while the interactions it counts are still here
     for child in get_children():
-        if child == events or child == rules or child == props:
+        if child == events or child == rules or child == props or child == flows:
             continue
         remove_child(child)
         child.free()
+    flows.clear()
     props.clear()
     rules.unload()
     interactions_by_key.clear()
@@ -517,6 +522,7 @@ func setup_root(root: Node) -> Dictionary:
         if geogen_extras(node).get("type") == "lod":
             node.get_parent().remove_child(node)
             node.queue_free()
+    flows.setup(root)        # item templates leave the world before anything else sees them
     for node in [root] + root.find_children("*", "Node3D", true, false):
         var uid := uid_of(node)
         if uid != "":
@@ -625,6 +631,7 @@ func forget(root: Node) -> void:
                 _pending_state[_state_key(it)] = it.snapshot()
             interactions.erase(it)
             it.queue_free()
+    flows.forget(root)
     props.forget(root)
     for uid in nodes_by_uid.keys():
         if inside.call(nodes_by_uid[uid]):

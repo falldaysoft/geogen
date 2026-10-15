@@ -516,6 +516,11 @@ class LayoutLoader:
 
             root.meta["physics"] = parse_physics(data["physics"], root, part_nodes, name)
 
+        if data.get("source"):
+            from ..flows import parse_source
+
+            root.meta["flows"] = {"source": parse_source(data["source"], root, name)}
+
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,
             # scale] with parts in metres): report the real extent instead.

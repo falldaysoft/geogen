@@ -223,6 +223,9 @@ class SceneComposer:
             root = self._build_scene_here(data, source)
             resolve_moves(root, final=self._depth == 1)
             resolve_spawns(root, final=self._depth == 1)
+            from ..flows import attach_templates
+
+            attach_templates(root, self._loader, self._assets_dir)
             return root
         finally:
             self._depth -= 1

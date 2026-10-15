@@ -8,6 +8,13 @@ extends Node
 ## it started). The player picks up and carries props with `carry` (E; E again drops).
 ##
 ## Owned by WorldLoader (`world.props`); main.gd asks it what is aimed at and drives carrying.
+##
+## Clones (`add_clone`) are spawned items in physics mode (flows.gd): bodies made the same
+## way, carried the same way, but keyed by an id of the item's (no stable ID), never saved
+## here, and handed back (`clone_fell`) rather than stowed when they fall out of the world.
+
+## A clone fell out of the world: flows.gd takes it away.
+signal clone_fell(uid: String)
 
 const LAYER := 1                 ## props collide with the world and the player
 const KILL_DEPTH := 10.0         ## m below the lowest loaded model: fallen out of the world
@@ -46,28 +53,7 @@ func setup(root: Node) -> void:
                 mi.free()
         var uid := WorldLoader.uid_of(node)
         var home := node.global_transform
-        var body := RigidBody3D.new()
-        body.name = "%s_body" % node.name
-        body.mass = float(data.get("mass", 10.0))
-        body.collision_layer = LAYER
-        body.collision_mask = 1 | 2
-        body.continuous_cd = true
-        body.can_sleep = false        # resting on a hatch that swings away, it must notice
-        var material := PhysicsMaterial.new()
-        material.friction = float(data.get("friction", 0.8))
-        material.bounce = float(data.get("bounce", 0.0))
-        body.physics_material_override = material
-        var damping: Dictionary = data.get("damping", {})
-        if not damping.is_empty():
-            body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
-            body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
-            body.linear_damp = float(damping.get("linear", 0.0))
-            body.angular_damp = float(damping.get("angular", 0.0))
-        var shape := CollisionShape3D.new()
-        shape.shape = make_shape(data)
-        shape.position = _vec(data.get("center", [0, 0.25, 0]))
-        body.add_child(shape)
-        body.set_meta("geogen_prop", uid)
+        var body := _make_body(node, data, uid)
         var parent := node.get_parent()
         parent.add_child(body)
         body.global_transform = home
@@ -83,6 +69,65 @@ func setup(root: Node) -> void:
             spawn.target_changed.connect(func(_from: String, to: String, _actor: String): _spawn_state(entry, to))
             spawn.state_entered.connect(func(state: String, _event: String): _spawn_state(entry, state))
             _spawn_state(entry, spawn.target if spawn.target != "" else spawn.state)
+
+
+## A spawned item's body (flows.gd): ``node`` (a copy of the item's template, not in the
+## tree) wrapped in a rigid body put at ``xform`` under ``parent``, moving at ``velocity``.
+func add_clone(node: Node3D, data: Dictionary, uid: String, parent: Node, xform: Transform3D,
+        velocity := Vector3.ZERO) -> RigidBody3D:
+    for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+        if WorldLoader._is_collider(mi):
+            mi.get_parent().remove_child(mi)
+            mi.free()
+    var body := _make_body(node, data, uid)
+    parent.add_child(body)
+    body.global_transform = xform
+    node.transform = Transform3D.IDENTITY
+    body.add_child(node)
+    body.linear_velocity = velocity
+    var entry := {"uid": uid, "node": node, "body": body, "data": data, "home": xform, "spawn": null, "clone": true}
+    props[uid] = entry
+    _by_body[body] = uid
+    return body
+
+
+## Take a clone away (its body and everything in it).
+func remove_clone(uid: String) -> void:
+    var entry: Dictionary = props.get(uid, {})
+    if entry.is_empty():
+        return
+    if held == uid:
+        drop()
+    _by_body.erase(entry["body"])
+    props.erase(uid)
+    if is_instance_valid(entry["body"]):
+        entry["body"].queue_free()
+
+
+func _make_body(node: Node3D, data: Dictionary, uid: String) -> RigidBody3D:
+    var body := RigidBody3D.new()
+    body.name = "%s_body" % node.name
+    body.mass = float(data.get("mass", 10.0))
+    body.collision_layer = LAYER
+    body.collision_mask = 1 | 2
+    body.continuous_cd = true
+    body.can_sleep = false        # resting on a hatch that swings away, it must notice
+    var material := PhysicsMaterial.new()
+    material.friction = float(data.get("friction", 0.8))
+    material.bounce = float(data.get("bounce", 0.0))
+    body.physics_material_override = material
+    var damping: Dictionary = data.get("damping", {})
+    if not damping.is_empty():
+        body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+        body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+        body.linear_damp = float(damping.get("linear", 0.0))
+        body.angular_damp = float(damping.get("angular", 0.0))
+    var shape := CollisionShape3D.new()
+    shape.shape = make_shape(data)
+    shape.position = _vec(data.get("center", [0, 0.25, 0]))
+    body.add_child(shape)
+    body.set_meta("geogen_prop", uid)
+    return body
 
 
 ## The collider of a prop's extras: its box, or a sphere / upright capsule (``shape``).
@@ -173,6 +218,9 @@ func _physics_process(delta: float) -> void:
         var entry: Dictionary = props[uid]
         var body: RigidBody3D = entry["body"]
         if is_instance_valid(body) and _live(entry) and body.global_position.y < floor_y:
+            if entry.get("clone", false):
+                clone_fell.emit(uid)        # flows.gd removes it (not while iterating: deferred)
+                continue
             if uid == held:
                 drop()
             if entry["spawn"] != null:
@@ -256,7 +304,7 @@ func save() -> Dictionary:
     for uid in props:
         var entry: Dictionary = props[uid]
         var body: RigidBody3D = entry["body"]
-        if not is_instance_valid(body) or not _live(entry):
+        if not is_instance_valid(body) or not _live(entry) or entry.get("clone", false):
             continue
         out[uid] = {"position": _arr(body.global_position), "rotation": _arr(body.global_rotation_degrees),
             "velocity": _arr(body.linear_velocity)}

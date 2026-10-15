@@ -40,6 +40,8 @@ const COMMANDS := {
         + "-> {ok, held}",
     "player.drop": "let go of what the player carries -> {dropped}",
     "world.bodies": "every physics prop: uid, node, position, yaw_deg, live, held, sleeping, speed",
+    "flows.list": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], "
+        + "items: [{id, source, item, mode, position, data, age}]}",
     "player.keys": "{keys?} set (or get) the keys the player holds",
     "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
     "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
@@ -361,6 +363,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return {"dropped": dropped}
         "world.bodies":
             return world.props.report()
+        "flows.list":
+            return world.flows.report()
         "player.keys":
             if args.has("keys"):
                 main.keys = Array(args["keys"])

@@ -516,6 +516,13 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 - Interaction motions and targets may name an arrayed part: all its copies.
 - `examples/test_chamber/` (`--project examples/test_chamber -s test_chamber_01`) is the worked example: a Portal-style chamber (Halcyon Applied Sciences) with a dropper, weighted cube, floor button, sliding door, indicator lines and a chamber sign; core textures `panel` (cladding panels with seams, per-panel tone, grime, bolts) and `stripes` (hazard stripes). Tests: `tests/test_test_chamber.py`. Run it with `godot --path runtime/godot -- --generated=$PWD/examples/test_chamber/generated` after `--export-catalogue`.
 
+### Spawned items
+
+`geogen/flows.py` (epic geogen.45): things the runtime makes while the game runs, moves and takes away. Items have no stable IDs and no rules state; the rules see counts and signals with data.
+- **Item** (`kind: item`, `assets/items/*.yaml`): `body` (asset or `{asset, params}`), `mode: physics | belt | walk`, `data` (numbers or text each copy carries), `speed`, `radius`, `lifetime`, `stuck` (s at rest before a physics item goes; give rolling bodies `damping`).
+- **Source** (asset `source:`): `items` (file or weighted list), `rate`, `at` (attachment), `max_alive`, `count`, `initial: running | stopped`, `velocity`, `spread`, `seed`. Parsed into `meta.flows.source`; the composer (`flows.attach_templates`, end of every `_build_scene`) adds a hidden template child per item with `meta.item`. State: `running`, `queued` (rules set them), `emitted`, `alive` (driven: flows); inputs `start`, `stop`, `emit`; signal `emitted {item}` (declared by `state.collect` via `flow_state` / `flow_signals` / `flow_inputs`).
+- **Runtime** `runtime/godot/scripts/flows.gd` (`WorldLoader.flows`): takes templates out of the world first thing in `setup_root`, runs sources, physics items are `GeogenProps.add_clone` bodies. API `flows.list`. Tests: `tests/test_flows.py`.
+
 ### Scatter placement
 
 `layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.

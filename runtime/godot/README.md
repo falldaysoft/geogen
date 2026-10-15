@@ -614,6 +614,28 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
 
 The example is `examples/test_chamber` (`tests/test_test_chamber.py`).
 
+## Spawned items
+
+Sources make copies of item templates while the game runs (`geogen/flows.py`;
+`scripts/flows.gd`, `GeogenFlows`, `WorldLoader.flows`).
+
+- **Load:** `flows.setup` runs first in `setup_root`: every node with
+  `extras.geogen.item` (a template) is taken out of the world and kept by its
+  source (the nearest ancestor with `flows.source`), so no uid, interaction, prop,
+  collider or navmesh bake sees it.
+- **Making items:** each physics frame a source whose `running` state is true makes
+  `rate` items a second, and one at once for each its `queued` state asks for (rules
+  raise it with the `emit` input), while it has fewer than `max_alive` in the world
+  and has made fewer than `count`. The pick among its items is weighted and seeded
+  per source. It drives `emitted` and `alive` and posts the signal `emitted {item}`.
+- **Physics items** are clone props (`GeogenProps.add_clone`): rigid bodies like
+  any prop, carryable, keyed `flow#<id>`, not saved with the props. Items live under
+  `Flows/Items` in world space.
+- **Taken away** when they outlive `lifetime`, when a physics item has rested
+  `stuck` seconds (give rolling items `damping`: Godot has no rolling resistance),
+  or when they fall out of the world.
+- Control API: `flows.list`. Tests: `tests/test_flows.py`.
+
 ## Events
 
 `WorldLoader.events` (`scripts/events.gd`, `GeogenEvents`) is the one stream of
@@ -1015,6 +1037,8 @@ A new key needs a schema entry and a row here.
 | `portal` | `scripts/world_loader.gd` | doorways NPC paths open (`scripts/npc.gd`) |
 | `place` | `scene_builder.gd` | `PlaceArea` trigger volumes |
 | `physics` | `scripts/props.gd` | rigid-body props, carrying, spawn / stow |
+| `flows` | `scripts/flows.gd` | spawned items: a source's rate, limits and spawn point |
+| `item` | `scripts/flows.gd` | an item template: taken out of the world on load and copied by its source |
 | `travel` | `scripts/world_loader.gd` | travel points |
 | `npc` | `scripts/world_loader.gd` | a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition |
 | `poses` | - | on body assets; NPCs read the copy in `npc.body.poses` |

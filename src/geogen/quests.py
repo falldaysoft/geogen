@@ -720,7 +720,9 @@ class _Compiler:
                         raise QuestError(f"input '{name}' " + ("sets a fixed value: it takes no value" if "to" in wired
                                                                else "takes a value: add value:"))
                     value, spec = wired.get("to", effect.get("value")), self.decls.spec(wired["set"]) or {}
-                    if isinstance(value, str) and not fits(spec, value):
+                    if isinstance(value, dict):
+                        pass                                # a tree the build compiled (a source's emit)
+                    elif isinstance(value, str) and not fits(spec, value):
                         value = self.condition(quest, value)
                     elif not fits(spec, value):
                         raise QuestError(f"input '{name}' is a {spec.get('type')}: it can't be {value!r}")
