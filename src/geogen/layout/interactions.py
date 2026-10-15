@@ -19,6 +19,9 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
             values: { open: 95 }   # degrees (rotate) or metres (translate) per state
           - parts: [note]
             show: [open]           # or hide: [...]: shown only in (hidden only in) these states
+          - parts: [slice]
+            move: { served: "{serve_to}" }   # onto another placed thing's attachment (plate.center)
+            from: bottom_center    # the point of the part that lands there (default)
 
 State keys: ``next`` (the state ``use`` heads to when this is the target
 state; absent = not usable, e.g. a latched button), ``then`` (auto-advance on
@@ -36,6 +39,12 @@ with them: a part shows as soon as the interaction heads for a state that shows 
 when it arrives at one that doesn't. Motions may be empty for pure state toggles (a TV's power) as
 long as ``targets`` says what to aim at. ``use`` applies ``next`` of the *target* state, so a
 moving door reverses mid-swing.
+
+A ``move`` motion takes parts to another placed thing: ``{<state>: "<reference>.<attachment>"}``
+(usually a text param the scene fills in, since an asset doesn't know its neighbours). Once a
+scene is composed, ``resolve_moves`` finds each target from the nearest scope that has it and
+turns the motion into ``translate`` motions in the asset frame (one per state), so exports and
+runtimes animate it like any other; the part's ``from`` anchor lands on the attachment.
 
 Exported node transforms show the ``initial`` state; runtimes recover each
 part's rest pose as ``M(initial_value)^-1 * exported`` (see export.py and the
@@ -76,11 +85,14 @@ class Motion:
 
     parts: list[SceneNode]
     kind: str                       # "rotate" (degrees) | "translate" (metres) | "visible" (1 shown, 0 hidden)
+                                    # | "move" (to `goto` targets; resolve_moves makes it translates)
     axis: np.ndarray
     pivot: np.ndarray
     values: dict[str, float]
     # Value the parts are currently posed at (0 = as authored).
     applied: float = 0.0
+    # A move's targets: {state: "<reference>.<attachment>"}; `pivot` is the part's landing point.
+    goto: dict[str, str] | None = None
 
     def matrix(self, value: float) -> np.ndarray:
         """Asset-frame transform for ``value``."""
@@ -124,7 +136,7 @@ class Interaction:
             "initial": self.initial,
             "duration": self.duration,
             "states": {k: s.to_dict() for k, s in self.states.items()},
-            "motions": [self._motion_extras(m, name_of) for m in self.motions],
+            "motions": [self._motion_extras(m, name_of) for m in self.motions if m.kind != "move"],   # unresolved: stays put
         }
         if self.lock:
             out["lock"] = dict(self.lock)
@@ -151,6 +163,8 @@ def apply_state(root: SceneNode, interaction: Interaction, state: str) -> None:
                 part.hidden = value < 0.5
             motion.applied = value
             continue
+        if motion.kind == "move":           # not resolved yet (resolve_moves): parts stay as authored
+            continue
         m = motion.matrix(value) @ np.linalg.inv(motion.matrix(motion.applied))
         motion.applied = value
         if np.allclose(m, np.eye(4)):
@@ -160,6 +174,75 @@ def apply_state(root: SceneNode, interaction: Interaction, state: str) -> None:
             new_world = root_world @ m @ in_root
             parent_world = part.parent.world_transform() if part.parent is not None else np.eye(4)
             part.transform = _to_transform(np.linalg.inv(parent_world) @ new_world, part.transform.scale)
+
+
+def resolve_moves(root: SceneNode, final: bool = False) -> None:
+    """Turn every ``move`` motion under ``root`` whose targets can be found into ``translate``
+    motions, and pose the parts for their interaction's state. A target is looked up from the
+    asset's parent scope outward (the nearest placement of that name, as a light switch finds
+    its light); ``final`` (the outermost scene) makes one that is still missing an error."""
+    from .. import refs
+
+    missing = []
+    for node in root.iter_nodes():
+        for interaction in node.interactions:
+            if not any(m.kind == "move" for m in interaction.motions):
+                continue
+            asset_inv = np.linalg.inv(node.world_transform())
+            motions: list[Motion] = []
+            unresolved = False
+            for motion in interaction.motions:
+                if motion.kind != "move":
+                    motions.append(motion)
+                    continue
+                found = {}
+                for state, text in (motion.goto or {}).items():
+                    where = _attachment_point(node, text, refs)
+                    if where is None:
+                        unresolved = True
+                        missing.append(f"{node.name}: interaction '{interaction.name}' moves to '{text}', which "
+                                       f"isn't a placed thing's attachment (<thing>.<attachment>) from here")
+                        break
+                    found[state] = (asset_inv @ np.r_[where, 1.0])[:3]
+                if len(found) != len(motion.goto or {}):
+                    motions.append(motion)
+                    continue
+                for state, target in found.items():
+                    step = target - motion.pivot
+                    length = float(np.linalg.norm(step))
+                    axis = step / length if length > 1e-9 else np.array([0.0, 1.0, 0.0])
+                    motions.append(Motion(motion.parts, "translate", axis, np.zeros(3),
+                                          {s: (length if s == state else 0.0) for s in interaction.states}))
+            if unresolved:
+                continue
+            interaction.motions = motions
+            apply_state(node, interaction, interaction.initial)
+    if final and missing:
+        raise ValueError("\n".join(missing))
+
+
+def _attachment_point(node: SceneNode, text: str, refs) -> np.ndarray | None:
+    """World position of ``<reference>.<attachment>`` seen from ``node``'s scopes outward."""
+    thing, dot, attachment = text.rpartition(".")
+    if not dot:
+        return None
+    scope = node.parent
+    while scope is not None:
+        try:
+            target = refs.resolve(scope, thing)
+        except refs.RefError:
+            scope = scope.parent
+            continue
+        found = target.get_attachment(attachment) if attachment in target.attachments else None
+        if found is None:       # a primitive part's own points (top, center, ...) by anchor
+            from .anchors import resolve_anchor
+
+            if target.size is None:
+                return None
+            local = resolve_anchor(attachment, target.size)
+            return (target.world_transform() @ np.r_[local, 1.0])[:3]
+        return np.asarray(found.to_matrix()[:3, 3], dtype=np.float64)
+    return None
 
 
 def _to_transform(matrix: np.ndarray, scale: np.ndarray):
@@ -226,9 +309,25 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
 
         motions = []
         for mspec in spec.get("motions", []):
-            given = [k for k in ("rotate", "translate", "show", "hide") if k in mspec]
+            given = [k for k in ("rotate", "translate", "show", "hide", "move") if k in mspec]
             if len(given) != 1:
-                raise ValueError(f"Interaction '{name}': each motion needs exactly one of rotate/translate/show/hide")
+                raise ValueError(f"Interaction '{name}': each motion needs exactly one of "
+                                 f"rotate/translate/show/hide/move")
+            if given[0] == "move":
+                goto = mspec["move"]
+                if not isinstance(goto, dict) or not goto or not all(isinstance(v, str) for v in goto.values()):
+                    raise ValueError(f"Interaction '{name}': move is {{<state>: \"<thing>.<attachment>\"}}")
+                for sname in goto:
+                    if sname not in states:
+                        raise ValueError(f"Interaction '{name}': move names unknown state '{sname}'")
+                for pname in mspec.get("parts", []):
+                    node = part(pname)
+                    size = node.size if node.size is not None else np.zeros(3)
+                    local = resolve_anchor(str(mspec.get("from", "bottom_center")), size) - np.array([0.0, size[1] / 2, 0.0])
+                    landing = (root_inv @ node.world_transform() @ np.r_[local, 1.0])[:3]
+                    motions.append(Motion([node], "move", np.zeros(3), landing, {},
+                                          goto={str(k): str(v) for k, v in goto.items() if str(v)}))
+                continue
             if given[0] in ("show", "hide"):
                 listed = mspec[given[0]]
                 listed = [listed] if isinstance(listed, str) else list(listed or [])

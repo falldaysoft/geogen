@@ -213,7 +213,19 @@ class SceneComposer:
         return self._build_scene(self._resolve_params(data, None))
 
     def _build_scene(self, data: dict[str, Any], source: Path | None = None) -> SceneNode:
-        """Build scene from parsed YAML data (``source``: its file, for diagnostics)."""
+        """Build scene from parsed YAML data (``source``: its file, for diagnostics), then take
+        parts that `move` to other placed things' attachments as far as this scene can see."""
+        from .interactions import resolve_moves
+
+        self._depth = getattr(self, "_depth", 0) + 1
+        try:
+            root = self._build_scene_here(data, source)
+            resolve_moves(root, final=self._depth == 1)
+            return root
+        finally:
+            self._depth -= 1
+
+    def _build_scene_here(self, data: dict[str, Any], source: Path | None = None) -> SceneNode:
         name = data.get("name", "composed_scene")
         root = SceneNode(name)
 
