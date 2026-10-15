@@ -846,8 +846,15 @@ neither has one with `marker: hidden`.
 
 - Positions are the manifest's `quests.markers` (through
   `GeogenRules.report`), by stable ID, so a subject in a chunk that isn't
-  loaded is marked. A place is marked at the middle of its volume. Markers
-  show through walls and terrain.
+  loaded is marked (streamed scenes too: the chunk index has them). A place is
+  marked at the middle of its volume; a subject the export didn't mark (a
+  content package's) is found in the loaded world by stable ID.
+- **Fade**: markers fade from 40 m to 160 m away (`FADE_FROM`, `FADE_TO`,
+  down to 0.45), and one with something between it and the camera (rays a few
+  times a second) is drawn at half strength. `alpha` and `occluded` are reported.
+- **Counted objectives** (`count` / `all` / `any` over subjects): subjects that
+  are done already (`subjects_done` in the report) aren't marked, so the last
+  light switch is the only one left.
 - **Edge**: an indicator that is off screen or behind the camera sits on the
   edge of the screen (`edge_margin` in: 7% of the smaller side, at most 44 px)
   with an arrow pointing the way to turn; one straight behind is on the bottom
@@ -863,8 +870,10 @@ neither has one with `marker: hidden`.
   instead (an arch, labelled with the scene's name), for one quest per package
   visited this session: the one tracked there (the quest log's pick), else its
   first active one, if it has an open objective with a marker. With the
-  island's lighthouse quest going, the hub's Island portal is marked. No route
-  over several scenes is worked out: with no direct travel point nothing shows.
+  island's lighthouse quest going, the hub's Island portal is marked. With no
+  travel point straight there, the first steps of the shortest routes over the
+  exported scenes' travel points are marked (`route` lists the scenes on the
+  way). A portal carries one marker, the tracked quest's.
 - The list is rebuilt on quest events, `changed` events and the host's
   refreshes; only the projection runs per frame. They are hidden while a modal
   panel (the quest log) is up.

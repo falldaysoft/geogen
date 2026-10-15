@@ -638,9 +638,21 @@ static func _report_of(machine: GeogenMachine, quests: Dictionary, package: Stri
             if objective.has("progress"):
                 var n = machine.value(objective["progress"]["value"], actor)
                 entry["progress"] = [int(n) if n != null else 0, int(objective["progress"]["of"])]
+            # A counted objective (count / all / any over its subjects): which subjects are done
+            # already, judged one at a time, so markers leave them out.
+            var done_subjects := []
+            var counted = objective.get("progress", {}).get("value")
+            if counted is Dictionary and counted.get("op") in ["count", "all", "any"] and counted.has("where"):
+                for subject in counted.get("over", []):
+                    var one = machine.value({"op": "count", "over": [subject], "where": counted["where"]}, actor)
+                    if one != null and float(one) >= 1.0:
+                        done_subjects.append(subject)
+                entry["subjects_done"] = done_subjects
             if state == "open" and not objective.get("marker", {}).get("hidden", false):
                 var points := []
                 for subject in objective["subjects"]:
+                    if subject in done_subjects:
+                        continue
                     var at: Variant = markers.get(subject)
                     if at == null and locate.is_valid():
                         at = locate.call(subject)

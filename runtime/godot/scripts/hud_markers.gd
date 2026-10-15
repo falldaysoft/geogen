@@ -14,13 +14,18 @@ extends Control
 ##   subject (`AREA_SHIFT` of its radius off, in a direction fixed by the subject's id), so
 ##   it says "somewhere in here" and not where;
 ## - portal: a quest of another package (a scene visited earlier this session, whose state
-##   the rules keep) can't be marked here, so every travel point of the loaded scene that
-##   goes straight to that scene is marked instead. One quest per package: the one tracked
-##   there, else its first active one. No route over several scenes is worked out.
+##   the rules keep), or an objective whose subjects are in another scene, can't be marked
+##   here, so the travel points of the loaded scene that lead there are marked instead:
+##   those that go straight there, else the first steps of the shortest routes over the
+##   exported scenes' travel points (`route` lists the scenes on the way). One quest per
+##   package: the one tracked there, else its first active one.
+## Subjects of a counted objective that are done already (`subjects_done`) aren't marked.
 ## `marker: hidden` objectives have no markers (the report leaves them out).
 ##
 ## An indicator that is off screen, or behind the camera, is clamped to the edge of the
-## screen (`edge_margin()` in) with an arrow pointing the way to turn.
+## screen (`edge_margin()` in) with an arrow pointing the way to turn. Markers fade with
+## distance (`FADE_FROM` to `FADE_TO` m, down to `FADE_MIN`), and one hidden behind
+## something (a ray from the camera, a few times a second) is drawn at `OCCLUDED` strength.
 ##
 ## The list is rebuilt on quest events, state changes and the HUD's refreshes; only the
 ## projection to the screen runs per frame, and only while there is something to mark.
@@ -35,6 +40,11 @@ const COLORS := {
     "portal": Color(1.0, 0.82, 0.4),            # told apart by its arch
 }
 const TEXT := Color(1.0, 0.96, 0.84)
+const FADE_FROM := 40.0
+const FADE_TO := 160.0
+const FADE_MIN := 0.45
+const OCCLUDED := 0.5
+const OCCLUSION_EVERY := 0.2           # seconds between occlusion rays
 const SHADE := Color(0, 0, 0, 0.75)
 
 ## False hides every marker (the list is still kept and reported).
@@ -49,6 +59,10 @@ var _placed: Array[Dictionary] = []     # the same, with where each is on screen
 var _travel_points := -1                # how many travel points there were when the list was built
 var _since_check := 0.0
 var _sample := false                    # ring heights are due (taken in a physics frame)
+var _occluded := {}                     # marker index -> hidden behind something, from the last rays
+var _since_rays := 0.0
+var _routes := {}                       # scene -> [scenes its travel points go to], from the manifests
+var _routes_stamp := ""
 
 
 func _init() -> void:
@@ -148,11 +162,15 @@ func _portals(quest: Dictionary, package: String, objective: Dictionary) -> void
     var scenes: Array = objective.get("scenes", [])
     if scenes.is_empty():
         scenes = [package]
+    var route := {}                 # first step -> the scenes on the way, when none goes straight there
+    if not world.travel_points.any(func(p): return str(p.get("travel", {}).get("scene", "")) in scenes):
+        route = _first_steps(world.scene_name, scenes)
     for point in world.travel_points:
         var node = point.get("node")
         var travel: Dictionary = point.get("travel", {})
         var scene := str(travel.get("scene", ""))
-        if not scene in scenes or scene == world.scene_name or not is_instance_valid(node) or not node is Node3D:
+        if not (scene in scenes or route.has(scene)) or scene == world.scene_name \
+                or not is_instance_valid(node) or not node is Node3D:
             continue
         var uid := WorldLoader.uid_of(node)
         if _markers.any(func(m): return m["kind"] == "portal" and m["subject"] == uid):
@@ -160,8 +178,71 @@ func _portals(quest: Dictionary, package: String, objective: Dictionary) -> void
         var box := WorldLoader._aabb(node)
         _markers.append({"quest": quest["id"], "package": package, "objective": objective["id"],
             "title": quest["title"], "text": objective["text"], "kind": "portal", "scene": scene,
-            "subject": uid, "label": scene.capitalize(),
+            "subject": uid, "label": scene.capitalize(), "route": route.get(scene, [scene]),
             "at": box.get_center() if box.size != Vector3.ZERO else (node as Node3D).global_position})
+
+
+## The first steps of the shortest routes from ``here`` to any of ``targets`` over the
+## exported scenes' travel points: {first scene: [scenes on the way, ending at a target]}.
+func _first_steps(here: String, targets: Array) -> Dictionary:
+    var graph := _travel_graph()
+    var best := {}
+    var seen := {here: true}
+    var frontier := []
+    for first in graph.get(here, []):
+        if not seen.has(first):
+            seen[first] = true
+            frontier.append([first])
+    while not frontier.is_empty() and best.is_empty():
+        var next := []
+        for path in frontier:
+            var last: String = path[-1]
+            if last in targets:
+                if not best.has(path[0]):
+                    best[path[0]] = path
+                continue
+            for onward in graph.get(last, []):
+                if not seen.has(onward):
+                    seen[onward] = true
+                    next.append(path + [onward])
+        frontier = next
+    return best
+
+
+## scene -> the scenes its travel points go to, from every manifest in the exports
+## directory, read again when the catalogue index is rewritten.
+func _travel_graph() -> Dictionary:
+    var world: WorldLoader = _hud.world
+    var index := "%s/catalogue.json" % world.generated_dir
+    var stamp := "%s@%d" % [world.generated_dir, FileAccess.get_modified_time(index) if FileAccess.file_exists(index) else 0]
+    if stamp == _routes_stamp:
+        return _routes
+    _routes_stamp = stamp
+    _routes = {}
+    var dir := DirAccess.open(world.generated_dir)
+    if dir == null:
+        return _routes
+    var files := Array(dir.get_files())
+    for sub in dir.get_directories():
+        if sub.ends_with("_chunks"):
+            files.append("%s/%s.chunks.json" % [sub, sub.trim_suffix("_chunks")])
+    for file in files:
+        if not (file.ends_with(".manifest.json") or file.ends_with(".chunks.json")):
+            continue
+        var path := "%s/%s" % [world.generated_dir, file]
+        if not FileAccess.file_exists(path):
+            continue
+        var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+        if not data is Dictionary:
+            continue
+        var scene: String = str(file).get_file().trim_suffix(".manifest.json").trim_suffix(".chunks.json")
+        var goes: Array = _routes.get(scene, [])
+        for travel in data.get("travel", []):
+            var there := str(travel.get("scene", ""))
+            if there != "" and there != scene and not there in goes:
+                goes.append(there)
+        _routes[scene] = goes
+    return _routes
 
 
 ## Where the loaded model was put: the origin, unless several exports are laid out in a row.
@@ -194,6 +275,10 @@ func _process(delta: float) -> void:
         _since_check = 0.0
         if _hud.world.travel_points.size() != _travel_points:
             _hud.queue_refresh()
+    _since_rays += delta
+    if _since_rays >= OCCLUSION_EVERY:
+        _since_rays = 0.0
+        set_physics_process(true)           # the rays are cast in a physics frame
     _place_all()
     queue_redraw()
     if _markers.is_empty():
@@ -203,7 +288,10 @@ func _process(delta: float) -> void:
 ## The ground under each ring, from the colliders (in a physics frame: it casts rays).
 func _physics_process(_delta: float) -> void:
     set_physics_process(false)
-    if not _sample or not is_inside_tree():
+    if not is_inside_tree():
+        return
+    _occlusion()
+    if not _sample:
         return
     _sample = false
     var space := _hud.world.get_world_3d().direct_space_state
@@ -223,14 +311,42 @@ func _physics_process(_delta: float) -> void:
         marker["ring"] = ring
 
 
+## Which point and portal markers something stands in front of, from the camera.
+func _occlusion() -> void:
+    var camera := get_viewport().get_camera_3d()
+    _occluded.clear()
+    if camera == null:
+        return
+    var space := _hud.world.get_world_3d().direct_space_state
+    var eye := camera.global_position
+    var exclude: Array[RID] = []
+    var player = get_tree().root.find_child("Player", true, false)
+    if player is CollisionObject3D:
+        exclude.append((player as CollisionObject3D).get_rid())
+    for i in _markers.size():
+        var marker: Dictionary = _markers[i]
+        if marker["kind"] == "area":
+            continue
+        var at: Vector3 = marker["at"]
+        var query := PhysicsRayQueryParameters3D.create(eye, at)
+        query.exclude = exclude
+        var hit := space.intersect_ray(query)
+        # Hitting the subject itself, or something within a step of it, isn't being hidden.
+        _occluded[i] = not hit.is_empty() and eye.distance_to(hit["position"]) < eye.distance_to(at) - 1.0
+
+
 func _place_all() -> void:
     _placed.clear()
     var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
     if camera == null:
         return
     var view := get_viewport_rect().size
-    for marker in _markers:
-        _placed.append(_place(marker, camera, view))
+    for i in _markers.size():
+        var placed := _place(_markers[i], camera, view)
+        var fade := clampf(1.0 - (placed["distance"] - FADE_FROM) / (FADE_TO - FADE_FROM), FADE_MIN, 1.0)
+        placed["occluded"] = bool(_occluded.get(i, false))
+        placed["alpha"] = fade * (OCCLUDED if placed["occluded"] else 1.0)
+        _placed.append(placed)
 
 
 ## One marker's place on screen: {screen, distance, on_screen, clamped, behind, inside, turn}.
@@ -284,7 +400,7 @@ func _place(marker: Dictionary, camera: Camera3D, view: Vector2) -> Dictionary:
 func _draw() -> void:
     var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
     for marker in _placed:
-        var color: Color = COLORS[marker["kind"]]
+        var color := Color(COLORS[marker["kind"]], float(marker.get("alpha", 1.0)))
         if marker["kind"] == "area":
             if camera != null:
                 _draw_ring(marker, camera, color)
@@ -298,10 +414,10 @@ func _draw() -> void:
             var way := Vector2.from_angle(marker["turn"])
             _draw_arrow(at, way, color)
             _draw_icon(at - way * (ICON + 22.0), marker["kind"], color)
-            _draw_label(at - way * (ICON + 22.0), label, way)
+            _draw_label(at - way * (ICON + 22.0), label, way, color.a)
         else:
             _draw_icon(at, marker["kind"], color)
-            _draw_label(at, label, Vector2.UP)
+            _draw_label(at, label, Vector2.UP, color.a)
 
 
 ## The ring on the ground, through whatever is in front of it, where it is ahead of the camera.
@@ -362,7 +478,7 @@ func _draw_arrow(at: Vector2, way: Vector2, color: Color) -> void:
 
 
 ## The text beside an indicator: under one on screen, on the screen's side of a clamped one.
-func _draw_label(at: Vector2, text: String, way: Vector2) -> void:
+func _draw_label(at: Vector2, text: String, way: Vector2, alpha := 1.0) -> void:
     var font := ThemeDB.fallback_font
     var extent := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE)
     var view := get_viewport_rect().size
@@ -372,8 +488,8 @@ func _draw_label(at: Vector2, text: String, way: Vector2) -> void:
     var origin := middle + Vector2(-extent.x / 2.0, extent.y / 2.0 - font.get_descent(TEXT_SIZE))
     origin.x = clampf(origin.x, 2.0, maxf(view.x - extent.x - 2.0, 2.0))
     origin.y = clampf(origin.y, extent.y, maxf(view.y - 4.0, extent.y))
-    draw_string_outline(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, 6, SHADE)
-    draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, TEXT)
+    draw_string_outline(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, 6, Color(SHADE, SHADE.a * alpha))
+    draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Color(TEXT, alpha))
 
 
 static func _distance_text(metres: float) -> String:
@@ -401,7 +517,8 @@ func hud_report() -> Dictionary:
             "subject": marker["subject"], "kind": marker["kind"], "position": [at.x, at.y, at.z],
             "screen": [marker["screen"].x, marker["screen"].y], "distance": marker["distance"],
             "distance_text": _distance_text(marker["distance"]), "on_screen": marker["on_screen"],
-            "clamped": marker["clamped"], "behind": marker["behind"]}
+            "clamped": marker["clamped"], "behind": marker["behind"], "alpha": marker["alpha"],
+            "occluded": marker["occluded"]}
         if marker["clamped"]:
             entry["turn_deg"] = rad_to_deg(marker["turn"])
         if marker["kind"] == "area":
@@ -410,5 +527,6 @@ func hud_report() -> Dictionary:
         if marker["kind"] == "portal":
             entry["scene"] = marker["scene"]
             entry["label"] = marker["label"]
+            entry["route"] = marker["route"]
         out["markers"].append(entry)
     return out
