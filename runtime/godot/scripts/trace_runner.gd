@@ -7,7 +7,7 @@ extends RefCounted
 ##   {"use": key, "actor", "used"}     {"event": {...}}
 ##   {"set": key, "to": value, "actor"}   {"advance": seconds}   {"clock": {...}}
 ##   {"save_load": true}               a round trip through a save (as JSON)
-##   {"expect": {state, actors, signals, fired, errors}}
+##   {"expect": {state, actors, signals, fired, feedback, errors}}
 ## `signals` ([subject, name] pairs) and `fired` (rule ids) are exactly what
 ## happened since the last expect; `errors` is a count. JSON null and "" are
 ## the same subject.
@@ -52,6 +52,7 @@ static func run(trace: Dictionary) -> Array[String]:
                 continue
             fresh.signals = machine.signals     # loading is not an input: nothing fires
             fresh.fired = machine.fired
+            fresh.feedback = machine.feedback
             fresh.errors = machine.errors
             machine = fresh
         elif step.has("expect"):
@@ -76,11 +77,15 @@ static func run(trace: Dictionary) -> Array[String]:
                 var ran: Array = machine.fired.map(func(f: Array) -> Variant: return f[0])
                 if not _same(ran, expect["fired"]):
                     problems.append("%s: fired %s, expected %s" % [where, _shown(ran), _shown(expect["fired"])])
+            if expect.has("feedback") and not _same(machine.feedback, expect["feedback"]):
+                problems.append("%s: feedback %s, expected %s" % [where, _shown(machine.feedback),
+                    _shown(expect["feedback"])])
             if expect.has("errors") and machine.errors.size() != int(expect["errors"]):
                 problems.append("%s: %d errors, expected %d: %s" % [where, machine.errors.size(),
                     int(expect["errors"]), _shown(machine.errors)])
             machine.signals = []
             machine.fired = []
+            machine.feedback = []
             machine.errors = []
         else:
             problems.append("%s: unknown step %s" % [where, _shown(step.keys())])

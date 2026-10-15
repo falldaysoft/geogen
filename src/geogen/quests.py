@@ -45,6 +45,7 @@ from typing import Any, Iterable
 from . import conditions, refs, roots
 from .conditions import ConditionError
 from .core.node import SceneNode
+from .rules import SOUNDS
 from .state import Declarations, StateError, fits
 
 KIND = "quest"
@@ -80,6 +81,8 @@ EFFECTS = {
     "start_quest": "start a quest (by id) for the actor, if it is available to them",
     "fail_quest": "fail an active quest",
     "complete_objective": "<quest>.<objective>: mark an open objective done",
+    "notify": "text to show the actor (a HUD toast)",
+    "play": "a sound to play for the actor: " + ", ".join(SOUNDS),
 }
 MARKER_KEYS = {"at", "area"}
 
@@ -685,6 +688,15 @@ class _Compiler:
                     subject = (self.thing(quest, effect["of"])[0] if "of" in effect
                                else self.uid(quest.node) if quest.node is not None else f"{self.package}:")
                     out.append({"emit": effect["emit"], "subject": subject})
+                elif kind == "notify":
+                    if not isinstance(effect["notify"], str) or not effect["notify"].strip():
+                        raise QuestError("notify takes the text to show")
+                    out.append({"notify": effect["notify"]})
+                elif kind == "play":
+                    if effect["play"] not in SOUNDS:
+                        raise QuestError(f"play: no sound {effect['play']!r}.{refs._near(str(effect['play']), SOUNDS)} "
+                                         f"Sounds: {', '.join(SOUNDS)}")
+                    out.append({"play": effect["play"]})
                 else:
                     out.extend(self.out.effect({kind: effect[kind]}))
             except QuestError as exc:
@@ -1042,6 +1054,10 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     built = switch_bindings(root, uid)
     guards = [(f"{uid(node)}#{it.name}", it.when, node) for node in root.iter_nodes()
               for it in node.interactions if it.when]
+    for node in root.iter_nodes():                  # what a use its `when` stops says
+        for it in node.interactions:
+            if it.refused:
+                declarations.interactions[f"{uid(node)}#{it.name}"]["refused"] = it.refused
     if not specs and not wiring and not built and not guards:
         return Quests(declarations)
     return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False, built=built,

@@ -55,6 +55,14 @@ EVENT_TYPES = {
     "start": "a new game began for an actor",
 }
 ACTORLESS = ("clock",)     # event types that never have an actor
+# Feedback effects: what a rule tells its actor. Neither is state or an event: the machine
+# logs them (`feedback`) and a runtime shows or plays them; nothing reacts to them.
+FEEDBACK = {
+    "notify": "text shown to the rule's actor (a HUD toast; with no actor, to the player)",
+    "play": "a named sound (SOUNDS) played for the rule's actor",
+}
+# The sounds `play` names: runtime/godot/scripts/sound.gd CHIMES has each.
+SOUNDS = ("notice", "refused", "success", "click", "started", "objective_done", "complete", "failed")
 
 State = dict[str, Any]
 Event = dict[str, Any]
@@ -149,6 +157,9 @@ def check_program(program: dict[str, Any]) -> list[str]:
                 if state.get(link) is not None and state[link] not in states:
                     problems.append(f"{key}: state '{name}' {link}: '{state[link]}' isn't one of its states")
     guarded = [(key, spec["when"]) for key, spec in interactions.items() if "when" in spec]
+    for key, spec in interactions.items():
+        if "refused" in spec and ("when" not in spec or not isinstance(spec["refused"], str) or not spec["refused"]):
+            problems.append(f"{key}: refused is the text shown when its `when` stops a use (it needs a when)")
 
     def tree(where: str, t: Any) -> None:
         try:
@@ -223,8 +234,14 @@ def check_program(program: dict[str, Any]) -> list[str]:
             elif "emit" in effect:
                 if not isinstance(effect["emit"], str) or not effect["emit"]:
                     problems.append(f"{where}: emit needs a signal name")
+            elif "notify" in effect:
+                if not isinstance(effect["notify"], str) or not effect["notify"]:
+                    problems.append(f"{where}: notify needs text")
+            elif "play" in effect:
+                if effect["play"] not in SOUNDS:
+                    problems.append(f"{where}: play: no sound {effect['play']!r} (sounds: {', '.join(SOUNDS)})")
             else:
-                problems.append(f"{where}: unknown effect {sorted(effect)} (effects: set, emit)")
+                problems.append(f"{where}: unknown effect {sorted(effect)} (effects: set, emit, notify, play)")
     return problems
 
 
@@ -234,7 +251,7 @@ class Machine:
     """A program running: its state, its clock and its pending timers.
 
     Feed it inputs (``post``, ``use``, ``advance``, ``set_clock``); read ``get`` and
-    the ``signals`` / ``fired`` / ``errors`` logs. ``actors`` maps actor IDs to
+    the ``signals`` / ``fired`` / ``feedback`` / ``errors`` logs. ``actors`` maps actor IDs to
     ``{"kind": "player" | "npc"}``.
     """
 
@@ -261,6 +278,7 @@ class Machine:
         self._seq = 0
         self.signals: list[list[Any]] = []           # [subject, name, actor]
         self.fired: list[list[Any]] = []             # [rule id, actor]
+        self.feedback: list[list[Any]] = []          # [notify | play, text or sound, actor]: never saved
         self.errors: list[str] = []
         for actor, info in (actors or {}).items():
             self.add_actor(actor, **info)
@@ -316,6 +334,8 @@ class Machine:
             self._settle([{"type": "signal", "subject": thing, "name": "locked", "actor": actor, "depth": 0}])
             return False
         if not self.allows(key, actor):
+            if self.interactions[key].get("refused"):
+                self.feedback += [["notify", self.interactions[key]["refused"], actor], ["play", "refused", actor]]
             return False
         queue = [{"type": "use", "subject": thing, "name": name, "actor": actor, "depth": 0}]
         self._set(key, state["next"], actor, queue, 0)
@@ -459,6 +479,9 @@ class Machine:
             try:
                 if "set" in effect:
                     self._set(effect["set"], self.value(effect["to"], actor), actor, queue, depth)
+                elif "notify" in effect or "play" in effect:
+                    kind = "notify" if "notify" in effect else "play"
+                    self.feedback.append([kind, effect[kind], actor])
                 else:
                     queue.append({"type": "signal", "subject": effect.get("subject"), "name": effect["emit"],
                                   "actor": actor, "depth": depth + 1})
@@ -574,8 +597,8 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
     ``{"event": {...}}``, ``{"set": key, "to": value, "actor"}``, ``{"advance": seconds}``,
     ``{"clock": {...}}``, ``{"save_load": true}`` (a round trip through a save) or
     ``{"expect": {...}}`` with any of ``state`` ({key: value}), ``actors`` ({id: {key: value}}),
-    ``signals`` / ``fired`` (exactly what happened since the last expect: [subject, name] pairs
-    and rule ids) and ``errors`` (a count).
+    ``signals`` / ``fired`` / ``feedback`` (exactly what happened since the last expect:
+    [subject, name] pairs, rule ids, [kind, value, actor]) and ``errors`` (a count).
     """
     if not isinstance(trace, dict):
         trace = json.loads(Path(trace).read_text())
@@ -599,10 +622,10 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
             saved = json.loads(json.dumps(machine.save()))
             for section in step["save_load"].get("without", []) if isinstance(step["save_load"], dict) else []:
                 del saved[section]
-            logs = machine.signals, machine.fired, machine.errors
+            logs = machine.signals, machine.fired, machine.feedback, machine.errors
             machine = Machine(trace["program"], trace.get("actors"))
             machine.load(saved)
-            machine.signals, machine.fired, machine.errors = logs    # loading is not an input: nothing fires
+            machine.signals, machine.fired, machine.feedback, machine.errors = logs    # loading is not an input: nothing fires
         elif "expect" in step:
             expect = step["expect"]
             for key, want in expect.get("state", {}).items():
@@ -620,9 +643,11 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
                 got = [f[0] for f in machine.fired]
                 if got != expect["fired"]:
                     problems.append(f"{where}: fired {got}, expected {expect['fired']}")
+            if "feedback" in expect and machine.feedback != expect["feedback"]:
+                problems.append(f"{where}: feedback {machine.feedback}, expected {expect['feedback']}")
             if "errors" in expect and len(machine.errors) != expect["errors"]:
                 problems.append(f"{where}: {len(machine.errors)} errors, expected {expect['errors']}: {machine.errors}")
-            machine.signals, machine.fired, machine.errors = [], [], []
+            machine.signals, machine.fired, machine.feedback, machine.errors = [], [], [], []
         else:
             problems.append(f"{where}: unknown step {sorted(step)}")
     return problems

@@ -11,6 +11,7 @@ Three keys, in a scene or an asset (``docs/rules.md`` has the semantics)::
           - {input: lamp.light, value: true}  # an input an asset declares
           - {emit: opened, of: gate}
           - {start_quest: lights_out}       # also fail_quest, complete_objective
+          - {notify: "The gate opens"}      # tell the actor; {play: <sound>} (geogen.rules.SOUNDS)
         after: 2                            # seconds before the effects run
         once: true                          # once per actor (once in all with no actor)
         if: "{quests}"                      # build time: no such rule when the param is 0 (wires too)

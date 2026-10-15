@@ -74,6 +74,8 @@ interactions:
       - { parts: [lid], rotate: z, pivot: [0.07, 0.059, 0], values: { open: -180 } }
   scoop:
     targets: [glass]
+    when: 'self.lid == "open"'
+    refused: "The {spread} jar is closed"
     duration: 0.3
     states:
       ready:    { prompt: "Spread the {spread}", next: scooping }

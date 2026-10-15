@@ -30,6 +30,7 @@
           "duration": {"type": "number", "minimum": 0, "description": "Seconds from being used or driven to arriving."},
           "locked": {"type": "boolean", "description": "Starts locked (default false)."},
           "when": {"description": "A compiled, resolved condition tree (geogen-condition.v1.schema.json), read with the user as the actor: while it is false, use does nothing (rules still drive it)."},
+          "refused": {"type": "string", "description": "With `when`: a use it stops is fed back to the user as a notify of this text."},
           "states": {
             "type": "object",
             "minProperties": 1,

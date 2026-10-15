@@ -1325,6 +1325,9 @@ func _collect_interactions(root: Node) -> void:
             it.reached.connect(func(state: String, emit: String):
                 events.post("arrived", uid, iname, it.actor, {"state": state, "emit": emit, "asset": asset_name}))
             it.raised.connect(func(event: String, actor: String): events.post("signal", uid, event, actor))
+            it.refused_use.connect(func(text: String, actor: String):      # as GeogenMachine.use says it
+                rules.tell("notify", text, actor)
+                rules.tell("play", "refused", actor))
             for part in it.moving_nodes():
                 _moving[part] = true
             for t in it.targets:

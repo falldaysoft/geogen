@@ -239,6 +239,44 @@ traces["when"] = {
         {"expect": {"state": {"demo:vault#door": "open"}, "errors": 0}},
     ]}
 
+traces["feedback"] = {
+    "about": "Feedback (notify, play) tells a rule's actor something; it is neither state nor an event, "
+             "and nothing reacts to it. A use an interaction's `when` stops says its `refused` text, with the refused sound; a "
+             "locked one says nothing (rules hear `locked`). A delayed rule tells its actor when it runs.",
+    "program": program(
+        variables={"world:demo.power": {"type": "bool", "default": False}},
+        interactions={
+            "demo:jar#lid": {"initial": "shut", "duration": 0.5, "states": TOGGLE_SHUT},
+            "demo:jar#spread": {"initial": "ready", "duration": 0.5, "when": c('jar.lid == "open"'),
+                                "refused": "The jar is closed", "states": {"ready": {"next": "ready"}}},
+            "demo:hatch#lid": {"initial": "shut", "duration": 0.5, "when": c("world.power"), "states": TOGGLE_SHUT},
+            "demo:safe#door": {"initial": "shut", "duration": 0.5, "locked": True, "states": TOGGLE_SHUT}},
+        rules=[{"id": "opened", "on": {"type": "use", "subject": "demo:jar", "name": "lid"},
+                "do": [{"notify": "You open the jar"}, {"play": "click"}]},
+               {"id": "locked", "on": {"type": "signal", "subject": "demo:safe", "name": "locked"},
+                "do": [{"notify": "It won't budge"}, {"play": "refused"}]},
+               {"id": "powered", "on": {"type": "changed", "key": "world:demo.power", "to": True}, "after": 1,
+                "do": [{"notify": "The lights hum"}]}]),
+    "actors": {"player": {"kind": "player"}, "npc:cook": {"kind": "npc"}},
+    "steps": [
+        {"use": "demo:jar#spread", "actor": "player", "used": False},
+        {"expect": {"feedback": [["notify", "The jar is closed", "player"], ["play", "refused", "player"]],
+                    "signals": [], "fired": []}},
+        {"use": "demo:hatch#lid", "actor": "npc:cook", "used": False},      # no refused text: nothing said
+        {"use": "demo:jar#lid", "actor": "npc:cook", "used": True},
+        {"expect": {"feedback": [["notify", "You open the jar", "npc:cook"], ["play", "click", "npc:cook"]]}},
+        {"advance": 0.6},
+        {"use": "demo:jar#spread", "actor": "player", "used": True},
+        {"use": "demo:safe#door", "actor": "player", "used": False},
+        {"expect": {"feedback": [["notify", "It won't budge", "player"], ["play", "refused", "player"]],
+                    "signals": [["demo:safe", "locked"]], "fired": ["locked"]}},
+        {"set": "world:demo.power", "to": True, "actor": "npc:cook"},
+        {"save_load": True},                                                # feedback is never saved
+        {"expect": {"feedback": [], "fired": ["powered"]}},
+        {"advance": 1.0},
+        {"expect": {"feedback": [["notify", "The lights hum", "npc:cook"]], "errors": 0}},
+    ]}
+
 traces["cascades"] = {
     "about": "Rules trigger rules in a fixed order; a loop is cut off after 16 events and reported.",
     "program": program(

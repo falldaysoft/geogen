@@ -743,6 +743,15 @@ mark, and a short chime when it appears (`GeogenSound.chime`, synthesised in
   replaced (`GeogenRules.reset`), a toast about the loaded package that its
   state no longer bears out (a save from before the quest was done) is dropped.
 - Only the player's quests: an NPC's raise nothing.
+- Feedback (`GeogenRules.feedback`, docs/rules.md "Feedback") for the player or
+  for no actor: a rule's `notify`, or an interaction's `refused` text when its
+  `when` turns the player away, is a `notice` toast (no heading, an "i" mark,
+  no chime of its own) in the same queue; a `play` sounds its chime at once
+  (`CHIMES` has every name in `rules.SOUNDS`), counted in `sounds`. Every piece
+  of feedback prints `feedback: {kind, value, actor}`. While the player aims at
+  an interaction whose `when` refuses them and that has `refused` text, the E
+  prompt shows that text instead (the crosshair stays inactive; `hud.aim` focus
+  kind `refused`), and E says it again.
 
 `hud.notifications {hold?, gap?, limit?, muted?, clear?}` returns the queue:
 
@@ -756,7 +765,8 @@ mark, and a short chime when it appears (`GeogenSound.chime`, synthesised in
  "rect": [12, 656, 320, 52], "viewport": [1280, 720]}
 ```
 
-`kind` is `started | objective_done | complete | failed`; `showing` and
+`kind` is `started | objective_done | complete | failed | notice` (`sounds`
+lists what `play` feedback played); `showing` and
 `queued` are oldest first; `raised` counts every toast so far (the last one's
 `seq`) and `chimes` the ones that have sounded (counted in a headless run
 too, where nothing is played). Tests set `hold` (0 dismisses

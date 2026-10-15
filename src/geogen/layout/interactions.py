@@ -6,6 +6,7 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
       swing:
         targets: [leaf, knob]      # parts the player aims at (default: moving parts)
         when: "world.power"        # optional: a condition that must hold to use it (geogen.conditions)
+        refused: No power          # optional, with when: what the prompt says while it doesn't
         initial: closed            # default: first state
         duration: 0.9              # seconds for the widest move (constant speed)
         states:
@@ -27,7 +28,8 @@ e.g. a door that closes itself), ``emit`` (event name raised on arrival),
 interaction refuse ``use`` while locked; users holding the key can lock and
 unlock it. ``when`` is a condition over live state (names relative to the asset, as
 in its wiring: ``self.x``, parts, ``world.x``, ``actor.x``); while it is false nobody can use the
-interaction, though rules can still drive it. ``quests.collect`` compiles it into the interaction's
+interaction, though rules can still drive it, and ``refused`` (text) is what the prompt shows
+then and what a refused use tells the user. ``quests.collect`` compiles it into the interaction's
 entry in the manifest's state. A ``show``/``hide`` motion
 sets parts' visibility (``SceneNode.hidden``) per state, and runtimes turn their colliders off
 with them: a part shows as soon as the interaction heads for a state that shows it and hides
@@ -109,6 +111,8 @@ class Interaction:
     lock: dict[str, Any] | None = None
     # A condition (geogen.conditions text) that must hold to use it; compiled by quests.collect.
     when: str | None = None
+    # What the prompt says, and a refused use tells the user, while `when` is false.
+    refused: str | None = None
 
     def value(self, motion: Motion, state: str) -> float:
         return float(motion.values.get(state, 0.0))
@@ -124,6 +128,8 @@ class Interaction:
         }
         if self.lock:
             out["lock"] = dict(self.lock)
+        if self.refused:
+            out["refused"] = self.refused
         return out
 
     def _motion_extras(self, m: Motion, name_of: Callable[[SceneNode], str]) -> dict[str, Any]:
@@ -264,6 +270,10 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
         when = spec.get("when")
         if when is not None and not isinstance(when, str):
             raise ValueError(f"Interaction '{name}': when must be a condition (text), got {when!r}")
+        refused = spec.get("refused")
+        if refused is not None and (when is None or not isinstance(refused, str) or not refused.strip()):
+            raise ValueError(f"Interaction '{name}': refused is the text shown while its `when` is false "
+                             f"(it needs a when), got {refused!r}")
         result.append(Interaction(name, states, motions, targets, initial, float(spec.get("duration", 0.9)),
-                                  lock=lock, when=when))
+                                  lock=lock, when=when, refused=refused))
     return result

@@ -229,7 +229,8 @@ def test_if_leaves_rules_wires_and_quests_out_of_a_build(assets):
     assert "count_pulls" not in ids and "wire_2" not in ids and {"nightfall", "crowded", "wire_1"} <= set(ids)
 
 
-GUARDED = ("  pull:\n    duration: 0.5\n", "  pull:\n    duration: 0.5\n    when: \"world.power and not self.handle_stuck\"\n")
+GUARDED = ("  pull:\n    duration: 0.5\n",
+           "  pull:\n    duration: 0.5\n    when: \"world.power and not self.handle_stuck\"\n    refused: No power\n")
 STUCK = "bounds: geometry\n", "bounds: geometry\nstate:\n  handle_stuck: {type: bool, default: false}\n"
 
 
@@ -249,8 +250,40 @@ def test_an_interaction_only_works_when_its_condition_holds(assets, tmp_path):
     machine.advance(1.0)
     assert machine.use("yard:lever#pull", "player") is False and machine.errors == []
 
+    machine.set("yard:lever#handle_stuck", False)
+    machine.set("world:yard.power", False)
+    machine.feedback.clear()
+    assert machine.use("yard:lever#pull", "player") is False
+    assert machine.feedback == [["notify", "No power", "player"], ["play", "refused", "player"]]
+
     manifest = json.loads(manifest_path(export_scene(compose(assets), tmp_path / "yard.glb")).read_text())
     assert manifest["state"]["interactions"]["yard:lever#pull"]["when"] == when
+    assert manifest["state"]["interactions"]["yard:lever#pull"]["refused"] == "No power"
+
+
+def test_rules_notify_and_play(assets):
+    rewrite(assets, "yard", "do: [{set: world.dark, to: true}]",
+            'do: [{set: world.dark, to: true}, {notify: "Night falls"}, {play: notice}]')
+    found = collect(compose(assets), "yard")
+    machine = Machine(found.program(), ACTORS)
+    machine.set_clock(night=True)
+    assert machine.feedback == [["notify", "Night falls", None], ["play", "notice", None]]
+
+
+@pytest.mark.parametrize("old, new, message", [
+    ("do: [{set: world.dark, to: true}]", "do: [{play: gong}]", r"rules.1.do.0: play: no sound 'gong'"),
+    ("do: [{set: world.dark, to: true}]", 'do: [{notify: ""}]', r"rules.1.do.0: notify takes the text"),
+])
+def test_bad_feedback_fails_with_file_and_line(assets, old, new, message):
+    rewrite(assets, "yard", old, new)
+    with pytest.raises(QuestError, match=message):
+        collect(compose(assets), "yard")
+
+
+def test_refused_needs_a_when(assets):
+    rewrite(assets, "lever", "  pull:\n    duration: 0.5\n", "  pull:\n    duration: 0.5\n    refused: Stuck\n")
+    with pytest.raises(ValueError, match="refused is the text shown while its `when` is false"):
+        compose(assets)
 
 
 def test_a_bad_interaction_condition_names_the_interaction(assets):
@@ -265,9 +298,14 @@ def test_godot_refuses_an_interaction_while_its_condition_is_false(assets, tmp_p
     export_scene(compose(assets), tmp_path / "yard.glb")
     rt = godot_runtime("yard", tmp_path)
     rt.call("state.set", key="world:yard.power", value=False)
-    assert rt.call("interactions.list", asset="lever")[0]["prompt"] == ""
-    rt.call("interactions.use", asset="lever", wait=True)
+    lever = rt.call("interactions.list", asset="lever")[0]
+    assert lever["prompt"] == "" and lever["refused"] == "No power"
+    rt.call("interactions.use", asset="lever", actor="player", wait=True)
     assert rt.call("state.get", key="yard:lever#pull")["value"] == "up"
+    rt.call("time.advance", seconds=0.2)
+    toasts = rt.call("hud.notifications")
+    assert [(t["kind"], t["text"]) for t in toasts["showing"] + toasts["queued"]] == [("notice", "No power")]
+    assert toasts["sounds"] == ["refused"]
     rt.call("state.set", key="world:yard.power", value=True)
     rt.call("interactions.use", asset="lever", wait=True)
     assert rt.call("state.get", key="yard:lever#pull")["value"] == "down"

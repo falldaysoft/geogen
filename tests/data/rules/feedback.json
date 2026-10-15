@@ -1,0 +1,255 @@
+{
+ "name": "feedback",
+ "about": "Feedback (notify, play) tells a rule's actor something; it is neither state nor an event, and nothing reacts to it. A use an interaction's `when` stops says its `refused` text, with the refused sound; a locked one says nothing (rules hear `locked`). A delayed rule tells its actor when it runs.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "world:demo.power": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "interactions": {
+   "demo:jar#lid": {
+    "initial": "shut",
+    "duration": 0.5,
+    "states": {
+     "shut": {
+      "next": "open"
+     },
+     "open": {
+      "next": "shut"
+     }
+    }
+   },
+   "demo:jar#spread": {
+    "initial": "ready",
+    "duration": 0.5,
+    "when": {
+     "op": "==",
+     "args": [
+      {
+       "get": "instance",
+       "name": "lid",
+       "id": "demo:jar"
+      },
+      "open"
+     ]
+    },
+    "refused": "The jar is closed",
+    "states": {
+     "ready": {
+      "next": "ready"
+     }
+    }
+   },
+   "demo:hatch#lid": {
+    "initial": "shut",
+    "duration": 0.5,
+    "when": {
+     "get": "world",
+     "name": "power",
+     "package": "demo"
+    },
+    "states": {
+     "shut": {
+      "next": "open"
+     },
+     "open": {
+      "next": "shut"
+     }
+    }
+   },
+   "demo:safe#door": {
+    "initial": "shut",
+    "duration": 0.5,
+    "locked": true,
+    "states": {
+     "shut": {
+      "next": "open"
+     },
+     "open": {
+      "next": "shut"
+     }
+    }
+   }
+  },
+  "rules": [
+   {
+    "id": "opened",
+    "on": {
+     "type": "use",
+     "subject": "demo:jar",
+     "name": "lid"
+    },
+    "do": [
+     {
+      "notify": "You open the jar"
+     },
+     {
+      "play": "click"
+     }
+    ]
+   },
+   {
+    "id": "locked",
+    "on": {
+     "type": "signal",
+     "subject": "demo:safe",
+     "name": "locked"
+    },
+    "do": [
+     {
+      "notify": "It won't budge"
+     },
+     {
+      "play": "refused"
+     }
+    ]
+   },
+   {
+    "id": "powered",
+    "on": {
+     "type": "changed",
+     "key": "world:demo.power",
+     "to": true
+    },
+    "after": 1,
+    "do": [
+     {
+      "notify": "The lights hum"
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:cook": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "use": "demo:jar#spread",
+   "actor": "player",
+   "used": false
+  },
+  {
+   "expect": {
+    "feedback": [
+     [
+      "notify",
+      "The jar is closed",
+      "player"
+     ],
+     [
+      "play",
+      "refused",
+      "player"
+     ]
+    ],
+    "signals": [],
+    "fired": []
+   }
+  },
+  {
+   "use": "demo:hatch#lid",
+   "actor": "npc:cook",
+   "used": false
+  },
+  {
+   "use": "demo:jar#lid",
+   "actor": "npc:cook",
+   "used": true
+  },
+  {
+   "expect": {
+    "feedback": [
+     [
+      "notify",
+      "You open the jar",
+      "npc:cook"
+     ],
+     [
+      "play",
+      "click",
+      "npc:cook"
+     ]
+    ]
+   }
+  },
+  {
+   "advance": 0.6
+  },
+  {
+   "use": "demo:jar#spread",
+   "actor": "player",
+   "used": true
+  },
+  {
+   "use": "demo:safe#door",
+   "actor": "player",
+   "used": false
+  },
+  {
+   "expect": {
+    "feedback": [
+     [
+      "notify",
+      "It won't budge",
+      "player"
+     ],
+     [
+      "play",
+      "refused",
+      "player"
+     ]
+    ],
+    "signals": [
+     [
+      "demo:safe",
+      "locked"
+     ]
+    ],
+    "fired": [
+     "locked"
+    ]
+   }
+  },
+  {
+   "set": "world:demo.power",
+   "to": true,
+   "actor": "npc:cook"
+  },
+  {
+   "save_load": true
+  },
+  {
+   "expect": {
+    "feedback": [],
+    "fired": [
+     "powered"
+    ]
+   }
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "feedback": [
+     [
+      "notify",
+      "The lights hum",
+      "npc:cook"
+     ]
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

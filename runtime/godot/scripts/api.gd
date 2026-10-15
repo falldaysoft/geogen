@@ -62,9 +62,10 @@ const COMMANDS := {
     "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: "
         + "{visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, "
         + "distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
-    "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's quest toasts: "
-        + "visible, showing [{seq, kind: started | objective_done | complete | failed, package, quest, "
-        + "objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, hold, "
+    "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's toasts: "
+        + "visible, showing [{seq, kind: started | objective_done | complete | failed | notice, package, quest, "
+        + "objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, "
+        + "sounds (what rules played), hold, "
         + "gap, limit, rect, viewport; hold sets how long a toast stays, gap the time between two appearing, "
         + "limit how many are up at once; clear drops them all",
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
@@ -838,7 +839,7 @@ func _interactions(args: Dictionary) -> Array[GeogenInteraction]:
 func _interaction(it: GeogenInteraction, parts := false) -> Dictionary:
     var info := {"asset": String(it.asset.name), "interaction": it.interaction_name, "state": it.state,
         "target": it.target, "moving": it.state != it.target, "locked": it.locked, "lock_key": it.lock_key,
-        "states": it.states.keys(), "prompt": it.prompt(main.keys), "position": _v(it.asset.global_position),
+        "states": it.states.keys(), "prompt": it.prompt(main.keys), "refused": it.refusal(), "position": _v(it.asset.global_position),
         "room": main.world.room_at(it.asset.global_position + Vector3(0, 0.3, 0))}
     if parts:
         # Where the moving parts are now (e.g. does an open leaf clear the wardrobe beside it?).

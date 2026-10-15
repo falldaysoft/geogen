@@ -118,7 +118,9 @@ there; **arriving** is a separate moment.
 - `use` by an actor moves it to the current state's `next`. With no `next`
   nothing happens. While locked it raises the signal `locked` and nothing else.
   With a `when` (a condition tree in its entry, read with the user as the actor)
-  that is false, nothing happens and nothing is raised.
+  that is false, nothing happens and nothing is raised; if the entry has
+  `refused` (text), the user is told it, with the `refused` sound (see
+  "Feedback").
 - A rule drives it by setting the variable to a state. This ignores `next`, the
   lock and `when`, so a gate with no `next` can only be moved by rules.
 - On arrival, the state's `emit` is raised as a signal from the thing. A state
@@ -171,7 +173,8 @@ as the actor all the way down.
 - `when` is a compiled condition (`geogen.conditions`), evaluated for the
   event's actor at the moment the event is processed.
 - Effects run in order. `{"set": key, "to": <condition tree>}` writes a value;
-  `{"emit": name, "subject": id}` raises a signal.
+  `{"emit": name, "subject": id}` raises a signal; `{"notify": text}` and
+  `{"play": sound}` tell the rule's actor something (see "Feedback").
 - `after: s` delays the effects. `when` is checked at the trigger, not again
   when the effects run.
 - `once: true` lets the rule fire once per actor, or once in all for events
@@ -181,6 +184,28 @@ as the actor all the way down.
 becomes true. If the condition reads actor state it is watched separately for
 every actor, and fires for that actor. This is what "done when every light is
 off" compiles to. A condition that is already true at the start fires once.
+
+## Feedback
+
+`notify` and `play` effects say something to the rule's actor: a line of text
+(a runtime shows it as a toast), or a named sound, one of `rules.SOUNDS`
+(`notice`, `refused`, `success`, `click`, and the HUD's quest chimes `started`,
+`objective_done`, `complete`, `failed`). They are neither state nor events:
+nothing reacts to them, a save holds none, and the machine only logs them
+(`feedback`: `[notify | play, value, actor]`), so a trace can expect them. A
+runtime presents what is for the player, or for no actor in particular (a rule
+on the clock, a watch over world state); an NPC's are dropped.
+
+They are how a refusal says why. An interaction's `refused` text is told to
+whoever its `when` turns away, with the `refused` sound; a runtime also shows it
+in place of the prompt while the user aims at it. A lock refuses with the
+signal `locked`, so a rule on that signal does the telling:
+
+```yaml
+rules:
+  - on: {signal: safe.locked}
+    do: [{notify: "It won't budge"}, {play: refused}]
+```
 
 ## Bindings
 
@@ -276,6 +301,8 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   `clock` event, `actor: none`, a watched condition over world state only)
 - an unresolved reference or selector in a condition, including an interaction's `when`
 - a rule with neither `on` nor `when`, or with no effects
+- a `play` of a sound that isn't in `rules.SOUNDS`, a `notify` without text, an
+  interaction's `refused` without a `when`
 
 ## Authoring
 
@@ -293,6 +320,7 @@ rules:
       - {input: lamp.light, value: true}
       - {emit: opened, of: gate}
       - {start_quest: lights_out}       # also fail_quest, complete_objective (quests.md)
+      - {notify: "The gate grinds open"}  # tell the actor; {play: success} for a sound
     after: 2
     once: true
     if: "{quests}"                      # build time: see below

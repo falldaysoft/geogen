@@ -160,6 +160,16 @@
                   "emit",
                   "subject"
                 ]
+              },
+              {
+                "required": [
+                  "notify"
+                ]
+              },
+              {
+                "required": [
+                  "play"
+                ]
               }
             ]
           }

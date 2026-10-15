@@ -21,6 +21,8 @@ signal target_changed(from: String, to: String, actor: String)
 signal reached(state: String, emit: String)
 signal raised(event: String, actor: String)
 signal lock_changed(now_locked: bool, actor: String)
+## A use its `when` stopped, by an interaction that says why (`refused`).
+signal refused_use(text: String, actor: String)
 
 var asset: Node3D
 var interaction_name := ""
@@ -43,6 +45,8 @@ var hold := false
 ## The interaction's `when` (set by WorldLoader from the rules program): guard.call(actor) is
 ## whether that actor may use it now. Unset: always.
 var guard := Callable()
+## What the prompt says, and a refused use tells the user, while `guard` says no ("": nothing).
+var refused := ""
 
 ## [{parts: [Node3D], type, axis: Vector3, pivot: Vector3, values: {state: float},
 ##   value: float, rest: {Node3D: Transform3D}, speed: float}]
@@ -61,6 +65,7 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
     it.state = str(data.get("initial", ""))
     it.target = it.state
     it.initial = it.state
+    it.refused = str(data.get("refused", ""))
     var lock = data.get("lock")
     if lock is Dictionary:
         it.lock_key = str(lock.get("key", ""))
@@ -142,6 +147,13 @@ func prompt(keys: Array = [], by := "player") -> String:
     return text
 
 
+## Why ``by`` can't use it now: its `refused` text while its `when` says no, else "".
+func refusal(by := "player") -> String:
+    if refused == "" or not states.get(target, {}).has("next") or allowed(by):
+        return ""
+    return refused
+
+
 func can_use(by := "player") -> bool:
     return states.get(target, {}).has("next") and allowed(by)
 
@@ -161,6 +173,8 @@ func use(by := "") -> bool:
         raised.emit("locked", by)
         return false
     if not allowed(by):
+        if refused != "":
+            refused_use.emit(refused, by)
         return false
     used.emit(by)
     _head_to(str(t["next"]), by)

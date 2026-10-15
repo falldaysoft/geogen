@@ -119,6 +119,7 @@
               "targets": { "description": "Nodes the player aims at to use it.", "type": "array", "items": { "type": "string" } },
               "initial": { "type": "string" },
               "duration": { "type": "number", "minimum": 0 },
+              "refused": { "type": "string", "description": "What the prompt says, and a refused use tells the user, while the interaction's `when` (in the manifest's state) is false." },
               "lock": {
                 "description": "While locked, use() fails; holders of 'key' can lock/unlock.",
                 "type": "object", "required": ["key", "locked"], "additionalProperties": false,

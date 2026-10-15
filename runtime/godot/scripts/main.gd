@@ -109,6 +109,9 @@ var _frames_nav := 0
 var _playtest_walks := -1
 var _wait_left := 0.0
 var _focus: GeogenInteraction = null
+## Aimed at but refused by its `when`, with text saying why (`refused`): the prompt says it,
+## and E tells the player again.
+var _refused_focus: GeogenInteraction = null
 var _simulate := 0.0
 var _sim_started := 0           # ticks (usec) and process frame when --simulate began
 var _sim_frame := 0
@@ -927,6 +930,7 @@ func _sim_greet() -> void:
 ## What the player is aiming at within reach, and its prompt ("E: Open").
 func _update_focus() -> void:
     _focus = null
+    _refused_focus = null
     _focus_affordance = {}
     _focus_npc = null
     if player != null and player.camera.current and player.pose.is_empty():
@@ -943,6 +947,8 @@ func _update_focus() -> void:
                     _focus_npc = hit["collider"]
             elif it != null and it.can_use():
                 _focus = it
+            elif it != null and it.refusal() != "":
+                _refused_focus = it
             else:
                 _focus_affordance = world.affordance_near(hit["position"])
         if _focus == null and _focus_npc == null:
@@ -957,10 +963,10 @@ func _update_focus() -> void:
                     _focus_npc = npc
                     _focus_affordance = {}
                     break
-        if _focus == null and _focus_npc == null and _focus_affordance.is_empty():
+        if _focus == null and _focus_npc == null and _focus_affordance.is_empty() and _refused_focus == null:
             _focus = _assisted_focus(from, -cam.global_basis.z)
     if hud != null:
-        hud.crosshair.aim(not focus_info().is_empty(),
+        hud.crosshair.aim(focus_info().get("kind", "") not in ["", "refused"],
             player != null and player.camera.current and player.pose.is_empty())
     if _prompt:
         if player != null and not player.pose.is_empty():
@@ -969,6 +975,8 @@ func _update_focus() -> void:
             _prompt.text = "E: %s" % _focus_npc.greet_prompt()
         elif _focus != null:
             _prompt.text = "E: %s" % _focus.prompt(keys)
+        elif _refused_focus != null:
+            _prompt.text = _refused_focus.refusal()
         elif not _focus_affordance.is_empty():
             _prompt.text = "E: %s" % {"sit": "Sit", "lie": "Lie down", "use": "Use", "stand": "Stand here"}.get(
                 _focus_affordance["type"], "Use")
@@ -1025,6 +1033,9 @@ func focus_info() -> Dictionary:
     if _focus != null:
         return {"kind": "interaction", "asset": String(_focus.asset.name), "interaction": _focus.interaction_name,
             "prompt": _focus.prompt(keys)}
+    if _refused_focus != null:
+        return {"kind": "refused", "asset": String(_refused_focus.asset.name),
+            "interaction": _refused_focus.interaction_name, "prompt": _refused_focus.refusal()}
     if not _focus_affordance.is_empty():
         return {"kind": "affordance", "asset": str(_focus_affordance.get("asset", "")),
             "type": _focus_affordance["type"]}
@@ -1058,6 +1069,8 @@ func _press_use() -> void:
         _focus_npc.greet()
     elif _focus != null:
         _focus.use("player")
+    elif _refused_focus != null:
+        _refused_focus.use("player")        # refused: it says why (WorldLoader -> GeogenRules.tell)
     elif not _focus_affordance.is_empty():
         player.take_pose(_focus_affordance)
 

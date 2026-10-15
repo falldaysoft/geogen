@@ -29,6 +29,10 @@ extends Node
 ## a quest's state or an objective's latch changes, and `report(actor)`.
 
 signal quest_event(event: Dictionary)
+## Feedback for an actor (docs/rules.md "Feedback"): `notify` (text) or `play` (a sound in
+## GeogenSound.CHIMES), from a rule's effect or a use an interaction's `when` refused. The HUD
+## toasts and plays the player's (hud_notifications.gd).
+signal feedback(kind: String, value: String, actor: String)
 ## The program or all of its state was replaced (a package loaded or unloaded, a save
 ## restored): nothing fired, so whoever shows state re-reads it.
 signal reset
@@ -102,7 +106,8 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     var actors := _actors()
     saved = _with_carried(saved, actors.keys())
     machine = GeogenMachine.new(program, {},
-        {"host_get": _host_get, "host_set": _host_set, "on_changed": _on_changed, "on_signal": _on_signal})
+        {"host_get": _host_get, "host_set": _host_set, "on_changed": _on_changed, "on_signal": _on_signal,
+            "on_feedback": tell})
     if not saved.is_empty():
         machine.load_save(saved)
         for key in machine.interactions:        # their nodes are about to load, as they start
@@ -350,6 +355,12 @@ func _on_changed(key: String, old: Variant, new: Variant, actor: String) -> void
 
 func _on_signal(subject: String, signal_name: String, actor: String) -> void:
     world.events.post("signal", subject, signal_name, actor, {}, "rules")
+
+
+## Tell an actor something (a rule's notify / play, a refused use): prints `feedback: {...}`.
+func tell(kind: String, value: String, actor: String) -> void:
+    print("feedback: ", JSON.stringify({"kind": kind, "value": value, "actor": actor}))
+    feedback.emit(kind, value, actor)
 
 
 # -- the bus ---------------------------------------------------------------------------------

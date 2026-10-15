@@ -5,8 +5,9 @@
 #   - E on the loaf takes a slice, E on a jar's lid opens it, E on the jar
 #     takes a knifeful. Those are the things' own interactions.
 #   - The rules below decide what that does to the plate: bread first, a
-#     spread only from an open jar onto bread, the second slice only once both
-#     spreads are on (taken too soon, it goes back on the loaf).
+#     spread only onto bread, the second slice only once both spreads are on
+#     (taken too soon, it goes back on the loaf). Each refusal says why: a
+#     closed jar does so itself, the rules here notify the rest.
 
 name: sandwich_kitchen
 tags: [level.kitchen]
@@ -20,12 +21,20 @@ rules:
     do: [{ input: sandwich.add_bread }]
   - id: spread_peanut_butter
     on: { signal: peanut_butter.scooped }
-    when: 'peanut_butter.lid == "open" and sandwich.bread == "placed"'
+    when: 'sandwich.bread == "placed"'
     do: [{ input: sandwich.spread_peanut_butter }]
   - id: spread_jam
     on: { signal: jam.scooped }
-    when: 'jam.lid == "open" and sandwich.bread == "placed"'
+    when: 'sandwich.bread == "placed"'
     do: [{ input: sandwich.spread_jam }]
+  - id: no_bread_for_peanut_butter
+    on: { signal: peanut_butter.scooped }
+    when: 'sandwich.bread != "placed"'
+    do: &no_bread [{ notify: "Put a slice of bread on the plate first" }, { play: refused }]
+  - id: no_bread_for_jam
+    on: { signal: jam.scooped }
+    when: 'sandwich.bread != "placed"'
+    do: *no_bread
   - id: second_slice
     on: { signal: loaf.taken }
     when: 'loaf.slices == "none" and sandwich.peanut_butter == "spread" and sandwich.jam == "spread"'
@@ -33,7 +42,7 @@ rules:
   - id: slice_too_soon
     on: { signal: loaf.taken }
     when: 'loaf.slices == "none" and not (sandwich.peanut_butter == "spread" and sandwich.jam == "spread")'
-    do: [{ set: loaf.slices, to: one }]
+    do: [{ set: loaf.slices, to: one }, { notify: "Spread the peanut butter and the jam first" }, { play: refused }]
 
 spawns:
   start: { position: [0, 0.05, -0.6], facing: north }

@@ -1,11 +1,15 @@
 class_name GeogenHudNotifications
 extends VBoxContainer
-## HUD panel: toasts for what happens to the player's quests.
+## HUD panel: toasts for what happens to the player's quests, and what rules tell them.
 ##
 ## A quest event (`GeogenRules.quest_event`: started, objective_done, complete,
 ## failed) of the HUD's actor becomes a toast: a heading for the kind and the
 ## quest's title or the objective's text, with a short chime (sound.gd). Other
 ## actors' quests raise nothing.
+##
+## Feedback (`GeogenRules.feedback`) for the HUD's actor, or for nobody in particular:
+## a `notify` is a `notice` toast of its text (no heading, no chime of its own), and a
+## `play` sounds its chime at once, without a toast (`sounds` counts them).
 ##
 ## It has no quest logic, only presentation state: the toasts on screen and
 ## the ones waiting.
@@ -30,6 +34,7 @@ const KINDS := {
     "objective_done": {"heading": "Objective complete", "color": Color(0.62, 0.82, 0.95)},
     "complete": {"heading": "Quest complete", "color": Color(0.6, 0.9, 0.6)},
     "failed": {"heading": "Quest failed", "color": Color(0.95, 0.5, 0.45)},
+    "notice": {"heading": "", "color": Color(0.85, 0.85, 0.88)},
 }
 
 ## Seconds a toast stays up before it fades.
@@ -49,6 +54,7 @@ var _showing: Array[Dictionary] = []    # {note, toast, age}, oldest first
 var _since := INF                       # seconds since the last one appeared
 var _raised := 0                        # notes ever raised: the next one's `seq` is this + 1
 var _chimes := 0
+var _sounds: Array[String] = []         # what `play` feedback asked for, in order
 var _recheck := false                   # the state was replaced: drop what is no longer true
 var _player: AudioStreamPlayer
 
@@ -67,6 +73,7 @@ func _init() -> void:
 func hud_attach(hud: GeogenHud) -> void:
     _hud = hud
     hud.world.rules.quest_event.connect(_on_quest_event)
+    hud.world.rules.feedback.connect(_on_feedback)
     hud.world.rules.reset.connect(func(): _recheck = true)
 
 
@@ -82,6 +89,20 @@ func _on_quest_event(event: Dictionary) -> void:
         note["objective"] = event["objective"]
         note["text"] = event.get("text", event["title"])
     _queue.append(note)
+    set_process(true)
+
+
+func _on_feedback(kind: String, value: String, actor: String) -> void:
+    if actor != _hud.actor and actor != "":
+        return
+    if kind == "play":
+        _sounds.append(value)
+        if not muted and DisplayServer.get_name() != "headless":
+            GeogenSound.chime(_player, value)
+        return
+    _raised += 1
+    _queue.append({"seq": _raised, "kind": "notice", "package": _hud.world.rules.package, "quest": "",
+        "heading": "", "text": value})
     set_process(true)
 
 
@@ -112,7 +133,7 @@ func _drop_untrue() -> void:
     for quest in rules.report(_hud.actor):
         quests[quest["id"]] = quest
     var holds := func(note: Dictionary) -> bool:
-        if note["package"] != rules.package:
+        if note["package"] != rules.package or note["kind"] == "notice":
             return true
         if not quests.has(note["quest"]):
             return false
@@ -159,7 +180,7 @@ func _show(note: Dictionary) -> void:
     add_child(toast)
     _showing.append({"note": note, "toast": toast, "age": 0.0})
     _since = 0.0
-    if muted or not GeogenSound.CHIMES.has(note["kind"]):
+    if muted or note["kind"] == "notice" or not GeogenSound.CHIMES.has(note["kind"]):
         return
     _chimes += 1
     # Headless runs have nobody to hear it, and a chime cut off by quitting is reported as a leak.
@@ -173,9 +194,10 @@ func _remove(entry: Dictionary) -> void:
 
 
 ## What is on screen and what waits: {visible, showing: [{seq, kind: started |
-## objective_done | complete | failed, package, quest, objective?, heading, text, age}],
+## objective_done | complete | failed | notice, package, quest, objective?, heading, text, age}],
 ## queued: [the same, without age], raised (toasts ever raised: the last one's seq),
-## chimes (sounded; counted in a headless run too, where nothing plays), hold, gap, limit, rect: [x, y, w, h], viewport: [w, h]}.
+## chimes (sounded; counted in a headless run too, where nothing plays), sounds (what `play`
+## feedback played, in order), hold, gap, limit, rect: [x, y, w, h], viewport: [w, h]}.
 func hud_report() -> Dictionary:
     var showing := []
     for entry in _showing:
@@ -185,7 +207,7 @@ func hud_report() -> Dictionary:
     var rect := get_global_rect()
     var view := get_viewport_rect().size if is_inside_tree() else Vector2.ZERO
     return {"visible": visible, "showing": showing, "queued": _queue.duplicate(true), "raised": _raised,
-        "chimes": _chimes, "hold": hold, "gap": gap, "limit": limit,
+        "chimes": _chimes, "sounds": _sounds.duplicate(), "hold": hold, "gap": gap, "limit": limit,
         "rect": [rect.position.x, rect.position.y, rect.size.x, rect.size.y] if visible else [],
         "viewport": [view.x, view.y]}
 
@@ -215,7 +237,8 @@ class Toast extends PanelContainer:
         box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         box.add_theme_constant_override("separation", 0)
         row.add_child(box)
-        box.add_child(_label(note["heading"].to_upper(), HEAD_SIZE, color))
+        if note["heading"] != "":
+            box.add_child(_label(note["heading"].to_upper(), HEAD_SIZE, color))
         box.add_child(_label(note["text"], TEXT_SIZE, Color(0.96, 0.96, 0.96)))
 
     static func _label(text: String, font_size: int, color: Color) -> Label:
@@ -234,7 +257,7 @@ class Toast extends PanelContainer:
 
 
 ## A toast's mark: a ring with a dot (started), a tick (objective), a tick in a disc
-## (complete), a cross in a disc (failed).
+## (complete), a cross in a disc (failed), an i in a ring (notice).
 class Mark extends Control:
     var kind := "started"
     var color := Color.WHITE
@@ -257,6 +280,10 @@ class Mark extends Control:
                 draw_circle(c, 9.0, Color(color, 0.3))
                 draw_arc(c, 9.0, 0.0, TAU, 28, color, 1.4, true)
                 draw_polyline(tick, color, 2.0, true)
+            "notice":
+                draw_arc(c, 8.0, 0.0, TAU, 28, color, 1.4, true)
+                draw_line(c + Vector2(0, -1.0), c + Vector2(0, 4.2), color, 2.0, true)
+                draw_circle(c + Vector2(0, -4.0), 1.2, color)
             "failed":
                 draw_circle(c, 9.0, Color(color, 0.3))
                 draw_arc(c, 9.0, 0.0, TAU, 28, color, 1.4, true)

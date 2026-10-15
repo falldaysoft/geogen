@@ -13,7 +13,8 @@ extends RefCounted
 ##   set_clock({time, night, day})   move the clock; dusk and dawn are events
 ##   advance(seconds)            let time pass: arrivals, dwells and delayed rules, in time order
 ## and read `get_value(key, actor)`, `value(tree, actor)` and the logs `signals`
-## ([subject, name, actor]), `fired` ([rule id, actor]) and `errors` (messages).
+## ([subject, name, actor]), `fired` ([rule id, actor]), `feedback` ([notify | play,
+## text or sound, actor]: what rules and refused uses tell an actor) and `errors` (messages).
 ## `save()` / `load_save(data)` carry everything but bindings, which are recomputed.
 ##
 ## "No actor" is "" (Python's None), and so is "no subject". Numbers are floats
@@ -53,6 +54,9 @@ extends RefCounted
 ##   on_signal(subject: String, name: String, actor: String)
 ##       a rule's emit, a simulated arrival's emit or a refused use's "locked";
 ##       called when the signal is processed (when it joins `signals`).
+##   on_feedback(kind: String, value: String, actor: String)
+##       a rule's notify / play, or the `refused` text of a use its `when` stopped;
+##       called when it joins `feedback`.
 ## A hook or host callable may call `post`: the event waits until the current
 ## input is finished. It must not call the other inputs (they are refused).
 
@@ -82,6 +86,8 @@ var timers: Array = []
 var signals: Array = []
 ## [rule id, actor] of every rule fired.
 var fired: Array = []
+## [notify | play, text or sound, actor]: never saved.
+var feedback: Array = []
 var errors: Array = []
 ## Why the last call from outside failed ("" when it didn't).
 var last_error := ""
@@ -90,6 +96,7 @@ var host_get := Callable()
 var host_set := Callable()
 var on_changed := Callable()
 var on_signal := Callable()
+var on_feedback := Callable()
 
 var _bindings: Array = []           # in dependency order
 var _bound := {}                    # key -> true
@@ -102,7 +109,7 @@ var _inbox: Array = []              # events posted while an input was being han
 
 
 ## `actors` maps actor IDs to {"kind": "player" | "npc", ...}. `host` may hold
-## any of host_get, host_set, on_changed, on_signal (see the class comment).
+## any of host_get, host_set, on_changed, on_signal, on_feedback (see the class comment).
 func _init(rules_program: Dictionary, with_actors: Dictionary = {}, host: Dictionary = {}) -> void:
     program = rules_program
     variables = (program.get("variables", {}) as Dictionary).duplicate()
@@ -122,6 +129,7 @@ func _init(rules_program: Dictionary, with_actors: Dictionary = {}, host: Dictio
     host_set = host.get("host_set", Callable())
     on_changed = host.get("on_changed", Callable())
     on_signal = host.get("on_signal", Callable())
+    on_feedback = host.get("on_feedback", Callable())
     for actor in with_actors:
         var info: Dictionary = with_actors[actor] if with_actors[actor] is Dictionary else {}
         add_actor(str(actor), str(info.get("kind", "npc")), info)
@@ -198,6 +206,9 @@ func use(key: String, actor := "") -> bool:
         _input([{"type": "signal", "subject": thing, "name": "locked", "actor": actor, "depth": 0, "own": true}])
         return false
     if not allows(key, actor):
+        if str(interactions[key].get("refused", "")) != "":
+            _tell("notify", str(interactions[key]["refused"]), actor)
+            _tell("play", "refused", actor)
         return false
     var queue: Array = [{"type": "use", "subject": thing, "name": interaction_name, "actor": actor, "depth": 0}]
     var problem := _write(key, state["next"], actor, queue, 0)
@@ -474,9 +485,19 @@ func _effects(rule: Dictionary, actor: String, queue: Array, depth: int) -> void
             var problem := _fail if to == null else _write(effect["set"], to, actor, queue, depth)
             if problem != "":           # reported and skipped: the rule's other effects still run
                 errors.append("rule %s: %s" % [rule["id"], problem])
+        elif effect.has("notify"):
+            _tell("notify", str(effect["notify"]), actor)
+        elif effect.has("play"):
+            _tell("play", str(effect["play"]), actor)
         else:
             queue.append({"type": "signal", "subject": _text(effect.get("subject")), "name": effect["emit"],
                 "actor": actor, "depth": depth + 1, "own": true})
+
+
+func _tell(kind: String, value: String, actor: String) -> void:
+    feedback.append([kind, value, actor])
+    if not _silent and on_feedback.is_valid():
+        on_feedback.call(kind, value, actor)
 
 
 ## Whether the interaction's `when` holds for `actor` now (true without one). It only gates
