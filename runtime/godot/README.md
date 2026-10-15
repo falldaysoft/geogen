@@ -753,6 +753,15 @@ The host owns what panels share: a column per screen corner (`top_left`,
 overlay's three lines), sizes that follow the window (`panel_width()`,
 `slot_height(slot)`), a coalesced refresh, key presses and `report()`.
 
+**Stats and banner.** A scene's `hud:` block (`geogen/hud.py`) is the manifest's
+`hud` section: `stats` rows (`label`, a compiled `value`, optional `of`) and
+`banners` (`when`, `text`, `tone`). `scripts/hud_stats.gd` (panel `stats`, top
+left) shows the rows ("Lives 17", "Wave 3 / 8") and `scripts/hud_banner.gd`
+(panel `banner`, across the middle) the first banner whose `when` holds, both
+evaluated for the player by the loaded program (`GeogenRules.value_of`) on
+`changed` / `clock` events and HUD refreshes. Control API `hud.stats`. Tests:
+`tests/test_hud_stats.py`.
+
 The HUD also has the aim point (`scripts/hud_crosshair.gd`): a dot in the middle
 of the screen, with a gold ring while E would do something, and the E prompt
 ("E: Lights off") under it. Aiming is forgiving: when the aim line lands on

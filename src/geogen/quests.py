@@ -332,6 +332,7 @@ class Quests:
         self.wiring: list[dict[str, Any]] = []          # the scene's own rules (geogen.wiring)
         self.bindings: list[dict[str, Any]] = []
         self.written: dict[str, str] = {}               # rule id (bind:<key>) -> where it was written
+        self.hud: dict[str, Any] = {}                   # the manifest's `hud` (geogen.hud), compiled
 
     def __bool__(self) -> bool:
         return bool(self.quests)
@@ -1045,7 +1046,8 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
                    rules: Iterable[dict[str, Any]] = (), wiring: Iterable[Any] = (),
                    by_name: bool | None = None, trees: dict[str, SceneNode] | None = None,
                    bindings: Iterable[dict[str, Any]] = (), built: Iterable[dict[str, Any]] = (),
-                   guards: Iterable[tuple[str, str, SceneNode]] = ()) -> Quests:
+                   guards: Iterable[tuple[str, str, SceneNode]] = (),
+                   huds: Iterable[tuple[dict[str, Any], Any, SceneNode]] = ()) -> Quests:
     """Compile quest specs against ``declarations`` (their variables are added to it).
 
     A spec is the dict of a quest file, or ``(spec, source file, scene node)``. With a
@@ -1061,6 +1063,7 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     ``built`` are bindings the build itself made (a switch's on its light: ``state.switch_bindings``).
     ``guards`` are interactions' ``when`` conditions as (interaction key, text, owner node): each is
     compiled with the owner as ``self`` into its entry in ``declarations.interactions``.
+    ``huds`` are scenes' ``hud:`` blocks (``geogen.hud.sources``), compiled into ``Quests.hud``.
     Raises ``QuestError`` listing every problem.
     """
     entries = [(s, None, None) if isinstance(s, dict) else s for s in specs]
@@ -1098,6 +1101,11 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
             declarations.interactions[key]["when"] = compiler.condition(src, text)
         except QuestError as exc:
             compiler.bad(src.where(), str(exc))
+    huds = list(huds)
+    if huds:
+        from .hud import compile_hud
+
+        compiler.out.hud = compile_hud(compiler, huds)
     for quest in compiler.quests:
         rules_of = compiler.quest_rules.get(quest.id, [])
         if quest.spec.get("rewards"):
@@ -1158,10 +1166,13 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
         for it in node.interactions:
             if it.refused:
                 declarations.interactions[f"{uid(node)}#{it.name}"]["refused"] = it.refused
-    if not specs and not wiring and not built and not guards:
+    from .hud import sources as hud_sources
+
+    huds = hud_sources(root)
+    if not specs and not wiring and not built and not guards and not huds:
         return Quests(declarations)
     return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False, built=built,
-                          guards=guards)
+                          guards=guards, huds=huds)
 
 
 def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
@@ -1183,7 +1194,7 @@ def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
 
 
 def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
-    """The manifest's ``state``, ``rules`` and ``quests`` sections for ``root`` (those with anything in them)."""
+    """The manifest's ``state``, ``rules``, ``quests`` and ``hud`` sections for ``root`` (those with anything in them)."""
     if package is None:
         package = str(root.meta.get("uid", "")).partition(":")[0] or root.name
     found = collect(root, package)
@@ -1191,5 +1202,5 @@ def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
     if quests:
         quests["markers"] = markers(root, found)
     sections = {"state": found.declarations.to_json() if found.declarations else None,
-                "rules": found.rules_json(), "quests": quests}
+                "rules": found.rules_json(), "quests": quests, "hud": found.hud or None}
     return {name: section for name, section in sections.items() if section}

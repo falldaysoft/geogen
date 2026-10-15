@@ -311,6 +311,7 @@ SCENE_KEYS: dict[str, str] = {
     "bind": "{<state>: <expression>}: standing relations; a bound variable is never set or saved",
     "quests": "[quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md); "
               "`{file, if: \"{expr}\"}` contributes one only when the expression isn't 0",
+    "hud": "{stats: [{label, value, of}], banners: [{when, text, tone}]}: what the game shows on screen (geogen.hud)",
     "spawns": "{name: {position | anchor, facing}}: where the player can start",
     "places": "{name: {box | polygon | around}}: trigger volumes (enter / leave events)",
     "city": "a street grid with zoned lots, buildings, street furniture, parking and traffic",

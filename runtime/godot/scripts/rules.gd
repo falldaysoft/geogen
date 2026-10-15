@@ -42,6 +42,8 @@ var machine: GeogenMachine = null
 var package := ""
 ## The manifest's `quests` section ({} when the package has none).
 var quests := {}
+## The manifest's `hud` section (geogen/hud.py: {stats, banners}; {} when the scene has none).
+var hud := {}
 
 var _saves := {}            # package -> its machine's save, while another world is loaded
 var _content := {}          # content package name -> its geogen-content file, as deployed (catalogue.json)
@@ -67,6 +69,7 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     var rules: Dictionary = manifest.get("rules", {})
     var content: Array = []
     if machine == null:
+        hud = manifest.get("hud", {})
         for other in content_packages().values():
             if name_ in other.get("scenes", []):
                 content.append(other)
@@ -130,6 +133,16 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     reset.emit()
 
 
+## The value of a compiled condition for `actor` now (null when it can't be read: no program,
+## or what it reads isn't there). What the HUD's stats and banners show.
+func value_of(tree: Variant, actor := "player") -> Variant:
+    if typeof(tree) != TYPE_DICTIONARY:
+        return tree
+    if machine == null:
+        return null
+    return machine.value(tree, actor if machine.actor_info.has(actor) else "")
+
+
 ## Keep what the quest log lists of this package once it is gone (`report_all`). WorldLoader
 ## calls it before it frees the world: counts over interactions are read from their nodes.
 func remember_reports() -> void:
@@ -154,6 +167,7 @@ func unload() -> void:
     package = ""                # a scene without a program loads next, maybe: it has no package
     _applied = []
     quests = {}
+    hud = {}
     _watched.clear()
     _expected.clear()
     _holding.clear()

@@ -241,6 +241,9 @@ class SceneComposer:
         from ..wiring import declare as declare_wiring
 
         declare_wiring(root, data, source, asset=False)
+        from ..hud import declare as declare_hud
+
+        declare_hud(root, data, source)
         if data.get("quests"):
             from ..quests import declare_scene as declare_quests
 
