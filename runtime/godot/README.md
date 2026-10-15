@@ -652,6 +652,12 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
   in position order, and sources pick among their items by smooth weighted round robin,
   so `geogen/flows.py` `simulate` gives the same items at the same distances
   (`tests/test_flow_tracks.py` checks it on `flow_test`).
+- **Roll tracks** (`mode: roll`): gravity drives each item from the track's `speed`
+  ((5/7) g sin(slope), less `damping` per second), it spins about its middle, and a
+  source puts physics items on one too: balls down a chute, which fall off a `drop` end
+  as bodies moving at their speed. It exists because Godot Physics snags a sphere on
+  the internal edges of a subdivided trimesh (a swept trough), so balls can't roll down
+  one as bodies (geogen.49). `examples/marble_run` uses it.
 - **Effectors** (`flows.effector`: `turret.yaml`) step last each frame, in position
   order: one whose `enabled` state is true and that is ready (every `1 / rate` s) acts on
   the track item within `range` of its `at` point that it `targets` (`first`: furthest

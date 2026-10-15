@@ -1,0 +1,7 @@
+# A green ball for the marble run's hopper.
+kind: item
+name: ball_green
+body: {asset: ball.yaml, params: {colour: teal_green}}
+mode: physics
+stuck: 6
+data: {value: 1}

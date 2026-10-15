@@ -15,7 +15,7 @@ def test_a_track_is_resampled_and_checked():
     assert track["mode"] == "belt" and track["end"] == "auto"
     loop = flows.parse_track({"path": [[0, 0, 0], [2, 0, 0], [2, 0, 2]], "loop": True}, "t")
     assert loop["points"][0] == loop["points"][-1] and loop["end"] == "stop"
-    for spec, message in (({"path": [[0, 0, 0]]}, "two or more"), ({"path": [[0, 0, 0], [0, 0, 1]], "mode": "fly"}, "belt or walk"),
+    for spec, message in (({"path": [[0, 0, 0]]}, "two or more"), ({"path": [[0, 0, 0], [0, 0, 1]], "mode": "fly"}, "track mode is one of"),
                           ({"path": [[0, 0, 0], [0, 0, 1]], "end": "bin"}, "end is one of"),
                           ({"path": [[0, 0, 0], [0, 0, 1]], "colour": 1}, "unknown keys")):
         with pytest.raises(flows.FlowError, match=message):

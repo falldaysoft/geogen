@@ -23,7 +23,9 @@ extends Node
 ## speed, walk items at their own, none closer to the one ahead than the gap (`spacing`, or
 ## the two radii). At the end an item goes on to the track starting there (`end: auto`), is
 ## taken in (a sink: the track's `received`, signal `received {item, ...data}`), waits
-## (`stop`) or falls off as a physics body (`drop`). geogen/flows.py `simulate` is the
+## (`stop`) or falls off as a physics body (`drop`). On a `roll` track items are driven by
+## gravity: they speed up down its slope ((5/7) g sin(slope)), slow by its `damping`, and spin
+## as they go (balls down a chute; physics items too: they fall off the end as bodies). geogen/flows.py `simulate` is the
 ## reference: sources and tracks are stepped in the same order (by position), and a source's
 ## pick among its items is the same smooth weighted round robin, so both agree.
 ##
@@ -46,6 +48,7 @@ const STILL_SPEED := 0.05       ## m/s: slower than this, a physics item is at r
 ## for a frame or two before they go where they start.
 const SETTLE_FRAMES := 5
 const JOIN := 0.5                ## m: a source or track end this close to a track's start feeds it
+const ROLL_GRAVITY := 9.81 * 5.0 / 7.0   ## a solid ball rolling without slipping: (5/7) g sin(slope)
 
 var world: WorldLoader
 ## uid -> {uid, node, data, templates: {item name: Node3D}, rng, due, made, at (world), track}
@@ -248,7 +251,7 @@ func _physics_process(delta: float) -> void:
             continue
         var body: RigidBody3D = item["body"]
         if body != null and is_instance_valid(body):
-            var resting := body.linear_velocity.length() < STILL_SPEED and body.angular_velocity.length() < STILL_SPEED * 4.0
+            var resting := body.linear_velocity.length() < STILL_SPEED    # creeping counts (balls spin on)
             item["still"] = item["still"] + delta if resting and world.props.held != item["prop"] else 0.0
             var stuck := float(item["def"].get("stuck", 10.0))
             if stuck > 0.0 and item["still"] > stuck:
@@ -280,6 +283,8 @@ func _run(entry: Dictionary, delta: float) -> void:
 
 
 func _on_track(entry: Dictionary) -> bool:
+    if entry["track"] >= 0 and str(tracks[entry["track"]]["data"].get("mode", "belt")) == "roll":
+        return true                                 # gravity carries physics items down it
     for template in entry["templates"].values():
         if str(WorldLoader.geogen_extras(template)["item"].get("mode", "physics")) != "physics":
             return true
@@ -560,8 +565,15 @@ func _move(track: Dictionary, delta: float, moved: Dictionary) -> void:
     var loop := bool(data.get("loop", false))
     for j in order.size():
         var it: Dictionary = order[j]
-        var v: float = float(data.get("speed", 1.0)) if data.get("mode", "belt") == "belt" \
-            else float(it["def"].get("speed", data.get("speed", 1.0)))
+        var roll := str(data.get("mode", "belt")) == "roll"
+        var v: float
+        if roll:
+            it["v"] = maxf(0.0, float(it.get("v", 0.0)) + (ROLL_GRAVITY * _fall(track, it["s"])
+                - float(data.get("damping", 0.1)) * float(it.get("v", 0.0))) * delta)
+            v = it["v"]
+        else:
+            v = float(data.get("speed", 1.0)) if data.get("mode", "belt") == "belt" \
+                else float(it["def"].get("speed", data.get("speed", 1.0)))
         var target: float = it["s"] + v * delta
         var limit := INF
         if j > 0:
@@ -576,6 +588,8 @@ func _move(track: Dictionary, delta: float, moved: Dictionary) -> void:
             if not lead.is_empty():
                 limit = length + lead["s"] - _gap(it, lead, tracks[track["next"]]["data"])
         target = maxf(it["s"], minf(target, limit))
+        if roll and target - it["s"] < v * delta:
+            it["v"] = (target - it["s"]) / delta    # held up behind the one ahead
         it["travelled"] += target - it["s"]
         if loop:
             it["s"] = fmod(target, length)
@@ -605,7 +619,16 @@ func _gap(a: Dictionary, b: Dictionary, track_data: Dictionary) -> float:
     return maxf(float(track_data.get("spacing", 0.0)), float(a["def"].get("radius", 0.25)) + float(b["def"].get("radius", 0.25)))
 
 
-## Put an item where its track says, facing along it (+Z forward).
+## How steeply a track falls at ``s``: -dy/ds of the segment there (geogen/flows.py `_fall`).
+func _fall(track: Dictionary, s: float) -> float:
+    var cum: PackedFloat64Array = track["cum"]
+    var points: PackedVector3Array = track["points"]
+    var k := clampi(cum.bsearch(s, false) - 1, 0, points.size() - 2)
+    var seg := cum[k + 1] - cum[k]
+    return 0.0 if seg <= 0.0 else (points[k].y - points[k + 1].y) / seg
+
+
+## Put an item where its track says, facing along it (+Z forward); a rolling one spins.
 func _place_on(it: Dictionary) -> void:
     var track: Dictionary = tracks[it["track"]]
     var at := _at(track, it["s"])
@@ -617,10 +640,17 @@ func _place_on(it: Dictionary) -> void:
     var node: Node3D = it["node"]
     if not is_instance_valid(node):
         return
-    if forward.length() > 0.001:
-        node.global_transform = Transform3D(Basis.looking_at(-forward.normalized(), Vector3.UP), at)
-    else:
+    if forward.length() <= 0.001:
         node.global_position = at
+        return
+    var basis := Basis.looking_at(-forward.normalized(), Vector3.UP)
+    if str(track["data"].get("mode", "belt")) == "roll":
+        var r := maxf(float(it["def"].get("radius", 0.1)), 0.01)
+        basis = basis * Basis(Vector3.RIGHT, float(it["travelled"]) / r)
+        var centre := at + Vector3.UP * r              # it turns about its middle, not its origin
+        node.global_transform = Transform3D(basis, centre - basis * (Vector3.UP * r))
+    else:
+        node.global_transform = Transform3D(basis, at)
 
 
 ## The world point ``s`` m along a track.
@@ -659,8 +689,8 @@ func _drop(track: Dictionary, it: Dictionary) -> void:
     it.erase("track")
     it["mode"] = "physics"
     it["prop"] = "flow#%d" % it["id"]
-    it["body"] = world.props.add_clone(node, physics, it["prop"], _layer, xform,
-        tangent * float(track["data"].get("speed", 1.0)))
+    var speed := float(it["v"]) if it.has("v") else float(track["data"].get("speed", 1.0))
+    it["body"] = world.props.add_clone(node, physics, it["prop"], _layer, xform, tangent * speed)
 
 
 ## The next item a source makes: its pick waiting for room, else a smooth weighted round
@@ -725,9 +755,11 @@ func spawn(entry: Dictionary, item_name := "") -> int:
     _next_id += 1
     var item := _new_item(entry, template, id)
     var copy: Node3D = item["node"]
-    if entry.get("track", -1) >= 0 and item["mode"] != "physics":
+    if entry.get("track", -1) >= 0 and (item["mode"] != "physics"
+            or str(tracks[entry["track"]]["data"].get("mode", "belt")) == "roll"):
         item["track"] = entry["track"]
         item["s"] = 0.0
+        item["v"] = float(tracks[entry["track"]]["data"].get("speed", 1.0))
         _layer.add_child(copy)
         _place_on(item)
     elif item["mode"] == "physics":
@@ -866,6 +898,8 @@ func save() -> Dictionary:
         if it.has("track"):
             kept["track"] = tracks[it["track"]]["uid"]
             kept["s"] = it["s"]
+            if it.has("v"):
+                kept["v"] = it["v"]
         elif it["body"] != null and is_instance_valid(it["body"]):
             var body: RigidBody3D = it["body"]
             kept["position"] = _arr(body.global_position)
@@ -920,6 +954,8 @@ func restore(data: Dictionary) -> void:
         if kept.has("track") and track_of.has(str(kept["track"])):
             item["track"] = track_of[str(kept["track"])]
             item["s"] = float(kept.get("s", 0.0))
+            if kept.has("v"):
+                item["v"] = float(kept["v"])
             _layer.add_child(item["node"])
             _place_on(item)
         elif kept.has("position") and item["mode"] == "physics":

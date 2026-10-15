@@ -521,6 +521,8 @@ def object_overlaps(scene: SceneNode, min_depth: float = OVERLAP_MIN_DEPTH,
     entries = []          # (node, owner, world matrix, lo, hi)
 
     def visit(node: SceneNode, owner: SceneNode | None, world: np.ndarray) -> None:
+        if "item" in node.meta:
+            return                      # a spawned item's template (geogen.flows): not in the world
         if "source" in node.meta or owner is None:
             owner = node
         world = world @ node.transform.to_matrix()

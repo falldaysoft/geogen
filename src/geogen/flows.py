@@ -15,7 +15,8 @@ outlives its time. Four parts, each a block on an asset:
 - **Sink** (``sink:`` on a place, ``geogen.places``): takes in the items that enter it
   (``accepts``: only those items). Its state ``received`` counts them (driven) and it raises
   ``received {item, ...}`` with the item's data.
-- **Track** (asset ``track:`` or scene ``tracks:``): a path belt and walk items follow.
+- **Track** (asset ``track:`` or scene ``tracks:``): a path belt and walk items follow, or that
+  gravity rolls items down (``roll``: balls in a chute, which fall off a ``drop`` end as bodies).
 - **Effector** (asset ``effector:``): acts on items in range: ``damage`` (items with
   ``data.hp``; at 0 the item is destroyed and its source raises ``killed``) or ``take``.
 - **Waves** (``kind: waves``, ``assets/waves/*.yaml``): what a source sends in turn, wave by
@@ -421,15 +422,18 @@ def flow_inputs(node: SceneNode, thing: str) -> dict[str, dict[str, Any]]:
 
 TRACK_KEYS = {
     "path": "[[x, y, z], ...] or {spline: [...], samples}: where items go, in the asset's (scene's) frame",
-    "speed": "m/s: a belt's speed; walking items keep their own (default 1)",
+    "speed": "m/s: a belt's speed; walking items keep their own; a roll track's starting speed (default 1)",
     "spacing": "m: the least gap between items' centres (default: their radii)",
-    "mode": "belt (items move together and queue) | walk (each at its own pace)",
+    "mode": "belt (items move together and queue) | walk (each at its own pace) | roll (gravity: balls down a chute)",
+    "damping": "roll: how fast a rolling item slows, per second (default 0.1)",
     "loop": "the path closes on itself: items go round",
     "end": "auto (on to the track that starts here, else sink) | sink | stop | drop (fall off as a physics body)",
     "accepts": "[item names] an end sink takes (empty: any)",
 }
 SCENE_TRACK_KEYS = {**TRACK_KEYS, "surface": "{width, material, height}: a ribbon along the path (scene tracks)"}
 TRACK_ENDS = ("auto", "sink", "stop", "drop")
+TRACK_MODES = ("belt", "walk", "roll")
+ROLL_GRAVITY = 9.81 * 5.0 / 7.0          # a solid ball rolling without slipping: (5/7) g sin(slope)
 TRACK_STEP = 0.25                 # m between a track's points
 JOIN = 0.5                        # m: a source or track end this close to a track's start feeds it
 TRACK_STATE = {
@@ -465,15 +469,17 @@ def parse_track(spec: Any, name: str, scene: bool = False) -> dict[str, Any]:
     if length < 0.1:
         raise FlowError(f"{name}: the track is shorter than 10 cm")
     mode, end = spec.get("mode", "belt"), spec.get("end", "auto")
-    if mode not in ("belt", "walk"):
-        raise FlowError(f"{name}: track mode is belt or walk, got {mode!r}")
+    if mode not in TRACK_MODES:
+        raise FlowError(f"{name}: track mode is one of {', '.join(TRACK_MODES)}, got {mode!r}")
     if end not in TRACK_ENDS:
         raise FlowError(f"{name}: track end is one of {', '.join(TRACK_ENDS)}, got {end!r}")
     out = {"points": [[round(float(v), 4) for v in p] for p in points], "length": round(length, 4),
            "speed": float(spec.get("speed", 1.0)), "spacing": float(spec.get("spacing", 0.0)),
            "mode": mode, "loop": loop, "end": "stop" if loop else end,
            "accepts": [str(a) for a in spec.get("accepts", [])]}
-    if out["speed"] <= 0:
+    if mode == "roll":
+        out["damping"] = float(spec.get("damping", 0.1))
+    if out["speed"] < 0 or (out["speed"] == 0 and mode != "roll"):
         raise FlowError(f"{name}: track speed must be positive")
     return out
 
@@ -570,7 +576,7 @@ def check_network(root: SceneNode) -> list[str]:
         if modes - {"physics"} and source["track"] is None:
             out.append(f"{name}: its {'/'.join(sorted(modes - {'physics'}))} items need a track that starts within "
                        f"{JOIN} m of its spawn point")
-        if "physics" in modes and len(modes) > 1:
+        if "physics" in modes and source["track"] is None and len(modes) > 1:
             out.append(f"{name}: makes physics items and track items: a source makes one kind")
     for effector in net["effectors"]:
         reach = [t for t in net["tracks"] if np.min(np.linalg.norm(t["world"] - effector["world_at"], axis=1)) <= effector["range"]]
@@ -590,6 +596,14 @@ def _pick(source: dict[str, Any], weights: list[float]) -> int:
     return best
 
 
+def _fall(track: dict[str, Any], s: float) -> float:
+    """How steeply a track falls at ``s``: -dy/ds of the segment there (sin of its slope)."""
+    cum, pts = track["cum"], track["world"]
+    k = min(max(int(np.searchsorted(cum, s, side="right")) - 1, 0), len(pts) - 2)
+    seg = cum[k + 1] - cum[k]
+    return 0.0 if seg <= 0 else float(pts[k][1] - pts[k + 1][1]) / seg
+
+
 def at_distance(track: dict[str, Any], s: float) -> np.ndarray:
     """The world point ``s`` m along a track (from ``network``)."""
     cum, pts = track["cum"], track["world"]
@@ -602,8 +616,8 @@ def at_distance(track: dict[str, Any], s: float) -> np.ndarray:
 
 def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
              running: dict[str, bool] | None = None) -> dict[str, Any]:
-    """The reference for what the runtime does with track items (belt and walk modes; physics
-    items and sinks on places are the physics engine's, so they aren't simulated): ``ticks``
+    """The reference for what the runtime does with track items (belt, walk and roll modes;
+    physics items off tracks and sinks on places are the physics engine's): ``ticks``
     steps of ``dt`` from an empty world. ``running`` overrides sources' and tracks' running
     and effectors' enabled state by node name. Returns ``{items: [{id, item, track (index), s,
     hp?}], emitted, killed, wave: [per source], received: [per track], taken: [per effector],
@@ -647,7 +661,8 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
             return False
         s["made"] += 1
         new = {"id": state["next_id"], "item": name, "source": k, "track": s["track"], "s": 0.0, "travelled": 0.0,
-               "radius": item["radius"], "speed": item.get("speed", track["speed"]), "data": dict(item["data"])}
+               "radius": item["radius"], "speed": item.get("speed", track["speed"]), "v": track["speed"],
+               "data": dict(item["data"])}
         items.append(new)
         events.append([tick, "emitted", k, state["next_id"]])
         state["next_id"] += 1
@@ -699,7 +714,8 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
 
     for tick in range(ticks):
         for k, s in enumerate(sources):                     # sources first
-            if s["track"] is None or all(t["mode"] == "physics" for t in s["templates"].values()):
+            if s["track"] is None or (all(t["mode"] == "physics" for t in s["templates"].values())
+                                      and tracks[s["track"]]["mode"] != "roll"):
                 continue
             if s.get("waves"):
                 waves(k, s, tick)
@@ -717,7 +733,11 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                            key=lambda it: -it["s"])
             length = track["length"]
             for j, it in enumerate(order):
-                v = track["speed"] if track["mode"] == "belt" else it["speed"]
+                if track["mode"] == "roll":
+                    it["v"] = max(0.0, it["v"] + (ROLL_GRAVITY * _fall(track, it["s"]) - track["damping"] * it["v"]) * dt)
+                    v = it["v"]
+                else:
+                    v = track["speed"] if track["mode"] == "belt" else it["speed"]
                 target = it["s"] + v * dt
                 limit = float("inf")
                 if j > 0:
@@ -732,6 +752,8 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                         lead = min(ahead, key=lambda o: o["s"])
                         limit = length + lead["s"] - gap(it, lead, tracks[track["next"]])
                 target = max(it["s"], min(target, limit))
+                if track["mode"] == "roll" and target - it["s"] < v * dt:
+                    it["v"] = (target - it["s"]) / dt         # held up behind the one ahead
                 it["travelled"] += target - it["s"]
                 if track["loop"]:
                     it["s"] = target % length

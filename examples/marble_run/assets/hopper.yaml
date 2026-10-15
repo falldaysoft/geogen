@@ -1,0 +1,52 @@
+# The marble run's hopper: a brass funnel on three wooden legs, its neck over the track's
+# start. It is a source of balls (geogen.flows): `rate` a second, up to `max_alive` in play,
+# picked in turn from four colours; it starts stopped, and `start` / `stop` run it (the
+# hall's lever). Origin: on the floor under the neck.
+
+name: hopper
+tags: [machine.hopper]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  neck:      {default: 3.15}       # height of the funnel's neck
+  rate:      {default: 0.4}
+  max_alive: {default: 10}
+
+source:
+  items:
+    - {item: items/ball_red.yaml}
+    - {item: items/ball_blue.yaml}
+    - {item: items/ball_gold.yaml}
+    - {item: items/ball_green.yaml}
+  rate: "{rate}"
+  at: drop
+  max_alive: "{max_alive}"
+  initial: stopped
+
+parts:
+  funnel:
+    primitive: lathe
+    profile: [[0.09, 0], [0.11, 0], [0.11, 0.08], [0.42, 0.42], [0.42, 0.46], [0.4, 0.46], [0.09, 0.1], [0.09, 0]]
+    size: [0.84, 0.46, 0.84]
+    anchor: bottom_center
+    offset: [0, "{neck}", 0]
+    segments: 48
+    material: brass
+    collider: mesh
+  leg_0: &leg
+    primitive: cylinder
+    size: [0.05, "{neck + 0.3}", 0.05]
+    anchor: bottom_center
+    offset: [0, 0, 0.36]              # clear of the trough, which runs along x under the neck
+    material: wood_dark
+  leg_1:
+    <<: *leg
+    offset: [-0.31, 0, -0.18]
+  leg_2:
+    <<: *leg
+    offset: [0.31, 0, -0.18]
+
+attachments:
+  drop: {anchor: bottom_center, offset: [0, "{neck - 0.17}", 0], offset_mode: absolute}

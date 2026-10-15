@@ -1,0 +1,8 @@
+# A project built on geogen: a big marble run in a hall. A hopper drops coloured balls
+# onto a brass trough that ramps, U-turns and winds twice round a pole before running
+# out over a catch bowl; the bowl takes them in and the HUD counts them.
+#   python -m geogen.main --project examples/marble_run --export-catalogue
+#   godot --path runtime/godot -- --generated=$PWD/examples/marble_run/generated
+kind: project
+name: marble_run
+description: A marble run - a hopper, a winding brass trough and a catch bowl, all physics

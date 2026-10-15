@@ -1,0 +1,7 @@
+# A red ball for the marble run's hopper.
+kind: item
+name: ball_red
+body: {asset: ball.yaml, params: {colour: car_red}}
+mode: physics
+stuck: 6
+data: {value: 1}

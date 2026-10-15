@@ -1,0 +1,29 @@
+# The marble run's catch bowl: a wide brass bowl on a wooden pedestal that balls run out
+# into. Origin: on the floor under the bowl; the scene puts a sink in it.
+
+name: catch_bowl
+tags: [machine.catch_bowl]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: {default: 0.6}           # the bowl's floor
+
+parts:
+  pedestal:
+    primitive: lathe
+    profile: [[0, 0], [0.3, 0], [0.3, 0.05], [0.09, 0.12], [0.07, "{height - 0.06}"], [0.2, "{height}"], [0, "{height}"]]
+    size: [0.6, "{height}", 0.6]
+    anchor: bottom_center
+    segments: 32
+    material: wood_dark
+  bowl:
+    primitive: lathe
+    profile: [[0, 0], [0.22, 0], [0.55, 0.3], [0.55, 0.33], [0.53, 0.33], [0.21, 0.025], [0, 0.025]]
+    size: [1.1, 0.33, 1.1]
+    anchor: bottom_center
+    offset: [0, "{height + 0.003}", 0]
+    segments: 48
+    material: brass
+    collider: mesh

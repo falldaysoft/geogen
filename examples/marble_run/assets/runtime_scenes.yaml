@@ -1,0 +1,7 @@
+# The marble run's runtime catalogue (python -m geogen.main --project examples/marble_run --export-catalogue).
+kind: scene_catalogue
+default: marble_run
+scenes:
+  marble_run:
+    group: showcase
+    description: A hopper drops balls down a winding brass trough into a catch bowl

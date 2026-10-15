@@ -74,7 +74,7 @@
             "properties": {
               "id": {"type": "integer"}, "source": {"type": "string"}, "item": {"type": "string"},
               "data": {"type": "object"}, "age": {"type": "number"}, "travelled": {"type": "number"},
-              "track": {"type": "string"}, "s": {"type": "number"},
+              "track": {"type": "string"}, "s": {"type": "number"}, "v": {"type": "number"},
               "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
               "rotation": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
               "velocity": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}

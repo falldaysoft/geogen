@@ -1,0 +1,20 @@
+# A wooden stage the marble run stands on. Origin: bottom centre.
+
+name: stage
+tags: [terrain.floor]
+origin: bottom_center
+
+params:
+  width: {default: 10}
+  depth: {default: 8}
+
+size: ["{width}", 0.12, "{depth}"]
+
+parts:
+  boards:
+    primitive: cube
+    size: [1, 1, 1]
+    anchor: bottom_center
+    bevel: 0
+    material: hardwood_floor
+    walkable: true

@@ -1,0 +1,62 @@
+# A marble run on a wooden stage. Pull the lever: the hopper drops a ball every few
+# seconds onto the brass trough, which ramps east, U-turns, ramps back, winds twice round a
+# pole and runs out west over the catch bowl. Every ball is a physics body (geogen.flows
+# items from the hopper's source); the bowl is a sink that takes them in, and the HUD
+# counts what it has caught. Push the lever back to stop the hopper.
+
+name: marble_run
+size: [10, 4, 8]
+tags: [level.marble_run]
+
+spawns:
+  start: {position: [0, 0.12, -3.6], facing: north}
+
+slots:
+  track:  {position: [-0.5, 0.12, -1.4]}
+  hopper: {position: [-0.5, 0.12, -1.4]}
+  bowl:   {position: [-3.0, 0.12, -0.2]}
+  lever:  {position: [1.4, 0.12, -3.0], facing: south}
+
+place:
+  stage:
+    asset: stage.yaml
+  track:
+    asset: ball_track.yaml
+    slot: track
+  hopper:
+    asset: hopper.yaml
+    slot: hopper
+  bowl:
+    asset: catch_bowl.yaml
+    slot: bowl
+  lever:
+    asset: lever.yaml
+    slot: lever
+
+places:
+  catch:                                  # inside the bowl: what lands there is caught
+    box: [0.9, 0.3, 0.9]
+    position: [-3.0, 0.73, -0.2]
+    sink: true
+
+state:
+  milestone: {scope: world, type: number, default: 10}
+
+hud:
+  stats:
+    - {label: Caught, value: catch.received}
+    - {label: In play, value: hopper.alive}
+    - {label: Dropped, value: hopper.emitted}
+
+wire:
+  - {from: lever.pulled, to: hopper.start}
+  - {from: lever.released, to: hopper.stop}
+
+rules:
+  - id: milestone
+    on: {signal: catch.received}
+    when: "catch.received >= world.milestone"
+    do:
+      - {notify: "Another ten in the bowl"}
+      - {play: success}
+      - {set: world.milestone, to: "world.milestone + 10"}
