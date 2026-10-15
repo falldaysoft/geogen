@@ -77,13 +77,16 @@ func hud_refresh() -> void:
     var tracker: GeogenHudQuestTracker = _hud.panel("quests")
     _markers.clear()
     var offset := _model_offset()
-    var tracked := tracker.tracked_in(rules.package) if tracker != null and rules.machine != null else ""
+    var tracked := tracker.tracked_here() if tracker != null else ""
     for quest in rules.report(_hud.actor):
         if quest["id"] != tracked or quest["status"] != "active":
             continue
         for objective in quest["objectives"]:
             var points: Array = objective.get("markers", [])
             if points.is_empty():
+                # Open, but somewhere else: a content package's next step in another scene.
+                if objective["state"] == "open" and not world.scene_name in objective.get("scenes", [world.scene_name]):
+                    _portals(quest, quest["package"], objective)
                 continue
             var base := {"quest": quest["id"], "package": quest["package"], "objective": objective["id"],
                 "title": quest["title"], "text": objective["text"]}
@@ -131,20 +134,31 @@ func _add_portals(rules: GeogenRules, tracker: GeogenHudQuestTracker) -> void:
                 quest = other
         var objective := {}
         for candidate in quest["objectives"]:
-            if candidate["state"] == "open" and candidate.get("marked", false) and objective.is_empty():
+            var somewhere: bool = candidate.get("marked", false) or not candidate.get("scenes", []).is_empty()
+            if candidate["state"] == "open" and somewhere and objective.is_empty():
                 objective = candidate
-        if objective.is_empty():
+        if not objective.is_empty():
+            _portals(quest, package, objective)
+
+
+## Mark the travel points that go straight to a scene an objective's subjects are in (a
+## content package's quest names things in scenes it isn't named after; else its package's).
+func _portals(quest: Dictionary, package: String, objective: Dictionary) -> void:
+    var world: WorldLoader = _hud.world
+    var scenes: Array = objective.get("scenes", [])
+    if scenes.is_empty():
+        scenes = [package]
+    for point in world.travel_points:
+        var node = point.get("node")
+        var travel: Dictionary = point.get("travel", {})
+        var scene := str(travel.get("scene", ""))
+        if not scene in scenes or scene == world.scene_name or not is_instance_valid(node) or not node is Node3D:
             continue
-        for point in world.travel_points:
-            var node = point.get("node")
-            var travel: Dictionary = point.get("travel", {})
-            if str(travel.get("scene", "")) != package or not is_instance_valid(node) or not node is Node3D:
-                continue
-            var box := WorldLoader._aabb(node)
-            _markers.append({"quest": quest["id"], "package": package, "objective": objective["id"],
-                "title": quest["title"], "text": objective["text"], "kind": "portal", "scene": package,
-                "subject": WorldLoader.uid_of(node), "label": str(package).capitalize(),
-                "at": box.get_center() if box.size != Vector3.ZERO else (node as Node3D).global_position})
+        var box := WorldLoader._aabb(node)
+        _markers.append({"quest": quest["id"], "package": package, "objective": objective["id"],
+            "title": quest["title"], "text": objective["text"], "kind": "portal", "scene": scene,
+            "subject": WorldLoader.uid_of(node), "label": scene.capitalize(),
+            "at": box.get_center() if box.size != Vector3.ZERO else (node as Node3D).global_position})
 
 
 ## Where the loaded model was put: the origin, unless several exports are laid out in a row.

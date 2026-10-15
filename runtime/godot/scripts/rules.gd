@@ -151,6 +151,7 @@ func unload() -> void:
         _saves[package]["timers"] = []          # arrivals of things that no longer exist
         _carry(_saves[package])
     machine = null
+    package = ""                # a scene without a program loads next, maybe: it has no package
     _applied = []
     quests = {}
     _watched.clear()
@@ -586,10 +587,32 @@ static func _visible(values: Dictionary) -> Dictionary:
 ## done | open | waiting, with `progress: [n, of]` and `markers` (world positions of
 ## an open objective's subjects) where there are any.
 func report(actor := "player") -> Array:
-    return [] if machine == null else _report_of(machine, quests, package, actor)
+    return [] if machine == null else _report_of(machine, quests, package, actor, _locate)
 
 
-static func _report_of(machine: GeogenMachine, quests: Dictionary, package: String, actor: String) -> Array:
+## The packages running now: the loaded scene's and the content packages applied to it.
+func running() -> Array:
+    return [] if machine == null else [package] + _applied.map(func(other): return other["package"])
+
+
+## The package a quest of the loaded program belongs to: a content package's, or the scene's.
+func quest_package(id: String) -> String:
+    return str(quests.get("quests", {}).get(id, {}).get("package", package))
+
+
+## Where a subject the export didn't mark is in the loaded world (a content package's quest
+## names things in the scenes it runs in): its node's position, or null.
+func _locate(subject: String) -> Variant:
+    var node = world.node_by_uid(subject)
+    if not node is Node3D:
+        return null
+    var box := WorldLoader._aabb(node)
+    var at: Vector3 = box.get_center() if box.size != Vector3.ZERO else (node as Node3D).global_position
+    return [at.x, at.y, at.z]
+
+
+static func _report_of(machine: GeogenMachine, quests: Dictionary, package: String, actor: String,
+        locate := Callable()) -> Array:
     var out := []
     var markers: Dictionary = quests.get("markers", {})
     for id in quests.get("quests", {}):
@@ -605,16 +628,24 @@ static func _report_of(machine: GeogenMachine, quests: Dictionary, package: Stri
                 state = "done"
             elif status == "active" and objective["after"].all(func(a): return done[a]):
                 state = "open"
+            var scenes := []        # the scenes its subjects are in: where a portal leads to them
+            for subject in objective["subjects"]:
+                var scene := str(subject).get_slice(":", 0)
+                if ":" in str(subject) and not scene in scenes:
+                    scenes.append(scene)
             var entry := {"id": objective["id"], "text": objective["text"], "optional": objective["optional"],
-                "state": state}
+                "state": state, "scenes": scenes}
             if objective.has("progress"):
                 var n = machine.value(objective["progress"]["value"], actor)
                 entry["progress"] = [int(n) if n != null else 0, int(objective["progress"]["of"])]
             if state == "open" and not objective.get("marker", {}).get("hidden", false):
                 var points := []
                 for subject in objective["subjects"]:
-                    if markers.has(subject):
-                        points.append({"subject": subject, "position": markers[subject]})
+                    var at: Variant = markers.get(subject)
+                    if at == null and locate.is_valid():
+                        at = locate.call(subject)
+                    if at != null:
+                        points.append({"subject": subject, "position": at})
                 if not points.is_empty():
                     entry["markers"] = points
                     if objective.get("marker", {}).has("area"):

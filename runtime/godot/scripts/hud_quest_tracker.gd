@@ -101,7 +101,7 @@ func hud_attach(hud: GeogenHud) -> void:
 func _on_quest_event(event: Dictionary) -> void:
     if event["actor"] != _hud.actor:
         return
-    var package: String = _hud.world.rules.package
+    var package: String = _hud.world.rules.quest_package(event["quest"])
     match event["event"]:
         "started":
             if _tracked == "" and _finished.is_empty():
@@ -130,7 +130,7 @@ func _linger(seconds: float) -> void:
 func _linger_over() -> void:
     if _finished.is_empty():
         return
-    if _finished["package"] == _hud.world.rules.package:
+    if _finished["package"] in _hud.world.rules.running():
         _tracked = ""
     _choice.erase(_finished["package"])
     _finished = {}
@@ -167,7 +167,15 @@ func track(quest: String) -> bool:
 ## The quest tracked in a package ("" if none): the one shown for the loaded package, the
 ## pick waiting for another to load again.
 func tracked_in(package: String) -> String:
-    return _tracked if package == _hud.world.rules.package else str(_choice.get(package, ""))
+    var rules: GeogenRules = _hud.world.rules
+    if _tracked != "" and package in rules.running() and rules.quest_package(_tracked) == package:
+        return _tracked
+    return "" if package in rules.running() else str(_choice.get(package, ""))
+
+
+## The quest tracked in the loaded world ("" if none), whatever package it belongs to.
+func tracked_here() -> String:
+    return _tracked if _hud.world.rules.machine != null else ""
 
 
 ## Pick the quest to track in a package that isn't loaded: it is tracked when that loads again.
@@ -192,14 +200,20 @@ func hud_refresh() -> void:
     var rules: GeogenRules = _hud.world.rules
     var report := rules.report(_hud.actor)
     var active := _active(report)
-    var lingering: bool = not _finished.is_empty() and _finished["package"] == rules.package
+    var lingering: bool = not _finished.is_empty() and _finished["package"] in rules.running()
     if rules.machine != null and not lingering:
-        # Keep the pick while it is active; else the one picked here before; else the first.
+        # Keep the pick while it is active; else the one picked before in a package running
+        # here (the scene's, then its content packages': a quest keeps its pick across the
+        # scenes its package runs in); else the first.
         if not _tracked in active:
-            var before: String = _choice.get(rules.package, "")
-            _tracked = before if before in active else (active[0] if not active.is_empty() else "")
+            _tracked = active[0] if not active.is_empty() else ""
+            for name in rules.running():
+                var before: String = _choice.get(name, "")
+                if before in active and rules.quest_package(before) == name:
+                    _tracked = before
+                    break
         if _tracked != "":
-            _choice[rules.package] = _tracked
+            _choice[rules.quest_package(_tracked)] = _tracked
     var quest := {}
     for entry in report:
         if entry["id"] == _tracked and (lingering or entry["status"] == "active"):

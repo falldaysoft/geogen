@@ -83,7 +83,7 @@ func _on_quest_event(event: Dictionary) -> void:
     if event["actor"] != _hud.actor or not KINDS.has(event["event"]):
         return
     _raised += 1
-    var note := {"seq": _raised, "kind": event["event"], "package": _hud.world.rules.package,
+    var note := {"seq": _raised, "kind": event["event"], "package": _hud.world.rules.quest_package(event["quest"]),
         "quest": event["quest"], "heading": KINDS[event["event"]]["heading"], "text": event["title"]}
     if event["event"] == "objective_done":
         note["objective"] = event["objective"]
@@ -133,7 +133,7 @@ func _drop_untrue() -> void:
     for quest in rules.report(_hud.actor):
         quests[quest["id"]] = quest
     var holds := func(note: Dictionary) -> bool:
-        if note["package"] != rules.package or note["kind"] == "notice":
+        if not note["package"] in rules.running() or note["kind"] == "notice":
             return true
         if not quests.has(note["quest"]):
             return false
