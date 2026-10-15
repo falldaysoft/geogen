@@ -1,0 +1,40 @@
+# A run of indicator dots on the floor, showing which circuit a button feeds:
+# blue while it is off, orange while it is live. Lay one along each straight
+# leg of the route. Origin: the first dot; the run goes along +Z for `length`.
+# Wiring drives `on` / `off`.
+
+name: indicator_line
+tags: [decor.indicator]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length:  { default: 3.0 }
+  spacing: { default: 0.3 }
+
+parts:
+  dot_off: &dot
+    primitive: cube
+    size: [0.08, 0.006, 0.08]
+    bevel: 0.002
+    anchor: bottom_center
+    array: { count: "{round(length / spacing) + 1}", step: [0, 0, "{spacing}"] }
+    material: indicator_blue
+    collider: none
+  dot_on:
+    <<: *dot
+    material: indicator_orange
+
+interactions:
+  circuit:
+    initial: "off"
+    duration: 0.1
+    states: { "off": {}, "on": {} }
+    motions:
+      - { parts: [dot_off], show: ["off"] }
+      - { parts: [dot_on], show: ["on"] }
+
+inputs:
+  "on":  { set: circuit, to: "on" }
+  "off": { set: circuit, to: "off" }

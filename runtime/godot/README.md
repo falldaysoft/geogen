@@ -581,7 +581,36 @@ place event: {"type":"enter","subject":"island:lighthouse/gallery","place":"gall
 
 `main.gd` prints the line above, the control API streams them as `place`, and
 `world.info` lists `places` with the actors in each. `WorldLoader.places` holds
-`{id, uid, kind, node, area, actors}`.
+`{id, uid, kind, node, area, actors, detect, things}`.
+
+A place with `detect: [actors, props]` also counts physics props in it, with the
+actors, in `things`, and sets its `<uid>#occupants` state to how many there are
+(`WorldLoader._occupy`). Props raise no `enter` / `leave`.
+
+## Physics props
+
+An asset with `physics:` (`geogen/physics.py`) is exported with
+`extras.geogen.physics` (`mass`, `friction`, `bounce`, `carry`, a box `size` and
+`center`). `GeogenProps` (`scripts/props.gd`, `WorldLoader.props`) wraps each in
+a `RigidBody3D` with that box (the parts' own colliders are dropped), on layer 1,
+never asleep. Props aren't static colliders, so the navmesh is baked without them.
+
+- **Carrying:** aiming at a prop with `carry` prompts `E: Pick up`; it is held
+  `HOLD_DISTANCE` (1.4 m) in front of the eyes, chased there by velocity so it
+  still collides, level and turning with the player, and never collides with the
+  holder. E drops it; so does being snagged more than 1.4 m from the hold point
+  for half a second. The player walking into a prop shoves it (`player.gd`
+  `_push_props`).
+- **Spawn:** a prop with `spawn: <thing>.<attachment>` has a `spawn` interaction
+  (`stowed | live`) that rules drive. Stowed, it is hidden, frozen and out of
+  collision; going live, it is put at `spawn_at` at rest and let go. A live prop
+  more than 10 m below the lowest model is stowed, which rules hear as a change
+  (`{changed: cube.spawn, to: stowed}`), so they can hand out another.
+- **Saves** keep every live prop's pose in `bodies` (see "Saving" in `docs/rules.md`).
+- Control API: `world.bodies`, `player.carry {prop?}`, `player.drop`; `player.use`
+  picks up and drops too (`focus.kind`: `carry` / `drop`).
+
+The example is `examples/test_chamber` (`tests/test_test_chamber.py`).
 
 ## Events
 
@@ -974,6 +1003,7 @@ A new key needs a schema entry and a row here.
 | `affordances` | `scripts/world_loader.gd` | sit / lie / use points for the player and NPCs |
 | `portal` | `scripts/world_loader.gd` | doorways NPC paths open (`scripts/npc.gd`) |
 | `place` | `scene_builder.gd` | `PlaceArea` trigger volumes |
+| `physics` | `scripts/props.gd` | rigid-body props, carrying, spawn / stow |
 | `travel` | `scripts/world_loader.gd` | travel points |
 | `npc` | `scripts/world_loader.gd` | a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition |
 | `poses` | - | on body assets; NPCs read the copy in `npc.body.poses` |

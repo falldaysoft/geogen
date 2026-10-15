@@ -13,6 +13,7 @@ const SPRINT_SPEED := 7.0
 const FLY_SPEED := 10.0
 const JUMP_VELOCITY := 4.5
 const ACCEL := 12.0
+const PUSH_FORCE := 120.0     ## N the player leans on a physics prop it walks into
 const MOUSE_SENSITIVITY := 0.0025
 ## Extra lift when probing a step, so a ledge of exactly step_height isn't
 ## rejected by the collision margin; the actual climb is still capped.
@@ -146,6 +147,20 @@ func _physics_process(delta: float) -> void:
     else:
         velocity.y -= _gravity * delta
     move_and_slide()
+    _push_props(delta)
+
+
+## Walking into a physics prop shoves it along (a CharacterBody3D doesn't by itself).
+func _push_props(delta: float) -> void:
+    for i in get_slide_collision_count():
+        var hit := get_slide_collision(i)
+        var body := hit.get_collider() as RigidBody3D
+        if body == null or body.freeze:
+            continue
+        var push := -hit.get_normal()
+        push.y = 0.0
+        if push.length() > 0.01:
+            body.apply_central_impulse(push.normalized() * PUSH_FORCE * delta)
 
 
 ## Walk up ledges no taller than spec.step_height: if the way ahead is blocked,

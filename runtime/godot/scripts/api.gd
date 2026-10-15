@@ -36,6 +36,10 @@ const COMMANDS := {
     "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
     "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",
     "player.stand": "leave a sit/lie pose",
+    "player.carry": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere: "
+        + "-> {ok, held}",
+    "player.drop": "let go of what the player carries -> {dropped}",
+    "world.bodies": "every physics prop: uid, node, position, yaw_deg, live, held, sleeping, speed",
     "player.keys": "{keys?} set (or get) the keys the player holds",
     "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
     "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
@@ -337,6 +341,24 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "player.stand":
             player.leave_pose()
             return _status()
+        "player.carry":
+            var want := str(args.get("prop", ""))
+            if want == "":
+                main._update_focus()
+                want = main._focus_prop
+            else:
+                for b in world.props.report():
+                    if b["uid"].match(want) or b["node"] == want:
+                        want = b["uid"]
+                        break
+            var ok: bool = want != "" and world.props.pick(want, player, main._hold_point)
+            return {"ok": ok, "held": world.props.held}
+        "player.drop":
+            var dropped := world.props.held
+            world.props.drop()
+            return {"dropped": dropped}
+        "world.bodies":
+            return world.props.report()
         "player.keys":
             if args.has("keys"):
                 main.keys = Array(args["keys"])

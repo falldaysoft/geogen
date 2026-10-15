@@ -56,6 +56,20 @@
       "type": "array",
       "items": {"$ref": "#/$defs/timer"}
     },
+    "bodies": {
+      "description": "Physics props (extras.geogen.physics) that are live, by stable ID: where they are. Written by runtimes that simulate them; a prop it doesn't name is where its spawn interaction puts it.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["position"],
+        "additionalProperties": false,
+        "properties": {
+          "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+          "rotation": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "description": "Euler angles, degrees (Godot's YXZ order)."},
+          "velocity": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+        }
+      }
+    },
     "packages": {
       "description": "Written by a runtime: every other package visited this session, by name, as it was left (a save of its own, without `packages` or `carried`). Loading resumes each when its scene loads; one made in another scene loads that scene's part from here.",
       "type": "object",

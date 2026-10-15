@@ -1,0 +1,99 @@
+# A ceiling dropper: a white tube from the ceiling with a dark collar and a
+# two-leaf hatch at its mouth, striped underneath. `drop` opens the hatch for
+# a couple of seconds (raising `dropped`); whatever waits at `spawn_at`, high
+# in the tube, falls out. Origin: the middle of the tube's mouth (bottom);
+# hang it so its top meets the ceiling.
+
+name: dropper
+tags: [machine.dropper]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: { default: 2.4 }      # mouth to ceiling
+  bore:   { default: 0.62 }     # inner radius; a 0.7 m cube passes on its diagonal
+
+parts:
+  tube:
+    primitive: lathe
+    profile: [["{bore}", 0.3], ["{bore + 0.08}", 0.3], ["{bore + 0.08}", "{length - 0.03}"], ["{bore}", "{length - 0.03}"], ["{bore}", 0.3]]
+    size: ["{2 * bore + 0.16}", "{length - 0.33}", "{2 * bore + 0.16}"]
+    anchor: bottom_center
+    offset: [0, 0.3, 0]
+    segments: 48
+    material: lab_white
+  collar:
+    primitive: lathe
+    profile: [["{bore}", 0], ["{bore + 0.22}", 0], ["{bore + 0.22}", 0.12], ["{bore + 0.1}", 0.32], ["{bore}", 0.32], ["{bore}", 0]]
+    size: ["{2 * bore + 0.44}", 0.32, "{2 * bore + 0.44}"]
+    anchor: bottom_center
+    segments: 48
+    material: lab_dark
+  band:
+    primitive: lathe
+    profile: [["{bore + 0.07}", 0], ["{bore + 0.11}", 0], ["{bore + 0.11}", 0.1], ["{bore + 0.07}", 0.1], ["{bore + 0.07}", 0]]
+    size: ["{2 * bore + 0.22}", 0.1, "{2 * bore + 0.22}"]
+    anchor: bottom_center
+    offset: [0, "{length * 0.62}", 0]
+    segments: 48
+    material: lab_dark
+    collider: none
+  mount:
+    primitive: cylinder
+    size: ["{2 * bore + 0.5}", 0.06, "{2 * bore + 0.5}"]
+    anchor: bottom_center
+    offset: [0, "{length - 0.06}", 0]
+    material: lab_dark
+    collider: none
+  ring_light:
+    primitive: lathe
+    profile: [["{bore + 0.22}", 0.04], ["{bore + 0.235}", 0.04], ["{bore + 0.235}", 0.08], ["{bore + 0.22}", 0.08], ["{bore + 0.22}", 0.04]]
+    size: ["{2 * bore + 0.47}", 0.04, "{2 * bore + 0.47}"]
+    anchor: bottom_center
+    offset: [0, 0.04, 0]
+    segments: 48
+    material: indicator_blue
+    collider: none
+
+  # The hatch: two half discs hinged at the collar, swinging down to open.
+  hatch_left: &leaf
+    primitive: cylinder
+    size: ["{2 * bore}", 0.04, "{2 * bore}"]
+    anchor: bottom_center
+    offset: [0, 0.02, 0]
+    material: hazard_stripe
+    subtract: [half_right]
+  hatch_right:
+    <<: *leaf
+    subtract: [half_left]
+  half_left: &half
+    primitive: cube
+    size: ["{bore + 0.05}", 0.2, "{2 * bore + 0.1}"]
+    anchor: bottom_center
+    offset: ["{-(bore + 0.05) / 2 - 0.004}", -0.05, 0]
+    bevel: 0
+    cutter: true
+  half_right:
+    <<: *half
+    offset: ["{(bore + 0.05) / 2 + 0.004}", -0.05, 0]
+
+interactions:
+  hatch:
+    initial: closed
+    duration: 0.5
+    states:
+      closed: {}
+      open:   { emit: dropped, then: closed, after: 2.5 }
+    motions:
+      - { parts: [hatch_left], rotate: z, pivot: ["{-bore}", 0.04, 0], values: { closed: 0, open: 95 } }
+      - { parts: [hatch_right], rotate: z, pivot: ["{bore}", 0.04, 0], values: { closed: 0, open: -95 } }
+
+signals:
+  dropped: { emit: dropped }
+inputs:
+  drop: { set: hatch, to: open }
+
+attachments:
+  # Where the load waits, high in the tube.
+  spawn_at: { anchor: bottom_center, offset: [0, "{length - 1.0}", 0] }

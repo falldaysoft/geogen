@@ -505,6 +505,16 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 - **Runtime:** `GeogenSceneBuilder` adds a `PlaceArea`; `WorldLoader` watches those and the room areas and emits `place_event` `{type: enter | leave, subject, place, kind: place | room, actor}` for the player and NPCs (printed as `place event: {...}`, API stream `place`). Seated actors stay in their place. See "Places" in `runtime/godot/README.md`. The event bus carries these as `enter` / `leave`.
 - Tests: `tests/test_places.py`, `tests/test_showcases.py::test_island_places_report_the_player_arriving`.
 
+### Physics props
+
+`geogen/physics.py`: an asset with `physics: {mass, friction, bounce, carry, spawn, initial}` is one rigid body in the runtime (`meta.physics`, exported in extras with a box `size` / `center` from its geometry).
+- `carry: true`: the player picks it up with E and carries it (E drops it).
+- `spawn: "<thing>.<attachment>"` (usually a text param: `params: {from: dropper.spawn_at}`) adds a `spawn` interaction, `stowed | live` (`initial`, default stowed): rules hand it out there, and the runtime stows a live prop that falls out of the world. `resolve_spawns` (end of every `_build_scene`, like `resolve_moves`) records `spawn_at` in the asset frame.
+- Places take `detect: [actors, props]`; then they have `occupants` (number, `driven: place`), which the runtime keeps at the count of actors and props inside (`places.place_state`). A floor button is a rule on `{changed: pad.occupants}`.
+- Godot: `scripts/props.gd` (`GeogenProps`, `WorldLoader.props`); saves keep live props in `bodies`. See "Physics props" in `runtime/godot/README.md`.
+- Interaction motions and targets may name an arrayed part: all its copies.
+- `examples/test_chamber/` (`--project examples/test_chamber -s test_chamber_01`) is the worked example: a Portal-style chamber (Halcyon Applied Sciences) with a dropper, weighted cube, floor button, sliding door, indicator lines and a chamber sign; core textures `panel` (cladding panels with seams, per-panel tone, grime, bolts) and `stripes` (hazard stripes). Tests: `tests/test_test_chamber.py`. Run it with `godot --path runtime/godot -- --generated=$PWD/examples/test_chamber/generated` after `--export-catalogue`.
+
 ### Scatter placement
 
 `layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.

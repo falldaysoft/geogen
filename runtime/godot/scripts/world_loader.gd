@@ -101,6 +101,8 @@ var portals: Array[Dictionary] = []
 var _reservations := {}   # affordance id -> [GeogenNpc]
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
+## Physics props (extras.geogen.physics): rigid bodies, carrying, spawn and stow.
+var props: GeogenProps
 var _moving := {}     # Node3D driven by an interaction -> true
 var _target_of := {}  # Node3D aimed at -> GeogenInteraction
 var _poll := 0.0
@@ -147,6 +149,8 @@ func _ready() -> void:
     events.posted.connect(_on_lit)
     rules.world = self
     add_child(rules)
+    props = GeogenProps.new(self)
+    add_child(props)
     _collider_material = StandardMaterial3D.new()
     _collider_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     _collider_material.albedo_color = Color(0.2, 1.0, 0.4)
@@ -297,10 +301,11 @@ func unload() -> void:
     _load_started = t
     rules.remember_reports()      # for the quest log, while the interactions it counts are still here
     for child in get_children():
-        if child == events or child == rules:
+        if child == events or child == rules or child == props:
             continue
         remove_child(child)
         child.free()
+    props.clear()
     rules.unload()
     interactions_by_key.clear()
     streamer = null
@@ -517,6 +522,7 @@ func setup_root(root: Node) -> Dictionary:
         if uid != "":
             nodes_by_uid[uid] = node
     _collect_interactions(root)
+    props.setup(root)        # before colliders: a prop's parts' colliders give way to its body
     _add_lights(root)
     _sync_fixtures()
     _collect_affordances(root)
@@ -619,6 +625,7 @@ func forget(root: Node) -> void:
                 _pending_state[_state_key(it)] = it.snapshot()
             interactions.erase(it)
             it.queue_free()
+    props.forget(root)
     for uid in nodes_by_uid.keys():
         if inside.call(nodes_by_uid[uid]):
             nodes_by_uid.erase(uid)
@@ -1103,6 +1110,9 @@ func save_state() -> Dictionary:
         timers.append(timer)
     timers.sort_custom(GeogenMachine._sooner)
     data["timers"] = timers
+    var bodies := props.save()
+    if not bodies.is_empty():
+        data["bodies"] = bodies
     return data
 
 
@@ -1175,6 +1185,7 @@ func load_state(data: Dictionary) -> void:
         var snap: Dictionary = _pending_state.get(key, {})
         _pending_state.erase(key)
         it.restore({"state": snap.get("state", it.initial), "locked": snap.get("locked", it.initial_locked)})
+    props.restore(data.get("bodies", {}))     # after their spawn interactions: where they had got to
     # Loaded interactions carry on from their own timers; the program keeps the rest (rule
     # timers, and those of interactions it holds: ones it doesn't know are dropped).
     var kept := []
@@ -1271,6 +1282,8 @@ func _collect_places(root: Node) -> void:
             var place: Dictionary = area.get_meta("geogen_place", {})
             entry["id"] = str(place.get("id", node.name))
             entry["uid"] = str(place.get("uid", ""))
+            entry["detect"] = place.get("detect", ["actors"])
+            entry["things"] = {}
         places.append(entry)
         area.body_entered.connect(func(body: Node3D): _place_crossed(entry, body, true))
         area.body_exited.connect(func(body: Node3D): _place_crossed(entry, body, false))
@@ -1279,6 +1292,9 @@ func _collect_places(root: Node) -> void:
 func _place_crossed(entry: Dictionary, body: Node3D, entered: bool) -> void:
     var actor := actor_id(body)
     if actor == "":
+        var prop := props.prop_of(body)
+        if prop != "" and "props" in entry.get("detect", []):
+            _occupy(entry, prop, entered)
         return
     if entered:
         # Bodies sit at the origin for a frame while a world loads or they spawn:
@@ -1332,9 +1348,26 @@ func _leave_unless_inside(held: Dictionary) -> void:
 
 
 func _post_place(type: String, entry: Dictionary, actor: String) -> void:
+    if "props" in entry.get("detect", []):
+        _occupy(entry, actor, type == "enter")
     events.post(type, entry["uid"], "", actor, {"place": entry["id"], "kind": entry["kind"]})
     place_event.emit({"type": type, "subject": entry["uid"], "place": entry["id"], "kind": entry["kind"],
         "actor": actor})
+
+
+## A place that detects props counts what is in it (actors and props) as its
+## `occupants` (declared with `driven: place`), which rules read.
+func _occupy(entry: Dictionary, thing: String, inside: bool) -> void:
+    var things: Dictionary = entry["things"]
+    if inside == things.has(thing):
+        return
+    if inside:
+        things[thing] = true
+    else:
+        things.erase(thing)
+    var key := "%s#occupants" % entry["uid"]
+    if rules.machine != null and rules.machine.variables.has(key):
+        rules.set_value(key, float(things.size()))
 
 
 ## What events call ``body``: "player", an NPC's stable ID (its name without one), or "" for anything else.

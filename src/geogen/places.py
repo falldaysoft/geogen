@@ -42,6 +42,17 @@ SHAPES = ("box", "polygon", "around")
 DEFAULT_HEIGHT = 2.5              # of a polygon place: about a storey
 
 
+DETECT = ("actors", "props")
+
+
+def place_state(node: SceneNode) -> dict[str, dict[str, Any]]:
+    """What a place that detects props has: ``occupants``, the number of things it detects
+    inside it, set by the runtime (``driven``), so rules read it and react to it changing."""
+    if not is_place(node) or "props" not in node.meta["place"].get("detect", []):
+        return {}
+    return {"occupants": {"type": "number", "default": 0, "driven": "place"}}
+
+
 def is_place(node: SceneNode) -> bool:
     return node.meta.get("type") == TYPE and isinstance(node.meta.get("place"), dict)
 
@@ -126,6 +137,12 @@ def build_places(root: SceneNode, spec: Any, where: str,
             place["size"] = [round(v, 6) for v in size]
         elif place["height"] <= 0:
             raise ValueError(f"{at}: height must be positive")
+        detect = entry.get("detect", "actors")
+        detect = [detect] if isinstance(detect, str) else list(detect or [])
+        if not detect or set(detect) - set(DETECT):
+            raise ValueError(f"{at}: detect is one or both of {', '.join(DETECT)}, got {entry.get('detect')!r}")
+        if detect != ["actors"]:
+            place["detect"] = [d for d in DETECT if d in detect]
         tags = [str(t) for t in entry.get("tags", [])]
         node = SceneNode(name=str(name),
                          transform=Transform(translation=position, rotation=np.array([0.0, np.radians(yaw), 0.0])),

@@ -1,0 +1,16 @@
+# The weighted cube's hexagonal emblems: a soft teal glow.
+name: cube_glow
+texture:
+  type: painted_wall
+  params:
+    base_color: [120, 230, 220]
+    seed: 509
+size: [64, 64]
+tile_size: 1.0
+pbr:
+  roughness: 0.3
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [0.25, 0.9, 0.8]
+  emissive_strength: 0.6

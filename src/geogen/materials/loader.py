@@ -20,6 +20,7 @@ from ..textures.interior import (
     MarbleTextureGenerator,
     TileTextureGenerator,
 )
+from ..textures.panel import PanelTextureGenerator, StripeTextureGenerator
 from ..textures.metal import MetalTextureGenerator, MetalType
 from ..textures.rock import RockTextureGenerator
 from ..textures.roof import RoofTextureGenerator
@@ -47,6 +48,8 @@ TEXTURE_GENERATORS = {
     "cut_pile_carpet": CutPileCarpetTextureGenerator,
     "tile": TileTextureGenerator,
     "marble": MarbleTextureGenerator,
+    "panel": PanelTextureGenerator,
+    "stripes": StripeTextureGenerator,
     "skin": SkinTextureGenerator,
     "face": FaceTextureGenerator,
     "hair": HairTextureGenerator,
@@ -258,6 +261,7 @@ class MaterialLoader:
             "base_color", "highlight_color", "mortar_color",
             "weft_color", "tile_color", "grout_color", "vein_color", "gap_color",
             "eye_color", "brow_color", "lip_color",
+            "panel_color", "seam_color", "color_a", "color_b",
         ]
         for key in color_keys:
             value = converted.get(key)

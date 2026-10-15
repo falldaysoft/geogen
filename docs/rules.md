@@ -93,6 +93,12 @@ stands there by its timetable. Rules and quests read it and react to it
 changing (`{changed: commuter.at_north, to: false}`: the train left); export
 counts it as state that changes.
 
+A place that detects physics props as well as actors (`detect: [actors, props]`
+in its `places:` entry) has `occupants` (a number, `driven: place`): how many
+things are in it, the player, NPCs and props alike. A floor button reads it
+(`{changed: pad.occupants}` with `when: "pad.occupants > 0"`); unlike `enter`
+and `leave`, which only actors raise, it counts a cube dropped on the pad.
+
 Export collects all of it (`geogen.state.collect`) into the `state` section of
 the manifest and chunk index (schema `docs/schema/geogen-state.v1.schema.json`):
 
@@ -312,6 +318,10 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   values: `{world, actors}`). Loading resumes each package from its entry when
   its scene loads; a save made in another scene loads the current scene's part
   from `packages`, or starts it afresh. `Machine.load` ignores these.
+- A runtime that simulates physics props (`extras.geogen.physics`) writes
+  `bodies`: every live prop by stable ID, `{position, rotation, velocity}`.
+  Loading puts them there after their `spawn` interactions are restored; one a
+  save doesn't name is where its interaction puts it. `Machine.load` ignores it.
 
 ## What export must reject
 

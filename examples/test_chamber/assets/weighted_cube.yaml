@@ -1,0 +1,83 @@
+# A Halcyon weighted storage cube: an enamelled white body with dark bumpers
+# on its eight corners and a ringed, glowing hexagon on every face. A physics
+# prop the player can carry. With `from` (a dropper's `spawn_at`) it starts
+# stowed and rules hand it out there (its `spawn` interaction: stowed | live).
+# Origin: bottom centre.
+
+name: weighted_cube
+tags: [prop.cube]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  side: { default: 0.7 }
+  from: { default: "", type: text }    # <thing>.<attachment> it is handed out at
+
+physics:
+  mass: 25
+  friction: 0.9
+  carry: true
+  spawn: "{from}"
+
+parts:
+  body:
+    primitive: cube
+    size: ["{side - 0.04}", "{side - 0.04}", "{side - 0.04}"]
+    anchor: bottom_center
+    offset: [0, 0.02, 0]
+    bevel: 0.05
+    material: lab_white
+
+  # Corner bumpers, a little proud of the body on every side.
+  bumper: &bumper
+    primitive: cube
+    size: ["{side * 0.3}", "{side * 0.3}", "{side * 0.3}"]
+    anchor: bottom_center
+    offset: ["{-side * 0.35}", 0, "{-side * 0.35}"]
+    array: { count: 2, step: ["{side * 0.7}", 0, 0] }
+    bevel: 0.035
+    material: lab_dark
+  bumper_b:
+    <<: *bumper
+    offset: ["{-side * 0.35}", 0, "{side * 0.35}"]
+  bumper_t:
+    <<: *bumper
+    offset: ["{-side * 0.35}", "{side * 0.7}", "{-side * 0.35}"]
+  bumper_tb:
+    <<: *bumper
+    offset: ["{-side * 0.35}", "{side * 0.7}", "{side * 0.35}"]
+
+  # Each face: a dark ring round a glowing hexagon, centred on the face.
+  ring_top: &ring
+    primitive: extrude
+    shape: { outer: { circle: "{side * 0.24}", segments: 32 }, holes: [{ circle: "{side * 0.17}", segments: 32 }] }
+    fit: none
+    axis: y
+    size: ["{side * 0.48}", 0.014, "{side * 0.48}"]
+    attach_to: body
+    at: top
+    from: center
+    material: lab_dark
+    collider: none
+  ring_bottom: { <<: *ring, at: bottom }
+  ring_front:  { <<: *ring, at: front, rotation: [90, 0, 0] }
+  ring_back:   { <<: *ring, at: back,  rotation: [90, 0, 0] }
+  ring_left:   { <<: *ring, at: left,  rotation: [0, 0, 90] }
+  ring_right:  { <<: *ring, at: right, rotation: [0, 0, 90] }
+  hex_top: &hex
+    primitive: extrude
+    shape: { ngon: "{side * 0.13}", sides: 6, rotation: 30 }
+    fit: none
+    axis: y
+    size: ["{side * 0.26}", 0.012, "{side * 0.26}"]
+    attach_to: body
+    at: top
+    from: center
+    material: cube_glow
+    collider: none
+  hex_bottom: { <<: *hex, at: bottom }
+  hex_front:  { <<: *hex, at: front, rotation: [90, 0, 0] }
+  hex_back:   { <<: *hex, at: back,  rotation: [90, 0, 0] }
+  hex_left:   { <<: *hex, at: left,  rotation: [0, 0, 90] }
+  hex_right:  { <<: *hex, at: right, rotation: [0, 0, 90] }

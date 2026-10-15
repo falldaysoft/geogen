@@ -1,0 +1,17 @@
+# Yellow and black hazard striping on the dropper hatch and the button's rim.
+name: hazard_stripe
+texture:
+  type: stripes
+  params:
+    color_a: [226, 176, 34]
+    color_b: [32, 32, 34]
+    stripes: 5
+    wear: 0.3
+    seed: 41
+size: [256, 256]
+tile_size: 0.5
+pbr:
+  roughness: 0.55
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 1.0

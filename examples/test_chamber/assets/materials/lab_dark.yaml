@@ -1,0 +1,14 @@
+# Smooth dark grey enamel: the cube's bumpers, button bases, door frames.
+name: lab_dark
+texture:
+  type: painted_wall
+  params:
+    base_color: [66, 69, 74]
+    seed: 39
+size: [128, 128]
+tile_size: 1.0
+pbr:
+  roughness: 0.35
+  metallic: 0.2
+  normal_strength: 0.2
+  ao_strength: 1.0

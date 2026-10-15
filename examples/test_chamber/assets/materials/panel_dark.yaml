@@ -1,0 +1,25 @@
+# Dark metal tiles: the chamber floor, ceiling and kick band. Smaller (60 cm),
+# bolted at the corners, faintly glossy.
+name: panel_dark
+texture:
+  type: panel
+  params:
+    panel_color: [62, 64, 68]
+    seam_color: [24, 25, 27]
+    panels_x: 2
+    panels_y: 2
+    seam_width: 0.02
+    color_variation: 0.05
+    tint_variation: 0.0
+    grime: 0.3
+    edge_wear: 0.6
+    bolts: 1
+    pillow: 0.3
+    seed: 23
+size: [512, 512]
+tile_size: 1.2  # 2 x 2 tiles of 60 cm
+pbr:
+  roughness: 0.35
+  metallic: 0.35
+  normal_strength: 1.0
+  ao_strength: 1.0

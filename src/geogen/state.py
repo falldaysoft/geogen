@@ -50,6 +50,7 @@ from typing import Any, Callable, Iterable
 
 from . import refs
 from .core.node import SceneNode
+from .places import place_state
 
 FORMAT = "geogen-state"
 VERSION = 1
@@ -222,7 +223,8 @@ def declare_scene(root: SceneNode, data: dict[str, Any], source: Any = None) -> 
 def instance_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     """The instance variables ``node`` declares or has (a train's stations), not its interactions."""
     declared = (node.meta.get(META) or {}).get("state", {})
-    return {**{name: var for name, var in declared.items() if "scope" not in var}, **train_state(node)}
+    return {**{name: var for name, var in declared.items() if "scope" not in var}, **train_state(node),
+            **place_state(node)}
 
 
 def state_names(node: SceneNode) -> list[str]:
@@ -470,7 +472,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
     for node in root.iter_nodes():
         declares = node.meta.get(META)
         greeting = npc_signal(node)
-        timetable = train_state(node)
+        timetable = {**train_state(node), **place_state(node)}
         lit = light_state(node)
         if not node.interactions and not declares and not greeting and not timetable and not lit:
             continue

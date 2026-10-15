@@ -284,6 +284,7 @@ ASSET_KEYS: dict[str, str] = {
     "portal": "a doorway NPC paths pass through (opening the interaction first)",
     "travel": "{scene, spawn, prompt, on: use | enter, target}: moves the player to another scene",
     "vehicle": "{class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle)",
+    "physics": "{mass, friction, bounce, carry, spawn, initial}: a rigid body (geogen.physics)",
     "poses": "NPC root transforms per pose name (body assets)",
     "room": "legacy single room (prefer `floorplan`)",
     "floorplan": "rooms, doors and windows instead of parts; surfaces are <room>.<surface>",
@@ -336,6 +337,7 @@ PLACE_KEYS: dict[str, str] = {
     "height": "a polygon's height (2.5)",
     "margin": "m round an `around` box, or [x, y, z]",
     "headroom": "m above an `around` box, to stand on it",
+    "detect": "[actors, props]: props count too, in its `occupants` state",
     "tags": "dotted tags",
 }
 

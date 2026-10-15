@@ -1,0 +1,125 @@
+# A chamber door: two white leaves meeting at a dark seam, each with a half of
+# a round porthole frame, sliding apart into the wall. A dark frame dresses the
+# doorway on the chamber side and a lamp over it glows blue, orange while open.
+# Origin: the doorway's foot on the wall face, +Z out of the wall into the
+# room (place it at test_chamber's north_door / south_door). Wiring drives
+# `open` / `close`; `opened` / `closed` are raised when it gets there.
+
+name: chamber_door
+tags: [door.chamber]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  { default: 2.0 }
+  height: { default: 3.0 }
+  wall:   { default: 0.4 }
+
+parts:
+  leaf_left: &leaf
+    primitive: cube
+    size: ["{width / 2}", "{height}", 0.12]
+    anchor: bottom_center
+    offset: ["{-width / 4}", 0, "{-wall / 2}"]
+    bevel: 0.015
+    material: lab_white
+  leaf_right:
+    <<: *leaf
+    offset: ["{width / 4}", 0, "{-wall / 2}"]
+  # A dark band down each leaf's meeting edge and the porthole rings' halves.
+  seam_left: &seam
+    primitive: cube
+    size: [0.06, "{height - 0.2}", 0.14]
+    anchor: bottom_center
+    offset: [-0.035, 0.1, "{-wall / 2}"]   # 5 mm short of the meeting edge
+    bevel: 0.01
+    material: lab_dark
+    collider: none
+  seam_right:
+    <<: *seam
+    offset: [0.035, 0.1, "{-wall / 2}"]
+  port_left: &port
+    primitive: extrude
+    shape: { outer: { circle: 0.42, segments: 40 }, holes: [{ circle: 0.3, segments: 40 }] }
+    fit: none
+    axis: z
+    size: [0.84, 0.84, 0.15]
+    anchor: center
+    offset: [0, "{height * 0.62 - 0.5}", "{-wall / 2}"]
+    material: lab_dark
+    collider: none
+    subtract: [port_cut_right]
+  port_right:
+    <<: *port
+    subtract: [port_cut_left]
+  port_cut_left:
+    primitive: cube
+    size: [0.5, 1, 0.4]
+    anchor: center
+    offset: [-0.255, "{height * 0.62 - 0.5}", "{-wall / 2}"]
+    bevel: 0
+    cutter: true
+  port_cut_right:
+    primitive: cube
+    size: [0.5, 1, 0.4]
+    anchor: center
+    offset: [0.255, "{height * 0.62 - 0.5}", "{-wall / 2}"]
+    bevel: 0
+    cutter: true
+
+  # The frame on the chamber side, proud of the wall face.
+  frame:
+    primitive: extrude
+    shape:
+      polygon: [["{-width / 2 - 0.25}", 0], ["{-width / 2}", 0], ["{-width / 2}", "{height}"], ["{width / 2}", "{height}"],
+                ["{width / 2}", 0], ["{width / 2 + 0.25}", 0], ["{width / 2 + 0.25}", "{height + 0.25}"], ["{-width / 2 - 0.25}", "{height + 0.25}"]]
+    fit: none
+    axis: z
+    size: ["{width + 0.5}", "{height + 0.25}", 0.08]
+    anchor: bottom_center
+    offset: [0, 0, 0.04]
+    bevel: 0.01
+    material: lab_dark
+  lamp_off: &lamp
+    primitive: cylinder
+    size: [0.16, 0.04, 0.16]
+    anchor: center
+    offset: [0, "{height - 0.05}", 0.02]
+    rotation: [90, 0, 0]
+    material: indicator_blue
+    collider: none
+  lamp_on:
+    <<: *lamp
+    material: indicator_orange
+  lamp_ring:
+    primitive: extrude
+    shape: { outer: { circle: 0.13, segments: 32 }, holes: [{ circle: 0.085, segments: 32 }] }
+    fit: none
+    axis: z
+    size: [0.26, 0.26, 0.05]
+    anchor: center
+    offset: [0, "{height - 0.05}", 0.03]
+    material: lab_dark
+    collider: none
+
+interactions:
+  door:
+    initial: closed
+    duration: 0.8
+    states:
+      closed: { emit: closed }
+      open:   { emit: opened }
+    motions:
+      - { parts: [leaf_left, seam_left, port_left], translate: x, values: { closed: 0, open: "{-width / 2 + 0.06}" } }
+      - { parts: [leaf_right, seam_right, port_right], translate: x, values: { closed: 0, open: "{width / 2 - 0.06}" } }
+      - { parts: [lamp_off], show: [closed] }
+      - { parts: [lamp_on], show: [open] }
+
+signals:
+  opened: { emit: opened }
+  closed: { emit: closed }
+inputs:
+  open:  { set: door, to: open }
+  close: { set: door, to: closed }
+

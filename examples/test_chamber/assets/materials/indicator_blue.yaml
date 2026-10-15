@@ -1,0 +1,16 @@
+# Indicator lights and signal lines while their circuit is off.
+name: indicator_blue
+texture:
+  type: painted_wall
+  params:
+    base_color: [90, 190, 250]
+    seed: 501
+size: [64, 64]
+tile_size: 1.0
+pbr:
+  roughness: 0.3
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [0.2, 0.6, 1.0]
+  emissive_strength: 0.9

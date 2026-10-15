@@ -1,0 +1,245 @@
+# A test chamber of the Halcyon Applied Sciences enrichment centre: a tall
+# box of white wall panels over a dark metal kick band, dark floor and ceiling
+# tiles with recessed light strips, an observation booth glazed high on the
+# east wall, and a hall at each end: the entry hall (south, -Z) and the exit
+# hall (north, +Z) whose far end is the `exit` place. The doorways between are
+# open: the scene puts doors in them (`north_door` / `south_door` attachments).
+#
+# Origin: the middle of the chamber floor. Sizes are metres; the panel grid is
+# 1.2 m, so keep width, depth and height multiples of it.
+
+name: test_chamber
+tags: [structure.test_chamber]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:       { default: 9.6 }
+  depth:       { default: 12.0 }
+  height:      { default: 7.2 }
+  wall:        { default: 0.4 }
+  door_width:  { default: 2.0 }
+  door_height: { default: 3.0 }
+  hall_width:  { default: 3.2 }
+  hall_height: { default: 3.6 }
+  hall_length: { default: 4.8 }
+  kick:        { default: 1.2 }    # height of the dark band along the chamber's foot
+
+parts:
+  # The walls and roof of the chamber, both halls and the booth: one solid each,
+  # hollowed by the voids below. Their feet go 1.5 m under the floor, so the
+  # white panel rows line up with the floor (voids start at -1.2).
+  shell: &shell
+    primitive: cube
+    size: ["{width + 2 * wall}", "{height + wall + 1.5}", "{depth + 2 * wall}"]
+    anchor: bottom_center
+    offset: [0, -1.5, 0]
+    bevel: 0
+    material: panel_white
+    subtract: [room_void, hall_n_void, hall_s_void, door_n, door_s, pocket_n, pocket_s, window, booth_void]
+  hall_n:
+    <<: *shell
+    size: ["{hall_width + 2 * wall}", "{hall_height + wall + 1.5}", "{hall_length}"]
+    offset: [0, -1.5, "{depth / 2 + wall + hall_length / 2}"]
+  hall_s:
+    <<: *shell
+    size: ["{hall_width + 2 * wall}", "{hall_height + wall + 1.5}", "{hall_length}"]
+    offset: [0, -1.5, "{-(depth / 2 + wall + hall_length / 2)}"]
+  booth:
+    <<: *shell
+    size: [3.2, 3.2, 5.2]
+    offset: ["{width / 2 + wall + 1.6}", 3.6, 0]
+    material: lab_metal
+
+  room_void: &void
+    primitive: cube
+    size: ["{width}", "{height + 1.2}", "{depth}"]
+    anchor: bottom_center
+    offset: [0, -1.2, 0]
+    bevel: 0
+    cutter: true
+  # The halls' voids stop a wall short of their far ends and reach into the
+  # chamber's wall, so the doorway is the only thing between.
+  hall_n_void:
+    <<: *void
+    size: ["{hall_width}", "{hall_height + 1.2}", "{hall_length - wall + 0.1}"]
+    offset: [0, -1.2, "{depth / 2 + wall + (hall_length - wall) / 2 - 0.05}"]
+  hall_s_void:
+    <<: *void
+    size: ["{hall_width}", "{hall_height + 1.2}", "{hall_length - wall + 0.1}"]
+    offset: [0, -1.2, "{-(depth / 2 + wall + (hall_length - wall) / 2 - 0.05)}"]
+  door_n:
+    <<: *void
+    size: ["{door_width}", "{door_height + 1.2}", "{wall + 0.2}"]
+    offset: [0, -1.2, "{depth / 2 + wall / 2}"]
+  door_s:
+    <<: *void
+    size: ["{door_width}", "{door_height + 1.2}", "{wall + 0.2}"]
+    offset: [0, -1.2, "{-(depth / 2 + wall / 2)}"]
+  # Pockets in the walls beside each doorway that a sliding door's leaves run into.
+  pocket_n:
+    <<: *void
+    size: ["{2 * door_width + 0.2}", "{door_height + 1.25}", 0.18]
+    offset: [0, -1.2, "{depth / 2 + wall / 2}"]
+  pocket_s:
+    <<: *void
+    size: ["{2 * door_width + 0.2}", "{door_height + 1.25}", 0.18]
+    offset: [0, -1.2, "{-(depth / 2 + wall / 2)}"]
+  window:
+    <<: *void
+    size: [1.0, 1.6, 4.0]
+    offset: ["{width / 2 + wall / 2}", 4.4, 0]
+  booth_void:
+    <<: *void
+    size: [2.8, 2.8, 4.8]
+    offset: ["{width / 2 + wall + 1.6}", 3.8, 0]
+
+  # Floors: dark tiles, walkable. The halls' run through the doorways.
+  floor:
+    primitive: cube
+    size: ["{width}", 0.3, "{depth}"]
+    anchor: bottom_center
+    offset: [0, -0.3, 0]
+    bevel: 0
+    material: panel_dark
+    walkable: true
+  hall_n_floor:
+    primitive: cube
+    size: ["{hall_width}", 0.3, "{hall_length}"]
+    anchor: bottom_center
+    offset: [0, -0.3, "{depth / 2 + hall_length / 2}"]
+    bevel: 0
+    material: panel_dark
+    walkable: true
+  hall_s_floor:
+    primitive: cube
+    size: ["{hall_width}", 0.3, "{hall_length}"]
+    anchor: bottom_center
+    offset: [0, -0.3, "{-(depth / 2 + hall_length / 2)}"]
+    bevel: 0
+    material: panel_dark
+    walkable: true
+  booth_floor:
+    primitive: cube
+    size: [2.8, 0.1, 4.8]
+    anchor: bottom_center
+    offset: ["{width / 2 + wall + 1.6}", 3.8, 0]
+    bevel: 0
+    material: panel_dark
+
+  # The dark band round the chamber's foot, 2 cm proud of the white panels.
+  kick_band:
+    primitive: cube
+    size: ["{width}", "{kick}", "{depth}"]
+    anchor: bottom_center
+    bevel: 0
+    material: panel_dark
+    subtract: [kick_void, door_n, door_s]
+  kick_void:
+    <<: *void
+    size: ["{width - 0.04}", "{kick + 1}", "{depth - 0.04}"]
+    offset: [0, -0.5, 0]
+
+  # Dark ceiling tiles under the roof, with three recessed light strips.
+  ceiling:
+    primitive: cube
+    size: ["{width}", 0.06, "{depth}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.06}", 0]
+    bevel: 0
+    material: panel_dark
+    collider: none
+  light_strip:
+    primitive: cube
+    size: [0.24, 0.04, "{depth - 2.4}"]
+    anchor: bottom_center
+    offset: ["{-width / 4}", "{height - 0.1}", 0]
+    array: { count: 3, step: ["{width / 4}", 0, 0] }
+    bevel: 0.01
+    material: light_panel
+    collider: none
+  hall_n_ceiling: &hall_ceiling
+    primitive: cube
+    size: ["{hall_width}", 0.06, "{hall_length - wall}"]
+    anchor: bottom_center
+    offset: [0, "{hall_height - 0.06}", "{depth / 2 + wall + (hall_length - wall) / 2}"]
+    bevel: 0
+    material: panel_dark
+    collider: none
+  hall_s_ceiling:
+    <<: *hall_ceiling
+    offset: [0, "{hall_height - 0.06}", "{-(depth / 2 + wall + (hall_length - wall) / 2)}"]
+  # Dark trims up the chamber's four corners, above the kick band.
+  corner_trim:
+    primitive: cube
+    size: [0.3, "{height - kick - 0.06}", 0.3]
+    anchor: bottom_center
+    offset: ["{-width / 2}", "{kick}", "{-depth / 2}"]
+    array: { count: 2, step: ["{width}", 0, 0] }
+    bevel: 0.02
+    material: panel_dark
+  corner_trim_back:
+    primitive: cube
+    size: [0.3, "{height - kick - 0.06}", 0.3]
+    anchor: bottom_center
+    offset: ["{-width / 2}", "{kick}", "{depth / 2}"]
+    array: { count: 2, step: ["{width}", 0, 0] }
+    bevel: 0.02
+    material: panel_dark
+  hall_n_light:
+    primitive: cube
+    size: [0.24, 0.04, "{hall_length - 1.2}"]
+    anchor: bottom_center
+    offset: [0, "{hall_height - 0.1}", "{depth / 2 + wall + hall_length / 2}"]
+    bevel: 0.01
+    material: light_panel
+    collider: none
+  hall_s_light:
+    primitive: cube
+    size: [0.24, 0.04, "{hall_length - 1.2}"]
+    anchor: bottom_center
+    offset: [0, "{hall_height - 0.1}", "{-(depth / 2 + wall + hall_length / 2)}"]
+    bevel: 0.01
+    material: light_panel
+    collider: none
+
+  # The booth's glazing, set back in the window from the chamber.
+  glazing:
+    primitive: cube
+    size: [0.03, 1.6, 4.0]
+    anchor: bottom_center
+    offset: ["{width / 2 + wall * 0.6}", 4.4, 0]
+    bevel: 0
+    material: glass
+  window_frame:
+    primitive: cube
+    size: [0.12, 1.8, 4.2]
+    anchor: bottom_center
+    offset: ["{width / 2 + 0.04}", 4.3, 0]
+    bevel: 0.01
+    material: lab_metal
+    subtract: [window_frame_void]
+  window_frame_void:
+    <<: *void
+    size: [0.4, 1.56, 3.96]
+    offset: ["{width / 2 + 0.04}", 4.42, 0]
+
+attachments:
+  # Where the scene hangs the doors: the doorway's foot, on the chamber side.
+  north_door: { anchor: bottom_center, offset: [0, 0, "{depth / 2}"], facing: south }
+  south_door: { anchor: bottom_center, offset: [0, 0, "{-depth / 2}"], facing: north }
+
+surfaces:
+  floor: { from: floor.top }
+  ceiling: { from: ceiling.bottom }
+  north_inside: { from: room_void.front, flip: true }
+  south_inside: { from: room_void.back, flip: true }
+  east_inside:  { from: room_void.right, flip: true }
+  west_inside:  { from: room_void.left, flip: true }
+
+places:
+  # The far end of the exit hall.
+  exit:
+    box: ["{hall_width}", 2.4, 1.6]
+    position: [0, 0, "{depth / 2 + hall_length - wall - 0.8}"]

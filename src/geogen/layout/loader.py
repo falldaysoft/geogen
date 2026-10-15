@@ -279,7 +279,9 @@ class LayoutLoader:
             root.add_child(room_node)
 
         # `when: "{expr}"` drops a part (and parts attached to it) when it resolves to 0 / false.
-        parts = _expand_arrays(_enabled_parts(data.get("parts", {})))
+        enabled = _enabled_parts(data.get("parts", {}))
+        arrays = _array_copies(enabled)
+        parts = _expand_arrays(enabled)
 
         # First pass: create all parts and track which have attachments
         part_nodes: dict[str, SceneNode] = {}
@@ -485,7 +487,7 @@ class LayoutLoader:
         if interactions:
             from .interactions import apply_state, parse_interactions
 
-            root.interactions = parse_interactions(interactions, root, part_nodes)
+            root.interactions = parse_interactions(interactions, root, part_nodes, arrays)
             for interaction in root.interactions:
                 apply_state(root, interaction, interaction.initial)
 
@@ -508,6 +510,11 @@ class LayoutLoader:
 
             root.meta["vehicle"] = parse_vehicle(data["vehicle"], root, part_nodes)
             root.meta["type"] = "vehicle"
+
+        if data.get("physics"):
+            from ..physics import parse_physics
+
+            root.meta["physics"] = parse_physics(data["physics"], root, part_nodes, name)
 
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,
@@ -1167,11 +1174,18 @@ def _seat_depth(root: SceneNode, position: np.ndarray, yaw_deg: float) -> float 
     return best
 
 
+def _array_copies(parts: dict[str, Any]) -> dict[str, list[str]]:
+    """{arrayed part: the names of its copies}."""
+    return {name: [f"{name}_{i}" for i in range(max(int(round(float(p["array"].get("count", 1)))), 0))]
+            for name, p in parts.items() if p.get("array") is not None}
+
+
 def _expand_arrays(parts: dict[str, Any]) -> dict[str, Any]:
     """``array: {count, step: [x, y, z]}`` repeats a part as ``<part>_0 .. <part>_<n-1>``,
     each ``step`` further along (the units of ``offset``: metres in a unit container).
     ``count`` may be an expression (rounded; 0 drops the part). Other parts can't attach to
-    an arrayed part; a ``subtract:`` naming an arrayed cutter takes all its copies."""
+    an arrayed part; a ``subtract:`` naming an arrayed cutter takes all its copies, and so does
+    an interaction's ``parts`` / ``targets``."""
     out: dict[str, Any] = {}
     for name, part in parts.items():
         spec = part.get("array")
@@ -1191,8 +1205,7 @@ def _expand_arrays(parts: dict[str, Any]) -> dict[str, Any]:
             copy["offset"] = (base + step * i).tolist()
             out[f"{name}_{i}"] = copy
     # A subtract list naming an arrayed cutter means all of its copies.
-    copies = {name: [f"{name}_{i}" for i in range(max(int(round(float(p["array"].get("count", 1)))), 0))]
-              for name, p in parts.items() if p.get("array") is not None}
+    copies = _array_copies(parts)
     for part in out.values():
         if copies and part.get("subtract"):
             part["subtract"] = [c for s_ in part["subtract"] for c in copies.get(s_, [s_])]

@@ -274,8 +274,10 @@ def _axis(spec: Any) -> np.ndarray:
     return axis / np.linalg.norm(axis)
 
 
-def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, SceneNode]) -> list[Interaction]:
-    """Build interactions from an asset's ``interactions:`` block (parts already placed)."""
+def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, SceneNode],
+                       arrays: dict[str, list[str]] | None = None) -> list[Interaction]:
+    """Build interactions from an asset's ``interactions:`` block (parts already placed).
+    ``arrays`` maps an arrayed part's name to its copies: naming it means all of them."""
     from .anchors import resolve_anchor
 
     root_inv = np.linalg.inv(root.world_transform())
@@ -307,6 +309,9 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
                                  f" Parts: {sorted(parts)}")
             return parts[pname]
 
+        def names(listed) -> list[str]:
+            return [c for p in listed for c in (arrays or {}).get(p, [p])]
+
         motions = []
         for mspec in spec.get("motions", []):
             given = [k for k in ("rotate", "translate", "show", "hide", "move") if k in mspec]
@@ -320,7 +325,7 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
                 for sname in goto:
                     if sname not in states:
                         raise ValueError(f"Interaction '{name}': move names unknown state '{sname}'")
-                for pname in mspec.get("parts", []):
+                for pname in names(mspec.get("parts", [])):
                     node = part(pname)
                     size = node.size if node.size is not None else np.zeros(3)
                     local = resolve_anchor(str(mspec.get("from", "bottom_center")), size) - np.array([0.0, size[1] / 2, 0.0])
@@ -335,7 +340,7 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
                     if sname not in states:
                         raise ValueError(f"Interaction '{name}': {given[0]} names unknown state '{sname}'")
                 shown = set(listed) if given[0] == "show" else set(states) - set(listed)
-                motions.append(Motion([part(p) for p in mspec.get("parts", [])], "visible", np.zeros(3),
+                motions.append(Motion([part(p) for p in names(mspec.get("parts", []))], "visible", np.zeros(3),
                                       np.zeros(3), {s: float(s in shown) for s in states}))
                 continue
             kind = given[0]
@@ -353,9 +358,9 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
             for sname in values:
                 if sname not in states:
                     raise ValueError(f"Interaction '{name}' motion value for unknown state '{sname}'")
-            motions.append(Motion([part(p) for p in mspec.get("parts", [])], kind,
+            motions.append(Motion([part(p) for p in names(mspec.get("parts", []))], kind,
                                   _axis(mspec[kind]), pivot, values))
-        targets = [part(p) for p in spec.get("targets", [])] or [p for m in motions for p in m.parts]
+        targets = [part(p) for p in names(spec.get("targets", []))] or [p for m in motions for p in m.parts]
         if not targets:
             raise ValueError(f"Interaction '{name}' needs motions or targets (what the user aims at)")
         lock = spec.get("lock")

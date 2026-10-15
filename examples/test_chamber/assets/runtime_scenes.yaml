@@ -1,0 +1,10 @@
+# The scenes this project offers in the runtime.
+#   python -m geogen.main --project examples/test_chamber --export-catalogue
+#   godot --path runtime/godot -- --generated=$PWD/examples/test_chamber/generated
+kind: scene_catalogue
+default: test_chamber_01
+
+scenes:
+  test_chamber_01:
+    group: showcase
+    description: Test chamber 01 - drop the cube, hold the button, leave by the exit

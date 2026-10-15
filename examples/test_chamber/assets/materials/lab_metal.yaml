@@ -1,0 +1,20 @@
+# Painted gunmetal for frames, housings and the dropper tube.
+name: lab_metal
+texture:
+  type: metal
+  params:
+    base_color: [78, 82, 88]
+    highlight_color: [120, 126, 134]
+    metal_type: brushed
+    brush_direction: 0.0
+    brush_density: 60.0
+    scratch_amount: 0.15
+    roughness: 0.4
+    seed: 31
+size: [256, 256]
+tile_size: 1.0
+pbr:
+  roughness: 0.35
+  metallic: 0.6
+  normal_strength: 0.6
+  ao_strength: 1.0

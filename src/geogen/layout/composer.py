@@ -215,12 +215,14 @@ class SceneComposer:
     def _build_scene(self, data: dict[str, Any], source: Path | None = None) -> SceneNode:
         """Build scene from parsed YAML data (``source``: its file, for diagnostics), then take
         parts that `move` to other placed things' attachments as far as this scene can see."""
+        from ..physics import resolve_spawns
         from .interactions import resolve_moves
 
         self._depth = getattr(self, "_depth", 0) + 1
         try:
             root = self._build_scene_here(data, source)
             resolve_moves(root, final=self._depth == 1)
+            resolve_spawns(root, final=self._depth == 1)
             return root
         finally:
             self._depth -= 1

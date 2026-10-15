@@ -1,0 +1,14 @@
+# The floor button's cap: glossy signal red.
+name: button_red
+texture:
+  type: painted_wall
+  params:
+    base_color: [196, 38, 30]
+    seed: 43
+size: [64, 64]
+tile_size: 1.0
+pbr:
+  roughness: 0.25
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 1.0

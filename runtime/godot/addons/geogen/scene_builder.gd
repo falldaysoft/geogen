@@ -22,7 +22,7 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 ## (tests/test_extras_contract.py fails when the two differ). The exporter writes no others.
 const KNOWN_KEYS := ["version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
     "joint", "clips", "interactions", "footprint", "clearance", "door_swings", "light",
-    "affordances", "portal", "place", "travel", "poses", "npc", "container", "nav", "size",
+    "affordances", "portal", "place", "physics", "travel", "poses", "npc", "container", "nav", "size",
     "city", "block", "lot", "building", "street_furniture", "recipe", "roof", "lod", "interior",
     "scatter", "signal", "character", "stairs", "water", "driving", "fleet", "train", "vehicle"]
 
@@ -121,7 +121,8 @@ static func _place_area(node: Node3D, g: Dictionary) -> void:
     area.monitorable = false
     area.collision_layer = 0
     area.collision_mask = 1 | 2   # the player, and NPC bodies (GeogenNpc.LAYER)
-    area.set_meta("geogen_place", {"id": str(place.get("id", node.name)), "uid": str(g.get("uid", ""))})
+    area.set_meta("geogen_place", {"id": str(place.get("id", node.name)), "uid": str(g.get("uid", "")),
+        "detect": place.get("detect", ["actors"])})
     area.add_to_group("geogen_place", true)
     if place.has("polygon"):
         # CollisionPolygon3D extrudes along its Z: turned a quarter about X, its

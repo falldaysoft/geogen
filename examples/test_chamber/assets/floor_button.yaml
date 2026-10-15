@@ -1,0 +1,89 @@
+# A heavy floor button: a squat light-grey base with near-vertical sides (a
+# step the player walks up, as onto a kerb), a dark ring round a big glossy red
+# cap that sinks 10 cm when something heavy stands on it, and a band round the
+# base that glows blue, and orange while it is held down.
+# Origin: bottom centre. The `pad` place above the cap weighs what is on it
+# (the player, NPCs and physics props): the button is down while anything is.
+# Wiring hears `pressed` / `released`.
+
+name: floor_button
+tags: [switch.floor_button]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  diameter: { default: 1.6 }
+
+parts:
+  # Steps are walked up when they are vertical (and no taller than the player's
+  # step): only the top edge is rounded, a chamfer would be a slope too steep to stand on.
+  base:
+    primitive: lathe
+    profile: [[0, 0], ["{diameter / 2}", 0], ["{diameter / 2}", 0.1], ["{diameter / 2 - 0.02}", 0.12], [0, 0.12]]
+    size: ["{diameter}", 0.12, "{diameter}"]
+    anchor: bottom_center
+    material: lab_white
+    walkable: true
+  # The dark ring the cap rises out of.
+  ring:
+    primitive: lathe
+    profile: [["{diameter * 0.35}", 0.119], ["{diameter * 0.42}", 0.119], ["{diameter * 0.42}", 0.13], ["{diameter * 0.35}", 0.13], ["{diameter * 0.35}", 0.119]]
+    size: ["{diameter * 0.84}", 0.011, "{diameter * 0.84}"]
+    anchor: bottom_center
+    offset: [0, 0.119, 0]       # sunk 1 mm into the base: no face level with its top
+    material: lab_dark
+  cap:
+    primitive: cylinder
+    size: ["{diameter * 0.68}", 0.16, "{diameter * 0.68}"]
+    bevel: 0.03
+    anchor: bottom_center
+    offset: [0, 0.08, 0]        # 12 cm proud of the base; pressed, 2 cm
+    material: button_red
+    walkable: true
+  # The glowing band round the base's side.
+  lamp_off: &lamp
+    primitive: lathe
+    profile: [["{diameter / 2 - 0.004}", 0.04], ["{diameter / 2 + 0.006}", 0.04], ["{diameter / 2 + 0.006}", 0.07], ["{diameter / 2 - 0.004}", 0.07], ["{diameter / 2 - 0.004}", 0.04]]
+    size: ["{diameter + 0.012}", 0.03, "{diameter + 0.012}"]
+    anchor: bottom_center
+    offset: [0, 0.04, 0]
+    material: indicator_blue
+    collider: none
+  lamp_on:
+    <<: *lamp
+    material: indicator_orange
+
+interactions:
+  press:
+    initial: up
+    duration: 0.25
+    states:
+      up:   { emit: released }
+      down: { emit: pressed }
+    motions:
+      - { parts: [cap], translate: y, values: { up: 0, down: -0.1 } }
+      - { parts: [lamp_off], show: [up] }
+      - { parts: [lamp_on], show: [down] }
+
+signals:
+  pressed:  { emit: pressed }
+  released: { emit: released }
+
+rules:
+  - id: weighed
+    on: { changed: pad.occupants }
+    when: "pad.occupants > 0 and self.press == 'up'"
+    do: [{ set: self.press, to: down }]
+  - id: lifted
+    on: { changed: pad.occupants }
+    when: "pad.occupants == 0 and self.press == 'down'"
+    do: [{ set: self.press, to: up }]
+
+places:
+  pad:
+    box: ["{diameter * 0.75}", 0.6, "{diameter * 0.75}"]
+    position: [0, 0.1, 0]
+    detect: [actors, props]
+
+clearance: { front: 0.4, back: 0.4, left: 0.4, right: 0.4 }

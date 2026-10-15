@@ -113,6 +113,10 @@ var _focus: GeogenInteraction = null
 ## Aimed at but refused by its `when`, with text saying why (`refused`): the prompt says it,
 ## and E tells the player again.
 var _refused_focus: GeogenInteraction = null
+## The physics prop aimed at that E would pick up (its uid), or "".
+var _focus_prop := ""
+## How far in front of the eyes a carried prop is held (m).
+const HOLD_DISTANCE := 1.4
 var _simulate := 0.0
 var _sim_started := 0           # ticks (usec) and process frame when --simulate began
 var _sim_frame := 0
@@ -985,7 +989,10 @@ func _update_focus() -> void:
     _refused_focus = null
     _focus_affordance = {}
     _focus_npc = null
-    if player != null and player.camera.current and player.pose.is_empty():
+    _focus_prop = ""
+    if world.props.held != "":
+        pass        # carrying: E drops it, nothing else is aimed at
+    elif player != null and player.camera.current and player.pose.is_empty():
         var cam := player.camera
         var from := cam.global_position
         var to := from - cam.global_basis.z * player_spec.reach
@@ -994,7 +1001,11 @@ func _update_focus() -> void:
         var hit := get_world_3d().direct_space_state.intersect_ray(query)
         if hit:
             var it := world.interaction_for(hit["collider"])
-            if hit["collider"] is GeogenNpc:
+            var prop := world.props.prop_of(hit["collider"])
+            if prop != "":
+                if world.props.can_carry(prop):
+                    _focus_prop = prop
+            elif hit["collider"] is GeogenNpc:
                 if (hit["collider"] as GeogenNpc).can_greet():
                     _focus_npc = hit["collider"]
             elif it != null and it.can_use():
@@ -1015,7 +1026,8 @@ func _update_focus() -> void:
                     _focus_npc = npc
                     _focus_affordance = {}
                     break
-        if _focus == null and _focus_npc == null and _focus_affordance.is_empty() and _refused_focus == null:
+        if _focus == null and _focus_npc == null and _focus_affordance.is_empty() and _refused_focus == null \
+                and _focus_prop == "":
             _focus = _assisted_focus(from, -cam.global_basis.z)
     if hud != null:
         hud.crosshair.aim(focus_info().get("kind", "") not in ["", "refused"],
@@ -1023,6 +1035,10 @@ func _update_focus() -> void:
     if _prompt:
         if player != null and not player.pose.is_empty():
             _prompt.text = "E: Stand up"
+        elif world.props.held != "":
+            _prompt.text = "E: Drop"
+        elif _focus_prop != "":
+            _prompt.text = "E: Pick up"
         elif _focus_npc != null:
             _prompt.text = "E: %s" % _focus_npc.greet_prompt()
         elif _focus != null:
@@ -1080,6 +1096,10 @@ func update_focus() -> void:
 
 ## What the player aims at (the E prompt's subject), or {}.
 func focus_info() -> Dictionary:
+    if world.props.held != "":
+        return {"kind": "drop", "prop": world.props.held, "prompt": "Drop"}
+    if _focus_prop != "":
+        return {"kind": "carry", "prop": _focus_prop, "prompt": "Pick up"}
     if _focus_npc != null:
         return {"kind": "npc", "npc": String(_focus_npc.name), "prompt": _focus_npc.greet_prompt()}
     if _focus != null:
@@ -1117,6 +1137,10 @@ func set_follow(prefix) -> void:
 func _press_use() -> void:
     if not player.pose.is_empty():
         player.leave_pose()
+    elif world.props.held != "":
+        world.props.drop()
+    elif _focus_prop != "":
+        world.props.pick(_focus_prop, player, _hold_point)
     elif _focus_npc != null:
         _focus_npc.greet()
     elif _focus != null:
@@ -1125,6 +1149,12 @@ func _press_use() -> void:
         _refused_focus.use("player")        # refused: it says why (WorldLoader -> GeogenRules.tell)
     elif not _focus_affordance.is_empty():
         player.take_pose(_focus_affordance)
+
+
+## Where a carried prop is held: in front of the eyes.
+func _hold_point() -> Vector3:
+    var cam := player.camera
+    return cam.global_position - cam.global_basis.z * HOLD_DISTANCE
 
 
 ## Print the navigation path between two floor points as JSON (length, points).

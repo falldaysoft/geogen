@@ -1,0 +1,80 @@
+# Test chamber 01 of the Halcyon Applied Sciences enrichment centre.
+#
+# Walk in from the entry hall (south). A dropper over the west side of the
+# chamber drops a weighted cube; the floor button on the east side holds the
+# exit door (north) open while something heavy is on it. Standing on it opens
+# the door, but stepping off shuts it: the cube has to stay on the button.
+# The indicator dots run from the button to the door and light orange while
+# it is held.
+
+name: test_chamber_01
+tags: [level.test_chamber]
+
+spawns:
+  start: { position: [0, 0.05, -9.6], facing: north }
+
+slots:
+  dropper: { position: [-3.6, 4.8, -1.8] }
+  cube:    { position: [-3.6, 0, -1.8] }
+  button:  { position: [2.4, 0, 1.8] }
+  line_n:  { position: [2.4, 0, 2.85] }     # from the button's north edge up the chamber
+  line_w:  { position: [2.4, 0, 5.4], facing: west }   # then west along the north wall to the door
+
+place:
+  chamber:
+    asset: test_chamber.yaml
+  entry_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: south_door
+    state: open
+  exit_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: north_door
+  sign:
+    asset: chamber_sign.yaml
+    on: chamber.south_inside
+    at: { u: { abs: 2.8 }, v: { abs: 2.6 } }
+
+  dropper:
+    asset: dropper.yaml
+    params: { length: 2.34 }      # up to the ceiling tiles' underside (7.14 m)
+    slot: dropper
+  cube:
+    asset: weighted_cube.yaml
+    params: { from: dropper.spawn_at }
+    slot: cube
+  button:
+    asset: floor_button.yaml
+    slot: button
+  line_n:
+    asset: indicator_line.yaml
+    params: { length: 2.4 }
+    slot: line_n
+  line_w:
+    asset: indicator_line.yaml
+    params: { length: 0.9 }
+    slot: line_w
+
+rules:
+  # The dropper hands out the cube when the test starts, and another whenever
+  # the cube is lost (it falls out of the world and is stowed).
+  - id: first_cube
+    on: { start: true }
+    do: [{ set: cube.spawn, to: live }, { input: dropper.drop }]
+  - id: replace_cube
+    on: { changed: cube.spawn, to: stowed }
+    do: [{ set: cube.spawn, to: live }, { input: dropper.drop }]
+  - id: complete
+    on: { enter: chamber/exit, actor: player }
+    once: true
+    do: [{ notify: "Test chamber 01 complete" }, { play: success }]
+
+wire:
+  - { from: button.pressed,  to: exit_door.open }
+  - { from: button.released, to: exit_door.close }
+  - { from: button.pressed,  to: line_n.on }
+  - { from: button.released, to: line_n.off }
+  - { from: button.pressed,  to: line_w.on }
+  - { from: button.released, to: line_w.off }
