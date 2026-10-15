@@ -57,10 +57,14 @@ func setup(root: Node) -> void:
         material.friction = float(data.get("friction", 0.8))
         material.bounce = float(data.get("bounce", 0.0))
         body.physics_material_override = material
+        var damping: Dictionary = data.get("damping", {})
+        if not damping.is_empty():
+            body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+            body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+            body.linear_damp = float(damping.get("linear", 0.0))
+            body.angular_damp = float(damping.get("angular", 0.0))
         var shape := CollisionShape3D.new()
-        var box := BoxShape3D.new()
-        box.size = _vec(data.get("size", [0.5, 0.5, 0.5]))
-        shape.shape = box
+        shape.shape = make_shape(data)
         shape.position = _vec(data.get("center", [0, 0.25, 0]))
         body.add_child(shape)
         body.set_meta("geogen_prop", uid)
@@ -79,6 +83,23 @@ func setup(root: Node) -> void:
             spawn.target_changed.connect(func(_from: String, to: String, _actor: String): _spawn_state(entry, to))
             spawn.state_entered.connect(func(state: String, _event: String): _spawn_state(entry, state))
             _spawn_state(entry, spawn.target if spawn.target != "" else spawn.state)
+
+
+## The collider of a prop's extras: its box, or a sphere / upright capsule (``shape``).
+static func make_shape(data: Dictionary) -> Shape3D:
+    match str(data.get("shape", "box")):
+        "sphere":
+            var sphere := SphereShape3D.new()
+            sphere.radius = float(data.get("radius", 0.25))
+            return sphere
+        "capsule":
+            var capsule := CapsuleShape3D.new()
+            capsule.radius = float(data.get("radius", 0.25))
+            capsule.height = float(data.get("height", 1.0))
+            return capsule
+    var box := BoxShape3D.new()
+    box.size = _vec(data.get("size", [0.5, 0.5, 0.5]))
+    return box
 
 
 ## Forget props under ``root`` (it is being unloaded).
@@ -134,7 +155,7 @@ func drop() -> void:
         return
     var body: RigidBody3D = props[held]["body"]
     body.gravity_scale = 1.0
-    body.angular_damp = 0.0
+    body.angular_damp = float((props[held]["data"].get("damping", {}) as Dictionary).get("angular", 0.0))
     body.axis_lock_angular_x = false
     body.axis_lock_angular_z = false
     body.linear_velocity = body.linear_velocity.limit_length(3.0)

@@ -3,7 +3,10 @@
 An asset with a ``physics:`` block is one dynamic body in the runtime: it falls, is pushed
 and, with ``carry``, can be picked up and carried. The build records it as ``meta.physics``
 (exported in extras): ``mass`` (kg), ``friction``, ``bounce``, ``carry`` and the collision
-box (``size`` and ``center`` in the asset's frame, from its geometry).
+box (``size`` and ``center`` in the asset's frame, from its geometry). ``shape: sphere``
+(a ball: ``radius`` half the box's largest side) or ``capsule`` (upright: ``radius`` from
+the box's width and depth, ``height`` its height) replace the box, so a prop can roll;
+``damping: {linear, angular}`` slows it (per second), so a rolling ball settles.
 
 ``spawn: "<thing>.<attachment>"`` makes the prop one a machine hands out (a dropper's
 cube). It gets a ``spawn`` interaction, ``stowed | live`` (``initial``, default
@@ -31,7 +34,10 @@ KEYS = {
     "carry": "the player can pick it up and carry it (default false)",
     "spawn": "\"<thing>.<attachment>\": handed out there by rules (a `spawn` interaction, stowed | live)",
     "initial": "the spawn interaction's first state: stowed (default) or live",
+    "shape": "box (default), sphere (rolls) or capsule (upright): the body's collider, sized from the geometry",
+    "damping": "{linear, angular}: how fast it slows, per second (default 0, 0)",
 }
+SHAPES = ("box", "sphere", "capsule")
 SPAWN = "spawn"
 STATES = ("stowed", "live")
 
@@ -59,6 +65,22 @@ def parse_physics(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode], 
     lo, hi = box
     out["size"] = [round(float(v), 6) for v in hi - lo]
     out["center"] = [round(float(v), 6) for v in (lo + hi) / 2]
+    shape = str(spec.get("shape", "box"))
+    if shape not in SHAPES:
+        raise ValueError(f"{name}: physics shape is {', '.join(SHAPES)}, got {shape!r}")
+    size = hi - lo
+    if shape == "sphere":
+        out.update(shape="sphere", radius=round(float(size.max()) / 2, 6))
+    elif shape == "capsule":
+        radius = float(max(size[0], size[2])) / 2
+        out.update(shape="capsule", radius=round(radius, 6), height=round(max(float(size[1]), 2 * radius), 6))
+    damping = spec.get("damping")
+    if damping is not None:
+        if not isinstance(damping, dict) or set(damping) - {"linear", "angular"}:
+            raise ValueError(f"{name}: physics damping is {{linear, angular}}, got {damping!r}")
+        out["damping"] = {k: float(damping.get(k, 0.0)) for k in ("linear", "angular")}
+        if min(out["damping"].values()) < 0:
+            raise ValueError(f"{name}: physics damping can't be negative")
     spawn = spec.get("spawn")
     if spawn is not None and str(spawn):
         initial = str(spec.get("initial", "stowed"))

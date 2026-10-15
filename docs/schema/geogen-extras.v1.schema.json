@@ -251,7 +251,7 @@
           }
         },
         "physics": {
-          "description": "A physics prop (geogen/physics.py): the node and everything under it are one rigid body, a box of 'size' centred at 'center' (the node's frame). The parts' own colliders are not used. 'carry': the player can pick it up. 'spawn_at' (the node's frame): where its 'spawn' interaction puts it on going live; stowed, it is hidden and out of the simulation, and a live prop that falls out of the world is stowed.",
+          "description": "A physics prop (geogen/physics.py): the node and everything under it are one rigid body, a box of 'size' centred at 'center' (the node's frame), or with 'shape' a sphere of 'radius' or an upright capsule of 'radius' and 'height' (end to end) centred there. 'damping' slows it (linear, angular: per second). The parts' own colliders are not used. 'carry': the player can pick it up. 'spawn_at' (the node's frame): where its 'spawn' interaction puts it on going live; stowed, it is hidden and out of the simulation, and a live prop that falls out of the world is stowed.",
           "type": "object",
           "required": ["mass", "friction", "bounce", "carry", "size", "center"],
           "additionalProperties": false,
@@ -263,7 +263,15 @@
             "size": { "$ref": "#/$defs/vec3" },
             "center": { "$ref": "#/$defs/vec3" },
             "spawn": { "type": "string" },
-            "spawn_at": { "$ref": "#/$defs/vec3" }
+            "spawn_at": { "$ref": "#/$defs/vec3" },
+            "shape": { "enum": ["box", "sphere", "capsule"] },
+            "radius": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 },
+            "damping": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": { "linear": { "type": "number", "minimum": 0 }, "angular": { "type": "number", "minimum": 0 } }
+            }
           }
         },
         "travel": {

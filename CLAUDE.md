@@ -508,6 +508,7 @@ The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-
 ### Physics props
 
 `geogen/physics.py`: an asset with `physics: {mass, friction, bounce, carry, spawn, initial}` is one rigid body in the runtime (`meta.physics`, exported in extras with a box `size` / `center` from its geometry).
+- `shape: box | sphere | capsule` (default box; sphere radius half the largest side, capsule upright) so a prop can roll; `damping: {linear, angular}` settles it. Test: `tests/test_physics_shapes.py` (a ball rolls down a wedge a box stays on).
 - `carry: true`: the player picks it up with E and carries it (E drops it).
 - `spawn: "<thing>.<attachment>"` (usually a text param: `params: {from: dropper.spawn_at}`) adds a `spawn` interaction, `stowed | live` (`initial`, default stowed): rules hand it out there, and the runtime stows a live prop that falls out of the world. `resolve_spawns` (end of every `_build_scene`, like `resolve_moves`) records `spawn_at` in the asset frame.
 - Places take `detect: [actors, props]`; then they have `occupants` (number, `driven: place`), which the runtime keeps at the count of actors and props inside (`places.place_state`). A floor button is a rule on `{changed: pad.occupants}`.

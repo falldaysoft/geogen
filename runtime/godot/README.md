@@ -591,9 +591,11 @@ actors, in `things`, and sets its `<uid>#occupants` state to how many there are
 
 An asset with `physics:` (`geogen/physics.py`) is exported with
 `extras.geogen.physics` (`mass`, `friction`, `bounce`, `carry`, a box `size` and
-`center`). `GeogenProps` (`scripts/props.gd`, `WorldLoader.props`) wraps each in
-a `RigidBody3D` with that box (the parts' own colliders are dropped), on layer 1,
-never asleep. Props aren't static colliders, so the navmesh is baked without them.
+`center`; with `shape`, a sphere `radius` or an upright capsule `radius` and
+`height`; optional `damping`). `GeogenProps` (`scripts/props.gd`, `WorldLoader.props`)
+wraps each in a `RigidBody3D` with that collider (`GeogenProps.make_shape`; the
+parts' own colliders are dropped), on layer 1, never asleep. A sphere rolls where a
+box would rest on its friction. Props aren't static colliders, so the navmesh is baked without them.
 
 - **Carrying:** aiming at a prop with `carry` prompts `E: Pick up`; it is held
   `HOLD_DISTANCE` (1.4 m) in front of the eyes, chased there by velocity so it
