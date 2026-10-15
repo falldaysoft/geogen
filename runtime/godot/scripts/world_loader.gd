@@ -1120,6 +1120,9 @@ func save_state() -> Dictionary:
     var bodies := props.save()
     if not bodies.is_empty():
         data["bodies"] = bodies
+    var items := flows.save()
+    if not items.is_empty():
+        data["flows"] = items
     return data
 
 
@@ -1206,6 +1209,7 @@ func load_state(data: Dictionary) -> void:
     for_rules["timers"] = kept
     rules.load_save(for_rules)           # after the nodes: bindings are recomputed from them
     rules.hold_absent()                  # the program has the rest until their chunks load
+    flows.restore(data.get("flows", {}))     # spawned items, after the program has its counts
     for key in _pending_state.keys():
         if rules.holds(key):
             _pending_state.erase(key)

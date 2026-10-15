@@ -723,15 +723,8 @@ func spawn(entry: Dictionary, item_name := "") -> int:
     var xform := Transform3D(source_xform.basis.orthonormalized(), source_xform * at)
     var id := _next_id
     _next_id += 1
-    var copy := template.duplicate() as Node3D
-    copy.name = "%s_%d" % [item_name, id]
-    for mi: MeshInstance3D in copy.find_children("*", "MeshInstance3D", true, false):
-        if WorldLoader._is_collider(mi):         # an item's collider is its body's (or none)
-            mi.get_parent().remove_child(mi)
-            mi.free()
-    var item := {"id": id, "source": entry["uid"], "item": item_name, "mode": str(def.get("mode", "physics")),
-        "def": def, "data": (def.get("data", {}) as Dictionary).duplicate(), "node": copy, "body": null,
-        "prop": "", "age": 0.0, "still": 0.0, "travelled": 0.0}
+    var item := _new_item(entry, template, id)
+    var copy: Node3D = item["node"]
     if entry.get("track", -1) >= 0 and item["mode"] != "physics":
         item["track"] = entry["track"]
         item["s"] = 0.0
@@ -755,6 +748,21 @@ func spawn(entry: Dictionary, item_name := "") -> int:
     return id
 
 
+## An item of ``entry``'s from ``template``, numbered ``id``: its node (a copy of the template
+## without colliders, not yet in the tree) and its record.
+func _new_item(entry: Dictionary, template: Node3D, id: int) -> Dictionary:
+    var def: Dictionary = WorldLoader.geogen_extras(template)["item"]
+    var copy := template.duplicate() as Node3D
+    copy.name = "%s_%d" % [def["name"], id]
+    for mi: MeshInstance3D in copy.find_children("*", "MeshInstance3D", true, false):
+        if WorldLoader._is_collider(mi):         # an item's collider is its body's (or none)
+            mi.get_parent().remove_child(mi)
+            mi.free()
+    return {"id": id, "source": entry["uid"], "item": str(def["name"]), "mode": str(def.get("mode", "physics")),
+        "def": def, "data": (def.get("data", {}) as Dictionary).duplicate(), "node": copy, "body": null,
+        "prop": "", "age": 0.0, "still": 0.0, "travelled": 0.0}
+
+
 ## A sink (a place entry of WorldLoader.places with `sink`) takes an item in, if it accepts
 ## it: the item goes, the sink's `received` counts it and it raises `received {item, ...data}`.
 func take(id: int, sink: Dictionary) -> bool:
@@ -763,7 +771,7 @@ func take(id: int, sink: Dictionary) -> bool:
     if item.is_empty() or (not accepts.is_empty() and not item["item"] in accepts):
         return false
     remove(id, "sink")
-    sink["received"] = int(sink.get("received", 0)) + 1
+    sink["received"] = int(_read(sink["uid"], "received", sink.get("received", 0))) + 1
     var key := "%s#received" % sink["uid"]
     if world.rules.machine != null and world.rules.machine.variables.has(key):
         world.rules.set_value(key, float(sink["received"]))
@@ -829,6 +837,110 @@ func _write(uid: String, name_: String, value: Variant) -> void:
     var key := "%s#%s" % [uid, name_]
     if world.rules.machine != null and world.rules.machine.variables.has(key):
         world.rules.set_value(key, value if typeof(value) == TYPE_BOOL else float(value))
+
+
+# -- saving ----------------------------------------------------------------------------------------
+
+## What a save keeps (its `flows` section; {} when there is nothing): live items (on a track by
+## its uid and distance, or a physics item's pose and velocity) and how far each source and
+## effector had got. Counts (emitted, killed, wave, received, taken) are rules state, saved
+## with the rest of it.
+func save() -> Dictionary:
+    if sources.is_empty() and tracks.is_empty() and effectors.is_empty():
+        return {}
+    var out := {"next_id": _next_id, "ticks": ticks, "sources": {}, "effectors": {}, "items": []}
+    for uid in sources:
+        var entry: Dictionary = sources[uid]
+        var kept := {"due": entry["due"], "phase": entry["phase"], "timer": entry["timer"], "group": entry["group"],
+            "left": entry["left"]}
+        for key in ["current", "pending", "last"]:
+            if entry.has(key):
+                kept[key] = entry[key]
+        out["sources"][uid] = kept
+    for e in effectors:
+        out["effectors"][e["uid"]] = {"cool": e["cool"]}
+    for id in items:
+        var it: Dictionary = items[id]
+        var kept := {"id": id, "source": it["source"], "item": it["item"], "data": it["data"], "age": it["age"],
+            "travelled": it["travelled"]}
+        if it.has("track"):
+            kept["track"] = tracks[it["track"]]["uid"]
+            kept["s"] = it["s"]
+        elif it["body"] != null and is_instance_valid(it["body"]):
+            var body: RigidBody3D = it["body"]
+            kept["position"] = _arr(body.global_position)
+            kept["rotation"] = _arr(body.global_rotation_degrees)
+            kept["velocity"] = _arr(body.linear_velocity)
+        else:
+            continue
+        out["items"].append(kept)
+    return out
+
+
+## Take up a save's `flows` section (after the rules program has its state): the items in the
+## world now go, the saved ones come back where they were, and counts are the rules'.
+func restore(data: Dictionary) -> void:
+    for id in items.keys():
+        remove(id, "cleared")
+    _next_id = int(data.get("next_id", _next_id))  # every item now is gone: ids go on as saved
+    ticks = int(data.get("ticks", ticks))
+    var kept_sources: Dictionary = data.get("sources", {})
+    for uid in sources:
+        var entry: Dictionary = sources[uid]
+        var kept: Dictionary = kept_sources.get(uid, {})
+        entry.merge({"due": 0.0, "phase": "idle", "timer": 0.0, "group": 0, "left": 0}, true)
+        for key in ["current", "pending", "last"]:
+            entry.erase(key)
+        for key in kept:
+            entry[key] = kept[key]
+        for key in ["group", "left", "last"]:
+            if entry.has(key):
+                entry[key] = int(entry[key])
+        entry["made"] = int(_read(uid, "emitted", 0))
+        entry["killed"] = int(_read(uid, "killed", 0))
+        entry["wave"] = int(_read(uid, "wave", 0))
+    var kept_effectors: Dictionary = data.get("effectors", {})
+    for e in effectors:
+        e["cool"] = float(kept_effectors.get(e["uid"], {}).get("cool", 0.0))
+        e["taken"] = int(_read(e["uid"], "taken", 0))
+        e["target"] = -1
+    var track_of := {}
+    for track in tracks:
+        track["received"] = int(_read(track["uid"], "received", 0))
+        track_of[track["uid"]] = track["index"]
+    for kept in data.get("items", []):
+        var entry: Dictionary = sources.get(str(kept.get("source", "")), {})
+        var template: Node3D = entry.get("templates", {}).get(str(kept.get("item", ""))) if not entry.is_empty() else null
+        if template == null:
+            continue
+        var item := _new_item(entry, template, int(kept["id"]))
+        item["data"] = (kept.get("data", {}) as Dictionary).duplicate()
+        item["age"] = float(kept.get("age", 0.0))
+        item["travelled"] = float(kept.get("travelled", 0.0))
+        if kept.has("track") and track_of.has(str(kept["track"])):
+            item["track"] = track_of[str(kept["track"])]
+            item["s"] = float(kept.get("s", 0.0))
+            _layer.add_child(item["node"])
+            _place_on(item)
+        elif kept.has("position") and item["mode"] == "physics":
+            var physics: Dictionary = WorldLoader.geogen_extras(template).get("physics", {})
+            item["prop"] = "flow#%d" % item["id"]
+            var xform := Transform3D(Basis.from_euler(_vec(kept.get("rotation", [0, 0, 0])) * (PI / 180.0)),
+                _vec(kept["position"]))
+            item["body"] = world.props.add_clone(item["node"], physics, item["prop"], _layer, xform,
+                _vec(kept.get("velocity", [0, 0, 0])))
+        else:
+            item["node"].free()
+            continue
+        items[item["id"]] = item
+        if float(item["data"].get("hp", 1.0)) < float((item["def"].get("data", {}) as Dictionary).get("hp", 1.0)):
+            _health(item)
+    for uid in sources:
+        _write(uid, "alive", alive(uid))
+
+
+static func _arr(v: Vector3) -> Array:
+    return [snappedf(v.x, 0.0001), snappedf(v.y, 0.0001), snappedf(v.z, 0.0001)]
 
 
 ## {sources: [{uid, running, queued, emitted, alive, items: [names]}], items: [{id, source, item,

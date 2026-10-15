@@ -56,6 +56,33 @@
       "type": "array",
       "items": {"$ref": "#/$defs/timer"}
     },
+    "flows": {
+      "description": "Spawned items (geogen/flows.py), written by runtimes that run them: the items in the world (on a track by its stable ID and distance 's', or a physics item's pose) and how far each source (its wave phase and timers, its pick) and effector (its cooldown) had got. Counts are rules state in 'world'. Loading takes the items in the world away and brings these back.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "next_id": {"type": "integer", "minimum": 1},
+        "ticks": {"type": "integer", "minimum": 0},
+        "sources": {"type": "object", "additionalProperties": {"type": "object"}},
+        "effectors": {"type": "object", "additionalProperties": {"type": "object", "properties": {"cool": {"type": "number"}}}},
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "source", "item", "data"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "integer"}, "source": {"type": "string"}, "item": {"type": "string"},
+              "data": {"type": "object"}, "age": {"type": "number"}, "travelled": {"type": "number"},
+              "track": {"type": "string"}, "s": {"type": "number"},
+              "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+              "rotation": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+              "velocity": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+            }
+          }
+        }
+      }
+    },
     "bodies": {
       "description": "Physics props (extras.geogen.physics) that are live, by stable ID: where they are. Written by runtimes that simulate them; a prop it doesn't name is where its spawn interaction puts it.",
       "type": "object",

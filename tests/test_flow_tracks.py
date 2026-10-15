@@ -142,3 +142,27 @@ def test_godot_stopping_a_belt_backs_items_up(runtime):
     held = sorted(it["s"] for it in after["items"] if it.get("track") == b["index"])
     assert held and all(y - x >= 0.3 for x, y in zip(held, held[1:])), held
     runtime.call("state.set", key="flow_test:belt_b#running", value=True)
+
+
+def test_godot_saves_keep_items_where_they_were(runtime):
+    """Save mid-run, run on, load, run on again: both runs end the same (it's all deterministic)."""
+    runtime.call("time.pause")                      # nothing moves between calls
+    runtime.call("time.step", frames=180)
+    saved = runtime.call("state.save")
+    assert saved["flows"]["items"] and all("track" in it and "s" in it for it in saved["flows"]["items"])
+    runtime.call("time.step", frames=240)
+    first = runtime.call("flows.list")
+    runtime.call("state.load", state=saved)
+    restored = runtime.call("flows.list")
+    assert sorted(it["id"] for it in restored["items"]) == sorted(it["id"] for it in saved["flows"]["items"])
+    runtime.call("time.step", frames=240)
+    second = runtime.call("flows.list")
+    runtime.call("time.resume")
+
+    def shown(report):
+        return sorted((it["id"], it["track"], round(it["s"], 3), it["data"].get("hp")) for it in report["items"])
+
+    assert shown(first) == shown(second)
+    assert [(s["emitted"], s["killed"], s["wave"]) for s in first["sources"]] == \
+        [(s["emitted"], s["killed"], s["wave"]) for s in second["sources"]]
+    assert [t["received"] for t in first["tracks"]] == [t["received"] for t in second["tracks"]]

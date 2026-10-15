@@ -664,6 +664,11 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
   wave's `delay`, sends its groups (`count` items `gap` s apart), and when the wave's
   items are all gone raises `wave_cleared {wave}` and sets its `running` false (or goes
   on with `auto`); after the last, `all_cleared`. `wave` counts them.
+- **Saves** have a `flows` section (`GeogenFlows.save` / `restore`, after the rules
+  program loads): the live items (track uid and distance, or a physics item's pose and
+  velocity, with their data) and each source's wave phase, timers and pick, and each
+  effector's cooldown. Counts come back from the rules state. Loading takes the items in
+  the world away first, so a run carries on from a save exactly as it would have.
 - Control API: `flows.list` (`ticks`, sources, tracks, effectors, items with `track`, `s`
   and `travelled`).
   Tests: `tests/test_flows.py`, `tests/test_flow_tracks.py`.

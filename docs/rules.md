@@ -337,6 +337,11 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   `bodies`: every live prop by stable ID, `{position, rotation, velocity}`.
   Loading puts them there after their `spawn` interactions are restored; one a
   save doesn't name is where its interaction puts it. `Machine.load` ignores it.
+- A runtime that runs spawned items (`geogen.flows`) writes `flows`: the items in
+  the world (`{id, source, item, data, track, s}` or a physics item's pose) and how
+  far each source and effector had got. Their counts are ordinary state above.
+  Loading takes the world's items away and brings these back. `Machine.load`
+  ignores it.
 
 ## What export must reject
 
