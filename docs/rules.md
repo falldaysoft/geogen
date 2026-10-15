@@ -33,23 +33,29 @@ default, and exactly one owner. Its key says which:
 
 Every variable is declared, and where it is declared says who owns it. An
 asset's `state:` belongs to each placed instance; a scene's `state:` must give
-each variable `scope: world` or `scope: actor`.
+each variable `scope: world`, `scope: actor` or `scope: instance`.
 
 ```yaml
 state:                                      # in an asset: one value per instance
   lit: {type: bool, default: false}
-state:                                      # in a scene: the package's
-  bridge_down: {scope: world, type: bool, default: false}
-  has_ticket:  {scope: actor, type: bool, default: false}
+state:                                      # in a scene
+  bridge_down: {scope: world, type: bool, default: false}     # the package's
+  has_ticket:  {scope: actor, type: bool, default: false}     # the package's, per actor
+  solved:      {scope: instance, type: bool, default: false}  # each placed copy's
 ```
 
-A nested scene's state belongs to the package being exported, so two scenes
-declaring one name must agree. A placement's `state: {lit: true}` starts that
+A nested scene's world and actor state belongs to the package being exported,
+so two scenes declaring one name must agree. Its instance state belongs to each
+placed copy, as an asset's does: a puzzle scene placed twice is two puzzles,
+keyed `<copy id>#solved`, read as `self.solved` in the scene's own wiring and
+`puzzle_a.solved` from the parent. (Exported on its own, the scene's root is
+the copy: `<package>:#solved`.) A placement's `state: {lit: true}` starts that
 instance with another value.
 
-Assets also declare what they offer to wiring, by names relative to themselves
-(`of: <reference>` for something inside the asset), so every instance wires
-itself:
+Assets, and scenes, also declare what they offer to wiring, by names relative
+to themselves (`of: <reference>` for something inside), so every instance wires
+itself; a parent scene wires a placed puzzle's `solved` signal and drives its
+`reset` input like an asset's:
 
 ```yaml
 signals:
@@ -303,6 +309,8 @@ bind:
 - **In a scene** names are references from that scene. **In an asset** they are
   relative to it and every placed instance gets its own copy: `self` is the
   instance (`self.lit`, `{signal: self.pulled}`), other names are things inside it.
+  A nested scene's wiring is also per placed copy, and there `self` is the copy
+  (its `scope: instance` state, signals and inputs).
 - **Order in the program:** declared signals, then wiring (scene order), then the
   quests, so a rule that gives a quest runs before that quest's objectives.
 - A rule's id is its `id`, or `rule_<n>` / `wire_<n>`; below the package's own

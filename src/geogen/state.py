@@ -12,8 +12,12 @@ A scene's ``state:`` belongs to the package, and must say how::
     state:                                   # in a scene
       bridge_down: {scope: world, type: bool, default: false}   # one shared value
       has_ticket:  {scope: actor, type: bool, default: false}   # one per player or NPC
+      solved:      {scope: instance, type: bool, default: false}  # one per placed copy
 
-Assets also name what they offer to wiring, relative to themselves so every
+Instance state makes a scene a reusable unit, as an asset is: placed twice, each copy
+has its own (``self.solved`` in its own wiring, ``puzzle_a.solved`` from the parent).
+
+Assets (and scenes) also name what they offer to wiring, relative to themselves so every
 instance wires itself::
 
     signals:                                 # named outputs
@@ -56,6 +60,7 @@ SCOPES = {
     "world": "one value shared by everyone in the package",
     "actor": "one value per actor: the player or an NPC",
 }
+INSTANCE = "instance"             # a scene's `scope: instance`: one value per placed copy of the scene
 SIGNAL_SOURCES = {
     "emit": "an interaction arrives at a state with this `emit`",
     "changed": "this variable or interaction takes a new value (`to`: only that value)",
@@ -122,8 +127,9 @@ def _known(entry: dict[str, Any], known: Iterable[str], where: str) -> None:
 def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict[str, dict[str, Any]]:
     """A ``state:`` block as ``{name: {type, default, choices?, scope?}}``.
 
-    ``scoped`` is a scene's block, where each variable must say ``scope: world | actor``;
-    otherwise it is an asset's, whose state belongs to the instance.
+    ``scoped`` is a scene's block, where each variable must say ``scope: world | actor |
+    instance``; otherwise it is an asset's, whose state belongs to the instance. Instance
+    variables come back without a ``scope``, as an asset's do.
     """
     out = {}
     for name, var in _mapping(spec, source, "state", "{type, default}").items():
@@ -132,10 +138,10 @@ def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict
         if name.endswith(LOCKED):
             raise StateError(f"{where}: names ending '{LOCKED}' are interactions' locks")
         scope = var.get("scope")
-        if scoped and scope not in SCOPES:
-            raise StateError(f"{where}: a scene's state needs scope: world (one shared value) or actor (one per "
-                             f"player or NPC)" + ("; instance state is declared by the asset" if scope else ""))
-        if not scoped and scope not in (None, "instance"):
+        if scoped and scope not in (*SCOPES, INSTANCE):
+            raise StateError(f"{where}: a scene's state needs scope: world (one shared value), actor (one per "
+                             f"player or NPC) or instance (one per placed copy of the scene)")
+        if not scoped and scope not in (None, INSTANCE):
             raise StateError(f"{where}: an asset's state belongs to each placed instance; {scope} state is "
                              f"declared by a scene")
         kind = var.get("type")
@@ -158,7 +164,7 @@ def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict
         if not fits(entry, default):
             raise StateError(f"{where}: default {default!r} isn't {_described(entry)}")
         entry["default"] = default
-        if scoped:
+        if scoped and scope != INSTANCE:
             entry["scope"] = scope
         out[name] = entry
     return out
@@ -203,10 +209,14 @@ def declare_asset(root: SceneNode, data: dict[str, Any], source: Any = None) -> 
 
 
 def declare_scene(root: SceneNode, data: dict[str, Any], source: Any = None) -> None:
-    """Record a scene's ``state:`` (world and actor variables) on its root."""
-    if data.get("state"):
+    """Record a scene's ``state:`` (world, actor and instance variables), ``signals:`` and
+    ``inputs:`` on its root. Instance state, signals and inputs belong to each placed copy
+    of the scene, as an asset's do, so a puzzle placed twice is two puzzles."""
+    if any(data.get(k) for k in ("state", "signals", "inputs")):
         root.meta[META] = {"source": str(source) if source is not None else None,
-                           "state": parse_variables(data["state"], source, scoped=True)}
+                           "state": parse_variables(data.get("state"), source, scoped=True),
+                           "signals": parse_signals(data.get("signals"), source),
+                           "inputs": parse_inputs(data.get("inputs"), source)}
 
 
 def instance_state(node: SceneNode) -> dict[str, dict[str, Any]]:

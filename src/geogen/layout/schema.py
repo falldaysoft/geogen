@@ -301,8 +301,9 @@ SCENE_KEYS: dict[str, str] = {
     "compose": "same as `place`",
     "attachments": "named points on the scene, for parent scenes",
     "tags": "dotted gameplay tags on the scene root",
-    "state": "{name: {scope: world | actor, type, default, choices}}: the package's shared (`world.name`) and "
-             "per-actor (`actor.name`) variables",
+    "state": "{name: {scope: world | actor | instance, type, default}}: `world.x`, `actor.x` or each copy's `self.x`",
+    "signals": "{name: {emit | changed | enter | leave}}: each copy's outputs",
+    "inputs": "{name: {set, to}}: what a parent drives in each copy",
     "rules": "[{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when "
              "(geogen.wiring); `if: \"{expr}\"` leaves the rule out of the build when 0",
     "wire": "[{from: <thing>.<signal>, to: <thing>.<input>, value, when, after, if}]: a signal drives an input",

@@ -24,9 +24,10 @@ Events (``on``): ``{enter | leave: <place or room>}``, ``{signal: <thing>.<name>
 ``{clock: night | day}``, ``{travel: true | <scene>}``; ``actor: player | npc | none | any``
 narrows who.
 
-In an asset the names are relative to it, so every placed instance wires itself:
-``self`` is the instance (``self.lit``, ``{signal: self.pulled}``) and other names are
-things inside it. In a scene they are references from that scene.
+Names are relative to where they are written, so every placed instance wires itself:
+``self`` is the instance (``self.lit``, ``{signal: self.pulled}``: an asset, or a placed
+scene with ``scope: instance`` state) and other names are things inside it (in a scene,
+references from that scene).
 
 The loaders only record these (``meta.wiring``, not exported). ``geogen.quests.collect``
 compiles them with the scene's quests, so a rule can give a quest and a quest can rely
@@ -90,7 +91,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
     for entry in entries:
         owner = compiler.uid(entry.node)
         prefix = "" if owner.endswith(":") else f"{owner}#"     # the package's own scene needs none
-        src = _Quest(owner, {}, entry.source, entry.node, entry.node if entry.asset else None)
+        src = _Quest(owner, {}, entry.source, entry.node, entry.node)      # `self`: this instance
         if entry.source is None:
             src.where = lambda *keys, _o=owner: f"{_o}: " + ".".join(str(k) for k in keys)   # type: ignore[method-assign]
 

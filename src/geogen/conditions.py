@@ -251,7 +251,7 @@ def resolve(tree: Tree, root: SceneNode, package: str, self_node: SceneNode | No
                 return {"get": "instance", "id": uid(node, ref), "name": name}
             if kind == "self":
                 if self_node is None:
-                    raise ConditionError(f"'self.{name}': there is no 'self' here (it is the instance of an asset)")
+                    raise ConditionError(f"'self.{name}': there is no 'self' here (it is the instance of an asset or placed scene)")
                 check(self_node, name, "self")
                 return {"get": "instance", "id": uid(self_node), "name": name}
             if kind == "it":

@@ -271,3 +271,99 @@ def test_godot_refuses_an_interaction_while_its_condition_is_false(assets, tmp_p
     rt.call("state.set", key="world:yard.power", value=True)
     rt.call("interactions.use", asset="lever", wait=True)
     assert rt.call("state.get", key="yard:lever#pull")["value"] == "down"
+
+
+# A puzzle as a scene: instance state, a signal and an input of its own (geogen.40.4).
+PUZZLE = """
+name: puzzle
+size: [4, 3, 4]
+state:
+  solved: {scope: instance, type: bool, default: false}
+  tries:  {scope: world, type: number, default: 0}
+signals:
+  done:  {changed: solved, to: true}
+  moved: {emit: pulled, of: lever}
+inputs:
+  reset: {set: solved, to: false}
+place:
+  lever: {asset: lever.yaml}
+rules:
+  - on: {signal: lever.pulled}
+    do: [{set: self.solved, to: true}, {set: world.tries, to: "world.tries + 1"}]
+"""
+
+PUZZLES = """
+name: puzzles
+size: [12, 3, 12]
+slots:
+  a: {position: [-3, 0, 0]}
+  b: {position: [3, 0, 0]}
+  c: {position: [0, 0, 4]}
+place:
+  puzzle_a: {scene: puzzle.yaml, slot: a}
+  puzzle_b: {scene: puzzle.yaml, slot: b, state: {solved: true}}
+  gate:     {asset: gate.yaml, slot: c}
+wire:
+  - {from: puzzle_a.done, to: gate.open}
+  - {from: gate.opened, to: puzzle_b.reset}
+"""
+
+
+@pytest.fixture
+def puzzles(assets):
+    (assets / "puzzle.yaml").write_text(PUZZLE)
+    (assets / "puzzles.yaml").write_text(PUZZLES)
+    return assets
+
+
+def test_a_scene_placed_twice_is_two_puzzles(puzzles):
+    found = collect(SceneComposer(assets_dir=puzzles).compose(puzzles / "puzzles.yaml"), "puzzles")
+    decls = found.declarations
+    assert decls.variables["puzzles:puzzle_a#solved"] == {"type": "bool", "default": False}
+    assert decls.variables["puzzles:puzzle_b#solved"]["default"] is True     # the placement's state:
+    assert "world:puzzles.tries" in decls.variables                          # world state is still shared
+    assert decls.inputs["puzzles:puzzle_b#reset"] == {"set": "puzzles:puzzle_b#solved", "to": False}
+    machine = Machine(found.program(), ACTORS)
+
+    machine.use("puzzles:puzzle_a/lever#pull", "player")
+    machine.advance(0.6)
+    assert machine.get("puzzles:puzzle_a#solved") is True                    # `self` is this copy
+    assert ["puzzles:puzzle_a", "done", "player"] in machine.signals          # with who solved it
+    assert ["puzzles:puzzle_a", "moved", "player"] in machine.signals
+    assert machine.get("puzzles:gate#gate") == "open"                        # the parent wired its signal
+    assert machine.get("puzzles:puzzle_b#solved") is True
+    machine.advance(2.1)                                                     # the gate arrives: b is reset
+    assert machine.get("puzzles:puzzle_b#solved") is False
+    assert machine.get("world:puzzles.tries") == 1 and machine.errors == []
+
+
+def test_a_scene_exported_alone_has_its_own_instance_state(puzzles):
+    found = collect(SceneComposer(assets_dir=puzzles).compose(puzzles / "puzzle.yaml"), "puzzle")
+    machine = Machine(found.program(), ACTORS)
+    machine.use("puzzle:lever#pull", "player")
+    machine.advance(0.6)
+    assert machine.get("puzzle:#solved") is True and machine.errors == []
+
+
+@pytest.mark.parametrize("old, new, message", [
+    ("scope: instance", "scope: placed", "or instance \\(one per placed copy"),
+    ("{changed: solved, to: true}", "{changed: solve, to: true}", "has no state 'solve'"),
+])
+def test_bad_scene_declarations_fail(puzzles, old, new, message):
+    from geogen.state import StateError
+
+    rewrite(puzzles, "puzzle", old, new)
+    with pytest.raises((StateError, QuestError), match=message):
+        collect(SceneComposer(assets_dir=puzzles).compose(puzzles / "puzzles.yaml"), "puzzles")
+
+
+def test_exported_puzzles_validate(puzzles, tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    from pathlib import Path
+
+    schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-state.v1.schema.json").read_text())
+    for name in ("puzzles", "puzzle"):
+        root = SceneComposer(assets_dir=puzzles).compose(puzzles / f"{name}.yaml")
+        manifest = json.loads(manifest_path(export_scene(root, tmp_path / name / f"{name}.glb")).read_text())
+        jsonschema.validate(manifest["state"], schema)
+    assert "puzzle:#solved" in manifest["state"]["variables"]
