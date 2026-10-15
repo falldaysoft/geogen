@@ -55,6 +55,16 @@ def test_rotation_minimising_frames_keep_level_paths_upright():
     assert mesh.vertices[:, 1].max() == pytest.approx(0.2, abs=1e-9)
 
 
+def test_level_frames_do_not_roll_round_a_helix():
+    # Two falling turns: rotation-minimising frames come out rolled; level ones stay flat across.
+    path = np.array([[np.cos(t), -0.07 * t, np.sin(t)] for t in np.linspace(0, 4 * np.pi, 120)])
+    rolled = SweepGenerator(profile=SQUARE, path=path)
+    level = SweepGenerator(profile=SQUARE, path=path, level=True)
+    assert abs(rolled._frames(rolled._points())[1][-1, 1]) > 0.1
+    assert np.abs(level._frames(level._points())[1][:, 1]).max() < 1e-9
+    assert meshops.validate(level.generate()).watertight
+
+
 def test_twist_and_scale():
     tube = Shape(circle(0.05, 16))
     path = np.array([[0.0, 0, 0], [0, 1, 0]])

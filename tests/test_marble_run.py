@@ -1,5 +1,6 @@
 """The marble run example (examples/marble_run, geogen.46): a hopper drops balls (physics
-items from its source) down a brass trough into a catch bowl (a sink place)."""
+items from its source) down a brass trough, round an exit funnel and into a catch bowl (a
+sink place). The balls are physics bodies the whole way."""
 
 import subprocess
 import sys
@@ -34,20 +35,28 @@ def test_the_project_passes_its_checks():
     assert done.returncode == 0, done.stdout + done.stderr
 
 
-def test_the_hopper_drops_balls_over_the_start_of_the_trough(built):
+def _at(scene, tag, attachment):
+    node = next(n for n in scene.iter_nodes() if tag in n.tags)
+    return node.get_attachment(attachment).to_matrix()[:3, 3]           # in the scene's frame
+
+
+def test_the_balls_fall_from_the_hopper_through_the_run_into_the_bowl(built):
     scene, _ = built
     hopper = next(n for n in scene.iter_nodes() if n.name == "hopper")
-    track = next(n for n in scene.iter_nodes() if n.name == "track")
     source = hopper.meta["flows"]["source"]
     assert [i["name"] for i in source["items"]] == ["ball_red", "ball_blue", "ball_gold", "ball_green"]
     assert source["initial"] == "stopped"
-    drop = (hopper.world_transform() @ np.r_[source["at"], 1.0])[:3]
-    start = track.get_attachment("start").to_matrix()[:3, 3]
-    assert np.allclose(drop, start, atol=0.02)                 # the balls' track starts at the neck
-    net = flows.network(scene)
-    assert [t["mode"] for t in net["tracks"]] == ["roll"] and net["sources"][0]["track"] == 0
     templates = [n.meta["item"] for n in hopper.iter_nodes() if flows.is_template(n)]
     assert all(t["mode"] == "physics" for t in templates) and len(templates) == 4
+    assert not flows.network(scene)["tracks"]                      # no track: physics all the way
+    drop = (hopper.world_transform() @ np.r_[source["at"], 1.0])[:3]
+    start = _at(scene, "machine.marble_run", "start")
+    assert np.allclose(drop[[0, 2]], start[[0, 2]], atol=0.01) and 0.05 < drop[1] - start[1] < 0.2
+    # The trough runs out over the funnel, inside its rim and above it; the neck is over the bowl.
+    end, neck = _at(scene, "machine.marble_run", "end"), _at(scene, "machine.funnel", "neck")
+    assert 0.2 < np.hypot(*(end - neck)[[0, 2]]) < 0.4 and end[1] - neck[1] > 0.35
+    bowl = next(n for n in scene.iter_nodes() if n.name == "catch")
+    assert np.allclose(bowl.world_transform()[[0, 2], 3], neck[[0, 2]], atol=0.01)
 
 
 def test_the_lever_runs_the_hopper_and_the_bowl_counts(built):
@@ -66,13 +75,6 @@ def test_the_lever_runs_the_hopper_and_the_bowl_counts(built):
     assert ["notify", "Another ten in the bowl", None] in machine.feedback
     assert machine.get(f"world:{SCENE}.milestone") == 20
     assert [s["label"] for s in quests.hud["stats"]] == ["Caught", "In play", "Dropped"]
-
-
-def test_the_reference_rolls_balls_to_the_end(built):
-    scene, _ = built
-    out = flows.simulate(scene, 60 * 30, running={"hopper": True})
-    drops = [e for e in out["events"] if e[1] == "dropped"]
-    assert len(drops) >= 6 and 8 < drops[0][0] / 60 < 20, drops[:2]      # 20 m of trough at a few m/s
 
 
 # --- in Godot -----------------------------------------------------------------------------------
@@ -99,22 +101,18 @@ def _get(runtime, key):
     return runtime.call("state.get", key=f"{SCENE}:{key}")["value"]
 
 
-def test_every_ball_that_runs_out_lands_in_the_bowl(runtime, built):
+def test_every_ball_runs_the_course_into_the_bowl(runtime):
     runtime.call("time.pause")
-    started = int(runtime.call("flows.list")["ticks"])           # nothing moves until the hopper runs
     runtime.call("state.set", key=f"{SCENE}:hopper#running", value=True)
-    runtime.call("time.step", frames=60 * 15)
-    report = runtime.call("flows.list")
-    # Rolling is the reference's: the same balls at the same distances along the trough.
-    expected = flows.simulate(built[0], int(report["ticks"]) - started, running={"hopper": True})
-    on_track = {it["id"]: it["s"] for it in report["items"] if "s" in it}
-    want = {it["id"]: it["s"] for it in expected["items"]}
-    assert set(on_track) == set(want)
-    for id, s in want.items():
-        assert on_track[id] == pytest.approx(s, abs=1e-3)
-    runtime.call("time.step", frames=60 * 25)
+    escaped = set()
+    for _ in range(30):                                          # 60 s of play
+        runtime.call("time.step", frames=120)
+        for it in runtime.call("flows.list")["items"]:
+            if it["position"][1] < 0.6:                          # under the bowl's floor: off the run
+                escaped.add(it["id"])
     emitted, alive, caught = _get(runtime, "hopper#emitted"), _get(runtime, "hopper#alive"), _get(runtime, "catch#received")
     runtime.call("time.resume")
-    assert caught >= 8 and alive <= 10 and caught == emitted - alive, (emitted, alive, caught)
+    assert not escaped
+    assert caught >= 6 and alive <= 10 and caught == emitted - alive, (emitted, alive, caught)
     shown = runtime.call("hud.stats")["stats"]["stats"]
     assert shown[0] == {"label": "Caught", "value": caught, "text": str(int(caught))}

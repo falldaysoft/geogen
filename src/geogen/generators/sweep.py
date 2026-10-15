@@ -5,7 +5,9 @@ Frames are rotation-minimising (double-reflection method), started from an
 polyline corners the ring sits on the bisector plane and is stretched by
 1/cos(half angle) across the bend, so mitred corners keep the profile's
 thickness. Open paths get flat caps; closed paths distribute any leftover
-frame twist so the seam matches.
+frame twist so the seam matches. ``level`` keeps the profile's x axis
+horizontal everywhere instead (no roll round a helix: a trough or a banked
+road stays level across).
 
 Profile coordinates: x runs to the *right* of the direction of travel (seen
 from above for a horizontal path with ``up = +Y``), y along ``up``. A
@@ -40,6 +42,8 @@ class SweepGenerator(MeshGenerator):
         closed: Join the last point back to the first (no caps)
         up: Hint for the profile's y axis at the start
         twist: Total twist along the path, degrees
+        level: Keep the profile's x axis perpendicular to ``up`` at every point
+            (rotation-minimising frames roll round a helix)
         scale: Profile scale at the start and end (linear in between)
         crease_angle: Edges sharper than this shade hard
         center: Centre the mesh on its bounds (like other primitives); False
@@ -51,6 +55,7 @@ class SweepGenerator(MeshGenerator):
     closed: bool = False
     up: tuple[float, float, float] = (0.0, 1.0, 0.0)
     twist: float = 0.0
+    level: bool = False
     scale: tuple[float, float] = (1.0, 1.0)
     crease_angle: float = 40.0
     center: bool = True
@@ -96,9 +101,13 @@ class SweepGenerator(MeshGenerator):
             c2 = v2 @ v2
             sides[i + 1] = r_l - (2 / c2) * (v2 @ r_l) * v2 if c2 > 1e-12 else r_l
         sides = _unit(sides - (np.sum(sides * tangent, axis=1, keepdims=True)) * tangent)
+        if self.level:
+            flat = np.cross(tangent, up)
+            ok = np.linalg.norm(flat, axis=1) > 1e-6       # where the path runs along up, keep the RMF side
+            sides[ok] = _unit(flat[ok])
 
         twist = np.radians(self.twist) * np.linspace(0.0, 1.0, n)
-        if self.closed:
+        if self.closed and not self.level:
             # Carry the frame once more around to the start and remove the mismatch.
             v1 = pts[0] - pts[-1]
             c1 = v1 @ v1

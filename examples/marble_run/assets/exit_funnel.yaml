@@ -1,0 +1,44 @@
+# The marble run's exit funnel: a brass vortex funnel on three wooden legs. A ball rolls in
+# off the end of the trough, runs round the rim wall and the slope (steeper towards the middle,
+# so it spirals in faster as it goes down) and drops out of the neck into whatever is
+# under it. Origin: on the floor under the neck.
+
+name: exit_funnel
+tags: [machine.funnel]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  neck: {default: 1.05}             # height of the funnel's neck (its hole is 20 cm across)
+
+parts:
+  funnel:
+    primitive: lathe
+    # One closed loop (r, y): down the spout, up the inner wall to a 10 cm rim wall that a
+    # fast ball runs round, out along the flange the legs hold, and back down the outside.
+    profile: [[0.1, -0.06], [0.1, 0], [0.105, 0.03], [0.125, 0.07], [0.17, 0.12], [0.245, 0.17],
+              [0.34, 0.22], [0.45, 0.26], [0.45, 0.37], [0.464, 0.37], [0.464, 0.27], [0.64, 0.27],
+              [0.64, 0.252], [0.464, 0.252], [0.34, 0.206], [0.245, 0.156], [0.17, 0.106],
+              [0.125, 0.056], [0.117, 0.03], [0.112, -0.06], [0.1, -0.06]]
+    size: [1.28, 0.43, 1.28]
+    anchor: bottom_center
+    offset: [0, "{neck - 0.06}", 0]
+    segments: 64
+    material: brass
+    collider: mesh
+  leg_0: &leg
+    primitive: cylinder
+    size: [0.045, "{neck + 0.252}", 0.045]
+    anchor: bottom_center
+    offset: [0, 0, 0.61]
+    material: wood_dark
+  leg_1:
+    <<: *leg
+    offset: [-0.528, 0, -0.305]
+  leg_2:
+    <<: *leg
+    offset: [0.528, 0, -0.305]
+
+attachments:
+  neck: {anchor: bottom_center, offset: [0, "{neck}", 0], offset_mode: absolute}

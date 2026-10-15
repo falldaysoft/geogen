@@ -1,8 +1,9 @@
 # A marble run on a wooden stage. Pull the lever: the hopper drops a ball every few
 # seconds onto the brass trough, which ramps east, U-turns, ramps back, winds twice round a
-# pole and runs out west over the catch bowl. Every ball is a physics body (geogen.flows
-# items from the hopper's source); the bowl is a sink that takes them in, and the HUD
-# counts what it has caught. Push the lever back to stop the hopper.
+# pole and runs out west into the exit funnel; balls run round it, spiral down and drop
+# through its neck into the catch bowl. Every ball is a physics body the whole way
+# (geogen.flows items from the hopper's source); the bowl is a sink that takes them in,
+# and the HUD counts what it has caught. Push the lever back to stop the hopper.
 
 name: marble_run
 size: [10, 4, 8]
@@ -14,7 +15,8 @@ spawns:
 slots:
   track:  {position: [-0.5, 0.12, -1.4]}
   hopper: {position: [-0.5, 0.12, -1.4]}
-  bowl:   {position: [-3.0, 0.12, -0.2]}
+  funnel: {position: [-2.5, 0.12, 0.1]}    # the trough's end is 30 cm from its middle
+  bowl:   {position: [-2.5, 0.12, 0.1]}
   lever:  {position: [1.4, 0.12, -3.0], facing: south}
 
 place:
@@ -26,6 +28,9 @@ place:
   hopper:
     asset: hopper.yaml
     slot: hopper
+  funnel:
+    asset: exit_funnel.yaml
+    slot: funnel
   bowl:
     asset: catch_bowl.yaml
     slot: bowl
@@ -36,7 +41,7 @@ place:
 places:
   catch:                                  # inside the bowl: what lands there is caught
     box: [0.9, 0.3, 0.9]
-    position: [-3.0, 0.73, -0.2]
+    position: [-2.5, 0.73, 0.1]
     sink: true
 
 state:

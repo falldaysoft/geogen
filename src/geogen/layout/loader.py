@@ -978,6 +978,7 @@ class LayoutLoader:
             closed=closed,
             up=tuple(float(v) for v in config.get("up", (0.0, 1.0, 0.0))),
             twist=float(config.get("twist", 0.0)),
+            level=bool(config.get("level", False)),
             scale=scale,
             crease_angle=float(config.get("crease_angle", 40.0)),
             center=bool(config.get("center", True)),

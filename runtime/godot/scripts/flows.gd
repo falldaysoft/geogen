@@ -997,6 +997,9 @@ func report() -> Dictionary:
         var entry := {"id": id, "source": item["source"], "item": item["item"], "mode": item["mode"],
             "position": [snappedf(p.x, 0.001), snappedf(p.y, 0.001), snappedf(p.z, 0.001)],
             "data": item["data"], "age": snappedf(item["age"], 0.01)}
+        if at is RigidBody3D and is_instance_valid(at):
+            var v: Vector3 = at.linear_velocity
+            entry["velocity"] = [snappedf(v.x, 0.001), snappedf(v.y, 0.001), snappedf(v.z, 0.001)]
         if item.has("track"):
             entry["track"] = item["track"]
             entry["s"] = item["s"]

@@ -114,6 +114,7 @@ PRIMITIVES: dict[str, Primitive] = {
          "closed": Key("bool", "join the end back to the start", False),
          "up": Key("[x, y, z]", "the profile's up direction", [0, 1, 0]),
          "twist": Key("deg", "twist over the whole path", 0.0),
+         "level": Key("bool", "keep the profile level across (no roll round a helix: troughs, banked tracks)", False),
          "scale": Key("s | [start, end]", "profile scale along the path", [1, 1]),
          "crease_angle": _CREASE,
          "center": Key("bool", "false keeps the path in the asset frame (anchor ignored)", True)},

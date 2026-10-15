@@ -191,6 +191,7 @@ Sweep a profile shape along a 3D path (rails, pipes, mouldings), with mitred cor
 | `closed` | bool | `false` | join the end back to the start |
 | `up` | [x, y, z] | `[0,1,0]` | the profile's up direction |
 | `twist` | deg | `0` | twist over the whole path |
+| `level` | bool | `false` | keep the profile level across (no roll round a helix: troughs, banked tracks) |
 | `scale` | s \| [start, end] | `[1,1]` | profile scale along the path |
 | `crease_angle` | deg | `40` | edges sharper than this stay hard |
 | `center` | bool | `true` | false keeps the path in the asset frame (anchor ignored) |
