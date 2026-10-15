@@ -427,7 +427,7 @@ def _kind_keys(spec: str) -> list[str]:
     import importlib
 
     module, _, attr = spec.partition(":")
-    return sorted(getattr(importlib.import_module(module), attr) - {"kind", "version"})
+    return sorted(set(getattr(importlib.import_module(module), attr)) - {"kind", "version"})
 
 
 def kinds(assets_dir: Path = ASSETS_DIR) -> dict[str, dict[str, Any]]:

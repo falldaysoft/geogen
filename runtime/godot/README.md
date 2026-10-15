@@ -641,7 +641,19 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
 - **Taken away** when they outlive `lifetime`, when a physics item has rested
   `stuck` seconds (give rolling items `damping`: Godot has no rolling resistance),
   or when they fall out of the world.
-- Control API: `flows.list`. Tests: `tests/test_flows.py`.
+- **Tracks** (`flows.track`: a conveyor's top, a scene's `tracks:`) carry belt and
+  walk items. A source whose spawn point is within `JOIN` (0.5 m) of a track's start
+  puts its items there, one a frame when the start is clear; each frame every running
+  track (its `running` state) moves its items, leaders first: belt items at the track's
+  speed, walk items at their own, none closer to the one ahead than `spacing` or the two
+  radii, facing along the track. At the end an item goes on to the track starting
+  within `JOIN` (`end: auto`), is taken in (`received`, signal `received {item, ...}`),
+  waits (`stop`) or falls off as a physics body (`drop`). Tracks and sources are stepped
+  in position order, and sources pick among their items by smooth weighted round robin,
+  so `geogen/flows.py` `simulate` gives the same items at the same distances
+  (`tests/test_flow_tracks.py` checks it on `flow_test`).
+- Control API: `flows.list` (`ticks`, sources, tracks, items with `track` and `s`).
+  Tests: `tests/test_flows.py`, `tests/test_flow_tracks.py`.
 
 ## Events
 

@@ -225,7 +225,7 @@ def instance_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     """The instance variables ``node`` declares or has (a train's stations), not its interactions."""
     declared = (node.meta.get(META) or {}).get("state", {})
     return {**{name: var for name, var in declared.items() if "scope" not in var}, **train_state(node),
-            **place_state(node)}
+            **place_state(node), **flow_state(node)}
 
 
 def state_names(node: SceneNode) -> list[str]:

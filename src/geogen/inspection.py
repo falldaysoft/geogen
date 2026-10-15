@@ -374,7 +374,7 @@ def _round(v) -> list[float]:
 
 # Checks ---------------------------------------------------------------------------------
 
-CHECKS = ("mesh", "uvs", "layout", "affordances", "coplanar", "overlaps", "traffic", "extras", "state")
+CHECKS = ("mesh", "uvs", "layout", "affordances", "coplanar", "overlaps", "traffic", "flows", "extras", "state")
 
 
 @dataclass
@@ -487,9 +487,17 @@ def _traffic_check(root: SceneNode) -> list[Finding]:
     return [Finding("traffic", "lane", str(i)) for i in check_graph(graph) + check_clearance(root, graph)]
 
 
+def _flows_check(root: SceneNode) -> list[Finding]:
+    from .flows import check_network, source_of, track_of
+
+    if not any(source_of(n) is not None or track_of(n) is not None for n in root.iter_nodes()):
+        return []
+    return [Finding("flows", "network", line) for line in check_network(root)]
+
+
 _CHECKS = {"mesh": _mesh_check, "uvs": _uv_check, "layout": _qa("layout"), "affordances": _affordance_check,
            "coplanar": _qa("coplanar"), "overlaps": _qa("overlaps"), "traffic": _traffic_check,
-           "extras": _extras_check, "state": _state_check}
+           "flows": _flows_check, "extras": _extras_check, "state": _state_check}
 
 _COORDS = re.compile(r" around \[[^\]]*\]")
 _LONG_PATH = re.compile(r"(?<![\w/])[\w.-]+(?:/[\w.-]+)*/([\w.-]+/[\w.-]+)(?![\w/])")

@@ -1,0 +1,59 @@
+# A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items
+# (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a
+# second; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end).
+# It starts `initial: running`, or stopped until a rule or wire starts it. Origin: on the
+# ground between the posts; items come out facing +Z.
+
+name: spawner
+tags: [machine.spawner]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  item:      {default: items/parcel.yaml, type: text}
+  rate:      {default: 0.5}
+  drop:      {default: 0}
+  initial:   {default: running, type: text}
+  max_alive: {default: 20}
+  count:     {default: 0}
+  width:     {default: 1.3}
+  height:    {default: 1.8}
+
+source:
+  items: "{item}"
+  rate: "{rate}"
+  at: mouth
+  initial: "{initial}"
+  max_alive: "{max_alive}"
+  count: "{count}"
+
+parts:
+  post_l: &post
+    primitive: cube
+    size: [0.1, "{height}", 0.14]
+    anchor: bottom_center
+    offset: ["{-width / 2}", 0, 0]
+    bevel: 0.015
+    material: metal
+  post_r:
+    <<: *post
+    offset: ["{width / 2}", 0, 0]
+  lintel:
+    primitive: cube
+    size: ["{width + 0.1}", 0.14, 0.16]
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    bevel: 0.015
+    material: metal
+  strip:
+    primitive: cube
+    size: ["{width - 0.1}", 0.02, 0.06]
+    anchor: bottom_center
+    offset: [0, "{height - 0.02}", 0]
+    bevel: 0
+    material: glow_accent
+    collider: none
+
+attachments:
+  mouth: {anchor: bottom_center, offset: [0, "{drop}", 0]}

@@ -371,16 +371,26 @@ place:
 
 <table>
 <tr>
+<td align="center"><a href="assets/conveyor.md"><img src="img/conveyor.png" width="150" alt="conveyor"><br>conveyor</a></td>
 <td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 <td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 </tr>
+<tr>
+<td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
+<td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
+<td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
+</tr>
 </table>
 
 | Asset | What it is | Params |
 | --- | --- | --- |
+| [conveyor](assets/conveyor.md) | A belt conveyor: a black rubber belt between steel rails on four legs. | `length`, `height`, `width`, `speed`, `end` |
 | [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
 | [lever](assets/lever.md) | A floor lever: a cast base with a handle that throws forward and back. | `height` |
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |
 | [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |
+| [parcel](assets/parcel.md) | A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). | `width`, `height`, `depth` |
+| [rover](assets/rover.md) | A little yellow delivery rover on four wheels with a sensor dome: a walking item for tracks (items/rover.yaml). |  |
+| [spawner](assets/spawner.md) | A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a second; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end). | `item`, `rate`, `drop`, `initial`, `max_alive`, `count`, `width`, `height` |

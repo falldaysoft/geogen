@@ -34,6 +34,7 @@
 | `vehicle` | {class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle) |
 | `physics` | {mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics) |
 | `source` | {items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows) |
+| `track` | {path, speed, spacing, mode: belt \| walk, loop, end, accepts}: items follow it (geogen.flows) |
 | `poses` | NPC root transforms per pose name (body assets) |
 | `room` | legacy single room (prefer `floorplan`) |
 | `floorplan` | rooms, doors and windows instead of parts; surfaces are <room>.<surface> |
@@ -64,6 +65,7 @@
 | `places` | {name: {box \| polygon \| around}}: trigger volumes (enter / leave events) |
 | `city` | a street grid with zoned lots, buildings, street furniture, parking and traffic |
 | `routes` | {name: {path, lanes, speed, loop}}: roads with traffic lanes |
+| `tracks` | {name: {path, speed, mode, loop, end, surface}}: paths spawned items follow (geogen.flows) |
 | `railways` | {name: {path, loop, gauge, stations}}: track beds with platforms |
 
 ## Slot keys
@@ -120,6 +122,7 @@
 | `margin` | m round an `around` box, or [x, y, z] |
 | `headroom` | m above an `around` box, to stand on it |
 | `detect` | [actors, props]: props count too, in its `occupants` state |
+| `sink` | true or {accepts: [item names]}: spawned items entering it are taken in (geogen.flows) |
 | `tags` | dotted tags |
 
 ## Kinds
@@ -167,6 +170,19 @@ Keys: `chains`, `cover`, `cut`, `ease`, `layer`, `material`, `name`, `part`, `th
 | [clothing/t_shirt.yaml](../../assets/clothing/t_shirt.yaml) |  |
 | [clothing/tank_top.yaml](../../assets/clothing/tank_top.yaml) |  |
 | [clothing/trousers.yaml](../../assets/clothing/trousers.yaml) |  |
+
+### item
+
+A spawned item: the body a source copies while the game runs, its mode and the data it carries.
+
+Use: `source: {items: items/marble.yaml, rate: 1}   (an asset key; see geogen.flows)`
+
+Keys: `body`, `data`, `lifetime`, `mode`, `name`, `radius`, `speed`, `stuck`
+
+| File | What it is |
+| --- | --- |
+| [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
+| [items/rover.yaml](../../assets/items/rover.yaml) | A delivery rover that drives along walk tracks at its own pace. |
 
 ### npc
 
@@ -334,6 +350,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `car_glass` | metal |
 | `car_paint` | painted_wall |
 | `car_trim` | painted_wall |
+| `cardboard` | painted_wall |
 | `carpet` | cut_pile_carpet |
 | `ceiling_white` | painted_wall |
 | `ceramic_white` | painted_wall |

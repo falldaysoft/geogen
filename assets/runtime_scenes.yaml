@@ -52,6 +52,9 @@ scenes:
   hotel:
     group: test
     description: The hotel building on its own (no hub door)
+  flow_test:
+    group: test
+    description: Spawned items - parcels ride two belts into a sink, rovers drive a gravel lane, the HUD counts them
   state_test:
     group: test
     description: Every piece of the rules layer - a puzzle placed twice, wires, binds, a watch, a jammed lever, a quest

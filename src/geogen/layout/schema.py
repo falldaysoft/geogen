@@ -286,6 +286,7 @@ ASSET_KEYS: dict[str, str] = {
     "vehicle": "{class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle)",
     "physics": "{mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics)",
     "source": "{items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows)",
+    "track": "{path, speed, spacing, mode: belt | walk, loop, end, accepts}: items follow it (geogen.flows)",
     "poses": "NPC root transforms per pose name (body assets)",
     "room": "legacy single room (prefer `floorplan`)",
     "floorplan": "rooms, doors and windows instead of parts; surfaces are <room>.<surface>",
@@ -317,6 +318,7 @@ SCENE_KEYS: dict[str, str] = {
     "places": "{name: {box | polygon | around}}: trigger volumes (enter / leave events)",
     "city": "a street grid with zoned lots, buildings, street furniture, parking and traffic",
     "routes": "{name: {path, lanes, speed, loop}}: roads with traffic lanes",
+    "tracks": "{name: {path, speed, mode, loop, end, surface}}: paths spawned items follow (geogen.flows)",
     "railways": "{name: {path, loop, gauge, stations}}: track beds with platforms",
 }
 

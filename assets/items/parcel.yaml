@@ -1,0 +1,5 @@
+# A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in.
+kind: item
+body: parcel.yaml
+mode: belt
+data: {value: 1}

@@ -1,0 +1,6 @@
+# A delivery rover that drives along walk tracks at its own pace.
+kind: item
+body: rover.yaml
+mode: walk
+speed: 0.9
+data: {value: 5}

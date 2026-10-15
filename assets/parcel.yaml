@@ -1,0 +1,29 @@
+# A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). Origin: bottom
+# centre; the tape runs front to back.
+
+name: parcel
+tags: [prop.parcel]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  {default: 0.34}
+  height: {default: 0.22}
+  depth:  {default: 0.28}
+
+parts:
+  box:
+    primitive: cube
+    size: ["{width}", "{height}", "{depth}"]
+    anchor: bottom_center
+    bevel: 0.008
+    material: cardboard
+  tape:
+    primitive: cube
+    size: [0.06, 0.004, "{depth + 0.004}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.001}", 0]
+    bevel: 0
+    material: plastic_black
+    collider: none

@@ -1,0 +1,14 @@
+# Brown corrugated cardboard, for parcels and boxes.
+name: cardboard
+texture:
+  type: painted_wall
+  params:
+    base_color: [168, 124, 78]
+    seed: 211
+size: [256, 256]
+tile_size: 0.6  # metres per texture repeat
+pbr:
+  roughness: 0.92
+  metallic: 0.0
+  normal_strength: 0.3
+  ao_strength: 1.0

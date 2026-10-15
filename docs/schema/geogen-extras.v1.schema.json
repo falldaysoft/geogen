@@ -278,7 +278,7 @@
           }
         },
         "flows": {
-          "description": "Spawned items (geogen/flows.py). 'source': this asset makes copies of the item templates among its descendants (nodes with 'item') while it runs: 'rate' a second, and at once for each one its 'queued' state asks for, while it has fewer than 'max_alive' in the world and has made fewer than 'count' (0: no limit). They appear at 'at' (this node's frame), up to 'spread' m off it across x and z, physics items moving at 'velocity' (this node's frame). Its state: running, queued (rules set them), emitted and alive (the runtime drives them); signal emitted {item}.",
+          "description": "Spawned items (geogen/flows.py). 'track': see below. 'source': this asset makes copies of the item templates among its descendants (nodes with 'item') while it runs: 'rate' a second, and at once for each one its 'queued' state asks for, while it has fewer than 'max_alive' in the world and has made fewer than 'count' (0: no limit). They appear at 'at' (this node's frame), up to 'spread' m off it across x and z, physics items moving at 'velocity' (this node's frame). Its state: running, queued (rules set them), emitted and alive (the runtime drives them); signal emitted {item}.",
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -292,12 +292,12 @@
                   "minItems": 1,
                   "items": {
                     "type": "object",
-                    "required": ["item", "weight", "name"],
+                    "required": ["item", "weight"],
                     "additionalProperties": false,
                     "properties": {
                       "item": { "type": "string", "description": "The item file, relative to assets/." },
                       "weight": { "type": "number", "minimum": 0 },
-                      "name": { "type": "string", "description": "The item's name: its template's 'item.name'." }
+                      "name": { "type": "string", "description": "The item's name: its template's 'item.name' (absent: the asset was built alone, with no templates)." }
                     }
                   }
                 },
@@ -309,6 +309,22 @@
                 "spread": { "type": "number", "minimum": 0 },
                 "at": { "$ref": "#/$defs/vec3" },
                 "velocity": { "$ref": "#/$defs/vec3" }
+              }
+            },
+            "track": {
+              "description": "A path items follow: 'points' (this node's frame, every 0.25 m) 'length' m long. belt: items move at 'speed' together and queue; walk: each at its own item speed. Items keep 'spacing' (or their radii) apart. 'end': auto (on to the track whose start is within 0.5 m of this end, else a sink), sink (take them in: 'received' state and signal, only 'accepts' items when listed), stop (they wait there), drop (they fall off as physics bodies). A source whose spawn point is within 0.5 m of a track's start puts its items on it. Its state: running (inputs start / stop), received.",
+              "type": "object",
+              "required": ["points", "length", "speed", "spacing", "mode", "loop", "end", "accepts"],
+              "additionalProperties": false,
+              "properties": {
+                "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/vec3" } },
+                "length": { "type": "number", "exclusiveMinimum": 0 },
+                "speed": { "type": "number", "exclusiveMinimum": 0 },
+                "spacing": { "type": "number", "minimum": 0 },
+                "mode": { "enum": ["belt", "walk"] },
+                "loop": { "type": "boolean" },
+                "end": { "enum": ["auto", "sink", "stop", "drop"] },
+                "accepts": { "type": "array", "items": { "type": "string" } }
               }
             }
           }

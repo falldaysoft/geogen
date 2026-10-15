@@ -399,6 +399,16 @@ class SceneComposer:
 
         root.tags = list(data.get("tags", []))
 
+        # Tracks spawned items follow (geogen.flows), in the scene frame.
+        if data.get("tracks"):
+            from ..flows import scene_tracks
+
+            for track_node in scene_tracks(data["tracks"], self._loader._material_loader):
+                if track_node.name in loaded_objects:
+                    raise ValueError(f"tracks.{track_node.name}: a placement already has that name")
+                root.add_child(track_node)
+                loaded_objects[track_node.name] = track_node
+
         # Explicit traffic routes (roads, bus loops) in the scene frame: a lane graph.
         if data.get("routes"):
             from ..traffic import routes_graph

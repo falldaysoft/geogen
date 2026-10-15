@@ -1,0 +1,62 @@
+# A belt conveyor: a black rubber belt between steel rails on four legs. Its track carries
+# belt items (items/parcel.yaml) along the belt's top from the back (-Z) to the front (+Z);
+# put a source within half a metre of the back end to feed it, and line another belt's back
+# up with this one's front to pass items on (or `end:` sink | stop | drop). Origin: on the
+# floor under the middle of the belt.
+
+name: conveyor
+tags: [machine.conveyor]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: {default: 3}
+  height: {default: 0.8}           # the belt's top
+  width:  {default: 0.6}
+  speed:  {default: 0.6}           # m/s
+  end:    {default: auto, type: text}
+
+track:
+  path: [[0, "{height}", "{-length / 2}"], [0, "{height}", "{length / 2}"]]
+  speed: "{speed}"
+  spacing: 0.08
+  end: "{end}"
+
+parts:
+  belt:
+    primitive: cube
+    size: ["{width}", 0.04, "{length}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.04}", 0]
+    bevel: 0.015
+    material: plastic_black
+    walkable: true
+  rail_l: &rail
+    primitive: cube
+    size: [0.05, 0.12, "{length}"]
+    anchor: bottom_center
+    offset: ["{-(width / 2 + 0.025)}", "{height - 0.1}", 0]
+    bevel: 0.01
+    material: metal
+  rail_r:
+    <<: *rail
+    offset: ["{width / 2 + 0.025}", "{height - 0.1}", 0]
+  bed:
+    primitive: cube
+    size: ["{width}", 0.05, "{length - 0.04}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.1}", 0]
+    bevel: 0
+    material: metal
+  leg_l: &leg
+    primitive: cube
+    size: [0.05, "{height - 0.1}", 0.05]
+    anchor: bottom_center
+    offset: ["{-(width / 2 + 0.025)}", 0, "{-(length / 2 - 0.15)}"]
+    bevel: 0.005
+    material: metal
+    array: {count: 2, step: [0, 0, "{length - 0.3}"]}
+  leg_r:
+    <<: *leg
+    offset: ["{width / 2 + 0.025}", 0, "{-(length / 2 - 0.15)}"]
