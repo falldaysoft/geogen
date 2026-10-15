@@ -222,6 +222,53 @@ func restore(data: Dictionary) -> void:
     set_state(str(data.get("state", state)), true)
 
 
+## How far a move or an after-dwell has got, as a save timer would say it (docs/rules.md
+## "Saving"): {kind: arrive, state, from, in, actor} on the way to `state` from `from`,
+## {kind: dwell, state, in, actor} waiting to move on, else {}. `in`: seconds left.
+func progress() -> Dictionary:
+    if state != target:
+        var left := 0.0
+        for motion in _motions:
+            if motion["speed"] > 0.0:
+                left = maxf(left, absf(float(motion["values"].get(target, 0.0)) - motion["value"]) / motion["speed"])
+        return {"kind": "arrive", "state": target, "from": state, "in": left, "actor": actor}
+    var s: Dictionary = states.get(state, {})
+    if s.has("after") and s.has("then") and not hold:
+        return {"kind": "dwell", "state": state, "in": maxf(float(s["after"]) - _dwell, 0.0), "actor": actor}
+    return {}
+
+
+## Carry on from a save timer (see `progress`) due in `left` seconds, once restored to the
+## state it names: part of the way there from its `from` (an arrive without one, or that no
+## longer matches, just arrives), or part of the way through the dwell. Silent, like restore.
+func resume(timer: Dictionary, left: float) -> void:
+    var who = timer.get("actor")
+    if timer.get("kind") == "dwell":
+        var s: Dictionary = states.get(state, {})
+        if state == target and target == str(timer.get("state")) and s.has("after"):
+            _dwell = clampf(float(s["after"]) - left, 0.0, float(s["after"]))
+            actor = "" if who == null else str(who)
+        return
+    var from := str(timer.get("from", ""))
+    if timer.get("kind") != "arrive" or target != str(timer.get("state")) or from == target \
+            or not states.has(from) or _motions.is_empty():
+        return
+    var whole := 0.0      # the move's time from `from` (motions share one speed)
+    for motion in _motions:
+        if motion["speed"] > 0.0:
+            whole = maxf(whole, absf(float(motion["values"].get(target, 0.0))
+                - float(motion["values"].get(from, 0.0))) / motion["speed"])
+    for motion in _motions:
+        var start := float(motion["values"].get(from, 0.0))
+        motion["value"] = move_toward(start, float(motion["values"].get(target, 0.0)),
+            motion["speed"] * maxf(whole - left, 0.0))
+        _apply(motion)
+    state = from
+    actor = "" if who == null else str(who)
+    _apply_emission()
+    _apply_visibility()
+
+
 ## Jump or animate to a state. Jumping (restoring a save, a tool) is silent: no
 ## events, since nothing happened. ``by`` is the actor behind an animated move.
 func set_state(new_state: String, instant := false, by := "") -> void:

@@ -197,3 +197,72 @@ def test_npc_state_and_pending_timers_survive(quest_rt):
     rt.call("time.advance", seconds=5)
     assert rt.call("state.get", key=DASH)["value"] == "failed"                    # and now it has, a second time
     rt.call("time.resume")
+
+
+# A gate that takes 2 s to open and closes itself 3 s after it is open (geogen.3.14).
+SELF_CLOSING = GATE.replace("      open:   {emit: opened}", "      open:   {emit: opened, then: closed, after: 3}")
+DOOR_YARD = """
+name: door_yard
+size: [8, 3, 8]
+slots:
+  middle: {position: [0, 0, 0]}
+place:
+  gate: {asset: gate.yaml, slot: middle}
+spawns:
+  start: {position: [0, 0, 4], facing: south}
+"""
+DOOR_KEY = "door_yard:gate#gate"
+
+
+@pytest.fixture(scope="module")
+def door_rt(tmp_path_factory, godot_runtime):
+    assets = tmp_path_factory.mktemp("door_assets")
+    (assets / "gate.yaml").write_text(SELF_CLOSING)
+    (assets / "door_yard.yaml").write_text(DOOR_YARD)
+    out = tmp_path_factory.mktemp("generated_door")
+    export_scene(SceneComposer(assets_dir=assets).compose(assets / "door_yard.yaml"), out / "door_yard.glb")
+    client = godot_runtime("door_yard", out)
+    client.call("wait_ready")
+    return client
+
+
+def gate(rt):
+    (it,) = rt.call("interactions.list", asset="gate")
+    return it
+
+
+def test_a_save_keeps_a_move_and_a_dwell_part_way(door_rt):
+    rt = door_rt
+    rt.call("time.pause")
+    rt.call("interactions.set", asset="gate", state="open")                    # 2 s on its way
+    rt.call("time.step", frames=60)
+    halfway = validate(rt.call("state.save"))
+    (timer,) = [t for t in halfway["timers"] if t.get("key") == DOOR_KEY]
+    assert (timer["kind"], timer["state"], timer["from"]) == ("arrive", "open", "closed")
+    assert timer["at"] - halfway["now"] == pytest.approx(1.0, abs=0.05)
+    rt.call("time.step", frames=60 + 60)                                         # open, and 1 s into its 3
+    waiting = validate(rt.call("state.save"))
+    (timer,) = [t for t in waiting["timers"] if t.get("key") == DOOR_KEY]
+    assert (timer["kind"], timer["state"]) == ("dwell", "open")
+    assert timer["at"] - waiting["now"] == pytest.approx(2.0, abs=0.05)
+
+    # Half-open on its way: still moving after half a second, open by a second and a bit.
+    rt.call("interactions.set", asset="gate", state="closed", instant=True)
+    rt.call("state.load", state=halfway)
+    again = [t for t in rt.call("state.save")["timers"] if t.get("key") == DOOR_KEY]
+    assert again[0]["kind"] == "arrive" and again[0]["at"] - halfway["now"] == pytest.approx(1.0, abs=0.05)
+    assert gate(rt)["moving"] and gate(rt)["target"] == "open"
+    rt.call("time.step", frames=30)
+    assert gate(rt)["moving"]
+    rt.call("time.step", frames=40)
+    assert gate(rt)["state"] == "open" and not gate(rt)["moving"]
+
+    # Waiting to close: it doesn't wait the whole 3 s again, only the 2 that were left.
+    rt.call("interactions.set", asset="gate", state="closed", instant=True)
+    rt.call("state.load", state=waiting)
+    assert gate(rt)["state"] == "open"
+    rt.call("time.step", frames=100)                                             # 1.7 s
+    assert gate(rt)["target"] == "open"
+    rt.call("time.step", frames=30)                                              # 2.2 s
+    assert gate(rt)["target"] == "closed"
+    rt.call("time.resume")

@@ -100,6 +100,7 @@
         "rule": {"type": "string", "description": "kind rule: the rule's id."},
         "key": {"type": "string", "description": "kind arrive, dwell: the interaction."},
         "state": {"type": "string", "description": "kind arrive, dwell: the state it arrives at or dwells in."},
+        "from": {"type": "string", "description": "kind arrive, optional: the state it set out from, so a runtime whose things really move can put one back part of the way (`at` is when it gets there). Evaluators ignore it."},
         "actor": {"type": ["string", "null"], "description": "The actor behind it ('' or null: nobody)."}
       },
       "allOf": [

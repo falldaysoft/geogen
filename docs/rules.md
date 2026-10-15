@@ -301,6 +301,9 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   nothing changed while saved.
 - `timers` are what is still to happen (`rule`: a delayed rule; `arrive` and
   `dwell`: an interaction on its way or waiting to move on), on `now`'s scale.
+  A runtime that moves things itself saves its own as these too, so a door
+  half-open on its way or waiting to close itself carries on from there when
+  loaded; an `arrive` may then say where it set out `from`.
 - `actor_info` (kind, room) may be left out: actors a save doesn't describe stay
   as the host knows them.
 - A runtime that runs one package at a time (Godot: one per scene) also writes

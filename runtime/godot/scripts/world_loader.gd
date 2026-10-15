@@ -615,7 +615,7 @@ func forget(root: Node) -> void:
         if inside.call(it.asset):
             # Remembered until its chunk loads again: by the rules program, which reads and
             # drives it meanwhile, else here.
-            if uid_of(it.asset) != "" and not rules.release(_state_key(it), it.snapshot()):
+            if uid_of(it.asset) != "" and not rules.release(_state_key(it), it.snapshot(), it.progress()):
                 _pending_state[_state_key(it)] = it.snapshot()
             interactions.erase(it)
             it.queue_free()
@@ -1084,6 +1084,25 @@ func save_state() -> Dictionary:
         _store(stored, key, snap.get("state"), it.initial if it != null else _default_of(key))
         _store(stored, key + "_locked", snap.get("locked"),
             it.initial_locked if it != null else _default_of(key + "_locked"))
+    # How far loaded interactions had got (a door on its way, one waiting to close itself), as
+    # the timers the rules program keeps for the ones it holds.
+    var timers: Array = data.get("timers", [])
+    var now := float(data.get("now", 0.0))
+    var seq := 0
+    for timer in timers:
+        seq = maxi(seq, int(timer["seq"]))
+    for key in live:
+        var progress: Dictionary = live[key].progress()
+        if progress.is_empty():
+            continue
+        seq += 1
+        var timer := {"at": snappedf(now + float(progress["in"]), 0.000001), "seq": seq,
+            "kind": progress["kind"], "key": key, "state": progress["state"], "actor": progress["actor"]}
+        if progress.has("from"):
+            timer["from"] = progress["from"]
+        timers.append(timer)
+    timers.sort_custom(GeogenMachine._sooner)
+    data["timers"] = timers
     return data
 
 
@@ -1156,6 +1175,17 @@ func load_state(data: Dictionary) -> void:
         var snap: Dictionary = _pending_state.get(key, {})
         _pending_state.erase(key)
         it.restore({"state": snap.get("state", it.initial), "locked": snap.get("locked", it.initial_locked)})
+    # Loaded interactions carry on from their own timers; the program keeps the rest (rule
+    # timers, and those of interactions it holds: ones it doesn't know are dropped).
+    var kept := []
+    var now := float(for_rules.get("now", 0.0))
+    for timer in for_rules.get("timers", []):
+        var key := str(timer.get("key", ""))
+        if timer.get("kind") in ["arrive", "dwell"] and live.has(key):
+            live[key].resume(timer, float(timer["at"]) - now)
+        elif timer.get("kind") == "rule" or (rules.machine != null and rules.machine.interactions.has(key)):
+            kept.append(timer)
+    for_rules["timers"] = kept
     rules.load_save(for_rules)           # after the nodes: bindings are recomputed from them
     rules.hold_absent()                  # the program has the rest until their chunks load
     for key in _pending_state.keys():

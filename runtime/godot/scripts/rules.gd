@@ -283,6 +283,11 @@ func adopt(key: String, it: GeogenInteraction) -> void:
         _holding.erase(key)
         it.locked = bool(machine.world.get(lock, machine.variables[lock]["default"]))
         it.set_state(str(machine.world.get(key, machine.variables[key]["default"])), true)
+        # Its timers (on its way, waiting to move on) are the node's again.
+        for timer in machine.timers.duplicate():
+            if timer.get("key") == key and timer.get("kind") in ["arrive", "dwell"]:
+                machine.timers.erase(timer)
+                it.resume(timer, float(timer["at"]) - machine.now)
         return
     if machine.world.has(lock) and (not _at_load.has(lock) or _at_load[lock] != machine.world[lock]):
         it.locked = bool(machine.world[lock])
@@ -293,7 +298,9 @@ func adopt(key: String, it: GeogenInteraction) -> void:
 ## An interaction's node is going (its chunk unloads): the machine holds its state, as the
 ## node left it, until it comes back (`adopt`), so rules read and drive it meanwhile. Silent:
 ## nothing changed. False when the program doesn't know it.
-func release(key: String, snapshot: Dictionary) -> bool:
+## ``progress`` (GeogenInteraction.progress) becomes the machine's timer, so a door on its way
+## arrives, and one waiting to close itself closes, while its chunk is away.
+func release(key: String, snapshot: Dictionary, progress := {}) -> bool:
     if machine == null or not machine.interactions.has(key):
         return false
     for entry in [[key, snapshot.get("state")], [key + "_locked", snapshot.get("locked")]]:
@@ -301,6 +308,11 @@ func release(key: String, snapshot: Dictionary) -> bool:
             machine.world.erase(entry[0])
         else:
             machine.world[entry[0]] = entry[1]
+    if not progress.is_empty():
+        var timer := {"kind": progress["kind"], "key": key, "state": progress["state"], "actor": progress["actor"]}
+        if progress.has("from"):
+            timer["from"] = progress["from"]
+        machine._schedule(float(progress["in"]), timer)
     _holding[key] = true
     return true
 

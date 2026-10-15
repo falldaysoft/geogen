@@ -686,8 +686,11 @@ lift, a switch and bound lamps, a place and a quest.
   - While an interaction's chunk is unloaded the rules program holds its state
     (`GeogenRules.release`, `hold_absent` after a load): rules read it as it was left and
     may drive it, and its node takes the program's value when the chunk loads (`adopt`).
-  - Not kept: how far a move or an `after` dwell had got. A loaded interaction is placed
-    at the state it was heading to, and a dwell starts again.
+  - How far a move or an `after` dwell had got is kept as the save's `arrive` / `dwell`
+    timers (`GeogenInteraction.progress` / `resume`; an `arrive` says where it set out
+    `from`): a door saved half-open on its way loads half-open and carries on, one waiting
+    to close itself closes when it would have. A chunk unloading hands the same timers to
+    the rules program, and `adopt` gives them back to the node.
 
 ```
 quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"started","status":"active","from":"available"}
