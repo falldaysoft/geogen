@@ -53,6 +53,7 @@ def rt(tmp_path_factory, godot_runtime):
     client = godot_runtime("camp", out)
     client.call("wait_ready")
     client.call("window.size", size=[1280, 720])
+    client.generated = out
     return client
 
 
@@ -229,6 +230,32 @@ def test_the_log_follows_a_save_and_a_reload(rt):
     hud = log(rt, lambda h: len(h["sections"]["active"]) == 3 and h["quests"][0]["loaded"])
     assert hud["open"] and hud["sections"]["active"] == ["camp/levers", "camp/errand", "annex/stroll"]
     assert rt.call("hud.log", open=False)["open"] is False
+
+
+def test_a_save_holds_every_scene_visited(rt, godot_runtime):
+    """A save made in the camp also holds the annex as it was left; a fresh runtime in the annex
+    loads the annex's part and lists the camp's quests from the save (geogen.3.13)."""
+    rt.call("hud.log", open=False)
+    saved = rt.call("state.save")
+    assert saved["package"] == "camp" and set(saved["packages"]) == {"annex"}
+    assert saved["packages"]["annex"]["actors"]["player"]["actor:annex.quest_stroll"] == "active"
+    statuses = {q["key"]: q["status"] for q in log(rt)["quests"]}
+
+    fresh = godot_runtime("annex", rt.generated)
+    fresh.call("wait_ready")
+    assert fresh.call("hud.log")["sections"]["active"] == ["annex/stroll"]
+    fresh.call("state.set", key="actor:annex.quest_stroll", value="complete")
+    fresh.call("state.load", state=saved)
+    hud = log(fresh, lambda h: len(h["quests"]) == 3)
+    assert {q["key"]: q["status"] for q in hud["quests"]} == statuses          # the camp's, from the save
+    assert {q["key"]: q["loaded"] for q in hud["quests"]} == {"annex/stroll": True, "camp/levers": False,
+                                                              "camp/errand": False}
+    again = fresh.call("state.save")
+    assert again["package"] == "annex" and set(again["packages"]) == {"camp"}
+    assert again["packages"]["camp"]["actors"]["player"] == saved["actors"]["player"]
+    fresh.call("world.switch", scene="camp")                    # and the camp resumes from it
+    fresh.call("wait_ready")
+    assert {q["key"]: q["status"] for q in log(fresh, lambda h: h["quests"][-1]["loaded"])["quests"]} == statuses
 
 
 @pytest.mark.parametrize("size", [(640, 360), (320, 200)])

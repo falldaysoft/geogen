@@ -127,6 +127,30 @@ def test_save_and_load_from_the_command_line(run_godot, yard_dir, tmp_path):
     assert again["now"] > saved["now"]
 
 
+def test_a_load_restores_the_world_clock(rt):
+    rt.call("time.clock", time="21:30", day_length=0)          # stopped, so it reads back exactly
+    saved = rt.call("state.save")
+    assert saved["clock"]["time"] == "21:30" and saved["clock"]["night"] is True
+    rt.call("time.clock", time="08:00")
+    rt.call("state.load", state=saved)
+    assert rt.call("time.clock")["clock"] == "21:30"           # the sky and sun, not only the rules' clock
+    rt.call("time.step", frames=90)                            # past the next minute: no re-sync back
+    assert rt.call("state.save")["clock"]["time"] == "21:30"
+    rt.call("time.resume")
+
+
+def test_set_and_quests_act_on_the_loaded_save(run_godot, yard_dir, tmp_path):
+    path = tmp_path / "pulled.json"
+    base = ("--scene", "yard", f"--generated={yard_dir}")
+    run_godot(*base, "--set=actor:yard.pulls=4", "--quit-after=5", f"--save={path}")
+    out = run_godot(*base, f"--load={path}", "--set=world:yard.power=false", "--quests", "--quit-after=5",
+                    f"--save={path}")
+    saved = validate(json.loads(path.read_text()))
+    assert saved["world"]["world:yard.power"] is False                         # --set wasn't overwritten
+    assert saved["actors"]["player"]["actor:yard.pulls"] == 4                  # and the load happened
+    assert any(line.startswith("quests: ") for line in out.splitlines())
+
+
 # ---- an NPC's state and a pending timer, in the quest yard -------------------------------------------
 
 STEWARD = "quest_yard:steward"

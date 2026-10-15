@@ -52,6 +52,7 @@ var _at_load := {}          # the machine's stored world values as the package l
 var _reports := {}          # package -> {actor: its report()} as it unloaded: what the quest log lists of it
 var _watched := {}          # variable key -> {quest, objective?}: what quest events come from
 var _expected := {}         # interaction key -> [values we asked the node for]: their echoes aren't inputs
+var _holding := {}          # interaction key -> true: its node is gone (an unloaded chunk), the machine holds it
 var _minute := -1
 var _listener := 0
 
@@ -154,6 +155,7 @@ func unload() -> void:
     quests = {}
     _watched.clear()
     _expected.clear()
+    _holding.clear()
     reset.emit()
 
 
@@ -201,6 +203,10 @@ static func package_of(key: String) -> String:
 ## A watch latch of a rule tied to this scene is left behind: the scene's things start
 ## over when it loads again, so the condition is judged afresh.
 func _carry(saved: Dictionary) -> void:
+    _carry_into(_carried, saved)
+
+
+func _carry_into(carried: Dictionary, saved: Dictionary) -> void:
     if _applied.is_empty():
         return
     var names := {}
@@ -210,11 +216,11 @@ func _carry(saved: Dictionary) -> void:
         for rule in other.get("rules", []):
             if rule.has("scene"):
                 afresh["watch:%s" % rule["id"]] = true
-    _swap(_carried["world"], saved.get("world", {}), names, afresh)
+    _swap(carried["world"], saved.get("world", {}), names, afresh)
     for actor in saved.get("actors", {}):
-        if not _carried["actors"].has(actor):
-            _carried["actors"][actor] = {}
-        _swap(_carried["actors"][actor], saved["actors"][actor], names, afresh)
+        if not carried["actors"].has(actor):
+            carried["actors"][actor] = {}
+        _swap(carried["actors"][actor], saved["actors"][actor], names, afresh)
 
 
 static func _swap(kept: Dictionary, values: Dictionary, names: Dictionary, afresh: Dictionary) -> void:
@@ -272,10 +278,45 @@ func adopt(key: String, it: GeogenInteraction) -> void:
     if machine == null:
         return
     var lock := key + "_locked"
+    if _holding.has(key):           # the machine had it while its chunk was away: what it says now
+        _holding.erase(key)
+        it.locked = bool(machine.world.get(lock, machine.variables[lock]["default"]))
+        it.set_state(str(machine.world.get(key, machine.variables[key]["default"])), true)
+        return
     if machine.world.has(lock) and (not _at_load.has(lock) or _at_load[lock] != machine.world[lock]):
         it.locked = bool(machine.world[lock])
     if machine.world.has(key) and (not _at_load.has(key) or _at_load[key] != machine.world[key]):
         it.set_state(str(machine.world[key]), true)
+
+
+## An interaction's node is going (its chunk unloads): the machine holds its state, as the
+## node left it, until it comes back (`adopt`), so rules read and drive it meanwhile. Silent:
+## nothing changed. False when the program doesn't know it.
+func release(key: String, snapshot: Dictionary) -> bool:
+    if machine == null or not machine.interactions.has(key):
+        return false
+    for entry in [[key, snapshot.get("state")], [key + "_locked", snapshot.get("locked")]]:
+        if entry[1] == null or entry[1] == machine.variables[entry[0]]["default"]:
+            machine.world.erase(entry[0])
+        else:
+            machine.world[entry[0]] = entry[1]
+    _holding[key] = true
+    return true
+
+
+## After a save is restored: the machine holds every interaction whose node isn't loaded.
+func hold_absent() -> void:
+    _holding.clear()
+    if machine == null:
+        return
+    for key in machine.interactions:
+        if _interaction(key) == null:
+            _holding[key] = true
+
+
+## Whether the machine holds an interaction's state (its node isn't loaded).
+func holds(key: String) -> bool:
+    return _holding.has(key)
 
 
 func _actors() -> Dictionary:
@@ -404,6 +445,89 @@ func save() -> Dictionary:
     return {} if machine == null else machine.save()
 
 
+## What a save holds besides the loaded package (docs/rules.md "Saving"): `packages`, the
+## other packages visited this session as they were left, and `carried`, the content
+## packages' values as they are now. Empty sections are left out.
+func save_others() -> Dictionary:
+    var out := {}
+    var others := {}
+    for name_ in _saves:
+        if machine == null or name_ != package:
+            others[name_] = _saves[name_].duplicate(true)
+    if not others.is_empty():
+        out["packages"] = others
+    var carried := _carried.duplicate(true)
+    if machine != null:
+        _carry_into(carried, machine.save())
+    if not carried["world"].is_empty() or carried["actors"].values().any(func(v): return not v.is_empty()):
+        out["carried"] = carried
+    return out
+
+
+## Take up a whole save before the loaded package's part of it is restored: the other
+## packages it holds become what they resume from (and what the quest log lists of them),
+## the content packages' values are carried again. Returns the part for ``current`` (the
+## loaded package, or the scene's name when it has no program): the save's own sections if
+## it was made there, else what it holds of ``current`` under `packages`, or a fresh start;
+## a save made elsewhere goes under `packages` for when that scene is visited.
+func take_save(data: Dictionary, current: String) -> Dictionary:
+    var others: Dictionary = (data.get("packages", {}) as Dictionary).duplicate(true)
+    var own := data.duplicate(true)
+    own.erase("packages")
+    own.erase("carried")
+    var saved_in := str(data.get("package", current))
+    var mine := own
+    if saved_in != current:
+        own["timers"] = []                      # arrivals of things that aren't here
+        others[saved_in] = own
+        mine = others.get(current, {"format": GeogenMachine.SAVE_FORMAT, "version": GeogenMachine.SAVE_VERSION,
+            "now": 0.0, "world": {}, "actors": {}, "timers": []})
+        if own.get("clock") is Dictionary:
+            mine["clock"] = own["clock"]        # the world's time is the save's
+    others.erase(current)
+    _saves = others
+    _carried = (data.get("carried", {"world": {}, "actors": {}}) as Dictionary).duplicate(true)
+    for section in ["world", "actors"]:
+        if not _carried.has(section):
+            _carried[section] = {}
+    if saved_in != current and machine != null:
+        mine = _with_carried(mine, machine.actor_info.keys())
+    _reports = {}
+    for name_ in _saves:
+        _reports[name_] = _saved_reports(name_, _saves[name_])
+    return mine
+
+
+## {actor: report} of a package that isn't loaded, from its manifest and a save of it.
+func _saved_reports(name_: String, saved: Dictionary) -> Dictionary:
+    var manifest := _manifest_of(name_)
+    var listed: Dictionary = manifest.get("quests", {})
+    if listed.get("quests", {}).is_empty():
+        return {}
+    var state: Dictionary = manifest.get("state", {})
+    var rules: Dictionary = manifest.get("rules", {})
+    var program := {"format": "geogen-rules", "version": 1, "variables": state.get("variables", {}),
+        "interactions": state.get("interactions", {}), "bindings": rules.get("bindings", []),
+        "rules": rules.get("rules", [])}
+    var other := GeogenMachine.new(program, {"player": {"kind": "player"}})
+    other.load_save(saved)
+    var out := {}
+    for actor in other.actor_info:
+        out[actor] = _described(_report_of(other, listed, name_, actor), false, listed)
+    return out
+
+
+## The manifest (or chunk index) a package was exported in: {} when there is none.
+func _manifest_of(name_: String) -> Dictionary:
+    for path in ["%s/%s.manifest.json" % [world.generated_dir, name_],
+            "%s/%s_chunks/%s.chunks.json" % [world.generated_dir, name_, name_]]:
+        if FileAccess.file_exists(path):
+            var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+            if data is Dictionary:
+                return data
+    return {}
+
+
 ## Resume from `save()`'s data (docs/rules.md "Saving"): nothing fires, since nothing happened.
 func load_save(data: Dictionary) -> void:
     if machine == null or data.is_empty():
@@ -462,9 +586,11 @@ static func _visible(values: Dictionary) -> Dictionary:
 ## done | open | waiting, with `progress: [n, of]` and `markers` (world positions of
 ## an open objective's subjects) where there are any.
 func report(actor := "player") -> Array:
+    return [] if machine == null else _report_of(machine, quests, package, actor)
+
+
+static func _report_of(machine: GeogenMachine, quests: Dictionary, package: String, actor: String) -> Array:
     var out := []
-    if machine == null:
-        return out
     var markers: Dictionary = quests.get("markers", {})
     for id in quests.get("quests", {}):
         var quest: Dictionary = quests["quests"][id]
@@ -512,10 +638,11 @@ func report_all(actor := "player") -> Array:
     return out
 
 
-func _described(entries: Array, loaded: bool) -> Array:
+func _described(entries: Array, loaded: bool, listed: Variant = null) -> Array:
+    var source: Dictionary = quests if listed == null else listed
     for entry in entries:
         entry["loaded"] = loaded
-        entry["description"] = str(quests.get("quests", {}).get(entry["id"], {}).get("description", ""))
+        entry["description"] = str(source.get("quests", {}).get(entry["id"], {}).get("description", ""))
         for objective in entry["objectives"]:
             if objective.has("markers"):
                 objective["marked"] = true      # it has somewhere to point (hud_markers.gd: the portal there)

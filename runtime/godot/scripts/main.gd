@@ -300,6 +300,12 @@ func _ready() -> void:
             _started = true
             if _load_path == "":
                 world.events.post("start", "", "", "player")
+            else:                               # before --set and --quests, which act on what it restores
+                var saved = WorldLoader.read_save(_load_path)
+                if saved is Dictionary:
+                    world.load_state(saved)
+                else:
+                    push_warning("geogen: --load=%s: not a save" % _load_path)
             for entry in _sets:
                 var key := entry.get_slice("=", 0)
                 var text := entry.substr(key.length() + 1)
@@ -339,12 +345,6 @@ func _ready() -> void:
         _play_animations()
     if not world.npcs.is_empty():
         print("npcs: %s" % JSON.stringify(world.npcs.map(func(n): return String(n.name))))
-    if _load_path != "":
-        var saved = WorldLoader.read_save(_load_path)
-        if saved is Dictionary:
-            world.load_state(saved)
-        else:
-            push_warning("geogen: --load=%s: not a save" % _load_path)
     for asset_name in _use_assets:
         var found := world.interactions_of(asset_name)
         if found.is_empty():

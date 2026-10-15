@@ -161,7 +161,7 @@ User args (after `--`):
 | `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one |
 | `--lock=@aim` | Press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |
-| `--save=PATH`, `--load=PATH` | Write the game's state on quit / restore it at start: a `geogen-save` (see "Saving" below). Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
+| `--save=PATH`, `--load=PATH` | Write the game's state on quit / restore it at start (before `--set` / `--quests`): a `geogen-save` (see "Saving" below) of every package visited. Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
 | `--status` | Print the player's pose, room and interaction states on quit |
 | `--lights` | Print fixture lights on quit |
 | `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
@@ -627,8 +627,21 @@ are `docs/rules.md`; nothing here knows what a quest is beyond printing it.
   loaded or last seen in a chunk that has since unloaded. Only what differs from how things
   start is stored, so `load_state()` puts everything a save doesn't mention back as it was
   exported. A flat save from before the format (`{"<uid>#<interaction>": {state, locked}}`,
-  the rules state under `geogen:rules`) still loads, and only moves what it names. The save
-  is of the loaded package; `--status` still prints `states` as `{key: {state, locked}}`.
+  the rules state under `geogen:rules`) still loads, and only moves what it names.
+  `--status` still prints `states` as `{key: {state, locked}}`.
+  - The save also holds every other package visited this session, as it was left
+    (`packages`), and the content packages' values (`carried`); loading takes them up
+    (`GeogenRules.take_save`), so a fresh process resumes each scene when it is visited
+    and the quest log lists their quests (from each one's manifest). A save made in
+    another scene loads this one's part from `packages`, or starts it afresh.
+  - Loading sets the world clock (`GeogenClock.hours`: sun, sky, night lights) to the
+    save's, not only the rules program's.
+  - `--load` is applied before `--set` and `--quests`, which act on what it restored.
+  - While an interaction's chunk is unloaded the rules program holds its state
+    (`GeogenRules.release`, `hold_absent` after a load): rules read it as it was left and
+    may drive it, and its node takes the program's value when the chunk loads (`adopt`).
+  - Not kept: how far a move or an `after` dwell had got. A loaded interaction is placed
+    at the state it was heading to, and a dwell starts again.
 
 ```
 quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"started","status":"active","from":"available"}

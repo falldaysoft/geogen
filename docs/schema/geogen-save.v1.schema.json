@@ -55,6 +55,21 @@
       "description": "What is still to happen, in firing order (`at`, then `seq`).",
       "type": "array",
       "items": {"$ref": "#/$defs/timer"}
+    },
+    "packages": {
+      "description": "Written by a runtime: every other package visited this session, by name, as it was left (a save of its own, without `packages` or `carried`). Loading resumes each when its scene loads; one made in another scene loads that scene's part from here.",
+      "type": "object",
+      "additionalProperties": {"type": "object", "required": ["world", "actors"]}
+    },
+    "carried": {
+      "description": "Written by a runtime: content packages' values (docs/rules.md 'Content packages'), whatever scene is loaded, as {world: {key: value}, actors: {actor: {key: value}}}.",
+      "type": "object",
+      "required": ["world", "actors"],
+      "additionalProperties": false,
+      "properties": {
+        "world": {"type": "object", "additionalProperties": {"$ref": "#/$defs/value"}},
+        "actors": {"type": "object", "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/value"}}}
+      }
     }
   },
   "$defs": {

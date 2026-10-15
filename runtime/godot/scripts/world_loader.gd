@@ -612,7 +612,9 @@ func forget(root: Node) -> void:
         return node is Node and is_instance_valid(node) and (node == root or root.is_ancestor_of(node))
     for it in interactions.duplicate():
         if inside.call(it.asset):
-            if uid_of(it.asset) != "":       # remembered until its chunk loads again
+            # Remembered until its chunk loads again: by the rules program, which reads and
+            # drives it meanwhile, else here.
+            if uid_of(it.asset) != "" and not rules.release(_state_key(it), it.snapshot()):
                 _pending_state[_state_key(it)] = it.snapshot()
             interactions.erase(it)
             it.queue_free()
@@ -1067,6 +1069,7 @@ func save_state() -> Dictionary:
         data = {"format": SAVE_FORMAT, "version": 1, "now": 0.0, "clock": _clock_now(), "world": {},
             "actors": {}, "actor_info": {}, "timers": []}
     data["package"] = rules.package if rules.machine != null else scene_name
+    data.merge(rules.save_others())      # the other packages visited, and content packages' values
     var stored: Dictionary = data["world"]
     var live := _live_interactions()
     var states := interaction_states()
@@ -1122,8 +1125,12 @@ func load_state(data: Dictionary) -> void:
         if data.get(RULES_SAVE) is Dictionary:
             rules.load_save(data[RULES_SAVE])
         return
-    if rules.machine != null and data.get("package", rules.package) != rules.package:
-        push_warning("geogen: the save is of '%s', not '%s'" % [data["package"], rules.package])
+    # Every package it holds: the loaded one's part is restored here, the rest wait for their
+    # scene. A save made in another scene loads this one as that save left it.
+    data = rules.take_save(data, rules.package if rules.machine != null else scene_name)
+    if clock != null and data.get("clock") is Dictionary and data["clock"].has("hour"):
+        clock.hours = fposmod(float(data["clock"]["hour"]), 24.0)
+        clock.apply()
     # The interactions in the world section. A loaded one is its node's to hold; the others
     # wait for their chunk, and the rules program simulates them meanwhile.
     var live := _live_interactions()
@@ -1145,6 +1152,10 @@ func load_state(data: Dictionary) -> void:
         _pending_state.erase(key)
         it.restore({"state": snap.get("state", it.initial), "locked": snap.get("locked", it.initial_locked)})
     rules.load_save(for_rules)           # after the nodes: bindings are recomputed from them
+    rules.hold_absent()                  # the program has the rest until their chunks load
+    for key in _pending_state.keys():
+        if rules.holds(key):
+            _pending_state.erase(key)
 
 
 ## Write a save as one JSON file; "" when done, else why not.

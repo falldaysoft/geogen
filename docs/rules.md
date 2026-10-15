@@ -289,6 +289,12 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   `dwell`: an interaction on its way or waiting to move on), on `now`'s scale.
 - `actor_info` (kind, room) may be left out: actors a save doesn't describe stay
   as the host knows them.
+- A runtime that runs one package at a time (Godot: one per scene) also writes
+  `package` (the loaded one), `packages` (every other package visited, by name,
+  each a save of its own as it was left) and `carried` (content packages'
+  values: `{world, actors}`). Loading resumes each package from its entry when
+  its scene loads; a save made in another scene loads the current scene's part
+  from `packages`, or starts it afresh. `Machine.load` ignores these.
 
 ## What export must reject
 

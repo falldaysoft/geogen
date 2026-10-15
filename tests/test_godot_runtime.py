@@ -508,6 +508,23 @@ def test_stream_loads_interiors_next_to_buildings(run_godot, strip_dir):
     assert status["stream"]["interiors"] and all(i.startswith("block_0_0/") for i in status["stream"]["interiors"])
 
 
+def test_rules_hold_an_interaction_while_its_chunk_is_away(godot_runtime, strip_dir):
+    """A door's state lives in the rules program while its chunk is unloaded: rules read it as the
+    player left it, and what they do to it meanwhile is how it comes back (geogen.3.13)."""
+    door = "strip:city/block_0_0/lot_0_0_0/lot_0_0_0_shop_row/storey_0/shop_door#swing"
+    rt = godot_runtime("strip", strip_dir, "--stream-radius=20,1000,6")
+    rt.call("wait_ready")
+    rt.call("interactions.set", asset="shop_door", state="open", instant=True)
+    rt.call("player.teleport", pos=[70, 0.2, -20])                  # block_0_0 unloads
+    rt.call("time.advance", seconds=3)
+    assert rt.call("state.get", key=door)["value"] == "open"
+    assert rt.call("state.save")["world"][door] == "open"
+    rt.call("state.set", key=door, value="closed")                  # back to how it starts
+    rt.call("player.teleport", pos=[-75, 0.2, -20])
+    rt.call("time.advance", seconds=3)
+    assert [i["state"] for i in rt.call("interactions.list", asset="shop_door")] == ["closed"]
+
+
 @pytest.fixture(scope="module")
 def district(tmp_path_factory, built_scene):
     """Milestone M3: the town district as a streamed chunk export, plus its building entrances."""
