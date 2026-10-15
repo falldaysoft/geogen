@@ -1,7 +1,6 @@
 # A Halcyon weighted storage cube: an enamelled white body with dark bumpers
 # on its eight corners and a ringed, glowing hexagon on every face. A physics
-# prop the player can carry. With `from` (a dropper's `spawn_at`) it starts
-# stowed and rules hand it out there (its `spawn` interaction: stowed | live).
+# prop the player can carry; droppers hand out copies of it (items/weighted_cube.yaml).
 # Origin: bottom centre.
 
 name: weighted_cube
@@ -12,13 +11,11 @@ bounds: geometry
 
 params:
   side: { default: 0.7 }
-  from: { default: "", type: text }    # <thing>.<attachment> it is handed out at
 
 physics:
   mass: 25
   friction: 0.9
   carry: true
-  spawn: "{from}"
 
 parts:
   body:

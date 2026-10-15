@@ -1,0 +1,6 @@
+# A weighted storage cube as a spawned item: droppers make one at a time, and a lost one
+# (fallen out of the world) is replaced. It never times out, however long it rests.
+kind: item
+body: weighted_cube.yaml
+mode: physics
+stuck: 0

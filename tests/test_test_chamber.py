@@ -69,10 +69,14 @@ def chamber():
 
 
 def test_the_cube_is_handed_out_inside_the_dropper(chamber):
+    """The dropper is a source of weighted cubes (geogen.flows), one at a time."""
     scene, _ = chamber
-    cube = next(n for n in scene.iter_nodes() if n.name == "cube")
     dropper = next(n for n in scene.iter_nodes() if n.name == "dropper")
-    spawn_at = cube.world_transform() @ np.r_[cube.meta["physics"]["spawn_at"], 1.0]
+    source = dropper.meta["flows"]["source"]
+    assert source["max_alive"] == 1 and source["items"][0]["name"] == "weighted_cube"
+    template = next(n for n in dropper.iter_nodes() if "item" in n.meta)
+    assert template.hidden and template.meta["item"]["stuck"] == 0 and template.meta["physics"]["carry"]
+    spawn_at = dropper.world_transform() @ np.r_[source["at"], 1.0]
     mouth = dropper.world_transform()[:3, 3]
     assert np.allclose(spawn_at[[0, 2]], mouth[[0, 2]], atol=1e-6)      # on the tube's axis
     assert 0.5 < spawn_at[1] - mouth[1] < 2.0                          # inside it, above the hatch
@@ -84,7 +88,8 @@ def test_the_button_holds_the_door_open_while_something_is_on_it(chamber):
     machine = Machine(quests.program(), {"player": {"kind": "player"}})
     key = lambda k: f"{SCENE}:{k}"
     machine.post({"type": "start", "actor": "player"})
-    assert machine.get(key("cube#spawn")) == "live" and machine.get(key("dropper#hatch")) == "open"
+    machine.post({"type": "signal", "subject": key("dropper"), "name": "emitted", "data": {"item": "weighted_cube"}})
+    assert machine.get(key("dropper#hatch")) == "open"                  # a cube came: the hatch lets it out
     assert machine.get(key("exit_door#door")) == "closed"
     machine.set(key("button/pad#occupants"), 1)
     machine.advance(1.0)
@@ -93,8 +98,6 @@ def test_the_button_holds_the_door_open_while_something_is_on_it(chamber):
     machine.set(key("button/pad#occupants"), 0)
     machine.advance(1.0)
     assert machine.get(key("exit_door#door")) == "closed" and machine.get(key("line_n#circuit")) == "off"
-    machine.set(key("cube#spawn"), "stowed")              # lost: the dropper hands out another
-    assert machine.get(key("cube#spawn")) == "live"
 
 
 # --- in Godot -----------------------------------------------------------------------------------
@@ -118,7 +121,7 @@ def runtime(godot_runtime, tmp_path_factory):
 
 
 def _cube(runtime) -> dict:
-    return next(b for b in runtime.call("world.bodies") if b["node"] == "cube")
+    return next(b for b in runtime.call("world.bodies") if b["uid"].startswith("flow#"))
 
 
 def _get(runtime, k: str):
@@ -169,11 +172,11 @@ def test_the_cube_holds_the_button_down_and_the_player_leaves(runtime):
     assert not _cube(runtime)["held"]
     assert _get(runtime, "button/pad#occupants") == 1 and _get(runtime, "exit_door#door") == "open"
     saved = runtime.call("state.save")
-    assert f"{SCENE}:cube" in saved["bodies"]
+    assert [it["item"] for it in saved["flows"]["items"]] == ["weighted_cube"]
     # Take the cube off again: the door shuts. Loading puts it back on the button.
     cube = _cube(runtime)["position"]
     runtime.call("player.look", at=[cube[0], cube[1] + 0.35, cube[2]])
-    assert runtime.call("player.carry")["held"] == f"{SCENE}:cube"
+    assert runtime.call("player.carry")["held"] == _cube(runtime)["uid"]
     runtime.call("player.walk_to", pos=[0, 0, -2])
     runtime.call("player.drop")
     _settle(runtime, 1.5)
