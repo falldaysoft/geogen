@@ -43,6 +43,10 @@ const WALK_THRESHOLD := 0.15      # m/s: slower than this counts as standing sti
 const PORTAL_LOOKAHEAD := 2.5     # react to closed doors this far ahead
 const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this far ahead
 const AVOID_MARGIN := 0.2
+const DETOUR_HORIZON := 8.0       # m of path ahead whose waypoints are moved off characters (farther ones as they come up)
+const CROWD_CELL := 2.0           # m, cells of the shared character grid
+const THROTTLE_NEAR := 10.0       # m: off-screen NPCs nearer the player than this still step every frame
+const THROTTLE_FAR := 60.0        # m: beyond this NPCs step every other frame even on screen
 ## Moving bodies NPCs steer around (the player joins it too).
 const CHARACTER_GROUP := "geogen_character"
 ## Traffic (traffic.gd): wait for moving vehicles, walk around stopped ones.
@@ -88,6 +92,17 @@ var _transition := {}               # the one playing: {move, t, start, target, 
 var _pose_tween: Tween = null
 var _cost_usec := 0                 # script time spent in _physics_process (report: cost_us per frame)
 var _cost_frames := 0
+# Every character (player and NPCs) as {node, pos, radius, npc}, gathered once a physics frame
+# and shared by all NPCs (geogen.11.18): scanning the group and each body's shape per NPC per
+# call grew with the square of the crowd.
+var _frame_delta := 1.0 / 60.0       # this physics frame's delta (move_and_slide moves one of these)
+var _skipped := 0.0                  # s of frames skipped while throttled, made up by the next step
+var _phase := 0                      # which frames a throttled NPC steps on (alternates between NPCs)
+static var _phases := 0
+static var _crowd: Array[Dictionary] = []
+static var _crowd_frame := -1
+static var _crowd_grid := {}          # Vector2i cell -> Array of _crowd entries
+static var _crowd_radius := 0.0       # the largest character radius
 # Step state
 var _timer := 0.0
 var _path := PackedVector3Array()
@@ -113,6 +128,7 @@ var _attend_until := -INF         # keep looking at whoever greeted us until the
 const GESTURE_BONES := ["RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand"]
 var _yielded_at := -INF
 const YIELD_COOLDOWN := 3.0       # s between stepping aside
+const YIELD_FAR := 6.0            # m: beyond the yield distance plus this, nobody is walking at us (0.6 s at 10 m/s)
 const KERB_STEP := 0.7            # wait for the walk signal when the road of a crossing is this close ahead (m)
 const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
 
@@ -173,6 +189,8 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
 
 
 func _ready() -> void:
+    _phase = _phases
+    _phases = (_phases + 1) % 2
     collision_layer = LAYER
     collision_mask = 1 | LAYER
     add_to_group(CHARACTER_GROUP)
@@ -354,7 +372,15 @@ func _finish_option(ok: bool, reason := "") -> void:
 
 func _physics_process(delta: float) -> void:
     var started := Time.get_ticks_usec()
-    _step(delta)
+    _frame_delta = delta
+    # Out of sight (or far off), step every other frame over both frames' time: half the
+    # cost, and nobody sees the coarser motion. NPCs alternate, so each frame takes half.
+    if _throttled() and (Engine.get_physics_frames() + _phase) % 2 == 0:
+        _skipped += delta
+        stats["throttled"] = int(stats.get("throttled", 0)) + 1
+    else:
+        _step(delta + _skipped)
+        _skipped = 0.0
     _cost_usec += Time.get_ticks_usec() - started
     _cost_frames += 1
 
@@ -967,17 +993,37 @@ func _detour_around_characters() -> bool:
     var radius := float(definition.get("radius", 0.25))
     var map := get_world_3d().navigation_map
     var last := _path.size() - 1
-    for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
-        if other == self or not other is CharacterBody3D:
-            continue
-        var c: Vector3 = other.global_position
-        var reach := radius + _radius_of(other) + AVOID_MARGIN
-        if _flat(_path[last] - c).length() < reach and _same_level(_path[last], c):
+    _characters()
+    var widest := radius + _crowd_radius + AVOID_MARGIN
+    var goal := Vector2(_path[last].x, _path[last].z)
+    for entry in _characters_in(goal - Vector2(widest, widest), goal + Vector2(widest, widest)):
+        var c: Vector3 = entry["pos"]
+        if entry["node"] != self and _flat(_path[last] - c).length() < radius + float(entry["radius"]) + AVOID_MARGIN \
+                and _same_level(_path[last], c):
             return false   # someone is standing where we're going
-        if _waypoint <= _detour:
+    if _waypoint <= _detour:
+        return true
+    # The waypoints of the next DETOUR_HORIZON m (not the destination); farther ones are
+    # seen to as they come up. Only characters within reach of these, or of the way to the
+    # next one, matter.
+    var end := _waypoint
+    var ahead := 0.0
+    var at := global_position
+    var lo := Vector2(at.x, at.z)
+    var hi := lo
+    while end < last and ahead < DETOUR_HORIZON:
+        ahead += at.distance_to(_path[end])
+        at = _path[end]
+        lo = lo.min(Vector2(at.x, at.z))
+        hi = hi.max(Vector2(at.x, at.z))
+        end += 1
+    for entry in _characters_in(lo - Vector2(widest, widest), hi + Vector2(widest, widest)):
+        if entry["node"] == self:
             continue
+        var c: Vector3 = entry["pos"]
+        var reach := radius + float(entry["radius"]) + AVOID_MARGIN
         # Waypoints inside its reach move out to the edge.
-        for i in range(_waypoint, last):
+        for i in range(_waypoint, end):
             if _flat(_path[i] - c).length() < reach and _same_level(_path[i], c) and not _on_stair(i):
                 var out = _edge_point(c, _path[i], reach + 0.05, map)
                 if out != null:
@@ -1001,6 +1047,7 @@ func _detour_around_characters() -> bool:
             _insert_waypoint(_waypoint + k, arc[k])
         _detour = _waypoint + arc.size() - 1
         _best = INF
+        return true    # the rest of the path has moved along: the others next frame
     return true
 
 
@@ -1021,6 +1068,11 @@ func _clear_of_vehicles() -> bool:
             continue
         var xf: Transform3D = car.global_transform
         if absf(xf.origin.y - a.y) > 2.0:
+            continue
+        # Too far off for its box, swept ahead, to reach the probed stretch of our path.
+        var speed_now := float(car.get_meta("geogen_speed", 0.0))
+        if _flat(xf.origin - a).length() > absf(float(box["offset"])) + float(box["half"]) + float(box["half_w"]) \
+                + speed_now * VEHICLE_LOOKAHEAD + VEHICLE_PROBE + radius + VEHICLE_MARGIN:
             continue
         var fwd := _flat(xf.basis.z).normalized()
         var right := Vector3(fwd.z, 0.0, -fwd.x)
@@ -1167,17 +1219,21 @@ static func _radius_of(body: Node) -> float:
 func _avoid(dir: Vector3) -> Vector3:
     var radius := float(definition.get("radius", 0.25))
     var steer := Vector3.ZERO
-    for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
-        if other == self or not other is CharacterBody3D:
+    var p := Vector2(global_position.x, global_position.z)
+    _characters()
+    var near := AVOID_AHEAD + radius + _crowd_radius + AVOID_MARGIN
+    for entry in _characters_in(p - Vector2(near, near), p + Vector2(near, near)):
+        if entry["node"] == self:
             continue
-        if not _same_level(other.global_position, global_position):
+        var c: Vector3 = entry["pos"]
+        if not _same_level(c, global_position):
             continue
-        var rel := _flat(other.global_position - global_position)
+        var rel := _flat(c - global_position)
         var along := rel.dot(dir)
         if along <= 0.0 or along > AVOID_AHEAD:
             continue
         var lateral := rel - dir * along
-        var reach := radius + _radius_of(other) + AVOID_MARGIN
+        var reach := radius + float(entry["radius"]) + AVOID_MARGIN
         if lateral.length() >= reach:
             continue
         # Pass on the side it's already off to (the right if dead ahead).
@@ -1193,7 +1249,28 @@ func _move(delta: float) -> void:
             return
     else:
         velocity.y -= _gravity * delta
-    move_and_slide()
+    var scale := delta / _frame_delta
+    if scale > 1.01:      # a throttled step covers skipped frames too
+        velocity *= scale
+        move_and_slide()
+        velocity /= scale
+    else:
+        move_and_slide()
+
+
+## Whether to step every other frame: off-screen and not near the player, or far off. Not
+## while greeting, in a transition or on a stair, where timing and single file matter.
+func _throttled() -> bool:
+    if away or not _transition.is_empty() or _stair != null or clock < _attend_until:
+        return false
+    var camera := get_viewport().get_camera_3d()
+    var who := _player()
+    if camera == null or who == null:
+        return false
+    var d := _flat(who.global_position - global_position).length()
+    if d > THROTTLE_FAR:
+        return true
+    return d > THROTTLE_NEAR and not camera.is_position_in_frustum(global_position + Vector3.UP * 0.9)
 
 
 ## The first closed portal the remaining path crosses within PORTAL_LOOKAHEAD, as a pass context.
@@ -1423,10 +1500,43 @@ func _animate_locomotion() -> void:
 
 ## The player (the one character that isn't an NPC), or null.
 func _player() -> Node3D:
-    for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
-        if other is Node3D and not other is GeogenNpc:
-            return other
+    for entry in _characters():
+        if not entry["npc"] and is_instance_valid(entry["node"]):
+            return entry["node"]
     return null
+
+
+## The characters this physics frame (see ``_crowd``): positions as the frame began.
+func _characters() -> Array[Dictionary]:
+    var frame := Engine.get_physics_frames()
+    if frame != _crowd_frame:
+        _crowd_frame = frame
+        _crowd = []
+        _crowd_grid = {}
+        _crowd_radius = 0.0
+        for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+            if other is CharacterBody3D:
+                var entry := {"node": other, "pos": other.global_position,
+                    "radius": _radius_of(other), "npc": other is GeogenNpc}
+                _crowd.append(entry)
+                _crowd_radius = maxf(_crowd_radius, entry["radius"])
+                var cell := Vector2i(floori(entry["pos"].x / CROWD_CELL), floori(entry["pos"].z / CROWD_CELL))
+                if not _crowd_grid.has(cell):
+                    _crowd_grid[cell] = []
+                _crowd_grid[cell].append(entry)
+    return _crowd
+
+
+## The characters this physics frame whose cells overlap the plan rectangle ``lo``..``hi`` (x, z).
+func _characters_in(lo: Vector2, hi: Vector2) -> Array:
+    _characters()
+    var out := []
+    for cx in range(floori(lo.x / CROWD_CELL), floori(hi.x / CROWD_CELL) + 1):
+        for cz in range(floori(lo.y / CROWD_CELL), floori(hi.y / CROWD_CELL) + 1):
+            var cell = _crowd_grid.get(Vector2i(cx, cz))
+            if cell != null:
+                out.append_array(cell)
+    return out
 
 
 ## Look at the player when they're near and ahead; step out of their way when standing in it.
@@ -1436,7 +1546,9 @@ func _attend(delta: float) -> void:
     if _look != null:
         var look: Dictionary = attention.get("look", {})
         var want := 0.0
-        if who != null and _pose in ["stand", "sit"]:
+        # (Out of range and not just greeted: nothing to look at; skip the camera lookups.)
+        if who != null and _pose in ["stand", "sit"] and (clock < _attend_until
+                or _flat(who.global_position - global_position).length() < float(look["range"]) + 1.0):
             var eye: Vector3 = who.global_position + Vector3(0, 1.6, 0)
             var cam = who.get("camera")
             if cam is Camera3D:
@@ -1457,6 +1569,8 @@ func _attend(delta: float) -> void:
     if who == null or yield_spec.is_empty() or _pose != "stand" or not _transition.is_empty() \
             or clock - _yielded_at < YIELD_COOLDOWN:
         return
+    if _flat(global_position - who.global_position).length() > float(yield_spec["distance"]) + YIELD_FAR:
+        return                             # too far off to be walking at us, even sprinting
     if not _stack.is_empty() and (_stack.back()["action"] in ["greet", yield_spec["action"]]
             or _stack.back()["steps"][mini(_stack.back()["index"], _stack.back()["steps"].size() - 1)].has("go_to")):
         return                             # walking already avoids the player; reactions run out
@@ -1627,7 +1741,7 @@ func report() -> Dictionary:
     var p := global_position
     return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
-        "unstuck": int(stats.get("unstuck", 0)),
+        "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),

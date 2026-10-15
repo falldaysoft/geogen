@@ -199,16 +199,15 @@ cross-fade into the pose clip instead. While standing it plays `walk`
 (speed-scaled to the NPC's velocity over the clip's recorded speed, so feet
 don't slide) or `idle`.
 
-`--simulate` also prints `npc cost: {npcs, script_us, process_ms, physics_ms,
-frame_ms, frame_p95_ms, frame_max_ms, draw_calls, primitives, objects}`: mean NPC
-script time per physics frame (also per NPC as `cost_us` in the summary), the
-engine's process / physics time per frame, the frame time (mean, 95th percentile,
-worst) and what was rendered per frame, all over the simulated time only. Frame
-and render numbers need a window and `--disable-vsync`; `process_ms` (Godot's
-TIME_PROCESS) includes waiting on the GPU, so don't read it as CPU time.
-Measured headless on an M-series Mac: one resident costs about 15 us of script and
-40 us of animation per frame; in a crowd the script cost per NPC grows (54 us
-each at 10, about 80 to 100 us each at 40) because every NPC scans the others.
+`--simulate` also prints `npc cost: {npcs, script_us, physics_ms, physics_p95_ms,
+process_ms, frame_ms, frame_p95_ms, frame_max_ms, draw_calls, primitives, objects}`
+over the simulated time only: mean NPC script time per physics frame (also per NPC as
+`cost_us` in the summary), every physics tick's callbacks timed directly (mean and 95th
+percentile: all scripts and `move_and_slide`, not the physics server's own step), the
+frame time (mean, 95th percentile, worst) and what was rendered per frame. Frame and
+render numbers need a window and `--disable-vsync`. `process_ms` is Godot's TIME_PROCESS
+monitor, which (like TIME_PHYSICS_PROCESS) is the slowest frame of the last second, so
+don't read it as a mean.
 
 #### Crowd budget
 
@@ -222,22 +221,33 @@ godot --path runtime/godot --disable-vsync --resolution 1920x1080 -- \
     --scene crowd_test --simulate=30 --npc-limit=50 [--camera=overview]
 ```
 
-Baseline (2026-10-14, M-series Mac, 1920x1080, player view from the spawn;
-a dressed character is about 3.9k triangles in 6 surfaces, no LODs):
+Target: 50 walking NPCs at a sustained 60 fps, with the physics tick within 6 ms
+so traffic, the player and rules have room. Measured 2026-10-15 on an M-series
+Mac, 1920x1080, player view from the spawn (physics: the tick's callbacks, mean / p95):
 
-| NPCs | script us / NPC | physics ms / tick | frame ms (mean / p95) | draw calls | primitives |
-|---|---|---|---|---|---|
-| 0  | -   | 0.7  | 3.8 / 8.3  | 496 | 351k |
-| 10 | 78  | 4.9  | 3.8 / 8.3  | 496 | 351k |
-| 25 | 99  | 9.1  | 4.3 / 8.3  | 603 | 422k |
-| 50 | 186 | 12.7 | 7.6 / 11.1 | 850 | 579k |
+| NPCs | before: script us / NPC | before: physics ms | now: script us / NPC | now: physics ms |
+|---|---|---|---|---|
+| 0  | -   | 0.15        | -  | 0.15        |
+| 10 | 73  | 0.94 / 1.3  | 39 | 0.65 / 0.76 |
+| 25 | 96  | 2.7 / 4.0   | 40 | 1.3 / 1.6   |
+| 50 | 186 | 9.8 / 13.5  | 41 | 2.4 / 3.0   |
 
-The overview camera (everyone in view) gives the same physics numbers and
-568 draw calls at 50. Every NPC visible costs about 7 draw calls and 4.6k
-primitives (shadows included). The limit is the physics tick, not rendering:
-at 50 the NPCs take 12 of the 16.7 ms a 60 Hz tick has, nearly all of it
-npc.gd's per-NPC scans of every character (geogen.11.18), which grow with the
-crowd. Every run, with or without NPCs, has one hitch of about 150 ms.
+The cost per NPC grew with the crowd because every NPC scanned every character,
+and moved its whole remaining path's waypoints off each one, every frame
+(geogen.11.18). Now characters are gathered once a physics frame into a 2 m grid
+(`npc.gd` `_characters`, `_characters_in`), waypoints are moved off characters
+only over the next `DETOUR_HORIZON` (8 m) of path, and NPCs off screen (more than
+`THROTTLE_NEAR` 10 m from the player) or beyond `THROTTLE_FAR` (60 m) step every
+other frame over both frames' time (`_throttled`; not mid-transition, on a stair or
+greeting; the summary counts `throttled` frames). About half of what is left is
+`move_and_slide`.
+
+Rendering is cheap: every NPC in view adds about 7 draw calls and 4.6k
+primitives, shadows included (a dressed character is about 3.9k triangles in 6
+surfaces). Draw calls at 50 NPCs ranged from 570 (overview) to 1200 depending on
+who was in view; frames averaged 4.5 to 7 ms (p95 7 ms). Every run, with or
+without NPCs, has one hitch of about 150 ms.
+
 `tools/dump_skeleton_profile.gd` prints `SkeletonProfileHumanoid`
 (saved as `assets/skeletons/humanoid_profile.json`).
 

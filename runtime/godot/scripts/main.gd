@@ -116,11 +116,12 @@ var _refused_focus: GeogenInteraction = null
 var _simulate := 0.0
 var _sim_started := 0           # ticks (usec) and process frame when --simulate began
 var _sim_frame := 0
-var _sim_process := 0.0         # summed Performance TIME_PROCESS / TIME_PHYSICS_PROCESS (s) over the run
-var _sim_physics := 0.0
+var _sim_process := 0.0         # summed Performance TIME_PROCESS (s) over the run
 var _sim_samples := 0
 var _sim_render := [0.0, 0.0, 0.0]  # summed draw calls, primitives, objects in frame
 var _sim_frames: PackedFloat32Array = []   # every frame's time (ms) once the simulation clock runs
+var _sim_ticks: PackedFloat32Array = []    # every physics tick's callbacks (ms): see _TickMark
+var _sim_tick_start := 0
 var _sim_clock := 0.0
 var _npc_labels := false
 var _follow = null       # NPC name prefix to follow with the overview camera, or null
@@ -294,6 +295,13 @@ func _ready() -> void:
 
     world.open_before_bake = _playtest_walks >= 0
     world.prime_focus = _spawn_override
+    if _simulate > 0.0:
+        # Time every physics tick's callbacks (scripts, move_and_slide; not the physics server's
+        # own step): Godot's TIME_PHYSICS_PROCESS monitor is the slowest tick of the last second.
+        add_child(_TickMark.new(-100000, func(): _sim_tick_start = Time.get_ticks_usec()))
+        add_child(_TickMark.new(100000, func():
+            if _sim_clock > 0.0 and _simulate > 0.0:
+                _sim_ticks.append((Time.get_ticks_usec() - _sim_tick_start) / 1000.0)))
     world.world_loaded.connect(_on_world_loaded)
     world.travel_requested.connect(_travel)
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
@@ -712,7 +720,8 @@ func _physics_process(delta: float) -> void:
             print("npc cost: %s" % JSON.stringify({"npcs": reports.size(),
                 "script_us": snappedf(script_us / maxi(reports.size(), 1), 0.1),
                 "process_ms": snappedf(_sim_process / maxi(_sim_samples, 1) * 1000.0, 0.001),
-                "physics_ms": snappedf(_sim_physics / maxi(_sim_samples, 1) * 1000.0, 0.001),
+                "physics_ms": snappedf(_mean(_sim_ticks), 0.001),
+                "physics_p95_ms": snappedf(_percentile(_sim_ticks, 0.95), 0.01),
                 "frame_ms": snappedf(float(Time.get_ticks_usec() - _sim_started) / 1000.0 / maxi(Engine.get_process_frames() - _sim_frame, 1), 0.001),
                 "frame_p95_ms": snappedf(_percentile(_sim_frames, 0.95), 0.01),
                 "frame_max_ms": snappedf(_percentile(_sim_frames, 1.0), 0.01),
@@ -785,6 +794,26 @@ func _physics_process(delta: float) -> void:
         get_tree().quit()
 
 
+## Calls ``on_tick`` every physics frame at ``priority`` (lowest first).
+class _TickMark extends Node:
+    var on_tick: Callable
+
+    func _init(priority: int, callback: Callable) -> void:
+        process_physics_priority = priority
+        on_tick = callback
+
+    func _physics_process(_delta: float) -> void:
+        on_tick.call()
+
+
+## The mean of ``values`` (0 when empty).
+static func _mean(values: PackedFloat32Array) -> float:
+    var total := 0.0
+    for v in values:
+        total += v
+    return total / maxi(values.size(), 1)
+
+
 ## The q-quantile (0..1) of ``values`` (0 when empty).
 static func _percentile(values: PackedFloat32Array, q: float) -> float:
     if values.is_empty():
@@ -800,7 +829,6 @@ func _process(delta: float) -> void:
     if _simulate > 0.0:
         if _sim_clock > 0.0:     # not the loading frames before the simulation clock starts
             _sim_process += Performance.get_monitor(Performance.TIME_PROCESS)
-            _sim_physics += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
             _sim_samples += 1
             _sim_frames.append(delta * 1000.0 / Engine.time_scale)
             _sim_render[0] += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
