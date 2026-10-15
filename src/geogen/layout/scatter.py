@@ -82,17 +82,32 @@ def poisson_disk(rng: np.random.Generator, lo: np.ndarray, hi: np.ndarray, spaci
         grid[g[0], g[1]] = len(points) - 1
         active.append(len(points) - 1)
 
-    for _ in range(tries):     # seed point that the filter accepts
-        p = lo + rng.random(2) * size
-        if accept(p):
-            add(p)
-            break
-    while active and len(points) < limit:
-        idx = active[int(rng.integers(len(active)))]
+    def reseed(attempts: int) -> bool:
+        """A new seed point the filter accepts, clear of the others."""
+        for _ in range(attempts):
+            p = lo + gen.random(2) * size
+            if fits(p) and accept(p):
+                add(p)
+                return True
+        return False
+
+    gen = rng
+    reseed(tries)
+    while len(points) < limit:
+        if not active:
+            # This region is full: carry on in others the growth can't reach (separate
+            # sidewalk rings, islands). These draws come from a generator of their own,
+            # so ``rng`` is left as it was for the caller's draws.
+            if gen is rng:
+                gen = np.random.default_rng(len(points))
+            if not reseed(tries * 20):
+                break
+            continue
+        idx = active[int(gen.integers(len(active)))]
         base = points[idx]
         for _ in range(tries):
-            r = spacing * (1 + rng.random())
-            a = rng.random() * 2 * np.pi
+            r = spacing * (1 + gen.random())
+            a = gen.random() * 2 * np.pi
             p = base + r * np.array([np.cos(a), np.sin(a)])
             if fits(p) and accept(p):
                 add(p)

@@ -1,0 +1,37 @@
+# Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians
+# (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. Measure with the Godot
+# runtime's --simulate (and --npc-limit=N for the curve); see "Crowd budget" in
+# runtime/godot/README.md.
+name: crowd_test
+tags: [city.district]
+
+city:
+  seed: 2
+  blocks: [2, 2]
+  block_size: [30, 26]
+  street_width: 8
+  avenues: { ew: [1] }
+  avenue_width: 12
+  sidewalk: 3
+  parks: ["0,0", "1,0", "0,1", "1,1"]
+  furniture:
+    lamp: { asset: street_lamp.yaml, spacing: 18 }
+    tree: { asset: maple_tree.yaml, spacing: 12, params: { height: 6.8, trunk: 0.6 } }
+    hydrant: { asset: fire_hydrant.yaml, per_edge: 1 }
+    bench: { asset: bench.yaml, per_edge: 1 }
+  traffic: { drive: right, lanes: 1, speed: 11, avenue_speed: 13, signals: avenues }
+  parking:
+    fill: 0.35
+    fleet:
+      - { asset: vehicles/car.yaml, weight: 4, params: { paint: { choice: [car_white, silver, car_red, car_blue, graphite] } } }
+      - { asset: vehicles/van.yaml, weight: 1 }
+
+place:
+  traffic: { traffic: traffic/town.yaml, seed: 5, count: 10 }
+  pedestrians:
+    npc: npcs/pedestrian.yaml
+    home: { rect: [-42, -40, 42, 40] }
+    scatter: { on_tag: street.sidewalk, count: 50, spacing: 4, seed: 4, radius: 0.5 }
+
+spawns:
+  start: { position: [-20, 0.15, -8.5], facing: north }   # on the avenue's south sidewalk

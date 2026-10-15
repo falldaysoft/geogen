@@ -10,6 +10,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
 | [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic (assets/traffic/town.yaml) and a few pedestrians (npcs/pedestrian.yaml). | test |
+| [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
 | [hotel_room](#hotel_room) | Furnished hotel suite (hand-placed; the furnishing solver, geogen-3cc.6, will do this from room archetypes). | test |
 | [hotel_room_auto](#hotel_room_auto) | The hotel suite furnished automatically from its rooms' archetypes (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand). | test |
@@ -116,6 +117,21 @@ A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an
 avenue, parked cars, moving traffic (assets/traffic/town.yaml) and a few
 pedestrians (npcs/pedestrian.yaml). Used by the
 traffic runtime tests (tests/test_traffic_runtime.py); quick to export.
+
+**Places**: `traffic: {traffic: traffic/town.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
+
+**Spawns**: start
+
+**Features**: city
+
+## crowd_test
+
+`scene: scenes/crowd_test.yaml` · [source](../../assets/scenes/crowd_test.yaml)
+
+Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians
+(npcs/pedestrian.yaml, townsfolk bodies) and its traffic. Measure with the Godot
+runtime's --simulate (and --npc-limit=N for the curve); see "Crowd budget" in
+runtime/godot/README.md.
 
 **Places**: `traffic: {traffic: traffic/town.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
 

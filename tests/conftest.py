@@ -207,7 +207,7 @@ SCENE_PARAM_MODULES = ("test_asset_quality.py", "test_scenes.py", "test_describe
 # check and runtime test on it scales with its size. Without ``--all``, per-scene tests of
 # these are deselected and any other test that builds one is skipped.
 EXHAUSTIVE_SCENES = {"city", "town", "main_street", "street", "street_side", "hotel_showcase", "restaurant",
-                     "archetype_gallery", "people_gallery"}
+                     "archetype_gallery", "people_gallery", "crowd_test"}
 
 DURATIONS_KEY = "geogen/durations"     # {test id: seconds}, in .pytest_cache (per machine)
 FAST_BUDGET = 1.0

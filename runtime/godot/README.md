@@ -200,11 +200,44 @@ cross-fade into the pose clip instead. While standing it plays `walk`
 don't slide) or `idle`.
 
 `--simulate` also prints `npc cost: {npcs, script_us, process_ms, physics_ms,
-frame_ms}`: mean NPC script time per physics frame (also per NPC as `cost_us`
-in the summary) and the engine's process / physics time per frame. Measured
-headless on an M-series Mac: one resident costs about 15 us of script and
+frame_ms, frame_p95_ms, frame_max_ms, draw_calls, primitives, objects}`: mean NPC
+script time per physics frame (also per NPC as `cost_us` in the summary), the
+engine's process / physics time per frame, the frame time (mean, 95th percentile,
+worst) and what was rendered per frame, all over the simulated time only. Frame
+and render numbers need a window and `--disable-vsync`; `process_ms` (Godot's
+TIME_PROCESS) includes waiting on the GPU, so don't read it as CPU time.
+Measured headless on an M-series Mac: one resident costs about 15 us of script and
 40 us of animation per frame; in a crowd the script cost per NPC grows (54 us
 each at 10, about 80 to 100 us each at 40) because every NPC scans the others.
+
+#### Crowd budget
+
+`-s crowd_test` is the crossroads grid with 50 pedestrians and its traffic
+(geogen.11.5.17). `--npc-limit=N` spawns only the first N of an export's NPCs,
+so one export gives the whole curve:
+
+```bash
+python -m geogen.main -s crowd_test --export-godot
+godot --path runtime/godot --disable-vsync --resolution 1920x1080 -- \
+    --scene crowd_test --simulate=30 --npc-limit=50 [--camera=overview]
+```
+
+Baseline (2026-10-14, M-series Mac, 1920x1080, player view from the spawn;
+a dressed character is about 3.9k triangles in 6 surfaces, no LODs):
+
+| NPCs | script us / NPC | physics ms / tick | frame ms (mean / p95) | draw calls | primitives |
+|---|---|---|---|---|---|
+| 0  | -   | 0.7  | 3.8 / 8.3  | 496 | 351k |
+| 10 | 78  | 4.9  | 3.8 / 8.3  | 496 | 351k |
+| 25 | 99  | 9.1  | 4.3 / 8.3  | 603 | 422k |
+| 50 | 186 | 12.7 | 7.6 / 11.1 | 850 | 579k |
+
+The overview camera (everyone in view) gives the same physics numbers and
+568 draw calls at 50. Every NPC visible costs about 7 draw calls and 4.6k
+primitives (shadows included). The limit is the physics tick, not rendering:
+at 50 the NPCs take 12 of the 16.7 ms a 60 Hz tick has, nearly all of it
+npc.gd's per-NPC scans of every character (geogen.11.18), which grow with the
+crowd. Every run, with or without NPCs, has one hitch of about 150 ms.
 `tools/dump_skeleton_profile.gd` prints `SkeletonProfileHumanoid`
 (saved as `assets/skeletons/humanoid_profile.json`).
 

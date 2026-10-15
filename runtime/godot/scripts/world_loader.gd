@@ -78,6 +78,7 @@ var affordances: Array[Dictionary] = []
 var npcs: Array[GeogenNpc] = []
 ## Print every NPC decision and step (--npc-trace).
 var npc_trace := false
+var npc_limit := -1                 # --npc-limit: spawn at most this many NPCs (crowd measurements); -1 all
 ## The lane graph of the loaded export (manifest / chunk index "traffic"), or {}.
 var traffic_graph := {}
 var _traffic_offset := Vector3.ZERO
@@ -932,6 +933,10 @@ func _spawn_npcs(root: Node) -> void:
     for node in root.find_children("*", "Node3D", true, false):
         var g := geogen_extras(node)
         if g.get("type") != "npc" or not g.get("npc") is Dictionary or node.has_meta("geogen_npc"):
+            continue
+        if npc_limit >= 0 and npcs.size() >= npc_limit:
+            node.get_parent().remove_child(node)
+            node.queue_free()
             continue
         var npc := GeogenNpc.spawn(self, node, g["npc"])
         if uid_of(node) != "":

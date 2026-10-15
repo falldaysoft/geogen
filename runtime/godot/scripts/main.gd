@@ -35,6 +35,7 @@ extends Node3D
 ##                                 (signal, changed, use, enter, leave, travel, clock, start, arrived, npc)
 ##   --timescale=N                 run the world N times faster (physics ticks scale too)
 ##   --simulate=SECONDS            run for SECONDS of world time, print "npc summary: [...]", quit
+##   --npc-limit=N                 spawn at most N of the export's NPCs (crowd measurements)
 ##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
 ##   --time=HH:MM                  world clock at start (default 13:00): sun, sky, street lamps,
 ##                                 routines and traffic follow it
@@ -118,6 +119,8 @@ var _sim_frame := 0
 var _sim_process := 0.0         # summed Performance TIME_PROCESS / TIME_PHYSICS_PROCESS (s) over the run
 var _sim_physics := 0.0
 var _sim_samples := 0
+var _sim_render := [0.0, 0.0, 0.0]  # summed draw calls, primitives, objects in frame
+var _sim_frames: PackedFloat32Array = []   # every frame's time (ms) once the simulation clock runs
 var _sim_clock := 0.0
 var _npc_labels := false
 var _follow = null       # NPC name prefix to follow with the overview camera, or null
@@ -219,6 +222,8 @@ func _ready() -> void:
             Engine.max_physics_steps_per_frame = int(8 * maxf(scale, 1.0))
         elif arg.begins_with("--simulate="):
             _simulate = float(value)
+        elif arg.begins_with("--npc-limit="):
+            world.npc_limit = int(value)
         elif arg.begins_with("--time="):
             _start_time = GeogenClock.parse(value)
         elif arg.begins_with("--day-length="):
@@ -708,7 +713,12 @@ func _physics_process(delta: float) -> void:
                 "script_us": snappedf(script_us / maxi(reports.size(), 1), 0.1),
                 "process_ms": snappedf(_sim_process / maxi(_sim_samples, 1) * 1000.0, 0.001),
                 "physics_ms": snappedf(_sim_physics / maxi(_sim_samples, 1) * 1000.0, 0.001),
-                "frame_ms": snappedf(float(Time.get_ticks_usec() - _sim_started) / 1000.0 / maxi(Engine.get_process_frames() - _sim_frame, 1), 0.001)}))
+                "frame_ms": snappedf(float(Time.get_ticks_usec() - _sim_started) / 1000.0 / maxi(Engine.get_process_frames() - _sim_frame, 1), 0.001),
+                "frame_p95_ms": snappedf(_percentile(_sim_frames, 0.95), 0.01),
+                "frame_max_ms": snappedf(_percentile(_sim_frames, 1.0), 0.01),
+                "draw_calls": roundi(_sim_render[0] / maxi(_sim_samples, 1)),
+                "primitives": roundi(_sim_render[1] / maxi(_sim_samples, 1)),
+                "objects": roundi(_sim_render[2] / maxi(_sim_samples, 1))}))
             var traffic_reports := []
             for t in world.traffic:
                 if is_instance_valid(t):
@@ -775,13 +785,27 @@ func _physics_process(delta: float) -> void:
         get_tree().quit()
 
 
+## The q-quantile (0..1) of ``values`` (0 when empty).
+static func _percentile(values: PackedFloat32Array, q: float) -> float:
+    if values.is_empty():
+        return 0.0
+    var sorted := values.duplicate()
+    sorted.sort()
+    return sorted[clampi(int(ceil(q * sorted.size())) - 1, 0, sorted.size() - 1)]
+
+
 func _process(delta: float) -> void:
     _run_switches(delta)
     _follow_npc()
     if _simulate > 0.0:
-        _sim_process += Performance.get_monitor(Performance.TIME_PROCESS)
-        _sim_physics += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
-        _sim_samples += 1
+        if _sim_clock > 0.0:     # not the loading frames before the simulation clock starts
+            _sim_process += Performance.get_monitor(Performance.TIME_PROCESS)
+            _sim_physics += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+            _sim_samples += 1
+            _sim_frames.append(delta * 1000.0 / Engine.time_scale)
+            _sim_render[0] += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+            _sim_render[1] += Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+            _sim_render[2] += Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
         return   # --screenshot waits for the simulation
     if overlay.visible:
         var p := player.global_position
