@@ -7,7 +7,7 @@ extends RefCounted
 ##   {"use": key, "actor", "used"}     {"event": {...}}
 ##   {"set": key, "to": value, "actor"}   {"advance": seconds}   {"clock": {...}}
 ##   {"save_load": true}               a round trip through a save (as JSON)
-##   {"expect": {state, actors, signals, fired, feedback, errors}}
+##   {"expect": {state, actors, signals, signal_data, fired, feedback, errors}}
 ## `signals` ([subject, name] pairs) and `fired` (rule ids) are exactly what
 ## happened since the last expect; `errors` is a count. JSON null and "" are
 ## the same subject.
@@ -51,6 +51,7 @@ static func run(trace: Dictionary) -> Array[String]:
                 problems.append("%s: the save didn't load: %s" % [where, fresh.last_error])
                 continue
             fresh.signals = machine.signals     # loading is not an input: nothing fires
+            fresh.signal_data = machine.signal_data
             fresh.fired = machine.fired
             fresh.feedback = machine.feedback
             fresh.errors = machine.errors
@@ -73,6 +74,12 @@ static func run(trace: Dictionary) -> Array[String]:
                 var raised: Array = machine.signals.map(func(s: Array) -> Array: return s.slice(0, 2))
                 if not _same(raised, expect["signals"]):
                     problems.append("%s: signals %s, expected %s" % [where, _shown(raised), _shown(expect["signals"])])
+            if expect.has("signal_data"):
+                var carried: Array = []
+                for k in machine.signals.size():
+                    carried.append([machine.signals[k][0], machine.signals[k][1], machine.signal_data[k]])
+                if not _same(carried, expect["signal_data"]):
+                    problems.append("%s: signal data %s, expected %s" % [where, _shown(carried), _shown(expect["signal_data"])])
             if expect.has("fired"):
                 var ran: Array = machine.fired.map(func(f: Array) -> Variant: return f[0])
                 if not _same(ran, expect["fired"]):
@@ -84,6 +91,7 @@ static func run(trace: Dictionary) -> Array[String]:
                 problems.append("%s: %d errors, expected %d: %s" % [where, machine.errors.size(),
                     int(expect["errors"]), _shown(machine.errors)])
             machine.signals = []
+            machine.signal_data = []
             machine.fired = []
             machine.feedback = []
             machine.errors = []

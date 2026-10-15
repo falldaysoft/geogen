@@ -15,6 +15,7 @@ world runs::
     all("[tag=light]", it.power == "off")      # every thing a selector matches
     count("house/[tag=door]", it.swing == "open") >= 2
     any("[tag=door]", it.swing == "open")
+    event.value > 3                            # a field of the event a rule is answering (its data)
 
 ``compile_condition`` turns the text into a JSON tree; ``resolve`` then replaces
 references and selectors with stable IDs (``geogen.refs``) against a built scene, so
@@ -33,6 +34,7 @@ The tree: a literal is a JSON number, string or boolean. Everything else is an o
     {"get": "actor", "name": "room"}    # built in: ACTOR_BUILTINS
     {"get": "clock", "name": "time"}    # CLOCK
     {"get": "it", "name": "power"}      # inside all / any / count: the thing being tested
+    {"get": "event", "name": "value"}   # a field of the triggering event's data (rules with on: only)
 
 Before ``resolve`` a tree holds ``{"get": "ref", "ref": "door", "name": "swing"}``,
 ``{"get": "self", ...}``, ``world`` / ``actor`` terms without their package and
@@ -65,7 +67,7 @@ ACTOR_BUILTINS = {
     "room": "the id of the room the actor is in, or \"\"",
     "kind": "\"player\" or \"npc\"",
 }
-ROOTS = ("world", "actor", "clock", "self", "it")
+ROOTS = ("world", "actor", "clock", "self", "it", "event")
 QUANTIFIERS = ("all", "any", "count")
 
 _BINARY = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/"}
@@ -197,6 +199,11 @@ def _term(node: ast.Attribute, inside: bool) -> dict[str, Any]:
     if owner.id in ROOTS:
         return {"get": owner.id, "name": node.attr}
     return {"get": "ref", "ref": owner.id, "name": node.attr}
+
+
+def event_fields(tree: Tree) -> list[str]:
+    """The event data fields a tree reads (``event.<field>``), in order, once each."""
+    return list(dict.fromkeys(n["name"] for n in walk(tree) if n.get("get") == "event"))
 
 
 def walk(tree: Tree) -> Iterable[dict[str, Any]]:
@@ -361,7 +368,8 @@ def validate(tree: Tree) -> None:
                 or (kind in ("world", "actor") and isinstance(t.get("package"), str))
                 or (kind == "actor" and name in ACTOR_BUILTINS)
                 or (kind == "clock" and name in CLOCK)
-                or (kind == "it" and inside))
+                or (kind == "it" and inside)
+                or kind == "event")
             if not ok:
                 raise ConditionError(f"bad or unresolved term: {t}")
             return

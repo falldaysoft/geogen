@@ -1,0 +1,297 @@
+{
+ "name": "event_data",
+ "about": "Rules read the data of the event they answer (event.<field>): a bounty adds gold, a leak takes lives, a delayed rule keeps its event's data, emit carries data and forward passes it on.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "world:demo.gold": {
+    "type": "number",
+    "default": 0
+   },
+   "world:demo.lives": {
+    "type": "number",
+    "default": 3
+   },
+   "world:demo.last": {
+    "type": "text",
+    "default": ""
+   },
+   "demo:lamp#lit": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "rules": [
+   {
+    "id": "bounty",
+    "on": {
+     "type": "signal",
+     "subject": "demo:gate",
+     "name": "killed"
+    },
+    "when": {
+     "op": ">",
+     "args": [
+      {
+       "get": "event",
+       "name": "value"
+      },
+      0
+     ]
+    },
+    "do": [
+     {
+      "set": "world:demo.gold",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "world",
+         "name": "gold",
+         "package": "demo"
+        },
+        {
+         "get": "event",
+         "name": "value"
+        }
+       ]
+      }
+     },
+     {
+      "set": "world:demo.last",
+      "to": {
+       "get": "event",
+       "name": "item"
+      }
+     }
+    ]
+   },
+   {
+    "id": "leak",
+    "on": {
+     "type": "signal",
+     "subject": "demo:gate",
+     "name": "leaked"
+    },
+    "after": 1.0,
+    "do": [
+     {
+      "set": "world:demo.lives",
+      "to": {
+       "op": "max",
+       "args": [
+        0,
+        {
+         "op": "-",
+         "args": [
+          {
+           "get": "world",
+           "name": "lives",
+           "package": "demo"
+          },
+          {
+           "get": "event",
+           "name": "harm"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "relay",
+    "on": {
+     "type": "signal",
+     "subject": "demo:gate",
+     "name": "leaked"
+    },
+    "do": [
+     {
+      "emit": "alarm",
+      "subject": "demo:core",
+      "forward": true,
+      "data": {
+       "double": {
+        "op": "*",
+        "args": [
+         {
+          "get": "event",
+          "name": "harm"
+         },
+         2
+        ]
+       }
+      }
+     }
+    ]
+   },
+   {
+    "id": "lit",
+    "on": {
+     "type": "changed",
+     "key": "demo:lamp#lit"
+    },
+    "do": [
+     {
+      "set": "world:demo.last",
+      "to": {
+       "op": "if",
+       "args": [
+        {
+         "get": "event",
+         "name": "to"
+        },
+        "lamp on",
+        "lamp off"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "missing",
+    "on": {
+     "type": "signal",
+     "subject": "demo:gate",
+     "name": "odd"
+    },
+    "do": [
+     {
+      "set": "world:demo.gold",
+      "to": {
+       "get": "event",
+       "name": "value"
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  }
+ },
+ "steps": [
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:gate",
+    "name": "killed",
+    "data": {
+     "value": 5,
+     "item": "grunt"
+    }
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:gate",
+    "name": "killed",
+    "data": {
+     "value": 0,
+     "item": "dud"
+    }
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.gold": 5,
+     "world:demo.last": "grunt"
+    },
+    "fired": [
+     "bounty"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:gate",
+    "name": "leaked",
+    "data": {
+     "harm": 2
+    }
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.lives": 3
+    },
+    "fired": [
+     "leak",
+     "relay"
+    ],
+    "signal_data": [
+     [
+      "demo:gate",
+      "leaked",
+      {
+       "harm": 2
+      }
+     ],
+     [
+      "demo:core",
+      "alarm",
+      {
+       "harm": 2,
+       "double": 4
+      }
+     ]
+    ]
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.lives": 1
+    },
+    "fired": []
+   }
+  },
+  {
+   "set": "demo:lamp#lit",
+   "to": true
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.last": "lamp on"
+    },
+    "fired": [
+     "lit"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:gate",
+    "name": "odd"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.gold": 5
+    },
+    "fired": [
+     "missing"
+    ],
+    "errors": 1
+   }
+  }
+ ]
+}

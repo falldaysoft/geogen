@@ -5,7 +5,8 @@ Three keys, in a scene or an asset (``docs/rules.md`` has the semantics)::
     rules:
       - id: open_gate                       # optional: names it in traces and errors
         on: {signal: lever.pulled}          # an event; without one, `when` is watched
-        when: "world.power"                 # a condition (geogen.conditions)
+        when: "world.power"                 # a condition (geogen.conditions); event.<field> reads
+                                            # the event's data ({set: world.gold, to: "world.gold + event.value"})
         do:                                 # effects, in order
           - {set: gate.gate, to: open}      # <thing>.<state> | world.<name> | actor.<name>
           - {input: lamp.light, value: true}  # an input an asset declares
@@ -142,6 +143,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             for key in ("after", "once"):
                 if rule.get(key):
                     out[key] = float(rule[key]) if key == "after" else True
+            compiler.event_reads.append((src.where(*at), out))
             rules.append(out)
             compiler.out.written[out["id"]] = src.where(*at)
 
@@ -165,6 +167,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 out["when"] = when
             if wire.get("after"):
                 out["after"] = float(wire["after"])
+            compiler.event_reads.append((src.where(*at), out))
             rules.append(out)
             compiler.out.written[out["id"]] = src.where(*at)
 

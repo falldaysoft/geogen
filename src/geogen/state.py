@@ -344,7 +344,7 @@ class Declarations:
     def signal_rules(self) -> list[dict[str, Any]]:
         """The rules that raise the signals with a source (``from``): what declaring one means."""
         return [{"id": f"signal:{key}", "on": signal["from"],
-                 "do": [{"emit": signal["name"], "subject": signal["subject"]}]}
+                 "do": [{"emit": signal["name"], "subject": signal["subject"], "forward": True}]}
                 for key, signal in self.signals.items() if "from" in signal]
 
     def program(self, rules: Iterable[dict[str, Any]] = (), bindings: Iterable[dict[str, Any]] = ()) -> dict[str, Any]:

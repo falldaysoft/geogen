@@ -62,6 +62,12 @@
           "additionalProperties": false
         },
         {
+          "description": "A field of the data of the event a rule is answering (a changed event's from / to, what a signal carries). Only in the when and effects of a rule with `on`.",
+          "properties": {"get": {"const": "event"}, "name": {"type": "string"}},
+          "required": ["get", "name"],
+          "additionalProperties": false
+        },
+        {
           "description": "Inside a quantifier: a state of the thing being tested.",
           "properties": {"get": {"const": "it"}, "name": {"type": "string"}},
           "required": ["get", "name"],

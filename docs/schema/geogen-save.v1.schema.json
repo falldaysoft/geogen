@@ -115,7 +115,8 @@
         "key": {"type": "string", "description": "kind arrive, dwell: the interaction."},
         "state": {"type": "string", "description": "kind arrive, dwell: the state it arrives at or dwells in."},
         "from": {"type": "string", "description": "kind arrive, optional: the state it set out from, so a runtime whose things really move can put one back part of the way (`at` is when it gets there). Evaluators ignore it."},
-        "actor": {"type": ["string", "null"], "description": "The actor behind it ('' or null: nobody)."}
+        "actor": {"type": ["string", "null"], "description": "The actor behind it ('' or null: nobody)."},
+        "data": {"type": "object", "description": "kind rule, optional: the data of the event that fired the rule, for a rule that reads it (event.<field>)."}
       },
       "allOf": [
         {"if": {"properties": {"kind": {"const": "rule"}}}, "then": {"required": ["rule"]}, "else": {"required": ["key", "state"]}}

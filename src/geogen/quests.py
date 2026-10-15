@@ -76,7 +76,8 @@ EVENT_SOURCES = {
 EVENT_KEYS = {*EVENT_SOURCES, "to", "when", "count"}
 EFFECTS = {
     "set": "<thing>.<state> | world.<name> | actor.<name>, with `to`: a value or an expression",
-    "emit": "raise a signal of this name (`of`: the thing it comes from; default: the scene)",
+    "emit": "raise a signal of this name (`of`: the thing it comes from; default: the scene; "
+            "`data`: {field: value or expression} the signal carries)",
     "input": "<thing>.<input>: drive an input an asset declares (`value` when the input takes one)",
     "start_quest": "start a quest (by id) for the actor, if it is available to them",
     "fail_quest": "fail an active quest",
@@ -451,6 +452,7 @@ class _Compiler:
         self.quests: list[_Quest] = []
         self.quest_rules: dict[str, list[dict[str, Any]]] = {}
         self.listening: list[tuple[str, dict[str, Any]]] = []   # (where, on) of rules on a signal
+        self.event_reads: list[tuple[str, dict[str, Any]]] = []  # (where, rule) of wiring, checked once all is known
 
     def bad(self, where: str, message: str) -> None:
         self.problems[f"{where}: {message}"] = None
@@ -690,7 +692,7 @@ class _Compiler:
                 if len(kinds) != 1:
                     raise QuestError(f"an effect is one of {', '.join(EFFECTS)}")
                 kind = kinds[0]
-                unknown = set(effect) - {kind, *({"set": ["to"], "emit": ["of"], "input": ["value"]}.get(kind, []))}
+                unknown = set(effect) - {kind, *({"set": ["to"], "emit": ["of", "data"], "input": ["value"]}.get(kind, []))}
                 if unknown:
                     raise QuestError(f"unknown keys {sorted(unknown)} on a {kind} effect")
                 if kind == "set":
@@ -727,7 +729,12 @@ class _Compiler:
                         raise QuestError("emit takes a signal name")
                     subject = (self.thing(quest, effect["of"])[0] if "of" in effect
                                else self.uid(quest.node) if quest.node is not None else f"{self.package}:")
-                    out.append({"emit": effect["emit"], "subject": subject})
+                    data = effect.get("data") or {}
+                    if not isinstance(data, dict):
+                        raise QuestError("emit data is a mapping of field: value")
+                    compiled = {str(field): (value if isinstance(value, (bool, int, float)) else self.condition(quest, value))
+                                for field, value in data.items()}
+                    out.append({"emit": effect["emit"], "subject": subject, **({"data": compiled} if compiled else {})})
                 elif kind == "reset":
                     out.extend(self.reset(quest, effect["reset"]))
                 elif kind == "notify":
@@ -850,6 +857,45 @@ class _Compiler:
             objective = quest.objective(compiled["id"].rpartition(":")[2])
             self.out.written[compiled["id"]] = (quest.where("objectives", objective.index, "done") if objective
                                                else quest.where(compiled["id"].rpartition(":")[2]))
+
+    def event_data(self, on: dict[str, Any], seen: frozenset[str] = frozenset()) -> set[str] | None:
+        """The data fields the events an ``on`` matches carry (``event.<field>``); None when
+        that can't be known here (a signal the export doesn't declare)."""
+        if on["type"] == "changed":
+            return {"from", "to"}
+        if on["type"] != "signal":
+            return set()
+        key = f"{on['subject']}#{on['name']}"
+        declared = self.decls.signals.get(key)
+        if declared is None:
+            emits = any(state.get("emit") == on["name"] for k, m in self.decls.interactions.items()
+                        if k.rpartition("#")[0] == on["subject"] for state in m["states"].values())
+            if emits or on["name"] == "locked":
+                return set()
+            fields = {f for rule in (*self.out.wiring, *self.out.rules, *self.other_rules) for e in rule.get("do", [])
+                      if e.get("emit") == on["name"] and e.get("subject") == on["subject"] for f in e.get("data", {})}
+            return fields or None
+        if "from" in declared and key not in seen:
+            return self.event_data(declared["from"], seen | {key})
+        return set(declared.get("data", {}))
+
+    def check_event_reads(self, where: str, rule: dict[str, Any]) -> None:
+        """A rule reading ``event.<field>`` its event never carries: a misspelt field."""
+        trees = [rule.get("when"), *(e.get("to") for e in rule["do"]),
+                 *(t for e in rule["do"] for t in (e.get("data") or {}).values())]
+        read = list(dict.fromkeys(f for t in trees for f in conditions.event_fields(t)))
+        if not read:
+            return
+        on = rule.get("on")
+        if on is None:
+            self.bad(where, f"event.{read[0]}: only a rule with on: (an event) has event data")
+            return
+        carried = self.event_data(on)
+        for field in read:
+            if carried is not None and field not in carried:
+                self.bad(where, f"event.{field}: a {on['type']} event here carries "
+                                + (f"{', '.join(sorted(carried))}" if carried else "no data")
+                                + refs._near(field, carried))
 
     def raised(self, thing: str) -> set[str]:
         """The signals a thing can raise: its interactions' emits (and ``locked``), what it or
@@ -1063,6 +1109,8 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
         compiler.out.rules.extend(rules_of)
     _unbound(compiler.out)
     compiler.heard()
+    for where, rule in compiler.event_reads:
+        compiler.check_event_reads(where, rule)
     if not compiler.problems:
         compiler.causes()
     if not compiler.problems:

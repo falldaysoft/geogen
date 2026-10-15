@@ -306,6 +306,47 @@ traces["cascades"] = {
 from geogen.quests import compile_quests
 from geogen.state import Declarations
 
+traces["event_data"] = {
+    "about": "Rules read the data of the event they answer (event.<field>): a bounty adds gold, a leak takes lives, "
+             "a delayed rule keeps its event's data, emit carries data and forward passes it on.",
+    "program": program(
+        variables={"world:demo.gold": {"type": "number", "default": 0},
+                   "world:demo.lives": {"type": "number", "default": 3},
+                   "world:demo.last": {"type": "text", "default": ""},
+                   "demo:lamp#lit": {"type": "bool", "default": False}},
+        rules=[
+            {"id": "bounty", "on": {"type": "signal", "subject": "demo:gate", "name": "killed"},
+             "when": c("event.value > 0"),
+             "do": [{"set": "world:demo.gold", "to": c("world.gold + event.value")},
+                    {"set": "world:demo.last", "to": c("event.item")}]},
+            {"id": "leak", "on": {"type": "signal", "subject": "demo:gate", "name": "leaked"}, "after": 1.0,
+             "do": [{"set": "world:demo.lives", "to": c("max(0, world.lives - event.harm)")}]},
+            {"id": "relay", "on": {"type": "signal", "subject": "demo:gate", "name": "leaked"},
+             "do": [{"emit": "alarm", "subject": "demo:core", "forward": True,
+                     "data": {"double": c("event.harm * 2")}}]},
+            {"id": "lit", "on": {"type": "changed", "key": "demo:lamp#lit"},
+             "do": [{"set": "world:demo.last", "to": c('"lamp on" if event.to else "lamp off"')}]},
+            {"id": "missing", "on": {"type": "signal", "subject": "demo:gate", "name": "odd"},
+             "do": [{"set": "world:demo.gold", "to": c("event.value")}]}]),
+    "actors": {"player": {"kind": "player"}},
+    "steps": [
+        {"event": {"type": "signal", "subject": "demo:gate", "name": "killed", "data": {"value": 5, "item": "grunt"}}},
+        {"event": {"type": "signal", "subject": "demo:gate", "name": "killed", "data": {"value": 0, "item": "dud"}}},
+        {"expect": {"state": {"world:demo.gold": 5, "world:demo.last": "grunt"}, "fired": ["bounty"]}},
+        {"event": {"type": "signal", "subject": "demo:gate", "name": "leaked", "data": {"harm": 2}}},
+        {"expect": {"state": {"world:demo.lives": 3}, "fired": ["leak", "relay"],
+                    "signal_data": [["demo:gate", "leaked", {"harm": 2}], ["demo:core", "alarm", {"harm": 2, "double": 4}]]}},
+        {"save_load": True},                                              # the pending rule keeps its data
+        {"advance": 1.0},
+        {"expect": {"state": {"world:demo.lives": 1}, "fired": []}},
+        {"set": "demo:lamp#lit", "to": True},
+        {"expect": {"state": {"world:demo.last": "lamp on"}, "fired": ["lit"]}},
+        {"event": {"type": "signal", "subject": "demo:gate", "name": "odd"}},    # no data: reported, nothing set
+        {"expect": {"state": {"world:demo.gold": 5}, "fired": ["missing"], "errors": 1}},
+    ],
+}
+
+
 def quest_trace(about, quests, actors, steps, interactions=None, variables=None, selectors=None, rules=()):
     declarations = Declarations(PKG)
     declarations.interactions = dict(interactions or {})

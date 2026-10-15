@@ -445,3 +445,34 @@ wire:
     machine.set("puzzles:gate#gate", "open")
     machine.set_clock(night=True)
     assert machine.get("puzzles:gate#gate") == "closed" and machine.errors == []
+
+
+def test_rules_read_event_data_and_emit_it(assets):
+    """event.<field> reads what the event carries; emit gives a signal data a rule can read."""
+    rewrite(assets, "yard", "    once: true\n", "    once: true\n"
+            "  - id: shout\n    on: {signal: lever.pulled}\n"
+            "    do: [{emit: rang, of: lamp, data: {loud: 3, twice: \"actor.pulls * 2\"}}]\n"
+            "  - id: hear\n    on: {signal: lamp.rang}\n    when: \"event.loud > 2\"\n"
+            "    do: [{set: actor.pulls, to: \"event.twice + event.loud\"}]\n"
+            "  - id: dimmed\n    on: {changed: lamp.lit}\n    do: [{set: world.dark, to: \"not event.to\"}]\n")
+    found = collect(compose(assets), "yard")
+    by_id = {r["id"]: r for r in found.wiring}
+    assert by_id["shout"]["do"][0]["data"]["loud"] == 3
+    machine = Machine(found.program(), ACTORS)
+    machine.use("yard:lever#pull", "player")
+    machine.advance(2)
+    assert machine.get("actor:yard.pulls", "player") == 1 * 2 + 3     # pulls was 1 when the lever signalled
+    assert machine.errors == []
+
+
+@pytest.mark.parametrize("old, new, message", [
+    # a field the event never carries
+    ("do: [{set: world.dark, to: true}]", 'do: [{set: world.dark, to: "event.to"}]',
+     r"rules.1: event.to: a clock event here carries no data"),
+    ('"plate.occupants >= 2"', '"event.value >= 2"', r"rules.2: event.value: only a rule with on: \(an event\)"),
+    ("to: gate.open}", "to: gate.open, when: \"event.speed > 1\"}", r"wire.0: event.speed: a signal event here carries no data"),
+])
+def test_bad_event_reads_fail_with_file_and_line(assets, old, new, message):
+    rewrite(assets, "yard", old, new)
+    with pytest.raises(QuestError, match=message):
+        collect(compose(assets), "yard")

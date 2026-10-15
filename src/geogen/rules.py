@@ -23,6 +23,11 @@ A program is JSON, with things named by stable ID and conditions compiled
                 "do": [{"set": "demo:gate#gate", "to": "open"}, {"emit": "opened", "subject": "demo:gate"}],
                 "after": 0, "once": false}]}
 
+Events carry ``data`` (a ``changed`` event's ``from`` / ``to``, what a runtime's signal
+says: ``killed {value: 5}``). A rule answering an event reads it as ``event.<field>`` in
+its ``when`` and effects; an ``emit`` effect may give its signal ``data`` (trees), and
+``forward: true`` passes on the data of the event that fired the rule.
+
 Variable keys say who owns the value: ``<thing id>#<name>`` (one placed instance;
 an interaction's state is one of these), ``world:<package>.<name>`` (shared) and
 ``actor:<package>.<name>`` (one value per actor: the player or an NPC).
@@ -109,6 +114,17 @@ def _reads_actor(tree: Any) -> bool:
     return any(n.get("get") == "actor" for n in conditions.walk(tree))
 
 
+def _reads_event(tree: Any) -> bool:
+    return bool(conditions.event_fields(tree))
+
+
+def rule_reads_event(rule: dict[str, Any]) -> bool:
+    """Whether a rule reads the data of the event that fired it (so a delayed one keeps it)."""
+    return _reads_event(rule.get("when")) or any(
+        _reads_event(e.get("to")) or e.get("forward") or any(_reads_event(t) for t in (e.get("data") or {}).values())
+        for e in rule.get("do", []))
+
+
 # ---- checking a program ------------------------------------------------------------------------
 
 def binding_order(program: dict[str, Any]) -> list[dict[str, Any]]:
@@ -173,6 +189,8 @@ def check_program(program: dict[str, Any]) -> list[str]:
 
     for key, when in guarded:
         tree(f"{key} when", when)
+        if _reads_event(when):
+            problems.append(f"{key} when: reads event data, but a use has no event to read")
 
     bound = set()
     for binding in program.get("bindings", []):
@@ -186,6 +204,8 @@ def check_program(program: dict[str, Any]) -> list[str]:
                             else f"{where}: an interaction's state can't be bound (drive it with a rule)")
         if is_actor_key(key) or _reads_actor(binding.get("to")):
             problems.append(f"{where}: bindings can't involve actor state (a binding has no actor)")
+        if _reads_event(binding.get("to")):
+            problems.append(f"{where}: bindings can't read event data (a binding has no event)")
         tree(where, binding.get("to"))
     try:
         binding_order(program)
@@ -210,6 +230,8 @@ def check_program(program: dict[str, Any]) -> list[str]:
                      else on.get("type") not in ACTORLESS and on.get("actor") != "none")
         if not has_actor and "when" in rule and on is not None and _reads_actor(rule["when"]):
             problems.append(f"{where}: its condition reads actor state, but its event never has an actor")
+        if on is None and rule_reads_event(rule):
+            problems.append(f"{where}: reads event data, but it watches a condition: only a rule with 'on' has an event")
         if not rule.get("do"):
             problems.append(f"{where}: does nothing")
         for effect in rule.get("do", []):
@@ -234,6 +256,12 @@ def check_program(program: dict[str, Any]) -> list[str]:
             elif "emit" in effect:
                 if not isinstance(effect["emit"], str) or not effect["emit"]:
                     problems.append(f"{where}: emit needs a signal name")
+                data = effect.get("data", {})
+                if not isinstance(data, dict):
+                    problems.append(f"{where}: emit data is a mapping of field: value")
+                else:
+                    for field, value in data.items():
+                        tree(f"{where} emit data {field}", value)
             elif "notify" in effect:
                 if not isinstance(effect["notify"], str) or not effect["notify"]:
                     problems.append(f"{where}: notify needs text")
@@ -277,6 +305,7 @@ class Machine:
         self.timers: list[dict[str, Any]] = []       # {at, seq, kind, ...}, kept sorted
         self._seq = 0
         self.signals: list[list[Any]] = []           # [subject, name, actor]
+        self.signal_data: list[dict[str, Any]] = []  # the data of each of `signals`, in step
         self.fired: list[list[Any]] = []             # [rule id, actor]
         self.feedback: list[list[Any]] = []          # [notify | play, text or sound, actor]: never saved
         self.errors: list[str] = []
@@ -302,10 +331,15 @@ class Machine:
             return self.actors.get(actor, {}).get(key, self.variables[key]["default"])
         return self.world.get(key, self.variables[key]["default"])
 
-    def _lookup(self, actor: str | None):
+    def _lookup(self, actor: str | None, data: dict[str, Any] | None = None):
         def lookup(term: dict[str, Any]) -> Any:
             if term["get"] == "clock":
                 return self.clock[term["name"]]
+            if term["get"] == "event":
+                if data is None or term["name"] not in data:
+                    raise RuleError(f"'event.{term['name']}': " + ("there is no event here" if data is None else
+                                    f"the event has no '{term['name']}' (it has {', '.join(data) or 'no data'})"))
+                return data[term["name"]]
             if term["get"] == "actor" and "package" not in term:
                 if actor is None:
                     raise RuleError(f"'actor.{term['name']}' read without an actor")
@@ -313,8 +347,9 @@ class Machine:
             return self.get(key_of(term), actor)
         return lookup
 
-    def value(self, tree: Any, actor: str | None = None) -> Any:
-        return conditions.evaluate(tree, self._lookup(actor))
+    def value(self, tree: Any, actor: str | None = None, data: dict[str, Any] | None = None) -> Any:
+        """The value of a condition tree for ``actor``; ``data`` is the triggering event's."""
+        return conditions.evaluate(tree, self._lookup(actor, data))
 
     # -- inputs --------------------------------------------------------------------------------
 
@@ -394,7 +429,7 @@ class Machine:
         if kind == "rule":
             rule = next((r for r in self.rules if r["id"] == timer["rule"]), None)
             if rule is not None:
-                self._effects(rule, actor, queue, 0)
+                self._effects(rule, actor, queue, 0, timer.get("data"))
         elif kind == "arrive" and self.get(key) == timer["state"]:      # not reversed on the way
             thing = key.rpartition("#")[0]
             state = self.interactions[key]["states"][timer["state"]]
@@ -461,7 +496,8 @@ class Machine:
         actor = event.get("actor")
         return actor is None if who == "none" else (actor is not None and self.actor_info.get(actor, {}).get("kind") == who)
 
-    def _fire(self, rule: dict[str, Any], actor: str | None, queue: list[Event], depth: int) -> None:
+    def _fire(self, rule: dict[str, Any], actor: str | None, queue: list[Event], depth: int,
+              data: dict[str, Any] | None = None) -> None:
         if rule.get("once"):
             latch = f"once:{rule['id']}"
             store = self.actors.setdefault(actor, {}) if actor is not None else self.world
@@ -470,27 +506,31 @@ class Machine:
             store[latch] = True
         self.fired.append([rule["id"], actor])
         if rule.get("after"):
-            self._schedule(float(rule["after"]), kind="rule", rule=rule["id"], actor=actor)
+            kept = {"data": data} if data is not None and rule_reads_event(rule) else {}
+            self._schedule(float(rule["after"]), kind="rule", rule=rule["id"], actor=actor, **kept)
         else:
-            self._effects(rule, actor, queue, depth)
+            self._effects(rule, actor, queue, depth, data)
 
-    def _effects(self, rule: dict[str, Any], actor: str | None, queue: list[Event], depth: int) -> None:
+    def _effects(self, rule: dict[str, Any], actor: str | None, queue: list[Event], depth: int,
+                 data: dict[str, Any] | None = None) -> None:
         for effect in rule["do"]:
             try:
                 if "set" in effect:
-                    self._set(effect["set"], self.value(effect["to"], actor), actor, queue, depth)
+                    self._set(effect["set"], self.value(effect["to"], actor, data), actor, queue, depth)
                 elif "notify" in effect or "play" in effect:
                     kind = "notify" if "notify" in effect else "play"
                     self.feedback.append([kind, effect[kind], actor])
                 else:
+                    sent = dict(data or {}) if effect.get("forward") else {}
+                    sent.update({field: self.value(tree, actor, data) for field, tree in effect.get("data", {}).items()})
                     queue.append({"type": "signal", "subject": effect.get("subject"), "name": effect["emit"],
-                                  "actor": actor, "depth": depth + 1})
+                                  "actor": actor, "depth": depth + 1, **({"data": sent} if sent else {})})
             except (RuleError, ConditionError) as e:
                 self.errors.append(f"rule {rule['id']}: {e}")
 
-    def _holds(self, rule: dict[str, Any], actor: str | None) -> bool:
+    def _holds(self, rule: dict[str, Any], actor: str | None, data: dict[str, Any] | None = None) -> bool:
         try:
-            return "when" not in rule or conditions.truthy(self.value(rule["when"], actor))
+            return "when" not in rule or conditions.truthy(self.value(rule["when"], actor, data))
         except (RuleError, ConditionError) as e:
             self.errors.append(f"rule {rule['id']}: {e}")
             return False
@@ -508,11 +548,13 @@ class Machine:
                 actor = event.get("actor")
                 if event["type"] == "signal":
                     self.signals.append([event.get("subject"), event["name"], actor])
+                    self.signal_data.append(event.get("data") or {})
                 elif event["type"] in ("enter", "leave") and actor in self.actor_info and event.get("data", {}).get("room"):
                     self.actor_info[actor]["room"] = event["subject"] if event["type"] == "enter" else ""
+                data = event.get("data") or {}
                 for rule in self.rules:
-                    if rule.get("on") is not None and self._matches(rule["on"], event) and self._holds(rule, actor):
-                        self._fire(rule, actor, queue, depth)
+                    if rule.get("on") is not None and self._matches(rule["on"], event) and self._holds(rule, actor, data):
+                        self._fire(rule, actor, queue, depth, data)
                 self._rebind(queue, depth)
             self._rebind(queue, 0)
             self._watch(queue)
@@ -598,7 +640,8 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
     ``{"clock": {...}}``, ``{"save_load": true}`` (a round trip through a save) or
     ``{"expect": {...}}`` with any of ``state`` ({key: value}), ``actors`` ({id: {key: value}}),
     ``signals`` / ``fired`` / ``feedback`` (exactly what happened since the last expect:
-    [subject, name] pairs, rule ids, [kind, value, actor]) and ``errors`` (a count).
+    [subject, name] pairs, rule ids, [kind, value, actor]), ``signal_data`` ([subject, name, data]
+    of the same signals) and ``errors`` (a count).
     """
     if not isinstance(trace, dict):
         trace = json.loads(Path(trace).read_text())
@@ -622,10 +665,10 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
             saved = json.loads(json.dumps(machine.save()))
             for section in step["save_load"].get("without", []) if isinstance(step["save_load"], dict) else []:
                 del saved[section]
-            logs = machine.signals, machine.fired, machine.feedback, machine.errors
+            logs = machine.signals, machine.signal_data, machine.fired, machine.feedback, machine.errors
             machine = Machine(trace["program"], trace.get("actors"))
             machine.load(saved)
-            machine.signals, machine.fired, machine.feedback, machine.errors = logs    # loading is not an input: nothing fires
+            machine.signals, machine.signal_data, machine.fired, machine.feedback, machine.errors = logs    # loading is not an input: nothing fires
         elif "expect" in step:
             expect = step["expect"]
             for key, want in expect.get("state", {}).items():
@@ -639,6 +682,10 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
                 got = [s[:2] for s in machine.signals]
                 if got != expect["signals"]:
                     problems.append(f"{where}: signals {got}, expected {expect['signals']}")
+            if "signal_data" in expect:
+                got = [[s[0], s[1], d] for s, d in zip(machine.signals, machine.signal_data)]
+                if got != expect["signal_data"]:
+                    problems.append(f"{where}: signal data {got}, expected {expect['signal_data']}")
             if "fired" in expect:
                 got = [f[0] for f in machine.fired]
                 if got != expect["fired"]:
@@ -648,6 +695,7 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
             if "errors" in expect and len(machine.errors) != expect["errors"]:
                 problems.append(f"{where}: {len(machine.errors)} errors, expected {expect['errors']}: {machine.errors}")
             machine.signals, machine.fired, machine.feedback, machine.errors = [], [], [], []
+            machine.signal_data = []
         else:
             problems.append(f"{where}: unknown step {sorted(step)}")
     return problems

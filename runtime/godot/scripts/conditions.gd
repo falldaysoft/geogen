@@ -9,7 +9,7 @@ extends RefCounted
 ##                                      if (condition, then, else), in (value, candidates...)
 ##                                      min max abs round floor ceil
 ##   {"op": "all", "over": [id, ...], "where": tree}    also any, count
-##   {"get": "instance" | "world" | "actor" | "clock" | "it", ...}
+##   {"get": "instance" | "world" | "actor" | "clock" | "it" | "event", ...}
 ##
 ## Rules (shared with the reference): false, 0 and "" are false; and / or / not
 ## give a boolean; text never equals a number; ordering needs two numbers or two

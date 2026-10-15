@@ -13,7 +13,7 @@ extends RefCounted
 ##   set_clock({time, night, day})   move the clock; dusk and dawn are events
 ##   advance(seconds)            let time pass: arrivals, dwells and delayed rules, in time order
 ## and read `get_value(key, actor)`, `value(tree, actor)` and the logs `signals`
-## ([subject, name, actor]), `fired` ([rule id, actor]), `feedback` ([notify | play,
+## ([subject, name, actor]; `signal_data` holds each one's event data), `fired` ([rule id, actor]), `feedback` ([notify | play,
 ## text or sound, actor]: what rules and refused uses tell an actor) and `errors` (messages).
 ## `save()` / `load_save(data)` carry everything but bindings, which are recomputed.
 ##
@@ -51,9 +51,9 @@ extends RefCounted
 ## to it, or for a change handed to host_set, which the host already knows):
 ##   on_changed(key: String, old: Variant, new: Variant, actor: String)
 ##       a stored or bound value changed; called at the moment it does.
-##   on_signal(subject: String, name: String, actor: String)
-##       a rule's emit, a simulated arrival's emit or a refused use's "locked";
-##       called when the signal is processed (when it joins `signals`).
+##   on_signal(subject: String, name: String, actor: String, data: Dictionary)
+##       a rule's emit (with the data it gives), a simulated arrival's emit or a
+##       refused use's "locked"; called when the signal is processed (when it joins `signals`).
 ##   on_feedback(kind: String, value: String, actor: String)
 ##       a rule's notify / play, or the `refused` text of a use its `when` stopped;
 ##       called when it joins `feedback`.
@@ -84,6 +84,8 @@ var now := 0.0
 var timers: Array = []
 ## [subject, name, actor] of every signal processed.
 var signals: Array = []
+## The event data of each of `signals`, in step.
+var signal_data: Array = []
 ## [rule id, actor] of every rule fired.
 var fired: Array = []
 ## [notify | play, text or sound, actor]: never saved.
@@ -101,6 +103,7 @@ var on_feedback := Callable()
 var _bindings: Array = []           # in dependency order
 var _bound := {}                    # key -> true
 var _reads_actor := {}              # rule id -> whether its `when` reads actor state
+var _reads_event := {}              # rule id -> whether it reads its event's data (a delayed one keeps it)
 var _seq := 0
 var _fail := ""                     # set by _read / _look / _value when they return null
 var _busy := false
@@ -122,6 +125,7 @@ func _init(rules_program: Dictionary, with_actors: Dictionary = {}, host: Dictio
     rules = program.get("rules", [])
     for rule in rules:
         _reads_actor[rule["id"]] = rule.has("when") and _tree_reads_actor(rule["when"])
+        _reads_event[rule["id"]] = _rule_reads_event(rule)
     _bindings = _binding_order()
     for binding in _bindings:
         _bound[binding["set"]] = true
@@ -307,9 +311,19 @@ func _read(key: String, actor: String) -> Variant:
     return world.get(key, fallback)
 
 
-func _look(term: Dictionary, actor: String) -> Variant:
+func _look(term: Dictionary, actor: String, data: Variant) -> Variant:
     if term["get"] == "clock":
         return clock.get(term["name"])
+    if term["get"] == "event":
+        if not data is Dictionary:
+            _fail = "'event.%s': there is no event here" % term["name"]
+            return null
+        if not (data as Dictionary).has(term["name"]):
+            var fields := ", ".join(PackedStringArray((data as Dictionary).keys()))
+            _fail = "'event.%s': the event has no '%s' (it has %s)" % [term["name"], term["name"],
+                fields if fields != "" else "no data"]
+            return null
+        return data[term["name"]]
     if term["get"] == "actor" and not term.has("package"):
         if actor == "":
             _fail = "'actor.%s' read without an actor" % term["name"]
@@ -318,10 +332,11 @@ func _look(term: Dictionary, actor: String) -> Variant:
     return _read(key_of(term), actor)
 
 
-func _value(tree: Variant, actor: String) -> Variant:
+## `data` is the triggering event's data (null: no event).
+func _value(tree: Variant, actor: String, data: Variant = null) -> Variant:
     _fail = ""
     var problems: Array = []
-    var found: Variant = GeogenConditions.evaluate(tree, _look.bind(actor), problems)
+    var found: Variant = GeogenConditions.evaluate(tree, _look.bind(actor, data), problems)
     if not problems.is_empty():
         if _fail == "":
             _fail = str(problems[0])
@@ -365,7 +380,7 @@ func _timer(timer: Dictionary) -> Array:
     if kind == "rule":
         for rule in rules:
             if rule["id"] == timer["rule"]:
-                _effects(rule, actor, queue, 0)
+                _effects(rule, actor, queue, 0, timer.get("data"))
                 break
     elif kind == "arrive" and _text(_read(key, "")) == timer["state"]:    # not reversed on the way
         var state: Dictionary = interactions[key]["states"][timer["state"]]
@@ -460,7 +475,7 @@ func _matches(on: Dictionary, event: Dictionary) -> bool:
     return actor != "" and _text((actor_info.get(actor, {}) as Dictionary).get("kind")) == who
 
 
-func _fire(rule: Dictionary, actor: String, queue: Array, depth: int) -> void:
+func _fire(rule: Dictionary, actor: String, queue: Array, depth: int, data: Variant = null) -> void:
     if GeogenConditions.truthy(rule.get("once")):
         var latch := "once:%s" % rule["id"]
         var store: Dictionary = world
@@ -473,15 +488,18 @@ func _fire(rule: Dictionary, actor: String, queue: Array, depth: int) -> void:
         store[latch] = true
     fired.append([rule["id"], actor])
     if GeogenConditions.truthy(rule.get("after")):
-        _schedule(float(rule["after"]), {"kind": "rule", "rule": rule["id"], "actor": actor})
+        var timer := {"kind": "rule", "rule": rule["id"], "actor": actor}
+        if data != null and _reads_event.get(rule["id"], false):
+            timer["data"] = data
+        _schedule(float(rule["after"]), timer)
     else:
-        _effects(rule, actor, queue, depth)
+        _effects(rule, actor, queue, depth, data)
 
 
-func _effects(rule: Dictionary, actor: String, queue: Array, depth: int) -> void:
+func _effects(rule: Dictionary, actor: String, queue: Array, depth: int, data: Variant = null) -> void:
     for effect in rule["do"]:
         if effect.has("set"):
-            var to: Variant = _value(effect["to"], actor)
+            var to: Variant = _value(effect["to"], actor, data)
             var problem := _fail if to == null else _write(effect["set"], to, actor, queue, depth)
             if problem != "":           # reported and skipped: the rule's other effects still run
                 errors.append("rule %s: %s" % [rule["id"], problem])
@@ -490,8 +508,25 @@ func _effects(rule: Dictionary, actor: String, queue: Array, depth: int) -> void
         elif effect.has("play"):
             _tell("play", str(effect["play"]), actor)
         else:
-            queue.append({"type": "signal", "subject": _text(effect.get("subject")), "name": effect["emit"],
-                "actor": actor, "depth": depth + 1, "own": true})
+            var sent := {}
+            if GeogenConditions.truthy(effect.get("forward")) and data is Dictionary:
+                sent = (data as Dictionary).duplicate()
+            var given: Dictionary = effect.get("data", {})
+            var problem := ""
+            for field in given:
+                var v: Variant = _value(given[field], actor, data)
+                if v == null:
+                    problem = _fail
+                    break
+                sent[field] = v
+            if problem != "":
+                errors.append("rule %s: %s" % [rule["id"], problem])
+                continue
+            var signal_event := {"type": "signal", "subject": _text(effect.get("subject")), "name": effect["emit"],
+                "actor": actor, "depth": depth + 1, "own": true}
+            if not sent.is_empty():
+                signal_event["data"] = sent
+            queue.append(signal_event)
 
 
 func _tell(kind: String, value: String, actor: String) -> void:
@@ -513,10 +548,10 @@ func allows(key: String, actor := "") -> bool:
     return GeogenConditions.truthy(found)
 
 
-func _holds(rule: Dictionary, actor: String) -> bool:
+func _holds(rule: Dictionary, actor: String, data: Variant = null) -> bool:
     if not rule.has("when"):
         return true
-    var found: Variant = _value(rule["when"], actor)
+    var found: Variant = _value(rule["when"], actor, data)
     if found == null:
         errors.append("rule %s: %s" % [rule["id"], _fail])
         return false
@@ -538,16 +573,18 @@ func _settle(queue: Array) -> void:
                 continue
             var actor := _text(event.get("actor"))
             var subject := _text(event.get("subject"))
+            var data: Dictionary = event.get("data", {}) if event.get("data") is Dictionary else {}
             if event["type"] == "signal":
                 signals.append([subject, event["name"], actor])
+                signal_data.append(data)
                 if event.get("own", false) and on_signal.is_valid():
-                    on_signal.call(subject, str(event["name"]), actor)
+                    on_signal.call(subject, str(event["name"]), actor, data)
             elif (event["type"] == "enter" or event["type"] == "leave") and actor_info.has(actor) \
                     and GeogenConditions.truthy((event.get("data", {}) as Dictionary).get("room")):
                 actor_info[actor]["room"] = subject if event["type"] == "enter" else ""
             for rule in rules:
-                if rule.get("on") != null and _matches(rule["on"], event) and _holds(rule, actor):
-                    _fire(rule, actor, queue, depth)
+                if rule.get("on") != null and _matches(rule["on"], event) and _holds(rule, actor, data):
+                    _fire(rule, actor, queue, depth, data)
             _rebind(queue, depth)
         _rebind(queue, 0)
         _watch(queue)
@@ -599,6 +636,29 @@ func _watch(queue: Array) -> void:
 
 
 # -- the program ---------------------------------------------------------------------------
+
+static func _rule_reads_event(rule: Dictionary) -> bool:
+    if _tree_has_get(rule.get("when"), "event"):
+        return true
+    for effect in rule.get("do", []):
+        if GeogenConditions.truthy(effect.get("forward")) or _tree_has_get(effect.get("to"), "event"):
+            return true
+        for field in effect.get("data", {}):
+            if _tree_has_get(effect["data"][field], "event"):
+                return true
+    return false
+
+
+static func _tree_has_get(tree: Variant, kind: String) -> bool:
+    if typeof(tree) != TYPE_DICTIONARY:
+        return false
+    if tree.has("get"):
+        return tree["get"] == kind
+    for arg in tree.get("args", []):
+        if _tree_has_get(arg, kind):
+            return true
+    return _tree_has_get(tree.get("where"), kind)
+
 
 static func _tree_reads_actor(tree: Variant) -> bool:
     if not tree is Dictionary:

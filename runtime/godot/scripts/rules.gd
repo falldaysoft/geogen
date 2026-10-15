@@ -407,8 +407,8 @@ func _on_changed(key: String, old: Variant, new: Variant, actor: String) -> void
     world.events.post("changed", subject, var_name, actor, {"key": key, "from": old, "to": new}, "rules")
 
 
-func _on_signal(subject: String, signal_name: String, actor: String) -> void:
-    world.events.post("signal", subject, signal_name, actor, {}, "rules")
+func _on_signal(subject: String, signal_name: String, actor: String, data: Dictionary = {}) -> void:
+    world.events.post("signal", subject, signal_name, actor, data, "rules")
 
 
 ## Tell an actor something (a rule's notify / play, a refused use): prints `feedback: {...}`.

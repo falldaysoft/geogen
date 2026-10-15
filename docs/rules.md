@@ -175,6 +175,21 @@ press within its greeting's `debounce` (half a second). This is how an NPC gives
 `{on: {signal: resident.greeted, actor: player}, do: [{start_quest: ...}]}`.
 There is no separate "talk" event until dialogue needs one.
 
+**Event data.** `data` is what the event says beyond who and what: a
+`changed` event's `from` and `to`, or what a signal carries. A runtime raising a
+signal may give it data (a spawned-items source's `killed {item, value}`), a
+rule's `emit` may (`data: {field: <condition>}`), and `forward: true` on an emit
+passes on the data of the event that fired the rule (a declared signal with a
+`from` forwards its source's). A rule answering an event reads a field as
+`event.<field>` in its `when` and effects:
+`{set: world.gold, to: "world.gold + event.value"}`. Only a rule with `on` has an
+event: watches, bindings and interaction `when`s can't read it. A delayed rule
+(`after`) keeps its event's data until it runs (in a save, in the timer's
+`data`). Reading a field the event lacks is reported and the effect is skipped,
+like any failing effect. Declared signals list the fields they carry (`data:
+{value: number}` in the manifest's `state`), and the export rejects a rule that
+reads a field its event never carries.
+
 An event caused by a rule carries the actor of the event that triggered the
 rule. So "the player pulled the lever, which opened the gate" keeps the player
 as the actor all the way down.
@@ -352,6 +367,7 @@ rules:
       - {set: gate.gate, to: open}      # <thing>.<state> | world.<name> | actor.<name>
       - {input: lamp.light, value: true}
       - {emit: opened, of: gate}
+      - {emit: paid, data: {value: "event.value * 2"}}   # a signal with data
       - {start_quest: lights_out}       # also fail_quest, complete_objective (quests.md)
       - {reset: puzzle_a}               # it and everything in it as it started; also a selector
       - {reset_quest: lights_out}       # the quest back to where it started, for the actor
@@ -369,6 +385,8 @@ bind:
   `{use: <thing>[.<interaction>]}`, `{changed: <state>, to}`, `{start: true}`,
   `{clock: night | day}`, `{travel: true | <scene>}`, each with an optional
   `actor: player | npc | none | any`.
+- **`event.<field>`** in a rule's `when`, `to` or emit `data` (and a wire's
+  `when` / `value`) reads the data of the event it answers (see "Events").
 - **In a scene** names are references from that scene. **In an asset** they are
   relative to it and every placed instance gets its own copy: `self` is the
   instance (`self.lit`, `{signal: self.pulled}`), other names are things inside it.
