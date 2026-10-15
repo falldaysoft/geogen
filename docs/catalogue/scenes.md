@@ -507,10 +507,11 @@ rules layer in one small yard. In the runtime catalogue's test group.
   is bound to the clock and the puzzles (`bind`).
 - Stepping into the yard's middle greets you once (a place, `once`), and the
   quest (quests/two_levers.yaml) walks the whole thing.
+- The lever by the sign puts it all back as it started (`reset`, `reset_quest`).
 ```
 
-**Places**: `ground: {asset: plaza.yaml}`; `puzzle_a: {scene: lever_puzzle.yaml}`; `puzzle_b: {scene: lever_puzzle.yaml}`; `barrier: {asset: crossing_barrier.yaml}`; `barrier_lamp: {asset: floor_lamp.yaml}`; `board: {asset: switch_board.yaml}`; `switch: {asset: light_switch.yaml}`; `switch_lamp: {asset: floor_lamp.yaml}`; `sign: {asset: info_plinth.yaml}`
+**Places**: `ground: {asset: plaza.yaml}`; `puzzle_a: {scene: lever_puzzle.yaml}`; `puzzle_b: {scene: lever_puzzle.yaml}`; `barrier: {asset: crossing_barrier.yaml}`; `barrier_lamp: {asset: floor_lamp.yaml}`; `board: {asset: switch_board.yaml}`; `switch: {asset: light_switch.yaml}`; `switch_lamp: {asset: floor_lamp.yaml}`; `sign: {asset: info_plinth.yaml}`; `reset_lever: {asset: lever.yaml}`
 
-**Slots**: barrier, barrier_lamp, puzzle_a, puzzle_b, sign, switch, switch_lamp, switch_post
+**Slots**: barrier, barrier_lamp, puzzle_a, puzzle_b, reset_lever, sign, switch, switch_lamp, switch_post
 
 **Spawns**: start

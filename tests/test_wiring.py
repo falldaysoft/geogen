@@ -405,3 +405,43 @@ def test_exported_puzzles_validate(puzzles, tmp_path):
         manifest = json.loads(manifest_path(export_scene(root, tmp_path / name / f"{name}.glb")).read_text())
         jsonschema.validate(manifest["state"], schema)
     assert "puzzle:#solved" in manifest["state"]["variables"]
+
+
+def test_reset_puts_a_puzzle_back_as_it_started(puzzles):
+    """reset: a thing (and what is in it) back to its defaults; reset_quest: a quest (geogen.40.5)."""
+    rewrite(puzzles, "puzzles", "wire:\n", """rules:
+  - id: retry
+    on: {signal: puzzle_b.done}
+    after: 1
+    do: [{reset: puzzle_a}, {reset_quest: stand}]
+  - id: everything
+    on: {clock: night}
+    do: [{reset: "[tag=gate]"}]
+quests: [quests/stand.yaml]
+wire:
+""")
+    (puzzles / "puzzles.yaml").write_text((puzzles / "puzzles.yaml").read_text().replace(
+        "  gate:     {asset: gate.yaml, slot: c}", "  gate:     {asset: gate.yaml, slot: c, tags: [gate]}\n"
+        "  lamp:     {asset: lamp.yaml, slot: c}\nbind:\n  lamp.lit: \"puzzle_a.solved\""))
+    found = collect(SceneComposer(assets_dir=puzzles).compose(puzzles / "puzzles.yaml"), "puzzles")
+    retry = next(r for r in found.wiring if r["id"] == "retry")
+    keys = [e["set"] for e in retry["do"]]
+    assert {"puzzles:puzzle_a#solved", "puzzles:puzzle_a/lever#pull", "puzzles:puzzle_a/lever#pull_locked"} <= set(keys)
+    assert "puzzles:puzzle_b#solved" not in keys and "actor:puzzles.quest_stand" in keys
+    assert all("_reset" not in e for r in found.wiring for e in r["do"])
+
+    machine = Machine(found.program(), ACTORS)
+    machine.set("actor:puzzles.quest_stand", "active", "player")
+    machine.use("puzzles:puzzle_a/lever#pull", "player")
+    machine.advance(0.6)
+    assert machine.get("puzzles:puzzle_a#solved") is True and machine.get("puzzles:lamp#lit") is True
+    machine.advance(2.1)                                                     # the gate opens: b is reset
+    assert machine.get("puzzles:puzzle_b#solved") is False
+    machine.set("puzzles:puzzle_b#solved", True, "player")                  # b done: a is reset a second later
+    machine.advance(1.0)
+    assert machine.get("puzzles:puzzle_a#solved") is False and machine.get("puzzles:puzzle_a/lever#pull") == "up"
+    assert machine.get("puzzles:lamp#lit") is False                          # bound: it follows, never set
+    assert machine.get("actor:puzzles.quest_stand", "player") == "available"
+    machine.set("puzzles:gate#gate", "open")
+    machine.set_clock(night=True)
+    assert machine.get("puzzles:gate#gate") == "closed" and machine.errors == []

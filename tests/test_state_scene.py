@@ -49,6 +49,12 @@ def test_the_state_test_scene_in_the_reference_machine(found):
     m.post({"type": "enter", "subject": f"{P}:beyond", "actor": "player"})
     assert found.status(m, "two_levers", "player") == "complete" and m.errors == []
 
+    assert m.use(f"{P}:reset_lever#pull", "player")
+    m.advance(0.7)                                                         # pulled: all of it, as it started
+    assert (m.get(f"{A}#solved"), m.get(f"{B}#solved"), m.get(LEVER_A)) == (False, False, "up")
+    assert m.get(f"{B}/lever#enabled") is False and m.get(f"{P}:barrier#barrier") == "down"
+    assert found.status(m, "two_levers", "player") in ("available", "active") and m.errors == []
+
 
 def test_the_state_test_scene_in_godot(scene_export, godot_runtime):
     rt = godot_runtime(P, scene_export(P))

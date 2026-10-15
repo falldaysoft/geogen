@@ -46,7 +46,7 @@ from . import conditions, refs, roots
 from .conditions import ConditionError
 from .core.node import SceneNode
 from .rules import SOUNDS
-from .state import Declarations, StateError, fits
+from .state import LOCKED, Declarations, StateError, fits
 
 KIND = "quest"
 FORMAT = "geogen-quests"
@@ -81,6 +81,9 @@ EFFECTS = {
     "start_quest": "start a quest (by id) for the actor, if it is available to them",
     "fail_quest": "fail an active quest",
     "complete_objective": "<quest>.<objective>: mark an open objective done",
+    "reset": "<thing> or a selector: it and everything in it back to how it started (interactions, locks, "
+             "declared variables), so a puzzle can be tried again",
+    "reset_quest": "a quest back to where it started for the actor: its status, objectives and counts",
     "notify": "text to show the actor (a HUD toast)",
     "play": "a sound to play for the actor: " + ", ".join(SOUNDS),
 }
@@ -363,6 +366,12 @@ class Quests:
         if "fail_quest" in spec:
             status = self._quest(str(spec["fail_quest"]))["status"]
             return [{"set": status, "to": _either(_is(status, "active"), "failed", _term(status))}]
+        if "reset_quest" in spec:
+            quest = self._quest(str(spec["reset_quest"]))
+            spec_of = self.declarations.spec
+            keys = [quest["status"], *(o["done"] for o in quest["objectives"]),
+                    *(o["count"] for o in quest["objectives"] if o.get("count"))]
+            return [{"set": key, "to": spec_of(key)["default"]} for key in keys if spec_of(key) is not None]
         if "complete_objective" in spec:
             name, _, objective = str(spec["complete_objective"]).partition(".")
             quest = self._quest(name)
@@ -375,7 +384,8 @@ class Quests:
             opened = _all(_is(quest["status"], "active"), *(_term(latches[a]) for a in entry["after"]))
             out = [{"set": entry["done"], "to": {"op": "or", "args": [_term(entry["done"]), opened]}}]
             return out if entry["optional"] else [*out, self._completes(quest)]
-        raise QuestError(f"not a quest effect: {sorted(spec)} (start_quest, fail_quest, complete_objective)")
+        raise QuestError(f"not a quest effect: {sorted(spec)} (start_quest, fail_quest, complete_objective, "
+                         f"reset_quest)")
 
     def program(self, rules: Iterable[dict[str, Any]] = (), bindings: Iterable[dict[str, Any]] = ()) -> dict[str, Any]:
         """The rules program (``geogen.rules``) of the package: declared signals, the scene's
@@ -495,6 +505,36 @@ class _Compiler:
             raise QuestError(f"'{text}' is a plain part, which has no ID: name an asset, a place, a room, "
                              f"or something tagged or with interactions")
         return self.uid(node), node, ref.member
+
+    def reset(self, quest: _Quest, text: Any) -> list[dict[str, Any]]:
+        """``reset: <thing or selector>`` as ``set`` effects: every interaction, lock and declared
+        variable of the things and of everything inside them back to its default. Bound and
+        runtime-driven state is left out (``_unbound`` drops what bindings turn out to own)."""
+        if isinstance(text, str) and "[" in text and text != "self" and not self.by_name:
+            try:
+                base = self.scene_of(text) if self.trees is not None else quest.node
+                nodes = refs.select(base, text)
+            except refs.RefError as exc:
+                raise QuestError(exc.message) from None
+            things = [n.meta["uid"] if self.trees is not None else self.uid(n) for n in nodes
+                      if (self.trees is not None and "uid" in n.meta) or (self.trees is None and refs.identified(n))]
+            if not things:
+                raise QuestError(f"reset: '{text}' matches nothing with state")
+        else:
+            things = [self.thing(quest, text)[0]]
+        out: dict[str, Any] = {}
+        decls = self.decls
+        owned = lambda key: any(key.rpartition("#")[0] == t or key.startswith(t + "/") for t in things)
+        for key, spec in decls.variables.items():
+            if "#" in key and owned(key) and not spec.get("driven"):
+                out[key] = spec["default"]
+        for key, machine in decls.interactions.items():
+            if owned(key):
+                out[key] = machine["initial"]
+                out[f"{key}{LOCKED}"] = bool(machine.get("locked", False))
+        if not out:
+            raise QuestError(f"reset: '{text}' has no state to reset")
+        return [{"set": key, "to": value, "_reset": True} for key, value in out.items()]
 
     def condition(self, quest: _Quest, text: Any) -> Tree:
         """A condition compiled and resolved; QuestError for one that can't be, or that reads
@@ -688,6 +728,8 @@ class _Compiler:
                     subject = (self.thing(quest, effect["of"])[0] if "of" in effect
                                else self.uid(quest.node) if quest.node is not None else f"{self.package}:")
                     out.append({"emit": effect["emit"], "subject": subject})
+                elif kind == "reset":
+                    out.extend(self.reset(quest, effect["reset"]))
                 elif kind == "notify":
                     if not isinstance(effect["notify"], str) or not effect["notify"].strip():
                         raise QuestError("notify takes the text to show")
@@ -1019,6 +1061,7 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
                                  "on": {"type": "changed", "key": quest.status, "to": "complete"}, "do": do})
                 compiler.out.written[f"quest:{quest.id}:rewards"] = quest.where("rewards")
         compiler.out.rules.extend(rules_of)
+    _unbound(compiler.out)
     compiler.heard()
     if not compiler.problems:
         compiler.causes()
@@ -1030,6 +1073,15 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     if compiler.problems:
         raise QuestError("\n".join(compiler.problems))
     return compiler.out
+
+
+def _unbound(out: Quests) -> None:
+    """Drop the ``set`` effects a ``reset`` wrote for variables a binding owns (bindings are
+    compiled after the rules that reset things)."""
+    bound = {b["set"] for b in out.bindings}
+    for rule in [*out.wiring, *out.rules]:
+        rule["do"] = [{k: v for k, v in e.items() if k != "_reset"} for e in rule["do"]
+                      if not (e.get("_reset") and e["set"] in bound)]
 
 
 def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ()) -> Quests:

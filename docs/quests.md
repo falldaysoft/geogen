@@ -75,7 +75,9 @@ rewards:
   someone else entering the gallery does nothing.
 
 **Effects** that other content uses to drive a quest: `{start_quest: id}`,
-`{fail_quest: id}`, `{complete_objective: quest.objective}`. A rule on any event
+`{fail_quest: id}`, `{complete_objective: quest.objective}`, and `{reset_quest: id}`
+(status, objectives and counts back to where they started, for the actor; with
+`{reset: <thing>}` it is how a puzzle is tried again). A rule on any event
 can give a quest (entering a place, another quest's rewards). An NPC gives one
 when the player greets it (E): the NPC raises the signal `greeted` with the
 greeter as the actor ([rules.md](rules.md), "Events"), and a scene rule starts

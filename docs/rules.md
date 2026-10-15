@@ -340,6 +340,8 @@ rules:
       - {input: lamp.light, value: true}
       - {emit: opened, of: gate}
       - {start_quest: lights_out}       # also fail_quest, complete_objective (quests.md)
+      - {reset: puzzle_a}               # it and everything in it as it started; also a selector
+      - {reset_quest: lights_out}       # the quest back to where it started, for the actor
       - {notify: "The gate grinds open"}  # tell the actor; {play: success} for a sound
     after: 2
     once: true
