@@ -246,6 +246,25 @@ rules:
     do: [{notify: "It won't budge"}, {play: refused}]
 ```
 
+## Items
+
+What an actor carries is actor state: one number per item, `actor:<pkg>.item_<id>`,
+where `<id>` names an item file (`items/<id>.yaml`, the same `kind: item` files spawned
+items use, with an optional `title` and `tags` for an inventory). Nothing new runs it:
+
+- `has("parcel")` in a condition is `actor.item_parcel >= 1`, and `held("parcel")`
+  is the count.
+- The effects `{give: parcel, count: 2}` and `{take: parcel}` compile to `set`
+  effects on the rule's actor: `item + n`, and `max(item - n, 0)`, so a take never
+  goes below none.
+- An item's variable is declared the first time a rule, binding or quest of the
+  package names it, and naming an item with no file is an export error. The
+  compiled quests list the items they name (`Quests.items`: title, tags).
+
+Giving something to someone else is a take from the giver in a rule on whatever
+event stands for the handing over (greeting an NPC, using a counter). Trace
+`items.json`.
+
 ## Bindings
 
 `{"set": key, "to": <condition tree>}` is a standing relation: the variable

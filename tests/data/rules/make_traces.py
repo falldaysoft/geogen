@@ -177,6 +177,30 @@ traces["actor_id"] = {
                                "player": {"actor:demo.chosen": False}}, "errors": 0}},
     ]}
 
+held = {"get": "actor", "package": "demo", "name": "item_parcel"}
+traces["items"] = {
+    "about": "Carried items are actor state counted per actor (geogen.18): give adds, take never goes below none, has() reads it.",
+    "program": program(
+        variables={"actor:demo.item_parcel": {"type": "number", "default": 0},
+                   "actor:demo.delivered": {"type": "bool", "default": False}},
+        rules=[{"id": "give", "on": {"type": "signal", "subject": "demo:shelf", "name": "taken"},
+                "do": [{"set": "actor:demo.item_parcel", "to": {"op": "+", "args": [held, 1]}}]},
+               {"id": "take", "on": {"type": "signal", "subject": "demo:guest", "name": "greeted"},
+                "when": c('has("parcel")'),
+                "do": [{"set": "actor:demo.item_parcel", "to": {"op": "max", "args": [{"op": "-", "args": [held, 2]}, 0]}},
+                       {"set": "actor:demo.delivered", "to": True}]}]),
+    "actors": {"player": {"kind": "player"}, "npc:a": {"kind": "npc"}},
+    "steps": [
+        {"event": {"type": "signal", "subject": "demo:guest", "name": "greeted", "actor": "player"}},
+        {"expect": {"actors": {"player": {"actor:demo.delivered": False}}, "fired": []}},
+        {"event": {"type": "signal", "subject": "demo:shelf", "name": "taken", "actor": "player"}},
+        {"expect": {"actors": {"player": {"actor:demo.item_parcel": 1}, "npc:a": {"actor:demo.item_parcel": 0}},
+                    "fired": ["give"]}},
+        {"event": {"type": "signal", "subject": "demo:guest", "name": "greeted", "actor": "player"}},
+        {"expect": {"actors": {"player": {"actor:demo.item_parcel": 0, "actor:demo.delivered": True}},
+                    "fired": ["take"], "errors": 0}},
+    ]}
+
 traces["time"] = {
     "about": "Delayed rules, a door that closes itself, locks, the clock, and a save in the middle of it all.",
     "program": program(

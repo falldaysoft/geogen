@@ -69,6 +69,11 @@ ACTOR_BUILTINS = {
     "id": "the actor's stable ID (\"player\" for the player, an NPC's placement ID)",
 }
 ROOTS = ("world", "actor", "clock", "self", "it", "event")
+ITEM_PREFIX = "item_"       # an item an actor carries is the actor variable item_<id> (a count)
+ITEM_CALLS = {
+    "has": 'has("<item>"): the actor carries at least one (actor.item_<item> >= 1)',
+    "held": 'held("<item>"): how many the actor carries (actor.item_<item>)',
+}
 QUANTIFIERS = ("all", "any", "count")
 
 _BINARY = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/"}
@@ -164,6 +169,12 @@ def _compile(node: ast.AST, params: dict[str, Any], inside: bool) -> Tree:
         return parts[0] if len(parts) == 1 else {"op": "and", "args": parts}
     if isinstance(node, ast.Call):
         name = node.func.id if isinstance(node.func, ast.Name) else None
+        if name in ITEM_CALLS:
+            if (node.keywords or len(node.args) != 1 or not isinstance(node.args[0], ast.Constant)
+                    or not isinstance(node.args[0].value, str) or not node.args[0].value.isidentifier()):
+                raise ConditionError(f"'{ast.unparse(node)}': write {name}(\"<item>\") with an item's id")
+            term = {"get": "actor", "name": ITEM_PREFIX + node.args[0].value}
+            return term if name == "held" else {"op": ">=", "args": [term, 1]}
         if name in QUANTIFIERS:
             if inside:
                 raise ConditionError(f"'{ast.unparse(node)}': {name}() can't be nested in another all / any / count")
@@ -174,7 +185,7 @@ def _compile(node: ast.AST, params: dict[str, Any], inside: bool) -> Tree:
         if name in _FUNCTIONS and node.args and not node.keywords:
             return {"op": name, "args": [sub(a) for a in node.args]}
         raise ConditionError(f"unsupported call '{ast.unparse(node)}' "
-                             f"(allowed: {', '.join(sorted(_FUNCTIONS) + list(QUANTIFIERS))}, ref)")
+                             f"(allowed: {', '.join(sorted(_FUNCTIONS) + list(QUANTIFIERS) + list(ITEM_CALLS))}, ref)")
     raise ConditionError(f"unsupported syntax '{ast.unparse(node)}'")
 
 

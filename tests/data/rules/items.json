@@ -1,0 +1,162 @@
+{
+ "name": "items",
+ "about": "Carried items are actor state counted per actor (geogen.18): give adds, take never goes below none, has() reads it.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.item_parcel": {
+    "type": "number",
+    "default": 0
+   },
+   "actor:demo.delivered": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "rules": [
+   {
+    "id": "give",
+    "on": {
+     "type": "signal",
+     "subject": "demo:shelf",
+     "name": "taken"
+    },
+    "do": [
+     {
+      "set": "actor:demo.item_parcel",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "actor",
+         "package": "demo",
+         "name": "item_parcel"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "take",
+    "on": {
+     "type": "signal",
+     "subject": "demo:guest",
+     "name": "greeted"
+    },
+    "when": {
+     "op": ">=",
+     "args": [
+      {
+       "get": "actor",
+       "name": "item_parcel",
+       "package": "demo"
+      },
+      1
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.item_parcel",
+      "to": {
+       "op": "max",
+       "args": [
+        {
+         "op": "-",
+         "args": [
+          {
+           "get": "actor",
+           "package": "demo",
+           "name": "item_parcel"
+          },
+          2
+         ]
+        },
+        0
+       ]
+      }
+     },
+     {
+      "set": "actor:demo.delivered",
+      "to": true
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:a": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:guest",
+    "name": "greeted",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.delivered": false
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:shelf",
+    "name": "taken",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.item_parcel": 1
+     },
+     "npc:a": {
+      "actor:demo.item_parcel": 0
+     }
+    },
+    "fired": [
+     "give"
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:guest",
+    "name": "greeted",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.item_parcel": 0,
+      "actor:demo.delivered": true
+     }
+    },
+    "fired": [
+     "take"
+    ],
+    "errors": 0
+   }
+  }
+ ]
+}

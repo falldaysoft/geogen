@@ -538,3 +538,24 @@ def test_level_crossing_has_the_timed_quest(built_scene):
     machine.set(train, True)
     stand(machine, "player")
     assert status() == "complete"
+
+
+def test_items_are_actor_state_given_and_taken_by_effects():
+    """geogen.18.1: has("parcel") reads the actor's count of items/parcel.yaml, declared on first
+    use; give / take compile to set effects (take never below none). Unknown items are errors."""
+    fetch = {"id": "fetch", "title": "Fetch", "start": "auto",
+             "objectives": [{"id": "get", "text": "Find the parcel", "done": 'has("parcel")'}],
+             "rewards": [{"take": "parcel"}, {"take": "parcel"}, {"give": "rover", "count": 2}]}
+    compiled, machine = run(fetch)
+    assert compiled.items == {"parcel": {"title": "Parcel"}, "rover": {"title": "Rover"}}
+    spec = compiled.declarations.spec("actor:demo.item_parcel")
+    assert spec == {"type": "number", "default": 0}
+    machine.set("actor:demo.item_parcel", 1, "player")
+    assert machine.get("actor:demo.quest_fetch", "player") == "complete"
+    assert machine.get("actor:demo.item_parcel", "player") == 0             # taken twice, held one
+    assert machine.get("actor:demo.item_rover", "player") == 2
+    assert machine.get("actor:demo.item_rover", "npc:ann") == 0             # one count per actor
+    with pytest.raises(QuestError, match="no item 'parcle'.*parcel"):
+        compile_quests([{**fetch, "rewards": [{"give": "parcle"}]}], declarations())
+    with pytest.raises(QuestError, match="whole number"):
+        compile_quests([{**fetch, "rewards": [{"give": "rover", "count": 0}]}], declarations())

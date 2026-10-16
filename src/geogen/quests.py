@@ -86,6 +86,8 @@ EFFECTS = {
     "reset": "<thing> or a selector: it and everything in it back to how it started (interactions, locks, "
              "declared variables), so a puzzle can be tried again",
     "reset_quest": "a quest back to where it started for the actor: its status, objectives and counts",
+    "give": "an item (its file's id: items/<id>.yaml) for the actor to carry; `count` (default 1)",
+    "take": "an item the actor carries, taken away; `count` (default 1; never below none)",
     "notify": "text to show the actor (a HUD toast)",
     "play": "a sound to play for the actor: " + ", ".join(SOUNDS),
 }
@@ -335,6 +337,7 @@ class Quests:
         self.written: dict[str, str] = {}               # rule id (bind:<key>) -> where it was written
         self.hud: dict[str, Any] = {}                   # the manifest's `hud` (geogen.hud), compiled
         self.warnings: list[str] = []                   # what an export prints but doesn't refuse
+        self.items: dict[str, dict[str, Any]] = {}      # id -> {title, tags?}: the items its rules name
 
     def __bool__(self) -> bool:
         return bool(self.quests)
@@ -546,6 +549,10 @@ class _Compiler:
         state nobody declares."""
         try:
             tree = conditions.compile_condition(text)
+            for node in conditions.walk(tree):      # has("parcel"): the item's count, declared on first use
+                if node.get("get") == "actor" and "package" not in node \
+                        and str(node.get("name", "")).startswith(conditions.ITEM_PREFIX):
+                    self.item(node["name"][len(conditions.ITEM_PREFIX):])
             if self.by_name:
                 for node in conditions.walk(tree):
                     if node.get("get") == "ref":
@@ -582,6 +589,25 @@ class _Compiler:
                             raise QuestError(f"'{_shown(key)}' is never '{value}'.{refs._near(value, spec['choices'])} "
                                              f"It is one of: {', '.join(spec['choices'])}")
         return tree
+
+    def item(self, item: str) -> str:
+        """The actor variable counting ``item`` (``items/<item>.yaml``), declared the first time
+        anything names it; QuestError for an item there is no file for."""
+        key = f"actor:{self.package}.{conditions.ITEM_PREFIX}{item}"
+        if self.decls.spec(key) is None:
+            from .flows import FlowError, carried
+
+            path = roots.find(f"items/{item}.yaml")
+            if not path.is_file():
+                known = [p.stem for p in roots.glob("items/*.yaml")]
+                raise QuestError(f"no item '{item}'.{refs._near(item, known)} "
+                                 + (f"Items: {', '.join(known)}" if known else "There are no items/*.yaml"))
+            try:
+                self.out.items[item] = carried(path)
+            except FlowError as exc:
+                raise QuestError(str(exc)) from None
+            self.decls.declare(key, {"type": "number", "default": 0})
+        return key
 
     def key(self, quest: _Quest, text: Any) -> str:
         """The variable key of ``<thing>.<state>``, ``world.<name>`` or ``actor.<name>``."""
@@ -745,7 +771,8 @@ class _Compiler:
                 if len(kinds) != 1:
                     raise QuestError(f"an effect is one of {', '.join(EFFECTS)}")
                 kind = kinds[0]
-                unknown = set(effect) - {kind, *({"set": ["to"], "emit": ["of", "data"], "input": ["value"]}.get(kind, []))}
+                unknown = set(effect) - {kind, *({"set": ["to"], "emit": ["of", "data"], "input": ["value"],
+                                                  "give": ["count"], "take": ["count"]}.get(kind, []))}
                 if unknown:
                     raise QuestError(f"unknown keys {sorted(unknown)} on a {kind} effect")
                 if kind == "set":
@@ -792,6 +819,16 @@ class _Compiler:
                     out.append({"emit": effect["emit"], "subject": subject, **({"data": compiled} if compiled else {})})
                 elif kind == "reset":
                     out.extend(self.reset(quest, effect["reset"]))
+                elif kind in ("give", "take"):
+                    count = effect.get("count", 1)
+                    if not isinstance(effect[kind], str) or not effect[kind].isidentifier():
+                        raise QuestError(f"{kind} takes an item's id (items/<id>.yaml), got {effect[kind]!r}")
+                    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                        raise QuestError(f"count is a whole number of items, got {count!r}")
+                    key = self.item(effect[kind])
+                    held = {"get": "actor", "package": self.package, "name": conditions.ITEM_PREFIX + effect[kind]}
+                    out.append({"set": key, "to": {"op": "+", "args": [held, count]} if kind == "give" else
+                                {"op": "max", "args": [{"op": "-", "args": [held, count]}, 0]}})
                 elif kind == "notify":
                     if not isinstance(effect["notify"], str) or not effect["notify"].strip():
                         raise QuestError("notify takes the text to show")

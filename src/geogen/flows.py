@@ -50,6 +50,9 @@ MODES = ("physics", "belt", "walk")
 ITEM_KEYS = {
     "kind": "item",
     "name": "the item's name (default: the file's)",
+    "title": "what it is called when carried (\"Room key\"; default: the name, capitalised): items are also "
+             "what actors carry (give / take effects, has(\"<item>\") conditions)",
+    "tags": "[tag, ...] for the inventory (key, quest)",
     "body": "the asset each copy is: a file, or {asset, params}",
     "mode": "physics (a rigid body: the body has physics:) | belt | walk (along a track)",
     "data": "{field: number or text}: what each copy carries (value, hp, harm): signals give it to rules",
@@ -88,6 +91,20 @@ class FlowError(ValueError):
 
 
 # ---- items --------------------------------------------------------------------------------------
+
+def carried(path: str | Path) -> dict[str, Any]:
+    """What an inventory shows of the item file ``path``: ``{title, tags?}`` (geogen.18). The
+    file is checked as ``load_item`` checks it."""
+    from .layout.yaml_utils import safe_load_path
+
+    item = load_item(path)
+    spec = safe_load_path(path) or {}
+    tags = spec.get("tags") or []
+    if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
+        raise FlowError(f"{path}: tags is a list of words")
+    title = spec.get("title") or item["name"].replace("_", " ").capitalize()
+    return {"title": str(title), **({"tags": list(tags)} if tags else {})}
+
 
 def load_item(path: str | Path) -> dict[str, Any]:
     """A ``kind: item`` file, normalised (``body`` as ``{asset, params}``)."""
