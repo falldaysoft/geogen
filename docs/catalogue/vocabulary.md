@@ -156,11 +156,11 @@ Keys: `body`, `description`, `extends`, `name`, `params`, `tags`, `variants`
 
 ### dialogue
 
+A conversation: passages of text with choices that can test conditions, run effects and jump.
 
+Use: `dialogues: [dialogues/receptionist.yaml]   (a scene key; see docs/rules.md)`
 
-Use: ``
-
-Keys: `anchor`, `passages`, `start`, `title`
+Keys: `anchor`, `id`, `once`, `open`, `passages`, `start`, `title`
 
 | File | What it is |
 | --- | --- |

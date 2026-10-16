@@ -40,12 +40,9 @@ from .layout.schema import (
 )
 from .layout.yaml_utils import safe_load, safe_load_path
 
-ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
+ASSETS_DIR = roots.CORE
 FORMAT = "geogen-describe"
 VERSION = 1
-
-# Asset libraries in subdirectories; their assets are placed as `<dir>/<name>.yaml`.
-ASSET_SUBDIRS = ("vehicles", "characters")
 
 # Catalogue sections, by the head of an asset's first recognised tag.
 CATEGORIES = {
@@ -102,6 +99,9 @@ KINDS: dict[str, dict[str, str]] = {
     "quest": {"doc": "A quest: objectives done by conditions or events, compiled to actor state and rules.",
               "use": "quests: [quests/lighthouse_gallery.yaml]   (a scene key; see docs/quests.md)",
               "keys": "geogen.quests:QUEST_KEYS"},
+    "dialogue": {"doc": "A conversation: passages of text with choices that can test conditions, run effects and jump.",
+                 "use": "dialogues: [dialogues/receptionist.yaml]   (a scene key; see docs/rules.md)",
+                 "keys": "geogen.dialogue:DIALOGUE_KEYS"},
     "package": {"doc": "A content package: state, rules and quests that span the scenes it names.",
                 "use": "packages: [name]   (in runtime_scenes.yaml; see docs/rules.md, Content packages)",
                 "keys": "geogen.content:PACKAGE_KEYS"},
@@ -195,21 +195,7 @@ def _params(data: dict[str, Any], text: str) -> dict[str, dict[str, Any]]:
 
 def asset_files(assets_dir: Path = ASSETS_DIR) -> dict[str, tuple[str, Path]]:
     """Every asset and scene file: ``{name: ("asset" | "scene", path)}`` (data files with a ``kind:`` are skipped)."""
-    out: dict[str, tuple[str, Path]] = {}
-    for path in roots.glob("*.yaml", assets_dir):
-        data = safe_load_path(path)
-        if isinstance(data, dict) and "kind" not in data:
-            out[path.stem] = ("scene" if {"place", "city"} & set(data) else "asset", path)
-    for sub in ASSET_SUBDIRS:
-        for path in roots.glob(f"{sub}/*.yaml", assets_dir):
-            data = safe_load_path(path)
-            if isinstance(data, dict) and "kind" not in data:
-                out.setdefault(path.stem, ("asset", path))
-    for path in roots.glob("scenes/*.yaml", assets_dir):
-        out.setdefault(path.stem, ("scene", path))
-    for path in roots.glob(f"scenes/*/{roots.SCENE_FILE}", assets_dir):      # scene folders
-        out.setdefault(path.parent.name, ("scene", path))
-    return out
+    return roots.content_files(assets_dir)
 
 
 def category_of(name: str, tags: list[str], file: str) -> str:

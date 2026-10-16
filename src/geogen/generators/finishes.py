@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 
+from .. import roots
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.profile import Shape, rect
@@ -193,8 +194,6 @@ def _switch_asset(material_loader) -> SceneNode:
     what the player aims at), rocker and ``switch`` interaction as a switch placed in a scene.
     One layout loader per material loader, so a plan's switches share their meshes and use
     the plan's own materials (one ``paint_white``, not a second copy)."""
-    from pathlib import Path
-
     from ..layout.loader import LayoutLoader
 
     layout = _switch_loaders.get(material_loader)
@@ -202,7 +201,7 @@ def _switch_asset(material_loader) -> SceneNode:
         layout = LayoutLoader()
         layout._material_loader = material_loader
         _switch_loaders[material_loader] = layout
-    return layout.load(Path(__file__).parents[3] / "assets" / SWITCH_ASSET)
+    return layout.load(roots.find(SWITCH_ASSET))
 
 
 def _switch(name: str, door: dict[str, Any], hx: float, hz: float, swings: list[dict], loader) -> SceneNode | None:

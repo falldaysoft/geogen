@@ -47,9 +47,9 @@ from typing import Any
 import numpy as np
 
 from . import roots
-from .layout.yaml_utils import safe_load_path
+from .layout.yaml_utils import load_kind
 
-ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
+ASSETS_DIR = roots.CORE
 
 ARCHETYPE_KIND = "archetype"
 VERSION = 1
@@ -96,12 +96,7 @@ def draw_params(params: dict[str, Any] | None, rng: np.random.Generator) -> dict
 
 @lru_cache(maxsize=64)
 def _load(path: str) -> dict[str, Any]:
-    data = safe_load_path(path) or {}
-    if data.get("kind") != ARCHETYPE_KIND or int(data.get("version", 0)) != VERSION:
-        raise ValueError(f"{path}: expected kind '{ARCHETYPE_KIND}' version {VERSION}")
-    unknown = set(data) - ARCHETYPE_KEYS
-    if unknown:
-        raise ValueError(f"{path}: unknown keys {sorted(unknown)}; known: {sorted(ARCHETYPE_KEYS)}")
+    data = load_kind(path, ARCHETYPE_KIND, VERSION, ARCHETYPE_KEYS)
     params: dict[str, Any] = {}
     body = None
     tags: list[str] = []

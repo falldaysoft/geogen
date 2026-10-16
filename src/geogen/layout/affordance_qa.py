@@ -196,7 +196,7 @@ def stage_actors(scene: SceneNode, body=None, loader=None, assets_dir: Path | No
 def _defaults(loader, assets_dir):
     from .loader import LayoutLoader
 
-    return loader or LayoutLoader(), Path(assets_dir or Path(__file__).parents[3] / "assets")
+    return loader or LayoutLoader(), Path(assets_dir or roots.CORE)
 
 
 # --- checks ------------------------------------------------------------------------------------

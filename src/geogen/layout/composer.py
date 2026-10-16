@@ -150,11 +150,7 @@ class SceneComposer:
             from .cache import PrototypeCache
 
             self._disk_cache = PrototypeCache(cache_dir)
-        if assets_dir is None:
-            # Default to project's assets directory
-            self._assets_dir = Path(__file__).parent.parent.parent.parent / "assets"
-        else:
-            self._assets_dir = Path(assets_dir)
+        self._assets_dir = Path(assets_dir) if assets_dir is not None else roots.CORE
 
     def compose(self, path: str | Path, params: dict[str, float] | None = None) -> SceneNode:
         """Load and compose a scene from a YAML file.

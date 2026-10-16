@@ -4,7 +4,7 @@ Vehicle assets, the lane graph and signals, moving traffic, railways and trains,
 
 ## Vehicles
 
-`assets/vehicles/*.yaml` are registered by stem (`-s car`); `vehicle_lineup` is the review scene. The assets are:
+`assets/vehicles/*.yaml` (like every `roots.ASSET_SUBDIRS` library) are registered by stem (`-s car`); `vehicle_lineup` is the review scene. The assets are:
 - `car.yaml`, with presets sedan, hatchback, estate and taxi;
 - `van.yaml`;
 - `bus.yaml`.

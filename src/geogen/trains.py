@@ -32,7 +32,7 @@ import numpy as np
 from . import roots
 from .core.node import SceneNode
 from .core.transform import Transform
-from .layout.yaml_utils import safe_load_path
+from .layout.yaml_utils import load_kind
 
 TRAIN_KIND = "train"
 VERSION = 1
@@ -42,12 +42,7 @@ COUPLING = 0.6             # gap between cars (couplers)
 
 
 def load_train(path) -> dict[str, Any]:
-    data = safe_load_path(path) or {}
-    if data.get("kind") != TRAIN_KIND or int(data.get("version", 0)) != VERSION:
-        raise ValueError(f"{path}: expected kind '{TRAIN_KIND}' version {VERSION}")
-    unknown = set(data) - TRAIN_KEYS
-    if unknown:
-        raise ValueError(f"{path}: unknown keys {sorted(unknown)}; known: {sorted(TRAIN_KEYS)}")
+    data = load_kind(path, TRAIN_KIND, VERSION, TRAIN_KEYS)
     consist = [{"asset": c} if isinstance(c, str) else dict(c) for c in data.get("consist") or []]
     if not consist:
         raise ValueError(f"{path}: consist is empty")

@@ -34,6 +34,7 @@ import numpy as np
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 
+from .. import roots
 from ..core.mesh import Mesh
 from ..core.profile import Shape
 from .base import MeshGenerator
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
     from ..layout.surfaces import Surface
 
-FONTS_DIR = Path(__file__).parents[3] / "assets" / "fonts"
+FONTS_DIR = roots.CORE / "fonts"
 FONTS = {"sans": "SourceSans3-Semibold.ttf", "serif": "SourceSerif4-Semibold.ttf"}
 ALIGNS = ("left", "center", "right")
 

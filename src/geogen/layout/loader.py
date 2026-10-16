@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from .. import roots
 from ..core.node import SceneNode
 from ..core.profile import Shape, polyline_from_spec, shape_from_spec
 from ..generators.nature import RockGenerator, TreeGenerator
@@ -156,7 +157,6 @@ class LayoutLoader:
         if data.get("pickup"):
             from ..inventory import parse_pickup
 
-            from .. import roots
 
             parse_pickup(data["pickup"], root, path.name, roots.root_of(path), path)
         # Where it came from, for --inspect (not exported).
@@ -234,7 +234,7 @@ class LayoutLoader:
 
             root_poses = parse_poses(data["poses"]) if data.get("poses") else None
             root = build_humanoid(data["body"], name, self._material_loader,
-                                  assets_dir=Path(__file__).parents[3] / "assets", params=data.get("_params"),
+                                  assets_dir=roots.CORE, params=data.get("_params"),
                                   root_poses=root_poses)
             root.tags = [*root.tags, *data.get("tags", [])]
             if data.get("preset"):
@@ -249,7 +249,7 @@ class LayoutLoader:
             from ..generators.building import build_building
 
             root = build_building(data["building"], name, self._material_loader,
-                                  assets_dir=Path(__file__).parents[3] / "assets", layout_loader=self)
+                                  assets_dir=roots.CORE, layout_loader=self)
             root.tags = [*root.tags, *data.get("tags", [])]
             return root
         container_size = np.array(data["size"], dtype=np.float64)
@@ -1337,7 +1337,6 @@ def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
 def _asset_ref(path: Path) -> str:
     """``path`` as a scene names it: relative to the content root it is in (``vehicles/car.yaml``;
     a scene folder's own file relative to the folder)."""
-    from .. import roots
 
     root = roots.root_of(path)
     return Path(path).resolve().relative_to(root.resolve()).as_posix() if root is not None else str(path)

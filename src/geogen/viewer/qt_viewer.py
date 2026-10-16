@@ -38,12 +38,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from .. import roots
 from ..core import meshops
 from ..core.node import SceneNode
 from .gl_view import DISPLAY_MODES, GLView
 
 SceneFactory = Callable[[], SceneNode]
-DEFAULT_ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
+DEFAULT_ASSETS_DIR = roots.CORE
 
 VIEW_KEYS = {
     Qt.Key.Key_1: "front",
@@ -438,7 +439,6 @@ class ViewerWindow(QMainWindow):
         self._inspector.setPlainText(f"Error building '{name}'\n\n{traceback.format_exc()}")
 
     def _refresh_watch_list(self) -> None:
-        from .. import roots
 
         # A project's own assets hot-reload too.
         watched = [self._watch_dir, *([p.root for p in roots.projects()] if self._watch_dir == DEFAULT_ASSETS_DIR else [])]

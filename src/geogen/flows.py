@@ -111,18 +111,11 @@ def carried(path: str | Path) -> dict[str, Any]:
 
 def load_item(path: str | Path) -> dict[str, Any]:
     """A ``kind: item`` file, normalised (``body`` as ``{asset, params}``)."""
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
     path = Path(path)
-    if not path.exists():
-        raise FlowError(f"no item file {path}")
-    spec = safe_load_path(path) or {}
+    spec = load_kind(path, KIND, None, ITEM_KEYS, FlowError)
     where = str(path)
-    if spec.get("kind") != KIND:
-        raise FlowError(f"{where}: an item file has kind: item")
-    unknown = set(spec) - set(ITEM_KEYS) - {"version", "description"}
-    if unknown:
-        raise FlowError(f"{where}: unknown keys {sorted(unknown)}; known: {sorted(ITEM_KEYS)}")
     body = spec.get("body")
     if isinstance(body, str):
         body = {"asset": body}
@@ -266,18 +259,11 @@ WAVES_KEYS = {
 
 def load_waves(path: str | Path) -> dict[str, Any]:
     """A ``kind: waves`` file: ``{auto, list: [{delay, items: [{item, count, gap}]}]}``."""
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
     path = Path(path)
-    if not path.exists():
-        raise FlowError(f"no waves file {path}")
-    spec = safe_load_path(path) or {}
+    spec = load_kind(path, "waves", None, WAVES_KEYS, FlowError)
     where = str(path)
-    if spec.get("kind") != "waves":
-        raise FlowError(f"{where}: a waves file has kind: waves")
-    unknown = set(spec) - set(WAVES_KEYS) - {"version", "description"}
-    if unknown:
-        raise FlowError(f"{where}: unknown keys {sorted(unknown)}; known: {sorted(WAVES_KEYS)}")
     waves = spec.get("waves")
     if not isinstance(waves, list) or not waves:
         raise FlowError(f"{where}: waves is a list of {{items: [{{item, count, gap}}], delay}}")

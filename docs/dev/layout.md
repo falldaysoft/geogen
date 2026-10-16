@@ -315,7 +315,7 @@ Coordinate forms for `u`/`v`/`depth`:
 
 ## YAML loader quirk
 
-`yaml_utils.GeogenSafeLoader` disables YAML 1.1's `on`/`off`/`yes`/`no` boolean resolution so keys like `on:` parse as strings. Always load asset/scene YAML through `LayoutLoader` or `SceneComposer` — using `yaml.safe_load` directly will mangle `on:` into `True`.
+`yaml_utils.GeogenSafeLoader` disables YAML 1.1's `on`/`off`/`yes`/`no` boolean resolution so keys like `on:` parse as strings. Always load asset/scene YAML through `LayoutLoader` or `SceneComposer` — using `yaml.safe_load` directly will mangle `on:` into `True`. Data files with a top-level `kind:` load through `yaml_utils.load_kind(path, kind, version, keys, error)`, which checks the kind, version and keys.
 
 ## Layout QA
 
@@ -384,7 +384,7 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 
 ## Scenes & Registry
 
-- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `city:` key is present, otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).
+- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It classifies each file with `roots.classify` (a composed scene when it is under `scenes/` or has a `place:` or `city:` key, otherwise an asset; files with a top-level `kind:`, e.g. `player.yaml`, are data and skipped), and also takes assets from `roots.ASSET_SUBDIRS` (`vehicles/`, `characters/`). `--describe` lists the same files through `roots.content_files`. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).
 
 - **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. There are two, `nature.py` and `skin_test.py`, registered in `main._build_registry()`.
 

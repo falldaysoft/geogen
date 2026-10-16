@@ -48,6 +48,25 @@ def safe_load_path(path: str | Path) -> Any:
         return safe_load(f)
 
 
+def load_kind(path: str | Path, kind: str, version: int | None = 1, keys: Any = None,
+              error: type[Exception] = ValueError) -> dict[str, Any]:
+    """A data file with a top-level ``kind:``, checked: the kind, the ``version`` (unless None)
+    and, given ``keys``, no keys beyond them (``kind``, ``version`` and ``description`` are
+    always allowed). Raises ``error`` naming the file."""
+    path = Path(path)
+    if not path.exists():
+        raise error(f"no {kind} file {path}")
+    data = safe_load_path(path) or {}
+    if not isinstance(data, dict) or data.get("kind") != kind \
+            or (version is not None and int(data.get("version", 0)) != version):
+        raise error(f"{path}: expected kind '{kind}'" + (f" version {version}" if version is not None else ""))
+    if keys is not None:
+        unknown = set(data) - set(keys) - {"kind", "version", "description"}
+        if unknown:
+            raise error(f"{path}: unknown keys {sorted(unknown)}; known: {sorted(keys)}")
+    return data
+
+
 _composed: dict[str, tuple[float, Any]] = {}
 
 

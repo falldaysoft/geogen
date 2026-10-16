@@ -57,6 +57,8 @@ CONFIG_KEYS = {"kind", "name", "assets", "overrides", "description", "generated"
 CATALOGUE = "runtime_scenes.yaml"   # a project's own runtime catalogue: beside, not instead of, the core's
 SCENES = "scenes"
 SCENE_FILE = "scene.yaml"           # scenes/<name>/scene.yaml: a scene folder
+ASSET_SUBDIRS = ("vehicles", "characters")   # asset libraries: <dir>/<name>.yaml is asset <name>
+SCENE_KEYS = ("place", "city")      # a top-level YAML with one of these is a composed scene
 
 
 class RootsError(ValueError):
@@ -230,6 +232,40 @@ def glob(pattern: str, base: str | Path | None = None) -> list[Path]:
             if _private(path) is None:
                 found.setdefault(path.relative_to(root).as_posix(), path)
     return [found[name] for name in sorted(found)]
+
+
+def classify(path: str | Path) -> str | None:
+    """What a content file is: ``"scene"``, ``"asset"``, or None for data (a ``kind:``) and non-mappings.
+
+    Files under ``scenes/`` are always scenes; elsewhere a ``place:`` or ``city:`` key makes one.
+    """
+    from .layout.yaml_utils import safe_load_path
+
+    path = Path(path)
+    data = safe_load_path(path)
+    if not isinstance(data, dict) or "kind" in data:
+        return None
+    if SCENES in path.parent.parts[-2:] or any(k in data for k in SCENE_KEYS):
+        return "scene"
+    return "asset"
+
+
+def content_files(base: str | Path | None = None) -> dict[str, tuple[str, Path]]:
+    """Every asset and scene in the roots: ``{name: ("asset" | "scene", path)}``.
+
+    ``*.yaml`` (assets or scenes), ``<ASSET_SUBDIRS>/*.yaml`` (assets), ``scenes/*.yaml`` and
+    scene folders ``scenes/<name>/scene.yaml`` (named by the folder). The first of a name wins.
+    """
+    out: dict[str, tuple[str, Path]] = {}
+    patterns = ["*.yaml", *(f"{sub}/*.yaml" for sub in ASSET_SUBDIRS), f"{SCENES}/*.yaml", f"{SCENES}/*/{SCENE_FILE}"]
+    for pattern in patterns:
+        for path in glob(pattern, base):
+            if path.name == CONFIG:
+                continue
+            kind = classify(path)
+            if kind is not None:
+                out.setdefault(path.parent.name if path.name == SCENE_FILE else path.stem, (kind, path))
+    return out
 
 
 def root_of(path: str | Path) -> Path | None:

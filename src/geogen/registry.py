@@ -3,17 +3,12 @@
 from pathlib import Path
 from typing import Callable
 
-import yaml
-
 from . import roots
 from .core.node import SceneNode
 from .layout import LayoutLoader, SceneComposer
 
 
 SceneFactory = Callable[[], SceneNode]
-
-
-ASSET_SUBDIRS = ("vehicles",)
 
 
 class SceneRegistry:
@@ -25,14 +20,10 @@ class SceneRegistry:
 
     def __init__(self, assets_dir: Path | None = None) -> None:
         self._factories: dict[str, SceneFactory] = {}
-        self._assets_dir = assets_dir or self._default_assets_dir()
+        self._assets_dir = assets_dir or roots.CORE
         # Every content root (a project's, then the core's) unless one directory was asked for.
         self._roots = [Path(assets_dir)] if assets_dir is not None else roots.roots()
         self._files: dict[str, Path] = {}
-
-    @staticmethod
-    def _default_assets_dir() -> Path:
-        return Path(__file__).parent.parent.parent / "assets"
 
     @property
     def scenes(self) -> dict[str, SceneFactory]:
@@ -59,7 +50,7 @@ class SceneRegistry:
         - ``assets/*.yaml`` are loaded as individual assets via LayoutLoader
         - ``assets/scenes/*.yaml`` are loaded as composed scenes via SceneComposer
         - ``assets/scenes/<name>/scene.yaml`` is scene ``<name>``, a folder with private files
-        - ``assets/<sub>/*.yaml`` for ``ASSET_SUBDIRS`` (vehicles) are assets too
+        - ``assets/<sub>/*.yaml`` for ``roots.ASSET_SUBDIRS`` (vehicles, characters) are assets too
 
         With a project (``geogen.roots``) its directory is scanned the same way, first.
         A project scene may only take a core scene's name by replacing that very file
@@ -83,17 +74,18 @@ class SceneRegistry:
         # Discover assets and composed scenes in root assets dir
         for yaml_path in sorted(assets_dir.glob("*.yaml")):
             name = yaml_path.stem
-            if yaml_path.name != roots.CONFIG and not self._is_spec(yaml_path) and free(yaml_path):
-                if self._is_composed_scene(yaml_path):
+            kind = None if yaml_path.name == roots.CONFIG else roots.classify(yaml_path)
+            if kind is not None and free(yaml_path):
+                if kind == "scene":
                     self._register_composed_scene(name, yaml_path, assets_dir)
                 else:
                     self._register_asset(name, yaml_path)
 
         # Asset libraries in subdirectories (vehicles/sedan.yaml -> "sedan").
-        for sub in ASSET_SUBDIRS:
+        for sub in roots.ASSET_SUBDIRS:
             for yaml_path in sorted((assets_dir / sub).glob("*.yaml")):
                 name = yaml_path.stem
-                if not self._is_spec(yaml_path) and free(yaml_path):
+                if roots.classify(yaml_path) == "asset" and free(yaml_path):
                     self._register_asset(name, yaml_path)
 
         # Discover composed scenes
@@ -112,21 +104,6 @@ class SceneRegistry:
     def path(self, name: str) -> Path | None:
         """The YAML file a discovered scene is built from (None for Python-coded ones)."""
         return self._files.get(name)
-
-    @staticmethod
-    def _is_spec(yaml_path: Path) -> bool:
-        """Data files such as ``player.yaml`` declare a ``kind:`` and aren't scenes."""
-        with open(yaml_path) as f:
-            data = yaml.safe_load(f)
-        return isinstance(data, dict) and "kind" in data
-
-    def _is_composed_scene(self, yaml_path: Path) -> bool:
-        """Check if a YAML file is a composed scene (has place: or city:)."""
-        with open(yaml_path) as f:
-            data = yaml.safe_load(f)
-        if not isinstance(data, dict):
-            return False
-        return "place" in data or "city" in data
 
     def _register_asset(self, name: str, yaml_path: Path) -> None:
         """Register a YAML asset that loads via LayoutLoader."""

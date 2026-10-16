@@ -758,14 +758,9 @@ def load_fleet(path) -> dict[str, Any]:
     """Validate a ``kind: traffic`` definition (assets/traffic/*.yaml)."""
     from pathlib import Path
 
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
-    data = safe_load_path(path) or {}
-    if data.get("kind") != FLEET_KIND or int(data.get("version", 0)) != VERSION:
-        raise ValueError(f"{path}: expected kind '{FLEET_KIND}' version {VERSION}")
-    unknown = set(data) - FLEET_KEYS
-    if unknown:
-        raise ValueError(f"{path}: unknown keys {sorted(unknown)}; known: {sorted(FLEET_KEYS)}")
+    data = load_kind(path, FLEET_KIND, VERSION, FLEET_KEYS)
     fleet = []
     for i, entry in enumerate(data.get("fleet") or []):
         if set(entry) - FLEET_ENTRY_KEYS or "asset" not in entry:

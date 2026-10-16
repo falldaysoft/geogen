@@ -25,6 +25,7 @@ from typing import Any
 
 import numpy as np
 
+from . import roots
 from .core.node import SceneNode
 
 TOLERANCE = 0.002            # m: penetration below this doesn't count
@@ -374,7 +375,7 @@ def report(presets, outfits, poses=("stand", "sit", "sit_at_table"), seats=tuple
     from .layout.loader import LayoutLoader
 
     loader = loader or LayoutLoader()
-    assets = Path(assets_dir or Path(__file__).parents[2] / "assets")
+    assets = Path(assets_dir or roots.CORE)
     seat_nodes = {}
     for name in seats:
         root = SceneNode("seat_" + name)

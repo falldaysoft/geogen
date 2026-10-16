@@ -31,6 +31,7 @@ from typing import Any, Callable
 
 import numpy as np
 
+from .. import roots
 from ..core.node import SceneNode
 
 GRID = 0.1
@@ -323,11 +324,8 @@ AWNING_COLORS = ("british_green", "car_red", "car_navy", "maroon", "teal_green",
 def dress_shop_front(building: SceneNode, loader, kind: str, sign: str | None, awning: str | None) -> None:
     """Hang a fascia sign across the shop's street front (+Z) and an awning over each shop
     window that the facade's door canopies leave clear."""
-    from pathlib import Path
-
     from ..core.transform import Transform
 
-    assets = Path(__file__).parents[3] / "assets"
     shop = building.find("shop")
     walls = next((n for n in building.iter_nodes() if n.name == "walls" and n.mesh is not None), None)
     if shop is None or walls is None:
@@ -345,7 +343,7 @@ def dress_shop_front(building: SceneNode, loader, kind: str, sign: str | None, a
     windows = [o for o in shop.meta.get("openings", []) if o["kind"] == "window" and o["side"] == "north"]
     width = max((o["hi"] for o in windows), default=2.0) - min((o["lo"] for o in windows), default=-2.0)
     colour = awning or AWNING_COLORS[sum(map(ord, sign or kind)) % len(AWNING_COLORS)]
-    fascia = loader.load(assets / "fascia_sign.yaml",
+    fascia = loader.load(roots.find("fascia_sign.yaml"),
                          params={"label": sign or SHOP_SIGNS.get(kind, "Shop"), "width": round(width + 0.4, 2),
                                  "height": 0.5, "letter": 0.26})
     fascia.name = "fascia"
@@ -364,7 +362,7 @@ def dress_shop_front(building: SceneNode, loader, kind: str, sign: str | None, a
         x0, x1 = centre[0] + o["lo"] + 0.15, centre[0] + o["hi"] - 0.15     # inset from the window's edges
         if any(x0 < c1 and c0 < x1 for c0, c1 in canopies):
             continue     # the facade's door canopy is already over this window
-        node = loader.load(assets / "awning.yaml",
+        node = loader.load(roots.find("awning.yaml"),
                            params={"width": round(x1 - x0, 2), "reach": 1.0, "drop": 0.42, "color": colour})
         node.name = f"awning_{i}"
         node.transform = Transform(translation=np.array([(x0 + x1) / 2, FASCIA_Y - drop - 0.03, face + 0.002]))

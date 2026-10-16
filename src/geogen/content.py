@@ -100,13 +100,9 @@ def file_name(package: str) -> str:
 
 def load_package(path: str | Path) -> dict[str, Any]:
     """A ``kind: package`` file as written, with ``id`` defaulting to the file name."""
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
-    path = Path(path)
-    data = safe_load_path(path)
-    if not isinstance(data, dict) or data.get("kind") != KIND or int(data.get("version", 0)) != VERSION:
-        raise ContentError(f"{path}: expected kind '{KIND}' version {VERSION}")
-    return {"id": path.stem, **data}
+    return {"id": Path(path).stem, **load_kind(path, KIND, VERSION, error=ContentError)}
 
 
 def package_of(key: str) -> str:

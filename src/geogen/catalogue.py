@@ -20,9 +20,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
 
+from . import roots
 from .layout.yaml_utils import safe_load_path
 
-CATALOGUE_PATH = Path(__file__).parent.parent.parent / "assets" / "runtime_scenes.yaml"
+CATALOGUE_PATH = roots.CORE / "runtime_scenes.yaml"
 INDEX_NAME = "catalogue.json"
 INDEX_FORMAT = "geogen-catalogue"
 GROUPS = ("showcase", "test")
@@ -64,7 +65,6 @@ def active() -> tuple[Path | None, Path]:
     (``geogen.roots``) they are its own ``runtime_scenes.yaml`` (None if it has none: its
     exports then have no index, and the runtime loads them all) and ``generated`` directory;
     otherwise the core's."""
-    from . import roots
 
     projects = roots.projects()
     if projects:

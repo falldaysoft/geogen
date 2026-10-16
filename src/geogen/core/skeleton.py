@@ -25,10 +25,11 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
+from .. import roots
 from .node import SceneNode
 from .transform import Transform, matrix_from_quat, quat_from_matrix
 
-SKELETONS_DIR = Path(__file__).resolve().parents[3] / "assets" / "skeletons"
+SKELETONS_DIR = roots.CORE / "skeletons"
 DEFAULT_SKELETON = SKELETONS_DIR / "humanoid.yaml"
 SKELETON_KIND = "skeleton"
 

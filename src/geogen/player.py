@@ -18,7 +18,7 @@ from .layout.yaml_utils import safe_load_path
 
 SPEC_KIND = "player_spec"
 SPEC_VERSION = 1
-DEFAULT_PATH = Path(__file__).parent.parent.parent / "assets" / "player.yaml"
+DEFAULT_PATH = roots.CORE / "player.yaml"
 
 
 @dataclass(frozen=True)

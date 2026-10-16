@@ -31,9 +31,9 @@ import numpy as np
 
 from . import roots
 from .core.node import SceneNode
-from .layout.yaml_utils import safe_load_path
+from .layout.yaml_utils import load_kind, safe_load_path
 
-ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
+ASSETS_DIR = roots.CORE
 ACTIONS_PATH = ASSETS_DIR / "npcs" / "actions.yaml"
 
 NPC_KIND = "npc"
@@ -208,12 +208,7 @@ def approach_point(action: str, position: np.ndarray, yaw_deg: float,
 
 def load_definition(path: str | Path) -> dict[str, Any]:
     """Load and validate an NPC definition (``kind: npc``). Body and home are resolved later."""
-    data = safe_load_path(path) or {}
-    if data.get("kind") != NPC_KIND or int(data.get("version", 0)) != VERSION:
-        raise ValueError(f"{path}: expected kind '{NPC_KIND}' version {VERSION}")
-    unknown = set(data) - NPC_KEYS
-    if unknown:
-        raise ValueError(f"{path}: unknown keys {sorted(unknown)}; known: {sorted(NPC_KEYS)}")
+    data = load_kind(path, NPC_KIND, VERSION, NPC_KEYS)
     actions = load_actions()
     needs = {}
     for need, spec in (data.get("needs") or {}).items():

@@ -144,13 +144,9 @@ class _Quest:
 
 def load_quest(path: str | Path) -> dict[str, Any]:
     """A ``kind: quest`` file as written, with ``id`` defaulting to the file name."""
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
-    path = Path(path)
-    data = safe_load_path(path)
-    if not isinstance(data, dict) or data.get("kind") != KIND or int(data.get("version", 0)) != VERSION:
-        raise QuestError(f"{path}: expected kind '{KIND}' version {VERSION}")
-    return {"id": path.stem, **data}
+    return {"id": Path(path).stem, **load_kind(path, KIND, VERSION, error=QuestError)}
 
 
 def declare_scene(root: SceneNode, data: dict[str, Any], source: Any, assets_dir: Path) -> None:
