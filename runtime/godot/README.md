@@ -597,6 +597,14 @@ rim by it, which tilted a step's contact) and step-up allows a landing 3 cm over
 `step_height`. Chunk loads are high-priority `WorkerThreadPool` tasks: a low-priority
 one was never run under Jolt.
 
+At 60 steps a second Jolt lets a fast body sink into a curved trimesh wall: a 12 cm
+ball going 2 m/s round the marble run's helix sat 2-4 cm into the trough (the contact is
+there, with the right normal, and isn't pushed out; solver steps, penetration slop, CCD
+and the contact cache made no difference). At 120 it stays within 3 mm. A scene asks
+for that with `physics: {ticks: 120}`: the manifest's (and chunk index's) `physics`,
+which `WorldLoader._use_physics` applies while the scene is loaded (unload puts the
+project's rate back), so other scenes keep paying for 60.
+
 An asset with `physics:` (`geogen/physics.py`) is exported with
 `extras.geogen.physics` (`mass`, `friction`, `bounce`, `carry`, a box `size` and
 `center`; with `shape`, a sphere `radius` or an upright capsule `radius` and

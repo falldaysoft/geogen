@@ -105,18 +105,32 @@ def _get(runtime, key):
     return runtime.call("state.get", key=f"{SCENE}:{key}")["value"]
 
 
-def test_every_ball_runs_the_course_into_the_bowl(runtime):
+def test_every_ball_runs_the_course_into_the_bowl(runtime, built):
+    """60 s of play: nothing leaves the run, and no ball sinks into the trough's wall (at
+    Jolt's usual 60 steps a second they sank 2-4 cm round the helix; the scene asks for 120)."""
+    import trimesh
+
+    scene, _ = built
+    trough = next(n for n in scene.iter_nodes() if n.name == "trough")
+    mesh = trough.mesh.transform(trough.world_transform())
+    triangles = mesh.vertices[mesh.faces]
     runtime.call("time.pause")
     runtime.call("state.set", key=f"{SCENE}:hopper#running", value=True)
-    escaped = set()
-    for _ in range(30):                                          # 60 s of play
+    escaped, deepest = set(), 0.0
+    for _ in range(60):                                          # 60 s of play, at 120 ticks a second
         runtime.call("time.step", frames=120)
         for it in runtime.call("flows.list")["items"]:
             if it["position"][1] < 0.6:                          # under the bowl's floor: off the run
                 escaped.add(it["id"])
+            centre = np.array(it["center"])
+            near = np.abs(triangles - centre).max(axis=(1, 2)) < 0.3
+            if near.any():
+                closest = trimesh.triangles.closest_point(triangles[near], np.repeat([centre], near.sum(), 0))
+                deepest = max(deepest, 0.06 - float(np.linalg.norm(closest - centre, axis=1).min()))
     emitted, alive, caught = _get(runtime, "hopper#emitted"), _get(runtime, "hopper#alive"), _get(runtime, "catch#received")
     runtime.call("time.resume")
     assert not escaped
+    assert deepest < 0.008, f"a ball sank {deepest * 100:.1f} cm into the trough"
     assert caught >= 6 and alive <= 10 and caught == emitted - alive, (emitted, alive, caught)
     shown = runtime.call("hud.stats")["stats"]["stats"]
     assert shown[0] == {"label": "Caught", "value": caught, "text": str(int(caught))}

@@ -9,6 +9,10 @@ name: marble_run
 size: [10, 4, 8]
 tags: [level.marble_run]
 
+# At Jolt's usual 60 steps a second a ball going 2 m/s round the helix sinks 2-4 cm into the
+# trough's wall; at 120 it stays within 3 mm.
+physics: {ticks: 120}
+
 spawns:
   start: {position: [0, 0.12, -3.6], facing: north}
 
@@ -31,9 +35,11 @@ place:
   funnel:
     asset: exit_funnel.yaml
     slot: funnel
+    params: {neck: 1.01}                  # its rim clears the trough's underside
   bowl:
     asset: catch_bowl.yaml
     slot: bowl
+    params: {height: 0.56}                # under the funnel's spout
   lever:
     asset: lever.yaml
     slot: lever
@@ -41,7 +47,7 @@ place:
 places:
   catch:                                  # inside the bowl: what lands there is caught
     box: [0.9, 0.3, 0.9]
-    position: [-2.5, 0.73, 0.1]
+    position: [-2.5, 0.69, 0.1]
     sink: true
 
 state:

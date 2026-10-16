@@ -247,6 +247,13 @@ class SceneComposer:
         from ..hud import declare as declare_hud
 
         declare_hud(root, data, source)
+        if data.get("physics") is not None:
+            physics = data["physics"]
+            ticks = physics.get("ticks") if isinstance(physics, dict) else None
+            if set(physics if isinstance(physics, dict) else ["?"]) - {"ticks"} or not isinstance(ticks, int) \
+                    or not 30 <= ticks <= 480:
+                raise ValueError(f"{source}: physics is {{ticks: 30..480}}, got {physics!r}")
+            root.meta["physics_ticks"] = ticks
         if data.get("quests"):
             from ..quests import declare_scene as declare_quests
 

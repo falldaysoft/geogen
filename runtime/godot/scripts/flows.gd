@@ -1000,6 +1000,11 @@ func report() -> Dictionary:
         if at is RigidBody3D and is_instance_valid(at):
             var v: Vector3 = at.linear_velocity
             entry["velocity"] = [snappedf(v.x, 0.001), snappedf(v.y, 0.001), snappedf(v.z, 0.001)]
+            for child in at.get_children():
+                if child is CollisionShape3D:            # the shape's middle: the origin may be off it
+                    var c: Vector3 = child.global_position
+                    entry["center"] = [snappedf(c.x, 0.001), snappedf(c.y, 0.001), snappedf(c.z, 0.001)]
+                    break
         if item.has("track"):
             entry["track"] = item["track"]
             entry["s"] = item["s"]

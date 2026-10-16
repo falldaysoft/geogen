@@ -35,6 +35,7 @@ BUILD_ONLY: dict[str, str] = {
     "quests": "quest specs as authored: compiled into the manifest's quests and rules (quests.collect)",
     "wiring": "rules, wires and bindings as authored: compiled into the manifest's rules",
     "hud": "HUD stats and banners as authored: compiled into the manifest's hud (geogen.hud)",
+    "physics_ticks": "a scene's physics: {ticks}: exported as the manifest's physics",
     "travel_spec": "the travel block as authored; the resolved one is exported as 'travel'",
     "travel_source": "the file a travel block came from, for error messages",
     "switch": "the light a switch turns on and off: compiled to a binding of that fixture's lit state "

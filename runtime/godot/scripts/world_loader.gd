@@ -312,6 +312,7 @@ func unload() -> void:
     flows.clear()
     props.clear()
     rules.unload()
+    Engine.physics_ticks_per_second = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
     interactions_by_key.clear()
     streamer = null
     _lap("unload", t)
@@ -449,6 +450,15 @@ func _exit_tree() -> void:
         WorkerThreadPool.wait_for_task_completion(_parse_task)
 
 
+## A scene's ``physics: {ticks}``: step physics at least that often while it is loaded (Jolt
+## lets a fast ball sink into a curved trimesh wall at 60; unload puts the project's rate back).
+func _use_physics(manifest: Dictionary) -> void:
+    var physics = manifest.get("physics")
+    if physics is Dictionary and int(physics.get("ticks", 0)) > Engine.physics_ticks_per_second:
+        Engine.physics_ticks_per_second = int(physics["ticks"])
+        print("geogen: physics at %d ticks a second" % Engine.physics_ticks_per_second)
+
+
 func _read_manifest(manifest_path: String) -> Dictionary:
     _mtimes[manifest_path] = FileAccess.get_modified_time(manifest_path)
     var manifest = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
@@ -469,6 +479,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
         push_error("geogen: cannot load %s" % model_path)
         return
     root.name = manifest.get("name", model_path.get_file().get_basename())
+    _use_physics(manifest)
     events.package = scene_name if scene_name != "" else String(root.name)
     rules.load_package(events.package, manifest)
     var t := Time.get_ticks_usec()
@@ -659,6 +670,7 @@ func forget(root: Node) -> void:
 
 
 func _load_chunked(index_path: String, index: Dictionary) -> void:
+    _use_physics(index)
     streamer = GeogenChunkStreamer.new()
     streamer.name = "ChunkStreamer"
     streamer.world = self

@@ -361,6 +361,9 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
                                    "forward": [round(float(v), 6) for v in forward]}))
     spawns.sort(key=lambda item: item[0])
     out: dict = {"rooms": rooms, "spawns": [spawn for _, spawn in spawns]}
+    ticks = [node.meta["physics_ticks"] for node in root.iter_nodes() if "physics_ticks" in node.meta]
+    if ticks:
+        out["physics"] = {"ticks": max(ticks)}     # the runtime steps at least this often while it is loaded
     from .travel import travel_summary
 
     travel = travel_summary(root)       # where the scene's travel points go (catalogue validation)
