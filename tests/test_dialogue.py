@@ -119,3 +119,72 @@ def test_the_dialogue_panel_shows_passages_and_takes_choices_in_godot(godot_runt
     rt.call("input.key", key="Escape")
     rt.call("time.advance", seconds=0.2)
     assert rt.call("dialogue.show") == {"open": False}
+
+
+YARD = """
+name: yard
+size: [10, 3, 10]
+dialogues: [{plaque}, {gate}]
+slots:
+  plinth: {{position: [2, 0, 0], facing: south}}
+places:
+  arch: {{box: [3, 3, 3], position: [-3, 0, 0]}}
+place:
+  plinth: {{asset: info_plinth.yaml, slot: plinth, readable: Read the plaque}}
+spawns:
+  start: {{position: [0, 0, 3], facing: north}}
+"""
+PLAQUE = """
+kind: dialogue
+version: 1
+anchor: plinth
+passages:
+  words: {text: "Founded 1907."}
+"""
+GATE = """
+kind: dialogue
+version: 1
+anchor: arch
+once: true
+passages:
+  hush: {text: "The yard falls quiet as you pass under the arch."}
+"""
+
+
+def test_objects_and_places_open_their_dialogues(tmp_path):
+    # geogen.17.3: readable: gives a plaque a `read` interaction to open on; a place opens its
+    # narration on entering, here only the first time (once).
+    for name, text in (("plaque", PLAQUE), ("gate", GATE)):
+        (tmp_path / f"{name}.yaml").write_text(text)
+    scene = tmp_path / "yard.yaml"
+    scene.write_text(YARD.format(plaque=tmp_path / "plaque.yaml", gate=tmp_path / "gate.yaml"))
+    root = SceneComposer(assets_dir=ASSETS).compose(scene)
+    plinth = next(n for n in root.iter_nodes() if n.name == "plinth")
+    assert [(i.name, i.states["ready"].prompt) for i in plinth.interactions] == [("read", "Read the plaque")]
+    machine = Machine(collect(root, "yard").program(), {"player": {"kind": "player"}})
+    plaque = lambda: machine.get("actor:yard.dialogue_plaque", "player")
+    gate = lambda: machine.get("actor:yard.dialogue_gate", "player")
+    assert machine.use("yard:plinth#read", "player") and plaque() == "words"
+    machine.post({"type": "signal", "subject": "yard:plinth", "name": "dialogue", "actor": "player",
+                  "data": {"passage": "words", "choice": ""}})
+    assert plaque() == "" and machine.use("yard:plinth#read", "player") and plaque() == "words"   # again
+    machine.post({"type": "enter", "subject": "yard:arch", "actor": "player"})
+    assert gate() == "hush"
+    machine.post({"type": "signal", "subject": "yard:arch", "name": "dialogue", "actor": "player",
+                  "data": {"passage": "hush", "choice": ""}})
+    machine.post({"type": "enter", "subject": "yard:arch", "actor": "player"})
+    assert gate() == ""                                                    # once
+    assert machine.errors == []
+
+
+def test_reading_a_plaque_opens_its_dialogue_in_godot(godot_runtime, tmp_path):
+    for name, text in (("plaque", PLAQUE), ("gate", GATE)):
+        (tmp_path / f"{name}.yaml").write_text(text)
+    scene = tmp_path / "yard.yaml"
+    scene.write_text(YARD.format(plaque=tmp_path / "plaque.yaml", gate=tmp_path / "gate.yaml"))
+    export_scene(SceneComposer(assets_dir=ASSETS).compose(scene), tmp_path / "out" / "yard.glb")
+    rt = godot_runtime("yard", tmp_path / "out")
+    rt.call("player.use", asset="plinth", interaction="read")
+    rt.call("time.advance", seconds=0.3)
+    shown = rt.call("dialogue.show")
+    assert shown["open"] and shown["text"] == "Founded 1907.", shown

@@ -284,8 +284,10 @@ is passages with choices, anchored to a thing, NPC, place or room
 
 - The open passage is actor state `actor:<pkg>.dialogue_<id>` (text, "" closed).
 - It opens when the player greets an NPC anchor, enters a place or room anchor, or
-  uses an interaction of any other anchor (`open:` names another event), at `start`:
-  a passage, or `[{when, passage}, ..., passage]` (the first that holds).
+  uses an interaction of any other anchor (`open:` names another event; `once: true`
+  only the first time), at `start`: a passage, or `[{when, passage}, ..., passage]`
+  (the first that holds). An object with nothing to use takes `readable: <prompt>`
+  (asset or placement key): a `read` interaction whose one state loops.
 - A choice is the anchor's signal `dialogue` with data `{passage, choice}`, raised
   by the runtime for the actor choosing; choice "" closes it. A rule per choice
   checks that passage is the open one and the choice's `when` holds, runs its `do`

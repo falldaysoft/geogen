@@ -151,6 +151,10 @@ class LayoutLoader:
         from ..wiring import declare as declare_wiring
 
         declare_wiring(root, data, path, asset=True)
+        if data.get("readable"):
+            from ..dialogue import parse_readable
+
+            parse_readable(data["readable"], root, path.name)
         if data.get("pickup"):
             from ..inventory import parse_pickup
 

@@ -399,6 +399,10 @@ class SceneComposer:
                 from ..inventory import parse_pickup
 
                 parse_pickup(obj_def["pickup"], node, f"{source}: place.{obj_name}", self._assets_dir, source)
+            if node is not None and isinstance(obj_def, dict) and obj_def.get("readable"):
+                from ..dialogue import parse_readable
+
+                parse_readable(obj_def["readable"], node, f"{source}: place.{obj_name}")
 
         # NPCs: home region (in the NPC's frame) and per-placement seed.
         for obj_name, obj_def in all_placements.items():

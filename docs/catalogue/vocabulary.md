@@ -34,6 +34,7 @@
 | `vehicle` | {class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle) |
 | `physics` | {mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics) |
 | `pickup` | <item> or {item, count, prompt}: something to take (E gives the item, hides it) |
+| `readable` | <prompt> or true: a `read` interaction a dialogue can open on (geogen.dialogue) |
 | `source` | {items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows) |
 | `track` | {path, speed, spacing, mode: belt \| walk, loop, end, accepts}: items follow it (geogen.flows) |
 | `effector` | {range, rate, targets, effect: {damage} \| {take}, at, aim, projectile}: acts on items (geogen.flows) |
@@ -103,6 +104,7 @@
 | `home` | <object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in |
 | `seed` | random seed (which person an archetype or NPC is) |
 | `pickup` | <item> or {item, count, prompt}: something to take (as the asset key) |
+| `readable` | <prompt> or true: something to read (as the asset key) |
 | `quests` | an NPC's quests (files or {file, if}): it holds and works on them |
 | `archetype` | a random person (characters/archetypes/adult.yaml) |
 | `traffic` | a moving fleet (traffic/town.yaml) on the scene's lanes |

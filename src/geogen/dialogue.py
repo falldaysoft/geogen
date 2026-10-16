@@ -14,9 +14,12 @@ A ``kind: dialogue`` file (``dialogues/<id>.yaml``) that a scene lists under ``d
 
 Like a quest it has no runtime logic: it compiles to actor state and rules.
 - The open passage is ``actor:<pkg>.dialogue_<id>`` (text; "" when closed).
-- Opening: an NPC anchor opens it when greeted, a place or room when entered, anything else
-  when one of its interactions is used (``open:`` names another event, as a rule's ``on``).
-  It opens at ``start`` (the first entry whose ``when`` holds) unless one is open already.
+- Opening: an NPC anchor opens it when greeted, a place or room when entered (narration),
+  anything else when one of its interactions is used (``open:`` names another event, as a
+  rule's ``on``; ``once: true`` opens it only the first time, per actor). It opens at
+  ``start`` (the first entry whose ``when`` holds) unless one is open already. An object
+  with nothing to use gets a ``read`` interaction from ``readable: <prompt>`` (an asset or
+  placement key: a plaque, a letter, a sign).
 - Choosing: the runtime raises the anchor's signal ``dialogue`` with ``{passage, choice}``
   (choice "" closes it); a compiled rule per choice checks that passage is the one open and
   the choice's ``when`` still holds, then runs its effects and moves to ``goto`` (or closes).
@@ -40,7 +43,8 @@ KIND = "dialogue"
 VERSION = 1
 META = "dialogues"           # node.meta key the composer records a scene's dialogues under
 SIGNAL = "dialogue"          # what the anchor raises when a choice is made
-DIALOGUE_KEYS = {"kind", "version", "id", "title", "anchor", "open", "start", "passages"}
+DIALOGUE_KEYS = {"kind", "version", "id", "title", "anchor", "open", "once", "start", "passages"}
+READ = "read"                # the interaction `readable:` adds to a plaque, letter or sign
 PASSAGE_KEYS = {"text", "choices"}
 CHOICE_KEYS = {"id", "text", "when", "do", "goto"}
 _PART = re.compile(r"\{([^{}]+)\}")
@@ -169,7 +173,7 @@ def _compile(compiler: Any, spec: dict[str, Any], source: Any, node: SceneNode |
     on = _opener(compiler, src, spec, anchor, anchor_node, bad)
     if on is not None:
         rules.append({"id": f"dialogue:{did}:open", "on": on, "when": is_open(""),
-                      "do": [{"set": state, "to": opening}]})
+                      "do": [{"set": state, "to": opening}], **({"once": True} if spec.get("once") else {})})
     rules.append({"id": f"dialogue:{did}:close", "on": {"type": "signal", "subject": anchor, "name": SIGNAL},
                   "when": {"op": "==", "args": [event("choice"), ""]}, "do": [{"set": state, "to": ""}]})
 
@@ -210,6 +214,24 @@ def _compile(compiler: Any, spec: dict[str, Any], source: Any, node: SceneNode |
         compiler.out.written[rule["id"]] = src.where("passages")
     compiler.out.wiring.extend(rules)
     return {"id": did, "title": str(spec.get("title", "")), "anchor": anchor, "state": state, "passages": shown}
+
+
+def parse_readable(spec: Any, root: SceneNode, name: str) -> None:
+    """``readable: <prompt>`` (or true: "Read"): give ``root`` a ``read`` interaction, one state
+    that loops, so using it is an event a dialogue anchored to it opens on."""
+    from .layout.interactions import Interaction, State
+
+    if spec is True:
+        spec = "Read"
+    if not isinstance(spec, str) or not spec.strip():
+        raise ValueError(f"{name}: readable is the E prompt (\"Read the plaque\") or true, got {spec!r}")
+    if any(i.name == READ for i in root.interactions):
+        raise ValueError(f"{name}: readable adds the '{READ}' interaction, which it already has")
+    parts = [node for node in root.children if node.mesh is not None or any(True for _ in node.iter_meshes())]
+    if not parts:
+        raise ValueError(f"{name}: something readable needs something to look at")
+    root.interactions.append(Interaction(name=READ, states={"ready": State(next="ready", prompt=spec)},
+                                         initial="ready", motions=[], targets=list(parts), duration=0.0))
 
 
 def _opener(compiler: Any, src: Any, spec: dict[str, Any], anchor: str, node: SceneNode | None, bad) -> dict[str, Any] | None:
