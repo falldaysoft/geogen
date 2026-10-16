@@ -25,9 +25,6 @@ dev = [
     "pytest-xdist>=3.5",  # parallel runs (addopts below); -n0 for a serial run
     "jsonschema>=4.0",  # validates exported extras against docs/schema
 ]
-export = [
-    "pygltflib>=1.16",  # For glTF export enhancements
-]
 
 [project.scripts]
 geogen = "geogen.main:main"

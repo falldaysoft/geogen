@@ -5,3 +5,7 @@ __pycache__/
 
 .cache/
 _site/
+
+# Local leftovers: the retired Beads tracker data, setuptools metadata
+.beads/
+*.egg-info/
