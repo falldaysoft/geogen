@@ -48,8 +48,7 @@ import numpy as np
 from ..core import meshops, uvmap
 from ..core.mesh import Mesh
 from ..core.subdiv import fractal_noise3
-from .base import MeshGenerator
-from .primitives import CubeGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
@@ -79,10 +78,10 @@ class TerrainGenerator(MeshGenerator):
     paths: list[dict[str, Any]] = field(default_factory=list)
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def params(self) -> dict[str, Any]:
         """What ``meta.terrain`` stores (enough to rebuild the height function)."""

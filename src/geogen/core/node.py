@@ -134,6 +134,19 @@ class SceneNode:
             mesh = skin_mesh(mesh, self.skin.matrices(self))
         return mesh.transform(self.world_transform())
 
+    def mesh_bounds(self, frame: SceneNode | None = None) -> tuple[NDArray[np.float64], NDArray[np.float64]] | None:
+        """(lo, hi) of every mesh vertex in this subtree, in ``frame``'s local coordinates
+        (world coordinates when ``frame`` is None); None when the subtree has no vertices."""
+        to_frame = np.linalg.inv(frame.world_transform()) if frame is not None else np.eye(4)
+        lo, hi = np.full(3, np.inf), np.full(3, -np.inf)
+        for n in self.iter_nodes():
+            if n.mesh is None or not len(n.mesh.vertices):
+                continue
+            m = to_frame @ n.world_transform()
+            pts = n.mesh.vertices @ m[:3, :3].T + m[:3, 3]
+            lo, hi = np.minimum(lo, pts.min(axis=0)), np.maximum(hi, pts.max(axis=0))
+        return (lo, hi) if np.isfinite(lo).all() else None
+
     def iter_nodes(self, include_self: bool = True) -> Iterator[SceneNode]:
         """Iterate over this node and all descendants (depth-first).
 

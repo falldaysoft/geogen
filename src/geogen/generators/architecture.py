@@ -17,7 +17,7 @@ from scipy.spatial import ConvexHull
 from ..core import csg, meshops, uvmap
 from ..core.mesh import Mesh
 from ..core.profile import Shape
-from .base import MeshGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 from .primitives import CubeGenerator, CylinderGenerator
 from .profiles import ExtrudeGenerator
 
@@ -74,10 +74,10 @@ class RoofGenerator(MeshGenerator):
     ridge_cap: bool = True
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def generate(self) -> Mesh:
         if self.style not in ROOF_STYLES:
@@ -182,10 +182,10 @@ class PrismGenerator(MeshGenerator):
     apex: str = "center"  # center | back | front
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def generate(self) -> Mesh:
         hd, hh = self.depth / 2, self.height / 2

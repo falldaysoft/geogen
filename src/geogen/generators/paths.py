@@ -31,8 +31,7 @@ from shapely.ops import unary_union
 
 from ..core.mesh import Mesh
 from ..core.profile import Shape, catmull_rom
-from .base import MeshGenerator
-from .primitives import CubeGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 from .profiles import ExtrudeGenerator
 
 if TYPE_CHECKING:
@@ -76,10 +75,10 @@ class PathsGenerator(MeshGenerator):
     detail: float = 1.0
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def generate(self) -> Mesh:
         if not self.paths:

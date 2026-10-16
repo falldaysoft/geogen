@@ -32,6 +32,7 @@ import numpy as np
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.transform import Transform
+from .primitives import box_between
 from .floorplan import FloorPlan
 
 logger = logging.getLogger(__name__)
@@ -41,14 +42,6 @@ DOOR_CLEAR = 0.9      # free floor in front of a stair room's end-wall door
 WALKWAY = 1.2         # clear width beside the flights (door side)
 
 
-def _box(lo: np.ndarray, hi: np.ndarray) -> Mesh:
-    from .primitives import CubeGenerator
-
-    size = hi - lo
-    mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
-    m = np.eye(4)
-    m[:3, 3] = (lo + hi) / 2
-    return mesh.transform(m)
 
 
 def _storey_specs(spec: dict[str, Any]) -> list[dict[str, Any]]:
@@ -370,7 +363,7 @@ def _place_flight(room: SceneNode, above: SceneNode, gen, rise: float, run: floa
     for target, y0, y1 in ((room.find("ceiling"), -1.0, rise + 1.0), (above.find("floor"), -rise - 1.0, 1.0)):
         if target is None or target.mesh is None:
             continue
-        cutter = _box(np.array([lo[0], y0, lo[2]]), np.array([hi[0], y1, hi[2]]))
+        cutter = box_between(np.array([lo[0], y0, lo[2]]), np.array([hi[0], y1, hi[2]]))
         target.mesh = csg.difference(target.mesh, cutter, crease_angle=30.0)
     room.meta.setdefault("stair_flights", []).append({"to": above.meta["room"]["id"], "rise": rise, "steps": gen.steps})
 
@@ -392,12 +385,12 @@ def _roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], material_loader
     y = float(top.transform.translation[1]) + plan.wall_height
     outer_lo = np.array([-size[0] / 2, y, -size[2] / 2])
     outer_hi = np.array([size[0] / 2, y + slab_t, size[2] / 2])
-    slab = _box(outer_lo, outer_hi)
+    slab = box_between(outer_lo, outer_hi)
     parts = [slab]
     if parapet > 0:
         ring = csg.difference(
-            _box(np.array([outer_lo[0], y + slab_t, outer_lo[2]]), np.array([outer_hi[0], y + slab_t + parapet, outer_hi[2]])),
-            _box(np.array([outer_lo[0] + t, y, outer_lo[2] + t]),
+            box_between(np.array([outer_lo[0], y + slab_t, outer_lo[2]]), np.array([outer_hi[0], y + slab_t + parapet, outer_hi[2]])),
+            box_between(np.array([outer_lo[0] + t, y, outer_lo[2] + t]),
                  np.array([outer_hi[0] - t, y + slab_t + parapet + 1, outer_hi[2] - t])))
         parts.append(ring)
     mesh = uvmap.box_project(csg.union(*parts, crease_angle=30.0))

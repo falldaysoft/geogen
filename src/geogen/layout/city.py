@@ -113,13 +113,10 @@ def _rot_y(yaw: float) -> np.ndarray:
 
 
 def _slab(lo, hi, y0: float, y1: float) -> Mesh:
-    from ..generators.primitives import CubeGenerator
+    """A sharp box over the 2D rect ``lo`` .. ``hi`` (x, z), from ``y0`` up to ``y1``."""
+    from ..generators.primitives import box_between
 
-    lo, hi = np.asarray(lo, float), np.asarray(hi, float)
-    mesh = CubeGenerator(size_x=hi[0] - lo[0], size_y=y1 - y0, size_z=hi[1] - lo[1], bevel=0).generate()
-    m = np.eye(4)
-    m[:3, 3] = [(lo[0] + hi[0]) / 2, (y0 + y1) / 2, (lo[1] + hi[1]) / 2]
-    return mesh.transform(m)
+    return box_between((lo[0], y0, lo[1]), (hi[0], y1, hi[1]))
 
 
 def _ring(lo, hi, width: float, radius: float, height: float) -> Mesh:

@@ -25,6 +25,91 @@ class Generator(Protocol):
         ...
 
 
+def box_attachment_points(size: np.ndarray, radial: bool = False) -> dict[str, "AttachmentPoint"]:
+    """Attachment points at the middle of each face of a box of ``size`` (x, y, z) about the
+    origin: top, bottom, left (-X), right (+X), front (+Z), back (-Z). ``radial``: a round
+    part's, at its radius (half the smaller of x and z) instead of the box's sides."""
+    from ..layout.attachments import AttachmentPoint
+
+    hx, hy, hz = (float(v) / 2 for v in size)
+    if radial:
+        hx = hz = min(hx, hz)
+    points = {"top": ([0, hy, 0], "north"), "bottom": ([0, -hy, 0], "north"), "left": ([-hx, 0, 0], "west"),
+              "right": ([hx, 0, 0], "east"), "front": ([0, 0, hz], "south"), "back": ([0, 0, -hz], "north")}
+    return {name: AttachmentPoint(name=name, anchor="center", offset=np.array(offset), facing=facing)
+            for name, (offset, facing) in points.items()}
+
+
+def box_surfaces(size: np.ndarray) -> dict[str, "Surface"]:
+    """The six faces of a box of ``size`` about the origin as surfaces.
+
+    For each wall-like face, u is horizontal (left → right when viewed
+    from outside) and v is vertical (+Y is up). Normals point outward.
+    For top/bottom, u follows +X and v follows the remaining horizontal.
+    """
+    from ..layout.surfaces import Surface
+
+    hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
+    sx, sy, sz = float(size[0]), float(size[1]), float(size[2])
+
+    return {
+        # Front (+Z). Viewed from +Z, right is +X.
+        "front": Surface(
+            name="front",
+            origin=np.array([-hx, -hy, hz]),
+            u_axis=np.array([1.0, 0.0, 0.0]),
+            v_axis=np.array([0.0, 1.0, 0.0]),
+            normal=np.array([0.0, 0.0, 1.0]),
+            u_extent=sx, v_extent=sy,
+        ),
+        # Back (-Z). Viewed from -Z, right is -X.
+        "back": Surface(
+            name="back",
+            origin=np.array([hx, -hy, -hz]),
+            u_axis=np.array([-1.0, 0.0, 0.0]),
+            v_axis=np.array([0.0, 1.0, 0.0]),
+            normal=np.array([0.0, 0.0, -1.0]),
+            u_extent=sx, v_extent=sy,
+        ),
+        # Left (-X). Viewed from -X, right is -Z.
+        "left": Surface(
+            name="left",
+            origin=np.array([-hx, -hy, hz]),
+            u_axis=np.array([0.0, 0.0, -1.0]),
+            v_axis=np.array([0.0, 1.0, 0.0]),
+            normal=np.array([-1.0, 0.0, 0.0]),
+            u_extent=sz, v_extent=sy,
+        ),
+        # Right (+X). Viewed from +X, right is +Z.
+        "right": Surface(
+            name="right",
+            origin=np.array([hx, -hy, -hz]),
+            u_axis=np.array([0.0, 0.0, 1.0]),
+            v_axis=np.array([0.0, 1.0, 0.0]),
+            normal=np.array([1.0, 0.0, 0.0]),
+            u_extent=sz, v_extent=sy,
+        ),
+        # Top (+Y). u along +X, v along +Z (back → front).
+        "top": Surface(
+            name="top",
+            origin=np.array([-hx, hy, -hz]),
+            u_axis=np.array([1.0, 0.0, 0.0]),
+            v_axis=np.array([0.0, 0.0, 1.0]),
+            normal=np.array([0.0, 1.0, 0.0]),
+            u_extent=sx, v_extent=sz,
+        ),
+        # Bottom (-Y). u along +X, v along +Z.
+        "bottom": Surface(
+            name="bottom",
+            origin=np.array([-hx, -hy, -hz]),
+            u_axis=np.array([1.0, 0.0, 0.0]),
+            v_axis=np.array([0.0, 0.0, 1.0]),
+            normal=np.array([0.0, -1.0, 0.0]),
+            u_extent=sx, v_extent=sz,
+        ),
+    }
+
+
 class MeshGenerator(ABC):
     """Abstract base class for mesh generators.
 

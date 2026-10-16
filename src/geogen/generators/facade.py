@@ -27,6 +27,7 @@ import numpy as np
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.profile import Shape
+from .primitives import box_between
 
 WINDOW_RECESS = 0.1     # glass set back from the outer wall face
 FRAME = 0.06            # frame member width
@@ -56,15 +57,6 @@ _INWARD = {"north": np.array([0.0, 0.0, -1.0]), "south": np.array([0.0, 0.0, 1.0
            "east": np.array([-1.0, 0.0, 0.0]), "west": np.array([1.0, 0.0, 0.0])}
 
 
-def _box(lo, hi) -> Mesh:
-    from .primitives import CubeGenerator
-
-    lo, hi = np.asarray(lo, float), np.asarray(hi, float)
-    size = hi - lo
-    mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
-    m = np.eye(4)
-    m[:3, 3] = (lo + hi) / 2
-    return mesh.transform(m)
 
 
 def _oriented(mesh: Mesh, origin: np.ndarray, along: np.ndarray, out: np.ndarray) -> Mesh:
@@ -93,17 +85,17 @@ def _window_parts(width: float, height: float, style: FacadeStyle, storefront: b
     bays = max(1, int(round(width / (1.5 if storefront else 1.2))))
     for i in range(1, bays):
         x = -width / 2 + i * width / bays
-        parts["frame"].append(_box([x - 0.02, FRAME, z_frame - 0.03], [x + 0.02, height - FRAME, z_frame + 0.03]))
+        parts["frame"].append(box_between([x - 0.02, FRAME, z_frame - 0.03], [x + 0.02, height - FRAME, z_frame + 0.03]))
     if not storefront and height > 1.2:
         y = height * 0.65
-        parts["frame"].append(_box([-width / 2 + FRAME, y - 0.02, z_frame - 0.03],
+        parts["frame"].append(box_between([-width / 2 + FRAME, y - 0.02, z_frame - 0.03],
                                    [width / 2 - FRAME, y + 0.02, z_frame + 0.03]))
-    parts["glass"].append(_box([-width / 2 + FRAME, FRAME, z_frame - 0.006], [width / 2 - FRAME, height - FRAME,
+    parts["glass"].append(box_between([-width / 2 + FRAME, FRAME, z_frame - 0.006], [width / 2 - FRAME, height - FRAME,
                                                                                z_frame + 0.006]))
     if style.sills and not storefront:
-        parts["trim"].append(_box([-width / 2 - 0.06, -0.06, -WINDOW_RECESS - 0.02], [width / 2 + 0.06, 0.0, 0.06]))
+        parts["trim"].append(box_between([-width / 2 - 0.06, -0.06, -WINDOW_RECESS - 0.02], [width / 2 + 0.06, 0.0, 0.06]))
     if style.lintels:
-        parts["trim"].append(_box([-width / 2 - 0.1, height, -0.02], [width / 2 + 0.1, height + 0.16, 0.015]))
+        parts["trim"].append(box_between([-width / 2 - 0.1, height, -0.02], [width / 2 + 0.1, height + 0.16, 0.015]))
     return parts
 
 
@@ -158,7 +150,7 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
                                            for mesh in _juliet_rail(width)]
                 elif o["kind"] == "door" and index == 0:
                     y = o["top"] + 0.35
-                    canopy = _box([-width / 2 - 0.6, y, 0.0], [width / 2 + 0.6, y + 0.15, 1.6])
+                    canopy = box_between([-width / 2 - 0.6, y, 0.0], [width / 2 + 0.6, y + 0.15, 1.6])
                     groups["canopy"].append(_oriented(canopy, face, along, out))
 
     # String courses at each floor line, cornice at the top.
@@ -205,7 +197,7 @@ def _juliet_rail(width: float) -> list[Mesh]:
     rails = []
     z = 0.06
     for y in (0.25, 0.45):
-        rails.append(_box([-width / 2 - 0.05, y, z], [width / 2 + 0.05, y + 0.03, z + 0.03]))
+        rails.append(box_between([-width / 2 - 0.05, y, z], [width / 2 + 0.05, y + 0.03, z + 0.03]))
     for x in np.linspace(-width / 2, width / 2, max(3, int(width / 0.12))):
-        rails.append(_box([x - 0.008, 0.0, z + 0.008], [x + 0.008, 0.48, z + 0.024]))
+        rails.append(box_between([x - 0.008, 0.0, z + 0.008], [x + 0.008, 0.48, z + 0.024]))
     return rails

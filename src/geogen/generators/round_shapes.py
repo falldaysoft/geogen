@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..core.mesh import Mesh
-from .base import MeshGenerator
+from .base import MeshGenerator, box_attachment_points
 from .primitives import CylinderGenerator
 from .profiles import LatheGenerator
 
@@ -40,7 +40,7 @@ class TorusGenerator(MeshGenerator):
     tube_segments: int = 20
 
     def get_attachment_points(self, size):
-        return CylinderGenerator().get_attachment_points(size)
+        return box_attachment_points(size, radial=True)
 
     def generate(self) -> Mesh:
         tube = self.tube or self.size_y / 2
@@ -66,7 +66,7 @@ class CapsuleGenerator(MeshGenerator):
     cap_segments: int = 10
 
     def get_attachment_points(self, size):
-        return CylinderGenerator().get_attachment_points(size)
+        return box_attachment_points(size, radial=True)
 
     def generate(self) -> Mesh:
         r = min(self.size_x, self.size_z) / 2

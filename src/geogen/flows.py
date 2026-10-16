@@ -236,8 +236,9 @@ def attach_templates(root: SceneNode, loader: Any, assets_dir: Path | str | None
             if body.meta.get("physics", {}).get("spawn"):
                 raise FlowError(f"{path}: an item's body can't have a physics spawn (its source hands it out)")
             if "radius" not in item:
-                lo, hi = _bounds(body)
-                item["radius"] = round(float(max(hi[0] - lo[0], hi[2] - lo[2])) / 2, 4) if lo is not None else 0.25
+                box = body.mesh_bounds(body)
+                item["radius"] = round(float(max(box[1][0] - box[0][0], box[1][2] - box[0][2])) / 2, 4) \
+                    if box is not None else 0.25
             entry["name"] = names[entry["item"]] = item["name"]
             body.name = f"{item['name']}_template"
             body.meta[ITEM_META] = item
@@ -349,16 +350,6 @@ def parse_effector(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode],
 def effector_of(node: SceneNode) -> dict[str, Any] | None:
     flows = node.meta.get(META)
     return flows.get("effector") if isinstance(flows, dict) else None
-
-
-def _bounds(node: SceneNode) -> tuple[np.ndarray | None, np.ndarray | None]:
-    inv = np.linalg.inv(node.world_transform())
-    pts = [(inv @ n.world_transform() @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3]
-           for n in node.iter_nodes() if n.mesh is not None and len(n.mesh.vertices)]
-    if not pts:
-        return None, None
-    allp = np.vstack(pts)
-    return allp.min(axis=0), allp.max(axis=0)
 
 
 def is_template(node: SceneNode) -> bool:

@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..core.mesh import Mesh
-from .base import MeshGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 from .paths import path_points
 from .primitives import CubeGenerator
 
@@ -58,10 +58,10 @@ class FenceGenerator(MeshGenerator):
     gaps: list[list[float]] = field(default_factory=list)
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def _open(self, s: float) -> bool:
         return any(a <= s <= b for a, b in self.gaps)

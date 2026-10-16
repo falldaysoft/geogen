@@ -120,11 +120,9 @@ def build_places(root: SceneNode, spec: Any, where: str,
             place["height"] = float(entry.get("height", DEFAULT_HEIGHT))
             position, yaw = np.array([0.0, float(entry.get("y", 0.0)), 0.0]), 0.0
         else:
-            from .travel import _local_box
-
             if resolve is None:
                 raise ValueError(f"{at}: around isn't available here")
-            box = _local_box(root, resolve(name, str(entry["around"])))
+            box = resolve(name, str(entry["around"])).mesh_bounds(root)
             if box is None:
                 raise ValueError(f"{at}: '{entry['around']}' has no geometry to put a place round")
             margin = entry.get("margin", 0.0)

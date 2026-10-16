@@ -151,16 +151,9 @@ def exterior_lod(exterior: SceneNode, ratio: float = 0.25, min_size: float = 0.4
 
 
 def _bounds(node: SceneNode) -> list[list[float]] | None:
-    lo, hi = np.full(3, np.inf), np.full(3, -np.inf)
-    for n in node.iter_nodes():
-        if n.mesh is None or not len(n.mesh.vertices):
-            continue
-        v = n.mesh.vertices
-        w = (n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3]
-        lo, hi = np.minimum(lo, w.min(axis=0)), np.maximum(hi, w.max(axis=0))
-    if not np.isfinite(lo).all():
-        return None
-    return [[round(float(v), 3) for v in lo], [round(float(v), 3) for v in hi]]
+    """World bounds for the chunk index, rounded to mm."""
+    box = node.mesh_bounds()
+    return None if box is None else [[round(float(v), 3) for v in end] for end in box]
 
 
 def _safe(name: str) -> str:

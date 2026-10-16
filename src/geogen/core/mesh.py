@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -177,6 +177,12 @@ class Mesh:
             faces=np.array(mesh.faces),
             normals=np.array(mesh.vertex_normals) if mesh.vertex_normals is not None else None,
         )
+
+    def translated(self, offset: Any) -> Mesh:
+        """A copy moved by ``offset`` (x, y, z)."""
+        m = np.eye(4)
+        m[:3, 3] = np.asarray(offset, dtype=np.float64)
+        return self.transform(m)
 
     def transform(self, matrix: NDArray[np.float64]) -> Mesh:
         """Apply a 4x4 transformation matrix, returning a new mesh.

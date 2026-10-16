@@ -59,7 +59,7 @@ def parse_physics(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode], 
     }
     if out["mass"] <= 0:
         raise ValueError(f"{name}: physics mass must be positive")
-    box = _box(root)
+    box = root.mesh_bounds(root)
     if box is None:
         raise ValueError(f"{name}: physics needs geometry to make a body of")
     lo, hi = box
@@ -91,16 +91,6 @@ def parse_physics(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode], 
         out["spawn"] = str(spawn)
         root.interactions.append(_spawn_interaction(root, part_nodes, initial))
     return out
-
-
-def _box(root: SceneNode) -> tuple[np.ndarray, np.ndarray] | None:
-    inv = np.linalg.inv(root.world_transform())
-    pts = [(inv @ n.world_transform() @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3]
-           for n in root.iter_nodes() if n.mesh is not None and len(n.mesh.vertices)]
-    if not pts:
-        return None
-    allp = np.vstack(pts)
-    return allp.min(axis=0), allp.max(axis=0)
 
 
 def _spawn_interaction(root: SceneNode, part_nodes: dict[str, SceneNode], initial: str):

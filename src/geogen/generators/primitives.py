@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ..core.mesh import Mesh
 from ..core.geometry import make_cap_faces, make_tube_faces, make_cone_side_faces
-from .base import MeshGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
@@ -36,108 +36,11 @@ class CubeGenerator(MeshGenerator):
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
         """Generate attachment points at the center of each face."""
-        from ..layout.attachments import AttachmentPoint
-
-        half_x = size[0] / 2
-        half_y = size[1] / 2
-        half_z = size[2] / 2
-
-        return {
-            "top": AttachmentPoint(
-                name="top", anchor="center",
-                offset=np.array([0, half_y, 0]), facing="north",
-            ),
-            "bottom": AttachmentPoint(
-                name="bottom", anchor="center",
-                offset=np.array([0, -half_y, 0]), facing="north",
-            ),
-            "left": AttachmentPoint(
-                name="left", anchor="center",
-                offset=np.array([-half_x, 0, 0]), facing="west",
-            ),
-            "right": AttachmentPoint(
-                name="right", anchor="center",
-                offset=np.array([half_x, 0, 0]), facing="east",
-            ),
-            "front": AttachmentPoint(
-                name="front", anchor="center",
-                offset=np.array([0, 0, half_z]), facing="south",
-            ),
-            "back": AttachmentPoint(
-                name="back", anchor="center",
-                offset=np.array([0, 0, -half_z]), facing="north",
-            ),
-        }
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, "Surface"]:
-        """Expose the six faces of the cube as surfaces.
-
-        For each wall-like face, u is horizontal (left → right when viewed
-        from outside) and v is vertical (+Y is up). Normals point outward.
-        For top/bottom, u follows +X and v follows the remaining horizontal.
-        """
-        from ..layout.surfaces import Surface
-
-        hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
-        sx, sy, sz = float(size[0]), float(size[1]), float(size[2])
-
-        return {
-            # Front (+Z). Viewed from +Z, right is +X.
-            "front": Surface(
-                name="front",
-                origin=np.array([-hx, -hy, hz]),
-                u_axis=np.array([1.0, 0.0, 0.0]),
-                v_axis=np.array([0.0, 1.0, 0.0]),
-                normal=np.array([0.0, 0.0, 1.0]),
-                u_extent=sx, v_extent=sy,
-            ),
-            # Back (-Z). Viewed from -Z, right is -X.
-            "back": Surface(
-                name="back",
-                origin=np.array([hx, -hy, -hz]),
-                u_axis=np.array([-1.0, 0.0, 0.0]),
-                v_axis=np.array([0.0, 1.0, 0.0]),
-                normal=np.array([0.0, 0.0, -1.0]),
-                u_extent=sx, v_extent=sy,
-            ),
-            # Left (-X). Viewed from -X, right is -Z.
-            "left": Surface(
-                name="left",
-                origin=np.array([-hx, -hy, hz]),
-                u_axis=np.array([0.0, 0.0, -1.0]),
-                v_axis=np.array([0.0, 1.0, 0.0]),
-                normal=np.array([-1.0, 0.0, 0.0]),
-                u_extent=sz, v_extent=sy,
-            ),
-            # Right (+X). Viewed from +X, right is +Z.
-            "right": Surface(
-                name="right",
-                origin=np.array([hx, -hy, -hz]),
-                u_axis=np.array([0.0, 0.0, 1.0]),
-                v_axis=np.array([0.0, 1.0, 0.0]),
-                normal=np.array([1.0, 0.0, 0.0]),
-                u_extent=sz, v_extent=sy,
-            ),
-            # Top (+Y). u along +X, v along +Z (back → front).
-            "top": Surface(
-                name="top",
-                origin=np.array([-hx, hy, -hz]),
-                u_axis=np.array([1.0, 0.0, 0.0]),
-                v_axis=np.array([0.0, 0.0, 1.0]),
-                normal=np.array([0.0, 1.0, 0.0]),
-                u_extent=sx, v_extent=sz,
-            ),
-            # Bottom (-Y). u along +X, v along +Z.
-            "bottom": Surface(
-                name="bottom",
-                origin=np.array([-hx, -hy, -hz]),
-                u_axis=np.array([1.0, 0.0, 0.0]),
-                v_axis=np.array([0.0, 0.0, 1.0]),
-                normal=np.array([0.0, -1.0, 0.0]),
-                u_extent=sx, v_extent=sz,
-            ),
-        }
-
+        """The six faces of the cube as surfaces (``base.box_surfaces``)."""
+        return box_surfaces(size)
     def generate(self) -> Mesh:
         """Generate a box centred at the origin with rounded (beveled) edges.
 
@@ -387,38 +290,8 @@ class CylinderGenerator(MeshGenerator):
     segments: int = 32
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        """Generate attachment points at top, bottom, and radial mid-height."""
-        from ..layout.attachments import AttachmentPoint
-
-        radius = min(size[0], size[2]) / 2
-        half_y = size[1] / 2
-
-        return {
-            "top": AttachmentPoint(
-                name="top", anchor="center",
-                offset=np.array([0, half_y, 0]), facing="north",
-            ),
-            "bottom": AttachmentPoint(
-                name="bottom", anchor="center",
-                offset=np.array([0, -half_y, 0]), facing="north",
-            ),
-            "left": AttachmentPoint(
-                name="left", anchor="center",
-                offset=np.array([-radius, 0, 0]), facing="west",
-            ),
-            "right": AttachmentPoint(
-                name="right", anchor="center",
-                offset=np.array([radius, 0, 0]), facing="east",
-            ),
-            "front": AttachmentPoint(
-                name="front", anchor="center",
-                offset=np.array([0, 0, radius]), facing="south",
-            ),
-            "back": AttachmentPoint(
-                name="back", anchor="center",
-                offset=np.array([0, 0, -radius]), facing="north",
-            ),
-        }
+        """Attachment points at top, bottom, and the radius at mid-height."""
+        return box_attachment_points(size, radial=True)
 
     def generate(self) -> Mesh:
         """Generate a cylinder mesh centered at the origin with UV coordinates."""
@@ -528,38 +401,8 @@ class ConeGenerator(MeshGenerator):
     segments: int = 32
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        """Generate attachment points at top, bottom, and radial mid-height."""
-        from ..layout.attachments import AttachmentPoint
-
-        radius = min(size[0], size[2]) / 2
-        half_y = size[1] / 2
-
-        return {
-            "top": AttachmentPoint(
-                name="top", anchor="center",
-                offset=np.array([0, half_y, 0]), facing="north",
-            ),
-            "bottom": AttachmentPoint(
-                name="bottom", anchor="center",
-                offset=np.array([0, -half_y, 0]), facing="north",
-            ),
-            "left": AttachmentPoint(
-                name="left", anchor="center",
-                offset=np.array([-radius, 0, 0]), facing="west",
-            ),
-            "right": AttachmentPoint(
-                name="right", anchor="center",
-                offset=np.array([radius, 0, 0]), facing="east",
-            ),
-            "front": AttachmentPoint(
-                name="front", anchor="center",
-                offset=np.array([0, 0, radius]), facing="south",
-            ),
-            "back": AttachmentPoint(
-                name="back", anchor="center",
-                offset=np.array([0, 0, -radius]), facing="north",
-            ),
-        }
+        """Attachment points at top, bottom, and the radius at mid-height."""
+        return box_attachment_points(size, radial=True)
 
     def generate(self) -> Mesh:
         """Generate a cone mesh centered at the origin, with UV coordinates."""
@@ -730,3 +573,12 @@ class PlaneGenerator(MeshGenerator):
             faces=np.array(faces, dtype=np.int64),
             uvs=np.array(uvs, dtype=np.float64),
         )
+
+
+def box_between(lo: Any, hi: Any, bevel: float = 0.0, bevel_segments: int = 2) -> Mesh:
+    """A box filling the corners ``lo`` .. ``hi`` (x, y, z), sharp unless ``bevel`` is given."""
+    lo, hi = np.asarray(lo, dtype=np.float64), np.asarray(hi, dtype=np.float64)
+    size = hi - lo
+    mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=bevel,
+                         bevel_segments=bevel_segments).generate()
+    return mesh.translated((lo + hi) / 2)

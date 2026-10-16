@@ -80,10 +80,10 @@ def apply_travel(root: SceneNode, spec: dict[str, Any], where: str = "") -> None
     volume = (root.meta.get("travel") or {}).get("volume")    # already taken from a part / the bounds
     volume_part = root.find(VOLUME_PART)
     if volume_part is not None:
-        volume = _volume(_local_box(root, volume_part))
+        volume = _volume(volume_part.mesh_bounds(root))
         volume_part.parent.remove_child(volume_part)           # a trigger, not geometry
     if volume is None and on == "enter":
-        volume = _volume(_local_box(root))
+        volume = _volume(root.mesh_bounds(root))
         if volume is None:
             raise ValueError(f"{where or root.name}: travel on: enter needs geometry or a '{VOLUME_PART}' part")
     if volume is not None:
@@ -111,19 +111,6 @@ def _travel_interaction(root: SceneNode, travel: dict[str, Any], where: str):
     return Interaction("travel", {"ready": State(next="going", prompt=travel["prompt"]),
                                   "going": State(then="ready", emit="travel")},
                        [], [target], "ready", 0.1)
-
-
-def _local_box(root: SceneNode, node: SceneNode | None = None) -> tuple[np.ndarray, np.ndarray] | None:
-    """Bounds of ``node``'s subtree (default: all of ``root``) in ``root``'s frame, or None if empty."""
-    to_root = np.linalg.inv(root.world_transform())
-    lo, hi = np.full(3, np.inf), np.full(3, -np.inf)
-    for n in (node or root).iter_nodes():
-        if n.mesh is None or len(n.mesh.vertices) == 0:
-            continue
-        m = to_root @ n.world_transform()
-        pts = n.mesh.vertices @ m[:3, :3].T + m[:3, 3]
-        lo, hi = np.minimum(lo, pts.min(axis=0)), np.maximum(hi, pts.max(axis=0))
-    return (lo, hi) if np.all(np.isfinite(lo)) else None
 
 
 def travel_summary(root: SceneNode) -> list[dict[str, Any]]:

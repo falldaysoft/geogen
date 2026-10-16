@@ -32,13 +32,9 @@ STYLES = ("door", "archway")
 
 def _box(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float, bevel: float = 0.0,
          bevel_segments: int = 2) -> Mesh:
-    from .primitives import CubeGenerator
+    from .primitives import box_between
 
-    mesh = CubeGenerator(size_x=x1 - x0, size_y=y1 - y0, size_z=z1 - z0, bevel=bevel,
-                         bevel_segments=bevel_segments).generate()
-    move = np.eye(4)
-    move[:3, 3] = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]
-    return mesh.transform(move)
+    return box_between((x0, y0, z0), (x1, y1, z1), bevel, bevel_segments)
 
 
 def _u_frame(outer_w: float, outer_h: float, inner_w: float, inner_h: float, depth: float,

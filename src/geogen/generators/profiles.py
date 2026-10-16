@@ -16,8 +16,7 @@ from numpy.typing import NDArray
 from ..core import meshops
 from ..core.mesh import Mesh
 from ..core.profile import Shape, arc_lengths, dedupe, triangulate
-from .base import MeshGenerator
-from .primitives import CubeGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
@@ -94,10 +93,10 @@ class ExtrudeGenerator(MeshGenerator):
         return np.abs(u) * (x1 - x0) + np.abs(v) * (y1 - y0) + np.abs(a) * self.depth
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def generate(self) -> Mesh:
         u_axis, v_axis, axis = _AXIS_FRAMES[self.axis]
@@ -176,7 +175,7 @@ class LatheGenerator(MeshGenerator):
     crease_angle: float = 40.0
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def generate(self) -> Mesh:
         prof = dedupe(np.asarray(self.profile, dtype=np.float64), closed=False)

@@ -37,8 +37,7 @@ from shapely.ops import unary_union
 from .. import roots
 from ..core.mesh import Mesh
 from ..core.profile import Shape
-from .base import MeshGenerator
-from .primitives import CubeGenerator
+from .base import MeshGenerator, box_attachment_points, box_surfaces
 from .profiles import ExtrudeGenerator
 
 if TYPE_CHECKING:
@@ -234,10 +233,10 @@ class TextGenerator(MeshGenerator):
     detail: float = 1.0
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
-        return CubeGenerator().get_surfaces(size)
+        return box_surfaces(size)
 
     def generate(self) -> Mesh:
         shapes = layout(self.text, self.font, self.height, self.align, self.line_spacing, self.tracking,

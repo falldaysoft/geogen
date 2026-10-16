@@ -29,7 +29,7 @@ import numpy as np
 
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
-from .base import MeshGenerator
+from .base import MeshGenerator, box_attachment_points
 
 MAX_CLUSTERS = 44       # leaf clusters per tree (street trees are instanced by the hundred)
 
@@ -379,9 +379,7 @@ class TreeGenerator(MeshGenerator):
         return mesh
 
     def get_attachment_points(self, size: np.ndarray):
-        from .primitives import CubeGenerator
-
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray):
         return {}
@@ -440,9 +438,7 @@ class RockGenerator(MeshGenerator):
         return meshops.compute_normals(uvmap.box_project(mesh), 70.0)
 
     def get_attachment_points(self, size: np.ndarray):
-        from .primitives import CubeGenerator
-
-        return CubeGenerator().get_attachment_points(size)
+        return box_attachment_points(size)
 
     def get_surfaces(self, size: np.ndarray):
         return {}

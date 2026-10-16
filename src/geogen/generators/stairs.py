@@ -36,10 +36,9 @@ def _move(mesh: Mesh, x: float = 0.0, y: float = 0.0, z: float = 0.0, yaw_deg: f
 
 
 def _box(x0, x1, y0, y1, z0, z1) -> Mesh:
-    from .primitives import CubeGenerator
+    from .primitives import box_between
 
-    mesh = CubeGenerator(size_x=x1 - x0, size_y=y1 - y0, size_z=z1 - z0, bevel=0).generate()
-    return _move(mesh, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+    return box_between((x0, y0, z0), (x1, y1, z1))
 
 
 @dataclass
