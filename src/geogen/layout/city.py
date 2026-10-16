@@ -540,17 +540,20 @@ class CityBuilder:
         # North-south streets (constant x): x span between blocks.
         ns_spans = self._street_spans(self.x_edges, self.ns_width, self.lo[0], self.hi[0])
         ew_spans = self._street_spans(self.z_edges, self.ew_width, self.lo[1], self.hi[1])
-        for (a, b) in ns_spans:
+        # No crossing over a street on the district's edge: there is no pavement beyond it.
+        for k, (a, b) in enumerate(ns_spans):
+            edge = k in (0, len(ns_spans) - 1)
             for (z0, z1) in self.z_edges:
-                for zc0, zc1 in ((z0, z0 + self.sidewalk), (z1 - self.sidewalk, z1)):
+                for zc0, zc1 in ((z0, z0 + self.sidewalk), (z1 - self.sidewalk, z1)) if not edge else ():
                     for x in np.arange(a + 0.5, b - 0.5 - stripe + 1e-6, stripe + gap):
                         white.append(_slab([x, zc0 + 0.3], [x + stripe, zc1 - 0.3], y0, y1))
                 # Centre line between this block's crosswalks.
                 yellow += self._dashes(np.array([(a + b) / 2, z0 + self.sidewalk + 1.0]),
                                        np.array([(a + b) / 2, z1 - self.sidewalk - 1.0]), y0, y1)
-        for (a, b) in ew_spans:
+        for k, (a, b) in enumerate(ew_spans):
+            edge = k in (0, len(ew_spans) - 1)
             for (x0, x1) in self.x_edges:
-                for xc0, xc1 in ((x0, x0 + self.sidewalk), (x1 - self.sidewalk, x1)):
+                for xc0, xc1 in ((x0, x0 + self.sidewalk), (x1 - self.sidewalk, x1)) if not edge else ():
                     for z in np.arange(a + 0.5, b - 0.5 - stripe + 1e-6, stripe + gap):
                         white.append(_slab([xc0 + 0.3, z], [xc1 - 0.3, z + stripe], y0, y1))
                 yellow += self._dashes(np.array([x0 + self.sidewalk + 1.0, (a + b) / 2]),

@@ -410,7 +410,9 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   seconds a vehicle picks another exit.
 - **Traffic lights**: signalled intersections (`control: signals`) cycle their phases from world
   time (green, amber, all-red; the phases take turns). Vehicles go on green, or on amber if too
-  close to stop, and still claim conflict zones, so turns yield. They wait at red. Signal heads
+  close to stop, and still claim conflict zones, so turns yield. They wait at red. Only the
+  front vehicle of a lane claims: one queued behind a car turning another way would hold its
+  claim while it waited and shut out conflicting traffic for whole greens. Signal heads
   (`extras.geogen.signal`) light the lamp for their phase.
 - **Pedestrian signals**: `traffic.pedestrian_signals` lists the crosswalks of signalled
   intersections that have pavement at both ends: `intersection`, the `phase` they are walked in
@@ -421,7 +423,10 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   dont` on the same clock as `signal_state`. Heads with `extras.geogen.signal.crossing`
   (`pedestrian_signal.yaml`, one at each end facing across) light `lamp_walk`, or `lamp_dont`
   (blinking once a second while it clears). Turning traffic of the walk phase isn't held: it
-  yields to people on the crossing, as anywhere. NPCs wait for walk (see Pedestrians).
+  yields to people on the crossing, as anywhere. NPCs wait for walk (see Pedestrians). The
+  player is told: on the kerb at either end, or on the crossing, the HUD's `crossing` panel
+  (`scripts/hud_crossing.gd`) shows WALK or a (flashing) DON'T WALK with what it means;
+  control API `hud.crossing`.
 - **Yielding**: the player and NPCs (group `geogen_character`) in the corridor ahead, or on a
   crosswalk about to be crossed, are obstacles to stop for.
 - **Bodies**: vehicles are `AnimatableBody3D` boxes. They block the player, stay out of the

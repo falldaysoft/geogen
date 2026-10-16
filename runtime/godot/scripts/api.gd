@@ -60,6 +60,8 @@ const COMMANDS := {
     "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
     "hud.stats": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value, of?, text}]}, "
         + "banner: {visible, text?, tone?}}",
+    "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): "
+        + "{visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
     "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
         + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
         + "progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how "
@@ -415,6 +417,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "hud.stats":
             main.hud.refresh()
             return {"stats": main.hud.panel("stats").hud_report(), "banner": main.hud.panel("banner").hud_report()}
+        "hud.crossing":
+            return main.hud.panel("crossing").hud_report()
         "hud.quests":
             var tracker: GeogenHudQuestTracker = main.hud.panel("quests")
             if args.has("linger"):

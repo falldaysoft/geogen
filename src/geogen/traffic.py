@@ -330,7 +330,7 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
                     src.successors.append(con.id)
     # Crosswalk zones: the first/last `sidewalk` metres beyond each intersection box are crossings.
     cycle = {**SIGNAL_CYCLE, **(spec.get("cycle") or {})}
-    zones, pedestrian = [], []
+    zones, pedestrian, crossings = [], [], []
     for i in range(len(ns_spans)):
         for j in range(len(ew_spans)):
             lo = np.array([ns_spans[i][0], ew_spans[j][0]])
@@ -346,8 +346,11 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
                 # The crossing over the west or east arm is crossed by east-west traffic (phase 1),
                 # so people walk it in phase 0, beside the north-south traffic; and the other way.
                 across = side in ("west", "east")
-                # A crossing over a street on the district's edge leads to no pavement: no signal.
+                # A crossing over a street on the district's edge leads to no pavement: it isn't
+                # painted or walked (vehicles still watch the zone for people).
                 kerbs = 0 < j < len(ew_spans) - 1 if across else 0 < i < len(ns_spans) - 1
+                if inside and kerbs:
+                    crossings.append([round(float(v), 3) for v in (*zlo, *zhi)])
                 if (i, j) not in signalled or not inside or not kerbs:
                     continue
                 length = float(hi[1] - lo[1] if across else hi[0] - lo[0])
@@ -362,9 +365,7 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     for lane in lanes:
         if hasattr(lane, "kerb_index"):
             del lane.kerb_index  # type: ignore[attr-defined]
-    # The painted crossings (inside the district) for pedestrians to use.
-    crossings = [[round(float(v), 3) for v in (*lo, *hi)] for lo, hi in zones
-                 if np.all(lo >= builder.lo - 1e-6) and np.all(hi <= builder.hi + 1e-6)]
+    # The painted crossings for pedestrians to use.
     builder.crosswalk_zones = crossings
     builder.pedestrian_signals = pedestrian
     return lanes

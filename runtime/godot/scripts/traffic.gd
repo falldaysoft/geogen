@@ -304,12 +304,14 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
     # Leaders: the nearest vehicle ahead on this lane, on the lane it takes next, or just
     # onto any other successor (a car that turned off may still be in the way).
     var succ: Array = lane["succ"]
+    var first := true          # nobody ahead of it on this lane
     for o in vehicles:
         if o == v:
             continue
         var d := INF
         if o["lane"] == v["lane"] and o["s"] > v["s"]:
             d = o["s"] - v["s"]
+            first = false
         elif o["lane"] == v["next"] or (o["lane"] in succ and o["s"] < o["half"] + v["half"] + 2.0):
             d = remaining + o["s"]
         if d < INF:
@@ -324,9 +326,11 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
     if sig != "" and not v["claimed"]:
         # Traffic lights: go on green (and on amber when too close to stop), claiming the
         # connector on the way in (turns still yield through the conflict zones); else stop.
+        # Only the front vehicle claims: one queued behind a car turning another way would
+        # hold the claim while it waits, shutting out conflicting traffic for whole greens.
         var to_line: float = remaining - v["half"] - 0.3
         var cant_stop: bool = to_line < v["v"] * v["v"] / (2.0 * v["decel"]) - 0.5
-        if (sig == "green" or (sig == "amber" and cant_stop)) and to_line < 30.0 and _can_claim(v):
+        if (sig == "green" or (sig == "amber" and cant_stop)) and to_line < 30.0 and first and _can_claim(v):
             v["claimed"] = true
             stats["claims"] += 1
             stats["signal_%s" % sig] = int(stats.get("signal_%s" % sig, 0)) + 1

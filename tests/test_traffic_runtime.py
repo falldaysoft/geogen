@@ -122,6 +122,31 @@ def test_pedestrians_wait_for_the_walk_signal(run_godot, crossroads_dir):
     assert traffic["yields"] >= 1 and traffic["green_claims"] >= 10
 
 
+def test_the_hud_tells_the_player_at_a_crossing_when_to_walk(godot_runtime, crossroads_dir):
+    """hud_crossing.gd: on the kerb of a signalled crossing, or on it, the HUD shows what its
+    heads show, and changes with them; anywhere else it shows nothing."""
+    manifest = json.loads((crossroads_dir / "crossroads.manifest.json").read_text())
+    crossing = manifest["traffic"]["pedestrian_signals"][0]
+    x0, z0, x1, z1 = crossing["crosswalk"]
+    along_x = x1 - x0 > z1 - z0
+    mid = ((x0 + x1) / 2, (z0 + z1) / 2)
+    kerb = (x0 - 0.8, mid[1]) if along_x else (mid[0], z0 - 0.8)
+    rt = godot_runtime("crossroads", crossroads_dir)
+    rt.call("player.teleport", pos=[kerb[0], 0.2, kerb[1]])
+    seen = {}
+    for _ in range(14):                     # 14 x 3 s: a whole 41 s cycle
+        shown = rt.call("hud.crossing")
+        assert shown["visible"] and shown["crossing"] == crossing["id"] and shown["where"] == "kerb", shown
+        seen[shown["state"]] = shown
+        rt.call("time.advance", seconds=3)
+    assert set(seen) == {"walk", "flash", "dont"}
+    assert seen["walk"]["text"] == "WALK" and seen["dont"]["line"] == "Wait for the signal"
+    rt.call("player.teleport", pos=[mid[0], 0.05, mid[1]])
+    assert rt.call("hud.crossing")["where"] == "crossing"
+    rt.call("player.teleport", pos=[manifest["spawns"][0]["position"][0], 0.2, manifest["spawns"][0]["position"][2] - 4.0])
+    assert rt.call("hud.crossing") == {"visible": False}
+
+
 def _summaries(out: str) -> tuple[list, dict, dict]:
     lines = out.splitlines()
     npcs = json.loads(next(l for l in lines if l.startswith("npc summary: ")).split(": ", 1)[1])
