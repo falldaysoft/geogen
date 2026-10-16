@@ -120,7 +120,8 @@ class MaterialLoader:
         ring_count: 8
         grain_strength: 0.3
     size: [512, 512]
-    shininess: 0.2
+    pbr:
+      roughness: 0.8
     ```
     """
 
@@ -217,14 +218,12 @@ class MaterialLoader:
 
         # Parse other material properties
         size = data.get("size", [512, 512])
-        shininess = data.get("shininess", 0.3)
         tint = data.get("tint")
         if tint is not None:
             tint = tuple(tint)
 
-        # Parse PBR properties (with fallback to legacy shininess)
         pbr = data.get("pbr", {})
-        roughness = pbr.get("roughness", 1.0 - shininess)  # Convert shininess to roughness
+        roughness = pbr.get("roughness", 0.7)
         metallic = pbr.get("metallic", 0.0)
         normal_strength = pbr.get("normal_strength", 1.0)
         ao_strength = pbr.get("ao_strength", 1.0)
@@ -244,7 +243,6 @@ class MaterialLoader:
             ao_strength=ao_strength,
             uv_scale=uv_scale,
             tile_size=tile_size,
-            shininess=shininess,
             tint=tint,
             opacity=float(pbr.get("opacity", data.get("opacity", 1.0))),
             emissive=tuple(float(c) for c in pbr.get("emissive", [0.0, 0.0, 0.0])),

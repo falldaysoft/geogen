@@ -8,7 +8,6 @@ texture:
     seed: 7
 size: [512, 512]
 tile_size: 1.0  # metres per texture repeat
-shininess: 0.05
 pbr:
   roughness: 0.95
   metallic: 0.0

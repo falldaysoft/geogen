@@ -27,7 +27,6 @@ class Material:
         metallic: Metalness (0=dielectric/non-metal, 1=metal)
         normal_strength: Normal map intensity multiplier
         ao_strength: Ambient occlusion strength multiplier
-        shininess: Legacy specular shininess (maps to roughness)
         tint: Optional color tint multiplier (R, G, B) normalized 0-1
     """
 
@@ -52,8 +51,6 @@ class Material:
     emissive: tuple[float, float, float] = (0.0, 0.0, 0.0)
     emissive_strength: float = 1.0
 
-    # Legacy property (converted to roughness if roughness not explicitly set)
-    shininess: float = 0.3
     tint: tuple[float, float, float] | None = None
 
     # Cached textures

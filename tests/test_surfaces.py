@@ -5,7 +5,6 @@ import pytest
 
 from geogen.core.node import SceneNode
 from geogen.generators.primitives import CubeGenerator, PlaneGenerator
-from geogen.generators.room import RoomGenerator
 from geogen.layout import LayoutLoader
 from geogen.layout.surfaces import Surface
 
@@ -138,24 +137,6 @@ class TestPrimitiveSurfaces:
         assert "top" in surfaces
         t = surfaces["top"].resolve(u=0.5, v=0.5)
         np.testing.assert_allclose(t.translation, [0.0, 0.0, 0.0])
-
-    def test_room_interior_surfaces(self):
-        room = RoomGenerator(size_x=4, size_y=3, size_z=6)
-        surfaces = room.get_surfaces(np.array([4.0, 3.0, 6.0]))
-        assert set(surfaces) == {
-            "north_wall", "south_wall", "east_wall", "west_wall",
-            "floor", "ceiling",
-        }
-
-    def test_room_north_wall_normal_points_inward(self):
-        room = RoomGenerator(size_x=4, size_y=3, size_z=6)
-        surfaces = room.get_surfaces(np.array([4.0, 3.0, 6.0]))
-        # North wall is at z = +3, normal should point -Z (into room)
-        north = surfaces["north_wall"]
-        np.testing.assert_allclose(north.normal, [0.0, 0.0, -1.0])
-        # Center of the wall: (0, 1.5, 3)
-        t = north.resolve(u=0.5, v=0.5)
-        np.testing.assert_allclose(t.translation, [0.0, 1.5, 3.0])
 
 
 class TestSurfaceExports:

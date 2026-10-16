@@ -189,9 +189,6 @@ class _RoomSolver:
         axis, sign, _ = _WALLS[side]
         return np.array([along, sign * self.hz]) if axis == 0 else np.array([sign * self.hx, along])
 
-    def along_of(self, side: str, point: np.ndarray) -> float:
-        return float(point[0] if _WALLS[side][0] == 0 else point[1])
-
     def opening_center(self, o: dict) -> np.ndarray:
         return self.wall_point(o["side"], (o["lo"] + o["hi"]) / 2)
 

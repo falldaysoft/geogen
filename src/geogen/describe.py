@@ -199,7 +199,7 @@ def asset_files(assets_dir: Path = ASSETS_DIR) -> dict[str, tuple[str, Path]]:
     for path in roots.glob("*.yaml", assets_dir):
         data = safe_load_path(path)
         if isinstance(data, dict) and "kind" not in data:
-            out[path.stem] = ("scene" if {"place", "compose", "city"} & set(data) else "asset", path)
+            out[path.stem] = ("scene" if {"place", "city"} & set(data) else "asset", path)
     for sub in ASSET_SUBDIRS:
         for path in roots.glob(f"{sub}/*.yaml", assets_dir):
             data = safe_load_path(path)
@@ -239,7 +239,7 @@ def static_entry(name: str, kind: str, path: Path, assets_dir: Path = ASSETS_DIR
     }
     if kind == "scene":
         entry["category"] = "Scenes"
-        placements = {**(data.get("compose") or {}), **(data.get("place") or {})}
+        placements = data.get("place") or {}
         entry["places"] = {
             str(n): next((f"{{{k}: {d[k]}}}" for k in ("asset", "scene", "npc", "archetype", "traffic", "train")
                           if isinstance(d, dict) and k in d), "?")
@@ -249,7 +249,7 @@ def static_entry(name: str, kind: str, path: Path, assets_dir: Path = ASSETS_DIR
         entry["features"] = [k for k in ("city", "routes", "railways") if k in data]
         return entry
     entry["category"] = category_of(name, tags, file)
-    entry["built_from"] = next((k for k in ("floorplan", "building", "body", "room") if k in data), "parts")
+    entry["built_from"] = next((k for k in ("floorplan", "building", "body") if k in data), "parts")
     if data.get("origin"):
         entry["origin"] = data["origin"]
     entry["presets"] = {str(k): _clean(v or {}) for k, v in (data.get("presets") or {}).items()}

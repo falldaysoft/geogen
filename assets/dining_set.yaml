@@ -3,7 +3,7 @@
 
 name: dining_set
 
-compose:
+place:
   table:
     asset: table.yaml
 

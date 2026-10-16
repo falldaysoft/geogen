@@ -1,14 +1,12 @@
 """Tests for all scenes - loads and renders each scene."""
 
 import numpy as np
-import pyrender
 import pytest
 
 from geogen.registry import SceneRegistry
-from geogen.render import RenderOptions, _get_renderer
+from geogen.render import RenderOptions
 from geogen.render import render_scene as geogen_render
 from geogen.scenes.nature import create_nature_scene
-from geogen.viewer import Viewer
 
 
 def _build_registry() -> SceneRegistry:
@@ -37,19 +35,6 @@ def test_scene_renders(scene_name, built_scene):
     color = render_scene(built_scene(scene_name))
     assert color.shape == (480, 640, 3) and color.dtype == np.uint8
     assert color.max() > 0, f"Scene '{scene_name}' rendered as completely black"
-
-
-@pytest.mark.parametrize("scene_name", ["chair", "dining_set", "cottage"])
-def test_viewer_converts_to_trimesh(scene_name, built_scene):
-    """The legacy trimesh viewer still converts scenes (small ones: it copies every instance)."""
-    viewer = Viewer(built_scene(scene_name), color=(0.7, 0.7, 0.8))
-    assert viewer.scene.geometry and all(len(g.faces) for g in viewer.scene.geometry.values())
-    mesh = pyrender.Mesh.from_trimesh(next(iter(viewer.scene.geometry.values())), smooth=False)
-    renderer = _get_renderer(64, 48)
-    scene = pyrender.Scene()
-    scene.add(mesh)
-    scene.add(pyrender.PerspectiveCamera(yfov=0.8), pose=np.eye(4))
-    renderer.render(scene)
 
 
 def test_registry_discovers_all_yaml():

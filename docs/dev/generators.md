@@ -48,7 +48,6 @@ Mesh and composite generators (`src/geogen/generators/`), the furniture library,
   - `primitive: rock` is a random convex cage (`seed`, `points`, `levels`, `roughness`, `crease`), subdivided, displaced and flat-bottomed.
   - Generated child meshes inherit the part's `material` (bark).
 
-- **RoomGenerator** (`room.py`): Generates rooms with walls, floor, ceiling, and openings (doors/windows). Supports `generate_parts()` for separate surface meshes with different materials. Uses `Opening` dataclass for doors/windows with wall position, size, and bottom offset.
 
 ## Furniture library
 

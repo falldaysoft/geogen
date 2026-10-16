@@ -277,7 +277,6 @@ Relevant module: `src/geogen/layout/expressions.py`.
 Where an `AttachmentPoint` is a single spot, a `Surface` is a 2D region with its own (u, v) coordinate system — a wall, a floor, the top of a table. Primitives expose surfaces automatically:
 - **CubeGenerator** → `front`, `back`, `left`, `right`, `top`, `bottom`
 - **PlaneGenerator** → `top`
-- **RoomGenerator** → `north_wall`, `south_wall`, `east_wall`, `west_wall`, `floor`, `ceiling` (all interior-facing, normals point *into* the room)
 
 For walls, `u` runs horizontally "left → right when facing the wall from outside" (or from inside, for room interior walls) and `v` runs vertical (+Y). Each surface's `normal` points outward from its home object.
 
@@ -385,11 +384,11 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 
 ## Scenes & Registry
 
-- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).
+- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `city:` key is present, otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).
 
-- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Only `nature.py` and `skin_test.py` are registered; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are legacy thin wrappers around their YAML counterparts and aren't used by the registry.
+- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. There are two, `nature.py` and `skin_test.py`, registered in `main._build_registry()`.
 
-- **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`/`compose:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` uses `compose:` and is a scene, not an asset.)
+- **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` is a scene, not an asset.)
 
 ## Vocabulary catalogue (`--describe`)
 

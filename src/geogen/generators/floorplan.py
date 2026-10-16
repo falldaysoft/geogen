@@ -15,7 +15,7 @@ on the edge. Each boundary segment is extended at its ends just far enough
 to meet the perpendicular walls there, and all segments are unioned in 2D
 before extruding, so L/T/X junctions are clean: no overlaps, no gaps.
 
-Sides follow :class:`RoomGenerator`: north = +Z, south = -Z, east = +X,
+Sides: north = +Z, south = -Z, east = +X,
 west = -X. Room wall surfaces face into the room; ``<side>_exterior``
 surfaces face out of the building (for placing window/door assets).
 """

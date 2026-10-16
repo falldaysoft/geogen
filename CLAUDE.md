@@ -63,7 +63,7 @@ Worked examples of projects built on geogen: `examples/sandwich`, `examples/test
 
 ### Files and formats
 
-- `assets/*.yaml` is an asset (`parts:`, `floorplan:`, `building:`, ...) or a composed scene (`place:` / `compose:`); `assets/scenes/*.yaml` and `assets/scenes/<name>/scene.yaml` (a scene folder with private files) are always scenes. A YAML with a top-level `kind:` (`player.yaml`, npcs, quests, items, ...) is data, not a scene. Python scenes are registered in `main._build_registry()` (`nature`, `skin_test`); the other `scenes/*.py` are unused legacy wrappers.
+- `assets/*.yaml` is an asset (`parts:`, `floorplan:`, `building:`, ...) or a composed scene (`place:`); `assets/scenes/*.yaml` and `assets/scenes/<name>/scene.yaml` (a scene folder with private files) are always scenes. A YAML with a top-level `kind:` (`player.yaml`, npcs, quests, items, ...) is data, not a scene. Python scenes are registered in `main._build_registry()` (`nature`, `skin_test`).
 - Two composition levels: `LayoutLoader` builds an asset from primitives (parts connect with `attach_to` / `at` / `from`, roots use `anchor` + `offset`); `SceneComposer` places assets and nested scenes (slots, `attach_to` + `at`, `on: <object>.<surface>` + `at: {u, v}`, scatter). Connections use named points and surfaces, not coordinates; objects don't know their containers.
 - Always load asset and scene YAML through `LayoutLoader` / `SceneComposer` / `yaml_utils`: `GeogenSafeLoader` keeps `on:` / `off:` / `yes:` / `no:` as strings, and plain `yaml.safe_load` turns `on:` into `True`.
 - Anything named relative to `assets/` resolves with `roots.find(name, assets_dir)` (and lists with `roots.glob`), so projects' content roots are searched first. Don't join names onto an assets directory yourself.

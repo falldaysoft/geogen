@@ -266,12 +266,7 @@ class SceneComposer:
         # Parse slot definitions
         slots = self._parse_slots(data.get("slots", {}), size)
 
-        # Handle old 'compose' format for backwards compatibility
-        compose_data = data.get("compose", {})
-        place_data = data.get("place", {})
-
-        # Merge compose into place for unified handling
-        all_placements = {**compose_data, **place_data}
+        all_placements = dict(data.get("place") or {})
         # `when: "{expr}"` drops a placement when it resolves to 0 / false / "" (like parts).
         all_placements = {k: {kk: vv for kk, vv in v.items() if kk != "when"} if isinstance(v, dict) else v
                           for k, v in all_placements.items()
@@ -280,7 +275,7 @@ class SceneComposer:
             from .yaml_utils import source_of
 
             all_placements = {
-                k: ({**v, "_travel_where": source_of(source, ["place" if k in place_data else "compose", k, "travel"])}
+                k: ({**v, "_travel_where": source_of(source, ["place", k, "travel"])}
                     if isinstance(v, dict) and v.get("travel") else v)
                 for k, v in all_placements.items()}
         # Scatter placements run last, once the objects they avoid exist.
@@ -298,9 +293,6 @@ class SceneComposer:
 
         loaded_objects: dict[str, SceneNode] = {}
         refs = SceneRefs(root, source, [*all_placements, *scatters, *fleets])
-
-        def key_of(obj_name: str) -> str:
-            return "place" if obj_name in place_data else "compose"
 
         for obj_name, obj_def in all_placements.items():
             if "attach_to" in obj_def:
@@ -326,15 +318,15 @@ class SceneComposer:
                 node.transform = slots[slot_name]
             elif "on" in obj_def:
                 # Placement on a scene-level (root) surface.
-                node.transform = self._resolve_surface_placement(obj_def, root, refs, [key_of(obj_name), obj_name])
+                node.transform = self._resolve_surface_placement(obj_def, root, refs, ["place", obj_name])
 
             root.add_child(node)
             loaded_objects[obj_name] = node
 
         # Second pass: attach objects to their targets, each after the placement it refers to.
-        for obj_name in self._after_targets(all_placements, refs, key_of):
+        for obj_name in self._after_targets(all_placements, refs):
             obj_def = all_placements[obj_name]
-            keys = [key_of(obj_name), obj_name]
+            keys = ["place", obj_name]
             if "on" in obj_def and self._surface_target_is_object(obj_def["on"]):
                 node = self._load_object(obj_def)
                 node.name = obj_name
@@ -382,7 +374,7 @@ class SceneComposer:
 
             occupied: list = []
             for obj_name, obj_def in scatters.items():
-                keys = [key_of(obj_name), obj_name]
+                keys = ["place", obj_name]
                 placed = scatter(root, obj_name, obj_def, refs,
                                  lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied,
                                  keys=[*keys, "scatter"])
@@ -410,7 +402,7 @@ class SceneComposer:
             if node is not None and "npc" in obj_def:
                 from ..npc import resolve_home
 
-                resolve_home(node, obj_def.get("home"), refs, [key_of(obj_name), obj_name, "home"])
+                resolve_home(node, obj_def.get("home"), refs, ["place", obj_name, "home"])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
                 if obj_def.get("quests"):         # quests this NPC holds from the start (quests.collect)
@@ -654,7 +646,7 @@ class SceneComposer:
         """Return True when `on: <spec>` refers to `<object>.<surface>`."""
         return "." in spec
 
-    def _after_targets(self, placements: dict[str, Any], refs: Any, key_of: Any) -> list[str]:
+    def _after_targets(self, placements: dict[str, Any], refs: Any) -> list[str]:
         """Placement keys ordered so each comes after the placement its ``on:`` /
         ``attach_to:`` names (declaration order otherwise)."""
         from ..refs import RefError, parse
@@ -677,7 +669,7 @@ class SceneComposer:
                 return
             if state.get(name) == 1:
                 loop = " -> ".join([*chain[chain.index(name):], name])
-                raise refs.fail(f"placements refer to each other in a circle: {loop}", [key_of(name), name], name)
+                raise refs.fail(f"placements refer to each other in a circle: {loop}", ["place", name], name)
             state[name] = 1
             dep = target(placements[name])
             if dep in placements and dep != name:

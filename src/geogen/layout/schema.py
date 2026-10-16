@@ -161,15 +161,6 @@ PRIMITIVES: dict[str, Primitive] = {
          "railing_material": Key("material", "handrail material")},
         size="optional",
         example="{primitive: stairs, rise: 1, width: 0.6, tread: 0.2, material: concrete}"),
-    "room": Primitive(
-        "Hollow box room with openings. Surfaces (facing in): north_wall, south_wall, east_wall, west_wall, "
-        "floor, ceiling. Prefer a `floorplan:` asset for real buildings.",
-        {"wall_thickness": Key("m", "wall thickness", 0.1),
-         "has_floor": Key("bool", "build the floor", True),
-         "has_ceiling": Key("bool", "build the ceiling", True),
-         "openings": Key("[{wall, position, bottom, width, height}]", "door and window holes (fractions)")},
-        example="{primitive: room, size: [1, 0.6, 0.8], wall_thickness: 0.04, has_ceiling: false, "
-                "openings: [{wall: south, position: 0.5, width: 0.25, height: 0.7}], material: wall_plaster}"),
     "tree": Primitive(
         "A tree grown in the part box: trunk (hull collider), branches and noise-displaced foliage.",
         {"style": Key("deciduous | conifer | palm", "crown shape"),
@@ -292,7 +283,6 @@ ASSET_KEYS: dict[str, str] = {
     "track": "{path, speed, spacing, mode: belt | walk, loop, end, accepts}: items follow it (geogen.flows)",
     "effector": "{range, rate, targets, effect: {damage} | {take}, at, aim, projectile}: acts on items (geogen.flows)",
     "poses": "NPC root transforms per pose name (body assets)",
-    "room": "legacy single room (prefer `floorplan`)",
     "floorplan": "rooms, doors and windows instead of parts; surfaces are <room>.<surface>",
     "building": "{storeys: [{floorplan, repeat, furnish}], roof, facade}: stacked floor plans",
     "body": "a skinned humanoid: skeleton, ring-lofted chains, hair, clothing, poses and clips",
@@ -305,7 +295,6 @@ SCENE_KEYS: dict[str, str] = {
     "params": "{name: {default}}: values `{expr}` interpolation can use",
     "slots": "{name: {anchor, offset | position, facing}}: named places for placements",
     "place": "{name: placement}: the objects in the scene",
-    "compose": "same as `place`",
     "attachments": "named points on the scene, for parent scenes",
     "tags": "dotted gameplay tags on the scene root",
     "state": "{name: {scope: world | actor | instance, type, default}}: `world.x`, `actor.x` or each copy's `self.x`",

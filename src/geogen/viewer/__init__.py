@@ -1,6 +1,5 @@
-"""Viewer module for displaying geometry."""
+"""Viewer module for geogen."""
 
 from .qt_viewer import ViewerWindow, run_viewer
-from .viewer import InteractiveViewer, Viewer
 
-__all__ = ["InteractiveViewer", "Viewer", "ViewerWindow", "run_viewer"]
+__all__ = ["ViewerWindow", "run_viewer"]

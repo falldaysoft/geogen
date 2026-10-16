@@ -116,7 +116,7 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
             warnings.append(msg)
 
     # Validate placements
-    place_data = data.get("place", data.get("compose", {}))
+    place_data = data.get("place", {})
     if place_data and not isinstance(place_data, dict):
         raise ValidationError("'place' must be a mapping")
 
@@ -170,7 +170,7 @@ def pre_validate_scene_references(
     """
     errors = []
     slots = set(data.get("slots", {}).keys())
-    place_data = {**data.get("compose", {}), **data.get("place", {})}
+    place_data = data.get("place") or {}
     obj_names = set(place_data.keys())
 
     for obj_name, obj_def in place_data.items():

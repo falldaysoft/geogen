@@ -11,7 +11,6 @@ from geogen.generators.primitives import (
     PlaneGenerator,
     SphereGenerator,
 )
-from geogen.generators.room import RoomGenerator
 
 
 @pytest.mark.parametrize(
@@ -37,11 +36,6 @@ def test_sphere_uvs_are_metric_at_equator():
     from geogen.core.mesh import Mesh
     band = Mesh(mesh.vertices, mesh.faces[equator], uvs=mesh.uvs)
     assert uvmap.texel_density(band) == pytest.approx(1.0, rel=0.05)
-
-
-def test_room_uvs_are_metric():
-    for mesh in RoomGenerator(size_x=6, size_y=3, size_z=4).generate_parts().values():
-        assert uvmap.texel_density(mesh) == pytest.approx(1.0, rel=0.05)
 
 
 def test_box_project_splits_shared_vertices():

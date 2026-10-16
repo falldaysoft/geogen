@@ -277,23 +277,6 @@ A climbable flight (one watertight solid) with swept handrails; climbs toward -Z
 {primitive: stairs, rise: 1, width: 0.6, tread: 0.2, material: concrete}
 ```
 
-## room
-
-<img src="img/primitives/room.png" width="256" alt="room">
-
-Hollow box room with openings. Surfaces (facing in): north_wall, south_wall, east_wall, west_wall, floor, ceiling. Prefer a `floorplan:` asset for real buildings.
-
-| Key | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `wall_thickness` | m | `0.1` | wall thickness |
-| `has_floor` | bool | `true` | build the floor |
-| `has_ceiling` | bool | `true` | build the ceiling |
-| `openings` | [{wall, position, bottom, width, height}] |  | door and window holes (fractions) |
-
-```yaml
-{primitive: room, size: [1, 0.6, 0.8], wall_thickness: 0.04, has_ceiling: false, openings: [{wall: south, position: 0.5, width: 0.25, height: 0.7}], material: wall_plaster}
-```
-
 ## tree
 
 <img src="img/primitives/tree.png" width="256" alt="tree">

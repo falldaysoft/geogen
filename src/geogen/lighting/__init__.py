@@ -71,47 +71,6 @@ class SceneLighting:
     lights: list[Light] = field(default_factory=list)
 
     @classmethod
-    def default(cls) -> SceneLighting:
-        """Create default lighting setup."""
-        return cls(
-            ambient_color=(0.2, 0.2, 0.22),
-            lights=[
-                DirectionalLight(
-                    direction=(0.5, -0.7, 0.3),
-                    color=(1.0, 0.98, 0.95),
-                    intensity=0.8,
-                ),
-            ],
-        )
-
-    @classmethod
-    def room_lighting(cls) -> SceneLighting:
-        """Create lighting setup optimized for indoor room scenes."""
-        return cls(
-            ambient_color=(0.25, 0.25, 0.28),  # Higher ambient for indoor
-            lights=[
-                # Main ceiling light - increased intensity for PBR
-                PointLight(
-                    position=(0.0, 2.0, 0.0),
-                    color=(1.0, 0.95, 0.9),
-                    intensity=8.0,  # Much higher for PBR
-                ),
-                # Fill light from "window" direction
-                DirectionalLight(
-                    direction=(0.6, -0.4, -0.7),
-                    color=(0.8, 0.85, 1.0),
-                    intensity=2.0,  # Higher for PBR
-                ),
-                # Subtle back fill
-                DirectionalLight(
-                    direction=(-0.5, -0.3, 0.5),
-                    color=(0.9, 0.85, 0.8),
-                    intensity=1.0,
-                ),
-            ],
-        )
-
-    @classmethod
     def outdoor_lighting(cls) -> SceneLighting:
         """Create lighting setup optimized for outdoor scenes.
 

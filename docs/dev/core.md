@@ -58,4 +58,4 @@ The core data model and the per-module notes for `src/geogen/core/`, `textures/`
 
 - **Light classes**: `DirectionalLight` (sun-like), `PointLight` (omni). Both have color and intensity.
 
-- **SceneLighting**: Container with ambient color and lights list. Provides `get_shader_data()` for shader uniforms. Presets: `default()` and `room_lighting()`.
+- **SceneLighting**: Container with ambient color and lights list. Provides `get_shader_data()` for shader uniforms. Preset: `outdoor_lighting()` (the Qt viewer's).

@@ -9,7 +9,6 @@ Rendering, export (glTF, manifests, chunks, LODs, extras), the Qt viewer and the
 - **gl_view.py**: `GLView` QOpenGLWidget — sun shadow map (PCF), hemisphere ambient + ACES tonemap, display modes Lit/Clay/Normals/UV checker (1 checker cell = 25 cm), selection highlight, CPU ray picking, zoom-to-cursor.
 - **camera.py**: Pure-numpy `OrbitCamera` (framing, presets, pan/orbit/zoom, adaptive clip planes, pick rays) and `ray_mesh_intersect` — unit tested without GL.
 - **shaders/**: `scene.vert/.frag` (PBR + shadows + debug modes), `depth.*` (shadow pass), `line.*` (grid/axes/wireframe).
-- **viewer.py**: Legacy trimesh-based `Viewer` (still used by tests for trimesh scene conversion).
 
 ## Rendering & Export
 

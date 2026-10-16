@@ -28,7 +28,6 @@ from ..generators.terrain import TerrainGenerator
 from ..generators.round_shapes import BevelledCylinderGenerator, CapsuleGenerator, TorusGenerator
 from ..generators.stairs import StairsGenerator
 from ..generators.sweep import SweepGenerator
-from ..generators.room import RoomGenerator, Opening
 from ..materials.loader import MaterialLoader
 from .anchors import resolve_anchor
 from .attachments import parse_attachment
@@ -49,7 +48,6 @@ PRIMITIVE_REGISTRY = {
     "sphere": SphereGenerator,
     "cone": ConeGenerator,
     "plane": PlaneGenerator,
-    "room": RoomGenerator,
     "ellipsoid": EllipsoidGenerator,
     "extrude": ExtrudeGenerator,
     "lathe": LatheGenerator,
@@ -281,12 +279,6 @@ class LayoutLoader:
                 raise ValueError(f"'{name}': clearance sides must be front/back/left/right, got {sorted(unknown)}")
             root.meta["footprint"] = [float(container_size[0]), float(container_size[2])]
             root.meta["clearance"] = {k: float(v) for k, v in clearance.items()}
-
-        # Check if this is a room definition (has 'room' key with openings)
-        room_config = data.get("room")
-        if room_config is not None:
-            room_node = self._create_room_node(name, container_size, room_config)
-            root.add_child(room_node)
 
         # `when: "{expr}"` drops a part (and parts attached to it) when it resolves to 0 / false.
         enabled = _enabled_parts(data.get("parts", {}))
@@ -659,66 +651,6 @@ class LayoutLoader:
         root.tags = [*root.tags, *data.get("tags", [])]
         return root
 
-    def _create_room_node(
-        self, name: str, size: np.ndarray, room_config: dict[str, Any]
-    ) -> SceneNode:
-        """Create a room node from room configuration.
-
-        Args:
-            name: Name for the room node
-            size: Room size [width, height, depth]
-            room_config: Room configuration dict from YAML
-
-        Returns:
-            SceneNode containing the room mesh(es)
-        """
-        generator = self._create_room_generator(size, room_config)
-
-        # Check if materials are specified for room surfaces
-        materials_config = room_config.get("materials", {})
-        if materials_config:
-            # Use composite node with separate materials
-            floor_material = None
-            wall_material = None
-            ceiling_material = None
-
-            if "floor" in materials_config:
-                try:
-                    floor_material = self._material_loader.load(materials_config["floor"])
-                except FileNotFoundError:
-                    warnings.warn(
-                        f"Floor material '{materials_config['floor']}' not found",
-                        stacklevel=2,
-                    )
-
-            if "walls" in materials_config:
-                try:
-                    wall_material = self._material_loader.load(materials_config["walls"])
-                except FileNotFoundError:
-                    warnings.warn(
-                        f"Wall material '{materials_config['walls']}' not found",
-                        stacklevel=2,
-                    )
-
-            if "ceiling" in materials_config:
-                try:
-                    ceiling_material = self._material_loader.load(materials_config["ceiling"])
-                except FileNotFoundError:
-                    warnings.warn(
-                        f"Ceiling material '{materials_config['ceiling']}' not found",
-                        stacklevel=2,
-                    )
-
-            return generator.to_composite_node(
-                name=f"{name}_geometry",
-                floor_material=floor_material,
-                wall_material=wall_material,
-                ceiling_material=ceiling_material,
-            )
-        else:
-            # No materials, use single merged mesh
-            return generator.to_node(f"{name}_geometry")
-
     def _create_generator(
         self, primitive_type: str, size: np.ndarray, extra_config: dict[str, Any] | None = None
     ):
@@ -727,7 +659,7 @@ class LayoutLoader:
         Args:
             primitive_type: Type of primitive (cube, cylinder, etc.)
             size: Actual size [width, height, depth]
-            extra_config: Additional configuration for complex generators (e.g., room)
+            extra_config: Additional configuration for complex generators
 
         Returns:
             Generator instance configured with the size
@@ -769,8 +701,6 @@ class LayoutLoader:
                 subdivisions_x=subdivisions_x,
                 subdivisions_z=subdivisions_z,
             )
-        elif primitive_type == "room":
-            return self._create_room_generator(size, extra_config or {})
         elif primitive_type == "ellipsoid":
             return EllipsoidGenerator(size_x=size[0], size_y=size[1], size_z=size[2])
         elif primitive_type == "extrude":
@@ -1029,39 +959,6 @@ class LayoutLoader:
         from scipy.spatial.transform import Rotation
         r = Rotation.from_euler('xyz', rotation)
         return r.apply(point)
-
-    def _create_room_generator(
-        self, size: np.ndarray, config: dict[str, Any]
-    ) -> RoomGenerator:
-        """Create a room generator with the given configuration.
-
-        Args:
-            size: Room size [width, height, depth]
-            config: Room configuration from YAML
-
-        Returns:
-            RoomGenerator instance
-        """
-        openings = []
-        for opening_def in config.get("openings", []):
-            openings.append(Opening(
-                wall=opening_def["wall"],
-                position=opening_def.get("position", 0.5),
-                bottom=opening_def.get("bottom", 0.0),
-                width=opening_def.get("width", 0.2),
-                height=opening_def.get("height", 0.8),
-            ))
-
-        return RoomGenerator(
-            size_x=size[0],
-            size_y=size[1],
-            size_z=size[2],
-            wall_thickness=config.get("wall_thickness", 0.1),
-            has_floor=config.get("has_floor", True),
-            has_ceiling=config.get("has_ceiling", True),
-            openings=openings,
-        )
-
 
 def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
     """Expand part ``joint:`` shorthands into interactions.

@@ -612,14 +612,3 @@ def collect(root: SceneNode, package: str) -> Declarations:
     if problems:
         raise StateError("\n".join(problems))
     return out
-
-
-def summary(root: SceneNode, package: str | None = None) -> dict[str, Any] | None:
-    """The manifest's ``state`` section for ``root`` (None when it declares nothing).
-
-    The package defaults to the one ``root``'s stable IDs were assigned in.
-    """
-    if package is None:
-        package = str(root.meta.get("uid", "")).partition(":")[0] or root.name
-    declarations = collect(root, package)
-    return declarations.to_json() if declarations else None

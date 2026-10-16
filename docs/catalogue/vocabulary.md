@@ -39,7 +39,6 @@
 | `track` | {path, speed, spacing, mode: belt \| walk, loop, end, accepts}: items follow it (geogen.flows) |
 | `effector` | {range, rate, targets, effect: {damage} \| {take}, at, aim, projectile}: acts on items (geogen.flows) |
 | `poses` | NPC root transforms per pose name (body assets) |
-| `room` | legacy single room (prefer `floorplan`) |
 | `floorplan` | rooms, doors and windows instead of parts; surfaces are <room>.<surface> |
 | `building` | {storeys: [{floorplan, repeat, furnish}], roof, facade}: stacked floor plans |
 | `body` | a skinned humanoid: skeleton, ring-lofted chains, hair, clothing, poses and clips |
@@ -53,7 +52,6 @@
 | `params` | {name: {default}}: values `{expr}` interpolation can use |
 | `slots` | {name: {anchor, offset \| position, facing}}: named places for placements |
 | `place` | {name: placement}: the objects in the scene |
-| `compose` | same as `place` |
 | `attachments` | named points on the scene, for parent scenes |
 | `tags` | dotted gameplay tags on the scene root |
 | `state` | {name: {scope: world \| actor \| instance, type, default}}: `world.x`, `actor.x` or each copy's `self.x` |
