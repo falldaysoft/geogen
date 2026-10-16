@@ -1,0 +1,14 @@
+# The plinth outside the hotel (scenes/hotel_showcase.yaml): it reads differently
+# once you have taken the parcel for room 207 (quests/deliver_parcel.yaml).
+kind: dialogue
+version: 1
+title: Hotel notice
+anchor: notice
+start:
+  - { when: 'actor.quest_deliver_parcel == "unavailable" or actor.quest_deliver_parcel == "available"', passage: open }
+  - taken
+passages:
+  open:
+    text: "Deliveries for guests are kept at reception. Couriers, please ask at the desk."
+  taken:
+    text: "Deliveries for guests are kept at reception. (Room 207's parcel is on its way up with you.)"

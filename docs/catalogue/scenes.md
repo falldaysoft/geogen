@@ -201,9 +201,9 @@ guests upstairs, people strolling past, and a travel door back to the hub.
 
 The hotel's street door is on its south side (-Z, entrance_spawn at z = -10).
 
-**Places**: `hotel: {asset: hotel.yaml}`; `forecourt: {asset: sidewalk.yaml}`; `road: {asset: road.yaml}`; `far_walk: {asset: sidewalk.yaml}`; `hub_door: {asset: travel_door.yaml}`; `taxi_1: {asset: vehicles/car.yaml}`; `taxi_2: {asset: vehicles/car.yaml}`; `lamp_fw: {asset: street_lamp.yaml}`; `lamp_fe: {asset: street_lamp.yaml}`; `lamp_aw: {asset: street_lamp.yaml}`; `lamp_ae: {asset: street_lamp.yaml}`; `bench_w: {asset: bench.yaml}`; `bench_e: {asset: bench.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_e: {asset: planter.yaml}`; `tree_1: {asset: maple_tree.yaml}`; `tree_2: {asset: maple_tree.yaml}`; `tree_3: {asset: maple_tree.yaml}`; `tree_4: {asset: maple_tree.yaml}`; `receptionist: {npc: npcs/hotel_staff.yaml}`; `guest_101: {npc: npcs/hotel_guest.yaml}`; `guest_207: {npc: npcs/hotel_guest.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
+**Places**: `hotel: {asset: hotel.yaml}`; `forecourt: {asset: sidewalk.yaml}`; `road: {asset: road.yaml}`; `far_walk: {asset: sidewalk.yaml}`; `notice: {asset: info_plinth.yaml}`; `hub_door: {asset: travel_door.yaml}`; `taxi_1: {asset: vehicles/car.yaml}`; `taxi_2: {asset: vehicles/car.yaml}`; `lamp_fw: {asset: street_lamp.yaml}`; `lamp_fe: {asset: street_lamp.yaml}`; `lamp_aw: {asset: street_lamp.yaml}`; `lamp_ae: {asset: street_lamp.yaml}`; `bench_w: {asset: bench.yaml}`; `bench_e: {asset: bench.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_e: {asset: planter.yaml}`; `tree_1: {asset: maple_tree.yaml}`; `tree_2: {asset: maple_tree.yaml}`; `tree_3: {asset: maple_tree.yaml}`; `tree_4: {asset: maple_tree.yaml}`; `receptionist: {npc: npcs/hotel_staff.yaml}`; `guest_101: {npc: npcs/hotel_guest.yaml}`; `guest_207: {npc: npcs/hotel_guest.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
 
-**Slots**: bench_e, bench_w, far_walk, forecourt, front_desk, guest_101, guest_207, hub_door, lamp_ae, lamp_aw, lamp_fe, lamp_fw, planter_e, planter_w, road, taxi_1, taxi_2, tree_1, tree_2, tree_3, tree_4
+**Slots**: bench_e, bench_w, far_walk, forecourt, front_desk, guest_101, guest_207, hub_door, lamp_ae, lamp_aw, lamp_fe, lamp_fw, notice, planter_e, planter_w, road, taxi_1, taxi_2, tree_1, tree_2, tree_3, tree_4
 
 **Spawns**: from_hub
 

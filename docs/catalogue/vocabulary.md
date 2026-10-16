@@ -156,6 +156,19 @@ Keys: `body`, `description`, `extends`, `name`, `params`, `tags`, `variants`
 | [characters/archetypes/young_man.yaml](../../assets/characters/archetypes/young_man.yaml) | A man in his twenties or thirties in everyday clothes. |
 | [characters/archetypes/young_woman.yaml](../../assets/characters/archetypes/young_woman.yaml) | A woman in her twenties or thirties in everyday clothes. |
 
+### dialogue
+
+
+
+Use: ``
+
+Keys: `anchor`, `passages`, `start`, `title`
+
+| File | What it is |
+| --- | --- |
+| [dialogues/hotel_plaque.yaml](../../assets/dialogues/hotel_plaque.yaml) | The plinth outside the hotel (scenes/hotel_showcase.yaml): it reads differently once you have taken the parcel for room 207 (quests/deliver_parcel.yaml). |
+| [dialogues/receptionist.yaml](../../assets/dialogues/receptionist.yaml) | The hotel receptionist (scenes/hotel_showcase.yaml): offers the parcel for room 207 (quests/deliver_parcel.yaml), says where to take it, and thanks you after. |
+
 ### garment
 
 A piece of clothing fitted to the humanoid; outfits are picked with its `outfit` param.
@@ -260,7 +273,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | --- | --- |
 | [quests/catch_train.yaml](../../assets/quests/catch_train.yaml) | Catch the train: the "timed, can fail" quest. |
 | [quests/climb_lighthouse.yaml](../../assets/quests/climb_lighthouse.yaml) | Climb to the lighthouse gallery, for an NPC: whoever a scene gives it to (an NPC placement's `quests:`) walks up the spiral stair and out onto the gallery deck. |
-| [quests/deliver_parcel.yaml](../../assets/quests/deliver_parcel.yaml) | Fetch and deliver (geogen.15.7): the hotel receptionist hands over a parcel and the key to room 207 (a rule in scenes/hotel_showcase.yaml); let yourself in with the key (L unlocks the door) and give the parcel to the guest. |
+| [quests/deliver_parcel.yaml](../../assets/quests/deliver_parcel.yaml) | Fetch and deliver (geogen.15.7): the hotel receptionist hands over a parcel and the key to room 207 (dialogues/receptionist.yaml, in scenes/hotel_showcase.yaml); let yourself in with the key (L unlocks the door) and give the parcel to the guest. |
 | [quests/jetty_trip.yaml](../../assets/quests/jetty_trip.yaml) | The jetty trip (packages/jetty_trip.yaml gives it when the player takes the hub's portal to the island). |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 | [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |

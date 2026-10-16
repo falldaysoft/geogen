@@ -8,14 +8,11 @@
 name: hotel_showcase
 tags: [showcase.hotel]
 
-# The receptionist has a parcel for room 207 (quests/deliver_parcel.yaml): greet them
-# to take it, with the room's key.
+# The receptionist has a parcel for room 207 (quests/deliver_parcel.yaml): greeting
+# them opens a conversation that offers it, with the room's key; the notice outside
+# reads differently once it's on its way.
 quests: [quests/deliver_parcel.yaml]
-rules:
-  - id: parcel_errand
-    on: { signal: receptionist.greeted, actor: player }
-    once: true
-    do: [{ start_quest: deliver_parcel }, { give: parcel }, { give: key_room_207 }]
+dialogues: [dialogues/receptionist.yaml, dialogues/hotel_plaque.yaml]
 
 spawns:
   from_hub: { position: [4.0, 0.12, -12.5], facing: north }   # beside the hub door, facing the entrance
@@ -25,6 +22,7 @@ slots:
   road:        { position: [0, 0, -20.0], facing: east }
   far_walk:    { position: [0, 0, -24.75], facing: east }
   hub_door:    { position: [6.5, 0.12, -12.5], facing: south }
+  notice:      { position: [-2.4, 0.12, -9.4], facing: south }        # beside the entrance, read from the street
   taxi_1:      { position: [-4.0, 0.04, -18.2], facing: east }
   taxi_2:      { position: [-10.5, 0.04, -18.2], facing: east }
   lamp_fw:     { position: [-9.0, 0.12, -16.2], facing: north }
@@ -59,6 +57,12 @@ place:
     asset: sidewalk.yaml
     slot: far_walk
     params: { width: 3, length: 64, thickness: 0.12 }
+
+  notice:
+    asset: info_plinth.yaml
+    slot: notice
+    readable: Read the notice
+    params: { label: "Notice" }
 
   hub_door:
     asset: travel_door.yaml

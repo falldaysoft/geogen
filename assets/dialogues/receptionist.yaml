@@ -1,0 +1,27 @@
+# The hotel receptionist (scenes/hotel_showcase.yaml): offers the parcel for room
+# 207 (quests/deliver_parcel.yaml), says where to take it, and thanks you after.
+kind: dialogue
+version: 1
+title: Reception
+anchor: receptionist
+start:
+  - { when: 'actor.quest_deliver_parcel == "complete"', passage: thanks }
+  - { when: 'actor.quest_deliver_parcel == "active"', passage: directions }
+  - hello
+passages:
+  hello:
+    text: "Good evening, and welcome. A parcel came for the guest in room 207, and I can't leave the desk. Would you take it up?"
+    choices:
+      - id: accept
+        text: "I'll take it up."
+        do: [{ start_quest: deliver_parcel }, { give: parcel }, { give: key_room_207 }]
+        goto: given
+      - { id: decline, text: "Not just now." }
+  given:
+    text: "Thank you! Here's the parcel, and the key to 207: it's on the second floor, up the stairs at either end. Press L at the door to unlock it."
+  directions:
+    text: "Room 207 is on the second floor, up the stairs at either end. You still have the parcel?"
+    choices:
+      - { id: yes, text: "Yes, I'm on my way.", when: 'has("parcel")' }
+  thanks:
+    text: "The guest in 207 was delighted. Thank you for taking it up."

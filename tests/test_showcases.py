@@ -45,11 +45,16 @@ def test_the_parcel_for_room_207_is_fetched_and_delivered(godot_runtime, hotel_d
     carried = lambda: {i["id"] for i in rt.call("inventory.list")["items"]}
     assert status()["status"] == "available"
     rt.call("player.teleport", pos=[0.0, 0.12, 2.8])                     # at the reception desk
-    rt.call("npcs.greet", npc="receptionist")
-    rt.call("time.advance", seconds=1)
+    rt.call("npcs.greet", npc="receptionist")                              # the offer (geogen.17.4)
+    rt.call("time.advance", seconds=0.5)
+    assert rt.call("dialogue.show")["passage"] == "hello"
+    assert rt.call("dialogue.choose", choice="accept")["passage"] == "given"
+    rt.call("dialogue.choose", close=True)
     assert status()["status"] == "active" and carried() == {"parcel", "key_room_207"}
-    rt.call("npcs.greet", npc="receptionist")                              # once: no second parcel
-    rt.call("time.advance", seconds=1)
+    rt.call("npcs.greet", npc="receptionist")                              # directions: no second parcel
+    rt.call("time.advance", seconds=0.5)
+    assert rt.call("dialogue.show")["passage"] == "directions"
+    rt.call("dialogue.choose", close=True)
     assert rt.call("inventory.list")["items"][0]["count"] == 1
 
     def walk(pos, timeout):
@@ -89,11 +94,28 @@ def test_the_parcel_for_room_207_runs_on_the_reference_machine(built_scene):
     held = lambda item: machine.get(f"actor:hotel_showcase.item_{item}", "player")
     greet = lambda npc: machine.post({"type": "signal", "subject": f"hotel_showcase:{npc}", "name": "greeted",
                                       "actor": "player"})
+    talk = lambda passage, choice: machine.post({"type": "signal", "subject": "hotel_showcase:receptionist",
+                                                 "name": "dialogue", "actor": "player",
+                                                 "data": {"passage": passage, "choice": choice}})
+    dialogue = lambda: machine.get("actor:hotel_showcase.dialogue_receptionist", "player")
+    notice = lambda: machine.get("actor:hotel_showcase.dialogue_hotel_plaque", "player")
+    read_notice = lambda: (machine.use("hotel_showcase:notice#read", "player"), notice())[1]
+    close_notice = lambda passage: machine.post({"type": "signal", "subject": "hotel_showcase:notice", "name": "dialogue",
+                                                 "actor": "player", "data": {"passage": passage, "choice": ""}})
+    assert read_notice() == "open"
+    close_notice("open")
     greet("guest_207")                                                     # nothing to give yet
     assert status() == "available"
-    greet("receptionist")
-    greet("receptionist")
-    assert status() == "active" and held("parcel") == 1 and held("key_room_207") == 1
+    greet("receptionist")                                                  # the offer (geogen.17.4)
+    assert dialogue() == "hello"
+    talk("hello", "accept")
+    assert dialogue() == "given" and status() == "active" and held("parcel") == 1 and held("key_room_207") == 1
+    talk("given", "")
+    greet("receptionist")                                                  # now: directions, no second parcel
+    assert dialogue() == "directions" and held("parcel") == 1
+    talk("directions", "")
+    assert read_notice() == "taken"                                        # the notice reads differently now
+    close_notice("taken")
     machine.post({"type": "enter", "subject": "hotel_showcase:hotel/storey_2/room_207", "actor": "player",
                   "data": {"room": True}})
     greet("guest_207")
