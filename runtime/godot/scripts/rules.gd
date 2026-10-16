@@ -72,6 +72,27 @@ func held(id: String, actor := "player") -> int:
     return int(n) if n != null else 0
 
 
+## Give ``actor`` ``count`` of item ``id`` (negative takes, never below none), as a give / take
+## effect would; "" when done, else why not (an item this package doesn't name).
+func give(id: String, count := 1, actor := "player") -> String:
+    if not items.has(id):
+        return "no item '%s' here (items: %s)" % [id, ", ".join(PackedStringArray(items.keys()))]
+    return set_value("actor:%s.item_%s" % [package, id], maxi(held(id, actor) + count, 0), actor)
+
+
+## Everything ``actor`` carries: [{id, title, count, tags?}], in the manifest's order.
+func carried(actor := "player") -> Array:
+    var out := []
+    for id in items:
+        var n := held(id, actor)
+        if n > 0:
+            var entry := {"id": id, "title": str(items[id].get("title", id)), "count": n}
+            if items[id].has("tags"):
+                entry["tags"] = items[id]["tags"]
+            out.append(entry)
+    return out
+
+
 ## The lock keys ``actor`` holds by what it carries: each carried item's id and its `opens`.
 func carried_keys(actor := "player") -> Array:
     var out := []

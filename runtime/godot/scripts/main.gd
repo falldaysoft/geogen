@@ -29,6 +29,7 @@ extends Node3D
 ##   --npc-trace                   print every NPC decision and step ("npc: {...}")
 ##   --quests                      print every quest's state for the player ("quests: [...]") once the world
 ##                                 is loaded; quest and objective changes always print "quest event: {...}"
+##   --give=ITEM[:N]               give the player N (default 1) of an item at start (repeatable)
 ##   --set=KEY=VALUE               set a state variable at start (world:pkg.name, actor:pkg.name for the
 ##                                 player, <uid>#<state>); VALUE is JSON, or text
 ##   --events[=TYPE,...]           print the event bus ("event: {...}"): every type, or only these
@@ -99,6 +100,7 @@ var _load_path := ""
 var _started := false
 var _print_quests := false
 var _sets: Array[String] = []
+var _gives: Array[String] = []
 var _print_status := false
 var _focus_affordance := {}
 var _focus_npc: GeogenNpc = null
@@ -218,6 +220,8 @@ func _ready() -> void:
             _print_quests = true
         elif arg.begins_with("--set="):
             _sets.append(arg.trim_prefix("--set="))
+        elif arg.begins_with("--give="):
+            _gives.append(arg.trim_prefix("--give="))
         elif arg == "--events" or arg.begins_with("--events="):
             world.events.print_types = ["*"] if value == "" else Array(value.split(","))
         elif arg.begins_with("--timescale="):
@@ -329,6 +333,10 @@ func _ready() -> void:
                 var problem := world.rules.set_value(key, text if value == null else value, "player")
                 if problem != "":
                     push_warning("geogen: --set=%s: %s" % [entry, problem])
+            for entry in _gives:
+                var given := world.rules.give(entry.get_slice(":", 0), int(entry.get_slice(":", 1)) if ":" in entry else 1)
+                if given != "":
+                    push_warning("geogen: --give=%s: %s" % [entry, given])
             if _print_quests:
                 print("quests: %s" % JSON.stringify(world.rules.report("player"))))
     clock = GeogenClock.new()
@@ -351,6 +359,7 @@ func _ready() -> void:
     hud.add_panel(GeogenHudStats.new(), "top_left")
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
     hud.add_panel(GeogenHudNotifications.new(), "bottom_left")
+    hud.add_panel(GeogenHudInventory.new(), "bottom_right")
     hud.add_panel(GeogenHudMarkers.new(), "screen")
     hud.move_child(hud.panel("markers"), 0)         # under the corner panels and the quest log
     hud.add_panel(GeogenHudBanner.new(), "screen")

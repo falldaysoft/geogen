@@ -120,3 +120,22 @@ def test_a_carried_key_opens_its_lock_in_godot(godot_runtime, tmp_path):
     assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock (L)"
     rt.call("input.key", key="L")
     assert rt.call("hud.aim")["focus"]["prompt"].startswith("Open")
+
+
+def test_the_hud_shows_what_the_player_carries(godot_runtime, yard, tmp_path):
+    # geogen.18.4: the inventory panel lists carried items by title, with a count; each give or
+    # take raises a toast; the API gives and lists.
+    export_scene(yard, tmp_path / "pickup_yard.glb")
+    rt = godot_runtime("pickup_yard", tmp_path, "--give=parcel:3")
+    assert rt.call("inventory.list")["items"] == [{"id": "parcel", "title": "Parcel", "count": 3}]
+    rt.call("player.use", asset="key", interaction="pickup")
+    rt.call("time.advance", seconds=0.5)
+    shown = rt.call("hud.inventory")
+    assert shown["visible"] and [(i["title"], i["count"]) for i in shown["items"]] == [("Parcel", 3), ("Room key", 1)]
+    rt.call("inventory.give", item="parcel", count=-5)                      # never below none
+    assert [i["id"] for i in rt.call("hud.inventory")["items"]] == ["room_key"]
+    toasts = rt.call("hud.notifications")
+    notes = [(n["heading"], n["text"]) for n in toasts["showing"] + toasts["queued"]]
+    assert ("Picked up", "Room key") in notes and ("Handed over", "Parcel  ×3") in notes, notes
+    with pytest.raises(Exception, match="no item 'coin'"):
+        rt.call("inventory.give", item="coin")

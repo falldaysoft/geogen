@@ -35,6 +35,8 @@ const KINDS := {
     "complete": {"heading": "Quest complete", "color": Color(0.6, 0.9, 0.6)},
     "failed": {"heading": "Quest failed", "color": Color(0.95, 0.5, 0.45)},
     "notice": {"heading": "", "color": Color(0.85, 0.85, 0.88)},
+    "item_got": {"heading": "Picked up", "color": Color(0.95, 0.8, 0.5)},
+    "item_gone": {"heading": "Handed over", "color": Color(0.75, 0.75, 0.8)},
 }
 
 ## Seconds a toast stays up before it fades.
@@ -106,6 +108,14 @@ func _on_feedback(kind: String, value: String, actor: String) -> void:
     set_process(true)
 
 
+## A toast about what the HUD's actor carries (hud_inventory.gd): ``kind`` item_got | item_gone.
+func item_note(kind: String, text: String) -> void:
+    _raised += 1
+    _queue.append({"seq": _raised, "kind": kind, "package": _hud.world.rules.package, "quest": "",
+        "heading": KINDS[kind]["heading"], "text": text})
+    set_process(true)
+
+
 ## Drop every toast, shown or waiting.
 func clear() -> void:
     _queue.clear()
@@ -133,7 +143,7 @@ func _drop_untrue() -> void:
     for quest in rules.report(_hud.actor):
         quests[quest["id"]] = quest
     var holds := func(note: Dictionary) -> bool:
-        if not note["package"] in rules.running() or note["kind"] == "notice":
+        if not note["package"] in rules.running() or note["kind"] in ["notice", "item_got", "item_gone"]:
             return true
         if not quests.has(note["quest"]):
             return false

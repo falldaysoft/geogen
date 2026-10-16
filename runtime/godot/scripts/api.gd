@@ -60,6 +60,9 @@ const COMMANDS := {
     "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
     "hud.stats": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value, of?, text}]}, "
         + "banner: {visible, text?, tone?}}",
+    "hud.inventory": "what the HUD's inventory panel shows: {visible, items: [{id, title, count, tags?}]}",
+    "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
+    "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
     "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): "
         + "{visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
     "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
@@ -419,6 +422,17 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return {"stats": main.hud.panel("stats").hud_report(), "banner": main.hud.panel("banner").hud_report()}
         "hud.crossing":
             return main.hud.panel("crossing").hud_report()
+        "hud.inventory":
+            main.hud.refresh()
+            return main.hud.panel("inventory").hud_report()
+        "inventory.list":
+            return {"items": world.rules.carried(str(args.get("actor", "player"))), "known": world.rules.items}
+        "inventory.give":
+            var problem: String = world.rules.give(str(args.get("item", "")), int(args.get("count", 1)),
+                str(args.get("actor", "player")))
+            if problem != "":
+                return _err(problem)
+            return {"items": world.rules.carried(str(args.get("actor", "player")))}
         "hud.quests":
             var tracker: GeogenHudQuestTracker = main.hud.panel("quests")
             if args.has("linger"):

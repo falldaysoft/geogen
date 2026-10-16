@@ -923,6 +923,14 @@ up; `waiting` counts objectives not listed yet; `rect` is the panel on screen
 first (an error if it isn't active), and `linger: <s>` sets how long a finished
 quest stays (0 dismisses one that is up). Tests: `tests/test_hud_runtime.py`.
 
+**Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom right, geogen.18):
+what the player carries, one row an item (the manifest's `items` titles, a count
+when more than one), from `GeogenRules.carried`; hidden while empty. Each change to
+one of the player's item counts (a pickup, a rule's give or take) toasts "Picked up"
+or "Handed over" in the notifications panel (`item_note`). Control API
+`hud.inventory`, `inventory.list {actor}`, `inventory.give {item, count, actor}`
+(negative counts take); `--give=ITEM[:N]` gives at start.
+
 **Notifications** (`scripts/hud_notifications.gd`, panel `notifications`, bottom
 left): a toast for each quest event of the player's (`GeogenRules.quest_event`):
 "Quest started" and "Quest complete" / "Quest failed" with the quest's title,
