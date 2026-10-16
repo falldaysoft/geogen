@@ -48,7 +48,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
                        scale=20.0, seed_offset=100, weight=0.0),
         ]
 
-    def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+    def _brick_pattern(self, layers: dict[str, NDArray[np.float64]]) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
         xv, yv = self._unit_grid()
 
         # Scale to brick grid
@@ -82,7 +82,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
     def generate(self) -> Image.Image:
         """Generate brick texture with mortar lines."""
         layers = self._generate_noise_layers()
-        pattern, is_mortar = self._compute_pattern(layers)
+        pattern, is_mortar = self._brick_pattern(layers)
 
         # Map brick areas between dark and base colors
         dark = np.array(self.color_dark, dtype=np.float64)
@@ -109,7 +109,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
 
     def generate_normal_map(self) -> Image.Image | None:
         layers = self._generate_noise_layers()
-        pattern, is_mortar = self._compute_pattern(layers)
+        pattern, is_mortar = self._brick_pattern(layers)
         # Mortar is recessed, bricks are raised
         height = np.where(is_mortar, 0.2, 0.8)
         surface = (layers["surface"] + 1.0) / 2.0
@@ -118,7 +118,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
 
     def generate_roughness_map(self) -> Image.Image | None:
         layers = self._generate_noise_layers()
-        _, is_mortar = self._compute_pattern(layers)
+        _, is_mortar = self._brick_pattern(layers)
         surface = (layers["surface"] + 1.0) / 2.0
         # Mortar is rougher than brick
         roughness = np.where(is_mortar, 0.9, 0.75)
@@ -129,7 +129,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
     def generate_ao_map(self) -> Image.Image | None:
         """Generate AO map — mortar joints are recessed and darker."""
         layers = self._generate_noise_layers()
-        _, is_mortar = self._compute_pattern(layers)
+        _, is_mortar = self._brick_pattern(layers)
         # Mortar is recessed -> occluded (darker AO)
         ao = np.where(is_mortar, 0.6, 1.0)
         # Soften edges slightly with surface noise
