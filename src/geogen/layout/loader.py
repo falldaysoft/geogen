@@ -32,12 +32,15 @@ from ..generators.sweep import SweepGenerator
 from ..materials.loader import MaterialLoader
 from .anchors import resolve_anchor
 from .attachments import parse_attachment
-from .expressions import resolve_params, resolve_value
-from .validation import validate_asset_yaml, pre_validate_asset_references
+from .expressions import enabled, resolve_document
+from .validation import suggest, validate_asset_yaml, pre_validate_asset_references
 from .yaml_utils import safe_load, safe_load_path
 
 logger = logging.getLogger("geogen.layout")
 
+
+# Primitives whose points are already in the asset's frame: placed at their offset, not anchored.
+_IN_ASSET_FRAME = ("paths", "fence", "terrain")
 
 # Collision shapes a part can request (``collider:``); see export.py.
 COLLIDER_TYPES = {"auto", "none", "box", "hull", "mesh"}
@@ -94,14 +97,14 @@ class LayoutLoader:
             at: top  # attachment point name (top, bottom, left, right, front, back)
     """
 
-    def __init__(self, detail: float = 1.0) -> None:
-        """Initialize the layout loader with a material loader.
+    def __init__(self, detail: float = 1.0, material_loader: MaterialLoader | None = None) -> None:
+        """Initialize the layout loader with a material loader (a new one by default).
 
         ``detail`` scales the tessellation of curved primitives (segments,
         rings, tube/cap/bevel steps): 0.5 halves them for a cheap level of
         detail, 2 doubles them for close-ups.
         """
-        self._material_loader = MaterialLoader()
+        self.material_loader = material_loader or MaterialLoader()
         self.detail = float(detail)
         self._prototypes: dict[tuple[str, str], SceneNode] = {}
 
@@ -184,44 +187,15 @@ class LayoutLoader:
     def _resolve_params(
         self, data: dict[str, Any], overrides: dict[str, float] | None
     ) -> dict[str, Any]:
-        """Resolve `params:` + `{…}` interpolations throughout the YAML tree.
-
-        The `params:` block itself and the `name` field are not interpolated
-        (names are metadata, params are input). Everything else is walked
-        recursively.
-        """
-        declared = data.get("params")
-        overrides = dict(overrides or {})
-        # Named param bundles: params: {preset: feminine, height: 1.6} applies the
-        # preset's values, then the explicit ones; a top-level `preset:` is the default.
-        # A list (`preset: [feminine, curvy]`) applies them in order, later ones winning.
-        presets = data.get("presets") or {}
-        preset = overrides.pop("preset", data.get("preset"))
-        if preset is not None:
-            names = [preset] if isinstance(preset, str) else list(preset)
-            merged: dict[str, Any] = {}
-            for p in names:
-                if p not in presets:
-                    raise ValueError(f"'{data.get('name')}': unknown preset '{p}'. Presets: {sorted(presets)}")
-                merged.update(presets[p])
-            overrides = {**merged, **overrides}
-            preset = "+".join(names)
-        resolved_params = resolve_params(declared, overrides)
-        # Derived values: expressions over params (and earlier derived values), in order.
-        for key, expr in (data.get("derived") or {}).items():
-            resolved_params[key] = float(resolve_value(expr, resolved_params))
-
-        out: dict[str, Any] = {}
-        for key, value in data.items():
-            if key in ("params", "name", "presets", "derived"):
-                out[key] = value
-                continue
-            out[key] = resolve_value(value, resolved_params)
-        if preset is not None:
-            out["preset"] = preset
+        """Resolve `params:`, presets, derived values and `{…}` interpolations (expressions.resolve_document)."""
+        out, resolved_params, _ = resolve_document(data, overrides)
         if "body" in data:
             out["_params"] = resolved_params      # garments resolve against the body's params
         return out
+
+    def build(self, data: dict[str, Any]) -> SceneNode:
+        """Build an asset from an already-resolved document (parts, floorplan, building or body)."""
+        return self._build_hierarchy(data)
 
     def _build_hierarchy(self, data: dict[str, Any]) -> SceneNode:
         """Build scene hierarchy from parsed YAML data."""
@@ -233,7 +207,7 @@ class LayoutLoader:
             from ..npc import parse_poses
 
             root_poses = parse_poses(data["poses"]) if data.get("poses") else None
-            root = build_humanoid(data["body"], name, self._material_loader,
+            root = build_humanoid(data["body"], name, self.material_loader,
                                   assets_dir=roots.CORE, params=data.get("_params"),
                                   root_poses=root_poses)
             root.tags = [*root.tags, *data.get("tags", [])]
@@ -248,7 +222,7 @@ class LayoutLoader:
         if "building" in data:
             from ..generators.building import build_building
 
-            root = build_building(data["building"], name, self._material_loader,
+            root = build_building(data["building"], name, self.material_loader,
                                   assets_dir=roots.CORE, layout_loader=self)
             root.tags = [*root.tags, *data.get("tags", [])]
             return root
@@ -258,216 +232,18 @@ class LayoutLoader:
         root = SceneNode(name)
         root.size = container_size
         root.tags = list(data.get("tags", []))
-        if data.get("light"):
-            root.meta["light"] = light_spec(data["light"])
-        if data.get("switch"):
-            spec = data["switch"]
-            if not isinstance(spec, dict) or set(spec) != {"light"}:
-                raise ValueError(f"{name}: switch is {{light: <the light fixture's name>}}, got {spec!r}")
-            if str(spec["light"]):          # "": a switch that isn't wired to anything
-                root.meta["switch"] = {"light": str(spec["light"])}
-        if data.get("container"):
-            spec = data["container"]
-            root.meta["container"] = {"capacity": int(spec.get("capacity", 1)),
-                                      **({"part": str(spec["part"])} if "part" in spec else {})}
-        # Furniture: footprint (x, z) and the free space needed around it
-        # (front = +Z) for furnishing solvers and navigation.
-        if "clearance" in data:
-            clearance = data["clearance"] or {}
-            unknown = set(clearance) - {"front", "back", "left", "right"}
-            if unknown:
-                raise ValueError(f"'{name}': clearance sides must be front/back/left/right, got {sorted(unknown)}")
-            root.meta["footprint"] = [float(container_size[0]), float(container_size[2])]
-            root.meta["clearance"] = {k: float(v) for k, v in clearance.items()}
-
         # `when: "{expr}"` drops a part (and parts attached to it) when it resolves to 0 / false.
-        enabled = _enabled_parts(data.get("parts", {}))
-        arrays = _array_copies(enabled)
-        parts = _expand_arrays(enabled)
+        kept = _enabled_parts(data.get("parts", {}))
+        arrays = _array_copies(kept)
+        parts = _expand_arrays(kept)
 
-        # First pass: create all parts and track which have attachments
+        # First pass: build every part; second: position each (attached, or anchored in the container).
         part_nodes: dict[str, SceneNode] = {}
         part_sizes: dict[str, np.ndarray] = {}
-        part_types: dict[str, str] = {}
-
         for part_name, part_def in parts.items():
-            primitive_type = part_def["primitive"]
-            if "size" in part_def:
-                frac_size = np.array(part_def["size"], dtype=np.float64)
-                actual_size = frac_size * container_size
-            else:  # sweeps: the path defines the size
-                actual_size = np.zeros(3)
-
-            generator = self._create_generator(primitive_type, actual_size, part_def)
-            _cap_segments(generator, primitive_type, actual_size)
-            if self.detail != 1.0:
-                _apply_detail(generator, self.detail)
-            node = generator.to_node(part_name)
-            if node.mesh is not None and ("subdivide" in part_def or "displace" in part_def):
-                node.mesh = _smooth_part(node.mesh, part_def, self.detail, part_name)
-            if "size" not in part_def and node.mesh is not None:
-                actual_size = node.mesh.vertices.max(axis=0) - node.mesh.vertices.min(axis=0)
-            if primitive_type == "water":
-                from ..generators.water import add_barrier, water_meta
-
-                node.meta["water"] = water_meta(part_def)
-                node.meta["collider"] = "none"
-                part_def.setdefault("material", "water")
-                if part_def.get("barrier"):
-                    add_barrier(node, generator.shape, float(part_def["barrier"]), float(actual_size[1]))
-            if primitive_type == "terrain":
-                node.meta["terrain"] = generator.params()
-                part_def.setdefault("walkable", True)
-                slots = {"sand": "sand", "grass": "grass", "rock": "rock", "path": "gravel",
-                         **(part_def.get("materials") or {})}
-                node.mesh.materials = [self._material_loader.load(slots[k]) for k in TERRAIN_SLOTS]
-                ribbons = generator.path_mesh()
-                if ribbons is not None:
-                    ribbons.material = self._material_loader.load(slots["path"])
-                    path_node = SceneNode("paths", mesh=ribbons, tags=["terrain.path"])
-                    path_node.meta["collider"] = "none"      # you walk on the terrain beneath
-                    node.add_child(path_node)
-                if part_def.get("shore"):
-                    from ..generators.terrain import add_shore
-
-                    add_shore(node, generator, dict(part_def["shore"]))
-
-            # Apply material if specified
-            material_name = part_def.get("material")
-            if material_name is not None and node.mesh is not None:
-                try:
-                    material = self._material_loader.load(material_name)
-                    node.mesh.material = material
-                    # Generated child meshes (a tree's branches) inherit the part's material.
-                    for child in node.iter_nodes():
-                        if child.mesh is not None and child.mesh.material is None:
-                            child.mesh.material = material
-                except FileNotFoundError:
-                    warnings.warn(
-                        f"Material '{material_name}' not found for part '{part_name}'",
-                        stacklevel=2,
-                    )
-
-            # Store the node's actual size for attachment calculations
-            node.size = actual_size
-            node.tags = [*node.tags, *[t for t in part_def.get("tags", []) if t not in node.tags]]
-            collider = part_def.get("collider")
-            if collider is not None:
-                if collider not in COLLIDER_TYPES:
-                    raise ValueError(
-                        f"Part '{part_name}' collider must be one of {sorted(COLLIDER_TYPES)}, got {collider!r}"
-                    )
-                node.meta["collider"] = collider
-            if part_def.get("walkable"):
-                node.meta["walkable"] = True
-
-            # Generate automatic attachment points from the generator
-            auto_attachments = generator.get_attachment_points(actual_size)
-            for attach_name, attach_point in auto_attachments.items():
-                node.attachments[attach_name] = attach_point
-
-            # Generate automatic surfaces from the generator
-            auto_surfaces = generator.get_surfaces(actual_size)
-            for surf_name, surf in auto_surfaces.items():
-                surf.source = node
-                node.surfaces[surf_name] = surf
-
-            part_nodes[part_name] = node
-            part_sizes[part_name] = actual_size
-            part_types[part_name] = primitive_type
-
-        # Second pass: position parts (either by attachment or coordinate)
+            part_nodes[part_name], part_sizes[part_name] = self._build_part(part_name, part_def, container_size)
         for part_name, part_def in parts.items():
-            node = part_nodes[part_name]
-            actual_size = part_sizes[part_name]
-
-            if "attach_to" in part_def:
-                # Hierarchical attachment mode
-                parent_name = part_def["attach_to"]
-                attach_point = part_def.get("at", "top")
-                child_attach = part_def.get("from", "bottom")  # Which point on child to attach
-
-                if parent_name not in part_nodes:
-                    import difflib
-                    suggestion = difflib.get_close_matches(parent_name, part_nodes.keys(), n=1, cutoff=0.5)
-                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                    raise ValueError(
-                        f"Part '{part_name}' cannot attach to unknown part '{parent_name}'.{hint}"
-                        f" Available parts: {sorted(part_nodes.keys())}"
-                    )
-
-                parent_node = part_nodes[parent_name]
-                logger.debug("Attaching '%s' to '%s' at '%s'", part_name, parent_name, attach_point)
-
-                # Get the attachment point on the parent
-                if attach_point not in parent_node.attachments:
-                    import difflib
-                    available = sorted(parent_node.attachments.keys())
-                    suggestion = difflib.get_close_matches(attach_point, available, n=1, cutoff=0.5)
-                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                    raise ValueError(
-                        f"Attachment point '{attach_point}' not found on '{parent_name}'.{hint}"
-                        f" Available: {available}"
-                    )
-
-                parent_attach = parent_node.attachments[attach_point]
-                parent_offset = parent_attach.offset.copy()
-
-                # Get the child's attachment point offset (to align properly)
-                child_offset = np.zeros(3)
-                if child_attach in node.attachments:
-                    child_offset = node.attachments[child_attach].offset.copy()
-
-                # If the child has rotation, we need to rotate the child offset
-                # because the attachment point moves with the rotation
-                rotation = part_def.get("rotation")
-                if rotation is not None:
-                    rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
-                    node.transform.rotation = rotation_rad
-                    # Rotate the child offset to match the applied rotation
-                    child_offset = self._rotate_point(child_offset, rotation_rad)
-
-                # Position child so its attachment point aligns with parent's attachment point
-                # Both offsets are relative to each primitive's center (origin)
-                node.transform.translation = parent_offset - child_offset
-
-                # Apply additional offset if specified (in world units)
-                extra_offset = part_def.get("offset")
-                if extra_offset is not None:
-                    node.transform.translation += np.array(extra_offset, dtype=np.float64)
-
-                # Add as child of the parent node (hierarchical)
-                parent_node.add_child(node)
-
-            else:
-                # Coordinate-based positioning (legacy/root mode)
-                # For parts with anchor "bottom_center", this places the part's bottom at that anchor
-                anchor_name = part_def.get("anchor", "center")
-                anchor_pos = resolve_anchor(anchor_name, container_size)
-
-                offset = np.array(part_def.get("offset", [0, 0, 0]), dtype=np.float64)
-                offset_world = offset * container_size
-
-                position = anchor_pos + offset_world
-
-                # If anchor is a "bottom" anchor, shift up so bottom of part is at anchor
-                if "bottom" in anchor_name:
-                    position[1] += actual_size[1] / 2
-
-                # Uncentred sweeps and path networks keep their points in the asset's own frame.
-                if (part_def["primitive"] == "sweep" and part_def.get("center") is False) \
-                        or part_def["primitive"] in ("paths", "fence", "terrain"):
-                    position = offset_world
-
-                node.transform.translation = position
-
-                # Apply rotation if specified
-                rotation = part_def.get("rotation")
-                if rotation is not None:
-                    rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
-                    node.transform.rotation = rotation_rad
-
-                root.add_child(node)
+            self._place_part(part_name, part_def, part_nodes, part_sizes[part_name], root, container_size)
 
         self._apply_booleans(parts, part_nodes, root)
         _apply_tints(parts, part_nodes)
@@ -493,43 +269,9 @@ class LayoutLoader:
             for interaction in root.interactions:
                 apply_state(root, interaction, interaction.initial)
 
-        if data.get("affordances"):
-            root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
-        if data.get("poses"):
-            from ..npc import parse_poses
-
-            root.meta["poses"] = parse_poses(data["poses"])
-        if data.get("portal"):
-            from ..npc import parse_portal
-
-            root.meta["portal"] = parse_portal(data["portal"], root.interactions)
-        if data.get("travel"):
-            from ..travel import apply_travel
-
-            apply_travel(root, data["travel"], name)
-        if data.get("vehicle"):
-            from ..vehicles import parse_vehicle
-
-            root.meta["vehicle"] = parse_vehicle(data["vehicle"], root, part_nodes)
-            root.meta["type"] = "vehicle"
-
-        if data.get("physics"):
-            from ..physics import parse_physics
-
-            root.meta["physics"] = parse_physics(data["physics"], root, part_nodes, name)
-
-        if data.get("source"):
-            from ..flows import parse_source
-
-            root.meta.setdefault("flows", {})["source"] = parse_source(data["source"], root, name)
-        if data.get("track"):
-            from ..flows import parse_track
-
-            root.meta.setdefault("flows", {})["track"] = parse_track(data["track"], name)
-        if data.get("effector"):
-            from ..flows import parse_effector
-
-            root.meta.setdefault("flows", {})["effector"] = parse_effector(data["effector"], root, part_nodes, name)
+        for key, handler in _ROOT_META:
+            if data.get(key) or (key == "clearance" and key in data):   # `clearance: {}` still records the footprint
+                handler(root, data[key] or {}, part_nodes, name)
 
         if data.get("bounds") == "geometry":
             # The container is only a unit for part sizes (e.g. [scale, scale,
@@ -538,6 +280,159 @@ class LayoutLoader:
             if extent is not None:
                 root.size = extent
         return root
+
+    def _build_part(self, part_name: str, part_def: dict[str, Any],
+                    container_size: np.ndarray) -> tuple[SceneNode, np.ndarray]:
+        """One part's node (mesh, material, tags, collider, attachments, surfaces) and its size in metres."""
+        primitive_type = part_def["primitive"]
+        if "size" in part_def:
+            frac_size = np.array(part_def["size"], dtype=np.float64)
+            actual_size = frac_size * container_size
+        else:  # sweeps: the path defines the size
+            actual_size = np.zeros(3)
+
+        generator = self._create_generator(primitive_type, actual_size, part_def)
+        _cap_segments(generator, primitive_type, actual_size)
+        if self.detail != 1.0:
+            _apply_detail(generator, self.detail)
+        node = generator.to_node(part_name)
+        if node.mesh is not None and ("subdivide" in part_def or "displace" in part_def):
+            node.mesh = _smooth_part(node.mesh, part_def, self.detail, part_name)
+        if "size" not in part_def and node.mesh is not None:
+            actual_size = node.mesh.vertices.max(axis=0) - node.mesh.vertices.min(axis=0)
+        post = _POST_BUILD.get(primitive_type)
+        if post is not None:
+            post(self, node, generator, part_def, actual_size)
+
+        # Apply material if specified
+        material_name = part_def.get("material")
+        if material_name is not None and node.mesh is not None:
+            try:
+                material = self.material_loader.load(material_name)
+                node.mesh.material = material
+                # Generated child meshes (a tree's branches) inherit the part's material.
+                for child in node.iter_nodes():
+                    if child.mesh is not None and child.mesh.material is None:
+                        child.mesh.material = material
+            except FileNotFoundError:
+                warnings.warn(
+                    f"Material '{material_name}' not found for part '{part_name}'",
+                    stacklevel=2,
+                )
+
+        # Store the node's actual size for attachment calculations
+        node.size = actual_size
+        node.tags = [*node.tags, *[t for t in part_def.get("tags", []) if t not in node.tags]]
+        collider = part_def.get("collider")
+        if collider is not None:
+            if collider not in COLLIDER_TYPES:
+                raise ValueError(
+                    f"Part '{part_name}' collider must be one of {sorted(COLLIDER_TYPES)}, got {collider!r}"
+                )
+            node.meta["collider"] = collider
+        if part_def.get("walkable"):
+            node.meta["walkable"] = True
+
+        # Generate automatic attachment points from the generator
+        auto_attachments = generator.get_attachment_points(actual_size)
+        for attach_name, attach_point in auto_attachments.items():
+            node.attachments[attach_name] = attach_point
+
+        # Generate automatic surfaces from the generator
+        auto_surfaces = generator.get_surfaces(actual_size)
+        for surf_name, surf in auto_surfaces.items():
+            surf.source = node
+            node.surfaces[surf_name] = surf
+        return node, actual_size
+
+    def _place_part(self, part_name: str, part_def: dict[str, Any], part_nodes: dict[str, SceneNode],
+                    actual_size: np.ndarray, root: SceneNode, container_size: np.ndarray) -> None:
+        """Position a built part: on another part's attachment point (``attach_to`` + ``at`` /
+        ``from``), or at an anchor of the container plus an ``offset`` in fractions of it."""
+        node = part_nodes[part_name]
+        if "attach_to" in part_def:
+            # Hierarchical attachment mode
+            parent_name = part_def["attach_to"]
+            attach_point = part_def.get("at", "top")
+            child_attach = part_def.get("from", "bottom")  # Which point on child to attach
+
+            if parent_name not in part_nodes:
+                hint = suggest(parent_name, part_nodes.keys())
+                raise ValueError(
+                    f"Part '{part_name}' cannot attach to unknown part '{parent_name}'.{hint}"
+                    f" Available parts: {sorted(part_nodes.keys())}"
+                )
+
+            parent_node = part_nodes[parent_name]
+            logger.debug("Attaching '%s' to '%s' at '%s'", part_name, parent_name, attach_point)
+
+            # Get the attachment point on the parent
+            if attach_point not in parent_node.attachments:
+                available = sorted(parent_node.attachments.keys())
+                hint = suggest(attach_point, available)
+                raise ValueError(
+                    f"Attachment point '{attach_point}' not found on '{parent_name}'.{hint}"
+                    f" Available: {available}"
+                )
+
+            parent_attach = parent_node.attachments[attach_point]
+            parent_offset = parent_attach.offset.copy()
+
+            # Get the child's attachment point offset (to align properly)
+            child_offset = np.zeros(3)
+            if child_attach in node.attachments:
+                child_offset = node.attachments[child_attach].offset.copy()
+
+            # If the child has rotation, we need to rotate the child offset
+            # because the attachment point moves with the rotation
+            rotation = part_def.get("rotation")
+            if rotation is not None:
+                rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
+                node.transform.rotation = rotation_rad
+                # Rotate the child offset to match the applied rotation
+                child_offset = self._rotate_point(child_offset, rotation_rad)
+
+            # Position child so its attachment point aligns with parent's attachment point
+            # Both offsets are relative to each primitive's center (origin)
+            node.transform.translation = parent_offset - child_offset
+
+            # Apply additional offset if specified (in world units)
+            extra_offset = part_def.get("offset")
+            if extra_offset is not None:
+                node.transform.translation += np.array(extra_offset, dtype=np.float64)
+
+            # Add as child of the parent node (hierarchical)
+            parent_node.add_child(node)
+
+        else:
+            # Coordinate-based positioning (legacy/root mode)
+            # For parts with anchor "bottom_center", this places the part's bottom at that anchor
+            anchor_name = part_def.get("anchor", "center")
+            anchor_pos = resolve_anchor(anchor_name, container_size)
+
+            offset = np.array(part_def.get("offset", [0, 0, 0]), dtype=np.float64)
+            offset_world = offset * container_size
+
+            position = anchor_pos + offset_world
+
+            # If anchor is a "bottom" anchor, shift up so bottom of part is at anchor
+            if "bottom" in anchor_name:
+                position[1] += actual_size[1] / 2
+
+            # Uncentred sweeps and path networks keep their points in the asset's own frame.
+            if (part_def["primitive"] == "sweep" and part_def.get("center") is False) \
+                    or part_def["primitive"] in ("paths", "fence", "terrain"):
+                position = offset_world
+
+            node.transform.translation = position
+
+            # Apply rotation if specified
+            rotation = part_def.get("rotation")
+            if rotation is not None:
+                rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
+                node.transform.rotation = rotation_rad
+
+            root.add_child(node)
 
     def _resolve_surface_exports(
         self,
@@ -605,7 +500,7 @@ class LayoutLoader:
                         " {material: <name>, thickness: <m>}"
                     )
                 reveal = {
-                    "material": self._material_loader.load(reveal_spec["material"]),
+                    "material": self.material_loader.load(reveal_spec["material"]),
                     "thickness": float(reveal_spec.get("thickness", 0.015)),
                 }
 
@@ -647,159 +542,22 @@ class LayoutLoader:
         if data.get("parts"):
             raise ValueError(f"'{name}': a floorplan asset can't also define parts")
         plan = FloorPlan.from_spec(data["floorplan"])
-        root = plan.build(name, self._material_loader)
+        root = plan.build(name, self.material_loader)
         root.tags = [*root.tags, *data.get("tags", [])]
         return root
 
     def _create_generator(
         self, primitive_type: str, size: np.ndarray, extra_config: dict[str, Any] | None = None
     ):
-        """Create a generator instance with the given size.
+        """The generator for one part: ``_BUILDERS[primitive_type](loader, size, config)``.
 
-        Args:
-            primitive_type: Type of primitive (cube, cylinder, etc.)
-            size: Actual size [width, height, depth]
-            extra_config: Additional configuration for complex generators
-
-        Returns:
-            Generator instance configured with the size
+        ``size`` is the part's size in metres; ``extra_config`` the part's YAML keys.
         """
-        if primitive_type == "cube":
-            config = extra_config or {}
-            return CubeGenerator(
-                size_x=size[0], size_y=size[1], size_z=size[2],
-                bevel=config.get("bevel", 0.02),
-                # Small parts (slats, posts, rails) get one step per 45 degrees: the extra
-                # rounding isn't visible at that size and costs ~3x the triangles.
-                bevel_segments=config.get("bevel_segments", 1 if float(np.min(size)) < 0.12 else 2),
-            )
-        elif primitive_type == "cylinder":
-            # Cylinder uses radius (half of x/z) and height
-            radius = min(size[0], size[2]) / 2
-            bevel = float((extra_config or {}).get("bevel", 0.0))
-            if bevel > 0:  # rounded rims (cylinders are sharp by default)
-                return BevelledCylinderGenerator(radius=radius, height=size[1], bevel=bevel,
-                                                 bevel_segments=int((extra_config or {}).get("bevel_segments", 4)))
-            return CylinderGenerator(radius=radius, height=size[1])
-        elif primitive_type == "sphere":
-            # Use the minimum dimension as the base radius
-            # Scaling will be handled by transforming the mesh
-            radius = min(size) / 2
-            return SphereGenerator(radius=radius)
-        elif primitive_type == "cone":
-            # Cone uses radius and height
-            radius = min(size[0], size[2]) / 2
-            return ConeGenerator(radius=radius, height=size[1])
-        elif primitive_type == "plane":
-            # Plane uses width (X) and depth (Z), ignores Y
-            # Get subdivisions from extra_config if available
-            subdivisions_x = (extra_config or {}).get("subdivisions_x", 1)
-            subdivisions_z = (extra_config or {}).get("subdivisions_z", 1)
-            return PlaneGenerator(
-                size_x=size[0],
-                size_z=size[2],
-                subdivisions_x=subdivisions_x,
-                subdivisions_z=subdivisions_z,
-            )
-        elif primitive_type == "ellipsoid":
-            return EllipsoidGenerator(size_x=size[0], size_y=size[1], size_z=size[2])
-        elif primitive_type == "extrude":
-            return self._create_extrude_generator(size, extra_config or {})
-        elif primitive_type == "lathe":
-            return self._create_lathe_generator(size, extra_config or {})
-        elif primitive_type == "sweep":
-            return self._create_sweep_generator(extra_config or {})
-        elif primitive_type == "paths":
-            config = extra_config or {}
-            return PathsGenerator(paths=list(config.get("paths") or []), width=float(config.get("width", 1.8)),
-                                  thickness=float(config.get("thickness", 0.04)),
-                                  bevel=float(config.get("bevel", 0.01)), detail=self.detail)
-        elif primitive_type == "water":
-            config = dict(extra_config or {})
-            config.setdefault("fit", "none")
-            config["axis"] = "y"
-            return self._create_extrude_generator(size, config)
-        elif primitive_type == "terrain":
-            config = extra_config or {}
-            extent = config.get("extent") or [size[0], size[2]]
-            return TerrainGenerator(
-                size=(float(extent[0]), float(extent[1])), resolution=float(config.get("resolution", 1.0)),
-                height=float(config.get("height", 12.0)), sea_level=float(config.get("sea_level", 0.0)),
-                depth=float(config.get("depth", 4.0)), seed=int(config.get("seed", 0)),
-                scale=float(config.get("scale", 40.0)), octaves=int(config.get("octaves", 4)),
-                falloff=dict(config.get("falloff") or {}), pads=list(config.get("pads") or []),
-                island=bool(config.get("island", True)), paths=list(config.get("paths") or []))
-        elif primitive_type == "fence":
-            config = extra_config or {}
-            keys = {"height": float, "post": float, "post_spacing": float, "picket": float, "spacing": float,
-                    "rail": float}
-            return FenceGenerator(path=config.get("path") or [], closed=bool(config.get("closed", False)),
-                                  gaps=[[float(a), float(b)] for a, b in config.get("gaps") or []],
-                                  **{k: cast(config[k]) for k, cast in keys.items() if k in config})
-        elif primitive_type == "text":
-            config = extra_config or {}
-            text = config.get("text", "")
-            if isinstance(text, float) and text.is_integer():
-                text = int(text)            # "{floor}" resolves to a number
-            return TextGenerator(
-                text=str(text), font=str(config.get("font", "sans")),
-                height=float(config.get("height", 0.2)), depth=float(config.get("depth", 0.02)),
-                align=str(config.get("align", "center")), line_spacing=float(config.get("line_spacing", 1.0)),
-                tracking=float(config.get("tracking", 0.0)), bevel=float(config.get("bevel", 0.0)),
-                detail=self.detail,
-            )
-        elif primitive_type == "torus":
-            return TorusGenerator(size_x=size[0], size_y=size[1], size_z=size[2],
-                                  tube=float((extra_config or {}).get("tube", 0.0)))
-        elif primitive_type == "capsule":
-            return CapsuleGenerator(size_x=size[0], size_y=size[1], size_z=size[2])
-        elif primitive_type == "stairs":
-            config = extra_config or {}
-            keys = ("style", "rise", "width", "max_riser", "tread", "turn", "landing_at", "waist", "railing",
-                    "rail_height", "railing_material")
-            args = {k: config[k] for k in keys if k in config}
-            for k in ("rise", "width", "max_riser", "tread", "landing_at", "waist", "rail_height"):
-                if k in args:
-                    args[k] = float(args[k])
-            return StairsGenerator(**args)
-        elif primitive_type == "roof":
-            config = extra_config or {}
-            return RoofGenerator(
-                width=size[0], height=size[1], depth=size[2],
-                style=config.get("style", "gable"),
-                overhang=float(config.get("overhang", 0.35)),
-                thickness=float(config.get("thickness", 0.12)),
-                ridge_axis=config.get("ridge_axis", "auto"),
-                ridge_cap=bool(config.get("ridge_cap", True)),
-            )
-        elif primitive_type in ("tree", "rock"):
-            config = extra_config or {}
-            seed = int(round(float(config.get("seed", 0))))
-            if primitive_type == "tree":
-                keys = {"style": str, "trunk_height": float, "trunk_radius": float, "attractors": int,
-                        "step": float, "leaf_size": float, "segments": int, "foliage_material": str,
-                        "fronds": int}
-                args = {k: cast(config[k]) for k, cast in keys.items() if k in config}
-                return TreeGenerator(width=size[0], height=size[1], depth=size[2], seed=seed, **args)
-            keys = {"points": int, "levels": int, "roughness": float}
-            args = {k: cast(config[k]) for k, cast in keys.items() if k in config}
-            if "crease" in config:
-                args["crease"] = None if config["crease"] is None else float(config["crease"])
-            return RockGenerator(width=size[0], height=size[1], depth=size[2], seed=seed, **args)
-        elif primitive_type == "prism":
-            return PrismGenerator(
-                width=size[0], height=size[1], depth=size[2],
-                apex=(extra_config or {}).get("apex", "center"),
-            )
-        else:
-            import difflib
-            known = list(PRIMITIVE_REGISTRY.keys())
-            suggestion = difflib.get_close_matches(primitive_type, known, n=1, cutoff=0.5)
-            hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-            raise ValueError(
-                f"Unknown primitive type: '{primitive_type}'.{hint}"
-                f" Available: {known}"
-            )
+        builder = _BUILDERS.get(primitive_type)
+        if builder is None:
+            raise ValueError(f"Unknown primitive type: '{primitive_type}'.{suggest(primitive_type, list(_BUILDERS))}"
+                             f" Available: {list(_BUILDERS)}")
+        return builder(self, size, extra_config or {})
 
     @staticmethod
     def _apply_booleans(parts: dict[str, Any], part_nodes: dict[str, SceneNode], root: SceneNode) -> None:
@@ -1135,12 +893,7 @@ def _expand_arrays(parts: dict[str, Any]) -> dict[str, Any]:
 
 def _enabled_parts(parts: dict[str, Any]) -> dict[str, Any]:
     """Parts whose ``when:`` is truthy (default), minus parts attached to dropped ones."""
-    def on(value: Any) -> bool:
-        if isinstance(value, str):
-            return value.strip().lower() not in ("", "0", "false", "no", "none")
-        return bool(value)
-
-    kept = {k: v for k, v in (parts or {}).items() if on(v.get("when", True))}
+    kept = {k: v for k, v in (parts or {}).items() if enabled(v.get("when", True))}
     changed = True
     while changed:
         changed = False
@@ -1346,3 +1099,257 @@ def _params_key(params: dict | None) -> str:
     import json
 
     return json.dumps(params or {}, sort_keys=True, default=str)
+
+
+# --- primitive builders: (loader, part size in metres, part YAML) -> generator -----------------
+
+def _build_cube(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return CubeGenerator(
+        size_x=size[0], size_y=size[1], size_z=size[2],
+        bevel=config.get("bevel", 0.02),
+        # Small parts (slats, posts, rails) get one step per 45 degrees: the extra
+        # rounding isn't visible at that size and costs ~3x the triangles.
+        bevel_segments=config.get("bevel_segments", 1 if float(np.min(size)) < 0.12 else 2),
+    )
+
+
+def _build_cylinder(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    radius = min(size[0], size[2]) / 2
+    bevel = float(config.get("bevel", 0.0))
+    if bevel > 0:  # rounded rims (cylinders are sharp by default)
+        return BevelledCylinderGenerator(radius=radius, height=size[1], bevel=bevel,
+                                         bevel_segments=int(config.get("bevel_segments", 4)))
+    return CylinderGenerator(radius=radius, height=size[1])
+
+
+def _build_plane(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    # Width (X) and depth (Z); Y is ignored.
+    return PlaneGenerator(size_x=size[0], size_z=size[2], subdivisions_x=config.get("subdivisions_x", 1),
+                          subdivisions_z=config.get("subdivisions_z", 1))
+
+
+def _build_paths(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return PathsGenerator(paths=list(config.get("paths") or []), width=float(config.get("width", 1.8)),
+                          thickness=float(config.get("thickness", 0.04)),
+                          bevel=float(config.get("bevel", 0.01)), detail=loader.detail)
+
+
+def _build_water(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return loader._create_extrude_generator(size, {**config, "fit": config.get("fit", "none"), "axis": "y"})
+
+
+def _build_terrain(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    extent = config.get("extent") or [size[0], size[2]]
+    return TerrainGenerator(
+        size=(float(extent[0]), float(extent[1])), resolution=float(config.get("resolution", 1.0)),
+        height=float(config.get("height", 12.0)), sea_level=float(config.get("sea_level", 0.0)),
+        depth=float(config.get("depth", 4.0)), seed=int(config.get("seed", 0)),
+        scale=float(config.get("scale", 40.0)), octaves=int(config.get("octaves", 4)),
+        falloff=dict(config.get("falloff") or {}), pads=list(config.get("pads") or []),
+        island=bool(config.get("island", True)), paths=list(config.get("paths") or []))
+
+
+def _cast(config: dict[str, Any], keys: dict[str, Any]) -> dict[str, Any]:
+    """The given ``keys`` present in ``config``, each converted with its type."""
+    return {k: cast(config[k]) for k, cast in keys.items() if k in config}
+
+
+def _build_fence(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return FenceGenerator(path=config.get("path") or [], closed=bool(config.get("closed", False)),
+                          gaps=[[float(a), float(b)] for a, b in config.get("gaps") or []],
+                          **_cast(config, {"height": float, "post": float, "post_spacing": float,
+                                           "picket": float, "spacing": float, "rail": float}))
+
+
+def _build_text(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    text = config.get("text", "")
+    if isinstance(text, float) and text.is_integer():
+        text = int(text)            # "{floor}" resolves to a number
+    return TextGenerator(
+        text=str(text), font=str(config.get("font", "sans")),
+        height=float(config.get("height", 0.2)), depth=float(config.get("depth", 0.02)),
+        align=str(config.get("align", "center")), line_spacing=float(config.get("line_spacing", 1.0)),
+        tracking=float(config.get("tracking", 0.0)), bevel=float(config.get("bevel", 0.0)),
+        detail=loader.detail,
+    )
+
+
+def _build_stairs(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return StairsGenerator(**_cast(config, {
+        "style": str, "rise": float, "width": float, "max_riser": float, "tread": float, "turn": lambda v: v,
+        "landing_at": float, "waist": float, "railing": lambda v: v, "rail_height": float,
+        "railing_material": lambda v: v}))
+
+
+def _build_roof(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return RoofGenerator(width=size[0], height=size[1], depth=size[2], style=config.get("style", "gable"),
+                         overhang=float(config.get("overhang", 0.35)), thickness=float(config.get("thickness", 0.12)),
+                         ridge_axis=config.get("ridge_axis", "auto"), ridge_cap=bool(config.get("ridge_cap", True)))
+
+
+def _seed_of(config: dict[str, Any]) -> int:
+    return int(round(float(config.get("seed", 0))))
+
+
+def _build_tree(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return TreeGenerator(width=size[0], height=size[1], depth=size[2], seed=_seed_of(config), **_cast(config, {
+        "style": str, "trunk_height": float, "trunk_radius": float, "attractors": int, "step": float,
+        "leaf_size": float, "segments": int, "foliage_material": str, "fronds": int}))
+
+
+def _build_rock(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    args = _cast(config, {"points": int, "levels": int, "roughness": float,
+                          "crease": lambda v: None if v is None else float(v)})
+    return RockGenerator(width=size[0], height=size[1], depth=size[2], seed=_seed_of(config), **args)
+
+
+_BUILDERS: dict[str, Any] = {
+    "cube": _build_cube,
+    "cylinder": _build_cylinder,
+    # The sphere keeps the smallest side as its radius; scaling the node stretches it.
+    "sphere": lambda loader, size, config: SphereGenerator(radius=min(size) / 2),
+    "cone": lambda loader, size, config: ConeGenerator(radius=min(size[0], size[2]) / 2, height=size[1]),
+    "plane": _build_plane,
+    "ellipsoid": lambda loader, size, config: EllipsoidGenerator(size_x=size[0], size_y=size[1], size_z=size[2]),
+    "extrude": lambda loader, size, config: loader._create_extrude_generator(size, config),
+    "lathe": lambda loader, size, config: loader._create_lathe_generator(size, config),
+    "sweep": lambda loader, size, config: loader._create_sweep_generator(config),
+    "paths": _build_paths,
+    "water": _build_water,
+    "terrain": _build_terrain,
+    "fence": _build_fence,
+    "text": _build_text,
+    "torus": lambda loader, size, config: TorusGenerator(size_x=size[0], size_y=size[1], size_z=size[2],
+                                                         tube=float(config.get("tube", 0.0))),
+    "capsule": lambda loader, size, config: CapsuleGenerator(size_x=size[0], size_y=size[1], size_z=size[2]),
+    "stairs": _build_stairs,
+    "roof": _build_roof,
+    "tree": _build_tree,
+    "rock": _build_rock,
+    "prism": lambda loader, size, config: PrismGenerator(width=size[0], height=size[1], depth=size[2],
+                                                         apex=config.get("apex", "center")),
+}
+
+
+# --- per-primitive work after the generator builds the node ----------------------------------
+
+def _post_water(loader: LayoutLoader, node: SceneNode, generator: Any, part_def: dict[str, Any],
+                size: np.ndarray) -> None:
+    from ..generators.water import add_barrier, water_meta
+
+    node.meta["water"] = water_meta(part_def)
+    node.meta["collider"] = "none"
+    part_def.setdefault("material", "water")
+    if part_def.get("barrier"):
+        add_barrier(node, generator.shape, float(part_def["barrier"]), float(size[1]))
+
+
+def _post_terrain(loader: LayoutLoader, node: SceneNode, generator: Any, part_def: dict[str, Any],
+                  size: np.ndarray) -> None:
+    node.meta["terrain"] = generator.params()
+    part_def.setdefault("walkable", True)
+    slots = {"sand": "sand", "grass": "grass", "rock": "rock", "path": "gravel", **(part_def.get("materials") or {})}
+    node.mesh.materials = [loader.material_loader.load(slots[k]) for k in TERRAIN_SLOTS]
+    ribbons = generator.path_mesh()
+    if ribbons is not None:
+        ribbons.material = loader.material_loader.load(slots["path"])
+        path_node = SceneNode("paths", mesh=ribbons, tags=["terrain.path"])
+        path_node.meta["collider"] = "none"      # you walk on the terrain beneath
+        node.add_child(path_node)
+    if part_def.get("shore"):
+        from ..generators.terrain import add_shore
+
+        add_shore(node, generator, dict(part_def["shore"]))
+
+
+_POST_BUILD: dict[str, Any] = {"water": _post_water, "terrain": _post_terrain}
+
+
+# --- asset-level keys that set the root's meta: (key, handler(root, value, part_nodes, name)) ----
+# Run in this order once the parts, booleans, surfaces and interactions exist.
+
+def _meta_light(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    root.meta["light"] = light_spec(spec)
+
+
+def _meta_switch(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    if not isinstance(spec, dict) or set(spec) != {"light"}:
+        raise ValueError(f"{name}: switch is {{light: <the light fixture's name>}}, got {spec!r}")
+    if str(spec["light"]):          # "": a switch that isn't wired to anything
+        root.meta["switch"] = {"light": str(spec["light"])}
+
+
+def _meta_container(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    root.meta["container"] = {"capacity": int(spec.get("capacity", 1)),
+                              **({"part": str(spec["part"])} if "part" in spec else {})}
+
+
+def _meta_clearance(root: SceneNode, clearance: Any, parts: dict[str, SceneNode], name: str) -> None:
+    # Furniture: footprint (x, z) and the free space needed around it (front = +Z)
+    # for furnishing solvers and navigation.
+    unknown = set(clearance) - {"front", "back", "left", "right"}
+    if unknown:
+        raise ValueError(f"'{name}': clearance sides must be front/back/left/right, got {sorted(unknown)}")
+    root.meta["footprint"] = [float(root.size[0]), float(root.size[2])]
+    root.meta["clearance"] = {k: float(v) for k, v in clearance.items()}
+
+
+def _meta_affordances(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    root.meta["affordances"] = [_affordance(a, root) for a in spec]
+
+
+def _meta_poses(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..npc import parse_poses
+
+    root.meta["poses"] = parse_poses(spec)
+
+
+def _meta_portal(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..npc import parse_portal
+
+    root.meta["portal"] = parse_portal(spec, root.interactions)
+
+
+def _meta_travel(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..travel import apply_travel
+
+    apply_travel(root, spec, name)
+
+
+def _meta_vehicle(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..vehicles import parse_vehicle
+
+    root.meta["vehicle"] = parse_vehicle(spec, root, parts)
+    root.meta["type"] = "vehicle"
+
+
+def _meta_physics(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..physics import parse_physics
+
+    root.meta["physics"] = parse_physics(spec, root, parts, name)
+
+
+def _meta_source(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..flows import parse_source
+
+    root.meta.setdefault("flows", {})["source"] = parse_source(spec, root, name)
+
+
+def _meta_track(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..flows import parse_track
+
+    root.meta.setdefault("flows", {})["track"] = parse_track(spec, name)
+
+
+def _meta_effector(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
+    from ..flows import parse_effector
+
+    root.meta.setdefault("flows", {})["effector"] = parse_effector(spec, root, parts, name)
+
+
+_ROOT_META: list[tuple[str, Any]] = [
+    ("light", _meta_light), ("switch", _meta_switch), ("container", _meta_container),
+    ("clearance", _meta_clearance), ("affordances", _meta_affordances), ("poses", _meta_poses),
+    ("portal", _meta_portal), ("travel", _meta_travel), ("vehicle", _meta_vehicle), ("physics", _meta_physics),
+    ("source", _meta_source), ("track", _meta_track), ("effector", _meta_effector),
+]

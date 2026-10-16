@@ -18,7 +18,7 @@ KNOWN_PRIMITIVES = set(PRIMITIVES)
 KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
 
 
-def _suggest(value: str, known: set[str] | list[str]) -> str:
+def suggest(value: str, known: set[str] | list[str]) -> str:
     """Suggest a close match for a misspelled value."""
     matches = difflib.get_close_matches(value, known, n=1, cutoff=0.5)
     if matches:
@@ -48,7 +48,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
     # Check top-level keys
     for key in data:
         if key not in ASSET_KNOWN_KEYS:
-            msg = f"Unknown asset key '{key}'.{_suggest(key, ASSET_KNOWN_KEYS)}"
+            msg = f"Unknown asset key '{key}'.{suggest(key, ASSET_KNOWN_KEYS)}"
             warnings.append(msg)
 
     # Validate parts
@@ -65,7 +65,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
 
         prim_type = part_def["primitive"]
         if prim_type not in KNOWN_PRIMITIVES:
-            msg = f"Unknown primitive '{prim_type}' in part '{part_name}'.{_suggest(prim_type, KNOWN_PRIMITIVES)}"
+            msg = f"Unknown primitive '{prim_type}' in part '{part_name}'.{suggest(prim_type, KNOWN_PRIMITIVES)}"
             raise ValidationError(msg)
 
         if "size" not in part_def and prim_type not in ("sweep", "stairs", "text", "paths", "fence", "terrain"):
@@ -73,7 +73,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
 
         for key in part_def:
             if key not in PART_KNOWN_KEYS:
-                msg = f"Unknown key '{key}' in part '{part_name}'.{_suggest(key, PART_KNOWN_KEYS)}"
+                msg = f"Unknown key '{key}' in part '{part_name}'.{suggest(key, PART_KNOWN_KEYS)}"
                 warnings.append(msg)
 
     return warnings
@@ -93,7 +93,7 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
     # Check top-level keys
     for key in data:
         if key not in SCENE_KNOWN_KEYS:
-            msg = f"Unknown scene key '{key}'.{_suggest(key, SCENE_KNOWN_KEYS)}"
+            msg = f"Unknown scene key '{key}'.{suggest(key, SCENE_KNOWN_KEYS)}"
             warnings.append(msg)
 
     # Validate slots
@@ -107,12 +107,12 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
 
         for key in slot_def:
             if key not in SLOT_KNOWN_KEYS:
-                msg = f"Unknown key '{key}' in slot '{slot_name}'.{_suggest(key, SLOT_KNOWN_KEYS)}"
+                msg = f"Unknown key '{key}' in slot '{slot_name}'.{suggest(key, SLOT_KNOWN_KEYS)}"
                 warnings.append(msg)
 
         if "facing" in slot_def and slot_def["facing"] not in KNOWN_FACINGS:
             facing = slot_def["facing"]
-            msg = f"Unknown facing '{facing}' in slot '{slot_name}'.{_suggest(facing, KNOWN_FACINGS)}"
+            msg = f"Unknown facing '{facing}' in slot '{slot_name}'.{suggest(facing, KNOWN_FACINGS)}"
             warnings.append(msg)
 
     # Validate placements
@@ -131,7 +131,7 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
 
         for key in obj_def:
             if key not in PLACEMENT_KNOWN_KEYS:
-                msg = f"Unknown key '{key}' in placement '{obj_name}'.{_suggest(key, PLACEMENT_KNOWN_KEYS)}"
+                msg = f"Unknown key '{key}' in placement '{obj_name}'.{suggest(key, PLACEMENT_KNOWN_KEYS)}"
                 warnings.append(msg)
 
     return warnings
@@ -152,7 +152,7 @@ def pre_validate_asset_references(
         if "attach_to" in part_def:
             parent_name = part_def["attach_to"]
             if parent_name not in part_names:
-                suggestion = _suggest(parent_name, part_names)
+                suggestion = suggest(parent_name, part_names)
                 errors.append(
                     f"Part '{part_name}' attaches to unknown part '{parent_name}'.{suggestion}"
                 )
@@ -177,7 +177,7 @@ def pre_validate_scene_references(
         if "slot" in obj_def:
             slot_name = obj_def["slot"]
             if slot_name not in slots:
-                suggestion = _suggest(slot_name, slots)
+                suggestion = suggest(slot_name, slots)
                 errors.append(
                     f"Placement '{obj_name}' references unknown slot '{slot_name}'.{suggestion}"
                 )
@@ -186,7 +186,7 @@ def pre_validate_scene_references(
             target_name = obj_def["attach_to"]
             # A plain name must be a placement; paths and selectors are resolved when composing.
             if target_name not in obj_names and not any(c in str(target_name) for c in "/[:*#"):
-                suggestion = _suggest(target_name, obj_names)
+                suggestion = suggest(target_name, obj_names)
                 errors.append(
                     f"Placement '{obj_name}' attaches to unknown object '{target_name}'.{suggestion}"
                 )

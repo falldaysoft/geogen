@@ -87,6 +87,14 @@ def truthy(value: Any) -> bool:
     return bool(value)
 
 
+def enabled(value: Any) -> bool:
+    """Whether a resolved ``when:`` (or ``if:``) keeps its part, placement or rule: false for
+    false, 0 and "", and for the text an interpolation leaves ("0", "0.0", "false", "no", "none")."""
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "0", "0.0", "false", "no", "none")
+    return bool(value)
+
+
 def _number(value: Any, node: ast.AST) -> float:
     if isinstance(value, str):
         if isinstance(node, ast.Name):
@@ -306,3 +314,40 @@ def resolve_params(
             resolved[name] = float(value)
 
     return resolved
+
+
+# Keys of an asset or scene document that are input, not interpolated.
+RAW_KEYS = ("params", "name", "presets", "derived")
+
+
+def resolve_document(
+    data: dict[str, Any], overrides: dict[str, Any] | None
+) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+    """Resolve an asset's or scene's ``params:``, ``presets:`` and ``derived:``, then every
+    ``{expr}`` in the rest of the document (``RAW_KEYS`` are left as written).
+
+    ``params: {preset: feminine, height: 1.6}`` applies the preset's values, then the explicit
+    ones; a top-level ``preset:`` is the default, and a list applies several in order, later
+    ones winning. ``derived:`` values are expressions over params (and earlier derived values).
+
+    Returns (the resolved document, the resolved params, the preset name or None).
+    """
+    overrides = dict(overrides or {})
+    presets = data.get("presets") or {}
+    preset = overrides.pop("preset", data.get("preset"))
+    if preset is not None:
+        names = [preset] if isinstance(preset, str) else list(preset)
+        merged: dict[str, Any] = {}
+        for p in names:
+            if p not in presets:
+                raise ValueError(f"'{data.get('name')}': unknown preset '{p}'. Presets: {sorted(presets)}")
+            merged.update(presets[p])
+        overrides = {**merged, **overrides}
+        preset = "+".join(names)
+    params = resolve_params(data.get("params"), overrides)
+    for key, expr in (data.get("derived") or {}).items():
+        params[key] = float(resolve_value(expr, params))
+    out = {key: (value if key in RAW_KEYS else resolve_value(value, params)) for key, value in data.items()}
+    if preset is not None:
+        out["preset"] = preset
+    return out, params, preset

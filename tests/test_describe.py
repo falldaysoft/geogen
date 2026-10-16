@@ -10,7 +10,7 @@ from geogen import roots
 from geogen import describe as d
 from geogen.layout import SceneComposer
 from geogen.layout.schema import PRIMITIVES, part_known_keys
-from geogen.layout.loader import PRIMITIVE_REGISTRY, LayoutLoader
+from geogen.layout.loader import _BUILDERS, PRIMITIVE_REGISTRY
 from geogen.layout.yaml_utils import safe_load, safe_load_path
 
 DOCS = Path(__file__).parent.parent / "docs" / "catalogue"
@@ -18,13 +18,8 @@ CATALOGUE = d.catalogue()
 REGENERATE = "run docs/make_catalogue.sh"
 
 
-def _registered(name):
-    """Assets the scene registry builds (``built_scene``); the others are loaded here."""
-    return CATALOGUE["assets"][name]["file"].split("/")[0] != "characters"
-
-
 def test_schema_covers_every_primitive_and_key_the_assets_use():
-    assert set(PRIMITIVES) == set(PRIMITIVE_REGISTRY)
+    assert set(PRIMITIVES) == set(PRIMITIVE_REGISTRY) == set(_BUILDERS)
     known = part_known_keys()
     for entry in CATALOGUE["assets"].values():
         data = safe_load_path(d.ASSETS_DIR / entry["file"])
@@ -107,7 +102,7 @@ def test_committed_pages_are_current(page):
 @pytest.mark.parametrize("name", sorted(CATALOGUE["assets"]))
 def test_committed_asset_page_is_current(name, built_scene):
     entry = CATALOGUE["assets"][name]
-    node = built_scene(name).children[0] if _registered(name) else LayoutLoader().load(d.ASSETS_DIR / entry["file"])
+    node = built_scene(name).children[0]
     page = DOCS / d.asset_page_path(name)
     assert page.is_file(), REGENERATE
     assert page.read_text() == d.asset_page(d.describe_asset(entry, node)), REGENERATE

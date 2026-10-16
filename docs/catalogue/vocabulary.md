@@ -50,6 +50,9 @@
 | `name` | node name of the scene |
 | `size` | [x, y, z] box that slot anchors resolve in |
 | `params` | {name: {default}}: values `{expr}` interpolation can use |
+| `presets` | {name: {param: value}}: named param bundles, picked with `params: {preset: name}` |
+| `preset` | the default preset |
+| `derived` | {name: expr}: values computed from params, in order |
 | `slots` | {name: {anchor, offset \| position, facing}}: named places for placements |
 | `place` | {name: placement}: the objects in the scene |
 | `attachments` | named points on the scene, for parent scenes |

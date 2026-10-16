@@ -3,6 +3,7 @@
 import logging
 import warnings
 from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -13,7 +14,8 @@ from ..core.transform import Transform
 from .loader import LayoutLoader
 from .anchors import resolve_anchor
 from .attachments import parse_attachment
-from .validation import validate_scene_yaml, pre_validate_scene_references
+from .expressions import enabled
+from .validation import suggest, validate_scene_yaml, pre_validate_scene_references
 from .yaml_utils import safe_load, safe_load_path
 
 logger = logging.getLogger("geogen.layout")
@@ -52,10 +54,22 @@ def _set_states(node: SceneNode, spec: Any, where: str) -> None:
                          + (f", state: {sorted(declared)})" if declared else ")"))
 
 
-def _truthy(value: Any) -> bool:
-    if isinstance(value, str):
-        return value.strip().lower() not in ("", "0", "0.0", "false", "no", "none")
-    return bool(value)
+
+@dataclass
+class _SceneBuild:
+    """What the phases of one scene's build share."""
+
+    root: SceneNode
+    data: dict[str, Any]
+    source: Path | None
+    size: np.ndarray
+    slots: dict[str, Transform]
+    placements: dict[str, Any]      # the plain ones (no scatter, traffic or train), after `when:`
+    scatters: dict[str, Any]
+    fleets: dict[str, Any]
+    refs: Any                       # refs.SceneRefs
+    loaded: dict[str, SceneNode] = field(default_factory=dict)   # placement name -> its node
+
 
 class SceneComposer:
     """Composes scenes by loading and connecting multiple assets.
@@ -144,6 +158,7 @@ class SceneComposer:
 
         self._loader = LayoutLoader()
         self._prototypes: dict[str, SceneNode] = {}
+        self._depth = 0                 # nesting of scenes being built (1: the top one)
         cache_dir = cache_dir or os.environ.get("GEOGEN_CACHE")
         self._disk_cache = None
         if cache_dir:
@@ -188,13 +203,12 @@ class SceneComposer:
 
     @staticmethod
     def _resolve_params(data: dict[str, Any], overrides: dict[str, float] | None) -> dict[str, Any]:
-        """Resolve a scene's ``params:`` and ``{expr}`` values (like LayoutLoader)."""
-        from .expressions import resolve_params, resolve_value
+        """Resolve a scene's ``params:``, presets, derived values and ``{expr}`` values (like LayoutLoader)."""
+        from .expressions import resolve_document
 
-        if "params" not in data and not overrides:
+        if not ({"params", "presets", "derived"} & set(data)) and not overrides:
             return data
-        resolved = resolve_params(data.get("params"), overrides)
-        return {k: (v if k in ("params", "name") else resolve_value(v, resolved)) for k, v in data.items()}
+        return resolve_document(data, overrides)[0]
 
     def compose_string(self, yaml_string: str) -> SceneNode:
         """Compose a scene from a YAML string.
@@ -214,7 +228,7 @@ class SceneComposer:
         from ..physics import resolve_spawns
         from .interactions import resolve_moves
 
-        self._depth = getattr(self, "_depth", 0) + 1
+        self._depth += 1
         try:
             root = self._build_scene_here(data, source)
             resolve_moves(root, final=self._depth == 1)
@@ -229,19 +243,50 @@ class SceneComposer:
     def _build_scene_here(self, data: dict[str, Any], source: Path | None = None) -> SceneNode:
         name = data.get("name", "composed_scene")
         root = SceneNode(name)
-
-        # Get scene size for slot positioning and propagate to root node
+        # Scene size for slot positioning, propagated to the root node.
         size = np.array(data.get("size", [1.0, 1.0, 1.0]), dtype=np.float64)
         root.size = size
         logger.debug("Building scene: %s (size=%s)", name, size)
-        from ..state import declare_scene
 
-        declare_scene(root, data, source)
+        placements = dict(data.get("place") or {})
+        # `when: "{expr}"` drops a placement when it resolves to 0 / false / "" (like parts).
+        placements = {k: {kk: vv for kk, vv in v.items() if kk != "when"} if isinstance(v, dict) else v
+                      for k, v in placements.items()
+                      if not (isinstance(v, dict) and not enabled(v.get("when", True)))}
+        if source is not None:      # where each travel was written, for export diagnostics
+            from .yaml_utils import source_of
+
+            placements = {
+                k: ({**v, "_travel_where": source_of(source, ["place", k, "travel"])}
+                    if isinstance(v, dict) and v.get("travel") else v)
+                for k, v in placements.items()}
+        # Scatter placements run once the objects they avoid exist; traffic and trains once
+        # the streets and railways do.
+        scatters = {k: v for k, v in placements.items() if isinstance(v, dict) and "scatter" in v}
+        fleets = {k: v for k, v in placements.items() if isinstance(v, dict) and ("traffic" in v or "train" in v)}
+        placements = {k: v for k, v in placements.items() if k not in scatters and k not in fleets}
+        from ..refs import SceneRefs
+
+        build = _SceneBuild(root, data, source, size, self._parse_slots(data.get("slots", {}), size), placements,
+                            scatters, fleets, SceneRefs(root, source, [*placements, *scatters, *fleets]))
+        for phase in self._PHASES:
+            getattr(self, phase)(build)
+        return root
+
+    # The order matters: each phase may name what earlier ones placed.
+    _PHASES = ("_declare", "_place_free", "_place_dependent", "_build_city", "_scatter", "_placement_extras",
+               "_build_tracks", "_build_routes", "_build_railways", "_add_spawns", "_build_places", "_place_fleets",
+               "_add_attachments")
+
+    def _declare(self, b: _SceneBuild) -> None:
+        """Scene-level declarations: state, wiring, HUD, physics ticks, quests and dialogues."""
+        from ..hud import declare as declare_hud
+        from ..state import declare_scene
         from ..wiring import declare as declare_wiring
 
+        root, data, source = b.root, b.data, b.source
+        declare_scene(root, data, source)
         declare_wiring(root, data, source, asset=False)
-        from ..hud import declare as declare_hud
-
         declare_hud(root, data, source)
         if data.get("physics") is not None:
             physics = data["physics"]
@@ -259,248 +304,217 @@ class SceneComposer:
 
             declare_dialogues(root, data, source, self._assets_dir)
 
-        # Parse slot definitions
-        slots = self._parse_slots(data.get("slots", {}), size)
-
-        all_placements = dict(data.get("place") or {})
-        # `when: "{expr}"` drops a placement when it resolves to 0 / false / "" (like parts).
-        all_placements = {k: {kk: vv for kk, vv in v.items() if kk != "when"} if isinstance(v, dict) else v
-                          for k, v in all_placements.items()
-                          if not (isinstance(v, dict) and not _truthy(v.get("when", True)))}
-        if source is not None:      # where each travel was written, for export diagnostics
-            from .yaml_utils import source_of
-
-            all_placements = {
-                k: ({**v, "_travel_where": source_of(source, ["place", k, "travel"])}
-                    if isinstance(v, dict) and v.get("travel") else v)
-                for k, v in all_placements.items()}
-        # Scatter placements run last, once the objects they avoid exist.
-        scatters = {k: v for k, v in all_placements.items() if isinstance(v, dict) and "scatter" in v}
-        # Traffic placements put vehicles on the lanes, so they run once the streets exist.
-        fleets = {k: v for k, v in all_placements.items() if isinstance(v, dict) and ("traffic" in v or "train" in v)}
-        all_placements = {k: v for k, v in all_placements.items() if k not in scatters and k not in fleets}
-
-        # First pass: load all objects that don't depend on others.
-        # Surface-based placements (`on:`) depend on the root's own surfaces
-        # (defined by the scene's `size` and any composed parts) so they can
-        # resolve in pass 1 too. Object-to-object surface placements run in
-        # pass 2 alongside attach_to.
-        from ..refs import SceneRefs
-
-        loaded_objects: dict[str, SceneNode] = {}
-        refs = SceneRefs(root, source, [*all_placements, *scatters, *fleets])
-
-        for obj_name, obj_def in all_placements.items():
+    def _place_free(self, b: _SceneBuild) -> None:
+        """Placements that don't depend on others: at a slot, on one of the scene's own surfaces, or
+        at the origin. (Object-to-object surfaces and ``attach_to`` wait for ``_place_dependent``.)"""
+        for obj_name, obj_def in b.placements.items():
             if "attach_to" in obj_def:
                 continue
             if "on" in obj_def and self._surface_target_is_object(obj_def["on"]):
                 continue
             node = self._load_object(obj_def)
             node.name = obj_name
-
-            # Position the object
             if "slot" in obj_def:
                 slot_name = obj_def["slot"]
-                if slot_name not in slots:
-                    import difflib
-                    available = sorted(slots.keys())
-                    suggestion = difflib.get_close_matches(slot_name, available, n=1, cutoff=0.5)
-                    hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                    raise ValueError(
-                        f"Slot '{slot_name}' not defined.{hint}"
-                        f" Available slots: {available}"
-                    )
+                if slot_name not in b.slots:
+                    available = sorted(b.slots.keys())
+                    raise ValueError(f"Slot '{slot_name}' not defined.{suggest(slot_name, available)}"
+                                     f" Available slots: {available}")
                 logger.debug("Placing '%s' at slot '%s'", obj_name, slot_name)
-                node.transform = slots[slot_name]
+                node.transform = b.slots[slot_name]
             elif "on" in obj_def:
-                # Placement on a scene-level (root) surface.
-                node.transform = self._resolve_surface_placement(obj_def, root, refs, ["place", obj_name])
+                node.transform = self._resolve_surface_placement(obj_def, b.root, b.refs, ["place", obj_name])
+            b.root.add_child(node)
+            b.loaded[obj_name] = node
 
-            root.add_child(node)
-            loaded_objects[obj_name] = node
-
-        # Second pass: attach objects to their targets, each after the placement it refers to.
-        for obj_name in self._after_targets(all_placements, refs):
-            obj_def = all_placements[obj_name]
+    def _place_dependent(self, b: _SceneBuild) -> None:
+        """Placements on another object's surface or attachment points, each after the one it names."""
+        root, refs = b.root, b.refs
+        for obj_name in self._after_targets(b.placements, refs):
+            obj_def = b.placements[obj_name]
             keys = ["place", obj_name]
             if "on" in obj_def and self._surface_target_is_object(obj_def["on"]):
                 node = self._load_object(obj_def)
                 node.name = obj_name
                 node.transform = self._resolve_surface_placement(obj_def, root, refs, keys)
                 root.add_child(node)
-                loaded_objects[obj_name] = node
+                b.loaded[obj_name] = node
                 self._cut_host(node, obj_name, obj_def["on"], refs.surface(obj_def["on"], [*keys, "on"])[1])
                 continue
+            if "attach_to" not in obj_def:
+                continue
+            target_name = obj_def["attach_to"]
+            target = refs.node(target_name, [*keys, "attach_to"])
+            attachment_names = obj_def.get("at", [])
+            if isinstance(attachment_names, str):
+                attachment_names = [attachment_names]
+            for i, attach_name in enumerate(attachment_names):
+                node = self._load_object(obj_def)
+                node.name = f"{obj_name}_{i}" if len(attachment_names) > 1 else obj_name
+                attach_transform = target.get_attachment(attach_name)
+                if attach_transform is None:
+                    available = target.list_attachments()
+                    raise refs.fail(
+                        f"Attachment point '{attach_name}' not found on '{target_name}'.{suggest(attach_name, available)}"
+                        f" Available: {available}", [*keys, "at"], str(attach_name))
+                logger.debug("Attaching '%s' to '%s' at '%s'", obj_name, target_name, attach_name)
+                node.transform = attach_transform
+                root.add_child(node)
+                b.loaded.setdefault(obj_name, node)
 
-            if "attach_to" in obj_def:
-                target_name = obj_def["attach_to"]
-                target = refs.node(target_name, [*keys, "attach_to"])
-
-                attachment_names = obj_def.get("at", [])
-                if isinstance(attachment_names, str):
-                    attachment_names = [attachment_names]
-
-                for i, attach_name in enumerate(attachment_names):
-                    node = self._load_object(obj_def)
-                    node.name = f"{obj_name}_{i}" if len(attachment_names) > 1 else obj_name
-
-                    attach_transform = target.get_attachment(attach_name)
-                    if attach_transform is None:
-                        import difflib
-                        available = target.list_attachments()
-                        suggestion = difflib.get_close_matches(attach_name, available, n=1, cutoff=0.5)
-                        hint = f" Did you mean '{suggestion[0]}'?" if suggestion else ""
-                        raise refs.fail(
-                            f"Attachment point '{attach_name}' not found on '{target_name}'.{hint}"
-                            f" Available: {available}", [*keys, "at"], str(attach_name))
-                    logger.debug("Attaching '%s' to '%s' at '%s'", obj_name, target_name, attach_name)
-
-                    node.transform = attach_transform
-                    root.add_child(node)
-                    loaded_objects.setdefault(obj_name, node)
-
-        if "city" in data:
+    def _build_city(self, b: _SceneBuild) -> None:
+        if "city" in b.data:
             from .city import build_city
 
-            build_city(root, data["city"], self._load_object, self._loader._material_loader)
-            loaded_objects["city"] = root.children[-1]
+            build_city(b.root, b.data["city"], self._load_object, self._loader.material_loader)
+            b.loaded["city"] = b.root.children[-1]
 
-        if scatters:
-            from .scatter import scatter
+    def _scatter(self, b: _SceneBuild) -> None:
+        if not b.scatters:
+            return
+        from .scatter import scatter
 
-            occupied: list = []
-            for obj_name, obj_def in scatters.items():
-                keys = ["place", obj_name]
-                placed = scatter(root, obj_name, obj_def, refs,
-                                 lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied,
-                                 keys=[*keys, "scatter"])
-                if "npc" in obj_def:          # a crowd: every copy shares the placement's home
-                    from ..npc import resolve_home
-
-                    for node in placed:
-                        resolve_home(node, obj_def.get("home"), refs, [*keys, "home"])
-
-        # Placed as something to take (geogen.inventory): the asset key, on this copy.
-        for obj_name, obj_def in all_placements.items():
-            node = loaded_objects.get(obj_name)
-            if node is not None and isinstance(obj_def, dict) and obj_def.get("pickup"):
-                from ..inventory import parse_pickup
-
-                parse_pickup(obj_def["pickup"], node, f"{source}: place.{obj_name}", self._assets_dir, source)
-            if node is not None and isinstance(obj_def, dict) and obj_def.get("readable"):
-                from ..dialogue import parse_readable
-
-                parse_readable(obj_def["readable"], node, f"{source}: place.{obj_name}")
-
-        # NPCs: home region (in the NPC's frame) and per-placement seed.
-        for obj_name, obj_def in all_placements.items():
-            node = loaded_objects.get(obj_name)
-            if node is not None and "npc" in obj_def:
+        occupied: list = []
+        for obj_name, obj_def in b.scatters.items():
+            keys = ["place", obj_name]
+            placed = scatter(b.root, obj_name, obj_def, b.refs,
+                             lambda d: self._load_object({k: v for k, v in d.items() if k != "scatter"}), occupied,
+                             keys=[*keys, "scatter"])
+            if "npc" in obj_def:          # a crowd: every copy shares the placement's home
                 from ..npc import resolve_home
 
-                resolve_home(node, obj_def.get("home"), refs, ["place", obj_name, "home"])
+                for node in placed:
+                    resolve_home(node, obj_def.get("home"), b.refs, [*keys, "home"])
+
+    def _placement_extras(self, b: _SceneBuild) -> None:
+        """Per-placement keys on the placed copy: pickup and readable (as the asset keys), an NPC's
+        home, seed and quests, and extra tags. Then the scene root's own tags."""
+        source = b.source
+        for obj_name, obj_def in b.placements.items():
+            node = b.loaded.get(obj_name)
+            if node is None or not isinstance(obj_def, dict):
+                continue
+            where = f"{source}: place.{obj_name}"
+            if obj_def.get("pickup"):
+                from ..inventory import parse_pickup
+
+                parse_pickup(obj_def["pickup"], node, where, self._assets_dir, source)
+            if obj_def.get("readable"):
+                from ..dialogue import parse_readable
+
+                parse_readable(obj_def["readable"], node, where)
+            if "npc" in obj_def:
+                from ..npc import resolve_home
+
+                resolve_home(node, obj_def.get("home"), b.refs, ["place", obj_name, "home"])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
                 if obj_def.get("quests"):         # quests this NPC holds from the start (quests.collect)
                     from ..quests import declare_scene as declare_quests
 
                     declare_quests(node, {"quests": obj_def["quests"]}, source, self._assets_dir)
-
-        # Extra semantic tags per placement (e.g. tags: [door.interior]).
-        for obj_name, obj_def in all_placements.items():
-            node = loaded_objects.get(obj_name)
-            if node is not None and obj_def.get("tags"):
+            if obj_def.get("tags"):           # extra semantic tags, e.g. tags: [door.interior]
                 node.tags = [*node.tags, *[t for t in obj_def["tags"] if t not in node.tags]]
+        b.root.tags = list(b.data.get("tags", []))
 
-        root.tags = list(data.get("tags", []))
+    def _build_tracks(self, b: _SceneBuild) -> None:
+        """Tracks spawned items follow (geogen.flows), in the scene frame."""
+        if not b.data.get("tracks"):
+            return
+        from ..flows import scene_tracks
 
-        # Tracks spawned items follow (geogen.flows), in the scene frame.
-        if data.get("tracks"):
-            from ..flows import scene_tracks
+        for track_node in scene_tracks(b.data["tracks"], self._loader.material_loader):
+            if track_node.name in b.loaded:
+                raise ValueError(f"tracks.{track_node.name}: a placement already has that name")
+            b.root.add_child(track_node)
+            b.loaded[track_node.name] = track_node
 
-            for track_node in scene_tracks(data["tracks"], self._loader._material_loader):
-                if track_node.name in loaded_objects:
-                    raise ValueError(f"tracks.{track_node.name}: a placement already has that name")
-                root.add_child(track_node)
-                loaded_objects[track_node.name] = track_node
+    def _build_routes(self, b: _SceneBuild) -> None:
+        """Explicit traffic routes (roads, bus loops) in the scene frame: a lane graph."""
+        if not b.data.get("routes"):
+            return
+        from ..traffic import route_surface, routes_graph
 
-        # Explicit traffic routes (roads, bus loops) in the scene frame: a lane graph.
-        if data.get("routes"):
-            from ..traffic import routes_graph
+        lanes = routes_graph(b.data["routes"])
+        if lanes is not None:
+            b.root.meta["traffic"] = lanes
+        for route_name, route_spec in b.data["routes"].items():
+            surface = route_surface(route_name, route_spec, self._loader.material_loader)
+            if surface is not None:
+                b.root.add_child(surface)
+                b.loaded[surface.name] = surface
 
-            from ..traffic import route_surface
+    def _build_railways(self, b: _SceneBuild) -> None:
+        """Railways: track, stations, and barriers where they cross the roads built so far."""
+        if not b.data.get("railways"):
+            return
+        from ..railway import build_railway, level_crossings
+        from ..traffic import build_traffic
 
-            lanes = routes_graph(data["routes"])
-            if lanes is not None:
-                root.meta["traffic"] = lanes
-            for route_name, route_spec in data["routes"].items():
-                surface = route_surface(route_name, route_spec, self._loader._material_loader)
-                if surface is not None:
-                    root.add_child(surface)
-                    loaded_objects[surface.name] = surface
+        root = b.root
+        roads = build_traffic(root)
+        for rail_name, rail_spec in b.data["railways"].items():
+            if isinstance(rail_spec, dict) and "around" in rail_spec:
+                rail_spec = self._railway_round_city(root, rail_name, rail_spec)
+            rail_node = build_railway(rail_name, rail_spec, self._loader.material_loader,
+                                      self._load_object, self._assets_dir)
+            root.add_child(rail_node)
+            b.loaded[rail_node.name] = rail_node
+            level_crossings(root, rail_node, roads, self._load_object)
 
-        # Railways: track, stations, and barriers where they cross the roads above.
-        if data.get("railways"):
-            from ..railway import build_railway, level_crossings
-            from ..traffic import build_traffic
+    @staticmethod
+    def _railway_round_city(root: SceneNode, rail_name: str, rail_spec: dict[str, Any]) -> dict[str, Any]:
+        """A loop round the district: ``{around: {margin, corner}}`` becomes the path."""
+        from ..railway import loop_around
 
-            roads = build_traffic(root)
-            for rail_name, rail_spec in data["railways"].items():
-                if isinstance(rail_spec, dict) and "around" in rail_spec:
-                    # A loop round the district: {around: {margin, corner}} -> the path.
-                    from ..railway import loop_around
+        city_node = next((n for n in root.iter_nodes() if isinstance(n.meta.get("city"), dict)), None)
+        if city_node is None:
+            raise ValueError(f"railway '{rail_name}': around needs a city: block")
+        opts = rail_spec["around"] or {}
+        return {**{k: v for k, v in rail_spec.items() if k != "around"},
+                "path": loop_around(city_node.meta["city"]["extent"], float(opts.get("margin", 20.0)),
+                                    float(opts.get("corner", 30.0))), "loop": True}
 
-                    city_node = next((n for n in root.iter_nodes() if isinstance(n.meta.get("city"), dict)), None)
-                    if city_node is None:
-                        raise ValueError(f"railway '{rail_name}': around needs a city: block")
-                    opts = rail_spec["around"] or {}
-                    rail_spec = {**{k: v for k, v in rail_spec.items() if k != "around"},
-                                 "path": loop_around(city_node.meta["city"]["extent"], float(opts.get("margin", 20.0)),
-                                                     float(opts.get("corner", 30.0))), "loop": True}
-                rail_node = build_railway(rail_name, rail_spec, self._loader._material_loader,
-                                          self._load_object, self._assets_dir)
-                root.add_child(rail_node)
-                loaded_objects[rail_node.name] = rail_node
-                level_crossings(root, rail_node, roads, self._load_object)
+    def _add_spawns(self, b: _SceneBuild) -> None:
+        """Spawn points: slot-style positions exported as empty nodes."""
+        for spawn_name, transform in self._parse_slots(b.data.get("spawns", {}), b.size).items():
+            b.root.add_child(SceneNode(name=spawn_name, transform=transform, tags=["spawn"],
+                                       meta={"type": "spawn"}))
 
-        # Spawn points: slot-style positions exported as empty nodes.
-        for spawn_name, transform in self._parse_slots(data.get("spawns", {}), size).items():
-            root.add_child(SceneNode(name=spawn_name, transform=transform, tags=["spawn"],
-                                     meta={"type": "spawn"}))
+    def _build_places(self, b: _SceneBuild) -> None:
+        """Named places: trigger volumes, positioned like slots or round something placed."""
+        if not b.data.get("places"):
+            return
+        from ..places import build_places
 
-        # Named places: trigger volumes, positioned like slots or round something placed.
-        if data.get("places"):
-            from ..places import build_places
+        def place_position(place_name: str, entry: dict[str, Any]) -> np.ndarray:
+            return (resolve_anchor(entry.get("anchor", "center"), b.size)
+                    + np.array(entry.get("offset", [0, 0, 0]), dtype=np.float64))
 
-            def place_position(place_name: str, entry: dict[str, Any]) -> np.ndarray:
-                return (resolve_anchor(entry.get("anchor", "center"), size)
-                        + np.array(entry.get("offset", [0, 0, 0]), dtype=np.float64))
+        build_places(b.root, b.data["places"], str(b.source) if b.source is not None else b.root.name,
+                     locate=place_position,
+                     resolve=lambda place_name, ref: b.refs.node(ref, ["places", place_name, "around"]))
 
-            build_places(root, data["places"], str(source) if source is not None else name, locate=place_position,
-                         resolve=lambda place_name, ref: refs.node(ref, ["places", place_name, "around"]))
+    def _place_fleets(self, b: _SceneBuild) -> None:
+        """Traffic and trains last: they need the lanes and railways, and keep clear of the spawns."""
+        if not b.fleets:
+            return
+        from ..traffic import build_traffic, place_traffic
+        from ..trains import place_train
 
-        # Traffic last: it needs the lanes, and keeps clear of the spawns.
-        if fleets:
-            from ..traffic import build_traffic, place_traffic
+        graph = build_traffic(b.root)
+        for obj_name, obj_def in b.fleets.items():
+            if "train" in obj_def:
+                node = place_train(b.root, obj_name, obj_def, self._load_object, self._assets_dir)
+            else:
+                node = place_traffic(b.root, obj_name, obj_def, self._load_object, graph, self._assets_dir)
+            b.root.add_child(node)
+            b.loaded[obj_name] = node
 
-            from ..trains import place_train
-
-            graph = build_traffic(root)
-            for obj_name, obj_def in fleets.items():
-                if "train" in obj_def:
-                    node = place_train(root, obj_name, obj_def, self._load_object, self._assets_dir)
-                else:
-                    node = place_traffic(root, obj_name, obj_def, self._load_object, graph, self._assets_dir)
-                root.add_child(node)
-                loaded_objects[obj_name] = node
-
-        # Parse explicit attachment points for the composed scene
-        attachments_data = data.get("attachments", {})
-        for attach_name, attach_def in attachments_data.items():
-            attachment = parse_attachment(attach_name, attach_def)
-            root.attachments[attach_name] = attachment
-
-        return root
+    def _add_attachments(self, b: _SceneBuild) -> None:
+        """The scene's own attachment points, for parent scenes."""
+        for attach_name, attach_def in b.data.get("attachments", {}).items():
+            b.root.attachments[attach_name] = parse_attachment(attach_name, attach_def)
 
     def _load_object(self, obj_def: dict[str, Any]) -> SceneNode:
         """Load an object from asset or scene definition (instances of one prototype per definition)."""

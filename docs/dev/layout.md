@@ -96,6 +96,13 @@ The layout system uses **semantic attachment points** instead of raw coordinates
 1. **LayoutLoader** (`loader.py`): Builds individual assets from primitives
 2. **SceneComposer** (`composer.py`): Assembles assets into larger scenes
 
+Where new things go (both resolve `params:`, `presets:`, `derived:` and `{expr}` with `expressions.resolve_document`, and drop a `when:` that `expressions.enabled` calls false):
+
+- **A primitive**: a builder in `loader._BUILDERS` (`(loader, size, config) -> generator`), its class in `PRIMITIVE_REGISTRY` (for `--describe` defaults) and its keys in `schema.PRIMITIVES` (`test_describe` keeps the three in step). Work on the node after the generator builds it (meta, materials, extra children) is a `_POST_BUILD` hook, as for `water` and `terrain`.
+- **An asset key that sets the root's meta** (`light`, `vehicle`, `physics`, flows' `source`, ...): a handler in `loader._ROOT_META`, `(root, value, part_nodes, name)`, run in that list's order once parts, booleans, surfaces and interactions exist.
+- **A scene feature**: a method in `SceneComposer._PHASES`, which run in order on a shared `_SceneBuild` (`root`, `data`, `refs`, the placements, and `loaded`: placement name -> node). Order matters: scatter runs once the objects it avoids exist, railways once the roads do, traffic and trains last.
+- Code that builds assets with another loader's materials passes `LayoutLoader(material_loader=...)`, and uses `loader.material_loader` / `loader.build(data)` rather than private members.
+
 ## Asset-Level: Part Attachments (`attach_to`, `at`, `from`)
 
 Within a single asset, primitives connect to each other using named attachment points. Each primitive automatically gets standard attachment points based on its shape:

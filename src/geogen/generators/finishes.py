@@ -198,8 +198,7 @@ def _switch_asset(material_loader) -> SceneNode:
 
     layout = _switch_loaders.get(material_loader)
     if layout is None:
-        layout = LayoutLoader()
-        layout._material_loader = material_loader
+        layout = LayoutLoader(material_loader=material_loader)
         _switch_loaders[material_loader] = layout
     return layout.load(roots.find(SWITCH_ASSET))
 

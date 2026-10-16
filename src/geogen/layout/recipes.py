@@ -306,12 +306,12 @@ def build_recipe(name: str, params: dict[str, Any], loader) -> SceneNode:
     """Build a recipe into a building node (see module docstring)."""
     interior = params.get("interior", "full")
     spec = recipe_spec(name, params)
-    node = loader._build_hierarchy({"name": name, "tags": [f"building.{name}"], "building": spec})
+    node = loader.build({"name": name, "tags": [f"building.{name}"], "building": spec})
     node.meta["recipe"] = {"name": name, **{k: v for k, v in params.items()}}
     if name == "shop_row":
         dress_shop_front(node, loader, params.get("shop", "shop"), params.get("sign"), params.get("awning"))
     if interior == "shell":
-        make_shell(node, loader._material_loader)
+        make_shell(node, loader.material_loader)
     return node
 
 
