@@ -51,7 +51,11 @@ def test_the_balls_fall_from_the_hopper_through_the_run_into_the_bowl(built):
     assert not flows.network(scene)["tracks"]                      # no track: physics all the way
     drop = (hopper.world_transform() @ np.r_[source["at"], 1.0])[:3]
     start = _at(scene, "machine.marble_run", "start")
-    assert np.allclose(drop[[0, 2]], start[[0, 2]], atol=0.01) and 0.05 < drop[1] - start[1] < 0.2
+    # Balls appear in the feed tube above the hopper's bowl and fall through it: the neck is
+    # over the trough's start, the drop is off centre inside the rim and above the funnel.
+    neck = hopper.world_transform()[:3, 3]
+    assert np.allclose(neck[[0, 2]], start[[0, 2]], atol=0.01)
+    assert 0.1 < np.hypot(*(drop - neck)[[0, 2]]) < 0.35 and drop[1] - start[1] > 0.8
     # The trough runs out over the funnel, inside its rim and above it; the neck is over the bowl.
     end, neck = _at(scene, "machine.marble_run", "end"), _at(scene, "machine.funnel", "neck")
     assert 0.2 < np.hypot(*(end - neck)[[0, 2]]) < 0.4 and end[1] - neck[1] > 0.35

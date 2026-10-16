@@ -1,5 +1,7 @@
 # The marble run's hopper: a brass funnel on three wooden legs, its neck over the track's
-# start. It is a source of balls (geogen.flows): `rate` a second, up to `max_alive` in play,
+# start, and a feed tube strapped to its rim. Balls appear in the tube, drop out of it onto
+# the funnel's slope off centre, run round it and fall through the neck onto the track. It
+# is a source of balls (geogen.flows): `rate` a second, up to `max_alive` in play,
 # picked in turn from four colours; it starts stopped, and `start` / `stop` run it (the
 # hall's lever). Origin: on the floor under the neck.
 
@@ -35,6 +37,22 @@ parts:
     segments: 48
     material: brass
     collider: mesh
+  feed:                               # a tube the balls drop out of, over the slope
+    primitive: lathe
+    profile: [[0.075, 0], [0.085, 0], [0.085, 0.34], [0.075, 0.34], [0.075, 0]]
+    size: [0.17, 0.34, 0.17]
+    anchor: bottom_center
+    offset: [0, "{neck + 0.46}", 0.26]
+    segments: 32
+    material: brass
+    collider: mesh
+  strap:                              # holds the tube to the rim
+    primitive: cube
+    size: [0.03, 0.03, 0.08]
+    anchor: bottom_center
+    offset: [0, "{neck + 0.46}", 0.375]
+    bevel: 0
+    material: brass
   leg_0: &leg
     primitive: cylinder
     size: [0.05, "{neck + 0.3}", 0.05]
@@ -49,4 +67,4 @@ parts:
     offset: [0.31, 0, -0.18]
 
 attachments:
-  drop: {anchor: bottom_center, offset: [0, "{neck - 0.17}", 0], offset_mode: absolute}
+  drop: {anchor: bottom_center, offset: [0, "{neck + 0.66}", 0.26], offset_mode: absolute}   # in the feed tube
