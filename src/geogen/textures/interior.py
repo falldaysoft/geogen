@@ -10,16 +10,8 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import TextureGenerator
+from .base import TextureGenerator, unit_grid as _unit_grid
 from .noise import fractal_noise, turbulence
-
-
-def _unit_grid(width: int, height: int) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Pixel-centre coordinates in [0, 1) that wrap cleanly at the edges."""
-    x = np.arange(width, dtype=np.float64) / width
-    y = np.arange(height, dtype=np.float64) / height
-    xv, yv = np.meshgrid(x, y)
-    return xv, yv
 
 
 def _to_image(rgb: NDArray[np.float64]) -> Image.Image:
@@ -28,10 +20,6 @@ def _to_image(rgb: NDArray[np.float64]) -> Image.Image:
 
 def _to_gray(values: NDArray[np.float64]) -> Image.Image:
     return Image.fromarray((np.clip(values, 0, 1) * 255).astype(np.uint8), mode="L")
-
-
-def _seed(seed: int | None, offset: int) -> int:
-    return (seed or 0) + offset
 
 
 @dataclass
@@ -81,7 +69,7 @@ class FabricTextureGenerator(TextureGenerator):
         # Slub: threads thicken and thin along their length.
         if self.slub > 0:
             slub = fractal_noise(self.width, self.height, octaves=3, scale=8.0,
-                                 seed=_seed(self.seed, 11))
+                                 seed=self._seed_for(11))
             height = height * (1.0 + slub * self.slub)
         return np.clip(height, 0, 1), warp_top
 
@@ -93,7 +81,7 @@ class FabricTextureGenerator(TextureGenerator):
 
         shade = 1.0 - self.thread_contrast + self.thread_contrast * height
         mottle = fractal_noise(self.width, self.height, octaves=3, scale=4.0,
-                               seed=_seed(self.seed, 23))
+                               seed=self._seed_for(23))
         shade = shade * (1.0 + mottle * 0.05)
         return _to_image(colour * shade[..., None])
 
@@ -127,7 +115,7 @@ class CutPileCarpetTextureGenerator(TextureGenerator):
     shading: float = 0.12
 
     def _pile(self) -> NDArray[np.float64]:
-        rng = np.random.default_rng(_seed(self.seed, 5))
+        rng = np.random.default_rng(self._seed_for(5))
         n = max(1, int(self.tufts))
         tips = rng.random((n, n))
         # Sample the tuft lattice with wrap-around bilinear filtering.
@@ -144,7 +132,7 @@ class CutPileCarpetTextureGenerator(TextureGenerator):
     def generate(self) -> Image.Image:
         pile = self._pile()
         broad = fractal_noise(self.width, self.height, octaves=3, scale=3.0,
-                              seed=_seed(self.seed, 17))
+                              seed=self._seed_for(17))
         shade = 1.0 + (pile - 0.5) * self.pile_contrast + broad * self.shading
         return _to_image(np.array(self.base_color, dtype=np.float64) * shade[..., None])
 
@@ -216,10 +204,10 @@ class TileTextureGenerator(TextureGenerator):
         edge, index = self._layout()
         grout = self._grout_mask(edge)
 
-        rng = np.random.default_rng(_seed(self.seed, 3))
+        rng = np.random.default_rng(self._seed_for(3))
         per_tile = 1.0 + (rng.random(int(index.max()) + 1) - 0.5) * 2 * self.color_variation
         glaze = fractal_noise(self.width, self.height, octaves=4, scale=6.0,
-                              seed=_seed(self.seed, 31))
+                              seed=self._seed_for(31))
         tile = np.array(self.tile_color, dtype=np.float64)[None, None, :]
         shade = per_tile[index] * (1.0 + glaze * 0.06 * self.glaze_noise)
         face = tile * shade[..., None]
@@ -270,7 +258,7 @@ class MarbleTextureGenerator(TextureGenerator):
         xv, yv = _unit_grid(self.width, self.height)
         k = max(1, int(self.vein_frequency))
         warp = fractal_noise(self.width, self.height, octaves=5, persistence=0.55,
-                             scale=2.0, seed=_seed(self.seed, 41))
+                             scale=2.0, seed=self._seed_for(41))
         # Integer diagonal frequencies keep the phase periodic in x and y.
         phase = np.pi * (k * xv + k * yv + warp * self.turbulence_strength)
         ridge = 1.0 - np.abs(np.sin(phase))
@@ -278,18 +266,18 @@ class MarbleTextureGenerator(TextureGenerator):
         veins = 0.35 * ridge ** (self.vein_sharpness * 0.5) + 0.65 * ridge ** (self.vein_sharpness * 4)
         # Secondary hairline veins crossing the main ones.
         warp2 = fractal_noise(self.width, self.height, octaves=4, scale=3.0,
-                              seed=_seed(self.seed, 53))
+                              seed=self._seed_for(53))
         hair = 1.0 - np.abs(np.sin(np.pi * (2 * k * xv - k * yv + warp2 * 2.0)))
         veins = veins + 0.35 * hair ** (self.vein_sharpness * 6)
         # Veins fade in and out along their length.
         fade = fractal_noise(self.width, self.height, octaves=2, scale=2.0,
-                             seed=_seed(self.seed, 67)) * 0.5 + 0.6
+                             seed=self._seed_for(67)) * 0.5 + 0.6
         return np.clip(veins * fade, 0, 1)
 
     def generate(self) -> Image.Image:
         veins = self._veins()
         cloud = fractal_noise(self.width, self.height, octaves=4, scale=2.0,
-                              seed=_seed(self.seed, 61))
+                              seed=self._seed_for(61))
         base = np.array(self.base_color, dtype=np.float64)
         body = base[None, None, :] * (1.0 + cloud[..., None] * 0.08 * self.cloudiness)
         vein = np.array(self.vein_color, dtype=np.float64)[None, None, :]

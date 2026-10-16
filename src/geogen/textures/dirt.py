@@ -67,7 +67,7 @@ class DirtTextureGenerator(NoiseTextureGenerator):
         color_shift = fractal_noise(
             self.width, self.height,
             octaves=2, scale=3.0,
-            seed=(self.seed + 300) if self.seed else 300,
+            seed=self._seed_for(300),
         )
         color_shift = color_shift * self.color_variation * 20
         for i in range(3):

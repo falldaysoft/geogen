@@ -87,7 +87,7 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
                     continue
 
                 # Generate unique grain for this plank
-                plank_seed = self.seed + px * 1000 + py if self.seed else px * 1000 + py
+                plank_seed = self._seed_for(px * 1000 + py)
                 self._render_plank(
                     rgb,
                     x_start_clamped, y_start_clamped,

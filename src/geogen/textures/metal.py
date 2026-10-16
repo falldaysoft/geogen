@@ -103,7 +103,7 @@ class MetalTextureGenerator(TextureGenerator):
         n_scratch_layers = 4
 
         for i in range(n_scratch_layers):
-            angle = np.random.default_rng(self.seed + i if self.seed else i).uniform(0, 180)
+            angle = np.random.default_rng(self._seed_for(i)).uniform(0, 180)
             layer = self._directional_noise(
                 scale_along=30.0,
                 scale_across=2.0,
@@ -142,9 +142,7 @@ class MetalTextureGenerator(TextureGenerator):
     ) -> np.ndarray:
         """Generate noise stretched in a specific direction."""
         # Create coordinate grids
-        x = np.linspace(0, 1, self.width)
-        y = np.linspace(0, 1, self.height)
-        xv, yv = np.meshgrid(x, y)
+        xv, yv = self._unit_grid()
 
         # Rotate coordinates
         cos_a, sin_a = np.cos(angle), np.sin(angle)
@@ -156,7 +154,7 @@ class MetalTextureGenerator(TextureGenerator):
         y_scaled = y_rot * scale_across
 
         # Sample noise at transformed coordinates
-        seed = (self.seed + seed_offset) if self.seed else seed_offset
+        seed = self._seed_for(seed_offset)
         rng = np.random.default_rng(seed)
 
         # Generate noise using the transformed coordinates
@@ -255,7 +253,7 @@ class MetalTextureGenerator(TextureGenerator):
             self.width, self.height,
             octaves=2,
             scale=3.0,
-            seed=(self.seed + 500) if self.seed else 500,
+            seed=self._seed_for(500),
         )
         rgb += color_noise[:, :, np.newaxis] * 5 * self.roughness
 

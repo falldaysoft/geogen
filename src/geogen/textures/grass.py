@@ -82,7 +82,7 @@ class GrassTextureGenerator(NoiseTextureGenerator):
         color_shift = fractal_noise(
             self.width, self.height,
             octaves=2, scale=2.0,
-            seed=(self.seed + 300) if self.seed else 300,
+            seed=self._seed_for(300),
         ) * 15
         for i in range(3):
             rgb[:, :, i] = np.clip(rgb[:, :, i] + color_shift, 0, 255)
@@ -99,7 +99,7 @@ class GrassTextureGenerator(NoiseTextureGenerator):
         variation = fractal_noise(
             self.width, self.height,
             octaves=3, scale=self.blade_scale * 0.5,
-            seed=(self.seed + 400) if self.seed else 400,
+            seed=self._seed_for(400),
         )
         variation = (variation + 1.0) / 2.0
         return self._create_roughness_from_variation(0.8, variation, variation_strength=0.15)

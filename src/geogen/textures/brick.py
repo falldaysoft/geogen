@@ -49,9 +49,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
         ]
 
     def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
-        x = np.linspace(0, 1, self.width)
-        y = np.linspace(0, 1, self.height)
-        xv, yv = np.meshgrid(x, y)
+        xv, yv = self._unit_grid()
 
         # Scale to brick grid
         bx = xv * self.bricks_x

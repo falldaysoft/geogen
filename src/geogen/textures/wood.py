@@ -21,8 +21,8 @@ class WoodTextureGenerator(NoiseTextureGenerator):
     Attributes:
         color_light: Light wood color as (R, G, B) tuple, 0-255
         color_dark: Dark wood color (grain lines) as (R, G, B) tuple
-        ring_scale: Density of grain lines (higher = more lines)
-        ring_count: Not used directly; kept for YAML compat
+        ring_scale: Scale of the fine noise stretched along the grain
+        ring_count: Grain lines per texture repeat (rounded to a whole number so it tiles)
         grain_scale: Scale of grain waviness noise
         grain_strength: How much the grain lines wobble
         color_variation: Amount of random color variation (0-1)
@@ -56,17 +56,17 @@ class WoodTextureGenerator(NoiseTextureGenerator):
 
     def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
         # Create coordinate grids
-        x = np.linspace(0, 1, self.width)
-        y = np.linspace(0, 1, self.height)
-        xv, _ = np.meshgrid(x, y)
+        xv, _ = self._unit_grid()
 
         # Lengthwise plank grain: lines run vertically (along Y axis)
         # Use X coordinate as the base for grain lines, with noise warp
         grain_coord = xv + layers["grain_warp"] * self.grain_strength * 0.3
 
         # Create parallel grain lines using sine waves at multiple frequencies
-        grain_primary = np.sin(grain_coord * self.ring_count * np.pi * 2) * 0.5 + 0.5
-        grain_secondary = np.sin(grain_coord * self.ring_count * np.pi * 4.7 + 1.3) * 0.5 + 0.5
+        # (whole cycles per repeat, so the grain tiles)
+        lines = max(1, round(self.ring_count))
+        grain_primary = np.sin(grain_coord * lines * np.pi * 2) * 0.5 + 0.5
+        grain_secondary = np.sin(grain_coord * round(lines * 2.35) * np.pi * 2 + 1.3) * 0.5 + 0.5
 
         # Combine: primary grain dominates, secondary adds detail
         grain_value = grain_primary * 0.7 + grain_secondary * 0.3

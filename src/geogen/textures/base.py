@@ -9,6 +9,11 @@ from numpy.typing import NDArray
 from PIL import Image
 
 
+def unit_grid(width: int, height: int) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Pixel coordinates in [0, 1) (endpoint excluded) that wrap cleanly at the edges."""
+    return np.meshgrid(np.arange(width, dtype=np.float64) / width, np.arange(height, dtype=np.float64) / height)
+
+
 @dataclass
 class TextureGenerator(ABC):
     """Abstract base class for procedural texture generators.
@@ -28,6 +33,14 @@ class TextureGenerator(ABC):
             self._rng = np.random.default_rng(self.seed)
         else:
             self._rng = np.random.default_rng()
+
+    def _seed_for(self, offset: int) -> int:
+        """Seed for one noise source: the generator's seed (0 when unset) plus ``offset``."""
+        return (self.seed or 0) + offset
+
+    def _unit_grid(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Pixel coordinates in [0, 1) (endpoint excluded) that wrap cleanly at the edges."""
+        return unit_grid(self.width, self.height)
 
     @abstractmethod
     def generate(self) -> Image.Image:
@@ -89,7 +102,7 @@ class TextureGenerator(ABC):
     ) -> Image.Image:
         """Convert a height map to a tangent-space normal map.
 
-        Uses Sobel-like gradient computation to derive surface normals.
+        Gradients wrap at the edges, so a tiling height map gives a tiling normal map.
 
         Args:
             height: 2D array of height values (0-1 range)
@@ -98,22 +111,9 @@ class TextureGenerator(ABC):
         Returns:
             PIL Image in RGB mode
         """
-        # Compute gradients using central differences
-        # Pad for edge handling
-        padded = np.pad(height, 1, mode='edge')
-
-        # Sobel-like kernels for smoother gradients
-        dx = (
-            padded[1:-1, 2:] - padded[1:-1, :-2] +
-            2 * (padded[1:-1, 2:] - padded[1:-1, :-2]) +
-            padded[1:-1, 2:] - padded[1:-1, :-2]
-        ) / 8.0
-
-        dy = (
-            padded[2:, 1:-1] - padded[:-2, 1:-1] +
-            2 * (padded[2:, 1:-1] - padded[:-2, 1:-1]) +
-            padded[2:, 1:-1] - padded[:-2, 1:-1]
-        ) / 8.0
+        # Central differences that wrap around the edges, so the map tiles like the albedo
+        dx = (np.roll(height, -1, axis=1) - np.roll(height, 1, axis=1)) / 2.0
+        dy = (np.roll(height, -1, axis=0) - np.roll(height, 1, axis=0)) / 2.0
 
         # Scale gradients by strength
         dx *= strength
@@ -218,7 +218,7 @@ class NoiseTextureGenerator(TextureGenerator):
         return [NoiseLayer(name="base", octaves=4, scale=4.0, weight=1.0)]
 
     def _generate_noise_layers(self) -> dict[str, NDArray[np.float64]]:
-        """Generate all noise layers and cache them.
+        """Generate all noise layers (afresh on each call; each map that needs them regenerates them).
 
         Returns:
             Dict mapping layer name to noise array (values in [-1, 1])
@@ -227,7 +227,7 @@ class NoiseTextureGenerator(TextureGenerator):
 
         layers = {}
         for layer_cfg in self._get_noise_layers():
-            seed = (self.seed + layer_cfg.seed_offset) if self.seed else layer_cfg.seed_offset
+            seed = self._seed_for(layer_cfg.seed_offset)
             noise = fractal_noise(
                 self.width, self.height,
                 octaves=layer_cfg.octaves,
@@ -267,7 +267,7 @@ class NoiseTextureGenerator(TextureGenerator):
             self.width, self.height,
             octaves=2,
             scale=self.color_shift_scale,
-            seed=(self.seed + 900) if self.seed else 900,
+            seed=self._seed_for(900),
         )
         shift = color_noise * self.color_shift_strength
         for i in range(3):

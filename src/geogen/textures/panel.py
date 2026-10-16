@@ -16,7 +16,8 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from .base import TextureGenerator
-from .interior import _seed, _to_gray, _to_image, _unit_grid
+from .base import unit_grid as _unit_grid
+from .interior import _to_gray, _to_image
 from .noise import fractal_noise
 
 
@@ -99,12 +100,12 @@ class PanelTextureGenerator(TextureGenerator):
         if self.grime <= 0:
             return np.zeros_like(fy)
         mottle = fractal_noise(self.width, self.height, octaves=5, scale=8.0,
-                               seed=_seed(self.seed, 41)) * 0.5 + 0.5
+                               seed=self._seed_for(41)) * 0.5 + 0.5
         streak = fractal_noise(self.width, 4, octaves=3, scale=16.0,
-                               seed=_seed(self.seed, 43))
+                               seed=self._seed_for(43))
         streak = np.repeat(streak[:1], self.height, axis=0) * 0.5 + 0.5
         foot = np.clip((fy - 0.55) / 0.45, 0, 1) ** 2      # image y runs down the panel
-        rng = np.random.default_rng(_seed(self.seed, 47))
+        rng = np.random.default_rng(self._seed_for(47))
         dirty = 0.4 + rng.random(int(index.max()) + 1) * 0.6
         g = (np.clip(mottle - 0.45, 0, 1) * 1.4 + foot * streak * 0.8) * dirty[index]
         return np.clip(g * self.grime, 0, 1)
@@ -118,7 +119,7 @@ class PanelTextureGenerator(TextureGenerator):
 
     def generate(self) -> Image.Image:
         _, edge, fx, fy, index, aspect, seam = self._height()
-        rng = np.random.default_rng(_seed(self.seed, 3))
+        rng = np.random.default_rng(self._seed_for(3))
         count = int(index.max()) + 1
         tone = 1.0 + (rng.random(count) - 0.5) * 2 * self.color_variation
         tint = (rng.random(count) - 0.5) * 2 * self.tint_variation
@@ -127,7 +128,7 @@ class PanelTextureGenerator(TextureGenerator):
         face = np.array(self.panel_color, dtype=np.float64)[None, None, :]
         face = face * tone[index][..., None] * warm[index]
         fine = fractal_noise(self.width, self.height, octaves=4, scale=32.0,
-                             seed=_seed(self.seed, 31))
+                             seed=self._seed_for(31))
         face = face * (1.0 + fine[..., None] * 0.015)
         wear = np.clip(1.0 - edge / 0.04, 0, 1) * self.edge_wear * 0.12
         face = face * (1.0 - wear[..., None])
@@ -145,7 +146,7 @@ class PanelTextureGenerator(TextureGenerator):
 
     def generate_roughness_map(self) -> Image.Image:
         _, edge, fx, fy, index, aspect, seam = self._height()
-        rng = np.random.default_rng(_seed(self.seed, 5))
+        rng = np.random.default_rng(self._seed_for(5))
         per = 0.5 + (rng.random(int(index.max()) + 1) - 0.5) * 0.15
         rough = per[index] + self._grime(fy, index) * 0.25 + seam * 0.4
         return _to_gray(rough)
@@ -183,7 +184,7 @@ class StripeTextureGenerator(TextureGenerator):
     def generate(self) -> Image.Image:
         band = self._band()
         scuff = fractal_noise(self.width, self.height, octaves=5, scale=16.0,
-                              seed=_seed(self.seed, 7)) * 0.5 + 0.5
+                              seed=self._seed_for(7)) * 0.5 + 0.5
         band = band * (1 - np.clip((scuff - (1 - self.wear * 0.5)) * 6, 0, 1))
         a = np.array(self.color_a, dtype=np.float64)[None, None, :]
         b = np.array(self.color_b, dtype=np.float64)[None, None, :]
