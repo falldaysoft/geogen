@@ -69,13 +69,11 @@ def sources(root: SceneNode) -> list[tuple[dict[str, Any], Any, SceneNode]]:
 
 def compile_hud(compiler: Any, entries: list[tuple[dict[str, Any], Any, SceneNode]]) -> dict[str, Any]:
     """The manifest's ``hud`` section; problems go to ``compiler`` (a ``quests._Compiler``)."""
-    from .quests import QuestError, _Quest
+    from .quests import Context, QuestError
 
     out: dict[str, list[dict[str, Any]]] = {"stats": [], "banners": []}
     for spec, source, node in entries:
-        src = _Quest(compiler.uid(node), {}, source, node, node)
-        if source is None:
-            src.where = lambda *keys: "hud: " + ".".join(str(k) for k in keys)      # type: ignore[method-assign]
+        src = Context(compiler.uid(node), {}, source, node, node, label="hud")
 
         def tree(value: Any, *at: Any) -> Any:
             if isinstance(value, (int, float)) and not isinstance(value, bool):

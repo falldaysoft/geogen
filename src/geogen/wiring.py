@@ -86,16 +86,14 @@ def sources(root: SceneNode) -> list[Source]:
 
 def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """(rules, bindings) for ``entries``; problems go to ``compiler`` (a ``quests._Compiler``)."""
-    from .quests import QuestError, _Quest
+    from .quests import Context, QuestError
 
     rules: list[dict[str, Any]] = []
     bindings: list[dict[str, Any]] = []
     for entry in entries:
         owner = compiler.uid(entry.node)
         prefix = "" if owner.endswith(":") else f"{owner}#"     # the package's own scene needs none
-        src = _Quest(owner, {}, entry.source, entry.node, entry.node)      # `self`: this instance
-        if entry.source is None:
-            src.where = lambda *keys, _o=owner: f"{_o}: " + ".".join(str(k) for k in keys)   # type: ignore[method-assign]
+        src = Context(owner, {}, entry.source, entry.node, entry.node, label=owner)      # `self`: this instance
 
         def attempt(where: str, build: Any) -> Any:
             try:

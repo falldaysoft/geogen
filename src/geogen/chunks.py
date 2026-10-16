@@ -181,7 +181,7 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
     from .quests import collect
 
     refs.assign_ids(root, name)       # before the tree is split: IDs are paths in the whole scene
-    collect(root, name)               # bad declarations and quests fail the export before anything is written
+    compiled = collect(root, name)    # bad declarations and quests fail the export before anything is written
     units = find_units(root)
     chunks = []
     used: set[str] = set()
@@ -227,7 +227,7 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
         "units": "m",
         "up": "+Y",
         "player": (player or load_player_spec()).to_dict(),
-        **gameplay_summary(root),
+        **gameplay_summary(root, compiled),
         "chunks": chunks,
     }
     path = out_dir / f"{_safe(name)}.chunks.json"

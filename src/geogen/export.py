@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import trimesh
@@ -324,7 +325,7 @@ def manifest_path(model_path: str | Path) -> Path:
     return model_path.with_name(f"{model_path.stem}.manifest.json")
 
 
-def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
+def gameplay_summary(root: SceneNode, compiled: Any = None) -> dict[str, list[dict]]:
     """Rooms and spawns in world space, for the manifest.
 
     Rooms come from ``room_volume`` nodes (centre, size, and the volume's
@@ -376,7 +377,7 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
         out["places"] = places
     from .quests import summary
 
-    out.update(summary(root))           # state (geogen-state v1), rules (geogen-rules v1), quests (geogen-quests v1)
+    out.update(summary(root, compiled=compiled))   # state (geogen-state v1), rules (geogen-rules v1), quests (geogen-quests v1)
     from .traffic import build_traffic
 
     traffic = build_traffic(root)       # the lane graph (geogen-traffic v1), world space
@@ -386,8 +387,9 @@ def gameplay_summary(root: SceneNode) -> dict[str, list[dict]]:
 
 
 def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,
-                   root: SceneNode | None = None) -> Path:
-    """Write the runtime manifest next to an exported glTF model."""
+                   root: SceneNode | None = None, compiled: Any = None) -> Path:
+    """Write the runtime manifest next to an exported glTF model (``compiled``: ``root``'s
+    ``quests.collect``, when the caller already has it)."""
     model_path = Path(model_path)
     manifest = {
         "format": MANIFEST_FORMAT,
@@ -398,7 +400,7 @@ def write_manifest(model_path: str | Path, player: PlayerSpec | None = None,
         "up": "+Y",
         "extras": {"key": "geogen", "version": EXTRAS_VERSION, "schema": EXTRAS_SCHEMA},
         "player": (player or load_player_spec()).to_dict(),
-        **(gameplay_summary(root) if root is not None else {"rooms": [], "spawns": []}),
+        **(gameplay_summary(root, compiled) if root is not None else {"rooms": [], "spawns": []}),
     }
     out = manifest_path(model_path)
     # Written last and atomically: runtimes watch the manifest to know an export finished.
@@ -894,11 +896,12 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         raise ValueError(f"Unsupported export format '{suffix}'. Use one of {sorted(FORMATS)}")
     path.parent.mkdir(parents=True, exist_ok=True)
     package = package or path.stem
+    compiled = None
     if manifest and suffix != ".obj":
         from .quests import collect
 
         refs.assign_ids(root, package)
-        collect(root, package)          # bad declarations and quests fail the export before anything is written
+        compiled = collect(root, package)   # bad declarations and quests fail the export before anything is written
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
     scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
     if suffix == ".obj":
@@ -924,11 +927,11 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         tmp.replace(path)
         if manifest:
             refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
-            write_manifest(path, player, root)
+            write_manifest(path, player, root, compiled)
     else:
         scene.export(str(path), file_type=suffix[1:])
         if manifest:
             names = scene.metadata["geogen_names"]
             refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
-            write_manifest(path, player, root)
+            write_manifest(path, player, root, compiled)
     return path

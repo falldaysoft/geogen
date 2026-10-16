@@ -89,26 +89,21 @@ def is_actor_key(key: str) -> bool:
     return key.startswith("actor:")
 
 
-def _reads(tree: Any) -> list[str]:
+def term_keys(term: Any, over: list[str] | None) -> list[str]:
+    """The variable keys one term reads ([] for a literal, the clock or an actor built-in);
+    an ``it`` term reads its name on each thing in ``over``."""
+    if not isinstance(term, dict) or "get" not in term:
+        return []
+    if term["get"] == "it":
+        return [f"{thing}#{term['name']}" for thing in over or []]
+    if term["get"] in ("instance", "world") or (term["get"] == "actor" and "package" in term):
+        return [key_of(term)]
+    return []
+
+
+def reads(tree: Any) -> list[str]:
     """Variable keys a condition tree reads ('it' terms as each thing's key)."""
-    out: list[str] = []
-
-    def visit(t: Any, over: list[str] | None) -> None:
-        if not isinstance(t, dict):
-            return
-        if "get" in t:
-            if t["get"] == "it":
-                out.extend(f"{thing}#{t['name']}" for thing in over or [])
-            elif t["get"] in ("instance", "world") or (t["get"] == "actor" and "package" in t):
-                out.append(key_of(t))
-            return
-        for arg in t.get("args", []):
-            visit(arg, over)
-        if "where" in t:
-            visit(t["where"], t.get("over", []))
-
-    visit(tree, None)
-    return out
+    return [key for term, over in conditions.walk_over(tree) for key in term_keys(term, over)]
 
 
 def _reads_actor(tree: Any) -> bool:
@@ -140,7 +135,7 @@ def binding_order(program: dict[str, Any]) -> list[dict[str, Any]]:
         if key in done:
             raise RuleError(f"bindings form a cycle: {' -> '.join(path + [key])}")
         done[key] = False
-        for read in _reads(bindings[key]["to"]):
+        for read in reads(bindings[key]["to"]):
             visit(read, path + [key])
         done[key] = True
         order.append(bindings[key])
@@ -184,7 +179,7 @@ def check_program(program: dict[str, Any]) -> list[str]:
         except ConditionError as e:
             problems.append(f"{where}: {e}")
             return
-        for read in _reads(t):
+        for read in reads(t):
             if read not in known:
                 problems.append(f"{where}: reads '{read}', which isn't declared")
 

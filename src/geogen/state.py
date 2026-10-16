@@ -329,9 +329,9 @@ class Declarations:
 
     def check_condition(self, tree: Any) -> list[str]:
         """What a resolved condition (``geogen.conditions``) reads that isn't declared."""
-        from .rules import _reads
+        from .rules import reads
 
-        return [problem for problem in dict.fromkeys(self.undeclared(key) for key in _reads(tree)) if problem]
+        return [problem for problem in dict.fromkeys(self.undeclared(key) for key in reads(tree)) if problem]
 
     def signal(self, thing: str, name: str) -> dict[str, Any]:
         """The declared signal ``name`` of a thing (by ID); StateError naming the near ones."""

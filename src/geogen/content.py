@@ -118,7 +118,7 @@ def package_of(key: str) -> str:
 
 def touched(entry: dict[str, Any]) -> set[str]:
     """The packages a compiled rule or binding reads, writes or listens to."""
-    from .rules import _reads
+    from .rules import reads
 
     on = entry.get("on") or {}
     subject = on.get("subject")
@@ -128,7 +128,7 @@ def touched(entry: dict[str, Any]) -> set[str]:
         names += [effect.get("set"), effect.get("subject")]
         trees.append(effect.get("to"))
     for tree in trees:
-        names += _reads(tree)
+        names += reads(tree)
         for node in conditions.walk(tree):
             names += node.get("over", [])
     return {package_of(name) for name in names if name}

@@ -46,7 +46,7 @@ from typing import Any, Iterable
 from . import conditions, refs, roots
 from .conditions import ConditionError
 from .core.node import SceneNode
-from .rules import SOUNDS
+from .rules import SOUNDS, reads, term_keys
 from .state import LOCKED, Declarations, StateError, fits
 
 KIND = "quest"
@@ -122,21 +122,34 @@ class _Objective:
 
 
 @dataclass
-class _Quest:
+class Context:
+    """What the compiler compiles a condition or effect for: an id, the file it was written in
+    (for diagnostics), the scene node references resolve from, and what ``self`` means.
+
+    Quests are one; wiring, HUDs, dialogues and interaction guards make one each.
+    ``label`` names it in diagnostics when there is no file (default: ``quest '<id>'``).
+    """
+
     id: str
-    spec: dict[str, Any]
+    spec: dict[str, Any] = field(default_factory=dict)
     source: Any = None              # the file it was written in, for diagnostics
     node: SceneNode | None = None   # the scene that contributes it: references resolve from here
     self_node: SceneNode | None = None  # what `self` means (rules written in an asset: the instance)
-    status: str = ""
-    objectives: list[_Objective] = field(default_factory=list)
+    label: str = ""
 
     def where(self, *keys: str | int) -> str:
         from .layout.yaml_utils import source_of
 
         if self.source is None:
-            return f"quest '{self.id}': " + ".".join(str(k) for k in keys)
+            label = self.label or f"quest '{self.id}'"
+            return f"{label}: " + ".".join(str(k) for k in keys)
         return source_of(self.source, list(keys))
+
+
+@dataclass
+class _Quest(Context):
+    status: str = ""
+    objectives: list[_Objective] = field(default_factory=list)
 
     def objective(self, name: str) -> _Objective | None:
         return next((o for o in self.objectives if o.id == name), None)
@@ -289,33 +302,10 @@ def _either(test: Tree, then: Tree, otherwise: Tree) -> Tree:
     return {"op": "if", "args": [test, then, otherwise]}
 
 
-def _terms(tree: Tree, over: list[str] | None = None) -> Iterable[tuple[dict[str, Any], list[str] | None]]:
-    """Every node of a tree with the things its ``it`` terms range over."""
-    if isinstance(tree, dict):
-        yield tree, over
-        for arg in tree.get("args", []):
-            yield from _terms(arg, over)
-        if "where" in tree:
-            yield from _terms(tree["where"], tree.get("over", []))
-
-
 def _shown(key: str) -> str:
     """A variable key the way a condition writes it: ``gate.gate``, ``actor.has_ticket``."""
     thing, sep, name = key.rpartition("#")
     return f"{thing.partition(':')[2] or thing}.{name}" if sep else f"{key.partition(':')[0]}.{key.partition('.')[2]}"
-
-
-def _keys(term: Any, over: list[str] | None) -> list[str]:
-    """The variable keys one term reads ([] for a literal, the clock or an actor built-in)."""
-    from .rules import key_of
-
-    if not isinstance(term, dict) or "get" not in term:
-        return []
-    if term["get"] == "it":
-        return [f"{thing}#{term['name']}" for thing in over or []]
-    if term["get"] in ("instance", "world") or (term["get"] == "actor" and "package" in term):
-        return [key_of(term)]
-    return []
 
 
 # ---- compiling ----------------------------------------------------------------------------------
@@ -487,7 +477,7 @@ class _Compiler:
             return node.meta.get("type") == "place" or "room" in node.tags
         return node.meta.get("type") == "place" or isinstance(node.meta.get("room"), dict)
 
-    def thing(self, quest: _Quest, text: Any, member: bool = False) -> tuple[str, SceneNode | None, str | None]:
+    def thing(self, quest: Context, text: Any, member: bool = False) -> tuple[str, SceneNode | None, str | None]:
         """(ID, node, member) of ``<reference>[.<member>]``; QuestError when it names nothing."""
         if not isinstance(text, str) or not text.strip():
             raise QuestError(f"expected a reference, got {text!r}")
@@ -511,7 +501,7 @@ class _Compiler:
                              f"or something tagged or with interactions")
         return self.uid(node), node, ref.member
 
-    def reset(self, quest: _Quest, text: Any) -> list[dict[str, Any]]:
+    def reset(self, quest: Context, text: Any) -> list[dict[str, Any]]:
         """``reset: <thing or selector>`` as ``set`` effects: every interaction, lock and declared
         variable of the things and of everything inside them back to its default. Bound and
         runtime-driven state is left out (``_unbound`` drops what bindings turn out to own)."""
@@ -541,7 +531,7 @@ class _Compiler:
             raise QuestError(f"reset: '{text}' has no state to reset")
         return [{"set": key, "to": value, "_reset": True} for key, value in out.items()]
 
-    def condition(self, quest: _Quest, text: Any) -> Tree:
+    def condition(self, quest: Context, text: Any) -> Tree:
         """A condition compiled and resolved; QuestError for one that can't be, or that reads
         state nobody declares."""
         try:
@@ -574,12 +564,12 @@ class _Compiler:
         undeclared = self.decls.check_condition(tree)
         if undeclared:
             raise QuestError("; ".join(undeclared))
-        for node, over in _terms(tree):         # a choice compared with a value it can't have
+        for node, over in conditions.walk_over(tree):         # a choice compared with a value it can't have
             if node.get("op") not in ("==", "!=", "in"):
                 continue
             args = node["args"]
             for term in args:
-                for key in _keys(term, over):
+                for key in term_keys(term, over):
                     spec = self.decls.spec(key) or {}
                     for value in (a for a in args if isinstance(a, str)):
                         if spec.get("type") == "choice" and value not in spec["choices"]:
@@ -606,10 +596,10 @@ class _Compiler:
             self.decls.declare(key, {"type": "number", "default": 0})
         return key
 
-    def key(self, quest: _Quest, text: Any) -> str:
+    def key(self, quest: Context, text: Any) -> str:
         """The variable key of ``<thing>.<state>``, ``world.<name>`` or ``actor.<name>``."""
         tree = self.condition(quest, text)
-        keys = _keys(tree, None)
+        keys = term_keys(tree, None)
         if not keys:
             raise QuestError(f"'{text}' isn't state: write <thing>.<state>, world.<name> or actor.<name>")
         return keys[0]
@@ -692,7 +682,7 @@ class _Compiler:
         visit(objective.tree)
         return out
 
-    def event(self, quest: _Quest, done: dict[str, Any], sources: dict[str, str] = EVENT_SOURCES,
+    def event(self, quest: Context, done: dict[str, Any], sources: dict[str, str] = EVENT_SOURCES,
               keys: Iterable[str] = EVENT_KEYS) -> dict[str, Any]:
         """An event written in YAML (``{enter: gallery}``) as the ``on`` of a rule.
         ``sources`` are the kinds allowed here and ``keys`` everything the mapping may hold."""
@@ -713,7 +703,7 @@ class _Compiler:
             on["actor"] = done["actor"]
         return on
 
-    def _event(self, quest: _Quest, done: dict[str, Any], kind: str) -> dict[str, Any]:
+    def _event(self, quest: Context, done: dict[str, Any], kind: str) -> dict[str, Any]:
         if "to" in done and kind != "changed":
             raise QuestError("only changed: takes to:")
         if kind in ("enter", "leave"):
@@ -755,7 +745,7 @@ class _Compiler:
             on["to"] = done["to"]
         return on
 
-    def effects(self, quest: _Quest, listed: Any, *at: str | int) -> list[dict[str, Any]]:
+    def effects(self, quest: Context, listed: Any, *at: str | int) -> list[dict[str, Any]]:
         """Authored effects (``EFFECTS``) as the ``do`` of a rule."""
         out: list[dict[str, Any]] = []
         if not isinstance(listed, list):
@@ -867,11 +857,11 @@ class _Compiler:
                     subjects = [objective.on["subject"]] if objective.on.get("subject") else []   # type: ignore[union-attr]
                 elif done is not None:
                     objective.tree = self.condition(quest, done)
-                    if objective.latch in _reads(objective.tree):
+                    if objective.latch in reads(objective.tree):
                         raise QuestError(f"objective '{objective.id}' waits on itself: its condition reads its "
                                          f"own done state")
                     subjects = list(dict.fromkeys(
-                        thing for node, _ in _terms(objective.tree)
+                        thing for node, _ in conditions.walk_over(objective.tree)
                         for thing in ([node["id"]] if node.get("get") == "instance" else node.get("over", []))))
             except QuestError as exc:
                 self.bad(quest.where(*at), str(exc))
@@ -1014,7 +1004,6 @@ class _Compiler:
 
     def causes(self) -> None:
         """Every objective must be something the world can bring about."""
-        from .rules import _reads as reads
 
         rules = [*self.decls.signal_rules(), *self.out.wiring, *self.out.rules, *self.other_rules]
         settable: dict[str, set[Any] | None] = {}       # key -> the values rules set it to (None: any)
@@ -1075,7 +1064,7 @@ class _Compiler:
             elif tree["op"] in ("==", "in"):
                 wanted = [a for a in tree["args"] if not isinstance(a, dict)]
                 for term in tree["args"]:
-                    for key in _keys(term, over):
+                    for key in term_keys(term, over):
                         values = reachable(key)
                         if wanted and values is not None and not any(w in values for w in wanted):
                             start = (self.decls.spec(key) or {}).get("default")
@@ -1088,7 +1077,7 @@ class _Compiler:
                 if objective.tree is not None:
                     keys = list(dict.fromkeys(reads(objective.tree)))
                     live = any(n.get("get") == "clock" or (n.get("get") == "actor" and "package" not in n)
-                               for n, _ in _terms(objective.tree))     # the clock, or where the actor is
+                               for n, _ in conditions.walk_over(objective.tree))     # the clock, or where the actor is
                     unreachable = list(dict.fromkeys(needs(objective.tree, None)))
                     if unreachable:
                         for problem in unreachable:
@@ -1126,12 +1115,6 @@ class _Compiler:
                             self.bad(where, f"objective '{objective.id}' can't be done: nothing changes "
                                             f"'{_shown(on['key'])}'" + (f" to {on['to']!r}" if "to" in on else "")
                                             + ": no use or rule sets it")
-
-
-def _reads(tree: Tree) -> list[str]:
-    from .rules import _reads as reads
-
-    return reads(tree)
 
 
 def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, SceneNode | None]],
@@ -1194,12 +1177,11 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
         compiler.out.bindings.append(binding)
         compiler.out.written[f"bind:{binding['set']}"] = "a switch"
     for key, text, node in guards:
-        src = _Quest(key, {}, None, node, node)
-        src.where = lambda *keys, _k=key: f"{_k}: when"       # type: ignore[method-assign]
+        src = Context(key, {}, None, node, node, label=key)
         try:
             declarations.interactions[key]["when"] = compiler.condition(src, text)
         except QuestError as exc:
-            compiler.bad(src.where(), str(exc))
+            compiler.bad(src.where("when"), str(exc))
     huds = list(huds)
     if huds:
         from .hud import compile_hud
@@ -1313,11 +1295,15 @@ def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
     return dict(sorted(out.items()))
 
 
-def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
-    """The manifest's ``state``, ``rules``, ``quests`` and ``hud`` sections for ``root`` (those with anything in them)."""
-    if package is None:
-        package = str(root.meta.get("uid", "")).partition(":")[0] or root.name
-    found = collect(root, package)
+def summary(root: SceneNode, package: str | None = None, compiled: Quests | None = None) -> dict[str, Any]:
+    """The manifest's ``state``, ``rules``, ``quests`` and ``hud`` sections for ``root`` (those with anything in them).
+
+    ``compiled`` is ``collect(root, package)`` when the caller already made it (exports compile once)."""
+    if compiled is None:
+        if package is None:
+            package = str(root.meta.get("uid", "")).partition(":")[0] or root.name
+        compiled = collect(root, package)
+    found = compiled
     for warning in found.warnings:
         print(f"warning: {warning}", file=sys.stderr)
     quests = found.to_json() if found else None

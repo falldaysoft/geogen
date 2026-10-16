@@ -111,12 +111,10 @@ def compile_dialogues(compiler: Any, entries: Iterable[tuple[dict[str, Any], Any
 
 
 def _compile(compiler: Any, spec: dict[str, Any], source: Any, node: SceneNode | None) -> dict[str, Any] | None:
-    from .quests import QuestError, _Quest
+    from .quests import Context, QuestError
 
     did = str(spec.get("id", ""))
-    src = _Quest(did, spec, source, node, None)
-    src.where = (lambda *keys: f"dialogue '{did}': " + ".".join(str(k) for k in keys)) if source is None \
-        else src.where                                                       # type: ignore[method-assign]
+    src = Context(did, spec, source, node, None, label=f"dialogue '{did}'")
     bad = lambda keys, message: compiler.bad(src.where(*keys), message)    # noqa: E731
     unknown = set(spec) - DIALOGUE_KEYS
     if unknown:

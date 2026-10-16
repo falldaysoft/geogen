@@ -228,6 +228,16 @@ def walk(tree: Tree) -> Iterable[dict[str, Any]]:
             yield from walk(tree["where"])
 
 
+def walk_over(tree: Tree, over: list[str] | None = None) -> Iterable[tuple[dict[str, Any], list[str] | None]]:
+    """Every node dict of a tree, parents first, with the things its ``it`` terms range over."""
+    if isinstance(tree, dict):
+        yield tree, over
+        for arg in tree.get("args", []):
+            yield from walk_over(arg, over)
+        if "where" in tree:
+            yield from walk_over(tree["where"], tree.get("over", []))
+
+
 # ---- resolving ----------------------------------------------------------------------------------
 
 def _state_names(node: SceneNode) -> list[str]:
