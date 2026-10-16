@@ -154,6 +154,31 @@ def _play_wave(runtime, limit=90):
     raise AssertionError(f"the wave didn't end: {_world(runtime, 'phase')}")
 
 
+def test_pads_and_buttons_take_the_crosshair(runtime):
+    """The player builds with the crosshair, not the API. A pad's top is always further below the
+    eye than the player's reach, so its build interaction reaches 3.5 m: anywhere on the pad, from
+    beside it. Only it: the ground and the buttons still need the player's own reach."""
+    pad = [-3.4, 0.05, -8.6]                                     # pad_a's slot
+    runtime.call("player.teleport", pos=[pad[0], 0.05, pad[2] + 2.0], yaw=0)
+    for spot in ([0.0, 0.0], [-0.6, -0.6], [0.6, 0.5]):         # middle, far corner, near corner
+        runtime.call("player.look", at=[pad[0] + spot[0], 0.15, pad[2] + spot[1]])
+        assert runtime.call("hud.aim")["focus"].get("asset") == "pad_a", spot
+    runtime.call("player.look", at=[pad[0] + 2.0, 0.05, pad[2] + 2.0])    # the ground 2 m away
+    assert runtime.call("hud.aim")["focus"] == {}
+    runtime.call("player.look", at=pad)
+    assert runtime.call("player.use")["asset"] == "pad_a"
+    runtime.call("time.step", frames=30)
+    assert _get(runtime, "pad_a#build") == "built" and _world(runtime, "gold") == 15
+    runtime.call("player.teleport", pos=[7.4, 0.05, 14.0], yaw=0)        # 2.5 m from RESET: out of reach
+    runtime.call("player.look", at=[7.4, 1.05, 11.5])
+    assert runtime.call("hud.aim")["focus"] == {}
+    runtime.call("player.teleport", pos=[7.4, 0.05, 12.3], yaw=0)
+    runtime.call("player.look", at=[7.4, 1.05, 11.5])
+    assert runtime.call("player.use")["asset"] == "reset"
+    runtime.call("time.step", frames=60)
+    assert _get(runtime, "pad_a#build") == "empty" and _world(runtime, "gold") == 25
+
+
 def test_godot_plays_a_game(runtime):
     runtime.call("time.pause")
     runtime.call("time.step", frames=5)

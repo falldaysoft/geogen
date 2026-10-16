@@ -47,6 +47,8 @@ var hold := false
 var guard := Callable()
 ## What the prompt says, and a refused use tells the user, while `guard` says no ("": nothing).
 var refused := ""
+## Metres from the eye it can be used from (0: the player's reach).
+var reach := 0.0
 
 ## [{parts: [Node3D], type, axis: Vector3, pivot: Vector3, values: {state: float},
 ##   value: float, rest: {Node3D: Transform3D}, speed: float}]
@@ -66,6 +68,7 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
     it.target = it.state
     it.initial = it.state
     it.refused = str(data.get("refused", ""))
+    it.reach = float(data.get("reach", 0.0))
     var lock = data.get("lock")
     if lock is Dictionary:
         it.lock_key = str(lock.get("key", ""))

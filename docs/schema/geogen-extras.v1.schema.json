@@ -120,6 +120,7 @@
               "initial": { "type": "string" },
               "duration": { "type": "number", "minimum": 0 },
               "refused": { "type": "string", "description": "What the prompt says, and a refused use tells the user, while the interaction's `when` (in the manifest's state) is false." },
+              "reach": { "type": "number", "exclusiveMinimum": 0, "description": "Metres from the eye its targets can be used from, when that is further than the player's reach (absent: the player's)." },
               "lock": {
                 "description": "While locked, use() fails; holders of 'key' can lock/unlock.",
                 "type": "object", "required": ["key", "locked"], "additionalProperties": false,

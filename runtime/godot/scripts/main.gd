@@ -1013,10 +1013,15 @@ func _update_focus() -> void:
     elif player != null and player.camera.current and player.pose.is_empty():
         var cam := player.camera
         var from := cam.global_position
-        var to := from - cam.global_basis.z * player_spec.reach
+        var to := from - cam.global_basis.z * _longest_reach()
         var query := PhysicsRayQueryParameters3D.create(from, to)
         query.exclude = [player.get_rid()]
         var hit := get_world_3d().direct_space_state.intersect_ray(query)
+        if hit and from.distance_to(hit["position"]) > player_spec.reach:
+            # Beyond the player's reach only an interaction that reaches further counts.
+            var far := world.interaction_for(hit["collider"])
+            if far == null or from.distance_to(hit["position"]) > _reach_of(far):
+                hit = {}
         if hit:
             var it := world.interaction_for(hit["collider"])
             var prop := world.props.prop_of(hit["collider"])
@@ -1070,6 +1075,20 @@ func _update_focus() -> void:
             _prompt.text = ""
 
 
+## How far from the eye ``it`` can be used from: its own `reach` when that is longer.
+func _reach_of(it: GeogenInteraction) -> float:
+    return maxf(player_spec.reach, it.reach)
+
+
+## The longest reach of anything loaded: how far the focus ray looks.
+func _longest_reach() -> float:
+    var longest: float = player_spec.reach
+    for it in world.interactions:
+        if is_instance_valid(it):
+            longest = maxf(longest, it.reach)
+    return longest
+
+
 ## Aim assist: the usable interaction whose target is nearest the aim line, when the line
 ## itself lands on nothing usable. Small targets (a light switch is 8 cm wide) are hard to
 ## hit exactly; within AIM_SLACK of one, and with nothing in the way, E takes it.
@@ -1081,7 +1100,7 @@ func _assisted_focus(from: Vector3, forward: Vector3) -> GeogenInteraction:
         if not is_instance_valid(it) or not it.can_use():
             continue
         for target in it.targets:
-            if not is_instance_valid(target) or target.global_position.distance_to(from) > player_spec.reach + 2.0:
+            if not is_instance_valid(target) or target.global_position.distance_to(from) > _reach_of(it) + 2.0:
                 continue
             var centre := target.global_position
             if target is MeshInstance3D:
@@ -1091,7 +1110,7 @@ func _assisted_focus(from: Vector3, forward: Vector3) -> GeogenInteraction:
                 if box.size != Vector3.ZERO:
                     centre = box.get_center()
             var along := (centre - from).dot(forward)
-            if along <= 0.0 or centre.distance_to(from) > player_spec.reach:
+            if along <= 0.0 or centre.distance_to(from) > _reach_of(it):
                 continue
             var miss := (centre - from - forward * along).length()
             if miss >= best_miss:

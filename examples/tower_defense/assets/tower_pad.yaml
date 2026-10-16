@@ -1,5 +1,5 @@
 # The tower defense's tower pad: a square concrete pad with hazard corners where a bolt
-# tower can be built. Use the pad to build it for `cost` gold (refused until the world has
+# tower can be built. Use the pad (from up to 3.5 m away) to build it for `cost` gold (refused until the world has
 # that much); built, it is an effector (geogen.flows) that turns its head toward the
 # enemy furthest along within `range` and fires bolts for `damage` each. Origin: on the
 # ground at the pad's middle; the barrel points +Z at rest.
@@ -91,6 +91,7 @@ parts:
 interactions:
   build:
     targets: [pad]
+    reach: 3.5                      # the pad is always further below the eye than the player's reach
     initial: empty
     when: "world.gold >= {cost}"
     refused: "A tower costs {cost} gold"
