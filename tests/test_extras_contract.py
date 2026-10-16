@@ -16,8 +16,8 @@ GEOGEN = extras.schema()["properties"]["geogen"]
 
 # Keys a runtime reads: their sub-objects list their properties and take no others.
 CLOSED = ["room", "door", "joint", "clearance", "light", "portal", "place", "physics", "travel", "container",
-          "city", "block", "lot", "building", "roof", "lod", "interior", "scatter", "signal", "character", "stairs",
-          "water", "driving", "fleet", "train"]
+          "city", "block", "lot", "building", "lod", "interior", "signal", "character", "stairs",
+          "water", "driving", "fleet", "train", "npc", "vehicle", "item", "flows"]
 
 
 def test_schema_is_closed():
@@ -32,6 +32,31 @@ def test_schema_is_closed():
         if spec.get("type") == "object":
             assert "properties" in spec or "additionalProperties" in spec, key
         assert spec.get("description") or key == "version", f"'{key}' needs a description"
+
+
+def test_every_object_that_lists_its_properties_takes_no_others():
+    """Nested too (an NPC's attention, a vehicle's sound): an object either lists its keys and is
+    closed, or is a map ('additionalProperties' a schema for each value)."""
+    open_ = []
+
+    def walk(spec, path):
+        if isinstance(spec, list):
+            for i, item in enumerate(spec):
+                walk(item, f"{path}[{i}]")
+            return
+        if not isinstance(spec, dict):
+            return
+        if "properties" in spec and spec.get("type", "object") == "object" and spec.get("additionalProperties") is not False:
+            open_.append(path)
+        for key, value in spec.items():
+            if key not in ("if", "properties"):         # 'if' only tests a value
+                walk(value, f"{path}/{key}")
+        for key, value in spec.get("properties", {}).items():
+            walk(value, f"{path}.{key}")
+
+    walk(GEOGEN, "geogen")
+    walk(extras.schema()["$defs"], "$defs")
+    assert not open_, open_
 
 
 def test_build_only_keys_are_not_declared():

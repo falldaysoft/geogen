@@ -86,6 +86,7 @@
           "items": {
             "type": "object",
             "required": ["name", "animation", "duration", "loop"],
+            "additionalProperties": false,
             "properties": {
               "name": { "type": "string" },
               "animation": { "type": "string" },
@@ -99,6 +100,7 @@
                 "description": "Transition clips: the body root's path while the clip plays, in the frame of where the character ends up (the affordance anchor; the approach point when 'to' is stand), x right, y up, z forward. Made for the action's default approach offset and seat height: blend the difference to the actual start and end placements over the clip.",
                 "type": "object",
                 "required": ["times", "positions", "rotations"],
+                "additionalProperties": false,
                 "properties": {
                   "times": { "type": "array", "items": { "type": "number" } },
                   "positions": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } },
@@ -175,20 +177,6 @@
             "left": { "type": "number" }, "right": { "type": "number" }
           },
           "additionalProperties": false
-        },
-        "door_swings": {
-          "description": "Room nodes: door leaf swing arcs in the room's frame (hinge point, radius, sweep in degrees in the XZ plane, 0 = +X, 90 = +Z), for furnishing to keep clear.",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["door", "hinge", "radius", "from_deg", "to_deg"],
-            "additionalProperties": false,
-            "properties": {
-              "door": { "type": "string" },
-              "hinge": { "$ref": "#/$defs/vec3" },
-              "radius": { "type": "number" }, "from_deg": { "type": "number" }, "to_deg": { "type": "number" }
-            }
-          }
         },
         "light": {
           "description": "Light fixtures: an omni light at 'offset' (node frame). Exported as a KHR_lights_punctual point light on a <node>_light child (intensity = energy * 12 cd).",
@@ -423,7 +411,8 @@
           "properties": {
             "name": { "type": "string" },
             "mode": { "enum": ["physics", "belt", "walk"] },
-            "body": { "type": "object", "properties": { "asset": { "type": "string" }, "params": { "type": "object" } } },
+            "body": { "type": "object", "required": ["asset", "params"], "additionalProperties": false,
+                      "properties": { "asset": { "type": "string" }, "params": { "$ref": "#/$defs/params" } } },
             "data": { "type": "object", "additionalProperties": { "type": ["number", "string"] } },
             "speed": { "type": "number", "minimum": 0 },
             "radius": { "type": "number", "minimum": 0 },
@@ -455,7 +444,7 @@
             "target": { "type": "string" },
             "volume": {
               "type": "object",
-              "required": ["center", "size"],
+              "required": ["center", "size"], "additionalProperties": false,
               "properties": { "center": { "$ref": "#/$defs/vec3" }, "size": { "$ref": "#/$defs/vec3" } }
             }
           }
@@ -469,34 +458,70 @@
           "description": "A placed NPC, fully resolved from assets/npcs/<definition>.yaml: everything the runtime interpreter needs. Distances in metres, rates per second. 'home.polygon' is [x, z] in this node's frame.",
           "type": "object",
           "required": ["definition", "body", "speed", "needs", "activities", "scoring", "actions", "home", "radius", "height"],
+          "additionalProperties": false,
           "properties": {
             "definition": { "type": "string" },
             "body": {
-              "type": "object", "required": ["node", "poses"],
-              "properties": { "asset": { "type": "string" }, "node": { "type": "string" },
-                "poses": { "type": "object", "additionalProperties": { "$ref": "#/$defs/pose" } } }
+              "description": "The body: an 'asset' file or a character 'archetype' (with the person drawn as 'character'), built with 'params', placed as the child 'node'; 'poses' are its root transforms per pose.",
+              "type": "object", "required": ["node", "poses"], "additionalProperties": false,
+              "oneOf": [{ "required": ["asset"] }, { "required": ["archetype"] }],
+              "properties": { "asset": { "type": "string" }, "archetype": { "type": "string" },
+                "params": { "$ref": "#/$defs/params" }, "node": { "type": "string" },
+                "poses": { "type": "object", "additionalProperties": { "$ref": "#/$defs/pose" } },
+                "character": { "type": "object", "required": ["archetype", "seed"], "additionalProperties": false,
+                  "properties": { "archetype": { "type": "string" }, "seed": { "type": "integer" } } } }
             },
             "speed": { "type": "number" }, "turn_speed": { "type": "number" }, "seed": { "type": "integer" },
             "radius": { "type": "number" }, "height": { "type": "number" },
             "needs": { "type": "object", "additionalProperties": {
-              "type": "object", "required": ["initial", "decay"],
+              "type": "object", "required": ["initial", "decay"], "additionalProperties": false,
               "properties": { "initial": { "type": "number", "minimum": 0, "maximum": 1 }, "decay": { "type": "number" } } } },
             "preferences": { "type": "object", "additionalProperties": { "type": "number" } },
             "activities": { "type": "object", "additionalProperties": {
-              "type": "object", "required": ["action", "advertises"],
+              "type": "object", "required": ["action", "advertises"], "additionalProperties": false,
               "properties": { "action": { "type": "string" }, "duration": { "$ref": "#/$defs/range" },
                 "advertises": { "type": "object", "additionalProperties": { "type": "number" } } } } },
-            "scoring": { "type": "object", "properties": {
+            "scoring": { "type": "object", "additionalProperties": false, "properties": {
               "distance": { "type": "number" }, "recency": { "type": "number" }, "memory": { "type": "number" },
               "noise": { "type": "number" }, "retry": { "type": "number" } } },
             "home_margin": { "type": "number" },
             "flags": { "type": "object", "additionalProperties": { "type": "boolean" } },
+            "affordance_tags": { "description": "Only affordances with one of these tags (empty: any).", "type": "array", "items": { "type": "string" } },
+            "wander": {
+              "description": "Where go_to: random goes: points on up-facing surfaces of nodes with these tags (empty: the home region).",
+              "type": "object", "required": ["tags"], "additionalProperties": false,
+              "properties": { "tags": { "type": "array", "items": { "type": "string" } } }
+            },
+            "routine": {
+              "description": "Time-of-day blocks ('from' / 'to' in hours, wrapping midnight): while one is active its 'activities' and 'preferences' multiply scores, and 'away' sends the NPC off (the leave action) until it ends.",
+              "type": "array",
+              "items": { "type": "object", "required": ["name", "from", "to", "away", "activities", "preferences"], "additionalProperties": false,
+                "properties": { "name": { "type": "string" },
+                  "from": { "type": "number", "minimum": 0, "maximum": 24 }, "to": { "type": "number", "minimum": 0, "maximum": 24 },
+                  "away": { "type": "boolean" },
+                  "activities": { "type": "object", "additionalProperties": { "type": "number" } },
+                  "preferences": { "type": "object", "additionalProperties": { "type": "number" } } } }
+            },
+            "attention": {
+              "description": "How it notices the player (geogen/npc.py ATTENTION_DEFAULTS); a part left out is off. look: head look-at within 'range' m and a 'cone' of degrees, turning up to 'yaw' / 'pitch' degrees at 'speed'. greet: on E it raises 'signal' (not twice within 'debounce' s) and, standing, runs 'action' (waving at most every 'cooldown' s), looking at the greeter 'acknowledge' s. yield: steps 'step' m aside ('action') from a player walking at it within 'distance' m.",
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "look": { "type": "object", "additionalProperties": false, "properties": {
+                  "range": { "type": "number" }, "cone": { "type": "number" }, "yaw": { "type": "number" },
+                  "pitch": { "type": "number" }, "speed": { "type": "number" } } },
+                "greet": { "type": "object", "additionalProperties": false, "properties": {
+                  "action": { "type": "string" }, "prompt": { "type": "string" }, "signal": { "type": "string" },
+                  "cooldown": { "type": "number" }, "debounce": { "type": "number" }, "acknowledge": { "type": "number" } } },
+                "yield": { "type": "object", "additionalProperties": false, "properties": {
+                  "distance": { "type": "number" }, "step": { "type": "number" }, "action": { "type": "string" } } }
+              }
+            },
             "actions": { "type": "object", "additionalProperties": {
-              "type": "object", "required": ["steps"],
+              "type": "object", "required": ["steps"], "additionalProperties": false,
               "properties": { "approach": { "$ref": "#/$defs/vec3" }, "duration": { "$ref": "#/$defs/range" },
-                "steps": { "type": "array", "items": { "type": "object" } } } } },
+                "steps": { "type": "array", "items": { "$ref": "#/$defs/npc_step" } } } } },
             "home": {
-              "type": "object", "required": ["polygon", "y"],
+              "type": "object", "required": ["polygon", "y"], "additionalProperties": false,
               "properties": { "polygon": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } },
                 "y": { "type": "number" } }
             }
@@ -543,27 +568,16 @@
           }
         },
         "building": {
-          "description": "A building root: its storey count and height in metres. A building a city placed on a lot also has the catalogue 'entry' it was drawn from, its 'zone' and the 'params' it was built with.",
+          "description": "A building root: its storey count and height in metres. A building a city placed on a lot also has the catalogue 'entry' it was drawn from (a recipe name or asset file stem) and its 'zone'.",
           "type": "object", "additionalProperties": false,
           "properties": {
             "storeys": { "type": "integer", "minimum": 1 },
             "height": { "type": "number" },
             "entry": { "type": "string" },
-            "zone": { "type": "string" },
-            "params": { "type": "object" }
+            "zone": { "type": "string" }
           }
         },
         "street_furniture": { "description": "Kind of street furniture: lamp, tree, bench, hydrant, ...", "type": "string" },
-        "recipe": {
-          "description": "Building recipe (geogen/layout/recipes.py): its name, and beside it the params it was built with.",
-          "type": "object", "required": ["name"],
-          "properties": { "name": { "type": "string" } }
-        },
-        "roof": {
-          "description": "Pitched roof: its style and rise in metres.",
-          "type": "object", "required": ["style", "rise"], "additionalProperties": false,
-          "properties": { "style": { "enum": ["gable", "hip", "shed"] }, "rise": { "type": "number" } }
-        },
         "lod": {
           "description": "Root of a chunk's exterior LOD stand-in: decimated to 'ratio' of its triangles, parts smaller than 'min_size' metres dropped.",
           "type": "object", "required": ["ratio", "min_size"], "additionalProperties": false,
@@ -573,11 +587,6 @@
           "description": "Root of a streamed building interior chunk: the building (by name) it belongs to.",
           "type": "object", "required": ["building"], "additionalProperties": false,
           "properties": { "building": { "type": "string" } }
-        },
-        "scatter": {
-          "description": "Scattered copy: the scatter placement it came from, its 1-based index and the placement's seed.",
-          "type": "object", "required": ["group", "index", "seed"], "additionalProperties": false,
-          "properties": { "group": { "type": "string" }, "index": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer" } }
         },
         "signal": {
           "description": "A traffic signal head: the intersection and phase it shows and the lane it faces (ids of the manifest's traffic section). The runtime lights its lamp_red | lamp_amber | lamp_green parts from that intersection's cycle. With 'crossing' it is a pedestrian head: the runtime lights lamp_walk or lamp_dont from that entry of the traffic section's pedestrian_signals.",
@@ -679,9 +688,10 @@
           "description": "A vehicle asset (geogen/vehicles.py), built along +Z with its origin on the ground midway between the axles. Parts named here are descendants of this node: wheels spin about their local X (radius in metres), steer parts turn, paint parts carry the tint, lamps glow by kind. clearance is [length, width, height]; front/rear are the bumper z positions.",
           "type": "object",
           "required": ["class", "wheels", "clearance", "max_speed", "turn_radius"],
+          "additionalProperties": false,
           "properties": {
             "class": { "enum": ["car", "van", "bus", "truck", "loco", "carriage"] },
-            "wheels": { "type": "array", "items": { "type": "object", "required": ["part", "center", "radius"],
+            "wheels": { "type": "array", "items": { "type": "object", "required": ["part", "center", "radius"], "additionalProperties": false,
               "properties": { "part": { "type": "string" }, "center": { "$ref": "#/$defs/vec3" }, "radius": { "type": "number" } } } },
             "steer": { "type": "array", "items": { "type": "string" } },
             "paint": { "type": "array", "items": { "type": "string" } },
@@ -694,7 +704,18 @@
             "front": { "type": "number" }, "rear": { "type": "number" },
             "max_speed": { "type": "number" }, "turn_radius": { "type": "number" },
             "accel": { "type": "number" }, "decel": { "type": "number" },
-            "sound": { "description": "Synthesised sound hooks: engine {base Hz, per_speed Hz per m/s, volume_db, roughness}, horn {tones Hz, seconds, volume_db}.", "type": "object" }
+            "sound": {
+              "description": "Synthesised sound hooks: engine {base Hz, per_speed Hz per m/s, volume_db, roughness}, horn {tones Hz, seconds, volume_db}.",
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "engine": { "type": "object", "required": ["base", "per_speed", "volume_db", "roughness"], "additionalProperties": false,
+                  "properties": { "base": { "type": "number" }, "per_speed": { "type": "number" },
+                    "volume_db": { "type": "number" }, "roughness": { "type": "number" } } },
+                "horn": { "type": "object", "required": ["tones", "seconds", "volume_db"], "additionalProperties": false,
+                  "properties": { "tones": { "type": "array", "items": { "type": "number" } },
+                    "seconds": { "type": "number" }, "volume_db": { "type": "number" } } }
+              }
+            }
           }
         }
       },
@@ -712,6 +733,28 @@
     "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
     "range": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
     "cell": { "description": "A city grid index [i, j].", "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+    "params": {
+      "description": "An asset's params, as it was built with them: a map, not a fixed set of keys (each asset declares its own).",
+      "type": "object",
+      "additionalProperties": { "type": ["number", "string", "boolean", "array", "null"] }
+    },
+    "npc_step": {
+      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held) and 'if' (a flag it needs).",
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
+                { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }],
+      "properties": {
+        "go_to": { "enum": ["approach", "anchor", "random", "near", "far", "exit", "aside"] },
+        "face": { "enum": ["anchor", "portal", "player"] },
+        "pose": { "type": "string" },
+        "wait": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },
+        "use": { "type": "string" },
+        "vanish": { "const": true },
+        "play": { "type": "string" },
+        "at": { "enum": ["anchor", "approach"] },
+        "if": { "type": "string" }
+      }
+    },
     "pose": {
       "type": "object", "required": ["offset", "rotation", "scale"],
       "additionalProperties": false,

@@ -117,6 +117,38 @@ def test_chunked_export(town, tmp_path):
         assert all((tmp_path / img["uri"]).exists() for img in gltf.get("images", []))
 
 
+def test_chunk_glbs_extras_match_schema(town, tmp_path):
+    """Every GLB a chunked export writes (blocks, LOD stand-ins, interiors, base) keeps the extras contract."""
+    jsonschema = pytest.importorskip("jsonschema")
+    import struct
+
+    from geogen import extras
+
+    validator = jsonschema.Draft202012Validator(extras.schema())
+    index = json.loads(export_chunks(town, tmp_path, name="mini_town").read_text())
+    files = {}
+    for chunk in index["chunks"]:
+        files[chunk["file"]] = "full"
+        if "lod" in chunk:
+            files[chunk["lod"]] = "lod"
+        for interior in chunk["interiors"]:
+            files[interior["file"]] = "interior"
+    seen = set()
+    for file, kind in files.items():
+        data = (tmp_path / file).read_bytes()
+        gltf = json.loads(data[20:20 + struct.unpack("<I", data[12:16])[0]])
+        keys = set()
+        for node in gltf["nodes"]:
+            if "extras" in node:
+                errors = [e.message[:200] for e in validator.iter_errors(node["extras"])]
+                assert not errors, (file, node["name"], errors)
+                keys.update(node["extras"]["geogen"])
+        if kind in ("lod", "interior"):         # the stand-in's / interior's root says what it is
+            assert kind in keys, (file, keys)
+        seen |= keys
+    assert {"lod", "interior", "building", "lot", "room"} <= seen
+
+
 def test_externalized_glb_loads(town, tmp_path):
     import trimesh
 

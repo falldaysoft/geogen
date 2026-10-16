@@ -1128,7 +1128,7 @@ A new key needs a schema entry and a row here.
 | `walkable` | `scripts/api.gd` | as `collider`; the navmesh is baked from colliders |
 | `room`, `size` | `scene_builder.gd`, `scripts/world_loader.gd` | room `Area3D`s and the room list |
 | `nav` | `scripts/world_loader.gd` | rooms the playtest shouldn't expect to reach |
-| `door`, `joint`, `door_swings` | - | floor-plan doors and their swing arcs (the door's interaction is what moves it) |
+| `door`, `joint` | - | floor-plan doors: the rooms they join, and the hinge (the door's interaction is what moves it) |
 | `footprint`, `clearance`, `container` | - | furniture: floor area, free space, storage |
 | `interactions` | `scripts/world_loader.gd` | a `GeogenInteraction` (`scripts/interaction.gd`) each |
 | `clips` | `scripts/npc.gd` | body animations and transition clips |
@@ -1149,7 +1149,7 @@ A new key needs a schema entry and a row here.
 | `fleet` | `scripts/world_loader.gd` | a `GeogenTraffic` (`scripts/traffic.gd`) |
 | `signal` | `scripts/world_loader.gd`, `scripts/traffic.gd` | signal heads lit from their intersection's cycle (with `crossing`: pedestrian heads, lit from that pedestrian signal) |
 | `train` | `scripts/world_loader.gd` | a `GeogenTrain` (`scripts/train.gd`) |
-| `city`, `block`, `lot`, `building`, `street_furniture`, `recipe`, `roof`, `scatter`, `character` | - | where generated content came from |
+| `city`, `block`, `lot`, `building`, `street_furniture`, `character` | - | what generated content is: the district, block, lot and building a node is in, kinds of street furniture, who a person is |
 | `lod`, `interior` | - | roots of a chunk's LOD stand-in and interior (the streamer works from the chunk index) |
 
 A `-` means this runtime doesn't read the key: it describes the world for

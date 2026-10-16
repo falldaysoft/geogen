@@ -57,6 +57,12 @@ BUILD_ONLY: dict[str, str] = {
     "storey": "a storey's index, elevation and height (the tag storey.<n> carries the index)",
     "stair_flights": "the flights leaving a stair room: {to, rise, steps} (the flight itself exports 'stairs')",
     "terrain": "terrain parameters, re-evaluated by scatter and QA (terrain_from_meta)",
+    "recipe": "the building recipe and params a building was generated from (meta.building keeps its "
+              "storeys, height and, placed by a city, its catalogue entry and zone)",
+    "roof": "a pitched roof's style and rise, as the building generator was asked for them",
+    "scatter": "the scatter placement, index and seed a copy came from (scatter and terrain tests read it)",
+    "door_swings": "a room's door leaf swing arcs, which the furnishing solver, light switches and layout QA "
+                   "keep clear; the door's interaction is what moves it at runtime",
     "tree": "the tree generator's style, seed and branch count",
     "humanoid": "the body's skeleton, height, pose and seat heights, for posing, clipping QA and tests",
     "preset": "the preset an asset was built with",

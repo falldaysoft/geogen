@@ -479,8 +479,9 @@ class CityBuilder:
             place[:3, 3] = [front[0], self.curb, front[1]]
             matrix = place @ _rot_y(_YAW[lot.side]) @ anchor @ _rot_y(fp["fix"])
             node.transform = Transform.from_matrix(matrix)
-            node.meta["building"] = {"entry": label, "zone": lot.zone,
-                                     **({"params": obj["params"]} if "recipe" in obj else {})}
+            # Beside the storeys and height the building generator recorded (a recipe's params
+            # stay in its build-only meta.recipe).
+            node.meta["building"] = {**node.meta.get("building", {}), "entry": label, "zone": lot.zone}
             return node
         return None
 
