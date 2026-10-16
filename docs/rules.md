@@ -261,6 +261,11 @@ items use, with an optional `title` and `tags` for an inventory). Nothing new ru
   package names it, and naming an item with no file is an export error. The
   compiled quests list the items they name (`Quests.items`: title, tags).
 
+Objects to take are pickups (`geogen/inventory.py`): an asset's or a placement's
+`pickup: <item>` (or `{item, count, prompt}`) adds a `pickup` interaction,
+`here | taken`, whose taken state hides the object, and an asset rule giving the
+item to whoever used it.
+
 Giving something to someone else is a take from the giver in a rule on whatever
 event stands for the handing over (greeting an NPC, using a counter). Trace
 `items.json`.

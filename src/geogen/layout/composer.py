@@ -388,6 +388,14 @@ class SceneComposer:
                     for node in placed:
                         resolve_home(node, obj_def.get("home"), refs, [*keys, "home"])
 
+        # Placed as something to take (geogen.inventory): the asset key, on this copy.
+        for obj_name, obj_def in all_placements.items():
+            node = loaded_objects.get(obj_name)
+            if node is not None and isinstance(obj_def, dict) and obj_def.get("pickup"):
+                from ..inventory import parse_pickup
+
+                parse_pickup(obj_def["pickup"], node, f"{source}: place.{obj_name}", self._assets_dir, source)
+
         # NPCs: home region (in the NPC's frame) and per-placement seed.
         for obj_name, obj_def in all_placements.items():
             node = loaded_objects.get(obj_name)

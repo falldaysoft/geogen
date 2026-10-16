@@ -50,8 +50,7 @@ MODES = ("physics", "belt", "walk")
 ITEM_KEYS = {
     "kind": "item",
     "name": "the item's name (default: the file's)",
-    "title": "what it is called when carried (\"Room key\"; default: the name, capitalised): items are also "
-             "what actors carry (give / take effects, has(\"<item>\") conditions)",
+    "title": "its name when carried (default: the name, capitalised)",
     "tags": "[tag, ...] for the inventory (key, quest)",
     "body": "the asset each copy is: a file, or {asset, params}",
     "mode": "physics (a rigid body: the body has physics:) | belt | walk (along a track)",

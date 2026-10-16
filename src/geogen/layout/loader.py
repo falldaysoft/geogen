@@ -151,6 +151,12 @@ class LayoutLoader:
         from ..wiring import declare as declare_wiring
 
         declare_wiring(root, data, path, asset=True)
+        if data.get("pickup"):
+            from ..inventory import parse_pickup
+
+            from .. import roots
+
+            parse_pickup(data["pickup"], root, path.name, roots.root_of(path), path)
         # Where it came from, for --inspect (not exported).
         root.meta["source"] = {"asset": _asset_ref(path), "params": dict(params or {})}
         return root

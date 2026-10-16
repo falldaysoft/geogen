@@ -1,0 +1,6 @@
+# A hotel room key: carried (give / take, has("room_key")), and what room_key.yaml
+# gives whoever picks it up.
+kind: item
+body: room_key.yaml
+title: Room key
+tags: [key]

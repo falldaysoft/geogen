@@ -33,6 +33,7 @@
 | `travel` | {scene, spawn, prompt, on: use \| enter, target}: moves the player to another scene |
 | `vehicle` | {class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle) |
 | `physics` | {mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics) |
+| `pickup` | <item> or {item, count, prompt}: something to take (E gives the item, hides it) |
 | `source` | {items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows) |
 | `track` | {path, speed, spacing, mode: belt \| walk, loop, end, accepts}: items follow it (geogen.flows) |
 | `effector` | {range, rate, targets, effect: {damage} \| {take}, at, aim, projectile}: acts on items (geogen.flows) |
@@ -100,7 +101,8 @@
 | `npc` | an NPC definition (npcs/resident.yaml), with `on`/`home` |
 | `home` | <object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in |
 | `seed` | random seed (which person an archetype or NPC is) |
-| `quests` | an NPC's quests (quests/name.yaml or {file, if}): it holds them from the start and works on them |
+| `pickup` | <item> or {item, count, prompt}: something to take (as the asset key) |
+| `quests` | an NPC's quests (files or {file, if}): it holds and works on them |
 | `archetype` | a random person (characters/archetypes/adult.yaml) |
 | `traffic` | a moving fleet (traffic/town.yaml) on the scene's lanes |
 | `count` | fleet size for a traffic placement |
@@ -186,6 +188,7 @@ Keys: `body`, `data`, `gait`, `lifetime`, `mode`, `name`, `radius`, `speed`, `st
 | --- | --- |
 | [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
 | [items/raider.yaml](../../assets/items/raider.yaml) | A raiding rover: walks a track at its own pace, takes 6 damage to stop, is worth 2 when it is and does 1 harm if it gets through. |
+| [items/room_key.yaml](../../assets/items/room_key.yaml) | A hotel room key: carried (give / take, has("room_key")), and what room_key.yaml gives whoever picks it up. |
 | [items/rover.yaml](../../assets/items/rover.yaml) | A delivery rover that drives along walk tracks at its own pace. |
 
 ### npc

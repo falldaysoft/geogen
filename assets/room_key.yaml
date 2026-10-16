@@ -1,0 +1,53 @@
+# A room key on a red fob, to pick up. Taking it gives the item
+# items/room_key.yaml (pickup: room_key). Origin: bottom centre; the key
+# points along +X.
+
+name: room_key
+tags: [prop.key]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+pickup: room_key
+
+parts:
+  fob:
+    primitive: cube
+    size: [0.07, 0.008, 0.032]
+    anchor: bottom_center
+    offset: [-0.055, 0, 0]
+    bevel: 0.006
+    bevel_segments: 1
+    material: signal_red
+    collider: box
+  ring:
+    primitive: torus
+    size: [0.026, 0.004, 0.026]
+    tube: 0.002
+    anchor: bottom_center
+    offset: [-0.006, 0.002, 0]
+    material: chrome
+    collider: none
+  bow:
+    primitive: cylinder
+    size: [0.022, 0.003, 0.022]
+    anchor: bottom_center
+    offset: [0.015, 0.002, 0]
+    material: chrome
+    collider: none
+  shaft:
+    primitive: cube
+    size: [0.04, 0.003, 0.006]
+    anchor: bottom_center
+    offset: [0.045, 0.002, 0]
+    bevel: 0
+    material: chrome
+    collider: none
+  bit:
+    primitive: cube
+    size: [0.012, 0.003, 0.008]
+    anchor: bottom_center
+    offset: [0.058, 0.002, -0.006]
+    bevel: 0
+    material: chrome
+    collider: none
