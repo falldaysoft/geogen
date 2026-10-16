@@ -754,7 +754,7 @@ func _plan(target: Vector3) -> String:
     var map := get_world_3d().navigation_map
     var from := NavigationServer3D.map_get_closest_point(map, global_position)
     var to := NavigationServer3D.map_get_closest_point(map, target)
-    _path = NavigationServer3D.map_get_path(map, from, to, true)
+    _path = GeogenWalker.find_path(map, from, to)
     _stairs = []
     _stair = null
     _stair_wait = 0.0
@@ -868,8 +868,8 @@ func _use_crosswalk(map: RID, from: Vector3, to: Vector3) -> void:
             var e2: Vector3 = ends[0] if flip else ends[1]
             if from.distance_to(e1) > 60.0 and to.distance_to(e2) > 60.0:
                 continue
-            var first := NavigationServer3D.map_get_path(map, from, e1, true)
-            var last := NavigationServer3D.map_get_path(map, e2, to, true)
+            var first := GeogenWalker.find_path(map, from, e1)
+            var last := GeogenWalker.find_path(map, e2, to)
             if first.is_empty() or last.is_empty() or _on_road(first) or _on_road(last):
                 continue
             var total := _length(first) + e1.distance_to(e2) + _length(last)

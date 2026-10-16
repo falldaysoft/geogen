@@ -739,7 +739,7 @@ func _nav_path(a: Vector3, b: Vector3) -> Dictionary:
     var map: RID = main.get_world_3d().navigation_map
     var from := NavigationServer3D.map_get_closest_point(map, a)
     var to := NavigationServer3D.map_get_closest_point(map, b)
-    var path := NavigationServer3D.map_get_path(map, from, to, true)
+    var path := GeogenWalker.find_path(map, from, to)
     var length := 0.0
     for i in range(1, path.size()):
         length += path[i].distance_to(path[i - 1])

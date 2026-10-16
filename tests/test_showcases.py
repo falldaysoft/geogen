@@ -204,8 +204,10 @@ def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, island_
     out = run_godot("--scene=island", f"--generated={island_dir}", "--playtest=1", engine_args=("--fixed-fps", "60"))
     result = _json_line(out, "playtest: ")
     assert result["ok"] and not result["unreachable_targets"], result
-    # In legs: one query across the whole island hits Godot's path search limit on a 5 cm navmesh.
-    legs = [((0, 2.8, -64), (35.8, 4.3, 7)),            # the jetty's far end -> the lighthouse door
+    # One query across the whole island visits more polygons of the 5 cm navmesh than Godot's
+    # default search allows; GeogenWalker.find_path lifts the limit (geogen.21).
+    legs = [((0, 2.8, -64), (42.3, 14.35, 7)),          # the jetty's far end -> the lighthouse gallery
+            ((0, 2.8, -64), (35.8, 4.3, 7)),            # the jetty's far end -> the lighthouse door
             ((35.8, 4.3, 7), (42.3, 14.35, 7)),          # -> up the spiral stair, round the gallery
             ((0, 2.8, -64), (-28, 7.9, -12.5))]          # the jetty -> the west cottage's door
     for a, b in legs:

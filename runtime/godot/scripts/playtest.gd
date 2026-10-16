@@ -67,7 +67,7 @@ func _check_paths() -> void:
                     and absf(local.y + size.y / 2.0) <= 0.35
                 if not inside:
                     continue
-                path = NavigationServer3D.map_get_path(map, from, target, true)
+                path = GeogenWalker.find_path(map, from, target)
                 ok = path.size() > 0 and path[-1].distance_to(target) < 0.1
         var label := "%s (%s)" % [room["id"], room["type"]]
         if ok:
@@ -80,7 +80,7 @@ func _check_paths() -> void:
             _report["targets"] += 1
             var p := target_node.global_position
             var nearest := NavigationServer3D.map_get_closest_point(map, Vector3(p.x, p.y - 1.0, p.z))
-            var path := NavigationServer3D.map_get_path(map, from, nearest, true)
+            var path := GeogenWalker.find_path(map, from, nearest)
             if path.size() == 0 or Vector2(nearest.x - p.x, nearest.z - p.z).length() > player.spec.reach \
                     or absf(nearest.y - p.y) > 2.0:
                 _report["unreachable_targets"].append("%s/%s" % [it.name, target_node.name])

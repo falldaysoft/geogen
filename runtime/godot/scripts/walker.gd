@@ -33,6 +33,26 @@ func _init(player_: Player, path_: PackedVector3Array) -> void:
         status = "arrived" if path.size() == 1 else "stuck"
 
 
+## Polygons a path search may visit. Godot's default (4096) runs out on a big map's
+## fine (5 cm) navmesh: a 100 m query across the island came back partial, ending
+## where the search stopped. Searches end at the target, so a short query costs no more.
+const PATH_SEARCH_MAX_POLYGONS := 200000
+
+
+## NavigationServer3D.map_get_path (optimized, no metadata) without the default polygon
+## search limit. Every navmesh path query in the runtime goes through this.
+static func find_path(map: RID, from: Vector3, to: Vector3) -> PackedVector3Array:
+    var query := NavigationPathQueryParameters3D.new()
+    query.map = map
+    query.start_position = from
+    query.target_position = to
+    query.path_search_max_polygons = PATH_SEARCH_MAX_POLYGONS
+    query.metadata_flags = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_NONE
+    var result := NavigationPathQueryResult3D.new()
+    NavigationServer3D.query_path(query, result)
+    return result.path
+
+
 ## A navmesh path with each navigation link it takes (a spiral stair, see
 ## GeogenSceneBuilder._stairs_link) replaced by the way round: the path itself only
 ## has the link's two ends, a straight line through the stair. `spans`, when given, gets
