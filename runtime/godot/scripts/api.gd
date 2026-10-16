@@ -214,7 +214,9 @@ func _handle(entry: Dictionary, line: String) -> void:
 func _send(entry: Dictionary, data: Dictionary) -> void:
     var peer: StreamPeerTCP = entry["peer"]
     if peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
-        peer.put_data((JSON.stringify(data) + "\n").to_utf8_buffer())
+        # Full precision: a save (state.save) handed back to state.load must be exactly what was
+        # saved, or a timer due on the very frame can come due a frame early (geogen.51).
+        peer.put_data((JSON.stringify(data, "", true, true) + "\n").to_utf8_buffer())
 
 
 func _emit(stream: String, data: Dictionary) -> void:

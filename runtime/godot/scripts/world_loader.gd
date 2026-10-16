@@ -1274,7 +1274,7 @@ static func write_save(path: String, data: Dictionary) -> String:
     var f := FileAccess.open(path, FileAccess.WRITE)
     if f == null:
         return "can't write %s: %s" % [path, error_string(FileAccess.get_open_error())]
-    f.store_string(JSON.stringify(data, "  "))
+    f.store_string(JSON.stringify(data, "  ", true, true))     # floats round-trip exactly
     f.close()
     return ""
 
