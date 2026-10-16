@@ -1,0 +1,134 @@
+# Tower defense in a grass yard. Robots come out of a stone gate in the south in eight
+# waves and walk a winding dirt path north to a crystal core; each one that reaches it
+# costs lives (its `harm`). Build bolt towers on the six pads beside the path (10 gold
+# each; you start with 25), press NEXT WAVE to send the next wave, and earn gold for each
+# robot a tower stops (its `value`) plus 5 for each wave cleared. Lose every life and the
+# core falls; beat all eight waves and it holds. RESET starts over. The overlook on the
+# east side looks down on the whole yard.
+
+name: tower_defense
+size: [30, 4, 28]
+tags: [level.tower_defense]
+
+spawns:
+  start: {position: [5, 0.05, 12.2], facing: south}
+
+slots:
+  gate:      {position: [0, 0.05, -11.5]}
+  core:      {position: [0, 0.05, 10.6], facing: south}
+  next_wave: {position: [6.2, 0.05, 11.5], facing: south}
+  reset:     {position: [7.4, 0.05, 11.5], facing: south}
+  overlook:  {position: [12, 0.05, -7]}
+  pad_a:     {position: [-3.4, 0.05, -8.6]}
+  pad_b:     {position: [-5.2, 0.05, -0.6]}
+  pad_c:     {position: [2.2, 0.05, -3.4]}
+  pad_d:     {position: [4.6, 0.05, 3.0]}
+  pad_e:     {position: [11.2, 0.05, 2.4]}
+  pad_f:     {position: [3.4, 0.05, 9.6]}
+
+place:
+  ground:
+    asset: ground.yaml
+    params: {width: 30, depth: 28}
+  gate:
+    asset: enemy_gate.yaml
+    slot: gate
+  core:
+    asset: defense_core.yaml
+    slot: core
+  pad_a: {asset: tower_pad.yaml, slot: pad_a}
+  pad_b: {asset: tower_pad.yaml, slot: pad_b}
+  pad_c: {asset: tower_pad.yaml, slot: pad_c}
+  pad_d: {asset: tower_pad.yaml, slot: pad_d}
+  pad_e: {asset: tower_pad.yaml, slot: pad_e}
+  pad_f: {asset: tower_pad.yaml, slot: pad_f}
+  next_wave:
+    asset: console_button.yaml
+    params: {label: NEXT WAVE, colour: signal_green}
+    slot: next_wave
+  reset:
+    asset: console_button.yaml
+    params: {label: RESET, colour: signal_red}
+    slot: reset
+  overlook:
+    asset: overlook.yaml
+    slot: overlook
+
+tracks:
+  path:
+    path: {spline: [[0, 0.07, -11.2], [0, 0.07, -7], [-4, 0.07, -5], [-8, 0.07, -3], [-8, 0.07, 1], [-4, 0.07, 2.5],
+                    [0, 0.07, 1], [4, 0.07, -1], [8, 0.07, 0.5], [8.5, 0.07, 4.5], [5, 0.07, 7], [1.5, 0.07, 7.5],
+                    [0, 0.07, 9.3]], samples: 8}
+    mode: walk
+    spacing: 0.9
+    end: sink
+    surface: {width: 1.6, material: dirt, height: 0}
+
+state:
+  lives: {scope: world, type: number, default: 20}
+  gold:  {scope: world, type: number, default: 25}
+  phase: {scope: world, type: choice, choices: [ready, wave, won, lost], default: ready}
+
+rules:
+  # The core shows how many lives are left.
+  - {id: core_intact, when: "world.lives > 14", do: [{set: core.damage, to: intact}]}
+  - {id: core_cracked, when: "world.lives > 7 and world.lives <= 14", do: [{set: core.damage, to: cracked}]}
+  - {id: core_critical, when: "world.lives > 0 and world.lives <= 7", do: [{set: core.damage, to: critical}]}
+  - {id: core_destroyed, when: "world.lives <= 0", do: [{set: core.damage, to: destroyed}]}
+  - id: send_wave
+    on: {signal: next_wave.pressed}
+    when: "world.phase == 'ready'"
+    do:
+      - {input: gate.start}
+      - {set: world.phase, to: wave}
+      - {notify: "Here they come"}
+      - {play: started}
+  - id: leaked
+    on: {signal: path.received}
+    when: "world.phase != 'lost'"
+    do: [{set: world.lives, to: "max(world.lives - event.harm, 0)"}]
+  - id: bounty
+    on: {signal: gate.killed}
+    do: [{set: world.gold, to: "world.gold + event.value"}]
+  - id: wave_cleared
+    on: {signal: gate.wave_cleared}
+    when: "world.phase == 'wave'"
+    do:
+      - {set: world.phase, to: ready}
+      - {set: world.gold, to: "world.gold + 5"}
+      - {notify: "Wave cleared: 5 gold"}
+      - {play: objective_done}
+  - id: won
+    on: {signal: gate.all_cleared}
+    when: "world.lives > 0"
+    do:
+      - {set: world.phase, to: won}
+      - {play: complete}
+  - id: lost
+    when: "world.lives <= 0 and world.phase == 'wave'"
+    do:
+      - {input: gate.stop}
+      - {input: path.stop}
+      - {set: world.phase, to: lost}
+      - {play: failed}
+  - id: start_over
+    on: {signal: reset.pressed}
+    do:
+      - {input: gate.reset}
+      - {input: path.start}
+      - {reset: "[tag=machine.tower]"}
+      - {set: world.lives, to: 20}
+      - {set: world.gold, to: 25}
+      - {set: world.phase, to: ready}
+      - {notify: "The yard is reset"}
+
+hud:
+  stats:
+    - {label: Lives, value: world.lives, of: 20}
+    - {label: Gold, value: world.gold}
+    - {label: Wave, value: gate.wave, of: 8}
+    - {label: Robots, value: gate.alive}
+  banners:
+    - {when: "world.phase == 'won'", text: "The core holds: all eight waves beaten", tone: good}
+    - {when: "world.phase == 'lost'", text: "The core has fallen. Press RESET to try again", tone: bad}
+    - {when: "world.phase == 'ready' and gate.wave == 0", text: "Build towers on the pads (10 gold), then press NEXT WAVE", tone: info}

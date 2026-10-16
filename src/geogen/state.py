@@ -17,6 +17,11 @@ A scene's ``state:`` belongs to the package, and must say how::
 Instance state makes a scene a reusable unit, as an asset is: placed twice, each copy
 has its own (``self.solved`` in its own wiring, ``puzzle_a.solved`` from the parent).
 
+An asset may also declare world or actor state it reads or writes (``gold: {scope: world,
+type: number, default: 0}``: a tower pad that costs gold), so it builds on its own. It is
+the package's variable: a scene declaring the same name must give the same type, and the
+scene's default wins.
+
 Assets (and scenes) also name what they offer to wiring, relative to themselves so every
 instance wires itself::
 
@@ -143,9 +148,9 @@ def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict
         if scoped and scope not in (*SCOPES, INSTANCE):
             raise StateError(f"{where}: a scene's state needs scope: world (one shared value), actor (one per "
                              f"player or NPC) or instance (one per placed copy of the scene)")
-        if not scoped and scope not in (None, INSTANCE):
-            raise StateError(f"{where}: an asset's state belongs to each placed instance; {scope} state is "
-                             f"declared by a scene")
+        if not scoped and scope not in (None, *SCOPES):
+            raise StateError(f"{where}: an asset's state belongs to each placed instance, or is world or actor "
+                             f"state it uses (the package's); scope {scope} is a scene's")
         kind = var.get("type")
         if kind not in TYPES:
             hint = f" Did you mean '{_ALIASES[kind]}'?" if kind in _ALIASES else ""
@@ -168,6 +173,8 @@ def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict
         entry["default"] = default
         if scoped and scope != INSTANCE:
             entry["scope"] = scope
+        elif not scoped and scope is not None:
+            entry["scope"], entry["used"] = scope, True       # the package's, which a scene may declare too
         out[name] = entry
     return out
 
@@ -464,6 +471,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
     out = Declarations(package)
     problems: dict[str, None] = {}          # in order, once each: instances repeat their asset's mistakes
     declared_at: dict[str, str] = {}
+    used_only: set[str] = set()             # package variables only assets have declared (so far)
     offering: list[tuple[SceneNode, str, dict[str, Any]]] = []
 
     def uid(node: SceneNode) -> str:
@@ -502,17 +510,28 @@ def collect(root: SceneNode, package: str) -> Declarations:
                 spec["default"] = declares.get("values", {}).get(name, spec["default"])
                 out.variables[f"{thing}#{name}"] = spec
                 continue
+            used = spec.pop("used", False)          # an asset's: the package's variable it uses
             key = f"{var['scope']}:{package}.{name}"
             other = next((f"{s}:{package}.{name}" for s in SCOPES if s != var["scope"]
                           and f"{s}:{package}.{name}" in out.variables), None)
+            kind = {k: v for k, v in spec.items() if k != "default"}
             if other is not None:
                 problems[f"{where}: '{name}' is {var['scope']} state here and {other.partition(':')[0]} state at "
                          f"{declared_at[other]}"] = None
+            elif key in out.variables and (used or key in used_only):
+                if {k: v for k, v in out.variables[key].items() if k != "default"} != kind:
+                    problems[f"{where}: {var['scope']} state '{name}' is declared differently at {declared_at[key]}"] = None
+                elif not used:                      # a scene's declaration gives the default
+                    out.variables[key] = spec
+                    used_only.discard(key)
+                    declared_at[key] = where
             elif key in out.variables and out.variables[key] != spec:
                 problems[f"{where}: {var['scope']} state '{name}' is declared differently at {declared_at[key]}"] = None
             else:
                 out.variables[key] = spec
                 declared_at.setdefault(key, where)
+                if used:
+                    used_only.add(key)
         if declares.get("signals") or declares.get("inputs"):
             offering.append((node, thing, declares))
 

@@ -132,7 +132,7 @@ func setup(root: Node) -> void:
                 child.visible = true
                 entry["templates"][str(item["name"])] = child
         entry["at"] = node.global_transform * _vec(data.get("at", [0, 0, 0]))
-        entry.merge({"killed": 0, "wave": 0, "phase": "idle", "timer": 0.0, "group": 0, "left": 0})
+        entry.merge({"killed": 0, "wave": 0, "phase": "idle", "timer": 0.0, "group": 0, "left": 0, "restarts": 0})
         sources[uid] = entry
     _join()
 
@@ -229,6 +229,10 @@ func _physics_process(delta: float) -> void:
     ticks += 1
     for uid in sources:
         var entry: Dictionary = sources[uid]
+        var restarts := int(_read(uid, "restarts", 0))
+        if restarts != entry["restarts"]:
+            entry["restarts"] = restarts
+            _restart(entry)
         if entry["track"] >= 0 and _on_track(entry):
             if entry["data"].get("waves") is Dictionary:
                 _waves(entry, delta)
@@ -258,6 +262,21 @@ func _physics_process(delta: float) -> void:
                 gone.append([id, "stuck"])
     for entry in gone:
         remove(entry[0], entry[1])
+
+
+## Input `reset`: the source's items go, it stops, and its waves and counts start over.
+func _restart(entry: Dictionary) -> void:
+    var uid: String = entry["uid"]
+    for id in items.keys():
+        if items[id]["source"] == uid:
+            remove(id, "cleared")
+    entry.merge({"due": 0.0, "made": 0, "killed": 0, "wave": 0, "phase": "idle", "timer": 0.0, "group": 0,
+        "left": 0}, true)
+    for key in ["current", "pending", "last"]:
+        entry.erase(key)
+    for name_ in ["alive", "emitted", "killed", "wave", "queued"]:
+        _write(uid, name_, 0)
+    _write(uid, "running", false)
 
 
 func _run(entry: Dictionary, delta: float) -> void:
@@ -940,6 +959,7 @@ func restore(data: Dictionary) -> void:
         entry["made"] = int(_read(uid, "emitted", 0))
         entry["killed"] = int(_read(uid, "killed", 0))
         entry["wave"] = int(_read(uid, "wave", 0))
+        entry["restarts"] = int(_read(uid, "restarts", 0))      # restarts already done
     var kept_effectors: Dictionary = data.get("effectors", {})
     for e in effectors:
         e["cool"] = float(kept_effectors.get(e["uid"], {}).get("cool", 0.0))

@@ -47,7 +47,11 @@ default, and exactly one owner. Its key says which:
 
 Every variable is declared, and where it is declared says who owns it. An
 asset's `state:` belongs to each placed instance; a scene's `state:` must give
-each variable `scope: world`, `scope: actor` or `scope: instance`.
+each variable `scope: world`, `scope: actor` or `scope: instance`. An asset may also
+declare `scope: world` or `scope: actor` state it reads or writes (a tower pad that
+costs `world.gold`), so it builds and checks on its own: that is the package's
+variable, a scene declaring the same name must give it the same type, and the scene's
+default wins.
 
 ```yaml
 state:                                      # in an asset: one value per instance

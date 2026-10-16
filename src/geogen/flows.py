@@ -78,6 +78,8 @@ SOURCE_STATE = {
     "queued": "number: items asked for with `emit`, made as soon as there is room (rules set it)",
     "emitted": "number: items made so far (the runtime drives it)",
     "alive": "number: its items in the world now (the runtime drives it)",
+    "restarts": "number: input `reset` adds one; the runtime then takes its items away, stops it and "
+                "starts its waves and counts over",
 }
 
 
@@ -385,7 +387,8 @@ def flow_state(node: SceneNode) -> dict[str, dict[str, Any]]:
             "emitted": {"type": "number", "default": 0, "driven": "flows"},
             "alive": {"type": "number", "default": 0, "driven": "flows"},
             "killed": {"type": "number", "default": 0, "driven": "flows"},
-            "wave": {"type": "number", "default": 0, "driven": "flows"}}
+            "wave": {"type": "number", "default": 0, "driven": "flows"},
+            "restarts": {"type": "number", "default": 0}}
 
 
 def flow_signals(node: SceneNode, fields: dict[str, str] | None = None) -> dict[str, dict[str, Any]]:
@@ -415,8 +418,8 @@ def item_fields(root: SceneNode) -> dict[str, str]:
 
 
 def flow_inputs(node: SceneNode, thing: str) -> dict[str, dict[str, Any]]:
-    """A source's inputs: ``start`` / ``stop`` (running), ``emit`` (one more queued); a track's
-    ``start`` / ``stop``."""
+    """A source's inputs: ``start`` / ``stop`` (running), ``emit`` (one more queued), ``reset``
+    (one more restart: the runtime clears it and starts over); a track's ``start`` / ``stop``."""
     if track_of(node) is not None and source_of(node) is None:
         return {"start": {"set": f"{thing}#running", "to": True}, "stop": {"set": f"{thing}#running", "to": False}}
     if effector_of(node) is not None and source_of(node) is None:
@@ -426,7 +429,9 @@ def flow_inputs(node: SceneNode, thing: str) -> dict[str, dict[str, Any]]:
     queued = f"{thing}#queued"
     return {"start": {"set": f"{thing}#running", "to": True},
             "stop": {"set": f"{thing}#running", "to": False},
-            "emit": {"set": queued, "to": {"op": "+", "args": [{"get": "instance", "id": thing, "name": "queued"}, 1]}}}
+            "emit": {"set": queued, "to": {"op": "+", "args": [{"get": "instance", "id": thing, "name": "queued"}, 1]}},
+            "reset": {"set": f"{thing}#restarts",
+                      "to": {"op": "+", "args": [{"get": "instance", "id": thing, "name": "restarts"}, 1]}}}
 
 
 # ---- tracks -------------------------------------------------------------------------------------

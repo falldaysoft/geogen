@@ -1,0 +1,119 @@
+# The tower defense's tower pad: a square concrete pad with hazard corners where a bolt
+# tower can be built. Use the pad to build it for `cost` gold (refused until the world has
+# that much); built, it is an effector (geogen.flows) that turns its head toward the
+# enemy furthest along within `range` and fires bolts for `damage` each. Origin: on the
+# ground at the pad's middle; the barrel points +Z at rest.
+
+name: tower_pad
+tags: [machine.tower]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  cost:   {default: 10}
+  range:  {default: 5}
+  rate:   {default: 1.5}
+  damage: {default: 2}
+
+effector:
+  range: "{range}"
+  rate: "{rate}"
+  targets: first
+  effect: {damage: "{damage}"}
+  at: muzzle
+  aim: {yaw: head, turn_rate: 360}
+  projectile: {kind: bolt, speed: 16, color: [0.3, 0.9, 1.0]}
+  enabled: false
+
+parts:
+  pad:
+    primitive: cube
+    size: [1.6, 0.1, 1.6]
+    anchor: bottom_center
+    bevel: 0.02
+    bevel_segments: 1
+    material: concrete
+    walkable: true
+  corner: &corner
+    primitive: cube
+    size: [0.3, 0.012, 0.3]
+    anchor: bottom_center
+    offset: [0.6, 0.1, 0.6]
+    bevel: 0
+    material: signal_amber
+    collider: none
+  corner_1: {<<: *corner, offset: [-0.6, 0.1, 0.6]}
+  corner_2: {<<: *corner, offset: [0.6, 0.1, -0.6]}
+  corner_3: {<<: *corner, offset: [-0.6, 0.1, -0.6]}
+  base:                             # the tower, hidden until it is built
+    primitive: cylinder
+    size: [0.9, 0.35, 0.9]
+    anchor: bottom_center
+    offset: [0, 0.1, 0]
+    bevel: 0.03
+    material: metal
+  post:
+    primitive: cylinder
+    size: [0.22, 0.8, 0.22]
+    attach_to: base
+    at: top
+    material: plastic_black
+  head:
+    primitive: cube
+    size: [0.46, 0.3, 0.56]
+    attach_to: post
+    at: top
+    bevel: 0.05
+    bevel_segments: 1
+    material: car_paint
+    tint: [0.15, 0.45, 0.6]
+  lens:
+    primitive: cube
+    size: [0.3, 0.06, 0.02]
+    attach_to: head
+    at: front
+    from: back
+    offset: [0, 0.06, 0]
+    bevel: 0
+    material: glow_accent
+    collider: none
+  barrel:
+    primitive: cylinder
+    size: [0.09, 0.55, 0.09]
+    attach_to: head
+    at: front
+    from: bottom
+    offset: [0, -0.04, 0]
+    rotation: [90, 0, 0]
+    material: metal
+
+interactions:
+  build:
+    targets: [pad]
+    initial: empty
+    when: "world.gold >= {cost}"
+    refused: "A tower costs {cost} gold"
+    states:
+      empty: {prompt: "Build a tower ({cost} gold)", next: built}
+      built: {emit: built}
+    motions:
+      - parts: [base, post, head, lens, barrel]
+        show: [built]
+
+state:
+  gold: {scope: world, type: number, default: 0}    # the yard's purse (the scene's default wins)
+
+bind:
+  self.enabled: "self.build == 'built'"
+
+rules:
+  - id: pay
+    on: {signal: self.built}
+    do: [{set: world.gold, to: "world.gold - {cost}"}]
+
+signals:
+  built: {emit: built}
+
+attachments:
+  muzzle: {anchor: bottom_center, offset: [0, 1.4, 0], offset_mode: absolute}

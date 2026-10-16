@@ -1,0 +1,105 @@
+# The tower defense's enemy gate: a stone arch with iron doors and a dark mouth, a source
+# that plays `waves` (geogen.flows) into the path that starts in it. It starts stopped;
+# `start` sends the next wave (the wave button). A red strip over the arch glows while a
+# wave is coming. Origin: on the ground in the mouth; enemies walk out toward +Z.
+
+name: enemy_gate
+tags: [machine.gate]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  waves: {default: waves/standard.yaml, type: text}
+
+source:
+  waves: "{waves}"
+  at: mouth
+  initial: stopped
+  max_alive: 40
+
+parts:
+  pier_l: &pier
+    primitive: cube
+    size: [0.7, 3.0, 0.9]
+    anchor: bottom_center
+    offset: [-1.25, 0, 0]
+    bevel: 0.04
+    bevel_segments: 1
+    material: stone
+  pier_r:
+    <<: *pier
+    offset: [1.25, 0, 0]
+  lintel:
+    primitive: cube
+    size: [3.3, 0.6, 1.0]
+    anchor: bottom_center
+    offset: [0, 3.0, 0]
+    bevel: 0.04
+    bevel_segments: 1
+    material: stone
+  cap:
+    primitive: cube
+    size: [3.5, 0.12, 1.1]
+    anchor: bottom_center
+    offset: [0, 3.6, 0]
+    bevel: 0.02
+    bevel_segments: 1
+    material: stone
+  mouth_back:                       # the dark beyond: enemies seem to come out of it
+    primitive: cube
+    size: [1.8, 3.0, 0.1]
+    anchor: bottom_center
+    offset: [0, 0, -0.4]
+    bevel: 0
+    material: plastic_black
+  door_l: &door
+    primitive: cube
+    size: [0.12, 2.9, 0.5]
+    anchor: bottom_center
+    offset: [-0.84, 0, 0.62]
+    rotation: [0, -55, 0]
+    bevel: 0.01
+    bevel_segments: 1
+    material: lamp_iron
+  door_r:
+    <<: *door
+    offset: [0.84, 0, 0.62]
+    rotation: [0, 55, 0]
+  strip_dark:
+    primitive: cube
+    size: [2.4, 0.12, 0.04]
+    anchor: bottom_center
+    offset: [0, 3.24, 0.5]
+    bevel: 0
+    material: plastic_black
+    collider: none
+  strip:                            # lit while a wave is coming
+    primitive: cube
+    size: [2.4, 0.12, 0.04]
+    anchor: bottom_center
+    offset: [0, 3.24, 0.51]
+    bevel: 0
+    material: signal_red
+    collider: none
+
+interactions:
+  glow:
+    initial: off
+    states:
+      off: {}
+      on: {}
+    motions:
+      - parts: [strip]
+        show: [on]
+
+rules:
+  - id: glow
+    on: {changed: self.running, to: true}
+    do: [{set: self.glow, to: "on"}]
+  - id: dark
+    on: {changed: self.running, to: false}
+    do: [{set: self.glow, to: "off"}]
+
+attachments:
+  mouth: {anchor: bottom_center, offset: [0, 0, 0.3], offset_mode: absolute}

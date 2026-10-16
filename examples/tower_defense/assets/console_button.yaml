@@ -1,0 +1,78 @@
+# A big push button on a waist-high pedestal with a lettered plate: press it and it emits
+# `pressed`, then springs back. The tower defense has two: one sends the next wave, one
+# starts over. Origin: on the ground under the pedestal; the plate faces +Z.
+
+name: console_button
+tags: [switch.button]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  label:  {default: NEXT WAVE, type: text}
+  colour: {default: signal_green, type: text, choices: [signal_green, signal_red, signal_amber]}
+
+parts:
+  pedestal:
+    primitive: cube
+    size: [0.5, 0.95, 0.4]
+    anchor: bottom_center
+    bevel: 0.03
+    bevel_segments: 1
+    material: metal
+  top:
+    primitive: cube
+    size: [0.56, 0.06, 0.46]
+    anchor: bottom_center
+    offset: [0, 0.95, 0]
+    bevel: 0.02
+    bevel_segments: 1
+    material: plastic_black
+  collar:
+    primitive: cylinder
+    size: [0.24, 0.04, 0.24]
+    anchor: bottom_center
+    offset: [0, 1.01, 0]
+    material: metal
+  button:
+    primitive: cylinder
+    size: [0.18, 0.07, 0.18]
+    anchor: bottom_center
+    offset: [0, 1.03, 0]
+    bevel: 0.02
+    material: "{colour}"
+  plate:
+    primitive: cube
+    size: [0.46, 0.16, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.62, 0.2]
+    bevel: 0
+    material: plastic_black
+    collider: none
+  lettering:
+    primitive: text
+    text: "{label}"
+    height: 0.055
+    depth: 0.006
+    anchor: bottom_center
+    offset: [0, 0.67, 0.212]
+    material: paint_white
+    collider: none
+
+interactions:
+  press:
+    targets: [button, collar]
+    initial: up
+    duration: 0.15
+    states:
+      up:   {prompt: "Press: {label}", next: down}
+      down: {then: up, after: 0.6, emit: pressed}
+    motions:
+      - parts: [button]
+        translate: y
+        values: {up: 0, down: -0.035}
+
+signals:
+  pressed: {emit: pressed}
+
+clearance: {front: 0.6}

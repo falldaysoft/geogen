@@ -207,7 +207,8 @@ def interpolate_string(value: str, params: dict[str, float]) -> str | float:
     - If `value` is exactly one `{expr}`, returns a float.
     - If `value` is a bare unit literal (e.g. `"50cm"`), returns a float.
     - Otherwise returns a string with each `{expr}` replaced by its value
-      (when the expression resolves to a number, it's formatted with `str`).
+      (a number is formatted with `str`, whole numbers without a decimal point:
+      "costs {cost} gold" -> "costs 10 gold").
     """
     # Bare unit literal, no braces needed.
     literal = _literal_with_unit(value)
@@ -226,7 +227,8 @@ def interpolate_string(value: str, params: dict[str, float]) -> str | float:
     def _sub(match: re.Match[str]) -> str:
         if isinstance(params.get(match.group(1).strip()), str):
             return params[match.group(1).strip()]
-        return str(evaluate(match.group(1), params))
+        found = evaluate(match.group(1), params)
+        return str(int(found)) if isinstance(found, float) and found.is_integer() else str(found)
 
     return _INTERP_RE.sub(_sub, value)
 

@@ -1,0 +1,91 @@
+# The tower defense's core: a glowing crystal on a stone plinth inside a ring of iron posts,
+# what the enemies walk to. Its `damage` follows the lives left (the scene binds it): intact,
+# cracked (a red heart glows in it), critical (the crystal has shattered: the bare heart
+# among shards) and destroyed (only shards). Origin: on the ground at the middle; the
+# path arrives from +Z.
+
+name: defense_core
+tags: [machine.core]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  plinth:                           # stands in the step, so their bottoms don't meet
+    primitive: cylinder
+    size: [1.6, 0.4, 1.6]
+    anchor: bottom_center
+    offset: [0, 0.1, 0]
+    bevel: 0.04
+    material: stone
+  step:
+    primitive: cylinder
+    size: [2.2, 0.2, 2.2]
+    anchor: bottom_center
+    bevel: 0.03
+    material: stone
+  crystal:
+    primitive: lathe
+    profile: [[0, 0], [0.3, 0.35], [0.36, 0.9], [0.22, 1.4], [0, 1.7]]
+    segments: 6
+    size: [0.72, 1.7, 0.72]
+    anchor: bottom_center
+    offset: [0, 0.5, 0]
+    material: portal_glow
+    collider: hull
+  heart:                            # a red glow inside it once it is hurt
+    primitive: lathe
+    profile: [[0, 0], [0.12, 0.2], [0.14, 0.45], [0.08, 0.7], [0, 0.85]]
+    segments: 6
+    size: [0.28, 0.85, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.85, 0]
+    material: signal_red
+    collider: none
+  shard_a: &shard
+    primitive: cube
+    size: [0.14, 0.08, 0.22]
+    anchor: bottom_center
+    offset: [0.55, 0.2, 0.3]
+    rotation: [0, 30, 10]
+    bevel: 0
+    material: portal_glow
+    collider: none
+  shard_b:
+    <<: *shard
+    offset: [-0.45, 0.2, -0.5]
+    rotation: [0, -50, -12]
+  shard_c:
+    <<: *shard
+    offset: [-0.6, 0.2, 0.4]
+    rotation: [0, 75, 6]
+  post: &post
+    primitive: cylinder
+    size: [0.1, 1.0, 0.1]
+    anchor: bottom_center
+    offset: [1.45, 0, 0]
+    material: lamp_iron
+  post_1: {<<: *post, offset: [-1.45, 0, 0]}
+  post_2: {<<: *post, offset: [0, 0, -1.45]}
+  post_3: {<<: *post, offset: [1.03, 0, -1.03]}
+  post_4: {<<: *post, offset: [-1.03, 0, -1.03]}
+  post_5: {<<: *post, offset: [1.03, 0, 1.03]}
+  post_6: {<<: *post, offset: [-1.03, 0, 1.03]}
+
+interactions:
+  damage:
+    initial: intact
+    states:
+      intact: {}
+      cracked: {}
+      critical: {}
+      destroyed: {}
+    motions:
+      - parts: [heart]
+        show: [cracked, critical]
+      - parts: [shard_a, shard_b, shard_c]
+        show: [critical, destroyed]
+      - parts: [crystal]
+        show: [intact, cracked]
+
+clearance: {front: 1.0, back: 1.0, left: 1.0, right: 1.0}

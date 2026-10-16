@@ -238,8 +238,8 @@ def test_conditions_see_declared_state(assets):
      r"lamp.yaml:\d+: state.post_2: default 3 isn't a bool"),
     ("lamp", "lit:    {type: bool, default: false}", "lit:    {type: string, default: x}",
      r"state.lit: type must be one of bool, number, text, choice, got 'string'. Did you mean 'text'\?"),
-    ("lamp", "lit:    {type: bool, default: false}", "lit:    {type: bool, default: false, scope: world}",
-     r"state.lit: an asset's state belongs to each placed instance; world state is declared by a scene"),
+    ("lamp", "lit:    {type: bool, default: false}", "lit:    {type: bool, default: false, scope: instance}",
+     r"state.lit: an asset's state belongs to each placed instance, or is world or actor state it uses"),
     ("lamp", "light:  {set: lit}", "light:  {sets: lit}", r"inputs.light: unknown key 'sets'. Did you mean 'set'\?"),
     ("lamp", "switched_on: {changed: lit, to: true}", "switched_on: {changed: lit, emit: x}", "a signal has one of"),
     ("wiring", "power:      {scope: world, type: bool, default: true}", "power:      {type: bool, default: true}",
@@ -280,6 +280,19 @@ place:
     with pytest.raises(StateError, match=r"wiring.yaml:5: state.power: 'power' is world state here and actor state "
                                          r"at .*outer.yaml:5: state.power"):
         collect(compose(assets, "outer"), "outer")
+
+
+def test_an_asset_may_use_the_packages_state(assets):
+    """An asset declaring world state it uses builds alone; placed, it is the scene's variable
+    (the scene's default wins), and a different type is a clash."""
+    rewrite(assets, "lamp", "lit:    {type: bool, default: false}",
+            "lit:    {type: bool, default: false}\n  power: {scope: world, type: bool, default: false}")
+    found = collect(compose(assets), "wiring")
+    assert found.variables["world:wiring.power"] == {"type": "bool", "default": True}
+    rewrite(assets, "lamp", "power: {scope: world, type: bool, default: false}",
+            "power: {scope: world, type: number, default: 0}")
+    with pytest.raises(StateError, match=r"state.power: world state 'power' is declared differently"):
+        collect(compose(assets), "wiring")
 
 
 def test_declare_adds_variables():

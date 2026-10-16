@@ -1,0 +1,50 @@
+# The tower defense's overlook: a timber deck on posts 2.6 m up, railed round, with a
+# straight stair on its +Z side, for looking down on the whole yard. Origin: on the ground
+# under the middle of the deck.
+
+name: overlook
+tags: [architecture.platform]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: {default: 2.6}
+
+parts:
+  deck:
+    primitive: cube
+    size: [3.2, 0.16, 3.2]
+    anchor: bottom_center
+    offset: [0, "{height - 0.16}", 0]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood
+    walkable: true
+  post: &post
+    primitive: cube
+    size: [0.16, "{height - 0.16}", 0.16]
+    anchor: bottom_center
+    offset: [1.45, 0, 1.45]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood_dark
+  post_1: {<<: *post, offset: [-1.45, 0, 1.45]}
+  post_2: {<<: *post, offset: [1.45, 0, -1.45]}
+  post_3: {<<: *post, offset: [-1.45, 0, -1.45]}
+  railing:
+    primitive: fence
+    path: [[0.4, 1.55], [1.55, 1.55], [1.55, -1.55], [-1.55, -1.55], [-1.55, 1.55], [-0.75, 1.55]]
+    height: 1.0
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    material: wood_dark
+  stair:
+    primitive: stairs
+    style: straight
+    rise: "{height - 0.003}"           # its top step just under the deck's top
+    width: 1.05
+    railing: both
+    anchor: bottom_center
+    offset: [-0.17, 0, "{1.6 + height / 0.18 * 0.28 / 2}"]
+    material: wood

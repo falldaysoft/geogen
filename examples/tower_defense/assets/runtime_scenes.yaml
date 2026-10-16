@@ -1,0 +1,7 @@
+# The tower defense's runtime catalogue (python -m geogen.main --project examples/tower_defense --export-catalogue).
+kind: scene_catalogue
+default: tower_defense
+scenes:
+  tower_defense:
+    group: showcase
+    description: Waves of robots walk a winding path to a crystal core; build towers on pads to stop them

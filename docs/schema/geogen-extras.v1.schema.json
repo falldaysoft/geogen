@@ -289,7 +289,7 @@
               "properties": {
                 "items": {
                   "type": "array",
-                  "minItems": 1,
+                  "description": "What it makes: none yet for a waves source built alone (its waves are read when it is placed).",
                   "items": {
                     "type": "object",
                     "required": ["item", "weight"],

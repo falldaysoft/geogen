@@ -72,7 +72,8 @@ class TestInterpolateString:
 
     def test_embedded_interp_returns_string(self):
         result = interpolate_string("prefix_{width}_suffix", {"width": 6})
-        assert result == "prefix_6.0_suffix"
+        assert result == "prefix_6_suffix"                  # a whole number has no decimal point
+        assert interpolate_string("{w / 4} m", {"w": 6}) == "1.5 m"
 
     def test_plain_string_unchanged(self):
         assert interpolate_string("hello", {}) == "hello"

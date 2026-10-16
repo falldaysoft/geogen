@@ -647,6 +647,10 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
   Sources start `SETTLE_FRAMES` after `world_loaded` (the player's body sits at the
   origin for a frame or two), and wait while their last item is still within two of
   its radii of the spawn point (two bodies made in one place fly apart).
+- **Starting over:** the `reset` input adds one to a source's `restarts` state. When a
+  source sees it change (`GeogenFlows._restart`) its items are taken away, it stops,
+  and its waves and its counts (`emitted`, `alive`, `killed`, `wave`, `queued`) go back
+  to 0. A restored save takes the count as already done.
 - **Sinks:** a place with `sink` (`{accepts: [item names]}`; empty: any) takes in a
   flow item whose body enters its area (`WorldLoader._place_crossed` ->
   `GeogenFlows.take`): the item goes, the sink's `received` counts it, and it posts
