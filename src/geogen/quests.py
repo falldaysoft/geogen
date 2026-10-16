@@ -338,6 +338,7 @@ class Quests:
         self.hud: dict[str, Any] = {}                   # the manifest's `hud` (geogen.hud), compiled
         self.warnings: list[str] = []                   # what an export prints but doesn't refuse
         self.items: dict[str, dict[str, Any]] = {}      # id -> {title, tags?}: the items its rules name
+        self.dialogues: dict[str, Any] = {}             # the manifest's `dialogues` (geogen.dialogue)
 
     def __bool__(self) -> bool:
         return bool(self.quests)
@@ -1144,7 +1145,8 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
                    bindings: Iterable[dict[str, Any]] = (), built: Iterable[dict[str, Any]] = (),
                    guards: Iterable[tuple[str, str, SceneNode]] = (),
                    huds: Iterable[tuple[dict[str, Any], Any, SceneNode]] = (),
-                   items: Iterable[str] = ()) -> Quests:
+                   items: Iterable[str] = (),
+                   dialogues: Iterable[tuple[dict[str, Any], Any, SceneNode | None]] = ()) -> Quests:
     """Compile quest specs against ``declarations`` (their variables are added to it).
 
     A spec is the dict of a quest file, or ``(spec, source file, scene node)``. With a
@@ -1207,6 +1209,11 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
         from .hud import compile_hud
 
         compiler.out.hud = compile_hud(compiler, huds)
+    dialogues = list(dialogues)
+    if dialogues:
+        from .dialogue import compile_dialogues
+
+        compiler.out.dialogues = compile_dialogues(compiler, dialogues)
     for quest in compiler.quests:
         rules_of = compiler.quest_rules.get(quest.id, [])
         if quest.spec.get("rewards"):
@@ -1283,10 +1290,13 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     huds = hud_sources(root)
     keys = [str(it.lock["key"]) for node in root.iter_nodes() for it in node.interactions
             if it.lock and it.lock.get("key")]
-    if not specs and not wiring and not built and not guards and not huds and not keys:
+    from .dialogue import sources as dialogue_sources
+
+    dialogues = dialogue_sources(root)
+    if not specs and not wiring and not built and not guards and not huds and not keys and not dialogues:
         return Quests(declarations)
     return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False, built=built,
-                          guards=guards, huds=huds, items=keys)
+                          guards=guards, huds=huds, items=keys, dialogues=dialogues)
 
 
 def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
@@ -1319,5 +1329,5 @@ def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
         quests["markers"] = markers(root, found)
     sections = {"state": found.declarations.to_json() if found.declarations else None,
                 "rules": found.rules_json(), "quests": quests, "hud": found.hud or None,
-                "items": dict(sorted(found.items.items())) or None}
+                "items": dict(sorted(found.items.items())) or None, "dialogues": found.dialogues or None}
     return {name: section for name, section in sections.items() if section}

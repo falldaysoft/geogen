@@ -276,6 +276,26 @@ Giving something to someone else is a take from the giver in a rule on whatever
 event stands for the handing over (greeting an NPC, using a counter). Trace
 `items.json`.
 
+## Dialogue
+
+A `kind: dialogue` file (`dialogues/<id>.yaml`, listed under a scene's `dialogues:`)
+is passages with choices, anchored to a thing, NPC, place or room
+(`geogen/dialogue.py`; geogen.17). Like a quest it compiles to state and rules:
+
+- The open passage is actor state `actor:<pkg>.dialogue_<id>` (text, "" closed).
+- It opens when the player greets an NPC anchor, enters a place or room anchor, or
+  uses an interaction of any other anchor (`open:` names another event), at `start`:
+  a passage, or `[{when, passage}, ..., passage]` (the first that holds).
+- A choice is the anchor's signal `dialogue` with data `{passage, choice}`, raised
+  by the runtime for the actor choosing; choice "" closes it. A rule per choice
+  checks that passage is the open one and the choice's `when` holds, runs its `do`
+  (any effect) and moves to its `goto` (none: closes).
+- Text may hold `{condition}` parts, shown as their value for the actor.
+- The manifest's `dialogues` section has, per dialogue, `anchor`, `state` and
+  `passages: {name: {text: [string | {value: tree}], choices: [{id, text, when?,
+  goto?}]}}`. Export rejects a `goto` or `start` naming no passage and passages
+  nothing leads to, besides what quests' checks catch.
+
 ## Bindings
 
 `{"set": key, "to": <condition tree>}` is a standing relation: the variable

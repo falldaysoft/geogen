@@ -258,6 +258,10 @@ class SceneComposer:
             from ..quests import declare_scene as declare_quests
 
             declare_quests(root, data, source, self._assets_dir)
+        if data.get("dialogues"):
+            from ..dialogue import declare_scene as declare_dialogues
+
+            declare_dialogues(root, data, source, self._assets_dir)
 
         # Parse slot definitions
         slots = self._parse_slots(data.get("slots", {}), size)

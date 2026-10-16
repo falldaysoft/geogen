@@ -62,6 +62,7 @@
 | `wire` | [{from: <thing>.<signal>, to: <thing>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
 | `quests` | [quests/name.yaml, ...]: the `kind: quest` files this scene contributes (docs/quests.md); `{file, if: "{expr}"}` contributes one only when the expression isn't 0 |
+| `dialogues` | [dialogues/name.yaml \| {file, if}]: conversations anchored to things (geogen.dialogue) |
 | `hud` | {stats: [{label, value, of}], banners: [{when, text, tone}]}: on-screen numbers (geogen.hud) |
 | `physics` | {ticks: n}: physics steps a second while the scene is loaded (runtime default 60); fast rolling bodies on curved meshes need 120 |
 | `spawns` | {name: {position \| anchor, facing}}: where the player can start |

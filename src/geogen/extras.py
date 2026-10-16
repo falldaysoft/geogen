@@ -33,6 +33,7 @@ BUILD_ONLY: dict[str, str] = {
     "railway": "the line's points, stations and crossings: the manifest's traffic.railways",
     "declares": "state, signals and inputs as authored: compiled into the manifest's state (state.collect)",
     "quests": "quest specs as authored: compiled into the manifest's quests and rules (quests.collect)",
+    "dialogues": "dialogue specs as authored: compiled into the manifest's dialogues and rules (geogen.dialogue)",
     "wiring": "rules, wires and bindings as authored: compiled into the manifest's rules",
     "hud": "HUD stats and banners as authored: compiled into the manifest's hud (geogen.hud)",
     "physics_ticks": "a scene's physics: {ticks}: exported as the manifest's physics",
