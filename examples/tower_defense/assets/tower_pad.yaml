@@ -14,7 +14,7 @@ params:
   cost:   {default: 10}
   range:  {default: 5}
   rate:   {default: 1.5}
-  damage: {default: 2}
+  damage: {default: 1}
 
 effector:
   range: "{range}"

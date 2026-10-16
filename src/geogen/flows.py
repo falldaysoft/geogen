@@ -631,19 +631,22 @@ def at_distance(track: dict[str, Any], s: float) -> np.ndarray:
 
 
 def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
-             running: dict[str, bool] | None = None) -> dict[str, Any]:
+             running: dict[str, bool] | None = None, auto: bool | None = None) -> dict[str, Any]:
     """The reference for what the runtime does with track items (belt, walk and roll modes;
     physics items off tracks and sinks on places are the physics engine's): ``ticks``
     steps of ``dt`` from an empty world. ``running`` overrides sources' and tracks' running
-    and effectors' enabled state by node name. Returns ``{items: [{id, item, track (index), s,
-    hp?}], emitted, killed, wave: [per source], received: [per track], taken: [per effector],
-    events: [[tick, kind, ...]]}``. flows.gd steps the same way: sources (in position order),
+    and effectors' enabled state by node name; ``auto`` overrides every waves file's ``auto``
+    (True: each wave follows the last, as if a rule started the source again). Returns
+    ``{items: [{id, item, track (index), s, hp?}], emitted, killed, wave: [per source],
+    received: [per track], through: [per track: the names of the items it took in],
+    taken: [per effector], events: [[tick, kind, ...]]}``. flows.gd steps the same way: sources (in position order),
     then tracks, then effectors."""
     net = network(root)
     running = running or {}
     tracks, sources, effectors = net["tracks"], net["sources"], net["effectors"]
     for t in tracks:
         t["received"] = 0
+        t["through"] = []
         t["on"] = running.get(t["node"].name, True)
     for s in sources:
         s.update(due=0.0, made=0, killed=0, wave=0, phase="idle", timer=0.0, group=0, left=0)
@@ -693,7 +696,7 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                 if s["wave"] >= len(plan["list"]):
                     events.append([tick, "all_cleared", k, s["wave"]])
                     s["on"] = False
-                elif not plan["auto"]:
+                elif not (plan["auto"] if auto is None else auto):
                     s["on"] = False
             return
         if not s["on"]:
@@ -782,6 +785,7 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                     elif track["end"] in ("auto", "sink") and (not track["accepts"] or it["item"] in track["accepts"]):
                         remove(it)
                         track["received"] += 1
+                        track["through"].append(it["item"])
                         events.append([tick, "received", index, it["id"]])
                     elif track["end"] == "drop":
                         remove(it)
@@ -831,4 +835,5 @@ def simulate(root: SceneNode, ticks: int, dt: float = 1.0 / 60.0,
                        **({"hp": it["data"]["hp"]} if "hp" in it["data"] else {})} for it in items],
             "emitted": [s["made"] for s in sources], "killed": [s["killed"] for s in sources],
             "wave": [s["wave"] for s in sources], "received": [t["received"] for t in tracks],
+            "through": [t["through"] for t in tracks],
             "taken": [e["taken"] for e in effectors], "events": events}

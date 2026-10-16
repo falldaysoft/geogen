@@ -7,29 +7,29 @@ waves:
   - delay: 2
     items: [{item: items/grunt.yaml, count: 6, gap: 1.6}]
   - delay: 2
-    items: [{item: items/grunt.yaml, count: 9, gap: 1.2}]
+    items: [{item: items/grunt.yaml, count: 10, gap: 1.1}]
   - delay: 2
     items:
-      - {item: items/runner.yaml, count: 6, gap: 0.8}
-      - {item: items/grunt.yaml, count: 5, gap: 1.2}
-  - delay: 2
-    items:
-      - {item: items/grunt.yaml, count: 10, gap: 1.0}
-      - {item: items/brute.yaml, count: 1, gap: 1.0}
-  - delay: 2
-    items:
-      - {item: items/runner.yaml, count: 10, gap: 0.6}
+      - {item: items/runner.yaml, count: 8, gap: 0.7}
       - {item: items/grunt.yaml, count: 6, gap: 1.0}
   - delay: 2
     items:
-      - {item: items/brute.yaml, count: 3, gap: 3.0}
-      - {item: items/grunt.yaml, count: 10, gap: 0.9}
+      - {item: items/grunt.yaml, count: 12, gap: 0.9}
+      - {item: items/brute.yaml, count: 2, gap: 2.5}
   - delay: 2
     items:
-      - {item: items/runner.yaml, count: 12, gap: 0.5}
+      - {item: items/runner.yaml, count: 14, gap: 0.5}
+      - {item: items/grunt.yaml, count: 10, gap: 0.8}
+  - delay: 2
+    items:
       - {item: items/brute.yaml, count: 4, gap: 2.5}
+      - {item: items/grunt.yaml, count: 14, gap: 0.7}
   - delay: 2
     items:
+      - {item: items/runner.yaml, count: 18, gap: 0.4}
       - {item: items/brute.yaml, count: 6, gap: 2.0}
-      - {item: items/grunt.yaml, count: 12, gap: 0.8}
-      - {item: items/runner.yaml, count: 10, gap: 0.5}
+  - delay: 2
+    items:
+      - {item: items/brute.yaml, count: 8, gap: 1.6}
+      - {item: items/grunt.yaml, count: 16, gap: 0.7}
+      - {item: items/runner.yaml, count: 16, gap: 0.4}

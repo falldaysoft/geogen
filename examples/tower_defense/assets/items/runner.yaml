@@ -1,7 +1,7 @@
-# A runner: quick and fragile. 3 hp, worth 2 gold, 1 harm; it gets past slow towers.
+# A runner: quick and fragile. 4 hp, worth 2 gold, 1 harm; it gets past slow towers.
 kind: item
 body: runner.yaml
 mode: walk
 speed: 1.7
 gait: {stride: 0.3, bob: 0.02, sway: 3, waddle: 2}
-data: {hp: 3, value: 2, harm: 1}
+data: {hp: 4, value: 2, harm: 1}
