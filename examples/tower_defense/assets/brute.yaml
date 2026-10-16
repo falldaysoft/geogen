@@ -1,0 +1,76 @@
+# The tower defense's brute: a hulking armoured walker, a broad dark hull with shoulder
+# plates, a small head and thick legs, about 1.4 m tall (items/brute.yaml). Origin: bottom
+# centre; it walks toward +Z.
+
+name: brute
+tags: [prop.enemy]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  leg_l: &leg
+    primitive: cube
+    size: [0.2, 0.5, 0.24]
+    anchor: bottom_center
+    offset: [-0.2, 0.0, 0]
+    bevel: 0.04
+    bevel_segments: 1
+    material: plastic_black
+  leg_r:
+    <<: *leg
+    offset: [0.2, 0.0, 0]
+  hull:
+    primitive: cube
+    size: [0.8, 0.62, 0.56]
+    anchor: bottom_center
+    offset: [0, 0.48, 0]
+    bevel: 0.08
+    bevel_segments: 1
+    material: metal
+  plate:
+    primitive: cube
+    size: [0.62, 0.36, 0.06]
+    anchor: bottom_center
+    offset: [0, 0.6, 0.28]
+    bevel: 0.02
+    bevel_segments: 1
+    material: red_metal
+  shoulder_l: &shoulder
+    primitive: cube
+    size: [0.26, 0.16, 0.42]
+    anchor: bottom_center
+    offset: [-0.47, 0.98, 0]
+    bevel: 0.05
+    bevel_segments: 1
+    material: red_metal
+  shoulder_r:
+    <<: *shoulder
+    offset: [0.47, 0.98, 0]
+  arm_l: &arm
+    primitive: cube
+    size: [0.18, 0.46, 0.2]
+    anchor: bottom_center
+    offset: [-0.5, 0.54, 0.02]
+    bevel: 0.04
+    bevel_segments: 1
+    material: metal
+  arm_r:
+    <<: *arm
+    offset: [0.5, 0.54, 0.02]
+  head:
+    primitive: cube
+    size: [0.26, 0.2, 0.24]
+    anchor: bottom_center
+    offset: [0, 1.1, 0.08]
+    bevel: 0.04
+    bevel_segments: 1
+    material: plastic_black
+  eye:
+    primitive: cube
+    size: [0.18, 0.04, 0.03]
+    anchor: bottom_center
+    offset: [0, 1.2, 0.2]
+    bevel: 0.01
+    bevel_segments: 1
+    material: signal_red

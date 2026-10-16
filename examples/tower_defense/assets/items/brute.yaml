@@ -1,0 +1,7 @@
+# A brute: slow and heavily armoured. 24 hp, worth 8 gold, 3 harm if it reaches the core.
+kind: item
+body: brute.yaml
+mode: walk
+speed: 0.6
+gait: {stride: 0.7, bob: 0.05, sway: 6, waddle: 3}
+data: {hp: 24, value: 8, harm: 3}

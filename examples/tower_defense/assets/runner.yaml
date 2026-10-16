@@ -1,0 +1,50 @@
+# The tower defense's runner: a low, quick four-legged critter bot, a domed shell on thin
+# legs with one eye, about 0.45 m tall (items/runner.yaml). Origin: bottom centre; it runs
+# toward +Z.
+
+name: runner
+tags: [prop.enemy]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  shell:
+    primitive: ellipsoid
+    size: [0.34, 0.2, 0.46]
+    anchor: bottom_center
+    offset: [0, 0.2, 0]
+    material: play_yellow
+  belly:
+    primitive: cube
+    size: [0.26, 0.06, 0.34]
+    anchor: bottom_center
+    offset: [0, 0.2, 0]
+    bevel: 0.02
+    bevel_segments: 1
+    material: plastic_black
+  eye:
+    primitive: sphere
+    size: [0.08, 0.08, 0.08]
+    anchor: bottom_center
+    offset: [0, 0.28, 0.2]
+    material: signal_red
+  leg_fl: &leg
+    primitive: cube
+    size: [0.03, 0.24, 0.03]
+    anchor: bottom_center
+    offset: [-0.15, 0, 0.13]
+    rotation: [0, 0, -18]
+    bevel: 0
+    material: metal
+  leg_fr:
+    <<: *leg
+    offset: [0.15, 0, 0.13]
+    rotation: [0, 0, 18]
+  leg_bl:
+    <<: *leg
+    offset: [-0.15, 0, -0.13]
+  leg_br:
+    <<: *leg
+    offset: [0.15, 0, -0.13]
+    rotation: [0, 0, 18]

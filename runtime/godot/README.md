@@ -662,7 +662,10 @@ Sources make copies of item templates while the game runs (`geogen/flows.py`;
   puts its items there, one a frame when the start is clear; each frame every running
   track (its `running` state) moves its items, leaders first: belt items at the track's
   speed, walk items at their own, none closer to the one ahead than `spacing` or the two
-  radii, facing along the track. At the end an item goes on to the track starting
+  radii, facing along the track. An item with `gait` (`{stride, bob, sway, waddle}`)
+  steps as it goes: its body rises `bob` m twice a stride, rocks `sway` degrees and
+  swings its heading `waddle` degrees, keyed to the distance it has walked (drawn
+  only: positions and reports are the track's). At the end an item goes on to the track starting
   within `JOIN` (`end: auto`), is taken in (`received`, signal `received {item, ...}`),
   waits (`stop`) or falls off as a physics body (`drop`). Tracks and sources are stepped
   in position order, and sources pick among their items by smooth weighted round robin,

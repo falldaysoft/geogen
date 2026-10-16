@@ -1,0 +1,8 @@
+# A project built on geogen: a tower defense yard. Enemies come out of a gate in waves and
+# walk a winding path to the core; towers built on pads beside it shoot them for gold, and
+# each one that gets through costs lives. Played in first person, with an overlook.
+#   python -m geogen.main --project examples/tower_defense --export-catalogue
+#   godot --path runtime/godot -- --generated=$PWD/examples/tower_defense/generated
+kind: project
+name: tower_defense
+description: Tower defense - waves of robots walk a path to a core; towers on pads shoot them

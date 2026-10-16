@@ -57,7 +57,10 @@ ITEM_KEYS = {
     "radius": "m: how much room it takes (default: from the body's bounds)",
     "lifetime": "s before it is taken away wherever it is (0: no limit)",
     "stuck": "s a physics item may rest anywhere but a sink before it is taken away (0: never; default 10)",
+    "gait": "{stride: m, bob: m, sway: deg, waddle: deg}: a walk item's body bobs (twice a stride), rocks "
+            "side to side and swings its heading as it goes (the runtime draws it; positions are unchanged)",
 }
+GAIT_KEYS = {"stride": 0.5, "bob": 0.0, "sway": 0.0, "waddle": 0.0}
 SOURCE_KEYS = {
     "items": "an item file, or [{item, weight}]: what it makes (weighted, in turn)",
     "waves": "a waves file: it sends those, wave by wave, instead of items at a rate",
@@ -121,6 +124,14 @@ def load_item(path: str | Path) -> dict[str, Any]:
     for key in ("speed", "radius"):
         if key in spec:
             out[key] = float(spec[key])
+    if "gait" in spec:
+        gait = spec["gait"]
+        if not isinstance(gait, dict) or set(gait) - set(GAIT_KEYS) \
+                or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in gait.values()):
+            raise FlowError(f"{where}: gait is {{{', '.join(GAIT_KEYS)}}} (numbers), got {gait!r}")
+        out["gait"] = {k: float(gait.get(k, default)) for k, default in GAIT_KEYS.items()}
+        if out["gait"]["stride"] <= 0:
+            raise FlowError(f"{where}: gait stride is more than 0 m")
     return out
 
 

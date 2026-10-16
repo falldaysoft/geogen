@@ -649,6 +649,13 @@ func _place_on(it: Dictionary) -> void:
         basis = basis * Basis(Vector3.RIGHT, float(it["travelled"]) / r)
         var centre := at + Vector3.UP * r              # it turns about its middle, not its origin
         node.global_transform = Transform3D(basis, centre - basis * (Vector3.UP * r))
+    elif it["def"].has("gait"):
+        # A walking body steps: up twice a stride, rocking and swinging its heading once.
+        var gait: Dictionary = it["def"]["gait"]
+        var phase := float(it["travelled"]) / float(gait["stride"]) * TAU
+        basis = basis * Basis(Vector3.UP, deg_to_rad(float(gait["waddle"])) * sin(phase)) \
+            * Basis(Vector3.BACK, deg_to_rad(float(gait["sway"])) * sin(phase))
+        node.global_transform = Transform3D(basis, at + Vector3.UP * float(gait["bob"]) * absf(sin(phase)))
     else:
         node.global_transform = Transform3D(basis, at)
 

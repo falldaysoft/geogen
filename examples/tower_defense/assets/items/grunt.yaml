@@ -1,0 +1,7 @@
+# A grunt: the common walker. Steady pace, 6 hp, worth 2 gold, 1 harm if it reaches the core.
+kind: item
+body: grunt.yaml
+mode: walk
+speed: 1.0
+gait: {stride: 0.45, bob: 0.035, sway: 5, waddle: 4}
+data: {hp: 6, value: 2, harm: 1}

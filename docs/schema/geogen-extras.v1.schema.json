@@ -415,7 +415,7 @@
           }
         },
         "item": {
-          "description": "An item template (geogen/flows.py): not part of the world (the runtime takes it out on load) but what its source copies. 'mode': physics (a rigid body, from this node's 'physics'), belt or walk (along a track). 'data' is what each copy carries; 'lifetime' and 'stuck' (s) take a copy away (0: never).",
+          "description": "An item template (geogen/flows.py): not part of the world (the runtime takes it out on load) but what its source copies. 'mode': physics (a rigid body, from this node's 'physics'), belt or walk (along a track). 'data' is what each copy carries; 'lifetime' and 'stuck' (s) take a copy away (0: never). 'gait' is how a walk item's body steps: it bobs 'bob' m twice a 'stride' (m), rocks 'sway' degrees side to side and swings its heading 'waddle' degrees.",
           "type": "object",
           "required": ["name", "mode", "body", "data", "lifetime", "stuck", "radius"],
           "additionalProperties": false,
@@ -427,7 +427,18 @@
             "speed": { "type": "number", "minimum": 0 },
             "radius": { "type": "number", "minimum": 0 },
             "lifetime": { "type": "number", "minimum": 0 },
-            "stuck": { "type": "number", "minimum": 0 }
+            "stuck": { "type": "number", "minimum": 0 },
+            "gait": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["stride", "bob", "sway", "waddle"],
+              "properties": {
+                "stride": { "type": "number", "exclusiveMinimum": 0 },
+                "bob": { "type": "number" },
+                "sway": { "type": "number" },
+                "waddle": { "type": "number" }
+              }
+            }
           }
         },
         "travel": {

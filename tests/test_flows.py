@@ -92,10 +92,14 @@ def test_an_item_file_is_read_and_checked(assets):
     for text, message in (("kind: item\nbody: ball.yaml\nmode: roll\n", "mode is one of"),
                           ("kind: item\nbody: ball.yaml\nflavour: 1\n", "unknown keys"),
                           ("kind: item\n", "body is an asset file"),
-                          ("kind: item\nbody: ball.yaml\ndata: {ok: true}\n", "data is")):
+                          ("kind: item\nbody: ball.yaml\ndata: {ok: true}\n", "data is"),
+                          ("kind: item\nbody: ball.yaml\ngait: {hop: 1}\n", "gait is"),
+                          ("kind: item\nbody: ball.yaml\ngait: {stride: 0}\n", "stride is more than")):
         bad.write_text(text)
         with pytest.raises(flows.FlowError, match=message):
             flows.load_item(bad)
+    bad.write_text("kind: item\nbody: ball.yaml\nmode: walk\ngait: {bob: 0.03, sway: 4}\n")
+    assert flows.load_item(bad)["gait"] == {"stride": 0.5, "bob": 0.03, "sway": 4.0, "waddle": 0.0}
 
 
 def test_a_source_gets_hidden_templates_of_its_items(assets):

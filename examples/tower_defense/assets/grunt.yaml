@@ -1,0 +1,78 @@
+# The tower defense's grunt: a squat walking robot with a boxy body, a visor and stubby legs,
+# about 0.9 m tall (items/grunt.yaml). Origin: bottom centre; it walks toward +Z.
+
+name: grunt
+tags: [prop.enemy]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  hips:
+    primitive: cube
+    size: [0.34, 0.1, 0.2]
+    anchor: bottom_center
+    offset: [0, 0.3, 0]
+    bevel: 0.02
+    bevel_segments: 1
+    material: metal
+  leg_l: &leg
+    primitive: cylinder
+    size: [0.09, 0.3, 0.09]
+    anchor: bottom_center
+    offset: [-0.11, 0.0, 0]
+    material: metal
+  leg_r:
+    <<: *leg
+    offset: [0.11, 0.0, 0]
+  foot_l: &foot
+    primitive: cube
+    size: [0.13, 0.05, 0.2]
+    anchor: bottom_center
+    offset: [-0.11, 0, 0.03]
+    bevel: 0.015
+    bevel_segments: 1
+    material: plastic_black
+  foot_r:
+    <<: *foot
+    offset: [0.11, 0, 0.03]
+  body:
+    primitive: cube
+    size: [0.46, 0.38, 0.34]
+    anchor: bottom_center
+    offset: [0, 0.4, 0]
+    bevel: 0.05
+    bevel_segments: 1
+    material: red_metal
+  visor:
+    primitive: cube
+    size: [0.32, 0.08, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.66, 0.16]
+    bevel: 0.015
+    bevel_segments: 1
+    material: signal_amber
+  arm_l: &arm
+    primitive: cube
+    size: [0.08, 0.26, 0.1]
+    anchor: bottom_center
+    offset: [-0.265, 0.42, 0.02]
+    bevel: 0.02
+    bevel_segments: 1
+    material: metal
+  arm_r:
+    <<: *arm
+    offset: [0.265, 0.42, 0.02]
+  antenna:
+    primitive: cylinder
+    size: [0.015, 0.12, 0.015]
+    anchor: bottom_center
+    offset: [0.12, 0.78, -0.06]
+    material: metal
+  tip:
+    primitive: sphere
+    size: [0.04, 0.04, 0.04]
+    attach_to: antenna
+    at: top
+    from: center
+    material: signal_red
