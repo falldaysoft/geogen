@@ -87,10 +87,10 @@ def test_idle_keeps_feet_planted(body):
 
 
 def test_clip_speed_is_exported(tmp_path):
-    from geogen.export import _split_glb, export_scene
+    from geogen.export import export_scene, read_gltf
 
     body = LayoutLoader().load(HUMANOID)
-    gltf, _, _ = _split_glb(export_scene(body, tmp_path / "h.glb").read_bytes())
+    gltf = read_gltf(export_scene(body, tmp_path / "h.glb").read_bytes())
     extras = next(n for n in gltf["nodes"] if n["name"] == "humanoid")["extras"]["geogen"]
     clips = {c["name"]: c for c in extras["clips"]}
     assert clips["walk"]["speed"] == pytest.approx(1.2) and clips["walk"]["loop"]

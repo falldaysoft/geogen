@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from geogen.core import meshops
-from geogen.export import _split_glb, export_scene
+from geogen.export import export_scene, read_gltf
 from geogen.layout import LayoutLoader
 
 HUMANOID = "assets/characters/humanoid.yaml"
@@ -104,7 +104,7 @@ def test_mitten_follows_the_centre_fingers(bodies):
 
 def test_humanoid_exports_as_a_skinned_glb(bodies, tmp_path):
     out = export_scene(bodies["feminine"], tmp_path / "woman.glb")
-    gltf, _, _ = _split_glb(out.read_bytes())
+    gltf = read_gltf(out.read_bytes())
     skins = gltf["skins"]
     assert {gltf["nodes"][i]["name"] for i, n in enumerate(gltf["nodes"]) if "skin" in n} == {"body", "hair", "clothes"}
     for skin in skins:

@@ -464,35 +464,99 @@ def interaction_animations(root: SceneNode, names: dict[int, str]) -> list[dict]
     return animations
 
 
-def add_animations(glb: bytes, animations: list[dict]) -> bytes:
-    """Append glTF animations (see ``interaction_animations``) to a GLB.
+class Glb:
+    """A GLB parsed once for the post-processing passes: the glTF JSON (``gltf``) and the
+    binary chunk (``data``). ``add_accessor`` appends an array; ``to_bytes`` writes the file
+    back, keeping the original bytes of whatever no pass changed."""
+
+    BIN = 0x004E4942
+
+    def __init__(self, glb: bytes) -> None:
+        import struct
+
+        self.original = glb
+        magic, version, _ = struct.unpack("<III", glb[:12])
+        json_len, json_type = struct.unpack("<II", glb[12:20])
+        self.header = (magic, version, json_type)
+        self.gltf: dict = json.loads(glb[20:20 + json_len])
+        self.rest = glb[20 + json_len:]
+        bin_len, self.bin_type = struct.unpack("<II", self.rest[:8]) if self.rest else (0, self.BIN)
+        self.data = bytearray(self.rest[8:8 + bin_len])
+        self.json_changed = False
+        self.bin_changed = False
+
+    @property
+    def nodes(self) -> list[dict]:
+        return self.gltf.get("nodes", [])
+
+    def node_index(self) -> dict[str, int]:
+        return {n.get("name"): i for i, n in enumerate(self.nodes)}
+
+    def changed(self) -> None:
+        """Mark the JSON as edited."""
+        self.json_changed = True
+
+    def add_accessor(self, values: Any, dtype: str, component: int, kind: str, target: int | None = None,
+                     count: int | None = None, bounds: bool = False) -> int:
+        """Append ``values`` (as ``dtype``) in a new buffer view and accessor; returns the accessor index.
+        ``bounds``: min/max per component (glTF requires them on POSITION and animation inputs)."""
+        values = np.asarray(values)
+        blob = np.ascontiguousarray(values, dtype=dtype).tobytes()
+        self.data.extend(b"\0" * (-len(self.data) % 4))
+        view = {"buffer": 0, "byteOffset": len(self.data), "byteLength": len(blob)}
+        if target is not None:
+            view["target"] = target
+        views = self.gltf.setdefault("bufferViews", [])
+        views.append(view)
+        self.data.extend(blob)
+        accessor = {"bufferView": len(views) - 1, "componentType": component,
+                    "count": int(values.shape[0] if count is None else count), "type": kind}
+        if bounds:
+            lo, hi = (values.min(axis=0), values.max(axis=0)) if values.ndim > 1 else (values.min(), values.max())
+            accessor["min"], accessor["max"] = [float(v) for v in np.atleast_1d(lo)], [float(v) for v in np.atleast_1d(hi)]
+        accessors = self.gltf.setdefault("accessors", [])
+        accessors.append(accessor)
+        self.json_changed = self.bin_changed = True
+        return len(accessors) - 1
+
+    def to_bytes(self) -> bytes:
+        import struct
+
+        if not (self.json_changed or self.bin_changed):
+            return self.original
+        rest = self.rest
+        if self.bin_changed:
+            self.data.extend(b"\0" * (-len(self.data) % 4))
+            if not self.gltf.get("buffers"):
+                self.gltf["buffers"] = [{"byteLength": 0}]
+            self.gltf["buffers"][0]["byteLength"] = len(self.data)
+            rest = struct.pack("<II", len(self.data), self.bin_type) + bytes(self.data)
+        magic, version, json_type = self.header
+        payload = json.dumps(self.gltf, separators=(",", ":")).encode()
+        payload += b" " * (-len(payload) % 4)
+        body = struct.pack("<II", len(payload), json_type) + payload + rest
+        return struct.pack("<III", magic, version, 12 + len(body)) + body
+
+
+def read_gltf(glb: bytes) -> dict:
+    """The glTF JSON of a GLB file's bytes."""
+    return Glb(glb).gltf
+
+
+def add_animations(glb: Glb, animations: list[dict]) -> None:
+    """Append glTF animations (see ``interaction_animations``).
 
     Animated nodes are switched from ``matrix`` to TRS, as the spec requires.
     """
-    import struct
-
     if not animations:
-        return glb
-    gltf, rest, header = _split_glb(glb)
-    bin_len, bin_type = struct.unpack("<II", rest[:8]) if rest else (0, 0x004E4942)
-    data = bytearray(rest[8:8 + bin_len])
-    views, accessors = gltf.setdefault("bufferViews", []), gltf.setdefault("accessors", [])
-    index = {n.get("name"): i for i, n in enumerate(gltf.get("nodes", []))}
+        return
+    index = glb.node_index()
 
     def accessor(values: np.ndarray, kind: str, with_bounds: bool = False) -> int:
-        values = np.asarray(values)
-        blob = np.ascontiguousarray(values, dtype="<f4").tobytes()
-        data.extend(b"\0" * (-len(data) % 4))
-        views.append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob)})
-        data.extend(blob)
-        acc = {"bufferView": len(views) - 1, "componentType": 5126, "count": int(values.shape[0]), "type": kind}
-        if with_bounds:
-            acc["min"] = [float(values.min())]
-            acc["max"] = [float(values.max())]
-        accessors.append(acc)
-        return len(accessors) - 1
+        return glb.add_accessor(values, "<f4", 5126, kind, bounds=with_bounds)
 
-    out = gltf.setdefault("animations", [])
+    out = glb.gltf.setdefault("animations", [])
+    glb.changed()
     for anim in animations:
         samplers, channels = [], []
         for ch in anim["channels"]:
@@ -505,7 +569,7 @@ def add_animations(glb: bytes, animations: list[dict]) -> bytes:
                 samplers.append({"input": time, "output": accessor(flat, "SCALAR"), "interpolation": "LINEAR"})
                 channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": "weights"}})
                 continue
-            _to_trs(gltf["nodes"][node], ch["scale"])
+            _to_trs(glb.nodes[node], ch["scale"])
             time = accessor(ch["times"], "SCALAR", with_bounds=True)
             for path, values, kind in (("translation", ch["translation"], "VEC3"),
                                        ("rotation", ch["rotation"], "VEC4")):
@@ -513,11 +577,7 @@ def add_animations(glb: bytes, animations: list[dict]) -> bytes:
                 channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": path}})
         if channels:
             out.append({"name": anim["name"], "samplers": samplers, "channels": channels})
-    data.extend(b"\0" * (-len(data) % 4))
-    if not gltf.get("buffers"):
-        gltf["buffers"] = [{"byteLength": 0}]
-    gltf["buffers"][0]["byteLength"] = len(data)
-    return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
+    glb.bin_changed = True      # (the buffer is rewritten even when nothing was added, as before)
 
 
 def _to_trs(node: dict, scale: np.ndarray) -> None:
@@ -537,35 +597,21 @@ VERTEX_ATTRIBUTES = {"COLOR_0": ("<f4", 5126, True), "JOINTS_0": ("<u2", 5123, F
                      "WEIGHTS_0": ("<f4", 5126, False)}
 
 
-def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray]]) -> bytes:
+def add_vertex_attributes(glb: Glb, attributes: dict[str, dict[str, np.ndarray]]) -> None:
     """Add per-vertex VEC4 attributes (COLOR_0, JOINTS_0, WEIGHTS_0) to the primitives of the named glTF meshes,
     and ``MORPHS`` ({name: (position deltas, normal deltas)}) as morph targets (``targets``, default ``weights`` 0,
     ``extras.targetNames``)."""
-    import struct
-
     if not attributes:
-        return glb
-    gltf, rest, header = _split_glb(glb)
-    bin_len, bin_type = struct.unpack("<II", rest[:8])
-    data = bytearray(rest[8:8 + bin_len])
-    for mesh in gltf.get("meshes", []):
+        return
+    glb.changed()
+    glb.bin_changed = True
+    for mesh in glb.gltf.get("meshes", []):
         for semantic, values in attributes.get(mesh.get("name"), {}).items():
             if semantic == "MORPHS":
                 for name, (delta, normals) in values.items():
-                    target = {}
-                    for key, vec in (("POSITION", delta), ("NORMAL", normals)):
-                        blob = np.ascontiguousarray(vec, dtype="<f4").tobytes()
-                        data.extend(b"\0" * (-len(data) % 4))
-                        gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
-                                                    "target": 34962})
-                        data.extend(blob)
-                        accessor = {"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
-                                    "count": int(len(vec)), "type": "VEC3"}
-                        if key == "POSITION":       # glTF requires bounds on POSITION only
-                            accessor |= {"min": [float(v) for v in vec.min(axis=0)],
-                                         "max": [float(v) for v in vec.max(axis=0)]}
-                        gltf["accessors"].append(accessor)
-                        target[key] = len(gltf["accessors"]) - 1
+                    target = {key: glb.add_accessor(vec, "<f4", 5126, "VEC3", target=34962, count=len(vec),
+                                                    bounds=key == "POSITION")     # glTF requires bounds on POSITION only
+                              for key, vec in (("POSITION", delta), ("NORMAL", normals))}
                     for primitive in mesh.get("primitives", []):
                         primitive.setdefault("targets", []).append(dict(target))
                 mesh["weights"] = [0.0] * len(values)
@@ -574,71 +620,51 @@ def add_vertex_attributes(glb: bytes, attributes: dict[str, dict[str, np.ndarray
             dtype, component, clamp = VERTEX_ATTRIBUTES[semantic]
             if clamp:
                 values = np.clip(values, 0, 1)
-            blob = np.ascontiguousarray(values, dtype=dtype).tobytes()
-            data.extend(b"\0" * (-len(data) % 4))
-            gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob),
-                                        "target": 34962})
-            data.extend(blob)
-            gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": component,
-                                      "count": int(len(values)), "type": "VEC4"})
+            index = glb.add_accessor(values, dtype, component, "VEC4", target=34962, count=len(values))
             for primitive in mesh.get("primitives", []):
-                primitive.setdefault("attributes", {})[semantic] = len(gltf["accessors"]) - 1
-    data.extend(b"\0" * (-len(data) % 4))
-    gltf["buffers"][0]["byteLength"] = len(data)
-    return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
+                primitive.setdefault("attributes", {})[semantic] = index
 
 
-def add_skins(glb: bytes, skins: list[dict]) -> bytes:
+def add_skins(glb: Glb, skins: list[dict]) -> None:
     """Add glTF skins (joints, inverseBindMatrices) and point each skinned node at its skin.
 
     A skin whose joints aren't all in this export (a chunk split) is skipped:
     the mesh then shows its bind pose, unskinned.
     """
-    import struct
-
     if not skins:
-        return glb
-    gltf, rest, header = _split_glb(glb)
-    bin_len, bin_type = struct.unpack("<II", rest[:8])
-    data = bytearray(rest[8:8 + bin_len])
-    nodes = gltf.get("nodes", [])
-    index = {n.get("name"): i for i, n in enumerate(nodes)}
+        return
+    glb.changed()
+    glb.bin_changed = True
+    nodes = glb.nodes
+    index = glb.node_index()
     parent_of = {c: i for i, n in enumerate(nodes) for c in n.get("children", [])}
-    out = gltf.setdefault("skins", [])
+    out = glb.gltf.setdefault("skins", [])
     for skin in skins:
         joints = [index.get(name) for name in skin["joints"]]
         if skin["node"] not in index or None in joints:
             logger.warning("Skipping skin on '%s': its joints aren't all in this export", skin["node"])
             continue
         # Column-major MAT4s.
-        blob = np.ascontiguousarray(np.transpose(skin["inverse_bind"], (0, 2, 1)), dtype="<f4").tobytes()
-        data.extend(b"\0" * (-len(data) % 4))
-        gltf["bufferViews"].append({"buffer": 0, "byteOffset": len(data), "byteLength": len(blob)})
-        data.extend(blob)
-        gltf["accessors"].append({"bufferView": len(gltf["bufferViews"]) - 1, "componentType": 5126,
-                                  "count": len(joints), "type": "MAT4"})
+        inverse_bind = glb.add_accessor(np.transpose(skin["inverse_bind"], (0, 2, 1)), "<f4", 5126, "MAT4",
+                                        count=len(joints))
         joint_set = set(joints)
         roots = [j for j in joints if parent_of.get(j) not in joint_set]
-        entry = {"name": skin["name"], "joints": joints, "inverseBindMatrices": len(gltf["accessors"]) - 1}
+        entry = {"name": skin["name"], "joints": joints, "inverseBindMatrices": inverse_bind}
         if len(roots) == 1:
             entry["skeleton"] = roots[0]
         out.append(entry)
         nodes[index[skin["node"]]]["skin"] = len(out) - 1
-    data.extend(b"\0" * (-len(data) % 4))
-    gltf["buffers"][0]["byteLength"] = len(data)
-    return _join_glb(gltf, struct.pack("<II", len(data), bin_type) + bytes(data), header)
 
 
-def rename_nodes(glb: bytes, renames: dict[str, str]) -> bytes:
+def rename_nodes(glb: Glb, renames: dict[str, str]) -> None:
     """Rename glTF nodes (exported name -> new name); run after every pass that finds nodes by name."""
     renames = {k: v for k, v in renames.items() if k != v}
     if not renames:
-        return glb
-    gltf, rest, header = _split_glb(glb)
-    for node in gltf.get("nodes", []):
+        return
+    glb.changed()
+    for node in glb.nodes:
         if node.get("name") in renames:
             node["name"] = renames[node["name"]]
-    return _join_glb(gltf, rest, header)
 
 
 def clip_animations(root: SceneNode, names: dict[int, str]) -> list[dict]:
@@ -678,39 +704,35 @@ def clip_animations(root: SceneNode, names: dict[int, str]) -> list[dict]:
     return animations
 
 
-def merge_material_groups(glb: bytes) -> bytes:
+def merge_material_groups(glb: Glb) -> None:
     """Fold ``material_group`` child nodes into their parent's glTF mesh as extra primitives.
 
     The child nodes are detached (left unreferenced); shared meshes are extended once.
     """
-    gltf, rest, header = _split_glb(glb)
-    nodes = gltf.get("nodes", [])
+    nodes = glb.nodes
     parent_of = {c: i for i, n in enumerate(nodes) for c in n.get("children", [])}
     done: set[tuple[int, int]] = set()
-    changed = False
     for index, node in enumerate(nodes):
         extras = (node.get("extras") or {}).get("geogen") or {}
         if extras.get("type") != "material_group" or index not in parent_of:
             continue
         parent = nodes[parent_of[index]]
         if "mesh" in parent and "mesh" in node and (parent["mesh"], node["mesh"]) not in done:
-            gltf["meshes"][parent["mesh"]]["primitives"].extend(gltf["meshes"][node["mesh"]]["primitives"])
+            glb.gltf["meshes"][parent["mesh"]]["primitives"].extend(glb.gltf["meshes"][node["mesh"]]["primitives"])
             done.add((parent["mesh"], node["mesh"]))
         parent["children"] = [c for c in parent["children"] if c != index]
         if not parent["children"]:
             del parent["children"]
-        changed = True
-    return _join_glb(gltf, rest, header) if changed else glb
+        glb.changed()
 
 
-def add_lod_extension(glb: bytes) -> bytes:
+def add_lod_extension(glb: Glb) -> None:
     """Turn ``<name>_LOD<n>`` child nodes (extras type lod) into MSFT_lod on their base node.
 
     The LOD nodes are detached from the hierarchy (MSFT_lod references them
     by index) so engines without the extension simply show the full mesh.
     """
-    gltf, rest, header = _split_glb(glb)
-    nodes = gltf.get("nodes", [])
+    nodes = glb.nodes
     used = False
     for base in nodes:
         lod_ids = [i for i in base.get("children", [])
@@ -731,46 +753,26 @@ def add_lod_extension(glb: bytes) -> bytes:
         base.setdefault("extras", {})["MSFT_screencoverage"] = coverage
         used = True
     if not used:
-        return glb
-    gltf.setdefault("extensionsUsed", [])
-    if "MSFT_lod" not in gltf["extensionsUsed"]:
-        gltf["extensionsUsed"].append("MSFT_lod")
-    return _join_glb(gltf, rest, header)
+        return
+    glb.changed()
+    glb.gltf.setdefault("extensionsUsed", [])
+    if "MSFT_lod" not in glb.gltf["extensionsUsed"]:
+        glb.gltf["extensionsUsed"].append("MSFT_lod")
 
 
-def _split_glb(glb: bytes):
-    import struct
-
-    magic, version, _ = struct.unpack("<III", glb[:12])
-    json_len, json_type = struct.unpack("<II", glb[12:20])
-    return json.loads(glb[20:20 + json_len]), glb[20 + json_len:], (magic, version, json_type)
-
-
-def _join_glb(gltf: dict, rest: bytes, header) -> bytes:
-    import struct
-
-    magic, version, json_type = header
-    payload = json.dumps(gltf, separators=(",", ":")).encode()
-    payload += b" " * (-len(payload) % 4)
-    body = struct.pack("<II", len(payload), json_type) + payload + rest
-    return struct.pack("<III", magic, version, 12 + len(body)) + body
-
-
-def externalize_images(glb: bytes, textures_dir: str | Path, uri_prefix: str = "") -> bytes:
-    """Move a GLB's embedded images to ``textures_dir`` (named by content hash) and refer to them by URI.
+def externalize_images(glb: Glb, textures_dir: str | Path, uri_prefix: str = "") -> None:
+    """Move embedded images to ``textures_dir`` (named by content hash) and refer to them by URI.
 
     Chunk files share one texture folder this way instead of each embedding
     the same maps; the binary buffer is repacked without the image data.
     """
     import hashlib
-    import struct
 
-    gltf, rest, header = _split_glb(glb)
+    gltf = glb.gltf
     images = gltf.get("images") or []
-    if not rest or not any("bufferView" in image for image in images):
-        return glb
-    bin_len, bin_type = struct.unpack("<II", rest[:8])
-    data = rest[8:8 + bin_len]
+    if not glb.rest or not any("bufferView" in image for image in images):
+        return
+    data = bytes(glb.data)
     views = gltf["bufferViews"]
     textures_dir = Path(textures_dir)
     textures_dir.mkdir(parents=True, exist_ok=True)
@@ -796,30 +798,24 @@ def externalize_images(glb: bytes, textures_dir: str | Path, uri_prefix: str = "
         remap[index] = len(kept)
         kept.append({**view, "byteOffset": len(packed)})
         packed += data[start:start + view["byteLength"]]
-    packed += b"\0" * (-len(packed) % 4)
     for accessor in gltf.get("accessors", []):
         if "bufferView" in accessor:
             accessor["bufferView"] = remap[accessor["bufferView"]]
     gltf["bufferViews"] = kept
-    gltf["buffers"][0]["byteLength"] = len(packed)
-    return _join_glb(gltf, struct.pack("<II", len(packed), bin_type) + bytes(packed), header)
+    glb.data = packed
+    glb.changed()
+    glb.bin_changed = True
 
 
-def add_punctual_lights(glb: bytes) -> bytes:
+def add_punctual_lights(glb: Glb) -> None:
     """Add KHR_lights_punctual lights for nodes whose extras.geogen has a ``light``.
 
-    trimesh can't write the extension, so the GLB's JSON chunk is patched: a
-    point light per fixture on a ``<node>_light`` child at the light's offset.
-    Engines with KHR support (Godot, Blender, three.js) get real lights.
+    trimesh can't write the extension, so the JSON is patched: a point light per
+    fixture on a ``<node>_light`` child at the light's offset. Engines with KHR
+    support (Godot, Blender, three.js) get real lights.
     """
-    import struct
-
-    magic, version, _ = struct.unpack("<III", glb[:12])
-    json_len, json_type = struct.unpack("<II", glb[12:20])
-    gltf = json.loads(glb[20:20 + json_len])
-    rest = glb[20 + json_len:]
     lights = []
-    nodes = gltf.get("nodes", [])
+    nodes = glb.nodes
     for index in range(len(nodes)):
         spec = nodes[index].get("extras", {}).get("geogen", {}).get("light")
         if not isinstance(spec, dict):
@@ -837,15 +833,12 @@ def add_punctual_lights(glb: bytes) -> bytes:
         nodes.append(child)
         nodes[index].setdefault("children", []).append(len(nodes) - 1)
     if not lights:
-        return glb
-    gltf.setdefault("extensions", {})["KHR_lights_punctual"] = {"lights": lights}
-    used = gltf.setdefault("extensionsUsed", [])
+        return
+    glb.changed()
+    glb.gltf.setdefault("extensions", {})["KHR_lights_punctual"] = {"lights": lights}
+    used = glb.gltf.setdefault("extensionsUsed", [])
     if "KHR_lights_punctual" not in used:
         used.append("KHR_lights_punctual")
-    payload = json.dumps(gltf, separators=(",", ":")).encode()
-    payload += b" " * (-len(payload) % 4)
-    body = struct.pack("<II", len(payload), json_type) + payload + rest
-    return struct.pack("<III", magic, version, 12 + len(body)) + body
 
 
 def _vehicle_exported(vehicle: dict, node: SceneNode, name_of) -> dict:
@@ -904,6 +897,9 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         compiled = collect(root, package)   # bad declarations and quests fail the export before anything is written
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
     scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
+    # What the passes below need, taken off the scene first: trimesh writes scene.metadata into the
+    # file's scene extras (megabytes of id()-keyed tables nothing reads, and different every run).
+    meta = {key: scene.metadata.pop(key) for key in list(scene.metadata) if key.startswith("geogen_")}
     if suffix == ".obj":
         # OBJ has no hierarchy: bake world transforms. trimesh writes the
         # .mtl and texture images alongside the .obj.
@@ -911,19 +907,21 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     elif suffix == ".glb":
         # Write-then-rename so a runtime watching the file never reads half a GLB.
         tmp = path.with_name(path.name + ".tmp")
-        glb = add_lod_extension(add_punctual_lights(scene.export(file_type="glb")))
-        glb = merge_material_groups(add_vertex_attributes(glb, scene.metadata["geogen_attributes"]))
-        glb = add_skins(glb, scene.metadata["geogen_skins"])
-        names = scene.metadata["geogen_names"]
-        glb = add_animations(glb, (interaction_animations(root, names) if animations else [])
-                             + clip_animations(root, names))
-        glb = rename_nodes(glb, scene.metadata["geogen_joint_names"])
+        glb = Glb(scene.export(file_type="glb"))
+        add_punctual_lights(glb)
+        add_lod_extension(glb)
+        add_vertex_attributes(glb, meta["geogen_attributes"])
+        merge_material_groups(glb)
+        add_skins(glb, meta["geogen_skins"])
+        names = meta["geogen_names"]
+        add_animations(glb, (interaction_animations(root, names) if animations else []) + clip_animations(root, names))
+        rename_nodes(glb, meta["geogen_joint_names"])
         if textures_dir is not None:
             import os
 
             prefix = Path(os.path.relpath(textures_dir, path.parent)).as_posix() + "/"
-            glb = externalize_images(glb, textures_dir, prefix)
-        tmp.write_bytes(glb)
+            externalize_images(glb, textures_dir, prefix)
+        tmp.write_bytes(glb.to_bytes())
         tmp.replace(path)
         if manifest:
             refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
@@ -931,7 +929,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     else:
         scene.export(str(path), file_type=suffix[1:])
         if manifest:
-            names = scene.metadata["geogen_names"]
+            names = meta["geogen_names"]
             refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
             write_manifest(path, player, root, compiled)
     return path

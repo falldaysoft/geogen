@@ -9,7 +9,7 @@ import pytest
 from geogen.core import meshops
 from geogen.core.skin import Clip, Track, pose_clips, skin_mesh
 from geogen.core.transform import quat_axis_angle, slerp
-from geogen.export import _split_glb, export_scene
+from geogen.export import export_scene, read_gltf
 from geogen.scenes.skin_test import JOINTS, build_skinned_tube, create_skin_test_scene
 
 
@@ -96,7 +96,7 @@ def test_normals_and_weld_carry_weights():
 def skin_glb(tmp_path_factory):
     out = tmp_path_factory.mktemp("skin") / "skin_test.glb"
     export_scene(create_skin_test_scene(), out)
-    gltf, _, _ = _split_glb(out.read_bytes())
+    gltf = read_gltf(out.read_bytes())
     return out, gltf
 
 
