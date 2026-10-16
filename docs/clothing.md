@@ -255,6 +255,14 @@ Tracked as geogen.11.5.25 (hidden faces: geogen.11.5.24; build time: geogen.11.5
   back of the skirt can be in the seat (see the seat entries under "What was tried").
 - **Hair** has no pose correctives: long hair lies 3 mm in the dining chair's top rail, which is
   the one remaining failure of `test_no_clipping_beyond_tolerance`.
+- **The bare crotch, seated** (`outfit: none` only, every garment hides it). The bottom of the
+  pelvis tube stays with the Hips while the thighs swing up, so a seated body without clothes
+  shows a small faceted lump between the thighs (largest on `hourglass`, the `nude` of
+  `clothing_fit`; a tooth or two on other builds). It doesn't cut into the thighs: the heavy
+  build's crotch was reported as interpenetrating (geogen.11.5.22) and measures the same as the
+  default build now. Accepted as is (geogen.35).
+- **Bare heels in flats on the heavy build.** `feet_skin` counts 2 to 6 heel vertices of
+  `masculine+heavy` outside its flats in every pose (in the baseline, not the strict tests).
 - **Only single-tube shells are draped.** A loose garment with several chains or `cut` shapes is
   left as skinned (`build_humanoid` skips it). A loose top, a coat or wide trouser legs would need
   the rings found another way, and the choice of body parts to go round (`drape.LEGS`, `TRUNK`)
