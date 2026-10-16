@@ -51,7 +51,7 @@
         },
         {
           "description": "Built in, about the acting character.",
-          "properties": {"get": {"const": "actor"}, "name": {"enum": ["room", "kind"]}},
+          "properties": {"get": {"const": "actor"}, "name": {"enum": ["room", "kind", "id"]}},
           "required": ["get", "name"],
           "additionalProperties": false
         },

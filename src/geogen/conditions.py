@@ -66,6 +66,7 @@ CLOCK = {
 ACTOR_BUILTINS = {
     "room": "the id of the room the actor is in, or \"\"",
     "kind": "\"player\" or \"npc\"",
+    "id": "the actor's stable ID (\"player\" for the player, an NPC's placement ID)",
 }
 ROOTS = ("world", "actor", "clock", "self", "it", "event")
 QUANTIFIERS = ("all", "any", "count")

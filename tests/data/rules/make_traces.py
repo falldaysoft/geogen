@@ -165,6 +165,18 @@ traces["watched_conditions"] = {
                     "fired": ["objective"], "errors": 0}},
     ]}
 
+traces["actor_id"] = {
+    "about": "actor.id is the actor's stable ID: a watch that gives one particular NPC something (an NPC's own quest).",
+    "program": program(
+        variables={"actor:demo.chosen": {"type": "bool", "default": False}},
+        rules=[{"id": "give_b", "when": c('actor.id == "npc:b"'), "do": [{"set": "actor:demo.chosen", "to": True}]}]),
+    "actors": {"player": {"kind": "player"}, "npc:a": {"kind": "npc"}, "npc:b": {"kind": "npc"}},
+    "steps": [
+        {"advance": 0.1},
+        {"expect": {"actors": {"npc:b": {"actor:demo.chosen": True}, "npc:a": {"actor:demo.chosen": False},
+                               "player": {"actor:demo.chosen": False}}, "errors": 0}},
+    ]}
+
 traces["time"] = {
     "about": "Delayed rules, a door that closes itself, locks, the clock, and a save in the middle of it all.",
     "program": program(

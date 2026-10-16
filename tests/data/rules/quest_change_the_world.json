@@ -39,6 +39,23 @@
       "demo:hall",
       "demo:kitchen",
       "demo:lounge"
+     ],
+     "goals": [
+      {
+       "subject": "demo:hall",
+       "interaction": "switch",
+       "state": "off"
+      },
+      {
+       "subject": "demo:kitchen",
+       "interaction": "switch",
+       "state": "off"
+      },
+      {
+       "subject": "demo:lounge",
+       "interaction": "switch",
+       "state": "off"
+      }
      ]
     },
     {
@@ -51,6 +68,12 @@
      "done": "actor:demo.quest_lights_out_bed",
      "subjects": [
       "demo:bedroom"
+     ],
+     "goals": [
+      {
+       "subject": "demo:bedroom",
+       "enter": true
+      }
      ]
     },
     {
@@ -61,6 +84,13 @@
      "done": "actor:demo.quest_lights_out_window",
      "subjects": [
       "demo:window"
+     ],
+     "goals": [
+      {
+       "subject": "demo:window",
+       "interaction": "swing",
+       "state": "closed"
+      }
      ]
     }
    ]

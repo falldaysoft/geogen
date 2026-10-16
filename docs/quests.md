@@ -201,9 +201,17 @@ and quests" and "HUD"); the rest is planned.
   step of the shortest route). They fade with distance and dim when hidden, and
   a counted objective's done subjects aren't marked. The control API's
   `hud.markers` returns what is displayed.
-- **NPC holders** (15.8): the NPC planner turns the open objective's subject
-  into a goal with its existing action vocabulary: go to a place, use an
-  interaction or affordance.
+- **NPC holders** (15.8, built): a quest with `holder: npc` or `any` can be an
+  NPC's. An NPC placement's `quests:` gives it to that NPC from the start (a
+  watch rule on `actor.id`, the actor's stable ID). Each objective in the
+  manifest lists `goals`, what an NPC does for it: enter a place, use an
+  interaction, or use one until it shows a state (from `it.switch == "off"`
+  over a selector, say). The NPC (`npc.gd` `quest_option`) takes the nearest
+  unmet goal of an open objective before anything else it might do, walks up
+  to the thing and presses it, or walks into the place. An objective an NPC
+  holder can't act on (a condition over world variables, a signal) is an export
+  warning. Not built: fetching and giving items (18), quests in a definition's
+  `quests:` list, and saving an NPC's progress beyond the session (11.17).
 - **Playtest bot** (15.9): `--playtest=quests` walks every quest with the real
   player body and reports the ones it can't finish.
 
@@ -281,7 +289,8 @@ three in the evaluator and in Godot.
 | Quest notifications (`scripts/hud_notifications.gd`, `hud.notifications`) | 15.11 | done (`tests/test_hud_runtime.py`) |
 | Quest log screen (`scripts/hud_quest_log.gd`, `hud.log`) | 15.13 | done (`tests/test_hud_log_runtime.py`) |
 | World markers (`scripts/hud_markers.gd`, `hud.markers`) | 15.12 | done (`tests/test_hud_markers_runtime.py`); routes over several scenes, fade and occlusion, counted objectives (geogen.37, `tests/test_hud_markers_routes_runtime.py`) |
-| Other archetypes, NPC holders, playtest bot | 15.5, 15.7 to 15.9 | open |
+| An NPC does one: the resident switches off the lights; an NPC climbs to the lighthouse gallery | 15.8 | done (`tests/test_npc_runtime.py`, the cottage's `resident_quest`) |
+| Other archetypes, playtest bot | 15.5, 15.7, 15.9 | open |
 | Items for fetch quests | 18 | open |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest

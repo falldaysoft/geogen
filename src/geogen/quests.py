@@ -38,6 +38,7 @@ Exports put ``Quests.to_json()`` in the manifest and chunk index as ``quests``
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
@@ -333,6 +334,7 @@ class Quests:
         self.bindings: list[dict[str, Any]] = []
         self.written: dict[str, str] = {}               # rule id (bind:<key>) -> where it was written
         self.hud: dict[str, Any] = {}                   # the manifest's `hud` (geogen.hud), compiled
+        self.warnings: list[str] = []                   # what an export prints but doesn't refuse
 
     def __bool__(self) -> bool:
         return bool(self.quests)
@@ -617,6 +619,56 @@ class _Compiler:
                 self.bad(quest.where("id"), f"quest state '{key.partition('.')[2]}' is already declared: another "
                                             f"quest, objective or the scene's state has that name")
 
+    def goals(self, objective: Any) -> list[dict[str, Any]]:
+        """What an NPC holding the quest does for ``objective`` (docs/quests.md, "NPC holders"):
+        ``{subject, enter: true}`` (go into a place or room), ``{subject, interaction}`` (use it)
+        or ``{subject, interaction, state}`` (use it until it shows that state). Read from an
+        event, or from a condition's ``<thing>.<interaction> == "<state>"`` comparisons, also
+        inside ``all`` / ``any`` / ``count``; other conditions give none."""
+        def interaction(subject: str, name: Any) -> bool:
+            return isinstance(name, str) and f"{subject}#{name}" in self.decls.interactions
+
+        on = objective.on
+        if isinstance(on, dict):
+            if on.get("type") == "enter" and on.get("subject"):
+                return [{"subject": on["subject"], "enter": True}]
+            if on.get("type") == "use" and on.get("subject"):
+                names = [on["name"]] if on.get("name") else [k.rpartition("#")[2] for k in self.decls.interactions
+                                                              if k.rpartition("#")[0] == on["subject"]][:1]
+                return [{"subject": on["subject"], "interaction": n} for n in names]
+            if on.get("type") == "changed" and "to" in on:
+                subject, _, name = str(on["key"]).rpartition("#")
+                return [{"subject": subject, "interaction": name, "state": on["to"]}] if interaction(subject, name) else []
+            return []
+        out: list[dict[str, Any]] = []
+
+        def visit(tree: Any) -> None:
+            if not isinstance(tree, dict):
+                return
+            op = tree.get("op")
+            if op == "==" and len(tree.get("args", [])) == 2:
+                term, value = tree["args"]
+                if not isinstance(term, dict):
+                    term, value = value, term
+                if isinstance(term, dict) and isinstance(value, str) and term.get("get") == "instance" \
+                        and interaction(term["id"], term.get("name")):
+                    out.append({"subject": term["id"], "interaction": term["name"], "state": value})
+            elif op in ("all", "any", "count") and isinstance(tree.get("where"), dict):
+                where = tree["where"]
+                if where.get("op") == "==" and len(where.get("args", [])) == 2:
+                    term, value = where["args"]
+                    if not isinstance(term, dict):
+                        term, value = value, term
+                    if isinstance(term, dict) and term.get("get") == "it" and isinstance(value, str):
+                        out.extend({"subject": thing, "interaction": term["name"], "state": value}
+                                   for thing in tree.get("over", []) if interaction(thing, term.get("name")))
+            elif op in ("and", "or"):
+                for arg in tree.get("args", []):
+                    visit(arg)
+
+        visit(objective.tree)
+        return out
+
     def event(self, quest: _Quest, done: dict[str, Any], sources: dict[str, str] = EVENT_SOURCES,
               keys: Iterable[str] = EVENT_KEYS) -> dict[str, Any]:
         """An event written in YAML (``{enter: gallery}``) as the ``on`` of a rule.
@@ -813,6 +865,11 @@ class _Compiler:
             except (QuestError, TypeError, ValueError) as exc:
                 self.bad(quest.where("objectives", objective.index, "marker"), str(exc))
             out["subjects"] = subjects
+            out["goals"] = self.goals(objective)
+            if entry["holder"] != "player" and not out["goals"] and not objective.optional:
+                self.out.warnings.append(f"{quest.where(*at)}: an NPC holding '{quest.id}' can't work on "
+                                         f"objective '{objective.id}' (only a place to enter, an interaction "
+                                         f"to use or one to bring to a state is something an NPC can do)")
             objective.out = out
             entry["objectives"].append(out)
         self.out.quests[quest.id] = entry
@@ -1150,16 +1207,27 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     """
     from .state import collect as collect_state, switch_bindings
 
-    from .wiring import sources
+    from .wiring import Source, sources
 
     declarations = collect_state(root, package)
     specs, wiring = [], sources(root)
-    for node in root.iter_nodes():
-        specs.extend((entry["spec"], entry.get("source"), node) for entry in node.meta.get(META) or [])
 
     def uid(node: SceneNode) -> str:
         known = node.meta.get("uid")
         return known if isinstance(known, str) and known.startswith(package + ":") else refs.node_id(node, package, root)
+
+    files: set[str] = set()
+    for node in root.iter_nodes():
+        for entry in node.meta.get(META) or []:
+            if entry.get("source") not in files or entry.get("source") is None:   # two NPCs may hold one quest
+                files.add(entry.get("source"))
+                # (A placed NPC's quests name things in the scene it is placed in.)
+                scope = node.parent if node.meta.get("type") == "npc" and node.parent is not None else node
+                specs.append((entry["spec"], entry.get("source"), scope))
+            if node.meta.get("type") == "npc":          # a placed NPC's own: give it to that NPC
+                quest_id = str(entry["spec"].get("id") or Path(str(entry["source"])).stem)
+                wiring.append(Source({"rules": [{"id": f"give_{quest_id}", "when": f'actor.id == "{uid(node)}"',
+                                                 "do": [{"start_quest": quest_id}]}]}, None, node, True))
 
     built = switch_bindings(root, uid)
     guards = [(f"{uid(node)}#{it.name}", it.when, node) for node in root.iter_nodes()
@@ -1200,6 +1268,8 @@ def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
     if package is None:
         package = str(root.meta.get("uid", "")).partition(":")[0] or root.name
     found = collect(root, package)
+    for warning in found.warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     quests = found.to_json() if found else None
     if quests:
         quests["markers"] = markers(root, found)

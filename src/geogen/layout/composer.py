@@ -397,6 +397,10 @@ class SceneComposer:
                 resolve_home(node, obj_def.get("home"), refs, [key_of(obj_name), obj_name, "home"])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
+                if obj_def.get("quests"):         # quests this NPC holds from the start (quests.collect)
+                    from ..quests import declare_scene as declare_quests
+
+                    declare_quests(node, {"quests": obj_def["quests"]}, source, self._assets_dir)
 
         # Extra semantic tags per placement (e.g. tags: [door.interior]).
         for obj_name, obj_def in all_placements.items():

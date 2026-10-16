@@ -20,7 +20,8 @@
 #       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
 #   wait: duration | S | [lo, hi]  seconds (duration = the affordance's range)
 #   use: <state>                 drive the affordance's/portal's interaction to <state>
-#                                (presses it like the player does, waits for arrival)
+#                                (presses it like the player does, waits for arrival);
+#                                `use: goal` drives it to the state a quest goal wants
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
 #
 # `approach` is where the actor stands to start the action, in the anchor's
@@ -79,6 +80,17 @@ actions:
       - use: on
       - wait: duration
       - use: off
+
+  quest_use:                     # a quest goal: bring a thing to the objective's state (npc.gd quest_option)
+    steps:
+      - go_to: approach
+      - face: anchor
+      - use: goal
+      - wait: duration
+
+  quest_go:                      # a quest goal: go into a place or room
+    steps:
+      - go_to: anchor
 
   pass:                          # walk through a door that's in the way (portals)
     steps:

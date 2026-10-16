@@ -129,6 +129,7 @@ const GESTURE_BONES := ["RightShoulder", "RightUpperArm", "RightLowerArm", "Righ
 var _yielded_at := -INF
 const YIELD_COOLDOWN := 3.0       # s between stepping aside
 const YIELD_FAR := 6.0            # m: beyond the yield distance plus this, nobody is walking at us (0.6 s at 10 m/s)
+const GOAL_STANDOFF := 0.6        # m in front of a thing to stand when using it for a quest
 const KERB_STEP := 0.7            # wait for the walk signal when the road of a crossing is this close ahead (m)
 const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
 
@@ -316,7 +317,72 @@ func force_option(id: String) -> bool:
     return true
 
 
+## A quest this NPC holds (geogen.15.8): the nearest goal of an open objective of an active quest
+## (the manifest's objective `goals`: enter a place, use an interaction, use one until it shows a
+## state) that isn't met yet and hasn't just failed, as an option with its action context; {}
+## when there's none.
+func quest_option() -> Dictionary:
+    # (Not before the navmesh has synced: there'd be no path yet, and the goal would wait a retry.)
+    if world.rules == null or NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map) == 0:
+        return {}
+    var best := {}
+    var nearest := INF
+    for quest in world.rules.report(WorldLoader.actor_id(self)):
+        if quest["status"] != "active":
+            continue
+        for objective in quest["objectives"]:
+            if objective["state"] != "open":
+                continue
+            for goal in objective.get("goals", []):
+                var id := "quest/%s/%s/%s" % [quest["id"], objective["id"], goal["subject"]]
+                if clock < float(_retry_at.get(id, -1.0)):
+                    continue
+                var ctx := _goal_context(goal)
+                if ctx.is_empty():
+                    continue
+                var d := global_position.distance_to(ctx["approach"])
+                if d < nearest:
+                    nearest = d
+                    best = {"id": id, "action": "quest_go" if goal.get("enter", false) else "quest_use",
+                        "advertises": {}, "tags": [], "at": ctx["approach"], "quest": quest["id"], "ctx": ctx}
+    return best
+
+
+## Where to go and what to work for one quest goal; {} if the goal is met or its subject isn't here.
+func _goal_context(goal: Dictionary) -> Dictionary:
+    var subject := str(goal["subject"])
+    if goal.get("enter", false):
+        var place = world.node_by_uid(subject)
+        if not place is Node3D:
+            return {}
+        var at := NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, (place as Node3D).global_position)
+        return {"anchor": at, "approach": at, "yaw_deg": rad_to_deg(_yaw()), "duration": [0.0, 0.0]}
+    var it = world.interactions_by_key.get("%s#%s" % [subject, goal["interaction"]])
+    if not it is GeogenInteraction or not is_instance_valid(it) or it.asset == null:
+        return {}
+    var state := str(goal["state"]) if goal.has("state") else str(it.states.get(it.target, {}).get("next", ""))
+    if goal.has("state") and it.state == state and it.target == state:
+        return {}                       # done already
+    var thing: Node3D = it.targets[0] if not it.targets.is_empty() else it.asset
+    var anchor := thing.global_position
+    # Things face +Z (a wall switch out of its wall): stand in front of it, on the navmesh.
+    var front := _flat(it.asset.global_basis.z).normalized()
+    var approach := NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, anchor + front * GOAL_STANDOFF)
+    var look := _flat(anchor - approach)
+    var yaw := atan2(look.x, look.z) if look.length() > 1e-3 else _yaw()
+    return {"anchor": anchor, "approach": approach, "interaction": it, "state": state,
+        "yaw_deg": rad_to_deg(yaw), "duration": [0.4, 0.8]}
+
+
 func _decide() -> void:
+    var goal := quest_option() if _forced == "" else {}
+    if not goal.is_empty():
+        stats["decisions"] += 1
+        stats["quest_goals"] = int(stats.get("quest_goals", 0)) + 1
+        _option = goal
+        _trace({"event": "decide", "chosen": goal["id"], "quest": goal["quest"]})
+        _push(goal["action"], goal["ctx"])
+        return
     var ranked := options()
     stats["decisions"] += 1
     if ranked.is_empty():
@@ -580,8 +646,11 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
     return "unknown step"
 
 
-## A portal's generic open/closed names map to its interaction's states.
+## A portal's generic open/closed names map to its interaction's states; `goal` is the state a
+## quest goal wants (ctx.state).
 func _state_name(state: String, ctx: Dictionary) -> String:
+    if state == "goal":
+        return str(ctx.get("state", ""))
     if ctx.has("portal"):
         return str(ctx["portal"].get(state, state))
     return state
@@ -1738,6 +1807,15 @@ static func _v(p: Vector3) -> Array:
 
 
 ## Summary for tests and --simulate.
+func _quests() -> Dictionary:
+    var out := {}
+    if world != null and world.rules != null:
+        for quest in world.rules.report(WorldLoader.actor_id(self)):
+            if quest["status"] in ["active", "complete", "failed"]:
+                out[quest["id"]] = quest["status"]
+    return out
+
+
 func report() -> Dictionary:
     var p := global_position
     return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
@@ -1753,6 +1831,8 @@ func report() -> Dictionary:
         "signal_crossings": int(stats.get("signal_crossings", 0)),
         "signal_violations": int(stats.get("signal_violations", 0)),
         "waves": int(stats.get("waves", 0)),
+        # Quests it holds ({id: status}) and the quest goals it has set off to work on.
+        "quests": _quests(), "quest_goals": int(stats.get("quest_goals", 0)),
         "yields": int(stats.get("yields", 0)), "transitions": int(stats.get("transitions", 0)),
         "cost_us": snappedf(float(_cost_usec) / maxi(_cost_frames, 1), 0.1), "looking": snappedf(float(stats.get("looking", 0.0)), 0.1),
         # World heading (deg) and how far it is from the pose's (sitting: the seat's facing).

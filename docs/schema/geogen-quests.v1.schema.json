@@ -184,6 +184,21 @@
           },
           "description": "Stable IDs of what it is about (a place, the things its condition reads): where markers go."
         },
+        "goals": {
+          "type": "array",
+          "description": "What an NPC holding the quest does for it: enter a place or room, use an interaction, or use one until it shows a state. Empty when an NPC can't act on it.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subject"],
+            "properties": {
+              "subject": {"type": "string", "description": "Stable ID of the place or thing."},
+              "enter": {"const": true, "description": "Go into the place or room."},
+              "interaction": {"type": "string", "description": "The subject's interaction to use."},
+              "state": {"description": "Use it until it shows this state (absent: use it once)."}
+            }
+          }
+        },
         "marker": {
           "type": "object",
           "additionalProperties": false,

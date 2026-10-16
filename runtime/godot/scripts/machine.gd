@@ -328,7 +328,7 @@ func _look(term: Dictionary, actor: String, data: Variant) -> Variant:
         if actor == "":
             _fail = "'actor.%s' read without an actor" % term["name"]
             return null
-        return (actor_info.get(actor, {}) as Dictionary).get(term["name"], "")
+        return actor if term["name"] == "id" else (actor_info.get(actor, {}) as Dictionary).get(term["name"], "")
     return _read(key_of(term), actor)
 
 

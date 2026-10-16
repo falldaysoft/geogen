@@ -16,6 +16,12 @@
      "done": "actor:demo.quest_catch_train_board",
      "subjects": [
       "demo:platform"
+     ],
+     "goals": [
+      {
+       "subject": "demo:platform",
+       "enter": true
+      }
      ]
     }
    ],

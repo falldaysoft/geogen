@@ -42,7 +42,9 @@ def test_trace_conforms_in_godot(replayed, path):
 def test_a_wrong_expectation_is_reported(run_godot, tmp_path):
     from conftest import GODOT_PROJECT, _godot_binary
 
-    trace = json.loads(TRACES[0].read_text())
+    trace = next(t for t in (json.loads(path.read_text()) for path in TRACES)       # one that expects state and firings
+                 if any(s.get("expect", {}).get("state") for s in t["steps"])
+                 and any(s.get("expect", {}).get("fired") for s in t["steps"]))
     step = next(s for s in trace["steps"] if "expect" in s and s["expect"].get("state"))
     key = next(iter(step["expect"]["state"]))
     step["expect"]["state"][key] = "nonsense"

@@ -102,6 +102,7 @@ Each window/door cuts its own opening into the wall it is placed on.
 | --- | --- | --- |
 | `hub_portal` | `1` | the portal back to the hub (0 where the cottage is part of something bigger) |
 | `gallery` | `1` | the people gallery on the front lawn (0 for a plain cottage) |
+| `resident_quest` | `0` | the resident holds "lights out" from the start and does it (an NPC quest) |
 | `quest` | `1` | the resident's "lights out" quest (0 where the cottage is part of something bigger) |
 
 **Places**: `house: {asset: house_peaked.yaml}`; `door: {asset: door.yaml}`; `window_front_left: {asset: window.yaml}`; `window_front_right: {asset: window.yaml}`; `window_left: {asset: window.yaml}`; `window_right: {asset: window.yaml}`; `window_back_left: {asset: window.yaml}`; `window_back_right: {asset: window.yaml}`; `dining: {scene: scenes/dining_set.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `armchair: {asset: armchair.yaml}`; `dining_light: {asset: ceiling_light.yaml}`; `sitting_light: {asset: ceiling_light.yaml}`; `reading_lamp: {asset: floor_lamp.yaml}`; `dining_switch: {asset: light_switch.yaml}`; `sitting_switch: {asset: light_switch.yaml}`; `lamp_switch: {asset: light_switch.yaml}`; `resident: {npc: npcs/resident.yaml}`; `gallery: {scene: scenes/people_gallery.yaml}`; `hub_portal: {asset: portal.yaml}`

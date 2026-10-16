@@ -373,6 +373,7 @@ PLACEMENT_KEYS: dict[str, str] = {
     "npc": "an NPC definition (npcs/resident.yaml), with `on`/`home`",
     "home": "<object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in",
     "seed": "random seed (which person an archetype or NPC is)",
+    "quests": "an NPC's quests (quests/name.yaml or {file, if}): it holds them from the start and works on them",
     "archetype": "a random person (characters/archetypes/adult.yaml)",
     "traffic": "a moving fleet (traffic/town.yaml) on the scene's lanes",
     "count": "fleet size for a traffic placement",

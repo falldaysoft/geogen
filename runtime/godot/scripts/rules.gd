@@ -661,6 +661,8 @@ static func _report_of(machine: GeogenMachine, quests: Dictionary, package: Stri
                     scenes.append(scene)
             var entry := {"id": objective["id"], "text": objective["text"], "optional": objective["optional"],
                 "state": state, "scenes": scenes}
+            if not objective.get("goals", []).is_empty():
+                entry["goals"] = objective["goals"]     # what an NPC holder does for it
             if objective.has("progress"):
                 var n = machine.value(objective["progress"]["value"], actor)
                 entry["progress"] = [int(n) if n != null else 0, int(objective["progress"]["of"])]

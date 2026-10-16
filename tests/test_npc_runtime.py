@@ -140,3 +140,59 @@ def test_npcs_take_a_spiral_stair_by_its_walking_line(run_godot, scene_export):
         assert report["failures"] == [] and report["unstuck"] == 0, report
         assert report["max_stall"] < 2.0, report
         assert report["used"].get("self/wander", 0) >= 1
+
+
+# --- NPCs holding quests (geogen.15.8) ----------------------------------------------------------
+
+def test_the_resident_switches_off_every_light_for_its_own_quest(run_godot, tmp_path):
+    # With `resident_quest`, the resident holds "lights out" from the start (its placement's
+    # quests:) and does it, with no player: to each switch, press it off, quest complete.
+    from pathlib import Path
+
+    from geogen.layout.composer import SceneComposer
+
+    assets = Path(__file__).parent.parent / "assets"
+    root = SceneComposer(assets_dir=assets).compose(assets / "scenes" / "cottage.yaml", params={"resident_quest": 1})
+    export_scene(root, tmp_path / "cottage.glb")
+    manifest = json.loads((tmp_path / "cottage.manifest.json").read_text())
+    goals = manifest["quests"]["quests"]["lights_out"]["objectives"][0]["goals"]
+    assert {g["state"] for g in goals} == {"off"} and len(goals) == 3
+    report = simulate(run_godot, tmp_path, 60)
+    assert report["quests"] == {"lights_out": "complete"}, report
+    assert report["quest_goals"] == 3 and report["failures"] == [], report
+    assert sum(1 for k in report["used"] if k.startswith("quest/lights_out/")) == 3
+
+
+LIGHTHOUSE_QUEST = """
+name: lighthouse_errand
+size: [16, 14, 16]
+spawns:
+  start: { position: [3.5, 0, 6.5], facing: north }
+slots:
+  door: { position: [0, 0, 5.0], facing: north }
+place:
+  lighthouse: { asset: lighthouse.yaml }
+  climber:
+    npc: npcs/resident.yaml
+    slot: door
+    home: { rect: [-3.0, 3.5, 3.0, 7.5] }       # the ground outside the door
+    seed: 2
+    quests: [quests/climb_lighthouse.yaml]
+"""
+
+
+def test_an_npc_climbs_to_the_lighthouse_gallery_for_its_quest(run_godot, tmp_path):
+    # An NPC living on the ground outside the lighthouse is given "up the lighthouse": it goes
+    # in, up the spiral stair and onto the gallery (a place), which completes the quest.
+    from pathlib import Path
+
+    from geogen.layout.composer import SceneComposer
+
+    assets = Path(__file__).parent.parent / "assets"
+    scene = tmp_path / "lighthouse_errand.yaml"
+    scene.write_text(LIGHTHOUSE_QUEST)
+    out = tmp_path / "generated"
+    export_scene(SceneComposer(assets_dir=assets).compose(scene), out / "lighthouse_errand.glb")
+    report = simulate(run_godot, out, 60, scene="lighthouse_errand")
+    assert report["quests"] == {"climb_lighthouse": "complete"}, report
+    assert report["quest_goals"] >= 1 and report["failures"] == [] and report["unstuck"] == 0, report

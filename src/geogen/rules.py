@@ -344,7 +344,7 @@ class Machine:
             if term["get"] == "actor" and "package" not in term:
                 if actor is None:
                     raise RuleError(f"'actor.{term['name']}' read without an actor")
-                return self.actor_info.get(actor, {}).get(term["name"], "")
+                return actor if term["name"] == "id" else self.actor_info.get(actor, {}).get(term["name"], "")
             return self.get(key_of(term), actor)
         return lookup
 

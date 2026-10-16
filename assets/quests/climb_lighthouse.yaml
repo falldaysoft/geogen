@@ -1,0 +1,12 @@
+# Climb to the lighthouse gallery, for an NPC: whoever a scene gives it to
+# (an NPC placement's `quests:`) walks up the spiral stair and out onto the
+# gallery deck. The player's version is quests/lighthouse_gallery.yaml.
+kind: quest
+version: 1
+title: Up the lighthouse
+description: Climb the lighthouse stair and step out onto the gallery.
+holder: npc
+objectives:
+  - id: gallery
+    text: Climb to the lighthouse gallery
+    done: { enter: lighthouse/gallery }

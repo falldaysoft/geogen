@@ -100,6 +100,7 @@
 | `npc` | an NPC definition (npcs/resident.yaml), with `on`/`home` |
 | `home` | <object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in |
 | `seed` | random seed (which person an archetype or NPC is) |
+| `quests` | an NPC's quests (quests/name.yaml or {file, if}): it holds them from the start and works on them |
 | `archetype` | a random person (characters/archetypes/adult.yaml) |
 | `traffic` | a moving fleet (traffic/town.yaml) on the scene's lanes |
 | `count` | fleet size for a traffic placement |
@@ -251,6 +252,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | File | What it is |
 | --- | --- |
 | [quests/catch_train.yaml](../../assets/quests/catch_train.yaml) | Catch the train: the "timed, can fail" quest. |
+| [quests/climb_lighthouse.yaml](../../assets/quests/climb_lighthouse.yaml) | Climb to the lighthouse gallery, for an NPC: whoever a scene gives it to (an NPC placement's `quests:`) walks up the spiral stair and out onto the gallery deck. |
 | [quests/jetty_trip.yaml](../../assets/quests/jetty_trip.yaml) | The jetty trip (packages/jetty_trip.yaml gives it when the player takes the hub's portal to the island). |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 | [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |

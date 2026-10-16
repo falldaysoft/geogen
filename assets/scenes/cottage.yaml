@@ -6,6 +6,7 @@ name: cottage
 params:
   hub_portal: { default: 1 }   # the portal back to the hub (0 where the cottage is part of something bigger)
   gallery: { default: 1 }      # the people gallery on the front lawn (0 for a plain cottage)
+  resident_quest: { default: 0 } # the resident holds "lights out" from the start and does it (an NPC quest)
   quest: { default: 1 }        # the resident's "lights out" quest (0 where the cottage is part of something bigger)
 
 # The resident asks whoever greets them to switch off the lights (docs/quests.md).
@@ -127,6 +128,7 @@ place:
     at: { u: { abs: 4.6 }, v: { abs: 3.2 } }
     facing: south
     home: house.floor
+    quests: [{ file: quests/lights_out.yaml, if: "{resident_quest}" }]
 
   # A gallery of humanoid variants on the front lawn (scenes/people_gallery.yaml),
   # behind the paths the runtime tests walk up to the door (spawns at z = 6.4).

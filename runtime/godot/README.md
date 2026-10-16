@@ -321,6 +321,12 @@ windows or doors:
   `sum((1 - need) x advertised) x preference(tags) - distance x m - recency x e^(-age/memory) + noise x rand`,
   with the weights from the definition's `scoring`. The best one is reserved and run. Failures
   aren't retried for `scoring.retry` seconds.
+- **Quests** (geogen.15.8): an NPC holding an active quest works on it first. `quest_option()`
+  reads `GeogenRules.report` for its own actor ID and takes the nearest goal of an open objective
+  (the manifest's objective `goals`) that isn't met and hasn't just failed: `quest_use` walks to a
+  point in front of the thing (things face +Z), faces it and presses its interaction until it
+  shows the wanted state (`use: goal`); `quest_go` walks into a place. The summary reports
+  `quests` ({id: status}) and `quest_goals`.
 - **Running**: the action's steps (`assets/npcs/actions.yaml`): `go_to` (navmesh path),
   `face`, `pose` (the body asset's `poses:`, placed at the affordance anchor), `wait`, `use`
   (drives an interaction to a state, as the player's E does), `play` (a body clip, once).

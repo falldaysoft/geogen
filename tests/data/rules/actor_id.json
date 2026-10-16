@@ -1,0 +1,67 @@
+{
+ "name": "actor_id",
+ "about": "actor.id is the actor's stable ID: a watch that gives one particular NPC something (an NPC's own quest).",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.chosen": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "rules": [
+   {
+    "id": "give_b",
+    "when": {
+     "op": "==",
+     "args": [
+      {
+       "get": "actor",
+       "name": "id"
+      },
+      "npc:b"
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.chosen",
+      "to": true
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:a": {
+   "kind": "npc"
+  },
+  "npc:b": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "advance": 0.1
+  },
+  {
+   "expect": {
+    "actors": {
+     "npc:b": {
+      "actor:demo.chosen": true
+     },
+     "npc:a": {
+      "actor:demo.chosen": false
+     },
+     "player": {
+      "actor:demo.chosen": false
+     }
+    },
+    "errors": 0
+   }
+  }
+ ]
+}

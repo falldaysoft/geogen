@@ -16,6 +16,12 @@
      "done": "actor:demo.quest_view_gallery",
      "subjects": [
       "demo:gallery"
+     ],
+     "goals": [
+      {
+       "subject": "demo:gallery",
+       "enter": true
+      }
      ]
     }
    ]
@@ -46,6 +52,12 @@
      },
      "subjects": [
       "demo:gallery"
+     ],
+     "goals": [
+      {
+       "subject": "demo:gallery",
+       "enter": true
+      }
      ]
     }
    ]
