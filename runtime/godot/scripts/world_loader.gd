@@ -595,6 +595,17 @@ func _report_timings() -> void:
 
 # --- navigation cache ---------------------------------------------------------------------------
 
+## A whole export's navmesh syncs in step with the physics frames. Godot syncs maps and
+## regions on worker threads by default, so under load the first synced frame (when NPCs start
+## deciding) varied run to run and long simulations drifted apart (geogen.50). It is all
+## there at load, so the one synchronous sync costs no more; streamed exports stay async.
+func _navigation_in_step(nav: Node) -> void:
+    NavigationServer3D.map_set_use_async_iterations(get_world_3d().navigation_map, false)
+    for region in [nav] + nav.find_children("*", "NavigationRegion3D", true, false):
+        if region is NavigationRegion3D:
+            NavigationServer3D.region_set_use_async_iterations(region.get_rid(), false)
+
+
 ## Bake the model's navmesh, or reuse the one baked last time the same export loaded with the
 ## same settings (<generated>/.navcache/<name>-<key>.scn, keyed by the export's files, the
 ## player spec, the bake options and the baking scripts' source).
@@ -609,6 +620,7 @@ func _navigation(root: Node3D, manifest_path: String, model_path: String) -> voi
             for region in [nav] + nav.find_children("*", "NavigationRegion3D", true, false):
                 if region is NavigationRegion3D:
                     region.add_to_group("geogen_navigation")
+            _navigation_in_step(nav)
             load_timings["nav_cache"] = "hit"
             return
     # Only some doors opened (open_only): the rest stay out of the bake as usual (their doorways
@@ -622,6 +634,7 @@ func _navigation(root: Node3D, manifest_path: String, model_path: String) -> voi
                         body.collision_layer &= ~1
                         shut.append(body)
     var nav := GeogenSceneBuilder.build_navigation(root, spec, open_before_bake, ground_margin)
+    _navigation_in_step(nav)
     for body in shut:
         body.collision_layer |= 1
     load_timings["nav_cache"] = "miss"
@@ -698,6 +711,8 @@ func forget(root: Node) -> void:
 
 func _load_chunked(index_path: String, index: Dictionary) -> void:
     _use_physics(index)
+    # Tiles are baked around the player as it goes: sync them off the main thread.
+    NavigationServer3D.map_set_use_async_iterations(get_world_3d().navigation_map, true)
     streamer = GeogenChunkStreamer.new()
     streamer.name = "ChunkStreamer"
     streamer.world = self

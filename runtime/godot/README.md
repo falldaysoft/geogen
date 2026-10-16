@@ -51,6 +51,13 @@ an unchanged export again skips the bake (the town: 5.7 s -> 0.05 s).
 Colliders share one shape per shared (instanced) mesh. Streamed exports bake
 their own navigation tiles and aren't cached.
 
+A whole export's navigation map and regions sync synchronously
+(`WorldLoader._navigation_in_step`), so the map is ready on the same physics
+frame every run and simulations are reproducible under load; streamed exports
+keep Godot's async iterations. Every path query goes through
+`GeogenWalker.find_path`, which lifts Godot's default polygon search limit
+(4096), which long paths on a big map's 5 cm navmesh run past.
+
 ## Travel
 
 Travel points (`geogen/travel.py`) are declared on assets or placements:

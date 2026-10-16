@@ -5,6 +5,7 @@ summary`` printed after a simulated span (see GeogenTraffic.report()).
 """
 
 import json
+import re
 
 import pytest
 
@@ -52,9 +53,16 @@ def test_a_player_in_the_lane_stops_traffic(run_godot, crossroads_dir):
 
 
 def test_traffic_is_deterministic(run_godot, crossroads_dir):
-    a = simulate(run_godot, crossroads_dir, "crossroads", 30)
-    b = simulate(run_godot, crossroads_dir, "crossroads", 30)
-    assert a == b
+    # The pedestrians too: traffic yields to them, so an NPC a frame out drifts the traffic later
+    # (the navmesh used to sync on a worker thread, on whichever frame it finished; geogen.50).
+    def run():
+        out = run_godot("--scene", "crossroads", f"--generated={crossroads_dir}", "--timescale=8",
+                        "--simulate=30", engine_args=FAST)
+        lines = [l for l in out.splitlines() if l.startswith(("traffic summary: ", "npc summary: "))]
+        return [re.sub(r'"cost_us":[0-9.]+,?', "", l) for l in lines]
+
+    a, b = run(), run()
+    assert len(a) == 2 and a == b
 
 
 def test_open_route_vehicles_leave_and_come_back(run_godot, tmp_path):
