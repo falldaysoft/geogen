@@ -1143,7 +1143,8 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
                    by_name: bool | None = None, trees: dict[str, SceneNode] | None = None,
                    bindings: Iterable[dict[str, Any]] = (), built: Iterable[dict[str, Any]] = (),
                    guards: Iterable[tuple[str, str, SceneNode]] = (),
-                   huds: Iterable[tuple[dict[str, Any], Any, SceneNode]] = ()) -> Quests:
+                   huds: Iterable[tuple[dict[str, Any], Any, SceneNode]] = (),
+                   items: Iterable[str] = ()) -> Quests:
     """Compile quest specs against ``declarations`` (their variables are added to it).
 
     A spec is the dict of a quest file, or ``(spec, source file, scene node)``. With a
@@ -1160,6 +1161,7 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     ``guards`` are interactions' ``when`` conditions as (interaction key, text, owner node): each is
     compiled with the owner as ``self`` into its entry in ``declarations.interactions``.
     ``huds`` are scenes' ``hud:`` blocks (``geogen.hud.sources``), compiled into ``Quests.hud``.
+    ``items`` are ids that may name items (locks' keys): each that has an item file is declared.
     Raises ``QuestError`` listing every problem.
     """
     entries = [(s, None, None) if isinstance(s, dict) else s for s in specs]
@@ -1167,6 +1169,9 @@ def compile_quests(specs: Iterable[dict[str, Any] | tuple[dict[str, Any], Any, S
     if by_name is None:
         by_name = all(node is None for _, _, node in entries) and not wiring
     compiler = _Compiler(declarations, by_name, selectors, rules, trees, bindings)
+    for item in dict.fromkeys(items):           # a lock whose key is an item: carrying it opens the lock
+        if item.isidentifier() and roots.find(f"items/{item}.yaml").is_file():
+            compiler.item(item)
     problems: list[str] = []
     for spec, source, node in entries:
         quest = _parse(spec, source, node, problems)
@@ -1276,10 +1281,12 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     from .hud import sources as hud_sources
 
     huds = hud_sources(root)
-    if not specs and not wiring and not built and not guards and not huds:
+    keys = [str(it.lock["key"]) for node in root.iter_nodes() for it in node.interactions
+            if it.lock and it.lock.get("key")]
+    if not specs and not wiring and not built and not guards and not huds and not keys:
         return Quests(declarations)
     return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False, built=built,
-                          guards=guards, huds=huds)
+                          guards=guards, huds=huds, items=keys)
 
 
 def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
@@ -1311,5 +1318,6 @@ def summary(root: SceneNode, package: str | None = None) -> dict[str, Any]:
     if quests:
         quests["markers"] = markers(root, found)
     sections = {"state": found.declarations.to_json() if found.declarations else None,
-                "rules": found.rules_json(), "quests": quests, "hud": found.hud or None}
+                "rules": found.rules_json(), "quests": quests, "hud": found.hud or None,
+                "items": dict(sorted(found.items.items())) or None}
     return {name: section for name, section in sections.items() if section}

@@ -52,6 +52,7 @@ ITEM_KEYS = {
     "name": "the item's name (default: the file's)",
     "title": "its name when carried (default: the name, capitalised)",
     "tags": "[tag, ...] for the inventory (key, quest)",
+    "opens": "[lock key, ...] (globs) it unlocks besides its own id: a master key's key_room_*",
     "body": "the asset each copy is: a file, or {asset, params}",
     "mode": "physics (a rigid body: the body has physics:) | belt | walk (along a track)",
     "data": "{field: number or text}: what each copy carries (value, hp, harm): signals give it to rules",
@@ -92,17 +93,20 @@ class FlowError(ValueError):
 # ---- items --------------------------------------------------------------------------------------
 
 def carried(path: str | Path) -> dict[str, Any]:
-    """What an inventory shows of the item file ``path``: ``{title, tags?}`` (geogen.18). The
-    file is checked as ``load_item`` checks it."""
+    """What an inventory knows of the item file ``path``: ``{title, tags?, opens?}`` (geogen.18).
+    The file is checked as ``load_item`` checks it."""
     from .layout.yaml_utils import safe_load_path
 
     item = load_item(path)
     spec = safe_load_path(path) or {}
-    tags = spec.get("tags") or []
-    if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
-        raise FlowError(f"{path}: tags is a list of words")
-    title = spec.get("title") or item["name"].replace("_", " ").capitalize()
-    return {"title": str(title), **({"tags": list(tags)} if tags else {})}
+    out: dict[str, Any] = {"title": str(spec.get("title") or item["name"].replace("_", " ").capitalize())}
+    for key in ("tags", "opens"):
+        listed = spec.get(key) or []
+        if not isinstance(listed, list) or not all(isinstance(t, str) and t for t in listed):
+            raise FlowError(f"{path}: {key} is a list of words")
+        if listed:
+            out[key] = list(listed)
+    return out
 
 
 def load_item(path: str | Path) -> dict[str, Any]:

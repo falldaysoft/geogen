@@ -78,3 +78,45 @@ def test_taking_a_pickup_in_godot_hides_it_and_gives_the_item(godot_runtime, yar
     assert value("actor:pickup_yard.item_parcel") == 0
     assert rt.call("world.node", name="fob")["visible"] is False          # the key is gone from the world
     assert rt.call("world.node", name="box")["visible"] is True           # the parcel is still there
+
+
+LOCKER = """
+name: locker
+origin: bottom_center
+size: [0.8, 1.6, 0.6]
+parts:
+  body: {primitive: cube, size: [0.8, 1.6, 0.6], anchor: bottom_center, material: metal}
+  leaf: {primitive: cube, size: [0.7, 1.4, 0.03], anchor: bottom_center, offset: [0, 0.1, 0.3], material: red_metal}
+interactions:
+  swing:
+    initial: shut
+    lock: {key: room_key, locked: true}
+    targets: [leaf]
+    states:
+      shut: {prompt: Open, next: open}
+      open: {prompt: Close, next: shut}
+    motions: [{part: leaf, translate: [0, 0, 1], values: {shut: 0, open: 0.2}}]
+"""
+
+
+def test_a_carried_key_opens_its_lock_in_godot(godot_runtime, tmp_path):
+    # geogen.18.3: a lock whose key is an item opens for a player carrying that item: L unlocks it.
+    (tmp_path / "locker.yaml").write_text(LOCKER)
+    scene = tmp_path / "lock_yard.yaml"
+    scene.write_text(YARD.replace("name: pickup_yard", "name: lock_yard").replace(
+        "  parcel:", f"  locker: {{asset: {tmp_path / 'locker.yaml'}, slot: c}}\n  parcel:").replace(
+        "  b: {position: [1, 0, 0]}", "  b: {position: [1, 0, 0]}\n  c: {position: [0, 0, -1.5]}"))
+    root = SceneComposer(assets_dir=ASSETS).compose(scene)
+    out = tmp_path / "generated"
+    export_scene(root, out / "lock_yard.glb")
+    assert "room_key" in json.loads((out / "lock_yard.manifest.json").read_text())["items"]
+    rt = godot_runtime("lock_yard", out)
+    rt.call("player.teleport", pos=[0, 0, -0.4])
+    rt.call("player.look", at=[0, 0.9, -1.2])
+    assert rt.call("hud.aim")["focus"]["prompt"] == "Locked"
+    rt.call("player.use", asset="key", interaction="pickup")
+    rt.call("time.advance", seconds=0.5)
+    assert "room_key" in rt.call("player.status")["keys"]
+    assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock (L)"
+    rt.call("input.key", key="L")
+    assert rt.call("hud.aim")["focus"]["prompt"].startswith("Open")

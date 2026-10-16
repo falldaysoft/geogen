@@ -44,6 +44,7 @@ var package := ""
 var quests := {}
 ## The manifest's `hud` section (geogen/hud.py: {stats, banners}; {} when the scene has none).
 var hud := {}
+var items := {}                 # the manifest's items: id -> {title, tags?, opens?} (geogen.18)
 
 var _saves := {}            # package -> its machine's save, while another world is loaded
 var _content := {}          # content package name -> its geogen-content file, as deployed (catalogue.json)
@@ -63,6 +64,24 @@ func _ready() -> void:
     _listener = world.events.listen(_on_event, GeogenEvents.RULE_TYPES)
 
 
+## How many of item ``id`` ``actor`` carries (0 for an item this package doesn't name).
+func held(id: String, actor := "player") -> int:
+    if machine == null or not items.has(id):
+        return 0
+    var n = get_value("actor:%s.item_%s" % [package, id], actor)
+    return int(n) if n != null else 0
+
+
+## The lock keys ``actor`` holds by what it carries: each carried item's id and its `opens`.
+func carried_keys(actor := "player") -> Array:
+    var out := []
+    for id in items:
+        if held(id, actor) > 0:
+            out.append(id)
+            out.append_array(items[id].get("opens", []))
+    return out
+
+
 ## Start running a package: called by WorldLoader when its manifest is read.
 func load_package(name_: String, manifest: Dictionary) -> void:
     var state: Dictionary = manifest.get("state", {})
@@ -70,6 +89,7 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     var content: Array = []
     if machine == null:
         hud = manifest.get("hud", {})
+        items = manifest.get("items", {})
         for other in content_packages().values():
             if name_ in other.get("scenes", []):
                 content.append(other)

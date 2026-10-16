@@ -140,9 +140,9 @@ func prompt(keys: Array = [], by := "player") -> String:
     if not t.has("next") or not allowed(by):
         return ""
     if locked:
-        return "Unlock (L)" if keys.has(lock_key) else "Locked"
+        return "Unlock (L)" if opens(keys) else "Locked"
     var text := str(t.get("prompt", "Use"))
-    if lock_key != "" and keys.has(lock_key):
+    if opens(keys):
         text += "   L: Lock"
     return text
 
@@ -191,9 +191,19 @@ func _head_to(new_state: String, by: String) -> void:
     target_changed.emit(from, new_state, by)
 
 
+## Whether one of ``keys`` (ids or globs: a master key's "key_room_*") fits the lock.
+func opens(keys: Array) -> bool:
+    if lock_key == "":
+        return false
+    for key in keys:
+        if lock_key.match(str(key)):
+            return true
+    return false
+
+
 ## Lock or unlock with a key the user holds. Only closed (initial-state) doors lock.
 func toggle_lock(keys: Array, by := "") -> bool:
-    if lock_key == "" or not keys.has(lock_key):
+    if not opens(keys):
         return false
     if not locked and state != target:
         return false  # still moving

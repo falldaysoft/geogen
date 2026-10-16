@@ -266,6 +266,12 @@ Objects to take are pickups (`geogen/inventory.py`): an asset's or a placement's
 `here | taken`, whose taken state hides the object, and an asset rule giving the
 item to whoever used it.
 
+An item is also a key: a lock (`lock: {key}`) whose key is an item's id, or
+matches one of an item's `opens` globs (a master key's `key_room_*`), opens for
+an actor carrying it. The export lists the items a scene names, locks' keys
+included, in the manifest's `items` (`{id: {title, tags?, opens?}}`); a runtime
+adds what the player carries to the keys it holds.
+
 Giving something to someone else is a take from the giver in a rule on whatever
 event stands for the handing over (greeting an NPC, using a counter). Trace
 `items.json`.

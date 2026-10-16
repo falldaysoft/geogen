@@ -182,7 +182,7 @@ A spawned item: the body a source copies while the game runs, its mode and the d
 
 Use: `source: {items: items/marble.yaml, rate: 1}   (an asset key; see geogen.flows)`
 
-Keys: `body`, `data`, `gait`, `lifetime`, `mode`, `name`, `radius`, `speed`, `stuck`, `tags`, `title`
+Keys: `body`, `data`, `gait`, `lifetime`, `mode`, `name`, `opens`, `radius`, `speed`, `stuck`, `tags`, `title`
 
 | File | What it is |
 | --- | --- |

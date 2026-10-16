@@ -91,7 +91,7 @@ var _start_overview := false
 var _use_assets: Array[String] = []
 var _use_aim := false
 var _print_lights := false
-var keys: Array = []
+var keys: Array = []         # --keys; held_keys() adds what the player carries
 var _lock_aim := false
 var _pitch := 0.0
 var _save_path := ""
@@ -690,7 +690,7 @@ func _unhandled_input(event: InputEvent) -> void:
         _press_use()
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
         if _focus != null:
-            _focus.toggle_lock(keys, "player")
+            _focus.toggle_lock(held_keys(), "player")
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
         _npc_labels = not _npc_labels
         _show_npc_labels()
@@ -770,7 +770,7 @@ func _physics_process(delta: float) -> void:
         return
     if _lock_aim and _focus != null:
         _lock_aim = false
-        print("lock: %s -> %s" % [_focus.asset.name, _focus.toggle_lock(keys, "player")])
+        print("lock: %s -> %s" % [_focus.asset.name, _focus.toggle_lock(held_keys(), "player")])
     if _use_aim and (_focus != null or not _focus_affordance.is_empty()):
         _use_aim = false
         if _focus != null:
@@ -1044,7 +1044,7 @@ func _update_focus() -> void:
         elif _focus_npc != null:
             _prompt.text = "E: %s" % _focus_npc.greet_prompt()
         elif _focus != null:
-            _prompt.text = "E: %s" % _focus.prompt(keys)
+            _prompt.text = "E: %s" % _focus.prompt(held_keys())
         elif _refused_focus != null:
             _prompt.text = _refused_focus.refusal()
         elif not _focus_affordance.is_empty():
@@ -1106,7 +1106,7 @@ func focus_info() -> Dictionary:
         return {"kind": "npc", "npc": String(_focus_npc.name), "prompt": _focus_npc.greet_prompt()}
     if _focus != null:
         return {"kind": "interaction", "asset": String(_focus.asset.name), "interaction": _focus.interaction_name,
-            "prompt": _focus.prompt(keys)}
+            "prompt": _focus.prompt(held_keys())}
     if _refused_focus != null:
         return {"kind": "refused", "asset": String(_refused_focus.asset.name),
             "interaction": _refused_focus.interaction_name, "prompt": _refused_focus.refusal()}
@@ -1195,3 +1195,11 @@ func _follow_npc() -> void:
                     break
             overview.look_at_from_position(best, npc.global_position + Vector3(0, 0.8, 0))
             return
+
+
+## The lock keys the player holds: --keys, plus every item it carries and what each `opens` (geogen.18.3).
+func held_keys() -> Array:
+    var out := keys.duplicate()
+    if world != null and world.rules != null:
+        out.append_array(world.rules.carried_keys("player"))
+    return out

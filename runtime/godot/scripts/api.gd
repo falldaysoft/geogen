@@ -42,7 +42,7 @@ const COMMANDS := {
     "world.bodies": "every physics prop: uid, node, position, yaw_deg, live, held, sleeping, speed",
     "flows.list": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], "
         + "items: [{id, source, item, mode, position, data, age}]}",
-    "player.keys": "{keys?} set (or get) the keys the player holds",
+    "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
     "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
     "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
     "interactions.list": "{asset?} interactions with states",
@@ -370,7 +370,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "player.keys":
             if args.has("keys"):
                 main.keys = Array(args["keys"])
-            return {"keys": main.keys}
+            return {"keys": main.keys, "held": main.held_keys()}
         "interactions.list":
             var asset := str(args.get("asset", ""))
             return world.interactions.filter(func(it): return asset == "" or String(it.asset.name) == asset) \
@@ -725,7 +725,7 @@ func _status() -> Dictionary:
         "eye": _v(player.camera.global_position), "on_floor": player.is_on_floor(), "flying": player.flying,
         "room": main.world.room_at(p + Vector3(0, 0.5, 0)), "scene": main.world.scene_name,
         "pose": player.pose.get("type", "stand"), "pose_asset": player.pose.get("asset", ""),
-        "focus": main.focus_info(), "keys": main.keys,
+        "focus": main.focus_info(), "keys": main.held_keys(),
         "walking": _walker != null and _walker.status == "walking"}
 
 
