@@ -1112,8 +1112,7 @@ func _node_info(node: Node3D) -> Dictionary:
 func _set_scale(scale: float) -> void:
     scale = maxf(scale, 0.01)
     Engine.time_scale = scale
-    Engine.physics_ticks_per_second = int(60 * maxf(scale, 1.0))
-    Engine.max_physics_steps_per_frame = int(8 * maxf(scale, 1.0))
+    main.world.apply_physics_rate()
 
 
 ## Run ``seconds`` of world time fast, then restore the speed (and pause, if it was paused).

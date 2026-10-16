@@ -223,8 +223,7 @@ func _ready() -> void:
         elif arg.begins_with("--timescale="):
             var scale := maxf(float(value), 0.01)
             Engine.time_scale = scale
-            Engine.physics_ticks_per_second = int(60 * maxf(scale, 1.0))
-            Engine.max_physics_steps_per_frame = int(8 * maxf(scale, 1.0))
+            world.apply_physics_rate()
         elif arg.begins_with("--simulate="):
             _simulate = float(value)
         elif arg.begins_with("--npc-limit="):

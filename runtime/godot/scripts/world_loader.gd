@@ -142,6 +142,10 @@ var travel_armed_at := 0
 const TRAVEL_ARM_FRAMES := 5
 
 
+## Physics steps a second at time scale 1: the project's, or more for a scene that asks (physics: {ticks}).
+var physics_rate := 60
+
+
 func _ready() -> void:
     events.name = "Events"
     add_child(events)
@@ -312,7 +316,8 @@ func unload() -> void:
     flows.clear()
     props.clear()
     rules.unload()
-    Engine.physics_ticks_per_second = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
+    physics_rate = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
+    apply_physics_rate()
     interactions_by_key.clear()
     streamer = null
     _lap("unload", t)
@@ -454,9 +459,18 @@ func _exit_tree() -> void:
 ## lets a fast ball sink into a curved trimesh wall at 60; unload puts the project's rate back).
 func _use_physics(manifest: Dictionary) -> void:
     var physics = manifest.get("physics")
-    if physics is Dictionary and int(physics.get("ticks", 0)) > Engine.physics_ticks_per_second:
-        Engine.physics_ticks_per_second = int(physics["ticks"])
-        print("geogen: physics at %d ticks a second" % Engine.physics_ticks_per_second)
+    if physics is Dictionary and int(physics.get("ticks", 0)) > physics_rate:
+        physics_rate = int(physics["ticks"])
+        apply_physics_rate()
+        print("geogen: physics at %d ticks a second" % physics_rate)
+
+
+## Physics steps a second for ``physics_rate`` at the world's time scale (sped up, it steps
+## more often, so a step covers the same world time).
+func apply_physics_rate() -> void:
+    var scale := maxf(Engine.time_scale, 1.0)
+    Engine.physics_ticks_per_second = int(physics_rate * scale)
+    Engine.max_physics_steps_per_frame = int(8 * scale * physics_rate / 60.0)
 
 
 func _read_manifest(manifest_path: String) -> Dictionary:
