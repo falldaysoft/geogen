@@ -60,6 +60,8 @@ const COMMANDS := {
     "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
     "hud.stats": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value, of?, text}]}, "
         + "banner: {visible, text?, tone?}}",
+    "dialogue.show": "the open conversation as shown: {open, dialogue?, anchor?, passage?, title?, text?, choices?: [{id, text}], selected?}",
+    "dialogue.choose": "{index? (from 0) | choice? (id) | close?: true} choose one of what is shown, or close it; -> dialogue.show",
     "hud.inventory": "what the HUD's inventory panel shows: {visible, items: [{id, title, count, tags?}]}",
     "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
     "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
@@ -422,6 +424,24 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return {"stats": main.hud.panel("stats").hud_report(), "banner": main.hud.panel("banner").hud_report()}
         "hud.crossing":
             return main.hud.panel("crossing").hud_report()
+        "dialogue.show", "dialogue.choose":
+            var panel: GeogenHudDialogue = main.hud.panel("dialogue")
+            main.hud.refresh()
+            if cmd == "dialogue.choose":
+                var shown: Dictionary = panel.hud_report()
+                if not shown["open"]:
+                    return _err("no conversation is open")
+                if args.get("close", false):
+                    panel.close()
+                else:
+                    var index := int(args.get("index", -1))
+                    if args.has("choice"):
+                        index = shown["choices"].map(func(c): return c["id"]).find(str(args["choice"]))
+                    if not panel.choose(index):
+                        return _err("no choice %s here (shown: %s)" % [args.get("choice", index),
+                            ", ".join(shown["choices"].map(func(c): return c["id"]))])
+                main.hud.refresh()
+            return panel.hud_report()
         "hud.inventory":
             main.hud.refresh()
             return main.hud.panel("inventory").hud_report()

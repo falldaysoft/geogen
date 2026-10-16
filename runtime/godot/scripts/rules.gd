@@ -45,6 +45,7 @@ var quests := {}
 ## The manifest's `hud` section (geogen/hud.py: {stats, banners}; {} when the scene has none).
 var hud := {}
 var items := {}                 # the manifest's items: id -> {title, tags?, opens?} (geogen.18)
+var dialogues := {}             # the manifest's dialogues: id -> {anchor, state, passages} (geogen.17)
 
 var _saves := {}            # package -> its machine's save, while another world is loaded
 var _content := {}          # content package name -> its geogen-content file, as deployed (catalogue.json)
@@ -111,6 +112,7 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     if machine == null:
         hud = manifest.get("hud", {})
         items = manifest.get("items", {})
+        dialogues = manifest.get("dialogues", {})
         for other in content_packages().values():
             if name_ in other.get("scenes", []):
                 content.append(other)

@@ -924,6 +924,14 @@ up; `waiting` counts objectives not listed yet; `rect` is the panel on screen
 first (an error if it isn't active), and `linger: <s>` sets how long a finished
 quest stays (0 dismisses one that is up). Tests: `tests/test_hud_runtime.py`.
 
+**Dialogue** (`scripts/hud_dialogue.gd`, panel `dialogue`, slot `screen`, geogen.17):
+while one of the player's dialogue states (the manifest's `dialogues`) names a passage, the
+panel shows its text, `{condition}` parts filled in with their values, and the choices whose
+`when` holds, numbered (none: Continue). 1-9, Up / Down and Enter, or a click, choose; Esc
+closes. Choosing raises the anchor's `dialogue {passage, choice}` signal on the event bus as
+the player, and the compiled rules move it on. While open it is the HUD's modal panel.
+Control API `dialogue.show`, `dialogue.choose {index | choice | close}`.
+
 **Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom right, geogen.18):
 what the player carries, one row an item (the manifest's `items` titles, a count
 when more than one), from `GeogenRules.carried`; hidden while empty. Each change to

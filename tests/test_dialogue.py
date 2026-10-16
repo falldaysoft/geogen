@@ -96,3 +96,26 @@ def test_a_dialogue_exports_its_passages(tmp_path):
 def test_a_bad_dialogue_is_reported(tmp_path, change, message):
     with pytest.raises(QuestError, match=message):
         collect(compose(tmp_path, CHAT.replace(*change)), "desk")
+
+
+def test_the_dialogue_panel_shows_passages_and_takes_choices_in_godot(godot_runtime, tmp_path):
+    export_scene(compose(tmp_path), tmp_path / "desk.glb")
+    rt = godot_runtime("desk", tmp_path)
+    assert rt.call("dialogue.show") == {"open": False}
+    rt.call("npcs.greet", npc="clerk")
+    rt.call("time.advance", seconds=0.5)
+    shown = rt.call("dialogue.show")
+    assert shown["open"] and shown["passage"] == "hello" and shown["text"] == "Morning. You carry 0 parcels."
+    assert [c["id"] for c in shown["choices"]] == ["take", "3"]              # "ask" needs the parcel
+    rt.call("input.key", key="1")                                           # the number keys choose
+    rt.call("time.advance", seconds=0.2)
+    shown = rt.call("dialogue.show")
+    assert shown["passage"] == "thanks" and shown["choices"] == [{"id": "", "text": "Continue"}]
+    assert rt.call("inventory.list")["items"][0]["count"] == 1
+    assert rt.call("dialogue.choose", index=0) == {"open": False}
+    rt.call("npcs.greet", npc="clerk")
+    rt.call("time.advance", seconds=0.5)
+    assert rt.call("dialogue.show")["passage"] == "again"
+    rt.call("input.key", key="Escape")
+    rt.call("time.advance", seconds=0.2)
+    assert rt.call("dialogue.show") == {"open": False}

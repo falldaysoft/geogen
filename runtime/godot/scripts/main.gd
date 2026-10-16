@@ -371,6 +371,7 @@ func _ready() -> void:
     hud.add_panel(GeogenHudBanner.new(), "screen")
     hud.add_panel(GeogenHudCrossing.new(), "screen")
     hud.add_panel(GeogenHudQuestLog.new(), "screen")
+    hud.add_panel(GeogenHudDialogue.new(), "screen")
     hud.modal_changed.connect(_hud_modal)
     world.load_all()
     add_child(clock)          # applies the time (night lights) once the world is loaded
