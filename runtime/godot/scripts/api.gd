@@ -828,7 +828,8 @@ func _track(motion: Dictionary) -> void:
         var it: GeogenInteraction = main.world.interaction_for(collider)
         motion["blocked_by"] = {"node": String(collider.name), "asset": _asset_of(collider),
             "point": _v(hit.get_position()), "normal": _v(hit.get_normal()),
-            "interaction": {"name": it.interaction_name, "state": it.state} if it != null else null}
+            "interaction": {"name": it.interaction_name, "state": it.state, "asset": String(it.asset.name)}
+                if it != null else null}
 
 
 func _cancel_walk() -> void:

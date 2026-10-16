@@ -41,6 +41,7 @@ var ground_margin := 6.0
 ## Open every openable interaction before baking, with the open parts as
 ## obstacles (headless playtests: doors must not block routes, leaves must).
 var open_before_bake := false
+var open_only := ""              # with open_before_bake: only assets whose name matches this glob ("" = all)
 ## Show collision shapes as wireframe overlays.
 var show_colliders := false:
     set(value):
@@ -520,7 +521,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
     if open_before_bake:
         for it in interactions:
             if it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset):
-                if it.states.has("open"):
+                if it.states.has("open") and (open_only == "" or String(it.asset.name).match(open_only)):
                     it.set_state("open", true)
                     it.hold = true
     if bake_navigation:
@@ -610,7 +611,19 @@ func _navigation(root: Node3D, manifest_path: String, model_path: String) -> voi
                     region.add_to_group("geogen_navigation")
             load_timings["nav_cache"] = "hit"
             return
+    # Only some doors opened (open_only): the rest stay out of the bake as usual (their doorways
+    # navigable), while the opened ones' leaves are obstacles where they stand.
+    var shut: Array[CollisionObject3D] = []
+    if open_before_bake and open_only != "":
+        for it in interactions:
+            if (it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset)) and not it.hold:
+                for body in it.asset.find_children("*", "AnimatableBody3D", true, false):
+                    if body.collision_layer & 1:
+                        body.collision_layer &= ~1
+                        shut.append(body)
     var nav := GeogenSceneBuilder.build_navigation(root, spec, open_before_bake, ground_margin)
+    for body in shut:
+        body.collision_layer |= 1
     load_timings["nav_cache"] = "miss"
     if path == "":
         return
@@ -638,7 +651,7 @@ func _nav_cache_path(root: Node3D, manifest_path: String, model_path: String, sp
         return ""
     var key := JSON.stringify([NAV_CACHE_VERSION, ProjectSettings.globalize_path(model_path),
         model_md5, FileAccess.get_md5(manifest_path),
-        spec.to_dict() if spec else {}, open_before_bake, ground_margin, var_to_str(root.global_transform),
+        spec.to_dict() if spec else {}, open_before_bake, open_only, ground_margin, var_to_str(root.global_transform),
         FileAccess.get_md5("res://addons/geogen/scene_builder.gd"), FileAccess.get_md5("res://scripts/world_loader.gd")])
     return generated_dir.path_join(".navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),
         key.md5_text()])

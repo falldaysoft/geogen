@@ -186,6 +186,7 @@ Keys: `body`, `data`, `gait`, `lifetime`, `mode`, `name`, `opens`, `radius`, `sp
 
 | File | What it is |
 | --- | --- |
+| [items/key_room_207.yaml](../../assets/items/key_room_207.yaml) | The key to hotel room 207: its id is the room door's lock key (hotel guest doors lock with key_room_<n>), so carrying it lets L unlock that door. |
 | [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
 | [items/raider.yaml](../../assets/items/raider.yaml) | A raiding rover: walks a track at its own pace, takes 6 damage to stop, is worth 2 when it is and does 1 harm if it gets through. |
 | [items/room_key.yaml](../../assets/items/room_key.yaml) | A hotel room key: carried (give / take, has("room_key")), and what room_key.yaml gives whoever picks it up. |
@@ -256,6 +257,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | --- | --- |
 | [quests/catch_train.yaml](../../assets/quests/catch_train.yaml) | Catch the train: the "timed, can fail" quest. |
 | [quests/climb_lighthouse.yaml](../../assets/quests/climb_lighthouse.yaml) | Climb to the lighthouse gallery, for an NPC: whoever a scene gives it to (an NPC placement's `quests:`) walks up the spiral stair and out onto the gallery deck. |
+| [quests/deliver_parcel.yaml](../../assets/quests/deliver_parcel.yaml) | Fetch and deliver (geogen.15.7): the hotel receptionist hands over a parcel and the key to room 207 (a rule in scenes/hotel_showcase.yaml); let yourself in with the key (L unlocks the door) and give the parcel to the guest. |
 | [quests/jetty_trip.yaml](../../assets/quests/jetty_trip.yaml) | The jetty trip (packages/jetty_trip.yaml gives it when the player takes the hub's portal to the island). |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 | [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |

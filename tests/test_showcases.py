@@ -36,6 +36,71 @@ def test_hotel_showcase_staff_and_guests(run_godot, hotel_dir):
     assert len(pedestrians) == 4 and all(p["decisions"] > 2 for p in pedestrians)
 
 
+def test_the_parcel_for_room_207_is_fetched_and_delivered(godot_runtime, hotel_dir):
+    """geogen.15.7: greet the receptionist for the parcel and room 207's key, walk up to room
+    207 on the navmesh, unlock its door with the carried key (L), go in and greet the guest."""
+    # The stair halls' doors stand open (as a player would open them on the way up); 207 stays locked.
+    rt = godot_runtime("hotel_showcase", hotel_dir, "--open-doors=door_*stair*")
+    status = lambda: next(q for q in rt.call("quests.list") if q["id"] == "deliver_parcel")
+    carried = lambda: {i["id"] for i in rt.call("inventory.list")["items"]}
+    assert status()["status"] == "available"
+    rt.call("player.teleport", pos=[0.0, 0.12, 2.8])                     # at the reception desk
+    rt.call("npcs.greet", npc="receptionist")
+    rt.call("time.advance", seconds=1)
+    assert status()["status"] == "active" and carried() == {"parcel", "key_room_207"}
+    rt.call("npcs.greet", npc="receptionist")                              # once: no second parcel
+    rt.call("time.advance", seconds=1)
+    assert rt.call("inventory.list")["items"][0]["count"] == 1
+
+    def walk(pos, timeout):
+        # As a player would: open a closed door the way is blocked by (inside a suite), go on.
+        for _ in range(4):
+            walked = rt.call("player.walk_to", pos=pos, timeout=timeout)
+            door = (walked.get("blocked_by") or {}).get("interaction") or {}
+            if walked["reached"] or door.get("state") != "closed":
+                return walked
+            rt.call("interactions.set", asset=door["asset"], interaction=door["name"], state="open", wait=True)
+        return walked
+
+    walked = walk([7.3, 6.45, 0.4], 240)                                   # the corridor outside 207
+    assert walked["reached"], walked
+    rt.call("player.look", at=[7.3, 7.4, -0.9])
+    assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock (L)"
+    rt.call("input.key", key="L")
+    rt.call("input.key", key="E")
+    rt.call("time.advance", seconds=1.5)
+    walked = walk([6.3, 6.45, -4.6], 30)                                  # into the room
+    assert walked["reached"], walked
+    rt.call("time.advance", seconds=1)
+    assert [o["state"] for o in status()["objectives"]] == ["done", "open"]
+    rt.call("npcs.greet", npc="guest_207")
+    rt.call("time.advance", seconds=1)
+    assert status()["status"] == "complete" and carried() == set()
+
+
+def test_the_parcel_for_room_207_runs_on_the_reference_machine(built_scene):
+    """geogen.15.7 on the evaluator: the same steps as in Godot, as events."""
+    from geogen.quests import collect
+    from geogen.rules import Machine
+
+    found = collect(built_scene("hotel_showcase"), "hotel_showcase")
+    machine = Machine(found.program(), {"player": {"kind": "player"}})
+    status = lambda: machine.get("actor:hotel_showcase.quest_deliver_parcel", "player")
+    held = lambda item: machine.get(f"actor:hotel_showcase.item_{item}", "player")
+    greet = lambda npc: machine.post({"type": "signal", "subject": f"hotel_showcase:{npc}", "name": "greeted",
+                                      "actor": "player"})
+    greet("guest_207")                                                     # nothing to give yet
+    assert status() == "available"
+    greet("receptionist")
+    greet("receptionist")
+    assert status() == "active" and held("parcel") == 1 and held("key_room_207") == 1
+    machine.post({"type": "enter", "subject": "hotel_showcase:hotel/storey_2/room_207", "actor": "player",
+                  "data": {"room": True}})
+    greet("guest_207")
+    assert status() == "complete" and held("parcel") == 0 and held("key_room_207") == 0
+    assert machine.errors == []
+
+
 @pytest.fixture(scope="module")
 def park_dir(scene_export):
     return scene_export("park")

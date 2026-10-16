@@ -1,0 +1,19 @@
+# Fetch and deliver (geogen.15.7): the hotel receptionist hands over a parcel
+# and the key to room 207 (a rule in scenes/hotel_showcase.yaml); let yourself
+# in with the key (L unlocks the door) and give the parcel to the guest.
+kind: quest
+version: 1
+title: A parcel for room 207
+description: The receptionist has a parcel for the guest in room 207, and the key to let yourself in.
+objectives:
+  - id: room
+    text: Let yourself into room 207
+    done: { enter: hotel/room_207 }
+  - id: deliver
+    text: Give the parcel to the guest in room 207
+    after: [room]
+    done: { signal: guest_207.greeted, when: 'has("parcel")' }
+rewards:
+  - { take: parcel }
+  - { take: key_room_207 }
+  - { notify: "The guest thanks you for the parcel." }

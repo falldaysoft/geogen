@@ -1,0 +1,6 @@
+# The key to hotel room 207: its id is the room door's lock key (hotel guest
+# doors lock with key_room_<n>), so carrying it lets L unlock that door.
+kind: item
+body: room_key.yaml
+title: Room 207 key
+tags: [key]

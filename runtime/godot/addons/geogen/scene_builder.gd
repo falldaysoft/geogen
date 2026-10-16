@@ -311,6 +311,8 @@ static func _parse_source(root: Node3D, spec, include_moving := false, ground_ma
         # Door leaves are thinner than a voxel and vanish in the bake; add each
         # moving part's footprint as an obstruction instead.
         for body in root.find_children("*", "AnimatableBody3D", true, false):
+            if not body.collision_layer & 1:
+                continue  # left out of this bake (a shut door when only some were opened)
             var part := body.get_parent() as MeshInstance3D
             if part == null or part.mesh == null:
                 continue

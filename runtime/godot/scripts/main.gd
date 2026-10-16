@@ -29,6 +29,8 @@ extends Node3D
 ##   --npc-trace                   print every NPC decision and step ("npc: {...}")
 ##   --quests                      print every quest's state for the player ("quests: [...]") once the world
 ##                                 is loaded; quest and objective changes always print "quest event: {...}"
+##   --open-doors=GLOB             open doors whose name matches before the navmesh bake, and hold them
+##                                 (stair halls on a walked route; --playtest opens every door)
 ##   --give=ITEM[:N]               give the player N (default 1) of an item at start (repeatable)
 ##   --set=KEY=VALUE               set a state variable at start (world:pkg.name, actor:pkg.name for the
 ##                                 player, <uid>#<state>); VALUE is JSON, or text
@@ -101,6 +103,7 @@ var _started := false
 var _print_quests := false
 var _sets: Array[String] = []
 var _gives: Array[String] = []
+var _open_doors := ""
 var _print_status := false
 var _focus_affordance := {}
 var _focus_npc: GeogenNpc = null
@@ -220,6 +223,8 @@ func _ready() -> void:
             _print_quests = true
         elif arg.begins_with("--set="):
             _sets.append(arg.trim_prefix("--set="))
+        elif arg.begins_with("--open-doors="):
+            _open_doors = arg.trim_prefix("--open-doors=")
         elif arg.begins_with("--give="):
             _gives.append(arg.trim_prefix("--give="))
         elif arg == "--events" or arg.begins_with("--events="):
@@ -300,7 +305,8 @@ func _ready() -> void:
         get_tree().quit()
         return
 
-    world.open_before_bake = _playtest_walks >= 0
+    world.open_before_bake = _playtest_walks >= 0 or _open_doors != ""
+    world.open_only = _open_doors if _playtest_walks < 0 else ""
     world.prime_focus = _spawn_override
     if _simulate > 0.0:
         # Time every physics tick's callbacks (scripts, move_and_slide; not the physics server's

@@ -291,7 +291,8 @@ three in the evaluator and in Godot.
 | World markers (`scripts/hud_markers.gd`, `hud.markers`) | 15.12 | done (`tests/test_hud_markers_runtime.py`); routes over several scenes, fade and occlusion, counted objectives (geogen.37, `tests/test_hud_markers_routes_runtime.py`) |
 | An NPC does one: the resident switches off the lights; an NPC climbs to the lighthouse gallery | 15.8 | done (`tests/test_npc_runtime.py`, the cottage's `resident_quest`) |
 | Other archetypes, playtest bot | 15.5, 15.7, 15.9 | open |
-| Items for fetch quests | 18 | open |
+| Items for fetch quests | 18 | done (`docs/rules.md` "Items") |
+| Fetch and deliver: the parcel for room 207 | 15.7 | done: `quests/deliver_parcel.yaml` in `hotel_showcase`; on the evaluator and walked in Godot (`tests/test_showcases.py`, exhaustive tier) |
 
 Not designed: repeatable and daily quests, quests shared by a party, quest
 chains beyond one quest's rewards starting another, branching outcomes.

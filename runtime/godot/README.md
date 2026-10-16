@@ -158,6 +158,7 @@ User args (after `--`):
 | `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
 | `--use=ASSET`, `--use=@aim` | Use an asset's interactions (e.g. `door`) or whatever the player looks at, at start |
 | `--nav=AX,AZ:BX,BZ` | Print the navigation path between two floor points (`nav path: {...}`) and quit; `X,Y,Z` points snap from that height (terrain), and it waits for tiled navmeshes to settle |
+| `--open-doors=GLOB` | Open the doors whose name matches before the navmesh bake and hold them (their leaves are obstacles; the rest stay out of the bake as usual): a route a test walks, e.g. `door_*stair*` |
 | `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one. Carried items count too: an item whose id is the lock's key, or whose `opens` (globs) matches it (manifest `items`, `GeogenRules.carried_keys`, `main.held_keys`) |
 | `--lock=@aim` | Press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |

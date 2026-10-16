@@ -8,6 +8,15 @@
 name: hotel_showcase
 tags: [showcase.hotel]
 
+# The receptionist has a parcel for room 207 (quests/deliver_parcel.yaml): greet them
+# to take it, with the room's key.
+quests: [quests/deliver_parcel.yaml]
+rules:
+  - id: parcel_errand
+    on: { signal: receptionist.greeted, actor: player }
+    once: true
+    do: [{ start_quest: deliver_parcel }, { give: parcel }, { give: key_room_207 }]
+
 spawns:
   from_hub: { position: [4.0, 0.12, -12.5], facing: north }   # beside the hub door, facing the entrance
 
