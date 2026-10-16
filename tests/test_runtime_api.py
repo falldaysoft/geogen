@@ -56,7 +56,7 @@ def test_closed_door_stops_walk_and_open_door_lets_player_in(rt):
     assert blocked["status"] in ("stuck", "timeout")
     assert blocked["position"][2] > 2.8          # still outside the leaf
     assert blocked["blocked_by"]["asset"] == "door"
-    assert blocked["blocked_by"]["interaction"] == {"name": "swing", "state": "closed"}
+    assert blocked["blocked_by"]["interaction"] == {"name": "swing", "state": "closed", "asset": "door"}
     assert len(blocked["trace"]) > 4 and blocked["trace"][0][2] > blocked["trace"][-1][2]
 
     reset(rt, "closed")
