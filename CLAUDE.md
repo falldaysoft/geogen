@@ -4,936 +4,121 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Geogen is a procedural 3D geometry generator for game assets. It provides a scene graph system with hierarchical transformations, primitive mesh generators, procedural textures, and PBR materials.
-
-This is in active development, with an eventual goal of being able to generate complex, nested geometry like cities that contain neighborhoods that contain roads and houses.
-
-Layout uses a container system that can position objects using anchors (like UI frameworks).
+Geogen is a procedural 3D geometry generator for game assets. It provides a scene graph with hierarchical transforms, primitive and procedural mesh generators, procedural (tiling) textures and PBR materials, and a YAML layout system that composes assets into scenes using anchors, attachment points and surfaces (like a UI framework). The goal is complex nested worlds: cities that contain neighbourhoods that contain roads, buildings, furnished rooms, people and traffic, exported to game engines with the gameplay data (interactions, NPCs, rules, quests) a runtime needs. `runtime/godot/` is the reference runtime.
 
 ## Commands
 
 ```bash
-# Run the demo (opens Qt-based interactive viewer)
-python -m geogen.main
+python -m geogen.main                                  # Qt viewer; -s NAME picks a scene (any YAML in assets/, assets/scenes/; --help)
+pip install -e ".[dev]"                                # install with dev dependencies
 
-# Select a specific scene (any YAML in assets/ or assets/scenes/, plus nature; see --help)
-python -m geogen.main -s dining_set
-
-# Render to file and quit (for testing) — shadows + PBR maps, auto-framed
-python -m geogen.main -r output.png
-python -m geogen.main -s room -r output.png --resolution 1280x720
-python -m geogen.main -s chair -r sheet.png --views            # iso/front/side/top contact sheet
-python -m geogen.main -s chair -r sheet.png --views iso,back,top --resolution 700x700
+# Render to file and quit (shadows + PBR, auto-framed)
+python -m geogen.main -s chair -r out.png [--resolution 1280x720]
+python -m geogen.main -s chair -r sheet.png --views [iso,back,top]        # contact sheet
 python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
-python -m geogen.main -s hotel_room_auto -r out.png --views iso,top --cutaway   # hide ceilings/roofs to see inside
-python -m geogen.main -s skin_test -r out.png --clip sway@1.0   # pose skeletal clips before rendering
+python -m geogen.main -s hotel_room_auto -r out.png --views iso,top --cutaway   # hide ceilings/roofs
+python -m geogen.main -s skin_test -r out.png --clip sway@1.0          # also --pose NAME, --filmstrip N, --affordances, --lanes
+python -m geogen.main -s street --viewer-screenshot shot.png --display uv     # the Qt viewer (lit|clay|normals|uv)
 
-# Check placement from numbers: resolved tree (world bounds, assets, meta) + every QA check
+# Check from numbers: the resolved tree (world bounds, assets, meta) and every QA check
 python -m geogen.main -s hotel_room_auto --inspect
-python -m geogen.main -s hotel --inspect --depth 2 --checks none   # big scenes: limit depth or --select
-python -m geogen.main -s hotel --inspect --select "*bedroom*" --json --checks overlaps,layout
+python -m geogen.main -s hotel --inspect --depth 2 --checks none      # big scenes: --depth / --select GLOB, --json
+python -m geogen.main check --project examples/sandwich                # a project's QA; exit 1 on findings
+python -m geogen.main -s cottage --resolve "[tag=furniture]"           # what a reference names, as stable IDs
 
-# A project's QA without the core test suite: its own scenes (every check) and materials; exit 1 on findings
-python -m geogen.main check --project examples/sandwich          # or `geogen check`; SCENE..., --checks, --all, --json
+# The vocabulary: primitives, assets (params, attachments, surfaces, interactions), scenes, kinds
+python -m geogen.main --describe [door car cube npc] [--json]
+docs/make_catalogue.sh                                 # regenerate docs/catalogue (commit it); `all` re-renders thumbnails
+python docs/make_site.py /tmp/site                     # the catalogue as the static site GitHub Pages serves
 
-# What a reference names in a scene, as stable IDs (see References and stable IDs)
-python -m geogen.main -s cottage --resolve "[tag=furniture]"
+# Export
+python -m geogen.main -s dining_set -e out/dining_set.glb [--lods 0.5,0.25]   # .glb / .gltf / .obj
+python -m geogen.main -s town --chunks out/town_chunks --cache          # streamable chunks + index
+python -m geogen.main -s cottage --export-godot [--stream]              # into runtime/godot/generated/
+python -m geogen.main --export-catalogue [all|showcase|test|NAME,NAME]  # assets/runtime_scenes.yaml; --catalogue rewrites the index
 
-# Find the vocabulary: primitives, assets (params, attachments, surfaces, interactions), scenes, kinds
-python -m geogen.main --describe                      # everything, compact (paste into a prompt); --json
-python -m geogen.main --describe door car cube npc    # full entries (assets are built)
-docs/make_catalogue.sh                                # regenerate docs/catalogue (pages + changed thumbnails)
-python docs/make_site.py /tmp/site                     # the catalogue as a static HTML site (what GitHub Pages serves)
+# Godot runtime (macOS binary: /Applications/Godot.app/Contents/MacOS/Godot)
+godot --path runtime/godot -- --scene cottage [--stream]                # no --scene: the catalogue's default
+python -m geogen.runtime_client --launch cottage                        # control API; then e.g. player.walk_to pos=0,0.3,0.5
+docs/make_screenshots.sh                                                # README screenshots (docs/images/)
 
-# Export for game engines (hierarchy + PBR textures)
-python -m geogen.main -s town --chunks out/town_chunks --cache    # streamable chunks + index
-python -m geogen.main -s dining_set -e out/dining_set.glb     # .glb / .gltf / .obj
-python -m geogen.main -s cottage --export-godot               # into runtime/godot/generated/
-
-# Walk an export in the Godot runtime (macOS binary: /Applications/Godot.app/Contents/MacOS/Godot)
-godot --path runtime/godot -- --scene cottage
-godot --path runtime/godot                                    # the catalogue's default scene
-
-# Runtime scene catalogue (assets/runtime_scenes.yaml): export all / a group / names, or just rewrite the index
-python -m geogen.main --export-catalogue [all|showcase|test|NAME,NAME]
-python -m geogen.main --catalogue
-python -m geogen.main -s town --export-godot --stream        # chunked export the runtime streams
-godot --path runtime/godot -- --scene town --stream
-
-# Regenerate the README screenshots (docs/images/)
-docs/make_screenshots.sh
-
-# Screenshot the interactive Qt viewer (display: lit|clay|normals|uv)
-python -m geogen.main -s street --viewer-screenshot shot.png --display uv
-
-# Install dependencies
-pip install -e .
-
-# Install with dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Run a single test
-pytest tests/test_scenes.py -k "test_name"
+pytest [tests/test_x.py -k name] [--fast | --all]                       # see Testing
 ```
 
-## Architecture
-
-### Core System (`src/geogen/core/`)
-
-- **SceneNode** (`node.py`): Hierarchical scene graph with parent-child relationships. Each node has a local Transform, optional Mesh, and children. Provides `world_transform()` for combined transformation matrices, `flatten()` to merge all geometry, and `iter_meshes()` for traversal. Supports attachment points via `get_attachment()`.
-
-- **Mesh** (`mesh.py`): Geometry container storing vertices, faces, normals, UVs, and optional Material. Has `transform()` method, `merge()` classmethod for combining meshes, and conversion to/from trimesh.
-  - **Material groups:** optional per-face `face_materials` index into `materials`, and `merge()` of differently-materialled meshes produces these groups. `groups()` splits them for the renderers, and the exporter writes one glTF primitive each.
-  - **Vertex colours:** optional per-vertex RGBA `colors`, which tint the albedo in both renderers and export as `COLOR_0`.
-  - **Propagation:** weld, normals, UV projection, subdivision, displacement and CSG/decimation all carry groups (CSG through a manifold vertex property); a difference's cut faces take the target's primary material. Derived meshes copy them with `with_attributes_of`.
-
-- **Transform** (`transform.py`): TRS (Translation-Rotation-Scale) transformation. Rotation uses XYZ Euler angles in radians. Matrix order is Scale -> Rotate -> Translate.
-
-- **geometry** (`geometry.py`): Helper functions for face winding and normal computation. Uses CCW winding convention.
-
-- **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `collapse_short_edges` (CSG slivers; hair uses it), `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding). Use `validate` whenever you touch a generator.
-
-- **subdiv** (`subdiv.py`): `subdivide(mesh, levels, crease_angle)` (Loop, crease/boundary rules, sharp crease turns stay corners) and `displace(mesh, amplitude, scale, octaves, seed, ridged)` (fractal 3D gradient noise along smoothed normals; closed meshes stay closed). In YAML any part takes `subdivide: 3` / `{levels, crease}` (result is stretched back to the part box; `LayoutLoader(detail)` adds/removes levels) and `displace: {amplitude, scale, octaves, seed, ridged}`; UVs are box-projected by the undisplaced normals so noisy surfaces get clean seams. Used by rocks (`seed` param), bushes and bed pillows.
-
-- **skin** (`skin.py`): skeletal skinning.
-  - A skeleton is a plain joint `SceneNode` hierarchy; `Mesh.joints`/`weights` (Nx4) bind vertices to up to 4 joints, carried through normals/weld/groups/merge (not CSG or decimation yet).
-  - `SceneNode.skin = Skin.bind(mesh_node, joints)` stores inverse bind matrices; `world_mesh()` then CPU-skins (linear blend) the current pose, so renders, the viewer and QA see it posed. Keep the skinned node a sibling of the root joint.
-  - `SceneNode.clips`: `Clip(name, {joint: Track(times, rotations xyzw, translations)}, loop)`; `clip.apply(owner, t)` / `pose_clips(root, name, t)` pose joints.
-  - Export writes glTF skins (JOINTS_0/WEIGHTS_0, inverseBindMatrices), no colliders or LODs for skinned meshes, joint nodes keep their own names (not uniquified), and each clip becomes an animation `<owner>_<clip>` listed in the owner's `extras.geogen.clips`.
-  - Test scene: `-s skin_test` (`scenes/skin_test.py`, 3-joint tube with a `sway` clip); render a clip frame with `-r out.png --clip sway@1.0`.
-  - Humanoid target: `assets/skeletons/humanoid_profile.json` (Godot `SkeletonProfileHumanoid`: 56 bones, T-pose facing +Z, left = +X, Root on the floor, each bone +Y toward its tail, with per-bone roll in `reference_pose`).
-  - CSG and `decimate` carry weights as one dense column per used joint (manifold vertex properties), returning the top 4; vertices from unskinned operands copy their nearest skinned neighbour.
-
-- **skeleton** (`skeleton.py`): `load_skeleton(path, params) -> Skeleton` from a `kind: skeleton` YAML (`assets/skeletons/humanoid.yaml`).
-  - The YAML has `params` (height 1.70, head_units 6.5, shoulder_width, hip_width, leg_ratio, arm_ratio, neck_length, hand_size, foot_length), sequential `derived` expressions, world rest `bones` heads (Left* mirror to Right*), `group_scale` for unlisted profile groups (fingers at the profile's offsets) and `landmarks` (head_top, chin, heel, toe_tip, crotch).
-  - All 56 profile bones always exist, with rest orientations exactly the profile's (params only move heads).
-  - `Skeleton.fk(pose)`, `build() -> (root joint node, name -> node)` for `core.skin`, `length(bone)`.
-  - `Pose.from_spec({bones: {Name: [x, y, z] deg}, root, frame}, skeleton)`: the default `frame: body` rotates about the character's own axes (X = its left, Y up, Z forward), e.g. `LeftUpperLeg: [-90, 0, 0]` lifts the thigh forward and `LeftUpperArm: [0, 0, -90]` lowers the arm; `frame: bone` uses each bone's rolled local axes (what library clips contain). `Pose.apply(skeleton, nodes)` poses built nodes.
-
-- **uvmap** (`uvmap.py`): Metric UV projection — `box_project`, `planar_project`, `cylindrical_project`, and `texel_density` (1.0 == metric).
-
-- **profile** (`profile.py`): 2D shapes for extrude/lathe: `Shape(outer, holes)` (auto CCW/CW), `rect(w, h, radius)`, `circle`, `ellipse`, `regular_polygon`, `fillet`, `arc`, `bezier`, `catmull_rom`, `offset`/`Shape.difference` (shapely), `triangulate` (earcut), and YAML builders `loop_from_spec`/`shape_from_spec`/`polyline_from_spec`.
-
-### Generators (`src/geogen/generators/`)
-
-- **MeshGenerator** (`base.py`): Abstract base class for generators producing single meshes. Implement `generate() -> Mesh`.
-
-- **CompositeGenerator** (`base.py`): Abstract base for generators producing scene hierarchies.
-
-- **Primitives** (`primitives.py`): Dataclass-based generators for Cube, Sphere, Cylinder, Cone. Each declares its own attachment points via `get_attachment_points(size)`. `CubeGenerator` is a rounded box: `bevel` is the edge radius (default 0.02) and `bevel_segments` the arc steps per 45° (default 2), with analytic normals. Set `bevel: 0` in YAML for sharp cubes (do this for thin flat surfaces like roads/sidewalks to avoid disproportionate bevels).
-
-- **ExtrudeGenerator / LatheGenerator** (`profiles.py`): Extrude a `Shape` (with holes) along x/y/z with an optional rounded cap bevel; revolve an (r, y) profile around Y (partial `sweep` supported, r=0 closes at the axis; open ends off the axis get flat discs unless the profile is closed, i.e. its last point repeats its first, for rings and bands). Both are watertight, metric-UV'd, and use a crease angle (default 40°) for normals.
-
-- **SweepGenerator** (`sweep.py`): `primitive: sweep` sweeps a `profile` shape (metres; x = right of travel, y = up) along a `path` of [x, y, z] points or `{spline: [...], samples}`, with rotation-minimising frames (`level: true` keeps the profile level across instead: they roll round a helix), mitred corners, `closed`, `twist` (deg), `scale: [start, end]`, caps on open paths. `size` is optional (taken from the path); `center: false` keeps the path in the asset frame (anchor ignored). Example: `assets/handrail.yaml`.
-
-- **TextGenerator** (`text.py`): `primitive: text` with `text` (newlines split lines), `font: sans | serif` (bundled OFL Source Sans 3 / Source Serif 4 Semibold in `assets/fonts/`, Latin subset), `height` (cap height, m), `depth`, `align: left|center|right`, `line_spacing`, `tracking` (em), `bevel`. It reads along +X, faces +Z, and is centred on its bounds; `size` is optional (taken from the text). Glyph contours are unioned/cut with shapely, then extruded per region. Label params use `type: text` (`{label: {default: Hotel, type: text}}`, also inside strings: "To {dest}"). Review asset: `-s lettering`.
-
-- **PathsGenerator** (`paths.py`): `primitive: paths` with `paths` (lists of [x, z] or `{spline, closed}`), `width`, `thickness`. The paths are buffered, unioned (shapely; loops leave lawns as holes) and extruded. It keeps the asset frame (the points are where the paths go) and `size` is optional.
-- **Island assets**: `jetty.yaml` (plank deck on piles that rise as the railing posts, `length`, a landing with a ladder and bollard; origin at deck-top level on the shore end, runs along +Z), `rowing_boat.yaml` (hollowed half-ellipsoid hull, thwarts, oars; origin on the waterline, `hull_color`), `lighthouse.yaml` (climbable: doorway on +Z, spiral stair to a gallery deck, glazed lantern with a doorway, lamp `light: auto: night`). Tests: `tests/test_island_assets.py`.
-- **FenceGenerator** (`fence.py`): `primitive: fence` with a `path` ([x, z] points), `closed`, `height`, `gaps: [[from, to], ...]` (metres along the path, for gates), plus post, rail and picket sizes and spacing. It builds boxes with box-projected UVs, in the asset frame.
-
-- **Water** (`water.py`): `primitive: water` is a thin sheet from a `shape` (`{outer, holes}` for a sea round an island), material `water` by default, no collider, and `meta.water` (optional `shallow_color`, `deep_color`, `depth_scale`, `wave_scale`, `wave_speed`, `foam`). The Godot runtime swaps its material for `scripts/water.gdshader` (waves, depth tint, shoreline foam). `barrier: <h>` adds an invisible `shore_barrier-colonly` wall (`meta.type: collider`, skipped by `iter_meshes`/renderers) along every edge. Tests: `tests/test_water.py`.
-
-- **TerrainGenerator** (`terrain.py`): `primitive: terrain` is a closed heightfield solid in the asset frame: `extent: [x, z]`, `resolution`, `height` (peak above sea), `sea_level`, `depth`, `seed`, `scale`, `octaves`, `falloff: {radius, edge, power}` (a wobbly island coastline; `island: false` for rolling ground), `pads: [{center, radius, blend, height?}]` (level ground), `materials: {sand, grass, rock, path}` (face groups by height above sea and broad slope), `paths: [{points, width}]` (smooth gravel ribbons draped 4 cm above the ground in a `paths` child, visual only; scatter keeps off them), `shore: {depth, height, openings: [[x, z, r]]}` (a collider-only barrier along `coastline()` where the water gets that deep, with gaps, e.g. where a jetty crosses it). Walkable, trimesh collider; `meta.terrain` holds the params (`terrain_from_meta` re-evaluates `height_at` / `slope_at`). `assets/island_terrain.yaml` is a generic terrain plus a sea sheet, with the sea `sea_level` above y = 0 so the Godot ground plane is the sea bed. Review scene `-s terrain_test`; tests `tests/test_terrain.py`.
-
-- **StairsGenerator** (`stairs.py`): `primitive: stairs` with `style: straight | l | spiral` (a spiral is centred on its pole, its steps are solid blocks, and it gets an invisible helical `_ramp-colonly` collider over the nosings plus `meta.stairs.ends`, which the Godot scene builder joins with a `NavigationLink3D`: Recast splits a self-overlapping spiral into regions it can't join across a riser; the ramp is tessellated in radial bands so its facets slope as the helix does, and `meta.stairs.path` is the walking line between the ends, which `GeogenWalker.along_links` puts in place of the link's straight segment so `walk_to`, the playtest bot and NPCs (`npc.gd` `_plan`) climb with the real body), `rise`, `width`, `max_riser` (step count = ceil(rise / max_riser), so any rise stays climbable), `tread`, `turn`, `landing_at`, `railing: both|left|right|outer|none`, `railing_material`. Body is one watertight solid (walkable, trimesh collider); swept handrails on posts are a `<part>_railing` child. Climbs toward -Z. Example: `assets/staircase.yaml`.
-
-- **RoofGenerator / PrismGenerator** (`architecture.py`): `primitive: roof` with `style: gable|hip|shed|flat`, `overhang`, `thickness`, `ridge_axis: auto|x|z`, `ridge_cap`. Size = wall-top footprint + rise; the part's bottom is the wall-top plane, eaves overhang beyond it. UVs are face-planar (shingle rows parallel to eaves). `primitive: prism` fills gable ends (`apex: center|back|front` for wedges/ramps).
-
-- **CSG** (`core/csg.py`): `difference`, `union`, `intersection` on closed meshes via manifold3d; UVs survive, normals are recomputed. In YAML: `subtract: [part, ...]` on a target and `cutter: true` on helper parts (removed after cutting). `cut_host: true` marks an opening cutter that is applied to *whatever surface the asset is placed on* — `window.yaml` / `door.yaml` use this so `on: house.front_wall` cuts a real opening into the wall part (surfaces remember their `source` part).
-
-- **Round shapes** (`round_shapes.py`): `primitive: torus` (fills x/z; `tube` radius, default size_y / 2), `primitive: capsule` (radius min(x, z) / 2, hemispherical ends), and `cylinder` with `bevel: <radius>` for rounded rims (cylinders stay sharp without it). Lathe-based, watertight, metric UVs.
-
-- **EllipsoidGenerator** (`primitives.py`): Sphere stretched to all three size components (`sphere` keeps using `min(size)` for back-compat).
-
-- **FloorPlan** (`floorplan.py`): Multi-room storeys from a YAML `floorplan:` block (an asset with `floorplan:` instead of `parts:`; `size` is computed). Rooms are grid rectangles on wall centre lines (`rect: [x, z, w, d]`); edges shared by two rooms become `interior_wall` (0.12) walls, outside edges `exterior_wall` (0.3), all centred on the edge. Segments are extended to their perpendicular walls and unioned in 2D (shapely) before one extrusion, so junctions are clean and `walls` is a single watertight mesh; `doors` (`between: [a, b]` or `room`+`side`) and `windows` (`room`, `side`, `at`, `width`, `height`, `sill`) are CSG-cut. Each room is a node (tags `room`, `room_type`) with `floor`/`ceiling` slabs (per-room `floor:`/`ceiling:` materials) and surfaces exported at the root as `<room>.<surface>`: `floor`, `ceiling`, `<side>_wall` (facing into the room) and `<side>_exterior` on outside walls, so `on: suite.bedroom.south_exterior` places a window asset that cuts the walls. North = +Z. The default 0.2 m ceiling slab is deliberate: thin slabs leak sunlight through shadow maps in Godot (ceilings tuck into walls; floors deliberately don't, so doorway thresholds don't z-fight). Doors: `style: door|archway|opening`, `swing: <room>|out` (default: second room of `between`, or into the room), `hinge: left|right` (seen from the swing side), `open: <deg>`; `DoorGenerator` (`generators/doors.py`) builds lining + architraves on both faces + a `leaf_pivot` node at the hinge (`meta.joint`) holding the leaf and chrome levers. Door nodes are tagged `door.interior|exterior` / `opening.archway`; the swing room gets `meta.door_swings` arcs. Example: `assets/hotel_suite.yaml`.
-
-- **Buildings** (`building.py`): an asset with `building: {storeys: [{floorplan: {...}, repeat: n, furnish: true}], roof: {parapet, material}}` stacks floor plans (each storey's floor slab on the walls below; storey nodes tagged `storey.<n>` with `meta.storey`), numbers guest floors via the layout's `floor` param, links every `stair`-type room to the one above with a straight flight (floor above and ceiling below cut open), and adds a flat roof + parapet. Rooms of type `lift_shaft` stacked over storeys (both hotel layouts reserve one, centred) become a lift: the shaft is opened up, a `lift_car` rides it via a `lift` interaction (states `floor_<k>`, E goes to the next floor), and each floor's shaft doorway gets a gate: a `hide` motion of the lift interaction, so it is solid unless the car is standing at that floor. Buildings add an `entrance_spawn` outside the street door. Example: `assets/hotel.yaml` (lobby + 3 furnished guest floors). Layout QA checks reachability per storey.
-
-- **Façades** (`facade.py`): `building: {facade: {style: brick_hotel | stucco | modern, balconies: bool}}` clads the structural walls (plan material `exterior`, separate from room linings), frames and glazes every exterior window (storefront mullions on low ground-floor windows), adds sills/lintels per style, string courses at each floor, a cornice, canopies over ground-floor exterior doors and optional Juliet balcony rails. Parts are merged per material under a `facade` node.
-
-- **Plan layouts** (`plan_layouts.py`): `floorplan: {generate: hotel_corridor | hotel_lobby, ...params}` expands to rooms/doors/windows (plan keys like `wall_height`, `materials`, `finishes` pass through). `hotel_corridor`: stairs at the ends, lift lobby + service core mid-floor, double-loaded guest modules (`module`, `ensuite`, `bath_width`, ...). `hotel_lobby`: street entrance, lobby, reception, lounge, restaurant, restrooms, back-of-house. Assets `hotel_floor.yaml`, `hotel_lobby.yaml`; `scenes/hotel_floor_furnished.yaml` furnishes a whole floor. Public-room archetypes (`lobby`, `reception`, `lounge`, `restaurant`, `restroom`, `back_of_house`, `lift_lobby`) furnish the ground floor with `sofa`, `coffee_table`, `reception_desk`, `planter`, tables with chairs (`around: table`), etc.
-
-- **Nature** (`nature.py`):
-  - `primitive: tree` grows a space-colonisation skeleton in the part box: `style: deciduous` (ellipsoid crown) or `conifer` (cone, drooping boughs), with `seed`, `trunk_height`, `trunk_radius`, `attractors`, `step`, `leaf_size` and `foliage_material`. `style: palm` (`palm_tree.yaml`) skips the skeleton: a curved, leaning trunk and `fronds` arched V-folded strips plus coconuts (materials `palm_bark`, `foliage_palm`).
-  - Branch radii use the pipe model. The trunk mesh gets a hull collider; the `branches` and `foliage` children (noise-displaced leaf clusters on the twigs) have no collider.
-  - `primitive: rock` is a random convex cage (`seed`, `points`, `levels`, `roughness`, `crease`), subdivided, displaced and flat-bottomed.
-  - Generated child meshes inherit the part's `material` (bark).
-
-- **RoomGenerator** (`room.py`): Generates rooms with walls, floor, ceiling, and openings (doors/windows). Supports `generate_parts()` for separate surface meshes with different materials. Uses `Opening` dataclass for doors/windows with wall position, size, and bottom offset.
-
-### Textures (`src/geogen/textures/`)
-
-- **TextureGenerator** (`base.py`): Abstract base class for procedural textures. Generates PIL Images and optional PBR maps (normal, roughness, AO). Uses numpy RNG with optional seed.
-
-- **NoiseTextureGenerator**: Shared base for noise-based textures. Subclass implements `_get_noise_layers()`, `_compute_pattern()`, `_apply_color_shift()`. `BrickTextureGenerator` breaks this contract (returns a `(pattern, is_mortar)` tuple) and overrides `generate()`.
-
-- Implementations: `wood`, `metal`, `floor`, `wall`, `asphalt`, `brick`, `concrete`, `dirt`, `grass`, `rock`, `roof` — each in its own module.
-
-- **Interior pack** (`interior.py`): `fabric` (plain/twill weave, `threads` per repeat), `cut_pile_carpet`, `tile` (`tiles_x`/`tiles_y` per repeat, `grout_width`, `layout: grid|offset`), `marble`. Materials: `fabric_linen`, `fabric_velvet`, `bedding_white`, `carpet`, `tile_white`, `tile_subway`, `tile_floor_grey`, `marble`, `chrome`, `mirror`, `laminate`, `paint_{white,sage,navy,terracotta,greige}`. Any colour param in a material YAML may name a `PAINT_PALETTE` colour (`materials/loader.py`) instead of `[r, g, b]`.
-
-### Materials (`src/geogen/materials/`)
-
-- **Material** (`material.py`): Combines a TextureGenerator with PBR properties (roughness, metallic, normal_strength, ao_strength). Caches generated textures. `tile_size` (metres per texture repeat, YAML scalar or `[u, v]`) converts metric mesh UVs to texture space via `texture_uv_scale`; `gltf_images()` packs base colour / metallic-roughness / normal / occlusion for both the renderer and exporter.
-
-- **MaterialLoader** (`loader.py`): Loads material definitions from YAML files in `assets/materials/`. `pbr: {opacity: 0.3}` makes a material alpha-blended (glass: see-through in renderer, viewer, glTF `BLEND` + double-sided, Godot); `pbr: {emissive: [r, g, b], emissive_strength}` makes it glow (`lamp_shade`, `screen`).
-
-### Lighting (`src/geogen/lighting/`)
-
-- **Light classes**: `DirectionalLight` (sun-like), `PointLight` (omni). Both have color and intensity.
-
-- **SceneLighting**: Container with ambient color and lights list. Provides `get_shader_data()` for shader uniforms. Presets: `default()` and `room_lighting()`.
-
-### Layout System (`src/geogen/layout/`)
-
-- **Anchor** (`anchors.py`): Named anchor points using normalized coordinates (0-1). Examples: `bottom_center`, `top_front_left`. `resolve_anchor()` converts to world coordinates.
-
-- **AttachmentPoint** (`attachments.py`): Named points for connecting objects. Specifies position via anchor + offset, and orientation via `facing` direction (`center`, `outward`, compass directions) or explicit rotation.
-
-- **LayoutLoader** (`loader.py`): Loads composite objects from YAML. Profile primitives:
-  ```yaml
-  top:
-    primitive: extrude
-    shape: { rect: ["{width}", "{depth}"], radius: 0.05 }   # or {outer: ..., holes: [...]}
-    fit: none          # profile in metres (default 'stretch' scales it to the part size)
-    axis: y            # y: profile in XZ (slabs), z: profile in XY (panels), x
-    bevel: 0.008
-  leg:
-    primitive: lathe
-    profile: { spline: [[0.6, 0], [0.4, 0.5], [0.7, 1.0]] }  # (r, y); or [[r, y], ...] / {segments: [...]}
-    segments: 40
-  ```
-  Base format:
-  ```yaml
-  name: object_name
-  origin: bottom_center
-  size: [x, y, z]
-  parts:
-    part_name:
-      primitive: cube|cylinder|sphere|cone
-      size: [x, y, z]
-      anchor: bottom_center
-      offset: [x, y, z]
-      material: wood
-  attachments:
-    attach_name:
-      anchor: bottom_front_center
-      offset: [x, y, z]
-      facing: center
-  ```
-
-- **SceneComposer** (`composer.py`): Composes scenes from YAML using semantic positioning. Supports:
-  - **Slots**: Named positions with anchor + offset + facing direction
-  - **Attachments**: Objects attached to other objects' attachment points
-  - **Nested scenes**: Scenes can reference other composed scenes via `scene:` instead of `asset:`
-
-  Scene format with slots:
-  ```yaml
-  name: street
-  size: [5, 2, 3]
-
-  slots:
-    sidewalk_left:
-      anchor: bottom_front_left
-      offset: [0.1, 0, -0.1]
-      facing: south
-    sidewalk_center:
-      anchor: bottom_front_center
-      facing: south
-
-  place:
-    lamp:
-      asset: street_lamp.yaml
-      slot: sidewalk_left
-    bench:
-      asset: bench.yaml
-      slot: sidewalk_center
-    furniture:
-      scene: scenes/dining_set.yaml  # Nested scene
-      slot: room_center
-  ```
-
-  Placements take `when: "{expr}"` (dropped when 0 / false / ""), like parts.
-
-  Parts take `array: {count, step: [x, y, z]}` to repeat as `<part>_0..n-1` (step in `offset` units; `count` may be an expression, e.g. `"{round(length / 3) + 1}"`); a `subtract:` naming an arrayed cutter takes every copy. Paths (`paths`, `fence`) accept `{circle: r, segments, center}`.
-
-  Attachment-based composition:
-  ```yaml
-  name: dining_set
-  place:
-    table:
-      asset: table.yaml
-    chairs:
-      asset: chair.yaml
-      attach_to: table
-      at: [seat_front, seat_back, seat_left, seat_right]
-  ```
-
-### Vehicles
-
-`assets/vehicles/*.yaml` are registered by stem (`-s car`); `vehicle_lineup` is the review scene. The assets are:
-- `car.yaml`, with presets sedan, hatchback, estate and taxi;
-- `van.yaml`;
-- `bus.yaml`.
-
-They're built along +Z (the front) with the origin on the ground midway between the axles; left = +X. Parts are in metres (a unit container with `bounds: geometry`).
-- **Construction:** the body is a side profile `extrude` with `axis: x`, so profile points are `[-z, y]`. Wheel arches are cut by cylinder cutters. Glass is `car_glass`. The body colour is a `paint` choice param applied as `tint: "{paint}"` over the neutral `car_paint` material.
-- **Tints:** part `tint:` (a palette name or RGB) writes vertex colours after CSG. Palettes are `VEHICLE_PAINT` and `PAINT_PALETTE` in `materials/loader.py`.
-- **Conditional parts:** part `when: "{expr}"` drops the part, and parts attached to it, when the expression is 0 or false (the taxi sign).
-- **`vehicle:` block:** handled by `geogen/vehicles.py` and becomes `meta.vehicle` (`meta.type: vehicle`, schema-validated). Its keys:
-  - `class`, `wheels`, `steer`, `paint` and `lamps {head, tail, brake}`, all naming parts;
-  - `bogies` and `couplers` for rail;
-  - `max_speed`, `turn_radius`, `accel`, `decel`;
-  - `sound: {engine: {base, per_speed, volume_db, roughness}, horn: {tones, seconds, volume_db}}`, which the runtime synthesises (`scripts/sound.gd`).
-- **Measured values:** wheel centres and radii, wheelbase, track, `clearance [length, width, height]`, and front/rear bumper z.
-- **Export:** rewrites these part names to the exported (uniquified) node names.
-- City `parking:` (`fleet` weighted with draw params, `fill`, `bay`, `drive`, `both_sides`, `clear`) puts static cars in kerbside bays.
-  - Cars face the traffic on their kerb and keep clear of corners and hydrants.
-  - Streets narrower than `both_sides` park on one kerb only.
-  - Nodes carry `meta.parked`.
-  - Tests: `tests/test_vehicles.py`. Traffic epic: geogen-r65.
-
-### Traffic lanes
-
-`geogen/traffic.py` builds a lane graph for vehicles. It is precomputed so the runtime only follows curves.
-- **City lanes:** `city: {traffic: {drive, lanes, avenue_lanes, speed, avenue_speed, turns}}` gives:
-  - directed lanes per street segment, laid across the carriageway that's left after parking and running between the crosswalks (a lane's end is its stop line);
-  - Bézier connectors through each intersection (`turn` straight/left/right, with the kerb-side turn from the kerb lane).
-- **Routes:** scene `routes: {name: {path | {spline}, lanes, drive, speed, loop, lane_width}}` declares explicit roads. Open routes `end: exit`.
-- **Precomputed data:**
-  - lanes resampled every 0.5 m, with the lane `speed` capped by curvature;
-  - `conflicts` (connector pairs within 2.2 m in one intersection, with s-ranges);
-  - connector `crosswalks` s-ranges;
-  - `intersections` (`control: all_way`).
-- **Storage and export:** graphs live in `meta.traffic` of the city/scene node (not exported as extras). `build_traffic(scene)` merges them in world space into the manifest's and chunk index's `traffic` section, with schema `docs/schema/geogen-traffic.v1.schema.json`.
-- **QA:** `check_graph` finds dead ends and unknown successors. `check_clearance` sweeps car/van/bus boxes along every lane against geometry. Town street trees use `maple_tree` `height: 6.8, trunk: 0.6` so the crowns clear buses.
-- **Review:** `-r out.png --lanes` overlays ribbons (lanes blue, straight green, left orange, right magenta) and prints issues. Tests: `tests/test_traffic.py`.
-- **Traffic lights:** `city: {traffic: {signals: avenues | all | none, cycle: {green, amber, all_red}}}` signals intersections with three or more arms (with `exits`, an avenue's end at the edge of the grid counts four).
-  - North/south approaches are phase 0 and east/west phase 1. Lanes carry `signal {intersection, phase}` and `kerb` (the distance to their right kerb). Intersections carry `control: signals`, `cycle` and a staggered `offset`.
-  - The city places `signal_head.yaml` at each signalled stop line on the pavement (`meta.signal`).
-  - The runtime runs the cycle from world time and lights `lamp_red|amber|green`. Vehicles claim on green, or on amber when too close to stop, and wait at red; only a lane's front vehicle claims (a queued one would hold its claim and lock out conflicting traffic). A car held on green longer than `give_up` picks another exit.
-- Traffic placements take `count:` to size the fleet (`crossroads` uses 10).
-  - **Pedestrian signals:** the graph's `pedestrian_signals` lists each crosswalk of a signalled intersection with pavement at both ends: `{id, intersection, arm, phase, crosswalk, length, walk, clearance}`. Crossings over the district's edge streets (no pavement beyond) aren't painted or walked, so every crossing at a signalled intersection has signals.
-    - `phase` is the vehicle phase it is walked in: a crossing over the west or east arm is crossed by east/west traffic, so it is walked in phase 0, beside the north/south traffic. Turning traffic of that phase isn't held; it yields to people on the crossing.
-    - `traffic.pedestrian_timing`: from the start of the phase's green, walk, then a flashing don't-walk `clearance` (length / `PEDESTRIAN_SPEED` 1.2 m/s, rounded up to 0.5 s) that ends with the amber, then don't-walk. Walk is what is left of green + amber, at least `MIN_WALK` 4 s; `check_graph` reports a cycle too short for both. `traffic.signal_state` / `pedestrian_state` are the reference for runtimes.
-    - The city places `pedestrian_signal.yaml` (parts `lamp_walk`, `lamp_dont`) at both ends of each, at the kerb just outside the stripes, facing across, named `signal_walk_<id>_a|b` with `meta.signal = {intersection, phase, crossing}`. `traffic.gd` lights them (`pedestrian_state(id)`; the summary's `pedestrian_heads`, `walks`, `walk_conflicts`). The player on a kerb end or on the crossing sees WALK / DON'T WALK in the HUD (`hud_crossing.gd`, API `hud.crossing`).
-- Stop lines are set back 3 m (`STOP_SETBACK`) and connectors within 3.6 m conflict, so buses' swept turns clear waiting cars.
-- **Moving traffic:** `kind: traffic` definitions live in `assets/traffic/*.yaml`.
-  - They declare the fleet (weighted assets with draw params, optional `lanes` id prefixes), `count`, `spacing`, `driving` (IDM `accel`, `decel`, `headway`, `gap`, `speed_factor`, `stop_wait`, `look_ahead`, `give_up`), `turns` weights and `yield: [player, npc]`.
-  - A placement `{traffic: traffic/town.yaml, seed}` runs after everything else, including spawns. `place_traffic` puts the starting vehicles on lanes (`meta.driving = {lane, s, factor}`), 12 m clear of spawns and NPCs, under a node with `meta.type: traffic` and `meta.fleet`.
-  - The Godot interpreter is `runtime/godot/scripts/traffic.gd`; see the Traffic section of `runtime/godot/README.md`. `-s crossroads` is the small test grid. Runtime tests: `tests/test_traffic_runtime.py`. Ad-hoc Godot runs on macOS need a timeout wrapper: there's no `timeout` command, so use `perl -e 'alarm shift; exec @ARGV' 300 godot ...`.
-
-### Railways and trains
-
-- **`railways:`** is a scene key built by `geogen/railway.py`: `{name: {path | {spline}, loop, gauge, speed, stations: [{name, at (fraction | {s}), length, side, width}]}}`.
-  - It sweeps a low track bed along the path (ballast, sleepers, rails; rail head `RAIL_TOP` = 0.16 above the ground, so road crossings are near flush).
-  - It adds 0.3 m platforms (tagged `street.sidewalk`) with benches and lamps. Each platform is a named place, `railway_<line>/station_<name>` (`_l` / `_r` when a station has both), so rules and quests see who stands on it.
-  - It records `meta.railway` (points at the rail head, stations), exported to the manifest's `traffic.railways`, not to extras.
-- **Level crossings:** `level_crossings` finds where the line crosses road lanes of the lane graph. Each crossing lane gets a `crossing_barrier.yaml` (interaction `barrier`, up|down) on its kerb side, a stop point 4.5 m before the track, and `crossings[{id, s, barriers, lanes}]`.
-- **Route surfaces:** routes now get an asphalt surface with a centre line (`surface: false` to skip it).
-- **Rolling stock:** `vehicles/loco.yaml` and `vehicles/carriage.yaml` have bogies (with the wheels attached to them) and couplers. `meta.vehicle.bogie_centers` records where each bogie pivots.
-- **Trains:** `kind: train` definitions (`assets/trains/commuter.yaml`) declare a `consist`, `speed`, `accel`, `decel`, `timetable {headway, dwell, offset}` and `warning`.
-  - A placement is `{train: trains/commuter.yaml, railway: <name>}`. `trains.place_train` simulates the run once (`simulate_run`: stops with the train's middle at each station) and computes crossing `closures`.
-  - The runtime is `runtime/godot/scripts/train.gd` (see the README's Trains section).
-  - `-s level_crossing` is the test scene, and `town` has a line along its north edge. Tests: `tests/test_railway.py` and `tests/test_traffic_runtime.py`.
-
-### Characters
-
-Humanoid bodies (`generators/humanoid.py`, `assets/characters/humanoid.yaml`): an asset with a `body:` block is a skeleton (`core/skeleton.py`) skinned by ring-lofted chains (`generators/ringloft.py`).
-- Chains: torso+neck+head, arm (clavicle to mitten), thumb, leg, foot; `mirror: true` adds the exact Right* twin.
-- A chain's `rings` are `[bone, t, rx, rz, {offset, power, twist}]`. Chains also take `joint_rings` (bones whose joint gets bend rings), `joint_blend` (per-joint weight blend widths), `weight_shift` (e.g. Head -0.055, so the jaw follows the head) and `bind` (the mitten follows the Middle+Ring fingers, keeping 4 influences).
-- `max_triangles` decimates the unioned mesh (weights kept); the body is about 1.5k tris.
-- Shape params: height, build, shoulder_width, hip_width, hips, waist, bust, glutes, limb, head_size, jaw_width, neck_length, hand_size, foot_length.
-- `presets:` feminine/masculine (`params: {preset: feminine, height: 1.6}`; explicit values win). A list stacks presets in order (`preset: [feminine, curvy]`). Body types stack on a gender preset: slim, athletic, curvy, heavy, petite, tall, stocky, lanky, and `hourglass` (exaggerated, a clothing-fit stress test). They set `build`, `limb_scale` and `belly` rather than the gender presets' limb/waist/hips (curvy and hourglass excepted). `leg_ratio` (hip height / height) moves the skeleton's hips and knees. Asset YAML takes `presets:`/`preset:` and sequential `derived:` expressions in general.
-- `body.poses` are skeletal poses (stand, sit, lie, t_pose; body frame), and `body.pose` is the one it's built in; each becomes a static `pose_<name>` clip. The top-level `poses:` are the NPC root transforms: sit drops the hips onto the seat point, lie lays the body along the bed.
-- Transition clips (`generator: transition`, `from`/`to` poses): `sit_down`, `stand_up`, `lie_down`, `get_up`. They also move the root: `meta.root` (times, positions, rotations) is its path from the approach point to the pose's root placement, in the frame of where the character ends up (`clips.root_at`). Params: `approach`, `anchor_height`, `plant` (leg IK keeps the feet where they stand), `lean`, `via`/`via_at` (a pose to pass through), `move`/`turn` (the shares of the clip the hips travel and the body turns in). `npc.gd` plays the one matching a pose change and follows the path, blending in what differs from the actual seat (`_advance_transition`).
-- `body.clips`: procedural clips (`generators/clips.py`) over the stand pose (walk, idle, and a one-shot `wave`). `walk` (`speed`, `duty`, `knee_drop`, `bob`, `hip_sway`, `pelvis_yaw`, `chest_yaw`, `arm_swing`, `lift`, `heel_raise`) is an in-place cycle with ground-locked stance feet via two-bone IK (`core/ik.py`), the stride chosen from leg reach, and `meta.speed`/`stride` exported in extras. `idle` is breathing, weight shift and a glance. Clips key every bone plus the Hips translation.
-- Poses take `hips: [x, y, z]` (pelvis offset) and `ik: {LeftFoot|RightFoot|LeftHand|RightHand: {target, pole, flat}, mirror: true}`. Targets are in the body frame, solved per body by `core/ik.solve_limb`, so every preset fits. Humanoid poses: stand, sit and sit_at_table (feet planted for the `seat_height` / `table_height` params), lie, lean_on_sill (`sill_height`), reach_low, look, t_pose. The NPC actions use stand, sit and lie.
-- Head: the torso chain's head rings, a lofted `nose` chain, and a painted face. `body.face` holds a `box` plus params for `textures/character.FaceTextureGenerator` (eye_color, lashes, lip_strength, blush, freckles, brows); `generators/humanoid.apply_face` gives the front of the head its own material slot with planar 0-1 UVs, the one exception to metric UVs.
-- Tints: skin tone (`skin_tone` 0..1 over `SKIN_TONES`) and hair colour (`hair_color` choice) are vertex colours over the shared `skin`/`hair` materials. Godot's `world_loader` turns on `vertex_color_use_as_albedo` for surfaces with COLOR_0.
-- Hair: `body.hair_styles` (buzz, crop, pixie, bob, long, ponytail, bun, afro) are chains plus `cut` shapes (boxes, or `{center, radii}` ellipsoids for rounded hairlines), built as a separate skinned `hair` node. Choice params are `hair_style`, `hair_color`, `eye_color`; params may declare `choices:` (strings, whole-value `"{name}"` only).
-- Clothing (`assets/clothing/*.yaml`, `kind: garment`):
-  - Outfits are selected by the `outfit` choice param (`none`, `casual`, `jeans_tee`, `smart`, `shorts_tee`, `casual_f`, `skirt_sweater`, `dress`), with `top_color`/`bottom_color`/`shoe_color` choices from `CLOTH_COLORS`.
-  - Tight garments `cover: {chain: [[bone, t], [bone, t]]}` are `ringloft.Span`s: covered rings grow by `thickness`, edges become 2 mm hem ring pairs, and the highest `layer` wins (tops 2 over trousers 1; shoes 3). Tops also cover the thigh tubes' tops so trousers can't show through at the hips.
-  - Each garment gets its own material copy so slots survive the union; `split_by_slot` then colours vertices per slot and merges slots per base material (`cloth`, `denim`, `leather`).
-  - Tight garments take `ease: <m>` (stiffness): the torso's front, back and side outlines are rolled over by a ball of that radius, so a top spans the hollow under a bust instead of clinging to it (`ringloft._roll`; T-shirt 0.12, sweater 0.22; 0.3 already boxes out the hourglass).
-  - Loose garments (`chains:`, e.g. skirt, dress) are shells like hair. `hug_body` moves a shell's walls out to the body under them plus a clearance (`HIP_ROOM` more round the hip joints), so one authored skirt fits every build. `weights: legs` (`leg_weights`) skins it: Hips at the waist, handing over round the hip joints to both thighs, half each with `LEG_SPLIT` (0.25) more of its own side's; `weights: body` is the older `transfer_weights`.
-  - Drape (`generators/drape.py`, `docs/clothing.md`): pose correctives for a single-tube loose shell, with no cloth simulation. `drape_frame` re-shapes each ring of the outer wall in its own plane: it clears the convex hull of the posed pelvis/thighs' section by its rest clearance, keeps what looseness the skinned ring has left (none on top of a lap, never longer than the ring was cut), and seated nothing behind the knees is below the seat plane. `fit` drapes every static pose and sampled frames of every clip and bakes them to at most 8 morph targets `drape_<n>` on `clothes` (up to 3 static poses exact, then principal components), keyed by every clip's `morphs["clothes"]` track (weights -1..1). `meta.humanoid.drape` is the report (targets, per clip [largest correction, largest error] in mm); `meta.humanoid.shells` is what `drape.Draper(character, shells).positions(actor, seat)` needs to drape any posed instance unbaked.
-  - Arms (`generators/arms.py`, `docs/clothing.md`): `clear_arms` runs last in the build and swings each upper arm outward at the shoulder by what this body needs for its forearm and hand to clear the body and the draped shell, in every static pose (exact) and at sampled frames of every clip (spread over the neighbouring frames; a transition's ends take its static poses' swing). Only the UpperArm rotation keys change, and a pose that is clear already is untouched. `meta.humanoid.arms` is {clip: largest swing in degrees}; body option `clear_arms: false` turns it off. It adds about 0.5 s to a build (1 s with a skirt). Tests: `tests/test_arms.py`.
-  - The waist (geogen.11.5.19): garments declare `part: top | bottom | dress | shoes`. `lap_waist` makes a top and a bottom overlap by `WAIST_OVERLAP` (3 cm) as geometry: a tight bottom's span runs on up under the top's hem, and a top's hem comes down under a loose bottom's waistband (`meta.humanoid.waist_overlap`). The leg chain has `root: Hips`: the tube above the hip joint is pelvis and stays put when the thigh swings (it used to swing out behind a seated body, taking the top's hem with it). A top covers the thigh tubes' tops with `leg: [[LeftUpperLeg, -1.0], {level: torso}]` (level with its torso hem). `smooth_hem` runs after decimation: teeth in the top's waist hem go to the other side, hem vertices are levelled, and the hem takes trunk weights only, so it is one smooth loop that follows the pelvis. `meta.humanoid.garments` lists what is worn with each garment's vertices.
-  - A dressed character is about 3.5-4k triangles, up to ~4.6k with a skirt (~1.1k, dense enough to drape; body budget `max_triangles: 2600`); crowd LODs are geogen.11.5.17.
-- Archetypes (`src/geogen/characters.py`, `assets/characters/archetypes/*.yaml`, `kind: archetype`):
-  - An archetype is a seeded distribution over a body's params: `{random: [lo, hi]}`, `{normal: [mean, sd], clamp}`, `{choice: [...], weights}`.
-  - `extends:` inherits another archetype's params. `variants:` draws correlated bundles, e.g. a preset with a matching hair style; `{archetype: other.yaml}` variants hand the draw to another archetype, as in `townsfolk.yaml`.
-  - Built in: `adult` (base), young_woman, young_man, older_woman, older_man, office_worker, hotel_staff, townsfolk.
-  - Scenes place a person with `{archetype: characters/archetypes/x.yaml, seed: 3}`. A `scatter:` of an archetype or NPC draws a seed per copy, giving a crowd of different people.
-  - NPC bodies take `body: {archetype: ...}`, and the placement `seed` picks the person and seeds the brain.
-  - Nodes get `meta.character = {archetype, seed}`. Identical resolved params share one body prototype.
-  - Review with `-s archetype_gallery -r out.png --view front_high`. Tests: `tests/test_characters.py`.
-- Clipping QA (`geogen/clipping.py`): `measure(character, pose, seat=...)` reports four metrics, plus three at the waist of an outfit with a separate top and bottom, with `report(presets, outfits)` sweeping combinations.
-  - `shell_poke`: body vertices covered by the loose shell in stand but outside it in the pose (not ones nearer the hem's opening than the cloth: they left by the opening).
-  - `hands`: hand and forearm vertices inside the rest of the body or the shell.
-  - `feet_skin`: bare heels in shoes.
-  - `seat`: penetration posed on armchair, chair and sofa via `affordance_qa.pose_actor`.
-  - `waist_gap`: skin showing between top and bottom: face samples of bare pelvis, spine and thigh within 12 cm of the top's hem that a loose bottom doesn't cover (any at all when the bottom is tight).
-  - `waist_overlap`: `min_mm`, the least the two overlap round the hem in the pose: from the hem to the nearest body surface that shows past a loose bottom (negative when the hem itself shows; capped at 120), or the lapped spans for tight on tight.
-  - `hem`: the top's waist hem as a loop: vertices more than 8 mm out of line with their neighbours (above or below at rest, plus what the pose adds), and `ends`.
-  - `tests/test_clipping.py::test_tops_overlap_bottoms_in_every_pose` is strict: no gap, 15 mm of overlap and a smooth hem in all eight poses (four combinations in the default tier, 5 presets x 6 outfits with `--all`).
-  - `test_nothing_pokes_through_a_skirt_in_any_pose_or_clip` is strict too: no `shell_poke` in any pose or sampled frame of walk, idle and the transitions, and no cloth in a seat (one body in the default tier, five with `--all`; heavy builds are left out: a belly over a lap).
-  - `test_review_scenes_pass_the_penetration_check` is geogen.11.5.5's acceptance: everyone placed in `clothing_fit` and `people_gallery`, in stand, sit, sit_at_table and lie and through walk, idle and the four transitions: no `shell_poke`, `hands` or `feet_skin`, four influences a vertex and at most 8 morph targets (two people in the default tier, all 18 with `--all`).
-  - `tests/test_clipping.py` guards `tests/data/clipping_baseline.json`; regenerate it with `python tests/test_clipping.py`. Open (geogen.11.5.24, geogen.11.5.25): a heavy build's belly through a skirt, hidden body faces, long hair in a chair's top rail (`docs/clothing.md`).
-  - Review scene: `-s seated_fit -r out.png --affordances`.
-- Review: `-s humanoid_walk -r strip.png --clip walk --filmstrip 8 --view side --zoom 2.6`; `-r out.png --pose sit_at_table`.
-- Review scenes: `-s humanoid_lineup` (presets beside a door and a chair), `-s people_gallery` (11 variants: body types, hair, tones, outfits; the cottage places it on its front lawn at z = 8), `-s clothing_fit` (hourglass in every outfit). Tests: `tests/test_humanoid.py`, `tests/test_skeleton.py`, `tests/test_ringloft.py`.
-
-### Furniture library
-
-Parametric furniture assets in `assets/` (tags `furniture.*` / `bathroom.*` / `decor.*`, `clearance:` → `meta.footprint` + `meta.clearance` in extras): bed, nightstand (drawer interaction), wardrobe (door interaction), desk, desk_chair, armchair, bookshelf, floor_lamp, table_lamp, tv_console, luggage_rack, rug; wall-mounted (origin on the wall plane, depth along +Z): tv, wall_mirror, wall_art, curtains, towel_rail; bathroom: toilet (lid interaction), vanity (basin + tap), shower, bathtub. `scenes/hotel_room.yaml` furnishes `hotel_suite.yaml` by hand; `tests/test_furniture.py` checks nothing overlaps or blocks door swings. Soft goods are rounded boxes/ellipsoids until subdivision (geogen-o3s.14).
-
-### Lighting
-
-Fixtures carry `meta.light` (`{type: omni, color, energy, range, offset: [x, y, z]}`): assets declare it with a top-level `light:` block (`table_lamp`, `floor_lamp`), ceiling pendants from finishes have one. Exports add a KHR_lights_punctual point light per fixture on a `<node>_light` child (intensity = energy × `CANDELA_PER_ENERGY`); the Godot runtime tunes those imported lights (energy, range, shadows) rather than adding its own, and `--lights` prints them. Every fixture that doesn't come on with the night has the rules state `lit` (bool, true; `state.light_state`), which the Godot runtime shows and hides its light and glow by (`WorldLoader._fixtures`), so any rule can turn a lamp off. Light switches have a `switch` interaction (on/off, rocker tips) and `meta.switch.light` (build-only): `quests.collect` compiles it to the binding `<fixture>#lit = <switch>#switch == "on"` (`state.switch_bindings`; either of two switches). Floor plans add theirs (the same asset); elsewhere place `light_switch.yaml` (wall-mounted, `params: {light: <the fixture's placement name>}`; its asset key `switch: {light}` becomes `meta.switch`) and `ceiling_light.yaml` (a pendant that hangs below its origin). The fixture is found by `state.switched_light`: the nearest one of that name, so a scene placed twice keeps each copy's switches on its own lights. The cottage has two pendants and a reading lamp, each with a switch (on the house's `ceiling` and `*_inside` surfaces). The viewer's **Night** toggle (N, `--night`) dims the sun/sky and lights the scene with its fixtures (up to 15 nearest, range-windowed; from the uncut scene so cutaways stay lit; the ground ignores them since point lights have no shadows).
-
-### Layout QA
-
-`layout/qa.py`: `check_layout(scene, player)` finds furniture overlaps (chairs may tuck under desks/tables), items in walls, items in door swing arcs, tall items in front of windows (sills below 1.2 m), doors narrower than `player.door_min_width`, and items whose front can't be reached from a door (2D occupancy grid eroded by the player radius, flood-filled from doorways). The furnishing solver uses `room_reachability` to reject placements that would wall off earlier items; the viewer inspector shows a "Layout check" section; `tests/test_asset_quality.py` requires every registered scene to pass.
-
-Layout QA also requires every affordance's `approach` point on an item to be reachable.
-
-Reachability starts from the ways in, not from every door. `check_layout` floods a storey from its entrances (doors from outdoors and the doors of `stair` / `lift_shaft` rooms, `qa.ARRIVAL_ROOM_TYPES`) through the doorways. `room_reachability` (one room, for the solver) starts from the doors people come into that room by (`qa._room_entrances`): a door to a dead end (a shop's stock room, a staff toilet off that) isn't one, so a till can't count on its staff side being reached from the stock room; the dead end's own door is its entrance. Floor-plan openings record the room beyond as `to` (None: outdoors). Rooms that no door joins to a way in keep every door.
-
-`qa.object_overlaps(scene)` intersects (manifold3d) closed meshes of different placed objects (the nearest asset root, `meta.source`, else the top-level placement) and reports ones more than 2 cm deep, e.g. a car through a garage wall. It skips openings in their host (sills, steps), anything sunk into a walkable slab no higher than its top, skinned bodies and colliders.
-
-`--inspect` (`inspection.py`) prints the resolved tree for checking a scene from numbers rather than renders:
-- **Tree:** asset roots, rooms, doors, lights, spawns, NPCs and other tagged nodes, with world position, yaw, box, asset and params, a meta summary and interactions. Mesh parts fold into their object's line (`--parts` lists them). Identical siblings collapse to `×N` with each copy's position.
-- **Checks:** `mesh`, `uvs` (metric), `layout`, `affordances`, `coplanar`, `overlaps`, `traffic`, `extras` (the closed contract) and `state` (state, wiring and quests compile) (`--checks`), one line per finding, with repeats folded.
-- **Options:** `--depth`, `--select GLOB` (adds attachments and surfaces), `--detail`, `--json`.
-
-### Vocabulary catalogue (`--describe`)
-
-`describe.py` lists what there is to build with, from one set of dicts rendered as text, JSON and markdown.
-- **Key vocabulary:** `layout/schema.py` documents every part key (common `PART_KEYS`, per-primitive `PRIMITIVES` with type, default, doc and an `example` part) and the asset, scene, slot and placement keys. `validation.py`'s known-key sets are derived from it, so a new YAML key is added there (with its meaning), not in validation.
-- **`--describe`** (no name) reads only the YAML: primitives, keys, assets by category with params, scenes, kinds (`describe.KINDS`, keys from the loaders' `*_KEYS` sets), room types and materials. A one-line summary is the first sentence of the file's header comment, and a param's trailing comment is its note.
-- **`--describe NAME...`** (primitive, asset name or file, scene, kind, or a data file) builds assets with default params and adds size, geometry bounds, attachment positions, surfaces, interaction states, affordances, light/vehicle/travel/portal meta and an example placement.
-- **`docs/catalogue/`** is committed: `README.md` (thumbnail grid per category), `assets/<name>.md`, `primitives.md`, `vocabulary.md`, `scenes.md`, and `img/` (256 px palette PNGs; `img/hashes.json` holds each asset's YAML hash, so only changed assets re-render: `docs/make_catalogue.sh all` redoes them after a material or generator change).
-- **HTML site:** `python docs/make_site.py [OUT]` (stdlib only, default `_site/`) turns those markdown pages into a static site: card grid with a name filter, one page per asset, source links to GitHub. `.github/workflows/pages.yml` builds and deploys it to GitHub Pages when `docs/catalogue/` changes on main, so the markdown stays the only committed copy. It reads just the markdown subset the pages use: a new construct in `describe.py`'s pages needs handling there (`tests/test_site.py` checks links and leftover markdown).
-- `tests/test_describe.py` fails when the committed pages are stale (text only): run `docs/make_catalogue.sh` after changing an asset, a key or a header comment.
-- Placements take `state: open` (every interaction with that state) or `state: {swing: open}`: the object starts, and is exported, in that state.
-
-`LayoutLoader.load` records `meta.source = {asset, params}` on every asset root; it isn't exported. Erosion is by radius + half a cell, so a gap exactly one body wide counts as shut.
-
-### Affordance QA
-
-`layout/affordance_qa.py` checks affordances the way the runtime uses them: walk to `approach`, face the anchor, and hold the action's `pose:` at the anchor.
-- `stage_actors(scene, body)` poses a body at every affordance. Render with `-r out.png --affordances`, which also prints issues and uses the scene's NPC body if it has one.
-- `check_affordances(scene)` reports:
-  - `approach_blocked`: no standable floor within 0.3 m of the approach point. Floor is found by slicing collidable meshes between step height and head height, eroded by the actor radius. Interaction-moved parts such as door leaves don't block.
-  - `approach_unreachable`: the approach can't be reached from spawns or NPCs.
-  - `pose_clash`: the posed body sinks more than 12 L into the asset it uses, or more than 0.5 L into anything else. Feet may press 6 cm into the floor.
-- `tests/test_asset_quality.py::test_affordances_are_usable` runs it on every scene. Unit tests are in `tests/test_affordance_qa.py`.
-
-### Interior finishes
-
-`generators/finishes.py` (called from `FloorPlan.build`, `floorplan: {finishes: true | false | {lining, skirting, cornice, light, switches}}`): per room a 1 cm `lining` in the room's wall material (cut by openings; room wall surfaces sit on it), swept `skirting` broken at doorways, swept `cornice`, a pendant `<room>_light` with `meta.light` (Godot adds an `OmniLight3D`; fixture meshes don't cast shadows) and `<room>_switch_N` beside each door's latch side: instances of `light_switch.yaml` (so the plate's box collider, which the player aims at, and the `switch` interaction have one definition), wired with `meta.switch.light`. Room materials resolve room keys (`floor`/`walls`/`ceiling`) > room type `finishes:` in `assets/room_types/<type>.yaml` > plan `materials`. Rooms record `meta.wall_inset` so the furnishing solver keeps floor items off the skirting.
-
-### Furnishing solver
-
-`layout/furnish.py`: room archetypes in `assets/room_types/<room type>.yaml` (`hotel_bedroom`, `hotel_bathroom`, `corridor`) list items as rules (`against: wall|none`, `prefer: [...]`, `flank`, `front_of`, `under`, `on`, `mount: wall|window`, `count`, `optional`) — see the module docstring for the vocabulary. `furnish_plan(plan_root, assets_dir, seed)` places them greedily per floor-plan room, avoiding overlaps + declared clearances, door approach zones and swing arcs, and tall items in front of windows; unmet rules are returned and stored in `meta.furnish_report`. Floor plans record `meta.openings` per room for this. In scenes: `place: {suite: {asset: hotel_suite.yaml, furnish: true}}` (or a seed number) — see `scenes/hotel_room_auto.yaml`.
-
-### Interactions
-
-`layout/interactions.py`: asset-level `interactions:` state machines (states with `next`/`then`/`emit`/`prompt`, `motions` that `rotate`/`translate` parts about a `pivot` in the asset frame, per-state `values`, `targets` the player aims at). `SceneNode.interactions` holds them; the loader poses parts for `initial`, `apply_state()` re-poses (absolute). A motion may be `move: {<state>: "<thing>.<attachment>"}` (+ `from: <anchor>`, default bottom_center; usually a text param the scene fills, e.g. `params: {to: plate.center}`): `resolve_moves` (end of every `SceneComposer._build_scene`, nearest scope outward; the outermost scene raises for one still missing) turns it into translate motions in the asset frame, so exports and runtimes need nothing new (geogen.40.2; `tests/test_moves.py`). A motion may be `show: [states]` / `hide: [states]` instead of rotate/translate: it sets `SceneNode.hidden` (renderers and `iter_meshes` skip hidden subtrees; exports still write them, as motion `type: visible`) and the Godot runtime hides the parts and disables their colliders (`examples/sandwich`'s layers). Exported in the asset node's `extras.geogen.interactions` with exported node names (see the schema). States can auto-advance after a dwell (`open: {then: closed, after: 6}`); `lock: {key, locked}` makes an interaction refuse use while locked, and `when: "<condition>"` while the condition is false (see Wiring); interactions may have no motions (the TV's `power`). `reach: <m>` lets an interaction be used from further than the player's reach (eye to hit point; the focus ray looks as far as the longest loaded one): the tower defense's floor pads are always more than 1.5 m below the eye. Floor-plan doors take `lock: <key id>` and `auto_close: <s>` (generated guest doors: `key_room_<n>`, 6 s). Assets declare `affordances:` (`[{type: sit|lie|use|stand, at: <attachment> | [x,y,z], facing: deg, height}]`: chairs, sofa, bench, bed) and `container: {capacity, part}` (wardrobe, nightstand), exported in extras. Part shorthand: `joint: {type: hinge, pivot: left|right|top|bottom|[x,y,z], limits: [0, 100], with: [parts]}` or `{type: slide, axis: z, range: [0, 0.3]}` expands to a closed/open interaction named after the part (hinges default to swinging out toward +Z). `door.yaml` has a `swing`; floor-plan doors (`DoorGenerator`) get one on `leaf_pivot`. Godot: `GeogenInteraction` (`runtime/godot/scripts/interaction.gd`) animates parts, honours locks (`--keys`, L to lock/unlock), `after` dwells, on/off emission, and snapshot/restore (`--save`/`--load`, see "Rules in Godot"); E on furniture sits/lies on its nearest affordance; colliders under moving parts are `AnimatableBody3D`; look at a target within `reach` and press E; `--use=<asset>` / `--use=@aim` + `--wait=S` for headless tests; state arrivals print `interaction event: {...}`.
-
-### NPCs
-
-Everything is data; the Godot side is a generic interpreter (decision recorded on geogen-z2b.1).
-- `src/geogen/npc.py`: loads `kind: npc` definitions (`assets/npcs/resident.yaml`: `body` asset, `speed`, `needs` {initial, decay/s}, `preferences` (tag multipliers), `activities` (wander/idle), `scoring` {distance, recency, memory, noise, retry}, `home_margin`, `flags`) and `assets/npcs/actions.yaml` (`kind: npc_actions`): per action a default `approach` offset (anchor frame, x right / z forward), `duration`, and `steps` from a fixed vocabulary: `go_to: approach|anchor|random|near|far`, `face: anchor|portal`, `pose: <name>` (+ `at: anchor|approach`), `wait: duration|S|[lo, hi]`, `use: <state>`, with optional `if: <flag>`.
-- Affordances (`layout/loader._affordance`, player and NPCs share them) take `action`, `approach` (metres in front or [x, y, z]), `duration`, `advertises` {need: amount}, `tags`, `slots` and `interaction`; each is exported with a resolved floor-level `approach` point. Types: sit, lie, use, stand, look (the player only takes sit/lie).
-- Doors declare `portal:` (`door.yaml`: interaction, open/closed states, centre, normal, width, height, depth, clearance) so paths through closed doors run the `pass` action. Body assets declare `poses:` (root offset/rotation/scale relative to the anchor). The resident's body is the feminine humanoid (`characters/humanoid.yaml`); `characters/capsule.yaml` is the old placeholder. Skeletal bodies also export a static `pose_<name>` clip per skeletal pose.
-  - `npc.gd` copies the body's clips (`extras.geogen.clips`) onto its own AnimationPlayer, re-pathing tracks after the body moves under the NPC.
-  - It adds a `RESET` animation keyed at the rest pose: Godot drops tracks equal to the exported stand pose, so blends fall back to rest.
-  - It cross-fades pose clips (sit/lie), easing the body into place. Standing, it plays `walk` while moving (playback scaled to speed / clip speed) and `idle` when still.
-  - The summary reports `clip`, `transitions` and `cost_us` (script time per physics frame); `--simulate` also prints `npc cost:`.
-- `attention:` (on by default; `npc.ATTENTION_DEFAULTS`) makes NPCs notice the player: head look-at within a range and cone (`runtime/godot/scripts/head_look.gd`), a greeting when the player presses E on them, and a `step_aside` action (`go_to: aside`) when the player walks straight at a standing NPC. `--greet=NAME[@S]` greets headlessly; the summary reports `greets`, `yields`, `looking`. An NPC that isn't away takes a greeting in any pose and mid-action, so a seated quest giver still gives its quest: only a press within `greet.debounce` (0.5 s) is ignored, and the E prompt finds a seated NPC (no collider) by its body line (`npc.aim_distance`). The response fits the pose: standing, the `greet` action (`face: player`, `play: wave`; the humanoid's `wave` clip is `generators/clips.wave_clip`), then it carries on; seated, it stays put, looks at the greeter for `greet.acknowledge` s and waves from the chair (the wave's right-arm tracks over the sit pose, `GeogenHeadLook.gesture`); lying, nothing. `greet.cooldown` limits the wave only; the summary's `greets` counts greetings and `waves` the waves. A greeting is the rules-layer signal `greeted` from the NPC (`attention.greet.signal`) with the greeter as the actor: `state.collect` declares it for every greetable NPC (`state.npc_signal`), `npc.gd` emits `greeted`, and `WorldLoader` posts it on the event bus. Rules use it to give quests (`{signal: resident.greeted, actor: player}`).
-- Crowd cost (geogen.11.5.17, geogen.11.18): NPCs share one character grid per physics frame (`npc.gd` `_characters_in`), move waypoints off characters only over the next 8 m of path, and step every other frame when off screen and over 10 m from the player, or over 60 m away (`_throttled`). `-s crowd_test` (50 pedestrians, exhaustive tier) with runtime `--simulate=30 --npc-limit=N --disable-vsync` measures it: `npc cost:` gives per-tick callback time (`physics_ms`, p95), frame times, draw calls and primitives. Godot's TIME_PROCESS / TIME_PHYSICS_PROCESS monitors are the slowest frame of the last second, not a mean. Numbers: "Crowd budget" in `runtime/godot/README.md`.
-- Stairs: NPC paths take a spiral stair by its walking line, in single file: an NPC waits 2 m short of a stair another NPC is coming along (`_stair_free`), and nothing on the line is moved aside for characters. Characters more than 1.2 m above or below aren't in the way. `-s lighthouse_keepers` is the test scene (two NPCs whose homes are at the other end of the lighthouse stair); `tests/test_npc_runtime.py::test_npcs_take_a_spiral_stair_by_its_walking_line`.
-- Scenes: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`. The node gets `meta.type = "npc"`, `meta.npc` (the resolved definition with actions and poses inlined, `home.polygon` in the node's frame, `radius`/`height` from the body bounds) and the body asset as child `body` (no colliders).
-- Runtime (`runtime/godot/scripts/npc.gd`): see the NPCs section of `runtime/godot/README.md`. The navmesh bake includes the runtime ground (y = 0) `ground_margin` m around each model. Flags: `--npc-trace`, `--timescale=N`, `--simulate=S` (prints `npc summary: [...]`), `--npc-labels` / F5, `--camera=follow[:NAME]`. Tests: `tests/test_npc.py` (data), `tests/test_npc_runtime.py` (8x headless sims of the cottage resident).
-
-### Pedestrians and crowds
-
-- An NPC placement with `scatter:` is a crowd. Each copy draws its own seed, so its archetype body and brain differ. Every copy shares the placement's `home:`.
-- `npcs/pedestrian.yaml` (townsfolk bodies) strolls and pauses. NPC definitions take two keys for this:
-  - `affordance_tags: [outside]` keeps pedestrians to benches, not people's chairs;
-  - `wander: {tags: [street.sidewalk]}` makes `go_to: random` pick area-weighted points on the up-facing faces of nodes with those tag groups (npc.gd `_random_surface_point`).
-- Scatter `on_tag: street.sidewalk` places copies on those surfaces.
-- Pedestrians cross at the painted crossings (lane graph `crosswalks` rectangles; npc.gd `_use_crosswalk` reroutes road-level paths).
-- At a signalled crossing they wait on the kerb, facing across, until walk (npc.gd `_wait_for_walk`: on a kerb with the crossing's road within `KERB_STEP` ahead, whatever the path). They don't start on the flashing don't-walk and finish once on the road. The summary reports `signal_waits`, `signal_wait`, `signal_crossings` and `signal_violations`. `tests/test_traffic_runtime.py::test_pedestrians_wait_for_the_walk_signal` covers it on `crossroads`.
-- `town` has 10 pedestrians and `crossroads` has 6. Traffic yields to them. `tests/test_traffic_runtime.py::test_pedestrians_stroll_and_rest_while_traffic_yields` covers this.
-
-### Time of day
-
-The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-length=S`) that drives the sun, sky, moon and night state.
-- **Lights:** `light: {..., auto: night}` fixtures (the rebuilt 4.5 m `street_lamp.yaml`, with an emissive `lamp_glass` lantern) turn on after dark, and vehicle lamps brighten.
-- **NPC `routine:`:** blocks `{name, from, to, activities, preferences, away}` are parsed by `npc.parse_routine`, with times as "HH:MM".
-  - The active blocks bias scoring.
-  - `away` runs the new `leave` action: `go_to: exit` (building entrance spawns), then `vanish: true` (a new step verb). The NPC reappears when the block ends.
-  - `npcs/pedestrian.yaml` goes home 22:30–07:00, sits more at lunch, and strolls more in the evening.
-- **Traffic `schedule:`:** `[["HH:MM", share], ...]` parks surplus vehicles out of the player's sight. `traffic/town.yaml` drops to 15% at night.
-- Details are in the runtime README's "Time of day" section.
-
-### References and stable IDs
-
-`geogen/refs.py` is the one way to name things in a scene; `on:`, `attach_to`, NPC `home:`, scatter `on:` / `on_terrain:` / `avoid:` and travel spawns all go through it.
-- **Syntax:** `house` (a placement of this scene), `plot/house` (inside a placed scene), `town:park/bench` (in another package: a registry scene name; content packages name everything this way), `[tag=furniture.bench]`, `park/[tag=door, type=..., asset=..., name=glob]`. Keys that take a member add it after the first dot: `plot/house.front_wall`.
-- **Scopes:** a path step names nodes by their authored name (placement key, part name, room id) within the scope of the step before it. Every asset and placed scene is a scope, so `door` in the cottage is its door placement, not a wardrobe's `door` part, and `suite/bed` skips the room in between. Filter steps search the whole subtree: use them for generated content (city lots, recipes), whose names are only stable per seed. Names may be globs; of same-named siblings the first is `chair`, the next `chair#2`.
-- **API:** `refs.resolve` (exactly one) / `refs.select` (any number) raise `RefError` with near names and what exists at the failing step. `SceneRefs` is the composer's wrapper: it adds `file:line: place.x.on` (`yaml_utils.source_of`) and a hint when the target is a placement that isn't placed yet. Placements wait for the one their `on:` / `attach_to` names, whatever the order in the file.
-- **Stable IDs:** `<package>:<authored path>` (`cottage:dining/chairs_2`). Exports write them as `extras.geogen.uid` on placed assets and scenes, tagged or typed nodes and anything with interactions (`refs.assign_ids`), on manifest spawns, rooms and travel points, and in `<name>.refs.json` beside the manifest (`geogen-refs` v1; `refs.load_index` gives a stand-in tree that references resolve on, which is how another package's refs are checked: `travel.check_travel`). The runtime never parses a selector: it looks IDs up (`WorldLoader.node_by_uid`) and keys saved state by them.
-- **New content that names things** (quests, dialogue anchors, items) should store references in YAML, resolve them at export with `refs.resolve`/`select` and write the IDs to extras or the manifest.
-- `python -m geogen.main -s cottage --resolve "house/[tag=furniture]"` prints what a reference matches (`"*"`: the top-level names). Tests: `tests/test_refs.py`.
-
-### Named places
-
-`geogen/places.py`: a scene or asset `places: {name: {...}}` declares trigger volumes for anywhere that isn't a room: the lighthouse `gallery`, the jetty's `on_deck`.
-- **Shapes** (keys in `schema.PLACE_KEYS`): `box: [x, y, z]` standing on `position` (scenes also take `anchor` + `offset`; `yaw`), `polygon: [[x, z], ...]` from `y` up `height`, or `around: <reference>` (a placement, or a part in an asset) with `margin` and `headroom` (more above it, so standing on a deck counts).
-- **Nodes:** each is an empty child of the scene or asset root named after the place, `meta.type: place`, `meta.place` (`{id, size}` or `{id, polygon, height}`; the node is the middle of the volume's bottom), tag `place` plus its `tags`. A place can't share a name with a placement or part.
-- **IDs and wiring:** places get stable IDs (`island:lighthouse/gallery`), so references and `[type=place]` find them, and asset `signals: {occupied: {enter: plate}}` resolves to one (`enter` / `leave` only take a place or a room).
-- **Export:** node extras (`place` in the extras schema), and the manifest's and chunk index's `places` in world space (`places_summary`). `--inspect` and `--describe NAME` list them.
-- **Runtime:** `GeogenSceneBuilder` adds a `PlaceArea`; `WorldLoader` watches those and the room areas and emits `place_event` `{type: enter | leave, subject, place, kind: place | room, actor}` for the player and NPCs (printed as `place event: {...}`, API stream `place`). Seated actors stay in their place. See "Places" in `runtime/godot/README.md`. The event bus carries these as `enter` / `leave`.
-- Tests: `tests/test_places.py`, `tests/test_showcases.py::test_island_places_report_the_player_arriving`.
-
-### Physics props
-
-`geogen/physics.py`: an asset with `physics: {mass, friction, bounce, carry, spawn, initial}` is one rigid body in the runtime (`meta.physics`, exported in extras with a box `size` / `center` from its geometry).
-- `shape: box | sphere | capsule` (default box; sphere radius half the largest side, capsule upright) so a prop can roll; `damping: {linear, angular}` settles it. Test: `tests/test_physics_shapes.py` (a ball rolls down a wedge a box stays on).
-- `carry: true`: the player picks it up with E and carries it (E drops it).
-- `spawn: "<thing>.<attachment>"` (usually a text param: `params: {from: dropper.spawn_at}`) adds a `spawn` interaction, `stowed | live` (`initial`, default stowed): rules hand it out there, and the runtime stows a live prop that falls out of the world. `resolve_spawns` (end of every `_build_scene`, like `resolve_moves`) records `spawn_at` in the asset frame.
-- Places take `detect: [actors, props]`; then they have `occupants` (number, `driven: place`), which the runtime keeps at the count of actors and props inside (`places.place_state`). A floor button is a rule on `{changed: pad.occupants}`.
-- Godot: `scripts/props.gd` (`GeogenProps`, `WorldLoader.props`); saves keep live props in `bodies`. See "Physics props" in `runtime/godot/README.md`.
-- Interaction motions and targets may name an arrayed part: all its copies.
-- `examples/marble_run/` (`--project examples/marble_run -s marble_run`, epic geogen.46): a hopper (a source of four ball items, started by a lever; they appear in a feed tube over its bowl and fall through it) drops 12 cm balls (`shape: sphere` physics items) into a brass half-pipe trough (`ball_track.yaml`, GENERATED by `examples/marble_run/tools/run_path.py`: a ramp, a U-turn, two helix turns round a pole; a `level` sweep, which doesn't roll round the helix). They are physics bodies the whole way (the scene runs physics at 120 ticks, and the balls' damping holds them to about 1.4 m/s): off the end of the trough into `exit_funnel.yaml` (a vortex funnel with a rim wall whose lip curls in), round it and through its neck into a catch bowl with a `sink` place; the HUD counts what's caught. Tests: `tests/test_marble_run.py` (60 s in Godot: nothing leaves the run).
-- `examples/test_chamber/` (`--project examples/test_chamber -s test_chamber_01`) is the worked example: a Portal-style chamber (Halcyon Applied Sciences) with a dropper (a spawned-items source of `items/weighted_cube.yaml`, one at a time, replaced when lost; its own rule opens the hatch on `emitted`), weighted cube, floor button, sliding door, indicator lines and a chamber sign; core textures `panel` (cladding panels with seams, per-panel tone, grime, bolts) and `stripes` (hazard stripes). Tests: `tests/test_test_chamber.py`. Run it with `godot --path runtime/godot -- --generated=$PWD/examples/test_chamber/generated` after `--export-catalogue`.
-
-### Spawned items
-
-`geogen/flows.py` (epic geogen.45): things the runtime makes while the game runs, moves and takes away. Items have no stable IDs and no rules state; the rules see counts and signals with data.
-- **Item** (`kind: item`, `assets/items/*.yaml`): `body` (asset or `{asset, params}`), `mode: physics | belt | walk`, `data` (numbers or text each copy carries), `speed`, `radius`, `lifetime`, `stuck` (s at rest before a physics item goes; give rolling bodies `damping`), `gait: {stride, bob, sway, waddle}` (a walk item's body bobs twice a stride, rocks and swings its heading as it goes; drawn by the runtime, positions unchanged).
-- **Source** (asset `source:`): `items` (file or weighted list) or `waves` (a waves file), `rate`, `at` (attachment), `max_alive`, `count`, `initial: running | stopped`, `velocity`, `spread`, `seed`. Parsed into `meta.flows.source`; the composer (`flows.attach_templates`, end of every `_build_scene`) adds a hidden template child per item with `meta.item`. State: `running`, `queued` (rules set them), `emitted`, `alive`, `killed`, `wave` (driven: flows), `restarts`; inputs `start`, `stop`, `emit`, `reset` (adds a restart: the runtime takes its items away, stops it, and its waves and counts start over); signal `emitted {item}` (declared by `state.collect` via `flow_state` / `flow_signals` / `flow_inputs`).
-- **Sink** (`places: {hole: {box, sink: true | {accepts: [item names]}}}`): items entering it are taken in; state `received` (driven), signal `received {item, ...item data}` (fields from every template in the scene, `flows.item_fields`, so the export checks `event.<field>` reads).
-- **Track** (asset `track:` or scene `tracks:` with optional `surface: {width, material, height}`): `path`, `speed`, `spacing`, `mode: belt | walk | roll`, `loop`, `end: auto | sink | stop | drop`, `accepts`, `damping` (roll). A `roll` track drives each item by gravity ((5/7) g sin(slope) less damping; items spin) and takes physics items too, so items follow a set path down a chute and fall off a `drop` end as bodies (free-rolling balls are plain physics items). Joined by geometry (`flows.network`): a track end within 0.5 m (`JOIN`) of another's start feeds it, a source whose spawn point is that close to a start puts items on it. State `running` (inputs start / stop), `received` (driven); signal `received {item, ...}`. `flows.simulate(root, ticks)` is the deterministic reference (position-ordered stepping, smooth weighted round robin picks) that `flows.gd` matches; `--inspect` check `flows` (`check_network`). Core assets `conveyor.yaml`, `spawner.yaml`, `parcel.yaml`, `rover.yaml`, items `items/parcel.yaml`, `items/rover.yaml`; review scene `-s flow_test` (catalogue test group).
-- **Effector** (asset `effector:`): `range`, `rate`, `targets: first | last | nearest | strongest`, `accepts`, `effect: {damage: n} | {take: true}`, `at`, `aim: {yaw, pitch, turn_rate}` (part names, renamed on export), `projectile: {kind: instant | bolt | tracer, speed, color}`, `enabled`. Damage lands as it fires; an item's `data.hp` at 0 destroys it and its source counts `killed` / raises `killed {item, ...}`. State `enabled` (inputs enable / disable), `taken`; signal `took`. Core asset `turret.yaml`.
-- **Waves** (`kind: waves`, `assets/waves/*.yaml`: `{auto, waves: [{delay, items: [{item, count, gap}]}]}`): `source: {waves: ...}` (spawner param `waves`) sends them in turn while running; state `wave`, signals `wave_started` / `wave_cleared` / `all_cleared {wave}`; without `auto` the source stops after each wave. `flow_test` has a raid lane with a turret; `simulate` covers waves and effectors and the Godot parity test compares kills, waves and hp.
-- **Saves:** a runtime `flows` section in `geogen-save` (live items, source wave phase / timers / pick, effector cooldowns); counts are rules state. A run resumed from a save goes on exactly as it would have (`tests/test_flow_tracks.py`).
-- **Runtime** `runtime/godot/scripts/flows.gd` (`WorldLoader.flows`): takes templates out of the world first thing in `setup_root`, runs sources, physics items are `GeogenProps.add_clone` bodies. API `flows.list`. Tests: `tests/test_flows.py`, `tests/test_flow_tracks.py`.
-- `examples/tower_defense/` (`--project examples/tower_defense -s tower_defense`, epic geogen.47) is the worked example: an `enemy_gate.yaml` (a waves source; its red strip glows while `running`, by asset rules) sends grunts, runners and brutes (walk items with `gait` and data hp / value / harm; `waves/standard.yaml`, eight waves, `auto: false`) down a scene `tracks:` path (`end: sink`) to `defense_core.yaml` (interaction `damage`: intact | cracked | critical | destroyed, set by watch rules on `world.lives`). `tower_pad.yaml` builds a hidden bolt tower for `cost` gold (`build` with `when: world.gold >= cost`; the pad declares `gold` as world state it uses; its effector's `enabled` is bound to the build); `console_button.yaml` NEXT WAVE / RESET (`gate.reset`, `reset: "[tag=machine.tower]"`); an `overlook.yaml` deck. World state lives / gold / phase, HUD stats and banners. `flows.simulate(..., auto=True)` sends every wave and its result's `through` names what each track took in: the balance test uses them. Tests: `tests/test_tower_defense.py` (check, path and pad coverage, balance, rules on the reference machine, a game in Godot).
-- Not built (geogen.48): machines that turn items into others, buffers, splitters, a conveyor primitive with a moving belt, MultiMesh drawing for many items, NPCs taking items.
-
-### Scatter placement
-
-`layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.
-
-### Projects and content roots
-
-`geogen/roots.py`: a project that builds on geogen keeps its content outside `assets/`, in a directory laid out the same way (`scenes/`, `materials/`, `quests/`, `npcs/`, `room_types/`, ...), searched before the core.
-- **Choosing one:** `--project DIR` (repeatable), `$GEOGEN_PROJECT` (path-separated), or the nearest `geogen.yaml` in or above the working directory. `DIR/geogen.yaml` is `{kind: project, name, assets: <dir, default assets>, overrides: [...]}`; without one, `DIR/assets` (else `DIR`) is the root.
-- **Lookup:** anything named relative to `assets/` (`asset:`, `scene:`, `npc:`, `archetype:`, `traffic:`, `train:`, quests, room types, garments, skeletons, materials, `player.yaml`) resolves with `roots.find(name, assets_dir)`: the first root that has it. Listings use `roots.glob(pattern, assets_dir)`. New code that joins a name onto an assets directory should call these instead. An `assets_dir` that isn't a root (a test's temporary directory) stands alone.
-- **Shadowing is explicit:** a project file with the same relative path as a core file is an error unless `overrides:` lists it; a project scene can't take a core scene's name any other way.
-- The registry discovers scenes in every root, `--describe` lists them, the viewer hot-reloads them and the prototype cache's fingerprint covers them.
-- **Scene folders:** `scenes/<name>/scene.yaml` in any root is scene `<name>`, with private files beside it laid out like a root (`safe.yaml`, `materials/brass.yaml`, `quests/open_safe.yaml`). `SceneComposer.compose` searches the folder first while that scene is composed (`roots.scene_scope`; `roots.scope()` is the folder), so the scene names them like anything else. No other scene can name them (`find` raises `RootsError`; a placed `scene: scenes/<name>/scene.yaml` is fine), `roots.glob` and `--describe` leave them out, and a private file may not share a relative name with a shared one. `MaterialLoader` caches by file, and the composer's prototype keys include the folder, so two folders can each have a `brass`.
-- **A project's runtime catalogue:** `runtime_scenes.yaml` in its content root is its own list and default scene (core scenes may be listed; it is the one core file name a project may reuse without `overrides:`), and its exports go to `generated:` in `geogen.yaml` (default `<project>/generated`). `catalogue.active()` gives (catalogue file, generated dir): the first project's, else the core's; `load_catalogue()` and `--export-godot` / `--export-catalogue` / `--catalogue` use it, so with a project the core's catalogue and `runtime/godot/generated` are untouched. A project without a catalogue exports with no index (the runtime loads everything). Run it with `godot --path runtime/godot -- --generated=<project>/generated`. Stable IDs and save keys are `<scene name>:...`, and the registry refuses a project scene with a core scene's name, so they can't collide.
-- **`geogen check`** (`geogen/check.py`): builds the active projects' own scenes (every scene without a project, or `--all`) and runs every `--inspect` check, plus `textures` (their materials tile; `check.seam_ratio` is what `tests/test_textures_tile.py` uses), and exits 1 on findings; `overlap_unmeasured` is only a note. The `--describe` size budget in `tests/test_describe.py` counts the core's entries only, so a project's assets don't break it. Tests: `tests/test_check.py`.
-- `examples/sandwich/` is the worked example (`--project examples/sandwich -s sandwich_kitchen`; `--export-catalogue` writes `examples/sandwich/generated/`): a scene, the sandwich asset and its quest on the core's kitchen, counter, plate, loaf and jars. Tests: `tests/test_roots.py`.
-
-### Scenes & Registry
-
-- **`src/geogen/registry.py`**: `SceneRegistry.discover()` scans `assets/*.yaml` and `assets/scenes/*.yaml` to build the scene list. It peeks at each YAML and classifies it as a composed scene when a `place:` or `compose:` key is present (treated equivalently), otherwise as an asset; files with a top-level `kind:` (e.g. `player.yaml`) are data and skipped. Python-coded scenes are registered explicitly in `main._build_registry()` (`nature`, `skin_test`).
-
-- **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. Only `nature.py` and `skin_test.py` are registered; `chair.py`, `table.py`, `dining_set.py`, `room.py`, `street.py` are legacy thin wrappers around their YAML counterparts and aren't used by the registry.
-
-- **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`/`compose:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` uses `compose:` and is a scene, not an asset.)
-
-### Viewer (`src/geogen/viewer/`)
-
-- **qt_viewer.py**: `ViewerWindow` — filterable scene list, node tree synced with viewport picking, inspector (size, tris, materials, attachments, surfaces, mesh validation), toolbar (reload, views, display mode, wireframe/grid/shadows/ground, screenshot), hot reload of `assets/**/*.yaml` via QFileSystemWatcher, errors shown in the status bar instead of crashing. Keys: 1/2/3/4/7/0 views, F frame selection, A frame all, W/G/S/H toggles, M display mode, Ctrl+R/S/F.
-- **Section toolbar** (viewer): *Cutaway* (C) hides ceilings/roofs/ceiling lights, *Storey* shows building storeys up to N (façade per storey too), *Interactions* poses every interaction in a state (e.g. `open`) on a copy. CLI: `--viewer-screenshot out.png --cutaway --storey 1 --state open`. The inspector lists tags, room/storey/collider/joint/light meta and interactions (states, motion axes and pivots).
-- **gl_view.py**: `GLView` QOpenGLWidget — sun shadow map (PCF), hemisphere ambient + ACES tonemap, display modes Lit/Clay/Normals/UV checker (1 checker cell = 25 cm), selection highlight, CPU ray picking, zoom-to-cursor.
-- **camera.py**: Pure-numpy `OrbitCamera` (framing, presets, pan/orbit/zoom, adaptive clip planes, pick rays) and `ray_mesh_intersect` — unit tested without GL.
-- **shaders/**: `scene.vert/.frag` (PBR + shadows + debug modes), `depth.*` (shadow pass), `line.*` (grid/axes/wireframe).
-- **viewer.py**: Legacy trimesh-based `Viewer` (still used by tests for trimesh scene conversion).
-
-### Rendering & Export
-
-- **render.py**: Offscreen pyrender renderer used by `-r` (instanced: nodes sharing a mesh upload it once and draw it per pose, unless skinned, mirrored or unevenly scaled): `SceneRenderer`, `render_scene`, `render_views` (contact sheet), `RenderOptions`, `VIEWS` presets. Shares one offscreen context per process (macOS). Contains a `np.infty` shim for pyrender 0.1.45 on NumPy 2.
-- **export.py**: `export_scene(root, path, player=None)` → GLB/glTF (node hierarchy with local transforms, PBR textures, texture-space UVs) or OBJ+MTL+PNG. GLBs carry a glTF animation per interaction transition (`<asset>/<interaction>/<from>-><to>`, sampled local TRS; animated nodes use TRS instead of `matrix`) for engines that don't read extras.geogen. glTF exports also write `<name>.manifest.json` (format `geogen-manifest` v1: model file, units, up axis, player spec, `rooms`, `spawns`) — the contract the Godot runtime reads.
-- **LODs**: `meshops.decimate(mesh, ratio)` (manifold3d edge collapse; UVs and hard edges kept; open meshes unchanged); `export_scene(..., lods=[0.5, 0.25])` / `-e out.glb --lods 0.5,0.25` adds `<name>_LOD<n>` levels as glTF `MSFT_lod` (meshes with ≥ 200 tris; Godot drops them and uses its own auto-LOD). `LayoutLoader(detail=0.5)` scales curved primitives' tessellation.
-- **Gameplay metadata**: `SceneNode.tags` (list, dotted: `room.hotel_bedroom`, `furniture.chair`) and `SceneNode.meta` (dict) are exported as glTF node extras `extras.geogen` (schema `docs/schema/geogen-extras.v1.schema.json`, validated in `tests/test_export.py`). YAML: asset/scene/placement `tags:`, part `collider: auto|none|box|hull|mesh` and `walkable: true`, scene `spawns:` (slot syntax; the spawn faces its `facing`). Every mesh gets a collider child named with Godot import suffixes (`-convcolonly` box/hull, `-colonly` trimesh); `auto` (export.resolve_collider) picks box if the mesh fills its bounds, hull if nearly convex, else trimesh, none below 3 cm. Floor plans add `<room>_volume` nodes (`type: room_volume`).
-- **Extras contract** (`src/geogen/extras.py`): `docs/schema/geogen-extras.v1.schema.json` is closed and is the one list of what `extras.geogen` holds. `node_extras` exports a `SceneNode.meta` key only if the schema declares it; keys the generator keeps (`source`, `openings`, `placed_by`, `storey`, `terrain`, ...) are in `extras.BUILD_ONLY` with a reason; any other key raises `ExtrasError` at export, naming the key and node. So a new meta key needs a schema entry (with its properties) plus a row in the "Node extras" table of `runtime/godot/README.md` and in `scene_builder.gd` `KNOWN_KEYS`, or a `BUILD_ONLY` entry. `extras.scene_problems(root)` checks a built scene without exporting it; `tests/test_extras_contract.py` keeps the lists in step and `test_asset_quality.py::test_extras_match_closed_schema` runs every scene.
-- **Scale** (`chunks.py`, `layout/cache.py`): `SceneNode.instance()` deep-copies a subtree sharing its meshes (interaction targets remapped). `LayoutLoader.load` and `SceneComposer._load_object` cache one prototype per (file, params[, furnish]) and return instances, so repeated furniture/buildings share meshes. The exporter writes each shared mesh (and its collider/LODs) once. `--cache [DIR]` / `$GEOGEN_CACHE` pickles prototypes on disk, keyed by a fingerprint of all assets and sources. `--chunks DIR` (`export_chunks`) writes per-block/building exterior GLBs, `_lod` stand-ins (decimated, merged per material, small parts dropped), per-building `_interior` GLBs (rooms + interior doors, for load-on-enter), `base.glb`, shared `textures/` (content-hashed, referenced by URI) and a `<name>.chunks.json` index (`geogen-chunks` v1). The Godot runtime streams them (`--export-godot --stream`, `scripts/chunk_streamer.gd`: full / LOD / interior radii, threaded loading, navmesh tiles baked around the player; see `runtime/godot/README.md`).
-- **player.py**: `PlayerSpec` / `load_player_spec()` — player-scale constraints (capsule radius/height, eye and step height, max slope, min door opening, corridor width, reach) from `assets/player.yaml`. Use it for defaults instead of hard-coding clearances. YAML files with a top-level `kind:` (like `player.yaml`) are data, not assets; the registry skips them.
-
-### Godot runtime (`runtime/godot/`)
-
-Physics is Jolt (`project.godot`, geogen.49); write new physics code for it. Player and NPC cylinders keep a 1 mm `margin` and step-up a 3 cm tolerance for it, and chunk loads are high-priority worker tasks (low-priority ones never ran). At 60 ticks Jolt lets fast bodies sink centimetres into curved trimesh walls; a scene with `physics: {ticks: 120}` (manifest `physics`) runs the runtime at that rate while it is loaded (the marble run does).
-
-Scene catalogue (`catalogue.py`, `assets/runtime_scenes.yaml`, `kind: scene_catalogue`): it lists the runtime's scenes by registry name with `group: showcase | test`, `description`, `stream` and `lods`, plus a `default` (whatever is currently being worked on).
-- `--export-catalogue [SELECT]` exports its scenes into `generated/` and writes `generated/catalogue.json` (`geogen-catalogue` v1: default, scenes with manifest path and `exported`).
-- Every `--export-godot` refreshes that index, and `--catalogue` only rewrites it.
-- Without `--scene` the runtime loads the default (`WorldLoader.use_catalogue_default`). `--scene=all`, or a generated dir with no catalogue.json (the tests' temp dirs), loads every export side by side.
-- Loading: `--timings` prints phases (`load timings:`). Navmeshes are cached in `<generated>/.navcache/` (content-keyed, `WorldLoader._navigation`). Switches use `load_all_async` (GLB parsed on a worker thread behind a fade and "Loading" label).
-- In game, F6 lists the catalogue's scenes and F7 / F8 step through them. `main.switch_scene` unloads the world (`WorldLoader.unload`) and loads the new one in place. The last pick is remembered in `user://settings.cfg` (interactive runs only). Headless: `--list-scenes`, `--switch=NAME@S` (prints `switched:` and `switch stats:` node/orphan counts).
-- Showcase scenes are epic geogen-sd5. Tests: `tests/test_catalogue.py`.
-- **Hub** (`scenes/hub.yaml`, the catalogue default): a plaza with a labelled portal per showcase scene (nine, 21 degrees apart round -Z) landing on its `from_hub` spawn. Each showcase has a way back landing on the hub's `from_<name>` spawn: the cottage's west-lawn portal (param `hub_portal`, 0 where the cottage is nested: town, house_plot), the park portal in `town`, and a travel door in `scenes/hotel_showcase.yaml`. That's the showcase hotel on a street: a forecourt, taxis, lamps, a receptionist (`npcs/hotel_staff.yaml` works the reception desk's `staff` stand affordance), guests (`npcs/hotel_guest.yaml`, homes `{rect, y: <floor>}` on upper storeys) and pedestrians. The bare `hotel` is a test entry. NPC affordances must be within 1.5 m of the home's floor (`npc.gd` `FLOOR_TOLERANCE`). Tests: `tests/test_showcases.py`. A new showcase needs a hub portal and a way back (`tests/test_hub.py` checks both).
-- `--scene NAME` honours the catalogue entry's `stream` flag.
-- **Travel** (`geogen/travel.py`): asset or placement `travel: {scene, spawn, prompt, on: use|enter, target}`.
-  - A placement's keys merge over the asset's (the raw spec is kept in the unexported `meta.travel_spec`). It becomes `meta.travel`. `on: use` adds a `travel` interaction (`ready` -> `going`, which emits `travel`). `on: enter` records `volume` from the asset's `travel_volume` part (always removed from the geometry) or its bounds.
-  - Manifests list `travel` points. `--export-catalogue` raises on targets outside the catalogue or missing spawns (`check_travel`).
-  - Runtime: `WorldLoader.travel_requested` -> `main._travel` (fade, `switch_scene` or same-scene move, prints `travelled:`). Tests: `tests/test_travel.py`.
-  - Park showcase (`scenes/park.yaml`): `park_grounds.yaml` (lawn, gravel `paths` tagged `park.path`, railings with a gate gap), `park_gate.yaml`, `pond.yaml` (rim, bed, `water`, optional fountain), `playground.yaml`, `bandstand.yaml`, `picnic_table.yaml` (seats face the table: their approach is behind them, and the seat depth is explicit). Visitors are `npcs/park_visitor.yaml` (`wander: {tags: [park.path]}`, `affordance_tags: [outside]`). `_seat_depth` ignores geometry more than 0.9 m ahead (the far bench). NPCs stuck twice at one spot snap back onto the navmesh (`npc.gd` `_unstick`, `unstuck` in reports).
-  - Restaurant showcase (`scenes/restaurant.yaml`, building `restaurant_building.yaml`): room types `dining_room` (booths, laid tables, host stand, menu board), `bar` (`back_bar` against a wall, `bar_counter` `front_of` it across a 1 m staff aisle, stools round the counter) and `restaurant_kitchen` (range + hood, prep tables flanking it, fridge, pass). Staff are `hotel_staff` NPCs (they work affordances tagged `staff`); diners are `npcs/diner.yaml`. `fascia_sign.yaml` is a wall-mounted lettered board. Restrooms (`room_types/restroom.yaml`) have `toilet_stall.yaml` cubicles, with the toilet placed `under:` each (QA's `TUCKS` allows the overlap), a vanity, mirror and `hand_dryer.yaml`.
-  - Main street showcase (`scenes/main_street.yaml`): a 3 x 2 `city:` whose east-west avenue is the high street. The `shop_row` recipe takes `shop: shop|cafe|grocer|bookshop|clothing` (the shop room's type: `room_types/{cafe,grocer,bookshop,clothing}.yaml`), `sign` and `awning` (city entries pass them through). `recipes.dress_shop_front` hangs a `fascia_sign` and an `awning` over each shop window the facade's door canopy leaves clear. Shop fittings: `wall_shelving`, `gondola`, `till_counter` and `cafe_counter` (staff affordances), `display_case`, `clothes_rail`, `bus_shelter`.
-  - Busy city showcase (`scenes/city.yaml`, streamed): a 5 x 4 grid with 16 m avenues (two lanes each way plus parking), landmarks, parks, a loop railway with two stations and two trains. City `exits: <m>` runs every avenue on out of town: the outbound lanes `end: exit`, the inbound ones `start: entry` (`check_graph` accepts them). Railways take `around: {margin, corner}`: `railway.loop_around` makes a rounded rectangle round the city, starting at its south-east corner, so crossings sit mid-side. Train placements take `timetable:` overrides, and each train stands at offset/headway along its run in the export. Signal heads and crossing barriers are one per approach, at the kerb (barrier arms span every lane that way). Small test scene: `scenes/rail_loop_test.yaml`. Tests: `tests/test_city_loop.py`.
-  - Island showcase (`scenes/island.yaml`, ground `island_grounds.yaml` with its pads and paths in the scene frame): the hub portal and a jetty with a moored boat on the south beach, two cottages (`scenes/cottage.yaml` with `gallery: 0`, each with a resident), the climbable lighthouse on the east headland, palms on the beaches and pines on the hill (`on_terrain` scatter), and the sea all round. Runtime path queries go through `GeogenWalker.find_path`, which lifts Godot's default polygon search limit (a 100 m path on the 5 cm navmesh came back partial).
-  - Affordance QA clips triangles to the body-height band before projecting them (a wall's long edge over a doorway no longer closes the door).
-  - Assets: `portal.yaml` (stone arch, glowing rim, translucent `portal_glow` membrane, `label` on a crown plaque, on: enter), `travel_door.yaml` (freestanding framed door, on: use targeting `leaf`, lettered board), `signpost.yaml` (`arm1..4` labels, `dir1..4` compass bearings; empty label = no arm), `info_plinth.yaml` (lettered stone plinth). Materials `stone`, `glow_accent`, `portal_glow`. Expressions allow `sind`/`cosd`/`min`/`max`/`abs`/`round`/`floor`/`ceil`.
-
-
-Godot 4.7 reference runtime (Forward+, 1 unit = 1 m). Single-file models larger than 160 m bake their navmesh in 48 m tiles (`scene_builder.build_navigation`); one 5 cm-cell bake over a town plus railway overflows. Big maps take a few hundred frames to sync. `python -m geogen.main -s cottage --export-godot` writes `.glb` + manifest into `runtime/godot/generated/`; `godot --path runtime/godot -- --scene cottage` walks it in first person. `WorldLoader` loads exports at runtime (GLTFDocument, trimesh colliders, mipmaps) and hot-reloads when a manifest changes; `Player` is a cylinder `CharacterBody3D` sized from `PlayerSpec` with step-up. `--playtest[=N]` (run with `--headless --fixed-fps 60`) is the enterability check: every room volume and interaction target must be reachable on the navmesh from the export's spawn (doors opened and baked as obstacles first), and a bot walks N routes with the real player body; prints `playtest: {...}` and exits 1 on failure (`tests/test_godot_runtime.py`). Buildings add an `entrance_spawn` outside the street door. `addons/geogen/` (`GeogenSceneBuilder`, enabled editor plugin) turns extras into room Area3Ds, spawn markers, tag groups and a navmesh baked from colliders (moving parts excluded, so doorways stay navigable) — both on editor import of a geogen `.glb` and at runtime. Useful args after `--`: `--generated=DIR`, `--spawn=X,Y,Z`, `--walk=SECONDS` (prints the end position; used by `tests/test_godot_runtime.py`), `--nav=AX,AZ:BX,BZ` (prints a navmesh path; `X,Y,Z` points snap from that height, e.g. on a hill), `--play=ANIM@T` + `--skeletons` (freeze an animation, print bone positions and skinned bounds), `--screenshot=out.png`, `--camera=overview`, `--colliders`. **Control API** (geogen.5): `--api[=PORT]` (`scripts/api.gd`) serves newline JSON on localhost so one long-lived runtime answers many queries: world query/node/raycast/nav_path/reload, player teleport/look/walk_to (with trace and `blocked_by`)/use/sit, interactions set (`wait` returns part bounds), NPC reports/options/force, pause/step/advance time, framed or isolated screenshots and contact sheets, event streams, `batch`. Client `geogen/runtime_client.py`; from a shell `python -m geogen.runtime_client --launch cottage`, then `python -m geogen.runtime_client player.walk_to pos=0,0.3,0.5`, `capture.views node=door isolate=true path=/tmp/d.png`, `--stop` (screenshots need the windowed default, not `--headless`). Pytest fixture `godot_runtime`; tests `tests/test_runtime_api.py`. Prefer it over one-shot `--walk`/`--nav`/`--status` launches when checking runtime behaviour. See `runtime/godot/README.md`. On macOS the binary is `/Applications/Godot.app/Contents/MacOS/Godot` (tests honour `$GODOT` and skip without it). Wrap ad-hoc Godot runs in a timeout: a GDScript parse error leaves the process running instead of exiting.
-
-## Hierarchical Layout System - Semantic Connections
-
-The layout system uses **semantic attachment points** instead of raw coordinates. This makes objects self-describing and composable.
-
-### Two Levels of Composition
-
-1. **LayoutLoader** (`loader.py`): Builds individual assets from primitives
-2. **SceneComposer** (`composer.py`): Assembles assets into larger scenes
-
-### Asset-Level: Part Attachments (`attach_to`, `at`, `from`)
-
-Within a single asset, primitives connect to each other using named attachment points. Each primitive automatically gets standard attachment points based on its shape:
-
-**Auto-generated attachment points per primitive:**
-- Cylinders/Cones: `top`, `bottom`, `left`, `right`, `front`, `back` (radial at mid-height)
-- Spheres: `top`, `bottom`, `left`, `right`, `front`, `back` (at surface)
-- Cubes: `top`, `bottom`, `left`, `right`, `front`, `back` (face centers)
-
-**Fire hydrant example** - shows hierarchical part-to-part attachment:
-```yaml
-parts:
-  base:
-    primitive: cylinder
-    size: [0.9, 0.0625, 0.9]
-    anchor: bottom_center       # Root part uses coordinate anchor
-
-  barrel:
-    primitive: cylinder
-    size: [0.7, 0.375, 0.7]
-    attach_to: base             # Connect to another part
-    at: top                     # Parent's attachment point
-    from: bottom                # Child's attachment point to align
-
-  bulge:
-    primitive: sphere
-    attach_to: barrel
-    at: top
-    from: bottom
-
-  left_outlet:
-    primitive: cylinder
-    attach_to: bulge
-    at: left                    # Attach to side of sphere
-    from: center                # Center outlet so half penetrates
-    rotation: [0, 0, 90]        # Rotate to point outward
-```
-
-**Key concepts:**
-- `attach_to`: Name of parent part (creates hierarchy)
-- `at`: Which attachment point on the parent
-- `from`: Which point on the child aligns to parent's point (default: `bottom`)
-- `rotation`: Local rotation applied after attachment (degrees)
-- Only the root part(s) use `anchor` + `offset` for coordinate positioning
-
-### Asset-Level: Custom Attachment Points
-
-Assets export named attachment points for scene-level composition:
-
-```yaml
-# table.yaml - defines where chairs can attach
-attachments:
-  seat_front:
-    anchor: bottom_front_center
-    offset: [0, 0, 0.4]         # Push out from table edge
-    facing: center              # Chair faces toward table center
-
-  seat_left:
-    anchor: left_center
-    offset: [-0.4, -0.5, 0]     # Push out and down to floor
-    facing: center
-```
-
-**Facing directions:** `center` (toward origin), `outward` (away from origin), `north`, `south`, `east`, `west`
-
-### Scene-Level: Slots and Asset Attachments
-
-**Slots** are semantic positions within a scene:
-```yaml
-slots:
-  sidewalk_lamp:
-    position: [-4, 0, -10]      # Or use anchor + offset
-    facing: east
-
-place:
-  lamp:
-    asset: street_lamp.yaml
-    slot: sidewalk_lamp         # Place at named slot
-```
-
-**Asset-to-asset attachment** (for furniture groupings):
-```yaml
-place:
-  table:
-    asset: table.yaml           # First object, no positioning needed
-
-  chairs:
-    asset: chair.yaml
-    attach_to: table            # Connect to the table
-    at: [seat_front, seat_back, seat_left, seat_right]  # Multiple instances!
-```
-
-### Hierarchy Composition
-
-Scenes can nest other scenes, creating deep hierarchies:
-
-```
-street.yaml
-├── road.yaml (asset)
-├── street_side.yaml (scene)
-│   ├── sidewalk.yaml (asset)
-│   └── house_plot.yaml (scene)
-│       └── house_simple.yaml (asset)
-└── street_lamp.yaml (asset)
-```
-
-```yaml
-place:
-  left_side:
-    scene: scenes/street_side.yaml    # Nested scene (not asset)
-    slot: left_side
-```
-
-### City layout
-
-A scene with a top-level `city:` block (`src/geogen/layout/city.py`, e.g. `assets/scenes/town.yaml`) builds a district:
-- a street grid (`blocks`, `block_size`, `street_width`, `avenues: {ew: [..], ns: [..]}` + `avenue_width`), one asphalt slab with crosswalks at every block corner and dashed centre lines (`road_paint_white/yellow`);
-- raised blocks (`curb_height`): a rounded concrete sidewalk ring plus lot slabs.
-
-Lots are rows split into `lot_width` frontages. Zoning:
-- `landmarks` blocks hold one building;
-- `parks` blocks get trees;
-- lots fronting an avenue are commercial, the rest residential.
-
-Each lot takes a random fitting entry from `buildings: {zone: [{asset|scene, params, weight, setback}]}`. The building's +Z front faces the street. Buildings and furniture are loaded once and instanced (deep copies sharing meshes). `furniture:` lines the curbs (lamp/tree by `spacing`; bench/hydrant/trashcan `per_edge`, optional `zones`). Nodes carry `meta.lot` / `meta.building` / `meta.street_furniture`. Streets and sidewalks are walkable.
-
-Catalogue entries can also be `recipe:` buildings (`layout/recipes.py`), generated to fit each lot:
-- `detached_house`: 1–2 storeys, gable roof;
-- `shop_row`: shop and stock room with flats above, reached by their own stair;
-- `apartment_block`, `office`, `hotel`.
-
-Recipe keys are `storeys` (a number or `[lo, hi]`), `interior`, `style` (one or a list), `max_width`/`max_depth`, `setback`, `side_gap` and `rear_gap`. `interior` is:
-- `full`: furnish every storey;
-- `lobby`: furnish only the ground floor;
-- `shell`: rooms stripped, street doors locked, dark voids behind the windows.
-
-Storeys are capped by what the stair hall can fit (`_cap_storeys`), and a recipe that doesn't fit is retried lower. Fitting uses the wall footprint (nodes tagged `wall`), so canopies may overhang the setback. The front is the side the entrance spawn is on (`recipes.front_of`), so a south-entrance hotel still faces its street. `building:` roofs take `style: gable|hip|shed` (+ `rise`, `overhang`, `gable_material`) as well as flat/parapet. The furnishing solver rejects placements whose own front can't be reached (it used to only protect already-placed items).
-
-`scenes/town.yaml` is milestone M3:
-- The district is exported with `--export-godot --stream`.
-- The hotel lobby and shop floors are furnished; offices are shells.
-- `tests/test_godot_runtime.py::test_m3_*` streams it in Godot, walks the avenue, opens a shop door and the hotel entrance, and checks the player ends up in `shop` / `lobby`.
-
-Manifest spawns are ordered shallowest first, so a scene's own `spawns:` beat nested buildings' `entrance_spawn`s. Layout QA works in each room's parent (storey) frame, so moving or rotating a building never changes its result.
-
-### Buildings
-
-`house_peaked.yaml` is a hollow brick shell (walls minus an `interior` cutter) with a gable `roof`, brick `prism` gables and a chimney. Inside it has a separate finish: `floor` (hardwood_floor), a hollow `lining` (wall_plaster, 1.5 cm) and a `ceiling` at the wall top. Its wall surfaces are exported with `cut: [lining]` and `reveal: {material: wall_plaster, thickness: 0.015}`, so openings cut through the brick and the lining, and the composer adds a `<object>_reveal` plaster sleeve behind the frame. Opening assets mark that region with a `reveal: true` part (`reveal: {bottom: false}` for doors), a box from the frame's back face into the room; it is clipped to the removed wall/lining material. `scenes/cottage.yaml` places `door.yaml` and `window.yaml` on its wall surfaces (each cuts its own opening) and furniture (dining set, `bookshelf.yaml`, `armchair.yaml`) on `house.floor`. Inside it also exports `front_inside` / `back_inside` / `left_inside` / `right_inside` (v = 0 at the foundation top) and `ceiling` (the slab's underside), which the cottage's switches and pendants are placed on. Surface placements take `facing:` (compass/center/outward) and `yaw:` (degrees) to turn objects. Opening assets are authored with the origin at the bottom-centre of the opening on the wall face, +Z out of the wall, and a 1 m container depth so z offsets read as metres. `scenes/house_plot.yaml` (used by the street) places the cottage scene.
-
-### Design Principles
-
-1. **No magic numbers in connections**: Parts connect via named points (`top`, `bottom`, `seat_front`), not coordinates
-2. **Self-describing objects**: Assets declare their own attachment points based on their semantics
-3. **Composability**: Objects don't know about their containers; containers know about objects' attachment points
-4. **Hierarchical transforms**: Child transforms are relative to parent, enabling grouped movement
-
-## Parametric Assets, Surfaces, and Surface Placement
-
-### Parameters and `{expr}` interpolation
-
-Assets can declare parameters that control their geometry. Loaders resolve parameters before the hierarchy is built, so every part size/offset sees the post-substitution values.
-
-```yaml
-name: house
-params:
-  width:  { default: 8 }
-  depth:  { default: 6 }
-  height: { default: 4 }
-
-size: ["{width}", "{height}", "{depth}"]
-
-parts:
-  shell:
-    primitive: cube
-    size: ["{1 - 0.05}", 0.6, 1]   # expressions allowed anywhere
-    anchor: bottom_center
-```
-
-Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scale}"]` with part sizes in metres) set `bounds: geometry` so their reported `size` is the real extent. Overrides come in through `LayoutLoader.load(path, params={"width": 12})`, or per placement in scenes: `door: {asset: door.yaml, params: {width: 1.1}, on: ...}`. Scenes can declare `params:` and use `{expr}` too (`SceneComposer.compose(path, params=...)`, or `scene: plot.yaml, params: {...}` from a parent scene). Unknown params raise. The expression evaluator is AST-restricted: numeric and text literals, param references, `+ - * /`, parens, unit literals (`50cm`, `2m`, `20%`), comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`, chained, `in [..]`), `and`/`or`/`not`, `a if c else b`, and a fixed list of functions (`sind`, `cosd`, `min`, `max`, `abs`, `round`, `floor`, `ceil`). No other calls, no attribute access. A comparison is 1.0 or 0.0, so `when: "{paint == 'taxi' and seats >= 4}"` works, and `"{'brick' if storeys > 1 else 'wood'}"` picks text.
-
-**Conditions over live state** (`src/geogen/conditions.py`) can't be evaluated at build time, so they are compiled for the runtime, which never parses expression text.
-- **Terms:** `door.swing == "open"` (a thing's state, by reference; `ref("plot/house/door").swing` for longer references), `self.x` (the instance), `world.x` / `actor.x` (package variables), `clock.time|hour|night|day`, `actor.room|kind|id` (`id`: the actor's stable ID, "player" or an NPC's), and `all|any|count("<selector>", it.state == ...)`.
-- **Pipeline:** `compile_condition(text, params)` gives a JSON tree, `resolve(tree, root, package)` replaces references and selectors with stable IDs (errors name near states), `validate` checks a tree a runtime may be handed, and `evaluate(tree, lookup)` is the reference evaluator.
-- **Rules:** false, 0 and "" are false; `and`/`or` give booleans; text never equals a number; ordering needs two numbers or two texts ("HH:MM" orders as text).
-- Schema: `docs/schema/geogen-condition.v1.schema.json`. Tests: `tests/test_conditions.py`. Rules, bindings and quests take them.
-
-**State, events, rules and bindings** (`docs/rules.md` is the contract, `src/geogen/rules.py` the reference evaluator): the declarative layer under wiring, quests, dialogue and inventory. The Godot runtime is one implementation of it.
-- **State:** a variable's key names its owner: `<thing id>#<name>` (an instance; interaction states are these, plus `#<interaction>_locked`), `world:<pkg>.<name>`, `actor:<pkg>.<name>` (one value per actor: the player or an NPC).
-- **Rules:** `{id, on: {type, subject, name, key, to, actor}, when, do: [{set, to} | {emit, subject}], after, once}`. A rule with no `on` watches its condition and fires when it becomes true (per actor if it reads actor state). **Bindings** `{set, to}` are standing relations: never set by rules, never saved.
-- **Event data:** events carry `data` (a `changed` event's `from` / `to`, what a signal carries). A rule with `on` reads it as `event.<field>` in `when` and effects (`{set: world.gold, to: "world.gold + event.value"}`); `emit` takes `data: {field: <condition>}` and `forward: true` (declared signals with a `from` forward their source's). A delayed rule keeps its event's data. Declared signals list their fields (`data` in the manifest's `state`) and the export rejects reads of fields an event never carries (`quests._Compiler.check_event_reads`). Trace `tests/data/rules/event_data.json`.
-- **Order:** one input at a time; a matching event's rules run in program order, what they caused is processed after them, then bindings, then watches. Cascades stop 16 events deep.
-- **API:** `check_program(program)` (what export must reject), `Machine(program, actors)` with `post` / `use` / `set` / `advance` / `set_clock` / `get` / `save` / `load`, and `run_trace(path)`.
-- **Traces:** `tests/data/rules/*.json` are the conformance tests for any runtime; edit them in `tests/data/rules/make_traces.py` and run it. Tests: `tests/test_rules.py`.
-- **Declarations** (`src/geogen/state.py`, "Declarations" in `docs/rules.md`): asset `state: {name: {type: bool | number | text | choice, default, choices}}` is per placed instance (or, with `scope: world | actor`, the package's variable the asset uses: same type as a scene's declaration, whose default wins); scene `state:` needs `scope: world | actor | instance` on each variable (world and actor state of nested scenes is the exported package's; instance state, and scene `signals:` / `inputs:`, belong to each placed copy, so a puzzle scene placed twice is two puzzles: `self.x` in its wiring, `puzzle_a.x` from the parent; geogen.40.4). Asset `signals: {name: {emit | changed | enter | leave, of, to}}` and `inputs: {name: {set, to, of}}` name what wiring can listen to and drive, relative to the asset. A placement's `state: {lit: true}` starts a declared variable elsewhere.
-  - Loaders only record them in `meta.declares` (not exported). `state.collect(root, package)` gives a `Declarations` (variables, every interaction, signals, inputs, keyed by stable ID) or raises `StateError` listing each problem with file:line and near names. Exports run it before writing anything and put `to_json()` in the manifest and chunk index as `state` (schema `docs/schema/geogen-state.v1.schema.json`).
-  - `Declarations.program(rules, bindings)` is a rules program; `check_condition(tree)` reports undeclared or wrongly scoped reads; `declare(key, spec)` adds variables (for quests and packages); `from_json` reads another package's from its manifest.
-  - Tests: `tests/test_state.py`; `test_asset_quality.py::test_state_declarations_resolve` runs every scene.
-- **Wiring** (`src/geogen/wiring.py`, "Authoring" in `docs/rules.md`): scene and asset `rules: [{id, on, when, do, after, once}]`, `wire: [{from: thing.signal, to: thing.input, value, when, after}]` and `bind: {<state>: <expression>}`.
-  - Events (`on`): `{enter | leave}`, `{signal: thing.name}`, `{use: thing[.interaction]}`, `{changed: <state>, to}`, `{start: true}`, `{clock: night | day}`, `{travel}`, plus `actor: player | npc | none | any`. Effects: `set`, `input` (+ `value`), `emit` (+ `of`), `start_quest`, `fail_quest`, `complete_objective`, `notify`, `play`, `reset: <thing or selector>` (it and everything in it back to its initial interactions, locks and declared variables; bound and driven state left out) and `reset_quest: id` (geogen.40.5). Both resets compile to `set` effects, so runtimes need nothing new; the state test's lever by the sign uses them.
-  - In an asset names are relative to the instance (`self.lit`, parts and places inside it) and each placed instance gets its own rules, ids prefixed `<uid>#`. A placed scene is the same: its rules are per copy and `self` is the copy.
-  - Loaders record it in `meta.wiring`; `quests.collect` compiles it with the quests (`Quests.wiring`, `.bindings`, `.program()`: declared signals, wiring, then quests) and reports mistakes as `QuestError` with file:line. The manifest and chunk index get `rules` (`Quests.rules_json()`: a `geogen-rules` program without variables and interactions).
-  - `if: "{expr}"` on a rule or wire (and `{file, if}` in a scene's `quests:`) is build time: the entry is left out when the param expression is 0 (`wiring.built`). A rule on a signal its subject never raises fails the export (`_Compiler.heard`).
-  - Tests: `tests/test_wiring.py` (a lever opens a gate, a plate lights a lamp, a rule gives a quest). Interactions take `when: "<condition>"` (names relative to the asset, as in its wiring): `quests.collect` compiles it into the interaction's entry in the manifest's `state`, and `use` does nothing while it is false (`rules.Machine.allows`, `machine.gd`, `GeogenInteraction.guard`); rules still drive it. Trace `tests/data/rules/when.json`. With `refused: <text>` a refused use tells the user why (and the prompt shows it while aimed at).
-  - **Feedback** ("Feedback" in `docs/rules.md`, geogen.40.3): effects `{notify: text}` and `{play: <sound>}` (`rules.SOUNDS`, each a `CHIMES` entry in `sound.gd`) tell the rule's actor something. Not state or events: machines log them (`feedback` [kind, value, actor], `on_feedback` in `machine.gd`; trace `tests/data/rules/feedback.json`), and `GeogenRules.feedback` → the HUD's notifications panel toasts `notify` (kind `notice`) and plays `play` for the player. The sandwich kitchen uses them (the jar's `scoop` refuses while its lid is on).
-- **Content packages** (`src/geogen/content.py`, "Content packages" in `docs/rules.md`): state, rules and quests that span scenes they don't own. A scene's own are its implicit package.
-  - **Authoring:** `assets/packages/<name>.yaml`, `kind: package`: `id` (not a scene's name), `title`, `description`, `scenes: [..]` (the catalogue scenes it runs in), `state:` (scope world | actor), `rules:` / `wire:` / `bind:` and `quests: [quests/x.yaml]`. Things are named with their scene (`camp:lever`, `ref("camp:lever").pull`, `all("camp:[tag=light]", ...)`); `world.x` / `actor.x` are the package's own and `world("camp").x` a scene's.
-  - **One scene per entry:** a rule, binding or objective may touch one scene plus the package's own state, which is what crosses. Touching two is an export error.
-  - **Export:** the catalogue deploys them (`packages: [name]` in `assets/runtime_scenes.yaml`). `content.export_packages` (run by `--export-catalogue`, `--catalogue` and every `--export-godot`) compiles each against the exported scenes: references on `<scene>.refs.json`, conditions and effects against the manifests' `state` / `rules`, through `quests.compile_quests(..., trees=)`. It writes `<name>.content.json` (`geogen-content` v1, `docs/schema/geogen-content.v1.schema.json`: `variables`, `bindings`, `rules` with ids `<pkg>:<id>` and the `scene` each runs in, `quests`) and `catalogue.json` lists it under `packages`. Problems come with file:line and the file is not written; a package waits while a scene it names isn't exported. `content.Scene.built(name, root)` stands in for an export.
-  - **Runtime:** `content.apply` / `carried` / `resume` are the reference for what `rules.gd` does: the package's variables and the entries for the loading scene join that scene's program after its own, and the package's values and latches are kept apart from the scene's saves (`GeogenRules._carried`) and handed to the next scene. Watch latches of scene-tied rules aren't kept (the scene's things start over). No change to `rules.py` / `machine.gd` semantics. `GeogenRules.adopt` (called by `WorldLoader._collect_interactions`) gives an interaction what rules made of it before its node existed.
-  - The catalogue deploys `jetty_trip` (`packages/jetty_trip.yaml`, hub + island, geogen.15.5): taking the hub's island portal gives its quest (a `travel` rule), the jetty is the first step and travelling back to the hub the last; `tests/test_hub.py::test_the_jetty_trip_goes_from_the_hub_to_the_jetty_and_back` walks it (exhaustive tier).
-  - Not built: signals / inputs declared by a package, soft dependencies, placing geometry. Tests: `tests/test_content.py`, `tests/test_content_runtime.py`.
-- **Event bus** (`runtime/godot/scripts/events.gd`, `WorldLoader.events`; "Events" in `runtime/godot/README.md`): the runtime posts every event of `docs/rules.md` as `{type, subject, name, actor, package, data}` (`use`, `changed`, `signal`, `enter`, `leave`, `travel`, `clock`, `start`), plus runtime-only `arrived` and `npc`. An interaction remembers the actor behind its move (`use(by)`, `set_state(state, instant, by)`), so arrivals and emits carry it; instant sets are silent. Events the rules program caused carry `origin: "rules"`. `--events[=TYPE,...]` prints `event: {...}`; the control API has the `events` stream (`types`, `subjects`) and `events.history`. Tests: `tests/test_events_runtime.py`.
-- **Rules in Godot** ("Rules, state and quests" in `runtime/godot/README.md`): `scripts/machine.gd` (`GeogenMachine`) and `scripts/conditions.gd` are a pure-data GDScript port of `rules.Machine`; `-- --trace=FILE` replays a conformance trace with no world (`tests/test_rules_godot.py` runs all of them). `scripts/rules.gd` (`GeogenRules`, `WorldLoader.rules`) hosts one for the loaded package from the manifest's `state` / `rules` / `quests`: loaded interactions are read from and driven through their nodes (`host_get` / `host_set`), bus events are its inputs, and what it changes goes back on the bus. It prints `quest event: {...}`, and offers `--quests`, `--set=KEY=VALUE`, API `quests.list`, `state.get|set|list` and the `quest` stream. State is kept per package across scene switches. **Saves** (`--save` / `--load`, API `state.save` / `state.load`, `WorldLoader.save_state` / `load_state`) are one `geogen-save` (`docs/schema/geogen-save.v1.schema.json`, "Saving" in `docs/rules.md`, the same as `rules.Machine.save`): flat `world` and `actors` sections whose keys name their owners, `clock`, `now` and pending `timers`; interactions are instance state in `world` (`<uid>#<interaction>`, `..._locked`), only what differs from the defaults is stored (loading resets the rest), and flat saves from before the format still load. A save also holds every other package visited (`packages`) and content packages' values (`carried`), so a fresh process resumes them (`GeogenRules.take_save`; one made in another scene loads this scene's part); loading sets the world clock, and `--load` runs before `--set` / `--quests`. While a chunk is unloaded its interactions' state is the rules program's (`GeogenRules.release` / `adopt`). Loaded interactions save how far a move or a self-close wait had got as `arrive` / `dwell` timers (an arrive's `from`; `GeogenInteraction.progress` / `resume`), and a chunk unloading hands them to the program (geogen.3.14). Tests: `tests/test_save.py`, `tests/test_save_runtime.py`, `tests/test_quests_runtime.py`. A change to `rules.py` semantics needs the same change in `machine.gd` (the traces catch a mismatch).
-
-**Quests** (`src/geogen/quests.py`; `docs/quests.md` is the design and says what is built): a `kind: quest` file in `assets/quests/` that a scene lists under `quests: [quests/name.yaml]`. A quest has no runtime logic: it compiles to actor state and rules.
-- **Authoring:** `id` (default: the file name), `title`, `description`, `holder: player | npc | any`, `start: given | auto`, `available` and `fail` (conditions), `ordered`, `rewards` (effects) and `objectives: [{id, text, after, done, optional, marker}]`.
-  - `done` is a condition (it latches when true) or an event: `{enter | leave: <place or room>}`, `{signal: thing.name}`, `{use: thing[.interaction]}`, `{changed: <state>, to}`, with `when:` and `count:`. The event must be the holder's own.
-  - Effects: `{set: <state>, to}`, `{emit, of}`, `{start_quest: id}`, `{fail_quest: id}`, `{complete_objective: quest.objective}`, `{give: <item>, count}`, `{take: <item>, count}`.
-- **Items** (geogen.18, "Items" in `docs/rules.md`): what an actor carries is actor state `actor:<pkg>.item_<id>` (a count) for an item file `items/<id>.yaml` (`kind: item`, also spawned items; `title`, `tags` for the inventory, `flows.carried`). `has("x")` / `held("x")` in conditions (`conditions.ITEM_CALLS`); `give` / `take` effects compile to sets (take clamped at 0). The compiler declares an item's variable on first use (`_Compiler.item`, an unknown item is a `QuestError`) and lists them in `Quests.items`. Trace `tests/data/rules/items.json`; test `tests/test_quests.py::test_items_are_actor_state_given_and_taken_by_effects`.
-  - **Pickups** (`geogen/inventory.py`): asset or placement `pickup: <item> | {item, count, prompt}` adds a `pickup` interaction (here | taken; taken hides the parts, so the runtime drops their colliders) and an asset rule `{on: {use: self.pickup}, do: [{give: item}]}` for whoever took it. `room_key.yaml` (with `items/room_key.yaml`, tag `key`) is one by its asset; `{asset: parcel.yaml, pickup: parcel}` by placement. Tests: `tests/test_inventory.py` (reference machine, export, Godot).
-  - **Keys as items** (geogen.18.3): items take `opens: [globs]`; a lock key with an item file of that id is declared (`compile_quests(items=)`), the manifest and chunk index get `items` (`{id: {title, tags?, opens?}}`), and the runtime's keys are `--keys` plus each carried item's id and `opens` (`GeogenRules.carried_keys`, `main.held_keys`; `GeogenInteraction.opens` matches globs), so L unlocks with a carried key.
-  - **Inventory in Godot** (geogen.18.4): `scripts/hud_inventory.gd` (panel `inventory`, bottom right) lists what the HUD's actor carries (`GeogenRules.carried`: titles, counts), hidden while empty; each change to one of its item counts toasts "Picked up" / "Handed over" (`hud_notifications.item_note`). API `inventory.list {actor}`, `inventory.give {item, count, actor}` (negative takes), `hud.inventory`; flag `--give=ITEM[:N]`. Test: `tests/test_inventory.py::test_the_hud_shows_what_the_player_carries`.
-- **Compiles to:** `actor:<pkg>.quest_<id>` (unavailable | available | active | complete | failed), a bool latch `..._<objective>` and a `..._count` for counted events, and rules `quest:<id>:<available | unavailable | start | fail | rewards | objective>`. Every `set` is conditional on the state it expects. A last objective beats a `fail` at the same moment.
-- **API:** `collect(root, package)` (the scene's quests plus `state.collect`; exports call it before writing anything) and `compile_quests(specs, declarations, selectors, rules)` (no scene: thing `x` is `<pkg>:x`) give a `Quests`: `quests` (the manifest entries), `rules`, `declarations`, `program(rules)`, `effect(spec)` (a quest effect as `set` effects, for other rules) and `status` / `report(machine, actor)` (per objective `done | open | waiting`, progress `[n, of]`).
-- **Checks** (`QuestError`, every problem with file:line): unknown keys, `after` loops, references and state that don't resolve, a choice compared with a value it can't have, and objectives nothing can cause: a condition that reads no live state, state no use or rule sets (pass the package's other compiled rules as `rules`; a declared input doesn't count until something is wired to it), a signal nothing raises.
-- **Export:** the manifest's and chunk index's `quests` (`docs/schema/geogen-quests.v1.schema.json`), with `markers` (world position of every objective subject); the rules are in the manifest's `rules`, the variables in `state`.
-- **NPC holders** (geogen.15.8): a quest with `holder: npc | any` can be an NPC's. An NPC placement's `quests: [file | {file, if}]` gives them to that NPC from the start (`quests.collect` adds a watch rule `actor.id == "<its uid>"` doing `start_quest`; the quest's references resolve in the NPC's scene). Each objective in the manifest has `goals` (`_Compiler.goals`): `{subject, enter: true}`, `{subject, interaction}` or `{subject, interaction, state}`, read from its event or from `<thing>.<interaction> == "<state>"` comparisons (also inside `all/any/count`); an NPC-holdable objective with none is an export warning. `npc.gd` `quest_option()` takes the nearest unmet goal of an open objective before its usual options and runs action `quest_use` (go to a point 0.6 m in front of the thing, face it, `use: goal` until it shows the state) or `quest_go` (into the place); the summary has `quests` and `quest_goals`. The cottage's `resident_quest` param gives the resident `lights_out` (`holder: any`), and `quests/climb_lighthouse.yaml` is an NPC's gallery quest. Tests: `tests/test_npc_runtime.py` (the resident switches every light off alone; an NPC climbs the lighthouse), trace `tests/data/rules/actor_id.json`.
-- **Fetch and deliver** (geogen.15.7): `quests/deliver_parcel.yaml` in `hotel_showcase`. Greeting the receptionist opens `dialogues/receptionist.yaml` (geogen.17.4): its "I'll take it up" choice starts it and gives `parcel` and `key_room_207` (an item named after room 207's lock key), later greetings give directions or thanks, and the forecourt `notice` (`info_plinth`, `readable`, `dialogues/hotel_plaque.yaml`) reads differently once it's accepted; enter `hotel/room_207` (unlock with L, open), then greet `guest_207` with `has("parcel")`; the rewards take both. Tests: `tests/test_showcases.py::test_the_parcel_for_room_207_*` (evaluator, and a Godot walk with `--open-doors=door_*stair*`; exhaustive tier).
-- **Dialogue** (geogen.17, `src/geogen/dialogue.py`, "Dialogue" in `docs/rules.md`): `kind: dialogue` files listed under a scene's `dialogues:` (`{file, if}` too): `anchor` (NPC: opens on greeting; place/room: on enter; else on using its interaction; `open:` overrides; `once`), objects get one with `readable: <prompt>` (asset/placement key: a looping `read` interaction), `start` (passage or `[{when, passage}, ..]`), `passages: {name: {text (with `{condition}` parts), choices: [{id, text, when, do, goto}]}}`. Compiled by `compile_quests(dialogues=)`: actor state `actor:<pkg>.dialogue_<id>` (open passage, "" closed), the anchor's declared signal `dialogue {passage, choice}` that the runtime raises (choice "" closes), a rule per choice (open + when → effects + goto), checks for missing/unreachable passages; manifest `dialogues`. Godot: `scripts/hud_dialogue.gd` (modal `screen` panel; text with values, choices by `when`, 1-9 / arrows / Enter / click, Esc closes; raises the anchor's signal), API `dialogue.show`, `dialogue.choose`. Tests: `tests/test_dialogue.py`.
-- A scene rule gives a quest with `{start_quest: id}`. The island has `quests/lighthouse_gallery.yaml`. The cottage has `quests/lights_out.yaml`: its resident gives it when the player greets them, and it is done when `all("[tag=switch.light]", it.switch == "off")`, reporting `progress` on the way. A quest belongs to one placed scene, so the cottage contributes it only with its `quest` param (default 1); scenes that nest the cottage pass `quest: 0` (island, town, house_plot). The runtime runs and reports them, and the HUD tracks, toasts, logs and marks them (below).
-- **HUD stats** (`src/geogen/hud.py`): scene `hud: {stats: [{label, value, of}], banners: [{when, text, tone: info|good|bad}]}` (conditions over state, compiled by `quests.collect` into the manifest's `hud`); Godot panels `hud_stats.gd` (top left) and `hud_banner.gd` (mid-screen), API `hud.stats`. Tests: `tests/test_hud_stats.py`.
-- **HUD** ("HUD" in `runtime/godot/README.md`): The HUD draws the crosshair (`hud_crosshair.gd`: a dot, a gold ring while E would do something) and holds the E prompt; `main._assisted_focus` gives the focus to a usable interaction within `AIM_SLACK` (20 cm) of the aim line when the ray hits nothing usable (API `hud.aim`). `runtime/godot/scripts/hud.gd` (`GeogenHud`, `main.hud`) is a CanvasLayer that panels join with `add_panel(panel, slot)` (a column per screen corner). Panels are Controls with optional `hud_attach(hud)`, `hud_refresh()`, `hud_key(keycode)` and `hud_report()`; the host coalesces refreshes (`queue_refresh()`) and refreshes everything on `GeogenRules.reset` (package loaded or unloaded, save restored) and window resizes, so panels survive scene switches. `scripts/hud_quest_tracker.gd` is the first panel: the tracked quest's title, objectives and progress counts from `GeogenRules.report`, redrawn on quest and `changed` events; Q tracks the next active quest; a finished one lingers 4 s. Control API `hud.quests {track, linger}` returns what is displayed; `input.key` and `window.size` let headless tests press keys and size the 64 px headless viewport. `scripts/hud_notifications.gd` (panel `notifications`, bottom left) toasts the player's quest events (`GeogenRules.quest_event`: started, objective_done, complete, failed; NPCs' raise none) with a chime each (`GeogenSound.chime`, `CHIMES` in `sound.gd`): a toast stays `hold` 4 s, at most `limit` 3 are up, and one appears no sooner than `gap` 0.6 s after the last, so a burst queues in order. Only events raise toasts, so a switch, reload or restored save raises none; on `GeogenRules.reset` a toast the loaded package's state no longer bears out is dropped. `main.gd` registers the panels before the first world loads, so a quest that starts with the game is announced. Control API `hud.notifications {hold, gap, limit, muted, clear}` returns `showing`, `queued`, `raised` and `chimes`. `scripts/hud_quest_log.gd` (panel `log`, slot `screen`) is the quest log: J opens a screen listing active, completed and failed quests of every package loaded this session (`GeogenRules.report_all`) with their objectives; Up / Down select, Enter makes the tracker follow the selected active quest, J or Esc closes. While open it is the HUD's modal panel (`hud.set_modal`): it alone gets keys, and `modal_changed` has main.gd park the player and free the mouse. Control API `hud.log {open, select, track}`. `scripts/hud_markers.gd` (panel `markers`, slot `screen`) marks the subjects of the tracked quest's open objectives from the report's `markers` (the manifest's positions, so unloaded chunks too): an indicator with the distance, clamped to the screen's edge with an arrow when off screen or behind; `marker: {area}` is a ring on the ground, 0.45 r off-centre so it doesn't give the spot away; `hidden` shows nothing; a quest of another package visited this session, or an open objective whose subjects are in another scene, is marked at the loaded scene's travel points that go straight to a scene its subjects are in (report objectives carry `scenes`; kind `portal`; with no direct one, the first steps of the shortest routes over the exported manifests' travel points, `route`). Markers fade with distance and dim when occluded (`alpha`, `occluded`), and a counted objective's done subjects (`subjects_done`) aren't marked (geogen.37; `tests/test_hud_markers_routes_runtime.py`, incl. a streamed scene). Content packages' quests (geogen.34): the tracker, toasts and log key a quest by its own package (`GeogenRules.quest_package`, `running()`: the scene's and its content packages'), so a pick follows the quest across the scenes its package runs in, and subjects the export didn't mark are located in the loaded world by stable ID (`GeogenRules._locate`); `GeogenRules.package` is "" while a scene without a program is loaded. Tests: `tests/test_content_hud_runtime.py`. Control API `hud.markers {enabled}` returns each marker's kind, position, screen point, distance, `clamped` and `behind`. New HUD panels join this host rather than main.gd. Tests: `tests/test_hud_runtime.py`, `tests/test_hud_log_runtime.py`, `tests/test_hud_markers_runtime.py`.
-- **Timed quest** (`quests/catch_train.yaml` in `level_crossing`): opens with `available: 'clock.time >= "08:00"'`, done on `actor.on_north_platform and commuter.at_north`, fails on `world.north_train_left` (scene rules keep both: enter / leave of the station place, and `{changed: commuter.at_north, to: false}`). A train has `at_<station>` bools, declared by `state.train_state` with `driven: train`: the runtime sets them from the timetable (`train.gd` `standing` signal, `WorldLoader._train_standing`), and export counts driven state as changing. `GeogenRules.load_package` applies the world clock before adding actors, so a clock-gated quest doesn't open at the machine's default noon.
-- **State test** (`scenes/state_test/`, a scene folder; catalogue test group; geogen.3.7): every piece of the rules layer in one yard. A private `lever_puzzle.yaml` placed twice (instance `solved`, signal `done`, inputs `reset` / `jam` / `free`, `self` rules), `lever.yaml` (a core floor lever: `pull` with `when: self.enabled` and `refused`, signals `pulled` / `released`, inputs `jam` / `free`), a rule-driven `crossing_barrier` lifted by a watch over `all("[tag=puzzle]", it.solved)` with `after`, a switch-bound lamp and a `bind` over the clock, a place with `once`, feedback, and the quest `two_levers`. Tests: `tests/test_state_scene.py` (reference machine and Godot). Phasing (geogen.24) isn't built.
-- **Quest yard** (`scenes/quest_yard.yaml`, the hub's Quests portal): the place to try quests and the HUD. Three quests on a plaza: `yard_round` (start: auto, three plinth squares in order via `after`, an optional detour), `yard_lamps` (given by greeting the steward; `switch_board.yaml` with three `light_switch` counted by `all(...)`, then report back with a second greeting) and `yard_dash` (given by entering the start square; a scene rule on the same event with `after: 6` does `fail_quest`, which only fails an active quest). `floor_pad.yaml` paints the squares. Progress lasts for the session. Tests: `tests/test_quest_yard.py`.
-- Tests: `tests/test_quests.py`; traces `tests/data/rules/quest_*.json`; in Godot `tests/test_quests_runtime.py` (the cottage quest over the control API: greet, three switches, complete).
-
-Relevant module: `src/geogen/layout/expressions.py`.
-
-### Surfaces (2D regions on assets)
-
-Where an `AttachmentPoint` is a single spot, a `Surface` is a 2D region with its own (u, v) coordinate system — a wall, a floor, the top of a table. Primitives expose surfaces automatically:
-- **CubeGenerator** → `front`, `back`, `left`, `right`, `top`, `bottom`
-- **PlaneGenerator** → `top`
-- **RoomGenerator** → `north_wall`, `south_wall`, `east_wall`, `west_wall`, `floor`, `ceiling` (all interior-facing, normals point *into* the room)
-
-For walls, `u` runs horizontally "left → right when facing the wall from outside" (or from inside, for room interior walls) and `v` runs vertical (+Y). Each surface's `normal` points outward from its home object.
-
-Assets can re-export part surfaces at their root with a `surfaces:` block:
-
-```yaml
-surfaces:
-  front_wall: { from: walls.front }
-  roof:       { from: roof.top }
-```
-
-The re-export bakes the part's local-to-root transform into the surface so scene-level callers see surfaces in the asset's root frame. Add `cut: [part, ...]` to a surface export (`front_wall: { from: walls.front, cut: [lining] }`) so `cut_host` openings placed on it also cut those parts (`Surface.also_cut`). `flip: true` exports the same region facing the other way, with u still left to right for whoever faces it (`house_peaked`'s `front_inside` etc. are its lining cutter's faces seen from the room).
-
-Relevant module: `src/geogen/layout/surfaces.py`. Runtime storage: `SceneNode.surfaces: dict[str, Surface]`, resolved via `SceneNode.get_surface(name, u, v, depth)`.
-
-### Surface-based placement in scenes
-
-Scenes can place assets on a surface of another placed object with `on:` + `at:`:
-
-```yaml
-place:
-  house:
-    asset: house.yaml
-  mailbox:
-    asset: mailbox.yaml
-    on: house.front_wall          # <object>.<surface>
-    at: { u: 0.25, v: 0.3 }       # fractional 0-1 by default
-```
-
-Coordinate forms for `u`/`v`/`depth`:
-- Plain float (e.g. `0.5`): fractional for `u`/`v`, absolute metres for `depth`
-- `{abs: 0.5}`: absolute metres
-- `{frac: 0.25}`: explicit fractional
-
-`depth` offsets along the surface normal (useful for pushing an object slightly off a wall so it's not z-fighting).
-
-### YAML loader quirk
-
-`yaml_utils.GeogenSafeLoader` disables YAML 1.1's `on`/`off`/`yes`/`no` boolean resolution so keys like `on:` parse as strings. Always load asset/scene YAML through `LayoutLoader` or `SceneComposer` — using `yaml.safe_load` directly will mangle `on:` into `True`.
+## Where things are
+
+Detailed notes per subsystem are in `docs/dev/`; read the one for the area you are changing before you change it. The contracts with runtimes are the schemas in `docs/schema/`, `docs/rules.md` (state, rules, saves, dialogue, items), `docs/quests.md` and `runtime/godot/README.md`.
+
+| Area | Code | Notes |
+|---|---|---|
+| Scene graph, meshes, mesh ops, subdivision, skinning, skeletons, UV projection, 2D profiles; textures, materials | `src/geogen/core/`, `textures/`, `materials/` | `docs/dev/core.md` |
+| Primitives and generators: extrude/lathe/sweep, text, paths, fences, water, terrain, stairs, roofs, CSG, floor plans, buildings, facades, plan layouts, nature; furniture library, interior finishes | `src/geogen/generators/`, `assets/` | `docs/dev/generators.md` |
+| YAML assets and scenes: parts, attachments, slots, surfaces, params and `{expr}`, cities and recipes, scatter, references and stable IDs, named places, projects and content roots, registry, `--describe`, furnishing solver, layout and affordance QA | `src/geogen/layout/`, `refs.py`, `places.py`, `roots.py`, `registry.py`, `describe.py` | `docs/dev/layout.md` |
+| Humanoids: skeleton, ring-lofted skin, poses, IK, clips, face, hair, clothing and drape, archetypes, clipping QA | `generators/humanoid.py`, `ringloft.py`, `clips.py`, `drape.py`, `arms.py`, `characters.py`, `clipping.py` | `docs/dev/characters.md`, `docs/clothing.md` |
+| Vehicles, the traffic lane graph and signals, moving traffic, railways and trains, pedestrians | `vehicles.py`, `traffic.py`, `railway.py`, `trains.py` | `docs/dev/transport.md` |
+| Interactions, NPCs, time of day, light fixtures, physics props, spawned items (flows); conditions, state, wiring, rules, content packages, quests, items, dialogue, HUD | `layout/interactions.py`, `npc.py`, `physics.py`, `flows.py`, `conditions.py`, `state.py`, `rules.py`, `wiring.py`, `content.py`, `quests.py`, `dialogue.py`, `inventory.py`, `hud.py` | `docs/dev/gameplay.md`, `docs/rules.md`, `docs/quests.md` |
+| Offscreen render, glTF/OBJ export, manifests, extras contract, LODs, chunks and caching, the Qt viewer, the Godot runtime and its control API | `render.py`, `export.py`, `extras.py`, `chunks.py`, `viewer/`, `runtime/godot/` | `docs/dev/runtime.md`, `runtime/godot/README.md` |
+
+Worked examples of projects built on geogen: `examples/sandwich`, `examples/test_chamber`, `examples/marble_run`, `examples/tower_defense`.
+
+### Files and formats
+
+- `assets/*.yaml` is an asset (`parts:`, `floorplan:`, `building:`, ...) or a composed scene (`place:` / `compose:`); `assets/scenes/*.yaml` and `assets/scenes/<name>/scene.yaml` (a scene folder with private files) are always scenes. A YAML with a top-level `kind:` (`player.yaml`, npcs, quests, items, ...) is data, not a scene. Python scenes are registered in `main._build_registry()` (`nature`, `skin_test`); the other `scenes/*.py` are unused legacy wrappers.
+- Two composition levels: `LayoutLoader` builds an asset from primitives (parts connect with `attach_to` / `at` / `from`, roots use `anchor` + `offset`); `SceneComposer` places assets and nested scenes (slots, `attach_to` + `at`, `on: <object>.<surface>` + `at: {u, v}`, scatter). Connections use named points and surfaces, not coordinates; objects don't know their containers.
+- Always load asset and scene YAML through `LayoutLoader` / `SceneComposer` / `yaml_utils`: `GeogenSafeLoader` keeps `on:` / `off:` / `yes:` / `no:` as strings, and plain `yaml.safe_load` turns `on:` into `True`.
+- Anything named relative to `assets/` resolves with `roots.find(name, assets_dir)` (and lists with `roots.glob`), so projects' content roots are searched first. Don't join names onto an assets directory yourself.
+- Things in scenes are named by references (`refs.resolve` / `refs.select`: `plot/house`, `[tag=door]`, `town:park/bench`). New content that names things stores references in YAML, resolves them at export and writes stable IDs (`<package>:<path>`) to extras or the manifest; the runtime only looks IDs up.
+
+### Changes that need a matching change elsewhere
+
+- **A new YAML key** goes in `layout/schema.py` with its meaning (validation's known keys come from it). An asset, key or header-comment change makes `docs/catalogue/` stale: run `docs/make_catalogue.sh` (`tests/test_describe.py` fails otherwise). A new markdown construct in `describe.py`'s pages needs handling in `docs/make_site.py`.
+- **A new `SceneNode.meta` key** must be declared in `docs/schema/geogen-extras.v1.schema.json` (with its properties; objects are closed), get a row in the "Node extras" table of `runtime/godot/README.md` and an entry in `scene_builder.gd` `KNOWN_KEYS`, or be listed in `extras.BUILD_ONLY` with the reason. Otherwise the export raises `ExtrasError` (`tests/test_extras_contract.py` keeps the lists in step).
+- **Rules semantics** (`rules.py`) have a GDScript port (`runtime/godot/scripts/machine.gd`, `conditions.gd`). Change both; the conformance traces in `tests/data/rules/` (edited via `make_traces.py`) catch a mismatch.
+- **A new showcase scene** needs a hub portal and a way back (`tests/test_hub.py`). NPC affordances must be within 1.5 m of the NPC home's floor.
+- **New HUD panels** join `GeogenHud` (`hud.gd`, `add_panel`), not `main.gd`.
+- **The clipping baseline** (`tests/data/clipping_baseline.json`) is regenerated with `python tests/test_clipping.py`.
+
+### Godot runtime
+
+- Godot 4.7, Forward+, Jolt physics (write physics code for Jolt; don't fake physics with kinematic tracks). 1 unit = 1 m.
+- Wrap ad-hoc runs in a timeout: a GDScript parse error leaves the process running, and macOS has no `timeout` (`perl -e 'alarm shift; exec @ARGV' 300 godot ...`). After adding a `class_name` script, re-import (`godot --headless --path runtime/godot --import`) before launching.
+- Prefer the control API (`--api`, `geogen.runtime_client`, pytest fixture `godot_runtime`) to one-shot `--walk` / `--nav` / `--status` launches when checking runtime behaviour. Screenshots need the windowed default, not `--headless`.
+- Runtime path queries go through `GeogenWalker.find_path` (no polygon search limit). A whole export's navmesh syncs in step with physics frames (reproducible simulations); streamed exports sync asynchronously.
 
 ## Key Conventions
 
-- **UVs are metric** (1 UV unit = 1 m of surface). Generators must emit metric UVs (or run `uvmap.box_project`); materials set `tile_size`. Never emit 0–1-per-face UVs — texture density would vary with object size.
+- **UVs are metric** (1 UV unit = 1 m of surface). Generators must emit metric UVs (or run `uvmap.box_project`); materials set `tile_size`. Never emit 0–1-per-face UVs: texture density would vary with object size. (The one exception is the painted face of a humanoid head.)
 - **Procedural textures must tile**: noise is periodic (`perlin_noise` wraps its lattice); `tests/test_textures_tile.py` checks every material.
-- Generators should produce closed meshes that pass `meshops.validate`; `tests/test_asset_quality.py` checks every registered asset/scene.
-- **No coplanar surfaces** between different meshes: `qa.coplanar_overlaps(scene)` finds horizontal faces from different meshes that lie in the same plane, face the same way and overlap (they z-fight in every renderer). Undersides at or below y = 0 are ignored. `test_asset_quality.py` requires every scene to pass. Fix a hit by offsetting one of the surfaces 3 mm (`floorplan.COPLANAR_GAP`: ceiling slabs stop under the wall tops; sills sit above opening faces and lintels below them; architraves lap the lining; the lift car floor sits proud of the landing) or by cutting one away (city lot slabs lose each building's footprint).
-- **Triangle budgets:** round YAML primitives (cylinder, cone, sphere, ellipsoid, lathe, torus, capsule) get at most one radial segment per `loader.SEGMENT_EDGE` (2.5 cm) of circumference, never fewer than 12, and lathe profiles are simplified to 2% of their radius. Cubes under 12 cm default to `bevel_segments: 1`. Instanced props multiply: check a big scene's total with instances (a street tree is ~4k triangles; the city is ~3.5M).
-- For turned/curved/filleted parts prefer `lathe`/`extrude` over stacking primitives. YAML anchors+merge keys (`&leg` / `<<: *leg`) work for repeated parts.
-
-- All meshes use counter-clockwise face winding for outward normals
-- Transformations follow order: Scale -> Rotate -> Translate
-- Geometry is centered at origin by default
-- numpy arrays use `float64` for vertices/normals and `int64` for face indices
-- Materials are optional on Mesh; viewer uses default gray when missing
+- Generators produce closed meshes that pass `meshops.validate`; `tests/test_asset_quality.py` checks every registered asset and scene.
+- **No coplanar surfaces** between different meshes: `qa.coplanar_overlaps(scene)` finds horizontal faces from different meshes that lie in the same plane, face the same way and overlap (they z-fight in every renderer). Undersides at or below y = 0 are ignored. Fix a hit by offsetting one surface 3 mm (`floorplan.COPLANAR_GAP`) or by cutting one away.
+- **Triangle budgets:** round YAML primitives get at most one radial segment per `loader.SEGMENT_EDGE` (2.5 cm) of circumference, never fewer than 12; lathe profiles are simplified to 2% of their radius; cubes under 12 cm default to `bevel_segments: 1`. Instanced props multiply: check a big scene's total with instances (a street tree is ~4k triangles; the city ~3.5M).
+- Cubes are rounded boxes (`bevel` 0.02 by default): set `bevel: 0` on thin flat surfaces (roads, sidewalks, slabs). For turned, curved or filleted parts prefer `lathe` / `extrude` / `sweep` over stacked primitives. YAML anchors and merge keys (`&leg` / `<<: *leg`) work for repeated parts.
+- Counter-clockwise winding for outward normals; transforms are Scale -> Rotate (XYZ Euler, radians) -> Translate; geometry is centred at the origin by default; numpy `float64` vertices and normals, `int64` faces; materials are optional on a Mesh.
+- Use `PlayerSpec` / `load_player_spec()` (`assets/player.yaml`) for player-scale clearances instead of hard-coding them.
 
 ## Testing
 
 Always test changes by:
-- Rendering a png of the update into /tmp
-- Visually inspect the png
-- If it's too small to see clearly, iterate until you get a good view.
+- Rendering a png of the update into /tmp and looking at it; if it's too small to see clearly, iterate until you get a good view.
 - When you generate or update an object, render it from the front and side and make sure it looks correct and consistent.
-- For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn`/`--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
-- `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed.
-- **Tests are expensive: limit runs.** Waiting on them is the biggest drain on a session.
-  - Any edit under `src/geogen` or `assets` invalidates the shared build cache, so the next default-tier run rebuilds and re-exports every scene, which adds about a minute to the default tier.
-  - **Policy: skip the suite for ordinary tasks.** Commit without running pytest unless the work is significant (a broad refactor, a core module many things use, a risky behaviour change: the agent's call per task). A render or one narrow test file is fine when it is the quickest way to know the change works.
-  - Run the default tier after every few tasks, in the background, and find what broke from git history if it fails. Don't re-run a tier after a change to docs, comments or tests it doesn't select.
-  - Run `--all`, or an exhaustive-tier file, only when the change touches what that tier covers.
-- **Test in tiers** (don't run more than the change needs):
-  - The tests for what you changed, by file: `pytest tests/test_expressions.py` (seconds).
-  - `pytest --fast` before moving on: every cheap test (about 20 s). It skips Godot runs and any test, or group of tests sharing a build, that took 1 s or more when last timed (`--fast=0.25` is quicker, `--fast=5` wider).
-  - `pytest` for significant work and after every few tasks (see the policy above): the default tier, about 3.5 minutes. Everything except the exhaustive tier.
-  - `pytest --all` before a release, or after a change to city layout, traffic at scale, streaming or the showcases: adds the exhaustive tier, about 10 minutes.
-- **The exhaustive tier** is tests marked `@pytest.mark.exhaustive` and anything that builds a scene in `conftest.EXHAUSTIVE_SCENES` (city, town, main_street, street, street_side, hotel_showcase, restaurant, archetype_gallery, people_gallery): compositions of things the default tier checks piece by piece. Per-scene tests of those are deselected; other tests that call `built_scene` on one are skipped with a reason. It holds `tests/test_showcases.py`, the M3 district tests, the hub round trip, the rail loop simulation and most of the clipping sweep. A new slow test of a big scene belongs there; core behaviour needs a small scene in the default tier (`crossroads` for cities and traffic, `cottage`, `hotel`, `park`, `island`).
-- **Shared builds:** `built_scene(name)` and `scene_export(name)` (a `--generated` directory holding the scene's GLB, read-only) build once and keep the result in `.pytest_cache/geogen-built/<fingerprint of assets and src/geogen>/`: every worker and module shares it, and later runs reuse it until a source or asset file changes (GDScript and test edits don't invalidate it; navmesh bakes are cached beside the exports). Use these fixtures rather than building or exporting a registry scene in a test. `GEOGEN_TEST_CACHE=off` builds everything afresh; `pytest --cache-clear` empties it.
-- Timings are recorded by every run in `.pytest_cache` (per machine, `tests/conftest.py`); a test never timed is kept by `--fast`. `--durations=30` shows what is slow.
-- **Workers:** `-n auto` in `pyproject.toml` means 8 workers for the default tier (about 2 GB in all) and 4 for `--all`, whose workers keep the big scenes they build (up to ~4 GB each; 14 froze a 24 GB Mac). Don't raise them. Ad-hoc runs of big scenes (city, town) should be serial (`-n0`).
+- For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn` / `--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
+- `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed (`$GODOT` overrides the binary).
+
+**Tests are expensive: limit runs.** Waiting on them is the biggest drain on a session.
+- Any edit under `src/geogen` or `assets` invalidates the shared build cache, so the next default-tier run rebuilds and re-exports every scene (about a minute more).
+- **Policy: skip the suite for ordinary tasks.** Commit without running pytest unless the work is significant (a broad refactor, a core module many things use, a risky behaviour change: your call per task). A render or one narrow test file is fine when it is the quickest way to know the change works.
+- Run the default tier after every few tasks, in the background, and find what broke from git history if it fails. Don't re-run a tier after a change to docs, comments or tests it doesn't select. Run `--all`, or an exhaustive-tier file, only when the change touches what that tier covers.
+
+**Tiers** (don't run more than the change needs):
+- The tests for what you changed, by file: `pytest tests/test_expressions.py` (seconds).
+- `pytest --fast`: every cheap test (about 20 s). It skips Godot runs and any test, or group sharing a build, that took 1 s or more when last timed (`--fast=0.25` quicker, `--fast=5` wider; a test never timed is kept).
+- `pytest`: the default tier, about 3.5 minutes; everything except the exhaustive tier.
+- `pytest --all`: adds the exhaustive tier (about 10 minutes): before a release, or after a change to city layout, traffic at scale, streaming or the showcases. It is tests marked `@pytest.mark.exhaustive` and anything that builds a scene in `conftest.EXHAUSTIVE_SCENES` (city, town, main_street, street, street_side, hotel_showcase, restaurant, archetype_gallery, people_gallery). A new slow test of a big scene belongs there; core behaviour needs a small scene in the default tier (`crossroads` for cities and traffic, `cottage`, `hotel`, `park`, `island`).
+
+**Fixtures and resources:**
+- `built_scene(name)` and `scene_export(name)` (a read-only `--generated` directory holding the scene's GLB) build once and keep the result in `.pytest_cache/geogen-built/<fingerprint>/`, shared by every worker and later runs until a source or asset file changes (GDScript and test edits don't invalidate it). Use them rather than building or exporting a registry scene in a test. `GEOGEN_TEST_CACHE=off` builds afresh; `pytest --cache-clear` empties it.
+- `--durations=30` shows what is slow (timings are recorded per machine by every run).
+- `-n auto` (`pyproject.toml`) means 8 workers for the default tier (about 2 GB) and 4 for `--all` (up to ~4 GB each; 14 froze a 24 GB Mac). Don't raise them. Ad-hoc runs of big scenes (city, town) should be serial (`-n0`).
 - Render tests need a display: with the screen asleep pyglet finds no screen and `test_scene_renders` fails with an IndexError in `pyglet/canvas/base.py`.
 
 ## Task Tracking
@@ -952,3 +137,4 @@ fdbot note add "..." --key <slug>     # Durable project knowledge, shown by prim
 - Mention the task ref in commit messages, e.g. `Fix stair railing (geogen.6.18)`.
 - Tasks imported from Beads keep their old id in the body ("Imported from Beads geogen-o3s.13"), so older commit messages that cite Beads ids can still be traced.
 - Do not commit or push unless asked. At handoff, report changed files, validation, and suggested next commands.
+- When you change a subsystem, update its notes in `docs/dev/` (not this file, unless it changes what every session needs to know).
