@@ -38,6 +38,7 @@ from typing import Any
 
 STAND_OFF = 0.9          # m in front of a thing to stand to use it (facing it)
 GREET_DISTANCE = 1.1     # m from an NPC to greet them from
+GREET_TRIES = 3          # goes after a walking NPC this many times
 REACH = 1.45             # m from the eyes to a head to greet it (the player's reach, a little less)
 TRIES = 3                # attempts at one goal before calling it a problem
 NEAR_MARKER = 2.5        # m: a usable thing this near a marked spot is what the objective is about
@@ -286,19 +287,27 @@ def _npc_at(rt, uid: str, what: str = "position") -> list[float] | None:
 
 
 def _greet(rt, goal: dict[str, Any], node: dict[str, Any]) -> dict[str, Any]:
-    npc = _npc_at(rt, goal["subject"]) or node["position"]
-    walked = _walk_up(rt, _greeting_spot(rt, npc, _npc_at(rt, goal["subject"], "head")))
-    npc = _npc_at(rt, goal["subject"]) or npc                         # they may have moved
-    head = _npc_at(rt, goal["subject"], "head") or [npc[0], npc[1] + 1.5, npc[2]]
+    """Walk up to an NPC and greet them, then answer what they say. A walking NPC may have
+    moved on by the time the bot looks: it goes after them again, GREET_TRIES times."""
+    walked: dict[str, Any] = {"status": "", "doors": []}
+    doors: list = []
     pressed: Any = {}
-    for drop in (0.1, 0.3, 0.6):                                      # face, chest, middle
-        rt.call("player.look", at=[head[0], head[1] - drop, head[2]])
-        if rt.call("hud.aim")["focus"].get("kind") == "npc":
-            pressed = rt.call("player.use")
+    for _ in range(GREET_TRIES):
+        npc = _npc_at(rt, goal["subject"]) or node["position"]
+        walked = _walk_up(rt, _greeting_spot(rt, npc, _npc_at(rt, goal["subject"], "head")))
+        doors += walked.get("doors", [])
+        npc = _npc_at(rt, goal["subject"]) or npc                     # they may have moved
+        head = _npc_at(rt, goal["subject"], "head") or [npc[0], npc[1] + 1.5, npc[2]]
+        for drop in (0.1, 0.3, 0.6):                                  # face, chest, middle
+            rt.call("player.look", at=[head[0], head[1] - drop, head[2]])
+            if rt.call("hud.aim")["focus"].get("kind") == "npc":
+                pressed = rt.call("player.use")
+                break
+        if pressed:
             break
     rt.call("time.advance", seconds=0.5)
     answers = _converse(rt)
-    return {"goal": _describe(goal), "walk": walked["status"], "doors": walked.get("doors", []),
+    return {"goal": _describe(goal), "walk": walked["status"], "doors": doors,
             "pressed": pressed.get("kind", "no one in view") if isinstance(pressed, dict) else "no one in view",
             "answers": answers}
 

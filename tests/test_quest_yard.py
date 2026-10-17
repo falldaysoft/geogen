@@ -78,7 +78,7 @@ def test_the_dash_is_made_or_missed(yard):
     assert states("yard_dash")[0] == "failed"
     enter(machine, "finish_line")                           # too late, and failed is final
     enter(machine, "start_line")
-    assert states("yard_dash") == ("failed", {"finish": "waiting"})
+    assert states("yard_dash") == ("failed", {"finish": "missed"})        # open when it failed
 
     machine, states = play(yard)                            # another session: made in time
     enter(machine, "start_line")
