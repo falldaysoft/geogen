@@ -42,7 +42,8 @@ const COMMANDS := {
     "player.teleport": "{pos, yaw?} put the player's feet at pos",
     "player.look": "{yaw?, pitch?} or {at: point}",
     "player.move": "{forward?, strafe?, seconds} walk with the controls",
-    "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body",
+    "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body, opening closed doors on the way "
+        + "(a held key unlocks one) -> status: arrived | stuck | timeout | locked | refused, doors",
     "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
     "player.lock": "lock or unlock the aimed interaction with the keys the player holds -> {asset, interaction, ok, locked}",
     "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",
@@ -894,29 +895,82 @@ func _walk_to(args: Dictionary):
         player.leave_pose()
     _cancel_walk()
     var route := _nav_path(player.global_position, target)
-    var path := PackedVector3Array()
-    for p in route["points"]:
-        path.append(Vector3(p[0], p[1], p[2]))
-    var walker := GeogenWalker.new(player, GeogenWalker.along_links(path, get_tree()))
-    _walker = walker
+    var walker := _walk_along(route)
     var timeout := float(args.get("timeout", 30.0))
     var motion := {"trace": [_v(player.global_position)], "blocked_by": null, "elapsed": 0.0,
         "next_sample": TRACE_SECONDS}
+    var doors := []           # the doors it opened on the way
+    var status := ""
     while walker.status == "walking":
         await get_tree().physics_frame
         _track(motion)
         if motion["elapsed"] > timeout:
             walker.cancel()
-            walker.status = "timeout"
+            status = "timeout"
+            break
+        # A closed door just ahead: stop clear of its swing, open it (unlocking it with a key
+        # the player holds, as L would), wait for it, and walk on, as a player would.
+        var door: Dictionary = main.world.closed_portal_on(walker.path, player.global_position, walker.waypoint,
+            _door_reach(null))
+        if door.is_empty() or door["distance"] > _door_reach(door["portal"]):
+            continue
+        walker.cancel()
+        var it: GeogenInteraction = door["interaction"]
+        var info := {"asset": String(it.asset.name), "interaction": it.interaction_name}
+        if it.locked and not it.toggle_lock(main.held_keys(), "player"):
+            status = "locked"
+        elif it.target != door["portal"]["open"] and not it.use("player"):
+            status = "refused"
+        if status != "":
+            motion["blocked_by"] = {"node": String(it.asset.name), "asset": String(it.asset.name), "point": _v(door["hit"]),
+                "interaction": {"name": it.interaction_name, "state": it.state, "asset": String(it.asset.name)}}
+            break
+        var waited := 0.0
+        while it.state != door["portal"]["open"] and waited < 5.0:
+            await get_tree().physics_frame
+            _track(motion)
+            waited += get_physics_process_delta_time()
+        doors.append(info)
+        # Straight through the middle of the doorway to beyond the leaf's reach (the navmesh
+        # doesn't know where the open leaf stands), then on along a new path from there.
+        var portal: Dictionary = door["portal"]
+        var hit: Vector3 = door["hit"]
+        var beyond: Vector3 = hit - portal["normal"] * door["side"] * (float(portal["clearance"]) + 0.3)
+        beyond.y = hit.y
+        route = _nav_path(beyond, target)
+        route["points"] = [_v(player.global_position), _v(hit), _v(beyond)] + route["points"]
+        walker = _walk_along(route)
+    if status == "":
+        status = walker.status
     if _walker == walker:
         _walker = null
     var p := player.global_position
     var result := _status()
-    result.merge({"status": walker.status, "reached": route["reached"] and walker.status == "arrived",
+    result.merge({"status": status, "reached": route["reached"] and status == "arrived",
         "distance": snappedf(Vector2(p.x - target.x, p.z - target.z).length(), 0.001),
         "path_length": route["length"], "path": route["points"], "seconds": snappedf(motion["elapsed"], 0.01),
-        "trace": motion["trace"], "blocked_by": motion["blocked_by"] if walker.status != "arrived" else null}, true)
+        "trace": motion["trace"], "doors": doors,
+        "blocked_by": motion["blocked_by"] if status != "arrived" else null}, true)
     return result
+
+
+## How near a closed door walk_to comes before opening it: clear of its leaf's swing (the
+## portal's `clearance`), and a little more; with no portal, the furthest any door asks.
+func _door_reach(portal) -> float:
+    if portal != null:
+        return float(portal["clearance"]) + 0.3
+    var reach := 1.2
+    for p in main.world.portals:
+        reach = maxf(reach, float(p["clearance"]) + 0.3)
+    return reach
+
+
+func _walk_along(route: Dictionary) -> GeogenWalker:
+    var path := PackedVector3Array()
+    for p in route["points"]:
+        path.append(Vector3(p[0], p[1], p[2]))
+    _walker = GeogenWalker.new(main.player, GeogenWalker.along_links(path, get_tree()))
+    return _walker
 
 
 ## Per physics frame of a scripted motion: world time, a position sample every TRACE_SECONDS,

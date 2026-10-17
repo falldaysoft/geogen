@@ -50,25 +50,27 @@ def test_query_finds_tagged_objects_not_mesh_parts(rt):
     assert [d["name"] for d in door] == ["door"]
 
 
-def test_closed_door_stops_walk_and_open_door_lets_player_in(rt):
+def test_walk_opens_a_closed_door_and_stops_at_a_locked_one(rt):
+    # geogen.15.23: as a player would, walk_to opens a closed door in its way (from clear of
+    # the leaf's swing), waits for it and walks on.
     reset(rt, "closed")
-    blocked = rt.call("player.walk_to", pos=INSIDE, timeout=8)
-    assert blocked["status"] in ("stuck", "timeout")
-    assert blocked["position"][2] > 2.8          # still outside the leaf
-    assert blocked["blocked_by"]["asset"] == "door"
-    assert blocked["blocked_by"]["interaction"] == {"name": "swing", "state": "closed", "asset": "door"}
-    assert len(blocked["trace"]) > 4 and blocked["trace"][0][2] > blocked["trace"][-1][2]
-
-    reset(rt, "closed")
-    rt.subscribe("interaction")
-    rt.call("interactions.use", asset="door")
-    event = rt.wait_event(lambda e: e["event"] == "interaction" and e["data"]["state"] == "open", timeout=10)
-    assert event["data"]["asset"] == "door"
-    rt.unsubscribe()
     walked = rt.call("player.walk_to", pos=INSIDE, timeout=15)
-    assert walked["status"] == "arrived" and walked["distance"] < 0.5
-    assert walked["position"][2] < 1.0
+    assert walked["status"] == "arrived" and walked["distance"] < 0.5 and walked["position"][2] < 1.0
+    assert walked["doors"] == [{"asset": "door", "interaction": "swing"}]
     assert walked["blocked_by"] is None
+    assert rt.call("interactions.list", asset="door")[0]["state"] == "open"
+
+    # Locked, with no key that fits: it stops in front of the door and says so.
+    reset(rt, "closed")
+    rt.call("interactions.lock", asset="door", locked=True)
+    try:
+        blocked = rt.call("player.walk_to", pos=INSIDE, timeout=8)
+    finally:
+        rt.call("interactions.lock", asset="door", locked=False)
+    assert blocked["status"] == "locked" and not blocked["reached"] and blocked["doors"] == []
+    assert blocked["position"][2] > 3.0                                    # clear of the leaf, outside
+    assert blocked["blocked_by"]["interaction"] == {"name": "swing", "state": "closed", "asset": "door"}
+    assert len(blocked["trace"]) > 2 and blocked["trace"][0][2] > blocked["trace"][-1][2]
 
 
 def test_set_and_wait_reports_where_parts_went(rt):

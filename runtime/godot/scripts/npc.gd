@@ -1114,34 +1114,11 @@ func _throttled() -> bool:
 func _portal_ahead() -> Dictionary:
     if _stack.back()["action"] == "pass":
         return {}
-    var walked := 0.0
-    var a := global_position
-    for i in range(_waypoint, _path.size()):
-        var b := _path[i]
-        for p in world.portals:
-            var it: GeogenInteraction = p["interaction"]
-            if not is_instance_valid(it) or (it.state == p["open"] and it.target == p["open"]):
-                continue
-            var da: float = (a - p["center"]).dot(p["normal"])
-            var db: float = (b - p["center"]).dot(p["normal"])
-            if signf(da) == signf(db):
-                continue
-            var hit := a.lerp(b, da / (da - db))
-            var lateral: Vector3 = hit - p["center"]
-            lateral -= p["normal"] * lateral.dot(p["normal"])
-            lateral.y = 0.0
-            if lateral.length() > p["width"] / 2.0 + 0.4 or absf(hit.y - (p["center"].y - p["height"] / 2.0)) > 1.0:
-                continue
-            if walked + a.distance_to(hit) > PORTAL_LOOKAHEAD:
-                return {}
-            var side := signf((global_position - p["center"]).dot(p["normal"]))
-            return {"portal": p, "side": side if side != 0.0 else 1.0, "interaction": it,
-                "anchor": p["center"], "yaw_deg": 0.0, "duration": [0.0, 0.0]}
-        walked += a.distance_to(b)
-        if walked > PORTAL_LOOKAHEAD:
-            break
-        a = b
-    return {}
+    var door := world.closed_portal_on(_path, global_position, _waypoint, PORTAL_LOOKAHEAD)
+    if door.is_empty():
+        return {}
+    return {"portal": door["portal"], "side": door["side"], "interaction": door["interaction"],
+        "anchor": door["portal"]["center"], "yaw_deg": 0.0, "duration": [0.0, 0.0]}
 
 
 # --- body -----------------------------------------------------------------

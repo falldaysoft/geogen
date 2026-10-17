@@ -943,6 +943,41 @@ func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
     return best
 
 
+## The first closed portal (door) a path crosses within ``lookahead`` metres of ``from``,
+## walking ``points`` from index ``start``: {portal, interaction, hit (where the path crosses
+## it), distance (along the path), side (of the portal ``from`` is on: 1 or -1)}, or {}.
+## NPCs pass doors this way (npc.gd `pass`), and so does the player's walk_to.
+func closed_portal_on(points: PackedVector3Array, from: Vector3, start: int, lookahead: float) -> Dictionary:
+    var walked := 0.0
+    var a := from
+    for i in range(start, points.size()):
+        var b := points[i]
+        for p in portals:
+            var it: GeogenInteraction = p["interaction"]
+            if not is_instance_valid(it) or (it.state == p["open"] and it.target == p["open"]):
+                continue
+            var da: float = (a - p["center"]).dot(p["normal"])
+            var db: float = (b - p["center"]).dot(p["normal"])
+            if signf(da) == signf(db):
+                continue
+            var hit := a.lerp(b, da / (da - db))
+            var lateral: Vector3 = hit - p["center"]
+            lateral -= p["normal"] * lateral.dot(p["normal"])
+            lateral.y = 0.0
+            if lateral.length() > p["width"] / 2.0 + 0.4 or absf(hit.y - (p["center"].y - p["height"] / 2.0)) > 1.0:
+                continue
+            if walked + a.distance_to(hit) > lookahead:
+                return {}
+            var side := signf((from - p["center"]).dot(p["normal"]))
+            return {"portal": p, "interaction": it, "hit": hit, "distance": walked + a.distance_to(hit),
+                "side": side if side != 0.0 else 1.0}
+        walked += a.distance_to(b)
+        if walked > lookahead:
+            break
+        a = b
+    return {}
+
+
 ## The key an interaction's state is saved under: "<stable ID>#<interaction>", so a save
 ## survives a re-export that renames nodes (exports without IDs: "<node name>/<interaction>").
 func _collect_rooms(root: Node) -> void:

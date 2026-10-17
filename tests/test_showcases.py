@@ -49,9 +49,9 @@ def test_hotel_showcase_staff_and_guests(godot_script, hotel_dir):
 
 def test_the_parcel_for_room_207_is_fetched_and_delivered(godot_runtime, hotel_dir):
     """geogen.15.7: greet the receptionist for the parcel and room 207's key, walk up to room
-    207 on the navmesh, unlock its door with the carried key (L), go in and greet the guest."""
-    # The stair halls' doors stand open (as a player would open them on the way up); 207 stays locked.
-    rt = godot_runtime("hotel_showcase", hotel_dir, "--open-doors=door_*stair*")
+    207 on the navmesh (walk_to opens the stair halls' doors on the way, geogen.15.23), unlock
+    its door with the carried key (L), go in and greet the guest."""
+    rt = godot_runtime("hotel_showcase", hotel_dir)
     status = lambda: next(q for q in rt.call("quests.list") if q["id"] == "deliver_parcel")
     carried = lambda: {i["id"] for i in rt.call("inventory.list")["items"]}
     assert status()["status"] == "available"
@@ -68,24 +68,14 @@ def test_the_parcel_for_room_207_is_fetched_and_delivered(godot_runtime, hotel_d
     rt.call("dialogue.choose", close=True)
     assert rt.call("inventory.list")["items"][0]["count"] == 1
 
-    def walk(pos, timeout):
-        # As a player would: open a closed door the way is blocked by (inside a suite), go on.
-        for _ in range(4):
-            walked = rt.call("player.walk_to", pos=pos, timeout=timeout)
-            door = (walked.get("blocked_by") or {}).get("interaction") or {}
-            if walked["reached"] or door.get("state") != "closed":
-                return walked
-            rt.call("interactions.set", asset=door["asset"], interaction=door["name"], state="open", wait=True)
-        return walked
-
-    walked = walk([7.3, 6.45, 0.4], 240)                                   # the corridor outside 207
-    assert walked["reached"], walked
+    walked = rt.call("player.walk_to", pos=[7.3, 6.45, 0.4], timeout=240)  # the corridor outside 207
+    assert walked["reached"] and walked["doors"], walked
     rt.call("player.look", at=[7.3, 7.4, -0.9])
     assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock (L)"
     rt.call("input.key", key="L")
     rt.call("input.key", key="E")
     rt.call("time.advance", seconds=1.5)
-    walked = walk([6.3, 6.45, -4.6], 30)                                  # into the room
+    walked = rt.call("player.walk_to", pos=[6.3, 6.45, -4.6], timeout=30)  # into the room
     assert walked["reached"], walked
     rt.call("time.advance", seconds=1)
     assert [o["state"] for o in status()["objectives"]] == ["done", "open"]

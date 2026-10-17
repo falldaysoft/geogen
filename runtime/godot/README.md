@@ -316,9 +316,12 @@ metres, angles degrees. `help` lists every command; the groups are:
   `room_at`, `raycast` (hit node, asset, room, interaction), `nav_path`, `switch`, `reload`
   (re-read the export after re-exporting; the player stays put).
 - `player.*`: `status` (pose, room, what's aimed at), `teleport`, `look` (`yaw`/`pitch` or `at`),
-  `move`, `walk_to` (follows the navmesh with the real body, `GeogenWalker`, going round a spiral stair by its walking line where the path only has the stair link's two ends; returns status
-  arrived/stuck/timeout, a 0.25 s position `trace` and `blocked_by`: the node, asset and
-  interaction state of whatever stopped it), `use` (aimed, or a named asset), `sit`, `stand`, `keys`.
+  `move`, `walk_to` (follows the navmesh with the real body, `GeogenWalker`, going round a spiral stair by its walking line where the path only has the stair link's two ends;
+  a closed door on the way (`WorldLoader.closed_portal_on`, the same as NPCs' `pass`) it opens from
+  clear of the leaf, unlocking it with a held key as L would, then walks straight through to beyond
+  the leaf's reach and on (geogen.15.23); returns status arrived/stuck/timeout/locked/refused, the
+  `doors` it opened, a 0.25 s position `trace` and `blocked_by`: the node, asset and interaction
+  state of whatever stopped it), `use` (aimed, or a named asset), `sit`, `stand`, `keys`.
 - `interactions.*`: `list`, `set` / `use` (`wait: true` returns once the parts arrive, with their
   world bounds), `lock`; `state.save` (`path` also writes the file) / `state.load` (`state` or `path`).
 - `npcs.*`: `list` (reports), `options` (scored), `force` (the next decision takes an option),

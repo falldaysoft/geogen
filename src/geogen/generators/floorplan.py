@@ -572,6 +572,15 @@ class FloorPlan:
             "style": o.style, "hinge": o.hinge, "width": o.width, "height": o.height,
             "rooms": list(o.between) if o.between else [o.room], "swing_room": swing_room,
         }
+        if any(i.name == "swing" for i in node.interactions):
+            # The opening, for NPC paths and the player's walk_to: cross it by opening the door
+            # first, from clear of the leaf's swing (as door.yaml's `portal:`).
+            node.meta["portal"] = {
+                "interaction": "swing", "open": "open", "closed": "closed",
+                "center": [0.0, round(o.height / 2, 4), 0.0], "normal": [0.0, 0.0, 1.0],
+                "width": round(gen.leaf_width, 4), "height": round(o.height, 4),
+                "depth": round(seg.thickness + 0.1, 4), "clearance": round(gen.leaf_width + 0.1, 4),
+            }
 
         # Record the leaf's swing arc in the swing room's frame so furnishing avoids it.
         if o.style == "door" and swing_room is not None:
