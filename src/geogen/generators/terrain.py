@@ -240,11 +240,19 @@ class TerrainGenerator(MeshGenerator):
         faces.append(np.column_stack([np.full(len(ring), centre), dn0, dn1]))
         v = np.vstack(verts)
         f = np.vstack(faces).astype(np.int64)
-        # Material groups by height and slope.
+        # Material groups by height and slope, with their boundaries following the beach's height
+        # contour and the rock's slope contour: the triangles that straddle one are split along it,
+        # so the lines are smooth curves rather than steps of whole grid faces.
+        if self.island:
+            v, f = _cut(v, f, v[:, 1] - (self.sea_level + SAND_ABOVE_SEA), margin=0.01)
+        # Rock where the ground is steep over a few metres (per-face slope alone leaves lone
+        # square tiles of rock on the grid).
+        rock = self.slope_at(v[:, 0], v[:, 2], eps=1.5) - ROCK_SLOPE
+        v, f = _cut(v, f, rock, margin=0.2)
+        rock = self.slope_at(v[:, 0], v[:, 2], eps=1.5) - ROCK_SLOPE
         tri = v[f]
         n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
         n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
-        slope = np.degrees(np.arccos(np.clip(n[:, 1], -1.0, 1.0)))
         cy = tri[:, :, 1].mean(axis=1)
         groups = np.full(len(tri), GRASS, dtype=np.int64)
         if self.island:
@@ -252,17 +260,48 @@ class TerrainGenerator(MeshGenerator):
         if self.paths:
             on_path = self.on_path(tri[:, :, [0, 2]].mean(axis=1), 0.6)     # hidden under path_mesh()
             groups[on_path & (n[:, 1] > 0.05) & (cy > self.sea_level)] = PATH
-        # Rock where the ground is steep over a few metres (per-face slope alone leaves lone
-        # square tiles of rock on the grid).
-        cxz = tri[:, :, [0, 2]].mean(axis=1)
-        broad = self.slope_at(cxz[:, 0], cxz[:, 1], eps=1.5)
-        groups[(broad > ROCK_SLOPE) & (slope > ROCK_SLOPE - 6) & (n[:, 1] > 0.05)] = ROCK
+        groups[(rock[f].mean(axis=1) > 0) & (n[:, 1] > 0.05)] = ROCK
         groups[n[:, 1] <= 0.05] = SAND          # skirts and bottom (under water / out of sight)
         mesh = Mesh(v, f, face_materials=groups, materials=[None] * len(MATERIAL_SLOTS))
         # Project the whole top from above (steep faces would otherwise flip axis in speckles).
         directions = np.where((n[:, 1] > 0.05)[:, None], [0.0, 1.0, 0.0], n)
         mesh = uvmap.box_project(mesh, directions=directions)
         return meshops.compute_normals(mesh, 50.0)
+
+
+def _cut(v: np.ndarray, f: np.ndarray, field: np.ndarray, margin: float) -> tuple[np.ndarray, np.ndarray]:
+    """Split the triangles of (v, f) that ``field`` (one value a vertex) changes sign across,
+    along its zero line: a new vertex where it crosses each such edge, shared by both faces
+    on the edge (the mesh stays closed), interpolated along it (the surface is unchanged).
+    Each split face becomes three, all on one side. Values within ``margin`` of zero are
+    pushed out to it, so no new vertex lands on (or a sliver's width from) an old one."""
+    field = np.where(np.abs(field) < margin, np.where(field < 0, -margin, margin), field)
+    pos = field > 0
+    sides = pos[f]
+    mixed = np.flatnonzero(sides.any(axis=1) & ~sides.all(axis=1))
+    if not len(mixed):
+        return v, f
+    new_verts: list[np.ndarray] = []
+    made: dict[tuple[int, int], int] = {}
+
+    def crossing(a: int, b: int) -> int:
+        key = (a, b) if a < b else (b, a)
+        if key not in made:
+            t = field[a] / (field[a] - field[b])
+            made[key] = len(v) + len(new_verts)
+            new_verts.append(v[a] + (v[b] - v[a]) * t)
+        return made[key]
+
+    out = []
+    for face in f[mixed]:
+        s = pos[face]
+        lone = int(np.flatnonzero(s == (s.sum() == 1))[0])           # the one positive, or the one not
+        p, q, r = (int(face[(lone + k) % 3]) for k in range(3))       # p alone on its side, winding kept
+        m1, m2 = crossing(p, q), crossing(r, p)
+        out += [[p, m1, m2], [m1, q, r], [m1, r, m2]]
+    keep = np.ones(len(f), dtype=bool)
+    keep[mixed] = False
+    return np.vstack([v, np.array(new_verts)]), np.vstack([f[keep], np.array(out, dtype=np.int64)])
 
 
 def terrain_from_meta(meta: dict[str, Any]) -> TerrainGenerator:
