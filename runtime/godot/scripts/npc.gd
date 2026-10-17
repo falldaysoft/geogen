@@ -120,6 +120,7 @@ var _greeted_at := -INF           # clock of the last greeting taken (attention.
 var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
 var _attend_until := -INF         # keep looking at whoever greeted us until then (acknowledge)
 const GESTURE_BONES := ["RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand"]
+const BOB_HEIGHT := 0.06            # m a body without a skeleton hops to acknowledge a greeting
 var _yielded_at := -INF
 const YIELD_COOLDOWN := 3.0       # s between stepping aside
 const YIELD_FAR := 6.0            # m: beyond the yield distance plus this, nobody is walking at us (0.6 s at 10 m/s)
@@ -146,12 +147,15 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
         npc.animator.attach()
         var look: Dictionary = data.get("attention", {}).get("look", {})
         var skeletons := npc.body.find_children("*", "Skeleton3D", true, false)
-        if not look.is_empty() and not skeletons.is_empty():
+        if not skeletons.is_empty():
+            # Every skeletal body has one: it lays gestures (a wave from a chair) over the pose
+            # even when the NPC doesn't look at people (attention.look off).
             npc._look = GeogenHeadLook.new()
             npc._look.name = "HeadLook"
-            npc._look.yaw_limit = deg_to_rad(float(look["yaw"]))
-            npc._look.pitch_limit = deg_to_rad(float(look["pitch"]))
-            npc._look.speed = float(look["speed"])
+            if not look.is_empty():
+                npc._look.yaw_limit = deg_to_rad(float(look["yaw"]))
+                npc._look.pitch_limit = deg_to_rad(float(look["pitch"]))
+                npc._look.speed = float(look["speed"])
             skeletons[0].add_child(npc._look)
     var h: Dictionary = data.get("home", {})
     for p in h.get("polygon", []):
@@ -1226,7 +1230,9 @@ func _attend(delta: float) -> void:
         var look: Dictionary = attention.get("look", {})
         var want := 0.0
         # (Out of range and not just greeted: nothing to look at; skip the camera lookups.)
-        if who != null and _pose in ["stand", "sit"] and (clock < _attend_until
+        # Lying down, only who just greeted them: the head turns on the pillow.
+        if who != null and not look.is_empty() and (_pose in ["stand", "sit"] or (_pose == "lie" and clock < _attend_until)) \
+                and (clock < _attend_until
                 or NpcGeometry.flat(who.global_position - global_position).length() < float(look["range"]) + 1.0):
             var eye: Vector3 = who.global_position + Vector3(0, 1.6, 0)
             var cam = who.get("camera")
@@ -1301,6 +1307,11 @@ func aim_distance(from: Vector3, forward: Vector3) -> float:
     return best
 
 
+## Whether ``point`` is in front of the NPC (the side it faces), not behind it.
+func faces(point: Vector3) -> bool:
+    return (Basis(Vector3.UP, _yaw()) * Vector3.BACK).dot(NpcGeometry.flat(point - global_position)) > 0.0
+
+
 ## The posed body's head: what the player must have a clear line to, to greet it.
 func head_point() -> Vector3:
     return _body_line()[1]
@@ -1330,8 +1341,9 @@ func greet_prompt() -> String:
 ## signal, with `by` as the actor, in any pose and in the middle of any action: only a second
 ## press within `debounce` s is ignored. What the NPC does about it fits what it is doing:
 ## standing, it runs its greet action (turns to them and waves) and then carries on; seated, it
-## stays put, looks at them for `acknowledge` s and waves from the chair; lying down or in
-## the middle of sitting down, it only takes the greeting. It waves once per `cooldown` s.
+## stays put, looks at them for `acknowledge` s and waves from the chair; lying down, it turns
+## its head to them for `acknowledge` s; a body with no skeleton (a capsule) gives a little bob;
+## in the middle of sitting down it only takes the greeting. It waves once per `cooldown` s.
 func greet(by := "player") -> bool:
     var spec: Dictionary = definition.get("attention", {}).get("greet", {})
     if not can_greet() or clock - _greeted_at < float(spec.get("debounce", 0.5)):
@@ -1349,6 +1361,14 @@ func greet(by := "player") -> bool:
         elif _pose == "sit" and _look != null and animator != null and animator.has("wave") \
                 and _look.gesture(animator.clip("wave"), GESTURE_BONES):
             response = "gesture"
+        elif _pose == "lie" and _look != null and not definition.get("attention", {}).get("look", {}).is_empty():
+            response = "look"                    # _attend turns the head while _attend_until lasts
+        elif _look == null and body != null:
+            response = "bob"
+            var rest := body.position
+            var bob := create_tween()
+            bob.tween_property(body, "position", rest + Vector3.UP * BOB_HEIGHT, 0.12)
+            bob.tween_property(body, "position", rest, 0.18)
     if response != "none":
         _waved_at = clock
         stats["waves"] = int(stats.get("waves", 0)) + 1

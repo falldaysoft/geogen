@@ -79,9 +79,13 @@ def test_the_parcel_for_room_207_is_fetched_and_delivered(godot_runtime, hotel_d
     assert walked["reached"], walked
     rt.call("time.advance", seconds=1)
     assert [o["state"] for o in status()["objectives"]] == ["done", "open"]
+    looked = next(n for n in rt.call("npcs.list") if n["npc"].startswith("guest_207"))["looking"]
     rt.call("npcs.greet", npc="guest_207")
     rt.call("time.advance", seconds=1)
     assert status()["status"] == "complete" and carried() == set()
+    guest = next(n for n in rt.call("npcs.list") if n["npc"].startswith("guest_207"))
+    if guest["pose"] == "lie":                    # lying down, she turns her head to the greeting
+        assert guest["looking"] > looked
 
 
 def test_the_parcel_for_room_207_runs_on_the_reference_machine(built_scene):

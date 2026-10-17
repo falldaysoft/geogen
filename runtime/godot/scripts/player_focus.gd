@@ -80,8 +80,13 @@ func update() -> void:
             if hit:
                 limit = minf(limit, from.distance_to(hit["position"]) + 0.4)
             for other in main.world.npcs:
-                if is_instance_valid(other) and other.can_greet() and other.posed() \
-                        and other.aim_distance(from, -cam.global_basis.z) <= limit \
+                if not is_instance_valid(other) or not other.can_greet() or not other.posed():
+                    continue
+                var along: float = other.aim_distance(from, -cam.global_basis.z)
+                # Past what the aim hit only from in front: there it is the seat behind them;
+                # from behind, the chair's back is in the way.
+                var beyond: bool = hit and along > from.distance_to(hit["position"])
+                if along <= limit and (not beyond or other.faces(from)) \
                         and _in_sight(from, other.head_point(), null, 0.3):
                     npc = other
                     affordance = {}
