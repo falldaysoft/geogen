@@ -54,6 +54,8 @@ var crosshair := GeogenHudCrosshair.new()
 var _queued := false
 ## The panel that has the keyboard to itself (the quest log while open), or null.
 var modal: Control = null
+## main.gd's scene-switch fade: while it covers the screen, panels hold still (`covered`).
+var cover: ColorRect = null
 ## Whether main.gd's F1 overlay is up (the top slots make room for it).
 var overlay_shown := true:
     set(value):
@@ -99,6 +101,11 @@ func _ready() -> void:
     world.rules.reset.connect(queue_refresh)
     get_viewport().size_changed.connect(queue_refresh)
     queue_refresh()
+
+
+## Whether the scene-switch fade is (mostly) over the screen.
+func covered() -> bool:
+    return cover != null and cover.color.a > 0.5
 
 
 ## Add a panel to a corner's column. Its node name is its name in `report()` and `panel()`.

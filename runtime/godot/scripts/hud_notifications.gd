@@ -19,6 +19,11 @@ extends VBoxContainer
 ##   they happened, each with its own chime. The rest wait their turn.
 ## - A toast stays `hold` seconds from when it appears, then fades. New ones
 ##   join below, so the ones being read only move up.
+## - A quest completed by its last objective is one toast, not two: the objective's
+##   (raised in the same frame and not up yet) folds into the quest's as a ticked line
+##   (`done`), with one chime.
+## - While the scene-switch fade covers the screen (`GeogenHud.covered`) toasts don't
+##   age or appear, so none run out unseen behind it.
 ## - Events are the only source. A scene switch, a reload or a restored save
 ##   fire none (the state resumes), so they raise no toasts, and toasts already
 ##   up or waiting carry over a switch. When the program or its state is
@@ -86,10 +91,19 @@ func _on_quest_event(event: Dictionary) -> void:
         return
     _raised += 1
     var note := {"seq": _raised, "kind": event["event"], "package": _hud.world.rules.quest_package(event["quest"]),
-        "quest": event["quest"], "heading": KINDS[event["event"]]["heading"], "text": event["title"]}
+        "quest": event["quest"], "heading": KINDS[event["event"]]["heading"], "text": event["title"],
+        "frame": Engine.get_process_frames()}
     if event["event"] == "objective_done":
         note["objective"] = event["objective"]
         note["text"] = event.get("text", event["title"])
+    elif event["event"] == "complete":
+        for k in range(_queue.size() - 1, -1, -1):
+            var last: Dictionary = _queue[k]
+            if last["kind"] == "objective_done" and last["quest"] == note["quest"] and last["package"] == note["package"] \
+                    and last["frame"] == note["frame"]:
+                note["done"] = last["text"]          # the objective that finished it
+                _queue.remove_at(k)
+                break
     _queue.append(note)
     set_process(true)
 
@@ -165,6 +179,8 @@ func _drop_untrue() -> void:
 # -- showing them --------------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+    if _hud.covered():
+        return                                   # behind the scene-switch fade: hold everything
     _since += delta
     for entry in _showing.duplicate():
         entry["age"] += delta
@@ -204,7 +220,8 @@ func _remove(entry: Dictionary) -> void:
 
 
 ## What is on screen and what waits: {visible, showing: [{seq, kind: started |
-## objective_done | complete | failed | notice, package, quest, objective?, heading, text, age}],
+## objective_done | complete | failed | notice, package, quest, objective?, heading, text,
+## done? (a complete's last objective, folded in), frame, age}],
 ## queued: [the same, without age], raised (toasts ever raised: the last one's seq),
 ## chimes (sounded; counted in a headless run too, where nothing plays), sounds (what `play`
 ## feedback played, in order), hold, gap, limit, rect: [x, y, w, h], viewport: [w, h]}.
@@ -250,6 +267,8 @@ class Toast extends PanelContainer:
         if note["heading"] != "":
             box.add_child(_label(note["heading"].to_upper(), HEAD_SIZE, color))
         box.add_child(_label(note["text"], TEXT_SIZE, Color(0.96, 0.96, 0.96)))
+        if note.has("done"):
+            box.add_child(_label("\u2713 " + note["done"], HEAD_SIZE + 1, Color(color, 0.9)))
 
     static func _label(text: String, font_size: int, color: Color) -> Label:
         var label := Label.new()

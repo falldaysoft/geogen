@@ -264,23 +264,21 @@ def test_toasts_that_arrive_together_queue_in_order(fresh):
     for lever in ("lever", "lever_2", "lever_3"):
         rt.call("state.set", key=f"camp:{lever}#pull", value="down")
     rt.call("state.set", key="camp:gate#gate", value="open")
-    hud = toasts(rt, lambda h: len(h["showing"]) == 1 and len(h["queued"]) == 2)
-    # the first is up at once; the others wait their turn, in the order they happened
+    hud = toasts(rt, lambda h: len(h["showing"]) == 1 and len(h["queued"]) == 1)
+    # the first is up at once; the others wait their turn, in the order they happened. The gate
+    # finished the quest: its toast folds into the quest's (one toast, one chime)
     assert kinds(hud["showing"]) == [("objective_done", "all")]
-    assert kinds(hud["queued"]) == [("objective_done", "gate"), ("complete", "levers")]
-    assert [n["seq"] for n in hud["showing"] + hud["queued"]] == [2, 3, 4] and hud["raised"] == 4
+    assert kinds(hud["queued"]) == [("complete", "levers")] and hud["queued"][0]["done"] == "Open the gate"
+    assert [n["seq"] for n in hud["showing"] + hud["queued"]] == [2, 4] and hud["raised"] == 4
     first = hud["showing"][0]
     assert first["heading"] == "Objective complete" and first["text"] == "Pull every lever"
     assert first["package"] == "camp" and first["quest"] == "levers"
     assert hud["chimes"] == start["chimes"] + 1               # a chime as each appears, not as it is raised
 
     hud = toasts(rt, lambda h: len(h["showing"]) == 2, gap=0)
-    assert kinds(hud["showing"]) == [("objective_done", "all"), ("objective_done", "gate")]     # `limit` at once
-    assert kinds(hud["queued"]) == [("complete", "levers")]
-    hud = toasts(rt, lambda h: len(h["showing"]) == 3, limit=3)
-    assert kinds(hud["showing"])[-1] == ("complete", "levers") and hud["queued"] == []
+    assert kinds(hud["showing"]) == [("objective_done", "all"), ("complete", "levers")] and hud["queued"] == []
     assert (hud["showing"][-1]["heading"], hud["showing"][-1]["text"]) == ("Quest complete", "Throw the switches")
-    assert hud["chimes"] == start["chimes"] + 3
+    assert hud["chimes"] == start["chimes"] + 2
     ages = [n["age"] for n in hud["showing"]]
     assert ages == sorted(ages, reverse=True)                 # oldest first: new ones join below
 

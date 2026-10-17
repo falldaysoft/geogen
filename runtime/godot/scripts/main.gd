@@ -367,6 +367,7 @@ func _ready() -> void:
     _fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _fade.set_anchors_preset(Control.PRESET_FULL_RECT)
     $Overlay.add_child(_fade)
+    hud.cover = _fade
     _loading = Label.new()
     _loading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _loading.set_anchors_and_offsets_preset(Control.PRESET_CENTER)

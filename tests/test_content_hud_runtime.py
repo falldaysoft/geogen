@@ -38,9 +38,15 @@ def eventually(call, want, timeout=10.0):
 
 
 def test_the_tracker_and_toasts_know_the_quest_by_its_package(rt):
+    # The quest started with the game, and its toast has long gone in a fast headless run (4 s of
+    # game time): start it again, with toasts held, for one to look at.
+    rt.call("hud.notifications", hold=1000, clear=True)
+    for status in ("available", "active"):
+        rt.call("state.set", key="actor:errand.quest_errand", value=status)
     shown = eventually(lambda: rt.call("hud.quests"), lambda q: q["tracked"] == "errand")
     assert (shown["tracked"], shown["package"]) == ("errand", "errand")
-    toasts = rt.call("hud.notifications")
+    toasts = eventually(lambda: rt.call("hud.notifications"), lambda h: h["showing"] + h["queued"])
+    rt.call("hud.notifications", hold=4.0)
     started = [t for t in toasts["showing"] + toasts["queued"] if t["kind"] == "started"]
     assert [(t["quest"], t["package"]) for t in started] == [("errand", "errand")]
     log = rt.call("hud.log")
@@ -70,3 +76,21 @@ def test_the_pick_follows_the_quest_into_the_next_scene(rt):
     assert shown["package"] == "errand"
     hud = eventually(lambda: rt.call("hud.markers"), lambda h: h["markers"])
     assert [(m["kind"], m["subject"]) for m in hud["markers"]] == [("point", "annex:plate/top")]
+
+
+def test_toasts_carry_over_a_round_trip_without_running_out_behind_the_fades(rt):
+    # From the annex (the test before) back to the camp and on to the annex again: a toast up
+    # before the switches is still up after them, and didn't age while the fade covered the
+    # screen (it holds still then: two fades out and in, 0.25 s each, and the loads between).
+    rt.call("hud.notifications", hold=1000, gap=0, clear=True)
+    rt.call("state.set", key="actor:errand.quest_errand", value="failed")
+    before = eventually(lambda: rt.call("hud.notifications"), lambda h: h["showing"])
+    (note,) = before["showing"]
+    assert note["kind"] == "failed" and note["package"] == "errand"
+    for scene in ("camp", "annex"):
+        rt.call("world.switch", scene=scene)
+        rt.call("wait_ready")
+    after = rt.call("hud.notifications")
+    assert [n["seq"] for n in after["showing"]] == [note["seq"]] and after["on_screen"]
+    assert after["showing"][0]["age"] - note["age"] < 3.0, (note, after)
+    rt.call("hud.notifications", hold=4.0, gap=0.6, clear=True)
