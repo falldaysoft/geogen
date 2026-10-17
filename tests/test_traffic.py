@@ -105,6 +105,21 @@ def test_crossing_movements_conflict(graph):
     assert all(len(ln.get("crosswalks", [])) >= 1 for ln in lanes.values() if ln["kind"] == "connector")
 
 
+def test_turning_buses_hold_the_lanes_they_sweep(graph):
+    # A bus turning swings its tail and body across lanes beside and opposite (geogen.9.6): the
+    # graph lists, per turning connector, the lanes into its intersection whose waiting vehicles
+    # it would hit, and how far back from the line they must stand.
+    lanes = {ln["id"]: ln for ln in graph["lanes"]}
+    assert graph["sweeps"]
+    for w in graph["sweeps"]:
+        connector, lane = lanes[w["connector"]], lanes[w["lane"]]
+        assert connector["kind"] == "connector" and connector["turn"] in ("left", "right")
+        assert lane["kind"] != "connector"                           # a lane into the same intersection
+        assert connector["intersection"] in {lanes[k].get("intersection") for k in lane["successors"]}
+        assert not w["connector"].startswith(w["lane"] + "__")      # not the lane it turns out of
+        assert 0 < w["hold"] <= 20
+
+
 def test_routes_loop_and_open():
     loop = route_lanes("ring", {"path": {"spline": [[0, 0, 0], [20, 0, 0], [20, 0, 20], [0, 0, 20]]},
                                 "loop": True, "lanes": 2})

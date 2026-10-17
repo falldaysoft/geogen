@@ -480,16 +480,36 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   control API `hud.crossing`.
 - **Yielding**: the player and NPCs (group `geogen_character`) in the corridor ahead, or on a
   crosswalk about to be crossed, are obstacles to stop for.
+- **Swept turns**: a bus (any vehicle 7 m or longer, `LONG_VEHICLE`) turning swings across the
+  stop lines of lanes beside and opposite. The graph's `sweeps` list, per turning connector, those
+  lanes and how far back from the line (`hold`) a waiting car must stand to be clear. A long
+  vehicle doesn't claim the turn while someone stands closer, and while one is on the turn, has
+  claimed it or waits at its line to take it, cars on those lanes stop `hold` short of the line.
 - **Bodies**: vehicles are `AnimatableBody3D` boxes. They block the player, stay out of the
   navmesh, and never push anything. Wheels spin at v / r. Vehicles that drive off an open route
   come back at a route start.
+- **Far vehicles** (more than `FAR_DISTANCE`, 60 m, from the player; back near at 55 m): their
+  nodes' meshes are hidden and each is an instance in a MultiMesh for its look (the same meshes:
+  preset and paint), built at load from its meshes merged into a body surface simplified to 15%
+  of the triangles (`ImporterMesh.generate_lods`), vertex-coloured by the materials, and head
+  and tail lamp surfaces lit at night like the fleet's. They cast no shadows, their wheels don't
+  turn and their engines (out of earshot) aren't pitched, and in real time they drive every
+  other physics step, staggered, with both steps' time (`FAR_STEP`; sped-up time drives every
+  vehicle every step). Their nodes still move, so colliders and positions stay right.
+- **Cost**: vehicles are kept by lane each step (`_by_lane`), so finding the leader, claiming a
+  connector and the overlap check (a sweep along x) don't compare every pair. 150 vehicles on
+  `traffic_scale` take about 0.85 ms of script time a physics frame (the budget is 1 ms;
+  `cost_us`, `cost_max_us` in the report), against 8.6 ms before (geogen.9.6). In a window, far
+  vehicles take the scene from 1,310 draw calls and 726k triangles to 356 and 314k.
 
-`time.simulate` also reports `traffic: [...]`: vehicles, distance, overlaps, idle and wait
+`time.simulate` also reports `traffic: [...]`: vehicles, script `cost_us` (mean a physics
+frame) and `cost_max_us`, `far` vehicles and `far_looks`, distance, overlaps, idle and wait
 times, claims, turns, yields and the closest stop to a person, and for pedestrian signals
 `pedestrian_heads`, how often they turned (`walks`, `flashes`, `dont_walks`) and `walk_conflicts`
 (checks that found one not at don't-walk while the traffic across it wasn't at red). `--traffic-trace` prints claims,
 replans, respawns and overlaps. `tests/test_traffic_runtime.py` covers flow without overlaps or
-gridlock, a player in the lane stopping traffic, determinism, and open routes.
+gridlock, a player in the lane stopping traffic, determinism, open routes, and 150 vehicles
+within the frame budget (`-s traffic_scale`, a 6 x 5 grid of park blocks).
 
 ```bash
 python -m geogen.main -s crossroads --export-godot

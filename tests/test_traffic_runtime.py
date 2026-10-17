@@ -5,6 +5,7 @@ after a simulated span (traffic: GeogenTraffic.report(), npcs, trains).
 """
 
 import json
+import os
 
 import pytest
 
@@ -31,6 +32,25 @@ def run_sim(godot_script, generated, scene, seconds, *extra, timescale=8, before
 def simulate(godot_script, generated, scene, seconds, **start) -> dict:
     (report,) = run_sim(godot_script, generated, scene, seconds, **start)["time.simulate"]["traffic"]
     return report
+
+
+@pytest.fixture(scope="module")
+def scale_dir(scene_export):
+    return scene_export("traffic_scale")
+
+
+def test_150_vehicles_keep_to_the_frame_budget(godot_script, scale_dir):
+    # geogen.9.6: 150 vehicles on a grid of avenues and streets (scenes/traffic_scale.yaml), in
+    # real time. Most are far from the player: one MultiMesh instance a look, driving every other
+    # step. Buses turn without hitting anyone waiting at the lines they sweep, and nobody gets stuck.
+    report = simulate(godot_script, scale_dir, "traffic_scale", 60, timescale=1)
+    assert report["vehicles"] == 150 and report["far"] > 100 and report["far_looks"] > 10
+    assert report["overlaps"] == 0 and report["min_moved"] > 50 and report["max_idle"] < 45, report["stuck"]
+    # The budget is 1 ms of script time a physics frame: about 0.85 ms run alone on an M-series
+    # Mac (GEOGEN_PERF=1 checks it; run it with -n0 on a quiet machine). Under a loaded test run,
+    # only that it hasn't gone back to comparing every pair of vehicles (8.6 ms before).
+    limit = 1000 if os.environ.get("GEOGEN_PERF") == "1" else 5000
+    assert report["cost_us"] < limit, report["cost_us"]
 
 
 def test_traffic_flows_without_overlaps_or_gridlock(godot_script, crossroads_dir):
@@ -61,7 +81,9 @@ def test_traffic_is_deterministic(godot_script, crossroads_dir):
     # (the navmesh used to sync on a worker thread, on whichever frame it finished; geogen.50).
     def run():
         report = run_sim(godot_script, crossroads_dir, "crossroads", 30)["time.simulate"]
-        return [report["traffic"], [{k: v for k, v in n.items() if k != "cost_us"} for n in report["npcs"]]]
+        timing = {"cost_us", "cost_max_us"}                 # script time varies run to run
+        return [[{k: v for k, v in t.items() if k not in timing} for t in report["traffic"]],
+                [{k: v for k, v in n.items() if k not in timing} for n in report["npcs"]]]
 
     a, b = run(), run()
     assert a[0] and a[1] and a == b

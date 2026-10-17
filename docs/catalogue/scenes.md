@@ -10,7 +10,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
-| [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic (assets/traffic/town.yaml) and a few pedestrians (npcs/pedestrian.yaml). | test |
+| [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic and a few pedestrians. | test |
 | [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
 | [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two waves of raiders (6 hp) down a lane past a turret. | test |
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
@@ -36,6 +36,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [street_side](#street_side) | One side of a street - sidewalk with house plots behind it. |  |
 | [terrain_test](#terrain_test) | Terrain review: an island with palms kept to gentle ground above the beach, rocks on the steep slopes and a flattened pad for a building. |  |
 | [town](#town) | A small town district: a 3 x 2 street grid with a commercial avenue down the middle (shop rows with flats above, the odd office), a hotel and an apartment block as landmarks, a park, and houses on the side streets. | showcase |
+| [traffic_scale](#traffic_scale) | 150 vehicles on a grid. |  |
 | [trees](#trees) | Tree demo scene. |  |
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
@@ -130,8 +131,8 @@ Each window/door cuts its own opening into the wall it is placed on.
 `scene: scenes/crossroads.yaml` · [source](../../assets/scenes/crossroads.yaml)
 
 A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an
-avenue, parked cars, moving traffic (assets/traffic/town.yaml) and a few
-pedestrians (npcs/pedestrian.yaml). Used by the
+avenue, parked cars, moving traffic and a few pedestrians. The traffic is
+assets/traffic/town.yaml, the pedestrians npcs/pedestrian.yaml. Used by the
 traffic runtime tests (tests/test_traffic_runtime.py); quick to export.
 
 **Places**: `traffic: {traffic: traffic/town.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
@@ -516,6 +517,20 @@ the kerbs, traffic drives the streets and townsfolk stroll the sidewalks.
 **Spawns**: from_hub, start
 
 **Features**: city, railways
+
+## traffic_scale
+
+`scene: scenes/traffic_scale.yaml` · [source](../../assets/scenes/traffic_scale.yaml)
+
+150 vehicles on a grid. Traffic at scale (geogen.9.6): 6 x 5 park blocks with avenues,
+no buildings or street furniture (quick to export), for the runtime's per-frame budget
+(tests/test_traffic_runtime.py) and for looking at far fleets.
+
+**Places**: `traffic: {traffic: traffic/town.yaml}`
+
+**Spawns**: start
+
+**Features**: city
 
 ## trees
 

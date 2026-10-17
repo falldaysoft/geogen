@@ -35,6 +35,18 @@ const PERSON_RADIUS := 0.4
 const PERSON_MARGIN := 0.9        # extra space kept in front of a person (m)
 const PARK_DISTANCE := 45.0       # vehicles leave / join the roads only this far from the player
 const SCHEDULE_CHECK := 1.0       # s between schedule checks
+## Vehicles further than this from the player (m) are far: drawn as one merged, simplified mesh
+## a look in a MultiMesh (one draw call for all of them), with no wheels turning or engine to
+## pitch (they are out of earshot). Nearer ones are their full nodes. They switch with 5 m to spare.
+const FAR_DISTANCE := 60.0
+## A vehicle at least this long (m) sweeps across neighbouring lanes as it turns (graph `sweeps`).
+const LONG_VEHICLE := 7.0
+const LOD_CHECK := 0.25           # s between far/near checks
+const FAR_DETAIL := 0.15          # share of a look's triangles its far mesh keeps
+## Far vehicles drive every this many physics steps (staggered), with the time between, as long
+## as that comes to no more than FAR_DT (sped-up time drives them every step).
+const FAR_STEP := 2
+const FAR_DT := 1.0 / 29.0
 
 var world: WorldLoader
 var fleet := {}
@@ -60,6 +72,18 @@ var _crossing_shown := {}            # pedestrian signal id -> the state last se
 var _head_timer := 0.0
 var _fleet_size := 0
 var _parked: Array[Dictionary] = []  # vehicles off the road (the schedule's quiet hours)
+var _by_lane := {}                   # lane index -> the vehicles on it (rebuilt each step, kept as they move on)
+var _looks := {}                    # look key -> {mm: MultiMesh, free: [slots]} (far vehicles)
+var _steps := 0
+var _lod_timer := LOD_CHECK          # check on the first step
+var _far_material: StandardMaterial3D
+var _far_lamps := {}                 # "head" | "tail" -> the far meshes' lamp material
+var _albedo_cache := {}              # Texture2D -> its average colour
+var _sweeping := {}                  # connector index -> true while a long vehicle is on it, has claimed it or waits to
+var _committed: Array[Dictionary] = []   # vehicles that have claimed a connector or wait at a stop line (and some that did)
+var _cost_usec := 0                  # script time spent in _physics_process (report: cost_us per frame)
+var _cost_max_usec := 0
+var _cost_frames := 0
 
 
 ## Build the controller for a traffic node; its vehicle children move under the controller.
@@ -80,6 +104,8 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary, graph: Di
             t._templates.append(template)
             t._adopt(child as Node3D)
     t._fleet_size = t.vehicles.size()
+    for v in t.vehicles:              # far meshes now, not in the middle of the game
+        t._look(v)
     return t
 
 
@@ -118,11 +144,13 @@ func _load_graph(graph: Dictionary, offset: Vector3) -> void:
         lanes.append({"id": ln["id"], "pts": pts, "len": length, "ds": length / maxf(pts.size() - 1, 1),
             "speed": float(ln["speed"]), "turn": ln.get("turn", ""), "x": ln.get("intersection", ""),
             "exit": ln.get("end", "") == "exit", "succ_ids": ln.get("successors", []), "succ": [],
-            "crosswalks": crosswalks, "conflicts": [], "rail_stops": [], "signal": ln.get("signal", {})})
+            "crosswalks": crosswalks, "conflicts": [], "conflict_set": {}, "succ_set": {}, "sweeps": [], "swept_by": [], "rail_stops": [],
+            "signal": ln.get("signal", {})})
     for lane in lanes:
         for sid in lane["succ_ids"]:
             if lane_index.has(sid):
                 lane["succ"].append(lane_index[sid])
+                lane["succ_set"][lane_index[sid]] = true
     # Level crossings: where on each road lane to wait while a crossing is closed.
     for rail in graph.get("railways", []):
         for crossing in rail.get("crossings", []):
@@ -136,12 +164,19 @@ func _load_graph(graph: Dictionary, offset: Vector3) -> void:
     for c in graph.get("pedestrian_signals", []):
         _crossings[c["id"]] = {"x": str(c["intersection"]), "phase": int(c["phase"]), "walk": float(c["walk"]),
             "clearance": float(c["clearance"])}
+    # Lanes a bus turning through a connector swings across (geogen/traffic.py `_sweeps`).
+    for w in graph.get("sweeps", []):
+        if lane_index.has(w["connector"]) and lane_index.has(w["lane"]):
+            lanes[lane_index[w["connector"]]]["sweeps"].append([lane_index[w["lane"]], float(w["hold"])])
+            lanes[lane_index[w["lane"]]]["swept_by"].append([lane_index[w["connector"]], float(w["hold"])])
     for c in graph.get("conflicts", []):
         if lane_index.has(c["a"]) and lane_index.has(c["b"]):
             var a: int = lane_index[c["a"]]
             var b: int = lane_index[c["b"]]
             lanes[a]["conflicts"].append(b)
             lanes[b]["conflicts"].append(a)
+            lanes[a]["conflict_set"][b] = true
+            lanes[b]["conflict_set"][a] = true
 
 
 ## Point at distance s along lane i (clamped).
@@ -235,7 +270,12 @@ func _adopt(node: Node3D) -> Dictionary:
         if wheel != null:
             wheels.append({"node": wheel, "r": maxf(float(w["radius"]), 0.1)})
     var lane: int = lane_index.get(d.get("lane", ""), -1)
-    var v := {"node": node, "lane": lane, "prev": -1, "next": -1, "s": float(d.get("s", 0.0)),
+    var meshes: Array[MeshInstance3D] = []
+    for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+        if mi.mesh != null and not WorldLoader._is_collider(mi):
+            meshes.append(mi)
+    var look := ",".join(meshes.map(func(mi): return str(mi.mesh.get_instance_id())))
+    var v := {"node": node, "meshes": meshes, "look": look, "far": false, "slot": -1, "phase": vehicles.size(), "owed": 0.0, "lane": lane, "prev": -1, "next": -1, "s": float(d.get("s", 0.0)),
         "v": 0.0, "factor": float(d.get("factor", 1.0)), "half": float(clearance[0]) / 2.0,
         "half_w": float(clearance[1]) / 2.0, "base": float(info.get("wheelbase", 2.6)) / 2.0,
         "accel": minf(float(info.get("accel", 2.0)), float(driving.get("accel", 1.8))),
@@ -258,16 +298,53 @@ func _place(v: Dictionary) -> void:
         return
     var yaw := atan2(dir.x, dir.z)
     var pitch := -atan2(dir.y, Vector2(dir.x, dir.z).length())
-    node.global_transform = Transform3D(Basis.from_euler(Vector3(pitch, yaw, 0.0)), (rear + front) / 2.0)
+    var xform := Transform3D(Basis.from_euler(Vector3(pitch, yaw, 0.0)), (rear + front) / 2.0)
+    v["pos"] = xform.origin
+    node.global_transform = xform
+    if v.get("slot", -1) >= 0:
+        (_looks[v["look"]]["mm"] as MultiMesh).set_instance_transform(v["slot"], xform)
 
 
 # --- simulation ----------------------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+    var started := Time.get_ticks_usec()
+    _step(delta)
+    var spent := Time.get_ticks_usec() - started
+    _cost_usec += spent
+    _cost_max_usec = maxi(_cost_max_usec, spent)
+    _cost_frames += 1
+
+
+func _step(delta: float) -> void:
     clock += delta
-    var people := _people()
+    _steps += 1
+    _by_lane.clear()
+    _committed.clear()
+    _sweeping.clear()
     for v in vehicles:
-        _drive(v, delta, people)
+        _bucket(v).append(v)
+        if v["claimed"] or v["waiting"] >= 0.0:
+            _committed.append(v)
+        if 2.0 * v["half"] >= LONG_VEHICLE:
+            if not lanes[v["lane"]]["sweeps"].is_empty():
+                _sweeping[v["lane"]] = true
+            # Committed to the turn, or at its stop line waiting to take it: either way it
+            # will sweep next, so others keep out of the way (no one waits for anyone in its path).
+            var at_line: bool = lanes[v["lane"]]["len"] - v["s"] - v["half"] < 3.0
+            if (v["claimed"] or at_line) and v["next"] >= 0 and not lanes[v["next"]]["sweeps"].is_empty():
+                _sweeping[v["next"]] = true
+    var people := _people()
+    var stagger := delta * FAR_STEP <= FAR_DT
+    for v in vehicles:
+        if v["far"] and stagger:
+            v["owed"] += delta
+            if (_steps + v["phase"]) % FAR_STEP != 0:
+                continue
+            _drive(v, v["owed"], people)
+        else:
+            _drive(v, delta + v["owed"], people)
+        v["owed"] = 0.0
     _head_timer += delta
     if _head_timer >= 0.2:
         _head_timer = 0.0
@@ -276,6 +353,10 @@ func _physics_process(delta: float) -> void:
     if _schedule_timer >= SCHEDULE_CHECK:
         _schedule_timer = 0.0
         _follow_schedule()
+    _lod_timer += delta
+    if _lod_timer >= LOD_CHECK:
+        _lod_timer = 0.0
+        _update_lod()
     _overlap_timer += delta
     if _overlap_timer >= OVERLAP_CHECK:
         _overlap_timer = 0.0
@@ -301,21 +382,25 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
     var gap := INF
     var lead_v := 0.0
     v["blocked_by"] = ""
-    # Leaders: the nearest vehicle ahead on this lane, on the lane it takes next, or just
-    # onto any other successor (a car that turned off may still be in the way).
-    var succ: Array = lane["succ"]
+    # Leaders: the nearest vehicle ahead on this lane (vehicles are kept by lane, `_by_lane`).
     var first := true          # nobody ahead of it on this lane
-    for o in vehicles:
-        if o == v:
-            continue
-        var d := INF
-        if o["lane"] == v["lane"] and o["s"] > v["s"]:
-            d = o["s"] - v["s"]
+    for o in _by_lane.get(v["lane"], []):
+        if o != v and o["s"] > v["s"]:
             first = false
-        elif o["lane"] == v["next"] or (o["lane"] in succ and o["s"] < o["half"] + v["half"] + 2.0):
-            d = remaining + o["s"]
-        if d < INF:
-            var g: float = d - o["half"] - v["half"]
+            var g: float = o["s"] - v["s"] - o["half"] - v["half"]
+            if g < gap:
+                gap = g
+                lead_v = o["v"]
+                v["blocked_by"] = "vehicle"
+    # Ahead on the lane it takes next, wherever; just onto any other successor (a car that
+    # turned off may still be in the way).
+    var ahead: Array = lane["succ"] if v["next"] < 0 or lane["succ_set"].has(v["next"]) else lane["succ"] + [v["next"]]
+    for next_lane in ahead:
+        var anywhere: bool = next_lane == v["next"]
+        for o in _by_lane.get(next_lane, []):
+            if o == v or (not anywhere and o["s"] >= o["half"] + v["half"] + 2.0):
+                continue
+            var g: float = remaining + o["s"] - o["half"] - v["half"]
             if g < gap:
                 gap = g
                 lead_v = o["v"]
@@ -323,15 +408,20 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
     # The stop line: lane end before an intersection, until the connector is claimed.
     var nxt: int = v["next"]
     var sig := _lane_signal(v["lane"]) if nxt >= 0 and lanes[nxt]["x"] != "" else ""
+    var swing := _swing_room(v) if not v["claimed"] and not _sweeping.is_empty() and not lane["swept_by"].is_empty() \
+        and remaining < 30.0 else 0.0
     if sig != "" and not v["claimed"]:
         # Traffic lights: go on green (and on amber when too close to stop), claiming the
         # connector on the way in (turns still yield through the conflict zones); else stop.
         # Only the front vehicle claims: one queued behind a car turning another way would
         # hold the claim while it waits, shutting out conflicting traffic for whole greens.
-        var to_line: float = remaining - v["half"] - 0.3
+        var to_line: float = remaining - v["half"] - 0.3 - swing
         var cant_stop: bool = to_line < v["v"] * v["v"] / (2.0 * v["decel"]) - 0.5
         if (sig == "green" or (sig == "amber" and cant_stop)) and to_line < 30.0 and first and _can_claim(v):
             v["claimed"] = true
+            _committed.append(v)
+            if 2.0 * v["half"] >= LONG_VEHICLE and not lanes[nxt]["sweeps"].is_empty():
+                _sweeping[nxt] = true
             stats["claims"] += 1
             stats["signal_%s" % sig] = int(stats.get("signal_%s" % sig, 0)) + 1
         if not v["claimed"]:
@@ -356,7 +446,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
                     v["red_seen"] = true
                     stats["red_stops"] = int(stats.get("red_stops", 0)) + 1
     elif nxt >= 0 and lanes[nxt]["x"] != "" and not v["claimed"]:
-        var to_line: float = remaining - v["half"] - 0.3
+        var to_line: float = remaining - v["half"] - 0.3 - swing
         # As a standing "leader" the IDM would stop `gap` short of it: fold that in so the
         # bumper comes to rest at the line.
         var line_gap := to_line + float(driving.get("gap", 2.5)) - 0.2
@@ -367,6 +457,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
         if to_line < 1.0 and v["v"] < STOP_SPEED:
             if v["waiting"] < 0.0:
                 v["waiting"] = clock
+                _committed.append(v)
             var waited: float = clock - v["waiting"]
             stats["max_wait"] = maxf(stats["max_wait"], waited)
             if waited > float(driving.get("give_up", 25.0)) and lanes[v["lane"]]["succ"].size() > 1:
@@ -378,6 +469,9 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
                 nxt = v["next"]
             if waited >= float(driving.get("stop_wait", 0.8)) and _can_claim(v):
                 v["claimed"] = true
+                _committed.append(v)
+                if 2.0 * v["half"] >= LONG_VEHICLE and not lanes[nxt]["sweeps"].is_empty():
+                    _sweeping[nxt] = true
                 v["waiting"] = -1.0
                 stats["claims"] += 1
                 trace({"t": snappedf(clock, 0.01), "claim": lanes[nxt]["id"], "vehicle": String(v["node"].name)})
@@ -388,7 +482,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
             lead_v = 0.0
     # Level crossings with their barriers down: wait at the stop point unless already past it.
     for which in [v["lane"], nxt]:
-        if which < 0:
+        if which < 0 or lanes[which]["rail_stops"].is_empty():
             continue
         var base: float = -v["s"] if which == v["lane"] else remaining
         for rs in lanes[which]["rail_stops"]:
@@ -453,7 +547,9 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
             break
         v["s"] -= lanes[old]["len"]
         v["prev"] = old
+        _bucket(v).erase(v)
         v["lane"] = v["next"]
+        _bucket(v).append(v)
         if lanes[old]["x"] != "":
             v["claimed"] = false        # left the intersection
         v["waiting"] = -1.0
@@ -465,9 +561,10 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
         v["next"] = _choose_next(v["lane"])
     _place(v)
     (v["node"] as Node3D).set_meta("geogen_speed", speed)
-    GeogenSound.set_speed(v["engine"], speed)
-    for w in v["wheels"]:
-        (w["node"] as Node3D).rotate(Vector3.RIGHT, step / float(w["r"]))
+    if not v["far"]:
+        GeogenSound.set_speed(v["engine"], speed)
+        for w in v["wheels"]:
+            (w["node"] as Node3D).rotate(Vector3.RIGHT, step / float(w["r"]))
 
 
 ## Share of the fleet on the road at the world clock's hour (the fleet's `schedule`, linear
@@ -539,6 +636,7 @@ func _follow_schedule() -> void:
 
 func _set_active(v: Dictionary, on: bool) -> void:
     var node: Node3D = v["node"]
+    _set_far(v, false)
     node.visible = on
     node.set_meta("geogen_speed", 0.0)
     if v.get("engine") != null:
@@ -549,6 +647,168 @@ func _set_active(v: Dictionary, on: bool) -> void:
         node.add_to_group(VEHICLE_GROUP)
     else:
         node.remove_from_group(VEHICLE_GROUP)
+
+
+# --- far vehicles --------------------------------------------------------------------------------
+
+## Switch vehicles between their full nodes (near the player) and far MultiMesh instances.
+func _update_lod() -> void:
+    var players := _player_positions()
+    for v in vehicles:
+        var d := INF
+        for p in players:
+            d = minf(d, p.distance_to(v["pos"]))
+        if v["far"] and d < FAR_DISTANCE - 5.0:
+            _set_far(v, false)
+        elif not v["far"] and d > FAR_DISTANCE:
+            _set_far(v, true)
+
+
+func _set_far(v: Dictionary, far: bool) -> void:
+    if v["far"] == far:
+        return
+    v["far"] = far
+    for mi: MeshInstance3D in v["meshes"]:
+        mi.visible = not far
+    if far:
+        var look := _look(v)
+        v["slot"] = look["free"].pop_back()
+        (look["mm"] as MultiMesh).set_instance_transform(v["slot"], (v["node"] as Node3D).global_transform)
+    elif v["slot"] >= 0:
+        (v["node"] as Node3D).global_transform = (_looks[v["look"]]["mm"] as MultiMesh).get_instance_transform(v["slot"])
+        var look: Dictionary = _looks[v["look"]]
+        (look["mm"] as MultiMesh).set_instance_transform(v["slot"], Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+        look["free"].append(v["slot"])
+        v["slot"] = -1
+
+
+## A look's MultiMesh, made the first time a vehicle of it goes far: one slot for every vehicle
+## of the fleet that has it (unused slots are collapsed to a point).
+func _look(v: Dictionary) -> Dictionary:
+    if _looks.has(v["look"]):
+        return _looks[v["look"]]
+    var mm := MultiMesh.new()
+    mm.transform_format = MultiMesh.TRANSFORM_3D
+    mm.mesh = _far_mesh(v)
+    var count := vehicles.filter(func(o): return o["look"] == v["look"]).size() \
+        + _parked.filter(func(o): return o["look"] == v["look"]).size()
+    mm.instance_count = maxi(count, 1)
+    var hidden := Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO)
+    for k in mm.instance_count:
+        mm.set_instance_transform(k, hidden)
+    var mmi := MultiMeshInstance3D.new()
+    mmi.name = "far_%d" % _looks.size()
+    mmi.multimesh = mm
+    mmi.top_level = true
+    mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF   # far: mostly beyond the shadows anyway
+    add_child(mmi)
+    mmi.global_transform = Transform3D.IDENTITY
+    var free := []
+    for k in range(mm.instance_count - 1, -1, -1):
+        free.append(k)
+    _looks[v["look"]] = {"mm": mm, "free": free, "node": mmi}
+    return _looks[v["look"]]
+
+
+## A far vehicle's mesh: its meshes merged in its own frame, coloured per vertex by their
+## materials (colour times the texture's average times any tint). The body is one surface,
+## simplified to FAR_DETAIL of its triangles; head and tail lamps are a surface each, lit like
+## the fleet's own lamps (set_night).
+func _far_mesh(v: Dictionary) -> ArrayMesh:
+    var to_root := (v["node"] as Node3D).global_transform.affine_inverse()
+    var groups := {}                  # "body" | "head" | "tail" -> [positions, normals, colours, indices]
+    for mi: MeshInstance3D in v["meshes"]:
+        var xform := to_root * mi.global_transform
+        var turn := Transform3D(xform.basis.inverse().transposed(), Vector3.ZERO)
+        for i in mi.mesh.get_surface_count():
+            var material := mi.get_active_material(i)
+            var kind := "body"
+            if _lamp_materials.has(material):
+                kind = "head" if _lamp_materials[material][1] == "head" else "tail"
+                _far_lamp(kind, material as BaseMaterial3D)
+            if not groups.has(kind):
+                groups[kind] = [PackedVector3Array(), PackedVector3Array(), PackedColorArray(), PackedInt32Array()]
+            var g: Array = groups[kind]
+            var arrays: Array = mi.mesh.surface_get_arrays(i)
+            var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+            var base: int = (g[0] as PackedVector3Array).size()
+            g[0].append_array(xform * verts)
+            var norms = arrays[Mesh.ARRAY_NORMAL]
+            if norms != null:
+                g[1].append_array(turn * (norms as PackedVector3Array))
+            else:
+                g[1].resize((g[0] as PackedVector3Array).size())
+            var tint := _albedo(material)
+            var vc = arrays[Mesh.ARRAY_COLOR]
+            for k in verts.size():
+                g[2].append(tint * (vc[k] as Color) if vc != null else tint)
+            var idx = arrays[Mesh.ARRAY_INDEX]
+            if idx == null:
+                for k in verts.size():
+                    g[3].append(base + k)
+            else:
+                for k in (idx as PackedInt32Array):
+                    g[3].append(base + k)
+    if _far_material == null:
+        _far_material = StandardMaterial3D.new()
+        _far_material.vertex_color_use_as_albedo = true
+        _far_material.roughness = 0.5
+        _far_material.metallic = 0.2
+    var mesh := ArrayMesh.new()
+    for kind in groups:
+        var g: Array = groups[kind]
+        var arrays := []
+        arrays.resize(Mesh.ARRAY_MAX)
+        arrays[Mesh.ARRAY_VERTEX] = g[0]
+        arrays[Mesh.ARRAY_NORMAL] = g[1]
+        arrays[Mesh.ARRAY_COLOR] = g[2]
+        arrays[Mesh.ARRAY_INDEX] = g[3]
+        if kind == "body":
+            # The same vertices, the level of detail nearest FAR_DETAIL of the triangles.
+            var importer := ImporterMesh.new()
+            importer.add_surface(Mesh.PRIMITIVE_TRIANGLES, arrays)
+            importer.generate_lods(25.0, 60.0, [])
+            var want: float = (g[3] as PackedInt32Array).size() * FAR_DETAIL
+            for k in importer.get_surface_lod_count(0):
+                var lod := importer.get_surface_lod_indices(0, k)
+                if lod.size() >= 3 and absf(lod.size() - want) < absf((arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size() - want):
+                    arrays[Mesh.ARRAY_INDEX] = lod
+        mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+        mesh.surface_set_material(mesh.get_surface_count() - 1, _far_material if kind == "body" else _far_lamps[kind])
+    return mesh
+
+
+## The far meshes' lamp material of a kind, like the fleet's (the first lamp of it seen).
+func _far_lamp(kind: String, like: BaseMaterial3D) -> void:
+    if _far_lamps.has(kind) or like == null:
+        return
+    var mat := StandardMaterial3D.new()
+    mat.vertex_color_use_as_albedo = true
+    mat.emission_enabled = true
+    mat.emission = like.emission
+    mat.emission_energy_multiplier = like.emission_energy_multiplier
+    _far_lamps[kind] = mat
+    _lamp_materials[mat] = [mat.emission_energy_multiplier, kind]   # set_night lights it too
+
+
+func _albedo(material: Material) -> Color:
+    var mat := material as BaseMaterial3D
+    if mat == null:
+        return Color.WHITE
+    var colour := mat.albedo_color
+    var texture := mat.albedo_texture
+    if texture != null:
+        if not _albedo_cache.has(texture):
+            var average := Color.WHITE
+            var image := texture.get_image()
+            if image != null:
+                if image.is_compressed():
+                    image.decompress()
+                image.resize(1, 1, Image.INTERPOLATE_BILINEAR)
+                average = image.get_pixel(0, 0)
+            _albedo_cache[texture] = average
+        colour *= _albedo_cache[texture]
+    return Color(colour.r, colour.g, colour.b, 1.0)
 
 
 ## Seconds of world time (the clock's position in its day; time since load without a clock).
@@ -652,26 +912,52 @@ func _update_heads() -> void:
 
 func _can_claim(v: Dictionary) -> bool:
     var target: int = v["next"]
-    var conflicts: Array = lanes[target]["conflicts"]
+    var conflicts: Dictionary = lanes[target]["conflict_set"]
     # Don't block the box: the lane after the connector needs room for the whole vehicle.
-    var exits: Array = lanes[target]["succ"]
+    var exits: Dictionary = lanes[target]["succ_set"]
     var need: float = 2.0 * v["half"] + float(driving.get("gap", 2.5)) + 1.0
-    for o in vehicles:
+    # A long vehicle turning swings across lanes beside and opposite: wait until nobody stands
+    # where it would sweep.
+    if 2.0 * v["half"] >= LONG_VEHICLE:
+        for w in lanes[target]["sweeps"]:
+            for o in _by_lane.get(w[0], []):
+                if o["s"] + o["half"] > lanes[w[0]]["len"] - w[1]:
+                    return false
+    # Only vehicles on the lanes concerned, and those committed to a movement, can stop it.
+    for o in _by_lane.get(target, []):
+        if o != v:
+            return false
+    for x in exits:
+        for o in _by_lane.get(x, []):
+            if o != v and o["s"] - o["half"] < need:
+                return false
+    # Someone on a conflicting movement.
+    for x in conflicts:
+        for o in _by_lane.get(x, []):
+            if o != v:
+                return false
+    for o in _committed:
         if o == v:
             continue
-        if o["lane"] in exits and o["s"] - o["half"] < need:
+        if o["claimed"] and o["next"] == target:
             return false
-        if (o["lane"] == target or (o["claimed"] and o["next"] == target)):
-            return false
-        # Someone on (or committed to) a conflicting movement.
-        if o["lane"] in conflicts:
-            return false
-        if o["claimed"] and o["next"] in conflicts:
+        # Someone committed to a conflicting movement.
+        if o["claimed"] and conflicts.has(o["next"]):
             return false
         # Someone who got to their stop line first, waiting for a conflicting movement.
-        if o["waiting"] >= 0.0 and o["waiting"] < v["waiting"] and o["next"] in conflicts:
+        if o["waiting"] >= 0.0 and o["waiting"] < v["waiting"] and conflicts.has(o["next"]):
             return false
     return true
+
+
+## How far short of its stop line a vehicle stops: out of the way of a long vehicle turning
+## across the end of its lane (on the connector, or committed to it), else 0.
+func _swing_room(v: Dictionary) -> float:
+    var room := 0.0
+    for w in lanes[v["lane"]]["swept_by"]:
+        if _sweeping.has(w[0]):
+            room = maxf(room, w[1])
+    return room
 
 
 func _person_gap(v: Dictionary, people: Array) -> float:
@@ -682,7 +968,7 @@ func _person_gap(v: Dictionary, people: Array) -> float:
     var best := INF
     for person in people:
         var p: Vector3 = person[0]
-        if p.distance_squared_to(node.global_position) > pow(look + 6.0, 2):
+        if p.distance_squared_to(v["pos"]) > pow(look + 6.0, 2):
             continue
         # Walk the path ahead of the front bumper in half-metre steps.
         var along := 0.0
@@ -728,7 +1014,9 @@ func _respawn(v: Dictionary) -> void:
     for attempt in 8:
         var lane: int = starts[rng.randi() % starts.size()]
         if _clear_at(lane, v["half"] + 6.0, v):
+            _bucket(v).erase(v)
             v["lane"] = lane
+            _bucket(v).append(v)
             v["prev"] = -1
             v["s"] = v["half"] + 0.5
             v["v"] = lanes[lane]["speed"] * 0.5
@@ -748,6 +1036,12 @@ func _is_successor(i: int) -> bool:
     return false
 
 
+func _bucket(v: Dictionary) -> Array:
+    if not _by_lane.has(v["lane"]):
+        _by_lane[v["lane"]] = []
+    return _by_lane[v["lane"]]
+
+
 func _clear_at(lane: int, room: float, me: Dictionary) -> bool:
     for o in vehicles:
         if o != me and o["lane"] == lane and o["s"] < room + o["half"]:
@@ -756,11 +1050,20 @@ func _clear_at(lane: int, room: float, me: Dictionary) -> bool:
 
 
 func _check_overlaps() -> void:
-    for i in vehicles.size():
-        for j in range(i + 1, vehicles.size()):
-            if _boxes_overlap(vehicles[i], vehicles[j]):
+    # Sweep along x: only vehicles whose centres are closer than two of the longest can touch.
+    var order := vehicles.duplicate()
+    order.sort_custom(func(a, b): return (a["node"] as Node3D).global_position.x < (b["node"] as Node3D).global_position.x)
+    var reach := 0.0
+    for v in vehicles:
+        reach = maxf(reach, 2.0 * v["half"])
+    for i in order.size():
+        var xi: float = (order[i]["node"] as Node3D).global_position.x
+        for j in range(i + 1, order.size()):
+            if (order[j]["node"] as Node3D).global_position.x - xi > reach:
+                break
+            if _boxes_overlap(order[i], order[j]):
                 stats["overlaps"] += 1
-                trace({"t": snappedf(clock, 0.01), "overlap": [_where(vehicles[i]), _where(vehicles[j])]})
+                trace({"t": snappedf(clock, 0.01), "overlap": [_where(order[i]), _where(order[j])]})
 
 
 func _where(v: Dictionary) -> Array:
@@ -819,7 +1122,11 @@ func report() -> Dictionary:
     var gap = stats["min_person_gap"]
     var player_gap = stats["min_player_gap"]
     var engines := vehicles.filter(func(v): return v["engine"] != null and (v["engine"] as AudioStreamPlayer3D).playing).size()
-    return {"vehicles": vehicles.size(), "engines": engines, "parked": _parked.size(), "share": snappedf(scheduled_share(), 0.01),
+    return {"vehicles": vehicles.size(), "engines": engines,
+        # Script time a physics frame (µs): the mean, and the worst frame.
+        "cost_us": snappedf(float(_cost_usec) / maxi(_cost_frames, 1), 0.1), "cost_max_us": _cost_max_usec,
+        # Far vehicles (MultiMesh instances) and the looks drawn that way.
+        "far": vehicles.filter(func(v): return v["far"]).size(), "far_looks": _looks.size(), "parked": _parked.size(), "share": snappedf(scheduled_share(), 0.01),
         "distance": snappedf(stats["distance"], 0.1),
         "min_moved": snappedf(min_moved, 0.1) if min_moved < INF else 0.0, "max_idle": snappedf(max_idle, 0.1),
         "claims": stats["claims"], "yields": stats["yields"], "overlaps": stats["overlaps"],

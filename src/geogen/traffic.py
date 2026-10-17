@@ -51,6 +51,12 @@ MIN_WALK = 4.0              # shortest walk interval (s)
 ROUTE_KEYS = {"path", "lanes", "drive", "speed", "loop", "lane_width", "y", "surface"}
 # Vehicle classes swept along every lane for clearance: (width, height) in metres.
 CLEARANCE_CLASSES = {"car": (1.9, 1.6), "van": (2.1, 2.4), "bus": (2.6, 3.2)}
+# Swept turns: a bus (length, width, wheelbase) turning through an intersection swings its
+# tail and body across lanes beside and opposite; a car or van (length, width) waiting at
+# one of those lanes' stop lines must stand back while one does (``sweeps``).
+SWEEP_VEHICLE = (11.3, 2.95, 5.9)
+SWEEP_WAITING = (5.4, 2.3)
+SWEEP_MARGIN = 0.2
 
 
 @dataclass
@@ -472,6 +478,64 @@ def _conflicts(lanes: list[Lane]) -> list[dict[str, Any]]:
     return out
 
 
+def _sweeps(lanes: list[Lane]) -> list[dict[str, Any]]:
+    """For each turning connector, the other lanes into its intersection whose waiting vehicles
+    a bus taking it would hit: ``{connector, lane, hold}``, where ``hold`` is how far back
+    from that lane's end a waiting vehicle's front must stay to be clear of the bus's swept
+    path (its rear still on the lane it leaves, through to the lane it joins)."""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+
+    by_id = {lane.id: lane for lane in lanes}
+    into: dict[str, list[Lane]] = {}          # intersection -> lanes ending at it
+    for lane in lanes:
+        xs = {by_id[k].intersection for k in lane.successors if k in by_id and by_id[k].intersection}
+        for x in xs:
+            into.setdefault(x, []).append(lane)
+    length, width, base = SWEEP_VEHICLE
+
+    def box(c: np.ndarray, heading: np.ndarray, half_l: float, half_w: float) -> Polygon:
+        f = heading / max(float(np.linalg.norm(heading)), 1e-9)
+        r = np.array([f[1], -f[0]])
+        return Polygon([c + f * half_l + r * half_w, c + f * half_l - r * half_w,
+                        c - f * half_l - r * half_w, c - f * half_l + r * half_w])
+
+    def at(pts: np.ndarray, cum: np.ndarray, s: float) -> np.ndarray:
+        return np.array([np.interp(s, cum, pts[:, 0]), np.interp(s, cum, pts[:, 2])])
+
+    out = []
+    for c in lanes:
+        if c.kind != "connector" or c.turn in ("", "straight"):
+            continue
+        src_id, _, dst_id = c.id.partition("__")
+        src, dst = by_id.get(src_id), by_id.get(dst_id)
+        if src is None or dst is None:
+            continue
+        # The path from 12 m before the connector to 12 m past it, s = 0 at its start.
+        before = src.points[_cumulative(src.points) >= src.length - 12.0]
+        after = dst.points[_cumulative(dst.points) <= 12.0]
+        path = np.vstack([before[:-1], c.points, after[1:]])
+        cum = _cumulative(path) - (_cumulative(before)[-1] if len(before) > 1 else 0.0)
+        poses = []
+        for sc in np.arange(0.0, c.length + 1e-6, 0.5):
+            rear, front = at(path, cum, sc - base / 2), at(path, cum, sc + base / 2)
+            poses.append(box((rear + front) / 2, front - rear, length / 2 + SWEEP_MARGIN, width / 2 + SWEEP_MARGIN))
+        swept = unary_union(poses)
+        for lane in into.get(c.intersection, []):
+            if lane.id == src.id:
+                continue
+            lc = _cumulative(lane.points)
+            hold = 0.0
+            for f in np.arange(lane.length, max(lane.length - 20.0, SWEEP_WAITING[0]), -0.5):
+                a, b = at(lane.points, lc, f), at(lane.points, lc, f - SWEEP_WAITING[0])
+                if not box((a + b) / 2, a - b, SWEEP_WAITING[0] / 2, SWEEP_WAITING[1] / 2).intersects(swept):
+                    break
+                hold = lane.length - f + 0.5
+            if hold > 0.0:
+                out.append({"connector": c.id, "lane": lane.id, "hold": round(float(hold), 2)})
+    return out
+
+
 def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None,
           crosswalks: list | None = None, pedestrian_signals: list | None = None) -> dict[str, Any]:
     """A JSON-ready lane graph from lanes (points in one frame)."""
@@ -496,7 +560,7 @@ def graph(lanes: list[Lane], drive: str = "right", cycle: dict | None = None,
         x["center"] = [round(float(v), 3) for v in pts.mean(axis=0)]
     out = {"version": VERSION, "drive": drive, "step": STEP,
            "lanes": [lane.to_dict() for lane in lanes],
-           "conflicts": _conflicts(lanes),
+           "conflicts": _conflicts(lanes), "sweeps": _sweeps(lanes),
            "intersections": list(intersections.values())}
     if crosswalks:
         out["crosswalks"] = crosswalks
@@ -562,7 +626,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
     Ids of graphs from nested nodes are prefixed with the node name when they'd clash."""
     to_scene = np.linalg.inv(scene.world_transform())
     lanes: list = []
-    conflicts, intersections, seen, crosswalks, pedestrian = [], [], set(), [], []
+    conflicts, intersections, seen, crosswalks, pedestrian, sweeps = [], [], set(), [], [], []
     drive = "right"
     for node in scene.iter_nodes():
         g = node.meta.get("traffic")
@@ -582,6 +646,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
                           "points": [[round(float(v), 3) for v in q] for q in p]})
             seen.add(rid(ln["id"]))
         conflicts += [{**c, "a": rid(c["a"]), "b": rid(c["b"])} for c in g.get("conflicts", [])]
+        sweeps += [{**w, "connector": rid(w["connector"]), "lane": rid(w["lane"])} for w in g.get("sweeps", [])]
         def rect(r, m=m):
             x0, z0, x1, z1 = r
             corners = (m @ np.array([[x0, 0, z0, 1], [x1, 0, z1, 1]], dtype=np.float64).T).T
@@ -606,7 +671,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
         railways.append({**rail, "points": [[round(float(v), 3) for v in q] for q in p]})
     if not lanes and not railways:
         return None
-    out = {"version": VERSION, "drive": drive, "step": STEP, "lanes": lanes, "conflicts": conflicts,
+    out = {"version": VERSION, "drive": drive, "step": STEP, "lanes": lanes, "conflicts": conflicts, "sweeps": sweeps,
            "intersections": intersections}
     if crosswalks:
         out["crosswalks"] = crosswalks

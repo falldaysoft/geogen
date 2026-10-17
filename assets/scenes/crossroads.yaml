@@ -1,6 +1,6 @@
 # A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an
-# avenue, parked cars, moving traffic (assets/traffic/town.yaml) and a few
-# pedestrians (npcs/pedestrian.yaml). Used by the
+# avenue, parked cars, moving traffic and a few pedestrians. The traffic is
+# assets/traffic/town.yaml, the pedestrians npcs/pedestrian.yaml. Used by the
 # traffic runtime tests (tests/test_traffic_runtime.py); quick to export.
 name: crossroads
 tags: [city.district]
