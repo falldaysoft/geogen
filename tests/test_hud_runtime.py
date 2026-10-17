@@ -175,6 +175,18 @@ def test_the_panel_stays_on_screen_and_wraps(rt, size):
     assert hud["clipped"] == (height < 250)
 
 
+def test_the_top_slots_make_room_for_the_overlay_only_while_it_is_up(rt):
+    rt.call("window.size", size=[1280, 720])
+    rt.call("hud.quests", track="errand")
+    assert shown(rt, lambda h: h["visible"] and h["rect"][1] == 84)["rect"][1] == 84
+    try:
+        rt.call("input.key", key="F1")                          # the debug overlay off
+        assert shown(rt, lambda h: h["rect"][1] == 12)["rect"][1] == 12
+    finally:
+        rt.call("input.key", key="F1")
+    assert shown(rt, lambda h: h["rect"][1] == 84)["rect"][1] == 84
+
+
 def test_a_tall_tracker_is_clipped_at_the_bottom_of_a_small_window(rt):
     rt.call("window.size", size=[320, 160])
     hud = shown(rt, lambda h: h["viewport"] == [320, 160] and h["clipped"])
@@ -192,6 +204,7 @@ def test_the_tracker_survives_a_reload_and_shows_a_failure(rt):
     rt.call("state.set", key="world:camp.alarm", value=True)
     hud = shown(rt, lambda h: h["status"] == "failed")
     assert hud["visible"] and hud["tracked"] == "errand" and hud["note"] == "Quest failed"
+    assert lines(hud) == [("stand", "missed", "")]           # what it failed with open, crossed out
     assert rt.call("input.key", key="Q")                      # the key moves on from a finished quest at once
     hud = shown(rt, lambda h: h["tracked"] == "levers")
     assert hud["tracked"] == "levers" and hud["status"] == "active" and hud["active"] == ["levers"]

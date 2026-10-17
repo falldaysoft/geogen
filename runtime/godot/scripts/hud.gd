@@ -37,7 +37,8 @@ signal modal_changed(open: bool)
 const SLOTS := ["top_left", "top_right", "bottom_left", "bottom_right"]
 const MARGIN := 12
 ## The debug overlay's three lines are in the top-left corner and run most of the
-## way across a small window: the top slots start under them.
+## way across a small window: while it is shown the top slots start under them
+## (`overlay_shown`), else MARGIN from the top.
 const TOP_INSET := 84
 
 var world: WorldLoader
@@ -53,6 +54,15 @@ var crosshair := GeogenHudCrosshair.new()
 var _queued := false
 ## The panel that has the keyboard to itself (the quest log while open), or null.
 var modal: Control = null
+## Whether main.gd's F1 overlay is up (the top slots make room for it).
+var overlay_shown := true:
+    set(value):
+        overlay_shown = value
+        for slot in ["top_left", "top_right"]:
+            if _slots.has(slot):
+                _slots[slot].offset_top = TOP_INSET if value else MARGIN
+                _slots[slot].offset_bottom = _slots[slot].offset_top
+        queue_refresh()
 
 
 func _init() -> void:
@@ -128,7 +138,7 @@ func panel_width() -> float:
 
 ## The height a slot's column can fill before it leaves the screen.
 func slot_height(slot := "top_right") -> float:
-    var top := float(MARGIN if slot.begins_with("bottom") else TOP_INSET)
+    var top := float(MARGIN if slot.begins_with("bottom") or not overlay_shown else TOP_INSET)
     return maxf(get_viewport().get_visible_rect().size.y - top - MARGIN, 40.0)
 
 

@@ -165,7 +165,7 @@ def test_finished_quests_move_to_their_sections_and_cannot_be_tracked(rt):
     with pytest.raises(ApiError, match="isn't active"):
         rt.call("hud.log", track=True)
     hud = rt.call("hud.log", select="camp/errand")
-    assert hud["selected"]["status"] == "failed" and objectives(hud) == [("stand", "waiting", "")]
+    assert hud["selected"]["status"] == "failed" and objectives(hud) == [("stand", "missed", "")]
     assert hud["hint"] == "Up / Down: select    J / Esc: close"
 
 

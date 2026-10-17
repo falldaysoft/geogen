@@ -383,7 +383,8 @@ func _draw_detail(entry: Dictionary) -> void:
 ## another (or was left undone when the quest ended).
 func _objective_row(line: Dictionary, status: String) -> Control:
     var state: String = line["state"]
-    var color: Color = COLORS["done"] if state == "done" else (COLORS["text"] if state == "open" else COLORS["dim"])
+    var color: Color = COLORS["done"] if state == "done" else (COLORS["text"] if state == "open"
+        else (COLORS["failed"] if state == "missed" else COLORS["dim"]))
     var row := HBoxContainer.new()
     row.add_theme_constant_override("separation", 8)
     var mark := Mark.new()
@@ -393,6 +394,8 @@ func _objective_row(line: Dictionary, status: String) -> Control:
     var words: String = line["text"] + (" (optional)" if line["optional"] else "")
     if state == "waiting":
         words += "  -  %s" % ("later" if status == "active" else "not done")
+    elif state == "missed":
+        words += "  -  missed"
     var text := _label(words, TEXT_SIZE, color)
     text.max_lines_visible = 3
     text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -557,6 +560,9 @@ class Mark extends Control:
             "complete":
                 draw_circle(c, 7.5, Color(color, 0.3))
                 draw_polyline(tick, color, 1.8, true)
+            "missed":
+                draw_line(c + Vector2(-3.2, -3.2), c + Vector2(3.2, 3.2), color, 1.8, true)
+                draw_line(c + Vector2(-3.2, 3.2), c + Vector2(3.2, -3.2), color, 1.8, true)
             "failed":
                 draw_circle(c, 7.5, Color(color, 0.3))
                 draw_line(c + Vector2(-3.2, -3.2), c + Vector2(3.2, 3.2), color, 1.8, true)

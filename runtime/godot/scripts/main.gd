@@ -380,6 +380,7 @@ func _ready() -> void:
     hud.add_child(focus.prompt)               # the E prompt, under the crosshair: part of the HUD, not the F1 overlay
     add_child(hud)
     move_child(hud, $Overlay.get_index())     # under the overlay, so its fade covers the HUD
+    hud.overlay_shown = overlay.visible
     _place_player(world.world_aabb())
     _frame_overview(world.world_aabb())
     # The viewport auto-selects the first camera to enter the tree (the
@@ -680,6 +681,7 @@ func _unhandled_input(event: InputEvent) -> void:
         _step_scene(-1 if event.physical_keycode == KEY_F7 else 1)
     elif event.is_action_pressed("geogen_toggle_overlay"):
         overlay.visible = not overlay.visible
+        hud.overlay_shown = overlay.visible
     elif event.is_action_pressed("geogen_toggle_colliders"):
         world.show_colliders = not world.show_colliders
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E:

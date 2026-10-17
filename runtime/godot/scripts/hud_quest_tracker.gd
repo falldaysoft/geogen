@@ -4,10 +4,11 @@ extends PanelContainer
 ##
 ## It has no quest logic. Everything shown comes from `GeogenRules.report(actor)`
 ## (what `--quests` and `quests.list` print): a quest's status, each objective's
-## state (done | open | waiting) and `progress: [n, of]`. It re-reads that when
-## a quest event arrives, when state changes while a quest is shown (progress
-## counts), and when the HUD refreshes everything (a scene loaded, a save
-## restored, the window resized); never per frame.
+## state (done | open | missed | waiting) and `progress: [n, of]`. It re-reads that
+## when a quest event arrives, when state changes while a quest is shown (progress
+## counts), when the HUD refreshes everything (a scene loaded, a save restored, the
+## window resized), and once a second while a quest is shown, in case what it shows
+## moved with nothing announcing it (progress that reads the clock); never per frame.
 ##
 ## What it adds is presentation state:
 ## - which active quest is tracked (the first one, until `CYCLE_KEY` or
@@ -15,7 +16,8 @@ extends PanelContainer
 ## - a finished quest stays up for `linger` seconds marked complete or failed,
 ##   then the next active one takes its place. Hidden when there is none.
 ##
-## Objectives that wait on another (`after`) aren't listed. Text wraps to two
+## Objectives that wait on another (`after`) aren't listed; a failed quest lists the ones it
+## failed with open (missed), crossed out. Text wraps to two
 ## lines and the panel clips at the bottom of the screen.
 
 const CYCLE_KEY := KEY_Q
@@ -44,6 +46,7 @@ var _last := {}                 # {package, quest}: the latest pick, which wins 
 var _finished := {}             # {package, quest}: the tracked quest ended and is still shown
 var _shown := {}                # what hud_report() returns
 var _timer: Timer
+var _recheck: Timer             # once a second while shown: has what it would show moved?
 var _settle := 0                # frames left of fitting the height after a redraw
 var _scroll: ScrollContainer
 var _box: VBoxContainer
@@ -88,6 +91,10 @@ func _init() -> void:
     _timer.one_shot = true
     _timer.timeout.connect(_linger_over)
     add_child(_timer)
+    _recheck = Timer.new()
+    _recheck.wait_time = 1.0
+    _recheck.timeout.connect(_check_shown)
+    add_child(_recheck)
     set_process(false)
 
 
@@ -112,6 +119,22 @@ func _on_quest_event(event: Dictionary) -> void:
                 _finished = {"package": package, "quest": _tracked}
                 _linger(linger)
     _hud.queue_refresh()
+
+
+## Redraw if the tracked quest's report no longer matches what is shown (its status, objective
+## states and counts): progress from the clock moves without a `changed` event.
+func _check_shown() -> void:
+    if _hud == null or not visible or _tracked == "":
+        return
+    for entry in _hud.world.rules.report(_hud.actor):
+        if entry["id"] != _tracked:
+            continue
+        var now: Array = entry["objectives"].filter(func(o): return o["state"] != "waiting").map(
+            func(o): return [o["id"], o["state"], o.get("progress", [])])
+        var shown: Array = _shown.get("lines", []).map(func(l): return [l["id"], l["state"], l.get("progress", [])])
+        if entry["status"] != _shown.get("status", "") or now != shown:
+            _hud.queue_refresh()
+        return
 
 
 ## State changed: an objective's count may have moved. Only matters while something is shown.
@@ -232,7 +255,10 @@ func hud_refresh() -> void:
         "lines": [], "waiting": 0}
     visible = _shown["visible"]
     if quest.is_empty():
+        _recheck.stop()
         return
+    if _recheck.is_stopped():
+        _recheck.start()
     var status: String = quest["status"]
     var note := ""
     if status == "complete":
@@ -287,11 +313,12 @@ func _fit() -> void:
 
 func _row(line: Dictionary) -> Control:
     var done: bool = line["state"] == "done"
-    var color: Color = COLORS["done" if done else "open"]
+    var color: Color = COLORS["done" if done else ("failed" if line["state"] == "missed" else "open")]
     var row := HBoxContainer.new()
     row.add_theme_constant_override("separation", 7)
     var mark := Mark.new()
     mark.done = done
+    mark.missed = line["state"] == "missed"
     mark.color = color
     row.add_child(mark)
     var text := _label(line["text"], TEXT_SIZE, color)
@@ -339,9 +366,11 @@ func hud_report() -> Dictionary:
     return out
 
 
-## An objective's bullet: a ring while open, a filled disc with a tick when done.
+## An objective's bullet: a ring while open, a filled disc with a tick when done, a cross when
+## its quest failed with it open (missed).
 class Mark extends Control:
     var done := false
+    var missed := false
     var color := Color.WHITE
 
     func _init() -> void:
@@ -351,7 +380,10 @@ class Mark extends Control:
 
     func _draw() -> void:
         var c := Vector2(7, 11)
-        if done:
+        if missed:
+            draw_line(c + Vector2(-3.2, -3.2), c + Vector2(3.2, 3.2), color, 1.8, true)
+            draw_line(c + Vector2(-3.2, 3.2), c + Vector2(3.2, -3.2), color, 1.8, true)
+        elif done:
             draw_circle(c, 6.0, Color(color, 0.35))
             draw_polyline(PackedVector2Array([c + Vector2(-3.2, 0.2), c + Vector2(-0.8, 2.8), c + Vector2(3.6, -2.8)]),
                 color, 1.8, true)

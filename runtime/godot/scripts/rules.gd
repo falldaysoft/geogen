@@ -693,10 +693,13 @@ static func _report_of(machine: GeogenMachine, quests: Dictionary, package: Stri
         var objectives := []
         for objective in quest["objectives"]:
             var state := "waiting"
+            var reached: bool = objective["after"].all(func(a): return done[a])
             if done[objective["id"]]:
                 state = "done"
-            elif status == "active" and objective["after"].all(func(a): return done[a]):
+            elif status == "active" and reached:
                 state = "open"
+            elif status == "failed" and reached:
+                state = "missed"        # it was open when the quest failed
             var scenes := []        # the scenes its subjects are in: where a portal leads to them
             for subject in objective["subjects"]:
                 var scene := str(subject).get_slice(":", 0)

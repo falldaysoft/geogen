@@ -409,9 +409,9 @@ class Quests:
     def report(self, machine: Any, actor: str) -> dict[str, dict[str, Any]]:
         """Every quest's state for ``actor``: what a quest log shows.
 
-        ``{id: {title, status, objectives: [{id, text, optional, state: done | open | waiting,
-        progress?: [n, of]}]}}``. An objective is open while its quest is active and
-        everything it waits on is done.
+        ``{id: {title, status, objectives: [{id, text, optional, state: done | open | missed |
+        waiting, progress?: [n, of]}]}}``. An objective is open while its quest is active and
+        everything it waits on is done; missed when the quest failed while it was open.
         """
         out = {}
         for name, quest in self.quests.items():
@@ -419,8 +419,9 @@ class Quests:
             done = {o["id"]: machine.get(o["done"], actor) for o in quest["objectives"]}
             objectives = []
             for o in quest["objectives"]:
-                state = ("done" if done[o["id"]] else
-                         "open" if status == "active" and all(done[a] for a in o["after"]) else "waiting")
+                reached = all(done[a] for a in o["after"])
+                state = ("done" if done[o["id"]] else "open" if status == "active" and reached else
+                         "missed" if status == "failed" and reached else "waiting")
                 entry = {"id": o["id"], "text": o["text"], "optional": o["optional"], "state": state}
                 if "progress" in o:
                     entry["progress"] = [int(machine.value(o["progress"]["value"], actor)), o["progress"]["of"]]

@@ -103,7 +103,7 @@ def test_available_to_active_to_failed_and_failed_is_final():
     enter(machine, "bedroom")
     greet(machine)
     assert quests.status(machine, "lights_out", "player") == "failed"
-    assert states(quests.report(machine, "player")) == {"lights": "waiting", "bed": "waiting"}
+    assert states(quests.report(machine, "player")) == {"lights": "missed", "bed": "missed"}   # open when it failed
 
     _, other = run(quest(), rules=[GIVE, {"id": "alarm", "on": {"type": "signal", "subject": "demo:bell", "name": "rung"},
                                           "do": [{"fail_quest": "lights_out"}]}])
