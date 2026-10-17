@@ -417,8 +417,9 @@ def light_state(node: SceneNode) -> dict[str, dict[str, Any]]:
 
 def switch_bindings(root: SceneNode, uid: Callable[[SceneNode], str]) -> list[dict[str, Any]]:
     """What ``switch: {light}`` means: the named fixture (``switched_light``: the nearest
-    of that name) is lit while the switch is on. One binding per fixture, so with two switches
-    (a stairwell) it is lit while either is on."""
+    of that name) is lit while the switch is on. One binding per fixture; with several switches
+    (a room with a switch by each door) they are multi-way: flipping any one of them toggles
+    the light, so it is lit while an even number of them are off."""
     by_light: dict[str, list[str]] = {}
     for node in root.iter_nodes():
         if not isinstance(node.meta.get("switch"), dict) or not any(i.name == "switch" for i in node.interactions):
@@ -429,7 +430,10 @@ def switch_bindings(root: SceneNode, uid: Callable[[SceneNode], str]) -> list[di
     out = []
     for light, switches in by_light.items():
         terms = [{"op": "==", "args": [{"get": "instance", "id": s, "name": "switch"}, "on"]} for s in switches]
-        out.append({"set": f"{light}#lit", "to": terms[0] if len(terms) == 1 else {"op": "or", "args": terms}})
+        parity = terms[0]
+        for term in terms[1:]:          # == of booleans is xnor: true while an even number are off
+            parity = {"op": "==", "args": [parity, term]}
+        out.append({"set": f"{light}#lit", "to": parity})
     return out
 
 

@@ -64,6 +64,9 @@ func update() -> void:
                 refused = it
             else:
                 affordance = main.world.affordance_near(hit["position"])
+                if not affordance.is_empty() and not _in_sight(from, affordance["position"] + Vector3.UP * 0.05,
+                        affordance["node"]):
+                    affordance = {}     # near where the aim landed, but behind it (a booth through a wall)
         if interaction == null and npc == null:
             # A seated or lying NPC has no collider: the aim line passing its body finds it,
             # unless something (not the seat it is in) is in the way.
@@ -72,7 +75,8 @@ func update() -> void:
                 limit = minf(limit, from.distance_to(hit["position"]) + 0.4)
             for other in main.world.npcs:
                 if is_instance_valid(other) and other.can_greet() and other.posed() \
-                        and other.aim_distance(from, -cam.global_basis.z) <= limit:
+                        and other.aim_distance(from, -cam.global_basis.z) <= limit \
+                        and _in_sight(from, other.head_point(), null, 0.3):
                     npc = other
                     affordance = {}
                     break
@@ -105,6 +109,19 @@ func update() -> void:
 ## How far from the eye ``it`` can be used from: its own `reach` when that is longer.
 func _reach_of(it: GeogenInteraction) -> float:
     return maxf(main.player_spec.reach, it.reach)
+
+
+## Whether the eye at ``from`` sees ``point``: nothing is in the way, or only ``owner`` (the
+## asset the point is on: aiming at a chair, the line to its seat may graze its arm) or
+## something within ``slack`` of the point.
+func _in_sight(from: Vector3, point: Vector3, owner: Node, slack := 0.1) -> bool:
+    var query := PhysicsRayQueryParameters3D.create(from, point)
+    query.exclude = [main.player.get_rid()]
+    var hit: Dictionary = main.get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty() or (hit["position"] as Vector3).distance_to(point) <= slack:
+        return true
+    return owner != null and is_instance_valid(owner) and (hit["collider"] == owner
+        or owner.is_ancestor_of(hit["collider"]))
 
 
 ## The longest reach of anything loaded: how far the focus ray looks.

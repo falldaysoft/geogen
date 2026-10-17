@@ -399,7 +399,8 @@ windows or doors:
     (`scripts/head_look.gd`, a `SkeletonModifier3D` run after the clips).
   - *greet*: aiming at an NPC that is here (not `away`) shows `E: <prompt>`, in any pose and
     whatever it is doing. A seated or lying NPC has no collider, so the aim line passing its
-    body (hips to head, `npc.aim_distance`) finds it. E is a greeting every time, except a
+    body (hips to head, `npc.aim_distance`) finds it, if the eyes have a clear line to its
+    head (not through a wall). E is a greeting every time, except a
     second press within `debounce` s (0.5): it goes on the event bus as the signal `greeted`
     from the NPC (`attention.greet.signal`) with the greeter as the actor, so a rule can act
     on it. The cottage's resident gives the `lights_out` quest this way, from her armchair too.

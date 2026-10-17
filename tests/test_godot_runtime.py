@@ -336,6 +336,51 @@ def test_godot_fixture_lights_and_switch(godot_script, auto_room_dir):
     assert report["fixtures"]["bathroom_light"]["visible"] is True
 
 
+@pytest.fixture(scope="module")
+def two_rooms_dir(tmp_path_factory):
+    """Two rooms, front (a switch by each of its doors) and back, with a bench in the back
+    against the wall between them (inner faces at z = 0.44 and 0.56)."""
+    from geogen.core.transform import Transform
+    from geogen.generators.floorplan import FloorPlan
+    from geogen.layout import LayoutLoader
+    from geogen.roots import find
+    plan = FloorPlan.from_spec({
+        "rooms": {"front": {"rect": [0, 0, 4, 4]}, "back": {"rect": [0, 4, 4, 3]}},
+        "doors": [{"name": "entrance", "room": "front", "side": "south", "width": 0.9},
+                  {"between": ["front", "back"], "at": 0.85, "width": 0.9}],
+    }).build("two_rooms")
+    bench = LayoutLoader().load(find("bench.yaml"))
+    bench.transform = Transform(translation=np.array([-1.0, 0.0, 0.91]))
+    plan.add_child(bench)
+    out = tmp_path_factory.mktemp("generated_two_rooms")
+    export_scene(plan, out / "two_rooms.glb")
+    return out
+
+
+def test_every_switch_of_a_light_toggles_it(godot_script, two_rooms_dir):
+    # A room with a switch by each door: either one turns its light off, and the other back on.
+    run = godot_script([step("interactions.use", asset="front_switch_1", actor="player"), step("wait", frames=30),
+                        step("world.lights"),
+                        step("interactions.use", asset="front_switch_2", actor="player"), step("wait", frames=30),
+                        step("world.lights")], "--scene=two_rooms", f"--generated={two_rooms_dir}")
+    assert [r["fixtures"]["front_light"]["visible"] for r in run.all("world.lights")] == [False, True]
+
+
+def test_a_seat_behind_a_wall_is_not_offered(godot_script, two_rooms_dir):
+    # Aiming at the wall in front, near the bench on its other side: no Sit (it used to walk
+    # the player round to it). From the back room, the same seat is.
+    wall = [[x, y, 0.44] for x in (-1.4, -1.0, -0.6) for y in (0.3, 0.6)]
+    steps = [step("player.teleport", pos=[-1.0, 0, -0.2], yaw=0)]
+    for point in wall:
+        steps += [step("player.look", at=point), step("wait", frames=2), step("hud.aim")]
+    steps += [step("player.teleport", pos=[-1.3, 0, 1.7], yaw=180), step("player.look", at=[-1.3, 0.3, 0.95]),
+              step("wait", frames=2), step("hud.aim")]
+    run = godot_script(steps, "--scene=two_rooms", f"--generated={two_rooms_dir}")
+    aims = [a["focus"] for a in run.all("hud.aim")]
+    assert aims[:-1] == [{}] * len(wall)
+    assert aims[-1] == {"asset": "bench", "kind": "affordance", "type": "sit"}
+
+
 def test_floor_plan_switch_can_be_aimed_at_and_used(godot_runtime, built_scene, auto_room_dir):
     """Floor-plan switches are light_switch.yaml, plate collider included: the focus ray
     finds one, and E throws it."""

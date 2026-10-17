@@ -1312,6 +1312,24 @@ func posed() -> bool:
 ## to head height without a skeleton), `radius` thick.
 func aim_distance(from: Vector3, forward: Vector3) -> float:
     var radius := float(definition.get("radius", 0.25))
+    var line := _body_line()
+    var best := INF
+    for i in 5:
+        var p: Vector3 = line[0].lerp(line[1], i / 4.0)
+        var along := (p - from).dot(forward)
+        if along > 0.0 and (p - from - forward * along).length() <= radius:
+            best = minf(best, along)
+    return best
+
+
+## The posed body's head: what the player must have a clear line to, to greet it.
+func head_point() -> Vector3:
+    return _body_line()[1]
+
+
+## The body as a line, hips to head (root to head height without a skeleton).
+func _body_line() -> Array:
+    var radius := float(definition.get("radius", 0.25))
     var a := global_position + Vector3.UP * 0.3
     var b := global_position + Vector3.UP * (float(definition.get("height", 1.75)) - radius)
     var skeletons := body.find_children("*", "Skeleton3D", true, false) if body != null else []
@@ -1322,13 +1340,7 @@ func aim_distance(from: Vector3, forward: Vector3) -> float:
         if hips >= 0 and head >= 0:
             a = skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
             b = skeleton.global_transform * skeleton.get_bone_global_pose(head).origin
-    var best := INF
-    for i in 5:
-        var p := a.lerp(b, i / 4.0)
-        var along := (p - from).dot(forward)
-        if along > 0.0 and (p - from - forward * along).length() <= radius:
-            best = minf(best, along)
-    return best
+    return [a, b]
 
 
 func greet_prompt() -> String:
