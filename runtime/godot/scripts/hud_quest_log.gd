@@ -15,6 +15,10 @@ extends Control
 ## when the HUD refreshes everything (a scene loaded, a save restored, the window
 ## resized); never per frame.
 ##
+## Only quests the player has: the loaded package's and those of packages visited this
+## session (or held in a loaded save). Quests nobody has offered yet (available or
+## unavailable) and other scenes' aren't listed, so the log doesn't give them away.
+##
 ## Presentation state only: whether it is open and which quest is selected. What
 ## is tracked belongs to the tracker (hud_quest_tracker.gd): picking an active quest
 ## of the loaded package tracks it now, one of another package when that loads again.
@@ -49,6 +53,9 @@ var _detail_scroll: ScrollContainer
 var _detail: VBoxContainer
 var _hint: Label
 var _rows := {}                 # key -> its row in the list
+
+
+var _track_button: Button = null      # the selected quest's "Track this quest", while there is one
 
 
 func _init() -> void:
@@ -366,8 +373,11 @@ func _draw_detail(entry: Dictionary) -> void:
     _detail.add_child(pad)
     for line in entry["objectives"]:
         _detail.add_child(_objective_row(line, status))
+    _track_button = null
     if status == "active" and not entry["tracked"]:
         var button := Button.new()
+        button.name = "Track"
+        _track_button = button
         button.text = "Track this quest" if entry["loaded"] else "Track when you are back there"
         button.focus_mode = Control.FOCUS_NONE       # keys go through hud_key, not the focused control
         button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -457,7 +467,8 @@ static func _rule(vertical: bool) -> ColorRect:
 ## selected: {key, package, id, title, status, description, loaded, tracked, can_track,
 ## objectives: [{id, text, state: done | open | waiting, optional, progress?, progress_text}]}
 ## ({} when there is none), tracked (key of the loaded package's tracked quest), hint,
-## rect: [x, y, w, h] ([] while closed), viewport: [w, h]}. Read whether it is open or not.
+## rect: [x, y, w, h] ([] while closed), viewport: [w, h], rows: {key: [x, y, w, h]} and
+## track_button: [x, y, w, h] ([] without one) to click}. Read whether it is open or not.
 func hud_report() -> Dictionary:
     if _hud == null:
         return {"open": false, "quests": [], "sections": {}, "selected": {}, "tracked": "", "hint": "",
@@ -481,6 +492,16 @@ func hud_report() -> Dictionary:
     var view := get_viewport_rect().size if is_inside_tree() else Vector2.ZERO
     out["rect"] = [rect.position.x, rect.position.y, rect.size.x, rect.size.y] if _open else []
     out["viewport"] = [view.x, view.y]
+    # Where to click (input.mouse): each listed quest's row, and the Track button.
+    out["rows"] = {}
+    for key in _rows:
+        if _open and is_instance_valid(_rows[key]) and _rows[key].is_inside_tree():
+            var r: Rect2 = _rows[key].get_global_rect()
+            out["rows"][key] = [r.position.x, r.position.y, r.size.x, r.size.y]
+    out["track_button"] = []
+    if _open and is_instance_valid(_track_button) and _track_button.is_inside_tree():
+        var b := _track_button.get_global_rect()
+        out["track_button"] = [b.position.x, b.position.y, b.size.x, b.size.y]
     return out
 
 

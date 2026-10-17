@@ -135,6 +135,7 @@
             "hud.quests",
             "hud.stats",
             "input.key",
+            "input.mouse",
             "interactions.list",
             "interactions.lock",
             "interactions.set",
@@ -514,6 +515,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/input.key"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "input.mouse"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/input.mouse"
               }
             }
           }
@@ -1533,6 +1550,7 @@
         "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
         "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
         "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
+        "input.mouse": "{at: [x, y] (viewport pixels), button?: left | right | middle, double?: bool} click there, as the player would (a double click is a second press marked double)",
         "interactions.list": "{asset?} interactions with states",
         "interactions.states": "every interaction's saved state, by stable id (<uid>#<interaction>)",
         "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
@@ -1899,6 +1917,30 @@
         "properties": {
           "key": {
             "type": "string"
+          }
+        }
+      },
+      "input.mouse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "button": {
+            "enum": [
+              "left",
+              "right",
+              "middle"
+            ]
+          },
+          "double": {
+            "type": "boolean"
           }
         }
       },

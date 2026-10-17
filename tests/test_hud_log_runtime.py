@@ -129,6 +129,30 @@ def test_the_log_opens_mid_quest_and_picks_the_tracked_quest(rt):
     assert rt.call("hud.quests")["tracked"] == "levers"
 
 
+def test_a_click_selects_the_button_tracks_and_a_double_click_does_both(rt):
+    # geogen.15.22: the mouse, as the player would use it (input.mouse at the rows' and the
+    # Track button's rectangles, which hud.log reports).
+    def middle(rect):
+        return [rect[0] + rect[2] / 2, rect[1] + rect[3] / 2]
+
+    assert rt.call("input.key", key="J")
+    hud = log(rt, lambda h: h["open"] and set(h["rows"]) == {"camp/levers", "camp/errand"})
+    assert hud["tracked"] == "camp/levers" and hud["track_button"] == []     # the tracked one has no button
+    rt.call("input.mouse", at=middle(hud["rows"]["camp/errand"]))
+    hud = log(rt, lambda h: h["selected"].get("id") == "errand" and h["track_button"])
+    assert hud["selected"]["can_track"] and hud["tracked"] == "camp/levers"   # selected, not tracked yet
+    rt.call("input.mouse", at=middle(hud["track_button"]))
+    hud = log(rt, lambda h: h["tracked"] == "camp/errand")
+    assert hud["tracked"] == "camp/errand" and rt.call("hud.quests")["tracked"] == "errand"
+    rt.call("input.mouse", at=middle(hud["rows"]["camp/levers"]), double=True)
+    hud = log(rt, lambda h: h["tracked"] == "camp/levers")
+    assert hud["selected"]["id"] == "levers" and rt.call("hud.quests")["tracked"] == "levers"
+    with pytest.raises(ApiError, match="at:"):
+        rt.call("input.mouse", at=[1])
+    rt.call("input.key", key="Escape")
+    assert not log(rt, lambda h: not h["open"])["open"]
+
+
 def test_e_does_nothing_while_the_log_is_open(rt):
     def pull():
         return rt.call("state.get", key="camp:lever_2#pull")["value"]

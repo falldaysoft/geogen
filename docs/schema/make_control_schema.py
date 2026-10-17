@@ -17,7 +17,8 @@ TYPES = {
     "linger": NUM, "hold": NUM, "gap": NUM, "zoom": NUM, "fov": NUM, "day_length": NUM,
     "frames": INT, "limit": INT, "index": INT, "since": INT, "count": INT,
     "instant": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
-    "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL,
+    "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL,
+    "button": {"enum": ["left", "right", "middle"]},
     "asset": STR, "interaction": STR, "scene": STR, "spawn": STR, "name": STR, "uid": STR, "node_path": STR,
     "node": STR, "tag": STR, "type": STR, "room": STR, "key": STR, "item": STR, "actor": STR, "npc": STR,
     "option": STR, "path": STR, "prop": STR, "time": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
@@ -33,6 +34,7 @@ OVERRIDES = {   # (command, arg): type, where an argument means different things
     ("npcs.greet", "wait"): NUM, ("interactions.set", "wait"): BOOL, ("interactions.use", "wait"): BOOL,
     ("interactions.set", "state"): STR, ("state.load", "state"): {"$ref": "geogen-save.v1.schema.json"},
     ("hud.quests", "track"): STR, ("hud.log", "track"): BOOL,
+    ("input.mouse", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},   # viewport pixels
 }
 EXTRA = {   # arguments the code reads that the one-line descriptions leave out
     "interactions.set": ["actor"], "interactions.use": ["actor"], "interactions.lock": ["actor"],

@@ -188,6 +188,7 @@ func value_of(tree: Variant, actor := "player") -> Variant:
 
 ## Keep what the quest log lists of this package once it is gone (`report_all`). WorldLoader
 ## calls it before it frees the world: counts over interactions are read from their nodes.
+## Players' only: the log is a player's, and a city's NPCs would each cost a report.
 func remember_reports() -> void:
     if machine == null:
         return
@@ -195,6 +196,8 @@ func remember_reports() -> void:
     for other in _applied:
         _reports[other["package"]] = {}
     for actor in machine.actor_info:
+        if machine.actor_info[actor].get("kind", "") != "player":
+            continue
         _reports[package][actor] = []
         for entry in _described(report(actor), false):      # each quest under the package it belongs to
             var theirs: Dictionary = _reports[entry["package"]]
@@ -583,6 +586,8 @@ func _saved_reports(name_: String, saved: Dictionary) -> Dictionary:
     other.load_save(saved)
     var out := {}
     for actor in other.actor_info:
+        if other.actor_info[actor].get("kind", "") != "player":
+            continue
         out[actor] = _described(_report_of(other, listed, name_, actor), false, listed)
     return out
 

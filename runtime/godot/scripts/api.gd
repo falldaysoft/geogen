@@ -57,6 +57,8 @@ const COMMANDS := {
     "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
     "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
     "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
+    "input.mouse": "{at: [x, y] (viewport pixels), button?: left | right | middle, double?: bool} click there, as the "
+        + "player would (a double click is a second press marked double)",
     "interactions.list": "{asset?} interactions with states",
     "interactions.states": "every interaction's saved state, by stable id (<uid>#<interaction>)",
     "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
@@ -593,6 +595,31 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             await get_tree().process_frame          # delivered with the next frame's input
             await get_tree().process_frame
             return {"key": OS.get_keycode_string(code)}
+        "input.mouse":
+            var at = args.get("at")
+            if not at is Array or at.size() != 2:
+                return _err("at: [x, y] in viewport pixels")
+            var buttons := {"left": MOUSE_BUTTON_LEFT, "right": MOUSE_BUTTON_RIGHT, "middle": MOUSE_BUTTON_MIDDLE}
+            var button := str(args.get("button", "left"))
+            if not buttons.has(button):
+                return _err("button: left | right | middle, got '%s'" % button)
+            var where := Vector2(float(at[0]), float(at[1]))
+            var presses := [false, true] if bool(args.get("double", false)) else [false]
+            for double in presses:
+                if double:
+                    await get_tree().process_frame  # a person's second click comes frames later
+                for pressed in [true, false]:
+                    var click := InputEventMouseButton.new()
+                    click.button_index = buttons[button]
+                    click.position = where
+                    click.global_position = where
+                    click.pressed = pressed
+                    click.double_click = double and pressed
+                    click.button_mask = buttons[button] if pressed else 0
+                    get_viewport().push_input(click)
+            await get_tree().process_frame
+            await get_tree().process_frame
+            return {"at": [where.x, where.y], "button": button, "double": bool(args.get("double", false))}
         "state.save":
             var saved := world.saves.save()
             if args.has("path"):
