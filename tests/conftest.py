@@ -2,6 +2,7 @@
 and the fast tier (``pytest --fast``)."""
 
 import fcntl
+import json
 import os
 import re
 import shutil
@@ -56,6 +57,45 @@ def run_godot():
         assert result.returncode == 0, result.stderr
         assert "SCRIPT ERROR" not in result.stdout + result.stderr, result.stdout + result.stderr
         return result.stdout
+
+    return run
+
+
+@pytest.fixture(scope="session")
+def control_validator():
+    """Validate a script document against docs/schema/geogen-control.v1.schema.json (raises on a mistake)."""
+    import jsonschema
+    from referencing import Registry, Resource
+
+    schema_dir = Path(__file__).parent.parent / "docs" / "schema"
+    schema = json.loads((schema_dir / "geogen-control.v1.schema.json").read_text())
+    save = json.loads((schema_dir / "geogen-save.v1.schema.json").read_text())
+    registry = Registry().with_resources([(save["$id"], Resource.from_contents(save))])
+    validator = jsonschema.Draft202012Validator(schema, registry=registry)
+
+    def validate(document: dict) -> None:
+        errors = sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path))
+        if errors:
+            raise jsonschema.ValidationError("; ".join(f"{list(e.absolute_path)}: {e.message}" for e in errors))
+
+    return validate
+
+
+@pytest.fixture(scope="session")
+def godot_script(run_godot, control_validator):
+    """``godot_script(steps, *user_args, start=None, engine_args=())``: a headless launch that runs
+    control API ``steps`` from the ``start`` conditions (and any flags in ``user_args``), checked:
+    every step succeeded, no script errors. Returns the ``ScriptRun`` (``run["player.status"]``)."""
+    from geogen.runtime_client import run_script
+
+    def run(steps=(), *user_args: str, start: dict | None = None, engine_args: tuple[str, ...] = (),
+            check: bool = True):
+        """``check=False``: a step may fail (the run goes on); look at ``run.entry(...)["ok"]``."""
+        control_validator({"start": start or {}, "steps": list(steps)})   # what any runtime could run
+        result = run_script(steps, start=start, args=user_args, engine_args=("--headless", *engine_args),
+                            godot=_godot_binary(), project=GODOT_PROJECT, stop_on_error=check)
+        assert "SCRIPT ERROR" not in result.output, result.output
+        return result.check() if check else result
 
     return run
 

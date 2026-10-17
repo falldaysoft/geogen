@@ -14,6 +14,7 @@ import pytest
 
 from geogen.export import export_scene
 from geogen.player import load_player_spec
+from geogen.runtime_client import step
 
 RADIUS = load_player_spec().radius
 
@@ -23,51 +24,62 @@ def cottage_dir(scene_export):
     return scene_export("cottage")
 
 
-def walk(run_godot, generated, spawn, seconds=4.0, *extra) -> dict:
-    out = run_godot("--scene", "cottage", f"--generated={generated}",
-                    f"--spawn={spawn}", f"--walk={seconds}", *extra)
-    assert "geogen: loaded cottage.glb" in out
-    line = next(l for l in out.splitlines() if l.startswith("walk result: "))
-    return json.loads(line.removeprefix("walk result: "))
+def walk(godot_script, generated, spawn, seconds=4.0, before=()) -> dict:
+    """Put the player at ``spawn`` facing -Z, run the ``before`` steps, walk forward; the end of the walk."""
+    run = godot_script([step("player.teleport", pos=spawn, yaw=0), *before, step("player.move", seconds=seconds)],
+                       "--scene=cottage", f"--generated={generated}")
+    assert "geogen: loaded cottage.glb" in run.output
+    return run["player.move"]
 
 
-def test_open_ground_is_walkable(run_godot, cottage_dir):
+def test_open_ground_is_walkable(godot_script, cottage_dir):
     # Beside the house nothing blocks: 4 s at 4 m/s covers ~16 m.
-    end = walk(run_godot, cottage_dir, "6,0,6.4")
-    assert end["z"] < -8
+    end = walk(godot_script, cottage_dir, [6, 0, 6.4])
+    assert end["position"][2] < -8
     assert end["on_floor"]
 
 
-def test_wall_blocks_player(run_godot, cottage_dir):
-    end = walk(run_godot, cottage_dir, "-2,0,6.4")
-    assert end["z"] == pytest.approx(3.05 + RADIUS, abs=0.05)  # stopped at the foundation
-    assert end["y"] == pytest.approx(0, abs=0.02)
+def test_wall_blocks_player(godot_script, cottage_dir):
+    end = walk(godot_script, cottage_dir, [-2, 0, 6.4])
+    assert end["position"][2] == pytest.approx(3.05 + RADIUS, abs=0.05)  # stopped at the foundation
+    assert end["position"][1] == pytest.approx(0, abs=0.02)
+    assert end["blocked_by"] is not None          # the front wall
 
 
-def test_player_climbs_door_step_and_stops_at_door(run_godot, cottage_dir):
-    end = walk(run_godot, cottage_dir, "0,0,6.4")
-    assert end["y"] == pytest.approx(0.3, abs=0.02)  # up on the step
-    assert end["z"] == pytest.approx(2.923 + RADIUS, abs=0.05)  # against the closed leaf
+def test_player_climbs_door_step_and_stops_at_door(godot_script, cottage_dir):
+    end = walk(godot_script, cottage_dir, [0, 0, 6.4])
+    assert end["position"][1] == pytest.approx(0.3, abs=0.02)  # up on the step
+    assert end["position"][2] == pytest.approx(2.923 + RADIUS, abs=0.05)  # against the closed leaf
+    assert end["on_floor"]
+    assert end["blocked_by"]["interaction"] == {"name": "swing", "state": "closed", "asset": "door"}
+
+
+def test_opened_door_lets_player_into_house(godot_script, cottage_dir):
+    # The door's swing interaction opens it; walk once it has.
+    end = walk(godot_script, cottage_dir, [0, 0, 6.4], 1.5,
+               [step("interactions.use", asset="door", actor="player"), step("wait", seconds=1.2)])
+    assert end["position"][2] < 2.0  # through the doorway, inside the house
+    assert end["position"][1] == pytest.approx(0.32, abs=0.02)  # on the floorboards
     assert end["on_floor"]
 
 
-def test_opened_door_lets_player_into_house(run_godot, cottage_dir):
-    # --use=door runs the door's swing interaction; walk once it has opened.
-    end = walk(run_godot, cottage_dir, "0,0,6.4", 1.5, "--use=door", "--wait=1.2")
-    assert end["z"] < 2.0  # through the doorway, inside the house
-    assert end["y"] == pytest.approx(0.32, abs=0.02)  # on the floorboards
-    assert end["on_floor"]
-
-
-def test_aim_and_use_opens_door(run_godot, cottage_dir):
+def test_aim_and_use_opens_door(godot_script, cottage_dir):
     # Standing within reach and looking at the leaf, "E" opens the door.
-    out = run_godot("--scene", "cottage", f"--generated={cottage_dir}", "--spawn=0,0,3.9",
-                    "--use=@aim", "--wait=1.3", "--walk=1.0")
-    assert "used: door (swing)" in out
-    assert '"state":"open"' in out
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
-    assert end["z"] < 2.0
+    run = godot_script([step("player.teleport", pos=[0, 0, 3.9], yaw=0), step("player.use", retry=2),
+                        step("wait", seconds=1.3), step("interactions.list", asset="door"),
+                        step("player.move", seconds=1.0)],
+                       "--scene=cottage", f"--generated={cottage_dir}")
+    assert run["player.use"] == {"kind": "interaction", "asset": "door", "interaction": "swing", "prompt": "Open"}
+    assert run["interactions.list"][0]["state"] == "open"
+    assert run["player.move"]["position"][2] < 2.0
+
+
+def test_action_flags_are_script_steps(godot_script, cottage_dir):
+    # --walk / --use / --status (CLAUDE.md's quick checks) expand to the same steps a script runs.
+    run = godot_script((), "--scene=cottage", f"--generated={cottage_dir}", "--spawn=0,0,6.4", "--yaw=0",
+                       "--use=door", "--wait=1.2", "--walk=1.5", "--status")
+    assert [s["cmd"] for s in run.steps] == ["interactions.use", "wait", "player.move", "player.status"]
+    assert run["player.move"]["position"][2] < 2.0 and run["player.status"]["room"] == run["player.move"]["room"]
 
 
 @pytest.fixture(scope="module")
@@ -85,62 +97,63 @@ spawns:
     return out
 
 
-def test_walk_through_floorplan_doors_into_room(run_godot, suite_dir):
+def test_walk_through_floorplan_doors_into_room(godot_script, suite_dir):
     # From outside the entry door (east; the suite's door starts locked, so
     # restore a save with it open), through the corridor and the bedroom
     # door, to the bedroom's west wall (inner face x = -3.25).
     save = suite_dir / "entry_open.json"
     save.write_text(json.dumps({"entry/swing": {"state": "open", "locked": False}}))
-    out = run_godot("--scene", "suite_level", f"--generated={suite_dir}", f"--load={save}",
-                    "--spawn=4,0,1.3", "--yaw=90", "--walk=3")
-    assert "3 rooms" in out
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
-    assert end["x"] == pytest.approx(-3.25 + RADIUS, abs=0.05)
+    run = godot_script([step("player.teleport", pos=[4, 0, 1.3], yaw=90), step("player.move", seconds=3)],
+                       "--scene=suite_level", f"--generated={suite_dir}", f"--load={save}")
+    assert "3 rooms" in run.output
+    end = run["player.move"]
+    assert end["position"][0] == pytest.approx(-3.25 + RADIUS, abs=0.05)
     assert end["room"] == "bedroom"
     assert end["on_floor"]
 
 
-def test_player_starts_at_manifest_spawn(run_godot, suite_dir):
+def test_player_starts_at_manifest_spawn(godot_script, suite_dir):
     # The spawn faces west, so walking forward leads into the bedroom.
-    out = run_godot("--scene", "suite_level", f"--generated={suite_dir}", "--walk=0.2")
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
-    assert end["x"] < 2.2 and end["z"] == pytest.approx(1.3, abs=0.05)
+    run = godot_script([step("player.move", seconds=0.2)], "--scene=suite_level", f"--generated={suite_dir}")
+    end = run["player.move"]
+    assert end["position"][0] < 2.2 and end["position"][2] == pytest.approx(1.3, abs=0.05)
     assert end["room"] == "corridor"
 
 
-def test_all_exports_load_side_by_side(run_godot, built_scene, tmp_path):
+def test_all_exports_load_side_by_side(godot_script, built_scene, tmp_path):
     # Without --scene every export loads; they must not overlap (the hotel
     # suite's walls used to sit inside the cottage) so the cottage stays
     # enterable. The player starts in front of the first model (cottage).
     export_scene(built_scene("cottage"), tmp_path / "cottage.glb")
     export_scene(built_scene("hotel_suite"), tmp_path / "hotel_suite.glb")
-    out = run_godot(f"--generated={tmp_path}", "--use=door", "--wait=1.2", "--walk=1.5")
-    assert "loaded cottage.glb" in out and "loaded hotel_suite.glb" in out
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
-    assert end["z"] < 2.0  # walked through the door into the cottage
+    run = godot_script([step("interactions.use", asset="door", actor="player"), step("wait", seconds=1.2),
+                        step("player.move", seconds=1.5)], f"--generated={tmp_path}")
+    assert "loaded cottage.glb" in run.output and "loaded hotel_suite.glb" in run.output
+    assert run["player.move"]["position"][2] < 2.0  # walked through the door into the cottage
 
 
-def test_m1_furnished_hotel_room_walkthrough(run_godot, built_scene, auto_room_dir, tmp_path):
+def test_m1_furnished_hotel_room_walkthrough(godot_script, built_scene, auto_room_dir, tmp_path):
     # Milestone M1: floor plan + archetype furnishing, exported with metadata.
     # From the entry spawn (facing west) the player walks through the
     # corridor and the bedroom door and is stopped by a nightstand.
     nightstand = built_scene("hotel_room_auto").find("nightstand_2").world_transform()[:3, 3]
     save = tmp_path / "entry_open.json"   # the suite door starts locked
     save.write_text(json.dumps({"entry/swing": {"state": "open", "locked": False}}))
-    out = run_godot("--scene", "hotel_room_auto", f"--generated={auto_room_dir}", f"--load={save}", "--walk=4")
-    assert "3 rooms" in out
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
+    run = godot_script([step("player.move", seconds=4)], "--scene=hotel_room_auto", f"--generated={auto_room_dir}",
+                       f"--load={save}")
+    assert "3 rooms" in run.output
+    end = run["player.move"]
     assert end["room"] == "bedroom"
-    assert end["x"] == pytest.approx(nightstand[0] + 0.2 + RADIUS, abs=0.05)  # against its front
+    assert end["position"][0] == pytest.approx(nightstand[0] + 0.2 + RADIUS, abs=0.05)  # against its front
+    assert end["blocked_by"]["asset"] == "nightstand_2"
 
 
-def _nav(run_godot, generated, scene, a, b) -> dict:
-    out = run_godot("--scene", scene, f"--generated={generated}", f"--nav={a[0]},{a[1]}:{b[0]},{b[1]}")
-    return json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
+def _nav(godot_script, generated, scene, a, b, *args) -> dict:
+    """The navigation path between two floor points (x, z), once the navmesh has settled."""
+    run = godot_script([step("wait_ready", timeout=120), step("world.nav_path", **{"from": [a[0], 0, a[1]]},
+                                                               to=[b[0], 0, b[1]])],
+                       f"--scene={scene}", f"--generated={generated}", *args)
+    return run["world.nav_path"]
 
 
 @pytest.fixture(scope="module")
@@ -148,18 +161,18 @@ def auto_room_dir(scene_export):
     return scene_export("hotel_room_auto")
 
 
-def test_scene_builder_summary(run_godot, auto_room_dir):
-    out = run_godot("--scene", "hotel_room_auto", f"--generated={auto_room_dir}", "--quit-after=2")
+def test_scene_builder_summary(godot_script, auto_room_dir):
+    out = godot_script([step("wait", frames=2)], "--scene=hotel_room_auto", f"--generated={auto_room_dir}").output
     line = next(l for l in out.splitlines() if "loaded hotel_room_auto.glb" in l)
     assert "3 rooms" in line and "1 spawns" in line
     assert "geogen: unknown" not in out and "extras.geogen version" not in out
 
 
-def test_navigation_reaches_rooms_through_doorways(run_godot, auto_room_dir):
+def test_navigation_reaches_rooms_through_doorways(godot_script, auto_room_dir):
     # From the entry to open floor in the bedroom (foot of the bed) and into the bathroom.
-    to_bedroom = _nav(run_godot, auto_room_dir, "hotel_room_auto", (4.2, 1.3), (-0.6, 0.6))
+    to_bedroom = _nav(godot_script, auto_room_dir, "hotel_room_auto", (4.2, 1.3), (-0.6, 0.6))
     assert to_bedroom["points"] and to_bedroom["end_gap"] < 0.5
-    to_bathroom = _nav(run_godot, auto_room_dir, "hotel_room_auto", (4.2, 1.3), (2.6, -0.6))
+    to_bathroom = _nav(godot_script, auto_room_dir, "hotel_room_auto", (4.2, 1.3), (2.6, -0.6))
     assert to_bathroom["points"] and to_bathroom["end_gap"] < 0.5
     # Paths go through the doorway gaps, never through walls: every corridor->bedroom
     # path crosses x = 1.0 (the shared wall) within the door's z span.
@@ -209,16 +222,16 @@ def test_editor_import_plugin_builds_gameplay_nodes(run_godot, auto_room_dir, tm
     assert {"furniture", "furniture.bed"} <= set(check["bed_groups"])
 
 
-def test_player_climbs_stairs(run_godot, tmp_path):
+def test_player_climbs_stairs(godot_script, tmp_path):
     from geogen.layout import LayoutLoader
     export_scene(LayoutLoader().load("assets/staircase.yaml"), tmp_path / "staircase.glb")
-    out = run_godot("--scene", "staircase", f"--generated={tmp_path}", "--spawn=0,0,3.2", "--walk=1.4")
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
-    assert end["y"] == pytest.approx(3.0, abs=0.02) and end["on_floor"]
+    run = godot_script([step("player.teleport", pos=[0, 0, 3.2], yaw=0), step("player.move", seconds=1.4)],
+                       "--scene=staircase", f"--generated={tmp_path}")
+    end = run["player.move"]
+    assert end["position"][1] == pytest.approx(3.0, abs=0.02) and end["on_floor"]
 
 
-def test_player_climbs_building_stairs_to_next_storey(run_godot, tmp_path):
+def test_player_climbs_building_stairs_to_next_storey(godot_script, tmp_path):
     from geogen.layout import LayoutLoader
     from test_building import SMALL
     building = LayoutLoader().load_string(SMALL)
@@ -227,11 +240,10 @@ def test_player_climbs_building_stairs_to_next_storey(run_godot, tmp_path):
     start = stairs[:3, 3] - forward * (3.2 + 0.6)
     yaw = float(np.degrees(np.arctan2(-forward[0], -forward[2])))
     export_scene(building, tmp_path / "small_building.glb")
-    out = run_godot("--scene", "small_building", f"--generated={tmp_path}",
-                    f"--spawn={start[0]},0,{start[2]}", f"--yaw={yaw}", "--walk=2.2")
-    end = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                     .removeprefix("walk result: "))
-    assert end["y"] == pytest.approx(3.65, abs=0.03) and end["on_floor"]
+    run = godot_script([step("player.teleport", pos=[float(start[0]), 0, float(start[2])], yaw=yaw),
+                        step("player.move", seconds=2.2)], "--scene=small_building", f"--generated={tmp_path}")
+    end = run["player.move"]
+    assert end["position"][1] == pytest.approx(3.65, abs=0.03) and end["on_floor"]
 
 
 def _playtest(run_godot, generated, scene, walks=4):
@@ -290,38 +302,36 @@ def test_m2_hotel_playtest_from_street(run_godot, built_scene, tmp_path):
     assert report["rooms"] == 104 and report["targets"] > 200  # lift shafts are excluded (nav: false)
 
 
-def test_ride_lift_and_gates(run_godot, tmp_path):
+def test_ride_lift_and_gates(godot_script, tmp_path):
     from geogen.layout import LayoutLoader
     from test_building import SMALL
     building = LayoutLoader().load_string(SMALL)
-    car = building.find("lift_lift_shaft").world_transform()[:3, 3]
+    car = [float(v) for v in building.find("lift_lift_shaft").world_transform()[:3, 3]]
     export_scene(building, tmp_path / "small_building.glb")
-    args = ("--scene", "small_building", f"--generated={tmp_path}")
-
-    def walk_result(out):
-        return json.loads(next(l for l in out.splitlines() if l.startswith("walk result: "))
-                          .removeprefix("walk result: "))
+    args = ("--scene=small_building", f"--generated={tmp_path}")
 
     # Stand in the car, press the button, ride up one floor and walk out (-Z).
-    out = run_godot(*args, f"--spawn={car[0]},0,{car[2] + 0.2}", "--yaw=0", "--use=lift_lift_shaft",
-                    "--wait=3.6", "--walk=1.2")
-    assert '"state":"floor_1"' in out
-    end = walk_result(out)
-    assert end["y"] == pytest.approx(3.65, abs=0.03) and end["room"] == "lift_lobby"
+    run = godot_script([step("player.teleport", pos=[car[0], 0, car[2] + 0.2], yaw=0),
+                        step("interactions.use", asset="lift_lift_shaft", actor="player"), step("wait", seconds=3.6),
+                        step("interactions.list", asset="lift_lift_shaft"), step("player.move", seconds=1.2)], *args)
+    assert run["interactions.list"][0]["state"] == "floor_1"
+    end = run["player.move"]
+    assert end["position"][1] == pytest.approx(3.65, abs=0.03) and end["room"] == "lift_lobby"
     # With the car down at the lobby, floor 1's gate blocks the empty shaft.
-    out = run_godot(*args, f"--spawn={car[0]},3.65,{car[2] - 2.4}", "--yaw=180", "--walk=1.5")
-    end = walk_result(out)
-    assert end["y"] == pytest.approx(3.65, abs=0.03) and end["z"] < car[2] - 1.0
+    run = godot_script([step("player.teleport", pos=[car[0], 3.65, car[2] - 2.4], yaw=180),
+                        step("player.move", seconds=1.5)], *args)
+    end = run["player.move"]
+    assert end["position"][1] == pytest.approx(3.65, abs=0.03) and end["position"][2] < car[2] - 1.0
 
 
-def test_godot_fixture_lights_and_switch(run_godot, auto_room_dir):
-    def lights(*extra):
-        out = run_godot("--scene", "hotel_room_auto", f"--generated={auto_room_dir}", "--lights", *extra)
-        return json.loads(next(l for l in out.splitlines() if l.startswith("lights: ")).removeprefix("lights: "))
-    report = lights("--quit-after=5")
+def test_godot_fixture_lights_and_switch(godot_script, auto_room_dir):
+    def lights(*before):
+        run = godot_script([*before, step("world.lights")], "--scene=hotel_room_auto", f"--generated={auto_room_dir}")
+        return run["world.lights"]
+    report = lights(step("wait", frames=5))
     assert report["total"] == report["light3d"] == 6          # KHR lights configured, not duplicated
     assert all(f["visible"] for f in report["fixtures"].values())
-    report = lights("--use=bedroom_switch_1", "--quit-after=40")
+    report = lights(step("interactions.use", asset="bedroom_switch_1", actor="player"), step("wait", frames=40))
     assert report["fixtures"]["bedroom_light"]["visible"] is False
     assert report["fixtures"]["bathroom_light"]["visible"] is True
 
@@ -348,8 +358,16 @@ def test_floor_plan_switch_can_be_aimed_at_and_used(godot_runtime, built_scene, 
     assert rt.call("interactions.list", asset="bedroom_switch_1")[0]["target"] == "off"
 
 
-def _lines(out, prefix):
-    return [json.loads(l.removeprefix(prefix)) for l in out.splitlines() if l.startswith(prefix)]
+def stand(pos, yaw, pitch=0.0) -> list[dict]:
+    """Steps that put the player at ``pos`` facing ``yaw``, looking ``pitch`` degrees up (-: down)."""
+    return [step("player.teleport", pos=[float(v) for v in pos], yaw=yaw), step("player.look", pitch=pitch)]
+
+
+INTERACTIONS = step("events.subscribe", streams=["interaction"])
+
+
+def interaction_events(run) -> list[dict]:
+    return [e["data"] for e in run.events if e["event"] == "interaction"]
 
 
 @pytest.fixture(scope="module")
@@ -361,92 +379,95 @@ def small_building_dir(tmp_path_factory):
     return out
 
 
-def _guest_door_args(small_building_dir):
-    # Standing in the first-floor corridor facing room 101's door.
-    return ("--scene", "small_building", f"--generated={small_building_dir}", "--spawn=-9.2,3.65,-0.3",
-            "--yaw=180")
+# Standing in the first-floor corridor facing room 101's door.
+GUEST_DOOR = stand([-9.2, 3.65, -0.3], 180)
 
 
-def test_locked_guest_door_needs_its_key(run_godot, small_building_dir):
-    args = _guest_door_args(small_building_dir)
-    out = run_godot(*args, "--use=@aim", "--wait=1.2", "--walk=1.2")
-    assert _lines(out, "interaction event: ")[0]["event"] == "locked"
-    assert _lines(out, "walk result: ")[0]["room"] == "corridor"
-    out = run_godot(*args, "--keys=key_room_101", "--lock=@aim", "--use=@aim", "--wait=1.2", "--walk=1.2")
-    events = [e["event"] or e["state"] for e in _lines(out, "interaction event: ")]
-    assert events[:2] == ["unlocked", "open"]
-    assert _lines(out, "walk result: ")[0]["room"] == "room_101_entry"
+def test_locked_guest_door_needs_its_key(godot_script, small_building_dir):
+    args = ("--scene=small_building", f"--generated={small_building_dir}")
+    run = godot_script([*GUEST_DOOR, INTERACTIONS, step("player.use", retry=2), step("wait", seconds=1.2),
+                        step("player.move", seconds=1.2)], *args)
+    assert interaction_events(run)[0]["event"] == "locked"
+    assert run["player.move"]["room"] == "corridor"
+    run = godot_script([*GUEST_DOOR, INTERACTIONS, step("player.lock", retry=2), step("player.use"),
+                        step("wait", seconds=1.2), step("player.move", seconds=1.2)], *args, "--keys=key_room_101")
+    assert [e["event"] or e["state"] for e in interaction_events(run)][:2] == ["unlocked", "open"]
+    assert run["player.move"]["room"] == "room_101_entry"
 
 
-def test_guest_door_closes_itself(run_godot, small_building_dir):
-    import subprocess
-    from conftest import GODOT_PROJECT, _godot_binary
-    result = subprocess.run([_godot_binary(), "--headless", "--fixed-fps", "60", "--path", str(GODOT_PROJECT), "--",
-                             *_guest_door_args(small_building_dir), "--keys=key_room_101", "--lock=@aim",
-                             "--use=@aim", "--quit-after=560", "--status"], capture_output=True, text=True, timeout=300)
-    states = [e["state"] for e in _lines(result.stdout, "interaction event: ")]
+def test_guest_door_closes_itself(godot_script, small_building_dir):
+    run = godot_script([*GUEST_DOOR, INTERACTIONS, step("player.lock", retry=2), step("player.use"),
+                        step("wait", frames=560)],
+                       "--scene=small_building", f"--generated={small_building_dir}", "--keys=key_room_101",
+                       engine_args=("--fixed-fps", "60"))
+    states = [e["state"] for e in interaction_events(run)]
     assert states[-2:] == ["open", "closed"]           # opened, then closed after 6 s
 
 
-def test_sit_lie_and_stand(run_godot, auto_room_dir):
-    base = ("--scene", "hotel_room_auto", f"--generated={auto_room_dir}")
+def test_sit_lie_and_stand(godot_script, auto_room_dir):
+    base = ("--scene=hotel_room_auto", f"--generated={auto_room_dir}")
     # Beside the bed, looking down at its middle: lie down.
-    out = run_godot(*base, "--spawn=-1.9,0,-1.55", "--yaw=180", "--pitch=-50", "--use=@aim",
-                    "--quit-after=20", "--status")
-    status = _lines(out, "status: ")[0]
+    run = godot_script([*stand([-1.9, 0, -1.55], 180, -50), step("player.use", retry=2), step("wait", frames=20),
+                        step("player.status")], *base)
+    status = run["player.status"]
     assert status["pose"] == "lie" and status["pose_asset"] == "bed"
-    assert status["eye_y"] == pytest.approx(0.62 + 0.25, abs=0.02)
+    assert status["eye"][1] == pytest.approx(0.62 + 0.25, abs=0.02)
     # At the foot of the bed: sit on its edge; walking stands you back up.
-    out = run_godot(*base, "--spawn=-0.6,0,-0.4", "--yaw=90", "--pitch=-45", "--use=@aim", "--wait=0.4", "--walk=0.3")
-    end = _lines(out, "walk result: ")[0]
-    assert end["y"] == pytest.approx(0.0, abs=0.02) and end["room"] == "bedroom"
+    run = godot_script([*stand([-0.6, 0, -0.4], 90, -45), step("player.use", retry=2), step("wait", seconds=0.4),
+                        step("player.move", seconds=0.3)], *base)
+    end = run["player.move"]
+    assert end["position"][1] == pytest.approx(0.0, abs=0.02) and end["room"] == "bedroom"
 
 
-def test_save_and_restore_interaction_state(run_godot, auto_room_dir, tmp_path):
-    base = ("--scene", "hotel_room_auto", f"--generated={auto_room_dir}")
+def test_save_and_restore_interaction_state(godot_script, auto_room_dir, tmp_path):
+    base = ("--scene=hotel_room_auto", f"--generated={auto_room_dir}")
     save = tmp_path / "save.json"
-    run_godot(*base, "--use=bedroom_switch_1", "--use=nightstand", "--quit-after=60", f"--save={save}")
+    godot_script([step("interactions.use", asset="bedroom_switch_1", actor="player"),
+                  step("interactions.use", asset="nightstand", actor="player"), step("wait", frames=60),
+                  step("state.save", path=str(save))], *base)
     saved = json.loads(save.read_text())
     # Keyed by stable ID (geogen.refs), not by exported node name.
     room = "hotel_room_auto:suite/bedroom"
     assert saved["format"] == "geogen-save"
     assert saved["world"][f"{room}/bedroom_switch_1#switch"] == "off"
     assert saved["world"][f"{room}/nightstand#drawer"] == "open"
-    out = run_godot(*base, f"--load={save}", "--lights", "--quit-after=5")
-    assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
+    run = godot_script([step("wait", frames=5), step("world.lights")], *base, f"--load={save}")
+    assert run["world.lights"]["fixtures"]["bedroom_light"]["visible"] is False
 
 
-def test_m4_interactive_hotel_room(run_godot, built_scene, auto_room_dir):
+def test_m4_interactive_hotel_room(godot_script, built_scene, auto_room_dir):
     """Milestone M4: in the furnished suite, lock/unlock and open the room door,
     open the wardrobe and a nightstand drawer, switch the lights, sit on the
     chair and lie on the bed."""
     chair = built_scene("hotel_room_auto").find("chair").world_transform()[:3, 3]
-    base = ("--scene", "hotel_room_auto", f"--generated={auto_room_dir}")
+    base = ("--scene=hotel_room_auto", f"--generated={auto_room_dir}")
 
     # The door: locked from the corridor spawn without the key, opens with it.
-    out = run_godot(*base, "--use=@aim", "--wait=1.0", "--walk=1.0")
-    assert _lines(out, "interaction event: ")[0]["event"] == "locked"
-    out = run_godot(*base, "--keys=key_suite", "--lock=@aim", "--use=@aim", "--wait=1.0", "--walk=1.4")
-    assert _lines(out, "walk result: ")[0]["room"] in ("corridor", "bedroom")   # through the door
+    run = godot_script([INTERACTIONS, step("player.use", retry=2), step("wait", seconds=1.0),
+                        step("player.move", seconds=1.0)], *base)
+    assert interaction_events(run)[0]["event"] == "locked"
+    run = godot_script([step("player.lock", retry=2), step("player.use"), step("wait", seconds=1.0),
+                        step("player.move", seconds=1.4)], *base, "--keys=key_suite")
+    assert run["player.move"]["room"] in ("corridor", "bedroom")   # through the door
     # L with the key toggles the lock (here: unlocks it), without opening the door.
-    out = run_godot(*base, "--keys=key_suite", "--lock=@aim", "--quit-after=10", "--status")
-    entry = _lines(out, "status: ")[0]["states"]["hotel_room_auto:suite/entry#swing"]
-    assert entry == {"locked": False, "state": "closed"}
+    run = godot_script([step("player.lock", retry=2), step("wait", frames=10), step("interactions.states")],
+                       *base, "--keys=key_suite")
+    assert run["interactions.states"]["hotel_room_auto:suite/entry#swing"] == {"locked": False, "state": "closed"}
     # Wardrobe doors, a drawer and the bedroom light.
-    out = run_godot(*base, "--use=wardrobe", "--use=nightstand", "--use=bedroom_switch_1", "--quit-after=90",
-                    "--status", "--lights")
-    states = _lines(out, "status: ")[0]["states"]
+    run = godot_script([step("interactions.use", asset=a, actor="player")
+                        for a in ("wardrobe", "nightstand", "bedroom_switch_1")]
+                       + [step("wait", frames=90), step("interactions.states"), step("world.lights")], *base)
+    states = run["interactions.states"]
     room = "hotel_room_auto:suite/bedroom"
     assert states[f"{room}/wardrobe#doors"]["state"] == "open" and states[f"{room}/nightstand#drawer"]["state"] == "open"
-    assert _lines(out, "lights: ")[0]["fixtures"]["bedroom_light"]["visible"] is False
+    assert run["world.lights"]["fixtures"]["bedroom_light"]["visible"] is False
     # Sit on the chair (looking down at it from in front), lie on the bed.
-    out = run_godot(*base, f"--spawn={chair[0]},0,{chair[2] + 1.0}", "--yaw=0", "--pitch=-50", "--use=@aim",
-                    "--quit-after=20", "--status")
-    status = _lines(out, "status: ")[0]
-    assert (status["pose"], status["pose_asset"]) == ("sit", "chair")
-    out = run_godot(*base, "--spawn=-1.9,0,-1.55", "--yaw=180", "--pitch=-50", "--use=@aim", "--quit-after=20", "--status")
-    status = _lines(out, "status: ")[0]
-    assert (status["pose"], status["pose_asset"]) == ("lie", "bed")
+    run = godot_script([*stand([chair[0], 0, chair[2] + 1.0], 0, -50), step("player.use", retry=2),
+                        step("wait", frames=20), step("player.status")], *base)
+    assert (run["player.status"]["pose"], run["player.status"]["pose_asset"]) == ("sit", "chair")
+    run = godot_script([*stand([-1.9, 0, -1.55], 180, -50), step("player.use", retry=2), step("wait", frames=20),
+                        step("player.status")], *base)
+    assert (run["player.status"]["pose"], run["player.status"]["pose_asset"]) == ("lie", "bed")
 
 
 STRIP = """
@@ -476,16 +497,15 @@ def strip_dir(tmp_path_factory):
     return out
 
 
-def _stream_walk(run_godot, generated, seconds, *extra):
-    out = run_godot("--scene", "strip", f"--generated={generated}", "--stream-radius=20,1000,6",
-                    f"--walk={seconds}", *extra)
-    assert "geogen: streaming strip.chunks.json (6 chunks)" in out
-    line = next(l for l in out.splitlines() if l.startswith("walk result: "))
-    return json.loads(line.removeprefix("walk result: "))
+def _stream_walk(godot_script, generated, seconds, *extra):
+    run = godot_script([step("player.move", seconds=seconds)], "--scene=strip", f"--generated={generated}",
+                       "--stream-radius=20,1000,6", *extra)
+    assert "geogen: streaming strip.chunks.json (6 chunks)" in run.output
+    return run["player.move"]
 
 
-def test_stream_loads_near_chunks_full_and_far_ones_as_lod(run_godot, strip_dir):
-    end = _stream_walk(run_godot, strip_dir, 0.3)
+def test_stream_loads_near_chunks_full_and_far_ones_as_lod(godot_script, strip_dir):
+    end = _stream_walk(godot_script, strip_dir, 0.3)
     stream = end["stream"]
     assert "base" in stream["full"] and "block_0_0" in stream["full"]
     assert {"block_2_0", "block_3_0", "block_4_0"} <= set(stream["lod"])
@@ -493,18 +513,18 @@ def test_stream_loads_near_chunks_full_and_far_ones_as_lod(run_godot, strip_dir)
     assert end["on_floor"]                      # the street loaded under the spawn
 
 
-def test_stream_swaps_detail_as_the_player_walks(run_godot, strip_dir):
-    end = _stream_walk(run_godot, strip_dir, 12)
-    assert end["x"] > -35                       # walked east along the avenue
+def test_stream_swaps_detail_as_the_player_walks(godot_script, strip_dir):
+    end = _stream_walk(godot_script, strip_dir, 12)
+    assert end["position"][0] > -35             # walked east along the avenue
     stream = end["stream"]
     assert "block_1_0" in stream["full"] and "block_0_0" in stream["lod"]
     assert stream["unloads"] > 0
 
 
-def test_stream_loads_interiors_next_to_buildings(run_godot, strip_dir):
-    out = run_godot("--scene", "strip", f"--generated={strip_dir}", "--stream-radius=20,1000,6",
-                    "--spawn=-80,0.2,-12.5", "--quit-after=90", "--status")
-    status = json.loads(next(l for l in out.splitlines() if l.startswith("status: ")).removeprefix("status: "))
+def test_stream_loads_interiors_next_to_buildings(godot_script, strip_dir):
+    run = godot_script([step("wait", frames=90), step("player.status")], "--scene=strip", f"--generated={strip_dir}",
+                       "--stream-radius=20,1000,6", "--spawn=-80,0.2,-12.5")
+    status = run["player.status"]
     assert status["stream"]["interiors"] and all(i.startswith("block_0_0/") for i in status["stream"]["interiors"])
 
 
@@ -548,10 +568,10 @@ def district(tmp_path_factory, built_scene):
     return out, index, entrances
 
 
-def _district_walk(run_godot, generated, *args):
-    out = run_godot("--scene", "town", f"--generated={generated}", *args)
-    assert "geogen: streaming town.chunks.json" in out
-    return json.loads(next(l for l in out.splitlines() if l.startswith("walk result: ")).removeprefix("walk result: "))
+def _district_walk(godot_script, generated, steps, *args):
+    run = godot_script(steps, "--scene=town", f"--generated={generated}", *args)
+    assert "geogen: streaming town.chunks.json" in run.output
+    return run["player.move"]
 
 
 def test_m3_district_exports_streamable_chunks(district):
@@ -566,44 +586,44 @@ def test_m3_district_exports_streamable_chunks(district):
     assert not any("office" in b for b in interiors)
 
 
-def test_m3_walk_the_street(run_godot, district):
+def test_m3_walk_the_street(godot_script, district):
     generated, _, _ = district
-    end = _district_walk(run_godot, generated, "--walk=1.5")
-    assert end["on_floor"] and end["z"] > 2          # walked north across the avenue onto the sidewalk
+    end = _district_walk(godot_script, generated, [step("player.move", seconds=1.5)])
+    assert end["on_floor"] and end["position"][2] > 2          # walked north across the avenue onto the sidewalk
     assert "base" in end["stream"]["full"]
 
 
-def test_m3_enter_a_shop(run_godot, district):
+def test_m3_enter_a_shop(godot_script, district):
     generated, _, entrances = district
     shop = next(e for e in entrances["shop_row"] if not e["shell"])
-    end = _district_walk(run_godot, generated, f"--spawn={shop['spawn']}", f"--yaw={shop['yaw']}",
-                         "--use=shop_door", "--wait=1.5", "--walk=1.6")
+    end = _district_walk(godot_script, generated,
+                         [step("interactions.use", asset="shop_door", actor="player"), step("wait", seconds=1.5),
+                          step("player.move", seconds=1.6)], f"--spawn={shop['spawn']}", f"--yaw={shop['yaw']}")
     assert end["room"] == "shop"
     assert any(shop["name"] in i for i in end["stream"]["interiors"])
 
 
-def test_m3_enter_the_hotel(run_godot, district):
+def test_m3_enter_the_hotel(godot_script, district):
     generated, _, entrances = district
     hotel = entrances["hotel"][0]
-    end = _district_walk(run_godot, generated, f"--spawn={hotel['spawn']}", f"--yaw={hotel['yaw']}",
-                         "--use=entrance", "--wait=2", "--walk=2")
+    end = _district_walk(godot_script, generated,
+                         [step("interactions.use", asset="entrance", actor="player"), step("wait", seconds=2),
+                          step("player.move", seconds=2)], f"--spawn={hotel['spawn']}", f"--yaw={hotel['yaw']}")
     assert end["room"] == "lobby"
 
 
-def _stream_nav(run_godot, generated, spawn, query):
-    out = run_godot("--scene", "strip", f"--generated={generated}", "--stream-radius=20,1000,12",
-                    f"--spawn={spawn}", f"--nav={query}")
-    return json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
+def _stream_nav(godot_script, generated, spawn, a, b):
+    return _nav(godot_script, generated, "strip", a, b, "--stream-radius=20,1000,12", f"--spawn={spawn}")
 
 
-def test_stream_navigation_tiles_join_along_the_street(run_godot, strip_dir):
+def test_stream_navigation_tiles_join_along_the_street(godot_script, strip_dir):
     # -72 is a 24 m tile boundary: the path runs straight through it.
-    path = _stream_nav(run_godot, strip_dir, "-75,0,-20", "-75,-20:-60,-20")
+    path = _stream_nav(godot_script, strip_dir, "-75,0,-20", (-75, -20), (-60, -20))
     assert path["reached"] and path["length"] == pytest.approx(15.0, abs=0.3)
 
 
-def test_stream_navigation_reaches_into_a_shop(run_godot, strip_dir):
+def test_stream_navigation_reaches_into_a_shop(godot_script, strip_dir):
     # From the avenue, up the curb and through the (closed, ignored) shop door onto its floor.
-    path = _stream_nav(run_godot, strip_dir, "-80,0.2,-18", "-80,-20:-80.97,-7.5")
+    path = _stream_nav(godot_script, strip_dir, "-80,0.2,-18", (-80, -20), (-80.97, -7.5))
     assert path["reached"] and path["end_gap"] < 0.4
     assert max(p[1] for p in path["points"]) > 0.2          # on the shop floor, above the sidewalk

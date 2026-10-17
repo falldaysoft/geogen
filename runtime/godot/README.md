@@ -126,7 +126,7 @@ with Godot's import suffixes (`<name>-colonly` = trimesh, `<name>-convcolonly`
 exports without collider nodes get a trimesh collider per mesh). Node extras
 (`extras.geogen`, schema in `docs/schema/geogen-extras.v1.schema.json`) arrive
 as `get_meta("extras")`; room volumes drive the overlay's `room:` readout and
-the `room` field of `--walk` results. Without `--spawn`, the player starts at
+the `room` field of `player.move` / `player.status` results. Without `--spawn`, the player starts at
 the manifest's first spawn point. Interactions in node extras (e.g. the
 cottage door's `swing`) become `GeogenInteraction` nodes (`scripts/interaction.gd`):
 look at the door within reach and press E to open or close it (L locks/unlocks with a held key; timed states like self-closing guest doors advance on their own; an interaction with a `when` offers nothing while the rules program says it is false, `GeogenRules.allows`); colliders on
@@ -162,32 +162,38 @@ User args (after `--`):
 | `--spawn=X,Y,Z`, `--yaw=DEG` | Player start (default: 3 m in front (+Z) of the model, facing it) |
 | `--camera=overview` | Start on the overview camera |
 | `--colliders` | Show collider wireframes |
-| `--walk=SECONDS` | Walk forward, print `walk result: {...}` and quit (used by tests) |
-| `--use=ASSET`, `--use=@aim` | Use an asset's interactions (e.g. `door`) or whatever the player looks at, at start |
-| `--nav=AX,AZ:BX,BZ` | Print the navigation path between two floor points (`nav path: {...}`) and quit; `X,Y,Z` points snap from that height (terrain), and it waits for tiled navmeshes to settle |
+| `--script=FILE`, `--run=JSON` | Run control API commands once the world is loaded: a script (`{start?, steps: [{cmd, args, retry?, id?}], stop_on_error?}`, [docs/schema/geogen-control.v1.schema.json](../../docs/schema/geogen-control.v1.schema.json)); each step prints `script: {...}`, then `script done: {...}` and the runtime quits (exit 1 if a step failed). See [Scripts](#scripts) |
+| `--walk=SECONDS` | `player.move` forward (the action flags below are shorthand for script steps) |
+| `--use=ASSET`, `--use=@aim` | `interactions.use` on an asset's interactions (e.g. `door`), or `player.use` on whatever the player looks at |
+| `--nav=AX,AZ:BX,BZ` | `wait_ready` then `world.nav_path` between two floor points; `X,Y,Z` points snap from that height (terrain) |
 | `--open-doors=GLOB` | Open the doors whose name matches before the navmesh bake and hold them (their leaves are obstacles; the rest stay out of the bake as usual): a route a test walks, e.g. `door_*stair*` |
 | `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one. Carried items count too: an item whose id is the lock's key, or whose `opens` (globs) matches it (manifest `items`, `GeogenRules.carried_keys`, `main.held_keys`) |
-| `--lock=@aim` | Press L on whatever the player looks at |
+| `--lock=@aim` | `player.lock`: press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |
-| `--save=PATH`, `--load=PATH` | Write the game's state on quit / restore it at start (before `--set` / `--quests`): a `geogen-save` (see "Saving" below) of every package visited. Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
-| `--status` | Print the player's pose, room and interaction states on quit |
-| `--lights` | Print fixture lights on quit |
-| `--wait=SECONDS` | Delay the `--walk` (let a door finish swinging) |
-| `--screenshot=PATH` | Save a frame and quit (needs a GPU, not `--headless`) |
-| `--quit-after=N` | Quit after N frames |
+| `--save=PATH`, `--load=PATH` | `state.save` at the end / restore a save at start (before `--set`): a `geogen-save` (see "Saving" below) of every package visited. Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |
+| `--status` | `player.status` at the end |
+| `--lights` | `world.lights` at the end |
+| `--wait=SECONDS` | `wait` before the `--walk` (let a door finish swinging) |
+| `--screenshot=PATH` | `capture.screenshot` (needs a GPU, not `--headless`), after `--quit-after` or 10 frames |
+| `--quit-after=N` | `wait` N physics frames |
 | `--manifest=PATH` | Use the player spec from this manifest |
 | `--list-scenes` | Print the scene catalogue (name, group, exported, description) and `scenes: {...}`, then quit |
-| `--switch=NAME[@S]` | Switch to scene NAME after S s (default 1; repeatable); prints `switched:` / `switch stats:`, then quits unless `--walk` / `--status` / `--screenshot` follow |
+| `--switch=NAME[@S]` | `world.switch` to scene NAME at S s (default 1; repeatable), then `world.stats` (node and object counts); the runtime also prints `switched: {...}` |
 | `--menu` | Open the scene list at start (for screenshots) |
 | `--timings` | Print each load's phases as `load timings: {...}` (ms: glTF parse, materials, colliders, NPCs, traffic, navigation, ... and `nav_cache` hit/miss) |
 | `--npc-trace` | Print every NPC decision (top-3 scores) and step as `npc: {...}` lines |
 | `--timescale=N` | Run the world N times faster (physics ticks scale with it, so movement stays exact) |
-| `--simulate=SECONDS` | Run SECONDS of world time, print `npc summary: [...]` and quit (with `--screenshot`, capture then quit) |
+| `--simulate=SECONDS` | `time.simulate`: run SECONDS of world time and report NPCs, traffic, trains and cost |
 | `--npc-labels` | Show each NPC's current action and needs above it (F5 toggles) |
 | `--camera=follow[:NAME]` | Watch an NPC (the first, or the one whose name starts with NAME) from a clear viewpoint |
 | `--play=ANIM[@SECONDS]` | Loop every animation named `ANIM` or `<node>_ANIM` (skeletal clips, interaction animations); `@SECONDS` freezes it there |
 | `--api[=PORT]` | Serve the control API on `127.0.0.1:PORT` (default 7878, 0 = a free port); see [Control API](#control-api) |
-| `--skeletons` | Print `skeletons: {...}` on quit: each Skeleton3D's bone positions, its skinned meshes' world bounds (CPU-skinned like the renderer) and the animations |
+| `--skeletons` | `world.skeletons` at the end: each Skeleton3D's bone positions, its skinned meshes' world bounds (CPU-skinned like the renderer) and the animations |
+| `--quests`, `--greet=NAME[@S]` | `quests.list` first; `npcs.greet` at S s of world time (default 2) |
+
+The action flags (`--walk`, `--use`, `--lock`, `--wait`, `--nav`, `--simulate`, `--quit-after`, `--screenshot`,
+`--save`, `--status`, `--lights`, `--skeletons`, `--quests`, `--greet`, `--switch`) run as script steps, after any
+`--script` steps, in the order `main.gd`'s header lists; the others set how the world starts.
 
 Skinned exports (glTF skins, e.g. `-s skin_test`) import as `Skeleton3D` +
 skinned `MeshInstance3D` + `AnimationPlayer`; joint nodes keep their own
@@ -207,7 +213,7 @@ cross-fade into the pose clip instead. While standing it plays `walk`
 (speed-scaled to the NPC's velocity over the clip's recorded speed, so feet
 don't slide) or `idle`.
 
-`--simulate` also prints `npc cost: {npcs, script_us, physics_ms, physics_p95_ms,
+`time.simulate` (`--simulate`) also reports `cost: {npcs, script_us, physics_ms, physics_p95_ms,
 process_ms, frame_ms, frame_p95_ms, frame_max_ms, draw_calls, primitives, objects}`
 over the simulated time only: mean NPC script time per physics frame (also per NPC as
 `cost_us` in the summary), every physics tick's callbacks timed directly (mean and 95th
@@ -265,11 +271,41 @@ it headless (wall blocks, door step is climbed, closed door blocks). The
 hotel lobby; `test_stream_*` check what loads at full, LOD and interior
 detail as the player moves along a five-block street.
 
+## Scripts
+
+A script is the control protocol as a file: how the world starts, and commands to run in order.
+
+```json
+{"start": {"spawn": [0, 0, 6.4], "yaw": 0, "time": "21:30", "timescale": 8},
+ "steps": [{"cmd": "interactions.use", "args": {"asset": "door"}},
+           {"cmd": "wait", "args": {"seconds": 1.2}},
+           {"cmd": "player.move", "args": {"seconds": 1.5}},
+           {"cmd": "player.status"}]}
+```
+
+`godot --headless --path runtime/godot -- --scene cottage --script=walk.json` runs it once the world
+is loaded and prints a `script: {"step", "cmd", "ok", "result" | "error"}` line per step (subscribed
+streams print `script event: {...}`), then `script done: {"steps", "ok"}`, and exits (1 if a step
+failed; `stop_on_error: false` runs on). `start` sets what the launch flags do (spawn, yaw, pitch,
+time, day_length, timescale, keys, load, set, give, stream_radius, open_doors, npc_limit) before the
+world loads. A step's `retry: S` tries a failing step again each physics frame for up to S world
+seconds (the aimed thing isn't in view yet). With `--api` too, the script runs and the API keeps
+serving.
+
+From Python, `geogen.runtime_client.run_script(steps, scene, generated=..., start=...)` launches and
+collects the results (`run["player.move"]`, `run.all("world.nav_path")`, `run.events`), and
+`RuntimeClient.run_script(steps)` runs the same steps on a live runtime. Tests use the `godot_script`
+fixture, which validates each script against the schema first: the scenarios are written against the
+protocol, not against Godot, so another runtime that implements it can run them.
+
 ## Control API
 
 `--api[=PORT]` (`scripts/api.gd`) keeps one world running and answers newline-delimited
 JSON on a localhost socket, so tools, tests and agents ask many questions of one process
-instead of launching one per `--walk` / `--nav` / `--status`. Requests are
+instead of launching one per check. The protocol is runtime-neutral and specified in
+[docs/schema/geogen-control.v1.schema.json](../../docs/schema/geogen-control.v1.schema.json)
+(generated from `COMMANDS` by `docs/schema/make_control_schema.py`; `tests/test_control_schema.py`
+keeps them in step); the same commands also run as a [script](#scripts). Requests are
 `{"id", "cmd", "args"}`, replies `{"id", "ok", "result" | "error"}`; after
 `events.subscribe` the connection also gets `{"event", "data"}` lines (streams `events`: the whole event bus, `interaction`,
 `npc` traces, `room` enter/exit, `place` enter/leave by any actor, `travel`, `traffic` incl. trains). Points are `[x, y, z]`
@@ -447,7 +483,7 @@ that keeps each vehicle as (lane, s, v), with the axles on the curve so it turns
   navmesh, and never push anything. Wheels spin at v / r. Vehicles that drive off an open route
   come back at a route start.
 
-`--simulate=S` also prints `traffic summary: [...]`: vehicles, distance, overlaps, idle and wait
+`time.simulate` also reports `traffic: [...]`: vehicles, distance, overlaps, idle and wait
 times, claims, turns, yields and the closest stop to a person, and for pedestrian signals
 `pedestrian_heads`, how often they turned (`walks`, `flashes`, `dont_walks`) and `walk_conflicts`
 (checks that found one not at don't-walk while the traffic across it wasn't at red). `--traffic-trace` prints claims,
@@ -491,7 +527,7 @@ leaving (`quests/catch_train.yaml`). Each platform is a place (`station_<name>`)
   interaction goes `down`, and road traffic (traffic.gd) waits at the lanes' stop points unless
   a vehicle is already past them.
 
-Vehicles with `vehicle.sound` get synthesised audio from `scripts/sound.gd` (no files). The engine is a looping hum whose pitch follows speed, and trains sound their `horn` when a crossing closes ahead. `--simulate` prints `train summary`. `-s level_crossing` is the test scene; see
+Vehicles with `vehicle.sound` get synthesised audio from `scripts/sound.gd` (no files). The engine is a looping hum whose pitch follows speed, and trains sound their `horn` when a crossing closes ahead. `time.simulate` reports `trains`. `-s level_crossing` is the test scene; see
 `tests/test_traffic_runtime.py` (crossings closed with no vehicle inside, timetable dwell).
 
 ## Time of day
@@ -518,7 +554,7 @@ up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the 
   much of it is on the road. Surplus vehicles park, and parked ones return, only 45 m or more
   from the player.
 
-`--status` reports `clock`, `night` and `lamps_on`, and the NPC and traffic summaries include
+`time.clock` reports `clock` and `night`, `world.lights` which lamps are on, and the NPC and traffic reports include
 `away` / `returns` and `share` / `parked`. See the night and morning tests in
 `tests/test_traffic_runtime.py`.
 
@@ -548,9 +584,9 @@ Navigation comes as 24 m tiles within 30 m of the player, baked from the loaded 
 - Each tile is clipped to its own box with a border, so neighbouring tiles join edge to edge.
 - Parsing happens on the main thread and baking runs async.
 - A tile re-bakes when a chunk or interior overlapping it loads or unloads.
-- `--nav` queries wait until the nearby tiles are baked.
+- `wait_ready` (and so `--nav`) waits until the nearby tiles are baked.
 
-The overlay shows full / LOD / interior counts, and `--walk` / `--status` results carry a `stream` report (including `nav_tiles`). `--playtest` still needs a single-file export, since it checks every room at once.
+The overlay shows full / LOD / interior counts, and `player.status` / `player.move` results carry a `stream` report (including `nav_tiles`). `--playtest` still needs a single-file export, since it checks every room at once.
 
 ## Stable IDs
 
@@ -811,7 +847,7 @@ lift, a switch and bound lamps, a place and a quest.
   start is stored, so `load_state()` puts everything a save doesn't mention back as it was
   exported. A flat save from before the format (`{"<uid>#<interaction>": {state, locked}}`,
   the rules state under `geogen:rules`) still loads, and only moves what it names.
-  `--status` still prints `states` as `{key: {state, locked}}`.
+  `interactions.states` reports them as `{key: {state, locked}}`.
   - The save also holds every other package visited this session, as it was left
     (`packages`), and the content packages' values (`carried`); loading takes them up
     (`GeogenRules.take_save`), so a fresh process resumes each scene when it is visited
@@ -819,7 +855,7 @@ lift, a switch and bound lamps, a place and a quest.
     another scene loads this one's part from `packages`, or starts it afresh.
   - Loading sets the world clock (`GeogenClock.hours`: sun, sky, night lights) to the
     save's, not only the rules program's.
-  - `--load` is applied before `--set` and `--quests`, which act on what it restored.
+  - `--load` is applied before `--set` (and before any script step), which acts on what it restored.
   - While an interaction's chunk is unloaded the rules program holds its state
     (`GeogenRules.release`, `hold_absent` after a load): rules read it as it was left and
     may drive it, and its node takes the program's value when the chunk loads (`adopt`).
@@ -835,7 +871,7 @@ quest event: {"quest":"lighthouse_gallery","title":"The view from the top","acto
 quest event: {"quest":"lighthouse_gallery","title":"The view from the top","actor":"player","event":"complete","status":"complete","from":"active"}
 ```
 
-- `--quests` prints `quests: [...]` for the player once the world is loaded:
+- `quests.list` (`--quests`) reports every quest for the player:
   each quest's status and objectives (`done | open | waiting`, `progress: [n, of]`,
   and `markers`: the world position of an open objective's subjects).
 - `--set=KEY=VALUE` sets a variable at start (`world:pkg.name`, `actor:pkg.name`
@@ -1041,8 +1077,7 @@ when the quest ended ("not done"). J or Esc closes it.
 `quests` is in display order; `done` / `of` count required objectives; `rect`
 is the frame (`[]` while closed). `select` takes a quest id, `<package>/<id>`,
 `next` or `previous` (an error if it isn't listed); `track: true` tracks the
-selected quest (an error if it isn't active). Headless `--quests` and
-`quests.list` print the same data as before. Tests: `tests/test_hud_log_runtime.py`.
+selected quest (an error if it isn't active). `quests.list` returns the same data as before. Tests: `tests/test_hud_log_runtime.py`.
 
 **Markers** (`scripts/hud_markers.gd`, panel `markers`, slot `screen`, drawn
 under the other panels): an indicator in the world over what each open

@@ -82,7 +82,7 @@ Worked examples of projects built on geogen: `examples/sandwich`, `examples/test
 
 - Godot 4.7, Forward+, Jolt physics (write physics code for Jolt; don't fake physics with kinematic tracks). 1 unit = 1 m.
 - Wrap ad-hoc runs in a timeout: a GDScript parse error leaves the process running, and macOS has no `timeout` (`perl -e 'alarm shift; exec @ARGV' 300 godot ...`). After adding a `class_name` script, re-import (`godot --headless --path runtime/godot --import`) before launching.
-- Prefer the control API (`--api`, `geogen.runtime_client`, pytest fixture `godot_runtime`) to one-shot `--walk` / `--nav` / `--status` launches when checking runtime behaviour. Screenshots need the windowed default, not `--headless`.
+- Drive the runtime through the control protocol (`docs/schema/geogen-control.v1.schema.json`, runtime-neutral: Godot is the first of several runtimes): live with `--api` (`geogen.runtime_client`, fixture `godot_runtime`), or as a script of steps (`--script`, `runtime_client.run_script`, fixture `godot_script`). Write runtime tests as `godot_script` scenarios, not Godot flags. A new API command goes in `api.gd` `COMMANDS`, then `python docs/schema/make_control_schema.py`. Screenshots need the windowed default, not `--headless`.
 - Runtime path queries go through `GeogenWalker.find_path` (no polygon search limit). A whole export's navmesh syncs in step with physics frames (reproducible simulations); streamed exports sync asynchronously.
 
 ## Key Conventions
@@ -101,7 +101,7 @@ Worked examples of projects built on geogen: `examples/sandwich`, `examples/test
 Always test changes by:
 - Rendering a png of the update into /tmp and looking at it; if it's too small to see clearly, iterate until you get a good view.
 - When you generate or update an object, render it from the front and side and make sure it looks correct and consistent.
-- For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); use `--walk=SECONDS` with `--spawn` / `--yaw` for headless movement checks (see `tests/test_godot_runtime.py`).
+- For runtime changes, export with `--export-godot` and screenshot the Godot view (`-- --scene X --screenshot=out.png`, add `--colliders` / `--camera=overview`); for headless movement checks use `--spawn` / `--yaw` with `--walk=SECONDS --status` (shorthand for script steps; each result prints as `script: {...}`), see `tests/test_godot_runtime.py`.
 - `pytest` includes Godot runs (`tests/conftest.py` `run_godot` fixture); they skip if Godot isn't installed (`$GODOT` overrides the binary).
 
 **Tests are expensive: limit runs.** Waiting on them is the biggest drain on a session.

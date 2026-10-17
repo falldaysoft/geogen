@@ -11,6 +11,7 @@ from geogen.core.skin import Clip, Track, pose_clips, skin_mesh
 from geogen.core.transform import quat_axis_angle, slerp
 from geogen.export import export_scene, read_gltf
 from geogen.scenes.skin_test import JOINTS, build_skinned_tube, create_skin_test_scene
+from geogen.runtime_client import step
 
 
 def test_bind_pose_leaves_mesh_unchanged():
@@ -131,14 +132,13 @@ def test_glb_clips_are_animations_on_joints(skin_glb):
     jsonschema.validate({"geogen": extras}, schema)
 
 
-def test_godot_skins_match_python_pose(run_godot, skin_glb):
+def test_godot_skins_match_python_pose(godot_script, skin_glb):
     """Godot imports Skeleton3D + skin + AnimationPlayer; at t = 1.0 (a clip key on a 30 fps frame,
     Godot's import bake rate) its bones and skinned bounds equal the Python CPU skinning."""
     path, _ = skin_glb
-    out = run_godot("--scene", "skin_test", f"--generated={path.parent}", "--play=sway@1.0", "--skeletons",
-                    "--quit-after=3")
-    report = json.loads(next(l for l in out.splitlines() if l.startswith("skeletons: "))
-                        .removeprefix("skeletons: "))
+    run = godot_script([step("wait", frames=3), step("world.skeletons")], "--scene=skin_test",
+                       f"--generated={path.parent}", "--play=sway@1.0")
+    report = run["world.skeletons"]
     assert set(sum(report["animations"].values(), [])) == {"tube_b_sway", "tube_sway"}
 
     root = create_skin_test_scene()

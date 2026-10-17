@@ -7,6 +7,7 @@ import pytest
 
 from geogen.catalogue import export_catalogue, load_catalogue
 from geogen.export import gameplay_summary
+from geogen.runtime_client import step
 
 
 def _spawns(summary) -> set[str]:
@@ -49,40 +50,44 @@ def hub_dir(tmp_path_factory, built_scene):
     return out
 
 
-def _json_lines(out: str, prefix: str) -> list[dict]:
-    return [json.loads(line.removeprefix(prefix)) for line in out.splitlines() if line.startswith(prefix)]
-
-
 def _spawn(generated, scene, name) -> dict:
     manifest = json.loads((generated / f"{scene}.manifest.json").read_text())
     return next(s for s in manifest["spawns"] if s["name"] == name)
 
 
-def _walk_outward(spawn: dict) -> tuple[str, str]:
-    """--spawn/--yaw to walk from a hub arrival spawn back out through its portal (away from the centre)."""
+def _walk_outward(spawn: dict) -> dict:
+    """A start (spawn, yaw) to walk from a hub arrival spawn back out through its portal (away from the centre)."""
     x, y, z = spawn["position"]
     yaw = math.degrees(math.atan2(-x, -z))   # the player looks along (-sin yaw, -cos yaw)
-    return f"--spawn={x},{y},{z}", f"--yaw={yaw}"
+    return {"spawn": [x, y, z], "yaw": yaw}
 
 
-def test_walk_from_the_hub_to_the_cottage_and_back(run_godot, hub_dir):
+TRAVEL = step("events.subscribe", streams=["travel"])
+
+
+def _travelled(run) -> list[dict]:
+    return [e["data"] for e in run.events if e["event"] == "travel"]
+
+
+def test_walk_from_the_hub_to_the_cottage_and_back(godot_script, hub_dir):
     # From in front of the cottage portal, turn round (the arrival spawn faces the plaza) and walk in.
-    out = run_godot("--generated=%s" % hub_dir, "--scene=hub",
-                    *_walk_outward(_spawn(hub_dir, "hub", "from_cottage")), "--walk=3")
-    travelled = _json_lines(out, "travelled: ")
+    run = godot_script([TRAVEL, step("player.move", seconds=3)], f"--generated={hub_dir}", "--scene=hub",
+                       start=_walk_outward(_spawn(hub_dir, "hub", "from_cottage")))
+    travelled = _travelled(run)
     assert len(travelled) == 1 and travelled[0]["scene"] == "cottage" and travelled[0]["spawn"] == "from_hub"
     arrival = _spawn(hub_dir, "cottage", "from_hub")["position"]
-    result = _json_lines(out, "walk result: ")[0]
-    assert result["scene"] == "cottage" and (result["x"], result["z"]) == pytest.approx(
+    result = run["player.move"]
+    assert result["scene"] == "cottage" and (result["position"][0], result["position"][2]) == pytest.approx(
         (arrival[0], arrival[2]), abs=0.05)
 
     # And back: the cottage's hub portal is on the west lawn, behind its arrival spawn.
-    out = run_godot("--generated=%s" % hub_dir, "--scene=cottage", "--spawn=-5.4,0,3.5", "--yaw=90", "--walk=3")
-    travelled = _json_lines(out, "travelled: ")
+    run = godot_script([TRAVEL, step("player.move", seconds=3)], f"--generated={hub_dir}", "--scene=cottage",
+                       start={"spawn": [-5.4, 0, 3.5], "yaw": 90})
+    travelled = _travelled(run)
     assert len(travelled) == 1 and travelled[0]["scene"] == "hub" and travelled[0]["spawn"] == "from_cottage"
     arrival = _spawn(hub_dir, "hub", "from_cottage")["position"]
-    result = _json_lines(out, "walk result: ")[0]
-    assert result["scene"] == "hub" and (result["x"], result["z"]) == pytest.approx(
+    result = run["player.move"]
+    assert result["scene"] == "hub" and (result["position"][0], result["position"][2]) == pytest.approx(
         (arrival[0], arrival[2]), abs=0.05)
 
 

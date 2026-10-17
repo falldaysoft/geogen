@@ -9,6 +9,7 @@ from geogen.export import export_scene, manifest_path
 from geogen.layout.composer import SceneComposer
 from test_state import GATE, LAMP, LEVER
 from test_wiring import PLATE, QUEST, SCENE
+from geogen.runtime_client import step
 
 pytestmark = pytest.mark.xdist_group("test_quests_runtime")
 
@@ -115,15 +116,18 @@ def test_progress_survives_a_save_and_a_reload(rt):
     assert quest(rt)["status"] == "complete" and objectives(rt) == {"lit": "done", "open": "done"}
 
 
-def test_the_island_quest_completes_on_the_gallery(scene_export, run_godot):
+def test_the_island_quest_completes_on_the_gallery(scene_export, godot_script):
     """The 'go there' archetype end to end: starts with the game, done on stepping onto the gallery."""
-    out = run_godot("--scene=island", f"--generated={scene_export('island')}", "--quests", "--spawn=39.5,15.5,7",
-                    "--walk=1", engine_args=("--fixed-fps", "60"))
+    run = godot_script([step("quests.list"), step("player.move", seconds=1)], "--scene=island",
+                       f"--generated={scene_export('island')}", start={"spawn": [39.5, 15.5, 7]},
+                       engine_args=("--fixed-fps", "60"))
+    out = run.output
+    # (The quest starts as the world loads, before a script could subscribe: the runtime prints every quest event.)
     events = [json.loads(l.removeprefix("quest event: ")) for l in out.splitlines() if l.startswith("quest event: ")]
     assert [(e["event"], e.get("objective")) for e in events] == [
         ("started", None), ("objective_done", "gallery"), ("complete", None)]
     assert all(e["actor"] == "player" and e["quest"] == "lighthouse_gallery" for e in events)
-    (listed,) = json.loads(next(l for l in out.splitlines() if l.startswith("quests: ")).removeprefix("quests: "))
+    (listed,) = run["quests.list"]
     assert listed["status"] == "active" and listed["objectives"][0]["state"] == "open"
     assert listed["objectives"][0]["markers"] == [
         {"subject": "island:lighthouse/gallery", "position": [39.5, 15.454, 7.0]}]

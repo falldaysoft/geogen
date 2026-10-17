@@ -4,6 +4,7 @@ import pytest
 
 from geogen.main import _build_registry
 from geogen.player import PlayerSpec, load_player_spec
+from geogen.runtime_client import step
 
 
 def test_default_spec_loads_from_assets():
@@ -57,7 +58,7 @@ def test_player_yaml_is_not_a_scene():
 
 
 
-def test_godot_reads_manifest(tmp_path, run_godot):
+def test_godot_reads_manifest(tmp_path, godot_script):
     """The runtime's PlayerSpec parses exactly what the exporter wrote."""
     import json
 
@@ -68,6 +69,6 @@ def test_godot_reads_manifest(tmp_path, run_godot):
                       max_slope_deg=35, door_min_width=0.8, door_min_height=1.9,
                       corridor_min_width=1.0, reach=1.2)
     path = export_scene(_build_registry()["chair"](), tmp_path / "chair.glb", player=spec)
-    out = run_godot("--quit-after=2", f"--generated={tmp_path}", f"--manifest={manifest_path(path)}")
-    line = next(l for l in out.splitlines() if l.startswith("player spec: "))
-    assert PlayerSpec.from_dict(json.loads(line.removeprefix("player spec: "))) == spec
+    run = godot_script([step("wait", frames=2), step("world.info")], f"--generated={tmp_path}",
+                       f"--manifest={manifest_path(path)}")
+    assert PlayerSpec.from_dict(run["world.info"]["player_spec"]) == spec

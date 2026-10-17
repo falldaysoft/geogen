@@ -12,6 +12,7 @@ from geogen.inspection import build_tree, format_tree
 from geogen.layout.composer import SceneComposer
 from geogen.layout.loader import LayoutLoader
 from geogen.places import places_summary
+from geogen.runtime_client import step
 from geogen.state import StateError, collect
 
 ASSETS = Path(__file__).parent.parent / "assets"
@@ -186,8 +187,12 @@ def test_the_island_names_its_gallery_and_jetty(built_scene):
 
 # -- in the Godot runtime ------------------------------------------------------
 
-def _events(out: str) -> list[dict]:
-    return [json.loads(l.removeprefix("place event: ")) for l in out.splitlines() if l.startswith("place event: ")]
+PLACES = step("events.subscribe", streams=["place"])
+
+
+def _events(run) -> list[dict]:
+    """The place stream's enter / leave events: {type, subject, place, kind, actor}."""
+    return [e["data"] for e in run.events if e["event"] == "place"]
 
 
 @pytest.fixture(scope="module")
@@ -197,35 +202,34 @@ def yard_dir(tmp_path_factory):
     return out
 
 
-def test_player_walking_through_places_raises_enter_and_leave(run_godot, yard_dir):
+def test_player_walking_through_places_raises_enter_and_leave(godot_script, yard_dir):
     # South from z = 7 at x = 3: across the strip (a box), then through the east half (a polygon).
-    out = run_godot("--scene=yard", f"--generated={yard_dir}", "--spawn=3,0.1,7", "--yaw=0", "--walk=4",
-                    engine_args=FAST)
+    out = godot_script([PLACES, step("player.move", seconds=4)], "--scene=yard", f"--generated={yard_dir}",
+                       start={"spawn": [3, 0.1, 7], "yaw": 0}, engine_args=FAST)
     events = [(e["type"], e["subject"]) for e in _events(out) if e["actor"] == "player"]
     assert events == [("enter", "yard:strip"), ("enter", "yard:east_half"),
                       ("leave", "yard:strip"), ("leave", "yard:east_half")]
     assert all(e["kind"] == "place" for e in _events(out))
 
 
-def test_npcs_raise_them_too_and_stay_in_a_place_while_seated(run_godot, yard_dir):
-    out = run_godot("--scene=yard", f"--generated={yard_dir}", "--timescale=8", "--simulate=60", engine_args=FAST)
+def test_npcs_raise_them_too_and_stay_in_a_place_while_seated(godot_script, yard_dir):
+    out = godot_script([PLACES, step("time.simulate", seconds=60)], "--scene=yard", f"--generated={yard_dir}",
+                       start={"timescale": 8}, engine_args=FAST)
     events = [e for e in _events(out) if e["actor"] == "yard:walker" and e["subject"] == "yard:east_half"]
     assert events and events[0]["type"] == "enter"
     assert [e["type"] for e in events] == ["enter", "leave"] * (len(events) // 2) + ["enter"] * (len(events) % 2)
-    (report,) = json.loads(next(l for l in out.splitlines() if l.startswith("npc summary: "))
-                           .removeprefix("npc summary: "))
+    (report,) = out["time.simulate"]["npcs"]
     # A minute in she is sitting on the bench: her collision shape is off, but she hasn't left.
     assert report["pose"] == "sit" and events[-1]["type"] == "enter"
     assert not [e for e in _events(out) if e["actor"] == "player"]          # the player stood outside them all
 
 
-def test_rooms_are_places_for_events(run_godot, built_scene, tmp_path):
+def test_rooms_are_places_for_events(godot_script, built_scene, tmp_path):
     export_scene(built_scene("hotel_suite"), tmp_path / "hotel_suite.glb")
     manifest = json.loads((tmp_path / "hotel_suite.manifest.json").read_text())
     room = manifest["rooms"][0]
-    spawn = ",".join(str(v) for v in (room["center"][0], room["center"][1] - room["size"][1] / 2 + 0.1,
-                                      room["center"][2]))
-    out = run_godot("--scene=hotel_suite", f"--generated={tmp_path}", f"--spawn={spawn}", "--walk=0.5",
-                    engine_args=FAST)
+    spawn = [room["center"][0], room["center"][1] - room["size"][1] / 2 + 0.1, room["center"][2]]
+    out = godot_script([PLACES, step("player.move", seconds=0.5)], "--scene=hotel_suite", f"--generated={tmp_path}",
+                       start={"spawn": spawn}, engine_args=FAST)
     assert {"type": "enter", "kind": "room", "place": room["id"], "actor": "player",
             "subject": room["uid"].rsplit("/", 1)[0]} in _events(out)      # the room, not its volume

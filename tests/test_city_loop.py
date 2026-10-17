@@ -8,6 +8,7 @@ import pytest
 from geogen.export import export_scene
 from geogen.railway import loop_around
 from geogen.traffic import build_traffic, check_clearance, check_graph
+from geogen.runtime_client import step
 
 
 def test_loop_around_is_a_closed_rounded_rectangle():
@@ -67,12 +68,12 @@ def _json_line(out: str, prefix: str):
 
 
 @pytest.mark.exhaustive      # five simulated minutes of two trains; test_traffic_runtime covers crossings
-def test_trains_and_traffic_share_the_crossings(run_godot, loop_dir):
-    out = run_godot("--scene=rail_loop_test", f"--generated={loop_dir}", "--spawn=0,0,90",
-                    "--timescale=8", "--simulate=300")
-    trains = _json_line(out, "train summary: ")
+def test_trains_and_traffic_share_the_crossings(godot_script, loop_dir):
+    report = godot_script([step("time.simulate", seconds=300)], "--scene=rail_loop_test", f"--generated={loop_dir}",
+                          start={"spawn": [0, 0, 90], "timescale": 8})["time.simulate"]
+    trains = report["trains"]
     assert len(trains) == 2 and all(t["departures"] >= 1 and t["closed_time"] > 0 for t in trains), trains
-    traffic = _json_line(out, "traffic summary: ")[0]
+    traffic = report["traffic"][0]
     assert traffic["overlaps"] == 0 and traffic["exits"] > 0 and traffic["distance"] > 800, traffic
     stuck = traffic.get("stuck") or {}
     assert not stuck or stuck.get("blocked_by") in ("signal", "crossing", "vehicle"), stuck

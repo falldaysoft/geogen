@@ -13,6 +13,7 @@ from geogen.generators.profiles import LatheGenerator
 from geogen.generators.stairs import StairsGenerator
 from geogen.layout.expressions import evaluate
 from geogen.layout.loader import LayoutLoader
+from geogen.runtime_client import step
 
 
 def _load(name: str, **params):
@@ -96,13 +97,10 @@ def lighthouse_dir(tmp_path_factory):
     return out
 
 
-def _nav(out: str) -> dict:
-    return json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
-
-
-def test_lighthouse_gallery_is_reachable_on_foot(run_godot, lighthouse_dir):
-    out = run_godot("--scene=lighthouse", f"--generated={lighthouse_dir}", "--nav=0,0,4:0,10,-2.8")
-    path = _nav(out)
+def test_lighthouse_gallery_is_reachable_on_foot(godot_script, lighthouse_dir):
+    run = godot_script([step("wait_ready", timeout=120), step("world.nav_path", **{"from": [0, 0, 4]}, to=[0, 10, -2.8])],
+                       "--scene=lighthouse", f"--generated={lighthouse_dir}")
+    path = run["world.nav_path"]
     assert path["reached"] and path["end_gap"] < 0.3 and path["points"][-1][1] > 9.9, path
 
 
@@ -121,9 +119,9 @@ def test_lighthouse_stair_is_climbed_by_the_player(godot_runtime, lighthouse_dir
     rt.call("time.scale", scale=1)
 
 
-def test_lighthouse_lamp_comes_on_at_night(run_godot, lighthouse_dir):
+def test_lighthouse_lamp_comes_on_at_night(godot_script, lighthouse_dir):
     for time, on in (("23:00", True), ("12:00", False)):
-        out = run_godot("--scene=lighthouse", f"--generated={lighthouse_dir}", f"--time={time}", "--lights",
-                        "--quit-after=5")
-        lights = json.loads(next(l for l in out.splitlines() if l.startswith("lights: ")).removeprefix("lights: "))
+        run = godot_script([step("wait", frames=5), step("world.lights")], "--scene=lighthouse",
+                           f"--generated={lighthouse_dir}", start={"time": time})
+        lights = run["world.lights"]
         assert lights["fixtures"]["lighthouse"]["visible"] is on, (time, lights)

@@ -3,6 +3,12 @@ extends Node
 ## Runtime control API (``--api[=PORT]``): a localhost TCP server so tools, tests and agents can
 ## query and drive one long-lived world instead of launching a process per check.
 ##
+## The same commands run as a script (``--script=FILE`` / ``--run=JSON``): a list of
+## ``{"cmd", "args", "retry"?, "id"?}`` steps (or ``{"steps": [...], "stop_on_error"?}``) run in
+## order once the world is loaded, each printing ``script: {"step", "cmd", "ok", "result" | "error"}``;
+## then ``script done: {...}`` and the runtime quits (exit 1 if a step failed), unless --api also
+## serves. The protocol is docs/schema/geogen-control.v1.schema.json, for every runtime.
+##
 ## Newline-delimited JSON. Requests ``{"id": 1, "cmd": "player.status", "args": {...}}`` get
 ## ``{"id": 1, "ok": true, "result": ...}`` or ``{"id": 1, "ok": false, "error": "..."}``.
 ## Slow commands (walk_to, step, wait_ready, switch) answer when they finish; other requests
@@ -16,6 +22,7 @@ extends Node
 const COMMANDS := {
     "help": "list commands",
     "ping": "liveness check",
+    "wait": "{seconds? | frames?} let the world run that much physics time (or that many physics frames)",
     "batch": "{commands: [{cmd, args}], stop_on_error?} run commands in order, one reply",
     "quit": "stop the runtime",
     "wait_ready": "{timeout?} wait until the world is loaded and the navmesh answers queries",
@@ -28,12 +35,16 @@ const COMMANDS := {
     "world.switch": "{scene, spawn?} load another exported scene",
     "world.reload": "{keep_player?} re-read the current scene's export (after a re-export)",
     "world.node": "{name | uid | node_path} one node: transform, world bounds, extras, colliders, children, interactions",
-    "player.status": "position, yaw, pitch, room, pose, focus, keys, on_floor",
+    "world.lights": "the light fixtures: {fixtures: {name: {visible, energy, range, y}}, total, light3d}",
+    "world.skeletons": "skeletons (bone positions, skinned mesh bounds in the current pose) and animations",
+    "world.stats": "engine object counts: nodes, orphans, objects, resources, nav_regions, bodies, world_children",
+    "player.status": "position, yaw, pitch, eye, room, scene, pose, focus, keys, on_floor, walking; stream (chunked worlds)",
     "player.teleport": "{pos, yaw?} put the player's feet at pos",
     "player.look": "{yaw?, pitch?} or {at: point}",
     "player.move": "{forward?, strafe?, seconds} walk with the controls",
     "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body",
     "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
+    "player.lock": "lock or unlock the aimed interaction with the keys the player holds -> {asset, interaction, ok, locked}",
     "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",
     "player.stand": "leave a sit/lie pose",
     "player.carry": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere: "
@@ -46,6 +57,7 @@ const COMMANDS := {
     "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
     "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
     "interactions.list": "{asset?} interactions with states",
+    "interactions.states": "every interaction's saved state, by stable id (<uid>#<interaction>)",
     "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
     "interactions.use": "{asset, interaction?, wait?} advance to the next state (honours locks)",
     "interactions.lock": "{asset, interaction?, locked} lock or unlock without a key",
@@ -86,13 +98,16 @@ const COMMANDS := {
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
     "npcs.options": "{npc} the NPC's scored options now",
     "npcs.force": "{npc, option} make its next decision take that option",
-    "npcs.greet": "{npc} greet it",
+    "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
     "npcs.pause": "{npc?} freeze one NPC (or all)",
     "npcs.resume": "{npc?}",
     "time.pause": "freeze the world (the API keeps serving)",
     "time.resume": "",
     "time.step": "{frames} run N physics frames, then pause",
     "time.advance": "{seconds, scale?} run S s of world time (at scale, default 8), return NPC reports",
+    "time.simulate": "{seconds} run S s of world time at the current speed and report what it cost: "
+        + "{npcs, cost: {npcs, script_us, process_ms, physics_ms, physics_p95_ms, frame_ms, frame_p95_ms, "
+        + "frame_max_ms, draw_calls, primitives, objects}, traffic, trains}",
     "time.scale": "{scale} world speed",
     "time.clock": "{time? 'HH:MM', day_length?} get or set the world clock",
     "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
@@ -117,15 +132,35 @@ var _connected_traffic := {}
 var _room := ""
 var _walker: GeogenWalker = null
 var _world_frames := 0               # physics frames the world ran (not counting paused ones)
+## Serve TCP (--api); a script-only run doesn't listen.
+var listen := true
+## Steps to run once the world is loaded (--script / --run, or flags that expand to steps).
+var script_steps: Array = []
+var stop_on_error := true
+## A script's connection: no socket, events print instead.
+var _script_entry := {"peer": null, "buffer": "", "streams": {}}
+## While time.simulate runs: what each frame and physics tick cost (see _simulate).
+var _sim := {}
+var _tick_start := 0
 
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS   # serve while the world is paused
-    var err := _server.listen(port, "127.0.0.1")
-    if err != OK:
-        push_error("geogen api: can't listen on port %d (%s)" % [port, error_string(err)])
-        return
-    print("api listening: %s" % JSON.stringify({"port": _server.get_local_port()}))
+    # Time every physics tick's callbacks (scripts, move_and_slide; not the physics server's own
+    # step) while time.simulate runs: Godot's TIME_PHYSICS_PROCESS monitor is the slowest tick of
+    # the last second.
+    add_child(_TickMark.new(-100000, func(): _tick_start = Time.get_ticks_usec()))
+    add_child(_TickMark.new(100000, func():
+        if not _sim.is_empty():
+            _sim["ticks"].append((Time.get_ticks_usec() - _tick_start) / 1000.0)))
+    if listen:
+        var err := _server.listen(port, "127.0.0.1")
+        if err != OK:
+            push_error("geogen api: can't listen on port %d (%s)" % [port, error_string(err)])
+            return
+        print("api listening: %s" % JSON.stringify({"port": _server.get_local_port()}))
+    if not script_steps.is_empty():
+        _run_script.call_deferred()
     var world: WorldLoader = main.world
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
         _emit("interaction", {"asset": asset, "interaction": interaction, "state": state, "event": event}))
@@ -148,7 +183,16 @@ static func _wanted(event: Dictionary, types: Array, subjects: Array) -> bool:
     return (types.is_empty() or event["type"] in types) and (subjects.is_empty() or event["subject"] in subjects)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+    if not _sim.is_empty():
+        _sim["process"] += Performance.get_monitor(Performance.TIME_PROCESS)
+        _sim["samples"] += 1
+        _sim["frames"].append(delta * 1000.0 / Engine.time_scale)
+        _sim["render"][0] += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+        _sim["render"][1] += Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+        _sim["render"][2] += Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
+    if not _server.is_listening():
+        return
     while _server.is_connection_available():
         var peer := _server.take_connection()
         peer.set_no_delay(true)
@@ -212,6 +256,9 @@ func _handle(entry: Dictionary, line: String) -> void:
 
 
 func _send(entry: Dictionary, data: Dictionary) -> void:
+    if entry["peer"] == null:           # a script: subscribed events print
+        print("script event: %s" % JSON.stringify(data, "", true, true))
+        return
     var peer: StreamPeerTCP = entry["peer"]
     if peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
         # Full precision: a save (state.save) handed back to state.load must be exactly what was
@@ -219,15 +266,22 @@ func _send(entry: Dictionary, data: Dictionary) -> void:
         peer.put_data((JSON.stringify(data, "", true, true) + "\n").to_utf8_buffer())
 
 
+## Every connection: the script's, then the sockets'.
+func _entries() -> Array:
+    var out: Array = [_script_entry]
+    out.append_array(_peers)
+    return out
+
+
 func _emit(stream: String, data: Dictionary) -> void:
-    for entry in _peers:
+    for entry in _entries():
         if entry["streams"].has(stream):
             _send(entry, {"event": stream, "data": data})
 
 
 ## Traffic comes and goes with scene switches: wire its trace signals when subscribed.
 func _wire_streams() -> void:
-    var want_traffic := _peers.any(func(e): return e["streams"].has("traffic"))
+    var want_traffic := _entries().any(func(e): return e["streams"].has("traffic"))
     if want_traffic:
         var movers: Array = []
         movers.append_array(main.world.traffic)
@@ -263,6 +317,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return COMMANDS
         "ping":
             return {"pong": true, "frame": _world_frames}
+        "wait":
+            return await _wait(args)
         "batch":
             var results := []
             for c in args.get("commands", []):
@@ -330,6 +386,13 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 if node == null else _node_info(node)
         "player.status":
             return _status()
+        "player.lock":
+            main.update_focus()
+            var it: GeogenInteraction = main._focus
+            if it == null:
+                return _err("nothing lockable in view")
+            var toggled: bool = it.toggle_lock(main.held_keys(), "player")
+            return {"asset": String(it.asset.name), "interaction": it.interaction_name, "ok": toggled, "locked": it.locked}
         "player.teleport":
             var pos = _vec(args.get("pos"))
             if pos == null:
@@ -372,12 +435,20 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return {"dropped": dropped}
         "world.bodies":
             return world.props.report()
+        "world.lights":
+            return _lights()
+        "world.skeletons":
+            return _skeleton_report()
+        "world.stats":
+            return _stats()
         "flows.list":
             return world.flows.report()
         "player.keys":
             if args.has("keys"):
                 main.keys = Array(args["keys"])
             return {"keys": main.keys, "held": main.held_keys()}
+        "interactions.states":
+            return world.interaction_states()
         "interactions.list":
             var asset := str(args.get("asset", ""))
             return world.interactions.filter(func(it): return asset == "" or String(it.asset.name) == asset) \
@@ -546,6 +617,10 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 return npc.options().map(func(o): return {"id": o["id"], "action": o["action"],
                     "score": snappedf(o["score"], 0.001), "at": _v(o["at"])})
             if cmd == "npcs.greet":
+                var waited := 0.0       # wait: until it can be greeted (not mid-greeting, in reach of nothing else)
+                while not npc.can_greet() and waited < float(args.get("wait", 0.0)):
+                    await get_tree().physics_frame
+                    waited += get_physics_process_delta_time()
                 return {"npc": String(npc.name), "ok": npc.greet()}
             var option := str(args.get("option", ""))
             if not npc.force_option(option):
@@ -572,6 +647,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return _time()
         "time.advance":
             return await _advance(float(args.get("seconds", 10.0)), float(args.get("scale", 8.0)))
+        "time.simulate":
+            return await _simulate(float(args.get("seconds", 10.0)))
         "time.scale":
             _set_scale(float(args.get("scale", 1.0)))
             return _time()
@@ -654,17 +731,26 @@ func _nav_ready() -> bool:
     return Vector2(near.x - at.x, near.z - at.z).length() < 1.0
 
 
+## Ready: loaded, not switching, the navmesh answers near the player, and the navigation map
+## has stopped changing (many baked regions merge over several map iterations): 20 physics
+## frames on one iteration, or 5 once a streamed world's tiles are all baked.
 func _wait_ready(timeout: float) -> Dictionary:
     var started := Time.get_ticks_msec()
+    var map: RID = main.get_world_3d().navigation_map
+    var iteration := -1
     var settled := 0
     while true:
+        var now := NavigationServer3D.map_get_iteration_id(map)
+        if now != iteration:
+            iteration = now
+            settled = 0
         var ready: bool = main.player != null and not main.world.loading and not main.is_switching() and _nav_ready()
         settled = settled + 1 if ready else 0
-        if settled >= 5:    # a few frames for tiled regions to merge
+        if settled >= (5 if main.world.streamer != null else 20):
             break
         if Time.get_ticks_msec() - started > timeout * 1000.0:
             return _err("not ready after %.0f s (loading %s, nav %s)" % [timeout, main.world.loading, _nav_ready()])
-        await get_tree().process_frame
+        await get_tree().physics_frame
     return _info()
 
 
@@ -756,13 +842,16 @@ func _status() -> Dictionary:
     var player: Player = main.player
     var p := player.global_position
     main.update_focus()
-    return {"position": _v(p), "yaw": snappedf(rad_to_deg(wrapf(player.rotation.y, -PI, PI)), 0.1),
+    var out := {"position": _v(p), "yaw": snappedf(rad_to_deg(wrapf(player.rotation.y, -PI, PI)), 0.1),
         "pitch": snappedf(rad_to_deg(player.head.rotation.x), 0.1),
         "eye": _v(player.camera.global_position), "on_floor": player.is_on_floor(), "flying": player.flying,
         "room": main.world.room_at(p + Vector3(0, 0.5, 0)), "scene": main.world.scene_name,
         "pose": player.pose.get("type", "stand"), "pose_asset": player.pose.get("asset", ""),
         "focus": main.focus_info(), "keys": main.held_keys(),
         "walking": _walker != null and _walker.status == "walking"}
+    if main.world.streamer != null:
+        out["stream"] = main.world.stream_report()
+    return out
 
 
 func _look(args: Dictionary) -> void:
@@ -1172,3 +1261,222 @@ func _advance(seconds: float, scale: float) -> Dictionary:
     return {"advanced": snappedf(elapsed, 0.01), "real_ms": Time.get_ticks_msec() - started, "time": _time(),
         "player": _status(), "npcs": main.world.npcs.filter(func(n): return is_instance_valid(n)).map(
             func(n): return n.report())}
+
+
+# --- scripts ------------------------------------------------------------------
+
+## Run ``script_steps`` in order, printing each reply; then quit, unless the API also serves.
+func _run_script() -> void:
+    await get_tree().physics_frame      # the player is placed and the bodies are in the physics space
+    var failed := false
+    var index := 0
+    for step in script_steps:
+        var cmd := str(step.get("cmd", "")) if step is Dictionary else ""
+        var args = step.get("args", {}) if step is Dictionary else {}
+        var line := {"step": index, "cmd": cmd}
+        if step is Dictionary and step.has("id"):
+            line["id"] = step["id"]
+        var r
+        if not COMMANDS.has(cmd):
+            r = _err("unknown command '%s' (try help)" % cmd)
+        elif not args is Dictionary:
+            r = _err("args must be an object")
+        else:
+            # retry: a step that fails is tried again each physics frame for up to that many
+            # seconds of world time (the aimed thing isn't in view yet, an NPC can't be greeted yet).
+            var retry := float(step.get("retry", 0.0))
+            var waited := 0.0
+            while true:
+                r = await _run(_script_entry, cmd, args)
+                if not (r is Dictionary and r.has("__error")) or waited >= retry:
+                    break
+                await get_tree().physics_frame
+                waited += get_physics_process_delta_time()
+        var ok: bool = not (r is Dictionary and r.has("__error"))
+        line["ok"] = ok
+        if ok:
+            line["result"] = r
+        else:
+            line["error"] = r["__error"]
+        print("script: %s" % JSON.stringify(line, "", true, true))
+        index += 1
+        if not ok:
+            failed = true
+            if stop_on_error:
+                break
+        if cmd == "quit":
+            break
+    print("script done: %s" % JSON.stringify({"steps": index, "ok": not failed}))
+    if not listen or (script_steps.size() > 0 and str(script_steps[-1].get("cmd", "")) == "quit"):
+        get_tree().quit(1 if failed else 0)
+
+
+## Steps from a script file or text: a JSON list, or {"steps": [...], "stop_on_error": bool}.
+## Returns the steps, or a string saying what is wrong.
+static func parse_script(text: String, where: String):
+    var data = JSON.parse_string(text)
+    if data is Dictionary and data.get("steps") is Array:
+        return data
+    if data is Array:
+        return {"steps": data}
+    return "%s: a script is a JSON list of {cmd, args} steps, or {steps: [...]}" % where
+
+
+func _wait(args: Dictionary) -> Dictionary:
+    var frames := int(args.get("frames", 0))
+    var seconds := float(args.get("seconds", 0.0))
+    var elapsed := 0.0
+    var count := 0
+    while (frames > 0 and count < frames) or (frames <= 0 and elapsed < seconds):
+        await get_tree().physics_frame
+        count += 1
+        if not get_tree().paused:
+            elapsed += get_physics_process_delta_time()
+    return {"waited": snappedf(elapsed, 0.001), "frames": count, "time": _time()}
+
+
+## Run ``seconds`` of world time at the current speed and measure what it cost: the NPCs'
+## script time per physics frame, the engine's process and physics time per frame (animation is
+## in process_ms) and the whole frame. Compare runs with and without NPCs; frame_ms needs a
+## window and --disable-vsync.
+func _simulate(seconds: float) -> Dictionary:
+    _sim = {"process": 0.0, "samples": 0, "render": [0.0, 0.0, 0.0], "frames": [], "ticks": []}
+    var started := Time.get_ticks_usec()
+    var first_frame := Engine.get_process_frames()
+    var elapsed := 0.0
+    while elapsed < seconds:
+        await get_tree().physics_frame
+        if not get_tree().paused:
+            elapsed += get_physics_process_delta_time()
+    var sim := _sim
+    _sim = {}
+    var world: WorldLoader = main.world
+    var reports := world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return n.report())
+    var script_us := 0.0
+    for r in reports:
+        script_us += float(r["cost_us"])
+    var samples := maxi(sim["samples"], 1)
+    return {"seconds": snappedf(elapsed, 0.01), "npcs": reports,
+        "cost": {"npcs": reports.size(), "script_us": snappedf(script_us / maxi(reports.size(), 1), 0.1),
+            "process_ms": snappedf(sim["process"] / samples * 1000.0, 0.001),
+            "physics_ms": snappedf(_mean(sim["ticks"]), 0.001),
+            "physics_p95_ms": snappedf(_percentile(sim["ticks"], 0.95), 0.01),
+            "frame_ms": snappedf(float(Time.get_ticks_usec() - started) / 1000.0
+                / maxi(Engine.get_process_frames() - first_frame, 1), 0.001),
+            "frame_p95_ms": snappedf(_percentile(sim["frames"], 0.95), 0.01),
+            "frame_max_ms": snappedf(_percentile(sim["frames"], 1.0), 0.01),
+            "draw_calls": roundi(sim["render"][0] / samples), "primitives": roundi(sim["render"][1] / samples),
+            "objects": roundi(sim["render"][2] / samples)},
+        "traffic": world.traffic.filter(func(t): return is_instance_valid(t)).map(func(t): return t.report()),
+        "trains": world.trains.filter(func(t): return is_instance_valid(t)).map(func(t): return t.report())}
+
+
+## Calls ``on_tick`` every physics frame at ``priority`` (lowest first).
+class _TickMark extends Node:
+    var on_tick: Callable
+
+    func _init(priority: int, callback: Callable) -> void:
+        process_physics_priority = priority
+        process_mode = Node.PROCESS_MODE_PAUSABLE
+        on_tick = callback
+
+    func _physics_process(_delta: float) -> void:
+        on_tick.call()
+
+
+## The mean of ``values`` (0 when empty).
+static func _mean(values: Array) -> float:
+    var total := 0.0
+    for v in values:
+        total += v
+    return total / maxi(values.size(), 1)
+
+
+## The q-quantile (0..1) of ``values`` (0 when empty).
+static func _percentile(values: Array, q: float) -> float:
+    if values.is_empty():
+        return 0.0
+    var sorted := values.duplicate()
+    sorted.sort()
+    return sorted[clampi(int(ceil(q * sorted.size())) - 1, 0, sorted.size() - 1)]
+
+
+# --- reports ------------------------------------------------------------------
+
+func _lights() -> Dictionary:
+    var world: WorldLoader = main.world
+    var report := {}
+    for name in world.lights_by_name:
+        var light: OmniLight3D = world.lights_by_name[name]
+        report[name] = {"visible": light.visible, "energy": light.light_energy,
+            "range": light.omni_range, "y": snappedf(light.global_position.y, 0.01)}
+    return {"fixtures": report, "total": get_tree().get_nodes_in_group("geogen_light").size(),
+        "light3d": get_tree().root.find_children("*", "OmniLight3D", true, false).size()}
+
+
+func _stats() -> Dictionary:
+    var nav_regions := 0
+    for map in NavigationServer3D.get_maps():
+        nav_regions += NavigationServer3D.map_get_regions(map).size()
+    return {"scene": main.world.scene_name,
+        "nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+        "orphans": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)),
+        "objects": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+        "resources": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+        "nav_regions": nav_regions,
+        "bodies": get_tree().root.find_children("*", "CollisionObject3D", true, false).size(),
+        "world_children": main.world.get_child_count()}
+
+
+## world.skeletons: bones (global positions), skinned meshes (bounds of the CPU-baked pose) and animations.
+func _skeleton_report() -> Dictionary:
+    var skeletons := []
+    for sk: Skeleton3D in main.world.find_children("*", "Skeleton3D", true, false):
+        var bones := {}
+        for b in sk.get_bone_count():
+            var p := sk.global_transform * sk.get_bone_global_pose(b).origin
+            bones[sk.get_bone_name(b)] = [snappedf(p.x, 0.0001), snappedf(p.y, 0.0001), snappedf(p.z, 0.0001)]
+        var meshes := []
+        for mi: MeshInstance3D in sk.find_children("*", "MeshInstance3D", true, false):
+            if mi.skin == null:
+                continue
+            var box := _skinned_bounds(mi, sk)
+            meshes.append({"name": String(mi.name), "min": [box.position.x, box.position.y, box.position.z],
+                "max": [box.end.x, box.end.y, box.end.z]})
+        skeletons.append({"path": String(main.world.get_path_to(sk)), "bones": bones, "meshes": meshes})
+    var animations := {}
+    for ap: AnimationPlayer in main.world.find_children("*", "AnimationPlayer", true, false):
+        animations[String(main.world.get_path_to(ap))] = Array(ap.get_animation_list())
+    return {"skeletons": skeletons, "animations": animations}
+
+
+## World bounds of a skinned mesh in its current pose, skinned on the CPU the way the renderer
+## does it (vertex -> bind pose -> bone global pose -> mesh instance).
+static func _skinned_bounds(mi: MeshInstance3D, sk: Skeleton3D) -> AABB:
+    var joint_xforms: Array[Transform3D] = []
+    for i in mi.skin.get_bind_count():
+        var bone := mi.skin.get_bind_bone(i)
+        if bone < 0:
+            bone = sk.find_bone(mi.skin.get_bind_name(i))
+        joint_xforms.append(sk.get_bone_global_pose(bone) * mi.skin.get_bind_pose(i))
+    var box := AABB()
+    var first := true
+    for surface in mi.mesh.get_surface_count():
+        var arrays := mi.mesh.surface_get_arrays(surface)
+        var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+        var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+        var per := bones.size() / maxi(verts.size(), 1)
+        for v in verts.size():
+            var p := Vector3.ZERO
+            for k in per:
+                var w := weights[v * per + k]
+                if w > 0.0:
+                    p += (joint_xforms[bones[v * per + k]] * verts[v]) * w
+            p = mi.global_transform * p
+            if first:
+                box = AABB(p, Vector3.ZERO)
+                first = false
+            else:
+                box = box.expand(p)
+    return box

@@ -8,6 +8,7 @@ import pytest
 from geogen.core import meshops
 from geogen.export import export_scene
 from geogen.generators.terrain import GRASS, ROCK, SAND, TerrainGenerator, terrain_from_meta
+from geogen.runtime_client import step
 
 ISLAND = dict(size=(120, 120), height=14, sea_level=2.0, depth=1.9, seed=5, scale=38,
               falloff={"radius": 0.36, "edge": 0.14, "power": 1.4})
@@ -77,12 +78,13 @@ def terrain_dir(scene_export):
     return scene_export("terrain_test")
 
 
-def test_navmesh_covers_the_island(run_godot, terrain_dir):
+def test_navmesh_covers_the_island(godot_script, terrain_dir):
     t = TerrainGenerator(**ISLAND)
-    for x, z in [(0, -38), (-35, 0), (30, 10)]:
-        y = float(t.height_at(x, z)[0])
-        out = run_godot("--scene=terrain_test", f"--generated={terrain_dir}", f"--nav={x},{y},{z}:0,17,0")
-        path = json.loads(next(l for l in out.splitlines() if l.startswith("nav path: ")).removeprefix("nav path: "))
+    starts = [(x, float(t.height_at(x, z)[0]), z) for x, z in [(0, -38), (-35, 0), (30, 10)]]
+    run = godot_script([step("wait_ready", timeout=120)]
+                       + [step("world.nav_path", **{"from": list(a)}, to=[0, 17, 0]) for a in starts],
+                       "--scene=terrain_test", f"--generated={terrain_dir}")
+    for (x, y, z), path in zip(starts, run.all("world.nav_path")):
         assert path["reached"] and path["end_gap"] < 0.5, path
         assert abs(path["points"][0][1] - y) < 0.5, path   # started on the island, not the sea bed
 

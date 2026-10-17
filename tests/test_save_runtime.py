@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from geogen.runtime_client import step
+
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from test_state import GATE, LAMP, LEVER
@@ -112,16 +114,17 @@ def test_a_save_from_before_the_format_still_loads(rt):
     assert rt.call("state.save")["world"][GATE_KEY] == "open"
 
 
-def test_save_and_load_from_the_command_line(run_godot, yard_dir, tmp_path):
+def test_save_and_load_from_a_script(godot_script, yard_dir, tmp_path):
     first, second = tmp_path / "a.json", tmp_path / "b.json"
-    base = ("--scene", "yard", f"--generated={yard_dir}")
-    run_godot(*base, "--set=world:yard.power=false", "--use=lever", "--quit-after=90", f"--save={first}")
+    base = ("--scene=yard", f"--generated={yard_dir}")
+    godot_script([step("interactions.use", asset="lever", actor="player"), step("wait", frames=90),
+                  step("state.save", path=str(first))], *base, start={"set": {"world:yard.power": False}})
     saved = validate(json.loads(first.read_text()))
     assert saved["world"][LEVER_KEY] == "down" and saved["world"][GATE_KEY] == "open"     # the wire opened it
     assert saved["world"]["world:yard.power"] is False
     player = saved["actors"]["player"]
     assert player["actor:yard.pulls"] == 1 and player["actor:yard.quest_stand"] == "active"
-    run_godot(*base, f"--load={first}", "--quit-after=5", f"--save={second}")
+    godot_script([step("wait", frames=5), step("state.save", path=str(second))], *base, start={"load": str(first)})
     again = validate(json.loads(second.read_text()))
     assert again["world"] == saved["world"] and again["actors"] == saved["actors"]
     assert again["now"] > saved["now"]
@@ -139,16 +142,17 @@ def test_a_load_restores_the_world_clock(rt):
     rt.call("time.resume")
 
 
-def test_set_and_quests_act_on_the_loaded_save(run_godot, yard_dir, tmp_path):
+def test_set_and_quests_act_on_the_loaded_save(godot_script, yard_dir, tmp_path):
     path = tmp_path / "pulled.json"
-    base = ("--scene", "yard", f"--generated={yard_dir}")
-    run_godot(*base, "--set=actor:yard.pulls=4", "--quit-after=5", f"--save={path}")
-    out = run_godot(*base, f"--load={path}", "--set=world:yard.power=false", "--quests", "--quit-after=5",
-                    f"--save={path}")
+    base = ("--scene=yard", f"--generated={yard_dir}")
+    save = [step("wait", frames=5), step("state.save", path=str(path))]
+    godot_script(save, *base, start={"set": {"actor:yard.pulls": 4}})
+    run = godot_script([step("quests.list"), *save], *base,
+                       start={"load": str(path), "set": {"world:yard.power": False}})
     saved = validate(json.loads(path.read_text()))
-    assert saved["world"]["world:yard.power"] is False                         # --set wasn't overwritten
+    assert saved["world"]["world:yard.power"] is False                         # the set wasn't overwritten
     assert saved["actors"]["player"]["actor:yard.pulls"] == 4                  # and the load happened
-    assert any(line.startswith("quests: ") for line in out.splitlines())
+    assert isinstance(run["quests.list"], (list, dict))
 
 
 # ---- an NPC's state and a pending timer, in the quest yard -------------------------------------------

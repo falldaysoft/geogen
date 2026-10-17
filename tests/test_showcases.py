@@ -4,11 +4,19 @@ import json
 
 import pytest
 
+from geogen.runtime_client import step
+
 pytestmark = pytest.mark.exhaustive      # each showcase lived in for minutes: pytest --all
 
 
 def _json_line(out: str, prefix: str):
     return json.loads(next(l for l in out.splitlines() if l.startswith(prefix)).removeprefix(prefix))
+
+
+def _simulate(godot_script, scene, generated, seconds, timescale=8, **start) -> dict:
+    """time.simulate's report (npcs, traffic, trains, cost) after ``seconds`` of sped-up world time."""
+    return godot_script([step("time.simulate", seconds=seconds)], f"--scene={scene}", f"--generated={generated}",
+                        start={"timescale": timescale, **start})["time.simulate"]
 
 
 @pytest.fixture(scope="module")
@@ -23,9 +31,8 @@ def test_hotel_showcase_playtest_from_the_street(run_godot, hotel_dir):
     assert result["ok"] and not result["unreachable"] and not result["unreachable_targets"], result
 
 
-def test_hotel_showcase_staff_and_guests(run_godot, hotel_dir):
-    out = run_godot("--scene=hotel_showcase", f"--generated={hotel_dir}", "--timescale=8", "--simulate=240")
-    npcs = {n["npc"]: n for n in _json_line(out, "npc summary: ")}
+def test_hotel_showcase_staff_and_guests(godot_script, hotel_dir):
+    npcs = {n["npc"]: n for n in _simulate(godot_script, "hotel_showcase", hotel_dir, 240)["npcs"]}
     assert any(k.startswith("desk") for k in npcs["receptionist_npc"]["used"]), npcs["receptionist_npc"]
     # Guests keep to their own storey (floors at 3.65 and 6.4) and never leave their rooms' affordances.
     for name, floor in (("guest_101_npc", 3.65), ("guest_207_npc", 6.4)):
@@ -128,9 +135,8 @@ def park_dir(scene_export):
     return scene_export("park")
 
 
-def test_park_visitors_keep_to_the_paths_and_sit_down(run_godot, park_dir):
-    out = run_godot("--scene=park", f"--generated={park_dir}", "--timescale=8", "--simulate=300", "--time=16:00")
-    visitors = _json_line(out, "npc summary: ")
+def test_park_visitors_keep_to_the_paths_and_sit_down(godot_script, park_dir):
+    visitors = _simulate(godot_script, "park", park_dir, 300, time="16:00")["npcs"]
     assert len(visitors) == 8
     used = {k.split("#")[0].rstrip("_0123456789") for v in visitors for k in v["used"]}
     assert {"bench", "picnic"} <= used, used
@@ -146,14 +152,12 @@ def restaurant_dir(scene_export):
     return scene_export("restaurant")
 
 
-def test_restaurant_playtest_and_service(run_godot, restaurant_dir):
+def test_restaurant_playtest_and_service(run_godot, godot_script, restaurant_dir):
     out = run_godot("--scene=restaurant", f"--generated={restaurant_dir}", "--playtest=2",
                     engine_args=("--fixed-fps", "60"))
     result = _json_line(out, "playtest: ")
     assert result["ok"] and not result["unreachable"] and not result["unreachable_targets"], result
-    out = run_godot("--scene=restaurant", f"--generated={restaurant_dir}", "--timescale=8", "--simulate=240",
-                    "--time=19:00")
-    npcs = {n["npc"]: n for n in _json_line(out, "npc summary: ")}
+    npcs = {n["npc"]: n for n in _simulate(godot_script, "restaurant", restaurant_dir, 240, time="19:00")["npcs"]}
     works = {"host_npc": "host_stand", "bartender_npc": "bar_counter", "chef_npc": ("range", "prep")}
     for npc, station in works.items():
         assert any(k.startswith(station) for k in npcs[npc]["used"]), npcs[npc]
@@ -185,13 +189,13 @@ def test_main_street_lanes_are_clear_of_what_stands_by_them(built_scene):
     assert check_clearance(scene, graph) == []
 
 
-def test_main_street_traffic_and_pedestrians_keep_moving(run_godot, main_street_dir):
-    out = run_godot("--scene=main_street", f"--generated={main_street_dir}", "--timescale=4", "--simulate=120")
-    traffic = _json_line(out, "traffic summary: ")[0]
+def test_main_street_traffic_and_pedestrians_keep_moving(godot_script, main_street_dir):
+    report = _simulate(godot_script, "main_street", main_street_dir, 120, timescale=4)
+    traffic = report["traffic"][0]
     assert traffic["vehicles"] >= 4 and traffic["distance"] > 500, traffic
     # "stuck" names whoever has stood longest when the run ends: a car at a stop line isn't stuck.
     assert traffic["overlaps"] == 0 and traffic["max_idle"] < 30 and traffic["max_wait"] < 75, traffic
-    walkers = _json_line(out, "npc summary: ")
+    walkers = report["npcs"]
     assert len(walkers) == 10 and sum(w["decisions"] for w in walkers) >= 15
 
 
@@ -200,7 +204,7 @@ def island_dir(scene_export):
     return scene_export("island")
 
 
-def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, island_dir):
+def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, godot_script, island_dir):
     out = run_godot("--scene=island", f"--generated={island_dir}", "--playtest=1", engine_args=("--fixed-fps", "60"))
     result = _json_line(out, "playtest: ")
     assert result["ok"] and not result["unreachable_targets"], result
@@ -210,26 +214,26 @@ def test_island_walk_from_the_jetty_to_the_lighthouse_gallery(run_godot, island_
             ((0, 2.8, -64), (35.8, 4.3, 7)),            # the jetty's far end -> the lighthouse door
             ((35.8, 4.3, 7), (42.3, 14.35, 7)),          # -> up the spiral stair, round the gallery
             ((0, 2.8, -64), (-28, 7.9, -12.5))]          # the jetty -> the west cottage's door
-    for a, b in legs:
-        out = run_godot("--scene=island", f"--generated={island_dir}", "--nav=%s:%s" % (
-            ",".join(map(str, a)), ",".join(map(str, b))))
-        path = _json_line(out, "nav path: ")
+    run = godot_script([step("wait_ready", timeout=120)]
+                       + [step("world.nav_path", **{"from": list(a)}, to=list(b)) for a, b in legs],
+                       "--scene=island", f"--generated={island_dir}")
+    for (a, b), path in zip(legs, run.all("world.nav_path")):
         assert path["reached"] and path["end_gap"] < 0.3, (a, b, path)
 
 
-def test_island_places_report_the_player_arriving(run_godot, island_dir):
+def test_island_places_report_the_player_arriving(godot_script, island_dir):
     # Named places (geogen.places): walking out along the jetty, and standing on the lighthouse gallery.
-    def events(*args):
-        out = run_godot("--scene=island", f"--generated={island_dir}", *args, engine_args=("--fixed-fps", "60"))
-        return [json.loads(l.removeprefix("place event: ")) for l in out.splitlines() if l.startswith("place event: ")]
+    def events(seconds, **start):
+        run = godot_script([step("events.subscribe", streams=["place"]), step("player.move", seconds=seconds)],
+                           "--scene=island", f"--generated={island_dir}", start=start, engine_args=("--fixed-fps", "60"))
+        return [e["data"] for e in run.events if e["event"] == "place"]
 
     assert {"type": "enter", "kind": "place", "place": "on_deck", "subject": "island:jetty/on_deck",
-            "actor": "player"} in events("--spawn=0,2.9,-44.5", "--yaw=0", "--walk=3")
+            "actor": "player"} in events(3, spawn=[0, 2.9, -44.5], yaw=0)
     assert {"type": "enter", "kind": "place", "place": "gallery", "subject": "island:lighthouse/gallery",
-            "actor": "player"} in events("--spawn=39.5,14.4,8.2", "--walk=0.5")
+            "actor": "player"} in events(0.5, spawn=[39.5, 14.4, 8.2])
 
 
-def test_island_residents_go_about_their_day(run_godot, island_dir):
-    out = run_godot("--scene=island", f"--generated={island_dir}", "--timescale=8", "--simulate=180")
-    npcs = _json_line(out, "npc summary: ")
+def test_island_residents_go_about_their_day(godot_script, island_dir):
+    npcs = _simulate(godot_script, "island", island_dir, 180)["npcs"]
     assert len(npcs) == 2 and all(n["used"] and not n["failures"] for n in npcs), npcs

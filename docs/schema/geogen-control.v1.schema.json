@@ -1,0 +1,2443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/falldaysoft/geogen/docs/schema/geogen-control.v1.schema.json",
+  "title": "geogen control v1",
+  "description": "How tools, tests and agents drive a geogen runtime, whichever engine runs it (Godot is the reference: runtime/godot/scripts/api.gd). The same commands arrive two ways. Live: newline-delimited JSON over a localhost socket, requests {id, cmd, args} answered {id, ok, result | error}, plus {event, data} lines for subscribed streams. Scripted: a script document (this schema's root) whose steps run in order once the world is loaded, each printing a stepResult line; then a scriptDone line, and the runtime exits (status 1 if a step failed). Points are [x, y, z] world metres ([x, z]: on the ground); angles are degrees; times are world seconds (they speed up with time.scale) and frames are physics frames. A runtime may add commands; one it doesn't have answers an error naming it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "steps"
+  ],
+  "properties": {
+    "start": {
+      "$ref": "#/$defs/start"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "stop_on_error": {
+      "type": "boolean",
+      "default": true,
+      "description": "Stop at the first step that fails (default); otherwise run on."
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 3,
+      "description": "[x, y, z] in world metres, or [x, z] on the ground."
+    },
+    "start": {
+      "description": "How the world starts: applied before it loads (so a spawn primes what streams in first, and a load replaces the new game's start).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scene": {
+          "type": "string",
+          "description": "The scene to load (default: the catalogue's)."
+        },
+        "spawn": {
+          "$ref": "#/$defs/point",
+          "description": "Where the player's feet start."
+        },
+        "yaw": {
+          "type": "number"
+        },
+        "pitch": {
+          "type": "number"
+        },
+        "time": {
+          "type": "string",
+          "pattern": "^[0-9]{1,2}:[0-9]{2}$",
+          "description": "World clock."
+        },
+        "day_length": {
+          "type": "number",
+          "description": "Real seconds per 24 h of world time (0 stops it)."
+        },
+        "timescale": {
+          "type": "number",
+          "description": "World speed (physics ticks scale too)."
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Lock keys the player holds."
+        },
+        "load": {
+          "type": "string",
+          "description": "A geogen-save to start from instead of a new game."
+        },
+        "set": {
+          "type": "object",
+          "description": "{state key: value} set as the world loads (after a load)."
+        },
+        "give": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "{item: count} given to the player as the world loads."
+        },
+        "stream_radius": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "Streaming radii (m): full exterior, LOD, interiors."
+        },
+        "open_doors": {
+          "type": "string",
+          "description": "Open doors matching this glob before the navmesh bakes, and hold them."
+        },
+        "npc_limit": {
+          "type": "integer",
+          "description": "Spawn at most this many NPCs."
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": [
+        "cmd"
+      ],
+      "properties": {
+        "cmd": {
+          "enum": [
+            "batch",
+            "capture.camera",
+            "capture.screenshot",
+            "capture.views",
+            "dialogue.choose",
+            "dialogue.show",
+            "events.history",
+            "events.subscribe",
+            "events.unsubscribe",
+            "flows.list",
+            "help",
+            "hud.aim",
+            "hud.crossing",
+            "hud.inventory",
+            "hud.log",
+            "hud.markers",
+            "hud.notifications",
+            "hud.quests",
+            "hud.stats",
+            "input.key",
+            "interactions.list",
+            "interactions.lock",
+            "interactions.set",
+            "interactions.states",
+            "interactions.use",
+            "inventory.give",
+            "inventory.list",
+            "npcs.force",
+            "npcs.greet",
+            "npcs.list",
+            "npcs.options",
+            "npcs.pause",
+            "npcs.resume",
+            "ping",
+            "player.carry",
+            "player.drop",
+            "player.keys",
+            "player.lock",
+            "player.look",
+            "player.move",
+            "player.sit",
+            "player.stand",
+            "player.status",
+            "player.teleport",
+            "player.use",
+            "player.walk_to",
+            "quests.list",
+            "quit",
+            "state.get",
+            "state.list",
+            "state.load",
+            "state.save",
+            "state.set",
+            "time.advance",
+            "time.clock",
+            "time.pause",
+            "time.resume",
+            "time.scale",
+            "time.simulate",
+            "time.step",
+            "wait",
+            "wait_ready",
+            "window.size",
+            "world.bodies",
+            "world.info",
+            "world.lights",
+            "world.nav_path",
+            "world.node",
+            "world.query",
+            "world.raycast",
+            "world.reload",
+            "world.room_at",
+            "world.scenes",
+            "world.skeletons",
+            "world.stats",
+            "world.switch"
+          ]
+        },
+        "args": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "batch"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/batch"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "capture.camera"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/capture.camera"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "capture.screenshot"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/capture.screenshot"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "capture.views"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/capture.views"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "dialogue.choose"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/dialogue.choose"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "dialogue.show"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/dialogue.show"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "events.history"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/events.history"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "events.subscribe"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/events.subscribe"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "events.unsubscribe"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/events.unsubscribe"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "flows.list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/flows.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "help"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/help"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.aim"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.aim"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.crossing"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.crossing"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.inventory"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.inventory"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.log"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.log"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.markers"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.markers"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.notifications"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.notifications"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.quests"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.quests"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.stats"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.stats"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "input.key"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/input.key"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "interactions.list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/interactions.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "interactions.lock"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/interactions.lock"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "interactions.set"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/interactions.set"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "interactions.states"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/interactions.states"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "interactions.use"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/interactions.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "inventory.give"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.give"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "inventory.list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.force"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.force"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.greet"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.greet"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.options"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.options"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.pause"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.pause"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.resume"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.resume"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "ping"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/ping"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.carry"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.carry"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.drop"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.drop"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.keys"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.keys"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.lock"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.lock"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.look"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.look"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.move"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.move"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.sit"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.sit"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.stand"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.stand"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.status"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.status"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.teleport"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.teleport"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.use"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "player.walk_to"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/player.walk_to"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "quests.list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/quests.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "quit"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/quit"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "state.get"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/state.get"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "state.list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/state.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "state.load"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/state.load"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "state.save"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/state.save"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "state.set"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/state.set"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.advance"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.advance"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.clock"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.clock"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.pause"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.pause"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.resume"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.resume"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.scale"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.scale"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.simulate"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.simulate"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "time.step"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/time.step"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "wait"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/wait"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "wait_ready"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/wait_ready"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "window.size"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/window.size"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.bodies"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.bodies"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.info"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.info"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.lights"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.lights"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.nav_path"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.nav_path"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.node"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.node"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.query"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.query"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.raycast"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.raycast"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.reload"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.reload"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.room_at"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.room_at"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.scenes"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.scenes"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.skeletons"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.skeletons"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.stats"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.stats"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "world.switch"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/world.switch"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "step": {
+      "description": "One command, with what a script adds: retry (world seconds to keep trying a step that fails, a physics frame apart) and an id to find its result by.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/command"
+        }
+      ],
+      "properties": {
+        "cmd": true,
+        "args": true,
+        "retry": {
+          "type": "number",
+          "minimum": 0
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "stepResult": {
+      "description": "A scripted runtime prints one per step run: `script: {...}`.",
+      "type": "object",
+      "required": [
+        "step",
+        "cmd",
+        "ok"
+      ],
+      "properties": {
+        "step": {
+          "type": "integer"
+        },
+        "cmd": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "result": {},
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "event": {
+      "description": "A subscribed stream's event: `script event: {...}` in a script, a line on the socket.",
+      "type": "object",
+      "required": [
+        "event",
+        "data"
+      ],
+      "properties": {
+        "event": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    },
+    "scriptDone": {
+      "description": "Printed after the last step run: `script done: {...}`.",
+      "type": "object",
+      "required": [
+        "steps",
+        "ok"
+      ],
+      "properties": {
+        "steps": {
+          "type": "integer"
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "description": "What each command does (the runtime's `help`).",
+      "type": "object",
+      "const": {
+        "help": "list commands",
+        "ping": "liveness check",
+        "wait": "{seconds? | frames?} let the world run that much physics time (or that many physics frames)",
+        "batch": "{commands: [{cmd, args}], stop_on_error?} run commands in order, one reply",
+        "quit": "stop the runtime",
+        "wait_ready": "{timeout?} wait until the world is loaded and the navmesh answers queries",
+        "world.info": "scene, bounds, spawns, rooms, npc names, player spec, clock",
+        "world.scenes": "the scene catalogue",
+        "world.query": "{tag?, type?, name? (glob), uid? (glob), room?, interactive?, limit?} nodes carrying extras.geogen",
+        "world.room_at": "{pos} room id at a point",
+        "world.raycast": "{from, to} first hit: position, normal, node, room, interaction",
+        "world.nav_path": "{from, to} navmesh path: points, length, reached",
+        "world.switch": "{scene, spawn?} load another exported scene",
+        "world.reload": "{keep_player?} re-read the current scene's export (after a re-export)",
+        "world.node": "{name | uid | node_path} one node: transform, world bounds, extras, colliders, children, interactions",
+        "world.lights": "the light fixtures: {fixtures: {name: {visible, energy, range, y}}, total, light3d}",
+        "world.skeletons": "skeletons (bone positions, skinned mesh bounds in the current pose) and animations",
+        "world.stats": "engine object counts: nodes, orphans, objects, resources, nav_regions, bodies, world_children",
+        "player.status": "position, yaw, pitch, eye, room, scene, pose, focus, keys, on_floor, walking; stream (chunked worlds)",
+        "player.teleport": "{pos, yaw?} put the player's feet at pos",
+        "player.look": "{yaw?, pitch?} or {at: point}",
+        "player.move": "{forward?, strafe?, seconds} walk with the controls",
+        "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body",
+        "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
+        "player.lock": "lock or unlock the aimed interaction with the keys the player holds -> {asset, interaction, ok, locked}",
+        "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",
+        "player.stand": "leave a sit/lie pose",
+        "player.carry": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere: -> {ok, held}",
+        "player.drop": "let go of what the player carries -> {dropped}",
+        "world.bodies": "every physics prop: uid, node, position, yaw_deg, live, held, sleeping, speed",
+        "flows.list": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], items: [{id, source, item, mode, position, data, age}]}",
+        "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
+        "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
+        "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
+        "interactions.list": "{asset?} interactions with states",
+        "interactions.states": "every interaction's saved state, by stable id (<uid>#<interaction>)",
+        "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
+        "interactions.use": "{asset, interaction?, wait?} advance to the next state (honours locks)",
+        "interactions.lock": "{asset, interaction?, locked} lock or unlock without a key",
+        "state.save": "{path?} -> the game as a geogen-save (docs/schema/geogen-save.v1.schema.json): world and actor sections, clock, timers; interactions are instance state in world. path: also write it there",
+        "state.get": "{key, actor?} a variable's value (world:pkg.name, actor:pkg.name, <uid>#<state>); actor: player",
+        "state.set": "{key, value, actor?} set one, as a console would: rules and bindings react",
+        "state.list": "-> {world, actors}: every stored value that differs from its default",
+        "quests.list": "{actor?} every quest's state for an actor (default player): status, objectives (done | open | waiting, progress, markers)",
+        "state.load": "{state | path} restore a save (one from before the format still loads); -> the save now",
+        "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
+        "hud.stats": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value, of?, text}]}, banner: {visible, text?, tone?}}",
+        "dialogue.show": "the open conversation as shown: {open, dialogue?, anchor?, passage?, title?, text?, choices?: [{id, text}], selected?}",
+        "dialogue.choose": "{index? (from 0) | choice? (id) | close?: true} choose one of what is shown, or close it; -> dialogue.show",
+        "hud.inventory": "what the HUD's inventory panel shows: {visible, items: [{id, title, count, tags?}]}",
+        "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
+        "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
+        "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): {visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
+        "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how long a finished quest stays up",
+        "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: {open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; track makes the tracker follow the selected quest",
+        "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: {visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
+        "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's toasts: visible, showing [{seq, kind: started | objective_done | complete | failed | notice, package, quest, objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, sounds (what rules played), hold, gap, limit, rect, viewport; hold sets how long a toast stays, gap the time between two appearing, limit how many are up at once; clear drops them all",
+        "npcs.list": "every NPC's report (doing, needs, position, ...)",
+        "npcs.options": "{npc} the NPC's scored options now",
+        "npcs.force": "{npc, option} make its next decision take that option",
+        "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
+        "npcs.pause": "{npc?} freeze one NPC (or all)",
+        "npcs.resume": "{npc?}",
+        "time.pause": "freeze the world (the API keeps serving)",
+        "time.resume": "",
+        "time.step": "{frames} run N physics frames, then pause",
+        "time.advance": "{seconds, scale?} run S s of world time (at scale, default 8), return NPC reports",
+        "time.simulate": "{seconds} run S s of world time at the current speed and report what it cost: {npcs, cost: {npcs, script_us, process_ms, physics_ms, physics_p95_ms, frame_ms, frame_p95_ms, frame_max_ms, draw_calls, primitives, objects}, traffic, trains}",
+        "time.scale": "{scale} world speed",
+        "time.clock": "{time? 'HH:MM', day_length?} get or set the world clock",
+        "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
+        "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
+        "capture.camera": "{mode: player|overview|follow, npc?}",
+        "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: `events` is the whole bus (events.gd), narrowed to these types and subject IDs",
+        "events.history": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; since: only those after that number)",
+        "events.unsubscribe": "{streams?}"
+      }
+    },
+    "args": {
+      "help": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "ping": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "wait": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "seconds": {
+            "type": "number"
+          },
+          "frames": {
+            "type": "integer"
+          }
+        }
+      },
+      "batch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "commands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/command"
+            }
+          },
+          "stop_on_error": {
+            "type": "boolean"
+          }
+        }
+      },
+      "quit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "wait_ready": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "timeout": {
+            "type": "number"
+          }
+        }
+      },
+      "world.info": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "world.scenes": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "world.query": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "room": {
+            "type": "string"
+          },
+          "interactive": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "world.room_at": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pos": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      },
+      "world.raycast": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/point"
+          },
+          "to": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      },
+      "world.nav_path": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/point"
+          },
+          "to": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      },
+      "world.switch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scene": {
+            "type": "string"
+          },
+          "spawn": {
+            "type": "string"
+          }
+        }
+      },
+      "world.reload": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "keep_player": {
+            "type": "boolean"
+          }
+        }
+      },
+      "world.node": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "node_path": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          }
+        }
+      },
+      "world.lights": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "world.skeletons": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "world.stats": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "player.status": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "player.teleport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pos": {
+            "$ref": "#/$defs/point"
+          },
+          "yaw": {
+            "type": "number"
+          }
+        }
+      },
+      "player.look": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "yaw": {
+            "type": "number"
+          },
+          "pitch": {
+            "type": "number"
+          },
+          "at": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      },
+      "player.move": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "forward": {
+            "type": "number"
+          },
+          "strafe": {
+            "type": "number"
+          },
+          "seconds": {
+            "type": "number"
+          }
+        }
+      },
+      "player.walk_to": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pos": {
+            "$ref": "#/$defs/point"
+          },
+          "timeout": {
+            "type": "number"
+          }
+        }
+      },
+      "player.use": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "type": "string"
+          },
+          "interaction": {
+            "type": "string"
+          }
+        }
+      },
+      "player.lock": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "player.sit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "type": "string"
+          }
+        }
+      },
+      "player.stand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "player.carry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prop": {
+            "type": "string"
+          }
+        }
+      },
+      "player.drop": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "world.bodies": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "flows.list": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "player.keys": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "window.size": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "size": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "input.key": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        }
+      },
+      "interactions.list": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "type": "string"
+          }
+        }
+      },
+      "interactions.states": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "interactions.set": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "type": "string"
+          },
+          "interaction": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "instant": {
+            "type": "boolean"
+          },
+          "wait": {
+            "type": "boolean"
+          },
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "interactions.use": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "type": "string"
+          },
+          "interaction": {
+            "type": "string"
+          },
+          "wait": {
+            "type": "boolean"
+          },
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "interactions.lock": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "type": "string"
+          },
+          "interaction": {
+            "type": "string"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "state.save": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "state.get": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "state.set": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {},
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "state.list": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "quests.list": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "state.load": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "$ref": "geogen-save.v1.schema.json"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "hud.aim": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "hud.stats": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "dialogue.show": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "dialogue.choose": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "choice": {
+            "type": "string"
+          },
+          "close": {
+            "type": "boolean"
+          }
+        }
+      },
+      "hud.inventory": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "inventory.list": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "inventory.give": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "hud.crossing": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "hud.quests": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "track": {
+            "type": "string"
+          },
+          "linger": {
+            "type": "number"
+          }
+        }
+      },
+      "hud.log": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "open": {
+            "type": "boolean"
+          },
+          "select": {
+            "type": "string"
+          },
+          "track": {
+            "type": "boolean"
+          }
+        }
+      },
+      "hud.markers": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "hud.notifications": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "hold": {
+            "type": "number"
+          },
+          "gap": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "clear": {
+            "type": "boolean"
+          }
+        }
+      },
+      "npcs.list": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "npcs.options": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          }
+        }
+      },
+      "npcs.force": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "option": {
+            "type": "string"
+          }
+        }
+      },
+      "npcs.greet": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "wait": {
+            "type": "number"
+          }
+        }
+      },
+      "npcs.pause": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          }
+        }
+      },
+      "npcs.resume": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          }
+        }
+      },
+      "time.pause": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "time.resume": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "time.step": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "frames": {
+            "type": "integer"
+          }
+        }
+      },
+      "time.advance": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "seconds": {
+            "type": "number"
+          },
+          "scale": {
+            "type": "number"
+          }
+        }
+      },
+      "time.simulate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "seconds": {
+            "type": "number"
+          }
+        }
+      },
+      "time.scale": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scale": {
+            "type": "number"
+          }
+        }
+      },
+      "time.clock": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "time": {
+            "type": "string",
+            "pattern": "^[0-9]{1,2}:[0-9]{2}$"
+          },
+          "day_length": {
+            "type": "number"
+          }
+        }
+      },
+      "capture.screenshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/$defs/point"
+          },
+          "at": {
+            "$ref": "#/$defs/point"
+          },
+          "node": {
+            "type": "string"
+          },
+          "view": {
+            "type": "string"
+          },
+          "zoom": {
+            "type": "number"
+          },
+          "isolate": {},
+          "fov": {
+            "type": "number"
+          },
+          "size": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "capture.views": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "type": "string"
+          },
+          "node_path": {
+            "type": "string"
+          },
+          "bounds": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "$ref": "#/$defs/point"
+              },
+              "max": {
+                "$ref": "#/$defs/point"
+              }
+            }
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "zoom": {
+            "type": "number"
+          },
+          "isolate": {},
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "capture.camera": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "player",
+              "overview",
+              "follow"
+            ]
+          },
+          "npc": {
+            "type": "string"
+          }
+        }
+      },
+      "events.subscribe": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "streams": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "events",
+                "quest",
+                "interaction",
+                "npc",
+                "room",
+                "place",
+                "travel",
+                "traffic"
+              ]
+            }
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "events.history": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "type": "integer"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "events.unsubscribe": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "streams": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "events",
+                "quest",
+                "interaction",
+                "npc",
+                "room",
+                "place",
+                "travel",
+                "traffic"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

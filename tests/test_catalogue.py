@@ -6,6 +6,7 @@ import pytest
 
 from geogen.catalogue import (CATALOGUE_PATH, Catalogue, CatalogueEntry, export_catalogue, load_catalogue,
                               write_index)
+from geogen.runtime_client import step
 
 
 def test_catalogue_scenes_are_registered(scene_registry):
@@ -62,14 +63,14 @@ def catalogue_dir(tmp_path_factory, built_scene):
     return out
 
 
-def test_runtime_loads_the_catalogue_default(run_godot, catalogue_dir):
-    out = run_godot(f"--generated={catalogue_dir}", "--quit-after=3")
+def test_runtime_loads_the_catalogue_default(godot_script, catalogue_dir):
+    out = godot_script([step("wait", frames=3)], f"--generated={catalogue_dir}").output
     assert "default scene dining_set" in out
     assert "loaded dining_set.glb" in out and "loaded door.glb" not in out
 
 
-def test_runtime_scene_all_ignores_the_catalogue(run_godot, catalogue_dir):
-    out = run_godot(f"--generated={catalogue_dir}", "--scene=all", "--quit-after=3")
+def test_runtime_scene_all_ignores_the_catalogue(godot_script, catalogue_dir):
+    out = godot_script([step("wait", frames=3)], f"--generated={catalogue_dir}", "--scene=all").output
     assert "loaded dining_set.glb" in out and "loaded door.glb" in out
 
 
@@ -85,15 +86,19 @@ def test_runtime_lists_scenes(run_godot, catalogue_dir):
     assert "loaded" not in out   # listing doesn't load a world
 
 
-def test_switching_scenes_leaves_nothing_behind(run_godot, catalogue_dir):
-    out = run_godot(f"--generated={catalogue_dir}", "--switch=door@0.5", "--switch=dining_set@1",
-                    "--switch=door@1.5", "--switch=dining_set@2", "--switch=missing@2.5")
-    switched = _json_lines(out, "switched: ")
-    assert [s["scene"] for s in switched] == ["door", "dining_set", "door", "dining_set", "missing"]
-    assert switched[-1]["error"] == "not exported"
-    stats = _json_lines(out, "switch stats: ")
+def test_switching_scenes_leaves_nothing_behind(godot_script, catalogue_dir):
+    steps = []
+    for scene in ("door", "dining_set", "door", "dining_set"):
+        # Freed and queued nodes are gone a few frames after a switch.
+        steps += [step("wait", seconds=0.5), step("world.switch", scene=scene), step("wait", frames=5),
+                  step("world.stats")]
+    steps.append(step("world.switch", scene="missing"))
+    run = godot_script(steps, f"--generated={catalogue_dir}", check=False)
+    out = run.output
+    assert [r["scene"] for r in run.all("world.switch")[:4]] == ["door", "dining_set", "door", "dining_set"]
+    assert run.entry(-1)["error"] == "scene 'missing' is not exported"
     by_scene = {}
-    for s in stats[:4]:
+    for s in run.all("world.stats"):
         by_scene.setdefault(s["scene"], []).append(s)
     for scene, visits in by_scene.items():
         first, second = visits
@@ -105,31 +110,31 @@ def test_switching_scenes_leaves_nothing_behind(run_godot, catalogue_dir):
     assert "leaked" not in out
 
 
-def test_switch_then_walk_in_the_new_world(run_godot, catalogue_dir):
-    out = run_godot(f"--generated={catalogue_dir}", "--switch=door@0.5", "--walk=0.6")
-    assert "loaded dining_set.glb" in out and "loaded door.glb" in out
-    start = _json_lines(out, "switched: ")[0]
-    end = _json_lines(out, "walk result: ")[0]
-    assert end["on_floor"]
-    moved = ((end["x"] - start["x"]) ** 2 + (end["z"] - start["z"]) ** 2) ** 0.5
+def test_switch_then_walk_in_the_new_world(godot_script, catalogue_dir):
+    run = godot_script([step("wait", seconds=0.5), step("world.switch", scene="door"), step("player.status"),
+                        step("player.move", seconds=0.6)], f"--generated={catalogue_dir}")
+    assert "loaded dining_set.glb" in run.output and "loaded door.glb" in run.output
+    start, end = run["player.status"]["position"], run["player.move"]["position"]
+    assert run["player.move"]["on_floor"] and run["player.move"]["scene"] == "door"
+    moved = ((end[0] - start[0]) ** 2 + (end[2] - start[2]) ** 2) ** 0.5
     assert moved > 1.0, (start, end)
 
 
-def test_second_load_reuses_the_baked_navmesh(run_godot, built_scene, tmp_path):
+def test_second_load_reuses_the_baked_navmesh(godot_script, built_scene, tmp_path):
     from geogen.export import export_scene
 
     export_scene(built_scene("dining_set"), tmp_path / "dining_set.glb")
     args = ("--scene=dining_set", f"--generated={tmp_path}", "--timings")
-    first = _json_lines(run_godot(*args, "--quit-after=3"), "load timings: ")[0]
+    first = _json_lines(godot_script([step("wait", frames=3)], *args).output, "load timings: ")[0]
     assert first["phases"]["nav_cache"] == "miss" and "gltf_parse" in first["phases"]
     assert list((tmp_path / ".navcache").glob("dining_set-*.scn"))
-    out = run_godot(*args, "--nav=-2,3:2,-3")
-    second = _json_lines(out, "load timings: ")[0]
+    run = godot_script([step("wait_ready"), step("world.nav_path", **{"from": [-2, 0, 3]}, to=[2, 0, -3])], *args)
+    second = _json_lines(run.output, "load timings: ")[0]
     assert second["phases"]["nav_cache"] == "hit"
     assert second["phases"]["navigation"] < first["phases"]["navigation"]
-    assert _json_lines(out, "nav path: ")[0]["reached"]         # the cached navmesh paths around the table
+    assert run["world.nav_path"]["reached"]         # the cached navmesh paths around the table
     # A changed export (another scene under the same name) misses and replaces the old bake.
     export_scene(built_scene("door"), tmp_path / "dining_set.glb")
-    third = _json_lines(run_godot(*args, "--quit-after=3"), "load timings: ")[0]
+    third = _json_lines(godot_script([step("wait", frames=3)], *args).output, "load timings: ")[0]
     assert third["phases"]["nav_cache"] == "miss"
     assert len(list((tmp_path / ".navcache").glob("dining_set-*.scn"))) == 1

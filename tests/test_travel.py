@@ -7,6 +7,7 @@ import pytest
 from geogen.catalogue import Catalogue, CatalogueEntry, export_catalogue, write_index
 from geogen.export import export_scene, gameplay_summary, node_extras
 from geogen.layout.composer import SceneComposer
+from geogen.runtime_client import step
 from geogen.travel import apply_travel, check_travel, parse_travel
 
 # A freestanding arch: two posts, a lintel, and a walk-in trigger between them.
@@ -165,35 +166,45 @@ def travel_dir(tmp_path_factory, scenes):
     return out
 
 
-def _json_lines(out: str, prefix: str) -> list[dict]:
-    return [json.loads(line.removeprefix(prefix)) for line in out.splitlines() if line.startswith(prefix)]
+def _travels(run) -> list[dict]:
+    """The travels the run asked for (the travel stream): {scene, spawn, on, ...}."""
+    return [e["data"] for e in run.events if e["event"] == "travel"]
 
 
-def test_use_a_travel_point_to_reach_another_scene(run_godot, travel_dir):
-    out = run_godot("--scene=travel_a", f"--generated={travel_dir}", "--use=@aim", "--simulate=2", "--status")
-    assert "used: shelf (travel)" in out
-    travelled = _json_lines(out, "travelled: ")
-    assert len(travelled) == 1 and travelled[0]["ok"] and travelled[0]["via"] == "use"
-    status = _json_lines(out, "status: ")[0]
+TRAVEL = step("events.subscribe", streams=["travel"])
+
+
+def _xz(status) -> tuple[float, float]:
+    return status["position"][0], status["position"][2]
+
+
+def test_use_a_travel_point_to_reach_another_scene(godot_script, travel_dir):
+    run = godot_script([TRAVEL, step("player.use", retry=2), step("wait", seconds=2), step("player.status")],
+                       "--scene=travel_a", f"--generated={travel_dir}")
+    assert run["player.use"]["asset"] == "shelf" and run["player.use"]["interaction"] == "travel"
+    travelled = _travels(run)
+    assert len(travelled) == 1 and travelled[0]["on"] == "use"
+    status = run["player.status"]
     assert status["scene"] == "travel_b"
-    assert (status["x"], status["z"]) == pytest.approx((-3, 4), abs=0.05)     # the 'arrival' spawn
+    assert _xz(status) == pytest.approx((-3, 4), abs=0.05)     # the 'arrival' spawn
 
 
-def test_walk_into_a_portal_to_reach_another_scene(run_godot, travel_dir):
-    out = run_godot("--scene=travel_a", f"--generated={travel_dir}", "--spawn=4,0,2.5", "--walk=3")
-    travelled = _json_lines(out, "travelled: ")
-    assert len(travelled) == 1 and travelled[0]["via"] == "enter" and travelled[0]["scene"] == "travel_b"
-    result = _json_lines(out, "walk result: ")[0]
+def test_walk_into_a_portal_to_reach_another_scene(godot_script, travel_dir):
+    run = godot_script([TRAVEL, step("player.move", seconds=3)], "--scene=travel_a", f"--generated={travel_dir}",
+                       start={"spawn": [4, 0, 2.5]})
+    travelled = _travels(run)
+    assert len(travelled) == 1 and travelled[0]["on"] == "enter" and travelled[0]["scene"] == "travel_b"
+    result = run["player.move"]
     assert result["scene"] == "travel_b" and result["on_floor"]
-    assert (result["x"], result["z"]) == pytest.approx((-3, 4), abs=0.05)   # arrived and stopped
+    assert _xz(result) == pytest.approx((-3, 4), abs=0.05)   # arrived and stopped
 
 
-def test_same_scene_travel_moves_the_player(run_godot, travel_dir):
-    out = run_godot("--scene=travel_b", f"--generated={travel_dir}", "--use=mailbox", "--simulate=2", "--status")
-    travelled = _json_lines(out, "travelled: ")[0]
-    assert travelled["scene"] == "travel_b" and travelled["spawn"] == "far"
-    status = _json_lines(out, "status: ")[0]
-    assert (status["x"], status["z"]) == pytest.approx((5, -4), abs=0.05)
+def test_same_scene_travel_moves_the_player(godot_script, travel_dir):
+    run = godot_script([TRAVEL, step("interactions.use", asset="mailbox", actor="player"), step("wait", seconds=2),
+                        step("player.status")], "--scene=travel_b", f"--generated={travel_dir}")
+    travelled = _travels(run)[0]
+    assert travelled.get("scene", "travel_b") in ("", "travel_b") and travelled["spawn"] == "far"
+    assert _xz(run["player.status"]) == pytest.approx((5, -4), abs=0.05)
 
 
 GATES = """
@@ -237,17 +248,18 @@ def test_travel_door_and_portal_assets(scenes):
     assert arch.find("travel_volume") is None and arch.meta["travel"]["volume"]["size"][1] == pytest.approx(2.2)
 
 
-def test_use_the_travel_door_in_godot(run_godot, gates_dir):
-    out = run_godot("--scene=gates", f"--generated={gates_dir}", "--spawn=-2,0,1.2", "--use=@aim",
-                    "--simulate=2", "--status")
-    assert "used: door (travel)" in out
-    status = _json_lines(out, "status: ")[0]
-    assert status["scene"] == "travel_b" and (status["x"], status["z"]) == pytest.approx((-3, 4), abs=0.05)
+def test_use_the_travel_door_in_godot(godot_script, gates_dir):
+    run = godot_script([step("player.use", retry=2), step("wait", seconds=2), step("player.status")],
+                       "--scene=gates", f"--generated={gates_dir}", start={"spawn": [-2, 0, 1.2]})
+    assert (run["player.use"]["asset"], run["player.use"]["interaction"]) == ("door", "travel")
+    status = run["player.status"]
+    assert status["scene"] == "travel_b" and _xz(status) == pytest.approx((-3, 4), abs=0.05)
 
 
-def test_walk_through_the_portal_asset_in_godot(run_godot, gates_dir):
-    out = run_godot("--scene=gates", f"--generated={gates_dir}", "--spawn=3,0,3", "--walk=3")
-    travelled = _json_lines(out, "travelled: ")
-    assert len(travelled) == 1 and travelled[0]["via"] == "enter" and travelled[0]["spawn"] == "far"
-    result = _json_lines(out, "walk result: ")[0]
-    assert result["scene"] == "travel_b" and (result["x"], result["z"]) == pytest.approx((5, -4), abs=0.05)
+def test_walk_through_the_portal_asset_in_godot(godot_script, gates_dir):
+    run = godot_script([TRAVEL, step("player.move", seconds=3)], "--scene=gates", f"--generated={gates_dir}",
+                       start={"spawn": [3, 0, 3]})
+    travelled = _travels(run)
+    assert len(travelled) == 1 and travelled[0]["on"] == "enter" and travelled[0]["spawn"] == "far"
+    result = run["player.move"]
+    assert result["scene"] == "travel_b" and _xz(result) == pytest.approx((5, -4), abs=0.05)

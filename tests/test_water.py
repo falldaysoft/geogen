@@ -7,6 +7,7 @@ import pytest
 from geogen.core import meshops
 from geogen.export import export_scene
 from geogen.layout.loader import LayoutLoader
+from geogen.runtime_client import step
 
 SEA = """
 name: sea_test
@@ -53,9 +54,10 @@ def test_shore_barrier_is_an_invisible_collider(sea):
     assert hi[1] >= 1.5 and lo[1] < 0 and hi[0] > 39                  # round the island and the sea's edge
 
 
-def test_player_cant_walk_into_the_sea(run_godot, sea, tmp_path):
+def test_player_cant_walk_into_the_sea(godot_script, sea, tmp_path):
     export_scene(sea, tmp_path / "sea_test.glb")
-    out = run_godot("--scene=sea_test", f"--generated={tmp_path}", "--spawn=0,0.3,0", "--yaw=0", "--walk=5")
-    result = json.loads(next(l for l in out.splitlines() if l.startswith("walk result: ")).removeprefix("walk result: "))
+    run = godot_script([step("player.move", seconds=5)], "--scene=sea_test", f"--generated={tmp_path}",
+                       start={"spawn": [0, 0.3, 0], "yaw": 0})
+    result = run["player.move"]
     # Walking toward -Z from the middle of the island (radius 10) stops at the shore wall.
-    assert -10.3 < result["z"] < -9.0, result
+    assert -10.3 < result["position"][2] < -9.0, result

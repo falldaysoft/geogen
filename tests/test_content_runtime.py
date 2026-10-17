@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from geogen.runtime_client import ApiError
+from geogen.runtime_client import ApiError, step
 from test_content import deploy, write_assets
 
 pytestmark = pytest.mark.xdist_group("test_content_runtime")
@@ -87,22 +87,31 @@ def _json_lines(out: str, prefix: str) -> list[dict]:
     return [json.loads(line.removeprefix(prefix)) for line in out.splitlines() if line.startswith(prefix)]
 
 
-def test_a_package_is_loaded_across_a_switch(run_godot, generated):
-    """One headless run: state set at camp, then --switch to the annex, where a rule reads it."""
-    out = run_godot(f"--generated={generated}", "--scene=camp", f"--set={PULLED}=true", "--events=changed",
-                    "--switch=annex@0.5", "--switch=camp@1.5")
-    assert [s["scene"] for s in _json_lines(out, "switched: ")] == ["annex", "camp"]
+CHANGES = step("events.subscribe", streams=["events"], types=["changed"])
+
+
+def _changes(run) -> list[dict]:
+    return [e["data"] for e in run.events if e["event"] == "events"]
+
+
+def test_a_package_is_loaded_across_a_switch(godot_script, generated):
+    """One headless run: state set at camp, then a switch to the annex, where a rule reads it."""
+    run = godot_script([CHANGES, step("state.set", key=PULLED, value=True), step("wait", seconds=0.5),
+                        step("world.switch", scene="annex"), step("wait", seconds=1.0),
+                        step("world.switch", scene="camp")], f"--generated={generated}", "--scene=camp")
+    out = run.output
+    assert [s["scene"] for s in run.all("world.switch")] == ["annex", "camp"]
     assert "geogen: content package errand runs in camp" in out
     assert "geogen: content package errand runs in annex" in out
     assert out.index("content package errand runs in camp") < out.index("content package errand runs in annex")
-    changed = {e["key"]: e for e in _json_lines(out, "event: ")}
+    changed = {e["key"]: e for e in _changes(run)}
     assert changed[PULLED]["data"]["to"] is True and changed[PULLED]["package"] == "camp"
     assert changed[GATE]["data"]["to"] == "open" and changed[GATE]["origin"] == "rules"
     assert changed[GATE]["package"] == "annex"
     assert "geogen rules:" not in out and "SCRIPT ERROR" not in out
 
 
-def test_scenes_without_the_package_are_untouched(run_godot, generated, tmp_path):
+def test_scenes_without_the_package_are_untouched(godot_script, generated, tmp_path):
     """A catalogue that deploys nothing: the annex has no state of the package's."""
     import shutil
 
@@ -111,5 +120,6 @@ def test_scenes_without_the_package_are_untouched(run_godot, generated, tmp_path
     index = json.loads((plain / "catalogue.json").read_text())
     index["packages"] = []
     (plain / "catalogue.json").write_text(json.dumps(index))
-    out = run_godot(f"--generated={plain}", "--scene=annex", f"--set={PULLED}=true", "--events=changed", "--quit-after=20")
-    assert "content package" not in out and _json_lines(out, "event: ") == []
+    run = godot_script([CHANGES, step("wait", frames=20)], f"--generated={plain}", "--scene=annex",
+                       start={"set": {PULLED: True}})
+    assert "content package" not in run.output and _changes(run) == []

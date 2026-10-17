@@ -12,23 +12,31 @@ extends Node3D
 ##   --generated=DIR               read exports from DIR instead of res://generated
 ##   --spawn=X,Y,Z  --yaw=DEG      player start (default: the export's first spawn
 ##                                 point, else in front of the model)
+##   --script=FILE / --run=JSON    run control API commands in order once the world is loaded
+##                                 (api.gd; docs/schema/geogen-control.v1.schema.json): a JSON list
+##                                 of {cmd, args, retry?} steps. Each prints "script: {...}", then
+##                                 "script done: {...}" and the runtime quits (exit 1 if a step failed)
+##
+## Action flags are shorthand for script steps, run after any --script steps in this order:
+## --quests, --switch, --use=ASSET, --greet, --lock=@aim, --use=@aim, --wait, --walk, --nav,
+## --simulate, --quit-after, --screenshot, --save, --status, --lights, --skeletons.
 ##   --camera=overview             start from the overview camera (F4 toggles)
 ##   --colliders                   show collision shapes (F2 toggles)
-##   --walk=SECONDS                walk forward, print the final position, quit
-##   --greet=NAME[@S]              greet the NPC named NAME... after S s (default 2): it waves back
-##   --use=ASSET                   use ASSET's interactions at start (e.g. open "door");
-##                                 --use=@aim presses E on whatever the player looks at
+##   --walk=SECONDS                walk forward (player.move)
+##   --greet=NAME[@S]              greet the NPC named NAME... after S s (default 2): it waves back (npcs.greet)
+##   --use=ASSET                   use ASSET's interactions (interactions.use; e.g. open "door");
+##                                 --use=@aim presses E on whatever the player looks at (player.use)
 ##   --wait=SECONDS                wait before the --walk starts (let a door swing)
-##   --nav=AX,AZ:BX,BZ             print the navigation path between two floor points, quit
-##   --lights                      print the fixture lights (JSON) when quitting
+##   --nav=AX,AZ:BX,BZ             the navigation path between two floor points (world.nav_path)
+##   --lights                      the fixture lights (world.lights)
 ##   --keys=K1,K2                  keys the player holds (lock/unlock doors with L)
-##   --lock=@aim                   press L on whatever the player looks at
+##   --lock=@aim                   press L on whatever the player looks at (player.lock)
 ##   --pitch=DEG                   look up (+) or down (-) at spawn
-##   --save=PATH / --load=PATH     write the game's state (a geogen-save) on quit / restore one at start
-##   --status                      print the player's pose/room/focus when quitting
+##   --save=PATH / --load=PATH     write the game's state (a geogen-save; state.save) / restore one at start
+##   --status                      the player's pose/room/focus (player.status)
 ##   --npc-trace                   print every NPC decision and step ("npc: {...}")
-##   --quests                      print every quest's state for the player ("quests: [...]") once the world
-##                                 is loaded; quest and objective changes always print "quest event: {...}"
+##   --quests                      every quest's state for the player (quests.list); quest and objective
+##                                 changes always print "quest event: {...}"
 ##   --open-doors=GLOB             open doors whose name matches before the navmesh bake, and hold them
 ##                                 (stair halls on a walked route; --playtest opens every door)
 ##   --give=ITEM[:N]               give the player N (default 1) of an item at start (repeatable)
@@ -37,14 +45,13 @@ extends Node3D
 ##   --events[=TYPE,...]           print the event bus ("event: {...}"): every type, or only these
 ##                                 (signal, changed, use, enter, leave, travel, clock, start, arrived, npc)
 ##   --timescale=N                 run the world N times faster (physics ticks scale too)
-##   --simulate=SECONDS            run for SECONDS of world time, print "npc summary: [...]", quit
+##   --simulate=SECONDS            run SECONDS of world time and report NPCs, traffic and cost (time.simulate)
 ##   --npc-limit=N                 spawn at most N of the export's NPCs (crowd measurements)
 ##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
 ##   --time=HH:MM                  world clock at start (default 13:00): sun, sky, street lamps,
 ##                                 routines and traffic follow it
 ##   --day-length=SECONDS          real seconds per 24 h of world time (default 1440; 0 freezes it)
 ##   --traffic-trace               print traffic claims, overlaps and respawns ("traffic: {...}")
-##                                 (--simulate also prints "traffic summary: [...]")
 ##   --camera=follow[:NAME]        watch an NPC (the first, or the one whose name starts with NAME)
 ##   --api[=PORT]                  serve the runtime control API on 127.0.0.1:PORT (default 7878; 0 picks
 ##                                 a free port), printed as "api listening: {...}" (see api.gd)
@@ -58,9 +65,9 @@ extends Node3D
 ## In game, look at something interactive within reach and press E.
 ##   --play=ANIM[@SECONDS]         loop every animation named ANIM (or <node>_ANIM); with @SECONDS,
 ##                                 freeze it at that time (skeletal clips, interaction animations)
-##   --skeletons                   print Skeleton3D bones, skinned mesh bounds and animations on quit
-##   --screenshot=PATH             save a frame and quit
-##   --quit-after=N                quit after N frames
+##   --skeletons                   Skeleton3D bones, skinned mesh bounds and animations (world.skeletons)
+##   --screenshot=PATH             save a frame (capture.screenshot; after --quit-after, else 10 frames)
+##   --quit-after=N                let N physics frames run (wait)
 ##   --manifest=PATH               print the player spec read from PATH
 ##   --menu                        open the scene list at start (screenshots)
 ##   --timings                     print each load's phases ("load timings: {...}", ms) and whether
@@ -68,9 +75,8 @@ extends Node3D
 ##   --list-scenes                 print the scene catalogue (name, group, exported, description), quit
 ##   --trace=FILE                  replay a rules conformance trace (docs/rules.md) without loading a
 ##                                 world; prints "trace: {name, problems}", exits 1 on problems (repeatable)
-##   --switch=NAME[@S]             switch to scene NAME after S s (default 1; repeatable, in order);
-##                                 prints "switched: {...}" and "switch stats: {...}" (node/object
-##                                 counts), then quits unless --walk / --status / --screenshot follow
+##   --switch=NAME[@S]             switch to scene NAME at S s (default 1; repeatable, in order): world.switch,
+##                                 then world.stats (node/object counts)
 ##
 ## Travel points (extras.geogen.travel: doors you use, portals you walk into) fade out, load
 ## their target scene (or move within this one) and put the player at the named spawn; prints
@@ -80,40 +86,22 @@ extends Node3D
 ## picked is remembered (user://settings.cfg, per generated dir) and loaded when no --scene is
 ## given (not in headless runs).
 
-var quit_after_frames := 0
-var screenshot_path := ""
-var walk_seconds := 0.0
 var player_spec := PlayerSpec.new()
 
-var _frames := 0
 var _spawn_override = null
 var _yaw_override = null
-var _walk_left := 0.0
 var _manifest_arg := false
 var _start_overview := false
-var _use_assets: Array[String] = []
-var _use_aim := false
-var _print_lights := false
 var keys: Array = []         # --keys; held_keys() adds what the player carries
-var _lock_aim := false
 var _pitch := 0.0
-var _save_path := ""
 var _load_path := ""
 var _started := false
-var _print_quests := false
 var _sets: Array[String] = []
 var _gives: Array[String] = []
 var _open_doors := ""
-var _print_status := false
 var _focus_affordance := {}
 var _focus_npc: GeogenNpc = null
-var _greet := {}                  # --greet: {name prefix: world seconds}
-var _nav_query := []
-var _nav_iteration := -1
-var _nav_settled := 0
-var _frames_nav := 0
 var _playtest_walks := -1
-var _wait_left := 0.0
 var _focus: GeogenInteraction = null
 ## Aimed at but refused by its `when`, with text saying why (`refused`): the prompt says it,
 ## and E tells the player again.
@@ -122,30 +110,15 @@ var _refused_focus: GeogenInteraction = null
 var _focus_prop := ""
 ## How far in front of the eyes a carried prop is held (m).
 const HOLD_DISTANCE := 1.4
-var _simulate := 0.0
-var _sim_started := 0           # ticks (usec) and process frame when --simulate began
-var _sim_frame := 0
-var _sim_process := 0.0         # summed Performance TIME_PROCESS (s) over the run
-var _sim_samples := 0
-var _sim_render := [0.0, 0.0, 0.0]  # summed draw calls, primitives, objects in frame
-var _sim_frames: PackedFloat32Array = []   # every frame's time (ms) once the simulation clock runs
-var _sim_ticks: PackedFloat32Array = []    # every physics tick's callbacks (ms): see _TickMark
-var _sim_tick_start := 0
-var _sim_clock := 0.0
 var _npc_labels := false
 var _follow = null       # NPC name prefix to follow with the overview camera, or null
 var _prompt: Label
 var _play := ""
 var _play_at := -1.0
-var _print_skeletons := false
 var clock: GeogenClock
 var _start_time := 13.0
 var _menu: GeogenSceneMenu
 var hud: GeogenHud                # the game HUD (hud.gd): the quest tracker, notifications and later panels
-var _switches: Array[Dictionary] = []   # --switch: [{name, at: seconds}]
-var _switch_clock := 0.0
-var _stats_in := -1                     # frames until the post-switch stats print
-var _queued := false                    # the last switch came from --switch (not the menu or travel)
 var _list_scenes := false
 var _traces: Array[String] = []         # --trace: rules traces to replay instead of loading a world
 var _travelling := false
@@ -160,6 +133,9 @@ const AIM_SLACK := 0.2
 const SETTINGS_PATH := "user://settings.cfg"
 var _day_length := 1440.0
 var _api_port := -1
+## Control API steps to run once the world is loaded (--script / --run, then the action flags').
+var _steps: Array = []
+var _stop_on_error := true
 
 @onready var world: WorldLoader = $World
 @onready var overview: Camera3D = $OverviewCamera
@@ -168,7 +144,9 @@ var player: Player
 
 
 func _ready() -> void:
-    var args := OS.get_cmdline_user_args()
+    var args: Array[String] = []
+    args.assign(Array(OS.get_cmdline_user_args()))
+    var act := {"use": [], "greet": [], "switch": []}     # action flags: become script steps (_flag_steps)
     var i := 0
     while i < args.size():
         var arg := args[i]
@@ -195,32 +173,40 @@ func _ready() -> void:
         elif arg == "--camera=overview":
             _start_overview = true
         elif arg.begins_with("--walk="):
-            walk_seconds = float(value)
+            act["walk"] = float(value)
+        elif arg.begins_with("--script=") or arg.begins_with("--run="):
+            var text := FileAccess.get_file_as_string(value) if arg.begins_with("--script=") else arg.trim_prefix("--run=")
+            var parsed = GeogenApi.parse_script(text, arg.get_slice("=", 0))
+            if parsed is String:
+                push_error("geogen: " + parsed)
+                get_tree().quit(2)
+                return
+            _steps.append_array(parsed["steps"])
+            _stop_on_error = _stop_on_error and bool(parsed.get("stop_on_error", true))
+            args.append_array(_start_args(parsed.get("start", {})))     # parsed like flags, after this one
         elif arg == "--playtest":
             _playtest_walks = 6
         elif arg.begins_with("--playtest="):
             _playtest_walks = int(value)
         elif arg.begins_with("--nav="):
-            for point in value.split(":"):
-                var xz := point.split_floats(",")
-                # X,Z (on the ground) or X,Y,Z (e.g. on a hill).
-                _nav_query.append(Vector3(xz[0], xz[1], xz[2]) if xz.size() == 3 else Vector3(xz[0], 0.0, xz[1]))
+            # X,Z (on the ground) or X,Y,Z (e.g. on a hill), for each end.
+            act["nav"] = Array(value.split(":")).map(func(point): return Array(point.split_floats(",")))
         elif arg == "--lights":
-            _print_lights = true
+            act["lights"] = true
         elif arg.begins_with("--keys="):
             keys = Array(value.split(",", false))
         elif arg.begins_with("--pitch="):
             _pitch = float(value)
         elif arg == "--lock=@aim":
-            _lock_aim = true
+            act["lock"] = true
         elif arg.begins_with("--save="):
-            _save_path = value
+            act["save"] = value
         elif arg.begins_with("--load="):
             _load_path = value
         elif arg == "--npc-trace":
             world.npc_trace = true
         elif arg == "--quests":
-            _print_quests = true
+            act["quests"] = true
         elif arg.begins_with("--set="):
             _sets.append(arg.trim_prefix("--set="))
         elif arg.begins_with("--open-doors="):
@@ -234,7 +220,7 @@ func _ready() -> void:
             Engine.time_scale = scale
             world.apply_physics_rate()
         elif arg.begins_with("--simulate="):
-            _simulate = float(value)
+            act["simulate"] = float(value)
         elif arg.begins_with("--npc-limit="):
             world.npc_limit = int(value)
         elif arg.begins_with("--time="):
@@ -249,27 +235,25 @@ func _ready() -> void:
             _follow = arg.get_slice(":", 1) if ":" in arg else ""
             _start_overview = true
         elif arg == "--status":
-            _print_status = true
+            act["status"] = true
         elif arg == "--use=@aim":
-            _use_aim = true
+            act["use_aim"] = true
         elif arg.begins_with("--greet="):
-            _greet[value.get_slice("@", 0)] = float(value.get_slice("@", 1)) if "@" in value else 2.0
+            act["greet"].append([value.get_slice("@", 0), float(value.get_slice("@", 1)) if "@" in value else 2.0])
         elif arg.begins_with("--use="):
-            _use_assets.append(value)
+            act["use"].append(value)
         elif arg.begins_with("--wait="):
-            _wait_left = float(value)
+            act["wait"] = float(value)
         elif arg.begins_with("--play="):
             _play = value.get_slice("@", 0)
             if "@" in value:
                 _play_at = float(value.get_slice("@", 1))
         elif arg == "--skeletons":
-            _print_skeletons = true
+            act["skeletons"] = true
         elif arg.begins_with("--quit-after="):
-            quit_after_frames = int(value)
+            act["quit_after"] = int(value)
         elif arg.begins_with("--screenshot="):
-            screenshot_path = value
-            if quit_after_frames <= 0:
-                quit_after_frames = 10  # let shadows/SSAO settle
+            act["screenshot"] = value
         elif arg == "--timings":
             world.print_timings = true
         elif arg == "--menu":
@@ -279,9 +263,7 @@ func _ready() -> void:
         elif arg.begins_with("--trace="):
             _traces.append(arg.trim_prefix("--trace="))
         elif arg.begins_with("--switch="):
-            var at := float(value.get_slice("@", 1)) if "@" in value else 1.0
-            var after: float = _switches[-1]["at"] if not _switches.is_empty() else 0.0
-            _switches.append({"name": value.get_slice("@", 0), "at": maxf(at, after)})
+            act["switch"].append([value.get_slice("@", 0), float(value.get_slice("@", 1)) if "@" in value else 1.0])
         elif arg == "--api":
             _api_port = 7878
         elif arg.begins_with("--api="):
@@ -292,6 +274,7 @@ func _ready() -> void:
                 player_spec = spec
                 _manifest_arg = true
         i += 1
+    _steps.append_array(_flag_steps(act))
     print("geogen runtime ready (Godot %s)" % Engine.get_version_info().string)
     if not _traces.is_empty():
         set_process(false)
@@ -308,13 +291,6 @@ func _ready() -> void:
     world.open_before_bake = _playtest_walks >= 0 or _open_doors != ""
     world.open_only = _open_doors if _playtest_walks < 0 else ""
     world.prime_focus = _spawn_override
-    if _simulate > 0.0:
-        # Time every physics tick's callbacks (scripts, move_and_slide; not the physics server's
-        # own step): Godot's TIME_PHYSICS_PROCESS monitor is the slowest tick of the last second.
-        add_child(_TickMark.new(-100000, func(): _sim_tick_start = Time.get_ticks_usec()))
-        add_child(_TickMark.new(100000, func():
-            if _sim_clock > 0.0 and _simulate > 0.0:
-                _sim_ticks.append((Time.get_ticks_usec() - _sim_tick_start) / 1000.0)))
     world.world_loaded.connect(_on_world_loaded)
     world.travel_requested.connect(_travel)
     world.interaction_event.connect(func(asset: String, interaction: String, state: String, event: String):
@@ -342,9 +318,7 @@ func _ready() -> void:
             for entry in _gives:
                 var given := world.rules.give(entry.get_slice(":", 0), int(entry.get_slice(":", 1)) if ":" in entry else 1)
                 if given != "":
-                    push_warning("geogen: --give=%s: %s" % [entry, given])
-            if _print_quests:
-                print("quests: %s" % JSON.stringify(world.rules.report("player"))))
+                    push_warning("geogen: --give=%s: %s" % [entry, given]))
     clock = GeogenClock.new()
     clock.name = "Clock"
     clock.night_changed.connect(func(night: bool): world.events.post("clock", "", "night" if night else "day"))
@@ -380,12 +354,6 @@ func _ready() -> void:
         _play_animations()
     if not world.npcs.is_empty():
         print("npcs: %s" % JSON.stringify(world.npcs.map(func(n): return String(n.name))))
-    for asset_name in _use_assets:
-        var found := world.interactions_of(asset_name)
-        if found.is_empty():
-            push_warning("geogen: --use=%s: no interactions on that node" % asset_name)
-        for it in found:
-            it.use("player")
     _prompt = Label.new()
     _prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -432,20 +400,85 @@ func _ready() -> void:
         playtest.start_yaw = rad_to_deg(player.rotation.y)
         playtest.walk_count = _playtest_walks
         add_child(playtest)
-    if walk_seconds > 0.0:
-        _walk_left = walk_seconds
-        if _wait_left <= 0.0 and _switches.is_empty():
-            player.scripted_move = Vector2(0, 1)
-    elif DisplayServer.get_name() != "headless" and screenshot_path == "":
+    if DisplayServer.get_name() != "headless" and _steps.is_empty():
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
     if _open_menu_at_start:
         _open_menu()
-    if _api_port >= 0:
+    if _api_port >= 0 or not _steps.is_empty():
         var api := GeogenApi.new()
         api.name = "Api"
         api.main = self
-        api.port = _api_port
+        api.port = maxi(_api_port, 0)
+        api.listen = _api_port >= 0
+        api.script_steps = _steps
+        api.stop_on_error = _stop_on_error
         add_child(api)
+
+
+## A script's ``start`` (how the world starts: the schema's start object) as the flags that set it.
+static func _start_args(start: Dictionary) -> Array[String]:
+    var out: Array[String] = []
+    var joined := func(v): return ",".join(Array(v).map(func(x): return str(x))) if v is Array else str(v)
+    for key in start:
+        var v = start[key]
+        match key:
+            "set":
+                for k in v:
+                    out.append("--set=%s=%s" % [k, JSON.stringify(v[k])])
+            "give":
+                for item in v:
+                    out.append("--give=%s:%d" % [item, int(v[item])])
+            _:
+                out.append("--%s=%s" % [key.replace("_", "-"), joined.call(v)])
+    return out
+
+
+## The action flags as control API steps, in a fixed order (see the header).
+static func _flag_steps(act: Dictionary) -> Array:
+    var steps := []
+    if act.get("quests", false):
+        steps.append({"cmd": "quests.list"})
+    var clock := 0.0
+    for entry in act["switch"]:
+        if entry[1] > clock:
+            steps.append({"cmd": "wait", "args": {"seconds": entry[1] - clock}})
+            clock = entry[1]
+        steps.append({"cmd": "world.switch", "args": {"scene": entry[0]}})
+        steps.append({"cmd": "world.stats"})
+    for asset in act["use"]:
+        steps.append({"cmd": "interactions.use", "args": {"asset": asset, "actor": "player"}})
+    var greets: Array = act["greet"].duplicate()
+    greets.sort_custom(func(a, b): return a[1] < b[1])
+    for entry in greets:
+        if entry[1] > clock:
+            steps.append({"cmd": "wait", "args": {"seconds": entry[1] - clock}})
+            clock = entry[1]
+        steps.append({"cmd": "npcs.greet", "args": {"npc": entry[0], "wait": 30.0}})
+    if act.get("lock", false):
+        steps.append({"cmd": "player.lock", "retry": 2.0})
+    if act.get("use_aim", false):
+        steps.append({"cmd": "player.use", "retry": 2.0})
+    if act.get("wait", 0.0) > 0.0:
+        steps.append({"cmd": "wait", "args": {"seconds": act["wait"]}})
+    if act.get("walk", 0.0) > 0.0:
+        steps.append({"cmd": "player.move", "args": {"forward": 1.0, "seconds": act["walk"]}})
+    if act.has("nav"):
+        steps.append({"cmd": "wait_ready", "args": {"timeout": 120.0}})
+        steps.append({"cmd": "world.nav_path", "args": {"from": act["nav"][0], "to": act["nav"][1]}})
+    if act.get("simulate", 0.0) > 0.0:
+        steps.append({"cmd": "time.simulate", "args": {"seconds": act["simulate"]}})
+    if act.get("quit_after", 0) > 0:
+        steps.append({"cmd": "wait", "args": {"frames": act["quit_after"]}})
+    if act.has("screenshot"):
+        if act.get("quit_after", 0) <= 0:
+            steps.append({"cmd": "wait", "args": {"frames": 10}})     # let shadows and SSAO settle
+        steps.append({"cmd": "capture.screenshot", "args": {"path": act["screenshot"]}})
+    if act.has("save"):
+        steps.append({"cmd": "state.save", "args": {"path": act["save"]}})
+    for flag in ["status", "lights", "skeletons"]:
+        if act.get(flag, false):
+            steps.append({"cmd": {"status": "player.status", "lights": "world.lights", "skeletons": "world.skeletons"}[flag]})
+    return steps
 
 
 func _on_world_loaded(aabb: AABB) -> void:
@@ -488,7 +521,7 @@ func _place_player(aabb: AABB, spawn_name := "", overrides := true) -> void:
 ## first). A coroutine: it fades to a loading screen (unless already faded, as
 ## travel does) while the export parses on a worker thread. False (nothing
 ## changes) if the scene isn't exported or a switch is already under way.
-func switch_scene(scene: String, spawn_name := "", queued := false) -> bool:
+func switch_scene(scene: String, spawn_name := "") -> bool:
     if not world.is_exported(scene):
         push_warning("geogen: can't switch to '%s': not exported in %s" % [scene, world.generated_dir])
         return false
@@ -530,8 +563,6 @@ func switch_scene(scene: String, spawn_name := "", queued := false) -> bool:
     if fade_back:
         await _fade_to(0.0)
     _switching = false
-    _queued = queued
-    _stats_in = 5    # freed/queued nodes are gone after a few frames
     return true
 
 
@@ -599,7 +630,7 @@ func _hud_modal(open: bool) -> void:
 
 func _menu_closed() -> void:
     player.process_mode = Node.PROCESS_MODE_INHERIT
-    if DisplayServer.get_name() != "headless" and screenshot_path == "":
+    if DisplayServer.get_name() != "headless" and _steps.is_empty():
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -641,48 +672,6 @@ func _settings_key() -> String:
     return "dir_" + ProjectSettings.globalize_path(world.generated_dir).md5_text()
 
 
-## --switch: run the queued switches on time, then the stats; quit when nothing else is pending.
-func _run_switches(delta: float) -> void:
-    if _stats_in > 0:
-        _stats_in -= 1
-        if _stats_in == 0:
-            _print_switch_stats()
-            if not _queued:
-                return
-            if _switches.is_empty() and _walk_left > 0.0 and _wait_left <= 0.0:
-                player.scripted_move = Vector2(0, 1)
-            if _switches.is_empty() and _walk_left <= 0.0 and not _print_status and screenshot_path == "" \
-                    and _simulate <= 0.0 and quit_after_frames <= 0:
-                get_tree().quit()
-        return
-    if _switches.is_empty() or _switching or _travelling:
-        return
-    _switch_clock += delta
-    if _switch_clock < _switches[0]["at"]:
-        return
-    var next: Dictionary = _switches.pop_front()
-    if world.is_exported(next["name"]):
-        switch_scene(next["name"], "", true)
-    else:
-        print("switched: %s" % JSON.stringify({"scene": next["name"], "error": "not exported"}))
-        _queued = true
-        _stats_in = 1
-
-
-func _print_switch_stats() -> void:
-    var nav_regions := 0
-    for map in NavigationServer3D.get_maps():
-        nav_regions += NavigationServer3D.map_get_regions(map).size()
-    print("switch stats: %s" % JSON.stringify({"scene": world.scene_name,
-        "nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
-        "orphans": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)),
-        "objects": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
-        "resources": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
-        "nav_regions": nav_regions,
-        "bodies": get_tree().root.find_children("*", "CollisionObject3D", true, false).size(),
-        "world_children": world.get_child_count()}))
-
-
 func _frame_overview(aabb: AABB) -> void:
     if aabb.size == Vector3.ZERO:
         return
@@ -717,146 +706,14 @@ func _unhandled_input(event: InputEvent) -> void:
             overview.make_current()
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
     if player != null:
         world.stream_focus = player.global_position
-    _sim_greet()
-    if _simulate > 0.0:
-        if _sim_clock == 0.0:
-            _sim_started = Time.get_ticks_usec()
-            _sim_frame = Engine.get_process_frames()
-        _sim_clock += delta
-        if _sim_clock >= _simulate:
-            _simulate = 0.0
-            var reports := []
-            for npc in world.npcs:
-                if is_instance_valid(npc):
-                    reports.append(npc.report())
-            print("npc summary: %s" % JSON.stringify(reports))
-            # What the NPCs cost: their script time per physics frame, the engine's process and
-            # physics time per frame (animation is in process_ms) and the whole frame. Compare
-            # runs with and without them; frame_ms needs a window and --disable-vsync.
-            var script_us := 0.0
-            for r in reports:
-                script_us += float(r["cost_us"])
-            print("npc cost: %s" % JSON.stringify({"npcs": reports.size(),
-                "script_us": snappedf(script_us / maxi(reports.size(), 1), 0.1),
-                "process_ms": snappedf(_sim_process / maxi(_sim_samples, 1) * 1000.0, 0.001),
-                "physics_ms": snappedf(_mean(_sim_ticks), 0.001),
-                "physics_p95_ms": snappedf(_percentile(_sim_ticks, 0.95), 0.01),
-                "frame_ms": snappedf(float(Time.get_ticks_usec() - _sim_started) / 1000.0 / maxi(Engine.get_process_frames() - _sim_frame, 1), 0.001),
-                "frame_p95_ms": snappedf(_percentile(_sim_frames, 0.95), 0.01),
-                "frame_max_ms": snappedf(_percentile(_sim_frames, 1.0), 0.01),
-                "draw_calls": roundi(_sim_render[0] / maxi(_sim_samples, 1)),
-                "primitives": roundi(_sim_render[1] / maxi(_sim_samples, 1)),
-                "objects": roundi(_sim_render[2] / maxi(_sim_samples, 1))}))
-            var traffic_reports := []
-            for t in world.traffic:
-                if is_instance_valid(t):
-                    traffic_reports.append(t.report())
-            print("traffic summary: %s" % JSON.stringify(traffic_reports))
-            if not world.trains.is_empty():
-                print("train summary: %s" % JSON.stringify(world.trains.filter(func(t): return is_instance_valid(t)).map(func(t): return t.report())))
-            if screenshot_path != "":
-                _frames = 0
-                quit_after_frames = 3
-            elif _print_status:
-                _frames = 0
-                quit_after_frames = 1      # print the status on the way out
-            else:
-                get_tree().quit()
     _update_focus()
-    if _nav_query.size() == 2:
-        _frames_nav += 1
-        # Wait until the navigation map has synced the baked regions (and streamed tiles are baked).
-        # Many regions (tiled bakes) merge over several map iterations, so wait for it to settle.
-        var iteration := NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map)
-        if iteration != _nav_iteration:
-            _nav_iteration = iteration
-            _nav_settled = 0
-        _nav_settled += 1
-        var synced := iteration > 1 and _frames_nav > 5 and _nav_settled > 20
-        if world.streamer != null:
-            if world.streamer.navigation_busy():
-                _frames_nav = 0
-            synced = _frames_nav > 5   # a few physics frames for the map to pick up new tiles
-        if synced or _frames_nav > 1800:     # big maps take a while to sync
-            _print_nav_path(_nav_query[0], _nav_query[1])
-            get_tree().quit()
-        return
-    if _lock_aim and _focus != null:
-        _lock_aim = false
-        print("lock: %s -> %s" % [_focus.asset.name, _focus.toggle_lock(held_keys(), "player")])
-    if _use_aim and (_focus != null or not _focus_affordance.is_empty()):
-        _use_aim = false
-        if _focus != null:
-            print("used: %s (%s)" % [_focus.asset.name, _focus.interaction_name])
-        else:
-            print("used: %s (%s)" % [_focus_affordance["asset"], _focus_affordance["type"]])
-        _press_use()
-    if not _switches.is_empty() or _stats_in > 0 or _switching:
-        return    # --walk / --wait start in the last world switched to
-    if _wait_left > 0.0:
-        _wait_left -= delta
-        if _wait_left <= 0.0 and _walk_left > 0.0:
-            player.scripted_move = Vector2(0, 1)
-        return
-    if _walk_left <= 0.0:
-        return
-    _walk_left -= delta
-    if _walk_left <= 0.0:
-        player.scripted_move = null
-        var p := player.global_position
-        var result := {"x": p.x, "y": p.y, "z": p.z, "scene": world.scene_name,
-            "fps": Engine.get_frames_per_second(),
-            "on_floor": player.is_on_floor(), "room": world.room_at(p + Vector3(0, 0.5, 0))}
-        if world.streamer != null:
-            result["stream"] = world.stream_report()
-        print("walk result: %s" % JSON.stringify(result))
-        get_tree().quit()
 
 
-## Calls ``on_tick`` every physics frame at ``priority`` (lowest first).
-class _TickMark extends Node:
-    var on_tick: Callable
-
-    func _init(priority: int, callback: Callable) -> void:
-        process_physics_priority = priority
-        on_tick = callback
-
-    func _physics_process(_delta: float) -> void:
-        on_tick.call()
-
-
-## The mean of ``values`` (0 when empty).
-static func _mean(values: PackedFloat32Array) -> float:
-    var total := 0.0
-    for v in values:
-        total += v
-    return total / maxi(values.size(), 1)
-
-
-## The q-quantile (0..1) of ``values`` (0 when empty).
-static func _percentile(values: PackedFloat32Array, q: float) -> float:
-    if values.is_empty():
-        return 0.0
-    var sorted := values.duplicate()
-    sorted.sort()
-    return sorted[clampi(int(ceil(q * sorted.size())) - 1, 0, sorted.size() - 1)]
-
-
-func _process(delta: float) -> void:
-    _run_switches(delta)
+func _process(_delta: float) -> void:
     _follow_npc()
-    if _simulate > 0.0:
-        if _sim_clock > 0.0:     # not the loading frames before the simulation clock starts
-            _sim_process += Performance.get_monitor(Performance.TIME_PROCESS)
-            _sim_samples += 1
-            _sim_frames.append(delta * 1000.0 / Engine.time_scale)
-            _sim_render[0] += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
-            _sim_render[1] += Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
-            _sim_render[2] += Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
-        return   # --screenshot waits for the simulation
     if overlay.visible:
         var p := player.global_position
         var room := world.room_at(p + Vector3(0, 0.5, 0))
@@ -870,40 +727,6 @@ func _process(delta: float) -> void:
             p.x, p.y, p.z, room if room != "" else "-",
             "   [fly]" if player.flying else "",
             "   [colliders]" if world.show_colliders else ""]
-    if quit_after_frames <= 0:
-        return
-    _frames += 1
-    if _frames >= quit_after_frames:
-        if _save_path != "":
-            var problem := WorldLoader.write_save(_save_path, world.save_state())
-            if problem != "":
-                push_warning("geogen: --save: %s" % problem)
-        if _print_status:
-            var p := player.global_position
-            print("status: %s" % JSON.stringify({"scene": world.scene_name, "pose": player.pose.get("type", "stand"),
-                "pose_asset": player.pose.get("asset", ""), "x": p.x, "y": p.y, "z": p.z,
-                "room": world.room_at(p + Vector3(0, 0.5, 0)), "eye_y": player.camera.global_position.y,
-                "states": world.interaction_states(), "stream": world.stream_report(),
-                "clock": clock.label(), "night": world.night,
-                "lamps_on": world.lights_by_name.values().filter(func(l): return is_instance_valid(l) and l.visible).size()}))
-        if _print_lights:
-            var report := {}
-            for name in world.lights_by_name:
-                var light: OmniLight3D = world.lights_by_name[name]
-                report[name] = {"visible": light.visible, "energy": light.light_energy,
-                    "range": light.omni_range, "y": snappedf(light.global_position.y, 0.01)}
-            var total := get_tree().get_nodes_in_group("geogen_light").size()
-            print("lights: %s" % JSON.stringify({"fixtures": report, "total": total,
-                "light3d": get_tree().root.find_children("*", "OmniLight3D", true, false).size()}))
-        if _print_skeletons:
-            print("skeletons: %s" % JSON.stringify(_skeleton_report()))
-        if screenshot_path != "":
-            # Draw now: a background window may have skipped frames (macOS), and
-            # the viewport texture would still hold an old one.
-            RenderingServer.force_draw(false)
-            var err := get_viewport().get_texture().get_image().save_png(screenshot_path)
-            print("screenshot -> %s (%s)" % [screenshot_path, error_string(err)])
-        get_tree().quit()
 
 
 ## --play: start (or freeze at --play=NAME@T) every matching animation in the loaded exports.
@@ -927,78 +750,6 @@ func _play_animations() -> void:
                 ap.pause()
             played.append(anim_name)
     print("play: %s" % JSON.stringify(played))
-
-
-## --skeletons: bones (global positions), skinned meshes (bounds of the CPU-baked pose) and animations.
-func _skeleton_report() -> Dictionary:
-    var skeletons := []
-    for sk: Skeleton3D in world.find_children("*", "Skeleton3D", true, false):
-        var bones := {}
-        for b in sk.get_bone_count():
-            var p := sk.global_transform * sk.get_bone_global_pose(b).origin
-            bones[sk.get_bone_name(b)] = [snappedf(p.x, 0.0001), snappedf(p.y, 0.0001), snappedf(p.z, 0.0001)]
-        var meshes := []
-        for mi: MeshInstance3D in sk.find_children("*", "MeshInstance3D", true, false):
-            if mi.skin == null:
-                continue
-            var box := _skinned_bounds(mi, sk)
-            meshes.append({"name": String(mi.name), "min": [box.position.x, box.position.y, box.position.z],
-                "max": [box.end.x, box.end.y, box.end.z]})
-        skeletons.append({"path": String(world.get_path_to(sk)), "bones": bones, "meshes": meshes})
-    var animations := {}
-    for ap: AnimationPlayer in world.find_children("*", "AnimationPlayer", true, false):
-        animations[String(world.get_path_to(ap))] = Array(ap.get_animation_list())
-    return {"skeletons": skeletons, "animations": animations}
-
-
-## World bounds of a skinned mesh in its current pose, skinned on the CPU the way the renderer
-## does it (vertex -> bind pose -> bone global pose -> mesh instance).
-static func _skinned_bounds(mi: MeshInstance3D, sk: Skeleton3D) -> AABB:
-    var joint_xforms: Array[Transform3D] = []
-    for i in mi.skin.get_bind_count():
-        var bone := mi.skin.get_bind_bone(i)
-        if bone < 0:
-            bone = sk.find_bone(mi.skin.get_bind_name(i))
-        joint_xforms.append(sk.get_bone_global_pose(bone) * mi.skin.get_bind_pose(i))
-    var box := AABB()
-    var first := true
-    for surface in mi.mesh.get_surface_count():
-        var arrays := mi.mesh.surface_get_arrays(surface)
-        var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-        var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
-        var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
-        var per := bones.size() / maxi(verts.size(), 1)
-        for v in verts.size():
-            var p := Vector3.ZERO
-            for k in per:
-                var w := weights[v * per + k]
-                if w > 0.0:
-                    p += (joint_xforms[bones[v * per + k]] * verts[v]) * w
-            p = mi.global_transform * p
-            if first:
-                box = AABB(p, Vector3.ZERO)
-                first = false
-            else:
-                box = box.expand(p)
-    return box
-
-
-## --greet=NAME[@S]: greet the NPC whose name starts with NAME once S seconds of world time have
-## passed (headless tests); prints "greeted: {...}".
-var _greet_clock := 0.0
-func _sim_greet() -> void:
-    if _greet.is_empty():
-        return
-    _greet_clock += get_physics_process_delta_time()
-    for prefix in _greet.keys():
-        if _greet_clock < float(_greet[prefix]):
-            continue
-        for npc in world.npcs:
-            if is_instance_valid(npc) and String(npc.name).begins_with(prefix):
-                if npc.can_greet():
-                    print("greeted: %s" % JSON.stringify({"npc": String(npc.name), "ok": npc.greet()}))
-                    _greet.erase(prefix)
-                break
 
 
 ## What the player is aiming at within reach, and its prompt ("E: Open").
@@ -1192,22 +943,6 @@ func _press_use() -> void:
 func _hold_point() -> Vector3:
     var cam := player.camera
     return cam.global_position - cam.global_basis.z * HOLD_DISTANCE
-
-
-## Print the navigation path between two floor points as JSON (length, points).
-func _print_nav_path(a: Vector3, b: Vector3) -> void:
-    var map := get_world_3d().navigation_map
-    var from := NavigationServer3D.map_get_closest_point(map, a)
-    var to := NavigationServer3D.map_get_closest_point(map, b)
-    var path := GeogenWalker.find_path(map, from, to)
-    var length := 0.0
-    var points := []
-    for i in path.size():
-        points.append([snappedf(path[i].x, 0.01), snappedf(path[i].y, 0.01), snappedf(path[i].z, 0.01)])
-        if i > 0:
-            length += path[i].distance_to(path[i - 1])
-    print("nav path: %s" % JSON.stringify({"length": length, "reached": path.size() > 0 and path[-1].distance_to(to) < 0.05,
-        "end_gap": to.distance_to(b), "points": points}))
 
 
 ## --camera=follow: keep the overview camera on an NPC, from the first of a ring

@@ -23,6 +23,15 @@ Command line: start a runtime in the background once, then talk to it (the port 
 
 Arguments are one JSON object or ``key=value`` words: values parse as JSON, then as a
 comma-separated list of numbers (``pos=1,0,2``), else stay strings.
+
+The same commands run as a script, in a one-shot launch or on a live runtime, with the same
+results (docs/schema/geogen-control.v1.schema.json)::
+
+    steps = [step("player.teleport", pos=[0, 0, 6], yaw=0), step("player.move", seconds=1),
+             step("player.status")]
+    run = run_script(steps, "cottage", generated="runtime/godot/generated")   # --script=...
+    run = client.run_script(steps)                                          # over the socket
+    run["player.status"]["room"]
 """
 
 from __future__ import annotations
@@ -39,8 +48,9 @@ import sys
 import tempfile
 import threading
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 GODOT_PROJECT = Path(__file__).resolve().parents[2] / "runtime" / "godot"
 DEFAULT_PORT = 7878
@@ -64,6 +74,120 @@ def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+def step(cmd: str, *, retry: float | None = None, id: str | None = None, **args: Any) -> dict:
+    """One script step: ``{cmd, args}``, with ``retry`` (s of world time to keep trying a step
+    that fails) and an ``id`` to find its result by."""
+    out: dict[str, Any] = {"cmd": cmd}
+    if args:
+        out["args"] = args
+    if retry is not None:
+        out["retry"] = retry
+    if id is not None:
+        out["id"] = id
+    return out
+
+
+class ScriptError(AssertionError):
+    """A script step failed (or the run didn't finish)."""
+
+
+@dataclass
+class ScriptRun:
+    """What a script did: one entry per step run (``{step, cmd, ok, result | error, id?}``),
+    the events it subscribed to, and the runtime's output."""
+
+    steps: list[dict]
+    events: list[dict] = field(default_factory=list)
+    output: str = ""
+    returncode: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0 and all(s["ok"] for s in self.steps)
+
+    def entry(self, key: str | int) -> dict:
+        """The step with this ``id``, else the last step running this command, else step ``key``."""
+        if isinstance(key, int):
+            return self.steps[key]
+        found = [s for s in self.steps if s.get("id") == key] or [s for s in self.steps if s["cmd"] == key]
+        if not found:
+            raise KeyError(f"no step {key!r} ran (ran: {[s['cmd'] for s in self.steps]})")
+        return found[-1]
+
+    def __getitem__(self, key: str | int) -> Any:
+        """A step's result (by id, command or index); raises ScriptError if it failed."""
+        entry = self.entry(key)
+        if not entry["ok"]:
+            raise ScriptError(f"{entry['cmd']}: {entry['error']}")
+        return entry["result"]
+
+    def all(self, cmd: str) -> list[Any]:
+        """Every result of ``cmd``, in order."""
+        return [s.get("result") for s in self.steps if s["cmd"] == cmd]
+
+    def check(self) -> ScriptRun:
+        """Raise ScriptError unless every step succeeded; returns self."""
+        bad = [s for s in self.steps if not s["ok"]]
+        if bad:
+            raise ScriptError("; ".join(f"step {s['step']} {s['cmd']}: {s['error']}" for s in bad))
+        if self.returncode != 0:
+            raise ScriptError(f"the runtime exited {self.returncode}:\n{self.output[-4000:]}")
+        return self
+
+
+def parse_script_output(output: str) -> tuple[list[dict], list[dict], dict | None]:
+    """(steps, events, done) from a scripted runtime's output lines."""
+    steps, events, done = [], [], None
+    for line in output.splitlines():
+        if line.startswith("script: "):
+            steps.append(json.loads(line.removeprefix("script: ")))
+        elif line.startswith("script event: "):
+            events.append(json.loads(line.removeprefix("script event: ")))
+        elif line.startswith("script done: "):
+            done = json.loads(line.removeprefix("script done: "))
+    return steps, events, done
+
+
+def run_script(steps: Iterable[dict], scene: str | None = None, *, generated: str | os.PathLike | None = None,
+               start: dict | None = None, args: Iterable[str] = (), engine_args: Iterable[str] = ("--headless",),
+               godot: str | None = None, project: str | os.PathLike = GODOT_PROJECT, stop_on_error: bool = True,
+               timeout: float = 240.0) -> ScriptRun:
+    """Launch the runtime, run ``steps`` (``--script``) and any action flags in ``args``, and
+    collect what it reported. ``start`` is how the world starts (the schema's start object: spawn,
+    yaw, pitch, time, day_length, timescale, keys, load, set, give, ...). Doesn't raise for a failed
+    step: see ``ScriptRun.check``."""
+    godot = godot or godot_binary()
+    if godot is None:
+        raise FileNotFoundError("Godot not found (set $GODOT)")
+    user_args = [f"--scene={scene}"] if scene else []
+    if generated:
+        user_args.append(f"--generated={generated}")
+    steps = list(steps)
+    with tempfile.NamedTemporaryFile("w", prefix="geogen-script-", suffix=".json", delete=False) as f:
+        json.dump({"start": start or {}, "steps": steps, "stop_on_error": stop_on_error}, f)
+    try:
+        if steps or start:
+            user_args.append(f"--script={f.name}")
+        process = subprocess.Popen([godot, *engine_args, "--path", str(project), "--", *user_args, *args],
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        lines: list[str] = []
+        timer = threading.Timer(timeout, process.kill)
+        timer.start()
+        try:
+            for line in process.stdout:
+                lines.append(line)
+                if "Parse Error" in line:       # a GDScript parse error leaves Godot running: stop it
+                    process.kill()
+            returncode = process.wait()
+        finally:
+            timer.cancel()
+    finally:
+        os.unlink(f.name)
+    output = "".join(lines)
+    ran, events, _ = parse_script_output(output)
+    return ScriptRun(ran, events, output, returncode)
 
 
 class RuntimeClient:
@@ -219,6 +343,26 @@ class RuntimeClient:
                 raise TimeoutError("no matching event") from None
             if predicate(event):
                 return event
+
+    def run_script(self, steps: Iterable[dict], stop_on_error: bool = True) -> ScriptRun:
+        """Run script steps on this runtime, one command at a time, as ``--script`` would."""
+        ran = []
+        for index, entry in enumerate(steps):
+            deadline = float(entry.get("retry", 0.0))
+            waited = 0.0
+            while True:
+                reply = self.send(entry["cmd"], **entry.get("args", {})).get()
+                if reply.get("ok") or waited >= deadline:
+                    break
+                waited += self.call("wait", frames=1)["waited"]
+            line = {"step": index, "cmd": entry["cmd"], "ok": bool(reply.get("ok"))}
+            if "id" in entry:
+                line["id"] = entry["id"]
+            line.update({"result": reply.get("result")} if reply.get("ok") else {"error": reply.get("error")})
+            ran.append(line)
+            if not line["ok"] and stop_on_error:
+                break
+        return ScriptRun(ran)
 
     def log(self) -> str:
         """What a launched runtime printed so far."""
