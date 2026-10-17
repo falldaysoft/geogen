@@ -1521,7 +1521,7 @@
         "player.teleport": "{pos, yaw?} put the player's feet at pos",
         "player.look": "{yaw?, pitch?} or {at: point}",
         "player.move": "{forward?, strafe?, seconds} walk with the controls",
-        "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body",
+        "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body, opening closed doors on the way (a held key unlocks one) -> status: arrived | stuck | timeout | locked | refused, doors",
         "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
         "player.lock": "lock or unlock the aimed interaction with the keys the player holds -> {asset, interaction, ok, locked}",
         "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",

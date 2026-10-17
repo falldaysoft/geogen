@@ -931,15 +931,8 @@ func _walk_to(args: Dictionary):
             _track(motion)
             waited += get_physics_process_delta_time()
         doors.append(info)
-        # Straight through the middle of the doorway to beyond the leaf's reach (the navmesh
-        # doesn't know where the open leaf stands), then on along a new path from there.
-        var portal: Dictionary = door["portal"]
-        var hit: Vector3 = door["hit"]
-        var beyond: Vector3 = hit - portal["normal"] * door["side"] * (float(portal["clearance"]) + 0.3)
-        beyond.y = hit.y
-        route = _nav_path(beyond, target)
-        route["points"] = [_v(player.global_position), _v(hit), _v(beyond)] + route["points"]
-        walker = _walk_along(route)
+        route = _nav_path(player.global_position, target)
+        walker = _walk_along(route)            # through the doorway straight (through_portals)
     if status == "":
         status = walker.status
     if _walker == walker:
@@ -969,6 +962,7 @@ func _walk_along(route: Dictionary) -> GeogenWalker:
     var path := PackedVector3Array()
     for p in route["points"]:
         path.append(Vector3(p[0], p[1], p[2]))
+    path = main.world.through_portals(path)
     _walker = GeogenWalker.new(main.player, GeogenWalker.along_links(path, get_tree()))
     return _walker
 
@@ -1059,6 +1053,9 @@ func _interaction(it: GeogenInteraction, parts := false) -> Dictionary:
     if parts:
         # Where the moving parts are now (e.g. does an open leaf clear the wardrobe beside it?).
         info["parts"] = it.moving_nodes().map(func(n): return {"name": String(n.name), "bounds": _box(_bounds(n))})
+        # What the player aims at to use it.
+        info["targets"] = it.targets.filter(func(n): return is_instance_valid(n)).map(
+            func(n): return {"name": String(n.name), "bounds": _box(_bounds(n))})
     return info
 
 

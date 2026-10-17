@@ -943,6 +943,50 @@ func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
     return best
 
 
+## ``points`` with every doorway it goes through taken straight: from ``clearance`` + 0.3 m in
+## front, through the middle, to as far beyond. A door's leaf (open, or about to be) isn't on
+## the navmesh, so a path that cuts the corner past a jamb can snag on it.
+func through_portals(points: PackedVector3Array) -> PackedVector3Array:
+    var out := PackedVector3Array()
+    if points.is_empty():
+        return out
+    out.append(points[0])
+    var i := 1
+    while i < points.size():
+        var a := out[out.size() - 1]
+        var b := points[i]
+        var crossed := {}
+        for p in portals:
+            var da: float = (a - p["center"]).dot(p["normal"])
+            var db: float = (b - p["center"]).dot(p["normal"])
+            if signf(da) == signf(db) or da == 0.0:
+                continue
+            var hit := a.lerp(b, da / (da - db))
+            var lateral: Vector3 = hit - p["center"]
+            lateral -= p["normal"] * lateral.dot(p["normal"])
+            lateral.y = 0.0
+            if lateral.length() > p["width"] / 2.0 + 0.4 or absf(hit.y - (p["center"].y - p["height"] / 2.0)) > 1.0:
+                continue
+            crossed = p
+            var middle: Vector3 = p["center"]
+            middle.y = hit.y
+            var reach: float = float(p["clearance"]) + 0.3
+            var across: Vector3 = p["normal"] * signf(da)
+            if absf(da) > 0.05:
+                out.append(middle + across * reach)
+            out.append(middle)
+            out.append(middle - across * reach)
+            # Leave out the path's own points in the doorway's way (before it is beyond).
+            while i < points.size() and (points[i] - p["center"]).dot(-across) < reach \
+                    and (points[i] - p["center"]).dot(-across) > -reach:
+                i += 1
+            break
+        if crossed.is_empty():
+            out.append(b)
+            i += 1
+    return out
+
+
 ## The first closed portal (door) a path crosses within ``lookahead`` metres of ``from``,
 ## walking ``points`` from index ``start``: {portal, interaction, hit (where the path crosses
 ## it), distance (along the path), side (of the portal ``from`` is on: 1 or -1)}, or {}.

@@ -308,6 +308,8 @@ func quest_option() -> Dictionary:
             if objective["state"] != "open":
                 continue
             for goal in objective.get("goals", []):
+                if goal.get("greet", false):
+                    continue            # greeting an NPC: the player's quest bot, not an NPC holder
                 var id := "quest/%s/%s/%s" % [quest["id"], objective["id"], goal["subject"]]
                 if clock < float(_retry_at.get(id, -1.0)):
                     continue
@@ -1437,11 +1439,11 @@ func _quests() -> Dictionary:
 
 func report() -> Dictionary:
     var p := global_position
-    return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
+    return {"npc": String(name), "uid": WorldLoader.actor_id(self), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
-        "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
+        "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
         # Signalled crossings: waits on the kerb for walk (and the longest, s), steps onto one, and

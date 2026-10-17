@@ -633,11 +633,12 @@ class _Compiler:
                                             f"quest, objective or the scene's state has that name")
 
     def goals(self, objective: Any) -> list[dict[str, Any]]:
-        """What an NPC holding the quest does for ``objective`` (docs/quests.md, "NPC holders"):
-        ``{subject, enter: true}`` (go into a place or room), ``{subject, interaction}`` (use it)
-        or ``{subject, interaction, state}`` (use it until it shows that state). Read from an
-        event, or from a condition's ``<thing>.<interaction> == "<state>"`` comparisons, also
-        inside ``all`` / ``any`` / ``count``; other conditions give none."""
+        """What an NPC holding the quest, or the player's quest bot, does for ``objective``
+        (docs/quests.md, "NPC holders"): ``{subject, enter: true}`` (go into a place or room),
+        ``{subject, interaction}`` (use it), ``{subject, interaction, state}`` (use it until it
+        shows that state) or ``{subject, greet: true}`` (greet that NPC: its `greeted` signal;
+        the bot only). Read from an event, or from a condition's ``<thing>.<interaction> ==
+        "<state>"`` comparisons, also inside ``all`` / ``any`` / ``count``; other conditions give none."""
         def interaction(subject: str, name: Any) -> bool:
             return isinstance(name, str) and f"{subject}#{name}" in self.decls.interactions
 
@@ -649,6 +650,8 @@ class _Compiler:
                 names = [on["name"]] if on.get("name") else [k.rpartition("#")[2] for k in self.decls.interactions
                                                               if k.rpartition("#")[0] == on["subject"]][:1]
                 return [{"subject": on["subject"], "interaction": n} for n in names]
+            if on.get("type") == "signal" and on.get("subject") and on.get("name") == "greeted":
+                return [{"subject": on["subject"], "greet": True}]
             if on.get("type") == "changed" and "to" in on:
                 subject, _, name = str(on["key"]).rpartition("#")
                 return [{"subject": subject, "interaction": name, "state": on["to"]}] if interaction(subject, name) else []
@@ -890,7 +893,8 @@ class _Compiler:
                 self.bad(quest.where("objectives", objective.index, "marker"), str(exc))
             out["subjects"] = subjects
             out["goals"] = self.goals(objective)
-            if entry["holder"] != "player" and not out["goals"] and not objective.optional:
+            if entry["holder"] != "player" and not any(not g.get("greet") for g in out["goals"]) \
+                    and not objective.optional:
                 self.out.warnings.append(f"{quest.where(*at)}: an NPC holding '{quest.id}' can't work on "
                                          f"objective '{objective.id}' (only a place to enter, an interaction "
                                          f"to use or one to bring to a state is something an NPC can do)")
@@ -1279,7 +1283,8 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
 
 def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
     """Where each objective's subjects are, in world space: ``{stable id: [x, y, z]}``.
-    A place or room is marked at the middle of its volume, anything else at its origin.
+    A place or room is marked at the middle of its volume (a footprint polygon's at a point
+    inside it), anything else at its origin.
     A runtime marks objectives from this, so subjects in chunks that aren't loaded still show."""
     wanted = {subject for quest in quests.quests.values() for o in quest["objectives"] for subject in o["subjects"]}
     out: dict[str, list[float]] = {}
@@ -1289,7 +1294,13 @@ def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:
             continue
         point = [0.0, 0.0, 0.0, 1.0]
         place = node.meta.get("place")
-        if isinstance(place, dict):         # the node is the middle of the volume's bottom
+        if isinstance(place, dict) and place.get("polygon"):
+            # A footprint in the node's frame (a platform along a curved track): its middle.
+            from shapely.geometry import Polygon
+
+            middle = Polygon(place["polygon"]).representative_point()
+            point = [middle.x, float(place.get("y", 0.0)) + float(place.get("height", 2.5)) / 2, middle.y, 1.0]
+        elif isinstance(place, dict):       # the node is the middle of the volume's bottom
             point[1] = float(place.get("height", (place.get("size") or [0, 0, 0])[1])) / 2
         out[uid] = [round(float(v), 4) for v in (node.world_transform() @ point)[:3]]
     return dict(sorted(out.items()))

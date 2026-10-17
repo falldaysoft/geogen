@@ -206,14 +206,24 @@ and quests" and "HUD"); the rest is planned.
   watch rule on `actor.id`, the actor's stable ID). Each objective in the
   manifest lists `goals`, what an NPC does for it: enter a place, use an
   interaction, or use one until it shows a state (from `it.switch == "off"`
-  over a selector, say). The NPC (`npc.gd` `quest_option`) takes the nearest
+  over a selector, say). A `greet` goal (an NPC's `greeted` signal) is for the
+  quest bot; NPC holders skip it. The NPC (`npc.gd` `quest_option`) takes the nearest
   unmet goal of an open objective before anything else it might do, walks up
   to the thing and presses it, or walks into the place. An objective an NPC
   holder can't act on (a condition over world variables, a signal) is an export
   warning. Not built: fetching and giving items (18), quests in a definition's
   `quests:` list, and saving an NPC's progress beyond the session (11.17).
-- **Playtest bot** (15.9): `--playtest=quests` walks every quest with the real
-  player body and reports the ones it can't finish.
+- **Quest bot** (15.9, built): `python -m geogen.quest_bot SCENE [--quest ID]`
+  (`geogen/quest_bot.py`) plays every quest with the real player body over the
+  control protocol, so it runs against any runtime, and exits 1 on a quest it
+  can't finish, saying what stopped it. An available quest it asks for by greeting
+  the people about, nearest first (answering an accept-like choice), and starts
+  by hand if none gives it; then it works through each open objective's goals
+  (walking into places, pressing things until they show the state, greeting
+  people), or, with no goal, goes to the objective's marker: it takes a travel
+  point there, presses the nearest usable thing, and waits a while (a train due).
+  `player.walk_to` opens doors on the way. All nine quests in the showcases
+  finish (`tests/test_quest_bot.py`).
 
 ## Archetypes: the acceptance tests
 
