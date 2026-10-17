@@ -99,20 +99,11 @@ var _started := false
 var _sets: Array[String] = []
 var _gives: Array[String] = []
 var _open_doors := ""
-var _focus_affordance := {}
-var _focus_npc: GeogenNpc = null
 var _playtest_walks := -1
-var _focus: GeogenInteraction = null
-## Aimed at but refused by its `when`, with text saying why (`refused`): the prompt says it,
-## and E tells the player again.
-var _refused_focus: GeogenInteraction = null
-## The physics prop aimed at that E would pick up (its uid), or "".
-var _focus_prop := ""
-## How far in front of the eyes a carried prop is held (m).
-const HOLD_DISTANCE := 1.4
 var _npc_labels := false
 var _follow = null       # NPC name prefix to follow with the overview camera, or null
-var _prompt: Label
+## What the player aims at, the E prompt, and pressing E (player_focus.gd).
+var focus: GeogenPlayerFocus
 var _play := ""
 var _play_at := -1.0
 var clock: GeogenClock
@@ -127,8 +118,6 @@ var _loading: Label
 var _open_menu_at_start := false
 var _fade: ColorRect
 const FADE_SECONDS := 0.25
-## An interaction target this far off the aim line (m) still takes the E prompt.
-const AIM_SLACK := 0.2
 
 const SETTINGS_PATH := "user://settings.cfg"
 var _day_length := 1440.0
@@ -303,9 +292,9 @@ func _ready() -> void:
             if _load_path == "":
                 world.events.post("start", "", "", "player")
             else:                               # before --set and --quests, which act on what it restores
-                var saved = WorldLoader.read_save(_load_path)
+                var saved = GeogenWorldSaves.read(_load_path)
                 if saved is Dictionary:
-                    world.load_state(saved)
+                    world.saves.load(saved)
                 else:
                     push_warning("geogen: --load=%s: not a save" % _load_path)
             for entry in _sets:
@@ -354,13 +343,17 @@ func _ready() -> void:
         _play_animations()
     if not world.npcs.is_empty():
         print("npcs: %s" % JSON.stringify(world.npcs.map(func(n): return String(n.name))))
-    _prompt = Label.new()
-    _prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-    _prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH     # stays centred as its text changes
-    _prompt.position.y += 40
-    _prompt.add_theme_constant_override("outline_size", 6)
-    _prompt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+    focus = GeogenPlayerFocus.new()
+    focus.name = "Focus"
+    focus.main = self
+    add_child(focus)
+    focus.prompt = Label.new()
+    focus.prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    focus.prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+    focus.prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH     # stays centred as its text changes
+    focus.prompt.position.y += 40
+    focus.prompt.add_theme_constant_override("outline_size", 6)
+    focus.prompt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
     var spec := world.player_spec()
     if spec and not _manifest_arg:
         player_spec = spec
@@ -384,7 +377,7 @@ func _ready() -> void:
     _menu.picked.connect(func(scene: String): switch_scene(scene))
     _menu.closed.connect(_menu_closed)
     add_child(_menu)
-    hud.add_child(_prompt)                    # the E prompt, under the crosshair: part of the HUD, not the F1 overlay
+    hud.add_child(focus.prompt)               # the E prompt, under the crosshair: part of the HUD, not the F1 overlay
     add_child(hud)
     move_child(hud, $Overlay.get_index())     # under the overlay, so its fade covers the HUD
     _place_player(world.world_aabb())
@@ -537,9 +530,7 @@ func switch_scene(scene: String, spawn_name := "") -> bool:
     _loading.visible = true
     if not player.pose.is_empty():
         player.leave_pose()
-    _focus = null
-    _focus_npc = null
-    _focus_affordance = {}
+    focus.clear()
     var previous := world.scene_name
     world.select_scene(scene)
     world.prime_focus = null
@@ -692,10 +683,10 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event.is_action_pressed("geogen_toggle_colliders"):
         world.show_colliders = not world.show_colliders
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E:
-        _press_use()
+        focus.press()
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
-        if _focus != null:
-            _focus.toggle_lock(held_keys(), "player")
+        if focus.interaction != null:
+            focus.interaction.toggle_lock(held_keys(), "player")
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
         _npc_labels = not _npc_labels
         _show_npc_labels()
@@ -709,7 +700,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(_delta: float) -> void:
     if player != null:
         world.stream_focus = player.global_position
-    _update_focus()
+    focus.update()
 
 
 func _process(_delta: float) -> void:
@@ -752,167 +743,6 @@ func _play_animations() -> void:
     print("play: %s" % JSON.stringify(played))
 
 
-## What the player is aiming at within reach, and its prompt ("E: Open").
-func _update_focus() -> void:
-    _focus = null
-    _refused_focus = null
-    _focus_affordance = {}
-    _focus_npc = null
-    _focus_prop = ""
-    if world.props.held != "":
-        pass        # carrying: E drops it, nothing else is aimed at
-    elif player != null and player.camera.current and player.pose.is_empty():
-        var cam := player.camera
-        var from := cam.global_position
-        var to := from - cam.global_basis.z * _longest_reach()
-        var query := PhysicsRayQueryParameters3D.create(from, to)
-        query.exclude = [player.get_rid()]
-        var hit := get_world_3d().direct_space_state.intersect_ray(query)
-        if hit and from.distance_to(hit["position"]) > player_spec.reach:
-            # Beyond the player's reach only an interaction that reaches further counts.
-            var far := world.interaction_for(hit["collider"])
-            if far == null or from.distance_to(hit["position"]) > _reach_of(far):
-                hit = {}
-        if hit:
-            var it := world.interaction_for(hit["collider"])
-            var prop := world.props.prop_of(hit["collider"])
-            if prop != "":
-                if world.props.can_carry(prop):
-                    _focus_prop = prop
-            elif hit["collider"] is GeogenNpc:
-                if (hit["collider"] as GeogenNpc).can_greet():
-                    _focus_npc = hit["collider"]
-            elif it != null and it.can_use():
-                _focus = it
-            elif it != null and it.refusal() != "":
-                _refused_focus = it
-            else:
-                _focus_affordance = world.affordance_near(hit["position"])
-        if _focus == null and _focus_npc == null:
-            # A seated or lying NPC has no collider: the aim line passing its body finds it,
-            # unless something (not the seat it is in) is in the way.
-            var limit: float = player_spec.reach
-            if hit:
-                limit = minf(limit, from.distance_to(hit["position"]) + 0.4)
-            for npc in world.npcs:
-                if is_instance_valid(npc) and npc.can_greet() and npc.posed() \
-                        and npc.aim_distance(from, -cam.global_basis.z) <= limit:
-                    _focus_npc = npc
-                    _focus_affordance = {}
-                    break
-        if _focus == null and _focus_npc == null and _focus_affordance.is_empty() and _refused_focus == null \
-                and _focus_prop == "":
-            _focus = _assisted_focus(from, -cam.global_basis.z)
-    if hud != null:
-        hud.crosshair.aim(focus_info().get("kind", "") not in ["", "refused"],
-            player != null and player.camera.current and player.pose.is_empty())
-    if _prompt:
-        if player != null and not player.pose.is_empty():
-            _prompt.text = "E: Stand up"
-        elif world.props.held != "":
-            _prompt.text = "E: Drop"
-        elif _focus_prop != "":
-            _prompt.text = "E: Pick up"
-        elif _focus_npc != null:
-            _prompt.text = "E: %s" % _focus_npc.greet_prompt()
-        elif _focus != null:
-            _prompt.text = "E: %s" % _focus.prompt(held_keys())
-        elif _refused_focus != null:
-            _prompt.text = _refused_focus.refusal()
-        elif not _focus_affordance.is_empty():
-            _prompt.text = "E: %s" % {"sit": "Sit", "lie": "Lie down", "use": "Use", "stand": "Stand here"}.get(
-                _focus_affordance["type"], "Use")
-        else:
-            _prompt.text = ""
-
-
-## How far from the eye ``it`` can be used from: its own `reach` when that is longer.
-func _reach_of(it: GeogenInteraction) -> float:
-    return maxf(player_spec.reach, it.reach)
-
-
-## The longest reach of anything loaded: how far the focus ray looks.
-func _longest_reach() -> float:
-    var longest: float = player_spec.reach
-    for it in world.interactions:
-        if is_instance_valid(it):
-            longest = maxf(longest, it.reach)
-    return longest
-
-
-## Aim assist: the usable interaction whose target is nearest the aim line, when the line
-## itself lands on nothing usable. Small targets (a light switch is 8 cm wide) are hard to
-## hit exactly; within AIM_SLACK of one, and with nothing in the way, E takes it.
-func _assisted_focus(from: Vector3, forward: Vector3) -> GeogenInteraction:
-    var best: GeogenInteraction = null
-    var best_miss := AIM_SLACK
-    var space := get_world_3d().direct_space_state
-    for it in world.interactions:
-        if not is_instance_valid(it) or not it.can_use():
-            continue
-        for target in it.targets:
-            if not is_instance_valid(target) or target.global_position.distance_to(from) > _reach_of(it) + 2.0:
-                continue
-            var centre := target.global_position
-            if target is MeshInstance3D:
-                centre = target.global_transform * (target as MeshInstance3D).get_aabb().get_center()
-            else:
-                var box := WorldLoader._aabb(target)
-                if box.size != Vector3.ZERO:
-                    centre = box.get_center()
-            var along := (centre - from).dot(forward)
-            if along <= 0.0 or centre.distance_to(from) > _reach_of(it):
-                continue
-            var miss := (centre - from - forward * along).length()
-            if miss >= best_miss:
-                continue
-            var query := PhysicsRayQueryParameters3D.create(from, centre)
-            query.exclude = [player.get_rid()]
-            var hit := space.intersect_ray(query)
-            if hit and world.interaction_for(hit["collider"]) != it \
-                    and (hit["position"] as Vector3).distance_to(centre) > 0.1:
-                continue        # something else is in the way
-            best = it
-            best_miss = miss
-    return best
-
-
-## For the runtime API: refresh what the player aims at now.
-func update_focus() -> void:
-    _update_focus()
-
-
-## What the player aims at (the E prompt's subject), or {}.
-func focus_info() -> Dictionary:
-    if world.props.held != "":
-        return {"kind": "drop", "prop": world.props.held, "prompt": "Drop"}
-    if _focus_prop != "":
-        return {"kind": "carry", "prop": _focus_prop, "prompt": "Pick up"}
-    if _focus_npc != null:
-        return {"kind": "npc", "npc": String(_focus_npc.name), "prompt": _focus_npc.greet_prompt()}
-    if _focus != null:
-        return {"kind": "interaction", "asset": String(_focus.asset.name), "interaction": _focus.interaction_name,
-            "prompt": _focus.prompt(held_keys())}
-    if _refused_focus != null:
-        return {"kind": "refused", "asset": String(_refused_focus.asset.name),
-            "interaction": _refused_focus.interaction_name, "prompt": _refused_focus.refusal()}
-    if not _focus_affordance.is_empty():
-        return {"kind": "affordance", "asset": str(_focus_affordance.get("asset", "")),
-            "type": _focus_affordance["type"]}
-    return {}
-
-
-## Press E on whatever is aimed at now (the runtime API); returns what that was, or {}.
-func press_use() -> Dictionary:
-    _update_focus()
-    var used := focus_info()
-    if not player.pose.is_empty():
-        used = {"kind": "stand"}
-    if not used.is_empty():
-        _press_use()
-    return used
-
-
 func is_switching() -> bool:
     return _switching or _travelling
 
@@ -920,29 +750,6 @@ func is_switching() -> bool:
 ## Follow an NPC (name prefix) with the overview camera, or stop following (null).
 func set_follow(prefix) -> void:
     _follow = prefix
-
-
-func _press_use() -> void:
-    if not player.pose.is_empty():
-        player.leave_pose()
-    elif world.props.held != "":
-        world.props.drop()
-    elif _focus_prop != "":
-        world.props.pick(_focus_prop, player, _hold_point)
-    elif _focus_npc != null:
-        _focus_npc.greet()
-    elif _focus != null:
-        _focus.use("player")
-    elif _refused_focus != null:
-        _refused_focus.use("player")        # refused: it says why (WorldLoader -> GeogenRules.tell)
-    elif not _focus_affordance.is_empty():
-        player.take_pose(_focus_affordance)
-
-
-## Where a carried prop is held: in front of the eyes.
-func _hold_point() -> Vector3:
-    var cam := player.camera
-    return cam.global_position - cam.global_basis.z * HOLD_DISTANCE
 
 
 ## --camera=follow: keep the overview camera on an NPC, from the first of a ring

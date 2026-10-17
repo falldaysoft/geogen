@@ -59,19 +59,19 @@ var model_aabbs: Array[AABB] = []
 var rooms: Array[Dictionary] = []
 ## Named places and rooms with an area: {id, uid, kind: place | room, node, area, actors: {actor: true}}.
 var places: Array[Dictionary] = []
-var _held: Array[Dictionary] = []   # {entry, body, actor}: occupants whose body stopped colliding (seated, lying)
+## Tracks who is in them (world_places.gd).
+var place_tracking := GeogenWorldPlaces.new()
 ## Spawn points from the manifests: [{name, position: Vector3, yaw_deg: float}]
 var spawns: Array[Dictionary] = []
 ## Loaded nodes by stable ID (extras.geogen.uid: "<package>:<authored path>", geogen/refs.py).
 ## Content and saved state name nodes by these, never by exported node names.
 var nodes_by_uid: Dictionary = {}
-## Saved interaction state for things that aren't loaded right now (streamed chunks), by save key.
-var _pending_state: Dictionary = {}
-## Fixture lights by their fixture node's name (light switches refer to them).
-var lights_by_name := {}
-## Switchable fixtures by stable ID: {uid: {light: OmniLight3D, fixture: Node}}. Their `<uid>#lit`
-## state (rules: a switch's binding, or any rule) shows and hides the light and its glow.
-var _fixtures := {}
+## Saving and restoring: the rules sections, interactions, props and items (world_saves.gd).
+var saves := GeogenWorldSaves.new()
+## Light fixtures: by name, switchable ones by stable ID, `auto: night` lamps (world_lights.gd).
+var lights := GeogenWorldLights.new()
+## Navmesh baking and its cache (world_navigation.gd).
+var navigation := GeogenWorldNavigation.new()
 ## Actor poses from extras.geogen.affordances, world space:
 ## [{type, position: Vector3, yaw_deg: float, height: float, node: Node3D}]
 var affordances: Array[Dictionary] = []
@@ -95,7 +95,6 @@ var traffic_trace := false
 var clock: GeogenClock = null
 ## After dark: `auto: night` lights and vehicle lamps are on (clock.gd sets it).
 var night := false
-var _auto_lights: Array[Dictionary] = []   # [{light, fixture}] for `auto: night` fixtures
 ## Doorways NPCs path through: [{interaction, open, closed, center, normal (world),
 ## width, height, depth, clearance, node}]
 var portals: Array[Dictionary] = []
@@ -148,12 +147,16 @@ var physics_rate := 60
 
 
 func _ready() -> void:
+    saves.world = self
+    lights.world = self
+    navigation.world = self
+    place_tracking.world = self
     events.name = "Events"
     add_child(events)
     rules.name = "Rules"
     rules.reset.connect(_sync_trains)
-    rules.reset.connect(_sync_fixtures)
-    events.posted.connect(_on_lit)
+    rules.reset.connect(lights.sync_fixtures)
+    events.posted.connect(lights.on_lit)
     rules.world = self
     add_child(rules)
     props = GeogenProps.new(self)
@@ -294,8 +297,29 @@ static func uid_of(node: Node) -> String:
 ## Load (or reload) everything requested. Returns the combined bounds.
 func load_all() -> AABB:
     unload()
-    for manifest in _manifests():
-        _load_model(manifest)
+    for manifest_path in _manifests():
+        var manifest := _read_manifest(manifest_path)
+        if manifest.is_empty() or _load_streamed(manifest_path, manifest):
+            continue
+        var t := Time.get_ticks_usec()
+        var root := GeogenChunkStreamer._load_glb(_model_path(manifest_path, manifest))
+        _lap("gltf_parse", t)
+        _attach_model(manifest_path, manifest, root)
+    return _loaded()
+
+
+## A streamed export (a chunk index): prime the streamer around the start; false for a single file.
+func _load_streamed(manifest_path: String, manifest: Dictionary) -> bool:
+    if manifest.get("format") != GeogenChunkStreamer.INDEX_FORMAT:
+        return false
+    var t := Time.get_ticks_usec()
+    _load_chunked(manifest_path, manifest)
+    _lap("stream_prime", t)
+    return true
+
+
+## Everything is loaded: say so (world_loaded) with the combined bounds.
+func _loaded() -> AABB:
     var aabb := world_aabb()
     world_loaded.emit(aabb)
     _report_timings()
@@ -327,16 +351,14 @@ func unload() -> void:
     model_aabbs.clear()
     rooms.clear()
     places.clear()
-    _held.clear()
+    place_tracking.clear()
     spawns.clear()
     nodes_by_uid.clear()
-    _pending_state.clear()
+    saves.pending.clear()
     interactions.clear()
-    lights_by_name.clear()
-    _fixtures.clear()
+    lights.clear()
     affordances.clear()
     npcs.clear()
-    _auto_lights.clear()
     traffic.clear()
     trains.clear()
     crossing_closed.clear()
@@ -404,21 +426,6 @@ func _manifests() -> Array[String]:
     return result
 
 
-func _load_model(manifest_path: String) -> void:
-    var manifest := _read_manifest(manifest_path)
-    if manifest.is_empty():
-        return
-    if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
-        var t := Time.get_ticks_usec()
-        _load_chunked(manifest_path, manifest)
-        _lap("stream_prime", t)
-        return
-    var t := Time.get_ticks_usec()
-    var root := GeogenChunkStreamer._load_glb(_model_path(manifest_path, manifest))
-    _lap("gltf_parse", t)
-    _attach_model(manifest_path, manifest, root)
-
-
 ## Like load_all(), but single-file exports parse on a worker thread while frames keep
 ## drawing (a loading screen stays responsive). Streamed exports prime synchronously.
 func load_all_async() -> AABB:
@@ -430,9 +437,7 @@ func load_all_async() -> AABB:
             continue
         if manifest.get("format") == GeogenChunkStreamer.INDEX_FORMAT:
             await get_tree().process_frame    # show the loading screen first
-            var t := Time.get_ticks_usec()
-            _load_chunked(manifest_path, manifest)
-            _lap("stream_prime", t)
+            _load_streamed(manifest_path, manifest)
             continue
         var t := Time.get_ticks_usec()
         var out := []
@@ -445,10 +450,7 @@ func load_all_async() -> AABB:
         _lap("gltf_parse", t)
         _attach_model(manifest_path, manifest, out[0] if not out.is_empty() else null)
     loading = false
-    var aabb := world_aabb()
-    world_loaded.emit(aabb)
-    _report_timings()
-    return aabb
+    return _loaded()
 
 
 func _exit_tree() -> void:
@@ -526,7 +528,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
                     it.hold = true
     if bake_navigation:
         t = Time.get_ticks_usec()
-        _navigation(root, manifest_path, model_path)
+        navigation.build(root, manifest_path, model_path)
         _lap("navigation", t)
     for s in manifest.get("spawns", []):
         var f: Array = s.get("forward", [0, 0, -1])
@@ -555,8 +557,8 @@ func setup_root(root: Node) -> Dictionary:
             nodes_by_uid[uid] = node
     _collect_interactions(root)
     props.setup(root)        # before colliders: a prop's parts' colliders give way to its body
-    _add_lights(root)
-    _sync_fixtures()
+    lights.add(root)
+    lights.sync_fixtures()
     _collect_affordances(root)
     _collect_portals(root)
     _collect_travel(root)
@@ -570,7 +572,7 @@ func setup_root(root: Node) -> Dictionary:
     t = _lap("traffic", t)
     _collect_rooms(root)
     var summary := GeogenSceneBuilder.build(root)
-    _collect_places(root)
+    place_tracking.collect(root)
     _lap("scene_builder", t)
     summary["meshes"] = count
     return summary
@@ -593,83 +595,6 @@ func _report_timings() -> void:
         "phases": load_timings}))
 
 
-# --- navigation cache ---------------------------------------------------------------------------
-
-## A whole export's navmesh syncs in step with the physics frames. Godot syncs maps and
-## regions on worker threads by default, so under load the first synced frame (when NPCs start
-## deciding) varied run to run and long simulations drifted apart (geogen.50). It is all
-## there at load, so the one synchronous sync costs no more; streamed exports stay async.
-func _navigation_in_step(nav: Node) -> void:
-    NavigationServer3D.map_set_use_async_iterations(get_world_3d().navigation_map, false)
-    for region in [nav] + nav.find_children("*", "NavigationRegion3D", true, false):
-        if region is NavigationRegion3D:
-            NavigationServer3D.region_set_use_async_iterations(region.get_rid(), false)
-
-
-## Bake the model's navmesh, or reuse the one baked last time the same export loaded with the
-## same settings (<generated>/.navcache/<name>-<key>.scn, keyed by the export's files, the
-## player spec, the bake options and the baking scripts' source).
-func _navigation(root: Node3D, manifest_path: String, model_path: String) -> void:
-    var spec := PlayerSpec.from_manifest(manifest_path)
-    var path := _nav_cache_path(root, manifest_path, model_path, spec)
-    if path != "" and FileAccess.file_exists(path):
-        var packed := ResourceLoader.load(path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
-        if packed != null:
-            var nav := packed.instantiate()
-            root.add_child(nav)
-            for region in [nav] + nav.find_children("*", "NavigationRegion3D", true, false):
-                if region is NavigationRegion3D:
-                    region.add_to_group("geogen_navigation")
-            _navigation_in_step(nav)
-            load_timings["nav_cache"] = "hit"
-            return
-    # Only some doors opened (open_only): the rest stay out of the bake as usual (their doorways
-    # navigable), while the opened ones' leaves are obstacles where they stand.
-    var shut: Array[CollisionObject3D] = []
-    if open_before_bake and open_only != "":
-        for it in interactions:
-            if (it.asset.is_ancestor_of(root) or root.is_ancestor_of(it.asset)) and not it.hold:
-                for body in it.asset.find_children("*", "AnimatableBody3D", true, false):
-                    if body.collision_layer & 1:
-                        body.collision_layer &= ~1
-                        shut.append(body)
-    var nav := GeogenSceneBuilder.build_navigation(root, spec, open_before_bake, ground_margin)
-    _navigation_in_step(nav)
-    for body in shut:
-        body.collision_layer |= 1
-    load_timings["nav_cache"] = "miss"
-    if path == "":
-        return
-    for child in nav.find_children("*", "", true, false):
-        child.owner = nav
-    var packed := PackedScene.new()
-    if packed.pack(nav) != OK:
-        return
-    var dir := path.get_base_dir()
-    DirAccess.make_dir_recursive_absolute(dir)
-    var prefix := path.get_file().get_slice("-", 0) + "-"
-    for old in DirAccess.get_files_at(dir):
-        if old.begins_with(prefix):
-            DirAccess.remove_absolute(dir.path_join(old))    # older bakes of this export
-    var err := ResourceSaver.save(packed, path, ResourceSaver.FLAG_COMPRESS)
-    if err != OK:
-        push_warning("geogen: can't cache navmesh %s (%s)" % [path, error_string(err)])
-
-
-func _nav_cache_path(root: Node3D, manifest_path: String, model_path: String, spec: PlayerSpec) -> String:
-    if not nav_cache:
-        return ""
-    var model_md5 := FileAccess.get_md5(model_path)
-    if model_md5 == "":
-        return ""
-    var key := JSON.stringify([NAV_CACHE_VERSION, ProjectSettings.globalize_path(model_path),
-        model_md5, FileAccess.get_md5(manifest_path),
-        spec.to_dict() if spec else {}, open_before_bake, open_only, ground_margin, var_to_str(root.global_transform),
-        FileAccess.get_md5("res://addons/geogen/scene_builder.gd"), FileAccess.get_md5("res://scripts/world_loader.gd")])
-    return generated_dir.path_join(".navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),
-        key.md5_text()])
-
-
 ## Unregister everything ``root`` contributed (before freeing a streamed chunk).
 func forget(root: Node) -> void:
     var inside := func(node) -> bool:
@@ -678,8 +603,8 @@ func forget(root: Node) -> void:
         if inside.call(it.asset):
             # Remembered until its chunk loads again: by the rules program, which reads and
             # drives it meanwhile, else here.
-            if uid_of(it.asset) != "" and not rules.release(_state_key(it), it.snapshot(), it.progress()):
-                _pending_state[_state_key(it)] = it.snapshot()
+            if uid_of(it.asset) != "" and not rules.release(GeogenWorldSaves.state_key(it), it.snapshot(), it.progress()):
+                saves.remember(it)
             interactions.erase(it)
             it.queue_free()
     flows.forget(root)
@@ -688,19 +613,12 @@ func forget(root: Node) -> void:
         if inside.call(nodes_by_uid[uid]):
             nodes_by_uid.erase(uid)
     rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
-    places = places.filter(func(p): return not inside.call(p.get("node")))
-    _held = _held.filter(func(h): return not inside.call(h["entry"].get("node")))
+    place_tracking.forget(inside)
     affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
     portals = portals.filter(func(p): return not inside.call(p.get("node")))
     travel_points = travel_points.filter(func(t): return not inside.call(t.get("node")))
     npcs = npcs.filter(func(n): return not inside.call(n))
-    _auto_lights = _auto_lights.filter(func(a): return not inside.call(a.get("fixture")))
-    for key in lights_by_name.keys():
-        if inside.call(lights_by_name[key]):
-            lights_by_name.erase(key)
-    for key in _fixtures.keys():
-        if inside.call(_fixtures[key]["fixture"]):
-            _fixtures.erase(key)
+    lights.forget(inside)
     for key in _moving.keys():
         if inside.call(key):
             _moving.erase(key)
@@ -760,75 +678,6 @@ static func geogen_extras(node: Node) -> Dictionary:
     return {}
 
 
-## Ceiling fixtures etc. carry extras.geogen.light: add a light just below them.
-func _add_lights(root: Node) -> void:
-    for node in root.find_children("*", "Node3D", true, false):
-        var spec = geogen_extras(node).get("light")
-        if not spec is Dictionary:
-            continue
-        # Exports carry a KHR_lights_punctual light (imported as a Light3D child);
-        # tune it with our energy/range/shadows. Older exports get one added.
-        var light: OmniLight3D = null
-        for child in node.get_children():
-            if child is OmniLight3D:
-                light = child
-            elif geogen_extras(child).get("type") == "light":
-                for grand in child.get_children():
-                    if grand is OmniLight3D:
-                        light = grand
-                if light == null and child is OmniLight3D:
-                    light = child
-        if light == null:
-            light = OmniLight3D.new()
-            var offset = spec.get("offset", [0, -0.5, 0])
-            light.position = Vector3(offset[0], offset[1], offset[2]) if offset is Array else Vector3(0, offset, 0)
-            node.add_child(light)
-        light.name = "Light"
-        var c: Array = spec.get("color", [1, 1, 1])
-        light.light_color = Color(c[0], c[1], c[2])
-        light.light_energy = float(spec.get("energy", 1.0))
-        light.omni_range = float(spec.get("range", 5.0))
-        light.omni_attenuation = 1.0
-        light.shadow_enabled = true
-        light.add_to_group("geogen_light")
-        if spec.get("auto") == "night":
-            # Street lamps: many of them, so no shadows; on when the clock says it's dark.
-            light.shadow_enabled = false
-            _auto_lights.append({"light": light, "fixture": node})
-            light.visible = night
-            _set_emission(node, night)
-        else:
-            var uid := uid_of(node)
-            if uid != "":
-                _fixtures[uid] = {"light": light, "fixture": node}
-        lights_by_name[String(node.name)] = light
-        # The fixture itself mustn't shadow its own light.
-        for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
-            mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-
-## A fixture's `lit` state (state.light_state) shows or hides its light and glow: a switch's binding
-## sets it, and so may any rule. Synced when a package (or a save) loads and when a chunk adds fixtures.
-func _sync_fixtures() -> void:
-    for uid in _fixtures:
-        var lit = rules.get_value(uid + "#lit")
-        if lit is bool:
-            _light_fixture(uid, lit)
-
-
-func _on_lit(event: Dictionary) -> void:
-    if event["type"] == "changed" and event["name"] == "lit" and _fixtures.has(event["subject"]):
-        _light_fixture(event["subject"], bool(event["data"].get("to", true)))
-
-
-func _light_fixture(uid: String, lit: bool) -> void:
-    var entry: Dictionary = _fixtures[uid]
-    if not is_instance_valid(entry["fixture"]):
-        return
-    entry["light"].visible = lit
-    _set_emission(entry["fixture"], lit)
-
-
 ## Ways out of the scene for NPCs going `away` (routines): building entrances (their spawns).
 func exit_points() -> Array[Vector3]:
     var out: Array[Vector3] = []
@@ -841,10 +690,7 @@ func exit_points() -> Array[Vector3]:
 ## Night on/off: `auto: night` lights and their glowing glass, and vehicle lamps.
 func set_night(on: bool) -> void:
     night = on
-    for a in _auto_lights:
-        if is_instance_valid(a["light"]):
-            a["light"].visible = on
-            _set_emission(a["fixture"], on)
+    lights.set_night(on)
     for t in traffic:
         if is_instance_valid(t):
             t.set_night(on)
@@ -856,20 +702,6 @@ func set_night(on: bool) -> void:
 ## A train closed or opened a level crossing (road traffic stops for closed ones).
 func set_crossing(id: String, closed: bool) -> void:
     crossing_closed[id] = closed
-
-
-## Dim or restore a fixture's glowing materials (lamp shades) with its light.
-static func _set_emission(fixture: Node, on: bool) -> void:
-    for mi: MeshInstance3D in fixture.find_children("*", "MeshInstance3D", true, false):
-        for i in mi.mesh.get_surface_count() if mi.mesh else 0:
-            var mat := mi.get_active_material(i) as BaseMaterial3D
-            if mat == null or not (mat.emission_enabled or mi.has_meta("geogen_dimmed")):
-                continue
-            if mi.get_surface_override_material(i) == null:
-                mat = mat.duplicate()
-                mi.set_surface_override_material(i, mat)
-            mat.emission_enabled = on
-            mi.set_meta("geogen_dimmed", not on)
 
 
 func _collect_affordances(root: Node) -> void:
@@ -1113,209 +945,6 @@ func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:
 
 ## The key an interaction's state is saved under: "<stable ID>#<interaction>", so a save
 ## survives a re-export that renames nodes (exports without IDs: "<node name>/<interaction>").
-const SAVE_FORMAT := "geogen-save"       # docs/schema/geogen-save.v1.schema.json
-const RULES_SAVE := "geogen:rules"       # where saves from before that format kept the rules program's state
-
-
-static func _state_key(it: GeogenInteraction) -> String:
-    var uid := uid_of(it.asset)
-    if uid == "":
-        return "%s/%s" % [it.asset.name, it.interaction_name]
-    return "%s#%s" % [uid, it.interaction_name]
-
-
-## {state, locked} of every interaction, by ``_state_key``: the loaded ones, plus what was
-## last known of those in chunks that aren't loaded.
-func interaction_states() -> Dictionary:
-    var data := _pending_state.duplicate(true)
-    for it in interactions:
-        data[_state_key(it)] = it.snapshot()
-    return data
-
-
-## The game as a save (docs/rules.md "Saving"): the rules program's world and actor sections,
-## clock and timers, with every interaction in ``world`` as the instance state it is ("<key>":
-## its state, "<key>_locked": its lock). Only what differs from how things start is there.
-func save_state() -> Dictionary:
-    var data := rules.save()
-    if data.is_empty():                  # no rules program: only interactions
-        data = {"format": SAVE_FORMAT, "version": 1, "now": 0.0, "clock": _clock_now(), "world": {},
-            "actors": {}, "actor_info": {}, "timers": []}
-    data["package"] = rules.package if rules.machine != null else scene_name
-    data.merge(rules.save_others())      # the other packages visited, and content packages' values
-    var stored: Dictionary = data["world"]
-    var live := _live_interactions()
-    var states := interaction_states()
-    for key in states:
-        var snap: Dictionary = states[key]
-        var it: GeogenInteraction = live.get(key)
-        _store(stored, key, snap.get("state"), it.initial if it != null else _default_of(key))
-        _store(stored, key + "_locked", snap.get("locked"),
-            it.initial_locked if it != null else _default_of(key + "_locked"))
-    # How far loaded interactions had got (a door on its way, one waiting to close itself), as
-    # the timers the rules program keeps for the ones it holds.
-    var timers: Array = data.get("timers", [])
-    var now := float(data.get("now", 0.0))
-    var seq := 0
-    for timer in timers:
-        seq = maxi(seq, int(timer["seq"]))
-    for key in live:
-        var progress: Dictionary = live[key].progress()
-        if progress.is_empty():
-            continue
-        seq += 1
-        var timer := {"at": snappedf(now + float(progress["in"]), 0.000001), "seq": seq,
-            "kind": progress["kind"], "key": key, "state": progress["state"], "actor": progress["actor"]}
-        if progress.has("from"):
-            timer["from"] = progress["from"]
-        timers.append(timer)
-    timers.sort_custom(GeogenMachine._sooner)
-    data["timers"] = timers
-    var bodies := props.save()
-    if not bodies.is_empty():
-        data["bodies"] = bodies
-    var items := flows.save()
-    if not items.is_empty():
-        data["flows"] = items
-    return data
-
-
-func _live_interactions() -> Dictionary:
-    var live := {}
-    for it in interactions:
-        live[_state_key(it)] = it
-    return live
-
-
-static func _store(stored: Dictionary, key: String, value: Variant, default: Variant) -> void:
-    if value == null or (default != null and value == default):
-        stored.erase(key)
-    else:
-        stored[key] = value
-
-
-## What the package says a variable starts as (null: it doesn't say).
-func _default_of(key: String) -> Variant:
-    if rules.machine == null:
-        return null
-    return rules.machine.variables.get(key, {}).get("default")
-
-
-func _clock_now() -> Dictionary:
-    if clock == null:
-        return {"time": "12:00", "hour": 12.0, "night": false, "day": 0}
-    var total := int(clock.hours * 60.0) % 1440
-    return {"time": "%02d:%02d" % [total / 60, total % 60], "hour": total / 60.0, "night": clock.night, "day": 0}
-
-
-## Restore a save: whatever it doesn't mention goes back to how it started. Entries for
-## things that aren't loaded yet apply when they load. A save from before the format (a flat
-## {key: {state, locked}}, the rules state under "geogen:rules") still loads; it only moves
-## what it names.
-func load_state(data: Dictionary) -> void:
-    if data.get("format") != SAVE_FORMAT:
-        _pending_state = {}
-        for key in data:
-            if key != RULES_SAVE and data[key] is Dictionary:
-                _pending_state[key] = data[key].duplicate(true)
-        for it in interactions:
-            _restore_pending(it)
-        if data.get(RULES_SAVE) is Dictionary:
-            rules.load_save(data[RULES_SAVE])
-        return
-    # Every package it holds: the loaded one's part is restored here, the rest wait for their
-    # scene. A save made in another scene loads this one as that save left it.
-    data = rules.take_save(data, rules.package if rules.machine != null else scene_name)
-    if clock != null and data.get("clock") is Dictionary and data["clock"].has("hour"):
-        clock.hours = fposmod(float(data["clock"]["hour"]), 24.0)
-        clock.apply()
-    # The interactions in the world section. A loaded one is its node's to hold; the others
-    # wait for their chunk, and the rules program simulates them meanwhile.
-    var live := _live_interactions()
-    var for_rules: Dictionary = data.duplicate(true)
-    var stored: Dictionary = for_rules.get("world", {})
-    _pending_state = {}
-    for key in stored.keys():
-        var owner_key := _saved_interaction(key, stored[key])
-        if owner_key == "":
-            continue
-        if not _pending_state.has(owner_key):
-            _pending_state[owner_key] = {}
-        _pending_state[owner_key]["state" if owner_key == key else "locked"] = stored[key]
-        if live.has(owner_key) or rules.machine == null or not rules.machine.variables.has(key):
-            stored.erase(key)
-    for key in live:
-        var it: GeogenInteraction = live[key]
-        var snap: Dictionary = _pending_state.get(key, {})
-        _pending_state.erase(key)
-        it.restore({"state": snap.get("state", it.initial), "locked": snap.get("locked", it.initial_locked)})
-    props.restore(data.get("bodies", {}))     # after their spawn interactions: where they had got to
-    # Loaded interactions carry on from their own timers; the program keeps the rest (rule
-    # timers, and those of interactions it holds: ones it doesn't know are dropped).
-    var kept := []
-    var now := float(for_rules.get("now", 0.0))
-    for timer in for_rules.get("timers", []):
-        var key := str(timer.get("key", ""))
-        if timer.get("kind") in ["arrive", "dwell"] and live.has(key):
-            live[key].resume(timer, float(timer["at"]) - now)
-        elif timer.get("kind") == "rule" or (rules.machine != null and rules.machine.interactions.has(key)):
-            kept.append(timer)
-    for_rules["timers"] = kept
-    rules.load_save(for_rules)           # after the nodes: bindings are recomputed from them
-    rules.hold_absent()                  # the program has the rest until their chunks load
-    flows.restore(data.get("flows", {}))     # spawned items, after the program has its counts
-    for key in _pending_state.keys():
-        if rules.holds(key):
-            _pending_state.erase(key)
-
-
-## Write a save as one JSON file; "" when done, else why not.
-static func write_save(path: String, data: Dictionary) -> String:
-    var f := FileAccess.open(path, FileAccess.WRITE)
-    if f == null:
-        return "can't write %s: %s" % [path, error_string(FileAccess.get_open_error())]
-    f.store_string(JSON.stringify(data, "  ", true, true))     # floats round-trip exactly
-    f.close()
-    return ""
-
-
-## The save in a file (a Dictionary), or null.
-static func read_save(path: String) -> Variant:
-    if not FileAccess.file_exists(path):
-        return null
-    return JSON.parse_string(FileAccess.get_file_as_string(path))
-
-
-## The interaction a key of a save's world section belongs to ("" for a variable or a
-## latch): the key itself for its state, the key less "_locked" for its lock.
-func _saved_interaction(key: String, value: Variant) -> String:
-    var base := key.trim_suffix("_locked")
-    if rules.machine != null:
-        if rules.machine.interactions.has(key):
-            return key
-        if base != key and rules.machine.interactions.has(base):
-            return base
-        if rules.machine.variables.has(key):
-            return ""
-    if key.begins_with("world:") or key.begins_with("once:") or key.begins_with("watch:"):
-        return ""
-    for it in interactions:              # an export without stable IDs or a state section
-        var own := _state_key(it)
-        if own == key or own == base:
-            return own
-    if rules.machine != null:
-        return ""
-    return base if value is bool and base != key else key
-
-
-func _restore_pending(it: GeogenInteraction) -> void:
-    for key in [_state_key(it), "%s/%s" % [it.asset.name, it.interaction_name]]:   # the second: older saves
-        if _pending_state.has(key):
-            it.restore(_pending_state[key])
-            _pending_state.erase(key)
-            return
-
-
 func _collect_rooms(root: Node) -> void:
     for node in root.find_children("*", "Node3D", true, false):
         var g := geogen_extras(node)
@@ -1325,119 +954,6 @@ func _collect_rooms(root: Node) -> void:
             rooms.append({"id": room.get("id", node.name), "type": room.get("type", ""), "nav": g.get("nav", true),
                 "xform": (node as Node3D).global_transform, "size": Vector3(size[0], size[1], size[2]),
                 "node": node})
-
-
-## Place and room areas (made by the scene builder) report the actors that walk
-## in and out: the player and NPCs.
-func _collect_places(root: Node) -> void:
-    for area: Area3D in root.find_children("*", "Area3D", true, false):
-        var is_room := area.is_in_group("geogen_room")
-        if not (is_room or area.is_in_group("geogen_place")) or area.has_meta("geogen_wired"):
-            continue
-        area.set_meta("geogen_wired", true)
-        var node := area.get_parent()
-        var entry := {"kind": "room" if is_room else "place", "node": node, "area": area, "actors": {}}
-        if is_room:      # the room is the volume's parent; rules name it, not its volume
-            var room: Dictionary = area.get_meta("geogen_room", {})
-            entry["id"] = str(room.get("id", node.name))
-            entry["uid"] = uid_of(node.get_parent()) if node.get_parent() != null else ""
-            if entry["uid"] == "":
-                entry["uid"] = uid_of(node)
-        else:
-            var place: Dictionary = area.get_meta("geogen_place", {})
-            entry["id"] = str(place.get("id", node.name))
-            entry["uid"] = str(place.get("uid", ""))
-            entry["detect"] = place.get("detect", ["actors"])
-            entry["things"] = {}
-            if place.get("sink") is Dictionary:
-                entry["sink"] = place["sink"]
-        places.append(entry)
-        area.body_entered.connect(func(body: Node3D): _place_crossed(entry, body, true))
-        area.body_exited.connect(func(body: Node3D): _place_crossed(entry, body, false))
-
-
-func _place_crossed(entry: Dictionary, body: Node3D, entered: bool) -> void:
-    var actor := actor_id(body)
-    if actor == "" and entered and entry.has("sink") and flows.item_of(body) >= 0:
-        flows.take(flows.item_of(body), entry)
-        return
-    if actor == "":
-        var prop := props.prop_of(body)
-        if prop != "" and "props" in entry.get("detect", []):
-            _occupy(entry, prop, entered)
-        return
-    if entered:
-        # Bodies sit at the origin for a frame while a world loads or they spawn:
-        # an arrival counts once the body is still inside two frames on.
-        for i in 2:
-            await get_tree().physics_frame
-        var area = entry["area"]
-        if not is_instance_valid(body) or not is_instance_valid(area) or not area.overlaps_body(body) \
-                or entry["actors"].has(actor):
-            return
-        entry["actors"][actor] = true
-    elif not entry["actors"].has(actor):
-        return
-    elif _parked(body):
-        _held.append({"entry": entry, "body": body, "actor": actor})
-        return
-    else:
-        entry["actors"].erase(actor)
-    _post_place("enter" if entered else "leave", entry, actor)
-
-
-## Seated and lying actors turn their collision shape off, which an area reads as
-## walking out: they stay in the place until the shape is back (or they vanish).
-func _parked(body: Node3D) -> bool:
-    if not is_instance_valid(body) or not body.is_inside_tree() or not body.visible:
-        return false
-    for child in body.get_children():
-        if child is CollisionShape3D and not child.disabled:
-            return false
-    return true
-
-
-func _release_held() -> void:
-    for held in _held.duplicate():
-        if _parked(held["body"]):
-            continue
-        _held.erase(held)
-        _leave_unless_inside(held)
-
-
-func _leave_unless_inside(held: Dictionary) -> void:
-    for i in 2:      # the area sees a shape that came back on the next physics frame
-        await get_tree().physics_frame
-    var entry: Dictionary = held["entry"]
-    var body = held["body"]
-    var area = entry["area"]
-    if is_instance_valid(body) and is_instance_valid(area) and body.visible and area.overlaps_body(body):
-        return
-    if entry["actors"].erase(held["actor"]):
-        _post_place("leave", entry, held["actor"])
-
-
-func _post_place(type: String, entry: Dictionary, actor: String) -> void:
-    if "props" in entry.get("detect", []):
-        _occupy(entry, actor, type == "enter")
-    events.post(type, entry["uid"], "", actor, {"place": entry["id"], "kind": entry["kind"]})
-    place_event.emit({"type": type, "subject": entry["uid"], "place": entry["id"], "kind": entry["kind"],
-        "actor": actor})
-
-
-## A place that detects props counts what is in it (actors and props) as its
-## `occupants` (declared with `driven: place`), which rules read.
-func _occupy(entry: Dictionary, thing: String, inside: bool) -> void:
-    var things: Dictionary = entry["things"]
-    if inside == things.has(thing):
-        return
-    if inside:
-        things[thing] = true
-    else:
-        things.erase(thing)
-    var key := "%s#occupants" % entry["uid"]
-    if rules.machine != null and rules.machine.variables.has(key):
-        rules.set_value(key, float(things.size()))
 
 
 ## What events call ``body``: "player", an NPC's stable ID (its name without one), or "" for anything else.
@@ -1481,7 +997,7 @@ func _collect_interactions(root: Node) -> void:
                 _moving[part] = true
             for t in it.targets:
                 _target_of[t] = it
-            _restore_pending(it)
+            saves.restore_pending(it)
             rules.adopt(key, it)        # what rules made of it before its node existed
 
 
@@ -1506,8 +1022,7 @@ func interactions_of(asset_name: String) -> Array[GeogenInteraction]:
 
 
 func _physics_process(_delta: float) -> void:
-    if not _held.is_empty():
-        _release_held()
+    place_tracking.release_held()
 
 
 ## Id of the room volume containing ``pos`` (world space), or "".

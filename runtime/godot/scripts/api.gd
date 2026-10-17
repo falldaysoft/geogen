@@ -387,8 +387,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "player.status":
             return _status()
         "player.lock":
-            main.update_focus()
-            var it: GeogenInteraction = main._focus
+            main.focus.update()
+            var it: GeogenInteraction = main.focus.interaction
             if it == null:
                 return _err("nothing lockable in view")
             var toggled: bool = it.toggle_lock(main.held_keys(), "player")
@@ -420,14 +420,14 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "player.carry":
             var want := str(args.get("prop", ""))
             if want == "":
-                main._update_focus()
-                want = main._focus_prop
+                main.focus.update()
+                want = main.focus.prop
             else:
                 for b in world.props.report():
                     if b["uid"].match(want) or b["node"] == want:
                         want = b["uid"]
                         break
-            var ok: bool = want != "" and world.props.pick(want, player, main._hold_point)
+            var ok: bool = want != "" and world.props.pick(want, player, main.focus.hold_point)
             return {"ok": ok, "held": world.props.held}
         "player.drop":
             var dropped := world.props.held
@@ -448,7 +448,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 main.keys = Array(args["keys"])
             return {"keys": main.keys, "held": main.held_keys()}
         "interactions.states":
-            return world.interaction_states()
+            return world.saves.interaction_states()
         "interactions.list":
             var asset := str(args.get("asset", ""))
             return world.interactions.filter(func(it): return asset == "" or String(it.asset.name) == asset) \
@@ -488,9 +488,9 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "quests.list":
             return world.rules.report(str(args.get("actor", "player")))
         "hud.aim":
-            main.update_focus()
+            main.focus.update()
             var aim: Dictionary = main.hud.crosshair.hud_report()
-            aim["focus"] = main.focus_info()
+            aim["focus"] = main.focus.info()
             return aim
         "hud.stats":
             main.hud.refresh()
@@ -593,20 +593,20 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             await get_tree().process_frame
             return {"key": OS.get_keycode_string(code)}
         "state.save":
-            var saved := world.save_state()
+            var saved := world.saves.save()
             if args.has("path"):
-                var problem := WorldLoader.write_save(str(args["path"]), saved)
+                var problem := GeogenWorldSaves.write(str(args["path"]), saved)
                 if problem != "":
                     return _err(problem)
             return saved
         "state.load":
             var state = args.get("state")
             if args.has("path"):
-                state = WorldLoader.read_save(str(args["path"]))
+                state = GeogenWorldSaves.read(str(args["path"]))
             if not state is Dictionary:
                 return _err("state: a save (state.save), or path: a file holding one")
-            world.load_state(state)
-            return world.save_state()
+            world.saves.load(state)
+            return world.saves.save()
         "npcs.list":
             return world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return n.report())
         "npcs.options", "npcs.force", "npcs.greet":
@@ -841,13 +841,13 @@ func _nav_path(a: Vector3, b: Vector3) -> Dictionary:
 func _status() -> Dictionary:
     var player: Player = main.player
     var p := player.global_position
-    main.update_focus()
+    main.focus.update()
     var out := {"position": _v(p), "yaw": snappedf(rad_to_deg(wrapf(player.rotation.y, -PI, PI)), 0.1),
         "pitch": snappedf(rad_to_deg(player.head.rotation.x), 0.1),
         "eye": _v(player.camera.global_position), "on_floor": player.is_on_floor(), "flying": player.flying,
         "room": main.world.room_at(p + Vector3(0, 0.5, 0)), "scene": main.world.scene_name,
         "pose": player.pose.get("type", "stand"), "pose_asset": player.pose.get("asset", ""),
-        "focus": main.focus_info(), "keys": main.held_keys(),
+        "focus": main.focus.info(), "keys": main.held_keys(),
         "walking": _walker != null and _walker.status == "walking"}
     if main.world.streamer != null:
         out["stream"] = main.world.stream_report()
@@ -951,7 +951,7 @@ func _cancel_walk() -> void:
 
 func _use(args: Dictionary):
     if not args.has("asset"):
-        var used: Dictionary = main.press_use()
+        var used: Dictionary = main.focus.press()
         return _err("nothing usable in view") if used.is_empty() else used
     var found := _interactions(args)
     if found.is_empty():
@@ -1406,8 +1406,8 @@ static func _percentile(values: Array, q: float) -> float:
 func _lights() -> Dictionary:
     var world: WorldLoader = main.world
     var report := {}
-    for name in world.lights_by_name:
-        var light: OmniLight3D = world.lights_by_name[name]
+    for name in world.lights.by_name:
+        var light: OmniLight3D = world.lights.by_name[name]
         report[name] = {"visible": light.visible, "energy": light.light_energy,
             "range": light.omni_range, "y": snappedf(light.global_position.y, 0.01)}
     return {"fixtures": report, "total": get_tree().get_nodes_in_group("geogen_light").size(),
