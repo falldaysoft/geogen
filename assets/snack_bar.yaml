@@ -1,0 +1,32 @@
+# A chocolate bar. Lying flat, a wrapper with a gold band across it; a carryable
+# physics prop; vending_machine.yaml hands them out (items/chocolate_bar.yaml).
+# Origin: bottom centre; the bar runs along X.
+
+name: snack_bar
+tags: [prop.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: {default: maroon, type: text}
+
+physics: {mass: 0.06, friction: 0.7, bounce: 0.05, carry: true}
+
+parts:
+  wrapper:
+    primitive: cube
+    size: [0.15, 0.018, 0.052]
+    anchor: bottom_center
+    bevel: 0.004
+    bevel_segments: 1
+    material: car_paint
+    tint: "{colour}"
+  band:
+    primitive: cube
+    size: [0.03, 0.0196, 0.0536]
+    anchor: bottom_center
+    offset: [-0.035, -0.0008, 0]
+    bevel: 0
+    material: signal_amber
+    collider: none

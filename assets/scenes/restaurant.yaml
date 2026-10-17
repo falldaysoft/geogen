@@ -23,6 +23,7 @@ slots:
   lamp_2:      { position: [4.6, 0.12, -7.0], facing: north }
   lamp_3:      { position: [-11.7, 0.12, 2.0], facing: east }
   bench:       { position: [1.5, 0.12, -7.0], facing: south }      # against the bar's front wall
+  vending:     { position: [3.15, 0.12, -6.85], facing: south }    # beside the bench, its back to the wall
   fascia:      { position: [2.4, 2.44, -6.42], facing: south }     # between the window heads and the cornice, clear of the entrance canopy
   planter_1:   { position: [-6.2, 0.12, -7.0], facing: south }
   planter_2:   { position: [-2.8, 0.12, -7.0], facing: south }
@@ -57,6 +58,7 @@ place:
   lamp_2: { asset: street_lamp.yaml, slot: lamp_2 }
   lamp_3: { asset: street_lamp.yaml, slot: lamp_3 }
   bench: { asset: bench.yaml, slot: bench }
+  vending: { scene: vending_machine.yaml, slot: vending }
   fascia: { asset: fascia_sign.yaml, slot: fascia, params: { label: "The Corner Bistro", width: 6.4, height: 0.44, letter: 0.3 } }
   planter_1: { asset: planter.yaml, slot: planter_1 }
   planter_2: { asset: planter.yaml, slot: planter_2 }

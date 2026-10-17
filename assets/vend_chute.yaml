@@ -1,0 +1,35 @@
+# A vending machine's drop point. For one product of vending_machine.yaml: a source of
+# spawned items (geogen.flows) that makes nothing by itself (stopped, rate 0) and one
+# `item` each time it takes `emit`, so every press of a button gives another, up to
+# 40 of them in the world. Items appear at its origin and are pushed forward
+# (+Z); a small flap above it, out of sight under the hood, is all there is to see.
+
+name: vend_chute
+tags: [machine.vend_chute]
+origin: bottom_center
+size: [0.05, 0.05, 0.05]
+
+params:
+  item:      {default: items/cola.yaml, type: text}
+
+source:
+  items: "{item}"
+  at: mouth
+  rate: 0
+  initial: stopped
+  max_alive: 40
+  velocity: [0, 0, 1.0]      # out toward the ledge, clear of where the next one appears
+  spread: 0.08
+
+parts:
+  flap:
+    primitive: cube
+    size: [1, 0.08, 1]
+    anchor: bottom_center
+    offset: [0, 2.6, 0]
+    bevel: 0
+    material: metal
+    collider: none
+
+attachments:
+  mouth: {anchor: bottom_center}

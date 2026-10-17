@@ -1,0 +1,41 @@
+# A bag of crisps. Lying face up, a rounded tinted pouch with crimped silver seams at
+# both ends and a label; a carryable physics prop; vending_machine.yaml hands
+# them out (items/crisps.yaml). Origin: bottom centre; the seams are at -Z and +Z.
+
+name: crisps_bag
+tags: [prop.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: {default: car_blue, type: text}
+
+physics: {mass: 0.05, friction: 0.8, bounce: 0.05, carry: true}
+
+parts:
+  pouch:
+    primitive: cube
+    size: [0.15, 0.05, 0.17]
+    anchor: bottom_center
+    bevel: 0.02
+    material: car_paint
+    tint: "{colour}"
+  seam_back: &seam
+    primitive: cube
+    size: [0.15, 0.01, 0.012]
+    anchor: bottom_center
+    offset: [0, 0.02, -0.091]
+    bevel: 0
+    material: chrome
+  seam_front:
+    <<: *seam
+    offset: [0, 0.02, 0.091]
+  label:
+    primitive: cube
+    size: [0.08, 0.004, 0.07]
+    anchor: bottom_center
+    offset: [0, 0.0485, 0]
+    bevel: 0
+    material: signal_amber
+    collider: none

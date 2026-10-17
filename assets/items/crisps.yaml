@@ -1,0 +1,8 @@
+# Crisps from the vending machine (vending_machine.yaml): a physics item the player can
+# carry off and put down anywhere. It stays where it is left (stuck: 0).
+kind: item
+title: Crisps
+body: {asset: crisps_bag.yaml, params: {colour: car_blue}}
+mode: physics
+stuck: 0
+radius: 0.05     # the tray clears for the next one as soon as this one has dropped

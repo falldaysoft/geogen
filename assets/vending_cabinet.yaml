@@ -1,0 +1,302 @@
+# A vending machine's cabinet. For vending_machine.yaml: a red steel box with a glass window
+# on four shelves of stock, a lit header, a column of four selection buttons
+# (each with a swatch of its product's colour) and a tray at the bottom that runs out onto
+# a ledge in front, where products land (and a pile tumbles off). Pressing a
+# button emits `a`..`d`; vending_machine.yaml wires them to the sources that drop the
+# product into the tray (`tray_a`..`tray_d` are where each one appears).
+# Origin: on the ground under the cabinet's middle; the front faces +Z.
+
+name: vending_cabinet
+tags: [machine.vending]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: {default: car_red, type: text}
+
+parts:
+  # The shell: sides full height, base and top between them, a back panel.
+  side_l: &side
+    primitive: cube
+    size: [0.06, 1.8, 0.8]
+    anchor: bottom_center
+    offset: [-0.42, 0, 0]
+    bevel: 0.012
+    material: car_paint
+    tint: "{colour}"
+  side_r:
+    <<: *side
+    offset: [0.42, 0, 0]
+  base:                    # a plinth: the tray sits at a height you can reach into standing
+    primitive: cube
+    size: [0.78, 0.3, 0.8]
+    anchor: bottom_center
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+  kick:                    # a dark strip along the foot of the front
+    primitive: cube
+    size: [0.78, 0.06, 0.01]
+    anchor: bottom_center
+    offset: [0, 0, 0.4]
+    bevel: 0
+    material: plastic_black
+    collider: none
+  top:
+    primitive: cube
+    size: [0.78, 0.06, 0.8]
+    anchor: bottom_center
+    offset: [0, 1.74, 0]
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+  back:
+    primitive: cube
+    size: [0.78, 1.44, 0.06]
+    anchor: bottom_center
+    offset: [0, 0.3, -0.37]
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+
+  # The works behind the tray and the stock.
+  lower_core:
+    primitive: cube
+    size: [0.78, 0.51, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.3, -0.2]
+    bevel: 0
+    material: plastic_black
+  upper_core:
+    primitive: cube
+    size: [0.78, 0.93, 0.54]
+    anchor: bottom_center
+    offset: [0, 0.81, -0.07]
+    bevel: 0
+    material: plastic_black
+
+  # The tray: open at the front between two cheeks, under a hood, and running out onto
+  # an open ledge in front of the cabinet: what drops lands on it, and as presses pile
+  # more up they are pushed off onto the ground in front.
+  cheek_l: &cheek
+    primitive: cube
+    size: [0.09, 0.45, 0.46]
+    anchor: bottom_center
+    offset: [-0.345, 0.3, 0.17]
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+  cheek_r:
+    <<: *cheek
+    offset: [0.345, 0.3, 0.17]
+  hood:
+    primitive: cube
+    size: [0.78, 0.06, 0.46]
+    anchor: bottom_center
+    offset: [0, 0.75, 0.17]
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+  tray_floor:              # runs out over the ledge
+    primitive: cube
+    size: [0.6, 0.01, 0.64]
+    anchor: bottom_center
+    offset: [0, 0.3, 0.26]
+    bevel: 0
+    material: metal
+  ledge:                   # a shelf in the cabinet's colour under the tray's front
+    primitive: cube
+    size: [0.6, 0.06, 0.18]
+    anchor: bottom_center
+    offset: [0, 0.24, 0.49]
+    bevel: 0.01
+    bevel_segments: 2
+    material: car_paint
+    tint: "{colour}"
+
+  # The front: a frame round the window, the window, and the control column.
+  sill:
+    primitive: cube
+    size: [0.56, 0.09, 0.2]
+    anchor: bottom_center
+    offset: [-0.11, 0.81, 0.3]
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+  header:
+    primitive: cube
+    size: [0.78, 0.12, 0.2]
+    anchor: bottom_center
+    offset: [0, 1.62, 0.3]
+    bevel: 0
+    material: glow_accent
+    collider: none
+  lettering:
+    primitive: text
+    text: "DRINKS & SNACKS"
+    height: 0.05
+    depth: 0.004
+    anchor: bottom_center
+    offset: [0, 1.655, 0.402]
+    material: plastic_black
+    collider: none
+  window:
+    primitive: cube
+    size: [0.56, 0.72, 0.008]
+    anchor: bottom_center
+    offset: [-0.11, 0.9, 0.38]
+    bevel: 0
+    material: glass
+  column:
+    primitive: cube
+    size: [0.22, 0.81, 0.2]
+    anchor: bottom_center
+    offset: [0.28, 0.81, 0.3]
+    bevel: 0
+    material: car_paint
+    tint: "{colour}"
+  panel:
+    primitive: cube
+    size: [0.16, 0.52, 0.006]
+    anchor: bottom_center
+    offset: [0.28, 0.9, 0.403]
+    bevel: 0
+    material: plastic_black
+    collider: none
+  screen:
+    primitive: cube
+    size: [0.12, 0.05, 0.004]
+    anchor: bottom_center
+    offset: [0.28, 1.34, 0.408]
+    bevel: 0
+    material: screen
+    collider: none
+  coin_slot:
+    primitive: cube
+    size: [0.012, 0.05, 0.004]
+    anchor: bottom_center
+    offset: [0.28, 0.835, 0.402]
+    bevel: 0
+    material: chrome
+    collider: none
+
+  # Selection buttons A-D, top to bottom, each beside a swatch of what it gives.
+  button_a: &button
+    primitive: cube
+    size: [0.05, 0.05, 0.016]
+    anchor: bottom_center
+    offset: [0.31, 1.21, 0.406]
+    bevel: 0.006
+    bevel_segments: 1
+    material: chrome
+  button_b: { <<: *button, offset: [0.31, 1.11, 0.406] }
+  button_c: { <<: *button, offset: [0.31, 1.01, 0.406] }
+  button_d: { <<: *button, offset: [0.31, 0.91, 0.406] }
+  swatch_a: &swatch
+    primitive: cube
+    size: [0.04, 0.04, 0.004]
+    anchor: bottom_center
+    offset: [0.245, 1.215, 0.408]
+    bevel: 0
+    material: car_paint
+    tint: car_red
+    collider: none
+  swatch_b: { <<: *swatch, offset: [0.245, 1.115, 0.408], tint: taxi_yellow }
+  swatch_c: { <<: *swatch, offset: [0.245, 1.015, 0.408], tint: car_blue }
+  swatch_d: { <<: *swatch, offset: [0.245, 0.915, 0.408], tint: maroon }
+
+  # The stock behind the glass, a row a shelf: cola, lemonade, crisps, chocolate.
+  shelf: &shelf
+    primitive: cube
+    size: [0.56, 0.012, 0.17]
+    anchor: bottom_center
+    offset: [-0.11, 0.908, 0.285]
+    bevel: 0
+    material: metal
+    collider: none
+    array: {count: 4, step: [0, 0.18, 0]}
+  cola: &can
+    primitive: cylinder
+    size: [0.066, 0.122, 0.066]
+    anchor: bottom_center
+    offset: [-0.29, 1.46, 0.29]
+    material: car_paint
+    tint: car_red
+    collider: none
+    array: {count: 4, step: [0.12, 0, 0]}
+  lemonade:
+    <<: *can
+    offset: [-0.29, 1.28, 0.29]
+    tint: taxi_yellow
+  crisps:
+    primitive: cube
+    size: [0.1, 0.15, 0.04]
+    anchor: bottom_center
+    offset: [-0.29, 1.1, 0.29]
+    bevel: 0.015
+    material: car_paint
+    tint: car_blue
+    collider: none
+    array: {count: 4, step: [0.12, 0, 0]}
+  chocolate:
+    primitive: cube
+    size: [0.1, 0.03, 0.05]
+    anchor: bottom_center
+    offset: [-0.29, 0.92, 0.29]
+    bevel: 0.004
+    bevel_segments: 1
+    material: car_paint
+    tint: maroon
+    collider: none
+    array: {count: 4, step: [0.12, 0, 0]}
+
+interactions:
+  a: &press
+    targets: [button_a]
+    initial: up
+    duration: 0.1
+    states:
+      up:   {prompt: "A: Cola", next: down}
+      down: {then: up, after: 0.25, emit: a}
+    motions:
+      - parts: [button_a]
+        translate: z
+        values: {up: 0, down: -0.008}
+  b:
+    <<: *press
+    targets: [button_b]
+    states:
+      up:   {prompt: "B: Lemonade", next: down}
+      down: {then: up, after: 0.25, emit: b}
+    motions: [{parts: [button_b], translate: z, values: {up: 0, down: -0.008}}]
+  c:
+    <<: *press
+    targets: [button_c]
+    states:
+      up:   {prompt: "C: Crisps", next: down}
+      down: {then: up, after: 0.25, emit: c}
+    motions: [{parts: [button_c], translate: z, values: {up: 0, down: -0.008}}]
+  d:
+    <<: *press
+    targets: [button_d]
+    states:
+      up:   {prompt: "D: Chocolate bar", next: down}
+      down: {then: up, after: 0.25, emit: d}
+    motions: [{parts: [button_d], translate: z, values: {up: 0, down: -0.008}}]
+
+signals:
+  a: {emit: a}
+  b: {emit: b}
+  c: {emit: c}
+  d: {emit: d}
+
+attachments:
+  # Where each product appears: high in the tray, under the hood: it drops onto the tray's
+  # floor, or onto the pile there, and is pushed out toward the ledge.
+  tray_a: {anchor: bottom_center, offset: [-0.21, 0.6, 0.1], facing: north}
+  tray_b: {anchor: bottom_center, offset: [-0.07, 0.6, 0.1], facing: north}
+  tray_c: {anchor: bottom_center, offset: [0.06, 0.6, 0.1], facing: north}
+  tray_d: {anchor: bottom_center, offset: [0.22, 0.6, 0.1], facing: north}
+
+clearance: {front: 0.8}

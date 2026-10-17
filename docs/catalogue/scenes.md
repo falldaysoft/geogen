@@ -5,6 +5,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | Scene | What it is | Runtime |
 | --- | --- | --- |
 | [dining_set](#dining_set) | Dining set: table with 4 chairs. | test |
+| [vending_machine](#vending_machine) | A vending machine to play with. |  |
 | [archetype_gallery](#archetype_gallery) | Character archetypes (assets/characters/archetypes/): one row per archetype, eight seeded people each (a path scatter draws a seed per copy). |  |
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
@@ -47,6 +48,19 @@ Dining set: table with 4 chairs
 Chairs are attached at the table's seat attachment points
 
 **Places**: `table: {asset: table.yaml}`; `chairs: {asset: chair.yaml}`
+
+## vending_machine
+
+`scene: vending_machine.yaml` · [source](../../assets/vending_machine.yaml)
+
+A vending machine to play with. Press A-D on its column (Cola, Lemonade, Crisps,
+Chocolate bar) and that product drops into the tray at the bottom, a physics prop
+to pick up (E), carry off and put down anywhere. Every press gives another (up to
+40 of each in the world); one waits while the last of its kind is still where it
+appears. Placed by the quest yard and outside the restaurant. Origin: on the ground
+under the machine; it faces +Z.
+
+**Places**: `cabinet: {asset: vending_cabinet.yaml}`; `cola: {asset: vend_chute.yaml}`; `lemonade: {asset: vend_chute.yaml}`; `crisps: {asset: vend_chute.yaml}`; `chocolate: {asset: vend_chute.yaml}`
 
 ## archetype_gallery
 
@@ -366,12 +380,13 @@ Lamps out  - greet the steward (E): three switches at the board (a count), then 
 The dash   - step onto the start square: reach the finish square within six seconds, or fail.
 ```
 
+A vending machine by the portal hands out drinks and snacks to carry about.
 Progress lasts for the session: restart the runtime to play them again.
 The portal on the north side leads back to the hub.
 
-**Places**: `plaza: {asset: plaza.yaml}`; `hub_portal: {asset: portal.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `plinth_1: {asset: info_plinth.yaml}`; `plinth_2: {asset: info_plinth.yaml}`; `plinth_3: {asset: info_plinth.yaml}`; `start_plinth: {asset: info_plinth.yaml}`; `finish_plinth: {asset: info_plinth.yaml}`; `pad_1: {asset: floor_pad.yaml}`; `pad_2: {asset: floor_pad.yaml}`; `pad_3: {asset: floor_pad.yaml}`; `pad_start: {asset: floor_pad.yaml}`; `pad_finish: {asset: floor_pad.yaml}`; `board: {asset: switch_board.yaml}`; `lamp_1: {asset: floor_lamp.yaml}`; `lamp_2: {asset: floor_lamp.yaml}`; `lamp_3: {asset: floor_lamp.yaml}`; `switch_1: {asset: light_switch.yaml}`; `switch_2: {asset: light_switch.yaml}`; `switch_3: {asset: light_switch.yaml}`; `steward: {npc: npcs/resident.yaml}`
+**Places**: `plaza: {asset: plaza.yaml}`; `hub_portal: {asset: portal.yaml}`; `vending: {scene: vending_machine.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `plinth_1: {asset: info_plinth.yaml}`; `plinth_2: {asset: info_plinth.yaml}`; `plinth_3: {asset: info_plinth.yaml}`; `start_plinth: {asset: info_plinth.yaml}`; `finish_plinth: {asset: info_plinth.yaml}`; `pad_1: {asset: floor_pad.yaml}`; `pad_2: {asset: floor_pad.yaml}`; `pad_3: {asset: floor_pad.yaml}`; `pad_start: {asset: floor_pad.yaml}`; `pad_finish: {asset: floor_pad.yaml}`; `board: {asset: switch_board.yaml}`; `lamp_1: {asset: floor_lamp.yaml}`; `lamp_2: {asset: floor_lamp.yaml}`; `lamp_3: {asset: floor_lamp.yaml}`; `switch_1: {asset: light_switch.yaml}`; `switch_2: {asset: light_switch.yaml}`; `switch_3: {asset: light_switch.yaml}`; `steward: {npc: npcs/resident.yaml}`
 
-**Slots**: board, finish_sign, hub_portal, lamp_1, lamp_2, lamp_3, marker_1, marker_2, marker_3, name, pad_1, pad_2, pad_3, pad_finish, pad_start, start_sign, steward, switch_1, switch_2, switch_3
+**Slots**: board, finish_sign, hub_portal, lamp_1, lamp_2, lamp_3, marker_1, marker_2, marker_3, name, pad_1, pad_2, pad_3, pad_finish, pad_start, start_sign, steward, switch_1, switch_2, switch_3, vending
 
 **Spawns**: from_hub, start
 
@@ -402,9 +417,9 @@ The building is centred on the origin: street door on the south side
 (entrance_spawn at z = -8.75), dining room and bar at the front, kitchen
 and restrooms behind.
 
-**Places**: `building: {asset: restaurant_building.yaml}`; `south_walk: {asset: sidewalk.yaml}`; `west_walk: {asset: sidewalk.yaml}`; `south_road: {asset: road.yaml}`; `west_road: {asset: road.yaml}`; `hub_portal: {asset: portal.yaml}`; `lamp_1: {asset: street_lamp.yaml}`; `lamp_2: {asset: street_lamp.yaml}`; `lamp_3: {asset: street_lamp.yaml}`; `bench: {asset: bench.yaml}`; `fascia: {asset: fascia_sign.yaml}`; `planter_1: {asset: planter.yaml}`; `planter_2: {asset: planter.yaml}`; `car_1: {asset: vehicles/car.yaml}`; `car_2: {asset: vehicles/car.yaml}`; `host: {npc: npcs/hotel_staff.yaml}`; `bartender: {npc: npcs/hotel_staff.yaml}`; `chef: {npc: npcs/hotel_staff.yaml}`; `diner_1: {npc: npcs/diner.yaml}`; `diner_2: {npc: npcs/diner.yaml}`; `diner_3: {npc: npcs/diner.yaml}`; `diner_4: {npc: npcs/diner.yaml}`; `diner_5: {npc: npcs/diner.yaml}`; `diner_6: {npc: npcs/diner.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
+**Places**: `building: {asset: restaurant_building.yaml}`; `south_walk: {asset: sidewalk.yaml}`; `west_walk: {asset: sidewalk.yaml}`; `south_road: {asset: road.yaml}`; `west_road: {asset: road.yaml}`; `hub_portal: {asset: portal.yaml}`; `lamp_1: {asset: street_lamp.yaml}`; `lamp_2: {asset: street_lamp.yaml}`; `lamp_3: {asset: street_lamp.yaml}`; `bench: {asset: bench.yaml}`; `vending: {scene: vending_machine.yaml}`; `fascia: {asset: fascia_sign.yaml}`; `planter_1: {asset: planter.yaml}`; `planter_2: {asset: planter.yaml}`; `car_1: {asset: vehicles/car.yaml}`; `car_2: {asset: vehicles/car.yaml}`; `host: {npc: npcs/hotel_staff.yaml}`; `bartender: {npc: npcs/hotel_staff.yaml}`; `chef: {npc: npcs/hotel_staff.yaml}`; `diner_1: {npc: npcs/diner.yaml}`; `diner_2: {npc: npcs/diner.yaml}`; `diner_3: {npc: npcs/diner.yaml}`; `diner_4: {npc: npcs/diner.yaml}`; `diner_5: {npc: npcs/diner.yaml}`; `diner_6: {npc: npcs/diner.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
 
-**Slots**: bartender, bench, car_1, car_2, chef, diner_1, diner_2, diner_3, diner_4, diner_5, diner_6, fascia, host, hub_portal, lamp_1, lamp_2, lamp_3, planter_1, planter_2, south_road, south_walk, west_road, west_walk
+**Slots**: bartender, bench, car_1, car_2, chef, diner_1, diner_2, diner_3, diner_4, diner_5, diner_6, fascia, host, hub_portal, lamp_1, lamp_2, lamp_3, planter_1, planter_2, south_road, south_walk, vending, west_road, west_walk
 
 **Spawns**: from_hub
 

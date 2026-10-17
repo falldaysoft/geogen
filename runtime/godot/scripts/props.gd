@@ -339,8 +339,10 @@ func report() -> Array:
         if not is_instance_valid(body):
             continue
         var p := body.global_position
+        var c := body.global_transform * _vec(entry["data"].get("center", [0, 0, 0]))
         out.append({"uid": uid, "node": String(entry["node"].name), "position": [snappedf(p.x, 0.001),
-            snappedf(p.y, 0.001), snappedf(p.z, 0.001)], "yaw_deg": snappedf(rad_to_deg(body.global_rotation.y), 0.1),
+            snappedf(p.y, 0.001), snappedf(p.z, 0.001)], "center": [snappedf(c.x, 0.001), snappedf(c.y, 0.001),
+            snappedf(c.z, 0.001)], "yaw_deg": snappedf(rad_to_deg(body.global_rotation.y), 0.1),
             "live": _live(entry), "held": held == uid, "sleeping": body.sleeping,
             "speed": snappedf(body.linear_velocity.length(), 0.01)})
     return out

@@ -669,7 +669,9 @@ wraps each in a `RigidBody3D` with that collider (`GeogenProps.make_shape`; the
 parts' own colliders are dropped), on layer 1, never asleep. A sphere rolls where a
 box would rest on its friction. Props aren't static colliders, so the navmesh is baked without them.
 
-- **Carrying:** aiming at a prop with `carry` prompts `E: Pick up`; it is held
+- **Carrying:** aiming at a prop with `carry` prompts `E: Pick up`, within `reach` or, for
+  a prop, bending-down reach (eye height + `PICK_UP_BEND`, 0.25 m: a can on the floor
+  about 0.9 m ahead; `player_focus._pick_up_reach`); it is held
   `HOLD_DISTANCE` (1.4 m) in front of the eyes, chased there by velocity so it
   still collides, level and turning with the player, and never collides with the
   holder. E drops it; so does being snagged more than 1.4 m from the hold point
@@ -681,7 +683,7 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   more than 10 m below the lowest model is stowed, which rules hear as a change
   (`{changed: cube.spawn, to: stowed}`), so they can hand out another.
 - **Saves** keep every live prop's pose in `bodies` (see "Saving" in `docs/rules.md`).
-- Control API: `world.bodies`, `player.carry {prop?}`, `player.drop`; `player.use`
+- Control API: `world.bodies` (with each box's `center`), `player.carry {prop?}`, `player.drop`; `player.use`
   picks up and drops too (`focus.kind`: `carry` / `drop`).
 
 The example is `examples/test_chamber` (`tests/test_test_chamber.py`).

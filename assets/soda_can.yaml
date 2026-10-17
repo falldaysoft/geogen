@@ -1,0 +1,42 @@
+# A drink can. A tinted aluminium body with a silver lid and base, and a band round the
+# middle; a carryable physics prop; vending_machine.yaml hands them out
+# (items/cola.yaml, items/lemonade.yaml). Origin: bottom centre.
+
+name: soda_can
+tags: [prop.can]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: {default: car_red, type: text}
+  band:   {default: paint_white, type: text}
+
+physics: {mass: 0.35, friction: 0.6, bounce: 0.15, carry: true}
+
+parts:
+  body:
+    primitive: cylinder
+    size: [0.066, 0.104, 0.066]
+    anchor: bottom_center
+    offset: [0, 0.009, 0]
+    material: car_paint
+    tint: "{colour}"
+  band:
+    primitive: cylinder
+    size: [0.0668, 0.03, 0.0668]
+    anchor: bottom_center
+    offset: [0, 0.045, 0]
+    material: "{band}"
+    collider: none
+  base:
+    primitive: cylinder
+    size: [0.058, 0.009, 0.058]
+    anchor: bottom_center
+    material: chrome
+  lid:
+    primitive: cylinder
+    size: [0.056, 0.009, 0.056]
+    anchor: bottom_center
+    offset: [0, 0.113, 0]
+    material: chrome

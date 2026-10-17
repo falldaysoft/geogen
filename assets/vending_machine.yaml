@@ -1,0 +1,22 @@
+# A vending machine to play with. Press A-D on its column (Cola, Lemonade, Crisps,
+# Chocolate bar) and that product drops into the tray at the bottom, a physics prop
+# to pick up (E), carry off and put down anywhere. Every press gives another (up to
+# 40 of each in the world); one waits while the last of its kind is still where it
+# appears. Placed by the quest yard and outside the restaurant. Origin: on the ground
+# under the machine; it faces +Z.
+
+name: vending_machine
+tags: [machine.vending]
+
+place:
+  cabinet: { asset: vending_cabinet.yaml }
+  cola:      { asset: vend_chute.yaml, attach_to: cabinet, at: tray_a, params: { item: items/cola.yaml } }
+  lemonade:  { asset: vend_chute.yaml, attach_to: cabinet, at: tray_b, params: { item: items/lemonade.yaml } }
+  crisps:    { asset: vend_chute.yaml, attach_to: cabinet, at: tray_c, params: { item: items/crisps.yaml } }
+  chocolate: { asset: vend_chute.yaml, attach_to: cabinet, at: tray_d, params: { item: items/chocolate_bar.yaml } }
+
+wire:
+  - { from: cabinet.a, to: cola.emit }
+  - { from: cabinet.b, to: lemonade.emit }
+  - { from: cabinet.c, to: crisps.emit }
+  - { from: cabinet.d, to: chocolate.emit }

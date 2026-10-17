@@ -2,6 +2,7 @@
 #   The round  - starts with the game: three plinths in order, and an optional detour.
 #   Lamps out  - greet the steward (E): three switches at the board (a count), then report back.
 #   The dash   - step onto the start square: reach the finish square within six seconds, or fail.
+# A vending machine by the portal hands out drinks and snacks to carry about.
 # Progress lasts for the session: restart the runtime to play them again.
 # The portal on the north side leads back to the hub.
 
@@ -37,6 +38,7 @@ spawns:
 
 slots:
   hub_portal: { position: [0, 0.1, 10.2], facing: south }
+  vending: { position: [-3.6, 0.1, 9.6], facing: south }
   name: { position: [2.6, 0.1, 5.2], facing: north }
   marker_1: { position: [10.6, 0.1, 2], facing: west }
   marker_2: { position: [6.5, 0.1, -8.1], facing: north }
@@ -67,6 +69,8 @@ place:
     slot: hub_portal
     params: { label: Hub }
     travel: { scene: hub, spawn: from_quests }
+
+  vending: { scene: vending_machine.yaml, slot: vending }
 
   name_plinth: { asset: info_plinth.yaml, slot: name, params: { label: "Quest\nYard" } }
   plinth_1: { asset: info_plinth.yaml, slot: marker_1, params: { label: "1", letter: 0.3 } }

@@ -6,6 +6,8 @@ extends Node
 
 ## An interaction target this far off the aim line (m) still takes the E prompt.
 const AIM_SLACK := 0.2
+## How much further than the eye's height a prop can be picked up from (m): bending down.
+const PICK_UP_BEND := 0.25
 ## How far in front of the eyes a carried prop is held (m).
 const HOLD_DISTANCE := 1.4
 
@@ -40,14 +42,18 @@ func update() -> void:
     elif main.player != null and main.player.camera.current and main.player.pose.is_empty():
         var cam: Camera3D = main.player.camera
         var from: Vector3 = cam.global_position
-        var to: Vector3 = from - cam.global_basis.z * _longest_reach()
+        var to: Vector3 = from - cam.global_basis.z * maxf(_longest_reach(), _pick_up_reach())
         var query := PhysicsRayQueryParameters3D.create(from, to)
         query.exclude = [main.player.get_rid()]
         var hit: Dictionary = main.get_world_3d().direct_space_state.intersect_ray(query)
         if hit and from.distance_to(hit["position"]) > main.player_spec.reach:
-            # Beyond the player's reach only an interaction that reaches further counts.
+            # Beyond the player's reach only an interaction that reaches further counts, or a
+            # prop to pick up within bending-down reach.
             var far: GeogenInteraction = main.world.interaction_for(hit["collider"])
-            if far == null or from.distance_to(hit["position"]) > _reach_of(far):
+            var far_prop: String = main.world.props.prop_of(hit["collider"])
+            var distance: float = from.distance_to(hit["position"])
+            if not (far != null and distance <= _reach_of(far)) and not (far_prop != ""
+                    and main.world.props.can_carry(far_prop) and distance <= _pick_up_reach()):
                 hit = {}
         if hit:
             var it: GeogenInteraction = main.world.interaction_for(hit["collider"])
@@ -122,6 +128,12 @@ func _in_sight(from: Vector3, point: Vector3, owner: Node, slack := 0.1) -> bool
         return true
     return owner != null and is_instance_valid(owner) and (hit["collider"] == owner
         or owner.is_ancestor_of(hit["collider"]))
+
+
+## How far from the eye a prop can be picked up: the player bends down for one on the floor
+## (a can a metre away), so further than `reach` (1.5 m, less than the eye's height).
+func _pick_up_reach() -> float:
+    return maxf(main.player_spec.reach, main.player_spec.eye_height + PICK_UP_BEND)
 
 
 ## The longest reach of anything loaded: how far the focus ray looks.

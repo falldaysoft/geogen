@@ -1528,7 +1528,7 @@
         "player.stand": "leave a sit/lie pose",
         "player.carry": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere: -> {ok, held}",
         "player.drop": "let go of what the player carries -> {dropped}",
-        "world.bodies": "every physics prop: uid, node, position, yaw_deg, live, held, sleeping, speed",
+        "world.bodies": "every physics prop: uid, node, position, center (of its box), yaw_deg, live, held, sleeping, speed",
         "flows.list": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], items: [{id, source, item, mode, position, data, age}]}",
         "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
         "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
