@@ -32,14 +32,10 @@ const REPLAN_SECONDS := 1.5       # no progress this long on a detour round a ch
 const MAX_REPLANS := 2            # ... this often per go_to
 const STAIR_HOLD := 2.0           # m before a stair to wait while someone is coming along it
 const STAIR_PATIENCE := 45.0      # s waiting for a stair before giving up on the step
-const LEVEL_TOLERANCE := 1.2      # characters further apart in height than this aren't in each other's way
+const LEVEL_TOLERANCE := NpcGeometry.LEVEL_TOLERANCE
 const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (bodies without a transition clip)
-const TRANSITION_BLEND := 0.12    # s to cross-fade into and out of a transition clip (sit_down, ...)
 const SEAT_CLEAR := 0.03          # m the calves keep in front of a seat's front edge
-const POSE_BLEND := 0.4           # s to cross-fade skeletal pose clips (and ease the body into place)
-const LOCOMOTION_BLEND := 0.25    # s to cross-fade walk <-> idle
-const WALK_THRESHOLD := 0.15      # m/s: slower than this counts as standing still
 const PORTAL_LOOKAHEAD := 2.5     # react to closed doors this far ahead
 const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this far ahead
 const AVOID_MARGIN := 0.2
@@ -72,7 +68,8 @@ var label: Label3D
 ## Per-NPC counters for tests: used {id: count}, decisions, failures,
 ## max_stall (s), outside (s outside home + margin), passes (doors).
 var stats := {"used": {}, "decisions": 0, "failures": [], "max_stall": 0.0, "outside": 0.0, "passes": 0}
-var _stuck_at = null     # where the last "stuck" failure happened (see _unstick)
+var _stuck_at = null     # where the last wedged failure happened (see _unstick)
+var _wedged := false     # the step failing now made no progress at all (_walk), not e.g. a busy stair
 
 var _stack: Array[Dictionary] = []   # frames: {action, steps, index, started, ctx}
 var _option := {}
@@ -83,13 +80,9 @@ var _shape: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _pose := "stand"
 var _pose_yaw := 0.0                 # world heading the current pose was set to (rad)
-var _anim: AnimationPlayer = null   # the body's skeletal clips (pose_<name>, walk, idle, ...), if any
-var _clip_speed := {}               # clip name -> ground speed it was authored for (m/s)
+var animator: GeogenNpcAnimator = null   # the body's skeletal clips, poses and locomotion (null: no body)
 ## "from>to" (poses) -> {clip, times, positions, rotations}: the clip that moves the body between
 ## them and its root path, in the frame of where the NPC ends up (the clip's extras `root`).
-var _transitions := {}
-var _transition := {}               # the one playing: {move, t, start, target, pose}
-var _pose_tween: Tween = null
 var _cost_usec := 0                 # script time spent in _physics_process (report: cost_us per frame)
 var _cost_frames := 0
 # Every character (player and NPCs) as {node, pos, radius, npc}, gathered once a physics frame
@@ -117,6 +110,7 @@ var _vehicle_wait := 0.0          # s spent waiting for traffic at this waypoint
 var _assertive := -1              # waypoint we're walking to regardless of moving traffic
 var _vehicle_detours := 0         # detours round stopped vehicles on this path
 var _signal_wait := 0.0           # s spent on the kerb waiting for the walk signal this time
+var _streets := GeogenNpcStreets.new()   # the crossings and pedestrian signals (world set in _ready)
 var _was_at := Vector2.ZERO       # where we were a frame ago (plan)
 ## Off the map during a routine's `away` block (vanished into a building), back when it ends.
 var away := false
@@ -146,31 +140,10 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
     npc.global_transform = Transform3D(Basis(Vector3.UP, yaw), xform.origin)
     npc.body = node.get_node_or_null(str(data.get("body", {}).get("node", "body")))
     if npc.body != null:
-        var clips := _body_clips(npc.body)
-        for clip in WorldLoader.geogen_extras(npc.body).get("clips", []):
-            if clip.has("speed"):
-                npc._clip_speed[clip["name"]] = float(clip["speed"])
-            if clip.has("root") and clips.has(clip["name"]):
-                var root: Dictionary = clip["root"]
-                var move := {"clip": clip["name"], "times": PackedFloat32Array(root["times"]),
-                    "positions": PackedVector3Array(), "rotations": []}
-                for q in root["positions"]:
-                    move["positions"].append(Vector3(q[0], q[1], q[2]))
-                for q in root["rotations"]:
-                    move["rotations"].append(Quaternion(q[0], q[1], q[2], q[3]))
-                npc._transitions["%s>%s" % [clip["from"], clip["to"]]] = move
+        npc.animator = GeogenNpcAnimator.load(npc.body)
         npc.body.reparent(npc, false)
         npc.body.transform = Transform3D.IDENTITY
-        if not clips.is_empty():
-            npc._anim = AnimationPlayer.new()
-            npc._anim.name = "Clips"
-            var library := AnimationLibrary.new()
-            for clip_name in clips:
-                library.add_animation(clip_name, clips[clip_name])
-            library.add_animation("RESET", _rest_animation(npc.body, clips.values()))
-            npc._anim.add_animation_library("", library)
-            npc.body.add_child(npc._anim)   # root_node ".." = the body
-            npc._play_pose_clip("stand", 0.0)
+        npc.animator.attach()
         var look: Dictionary = data.get("attention", {}).get("look", {})
         var skeletons := npc.body.find_children("*", "Skeleton3D", true, false)
         if not look.is_empty() and not skeletons.is_empty():
@@ -192,6 +165,7 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
 func _ready() -> void:
     _phase = _phases
     _phases = (_phases + 1) % 2
+    _streets.world = world
     collision_layer = LAYER
     collision_mask = 1 | LAYER
     add_to_group(CHARACTER_GROUP)
@@ -366,9 +340,9 @@ func _goal_context(goal: Dictionary) -> Dictionary:
     var thing: Node3D = it.targets[0] if not it.targets.is_empty() else it.asset
     var anchor := thing.global_position
     # Things face +Z (a wall switch out of its wall): stand in front of it, on the navmesh.
-    var front := _flat(it.asset.global_basis.z).normalized()
+    var front := NpcGeometry.flat(it.asset.global_basis.z).normalized()
     var approach := NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, anchor + front * GOAL_STANDOFF)
-    var look := _flat(anchor - approach)
+    var look := NpcGeometry.flat(anchor - approach)
     var yaw := atan2(look.x, look.z) if look.length() > 1e-3 else _yaw()
     return {"anchor": anchor, "approach": approach, "interaction": it, "state": state,
         "yaw_deg": rad_to_deg(yaw), "duration": [0.4, 0.8]}
@@ -458,8 +432,9 @@ func _step(delta: float) -> void:
         if not _away_block():
             _reappear()
         return
-    _advance_transition(delta)
-    _animate_locomotion()
+    if animator != null:
+        animator.advance(delta)
+        animator.locomote(Vector2(velocity.x, velocity.z).length(), _pose == "stand", _playing)
     _attend(delta)
     for need in needs:
         needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
@@ -513,14 +488,15 @@ func _fail(reason: String) -> void:
     if _pose != "stand":
         _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw())}, "approach")
     velocity = Vector3.ZERO
-    _unstick(reason)
+    _unstick(_wedged)
+    _wedged = false
     _finish_option(false, reason)
 
 
 ## Wedged (stuck twice running at the same spot, e.g. against a post at the top of some steps):
 ## step back onto the nearest point of the navmesh instead of failing every plan from there.
-func _unstick(reason: String) -> void:
-    if not reason.contains("stuck at"):
+func _unstick(wedged: bool) -> void:
+    if not wedged:
         _stuck_at = null
         return
     if _stuck_at != null and (_stuck_at as Vector3).distance_to(global_position) < 0.3:
@@ -554,7 +530,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
             var who := _player()
             if who == null:
                 return ""
-            dir = _flat(who.global_position - global_position)
+            dir = NpcGeometry.flat(who.global_position - global_position)
             if dir.length() < 1e-3:
                 return ""
         else:
@@ -577,10 +553,8 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         var clip := str(step["play"])
         velocity = Vector3.ZERO
         _timer = 1.0
-        if _anim != null and _anim.has_animation(clip) and _pose == "stand":
-            _anim.speed_scale = 1.0
-            _anim.play(clip, LOCOMOTION_BLEND)
-            _timer = _anim.get_animation(clip).length
+        if animator != null and animator.has(clip) and _pose == "stand":
+            _timer = animator.play_once(clip)
             _playing = true
         return ""
     if step.has("use"):
@@ -606,7 +580,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         rotation.y += clampf(diff, -turn, turn)
         return "done" if absf(diff) <= turn else "running"
     if step.has("pose"):
-        if not _transition.is_empty():
+        if _moving_pose():
             return "running"              # the transition clip sets the pace
         _timer += delta
         return "done" if _timer >= POSE_SECONDS else "running"
@@ -771,7 +745,10 @@ func _plan(target: Vector3) -> String:
         return "no path"
     if Vector2(to.x - target.x, to.z - target.z).length() > 0.8:
         return "target off the navmesh (%.1f m)" % Vector2(to.x - target.x, to.z - target.z).length()
-    _use_crosswalk(map, from, to)
+    var over := _streets.crosswalk_route(map, _path, from, to)
+    if not over.is_empty():
+        _path = over
+        stats["crosswalks"] = int(stats.get("crosswalks", 0)) + 1
     # A navigation link on the way (a spiral stair) is two points, a straight line through the
     # stair: walk its way round instead. Last, so the reroute above sees the navmesh's own path.
     _path = GeogenWalker.along_links(_path, get_tree(), _stairs)
@@ -833,92 +810,15 @@ func _insert_waypoint(index: int, point: Vector3) -> void:
             span["last"] += 1
 
 
-var _crossing_ends := []   # [[end a, end b]] of the painted crossings, on the pavement (world)
-var _signal_rects = null   # [[Rect2 (plan), signal id, walked along x?]] of the signalled crossings
-var _crossing_bounds := AABB()
-
-
-## A path that walks along the road (below both its ends, inside the streets) is rerouted over
-## the nearest painted crossing when that isn't much longer: to one end, straight across, on.
-func _use_crosswalk(map: RID, from: Vector3, to: Vector3) -> void:
-    if _crossing_ends.is_empty():
-        for r in world.traffic_graph.get("crosswalks", []):
-            var lo := Vector2(float(r[0]), float(r[1]))
-            var hi := Vector2(float(r[2]), float(r[3]))
-            var c := (lo + hi) / 2.0
-            var along_x := (hi.x - lo.x) > (hi.y - lo.y)      # the long side runs across the street
-            var a := Vector2(lo.x - 0.8, c.y) if along_x else Vector2(c.x, lo.y - 0.8)
-            var b := Vector2(hi.x + 0.8, c.y) if along_x else Vector2(c.x, hi.y + 0.8)
-            var pa := NavigationServer3D.map_get_closest_point(map, Vector3(a.x, 0.2, a.y))
-            var pb := NavigationServer3D.map_get_closest_point(map, Vector3(b.x, 0.2, b.y))
-            if Vector2(pa.x - a.x, pa.z - a.y).length() < 1.0 and Vector2(pb.x - b.x, pb.z - b.y).length() < 1.0:
-                _crossing_ends.append([pa, pb])
-                var box := AABB(Vector3(lo.x, -1.0, lo.y), Vector3(hi.x - lo.x, 2.0, hi.y - lo.y))
-                _crossing_bounds = box if _crossing_bounds.size == Vector3.ZERO else _crossing_bounds.merge(box)
-        if _crossing_ends.is_empty():
-            _crossing_ends = [null]            # none: don't look again
-    if _crossing_ends[0] == null or not _on_road(_path):
-        return
-    var direct := _length(_path)
-    var best := PackedVector3Array()
-    var best_len := direct * 2.0 + 25.0
-    for ends in _crossing_ends:
-        for flip in [false, true]:
-            var e1: Vector3 = ends[1] if flip else ends[0]
-            var e2: Vector3 = ends[0] if flip else ends[1]
-            if from.distance_to(e1) > 60.0 and to.distance_to(e2) > 60.0:
-                continue
-            var first := GeogenWalker.find_path(map, from, e1)
-            var last := GeogenWalker.find_path(map, e2, to)
-            if first.is_empty() or last.is_empty() or _on_road(first) or _on_road(last):
-                continue
-            var total := _length(first) + e1.distance_to(e2) + _length(last)
-            if total < best_len:
-                best_len = total
-                best = first + last
-    if not best.is_empty():
-        _path = best
-        stats["crosswalks"] = int(stats.get("crosswalks", 0)) + 1
-
-
-## The walk signal of a pedestrian crossing ("" where nothing runs the signals: no traffic).
-func _pedestrian_state(id: String) -> String:
-    for t in world.traffic:
-        if is_instance_valid(t):
-            return t.pedestrian_state(id)
-    return ""
-
-
-## The signalled crossing whose road `to` is on, reached from `from` on one of its kerbs (beyond
-## an end of its long side; the other two sides are road); "" if none.
-func _crossing_from_kerb(from: Vector2, to: Vector2) -> String:
-    if _signal_rects == null:
-        _signal_rects = []
-        for sig in world.traffic_graph.get("pedestrian_signals", []):
-            var r: Array = sig["crosswalk"]
-            var rect := Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1]))
-            _signal_rects.append([rect, str(sig["id"]), rect.size.x > rect.size.y])
-    for entry in _signal_rects:
-        var rect: Rect2 = entry[0]
-        if not rect.has_point(to) or rect.has_point(from):
-            continue
-        var along: float = from.x if entry[2] else from.y
-        var lo: float = rect.position.x if entry[2] else rect.position.y
-        var hi: float = rect.end.x if entry[2] else rect.end.y
-        if along <= lo or along >= hi:
-            return entry[1]
-    return ""
-
-
 ## On the kerb with a signalled crossing's road in the next step: wait for walk. Not once we've
 ## stepped off (someone caught by the flashing don't-walk finishes crossing), and whatever the
 ## path: the rule is where we stand and where we're headed. True while waiting.
 func _wait_for_walk(delta: float) -> bool:
     var here := Vector2(global_position.x, global_position.z)
-    var to := _flat(_path[_waypoint] - global_position)
+    var to := NpcGeometry.flat(_path[_waypoint] - global_position)
     var step := to.normalized() * minf(to.length(), KERB_STEP)
-    var id := _crossing_from_kerb(here, here + Vector2(step.x, step.z))
-    var state := "" if id == "" else _pedestrian_state(id)
+    var id := _streets.crossing_from_kerb(here, here + Vector2(step.x, step.z))
+    var state := "" if id == "" else _streets.pedestrian_state(id)
     if state == "walk" or state == "":
         _signal_wait = 0.0
         return false
@@ -942,32 +842,14 @@ func _wait_for_walk(delta: float) -> bool:
 func _watch_crossing() -> void:
     var here := Vector2(global_position.x, global_position.z)
     # (A frame's step: not where we were before sitting down, or before being put back on the navmesh.)
-    var id := _crossing_from_kerb(_was_at, here) if _was_at.distance_to(here) < 0.5 else ""
+    var id := _streets.crossing_from_kerb(_was_at, here) if _was_at.distance_to(here) < 0.5 else ""
     _was_at = here
     if id == "":
         return
-    var state := _pedestrian_state(id)
+    var state := _streets.pedestrian_state(id)
     var key := "signal_violations" if state == "dont" else "signal_crossings"
     stats[key] = int(stats.get(key, 0)) + 1
     _trace({"event": "signal_step", "crossing": id, "state": state, "position": _v(global_position)})
-
-
-## Does the path dip to road level (below both its ends) inside the streets?
-func _on_road(path: PackedVector3Array) -> bool:
-    if path.size() < 2:
-        return false
-    var level := minf(path[0].y, path[-1].y) - 0.08
-    for p in path:
-        if p.y < level and _crossing_bounds.grow(2.0).has_point(Vector3(p.x, 0.0, p.z)):
-            return true
-    return false
-
-
-static func _length(path: PackedVector3Array) -> float:
-    var total := 0.0
-    for k in range(1, path.size()):
-        total += path[k].distance_to(path[k - 1])
-    return total
 
 
 func _walk(delta: float) -> String:
@@ -1041,6 +923,7 @@ func _walk(delta: float) -> String:
         _stall += delta
         stats["max_stall"] = maxf(stats["max_stall"], _stall)
         if _stall > FAIL_SECONDS:
+            _wedged = true
             return "stuck at %s" % str(_v(global_position))
         if _stall > REPLAN_SECONDS and _waypoint <= _detour and _replans < MAX_REPLANS:
             # Held up on a way round someone (who may have gone since): forget it, plan afresh.
@@ -1068,8 +951,8 @@ func _detour_around_characters() -> bool:
     var goal := Vector2(_path[last].x, _path[last].z)
     for entry in _characters_in(goal - Vector2(widest, widest), goal + Vector2(widest, widest)):
         var c: Vector3 = entry["pos"]
-        if entry["node"] != self and _flat(_path[last] - c).length() < radius + float(entry["radius"]) + AVOID_MARGIN \
-                and _same_level(_path[last], c):
+        if entry["node"] != self and NpcGeometry.flat(_path[last] - c).length() < radius + float(entry["radius"]) + AVOID_MARGIN \
+                and NpcGeometry.same_level(_path[last], c):
             return false   # someone is standing where we're going
     if _waypoint <= _detour:
         return true
@@ -1094,23 +977,23 @@ func _detour_around_characters() -> bool:
         var reach := radius + float(entry["radius"]) + AVOID_MARGIN
         # Waypoints inside its reach move out to the edge.
         for i in range(_waypoint, end):
-            if _flat(_path[i] - c).length() < reach and _same_level(_path[i], c) and not _on_stair(i):
-                var out = _edge_point(c, _path[i], reach + 0.05, map)
+            if NpcGeometry.flat(_path[i] - c).length() < reach and NpcGeometry.same_level(_path[i], c) and not _on_stair(i):
+                var out = NpcGeometry.edge_point(c, _path[i], reach + 0.05, map)
                 if out != null:
                     _path[i] = out
         var a := global_position
         var b := _path[_waypoint]
-        var seg := _flat(b - a)
-        if seg.length() < 0.05 or not _same_level(a, c) or _on_stair(_waypoint, true):
+        var seg := NpcGeometry.flat(b - a)
+        if seg.length() < 0.05 or not NpcGeometry.same_level(a, c) or _on_stair(_waypoint, true):
             continue
         var dir := seg.normalized()
-        var rel := _flat(c - a)
+        var rel := NpcGeometry.flat(c - a)
         var along := rel.dot(dir)
         if along <= 0.0 or along > minf(seg.length() + reach, AVOID_AHEAD + reach):
             continue
         if (rel - dir * along).length() >= reach:
             continue
-        var arc := _arc_around(c, a, b, reach + 0.05, map)
+        var arc := NpcGeometry.arc_around(c, a, b, reach + 0.05, map)
         if arc.is_empty():
             continue   # boxed in: press on and let the stall timer decide
         for k in arc.size():
@@ -1127,7 +1010,7 @@ func _detour_around_characters() -> bool:
 func _clear_of_vehicles() -> bool:
     var radius := float(definition.get("radius", 0.25))
     var a := global_position
-    var seg := _flat(_path[_waypoint] - a)
+    var seg := NpcGeometry.flat(_path[_waypoint] - a)
     if seg.length() < 0.05:
         return true
     var probe := a + seg.normalized() * minf(seg.length(), VEHICLE_PROBE)
@@ -1141,10 +1024,10 @@ func _clear_of_vehicles() -> bool:
             continue
         # Too far off for its box, swept ahead, to reach the probed stretch of our path.
         var speed_now := float(car.get_meta("geogen_speed", 0.0))
-        if _flat(xf.origin - a).length() > absf(float(box["offset"])) + float(box["half"]) + float(box["half_w"]) \
+        if NpcGeometry.flat(xf.origin - a).length() > absf(float(box["offset"])) + float(box["half"]) + float(box["half_w"]) \
                 + speed_now * VEHICLE_LOOKAHEAD + VEHICLE_PROBE + radius + VEHICLE_MARGIN:
             continue
-        var fwd := _flat(xf.basis.z).normalized()
+        var fwd := NpcGeometry.flat(xf.basis.z).normalized()
         var right := Vector3(fwd.z, 0.0, -fwd.x)
         var center: Vector3 = xf.origin + fwd * float(box["offset"])
         var hl := float(box["half"]) + radius + VEHICLE_MARGIN
@@ -1153,136 +1036,20 @@ func _clear_of_vehicles() -> bool:
         if speed > 0.5:
             var reach := speed * VEHICLE_LOOKAHEAD
             var swept_c := center + fwd * reach / 2.0
-            if _in_box(a, swept_c, fwd, right, hl + reach / 2.0, hw):
+            if NpcGeometry.in_box(a, swept_c, fwd, right, hl + reach / 2.0, hw):
                 continue          # already in its way: keep going, it yields to us
-            if _segment_hits_box(a, probe, swept_c, fwd, right, hl + reach / 2.0, hw):
+            if NpcGeometry.segment_hits_box(a, probe, swept_c, fwd, right, hl + reach / 2.0, hw):
                 return false
-        elif _waypoint > _detour and _vehicle_detours < 2 and _segment_hits_box(a, probe, center, fwd, right, hl, hw):
+        elif _waypoint > _detour and _vehicle_detours < 2 and NpcGeometry.segment_hits_box(a, probe, center, fwd, right, hl, hw):
             # (Also when pressed up against it: the corners on our side lead round it.)
             _vehicle_detours += 1
-            var detour := _around_box(a, _path[_waypoint], center, fwd, right, hl + 0.05, hw + 0.05, map)
+            var detour := NpcGeometry.around_box(a, _path[_waypoint], center, fwd, right, hl + 0.05, hw + 0.05, map)
             if not detour.is_empty():
                 for k in detour.size():
                     _insert_waypoint(_waypoint + k, detour[k])
                 _detour = _waypoint + detour.size() - 1
                 _best = INF
     return true
-
-
-static func _in_box(p: Vector3, c: Vector3, fwd: Vector3, right: Vector3, hl: float, hw: float) -> bool:
-    var d := _flat(p - c)
-    return absf(d.dot(fwd)) < hl and absf(d.dot(right)) < hw
-
-
-## Does segment a-b (plan) cross the box centred on c (half extents hl along fwd, hw along right)?
-static func _segment_hits_box(a: Vector3, b: Vector3, c: Vector3, fwd: Vector3, right: Vector3,
-        hl: float, hw: float) -> bool:
-    var p0 := Vector2(_flat(a - c).dot(fwd), _flat(a - c).dot(right))
-    var p1 := Vector2(_flat(b - c).dot(fwd), _flat(b - c).dot(right))
-    var d := p1 - p0
-    var t0 := 0.0
-    var t1 := 1.0
-    for axis in 2:
-        var lo := -hl if axis == 0 else -hw
-        var hi := hl if axis == 0 else hw
-        var start := p0[axis]
-        var delta := d[axis]
-        if absf(delta) < 1e-9:
-            if start < lo or start > hi:
-                return false
-            continue
-        var ta := (lo - start) / delta
-        var tb := (hi - start) / delta
-        t0 = maxf(t0, minf(ta, tb))
-        t1 = minf(t1, maxf(ta, tb))
-        if t0 > t1:
-            return false
-    return true
-
-
-## Two waypoints round the end of the box we're nearer to (in front of a car that has stopped
-## for us, behind one queuing), falling back to the other end; [] if neither is on the navmesh.
-func _around_box(a: Vector3, _b: Vector3, c: Vector3, fwd: Vector3, right: Vector3, hl: float, hw: float,
-        map: RID) -> Array:
-    var side := signf(_flat(a - c).dot(right))
-    if side == 0.0:
-        side = 1.0
-    var near := signf(_flat(a - c).dot(fwd))
-    if near == 0.0:
-        near = 1.0
-    for end in [near, -near]:
-        var p1 = _on_nav_near(c + fwd * end * hl + right * side * hw, map)
-        var p2 = _on_nav_near(c + fwd * end * hl - right * side * hw, map)
-        if p1 != null and p2 != null:
-            return [p1, p2]
-    return []
-
-
-## The navmesh point nearest ``p`` if it's within 0.4 m (a box corner may sit just off it).
-static func _on_nav_near(p: Vector3, map: RID):
-    var q := NavigationServer3D.map_get_closest_point(map, p)
-    if Vector2(q.x - p.x, q.z - p.z).length() < 0.4 and absf(q.y - p.y) < 0.5:
-        return q
-    return null
-
-
-static func _flat(v: Vector3) -> Vector3:
-    return Vector3(v.x, 0.0, v.z)
-
-
-## Are two points on one level? Someone a storey up, or a turn of a spiral stair above, is
-## not in the way, however near they are in plan.
-static func _same_level(a: Vector3, b: Vector3) -> bool:
-    return absf(a.y - b.y) < LEVEL_TOLERANCE
-
-
-## ``p`` pushed out from ``c`` to distance ``r`` (turning up to 90 deg either way to stay on the navmesh), or null.
-func _edge_point(c: Vector3, p: Vector3, r: float, map: RID):
-    var base := atan2(p.x - c.x, p.z - c.z)
-    for turn in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5]:
-        var q = _on_nav(Vector3(c.x + sin(base + turn) * r, p.y, c.z + cos(base + turn) * r), map)
-        if q != null:
-            return q
-    return null
-
-
-## Waypoints on a circle of radius ``r`` about ``c`` from ``a``'s bearing to ``b``'s (shorter valid side), or [].
-func _arc_around(c: Vector3, a: Vector3, b: Vector3, r: float, map: RID) -> Array:
-    var ta := atan2(a.x - c.x, a.z - c.z)
-    var tb := atan2(b.x - c.x, b.z - c.z)
-    var short := wrapf(tb - ta, -PI, PI)
-    for sweep in [short, short - signf(short) * TAU]:
-        var steps := maxi(2, ceili(absf(sweep) / deg_to_rad(40.0)))
-        var points := []
-        for k in range(1, steps + 1):
-            var t: float = ta + sweep * k / steps
-            var q = _on_nav(Vector3(c.x + sin(t) * r, a.y, c.z + cos(t) * r), map)
-            if q == null:
-                points = []
-                break
-            points.append(q)
-        # Points we're already standing on are no way round (a stair too narrow for the
-        # circle: they'd count as reached at once, and the detour would be made again).
-        while not points.is_empty() and _flat(points[0] - a).length() < WAYPOINT_RADIUS * 2.0:
-            points.pop_front()
-        if not points.is_empty():
-            return points
-    return []
-
-
-## The navmesh point at ``p`` (same floor), or null when ``p`` isn't on it.
-static func _on_nav(p: Vector3, map: RID):
-    var q := NavigationServer3D.map_get_closest_point(map, p)
-    if Vector2(q.x - p.x, q.z - p.z).length() < 0.08 and absf(q.y - p.y) < 0.35:
-        return q
-    return null
-
-
-static func _radius_of(body: Node) -> float:
-    for child in body.get_children():
-        if child is CollisionShape3D and child.shape is CylinderShape3D:
-            return child.shape.radius
-    return 0.3
 
 
 ## Bend ``dir`` around characters standing in the way (static geometry is the navmesh's job).
@@ -1296,9 +1063,9 @@ func _avoid(dir: Vector3) -> Vector3:
         if entry["node"] == self:
             continue
         var c: Vector3 = entry["pos"]
-        if not _same_level(c, global_position):
+        if not NpcGeometry.same_level(c, global_position):
             continue
-        var rel := _flat(c - global_position)
+        var rel := NpcGeometry.flat(c - global_position)
         var along := rel.dot(dir)
         if along <= 0.0 or along > AVOID_AHEAD:
             continue
@@ -1331,13 +1098,13 @@ func _move(delta: float) -> void:
 ## Whether to step every other frame: off-screen and not near the player, or far off. Not
 ## while greeting, in a transition or on a stair, where timing and single file matter.
 func _throttled() -> bool:
-    if away or not _transition.is_empty() or _stair != null or clock < _attend_until:
+    if away or _moving_pose() or _stair != null or clock < _attend_until:
         return false
     var camera := get_viewport().get_camera_3d()
     var who := _player()
     if camera == null or who == null:
         return false
-    var d := _flat(who.global_position - global_position).length()
+    var d := NpcGeometry.flat(who.global_position - global_position).length()
     if d > THROTTLE_FAR:
         return true
     return d > THROTTLE_NEAR and not camera.is_position_in_frustum(global_position + Vector3.UP * 0.9)
@@ -1379,69 +1146,9 @@ func _portal_ahead() -> Dictionary:
 
 # --- body -----------------------------------------------------------------
 
-## RESET: every track the clips animate, keyed at the skeleton's rest (blend shapes at 0). The importer drops
-## tracks equal to the rest (the exported stand pose), so blending from a clip that moves a
-## bone into one that doesn't must fall back to the rest, not keep the old pose.
-static func _rest_animation(body: Node, anims: Array) -> Animation:
-    var reset := Animation.new()
-    reset.length = 0.001
-    var seen := {}
-    for anim: Animation in anims:
-        for t in anim.get_track_count():
-            var path := anim.track_get_path(t)
-            var kind := anim.track_get_type(t)
-            var key := "%s|%d" % [path, kind]
-            if seen.has(key) or not kind in [Animation.TYPE_ROTATION_3D, Animation.TYPE_POSITION_3D,
-                    Animation.TYPE_BLEND_SHAPE]:
-                continue
-            seen[key] = true
-            if kind == Animation.TYPE_BLEND_SHAPE:     # pose correctives (a seated skirt) rest at 0
-                var shape := reset.add_track(kind)
-                reset.track_set_path(shape, path)
-                reset.blend_shape_track_insert_key(shape, 0.0, 0.0)
-                continue
-            var sk := body.get_node_or_null(NodePath(String(path).get_slice(":", 0))) as Skeleton3D
-            var bone := sk.find_bone(String(path).get_slice(":", 1)) if sk != null else -1
-            if bone < 0:
-                continue
-            var rest := sk.get_bone_rest(bone)
-            var track := reset.add_track(kind)
-            reset.track_set_path(track, path)
-            if kind == Animation.TYPE_ROTATION_3D:
-                reset.rotation_track_insert_key(track, 0.0, rest.basis.get_rotation_quaternion())
-            else:
-                reset.position_track_insert_key(track, 0.0, rest.origin)
-    return reset
-
-
-## The body's skeletal clips (extras.geogen.clips) copied out of the export's AnimationPlayer
-## with their tracks re-pathed relative to the body, so they still play once the body
-## moves under the NPC: {clip name: Animation}.
-static func _body_clips(body: Node) -> Dictionary:
-    var out := {}
-    var listed: Array = WorldLoader.geogen_extras(body).get("clips", [])
-    if listed.is_empty():
-        return out
-    var root := body
-    while root.get_parent() != null and not root.get_parent() is WorldLoader:
-        root = root.get_parent()
-    for ap: AnimationPlayer in root.find_children("*", "AnimationPlayer", true, false):
-        var base := ap.get_node(ap.root_node)
-        var prefix := String(base.get_path_to(body)) + "/"
-        for clip in listed:
-            var anim_name := String(clip.get("animation", ""))
-            if out.has(clip["name"]) or not ap.has_animation(anim_name):
-                continue
-            var anim: Animation = ap.get_animation(anim_name).duplicate(true)
-            for t in anim.get_track_count():
-                var path := String(anim.track_get_path(t))
-                if path.begins_with(prefix):
-                    anim.track_set_path(t, NodePath(path.substr(prefix.length())))
-            # Static pose clips loop so the pose (and current_animation) holds.
-            var hold: bool = clip.get("loop", false) or String(clip["name"]).begins_with("pose_")
-            anim.loop_mode = Animation.LOOP_LINEAR if hold else Animation.LOOP_NONE
-            out[clip["name"]] = anim
-    return out
+## A keyframed move between poses is playing (sit_down, stand_up, ...).
+func _moving_pose() -> bool:
+    return animator != null and animator.moving()
 
 
 ## World heading (rad). The NPC sits under its placement's parent, which may be turned
@@ -1484,86 +1191,9 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
         var s: Array = pose["scale"]
         var basis := Basis.from_euler(Vector3(deg_to_rad(r[0]), deg_to_rad(r[1]), deg_to_rad(r[2])))
         var target := Transform3D(basis.scaled_local(Vector3(s[0], s[1], s[2])), Vector3(o[0], o[1], o[2]))
-        if _pose_tween != null:
-            _pose_tween.kill()
-        _transition = {}
-        var move: Dictionary = _transitions.get("%s>%s" % [was, pose_name], {})
-        if _anim != null and not move.is_empty():
-            # A keyframed move (sit_down, stand_up, ...): the clip poses the skeleton while the
-            # body follows the clip's root path from where it was to where the pose puts it.
-            _transition = {"move": move, "t": 0.0, "start": global_transform.affine_inverse() * before,
-                "target": target, "pose": pose_name}
-            body.transform = _transition["start"]
-            _anim.speed_scale = 1.0
-            _anim.play(move["clip"], TRANSITION_BLEND)
+        if animator.change_pose(was, pose_name, global_transform.affine_inverse() * before, target, self):
             _timer = POSE_SECONDS             # no extra hold once it has played
             stats["transitions"] = int(stats.get("transitions", 0)) + 1
-            return
-        if _anim != null:
-            # No clip for this change: ease into place while the pose clips cross-fade.
-            _pose_tween = create_tween()
-            _pose_tween.tween_property(body, "transform", target, POSE_BLEND)
-        else:
-            body.transform = target
-    _play_pose_clip(pose_name, POSE_BLEND)
-
-
-## Follow the playing transition's root path. The path was made for the action's default
-## approach and seat height; what differs here (a deeper or lower seat) is spread over the move.
-func _advance_transition(delta: float) -> void:
-    if _transition.is_empty():
-        return
-    var move: Dictionary = _transition["move"]
-    var times: PackedFloat32Array = move["times"]
-    var positions: PackedVector3Array = move["positions"]
-    var last := times.size() - 1
-    var target: Transform3D = _transition["target"]
-    _transition["t"] += delta
-    var t := minf(_transition["t"], times[last])
-    if t >= times[last]:
-        body.transform = target
-        var pose_name: String = _transition["pose"]
-        _transition = {}
-        _play_pose_clip(pose_name, TRANSITION_BLEND)
-        return
-    var i := 0
-    while i < last - 1 and times[i + 1] <= t:
-        i += 1
-    var f := clampf((t - times[i]) / maxf(times[i + 1] - times[i], 1e-6), 0.0, 1.0)
-    var g := smoothstep(0.0, 1.0, t / times[last])
-    var start: Transform3D = _transition["start"]
-    var origin := positions[i].lerp(positions[i + 1], f) + (start.origin - positions[0]) * (1.0 - g) \
-        + (target.origin - positions[last]) * g
-    var turn: Quaternion = (move["rotations"][i] as Quaternion).slerp(move["rotations"][i + 1], f)
-    body.transform = Transform3D(Basis(turn).scaled_local(target.basis.get_scale()), origin)
-
-
-## Skeletal bodies: hold the pose's clip (pose_<name>; standing: walk or idle); capsules have none.
-func _play_pose_clip(pose_name: String, blend: float) -> void:
-    if _anim == null:
-        return
-    var clip := "pose_" + pose_name
-    if pose_name == "stand" and _anim.has_animation("idle"):
-        clip = "idle"
-    if _anim.has_animation(clip):
-        _anim.speed_scale = 1.0
-        _anim.play(clip, blend)
-
-
-## Standing skeletal bodies walk while moving (playback scaled to the ground speed so the
-## feet don't slide) and idle when still.
-func _animate_locomotion() -> void:
-    if _anim == null or _pose != "stand" or _playing or not _transition.is_empty() \
-            or not _anim.has_animation("walk"):
-        return
-    var speed := Vector2(velocity.x, velocity.z).length()
-    var clip := "walk" if speed > WALK_THRESHOLD else ("idle" if _anim.has_animation("idle") else "pose_stand")
-    if clip == "walk":
-        _anim.speed_scale = speed / float(_clip_speed.get("walk", 1.2))
-    else:
-        _anim.speed_scale = 1.0
-    if _anim.current_animation != clip:
-        _anim.play(clip, LOCOMOTION_BLEND)
 
 
 # --- attention (the player) ---------------------------------------------------
@@ -1587,7 +1217,7 @@ func _characters() -> Array[Dictionary]:
         for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
             if other is CharacterBody3D:
                 var entry := {"node": other, "pos": other.global_position,
-                    "radius": _radius_of(other), "npc": other is GeogenNpc}
+                    "radius": NpcGeometry.radius_of(other), "npc": other is GeogenNpc}
                 _crowd.append(entry)
                 _crowd_radius = maxf(_crowd_radius, entry["radius"])
                 var cell := Vector2i(floori(entry["pos"].x / CROWD_CELL), floori(entry["pos"].z / CROWD_CELL))
@@ -1618,28 +1248,28 @@ func _attend(delta: float) -> void:
         var want := 0.0
         # (Out of range and not just greeted: nothing to look at; skip the camera lookups.)
         if who != null and _pose in ["stand", "sit"] and (clock < _attend_until
-                or _flat(who.global_position - global_position).length() < float(look["range"]) + 1.0):
+                or NpcGeometry.flat(who.global_position - global_position).length() < float(look["range"]) + 1.0):
             var eye: Vector3 = who.global_position + Vector3(0, 1.6, 0)
             var cam = who.get("camera")
             if cam is Camera3D:
                 eye = (cam as Camera3D).global_position
-            var to := _flat(eye - global_position)
+            var to := NpcGeometry.flat(eye - global_position)
             var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
             # Just greeted: look their way wherever they stand (the head's own limits clamp it).
             if clock < _attend_until or (to.length() < float(look["range"])
                     and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0):
                 want = 1.0
                 _look.target = eye
-        if _look.gesturing() and (_pose != "sit" or not _transition.is_empty()):
+        if _look.gesturing() and (_pose != "sit" or _moving_pose()):
             _look.stop_gesture()               # they got up: the arm goes with the body's clip
         _look.want = want
         if want > 0.0:
             stats["looking"] = float(stats.get("looking", 0.0)) + delta
     var yield_spec: Dictionary = attention.get("yield", {})
-    if who == null or yield_spec.is_empty() or _pose != "stand" or not _transition.is_empty() \
+    if who == null or yield_spec.is_empty() or _pose != "stand" or _moving_pose() \
             or clock - _yielded_at < YIELD_COOLDOWN:
         return
-    if _flat(global_position - who.global_position).length() > float(yield_spec["distance"]) + YIELD_FAR:
+    if NpcGeometry.flat(global_position - who.global_position).length() > float(yield_spec["distance"]) + YIELD_FAR:
         return                             # too far off to be walking at us, even sprinting
     if not _stack.is_empty() and (_stack.back()["action"] in ["greet", yield_spec["action"]]
             or _stack.back()["steps"][mini(_stack.back()["index"], _stack.back()["steps"].size() - 1)].has("go_to")):
@@ -1647,8 +1277,8 @@ func _attend(delta: float) -> void:
     var body_velocity = who.get("velocity")
     if not body_velocity is Vector3:
         return
-    var v := _flat(body_velocity)
-    var offset := _flat(global_position - who.global_position)
+    var v := NpcGeometry.flat(body_velocity)
+    var offset := NpcGeometry.flat(global_position - who.global_position)
     if v.length() < 0.3 or offset.length() > float(yield_spec["distance"]) + v.length() * 0.6 \
             or v.normalized().dot(offset.normalized()) < 0.7:
         return                             # not walking at us
@@ -1721,12 +1351,12 @@ func greet(by := "player") -> bool:
     var response := "none"
     var action := str(spec["action"])
     var reacting: bool = not _stack.is_empty() and _stack.back()["action"] == action
-    if clock - _waved_at >= float(spec["cooldown"]) and _transition.is_empty() and not reacting:
+    if clock - _waved_at >= float(spec["cooldown"]) and not _moving_pose() and not reacting:
         if _pose == "stand":
             response = "action"
             _react(action, {})
-        elif _pose == "sit" and _look != null and _anim != null and _anim.has_animation("wave") \
-                and _look.gesture(_anim.get_animation("wave"), GESTURE_BONES):
+        elif _pose == "sit" and _look != null and animator != null and animator.has("wave") \
+                and _look.gesture(animator.clip("wave"), GESTURE_BONES):
             response = "gesture"
     if response != "none":
         _waved_at = clock
@@ -1821,7 +1451,7 @@ func report() -> Dictionary:
     return {"npc": String(name), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)),
-        "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": String(_anim.current_animation) if _anim != null else "",
+        "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
         "position": _v(p), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),

@@ -14,9 +14,12 @@ def _json_line(out: str, prefix: str):
 
 
 def _simulate(godot_script, scene, generated, seconds, timescale=8, **start) -> dict:
-    """time.simulate's report (npcs, traffic, trains, cost) after ``seconds`` of sped-up world time."""
-    return godot_script([step("time.simulate", seconds=seconds)], f"--scene={scene}", f"--generated={generated}",
-                        start={"timescale": timescale, **start})["time.simulate"]
+    """time.simulate's report (npcs, traffic, trains, cost) after ``seconds`` of sped-up world time.
+    Nobody may have been wedged and put back on the navmesh (``unstuck``) on the way."""
+    report = godot_script([step("time.simulate", seconds=seconds)], f"--scene={scene}", f"--generated={generated}",
+                          start={"timescale": timescale, **start})["time.simulate"]
+    assert not [(n["npc"], n["unstuck"]) for n in report["npcs"] if n["unstuck"]]
+    return report
 
 
 @pytest.fixture(scope="module")

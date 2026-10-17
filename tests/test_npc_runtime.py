@@ -71,6 +71,7 @@ def test_resident_lives_in_the_cottage(godot_script, cottage_dir):
     assert report["passes"] >= 2          # out through the front door and back in
     assert report["failures"] == []
     assert report["max_stall"] < 2.0      # never pinned against geometry
+    assert report["unstuck"] == 0         # never wedged (and put back on the navmesh)
     assert report["outside"] == 0.0       # stayed home (the doorstep is within the margin)
 
 
