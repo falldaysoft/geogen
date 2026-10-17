@@ -32,6 +32,7 @@ const REPLAN_SECONDS := 1.5       # no progress this long on a detour round a ch
 const MAX_REPLANS := 2            # ... this often per go_to
 const STAIR_HOLD := 2.0           # m before a stair to wait while someone is coming along it
 const STAIR_PATIENCE := 45.0      # s waiting for a stair before giving up on the step
+const STAIR_REACH := 0.8          # m from a stair's walking line that counts as on it
 const LEVEL_TOLERANCE := NpcGeometry.LEVEL_TOLERANCE
 const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (bodies without a transition clip)
@@ -790,11 +791,37 @@ func _stair_free() -> bool:
                 if other is GeogenNpc and other != self and other._stair == span["link"] \
                         and other._stair_down != span["down"]:
                     return false
+            if _player_in_the_way(span["link"], span["down"]):
+                return false
             _stair = span["link"]
             _stair_down = span["down"]
             return true
     _stair = null      # no stair in the next few steps: off the one we were on, if any
     return true
+
+
+## The player holds no claim on a stair, but they're on it as much as anyone: within
+## STAIR_REACH of its walking line, standing there or coming the other way, they keep an NPC
+## from taking it (one going the same way it follows). An NPC already on it carries on: the
+## player can back off, it can't.
+func _player_in_the_way(link: NavigationLink3D, down: bool) -> bool:
+    var who := _player()
+    if who == null:
+        return false
+    var walk: PackedVector3Array = link.get_meta("walk", PackedVector3Array())
+    var line := walk if walk.size() >= 2 else PackedVector3Array([link.start_position, link.end_position])
+    var p := who.global_position
+    var near := INF
+    for k in range(1, line.size()):
+        var a := link.global_transform * line[k - 1]
+        var b := link.global_transform * line[k]
+        near = minf(near, p.distance_to(Geometry3D.get_closest_point_to_segment(p, a, b)))
+    if near > STAIR_REACH:
+        return false
+    var climb: float = (who as CharacterBody3D).velocity.y if who is CharacterBody3D else 0.0
+    if absf(climb) < 0.1:
+        return true                     # standing on it
+    return (climb < 0.0) != down
 
 
 ## Is waypoint ``index`` on a stair's way round (``after_first``: and not where it starts)?

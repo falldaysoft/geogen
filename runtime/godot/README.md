@@ -393,7 +393,10 @@ windows or doors:
   `_plan` puts the stair's walking line in their place (`GeogenWalker.along_links`, as the
   player's `walk_to` does). On that line nothing is moved aside or walked around, and it is
   taken in single file: an NPC arriving within 2 m of a stair that another NPC is on, coming
-  the other way, waits there until it is clear (`stuck: stair in use` after 45 s). Test scene:
+  the other way, waits there until it is clear (`stuck: stair in use` after 45 s). The player
+  counts too (geogen.15.20): standing on its treads, within 0.8 m of the walking line, or
+  coming the other way, they keep an NPC from taking it; going the same way, it follows. An NPC
+  already on the stair carries on (the player can back off; it can't). Test scene:
   `lighthouse_keepers`, two NPCs who start at the wrong ends of the lighthouse stair.
 
 - **The player** (the definition's `attention:`, on by default; `false` or a part `false` turns it off):

@@ -144,6 +144,22 @@ def test_npcs_take_a_spiral_stair_by_its_walking_line(godot_script, scene_export
         assert report["used"].get("self/wander", 0) >= 1
 
 
+def test_the_player_on_a_stair_keeps_npcs_off_it(godot_script, scene_export):
+    # geogen.15.20: the player holds no stair claim, but standing on the treads (or coming the
+    # other way) they keep an NPC from taking it: the keeper waits at the foot and the lookout
+    # at the top until the player steps off; then they change places as usual.
+    on_the_treads = [-0.11, 1.7, 0.74]                     # a sixth of the way up the walking line
+    run = godot_script([step("player.teleport", pos=on_the_treads), step("time.simulate", seconds=20),
+                        step("player.teleport", pos=[0, 0, 6]), step("time.simulate", seconds=60)],
+                       "--scene=lighthouse_keepers", f"--generated={scene_export('lighthouse_keepers')}",
+                       start={"timescale": 8}, engine_args=FAST)
+    held, after = ({r["npc"].removesuffix("_npc"): r for r in sim["npcs"]} for sim in run.all("time.simulate"))
+    assert held["keeper"]["position"][1] < 0.3, held["keeper"]           # still at the foot
+    assert held["lookout"]["position"][1] > 9.5, held["lookout"]         # still on the gallery
+    assert after["keeper"]["position"][1] == pytest.approx(10.0, abs=0.1), after["keeper"]
+    assert after["lookout"]["position"][1] == pytest.approx(0.0, abs=0.1), after["lookout"]
+
+
 # --- NPCs holding quests (geogen.15.8) ----------------------------------------------------------
 
 def test_the_resident_switches_off_every_light_for_its_own_quest(godot_script, tmp_path):
