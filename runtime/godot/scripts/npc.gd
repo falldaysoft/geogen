@@ -45,6 +45,7 @@ const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (bodies without a transition clip)
 const CLOSE_REACH := 0.5          # m: furthest a `go_to` with `close` steps off the navmesh (up to a counter)
 const CLOSE_RADIUS := 0.03        # m: how near the spot that last step ends
+const REACT_DRIFT := 0.1          # m: a reaction that moved the NPC further sends it back to its last go_to
 const SEAT_CLEAR := 0.03          # m the calves keep in front of a seat's front edge
 const PORTAL_LOOKAHEAD := 2.5     # react to closed doors this far ahead
 const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this far ahead
@@ -530,7 +531,17 @@ func _step(delta: float) -> void:
         if _stack.is_empty():
             _finish_option(true)
         else:
-            _stack.back()["started"] = false   # re-run the step a door interrupted
+            var under: Dictionary = _stack.back()
+            under["started"] = false           # re-run the step a door or reaction interrupted
+            if under.has("from"):
+                # Moved off (stepped aside): walk back first, so work at a counter resumes there.
+                if global_position.distance_to(under["from"]) > REACT_DRIFT:
+                    var i: int = mini(under["index"], under["steps"].size() - 1)
+                    while i > 0 and not under["steps"][i].has("go_to"):
+                        i -= 1
+                    if under["steps"][i].has("go_to"):
+                        under["index"] = i
+                under.erase("from")
         return
     var step: Dictionary = frame["steps"][frame["index"]]
     if step.has("if") and not definition.get("flags", {}).get(step["if"], false):
@@ -1648,6 +1659,9 @@ func greet(by := "player") -> bool:
 func _react(action_name: String, extra: Dictionary) -> void:
     if not _stack.is_empty():
         _stack.back()["started"] = false
+        _stack.back()["from"] = global_position
+    _playing = false                       # the reaction's own steps animate the body
+    _looping = false
     velocity = Vector3.ZERO
     _path = PackedVector3Array()
     _stairs = []

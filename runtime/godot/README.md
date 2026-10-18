@@ -458,6 +458,9 @@ windows or doors:
     It waves once per `cooldown` s (8); a greeting inside that is still a greeting.
   - *yield*: an NPC standing within `distance` m of the player walking straight at it runs
     `step_aside` (`go_to: aside`, `step` m off the player's line, then `face: player`).
+  - A reaction takes the body from a held or looping `play:` (it walks, not works). If it moved
+    the NPC more than 10 cm, the interrupted action re-runs from its last `go_to`, so work at a
+    counter resumes at the counter.
   - The summary reports `greets` (greetings taken, each one a signal), `waves` (the ones it
     waved back at), `yields` and `looking` (seconds). `--greet=NAME[@S]` greets
     headlessly.

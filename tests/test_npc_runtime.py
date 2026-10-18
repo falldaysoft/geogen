@@ -310,3 +310,25 @@ def test_a_cook_steps_up_to_the_counter_and_works_with_hands_on_it(godot_script,
     # (A wander in so small a room may pick where the player stands; the work never fails.)
     assert not [f for f in later["failures"] if f.startswith(("counter", "range"))] and later["unstuck"] == 0, later
     assert {"counter#0", "range#0"} <= set(later["used"]), later["used"]
+
+
+def test_a_cook_stops_working_to_step_aside_and_goes_back(godot_script, scene_export):
+    # The player walks right up to Marco stirring at the range, then back off: he steps aside
+    # walking, not stirring (the reaction takes the body from the looping clip), then walks back
+    # to the range (the step a moving reaction interrupted re-runs from its go_to) and stirs again.
+    generated = scene_export("kitchen_work")
+    at = [-0.89, 0.0, 0.45]                    # his spot at the range
+    run = godot_script([step("npcs.force", npc="marco_npc", option="range#0"),
+                        step("time.simulate", seconds=12, id="stirring"),
+                        step("player.teleport", pos=[at[0] + 2.2, 0.0, at[2]]),
+                        step("player.walk_to", pos=[at[0] + 0.2, 0.0, at[2]], timeout=4),
+                        step("player.walk_to", pos=[at[0] + 2.2, 0.0, at[2]], timeout=4),
+                        step("time.simulate", seconds=0.25, id="aside"),
+                        step("time.simulate", seconds=6, id="back")],
+                       "--scene=kitchen_work", f"--generated={generated}", engine_args=FAST)
+    (stirring,) = run["stirring"]["npcs"]
+    assert stirring["clip"] == "stir" and max(abs(a - b) for a, b in zip(stirring["position"], at)) < 0.05
+    (aside,) = run["aside"]["npcs"]
+    assert aside["yields"] == 1 and aside["clip"] != "stir", (aside["doing"], aside["clip"])
+    (back,) = run["back"]["npcs"]
+    assert back["doing"].startswith("range#0") and back["clip"] == "stir" and back["failures"] == [], back["doing"]
