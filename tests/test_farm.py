@@ -138,7 +138,12 @@ def test_in_godot_the_first_harvest_quest_is_played_through(godot_runtime, scene
     rt.call("interactions.use", asset="shed", interaction="sleep", actor="player")    # until 06:00: grown overnight
     rt.call("time.advance", seconds=2, scale=1)
     assert rt.call("time.clock")["clock"].startswith("06:") and plot() == "wheat_grown"
-    rt.call("interactions.use", asset="plot_4", interaction="crop", actor="player")
+    rt.call("player.teleport", pos=[-1.0, 0.1, -0.6], yaw=0)                          # at the plot's edge, standing
+    rt.call("time.advance", seconds=0.3, scale=1)
+    rt.call("player.look", at=[-1.0, 0.17, -1.7])
+    rt.call("time.advance", seconds=0.3, scale=1)
+    assert rt.call("player.status")["focus"].get("prompt") == "Harvest wheat"       # in reach of the soil
+    rt.call("player.use")
     rt.call("time.advance", seconds=1, scale=1)
     for _ in range(4):
         rt.call("interactions.use", asset="counter", interaction="sell_wheat", actor="player")

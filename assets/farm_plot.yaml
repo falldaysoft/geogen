@@ -91,6 +91,7 @@ places:
 interactions:
   crop:
     targets: [soil]
+    reach: 2.5                   # the soil is always further below the eye than the player's reach
     initial: empty
     duration: 0.2
     states:

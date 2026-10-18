@@ -90,6 +90,7 @@ parts:
 interactions:
   sleep:
     targets: [mattress, pillow, blanket]
+    reach: 2.2                   # the cot is low: reachable from anywhere in the shed
     initial: awake
     duration: 0.1
     states:
