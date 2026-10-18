@@ -48,7 +48,11 @@ jobs:
         name: Install geogen
         run: |
           sudo apt-get update -q && sudo apt-get install -yq libgl1 libegl1 libxkbcommon0 libfontconfig1 libdbus-1-3
-          pip install -q -e .
+          # pyrender 0.1.45 pins PyOpenGL==3.1.0 and geogen needs >=3.1.7 (numpy 2), so pip can't
+          # resolve `pip install -e .`: the dependencies first, then pyrender and geogen without theirs.
+          python -c "import tomllib; print('\n'.join(d for d in tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies'] if not d.startswith('pyrender')))" > /tmp/reqs.txt
+          pip install -q -r /tmp/reqs.txt freetype-py imageio networkx six
+          pip install -q --no-deps pyrender==0.1.45 -e .
       - if: steps.cache.outputs.cache-hit != 'true'
         id: godot-cache
         uses: actions/cache@v4
