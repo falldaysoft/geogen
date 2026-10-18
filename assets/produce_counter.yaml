@@ -1,0 +1,187 @@
+# A produce counter that buys what a farm grows: a wooden market counter with three crates
+# on it (wheat, carrots, pumpkin) under a WE BUY sign. Use a crate to sell one of that crop
+# from the inventory for `<crop>_price` gold (into the seller's purse, actor.gold);
+# refused when there is none to sell. Origin: on the ground at the counter's middle; the
+# seller stands in front (+Z).
+
+name: produce_counter
+tags: [farm.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  wheat_price: {default: 3}
+  carrot_price: {default: 2}
+  pumpkin_price: {default: 12}
+
+parts:
+  counter:
+    primitive: cube
+    size: [1.8, 0.9, 0.6]
+    anchor: bottom_center
+    bevel: 0.02
+    material: wood
+  top:
+    primitive: cube
+    size: [1.9, 0.04, 0.7]
+    attach_to: counter
+    at: top
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood_dark
+  post_l: &post
+    primitive: cube
+    size: [0.06, 1.2, 0.06]
+    anchor: bottom_center
+    offset: [-0.88, 0.94, -0.28]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood_dark
+  post_r:
+    <<: *post
+    offset: [0.88, 0.94, -0.28]
+  sign:
+    primitive: cube
+    size: [1.8, 0.3, 0.04]
+    anchor: bottom_center
+    offset: [0, 1.82, -0.28]
+    bevel: 0.01
+    bevel_segments: 1
+    material: paint_white
+  lettering:
+    primitive: text
+    text: "WE BUY PRODUCE"
+    height: 0.13
+    depth: 0.006
+    anchor: bottom_center
+    offset: [0, 1.905, -0.258]
+    material: paint_navy
+    collider: none
+  crate_wheat:
+    primitive: cube
+    size: [0.46, 0.18, 0.4]
+    anchor: bottom_center
+    offset: [-0.55, 0.94, 0.02]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood
+  label_wheat:
+    primitive: text
+    text: "WHEAT {wheat_price}g"
+    height: 0.045
+    depth: 0.004
+    anchor: bottom_center
+    offset: [-0.55, 0.98, 0.222]
+    material: paint_white
+    collider: none
+  crate_carrot:
+    primitive: cube
+    size: [0.46, 0.18, 0.4]
+    anchor: bottom_center
+    offset: [0.0, 0.94, 0.02]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood
+  label_carrot:
+    primitive: text
+    text: "CARROTS {carrot_price}g"
+    height: 0.045
+    depth: 0.004
+    anchor: bottom_center
+    offset: [0.0, 0.98, 0.222]
+    material: paint_white
+    collider: none
+  crate_pumpkin:
+    primitive: cube
+    size: [0.46, 0.18, 0.4]
+    anchor: bottom_center
+    offset: [0.55, 0.94, 0.02]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood
+  label_pumpkin:
+    primitive: text
+    text: "PUMPKIN {pumpkin_price}g"
+    height: 0.045
+    depth: 0.004
+    anchor: bottom_center
+    offset: [0.55, 0.98, 0.222]
+    material: paint_white
+    collider: none
+  # A few of each on show.
+  wheat_1: &ear
+    primitive: cylinder
+    size: [0.05, 0.36, 0.05]
+    anchor: bottom_center
+    rotation: [0, 0, 80]
+    offset: [-0.55, 1.06, -0.06]
+    material: wheat_straw
+    collider: none
+  wheat_2: {<<: *ear, offset: [-0.55, 1.06, 0.04], rotation: [0, 0, 100]}
+  wheat_3: {<<: *ear, offset: [-0.55, 1.1, 0.0]}
+  carrot_1: &carrot
+    primitive: cone
+    size: [0.045, 0.16, 0.045]
+    anchor: bottom_center
+    rotation: [90, 0, 0]
+    offset: [-0.06, 1.14, 0.08]
+    material: carrot_root
+    collider: none
+  carrot_2: {<<: *carrot, offset: [0.0, 1.14, 0.08]}
+  carrot_3: {<<: *carrot, offset: [0.06, 1.14, 0.08]}
+  pumpkin_1:
+    primitive: ellipsoid
+    size: [0.3, 0.22, 0.3]
+    anchor: bottom_center
+    offset: [0.55, 1.1, 0.02]
+    material: pumpkin_skin
+    collider: none
+
+interactions:
+  sell_wheat:
+    targets: [crate_wheat]
+    initial: ready
+    duration: 0.1
+    when: 'has("wheat")'
+    refused: "No wheat to sell"
+    states:
+      ready:   {prompt: "Sell wheat ({wheat_price} gold)", next: selling}
+      selling: {then: ready, after: 0.2, emit: sold_wheat}
+  sell_carrot:
+    targets: [crate_carrot]
+    initial: ready
+    duration: 0.1
+    when: 'has("carrot")'
+    refused: "No carrots to sell"
+    states:
+      ready:   {prompt: "Sell carrots ({carrot_price} gold)", next: selling}
+      selling: {then: ready, after: 0.2, emit: sold_carrot}
+  sell_pumpkin:
+    targets: [crate_pumpkin]
+    initial: ready
+    duration: 0.1
+    when: 'has("pumpkin")'
+    refused: "No pumpkin to sell"
+    states:
+      ready:   {prompt: "Sell pumpkin ({pumpkin_price} gold)", next: selling}
+      selling: {then: ready, after: 0.2, emit: sold_pumpkin}
+
+state:
+  gold: {scope: actor, type: number, default: 0}    # the seller's purse (the scene's default wins)
+
+rules:
+  - id: buy_wheat
+    on: {signal: self.sold_wheat}
+    do: [{take: wheat}, {set: actor.gold, to: "actor.gold + {wheat_price}"}, {notify: "Sold: Wheat (+{wheat_price} gold)"}, {play: success}]
+  - id: buy_carrot
+    on: {signal: self.sold_carrot}
+    do: [{take: carrot}, {set: actor.gold, to: "actor.gold + {carrot_price}"}, {notify: "Sold: Carrots (+{carrot_price} gold)"}, {play: success}]
+  - id: buy_pumpkin
+    on: {signal: self.sold_pumpkin}
+    do: [{take: pumpkin}, {set: actor.gold, to: "actor.gold + {pumpkin_price}"}, {notify: "Sold: Pumpkin (+{pumpkin_price} gold)"}, {play: success}]
+
+signals:
+  sold_wheat: {emit: sold_wheat}
+  sold_carrot: {emit: sold_carrot}
+  sold_pumpkin: {emit: sold_pumpkin}

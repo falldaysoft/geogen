@@ -386,20 +386,23 @@ place:
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
-<td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
+<td align="center"><a href="assets/produce_counter.md"><img src="img/produce_counter.png" width="150" alt="produce_counter"><br>produce_counter</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
 <td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 <td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
 <td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
-<td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
 <td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 <td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
 <td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 </tr>
 </table>
@@ -415,6 +418,7 @@ place:
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |
 | [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |
 | [parcel](assets/parcel.md) | A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). | `width`, `height`, `depth` |
+| [produce_counter](assets/produce_counter.md) | A produce counter that buys what a farm grows: a wooden market counter with three crates on it (wheat, carrots, pumpkin) under a WE BUY sign. | `wheat_price`, `carrot_price`, `pumpkin_price` |
 | [pumpkin](assets/pumpkin.md) | A pumpkin: a squashed orange ball with a stalk. |  |
 | [room_key](assets/room_key.md) | A room key on a red fob, to pick up. |  |
 | [rover](assets/rover.md) | A little yellow delivery rover on four wheels with a sensor dome: a walking item for tracks (items/rover.yaml). |  |

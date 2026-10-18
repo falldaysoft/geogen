@@ -82,3 +82,30 @@ def test_in_godot_a_bought_packet_dropped_on_the_plot_grows_and_is_harvested(god
     assert plot() == "empty"
     carried = {i["id"]: i["count"] for i in rt.call("inventory.list")["items"]}
     assert carried == {"wheat": 4}
+
+
+STALL = """
+name: stall
+size: [4, 3, 4]
+state:
+  gold: {scope: actor, type: number, default: 1}
+place:
+  counter: {asset: produce_counter.yaml}
+"""
+
+
+def test_the_counter_buys_crops_for_gold(tmp_path):
+    path = tmp_path / "stall.yaml"
+    path.write_text(STALL)
+    found = collect(SceneComposer(assets_dir="assets").compose(path), "stall")
+    m = Machine(found.program(), {"player": {"kind": "player"}})
+    m.set("actor:stall.item_carrot", 2, "player")
+    sell = lambda crop: m.use(f"stall:counter#sell_{crop}", "player")         # noqa: E731
+    gold = lambda: m.get("actor:stall.gold", "player")                         # noqa: E731
+    for _ in range(2):
+        assert sell("carrot")
+        m.advance(1)
+    assert gold() == 1 + 2 * 2 and m.get("actor:stall.item_carrot", "player") == 0
+    assert ["notify", "Sold: Carrots (+2 gold)", "player"] in m.feedback
+    assert not sell("carrot") and ["notify", "No carrots to sell", "player"] in m.feedback
+    assert not sell("pumpkin")
