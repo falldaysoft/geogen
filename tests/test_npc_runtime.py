@@ -152,6 +152,10 @@ def test_npcs_take_a_spiral_stair_by_its_walking_line(godot_script, scene_export
     # stair is one body wide, so the keeper waits at its foot rather than meet them on it.
     early = keepers(godot_script, generated, 14)
     assert 2.0 < early["lookout"]["position"][1] < 8.0 and 0.3 < axis(early["lookout"]) < 1.0, early["lookout"]
+    # On the treads her feet go onto the steps (feet.gd); on flat ground his stay where the clip puts them.
+    stepping = early["lookout"]["feet"]
+    assert stepping["active"] and max(abs(f["offset"]) for f in stepping["feet"].values()) > 0.05, stepping
+    assert all(abs(f["offset"]) < 0.02 for f in early["keeper"]["feet"]["feet"].values()), early["keeper"]["feet"]
     assert early["keeper"]["position"][1] < 0.3 and axis(early["keeper"]) > 1.3, early["keeper"]
     assert early["keeper"]["doing"] == "self/wander: go_to random"
 

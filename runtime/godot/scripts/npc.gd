@@ -123,6 +123,7 @@ var away := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
 var _hands: GeogenHands = null     # hands onto what is really there: tables, door handles (hands.gd)
 var _press_in := 0.0               # s until a reaching hand presses what it reaches for (a use step)
+var _feet: GeogenFeet = null       # standing feet onto the ground that is really there (feet.gd)
 var _playing := false             # a `play:` step holds the body's animation
 var _greeted_at := -INF           # clock of the last greeting taken (attention.greet debounce)
 var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
@@ -170,6 +171,7 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
                 if clip.has("rests"):
                     rests[clip["name"]] = clip["rests"]
             npc._hands = GeogenHands.attach(skeletons[0], rests, npc.animator.current, npc.get_rid())
+            npc._feet = GeogenFeet.attach(skeletons[0], npc._feet_free, npc.get_rid())   # feet on steps and slopes
     var h: Dictionary = data.get("home", {})
     for p in h.get("polygon", []):
         var w := xform * Vector3(p[0], 0.0, p[1])
@@ -651,6 +653,11 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             it.use(WorldLoader.actor_id(self))   # someone turned it back: press again
         return "running" if _timer < USE_TIMEOUT else "%s never reached '%s'" % [it.name, state]
     return "unknown step"
+
+
+## Whether the feet are the ground's to place: standing, not in a transition clip.
+func _feet_free() -> bool:
+    return _pose == "stand" and visible and (animator == null or animator.transition.is_empty())
 
 
 ## The handle of a pass action's door on the side the NPC is standing ({node, local}), or {}.
@@ -1538,6 +1545,7 @@ func report() -> Dictionary:
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
         "hands": _hands.report() if _hands != null else {},
+        "feet": _feet.report() if _feet != null else {},
         "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),

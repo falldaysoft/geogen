@@ -217,7 +217,15 @@ A pose clip whose hands rest on something (extras `rests`: `pose_sit_at_table`,
 down from each resting hand and up to 24 cm ahead of it for a top within 15 cm of its height,
 and a `TwoBoneIK3D` after it moves the hand onto that top (5 cm in from an edge found ahead),
 the elbow bending as the clip bends it, eased in and out with the pose. The NPC summary's
-`hands` reports it: `{weight, hands: {LeftHand: {at, support, shift}}}`. While standing it plays `walk`
+`hands` reports it: `{weight, hands: {LeftHand: {at, support, shift}}}`.
+Standing feet go on the ground that is really under them (`scripts/feet.gd`, `GeogenFeet`,
+leg `TwoBoneIK3D`s): the clips are made on flat ground at the NPC's origin, so each foot looks
+down for the ground under it, and while planted (within 6 cm of the bottom of its swing) is
+moved by how far that ground is from the floor (up to 35 cm, eased), the hips dropping by the
+lowest foot's offset. On a stair the leading foot goes down onto the lower tread instead of
+stepping through the air. Standing and within 25 m of the camera only; on flat ground it
+probes every 4th frame. The summary's `feet`: `{active, flat, feet: {LeftFoot: {offset, ground}}}`.
+The stride isn't fitted to the treads: a foot can land on a nosing. While standing it plays `walk`
 (speed-scaled to the NPC's velocity over the clip's recorded speed, so feet
 don't slide) or `idle`.
 
