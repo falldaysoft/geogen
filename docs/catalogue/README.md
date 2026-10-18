@@ -375,40 +375,47 @@ place:
 
 <table>
 <tr>
+<td align="center"><a href="assets/carrot_bunch.md"><img src="img/carrot_bunch.png" width="150" alt="carrot_bunch"><br>carrot_bunch</a></td>
 <td align="center"><a href="assets/conveyor.md"><img src="img/conveyor.png" width="150" alt="conveyor"><br>conveyor</a></td>
 <td align="center"><a href="assets/crisps_bag.md"><img src="img/crisps_bag.png" width="150" alt="crisps_bag"><br>crisps_bag</a></td>
+<td align="center"><a href="assets/farm_plot.md"><img src="img/farm_plot.png" width="150" alt="farm_plot"><br>farm_plot</a></td>
 <td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
-<td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
-<td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
+<td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
+<td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 <td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
-</tr>
-<tr>
 <td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 <td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
 <td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 <td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
-</tr>
-<tr>
 <td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
+<td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 </tr>
 </table>
 
 | Asset | What it is | Params |
 | --- | --- | --- |
+| [carrot_bunch](assets/carrot_bunch.md) | A bunch of carrots: three orange roots side by side with their green tops. |  |
 | [conveyor](assets/conveyor.md) | A belt conveyor: a black rubber belt between steel rails on four legs. | `length`, `height`, `width`, `speed`, `end` |
 | [crisps_bag](assets/crisps_bag.md) | A bag of crisps. | `colour` |
+| [farm_plot](assets/farm_plot.md) | A tilled plot to grow a crop in: a raised bed of soil. | `stage_hours`, `seed` |
 | [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
 | [lever](assets/lever.md) | A floor lever: a cast base with a handle that throws forward and back. | `height` |
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |
 | [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |
 | [parcel](assets/parcel.md) | A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). | `width`, `height`, `depth` |
+| [pumpkin](assets/pumpkin.md) | A pumpkin: a squashed orange ball with a stalk. |  |
 | [room_key](assets/room_key.md) | A room key on a red fob, to pick up. |  |
 | [rover](assets/rover.md) | A little yellow delivery rover on four wheels with a sensor dome: a walking item for tracks (items/rover.yaml). |  |
 | [seed_packet](assets/seed_packet.md) | A packet of seeds. | `colour` |
@@ -418,3 +425,4 @@ place:
 | [turret](assets/turret.md) | A small gun turret: a steel drum base, a post and a turning head with a barrel. | `range`, `rate`, `damage`, `targets`, `enabled` |
 | [vend_chute](assets/vend_chute.md) | A vending machine's drop point. | `item` |
 | [vending_cabinet](assets/vending_cabinet.md) | A vending machine's cabinet. | `colour`, `title`, `a_label`, `a_price`, `a_stock`, `a_tint`, `b_label`, `b_price`, `b_stock`, `b_tint`, `c_label`, `c_price`, `c_stock`, `c_tint`, `d_label`, `d_price`, `d_stock`, `d_tint` |
+| [wheat_sheaf](assets/wheat_sheaf.md) | A sheaf of wheat: a bundle of straw-gold stalks tied round the middle, ears at one end. |  |

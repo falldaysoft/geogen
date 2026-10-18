@@ -1,0 +1,35 @@
+# A sheaf of wheat: a bundle of straw-gold stalks tied round the middle, ears at one end.
+# The body of items/wheat.yaml (a carryable physics prop). Origin: bottom centre; lying
+# along Z, ears at +Z.
+
+name: wheat_sheaf
+tags: [prop.crop]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+physics: {mass: 0.4, friction: 0.9, bounce: 0.02, carry: true}
+
+parts:
+  stalks:
+    primitive: cylinder
+    size: [0.09, 0.42, 0.09]
+    anchor: bottom_center
+    rotation: [90, 0, 0]
+    offset: [0, 0.045, 0]
+    material: wheat_straw
+  ears:
+    primitive: ellipsoid
+    size: [0.13, 0.13, 0.14]
+    anchor: center
+    offset: [0, 0.065, 0.24]
+    material: wheat_straw
+  tie:
+    primitive: cylinder
+    size: [0.1, 0.03, 0.1]
+    anchor: center
+    rotation: [90, 0, 0]
+    offset: [0, 0.045, 0.02]
+    material: cloth
+    tint: maroon
+    collider: none

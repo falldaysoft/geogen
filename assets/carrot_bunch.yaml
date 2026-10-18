@@ -1,0 +1,28 @@
+# A bunch of carrots: three orange roots side by side with their green tops. The body of
+# items/carrot.yaml (a carryable physics prop). Origin: bottom centre; lying along Z,
+# tops at -Z.
+
+name: carrot_bunch
+tags: [prop.crop]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+physics: {mass: 0.25, friction: 0.8, bounce: 0.05, carry: true}
+
+parts:
+  root_1: &root
+    primitive: cone
+    size: [0.04, 0.17, 0.04]
+    anchor: bottom_center
+    rotation: [90, 0, 0]
+    offset: [-0.035, 0.02, 0.08]
+    material: carrot_root
+  root_2: {<<: *root, offset: [0, 0.02, 0.09]}
+  root_3: {<<: *root, offset: [0.035, 0.02, 0.08]}
+  tops:
+    primitive: ellipsoid
+    size: [0.12, 0.05, 0.12]
+    anchor: center
+    offset: [0, 0.025, -0.06]
+    material: crop_leaf

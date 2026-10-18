@@ -1,0 +1,7 @@
+# Pumpkin from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold
+# at the farm's counter.
+kind: item
+title: Pumpkin
+tags: [crop]
+body: pumpkin.yaml
+mode: physics

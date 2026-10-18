@@ -1,0 +1,7 @@
+# Wheat from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold
+# at the farm's counter.
+kind: item
+title: Wheat
+tags: [crop]
+body: wheat_sheaf.yaml
+mode: physics

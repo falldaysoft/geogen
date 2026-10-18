@@ -18,6 +18,7 @@
  "capsule": "b24b93e3321e7e91218d341877eaf6907714e004",
  "car": "af054b00c436cf77ac3f7b80ae4526ba0af0d525",
  "carriage": "7b4d33b02fb9516bdaad7ff2d610b3c3c61f9418",
+ "carrot_bunch": "a114bc87a514b29185ddf9d37c6ece5d48e25690",
  "ceiling_light": "7380ec5f157c7e42626381aeefe999fe21ba9213",
  "chair": "bc2f5c518c03f547f102424c639f89a03e39ebf4",
  "clothes_rail": "60510aac203c6b758c18a6c05876929d7ab84c13",
@@ -31,6 +32,7 @@
  "desk_chair": "764c51b9c55093172ce0414c7b81fdc044edad87",
  "display_case": "f1bc556ceb80e9248990b524d0f81e790aa878a9",
  "door": "fb2258d08bdeb0871e727427e968d4045afdffbb",
+ "farm_plot": "9019224bde2553d01b636a3656fcef40f0fec24f",
  "fascia_sign": "fb565cd4212b12a163a10496544621a3f500f783",
  "fire_hydrant": "20eb4aff4cf1d7664ea8cf03a70219af2d8b6a48",
  "floor_lamp": "c0166724c67e822745aa5f34d05f78ddb0511c21",
@@ -104,6 +106,7 @@
  "primitives/torus": "9e315ce5cb4be3949b30ff1d900ee17725287d46",
  "primitives/tree": "b22403df255adbbee4b8b8c7dcd2d081c191b58d",
  "primitives/water": "485c17c628c5fdd27d8f67dd838ae7e8c4f82955",
+ "pumpkin": "d2c91557029c7fc086605858ca2c2277222d2883",
  "reception_desk": "3954b697f09cdbc4ffc658e335a9a3148f10b632",
  "restaurant_building": "8781a2c0a982e07020386b3e56f5508486fc8723",
  "road": "6ee9fcf9d48d3dcd7a9a9d58890291c83e9c5b74",
@@ -149,5 +152,6 @@
  "wall_mirror": "2822d68e9ec014bb27b3075ae6a273110e692a0e",
  "wall_shelving": "81df537ab5db61fd45962acc994679517de6796e",
  "wardrobe": "c94d3f317f27caf4bde71012dfd649bee6c05249",
+ "wheat_sheaf": "1d9eece7f45cc557c92703bcd0b379d2d33c903a",
  "window": "948ec4506ca0467c9eb2ce4cc17238e6cd4c6b76"
 }

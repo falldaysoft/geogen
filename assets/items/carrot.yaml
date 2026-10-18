@@ -1,0 +1,7 @@
+# Carrots from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold
+# at the farm's counter.
+kind: item
+title: Carrots
+tags: [crop]
+body: carrot_bunch.yaml
+mode: physics

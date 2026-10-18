@@ -1,0 +1,146 @@
+# A tilled plot to grow a crop in: a raised bed of soil. Drop a packet of seeds on it
+# (wheat_seeds, carrot_seeds, pumpkin_seeds: the soil is a sink that takes them in) and it
+# is planted; the crop comes up and grows on the game clock, `stage_hours` a stage
+# (planted, sprouting, grown), and keeps growing while nobody is there. Use a grown plot to
+# harvest it: the crop goes in the user's inventory (items/wheat.yaml, carrot.yaml,
+# pumpkin.yaml) and the plot is empty again. A packet dropped on a plot that is already
+# growing something is lost. Origin: on the ground at the bed's middle.
+
+name: farm_plot
+tags: [farm.plot]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  stage_hours: {default: 6}
+  seed: {default: 0}
+
+parts:
+  soil:
+    primitive: cube
+    size: [1.3, 0.12, 1.3]
+    anchor: bottom_center
+    bevel: 0.03
+    bevel_segments: 1
+    material: dirt
+    walkable: true
+  seedlings:                     # every crop starts as a row of seedlings
+    primitive: crop
+    size: [1.2, 0.5, 1.2]
+    attach_to: soil
+    at: top
+    kind: wheat
+    growth: 0.18
+    seed: "{seed}"
+  wheat_young:
+    primitive: crop
+    size: [1.2, 0.85, 1.2]
+    attach_to: soil
+    at: top
+    kind: wheat
+    growth: 0.55
+    seed: "{seed}"
+  wheat_ripe:
+    primitive: crop
+    size: [1.2, 0.85, 1.2]
+    attach_to: soil
+    at: top
+    kind: wheat
+    growth: 1.0
+    seed: "{seed}"
+  carrot_young:
+    primitive: crop
+    size: [1.2, 0.35, 1.2]
+    attach_to: soil
+    at: top
+    kind: carrot
+    growth: 0.55
+    seed: "{seed}"
+  carrot_ripe:
+    primitive: crop
+    size: [1.2, 0.35, 1.2]
+    attach_to: soil
+    at: top
+    kind: carrot
+    growth: 1.0
+    seed: "{seed}"
+  pumpkin_young:
+    primitive: crop
+    size: [1.2, 0.4, 1.2]
+    attach_to: soil
+    at: top
+    kind: pumpkin
+    growth: 0.55
+    seed: "{seed}"
+  pumpkin_ripe:
+    primitive: crop
+    size: [1.2, 0.4, 1.2]
+    attach_to: soil
+    at: top
+    kind: pumpkin
+    growth: 1.0
+    seed: "{seed}"
+
+places:
+  bed:                           # just over the soil: a packet dropped on the plot lands in it
+    box: [1.2, 0.1, 1.2]
+    position: [0, 0.17, 0]
+    sink: {accepts: [wheat_seeds, carrot_seeds, pumpkin_seeds]}
+
+interactions:
+  crop:
+    targets: [soil]
+    initial: empty
+    duration: 0.2
+    states:
+      empty: {}
+      wheat_planted:   {then: wheat_sprouting, after: {hours: "{stage_hours}"}}
+      wheat_sprouting: {then: wheat_grown, after: {hours: "{stage_hours}"}}
+      wheat_grown:     {prompt: "Harvest wheat", next: wheat_harvested}
+      wheat_harvested: {emit: harvested_wheat, then: empty}            # gives the harvest to who used it
+      carrot_planted:   {then: carrot_sprouting, after: {hours: "{stage_hours}"}}
+      carrot_sprouting: {then: carrot_grown, after: {hours: "{stage_hours}"}}
+      carrot_grown:     {prompt: "Harvest carrots", next: carrot_harvested}
+      carrot_harvested: {emit: harvested_carrot, then: empty}            # gives the harvest to who used it
+      pumpkin_planted:   {then: pumpkin_sprouting, after: {hours: "{stage_hours}"}}
+      pumpkin_sprouting: {then: pumpkin_grown, after: {hours: "{stage_hours}"}}
+      pumpkin_grown:     {prompt: "Harvest pumpkin", next: pumpkin_harvested}
+      pumpkin_harvested: {emit: harvested_pumpkin, then: empty}            # gives the harvest to who used it
+    motions:
+      - parts: [seedlings]
+        show: [wheat_planted, carrot_planted, pumpkin_planted]
+      - {parts: [wheat_young], show: [wheat_sprouting]}
+      - {parts: [wheat_ripe], show: [wheat_grown]}
+      - {parts: [carrot_young], show: [carrot_sprouting]}
+      - {parts: [carrot_ripe], show: [carrot_grown]}
+      - {parts: [pumpkin_young], show: [pumpkin_sprouting]}
+      - {parts: [pumpkin_ripe], show: [pumpkin_grown]}
+
+rules:
+  - id: plant_wheat
+    on: {signal: bed.received}
+    when: "event.item == 'wheat_seeds' and self.crop == 'empty'"
+    do: [{set: self.crop, to: wheat_planted}]
+  - id: plant_carrot
+    on: {signal: bed.received}
+    when: "event.item == 'carrot_seeds' and self.crop == 'empty'"
+    do: [{set: self.crop, to: carrot_planted}]
+  - id: plant_pumpkin
+    on: {signal: bed.received}
+    when: "event.item == 'pumpkin_seeds' and self.crop == 'empty'"
+    do: [{set: self.crop, to: pumpkin_planted}]
+  - id: harvest_wheat
+    on: {signal: self.harvested_wheat}
+    do: [{give: wheat, count: 4}, {notify: "Harvested: Wheat"}]
+  - id: harvest_carrot
+    on: {signal: self.harvested_carrot}
+    do: [{give: carrot, count: 6}, {notify: "Harvested: Carrots"}]
+  - id: harvest_pumpkin
+    on: {signal: self.harvested_pumpkin}
+    do: [{give: pumpkin, count: 1}, {notify: "Harvested: Pumpkin"}]
+
+signals:
+  harvested_wheat: {emit: harvested_wheat}
+  harvested_carrot: {emit: harvested_carrot}
+  harvested_pumpkin: {emit: harvested_pumpkin}

@@ -28,6 +28,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
+| [plot_test](#plot_test) | Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat, carrots and pumpkins by row; planted, sprouting and grown by column). |  |
 | [quest_yard](#quest_yard) | A plaza for trying quests and the quest HUD (docs/quests.md). | showcase |
 | [rail_loop_test](#rail_loop_test) | Test scene for city exits and a loop railway: a 2 x 2 grid whose avenues run on out of town across a railway looping round it (four level crossings), two stations on the straights and two trains. | test |
 | [restaurant](#restaurant) | The restaurant showcase: assets/restaurant_building.yaml on a street corner. | showcase |
@@ -412,6 +413,18 @@ colours, skin tones and outfits. The cottage places it on the front lawn; faces 
 **Places**: `petite_bob: {asset: characters/humanoid.yaml}`; `slim_ponytail: {asset: characters/humanoid.yaml}`; `curvy_long: {asset: characters/humanoid.yaml}`; `tall_bun: {asset: characters/humanoid.yaml}`; `heavy_crop_f: {asset: characters/humanoid.yaml}`; `lanky_buzz: {asset: characters/humanoid.yaml}`; `athletic_crop: {asset: characters/humanoid.yaml}`; `stocky_bald: {asset: characters/humanoid.yaml}`; `heavy_grey: {asset: characters/humanoid.yaml}`; `tall_long_m: {asset: characters/humanoid.yaml}`; `hourglass: {asset: characters/humanoid.yaml}`
 
 **Slots**: athletic_crop, curvy_long, heavy_crop_f, heavy_grey, hourglass, lanky_buzz, petite_bob, slim_ponytail, stocky_bald, tall_bun, tall_long_m
+
+## plot_test
+
+`scene: scenes/plot_test.yaml` · [source](../../assets/scenes/plot_test.yaml)
+
+Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of
+seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat,
+carrots and pumpkins by row; planted, sprouting and grown by column).
+
+**Places**: `plot: {asset: farm_plot.yaml}`; `seeds: {scene: vending_machine.yaml}`; `wheat_1: {asset: farm_plot.yaml}`; `wheat_2: {asset: farm_plot.yaml}`; `wheat_3: {asset: farm_plot.yaml}`; `carrot_1: {asset: farm_plot.yaml}`; `carrot_2: {asset: farm_plot.yaml}`; `carrot_3: {asset: farm_plot.yaml}`; `pumpkin_1: {asset: farm_plot.yaml}`; `pumpkin_2: {asset: farm_plot.yaml}`; `pumpkin_3: {asset: farm_plot.yaml}`
+
+**Slots**: c1, c2, c3, p1, p2, p3, plot, seeds, w1, w2, w3
 
 ## quest_yard
 

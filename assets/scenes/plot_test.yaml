@@ -1,0 +1,38 @@
+# Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of
+# seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat,
+# carrots and pumpkins by row; planted, sprouting and grown by column).
+
+name: plot_test
+size: [8, 2, 9]
+
+slots:
+  plot:    {position: [0, 0, 2.6]}
+  seeds:   {position: [2.4, 0, 2.6], facing: west}
+  w1: {position: [-1.6, 0, -2.4]}
+  w2: {position: [0, 0, -2.4]}
+  w3: {position: [1.6, 0, -2.4]}
+  c1: {position: [-1.6, 0, -0.8]}
+  c2: {position: [0, 0, -0.8]}
+  c3: {position: [1.6, 0, -0.8]}
+  p1: {position: [-1.6, 0, 0.8]}
+  p2: {position: [0, 0, 0.8]}
+  p3: {position: [1.6, 0, 0.8]}
+
+place:
+  plot: {asset: farm_plot.yaml, slot: plot}
+  seeds:
+    scene: vending_machine.yaml
+    slot: seeds
+    params: {colour: british_green, title: SEEDS,
+             a: wheat_seeds, a_label: Wheat seeds, a_stock: packet, a_tint: taxi_yellow,
+             b: carrot_seeds, b_label: Carrot seeds, b_stock: packet, b_tint: orange,
+             c: pumpkin_seeds, c_label: Pumpkin seeds, c_stock: packet, c_tint: british_green, d: ""}
+  wheat_1:   {asset: farm_plot.yaml, slot: w1, state: wheat_planted}
+  wheat_2:   {asset: farm_plot.yaml, slot: w2, state: wheat_sprouting}
+  wheat_3:   {asset: farm_plot.yaml, slot: w3, state: wheat_grown}
+  carrot_1:  {asset: farm_plot.yaml, slot: c1, state: carrot_planted, params: {seed: 1}}
+  carrot_2:  {asset: farm_plot.yaml, slot: c2, state: carrot_sprouting, params: {seed: 1}}
+  carrot_3:  {asset: farm_plot.yaml, slot: c3, state: carrot_grown, params: {seed: 1}}
+  pumpkin_1: {asset: farm_plot.yaml, slot: p1, state: pumpkin_planted, params: {seed: 2}}
+  pumpkin_2: {asset: farm_plot.yaml, slot: p2, state: pumpkin_sprouting, params: {seed: 2}}
+  pumpkin_3: {asset: farm_plot.yaml, slot: p3, state: pumpkin_grown, params: {seed: 2}}

@@ -1,0 +1,24 @@
+# A pumpkin: a squashed orange ball with a stalk. The body of items/pumpkin.yaml (a
+# carryable physics prop). Origin: bottom centre.
+
+name: pumpkin
+tags: [prop.crop]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+physics: {mass: 3.0, friction: 0.8, bounce: 0.05, carry: true}
+
+parts:
+  fruit:
+    primitive: ellipsoid
+    size: [0.3, 0.22, 0.3]
+    anchor: bottom_center
+    material: pumpkin_skin
+  stalk:
+    primitive: cylinder
+    size: [0.03, 0.06, 0.03]
+    attach_to: fruit
+    at: top
+    offset: [0, -0.01, 0]
+    material: bark
