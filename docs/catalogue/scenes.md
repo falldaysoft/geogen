@@ -10,16 +10,17 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
-| [crop_test](#crop_test) | Review scene for the crop generator: wheat, carrots and pumpkins (rows, back to front) at growth 0.15, 0.5, 0.8 and 1 (left to right). |  |
+| [crop_test](#crop_test) | Review scene for the crop generator: wheat, carrots and pumpkins (rows, back to front) at growth 0.15, 0.5, 0.8 and 1 (left to right). | test |
 | [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic and a few pedestrians. | test |
 | [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
+| [farm](#farm) | A small farm: a fenced field of eight plots, a seed machine and a produce counter on the yard, and a shed to sleep in. | showcase |
 | [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two waves of raiders (6 hp) down a lane past a turret. | test |
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
 | [hotel_room](#hotel_room) | Furnished hotel suite (hand-placed; the furnishing solver, geogen-3cc.6, will do this from room archetypes). | test |
 | [hotel_room_auto](#hotel_room_auto) | The hotel suite furnished automatically from its rooms' archetypes (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand). | test |
 | [hotel_showcase](#hotel_showcase) | The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors, stairs and a working lift) on a short street: a paved forecourt with lamps, benches and planters, taxis waiting at the kerb, a receptionist at the desk, guests upstairs, people strolling past, and a travel door back to the hub. | showcase |
 | [house_plot](#house_plot) | House plot - a yard with a house. |  |
-| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side (angles from -Z: +-84, 21 degrees apart, for nine portals; re-space them when a showcase is added). | showcase |
+| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
 | [island](#island) | The island showcase: a small island in the sea. | showcase |
@@ -28,7 +29,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
-| [plot_test](#plot_test) | Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat, carrots and pumpkins by row; planted, sprouting and grown by column). |  |
+| [plot_test](#plot_test) | Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat, carrots and pumpkins by row; planted, sprouting and grown by column). | test |
 | [quest_yard](#quest_yard) | A plaza for trying quests and the quest HUD (docs/quests.md). | showcase |
 | [rail_loop_test](#rail_loop_test) | Test scene for city exits and a loop railway: a 2 x 2 grid whose avenues run on out of town across a railway looping round it (four level crossings), two stations on the straights and two trains. | test |
 | [restaurant](#restaurant) | The restaurant showcase: assets/restaurant_building.yaml on a street corner. | showcase |
@@ -201,6 +202,23 @@ runtime/godot/README.md.
 
 **Features**: city
 
+## farm
+
+`scene: scenes/farm.yaml` · [source](../../assets/scenes/farm.yaml)
+
+A small farm: a fenced field of eight plots, a seed machine and a produce counter on the
+yard, and a shed to sleep in. Buy a packet of seeds (gold, from the machine), carry it to
+a plot and drop it on the soil to plant it; the crop grows on the game clock, a stage
+every six hours, and keeps growing while you are away. Sleep in the shed to skip to the
+morning, harvest the grown plot (E) and sell the crop at the counter. The HUD shows your
+gold and the time; the "First harvest" quest walks through it once.
+
+**Places**: `ground: {asset: ground.yaml}`; `field: {asset: farm_field.yaml}`; `plot_1: {asset: farm_plot.yaml}`; `plot_2: {asset: farm_plot.yaml}`; `plot_3: {asset: farm_plot.yaml}`; `plot_4: {asset: farm_plot.yaml}`; `plot_5: {asset: farm_plot.yaml}`; `plot_6: {asset: farm_plot.yaml}`; `plot_7: {asset: farm_plot.yaml}`; `plot_8: {asset: farm_plot.yaml}`; `seeds: {scene: vending_machine.yaml}`; `counter: {asset: produce_counter.yaml}`; `shed: {asset: farm_shed.yaml}`; `hub_portal: {asset: portal.yaml}`; `tree_1: {asset: maple_tree.yaml}`; `tree_2: {asset: maple_tree.yaml}`; `tree_3: {asset: pine_tree.yaml}`; `tree_4: {asset: maple_tree.yaml}`
+
+**Slots**: counter, field, hub_portal, plot_1, plot_2, plot_3, plot_4, plot_5, plot_6, plot_7, plot_8, seeds, shed, tree_1, tree_2, tree_3, tree_4
+
+**Spawns**: from_hub
+
 ## flow_test
 
 `scene: scenes/flow_test.yaml` · [source](../../assets/scenes/flow_test.yaml)
@@ -284,17 +302,17 @@ Contains a yard (ground) and a house
 `scene: scenes/hub.yaml` · [source](../../assets/scenes/hub.yaml)
 
 The hub: a round plaza with one labelled portal per showcase scene, spread
-evenly round the far (-Z) side (angles from -Z: +-84, 21 degrees apart, for nine portals;
+evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals;
 re-space them when a showcase is added). Each portal lands at its scene's
 `from_hub` spawn, and every showcase has a portal or travel door back here
 that lands in front of its own portal (`from_<name>`). It's the runtime
 catalogue's default scene; tests/test_hub.py checks the round trips.
 
-**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
+**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `portal_farm: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
 
-**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_hotel, portal_island, portal_main_street, portal_park, portal_quests, portal_restaurant, portal_town, sign
+**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_farm, portal_hotel, portal_island, portal_main_street, portal_park, portal_quests, portal_restaurant, portal_town, sign
 
-**Spawns**: from_city, from_cottage, from_hotel, from_island, from_main_street, from_park, from_quests, from_restaurant, from_town, start
+**Spawns**: from_city, from_cottage, from_farm, from_hotel, from_island, from_main_street, from_park, from_quests, from_restaurant, from_town, start
 
 ## humanoid_lineup
 

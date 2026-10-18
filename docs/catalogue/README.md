@@ -378,31 +378,33 @@ place:
 <td align="center"><a href="assets/carrot_bunch.md"><img src="img/carrot_bunch.png" width="150" alt="carrot_bunch"><br>carrot_bunch</a></td>
 <td align="center"><a href="assets/conveyor.md"><img src="img/conveyor.png" width="150" alt="conveyor"><br>conveyor</a></td>
 <td align="center"><a href="assets/crisps_bag.md"><img src="img/crisps_bag.png" width="150" alt="crisps_bag"><br>crisps_bag</a></td>
+<td align="center"><a href="assets/farm_field.md"><img src="img/farm_field.png" width="150" alt="farm_field"><br>farm_field</a></td>
 <td align="center"><a href="assets/farm_plot.md"><img src="img/farm_plot.png" width="150" alt="farm_plot"><br>farm_plot</a></td>
-<td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/farm_shed.md"><img src="img/farm_shed.png" width="150" alt="farm_shed"><br>farm_shed</a></td>
+<td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 <td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
-<td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
-<td align="center"><a href="assets/produce_counter.md"><img src="img/produce_counter.png" width="150" alt="produce_counter"><br>produce_counter</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
+<td align="center"><a href="assets/produce_counter.md"><img src="img/produce_counter.png" width="150" alt="produce_counter"><br>produce_counter</a></td>
 <td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
 <td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
-<td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
-<td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
+<td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 <td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
 <td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
-<td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
-<td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
+<td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 <td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 </tr>
 </table>
@@ -412,7 +414,9 @@ place:
 | [carrot_bunch](assets/carrot_bunch.md) | A bunch of carrots: three orange roots side by side with their green tops. |  |
 | [conveyor](assets/conveyor.md) | A belt conveyor: a black rubber belt between steel rails on four legs. | `length`, `height`, `width`, `speed`, `end` |
 | [crisps_bag](assets/crisps_bag.md) | A bag of crisps. | `colour` |
+| [farm_field](assets/farm_field.md) | A farm's field: a fenced rectangle of grass for plots, with a gate gap in the east side and a gravel track from it. | `width`, `depth` |
 | [farm_plot](assets/farm_plot.md) | A tilled plot to grow a crop in: a raised bed of soil. | `stage_hours`, `seed` |
+| [farm_shed](assets/farm_shed.md) | A farm's lean-to shed to sleep in: a plank floor, three board walls and a sloping roof, open at the front, with a cot inside. |  |
 | [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
 | [lever](assets/lever.md) | A floor lever: a cast base with a handle that throws forward and back. | `height` |
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |

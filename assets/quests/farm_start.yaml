@@ -1,0 +1,29 @@
+# The farm's starter quest: the whole loop once. Buy seeds from the machine, drop the packet
+# on a plot, sleep in the shed until it has grown, harvest it and sell the crop.
+kind: quest
+version: 1
+title: First harvest
+description: Grow something and sell it.
+start: auto
+ordered: true
+objectives:
+  - id: buy
+    text: Buy a packet of seeds from the machine
+    done: 'ref("seeds/chute_a").emitted + ref("seeds/chute_b").emitted + ref("seeds/chute_c").emitted >= 1'
+    marker: seeds
+  - id: plant
+    text: Drop the packet on a plot to plant it
+    done: 'count("[tag=farm.plot]", it.crop != "empty") >= 1'
+    marker: field
+  - id: sleep
+    text: Sleep in the shed until it has grown
+    done: {signal: shed.slept}
+    marker: shed
+  - id: harvest
+    text: Harvest your crop
+    done: 'has("wheat") or has("carrot") or has("pumpkin")'
+    marker: field
+  - id: sell
+    text: Sell it at the produce counter
+    done: 'actor.sold >= 1'
+    marker: counter

@@ -1,0 +1,87 @@
+# A small farm: a fenced field of eight plots, a seed machine and a produce counter on the
+# yard, and a shed to sleep in. Buy a packet of seeds (gold, from the machine), carry it to
+# a plot and drop it on the soil to plant it; the crop grows on the game clock, a stage
+# every six hours, and keeps growing while you are away. Sleep in the shed to skip to the
+# morning, harvest the grown plot (E) and sell the crop at the counter. The HUD shows your
+# gold and the time; the "First harvest" quest walks through it once.
+
+name: farm
+size: [30, 4, 30]
+tags: [showcase.farm]
+
+state:
+  gold: {scope: actor, type: number, default: 10}
+
+hud:
+  stats:
+    - {label: Gold, value: actor.gold}
+    - {label: Time, value: clock.time}
+
+quests: [quests/farm_start.yaml]
+
+spawns:
+  from_hub: { position: [4.0, 0.1, -8.6], facing: north }     # in front of the hub portal
+
+slots:
+  field: { position: [-4.0, 0, 0], facing: north }
+  plot_1: { position: [-7.0, 0.05, -1.7], facing: north }
+  plot_2: { position: [-5.0, 0.05, -1.7], facing: north }
+  plot_3: { position: [-3.0, 0.05, -1.7], facing: north }
+  plot_4: { position: [-1.0, 0.05, -1.7], facing: north }
+  plot_5: { position: [-7.0, 0.05, 1.7], facing: north }
+  plot_6: { position: [-5.0, 0.05, 1.7], facing: north }
+  plot_7: { position: [-3.0, 0.05, 1.7], facing: north }
+  plot_8: { position: [-1.0, 0.05, 1.7], facing: north }
+  seeds: { position: [6.5, 0.05, -2.5], facing: west }
+  counter: { position: [6.5, 0.05, 2.5], facing: west }
+  shed: { position: [3.0, 0.05, 9.0], facing: south }
+  hub_portal: { position: [4.0, 0.05, -11.0], facing: north }
+  tree_1: { position: [-11.0, 0.05, -8.0], facing: north }
+  tree_2: { position: [-11.5, 0.05, 6.5], facing: north }
+  tree_3: { position: [11.0, 0.05, 9.5], facing: north }
+  tree_4: { position: [11.5, 0.05, -9.0], facing: north }
+
+place:
+  ground: { asset: ground.yaml, params: { width: 30, depth: 30 } }
+  field: { asset: farm_field.yaml, slot: field }
+  plot_1: { asset: farm_plot.yaml, slot: plot_1, params: { seed: 1 } }
+  plot_2: { asset: farm_plot.yaml, slot: plot_2, params: { seed: 2 } }
+  plot_3: { asset: farm_plot.yaml, slot: plot_3, params: { seed: 3 } }
+  plot_4: { asset: farm_plot.yaml, slot: plot_4, params: { seed: 4 } }
+  plot_5: { asset: farm_plot.yaml, slot: plot_5, params: { seed: 5 } }
+  plot_6: { asset: farm_plot.yaml, slot: plot_6, params: { seed: 6 } }
+  plot_7: { asset: farm_plot.yaml, slot: plot_7, params: { seed: 7 } }
+  plot_8: { asset: farm_plot.yaml, slot: plot_8, params: { seed: 8 } }
+  seeds:
+    scene: vending_machine.yaml
+    slot: seeds
+    params:
+      colour: british_green
+      title: SEEDS
+      a: wheat_seeds
+      a_label: "Wheat seeds (5 gold)"
+      a_price: 5
+      a_stock: packet
+      a_tint: taxi_yellow
+      b: carrot_seeds
+      b_label: "Carrot seeds (3 gold)"
+      b_price: 3
+      b_stock: packet
+      b_tint: orange
+      c: pumpkin_seeds
+      c_label: "Pumpkin seeds (6 gold)"
+      c_price: 6
+      c_stock: packet
+      c_tint: british_green
+      d: ""
+  counter: { asset: produce_counter.yaml, slot: counter }
+  shed: { asset: farm_shed.yaml, slot: shed }
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_farm }
+  tree_1: { asset: maple_tree.yaml, slot: tree_1, seed: 1 }
+  tree_2: { asset: maple_tree.yaml, slot: tree_2, seed: 2 }
+  tree_3: { asset: pine_tree.yaml, slot: tree_3, seed: 3 }
+  tree_4: { asset: maple_tree.yaml, slot: tree_4, seed: 4 }

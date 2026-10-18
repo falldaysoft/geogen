@@ -1,0 +1,105 @@
+# A farm's lean-to shed to sleep in: a plank floor, three board walls and a sloping roof,
+# open at the front, with a cot inside. Use the cot to sleep until 06:00 (a skip effect:
+# the clock jumps on and whatever is growing catches up). Origin: on the ground at the
+# floor's middle; the open side faces +Z.
+
+name: farm_shed
+tags: [farm.shed]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  floor:
+    primitive: cube
+    size: [3.2, 0.1, 2.4]
+    anchor: bottom_center
+    bevel: 0
+    material: wood
+    walkable: true
+  back:
+    primitive: cube
+    size: [3.2, 2.4, 0.1]
+    anchor: bottom_center
+    offset: [0, 0.1, -1.15]
+    bevel: 0
+    material: wood_dark
+  side_l: &side
+    primitive: cube
+    size: [0.1, 2.1, 2.2]            # up to the back wall, not into it
+    anchor: bottom_center
+    offset: [-1.55, 0.1, 0.0]
+    bevel: 0
+    material: wood_dark
+  side_r:
+    <<: *side
+    offset: [1.55, 0.1, 0.0]
+  gable_l: &gable              # the wedge between the side's top and the sloping roof
+    primitive: prism
+    size: [0.1, 0.3, 2.2]
+    apex: back
+    anchor: bottom_center
+    offset: [-1.55, 2.2, 0.0]
+    material: wood_dark
+  gable_r:
+    <<: *gable
+    offset: [1.55, 2.2, 0.0]
+  roof:
+    primitive: cube
+    size: [3.5, 0.08, 2.9]
+    anchor: bottom_center
+    offset: [0, 2.3, 0.05]
+    rotation: [7, 0, 0]              # down from the back wall to the open front
+    bevel: 0
+    material: roof_shingle
+  cot_frame:
+    primitive: cube
+    size: [0.8, 0.35, 1.9]
+    anchor: bottom_center
+    offset: [-0.9, 0.1, -0.1]
+    bevel: 0.02
+    material: wood
+  mattress:
+    primitive: cube
+    size: [0.74, 0.12, 1.84]
+    attach_to: cot_frame
+    at: top
+    bevel: 0.04
+    material: bedding_white
+  pillow:
+    primitive: cube
+    size: [0.5, 0.08, 0.3]
+    attach_to: mattress
+    at: top
+    offset: [0, 0, -0.7]
+    bevel: 0.035
+    material: bedding_white
+    collider: none
+  blanket:
+    primitive: cube
+    size: [0.76, 0.03, 1.0]
+    attach_to: mattress
+    at: top
+    offset: [0, 0, 0.35]
+    bevel: 0.01
+    bevel_segments: 1
+    material: cloth
+    tint: british_green
+    collider: none
+
+interactions:
+  sleep:
+    targets: [mattress, pillow, blanket]
+    initial: awake
+    duration: 0.1
+    states:
+      awake:  {prompt: "Sleep until morning", next: asleep}
+      asleep: {then: awake, after: 0.5, emit: slept}
+
+rules:
+  - id: until_morning
+    on: {signal: self.slept}
+    do: [{skip: {to: "06:00"}}, {notify: "You sleep until morning"}]
+
+signals:
+  slept: {emit: slept}

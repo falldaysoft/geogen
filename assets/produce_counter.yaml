@@ -169,17 +169,18 @@ interactions:
 
 state:
   gold: {scope: actor, type: number, default: 0}    # the seller's purse (the scene's default wins)
+  sold: {scope: actor, type: number, default: 0}    # how many things they have sold here
 
 rules:
   - id: buy_wheat
     on: {signal: self.sold_wheat}
-    do: [{take: wheat}, {set: actor.gold, to: "actor.gold + {wheat_price}"}, {notify: "Sold: Wheat (+{wheat_price} gold)"}, {play: success}]
+    do: [{take: wheat}, {set: actor.gold, to: "actor.gold + {wheat_price}"}, {set: actor.sold, to: "actor.sold + 1"}, {notify: "Sold: Wheat (+{wheat_price} gold)"}, {play: success}]
   - id: buy_carrot
     on: {signal: self.sold_carrot}
-    do: [{take: carrot}, {set: actor.gold, to: "actor.gold + {carrot_price}"}, {notify: "Sold: Carrots (+{carrot_price} gold)"}, {play: success}]
+    do: [{take: carrot}, {set: actor.gold, to: "actor.gold + {carrot_price}"}, {set: actor.sold, to: "actor.sold + 1"}, {notify: "Sold: Carrots (+{carrot_price} gold)"}, {play: success}]
   - id: buy_pumpkin
     on: {signal: self.sold_pumpkin}
-    do: [{take: pumpkin}, {set: actor.gold, to: "actor.gold + {pumpkin_price}"}, {notify: "Sold: Pumpkin (+{pumpkin_price} gold)"}, {play: success}]
+    do: [{take: pumpkin}, {set: actor.gold, to: "actor.gold + {pumpkin_price}"}, {set: actor.sold, to: "actor.sold + 1"}, {notify: "Sold: Pumpkin (+{pumpkin_price} gold)"}, {play: success}]
 
 signals:
   sold_wheat: {emit: sold_wheat}

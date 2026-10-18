@@ -1,0 +1,31 @@
+# A farm's field: a fenced rectangle of grass for plots, with a gate gap in the east
+# side and a gravel track from it. Origin: on the ground at the field's middle.
+
+name: farm_field
+tags: [farm.field]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: {default: 9}
+  depth: {default: 8}
+
+parts:
+  fence:
+    primitive: fence
+    path: [["{-width / 2}", "{-depth / 2}"], ["{width / 2}", "{-depth / 2}"],
+           ["{width / 2}", "{depth / 2}"], ["{-width / 2}", "{depth / 2}"]]
+    closed: true
+    height: 1.0
+    gaps: [["{width + depth / 2 - 0.9}", "{width + depth / 2 + 0.9}"]]
+    offset: [0, 0.05, 0]
+    material: wood
+  track:
+    primitive: cube
+    size: [4.0, 0.023, 1.6]          # 3 mm proud of the fence's foot: no shared plane
+    anchor: bottom_center
+    offset: ["{width / 2 + 2.0}", 0.053, 0]
+    bevel: 0
+    material: gravel
+    walkable: true

@@ -285,6 +285,7 @@ Keys: `available`, `description`, `fail`, `holder`, `id`, `objectives`, `ordered
 | [quests/catch_train.yaml](../../assets/quests/catch_train.yaml) | Catch the train: the "timed, can fail" quest. |
 | [quests/climb_lighthouse.yaml](../../assets/quests/climb_lighthouse.yaml) | Climb to the lighthouse gallery, for an NPC: whoever a scene gives it to (an NPC placement's `quests:`) walks up the spiral stair and out onto the gallery deck. |
 | [quests/deliver_parcel.yaml](../../assets/quests/deliver_parcel.yaml) | Fetch and deliver (geogen.15.7): the hotel receptionist hands over a parcel and the key to room 207 (dialogues/receptionist.yaml, in scenes/hotel_showcase.yaml); let yourself in with the key (L unlocks the door) and give the parcel to the guest. |
+| [quests/farm_start.yaml](../../assets/quests/farm_start.yaml) | The farm's starter quest: the whole loop once. |
 | [quests/jetty_trip.yaml](../../assets/quests/jetty_trip.yaml) | The jetty trip (packages/jetty_trip.yaml gives it when the player takes the hub's portal to the island). |
 | [quests/lighthouse_gallery.yaml](../../assets/quests/lighthouse_gallery.yaml) | Climb to the lighthouse gallery: the "go there" quest, one place to reach. |
 | [quests/lights_out.yaml](../../assets/quests/lights_out.yaml) | Switch off every light in the cottage: the "change the world" quest. |

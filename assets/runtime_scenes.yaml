@@ -48,10 +48,19 @@ scenes:
     group: showcase
     stream: true
     description: The M3 district - streets, shops, the hotel, traffic, pedestrians and a railway
+  farm:
+    group: showcase
+    description: A small farm - buy seeds, plant them, sleep while they grow, harvest and sell the crop
 
   hotel:
     group: test
     description: The hotel building on its own (no hub door)
+  plot_test:
+    group: test
+    description: A farm plot at every stage, an empty one to plant and a free seed machine
+  crop_test:
+    group: test
+    description: The crop generator - wheat, carrots and pumpkins at four growth stages
   flow_test:
     group: test
     description: Spawned items - parcels ride two belts into a sink, rovers drive a gravel lane, the HUD counts them

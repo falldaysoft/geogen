@@ -109,3 +109,40 @@ def test_the_counter_buys_crops_for_gold(tmp_path):
     assert ["notify", "Sold: Carrots (+2 gold)", "player"] in m.feedback
     assert not sell("carrot") and ["notify", "No carrots to sell", "player"] in m.feedback
     assert not sell("pumpkin")
+
+
+def test_in_godot_the_first_harvest_quest_is_played_through(godot_runtime, scene_export):
+    rt = godot_runtime("farm", scene_export("farm"))
+    status = lambda: rt.call("quests.list")                                           # noqa: E731
+    gold = lambda: rt.call("state.get", key="actor:farm.gold")["value"]              # noqa: E731
+    assert gold() == 10
+    rt.call("interactions.use", asset="cabinet", interaction="a", actor="player")     # wheat seeds, 5 gold
+    rt.call("time.advance", seconds=3, scale=1)
+    assert gold() == 5
+    (packet,) = rt.call("flows.list")["items"]
+    x, y, z = packet["position"]
+    rt.call("player.teleport", pos=[x - 0.75, 0.1, z], yaw=-90)
+    rt.call("time.advance", seconds=0.3, scale=1)
+    rt.call("player.look", at=[x, y, z])
+    rt.call("time.step", frames=3)
+    rt.call("time.resume")
+    assert rt.call("player.use")["kind"] == "carry"
+    walk = rt.call("player.walk_to", pos=[-1.0, 0.1, -0.2])                          # through the gate, beside plot 4
+    assert walk["reached"], walk
+    rt.call("player.look", at=[-1.0, 0.3, -1.7])
+    rt.call("time.advance", seconds=1, scale=1)
+    rt.call("player.drop")
+    rt.call("time.advance", seconds=2, scale=1)
+    plot = lambda: rt.call("interactions.list", asset="plot_4")[0]["state"]          # noqa: E731
+    assert plot() == "wheat_planted"
+    rt.call("interactions.use", asset="shed", interaction="sleep", actor="player")    # until 06:00: grown overnight
+    rt.call("time.advance", seconds=2, scale=1)
+    assert rt.call("time.clock")["clock"].startswith("06:") and plot() == "wheat_grown"
+    rt.call("interactions.use", asset="plot_4", interaction="crop", actor="player")
+    rt.call("time.advance", seconds=1, scale=1)
+    for _ in range(4):
+        rt.call("interactions.use", asset="counter", interaction="sell_wheat", actor="player")
+        rt.call("time.advance", seconds=0.5, scale=1)
+    assert gold() == 5 + 4 * 3
+    (quest,) = [q for q in status() if q["id"] == "farm_start"]
+    assert quest["status"] == "complete", quest
