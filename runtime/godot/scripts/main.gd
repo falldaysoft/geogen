@@ -71,7 +71,7 @@ extends Node3D
 ##   --manifest=PATH               print the player spec read from PATH
 ##   --menu                        open the scene list at start (screenshots)
 ##   --timings                     print each load's phases ("load timings: {...}", ms) and whether
-##                                 the navmesh came from <generated>/.navcache
+##                                 the navmesh came from <generated>/navcache
 ##   --list-scenes                 print the scene catalogue (name, group, exported, description), quit
 ##   --trace=FILE                  replay a rules conformance trace (docs/rules.md) without loading a
 ##                                 world; prints "trace: {name, problems}", exits 1 on problems (repeatable)
@@ -118,6 +118,10 @@ var _loading: Label
 var _open_menu_at_start := false
 var _fade: ColorRect
 const FADE_SECONDS := 0.25
+## The Compatibility renderer (the web build's) lights the same scene about twice as bright as
+## Forward+: it runs at this exposure, with the sky's energy raised to match.
+const COMPATIBILITY_EXPOSURE := 0.6
+const COMPATIBILITY_SKY := 1.4
 
 const SETTINGS_PATH := "user://settings.cfg"
 var _day_length := 1440.0
@@ -315,6 +319,9 @@ func _ready() -> void:
     clock.day_length = _day_length
     clock.sun = $Sun
     clock.environment = ($WorldEnvironment as WorldEnvironment).environment
+    if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+        clock.environment.tonemap_exposure = COMPATIBILITY_EXPOSURE
+        clock.environment.sky.sky_material.energy_multiplier = COMPATIBILITY_SKY
     clock.world = world
     world.clock = clock
     if world.scene_name == "all":
@@ -566,6 +573,13 @@ func _travel(travel: Dictionary) -> void:
     _travelling = true
     var scene := str(travel.get("scene", ""))
     var spawn_name := str(travel.get("spawn", ""))
+    if scene != "" and scene != world.scene_name and not world.is_exported(scene):
+        # A portal to a scene this build leaves out (the web build ships a few): say so, stay.
+        (hud.panel("notifications") as GeogenHudNotifications).notice("%s isn't in this build" % scene.capitalize())
+        print("travelled: %s" % JSON.stringify({"scene": world.scene_name, "spawn": spawn_name, "ok": false,
+            "via": travel.get("on", "use"), "missing": scene}))
+        _travelling = false
+        return
     player.scripted_move = null
     player.process_mode = Node.PROCESS_MODE_DISABLED
     await _fade_to(1.0)

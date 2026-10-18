@@ -130,6 +130,14 @@ func item_note(kind: String, text: String) -> void:
     set_process(true)
 
 
+## A `notice` toast of ``text`` from the runtime itself (a portal to a scene that isn't exported).
+func notice(text: String) -> void:
+    _raised += 1
+    _queue.append({"seq": _raised, "kind": "notice", "package": _hud.world.rules.package, "quest": "",
+        "heading": "", "text": text})
+    set_process(true)
+
+
 ## Drop every toast, shown or waiting.
 func clear() -> void:
     _queue.clear()

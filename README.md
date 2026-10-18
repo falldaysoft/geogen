@@ -6,6 +6,8 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 
 **[Browse the asset catalogue](https://falldaysoft.github.io/geogen/)**: every primitive, asset and scene, with thumbnails and parameters.
 
+**[Play it in the browser](https://falldaysoft.github.io/geogen/play/)**: the Godot runtime built for the web, starting at the hub, with the cottage, the farm, the island and the quest yard (about 110 MB to download; a desktop browser with WebGL 2).
+
 ## Examples
 
 **Town**: a `city:` scene. It has a street grid with an avenue and sidewalks, zoned lots and street furniture. Buildings are generated to fit their lots:

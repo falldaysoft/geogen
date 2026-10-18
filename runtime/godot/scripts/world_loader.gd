@@ -124,7 +124,7 @@ var prime_focus = null
 var prime_spawn := ""
 ## Optional [full, lod, interior] radii for the streamer (metres).
 var stream_radii := PackedFloat64Array()
-## Reuse baked navmeshes from <generated>/.navcache when the export hasn't changed.
+## Reuse baked navmeshes from <generated>/navcache when the export hasn't changed.
 var nav_cache := true
 const NAV_CACHE_VERSION := 1
 ## Load phases of the last load_all (ms; streamed chunks' setup adds up too), and whether to

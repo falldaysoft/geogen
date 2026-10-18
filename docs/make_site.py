@@ -30,6 +30,7 @@ CATALOGUE = Path(__file__).parent / "catalogue"
 REPO_ROOT = Path(__file__).parent.parent
 NAV = [("index.html", "Assets"), ("primitives.html", "Primitives"), ("vocabulary.html", "Vocabulary"),
        ("scenes.html", "Scenes")]
+PLAY = ("play/", "Play")     # the web build of the Godot runtime, when the site has one (pages.yml)
 
 CSS = """
 :root {
@@ -131,6 +132,7 @@ class Site:
         self.source = source.resolve()
         self.repo = repo.rstrip("/")
         self.ref = ref
+        self.play = False
 
     # -- links -----------------------------------------------------------------------------
 
@@ -259,7 +261,8 @@ class Site:
         title, body = self.body(text, page)
         root = "../" * page.count("/")
         here = "index.html" if page.startswith("assets/") or page == "README.md" else page[:-3] + ".html"
-        nav = "".join(f'<a href="{root}{href}"{" class=here" if href == here else ""}>{label}</a>' for href, label in NAV)
+        nav = "".join(f'<a href="{root}{href}"{" class=here" if href == here else ""}>{label}</a>'
+                      for href, label in NAV + ([PLAY] if self.play else []))
         extra = ""
         if page == "README.md":
             # The filter goes above the first category; the usage example stays with the intro.
@@ -283,6 +286,7 @@ class Site:
 
     def build(self, out: Path) -> int:
         out.mkdir(parents=True, exist_ok=True)
+        self.play = (out / PLAY[0] / "index.html").exists()      # copied in before the pages are made
         count = 0
         for md in sorted(self.source.rglob("*.md")):
             page = md.relative_to(self.source).as_posix()

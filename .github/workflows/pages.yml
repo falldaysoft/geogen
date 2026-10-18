@@ -1,5 +1,6 @@
 # Publishes the asset catalogue (docs/catalogue, turned into HTML by docs/make_site.py)
-# to GitHub Pages. Needs Settings > Pages > Source set to "GitHub Actions".
+# to GitHub Pages, with the web build of the Godot runtime at play/
+# (runtime/godot/tools/export_web.py). Needs Settings > Pages > Source set to "GitHub Actions".
 name: Catalogue site
 
 on:
@@ -9,6 +10,10 @@ on:
       - docs/catalogue/**
       - docs/make_site.py
       - .github/workflows/pages.yml
+      - src/**
+      - assets/**
+      - runtime/godot/**
+      - pyproject.toml
   workflow_dispatch:
 
 permissions:
@@ -20,14 +25,70 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  GODOT_VERSION: "4.7"
+
 jobs:
+  web:
+    # The runtime and its scenes, rebuilt only when something they're made from changed.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: _play
+          key: play-${{ env.GODOT_VERSION }}-${{ hashFiles('src/**', 'assets/**', 'runtime/godot/**', 'pyproject.toml') }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Install geogen
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq libgl1 libegl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+          pip install -q -e .
+      - if: steps.cache.outputs.cache-hit != 'true'
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web
+      - if: steps.cache.outputs.cache-hit != 'true' && steps.godot-cache.outputs.cache-hit != 'true'
+        name: Download Godot and its web export template
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -sSLo godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot && rm godot.zip
+          curl -sSLo templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -qj templates.tpz templates/web_nothreads_release.zip && rm templates.tpz
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Build the web runtime
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          templates=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$templates" && cp ~/godot/web_nothreads_release.zip "$templates/"
+          python runtime/godot/tools/export_web.py _play --godot ~/godot/godot
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play
+          path: _play
+
   deploy:
+    needs: web
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: play
+          path: _site/play
       - name: Build the site
         run: python3 docs/make_site.py _site
       - uses: actions/configure-pages@v5

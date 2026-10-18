@@ -1,7 +1,7 @@
 class_name GeogenWorldNavigation
 extends RefCounted
 ## A loaded export's navmesh (WorldLoader.navigation): baked by the scene builder, or the one baked
-## last time the same export loaded with the same settings (<generated>/.navcache), synced in step
+## last time the same export loaded with the same settings (<generated>/navcache), synced in step
 ## with physics frames. Streamed exports bake per tile instead (chunk_streamer.gd).
 
 var world: WorldLoader
@@ -19,7 +19,7 @@ func in_step(nav: Node) -> void:
 
 
 ## Bake the model's navmesh, or reuse the one baked last time the same export loaded with the
-## same settings (<generated>/.navcache/<name>-<key>.scn, keyed by the export's files, the
+## same settings (<generated>/navcache/<name>-<key>.scn, keyed by the export's files, the
 ## player spec, the bake options and the baking scripts' source).
 func build(root: Node3D, manifest_path: String, model_path: String) -> void:
     var spec := PlayerSpec.from_manifest(manifest_path)
@@ -74,10 +74,13 @@ func _cache_path(root: Node3D, manifest_path: String, model_path: String, spec: 
     var model_md5 := FileAccess.get_md5(model_path)
     if model_md5 == "":
         return ""
-    var key := JSON.stringify([WorldLoader.NAV_CACHE_VERSION, ProjectSettings.globalize_path(model_path),
+    # A res:// export by its res:// path, so a bake made before exporting the project (the web
+    # build's, tools/export_web.py) matches the exported project's.
+    var where := model_path if model_path.begins_with("res://") else ProjectSettings.globalize_path(model_path)
+    var key := JSON.stringify([WorldLoader.NAV_CACHE_VERSION, where,
         model_md5, FileAccess.get_md5(manifest_path),
         spec.to_dict() if spec else {}, world.open_before_bake, world.open_only, world.ground_margin, var_to_str(root.global_transform),
         FileAccess.get_md5("res://addons/geogen/scene_builder.gd"), FileAccess.get_md5("res://scripts/world_loader.gd"),
         FileAccess.get_md5("res://scripts/world_navigation.gd")])
-    return world.generated_dir.path_join(".navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),
+    return world.generated_dir.path_join("navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),
         key.md5_text()])

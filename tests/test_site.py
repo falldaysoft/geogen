@@ -64,3 +64,11 @@ def test_markdown_subset(make_site):
     assert '<h2 id="two-words">' in body
     assert site.url("README.md", "assets/door.md") == "index.html"
     assert site.url("../README.md", "assets/door.md") == "../index.html"
+
+
+def test_play_is_in_the_nav_only_with_a_web_build(make_site, tmp_path):
+    # The web build of the Godot runtime (pages.yml copies it to play/ before making the pages).
+    (tmp_path / "play").mkdir()
+    (tmp_path / "play" / "index.html").write_text("<html></html>")
+    make_site.Site(DOCS / "catalogue", "https://github.com/example/geogen", "main").build(tmp_path)
+    assert '<a href="../play/">Play</a>' in (tmp_path / "assets" / "door.html").read_text()

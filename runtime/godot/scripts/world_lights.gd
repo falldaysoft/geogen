@@ -65,7 +65,8 @@ func add(root: Node) -> void:
         light.light_energy = float(spec.get("energy", 1.0))
         light.omni_range = float(spec.get("range", 5.0))
         light.omni_attenuation = 1.0
-        light.shadow_enabled = true
+        # Not with the Compatibility renderer (the web build), where shadowed omni lights wash out.
+        light.shadow_enabled = RenderingServer.get_current_rendering_method() != "gl_compatibility"
         light.add_to_group("geogen_light")
         if spec.get("auto") == "night":
             # Street lamps: many of them, so no shadows; on when the clock says it's dark.

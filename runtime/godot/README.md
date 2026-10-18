@@ -45,7 +45,7 @@ counts) so tests can check nothing is left behind.
 Switching fades to a "Loading ..." screen and parses the new export's GLB on
 a worker thread, so the window keeps drawing; the rest (materials, colliders,
 navmesh) runs on the main thread. Baked navmeshes are cached as packed scenes
-in `<generated>/.navcache/<name>-<key>.scn`, keyed by the export's content,
+in `<generated>/navcache/<name>-<key>.scn`, keyed by the export's content,
 the player spec, the bake options and the baking scripts' source, so loading
 an unchanged export again skips the bake (the town: 5.7 s -> 0.05 s).
 Colliders share one shape per shared (instanced) mesh. Streamed exports bake
@@ -607,6 +607,26 @@ up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the 
 `time.clock` reports `clock` and `night`, `world.lights` which lamps are on, and the NPC and traffic reports include
 `away` / `returns` and `share` / `parked`. See the night and morning tests in
 `tests/test_traffic_runtime.py`.
+
+## Web build
+
+`python runtime/godot/tools/export_web.py OUT_DIR [--scenes hub,cottage,...]` exports the
+runtime for the web (`export_presets.cfg`, preset "Web") with those catalogue scenes packed in;
+the Pages workflow (`.github/workflows/pages.yml`) publishes it at
+[falldaysoft.github.io/geogen/play](https://falldaysoft.github.io/geogen/play/). It needs Godot
+4.7's web export templates.
+
+- It builds the scenes into a staging copy of this project (not your `generated/`), bakes each
+  scene's navmesh there (`generated/navcache/`, packed with them: `res://` can't be written on
+  the web) and exports the no-threads variant, which needs no cross-origin isolation headers
+  (GitHub Pages sends none).
+- The web runs the Compatibility renderer, which lights a scene about twice as bright as
+  Forward+: under it `main.gd` lowers the exposure (`COMPATIBILITY_EXPOSURE`) and raises the
+  sky's energy, and fixture lights cast no shadows (shadowed omni lights wash out there).
+  `godot --path runtime/godot --rendering-method gl_compatibility` shows the same on the desktop.
+- A portal to a scene the build leaves out shows "<Scene> isn't in this build" and does nothing
+  else (`travelled: {"ok": false, "missing": ...}`).
+- No command-line flags on the web: it starts in the catalogue's default scene; F6 lists the scenes.
 
 ## Streaming large scenes
 

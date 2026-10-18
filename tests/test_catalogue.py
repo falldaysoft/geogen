@@ -127,7 +127,7 @@ def test_second_load_reuses_the_baked_navmesh(godot_script, built_scene, tmp_pat
     args = ("--scene=dining_set", f"--generated={tmp_path}", "--timings")
     first = _json_lines(godot_script([step("wait", frames=3)], *args).output, "load timings: ")[0]
     assert first["phases"]["nav_cache"] == "miss" and "gltf_parse" in first["phases"]
-    assert list((tmp_path / ".navcache").glob("dining_set-*.scn"))
+    assert list((tmp_path / "navcache").glob("dining_set-*.scn"))
     run = godot_script([step("wait_ready"), step("world.nav_path", **{"from": [-2, 0, 3]}, to=[2, 0, -3])], *args)
     second = _json_lines(run.output, "load timings: ")[0]
     assert second["phases"]["nav_cache"] == "hit"
@@ -137,4 +137,4 @@ def test_second_load_reuses_the_baked_navmesh(godot_script, built_scene, tmp_pat
     export_scene(built_scene("door"), tmp_path / "dining_set.glb")
     third = _json_lines(godot_script([step("wait", frames=3)], *args).output, "load timings: ")[0]
     assert third["phases"]["nav_cache"] == "miss"
-    assert len(list((tmp_path / ".navcache").glob("dining_set-*.scn"))) == 1
+    assert len(list((tmp_path / "navcache").glob("dining_set-*.scn"))) == 1
