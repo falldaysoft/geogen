@@ -41,7 +41,7 @@ const COMMANDS := {
     "player.status": "position, yaw, pitch, eye, room, scene, pose, focus, keys, on_floor, walking; stream (chunked worlds)",
     "player.teleport": "{pos, yaw?} put the player's feet at pos",
     "player.look": "{yaw?, pitch?} or {at: point}",
-    "player.move": "{forward?, strafe?, seconds} walk with the controls",
+    "player.move": "{forward?, strafe?, seconds} walk with the controls (until a travel point, then where it lands)",
     "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body, opening closed doors on the way "
         + "(a held key unlocks one) -> status: arrived | stuck | timeout | locked | refused, doors",
     "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
@@ -923,10 +923,13 @@ func _move(args: Dictionary) -> Dictionary:
     var start := player.global_position
     player.scripted_move = Vector2(float(args.get("strafe", 0.0)), float(args.get("forward", 1.0)))
     var motion := {"trace": [_v(start)], "blocked_by": null, "elapsed": 0.0, "next_sample": TRACE_SECONDS}
-    while motion["elapsed"] < seconds:
+    while motion["elapsed"] < seconds and not main.is_switching():
         await get_tree().physics_frame
         _track(motion)
     player.scripted_move = null
+    # Walked into a travel point: the walk ends there; the result is where the trip lands.
+    while main.is_switching():
+        await get_tree().physics_frame
     var result := _status()
     result.merge({"moved": snappedf(player.global_position.distance_to(start), 0.001),
         "trace": motion["trace"], "blocked_by": motion["blocked_by"]}, true)
