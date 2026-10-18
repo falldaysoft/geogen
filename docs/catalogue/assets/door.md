@@ -53,4 +53,4 @@ stand at (0, 0, 1.4) [outside]
 
 ## Portal
 
-interaction swing, open open, closed closed, center [0,1.05,-0.15], normal [0,0,1], width 0.81, height 2.1, depth 0.4, clearance 0.95
+interaction swing, open open, closed closed, center [0,1.05,-0.15], normal [0,0,1], width 0.81, height 2.1, depth 0.4, clearance 0.95, swing back, handles {front:[0.315,1.032,-0.055],back:[0.315,1.032,-0.145]}

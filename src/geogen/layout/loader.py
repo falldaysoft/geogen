@@ -1315,7 +1315,7 @@ def _meta_poses(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: s
 def _meta_portal(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
     from ..npc import parse_portal
 
-    root.meta["portal"] = parse_portal(spec, root.interactions)
+    root.meta["portal"] = parse_portal(spec, root.interactions, parts, root)
 
 
 def _meta_travel(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:

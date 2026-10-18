@@ -65,7 +65,9 @@ ATTENTION_DEFAULTS = {
               "debounce": 0.5, "acknowledge": 3.0},
     "yield": {"distance": 1.0, "step": 0.9, "action": "step_aside"},
 }
-PORTAL_KEYS = {"interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"}
+PORTAL_KEYS = {"interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance",
+               "handles", "swing"}
+PORTAL_SIDES = ("front", "back")     # +normal, -normal
 
 
 def _range(value: Any, what: str) -> list[float]:
@@ -153,14 +155,18 @@ def parse_poses(spec: dict[str, Any]) -> dict[str, dict[str, list[float]]]:
     return poses
 
 
-def parse_portal(spec: dict[str, Any], interactions: list) -> dict[str, Any]:
+def parse_portal(spec: dict[str, Any], interactions: list, parts: dict | None = None, root: Any = None) -> dict[str, Any]:
     """A door's ``portal:``: the opening an NPC path may cross (asset frame).
 
     ``{interaction: swing, open: open, closed: closed, center: [x, y, z],
     normal: [0, 0, 1], width, height, depth, clearance}``: the opening is
     ``width`` x ``height`` centred on ``center``, ``depth`` thick along
     ``normal``; NPCs stop ``clearance`` beyond either face to operate it
-    (clear of the swinging leaf).
+    (clear of the swinging leaf). ``handles: {front: <part>, back: <part>}`` names the handle on
+    each side (front: +normal), exported as its middle in the asset frame as the door stands
+    when built; ``swing: front | back`` is the side the leaf opens toward. An NPC reaches for
+    the handle on its side to open the door, and on the side the leaf swings away from stands
+    close enough to hold it as it opens.
     """
     unknown = set(spec) - PORTAL_KEYS
     if unknown:
@@ -183,6 +189,25 @@ def parse_portal(spec: dict[str, Any], interactions: list) -> dict[str, Any]:
     for state in (portal["open"], portal["closed"]):
         if state not in found.states:
             raise ValueError(f"portal: interaction {name!r} has no state {state!r}")
+    if "swing" in spec:
+        if spec["swing"] not in PORTAL_SIDES:
+            raise ValueError(f"portal: swing is the side the leaf opens toward ({' | '.join(PORTAL_SIDES)}), "
+                             f"got {spec['swing']!r}")
+        portal["swing"] = spec["swing"]
+    handles = spec.get("handles") or {}
+    if not isinstance(handles, dict) or set(handles) - set(PORTAL_SIDES):
+        raise ValueError(f"portal: handles is {{front: <part>, back: <part>}}, got {handles!r}")
+    if handles:
+        portal["handles"] = {}
+        moving = {id(n) for m in found.motions for n in m.parts} if hasattr(found, "motions") else set()
+        for side, part in handles.items():
+            node = (parts or {}).get(part)
+            bounds = node.mesh_bounds(root) if node is not None and root is not None else None
+            if bounds is None:
+                raise ValueError(f"portal: handles.{side}: no part {part!r} with a mesh on this asset")
+            if moving and id(node) not in moving:
+                raise ValueError(f"portal: handles.{side}: '{part}' doesn't move with {name!r}")
+            portal["handles"][side] = [round(float(v), 4) for v in (bounds[0] + bounds[1]) / 2]
     return portal
 
 

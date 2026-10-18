@@ -125,6 +125,8 @@ portal:
   height: "{height}"
   depth: 0.4
   clearance: 0.95
+  handles: { front: knob, back: knob_inside }
+  swing: back                    # into the house
 
 # Stepping out onto the doorstep for some air.
 affordances:

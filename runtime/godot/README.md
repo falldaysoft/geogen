@@ -213,7 +213,7 @@ clip. Then it holds `pose_sit` / `pose_lie`, or the pose an action's step names 
 transition clip cross-fade into the pose clip instead.
 A pose clip whose hands rest on something (extras `rests`: `pose_sit_at_table`,
 `pose_lean_on_sill`) was made for a default table or sill height and reach; while it plays,
-`scripts/hand_rest.gd` (`GeogenHandRest`, a `SkeletonModifier3D` after the head look) probes
+`scripts/hands.gd` (`GeogenHands`, a `SkeletonModifier3D` after the head look) probes
 down from each resting hand and up to 24 cm ahead of it for a top within 15 cm of its height,
 and a `TwoBoneIK3D` after it moves the hand onto that top (5 cm in from an edge found ahead),
 the elbow bending as the clip bends it, eased in and out with the pose. The NPC summary's
@@ -387,7 +387,12 @@ windows or doors:
   (drives an interaction to a state, as the player's E does), `play` (a body clip, once).
 - **Doors**: exported `portal`s. When the path ahead crosses a portal whose interaction isn't
   open, the NPC runs the `pass` action first: stop clear of the leaf, open it, walk through,
-  and close it if the NPC's `closes_doors` flag is set.
+  and close it if the NPC's `closes_doors` flag is set. A portal with `handles` (one a side)
+  and `swing` (the side the leaf opens toward) is opened by its handle: on the side the leaf
+  swings away from, the NPC stops 0.45 m from the face instead; at a `use` step it reaches
+  for the handle on its side when that is within 0.8 m of its shoulders (`GeogenHands.reach`:
+  the handle rides the door part nearest it, so the hand follows it as the leaf swings),
+  presses 0.35 s later and lets go 0.6 s after that. The summary's `hands.reaches` counts them.
 - **Traffic** (vehicles in group `geogen_vehicle`, see Traffic) isn't in the navmesh either.
   - An NPC waits at the kerb for a moving vehicle whose next 3 s of travel crosses its next steps.
   - After 3 s it steps out anyway (vehicles yield to people in their way).

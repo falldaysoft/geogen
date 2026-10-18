@@ -30,6 +30,11 @@ const SIDESTEP_SECONDS := 0.4
 const FAIL_SECONDS := 4.0         # no progress this long: give up on the step
 const REPLAN_SECONDS := 1.5       # no progress this long on a detour round a character: plan again
 const MAX_REPLANS := 2            # ... this often per go_to
+const HANDLE_STAND := 0.45        # m from a door's face to stand and open it by its handle (the leaf swings away)
+const HANDLE_LEAD := 0.35         # s from reaching for a handle to pressing it
+const HANDLE_HOLD := 0.6          # s the hand stays on the handle once the door moves
+const HANDLE_RANGE := 0.8         # m from the shoulders: a handle further away isn't reached for
+const SHOULDER_DROP := 0.25       # m from the head point down to the shoulders
 const STAIR_HOLD := 2.0           # m before a stair to wait while someone is coming along it
 const STAIR_PATIENCE := 45.0      # s waiting for a stair before giving up on the step
 const STAIR_REACH := 0.8          # m from a stair's walking line that counts as on it
@@ -116,7 +121,8 @@ var _was_at := Vector2.ZERO       # where we were a frame ago (plan)
 ## Off the map during a routine's `away` block (vanished into a building), back when it ends.
 var away := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
-var _hands: GeogenHandRest = null  # resting hands onto what is really under them (hand_rest.gd)
+var _hands: GeogenHands = null     # hands onto what is really there: tables, door handles (hands.gd)
+var _press_in := 0.0               # s until a reaching hand presses what it reaches for (a use step)
 var _playing := false             # a `play:` step holds the body's animation
 var _greeted_at := -INF           # clock of the last greeting taken (attention.greet debounce)
 var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
@@ -159,12 +165,11 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
                 npc._look.pitch_limit = deg_to_rad(float(look["pitch"]))
                 npc._look.speed = float(look["speed"])
             skeletons[0].add_child(npc._look)
-            var rests := {}
+            var rests := {}             # hands on the real table top or sill, not the default one
             for clip in WorldLoader.geogen_extras(npc.body).get("clips", []):
                 if clip.has("rests"):
                     rests[clip["name"]] = clip["rests"]
-            if not rests.is_empty():     # hands on the real table top or sill, not the default one
-                npc._hands = GeogenHandRest.attach(skeletons[0], rests, npc.animator.current, npc.get_rid())
+            npc._hands = GeogenHands.attach(skeletons[0], rests, npc.animator.current, npc.get_rid())
     var h: Dictionary = data.get("home", {})
     for p in h.get("polygon", []):
         var w := xform * Vector3(p[0], 0.0, p[1])
@@ -578,7 +583,15 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         var state := _state_name(str(step["use"]), ctx)
         if not it.states.has(state):
             return ""
+        _press_in = 0.0
         if it.target != state:
+            # A door with a handle on this side: reach for it, press once the hand is there, and
+            # keep hold of it while the leaf starts to move.
+            var handle: Dictionary = _handle(ctx)
+            if not handle.is_empty() and _hands.reach("", handle["node"], handle["local"], HANDLE_LEAD + HANDLE_HOLD) != "":
+                _press_in = HANDLE_LEAD
+                stats["handles"] = int(stats.get("handles", 0)) + 1
+                return ""
             if not it.use(WorldLoader.actor_id(self)):
                 return "can't use %s (locked?)" % it.name
         return ""
@@ -627,11 +640,30 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         var state := _state_name(str(step["use"]), ctx)
         if it == null or not it.states.has(state) or (it.state == state and it.target == state):
             return "done"
+        if _press_in > 0.0:
+            _press_in -= delta
+            if _press_in > 0.0:
+                return "running"                  # the hand is on its way to the handle
+            if it.target != state and not it.use(WorldLoader.actor_id(self)):
+                return "can't use %s (locked?)" % it.name
         _timer += delta
         if it.target != state and it.can_use():
             it.use(WorldLoader.actor_id(self))   # someone turned it back: press again
         return "running" if _timer < USE_TIMEOUT else "%s never reached '%s'" % [it.name, state]
     return "unknown step"
+
+
+## The handle of a pass action's door on the side the NPC is standing ({node, local}), or {}.
+func _handle(ctx: Dictionary) -> Dictionary:
+    if _hands == null or not ctx.has("portal"):
+        return {}
+    var p: Dictionary = ctx["portal"]
+    var side := 1 if (global_position - (p["center"] as Vector3)).dot(p["normal"]) >= 0.0 else -1
+    var handle: Variant = (p.get("handles", {}) as Dictionary).get(side)
+    if handle == null or not is_instance_valid(handle["node"]):
+        return {}
+    var point: Vector3 = (handle["node"] as Node3D).global_transform * (handle["local"] as Vector3)
+    return handle if point.distance_to(head_point() + Vector3.DOWN * SHOULDER_DROP) < HANDLE_RANGE else {}
 
 
 ## A portal's generic open/closed names map to its interaction's states; `goal` is the state a
@@ -657,7 +689,13 @@ func _target(kind: String, ctx: Dictionary):
                 return null
             var p: Dictionary = ctx["portal"]
             var side := float(ctx["side"]) * (1.0 if kind == "near" else -1.0)
-            return p["center"] + p["normal"] * side * (p["depth"] / 2.0 + p["clearance"])
+            # On the side the leaf swings away from, close enough to take the handle and hold it
+            # as it opens; else clear of the leaf.
+            var clear: float = p["clearance"]
+            if kind == "near" and _hands != null and int(p.get("swing", 0)) == -int(side) \
+                    and (p.get("handles", {}) as Dictionary).has(int(side)):
+                clear = minf(clear, HANDLE_STAND)
+            return p["center"] + p["normal"] * side * (p["depth"] / 2.0 + clear)
         "random":
             return _random_home_point()
         "exit":

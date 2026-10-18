@@ -65,6 +65,14 @@ def test_at_the_table_her_hands_rest_on_its_top(godot_script, cottage_dir):
         assert 0.05 < hand["shift"] < 0.3                       # moved forward onto it, not far
 
 
+def test_she_opens_the_front_door_by_its_handle(godot_script, cottage_dir):
+    # The door's portal names its knobs and that it swings into the house: coming in, she stands
+    # close, reaches for the outside knob (hands.gd), presses once her hand is there and holds
+    # it as the door opens; going on, she pushes it shut by the inside knob within her reach.
+    report = simulate(godot_script, cottage_dir, 100)
+    assert report["hands"]["reaches"] >= 2
+
+
 def test_resident_sits_facing_the_seat_in_a_turned_cottage(godot_script, cottage_dir, scene_export):
     # house_plot turns the cottage to face east, so the NPC's parent is rotated: poses and
     # turns must use world headings (she used to sit sideways here, backwards on the island).

@@ -750,11 +750,26 @@ func _collect_portals(root: Node) -> void:
         var xform := (node as Node3D).global_transform
         var c: Array = p.get("center", [0, 1, 0])
         var n: Array = p.get("normal", [0, 0, 1])
+        # Handles (front: +normal, back) ride the part of the door nearest them, so a hand on one
+        # follows it as the leaf swings: {side: {node, local}}, side 1 or -1. Made for the door as
+        # exported (its interaction's initial state).
+        var handles := {}
+        for side_name in (p.get("handles", {}) as Dictionary):
+            var h: Array = p["handles"][side_name]
+            var point := xform * Vector3(h[0], h[1], h[2])
+            var best: Node3D = null
+            for part in it.moving_nodes():
+                if best == null or part.global_position.distance_to(point) < best.global_position.distance_to(point):
+                    best = part
+            if best != null and it.state == it.initial:
+                handles[1 if side_name == "front" else -1] = {"node": best, "local": best.global_transform.affine_inverse() * point}
+        var swing: int = {"front": 1, "back": -1}.get(str(p.get("swing", "")), 0)
         portals.append({"node": node, "interaction": it, "open": str(p.get("open", "open")),
             "closed": str(p.get("closed", "closed")), "center": xform * Vector3(c[0], c[1], c[2]),
             "normal": (xform.basis * Vector3(n[0], n[1], n[2])).normalized(),
             "width": float(p.get("width", 0.9)), "height": float(p.get("height", 2.0)),
-            "depth": float(p.get("depth", 0.3)), "clearance": float(p.get("clearance", 0.9))})
+            "depth": float(p.get("depth", 0.3)), "clearance": float(p.get("clearance", 0.9)),
+            "handles": handles, "swing": swing})
 
 
 ## Travel points: on: use listens for its "travel" interaction's event, on: enter

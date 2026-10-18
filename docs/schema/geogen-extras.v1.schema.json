@@ -223,7 +223,13 @@
             "interaction": { "type": "string" }, "open": { "type": "string" }, "closed": { "type": "string" },
             "center": { "$ref": "#/$defs/vec3" }, "normal": { "$ref": "#/$defs/vec3" },
             "width": { "type": "number" }, "height": { "type": "number" }, "depth": { "type": "number" },
-            "clearance": { "type": "number" }
+            "clearance": { "type": "number" },
+            "swing": { "description": "The side the leaf opens toward: front (+normal) or back.", "enum": ["front", "back"] },
+            "handles": {
+              "description": "The handle on each side (front: +normal), its middle in the asset frame as the door stands when exported. An NPC reaches for the one on its side to open the door; on the side the leaf swings away from it stands close enough to hold it as it opens.",
+              "type": "object", "additionalProperties": false,
+              "properties": { "front": { "$ref": "#/$defs/vec3" }, "back": { "$ref": "#/$defs/vec3" } }
+            }
           }
         },
         "place": {
