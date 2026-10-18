@@ -274,7 +274,7 @@ class SceneComposer:
         return root
 
     # The order matters: each phase may name what earlier ones placed.
-    _PHASES = ("_declare", "_place_free", "_place_dependent", "_build_city", "_scatter", "_placement_extras",
+    _PHASES = ("_declare", "_place_free", "_place_dependent", "_build_city", "_population", "_scatter", "_placement_extras",
                "_build_tracks", "_build_routes", "_build_railways", "_add_spawns", "_build_places", "_place_fleets",
                "_add_attachments")
 
@@ -368,6 +368,20 @@ class SceneComposer:
 
             build_city(b.root, b.data["city"], self._load_object, self._loader.material_loader)
             b.loaded["city"] = b.root.children[-1]
+
+    def _population(self, b: _SceneBuild) -> None:
+        """The scene's ``population:`` (geogen.npc.population_placements): NPC crowds on the
+        places it names, added to the scatters."""
+        if not b.data.get("population"):
+            return
+        from ..npc import population_placements
+
+        crowds = population_placements(b.data["population"], b.refs, str(b.data.get("name", "scene")), ["population"])
+        for name, placement in crowds.items():
+            if name in b.placements or name in b.scatters:
+                raise b.refs.fail(f"population: '{name}' is also a placement", ["population"])
+            b.scatters[name] = placement
+            b.refs.pending.add(name)
 
     def _scatter(self, b: _SceneBuild) -> None:
         if not b.scatters:

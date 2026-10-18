@@ -23,6 +23,7 @@ place:
 | `leg` | `0.1` |  |  |
 | `base` | `0.28` |  | base (divan) height above the legs |
 | `mattress` | `0.24` |  |  |
+| `duvet_lift` | `0.035` |  | a sleeper lies on the duvet (which stands ~6 cm proud at the foot), part sunk in |
 | `hb_depth` | `0.09` |  |  |
 
 ## Size
@@ -49,8 +50,8 @@ place:
 
 ## Affordances
 
-- lie at (-0.4, 0.62, 0.1) height 0.62 [bed]
-- lie at (0.4, 0.62, 0.1) height 0.62 [bed]
+- lie at (-0.4, 0.655, 0.1) height 0.655 [bed]
+- lie at (0.4, 0.655, 0.1) height 0.655 [bed]
 - sit at (0, 0.62, 0.765) height 0.62
 
 ## Clearance

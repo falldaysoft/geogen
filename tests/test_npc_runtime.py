@@ -276,3 +276,16 @@ def test_only_its_owner_sits_in_an_owned_armchair(godot_script, tmp_path):
     armchair = lambda r: sum(n for k, n in r["used"].items() if k.startswith("armchair"))   # noqa: E731
     assert armchair(reports["resident"]) == 0, reports["resident"]["used"]
     assert armchair(reports["guest"]) >= 1, reports["guest"]["used"]
+
+
+def test_far_off_npcs_sleep_and_carry_on(godot_script, scene_export):
+    # Off screen and further than SLEEP_DISTANCE (80 m) an NPC steps every 8th frame with its
+    # clips paused (geogen.11.16): the crossroads' pedestrians, with the player 200 m away, sleep
+    # most frames and still go about their day; back beside them they are awake.
+    run = godot_script([step("player.teleport", pos=[200, 0.15, 200]), step("time.simulate", seconds=30)],
+                       "--scene=crossroads", f"--generated={scene_export('crossroads')}",
+                       start={"timescale": 4}, engine_args=FAST)
+    reports = run["time.simulate"]["npcs"]
+    assert reports and all(r["slept"] > 0 for r in reports), [(r["npc"], r["slept"]) for r in reports]
+    assert sum(r["decisions"] for r in reports) >= len(reports)
+    assert all(r["failures"] == [] for r in reports)

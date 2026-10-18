@@ -51,6 +51,8 @@ const DETOUR_HORIZON := 8.0       # m of path ahead whose waypoints are moved of
 const CROWD_CELL := 2.0           # m, cells of the shared character grid
 const THROTTLE_NEAR := 10.0       # m: off-screen NPCs nearer the player than this still step every frame
 const THROTTLE_FAR := 60.0        # m: beyond this NPCs step every other frame even on screen
+const SLEEP_DISTANCE := 80.0      # m: off screen beyond this an NPC sleeps: steps every SLEEP_EVERY frames, clips paused
+const SLEEP_EVERY := 8
 ## Moving bodies NPCs steer around (the player joins it too).
 const CHARACTER_GROUP := "geogen_character"
 ## Traffic (traffic.gd): wait for moving vehicles, walk around stopped ones.
@@ -472,9 +474,15 @@ func _physics_process(delta: float) -> void:
     _frame_delta = delta
     # Out of sight (or far off), step every other frame over both frames' time: half the
     # cost, and nobody sees the coarser motion. NPCs alternate, so each frame takes half.
-    if _throttled() and (Engine.get_physics_frames() + _phase) % 2 == 0:
+    # Far off and out of sight, sleep: a step every SLEEP_EVERY frames, the clips paused.
+    var rate := _rate()
+    if animator != null and animator.player != null and animator.player.active != (rate < SLEEP_EVERY):
+        animator.player.active = rate < SLEEP_EVERY
+    if rate > 1 and (Engine.get_physics_frames() + _phase) % rate != 0:
         _skipped += delta
         stats["throttled"] = int(stats.get("throttled", 0)) + 1
+        if rate == SLEEP_EVERY:
+            stats["slept"] = int(stats.get("slept", 0)) + 1
     else:
         _step(delta + _skipped)
         _skipped = 0.0
@@ -1283,16 +1291,25 @@ func _move(delta: float) -> void:
 ## Whether to step every other frame: off-screen and not near the player, or far off. Not
 ## while greeting, in a transition or on a stair, where timing and single file matter.
 func _throttled() -> bool:
+    return _rate() > 1
+
+
+## How many physics frames apart it steps: 1 near or in view, 2 off screen (or far), SLEEP_EVERY
+## far off and out of sight. Never while moving between poses, on a stair or attending someone.
+func _rate() -> int:
     if away or _moving_pose() or _stair != null or clock < _attend_until:
-        return false
+        return 1
     var camera := get_viewport().get_camera_3d()
     var who := _player()
     if camera == null or who == null:
-        return false
+        return 1
     var d := NpcGeometry.flat(who.global_position - global_position).length()
+    var seen := camera.is_position_in_frustum(global_position + Vector3.UP * 0.9)
+    if d > SLEEP_DISTANCE and not seen:
+        return SLEEP_EVERY
     if d > THROTTLE_FAR:
-        return true
-    return d > THROTTLE_NEAR and not camera.is_position_in_frustum(global_position + Vector3.UP * 0.9)
+        return 2
+    return 2 if d > THROTTLE_NEAR and not seen else 1
 
 
 ## The first closed portal the remaining path crosses within PORTAL_LOOKAHEAD, as a pass context.
@@ -1642,7 +1659,7 @@ func report() -> Dictionary:
     var p := global_position
     return {"npc": String(name), "uid": WorldLoader.actor_id(self), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
-        "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)),
+        "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)), "slept": int(stats.get("slept", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
         "hands": _hands.report() if _hands != null else {},
         "feet": _feet.report() if _feet != null else {},

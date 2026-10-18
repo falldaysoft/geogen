@@ -13,6 +13,7 @@ params:
   leg:        { default: 0.1 }
   base:       { default: 0.28 }   # base (divan) height above the legs
   mattress:   { default: 0.24 }
+  duvet_lift: { default: 0.035 }   # a sleeper lies on the duvet (which stands ~6 cm proud at the foot), part sunk in
   hb_depth:   { default: 0.09 }
 
 size: ["{width + 0.06}", "{headboard}", "{length + hb_depth + 0.04}"]
@@ -122,8 +123,8 @@ surfaces:
   mattress: { from: mattress.top }
 
 affordances:
-  - { type: lie, at: ["{-width / 4}", "{leg + base + mattress}", 0.1], facing: 0, height: "{leg + base + mattress}",
+  - { type: lie, at: ["{-width / 4}", "{leg + base + mattress + duvet_lift}", 0.1], facing: 0, height: "{leg + base + mattress + duvet_lift}",
       approach: ["{-width / 4 - 0.5}", 0, 0.3], advertises: { rest: 1.0 }, duration: [60, 180], tags: [bed] }
-  - { type: lie, at: ["{width / 4}", "{leg + base + mattress}", 0.1], facing: 0, height: "{leg + base + mattress}",
+  - { type: lie, at: ["{width / 4}", "{leg + base + mattress + duvet_lift}", 0.1], facing: 0, height: "{leg + base + mattress + duvet_lift}",
       approach: ["{width / 4 + 0.5}", 0, 0.3], advertises: { rest: 1.0 }, duration: [60, 180], tags: [bed] }
   - { type: sit, at: [0, "{leg + base + mattress}", "{(length + hb_depth + 0.04) / 2 - 0.3}"], facing: 0, height: "{leg + base + mattress}" }

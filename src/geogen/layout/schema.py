@@ -323,6 +323,8 @@ SCENE_KEYS: dict[str, str] = {
                "rolling bodies on curved meshes need 120",
     "spawns": "{name: {position | anchor, facing}}: where the player can start",
     "places": "{name: {box | polygon | around}}: trigger volumes (enter / leave events)",
+    "population": "{name: {npc, count: n | [lo, hi], on: <places>.<surface>, spacing, seed}}: NPCs living on each "
+                  "place a reference or selector names (residents per house), drawn deterministically",
     "city": "a street grid with zoned lots, buildings, street furniture, parking and traffic",
     "routes": "{name: {path, lanes, speed, loop}}: roads with traffic lanes",
     "tracks": "{name: {path, speed, mode, loop, end, surface}}: paths spawned items follow (geogen.flows)",

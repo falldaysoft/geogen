@@ -456,7 +456,7 @@ def test_sit_lie_and_stand(godot_script, auto_room_dir):
                         step("player.status")], *base)
     status = run["player.status"]
     assert status["pose"] == "lie" and status["pose_asset"] == "bed"
-    assert status["eye"][1] == pytest.approx(0.62 + 0.25, abs=0.02)
+    assert status["eye"][1] == pytest.approx(0.62 + 0.035 + 0.25, abs=0.02)   # on the duvet (bed.yaml duvet_lift)
     # At the foot of the bed: sit on its edge; walking stands you back up.
     run = godot_script([*stand([-0.6, 0, -0.4], 90, -45), step("player.use", retry=2), step("wait", seconds=0.4),
                         step("player.move", seconds=0.3)], *base)

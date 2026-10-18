@@ -269,8 +269,10 @@ and moved its whole remaining path's waypoints off each one, every frame
 only over the next `DETOUR_HORIZON` (8 m) of path, and NPCs off screen (more than
 `THROTTLE_NEAR` 10 m from the player) or beyond `THROTTLE_FAR` (60 m) step every
 other frame over both frames' time (`_throttled`; not mid-transition, on a stair or
-greeting; the summary counts `throttled` frames). About half of what is left is
-`move_and_slide`.
+greeting; the summary counts `throttled` frames). Off screen beyond `SLEEP_DISTANCE`
+(80 m) an NPC sleeps: it steps every `SLEEP_EVERY` (8) frames and its AnimationPlayer is
+paused (`_rate`; the summary counts `slept` frames), so a district can hold many more people
+than are near the player. About half of what is left is `move_and_slide`.
 
 Rendering is cheap: every NPC in view adds about 7 draw calls and 4.6k
 primitives, shadows included (a dressed character is about 3.9k triangles in 6

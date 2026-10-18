@@ -98,6 +98,8 @@ class Skeleton:
     bones: dict[str, Bone]
     landmarks: dict[str, NDArray[np.float64]] = field(default_factory=dict)
     params: dict[str, float] = field(default_factory=dict)
+    # name -> (the rest it was computed from, rest_local): FK asks for it ~100k times a body.
+    _rest_cache: dict = field(default_factory=dict, init=False, repr=False, compare=False)
 
     def __getitem__(self, name: str) -> Bone:
         return self.bones[name]
@@ -107,11 +109,21 @@ class Skeleton:
         return list(self.bones)
 
     def rest_local(self, name: str) -> NDArray[np.float64]:
-        """A bone's rest transform in its parent's frame."""
+        """A bone's rest transform in its parent's frame (a fresh array: callers may change it)."""
         bone = self.bones[name]
-        if bone.parent is None:
-            return bone.rest_world
-        return np.linalg.inv(self.bones[bone.parent].rest_world) @ bone.rest_world
+        parent = self.bones[bone.parent] if bone.parent is not None else None
+        key = (bone.head.tobytes(), bone.rotation.tobytes(),
+               (parent.head.tobytes(), parent.rotation.tobytes()) if parent is not None else None)
+        cached = self._rest_cache.get(name)
+        if cached is None or cached[0] != key:
+            if parent is None:
+                local = bone.rest_world
+            else:       # the parent's rest is rigid: its inverse is (R^T, -R^T t)
+                rt = parent.rotation.T
+                local = _matrix(rt @ bone.rotation, rt @ (bone.head - parent.head))
+            cached = (key, local)
+            self._rest_cache[name] = cached
+        return cached[1].copy()
 
     def children(self, name: str) -> list[str]:
         return [b.name for b in self.bones.values() if b.parent == name]
@@ -126,12 +138,14 @@ class Skeleton:
         local = self.rest_local(name)
         if pose is None:
             return local
-        local = local @ pose.local(name)
+        q = pose.rotations.get(name)
+        if q is not None:           # rest @ pose.local(name): the rotation only
+            local[:3, :3] = local[:3, :3] @ matrix_from_quat(q)
         offset = pose.offsets.get(name)
         if offset is not None:
             local[:3, 3] += offset
         if self.bones[name].parent is None:
-            local = _matrix(np.eye(3), pose.root) @ local
+            local[:3, 3] += pose.root
         return local
 
     def fk(self, pose: Pose | None = None) -> dict[str, NDArray[np.float64]]:

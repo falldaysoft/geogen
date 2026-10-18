@@ -226,3 +226,51 @@ place:
     path.write_text(path.read_text().replace("cottage/armchair]", "cottage/armchiar]"))
     with pytest.raises(refs.RefError, match="place.guest.owns.0: .*Did you mean 'armchair'"):
         SceneComposer(assets_dir=ASSETS_DIR).compose(path)
+
+
+
+class _Refs:
+    """Stand-in SceneRefs: a root with `n` rooms, each with a floor surface."""
+
+    def __init__(self, n):
+        from geogen.core.node import SceneNode
+
+        self.root = SceneNode("scene")
+        self.rooms = [SceneNode(f"room_{i}") for i in range(n)]
+        for room in self.rooms:
+            room.surfaces["floor"] = object()
+            self.root.add_child(room)
+
+    def nodes(self, text, keys):
+        return self.rooms if text == "[tag=room]" else []
+
+    def surface(self, text, keys):
+        if not text.endswith(".floor"):
+            raise ValueError(f"no surface in {text}")
+        return None, None
+
+    def fail(self, message, keys, ref=""):
+        return ValueError(message)
+
+
+def test_population_puts_people_in_every_place_it_names():
+    from geogen.npc import population_placements
+
+    spec = {"guests": {"npc": "npcs/hotel_guest.yaml", "count": [0, 2], "on": "[tag=room].floor"}}
+    first = population_placements(spec, _Refs(12), "hotel", ["population"])
+    assert first == population_placements(spec, _Refs(12), "hotel", ["population"])     # deterministic
+    counts = {name: p["scatter"]["count"] for name, p in first.items()}
+    assert set(counts.values()) <= {1, 2} and 3 <= len(counts) <= 12       # rooms with nobody have no entry
+    for name, placement in first.items():
+        room = name.removeprefix("guests_")
+        assert placement["home"] == placement["scatter"]["on"] == f"room_{room}.floor"
+        assert placement["npc"] == "npcs/hotel_guest.yaml"
+    other = population_placements({**spec, "guests": {**spec["guests"], "seed": 7}}, _Refs(12), "hotel", ["p"])
+    assert other != first
+    one = population_placements({"guests": {"npc": "x", "count": 3, "on": "[tag=room].floor"}}, _Refs(1), "s", ["p"])
+    assert list(one) == ["guests"] and one["guests"]["scatter"]["count"] == 3
+    for bad, message in [({"npc": "x", "count": [2, 1], "on": "[tag=room].floor"}, "count"),
+                         ({"npc": "x", "on": "[tag=room]"}, "<places>.<surface>"),
+                         ({"npc": "x", "on": "[tag=room].floor", "size": 1}, "population entry")]:
+        with pytest.raises(ValueError, match=message):
+            population_placements({"g": bad}, _Refs(2), "s", ["p"])

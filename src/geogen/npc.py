@@ -355,6 +355,57 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
     return out
 
 
+POPULATION_KEYS = {
+    "npc": "the NPC definition (npcs/<name>.yaml); one with an archetype body makes a different person each",
+    "count": "how many a place: n, or [lo, hi] drawn per place",
+    "on": "<places>.<surface>: a reference or selector to what they live on ([tag=house]/house.floor, "
+          "plot_*/house.floor); each one matched gets its own count, and is its NPCs' home",
+    "spacing": "m between them where they start (default 1.2)",
+    "seed": "makes another draw (default: from the scene's and the entry's names)",
+}
+
+
+def population_placements(spec: Any, refs: Any, scene: str, keys: list) -> dict[str, dict[str, Any]]:
+    """A scene's ``population:`` as NPC crowd placements: per entry, per place its ``on``
+    matches, a scatter of ``count`` NPCs on that surface whose home it is. Deterministic: the
+    draws are seeded by the scene's and entry's names (or the entry's ``seed``) and the place."""
+    import random
+    import zlib
+
+    from .refs import path_of
+
+    if not isinstance(spec, dict):
+        raise refs.fail("population is {name: {npc, count, on, spacing, seed}}", keys)
+    out: dict[str, dict[str, Any]] = {}
+    for name, entry in spec.items():
+        at = [*keys, name]
+        if not isinstance(entry, dict) or set(entry) - set(POPULATION_KEYS) or not {"npc", "on"} <= set(entry):
+            raise refs.fail(f"a population entry is {{{', '.join(POPULATION_KEYS)}}} with npc and on, "
+                            f"got {entry!r}", at)
+        count = entry.get("count", 1)
+        lo, hi = (count, count) if isinstance(count, int) else tuple(count) if isinstance(count, list) else (None, None)
+        if not all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in (lo, hi)) or lo > hi:
+            raise refs.fail(f"population count is a whole number or [lo, hi], got {count!r}", [*at, "count"])
+        text = str(entry["on"])
+        where, _, surface = text.rpartition(".")
+        if not where or not surface:
+            raise refs.fail(f"population on is <places>.<surface>, got {text!r}", [*at, "on"])
+        places = refs.nodes(where, [*at, "on"])
+        seed = entry.get("seed", zlib.crc32(f"{scene}/{name}".encode()))
+        for i, place in enumerate(places):
+            rng = random.Random(f"{seed}:{i}")
+            n = rng.randint(lo, hi)
+            if n == 0:
+                continue
+            on = f"{path_of(place, refs.root)}.{surface}"
+            refs.surface(on, [*at, "on"])                    # a surface every one of them has
+            out[name if len(places) == 1 else f"{name}_{i}"] = {
+                "npc": entry["npc"], "home": on,
+                "scatter": {"on": on, "count": n, "spacing": float(entry.get("spacing", 1.2)),
+                            "seed": rng.randrange(1 << 30), "radius": 0.4}}
+    return out
+
+
 OWNERSHIP = {
     "owns": "references: the things only this NPC uses (its armchair, its bed); it also likes them best",
     "prefers": "references: things it likes best, still free for others",

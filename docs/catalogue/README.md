@@ -66,7 +66,7 @@ place:
 | [back_bar](assets/back_bar.md) | A back bar: a low cabinet with a marble top against the wall, and a panel above it carrying two shelves of bottles. | `width` |
 | [bar_counter](assets/bar_counter.md) | A bar counter: a panelled front with a marble top, beer taps and a brass foot rail. | `width` |
 | [bar_stool](assets/bar_stool.md) | A bar stool: a turned chrome base and post, a footring, and a padded round seat 76 cm up. |  |
-| [bed](assets/bed.md) | Hotel double bed: upholstered headboard, base on short legs, mattress, duvet folded back at the head, and two pillows. | `width`, `length`, `headboard`, `leg`, `base`, `mattress`, `hb_depth` |
+| [bed](assets/bed.md) | Hotel double bed: upholstered headboard, base on short legs, mattress, duvet folded back at the head, and two pillows. | `width`, `length`, `headboard`, `leg`, `base`, `mattress`, `duvet_lift`, `hb_depth` |
 | [bookshelf](assets/bookshelf.md) | Open bookshelf: wooden carcass with back panel, four shelves and rows of books. | `width`, `height`, `depth`, `board`, `plinth` |
 | [booth](assets/booth.md) | A restaurant booth: a table between two high-backed upholstered benches. |  |
 | [chair](assets/chair.md) | Dining chair: filleted seat, turned front legs, back posts with rails and spindles, and side stretchers. | `width`, `height`, `depth`, `seat_height`, `seat_thickness`, `leg_width`, `leg_inset`, `at_table` |
