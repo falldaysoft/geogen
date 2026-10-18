@@ -112,7 +112,9 @@ const COMMANDS := {
         + "{npcs, cost: {npcs, script_us, process_ms, physics_ms, physics_p95_ms, frame_ms, frame_p95_ms, "
         + "frame_max_ms, draw_calls, primitives, objects}, traffic, trains}",
     "time.scale": "{scale} world speed",
-    "time.clock": "{time? 'HH:MM', day_length?} get or set the world clock",
+    "time.clock": "{time? 'HH:MM', day?, day_length?} get or set the world clock",
+    "time.skip": "{until? 'HH:MM' | minutes? | hours? | days?} move the world clock forward (until: the next time it "
+        + "shows that); the rules' clock-time waits that come due on the way run in order",
     "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
     "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
     "capture.camera": "{mode: player|overview|follow, npc?}",
@@ -685,8 +687,26 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if args.has("time"):
                 clock.hours = GeogenClock.parse(str(args["time"]))
                 clock.apply()
+            if args.has("day"):
+                clock.day = int(args["day"])
             if args.has("day_length"):
                 clock.day_length = float(args["day_length"])
+            return _time()
+        "time.skip":
+            var clock: GeogenClock = main.clock
+            var start := clock.day * 1440.0 + clock.hours * 60.0
+            var target := start + float(args.get("minutes", 0.0)) + float(args.get("hours", 0.0)) * 60.0 \
+                + float(args.get("days", 0.0)) * 1440.0
+            if args.has("until"):
+                target = start - fmod(start, 1440.0) + GeogenClock.parse(str(args["until"])) * 60.0
+                if target <= start + 0.001:
+                    target += 1440.0
+            if target <= start:
+                return {"error": "time.skip needs until, minutes, hours or days ahead"}
+            clock.day = int(target / 1440.0)
+            clock.hours = fmod(target, 1440.0) / 60.0
+            clock.apply()
+            main.world.rules._sync_clock()
             return _time()
         "capture.screenshot":
             return await _screenshot(args)
@@ -743,7 +763,7 @@ func _info() -> Dictionary:
 func _time() -> Dictionary:
     var clock: GeogenClock = main.clock
     return {"paused": get_tree().paused, "scale": Engine.time_scale, "frame": _world_frames,
-        "clock": clock.label(), "hours": snappedf(clock.hours, 0.0001), "day_length": clock.day_length,
+        "clock": clock.label(), "hours": snappedf(clock.hours, 0.0001), "day": clock.day, "day_length": clock.day_length,
         "night": main.world.night}
 
 

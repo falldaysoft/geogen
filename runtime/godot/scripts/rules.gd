@@ -154,13 +154,16 @@ func load_package(name_: String, manifest: Dictionary) -> void:
     saved = _with_carried(saved, actors.keys())
     machine = GeogenMachine.new(program, {},
         {"host_get": _host_get, "host_set": _host_set, "on_changed": _on_changed, "on_signal": _on_signal,
-            "on_feedback": tell})
+            "on_feedback": tell, "on_clock": _on_clock})
     if not saved.is_empty():
         machine.load_save(saved)
-        for key in machine.interactions:        # their nodes are about to load, as they start
-            machine.world.erase(key)
-            machine.world.erase(key + "_locked")
     _at_load = machine.world.duplicate()
+    # Interactions as they were left: the machine holds them until their nodes load and
+    # take them up (`adopt`), so a plot keeps growing and a door stays open while away.
+    _holding.clear()
+    if resumed:
+        for key in machine.interactions:
+            _holding[key] = true
     # The world's time before anyone is there: the machine starts at noon, and a quest that
     # opens at a clock time would open at once.
     _sync_clock()
@@ -204,10 +207,22 @@ func remember_reports() -> void:
             theirs[actor] = theirs.get(actor, []) + [entry]
 
 
+## The world is about to free its nodes: loaded interactions keep their state in them, so
+## hand it to the machine (as an unloading chunk does), and the package comes back with them
+## as they were left. WorldLoader calls it before it frees the world.
+func take_interactions() -> void:
+    if machine == null:
+        return
+    for key in machine.interactions:
+        var it := _interaction(key)
+        if it != null:
+            release(key, it.snapshot())
+
+
 func unload() -> void:
     if machine != null:
         _saves[package] = machine.save()
-        _saves[package]["timers"] = []          # arrivals of things that no longer exist
+        _saves[package]["timers"] = clock_timers(_saves[package]["timers"])   # not arrivals of things that are gone
         _carry(_saves[package])
     machine = null
     package = ""                # a scene without a program loads next, maybe: it has no package
@@ -343,9 +358,10 @@ func adopt(key: String, it: GeogenInteraction) -> void:
         _holding.erase(key)
         it.locked = bool(machine.world.get(lock, machine.variables[lock]["default"]))
         it.set_state(str(machine.world.get(key, machine.variables[key]["default"])), true)
-        # Its timers (on its way, waiting to move on) are the node's again.
+        # Its timers (on its way, waiting to move on) are the node's again; a clock-time wait
+        # stays the machine's.
         for timer in machine.timers.duplicate():
-            if timer.get("key") == key and timer.get("kind") in ["arrive", "dwell"]:
+            if timer.get("key") == key and timer.get("kind") in ["arrive", "dwell"] and timer.has("at"):
                 machine.timers.erase(timer)
                 it.resume(timer, float(timer["at"]) - machine.now)
         return
@@ -414,7 +430,7 @@ func _physics_process(delta: float) -> void:
     machine.advance(delta)
     var clock: GeogenClock = world.clock
     if clock != null:
-        var minute := int(clock.hours * 60.0)
+        var minute := clock.day * 1440 + int(clock.hours * 60.0)
         if minute != _minute:
             _minute = minute
             _sync_clock()
@@ -426,7 +442,26 @@ func _sync_clock() -> void:
     if machine == null or clock == null:
         return
     var total := int(clock.hours * 60.0) % 1440
-    machine.set_clock({"time": "%02d:%02d" % [total / 60, total % 60], "night": clock.night})
+    machine.set_clock({"time": "%02d:%02d" % [total / 60, total % 60], "night": clock.night, "day": clock.day})
+
+
+## A skip effect moved the machine's clock forward: the world's follows (sun, sky, lamps),
+## and its night / day comes back to the machine as a clock event.
+func _on_clock(moved: Dictionary) -> void:
+    var clock: GeogenClock = world.clock
+    if clock == null:
+        return
+    clock.day = int(moved.get("day", clock.day))
+    clock.hours = fposmod(float(moved.get("hour", clock.hours)), 24.0)
+    clock.apply()
+    _minute = clock.day * 1440 + int(clock.hours * 60.0)
+    print("clock: ", JSON.stringify({"time": clock.label(), "day": clock.day, "skipped": true}))
+
+
+## The clock-time timers of a save's `timers` (game-clock waits): the ones that still mean
+## something once the things they would arrive have gone.
+static func clock_timers(timers: Array) -> Array:
+    return timers.filter(func(timer): return timer is Dictionary and timer.has("clock"))
 
 
 # -- the host seam ---------------------------------------------------------------------------
@@ -551,7 +586,7 @@ func take_save(data: Dictionary, current: String) -> Dictionary:
     var saved_in := str(data.get("package", current))
     var mine := own
     if saved_in != current:
-        own["timers"] = []                      # arrivals of things that aren't here
+        own["timers"] = clock_timers(own.get("timers", []))    # not arrivals of things that aren't here
         others[saved_in] = own
         mine = others.get(current, {"format": GeogenMachine.SAVE_FORMAT, "version": GeogenMachine.SAVE_VERSION,
             "now": 0.0, "world": {}, "actors": {}, "timers": []})

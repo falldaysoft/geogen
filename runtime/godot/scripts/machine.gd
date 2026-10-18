@@ -12,6 +12,8 @@ extends RefCounted
 ##   set_value(key, value, actor)  set a variable from outside (a console, a test)
 ##   set_clock({time, night, day})   move the clock; dusk and dawn are events
 ##   advance(seconds)            let time pass: arrivals, dwells and delayed rules, in time order
+## Clock timers (an `after` of {minutes: n}: game-clock time) run when the clock
+## reaches them, at the end of whichever input moved it (set_clock, a skip effect).
 ## and read `get_value(key, actor)`, `value(tree, actor)` and the logs `signals`
 ## ([subject, name, actor]; `signal_data` holds each one's event data), `fired` ([rule id, actor]), `feedback` ([notify | play,
 ## text or sound, actor]: what rules and refused uses tell an actor) and `errors` (messages).
@@ -57,6 +59,9 @@ extends RefCounted
 ##   on_feedback(kind: String, value: String, actor: String)
 ##       a rule's notify / play, or the `refused` text of a use its `when` stopped;
 ##       called when it joins `feedback`.
+##   on_clock(clock: Dictionary)
+##       a skip effect moved the clock forward (the world's clock should follow);
+##       called at the moment it does.
 ## A hook or host callable may call `post`: the event waits until the current
 ## input is finished. It must not call the other inputs (they are refused).
 
@@ -80,7 +85,7 @@ var actor_info := {}
 var derived := {}
 var clock := {"time": "12:00", "hour": 12.0, "night": false, "day": 0}
 var now := 0.0
-## Pending {at, seq, kind, ...}, kept in firing order.
+## Pending {at | clock, seq, kind, ...}, kept in firing order: those in seconds, then clock ones.
 var timers: Array = []
 ## [subject, name, actor] of every signal processed.
 var signals: Array = []
@@ -99,6 +104,7 @@ var host_set := Callable()
 var on_changed := Callable()
 var on_signal := Callable()
 var on_feedback := Callable()
+var on_clock := Callable()
 
 var _bindings: Array = []           # in dependency order
 var _bound := {}                    # key -> true
@@ -109,6 +115,8 @@ var _fail := ""                     # set by _read / _look / _value when they re
 var _busy := false
 var _silent := false                # no hooks: loading a save
 var _inbox: Array = []              # events posted while an input was being handled
+var _base: Variant = null           # the clock minute the clock timer firing now was due
+var _catching := false
 
 
 ## `actors` maps actor IDs to {"kind": "player" | "npc", ...}. `host` may hold
@@ -134,6 +142,7 @@ func _init(rules_program: Dictionary, with_actors: Dictionary = {}, host: Dictio
     on_changed = host.get("on_changed", Callable())
     on_signal = host.get("on_signal", Callable())
     on_feedback = host.get("on_feedback", Callable())
+    on_clock = host.get("on_clock", Callable())
     for actor in with_actors:
         var info: Dictionary = with_actors[actor] if with_actors[actor] is Dictionary else {}
         add_actor(str(actor), str(info.get("kind", "npc")), info)
@@ -259,7 +268,7 @@ func advance(seconds: float) -> void:
     if _refused("advance"):
         return
     var end := now + seconds
-    while not timers.is_empty() and float(timers[0]["at"]) <= end + 1e-9:
+    while not timers.is_empty() and timers[0].has("at") and float(timers[0]["at"]) <= end + 1e-9:
         var timer: Dictionary = timers.pop_front()
         now = maxf(now, float(timer["at"]))
         _input(_timer(timer))
@@ -358,18 +367,92 @@ static func _fits(spec: Dictionary, value: Variant) -> bool:
     return false
 
 
-func _schedule(delay: float, timer: Dictionary) -> void:
+## The clock as minutes since day 0 began: what clock timers are due at.
+func clock_minute() -> float:
+    return float(clock.get("day", 0)) * 1440.0 + snappedf(float(clock["hour"]) * 60.0, 0.000001)
+
+
+## The game-clock minutes of an `after` ({"minutes": n}), or -1 for seconds.
+static func clock_minutes(after: Variant) -> float:
+    return float(after["minutes"]) if after is Dictionary else -1.0
+
+
+## A timer `delay` seconds from now, or, for clock time ({"minutes": n}), n clock minutes
+## from now: from when the clock timer firing now was due, so a chain of them catches up.
+func _schedule(delay: Variant, timer: Dictionary) -> void:
     _seq += 1
-    var entry := {"at": snappedf(now + delay, 0.000001), "seq": _seq}
+    var entry := {"seq": _seq}
+    var minutes := clock_minutes(delay)
+    if minutes < 0.0:
+        entry["at"] = snappedf(now + float(delay), 0.000001)
+    else:
+        var base: float = _base if _base != null else clock_minute()
+        entry["clock"] = snappedf(base + minutes, 0.000001)
     entry.merge(timer)
     timers.append(entry)
     timers.sort_custom(_sooner)
 
 
 static func _sooner(a: Dictionary, b: Dictionary) -> bool:
-    if float(a["at"]) != float(b["at"]):
-        return float(a["at"]) < float(b["at"])
+    if a.has("at") != b.has("at"):
+        return a.has("at")
+    var field := "at" if a.has("at") else "clock"
+    if float(a[field]) != float(b[field]):
+        return float(a[field]) < float(b[field])
     return float(a["seq"]) < float(b["seq"])
+
+
+## An interaction entered `state`: a clock-time dwell counts from now (not from its
+## arrival, which takes seconds), and one waiting in the state it left is dropped.
+func _clock_dwell(key: String, state: Variant, actor: String) -> void:
+    var kept: Array = []
+    for timer in timers:
+        if not (timer.has("clock") and timer["kind"] == "dwell" and timer.get("key") == key):
+            kept.append(timer)
+    timers = kept
+    var spec: Dictionary = interactions[key]["states"].get(_text(state), {})
+    if spec.get("then") != null and clock_minutes(spec.get("after")) >= 0.0:
+        _schedule(spec["after"], {"kind": "dwell", "key": key, "state": _text(state), "actor": actor})
+
+
+## Run the clock timers the clock has reached, in order, each as its own input.
+func _catch_up() -> void:
+    if _catching:
+        return
+    _catching = true
+    while true:
+        var due: Variant = null
+        for timer in timers:
+            if timer.has("clock") and float(timer["clock"]) <= clock_minute() + 0.000001:
+                due = timer
+                break
+        if due == null:
+            break
+        timers.erase(due)
+        _base = float(due["clock"])
+        _settle(_timer(due))
+        _base = null
+    _catching = false
+
+
+## Move the clock forward (a skip effect); what comes due on the way runs after this input.
+func _skip(skip: Dictionary) -> void:
+    var start := clock_minute()
+    var target := 0.0
+    if skip.has("to"):
+        var parts := str(skip["to"]).split(":")
+        target = start - fmod(start, 1440.0) + int(parts[0]) * 60 + int(parts[1])
+        if target <= start + 0.000001:
+            target += 1440.0
+    else:
+        target = start + float(skip["minutes"])
+    var total := int(roundf(target))
+    var minute := total % 1440
+    clock["day"] = total / 1440
+    clock["time"] = "%02d:%02d" % [minute / 60, minute % 60]
+    clock["hour"] = minute / 60.0
+    if not _silent and on_clock.is_valid():
+        on_clock.call(clock.duplicate())
 
 
 func _timer(timer: Dictionary) -> Array:
@@ -388,7 +471,9 @@ func _timer(timer: Dictionary) -> Array:
             queue.append({"type": "signal", "subject": key.substr(0, key.rfind("#")), "name": state["emit"],
                 "actor": actor, "depth": 0, "own": true})
         if state.get("then") != null:
-            if GeogenConditions.truthy(state.get("after")):
+            if clock_minutes(state.get("after")) >= 0.0:
+                pass                            # counting since it was entered (_clock_dwell)
+            elif GeogenConditions.truthy(state.get("after")):
                 _schedule(float(state["after"]), {"kind": "dwell", "key": key, "state": timer["state"], "actor": actor})
             else:
                 _report_timer(key, _write(key, state["then"], actor, queue, 0))
@@ -491,7 +576,7 @@ func _fire(rule: Dictionary, actor: String, queue: Array, depth: int, data: Vari
         var timer := {"kind": "rule", "rule": rule["id"], "actor": actor}
         if data != null and _reads_event.get(rule["id"], false):
             timer["data"] = data
-        _schedule(float(rule["after"]), timer)
+        _schedule(rule["after"], timer)
     else:
         _effects(rule, actor, queue, depth, data)
 
@@ -507,6 +592,8 @@ func _effects(rule: Dictionary, actor: String, queue: Array, depth: int, data: V
             _tell("notify", str(effect["notify"]), actor)
         elif effect.has("play"):
             _tell("play", str(effect["play"]), actor)
+        elif effect.has("skip"):
+            _skip(effect["skip"])
         else:
             var sent := {}
             if GeogenConditions.truthy(effect.get("forward")) and data is Dictionary:
@@ -558,8 +645,14 @@ func _holds(rule: Dictionary, actor: String, data: Variant = null) -> bool:
     return GeogenConditions.truthy(found)
 
 
-## Process events until nothing is left: rules, then bindings, then watches.
+## Process events until nothing is left: rules, then bindings, then watches; then the
+## clock timers the clock has reached (a skip, or a clock moved on while nobody ran them).
 func _settle(queue: Array) -> void:
+    _process(queue)
+    _catch_up()
+
+
+func _process(queue: Array) -> void:
     for _round in MAX_DEPTH + 1:
         while not queue.is_empty():
             var event: Dictionary = queue.pop_front()
@@ -582,6 +675,8 @@ func _settle(queue: Array) -> void:
             elif (event["type"] == "enter" or event["type"] == "leave") and actor_info.has(actor) \
                     and GeogenConditions.truthy((event.get("data", {}) as Dictionary).get("room")):
                 actor_info[actor]["room"] = subject if event["type"] == "enter" else ""
+            elif event["type"] == "changed" and interactions.has(_text(event.get("key"))):
+                _clock_dwell(str(event["key"]), data.get("to"), actor)
             for rule in rules:
                 if rule.get("on") != null and _matches(rule["on"], event) and _holds(rule, actor, data):
                     _fire(rule, actor, queue, depth, data)
@@ -747,6 +842,7 @@ func load_save(data: Dictionary) -> bool:
     for actor in actors.keys() + saved.keys():
         actor_info[actor] = saved.get(actor, known.get(actor, {"kind": "npc", "room": ""}))
     timers = copy.get("timers", [])
+    timers.sort_custom(_sooner)
     _seq = 0
     for timer in timers:
         _seq = maxi(_seq, int(timer["seq"]))

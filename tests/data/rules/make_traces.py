@@ -504,6 +504,73 @@ traces["quest_timed"] = quest_trace(
     ],
     interactions={"demo:train#doors": {"initial": "closed", "duration": 1.0, "states": {"closed": {}, "open": {}}}})
 
+CROP = {"initial": "empty", "duration": 0.5, "states": {
+    "empty": {}, "planted": {"then": "sprouting", "after": {"minutes": 360}},
+    "sprouting": {"then": "grown", "after": {"minutes": 360}}, "grown": {"next": "empty", "emit": "ripe"}}}
+traces["clock_timers"] = {
+    "about": "Clock-time waits ({minutes: n}): a crop's dwells count from when each stage is entered and "
+             "run when the clock reaches them, a chain catches up exactly when the clock jumps ahead, a "
+             "skip effect moves the clock (sleeping until 06:00, a nap) and runs what comes due on the way, "
+             "a delayed rule can wait clock time, and the waits survive a save.",
+    "program": program(
+        variables={"world:demo.watered": {"type": "bool", "default": False}},
+        interactions={"demo:plot#crop": CROP},
+        rules=[
+            {"id": "sleep", "on": {"type": "signal", "subject": "demo:bed", "name": "slept"},
+             "do": [{"skip": {"to": "06:00"}}]},
+            {"id": "nap", "on": {"type": "signal", "subject": "demo:sofa", "name": "napped"},
+             "do": [{"skip": {"minutes": 180}}]},
+            {"id": "remind", "on": {"type": "signal", "subject": "demo:bell", "name": "rang"},
+             "after": {"minutes": 120}, "do": [{"notify": "Two hours on"}, {"set": "world:demo.watered", "to": True}]}]),
+    "actors": {"player": {"kind": "player"}},
+    "steps": [
+        {"clock": {"time": "08:00", "day": 0}},
+        {"set": "demo:plot#crop", "to": "planted"},
+        {"expect": {"timers": 2}},                                        # its arrival, and the wait from now
+        {"advance": 1.0},
+        {"expect": {"timers": 1}},                                        # arriving schedules no second wait
+        {"clock": {"time": "13:59"}},
+        {"expect": {"state": {"demo:plot#crop": "planted"}}},
+        {"clock": {"time": "14:00"}},
+        {"advance": 1.0},
+        {"expect": {"state": {"demo:plot#crop": "sprouting"}}},
+        {"clock": {"time": "15:00"}},
+        {"set": "demo:plot#crop", "to": "empty"},                         # leaving a stage drops its wait
+        {"advance": 1.0},
+        {"clock": {"time": "23:00"}},
+        {"expect": {"state": {"demo:plot#crop": "empty"}, "timers": 0}},
+        {"set": "demo:plot#crop", "to": "planted"},                       # sprouts 05:00 day 1, grown 11:00
+        {"advance": 1.0},
+        {"save_load": True},
+        {"expect": {"timers": 1, "clock": {"time": "23:00", "day": 0}}},
+        {"event": {"type": "signal", "subject": "demo:bed", "name": "slept", "actor": "player"}},
+        {"expect": {"clock": {"time": "06:00", "day": 1, "hour": 6.0}, "state": {"demo:plot#crop": "sprouting"},
+                    "fired": ["sleep"], "signals": [["demo:bed", "slept"]]}},
+        {"advance": 1.0},
+        {"clock": {"time": "10:59", "day": 1}},
+        {"expect": {"state": {"demo:plot#crop": "sprouting"}}},
+        {"clock": {"time": "11:00", "day": 1}},
+        {"advance": 1.0},
+        {"expect": {"state": {"demo:plot#crop": "grown"}, "signals": [["demo:plot", "ripe"]]}},
+        {"use": "demo:plot#crop", "actor": "player", "used": True},       # harvested
+        {"advance": 1.0},
+        {"clock": {"time": "12:00", "day": 1}},
+        {"set": "demo:plot#crop", "to": "planted"},
+        {"clock": {"time": "12:00", "day": 3}},                           # away two days: both stages catch up
+        {"expect": {"state": {"demo:plot#crop": "grown"}, "timers": 3}},   # three arrivals: only grown is still true
+        {"advance": 1.0},
+        {"expect": {"signals": [["demo:plot", "ripe"]], "timers": 0}},
+        {"event": {"type": "signal", "subject": "demo:bell", "name": "rang", "actor": "player"}},
+        {"clock": {"time": "13:59", "day": 3}},
+        {"expect": {"fired": ["remind"], "feedback": [], "state": {"world:demo.watered": False}}},
+        {"event": {"type": "signal", "subject": "demo:sofa", "name": "napped", "actor": "player"}},
+        {"expect": {"clock": {"time": "16:59", "day": 3}, "fired": ["nap"],
+                    "feedback": [["notify", "Two hours on", "player"]], "state": {"world:demo.watered": True}}},
+        {"event": {"type": "signal", "subject": "demo:bed", "name": "slept", "actor": "player"}},
+        {"expect": {"clock": {"time": "06:00", "day": 4}, "errors": 0}},
+    ],
+}
+
 out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent
 for name, trace in traces.items():
     (out / f"{name}.json").write_text(json.dumps({"name": name, **trace}, indent=1) + "\n")

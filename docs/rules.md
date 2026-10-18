@@ -149,6 +149,9 @@ there; **arriving** is a separate moment.
   lock and `when`, so a gate with no `next` can only be moved by rules.
 - On arrival, the state's `emit` is raised as a signal from the thing. A state
   with `then` moves on: at once, or `after` seconds later if it is still there.
+  An `after` of clock time (`{minutes: n}`) counts from the moment the state is
+  entered, not from arrival, since the move takes seconds and the wait hours:
+  leaving the state drops it, entering it again starts it over.
 - Reversing before arrival cancels the arrival: no signal from the state it
   never reached.
 
@@ -213,9 +216,10 @@ as the actor all the way down.
   event's actor at the moment the event is processed.
 - Effects run in order. `{"set": key, "to": <condition tree>}` writes a value;
   `{"emit": name, "subject": id}` raises a signal; `{"notify": text}` and
-  `{"play": sound}` tell the rule's actor something (see "Feedback").
+  `{"play": sound}` tell the rule's actor something (see "Feedback");
+  `{"skip": {"minutes": n} | {"to": "HH:MM"}}` moves the clock forward (see "Time").
 - `after: s` delays the effects. `when` is checked at the trigger, not again
-  when the effects run.
+  when the effects run. `after: {hours: 6}` waits clock time instead (see "Time").
 - `once: true` lets the rule fire once per actor, or once in all for events
   with no actor.
 
@@ -344,8 +348,28 @@ skipped; the rule's other effects still run.
 - Timers (arrivals, `after` dwells, delayed rules) fire in time order, each as
   its own input. Ties go to the one scheduled first.
 - The clock offers `time` ("HH:MM" text, which orders correctly as text), `hour`,
-  `night` and `day`. Bindings and watches that read it are re-evaluated when the
-  minute changes.
+  `night` and `day` (midnights passed since the game began). Bindings and watches
+  that read it are re-evaluated when the minute changes.
+- **Clock time.** Wherever `after` is accepted (a rule, a wire, an interaction
+  state) it can be clock time instead of seconds: `{minutes: n}`, `{hours: n}`,
+  `{days: n}` (or several, summed; programs hold `{"minutes": n}`). Seconds pass
+  with physics; clock time passes with the world clock, which runs faster
+  (a day in `day_length` seconds) and can jump ahead. A clock timer is due at a
+  clock minute (`day * 1440` + minutes into the day) and fires when the clock
+  reaches it, at the end of whatever input moved the clock (the host setting
+  it, a `skip`), in order of due time.
+- **Catching up.** However far the clock jumps, the clock timers it passes fire
+  in order, and a wait they start counts from when the timer that started it
+  was due, not from now: a crop planted at 21:00 with two six-hour stages is
+  grown at 09:00 whether the clock ticked through the night or jumped from
+  21:00 to noon. (The arrivals those moves start still take their seconds.)
+- **Skipping.** The effect `{skip: {hours: 8}}` (clock time) or
+  `{skip: {to: "06:00"}}` (the next time the clock shows it, never now) moves
+  the clock forward; what comes due on the way runs in order once the rule's
+  input is finished. Night and day are the host's to say: the machine moves
+  `time`, `hour` and `day`, and the host raises dusk or dawn as it sets the
+  clock again. A bed's "sleep until morning" is a rule with a skip.
+- A clock that stands still (`day_length` 0) never reaches a clock timer.
 
 ## Saving
 
@@ -377,7 +401,8 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
 - Bindings are never saved. Loading recomputes them without raising events:
   nothing changed while saved.
 - `timers` are what is still to happen (`rule`: a delayed rule; `arrive` and
-  `dwell`: an interaction on its way or waiting to move on), on `now`'s scale.
+  `dwell`: an interaction on its way or waiting to move on), on `now`'s scale
+  (`at`), or, for clock time, at a clock minute (`clock`).
   A runtime that moves things itself saves its own as these too, so a door
   half-open on its way or waiting to close itself carries on from there when
   loaded; an `arrive` may then say where it set out `from`.

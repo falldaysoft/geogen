@@ -132,10 +132,11 @@
     },
     "timer": {
       "type": "object",
-      "required": ["at", "seq", "kind"],
+      "required": ["seq", "kind"],
       "additionalProperties": false,
       "properties": {
-        "at": {"type": "number", "description": "When it fires, on `now`'s scale."},
+        "at": {"type": "number", "description": "When it fires, on `now`'s scale (a wait in seconds)."},
+        "clock": {"type": "number", "description": "Instead of `at`, for a wait in clock time: the clock minute it fires at (day * 1440 + minutes into the day)."},
         "seq": {"type": "number", "description": "The order it was scheduled in: ties go to the lower."},
         "kind": {"enum": ["rule", "arrive", "dwell"], "description": "rule: a rule's `after` ran out, its effects are due. arrive: an interaction reaches the state it is heading to. dwell: a state's own `after` ran out, it moves on to its `then`."},
         "rule": {"type": "string", "description": "kind rule: the rule's id."},
@@ -146,7 +147,8 @@
         "data": {"type": "object", "description": "kind rule, optional: the data of the event that fired the rule, for a rule that reads it (event.<field>)."}
       },
       "allOf": [
-        {"if": {"properties": {"kind": {"const": "rule"}}}, "then": {"required": ["rule"]}, "else": {"required": ["key", "state"]}}
+        {"if": {"properties": {"kind": {"const": "rule"}}}, "then": {"required": ["rule"]}, "else": {"required": ["key", "state"]}},
+        {"oneOf": [{"required": ["at"]}, {"required": ["clock"]}]}
       ]
     }
   }

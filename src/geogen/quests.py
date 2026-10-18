@@ -47,6 +47,7 @@ from . import conditions, refs, roots
 from .conditions import ConditionError
 from .core.node import SceneNode
 from .rules import SOUNDS, reads, term_keys
+from .rules import skip_effect as rules_skip
 from .state import LOCKED, Declarations, StateError, fits
 
 KIND = "quest"
@@ -90,6 +91,8 @@ EFFECTS = {
     "take": "an item the actor carries, taken away; `count` (default 1; never below none)",
     "notify": "text to show the actor (a HUD toast)",
     "play": "a sound to play for the actor: " + ", ".join(SOUNDS),
+    "skip": "move the clock forward: {minutes | hours | days: n}, or {to: \"HH:MM\"} (the next time it shows that); "
+            "what comes due on the way happens in order (sleeping until morning)",
 }
 MARKER_KEYS = {"at", "area"}
 
@@ -824,6 +827,11 @@ class _Compiler:
                     if not isinstance(effect["notify"], str) or not effect["notify"].strip():
                         raise QuestError("notify takes the text to show")
                     out.append({"notify": effect["notify"]})
+                elif kind == "skip":
+                    try:
+                        out.append(rules_skip(effect["skip"]))
+                    except ValueError as exc:
+                        raise QuestError(str(exc)) from None
                 elif kind == "play":
                     if effect["play"] not in SOUNDS:
                         raise QuestError(f"play: no sound {effect['play']!r}.{refs._near(str(effect['play']), SOUNDS)} "

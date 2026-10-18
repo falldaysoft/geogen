@@ -137,7 +137,9 @@
                     "then": { "type": "string" },
                     "emit": { "type": "string" },
                     "prompt": { "type": "string" },
-                    "after": { "type": "number", "minimum": 0, "description": "Dwell before 'then' (auto-close)." }
+                    "after": { "description": "Dwell before 'then' (auto-close): seconds, or {minutes: n} of clock time (the rules program moves it on).",
+                      "oneOf": [{ "type": "number", "minimum": 0 },
+                                { "type": "object", "required": ["minutes"], "additionalProperties": false, "properties": { "minutes": { "type": "number", "minimum": 0 } } }] }
                   },
                   "additionalProperties": false
                 }

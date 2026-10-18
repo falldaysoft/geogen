@@ -27,7 +27,9 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
 State keys: ``next`` (the state ``use`` heads to when this is the target
 state; absent = not usable, e.g. a latched button), ``then`` (auto-advance on
 arrival, for momentary buttons; with ``after: <seconds>`` it waits first,
-e.g. a door that closes itself), ``emit`` (event name raised on arrival),
+e.g. a door that closes itself; ``after: {hours: 6}`` (``minutes`` / ``hours`` / ``days``)
+waits clock time from when the state is entered, e.g. a crop's growth stage, and the rules
+program moves it on), ``emit`` (event name raised on arrival),
 ``prompt`` (UI text). ``lock: {key: <id>, locked: true}`` makes the
 interaction refuse ``use`` while locked; users holding the key can lock and
 unlock it. ``when`` is a condition over live state (names relative to the asset, as
@@ -71,13 +73,13 @@ class State:
     then: str | None = None
     emit: str | None = None
     prompt: str | None = None
-    after: float | None = None     # with ``then``: dwell this many seconds first (auto-close)
+    after: float | dict | None = None   # with ``then``: dwell this many seconds first (auto-close), or {minutes: n} of clock time
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {k: v for k, v in (("next", self.next), ("then", self.then),
                                                  ("emit", self.emit), ("prompt", self.prompt)) if v is not None}
         if self.after is not None:
-            out["after"] = float(self.after)
+            out["after"] = dict(self.after) if isinstance(self.after, dict) else float(self.after)
         return out
 
 
@@ -302,7 +304,8 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
             if "after" in sdef:
                 if "then" not in sdef:
                     raise ValueError(f"Interaction '{name}' state '{sname}': 'after' needs 'then'")
-                fields["after"] = float(sdef["after"])
+                from ..rules import duration
+                fields["after"] = duration(sdef["after"], f"Interaction '{name}' state '{sname}': after")
             states[sname] = State(**fields)
         for sname, state in states.items():
             for ref in (state.next, state.then):

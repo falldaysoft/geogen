@@ -91,6 +91,18 @@ def test_walk_from_the_hub_to_the_cottage_and_back(godot_script, hub_dir):
         (arrival[0], arrival[2]), abs=0.05)
 
 
+def test_a_scene_comes_back_as_it_was_left(godot_script, hub_dir):
+    # The cottage's door, opened, is still open after a trip to the hub and back (geogen.70.1).
+    run = godot_script([
+        step("interactions.set", asset="door", state="open", instant=True),
+        step("world.switch", scene="hub"),
+        step("world.switch", scene="cottage"),
+        step("interactions.list", asset="door"),
+    ], f"--generated={hub_dir}", "--scene=cottage")
+    (door,) = run["interactions.list"]
+    assert door["state"] == "open" and door["target"] == "open"
+
+
 @pytest.mark.exhaustive
 def test_an_island_quest_is_marked_at_the_hub_portal_to_the_island(godot_runtime, built_scene, tmp_path_factory):
     """A quest's subject in another scene is marked at the portal that leads there: with the island's

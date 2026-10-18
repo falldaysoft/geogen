@@ -191,7 +191,9 @@ def test_npc_state_and_pending_timers_survive(quest_rt):
     assert not [t for t in rt.call("state.save")["timers"] if t["kind"] == "rule"]
 
     restored = rt.call("state.load", state=saved)
-    assert restored["timers"] == saved["timers"] and restored["now"] == pytest.approx(saved["now"])
+    # Timer times go through JSON both ways: equal to the float, not to the last digit.
+    assert [{**t, "at": pytest.approx(t["at"])} for t in saved["timers"]] == restored["timers"]
+    assert restored["now"] == pytest.approx(saved["now"])
     assert restored["actors"][STEWARD] == saved["actors"][STEWARD]
     assert rt.call("state.get", key=DASH)["value"] == "active"
     assert rt.call("state.get", key=DASH, actor=STEWARD)["value"] == "complete"

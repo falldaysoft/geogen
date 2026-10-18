@@ -15,6 +15,8 @@ TYPES = {
     "pos": VEC, "from": VEC, "to": VEC, "at": VEC,
     "yaw": NUM, "pitch": NUM, "seconds": NUM, "timeout": NUM, "scale": NUM, "forward": NUM, "strafe": NUM,
     "linger": NUM, "hold": NUM, "gap": NUM, "zoom": NUM, "fov": NUM, "day_length": NUM,
+    "minutes": NUM, "hours": NUM, "days": NUM, "day": {"type": "integer", "minimum": 0},
+    "until": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
     "frames": INT, "limit": INT, "index": INT, "since": INT, "count": INT,
     "instant": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
     "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL,

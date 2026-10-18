@@ -209,6 +209,38 @@ def test_bad_wiring_fails_with_file_and_line(assets, name, old, new, message):
         collect(compose(assets), "yard")
 
 
+def test_waits_and_skips_in_clock_time(assets):
+    rewrite(assets, "yard", "to: gate.close, after: 1}", "to: gate.close, after: {hours: 2}}")
+    rewrite(assets, "yard", "    do: [{set: world.dark, to: true}]",
+            "    do: [{set: world.dark, to: true}, {skip: {to: \"06:00\"}}]")
+    found = collect(compose(assets), "yard")
+    by_id = {r["id"]: r for r in found.wiring}
+    assert by_id["wire_2"]["after"] == {"minutes": 120.0}
+    assert by_id["nightfall"]["do"][-1] == {"skip": {"to": "06:00"}}
+    program = found.program()
+    assert check_program(program) == []
+    machine = Machine(program, ACTORS)
+    machine.set_clock(time="20:00", day=0)
+    machine.use("yard:lever#pull", "player")
+    machine.advance(1)
+    machine.use("yard:lever#pull", "player")
+    machine.advance(1)                                   # released: the gate closes two clock hours on
+    assert machine.get("yard:gate#gate") == "open"
+    machine.set_clock(time="21:00", night=True)          # nightfall sleeps until 06:00, past the close
+    assert machine.clock["time"] == "06:00" and machine.clock["day"] == 1
+    assert machine.get("yard:gate#gate") == "closed"
+
+
+@pytest.mark.parametrize("old, new, message", [
+    ("to: gate.close, after: 1}", "to: gate.close, after: {weeks: 1}}", r"wire.1.after: seconds, or clock time"),
+    ("    do: [{set: world.dark, to: true}]", "    do: [{skip: {to: \"25:00\"}}]", r"rules.1.do.0: skip: to is a clock time"),
+])
+def test_bad_clock_times_fail_with_file_and_line(assets, old, new, message):
+    rewrite(assets, "yard", old, new)
+    with pytest.raises(QuestError, match=message):
+        collect(compose(assets), "yard")
+
+
 def test_if_leaves_rules_wires_and_quests_out_of_a_build(assets):
     """A scene that is also nested in bigger ones gates what it contributes on a param."""
     rewrite(assets, "yard", "name: yard\n", "name: yard\nparams:\n  quest: {default: 1}\n")

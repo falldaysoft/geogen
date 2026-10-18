@@ -7,7 +7,7 @@ extends RefCounted
 ##   {"use": key, "actor", "used"}     {"event": {...}}
 ##   {"set": key, "to": value, "actor"}   {"advance": seconds}   {"clock": {...}}
 ##   {"save_load": true}               a round trip through a save (as JSON)
-##   {"expect": {state, actors, signals, signal_data, fired, feedback, errors}}
+##   {"expect": {state, actors, signals, signal_data, fired, feedback, clock, timers, errors}}
 ## `signals` ([subject, name] pairs) and `fired` (rule ids) are exactly what
 ## happened since the last expect; `errors` is a count. JSON null and "" are
 ## the same subject.
@@ -87,6 +87,13 @@ static func run(trace: Dictionary) -> Array[String]:
             if expect.has("feedback") and not _same(machine.feedback, expect["feedback"]):
                 problems.append("%s: feedback %s, expected %s" % [where, _shown(machine.feedback),
                     _shown(expect["feedback"])])
+            var clock_want: Dictionary = expect.get("clock", {})
+            for field in clock_want:
+                if not _same(machine.clock.get(field), clock_want[field]):
+                    problems.append("%s: clock %s is %s, expected %s" % [where, field, _shown(machine.clock.get(field)),
+                        _shown(clock_want[field])])
+            if expect.has("timers") and machine.timers.size() != int(expect["timers"]):
+                problems.append("%s: %d timers pending, expected %d" % [where, machine.timers.size(), int(expect["timers"])])
             if expect.has("errors") and machine.errors.size() != int(expect["errors"]):
                 problems.append("%s: %d errors, expected %d: %s" % [where, machine.errors.size(),
                     int(expect["errors"]), _shown(machine.errors)])

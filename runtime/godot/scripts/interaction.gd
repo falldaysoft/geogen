@@ -39,7 +39,7 @@ var initial := ""
 var initial_locked := false
 ## Who caused the move under way: "player", an NPC's ID, or "" (a rule, a timer, a tool).
 var actor := ""
-var _dwell := 0.0          # seconds spent in the current state (for 'after')
+var _dwell := 0.0          # seconds spent in the current state (for 'after' in seconds)
 ## Freeze timed transitions (playtests keep doors open).
 var hold := false
 ## The interaction's `when` (set by WorldLoader from the rules program): guard.call(actor) is
@@ -246,9 +246,15 @@ func progress() -> Dictionary:
                 left = maxf(left, absf(float(motion["values"].get(target, 0.0)) - motion["value"]) / motion["speed"])
         return {"kind": "arrive", "state": target, "from": state, "in": left, "actor": actor}
     var s: Dictionary = states.get(state, {})
-    if s.has("after") and s.has("then") and not hold:
+    if _dwells(s) and not hold:
         return {"kind": "dwell", "state": state, "in": maxf(float(s["after"]) - _dwell, 0.0), "actor": actor}
     return {}
+
+
+## Whether a state moves on by itself after `after` seconds. An `after` of clock time
+## ({minutes: n}) is the rules program's to count (it drives the move), not the node's.
+static func _dwells(s: Dictionary) -> bool:
+    return s.has("after") and s.has("then") and not s["after"] is Dictionary
 
 
 ## Carry on from a save timer (see `progress`) due in `left` seconds, once restored to the
@@ -258,7 +264,7 @@ func resume(timer: Dictionary, left: float) -> void:
     var who = timer.get("actor")
     if timer.get("kind") == "dwell":
         var s: Dictionary = states.get(state, {})
-        if state == target and target == str(timer.get("state")) and s.has("after"):
+        if state == target and target == str(timer.get("state")) and _dwells(s):
             _dwell = clampf(float(s["after"]) - left, 0.0, float(s["after"]))
             actor = "" if who == null else str(who)
         return
@@ -303,7 +309,7 @@ func _physics_process(delta: float) -> void:
     if state == target:
         # Dwelling: auto-advance after 'after' seconds (e.g. a door closing itself).
         var s: Dictionary = states.get(state, {})
-        if s.has("after") and s.has("then") and not hold:
+        if _dwells(s) and not hold:
             _dwell += delta
             if _dwell >= float(s["after"]):
                 _dwell = 0.0

@@ -40,7 +40,9 @@
               "properties": {
                 "next": {"type": "string", "description": "The state `use` heads to from here; absent: not usable."},
                 "then": {"type": "string", "description": "The state it moves on to after arriving."},
-                "after": {"type": "number", "minimum": 0, "description": "With `then`: seconds to stay first."},
+                "after": {"description": "With `then`: seconds to stay first (counted from arriving), or {minutes: n} of clock time (counted from entering the state; the rules program moves it on).",
+                  "oneOf": [{"type": "number", "minimum": 0},
+                            {"type": "object", "required": ["minutes"], "additionalProperties": false, "properties": {"minutes": {"type": "number", "minimum": 0}}}]},
                 "emit": {"type": "string", "description": "Signal raised from the thing on arrival."}
               }
             }

@@ -66,6 +66,9 @@ FEEDBACK = {
     "notify": "text shown to the rule's actor (a HUD toast; with no actor, to the player)",
     "play": "a named sound (SOUNDS) played for the rule's actor",
 }
+# Clock-time durations: an `after` (or a skip) of {minutes | hours | days: n} counts game-clock
+# minutes, not physics seconds. Programs hold them as {"minutes": n}.
+CLOCK_UNITS = {"minutes": 1, "hours": 60, "days": 1440}
 # The sounds `play` names: runtime/godot/scripts/sound.gd CHIMES has each.
 SOUNDS = ("notice", "refused", "success", "click", "started", "objective_done", "complete", "failed",
           "shot", "hit", "destroyed")
@@ -76,6 +79,47 @@ Event = dict[str, Any]
 
 class RuleError(ValueError):
     """A program that is malformed, or that did something the semantics forbid."""
+
+
+def duration(value: Any, where: str = "") -> float | dict[str, float]:
+    """An authored ``after``: seconds (a number), or game-clock time as ``{minutes | hours |
+    days: n}`` (summed). Returns the program's form: the seconds, or ``{"minutes": n}``."""
+    if isinstance(value, dict):
+        unknown = set(value) - set(CLOCK_UNITS)
+        if not value or unknown or not all(isinstance(n, (int, float)) and not isinstance(n, bool) and n >= 0
+                                           for n in value.values()):
+            raise ValueError(f"{where}{': ' if where else ''}seconds, or clock time as {{minutes | hours | days: n}}, "
+                             f"got {value!r}")
+        minutes = float(sum(n * CLOCK_UNITS[unit] for unit, n in value.items()))
+        if minutes <= 0:
+            raise ValueError(f"{where}{': ' if where else ''}a clock time needs a length, got {value!r}")
+        return {"minutes": minutes}
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{where}{': ' if where else ''}seconds, or clock time as {{minutes | hours | days: n}}, "
+                         f"got {value!r}")
+    return float(value)
+
+
+def clock_minutes(after: Any) -> float | None:
+    """The game-clock minutes of a program ``after`` ({"minutes": n}), None for seconds."""
+    return float(after["minutes"]) if isinstance(after, dict) else None
+
+
+def skip_effect(value: Any, where: str = "skip") -> dict[str, Any]:
+    """An authored ``skip`` (clock time ``{minutes | hours | days: n}``, or ``{to: "HH:MM"}``: the next
+    time the clock shows it) as the program's effect."""
+    if isinstance(value, dict) and set(value) == {"to"}:
+        if not _is_time(value["to"]):
+            raise ValueError(f"{where}: to is a clock time \"HH:MM\", got {value['to']!r}")
+        return {"skip": {"to": value["to"]}}
+    return {"skip": duration(value if isinstance(value, dict) else None, where)}
+
+
+def _is_time(text: Any) -> bool:
+    if not isinstance(text, str) or text.count(":") != 1:
+        return False
+    hours, minutes = text.split(":")
+    return hours.isdigit() and minutes.isdigit() and int(hours) < 24 and int(minutes) < 60 and len(minutes) == 2
 
 
 def key_of(term: dict[str, Any]) -> str:
@@ -145,6 +189,13 @@ def binding_order(program: dict[str, Any]) -> list[dict[str, Any]]:
     return order
 
 
+def _after_ok(after: Any) -> bool:
+    if isinstance(after, dict):
+        return (set(after) == {"minutes"} and isinstance(after["minutes"], (int, float))
+                and not isinstance(after["minutes"], bool) and after["minutes"] >= 0)
+    return isinstance(after, (int, float)) and not isinstance(after, bool) and after >= 0
+
+
 def check_program(program: dict[str, Any]) -> list[str]:
     """Everything wrong with a program, as messages ([] when it is sound)."""
     problems: list[str] = []
@@ -168,6 +219,8 @@ def check_program(program: dict[str, Any]) -> list[str]:
             for link in ("next", "then"):
                 if state.get(link) is not None and state[link] not in states:
                     problems.append(f"{key}: state '{name}' {link}: '{state[link]}' isn't one of its states")
+            if "after" in state and not _after_ok(state["after"]):
+                problems.append(f"{key}: state '{name}' after: seconds, or {{minutes: n}} of clock time")
     guarded = [(key, spec["when"]) for key, spec in interactions.items() if "when" in spec]
     for key, spec in interactions.items():
         if "refused" in spec and ("when" not in spec or not isinstance(spec["refused"], str) or not spec["refused"]):
@@ -230,6 +283,8 @@ def check_program(program: dict[str, Any]) -> list[str]:
             problems.append(f"{where}: reads event data, but it watches a condition: only a rule with 'on' has an event")
         if not rule.get("do"):
             problems.append(f"{where}: does nothing")
+        if "after" in rule and not _after_ok(rule["after"]):
+            problems.append(f"{where}: after: seconds, or {{minutes: n}} of clock time")
         for effect in rule.get("do", []):
             if "set" in effect:
                 key = effect["set"]
@@ -264,8 +319,13 @@ def check_program(program: dict[str, Any]) -> list[str]:
             elif "play" in effect:
                 if effect["play"] not in SOUNDS:
                     problems.append(f"{where}: play: no sound {effect['play']!r} (sounds: {', '.join(SOUNDS)})")
+            elif "skip" in effect:
+                skip = effect["skip"]
+                if not (isinstance(skip, dict) and (set(skip) == {"to"} and _is_time(skip["to"])
+                                                    or set(skip) == {"minutes"} and _after_ok(skip) and skip["minutes"] > 0)):
+                    problems.append(f"{where}: skip is {{minutes: n}} or {{to: \"HH:MM\"}}, got {skip!r}")
             else:
-                problems.append(f"{where}: unknown effect {sorted(effect)} (effects: set, emit, notify, play)")
+                problems.append(f"{where}: unknown effect {sorted(effect)} (effects: set, emit, notify, play, skip)")
     return problems
 
 
@@ -298,8 +358,10 @@ class Machine:
         self.derived: State = {}                     # binding values: never saved
         self.clock: dict[str, Any] = {"time": "12:00", "hour": 12.0, "night": False, "day": 0}
         self.now = 0.0
-        self.timers: list[dict[str, Any]] = []       # {at, seq, kind, ...}, kept sorted
+        self.timers: list[dict[str, Any]] = []       # {at | clock, seq, kind, ...}, kept sorted
         self._seq = 0
+        self._base: float | None = None              # the clock minute the clock timer firing now was due
+        self._catching = False
         self.signals: list[list[Any]] = []           # [subject, name, actor]
         self.signal_data: list[dict[str, Any]] = []  # the data of each of `signals`, in step
         self.fired: list[list[Any]] = []             # [rule id, actor]
@@ -406,7 +468,7 @@ class Machine:
     def advance(self, seconds: float) -> None:
         """Let ``seconds`` pass: interactions arrive, dwells and delayed rules run, in time order."""
         end = self.now + seconds
-        while self.timers and self.timers[0]["at"] <= end + 1e-9:
+        while self.timers and "at" in self.timers[0] and self.timers[0]["at"] <= end + 1e-9:
             timer = self.timers.pop(0)
             self.now = max(self.now, timer["at"])
             self._settle(self._timer(timer))
@@ -414,10 +476,64 @@ class Machine:
 
     # -- the semantics -------------------------------------------------------------------------
 
-    def _schedule(self, delay: float, **timer: Any) -> None:
+    def clock_minute(self) -> float:
+        """The clock as minutes since day 0 began: what clock timers are due at."""
+        return self.clock.get("day", 0) * 1440 + round(self.clock["hour"] * 60, 6)
+
+    def _schedule(self, delay: float | dict[str, float], **timer: Any) -> None:
+        """A timer ``delay`` seconds from now, or, for clock time ({"minutes": n}), n clock minutes
+        from now: from when the clock timer firing now was due, so a chain of them catches up."""
         self._seq += 1
-        self.timers.append({"at": round(self.now + delay, 6), "seq": self._seq, **timer})
-        self.timers.sort(key=lambda t: (t["at"], t["seq"]))
+        minutes = clock_minutes(delay)
+        if minutes is None:
+            self.timers.append({"at": round(self.now + float(delay), 6), "seq": self._seq, **timer})
+        else:
+            base = self._base if self._base is not None else self.clock_minute()
+            self.timers.append({"clock": round(base + minutes, 6), "seq": self._seq, **timer})
+        self.timers.sort(key=_timer_order)
+
+    def _clock_dwell(self, key: str, state: Any, actor: str | None) -> None:
+        """An interaction entered ``state``: a clock-time dwell counts from now (not from its
+        arrival, which takes seconds), and one waiting in the state it left is dropped."""
+        self.timers = [t for t in self.timers if not ("clock" in t and t["kind"] == "dwell" and t["key"] == key)]
+        spec = self.interactions[key]["states"].get(state, {})
+        if spec.get("then") is not None and clock_minutes(spec.get("after")) is not None:
+            self._schedule(spec["after"], kind="dwell", key=key, state=state, actor=actor)
+
+    def _catch_up(self) -> None:
+        """Run the clock timers the clock has reached, in order, each as its own input."""
+        if self._catching:
+            return
+        self._catching = True
+        try:
+            while True:
+                due = [t for t in self.timers if "clock" in t and t["clock"] <= self.clock_minute() + 1e-6]
+                if not due:
+                    return
+                timer = due[0]
+                self.timers.remove(timer)
+                self._base = timer["clock"]
+                try:
+                    self._settle(self._timer(timer))
+                finally:
+                    self._base = None
+        finally:
+            self._catching = False
+
+    def _skip(self, skip: dict[str, Any]) -> None:
+        """Move the clock forward (a skip effect); what comes due on the way runs after this input."""
+        start = self.clock_minute()
+        if "to" in skip:
+            hours, minutes = skip["to"].split(":")
+            day_start = start - start % 1440
+            target = day_start + int(hours) * 60 + int(minutes)
+            if target <= start + 1e-6:
+                target += 1440
+        else:
+            target = start + float(skip["minutes"])
+        target = round(target)
+        day, minute = divmod(int(target), 1440)
+        self.clock.update({"day": day, "time": f"{minute // 60:02d}:{minute % 60:02d}", "hour": minute / 60.0})
 
     def _timer(self, timer: dict[str, Any]) -> list[Event]:
         queue: list[Event] = []
@@ -432,7 +548,9 @@ class Machine:
             if state.get("emit"):
                 queue.append({"type": "signal", "subject": thing, "name": state["emit"], "actor": actor, "depth": 0})
             if state.get("then") is not None:
-                if state.get("after"):
+                if clock_minutes(state.get("after")) is not None:
+                    pass                        # counting since it was entered (_clock_dwell)
+                elif state.get("after"):
                     self._schedule(float(state["after"]), kind="dwell", key=key, state=timer["state"], actor=actor)
                 else:
                     self._set(key, state["then"], actor, queue, 0)
@@ -503,7 +621,7 @@ class Machine:
         self.fired.append([rule["id"], actor])
         if rule.get("after"):
             kept = {"data": data} if data is not None and rule_reads_event(rule) else {}
-            self._schedule(float(rule["after"]), kind="rule", rule=rule["id"], actor=actor, **kept)
+            self._schedule(rule["after"], kind="rule", rule=rule["id"], actor=actor, **kept)
         else:
             self._effects(rule, actor, queue, depth, data)
 
@@ -516,6 +634,8 @@ class Machine:
                 elif "notify" in effect or "play" in effect:
                     kind = "notify" if "notify" in effect else "play"
                     self.feedback.append([kind, effect[kind], actor])
+                elif "skip" in effect:
+                    self._skip(effect["skip"])
                 else:
                     sent = dict(data or {}) if effect.get("forward") else {}
                     sent.update({field: self.value(tree, actor, data) for field, tree in effect.get("data", {}).items()})
@@ -532,7 +652,12 @@ class Machine:
             return False
 
     def _settle(self, queue: list[Event]) -> None:
-        """Process events until nothing is left: rules, then bindings, then watches."""
+        """Process events until nothing is left: rules, then bindings, then watches; then the
+        clock timers the clock has reached (a skip, or a clock moved on while nobody ran them)."""
+        self._process(queue)
+        self._catch_up()
+
+    def _process(self, queue: list[Event]) -> None:
         for _ in range(MAX_DEPTH + 1):
             while queue:
                 event = queue.pop(0)
@@ -547,6 +672,8 @@ class Machine:
                     self.signal_data.append(event.get("data") or {})
                 elif event["type"] in ("enter", "leave") and actor in self.actor_info and event.get("data", {}).get("room"):
                     self.actor_info[actor]["room"] = event["subject"] if event["type"] == "enter" else ""
+                elif event["type"] == "changed" and event.get("key") in self.interactions:
+                    self._clock_dwell(event["key"], event.get("data", {}).get("to"), actor)
                 data = event.get("data") or {}
                 for rule in self.rules:
                     if rule.get("on") is not None and self._matches(rule["on"], event) and self._holds(rule, actor, data):
@@ -620,10 +747,15 @@ class Machine:
         known, saved = self.actor_info, data.get("actor_info", {})
         self.actor_info = {actor: saved.get(actor) or known.get(actor) or {"kind": "npc", "room": ""}
                            for actor in {**self.actors, **saved}}
-        self.timers = data.get("timers", [])
+        self.timers = sorted(data.get("timers", []), key=_timer_order)
         self._seq = max((t["seq"] for t in self.timers), default=0)
         self.derived = {}
         self._rebind([], 0)             # recompute, silently: nothing changed while saved
+
+
+def _timer_order(timer: dict[str, Any]) -> tuple[int, float, int]:
+    """Timers in firing order: those in seconds (advance takes them from the front), then clock ones."""
+    return (0, timer["at"], timer["seq"]) if "at" in timer else (1, timer["clock"], timer["seq"])
 
 
 # ---- traces ------------------------------------------------------------------------------------
@@ -637,7 +769,8 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
     ``{"expect": {...}}`` with any of ``state`` ({key: value}), ``actors`` ({id: {key: value}}),
     ``signals`` / ``fired`` / ``feedback`` (exactly what happened since the last expect:
     [subject, name] pairs, rule ids, [kind, value, actor]), ``signal_data`` ([subject, name, data]
-    of the same signals) and ``errors`` (a count).
+    of the same signals), ``clock`` ({field: value}), ``timers`` (how many are pending) and
+    ``errors`` (a count).
     """
     if not isinstance(trace, dict):
         trace = json.loads(Path(trace).read_text())
@@ -688,6 +821,11 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
                     problems.append(f"{where}: fired {got}, expected {expect['fired']}")
             if "feedback" in expect and machine.feedback != expect["feedback"]:
                 problems.append(f"{where}: feedback {machine.feedback}, expected {expect['feedback']}")
+            for field, want in expect.get("clock", {}).items():
+                if machine.clock.get(field) != want:
+                    problems.append(f"{where}: clock {field} is {machine.clock.get(field)!r}, expected {want!r}")
+            if "timers" in expect and len(machine.timers) != expect["timers"]:
+                problems.append(f"{where}: {len(machine.timers)} timers pending, expected {expect['timers']}")
             if "errors" in expect and len(machine.errors) != expect["errors"]:
                 problems.append(f"{where}: {len(machine.errors)} errors, expected {expect['errors']}: {machine.errors}")
             machine.signals, machine.fired, machine.feedback, machine.errors = [], [], [], []

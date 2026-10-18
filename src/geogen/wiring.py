@@ -13,7 +13,7 @@ Three keys, in a scene or an asset (``docs/rules.md`` has the semantics)::
           - {emit: opened, of: gate}
           - {start_quest: lights_out}       # also fail_quest, complete_objective
           - {notify: "The gate opens"}      # tell the actor; {play: <sound>} (geogen.rules.SOUNDS)
-        after: 2                            # seconds before the effects run
+        after: 2                            # seconds before the effects run ({hours: 6}: clock time)
         once: true                          # once per actor (once in all with no actor)
         if: "{quests}"                      # build time: no such rule when the param is 0 (wires too)
     wire:
@@ -138,9 +138,13 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 if isinstance(rule.get("do"), list) and not rule["do"]:
                     compiler.bad(src.where(*at), "a rule needs do: [effects]")
                 continue
-            for key in ("after", "once"):
-                if rule.get(key):
-                    out[key] = float(rule[key]) if key == "after" else True
+            if rule.get("after"):
+                after = attempt(src.where(*at, "after"), lambda: _after(rule["after"]))
+                if after is None:
+                    continue
+                out["after"] = after
+            if rule.get("once"):
+                out["once"] = True
             compiler.event_reads.append((src.where(*at), out))
             rules.append(out)
             compiler.out.written[out["id"]] = src.where(*at)
@@ -164,7 +168,10 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             if when is not True:
                 out["when"] = when
             if wire.get("after"):
-                out["after"] = float(wire["after"])
+                after = attempt(src.where(*at, "after"), lambda: _after(wire["after"]))
+                if after is None:
+                    continue
+                out["after"] = after
             compiler.event_reads.append((src.where(*at), out))
             rules.append(out)
             compiler.out.written[out["id"]] = src.where(*at)
@@ -187,6 +194,16 @@ def built(entry: dict[str, Any]) -> bool:
     """Whether a rule, wire or ``quests:`` entry is part of this build: its ``if:`` (a param
     expression, resolved when the file was loaded) isn't 0, false or ""."""
     return entry.get("if", True) not in (False, 0, "", None)
+
+
+def _after(value: Any) -> float | dict[str, float]:
+    """An authored rule or wire ``after`` (seconds, or {minutes | hours | days: n}) as the program's."""
+    from .quests import QuestError
+    from .rules import duration
+    try:
+        return duration(value)
+    except ValueError as exc:
+        raise QuestError(str(exc)) from None
 
 
 def _event(compiler: Any, src: Any, spec: Any) -> dict[str, Any]:

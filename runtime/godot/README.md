@@ -849,7 +849,12 @@ lift, a switch and bound lamps, a place and a quest.
   clock is its clock, checked each minute, and time passes with physics.
 - Actors are `player` and each NPC by stable ID.
 - A package's state is kept when its world unloads and resumes when it loads
-  again, so progress survives a trip to another scene.
+  again, so progress survives a trip to another scene: interactions come back
+  in the state they were left in, and clock-time waits (`after: {hours: n}`) run
+  on, catching up when the scene loads again.
+- The clock counts days (`GeogenClock.day`), so clock-time waits know how far it
+  has gone. A rule's `skip` effect moves it forward (the sun and sky follow, and
+  `clock: {...}` is printed); API `time.skip` does the same from outside.
 - **Content packages** ("Content packages" in `docs/rules.md`) are state, rules
   and quests that belong to no scene. `catalogue.json` lists the deployed ones
   under `packages`: `[{name, file, exported, scenes}]`, each `file` a

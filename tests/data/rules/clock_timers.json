@@ -1,0 +1,376 @@
+{
+ "name": "clock_timers",
+ "about": "Clock-time waits ({minutes: n}): a crop's dwells count from when each stage is entered and run when the clock reaches them, a chain catches up exactly when the clock jumps ahead, a skip effect moves the clock (sleeping until 06:00, a nap) and runs what comes due on the way, a delayed rule can wait clock time, and the waits survive a save.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "world:demo.watered": {
+    "type": "bool",
+    "default": false
+   }
+  },
+  "interactions": {
+   "demo:plot#crop": {
+    "initial": "empty",
+    "duration": 0.5,
+    "states": {
+     "empty": {},
+     "planted": {
+      "then": "sprouting",
+      "after": {
+       "minutes": 360
+      }
+     },
+     "sprouting": {
+      "then": "grown",
+      "after": {
+       "minutes": 360
+      }
+     },
+     "grown": {
+      "next": "empty",
+      "emit": "ripe"
+     }
+    }
+   }
+  },
+  "rules": [
+   {
+    "id": "sleep",
+    "on": {
+     "type": "signal",
+     "subject": "demo:bed",
+     "name": "slept"
+    },
+    "do": [
+     {
+      "skip": {
+       "to": "06:00"
+      }
+     }
+    ]
+   },
+   {
+    "id": "nap",
+    "on": {
+     "type": "signal",
+     "subject": "demo:sofa",
+     "name": "napped"
+    },
+    "do": [
+     {
+      "skip": {
+       "minutes": 180
+      }
+     }
+    ]
+   },
+   {
+    "id": "remind",
+    "on": {
+     "type": "signal",
+     "subject": "demo:bell",
+     "name": "rang"
+    },
+    "after": {
+     "minutes": 120
+    },
+    "do": [
+     {
+      "notify": "Two hours on"
+     },
+     {
+      "set": "world:demo.watered",
+      "to": true
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  }
+ },
+ "steps": [
+  {
+   "clock": {
+    "time": "08:00",
+    "day": 0
+   }
+  },
+  {
+   "set": "demo:plot#crop",
+   "to": "planted"
+  },
+  {
+   "expect": {
+    "timers": 2
+   }
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "timers": 1
+   }
+  },
+  {
+   "clock": {
+    "time": "13:59"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plot#crop": "planted"
+    }
+   }
+  },
+  {
+   "clock": {
+    "time": "14:00"
+   }
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plot#crop": "sprouting"
+    }
+   }
+  },
+  {
+   "clock": {
+    "time": "15:00"
+   }
+  },
+  {
+   "set": "demo:plot#crop",
+   "to": "empty"
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "clock": {
+    "time": "23:00"
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plot#crop": "empty"
+    },
+    "timers": 0
+   }
+  },
+  {
+   "set": "demo:plot#crop",
+   "to": "planted"
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "save_load": true
+  },
+  {
+   "expect": {
+    "timers": 1,
+    "clock": {
+     "time": "23:00",
+     "day": 0
+    }
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:bed",
+    "name": "slept",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "clock": {
+     "time": "06:00",
+     "day": 1,
+     "hour": 6.0
+    },
+    "state": {
+     "demo:plot#crop": "sprouting"
+    },
+    "fired": [
+     "sleep"
+    ],
+    "signals": [
+     [
+      "demo:bed",
+      "slept"
+     ]
+    ]
+   }
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "clock": {
+    "time": "10:59",
+    "day": 1
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plot#crop": "sprouting"
+    }
+   }
+  },
+  {
+   "clock": {
+    "time": "11:00",
+    "day": 1
+   }
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plot#crop": "grown"
+    },
+    "signals": [
+     [
+      "demo:plot",
+      "ripe"
+     ]
+    ]
+   }
+  },
+  {
+   "use": "demo:plot#crop",
+   "actor": "player",
+   "used": true
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "clock": {
+    "time": "12:00",
+    "day": 1
+   }
+  },
+  {
+   "set": "demo:plot#crop",
+   "to": "planted"
+  },
+  {
+   "clock": {
+    "time": "12:00",
+    "day": 3
+   }
+  },
+  {
+   "expect": {
+    "state": {
+     "demo:plot#crop": "grown"
+    },
+    "timers": 3
+   }
+  },
+  {
+   "advance": 1.0
+  },
+  {
+   "expect": {
+    "signals": [
+     [
+      "demo:plot",
+      "ripe"
+     ]
+    ],
+    "timers": 0
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:bell",
+    "name": "rang",
+    "actor": "player"
+   }
+  },
+  {
+   "clock": {
+    "time": "13:59",
+    "day": 3
+   }
+  },
+  {
+   "expect": {
+    "fired": [
+     "remind"
+    ],
+    "feedback": [],
+    "state": {
+     "world:demo.watered": false
+    }
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:sofa",
+    "name": "napped",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "clock": {
+     "time": "16:59",
+     "day": 3
+    },
+    "fired": [
+     "nap"
+    ],
+    "feedback": [
+     [
+      "notify",
+      "Two hours on",
+      "player"
+     ]
+    ],
+    "state": {
+     "world:demo.watered": true
+    }
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:bed",
+    "name": "slept",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "clock": {
+     "time": "06:00",
+     "day": 4
+    },
+    "errors": 0
+   }
+  }
+ ]
+}

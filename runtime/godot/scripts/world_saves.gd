@@ -106,7 +106,8 @@ func _clock_now() -> Dictionary:
     if world.clock == null:
         return {"time": "12:00", "hour": 12.0, "night": false, "day": 0}
     var total := int(world.clock.hours * 60.0) % 1440
-    return {"time": "%02d:%02d" % [total / 60, total % 60], "hour": total / 60.0, "night": world.clock.night, "day": 0}
+    return {"time": "%02d:%02d" % [total / 60, total % 60], "hour": total / 60.0, "night": world.clock.night,
+        "day": world.clock.day}
 
 
 ## Restore a save: whatever it doesn't mention goes back to how it started. Entries for
@@ -129,6 +130,7 @@ func load(data: Dictionary) -> void:
     data = world.rules.take_save(data, world.rules.package if world.rules.machine != null else world.scene_name)
     if world.clock != null and data.get("clock") is Dictionary and data["clock"].has("hour"):
         world.clock.hours = fposmod(float(data["clock"]["hour"]), 24.0)
+        world.clock.day = int(data["clock"].get("day", world.clock.day))
         world.clock.apply()
     # The interactions in the world section. A loaded one is its node's to hold; the others
     # wait for their chunk, and the rules program simulates them meanwhile.

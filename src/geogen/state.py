@@ -386,7 +386,7 @@ def _machine(interaction: Any) -> dict[str, Any]:
     for name, state in interaction.states.items():
         entry = {k: getattr(state, k) for k in ("next", "then", "emit") if getattr(state, k) is not None}
         if state.after is not None:
-            entry["after"] = float(state.after)
+            entry["after"] = dict(state.after) if isinstance(state.after, dict) else float(state.after)
         states[name] = entry
     out = {"initial": interaction.initial, "duration": float(interaction.duration), "states": states}
     if interaction.lock and interaction.lock.get("locked"):

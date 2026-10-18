@@ -170,12 +170,21 @@
                 "required": [
                   "play"
                 ]
+              },
+              {
+                "required": [
+                  "skip"
+                ]
               }
             ]
           }
         },
         "after": {
-          "type": "number"
+          "description": "Seconds, or {minutes: n} of clock time.",
+          "oneOf": [
+            {"type": "number"},
+            {"type": "object", "required": ["minutes"], "additionalProperties": false, "properties": {"minutes": {"type": "number", "minimum": 0}}}
+          ]
         },
         "once": {
           "type": "boolean"

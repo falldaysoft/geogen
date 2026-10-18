@@ -6,6 +6,8 @@ extends Node
 ##
 ## Time runs with physics (so --timescale speeds it up): a whole day takes `day_length`
 ## seconds (0 freezes the clock). --time=HH:MM sets the start, --day-length=S the pace.
+## `day` counts the midnights passed, so the rules' clock timers (game-clock waits) know
+## how far the clock has really gone.
 
 signal night_changed(night: bool)
 
@@ -13,6 +15,7 @@ const MAX_ELEVATION := 58.0      # deg, sun at noon
 const NOON_AZIMUTH := 200.0      # deg about +Y where the noon sun stands (the old fixed sun's side)
 
 var hours := 13.0
+var day := 0
 var day_length := 1440.0         # s per 24 h (a day in 24 minutes)
 var sun: DirectionalLight3D
 var environment: Environment
@@ -44,7 +47,10 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
     if day_length > 0.0:
-        hours = fposmod(hours + delta * 24.0 / day_length, 24.0)
+        var next := hours + delta * 24.0 / day_length
+        if next >= 24.0:
+            day += int(next / 24.0)
+        hours = fposmod(next, 24.0)
     apply()
 
 

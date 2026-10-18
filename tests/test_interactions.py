@@ -62,6 +62,8 @@ def test_initial_state_poses_parts():
     ({"s": {"states": {"a": {}}, "motions": [{"parts": ["nope"], "rotate": "y"}]}}, "unknown part"),
     ({"s": {"states": {"a": {}}, "motions": [{"parts": ["a"], "rotate": "q"}]}}, "axis"),
     ({"s": {"states": {"a": {}}, "motions": [{"parts": ["a"]}]}}, "rotate/translate"),
+    ({"s": {"states": {"a": {"then": "a", "after": {"weeks": 1}}}, "motions": [{"parts": ["a"], "rotate": "y"}]}},
+     "clock time"),
 ])
 def test_bad_interactions_raise(block, match):
     import yaml as pyyaml
@@ -70,6 +72,18 @@ def test_bad_interactions_raise(block, match):
              "interactions": block}
     with pytest.raises(ValueError, match=match):
         LayoutLoader().load_string(pyyaml.safe_dump(asset))
+
+
+def test_a_state_can_wait_clock_time():
+    import yaml as pyyaml
+    asset = {"name": "t", "size": [1, 1, 1],
+             "parts": {"a": {"primitive": "cube", "size": [1, 1, 1], "anchor": "bottom_center"}},
+             "interactions": {"crop": {"initial": "seed", "states": {
+                 "seed": {"then": "grown", "after": {"hours": 6, "minutes": 30}}, "grown": {"next": "seed"}},
+                 "motions": [{"parts": ["a"], "translate": "y", "values": {"grown": 0.1}}]}}}
+    (crop,) = LayoutLoader().load_string(pyyaml.safe_dump(asset)).interactions
+    assert crop.states["seed"].after == {"minutes": 390.0}
+    assert crop.states["seed"].to_dict()["after"] == {"minutes": 390.0}
 
 
 def test_interactions_exported_with_node_names(scene_export):
