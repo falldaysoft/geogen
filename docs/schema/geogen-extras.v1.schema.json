@@ -523,7 +523,8 @@
               "properties": {
                 "look": { "type": "object", "additionalProperties": false, "properties": {
                   "range": { "type": "number" }, "cone": { "type": "number" }, "yaw": { "type": "number" },
-                  "pitch": { "type": "number" }, "speed": { "type": "number" } } },
+                  "pitch": { "type": "number" }, "speed": { "type": "number" },
+                  "busy_every": { "$ref": "#/$defs/range" }, "busy_glance": { "type": "number" } } },
                 "greet": { "type": "object", "additionalProperties": false, "properties": {
                   "action": { "type": "string" }, "prompt": { "type": "string" }, "signal": { "type": "string" },
                   "cooldown": { "type": "number" }, "debounce": { "type": "number" }, "acknowledge": { "type": "number" } } },
@@ -754,7 +755,7 @@
       "additionalProperties": { "type": ["number", "string", "boolean", "array", "null"] }
     },
     "npc_step": {
-      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it) and 'if' (a flag it needs).",
+      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter) and 'if' (a flag it needs).",
       "type": "object", "additionalProperties": false, "minProperties": 1,
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }],
@@ -768,6 +769,8 @@
         "play": { "type": "string" },
         "at": { "enum": ["anchor", "approach"] },
         "hold": { "type": "string" },
+        "loop": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },
+        "close": { "const": true },
         "if": { "type": "string" }
       }
     },

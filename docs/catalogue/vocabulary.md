@@ -164,9 +164,9 @@ Keys: `body`, `description`, `extends`, `name`, `params`, `tags`, `variants`
 
 ### character
 
-A named person: an NPC role (`npc:`) with its own name, look and placement defaults.
+A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
-Use: `place: {marco: {character: people/marco.yaml, home: kitchen.floor}}`
+Use: `place: {marco: {character: people/marco.yaml}}`
 
 Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `wander`, `work`
 

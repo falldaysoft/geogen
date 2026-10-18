@@ -1,0 +1,35 @@
+# Marco cooks at a range and chops at a prep counter.
+#
+# The test scene for NPC work clips (stir, chop over the humanoid's work_counter
+# pose), for stepping up to a counter past the navmesh (`go_to` `close`) and for
+# hands on the real top. Marco is people/marco.yaml, the restaurant's chef.
+
+name: kitchen_work
+tags: [test.npc]
+size: [4.2, 2.9, 3.6]
+
+spawns:
+  start: { position: [0.6, 0.05, -1.0], facing: north }
+
+place:
+  kitchen:
+    asset: kitchen.yaml
+
+  # Along the north wall, fronts facing into the room.
+  range:
+    asset: kitchen_range.yaml
+    on: kitchen.kitchen.floor
+    at: { u: { abs: 1.05 }, v: { abs: 2.78 } }
+    facing: south
+  counter:
+    asset: prep_counter.yaml
+    on: kitchen.kitchen.floor
+    at: { u: { abs: 3.1 }, v: { abs: 2.94 } }
+    facing: south
+    params: { width: 1.4 }
+
+  marco:
+    character: people/marco.yaml
+    on: kitchen.kitchen.floor
+    at: { u: 0.5, v: 0.4 }
+    home: kitchen.kitchen.floor

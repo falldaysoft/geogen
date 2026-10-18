@@ -70,5 +70,5 @@ parts:
     offset: ["{-width / 2 + 0.47}", 0.9, -0.15]
 
 affordances:
-  - { type: stand, at: [0, 0, 0.75], approach: [0, 0, 0], facing: 180, duration: [30, 80],
+  - { type: stand, action: prep, at: [0, 0, 0.6], approach: [0, 0, 0], facing: 180, duration: [30, 80],
       advertises: { work: 0.8 }, tags: [staff, cook] }

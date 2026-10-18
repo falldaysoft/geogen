@@ -24,6 +24,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
 | [island](#island) | The island showcase: a small island in the sea. | showcase |
+| [kitchen_work](#kitchen_work) | Marco cooks at a range and chops at a prep counter. |  |
 | [level_crossing](#level_crossing) | A railway crossing a road: a two-lane road (a route), a line with two stations, barriers where they cross, traffic on the road and a commuter train. | test |
 | [lighthouse_keepers](#lighthouse_keepers) | NPCs on a spiral stair (test). |  |
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
@@ -354,6 +355,20 @@ and paths are in this scene's frame; heights below come from it).
 **Slots**: bench_beach, boat, cottage_a, cottage_b, hub_portal, jetty, lighthouse
 
 **Spawns**: from_hub, start
+
+## kitchen_work
+
+`scene: scenes/kitchen_work.yaml` · [source](../../assets/scenes/kitchen_work.yaml)
+
+Marco cooks at a range and chops at a prep counter.
+
+The test scene for NPC work clips (stir, chop over the humanoid's work_counter
+pose), for stepping up to a counter past the navmesh (`go_to` `close`) and for
+hands on the real top. Marco is people/marco.yaml, the restaurant's chef.
+
+**Places**: `kitchen: {asset: kitchen.yaml}`; `range: {asset: kitchen_range.yaml}`; `counter: {asset: prep_counter.yaml}`; `marco: {character: people/marco.yaml}`
+
+**Spawns**: start
 
 ## level_crossing
 

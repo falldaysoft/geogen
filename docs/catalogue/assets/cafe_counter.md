@@ -28,7 +28,7 @@ place:
 
 ## Affordances
 
-stand at (0, 0, -0.75) [staff, shop]
+stand at (0, 0, -0.55) [staff, shop]
 
 ## Clearance
 

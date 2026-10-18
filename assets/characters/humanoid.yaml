@@ -46,6 +46,7 @@ params:
   seat_height:    { default: 0.45 }   # seat the sit poses plant the feet for (floor to seat)
   table_height:   { default: 0.74 }
   sill_height:    { default: 0.95 }
+  worktop_height: { default: 0.9 }    # worktop the work poses and clips put the hands on (kitchen counters)
 
 presets:
   feminine:
@@ -596,6 +597,19 @@ body:
         LeftFoot: { target: ["{hip_j}", "{ankle_h}", 0.02], flat: true }
         LeftHand: { target: ["{0.19 * k}", "{sill_height + 0.02}", "{0.36 * k}"], pole: [0.6, -0.4, -1], rest: true }
         mirror: true
+    work_counter:                           # standing at a worktop, hands on it, looking down at the work
+      hips: [0, 0, -0.02]
+      bones:
+        Spine: [10, 0, 0]
+        Chest: [5, 0, 0]
+        Neck: [10, 0, 0]
+        Head: [12, 0, 0]
+        LeftThumbMetacarpal: [0, 28, 0]
+        RightThumbMetacarpal: [0, -28, 0]
+      ik:
+        LeftFoot: { target: ["{hip_j}", "{ankle_h}", 0.02], flat: true }
+        LeftHand: { target: ["{0.15 * k}", "{worktop_height + 0.02}", "{0.27 * k}"], pole: [0.7, -0.2, -1], rest: true }
+        mirror: true
     reach_low:                              # crouch and reach down in front with the right hand
       hips: ["{0.02 * k}", "{-0.3 * k}", "{-0.16 * k}"]
       bones:
@@ -620,6 +634,47 @@ body:
     walk: { generator: walk, speed: 1.2, arm_swing: "{12 + 6 * (1 - bust)}", hip_sway: "{0.012 + 0.012 * hips * bust}" }
     idle: { generator: idle }
     wave: { generator: wave }          # greeting (npc actions: greet)
+    # Work at a worktop (npc actions cook, prep, wipe, write): the right hand's strokes over the
+    # work_counter pose, the left hand resting on the top (generators/clips.gesture_clip). Hand
+    # paths are closed loops of [x, y, z] m offsets (x: the character's left, y up, z forward);
+    # bone paths are [x, y, z] degrees; keys are evenly spaced and joined smoothly.
+    stir:                              # a spoon round a pot
+      generator: gesture
+      pose: work_counter
+      duration: 3
+      hands:
+        RightHand: { lift: [-0.08, 0.14, 0.03], cycles: 3,
+                     path: [[0.05, 0, 0], [0, 0, 0.05], [-0.05, 0, 0], [0, 0, -0.05]] }
+      bones: &breathe
+        UpperChest: { path: [[-1.2, 0, 0], [1.2, 0, 0]] }
+    chop:                              # quick strokes down, working across the board and back
+      generator: gesture
+      pose: work_counter
+      duration: 3
+      hands:
+        RightHand: { lift: [-0.06, 0.02, 0], cycles: 7, path: [[0, 0.06, 0], [0, 0, 0]],
+                     drift: [[0.05, 0, 0], [-0.05, 0, 0]] }
+      bones:
+        <<: *breathe
+        Head: { path: [[1.5, 0, 0], [-1.5, 0, 0]], cycles: 7 }
+    wipe:                              # a cloth side to side, a little forward and back
+      generator: gesture
+      pose: work_counter
+      duration: 3
+      hands:
+        RightHand: { lift: [-0.08, 0.01, 0], cycles: 2,
+                     path: [[0.16, 0, 0.03], [0, 0, -0.03], [-0.16, 0, 0.03], [0, 0, -0.03]] }
+      bones: *breathe
+    write:                             # a pen: a small zigzag along a slowly advancing line
+      generator: gesture
+      pose: work_counter
+      duration: 3
+      hands:
+        RightHand: { lift: [-0.1, 0.02, -0.02], cycles: 9, path: [[0, 0, 0.008], [0, 0.004, -0.008]],
+                     drift: [[0.05, 0, 0], [-0.05, 0, 0]] }
+      bones:
+        <<: *breathe
+        Head: { path: [[0.8, 0, 0], [-0.8, 0, 0]], cycles: 3 }
     # Between poses (the runtime plays `from` -> `to` when an action changes pose). `approach` is
     # where the action has the body stand (npcs/actions.yaml), in the anchor's frame.
     sit_down: { generator: transition, from: stand, to: sit, duration: 1.4, plant: true, lean: 32 }

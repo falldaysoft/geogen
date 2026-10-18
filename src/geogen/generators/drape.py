@@ -443,7 +443,7 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
             rows = [d, d]
             static.append(d.ravel())
         else:
-            count = SAMPLES.get(clip.name, DEFAULT_SAMPLES)
+            count = clip.samples or SAMPLES.get(clip.name, DEFAULT_SAMPLES)
             times = np.linspace(0.0, clip.duration, count + 1)
             seats = seats_along(clip, times)
             rows = [delta_at(clip, float(t), seats[i]) for i, t in enumerate(times[:-1] if clip.loop else times)]

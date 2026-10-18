@@ -337,7 +337,7 @@ def clear_arms(root: SceneNode) -> dict:
         if static:
             times = np.array([0.0])
         else:
-            count = SAMPLES.get(clip.name, DEFAULT_SAMPLES)
+            count = clip.samples or SAMPLES.get(clip.name, DEFAULT_SAMPLES)
             times = np.linspace(0.0, clip.duration, count + 1)[:None if not clip.loop else -1]
         # A clip that is another played backwards needs what that one does; one that runs between
         # two static poses starts and ends as they are.

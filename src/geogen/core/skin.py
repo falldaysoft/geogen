@@ -152,6 +152,9 @@ class Clip:
     loop: bool = True
     meta: dict = field(default_factory=dict)      # exported with the clip in extras (e.g. walk speed)
     morphs: dict[str, MorphTrack] = field(default_factory=dict)
+    # Frames the build's per-clip fitting (arms.clear_arms, drape.fit) looks at; None: their own
+    # defaults. Not exported.
+    samples: int | None = None
 
     @property
     def duration(self) -> float:

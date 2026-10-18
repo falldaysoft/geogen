@@ -43,6 +43,8 @@ const STAIR_REACH := 0.8          # m from a stair's walking line that counts as
 const LEVEL_TOLERANCE := NpcGeometry.LEVEL_TOLERANCE
 const USE_TIMEOUT := 6.0
 const POSE_SECONDS := 0.5         # hold after changing pose (bodies without a transition clip)
+const CLOSE_REACH := 0.5          # m: furthest a `go_to` with `close` steps off the navmesh (up to a counter)
+const CLOSE_RADIUS := 0.03        # m: how near the spot that last step ends
 const SEAT_CLEAR := 0.03          # m the calves keep in front of a seat's front edge
 const PORTAL_LOOKAHEAD := 2.5     # react to closed doors this far ahead
 const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this far ahead
@@ -129,6 +131,10 @@ var _hands: GeogenHands = null     # hands onto what is really there: tables, do
 var _press_in := 0.0               # s until a reaching hand presses what it reaches for (a use step)
 var _feet: GeogenFeet = null       # standing feet onto the ground that is really there (feet.gd)
 var _playing := false             # a `play:` step holds the body's animation
+var _close := false               # the walk's last bit goes off the navmesh, up to the target (`close`)
+var _looping := false             # the `play:` step loops its clip: busy at work, it only glances up
+var _glance_at := 0.0             # clock of the next glance up while busy
+var _glance_until := -INF         # clock the glance up ends
 var _greeted_at := -INF           # clock of the last greeting taken (attention.greet debounce)
 var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
 var _attend_until := -INF         # keep looking at whoever greeted us until then (acknowledge)
@@ -549,6 +555,7 @@ func _fail(reason: String) -> void:
     _stack.clear()
     _stair = null
     _playing = false
+    _looping = false
     if _pose != "stand":
         _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw())}, "approach")
     velocity = Vector3.ZERO
@@ -585,6 +592,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if target == null:
             return "no %s point" % step["go_to"]
         _replans = 0
+        _close = bool(step.get("close", false))
         return _plan(target)
     if step.has("face"):
         var dir: Vector3
@@ -613,12 +621,21 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
     if step.has("vanish"):
         return ""
     if step.has("play"):
-        # A skeletal body plays the clip once (then back to standing); others just pause.
+        # A skeletal body plays the clip once (then back to standing), or over and over for the
+        # step's `loop` time (work at a counter); others just pause, or stand there that long.
         var clip := str(step["play"])
         velocity = Vector3.ZERO
         _timer = 1.0
+        if step.has("loop"):
+            var r = ctx["duration"] if str(step["loop"]) == "duration" else step["loop"]
+            _timer = rng.randf_range(float(r[0]), float(r[1]))
         if animator != null and animator.has(clip) and _pose == "stand":
-            _timer = animator.play_once(clip)
+            if step.has("loop"):
+                animator.play_loop(clip)
+                _looping = true
+                _glance_at = clock + _busy_gap()
+            else:
+                _timer = animator.play_once(clip)
             _playing = true
         return ""
     if step.has("use"):
@@ -664,6 +681,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         if _timer > 0.0:
             return "running"
         _playing = false
+        _looping = false
         return "done"
     if step.has("vanish"):
         if not _away_block():
@@ -722,6 +740,7 @@ func restore_state(data: Dictionary) -> void:
     _stack.clear()
     _stair = null
     _playing = false
+    _looping = false
     _path = PackedVector3Array()
     velocity = Vector3.ZERO
     if not _option.is_empty():
@@ -919,7 +938,31 @@ func _plan(target: Vector3) -> String:
     # A navigation link on the way (a spiral stair) is two points, a straight line through the
     # stair: walk its way round instead. Last, so the reroute above sees the navmesh's own path.
     _path = GeogenWalker.along_links(_path, get_tree(), _stairs)
+    if _close:
+        _close_in(to, target)
     return ""
+
+
+## `go_to` with `close: true`: the navmesh keeps a player's width off everything, but a counter
+## is worked at from closer. Past the path's end, step straight up to the target, when it is
+## within CLOSE_REACH and this body's width can move there without touching anything.
+func _close_in(end: Vector3, target: Vector3) -> void:
+    var gap := Vector3(target.x - end.x, 0.0, target.z - end.z)
+    if gap.length() < 0.02 or gap.length() > CLOSE_REACH:
+        return
+    var cyl := CylinderShape3D.new()
+    cyl.radius = float(definition.get("radius", 0.25))
+    cyl.height = float(definition.get("height", 1.75)) - 0.3
+    var query := PhysicsShapeQueryParameters3D.new()
+    query.shape = cyl
+    query.transform = Transform3D(Basis.IDENTITY, end + Vector3.UP * (0.2 + cyl.height / 2.0))
+    query.motion = gap
+    query.exclude = [get_rid()]
+    query.collision_mask = 1
+    var free := get_world_3d().direct_space_state.cast_motion(query)
+    if free.size() == 2 and float(free[0]) >= 1.0:
+        _path.append(end + gap)
+        stats["close_ins"] = int(stats.get("close_ins", 0)) + 1
 
 
 # Stairs are walked in single file. A spiral stair's navigation link is one body wide, and two
@@ -1092,7 +1135,9 @@ func _walk(delta: float) -> String:
     var flat := Vector2(to.x, to.z)
     var speed := float(definition.get("speed", 1.2))
     # (On its own level: a waypoint a turn of a spiral stair above isn't reached from below.)
-    if flat.length() < maxf(WAYPOINT_RADIUS, speed * delta) and absf(to.y) < LEVEL_TOLERANCE:
+    # Stepping up to a counter (`close`), the last waypoint is the spot itself.
+    var radius := CLOSE_RADIUS if _close and _waypoint == _path.size() - 1 else WAYPOINT_RADIUS
+    if flat.length() < maxf(radius, speed * delta) and absf(to.y) < LEVEL_TOLERANCE:
         _waypoint += 1
         _best = INF
         _stall = 0.0
@@ -1420,6 +1465,22 @@ func _characters_in(lo: Vector2, hi: Vector2) -> Array:
     return out
 
 
+## Busy at work (a looping `play` step), the head comes up only now and then, for `busy_glance` s
+## every `busy_every` s; otherwise always.
+func _glancing(look: Dictionary) -> bool:
+    if not _looping:
+        return true
+    if clock >= _glance_at:
+        _glance_until = clock + float(look.get("busy_glance", 1.2))
+        _glance_at = _glance_until + _busy_gap()
+    return clock < _glance_until
+
+
+func _busy_gap() -> float:
+    var every: Array = definition.get("attention", {}).get("look", {}).get("busy_every", [5.0, 12.0])
+    return rng.randf_range(float(every[0]), float(every[1]))
+
+
 ## Look at the player when they're near and ahead; step out of their way when standing in it.
 func _attend(delta: float) -> void:
     var attention: Dictionary = definition.get("attention", {})
@@ -1440,7 +1501,7 @@ func _attend(delta: float) -> void:
             var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
             # Just greeted: look their way wherever they stand (the head's own limits clamp it).
             if clock < _attend_until or (to.length() < float(look["range"])
-                    and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0):
+                    and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0 and _glancing(look)):
                 want = 1.0
                 _look.target = eye
         if _look.gesturing() and (_pose != "sit" or _moving_pose()):
@@ -1673,6 +1734,7 @@ func report() -> Dictionary:
         "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
+        "close_ins": int(stats.get("close_ins", 0)),
         # Signalled crossings: waits on the kerb for walk (and the longest, s), steps onto one, and
         # steps onto one showing a steady don't-walk.
         "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),

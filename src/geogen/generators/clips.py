@@ -361,7 +361,100 @@ def transition_clip(skeleton: Skeleton, base: Pose, name: str = "transition", *,
     return clip
 
 
-GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip, "transition": transition_clip}
+GESTURE_DEFAULTS = {"pose": None, "duration": 2.0, "hands": {}, "bones": {}, "fps": 15}
+GESTURE_HAND_KEYS = {"lift", "path", "cycles", "drift"}
+GESTURE_BONE_KEYS = {"path", "cycles"}
+GESTURE_SAMPLES = 4             # frames of a gesture clip the build's arm and drape fitting look at
+
+
+def loop_path(keys, u: float, cycles: int = 1) -> np.ndarray:
+    """A closed path through ``keys`` (evenly spaced points, any dimension) at ``u`` (0..1 of the
+    loop), gone round ``cycles`` times: periodic Catmull-Rom, so it is smooth and loops seamlessly.
+    No keys: zeros; one key: that point."""
+    keys = np.asarray(keys, dtype=float)
+    if keys.size == 0:
+        return np.zeros(3)
+    n = len(keys)
+    if n == 1:
+        return keys[0].copy()
+    x = (u * cycles % 1.0) * n
+    i = int(np.floor(x)) % n
+    f = x - np.floor(x)
+    p0, p1, p2, p3 = keys[(i - 1) % n], keys[i], keys[(i + 1) % n], keys[(i + 2) % n]
+    return 0.5 * (2 * p1 + (p2 - p0) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f
+                  + (3 * p1 - p0 - 3 * p2 + p3) * f ** 3)
+
+
+def gesture_clip(skeleton: Skeleton, base: Pose, name: str = "gesture", *, poses: dict | None = None,
+                 **params) -> Clip:
+    """A looping piece of work over one of the body's IK poses (``pose``: ``work_counter``, standing
+    at a worktop), all of it declared:
+
+    - ``hands: {End: {lift, path, cycles, drift}}``: the IK end's target moves from the pose's
+      by ``lift`` [x, y, z] m plus a closed ``path`` of [x, y, z] offsets (m; body frame: x the
+      character's left, y up, z forward) gone round ``cycles`` times a loop, plus a ``drift`` path
+      gone round once (a knife working across the board).
+    - ``bones: {Bone: {path, cycles}}``: [x, y, z] degree offsets (body frame) on top of the pose:
+      a nod, breathing.
+
+    Paths are evenly spaced keys joined smoothly (``loop_path``). The pose's resting hands that
+    ``hands`` doesn't move stay resting (the clip's ``rests``: a runtime puts them on the real top).
+    """
+    p = {**GESTURE_DEFAULTS, **params}
+    unknown = set(params) - set(GESTURE_DEFAULTS)
+    if unknown:
+        raise ValueError(f"gesture clip '{name}': unknown params {sorted(unknown)}")
+    spec = (poses or {}).get(p["pose"])
+    if spec is None or not (spec.get("ik") or {}):
+        raise ValueError(f"gesture clip '{name}': pose {p['pose']!r} is not one of the body's IK poses")
+    ik_spec = {k: v for k, v in spec["ik"].items() if k != "mirror"}
+    if spec["ik"].get("mirror"):
+        from ..core.skeleton import mirror_name
+
+        for end, entry in list(ik_spec.items()):
+            twin = mirror_name(end)
+            if twin and twin not in ik_spec:
+                ik_spec[twin] = {**entry, "target": [-float(entry["target"][0]), *entry["target"][1:]]}
+                if "pole" in entry:
+                    ik_spec[twin]["pole"] = [-float(entry["pole"][0]), *entry["pole"][1:]]
+    for end, h in (p["hands"] or {}).items():
+        if end not in ik_spec or not isinstance(h, dict) or set(h) - GESTURE_HAND_KEYS:
+            raise ValueError(f"gesture clip '{name}': hands.{end} is {{{', '.join(sorted(GESTURE_HAND_KEYS))}}} "
+                             f"on one of the pose's IK ends {sorted(ik_spec)}")
+    for bone, b in (p["bones"] or {}).items():
+        if bone not in skeleton.bones or not isinstance(b, dict) or set(b) - GESTURE_BONE_KEYS:
+            raise ValueError(f"gesture clip '{name}': bones.{bone} is {{path, cycles}} on a skeleton bone")
+    hands = p["hands"] or {}
+    duration = float(p["duration"])
+    frames = max(8, int(round(duration * p["fps"])))
+    times = np.linspace(0.0, duration, frames + 1)
+    # The pose once; each frame re-solves only the hands that move (the rest of the pose holds).
+    held = Pose.from_spec({**spec, "ik": {k: v for k, v in ik_spec.items() if k not in hands}}, skeleton)
+    out = []
+    for t in times:
+        u = t / duration
+        pose = held.copy()
+        for end, h in hands.items():
+            entry = ik_spec[end]
+            offset = (np.asarray(h.get("lift", [0, 0, 0]), dtype=float)
+                      + loop_path(h.get("path") or [], u, int(h.get("cycles", 1)))
+                      + loop_path(h.get("drift") or [], u))
+            ik.solve_limb(skeleton, pose, end, np.asarray(entry["target"], dtype=float) + offset, entry.get("pole"),
+                          np.eye(3) if entry.get("flat") else None)
+        for bone, b in (p["bones"] or {}).items():
+            degrees = np.radians(loop_path(b.get("path") or [], u, int(b.get("cycles", 1))))
+            extra = skeleton.body_quat(bone, Transform(rotation=degrees).to_matrix()[:3, :3])
+            q = pose.rotations.get(bone, np.array([0.0, 0.0, 0.0, 1.0]))
+            pose.rotations[bone] = quat_from_matrix(matrix_from_quat(q) @ matrix_from_quat(extra))
+        out.append(pose)
+    rests = sorted(end for end in Pose.rest_ends(spec) if end not in hands)
+    # Only hands move, in front of the body, about one pose: the build's fitting needs few frames.
+    return Clip(name, tracks_from_poses(skeleton, out, times), loop=True, meta={"rests": rests} if rests else {},
+                samples=GESTURE_SAMPLES)
+
+
+GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip, "transition": transition_clip,
+              "gesture": gesture_clip}
 
 
 def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict, poses: dict | None = None,
@@ -374,4 +467,6 @@ def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict, poses: 
         raise ValueError(f"clip '{name}': unknown generator '{kind}'. Known: {sorted(GENERATORS)}")
     if kind == "transition":
         return transition_clip(skeleton, base, name=name, poses=poses, roots=roots, **spec)
+    if kind == "gesture":
+        return gesture_clip(skeleton, base, name=name, poses=poses, **spec)
     return GENERATORS[kind](skeleton, base, name=name, **spec)

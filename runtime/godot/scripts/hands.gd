@@ -8,6 +8,8 @@ extends SkeletonModifier3D
 ## it, and, finding nothing, a little further ahead (rays in the physics frame, up to REACH forward
 ## along the body's facing): it goes onto the first top it finds within MAX_SHIFT of its height.
 ## Eased in and out with the pose.
+## A clip that works on the top (stir, chop: the other hand moving) moves its working hands up or
+## down with the resting ones, so the strokes stay on the real top, not the one it was made for.
 ##
 ## Reaching (`reach`): one hand goes to a point on a moving node (a door's handle) for a while,
 ## easing in over REACH_EASE, following the node (the handle swings with the leaf), easing out.
@@ -16,7 +18,7 @@ extends SkeletonModifier3D
 ## animation bends them. This runs after the animation (and the head look) and reads the animated
 ## hands, so it must come before the TwoBoneIK3D among the skeleton's children (`attach`).
 
-const MAX_SHIFT := 0.15          # m: further up or down than this, it isn't the hand's support
+const MAX_SHIFT := 0.2           # m: further up or down than this, it isn't the hand's support (a bar is ~0.18 above a worktop)
 const REACH := [0.0, 0.06, 0.12, 0.18, 0.24]   # m ahead of the hand the probes look
 const INSET := 0.05              # m in from a top's edge found ahead, where the hand rests
 const PALM := 0.015              # m from the hand bone's origin down to the palm
@@ -179,6 +181,14 @@ func _process_modification() -> void:
     var reach_w := _reach_weight()
     var weight := maxf(_want, reach_w)
     var moved := false
+    # How far the resting hands go up or down onto their top: the working hands go with them.
+    var rise := 0.0
+    var rising := 0
+    for hand in resting:
+        if _support.has(hand) and _animated.has(hand):
+            rise += (_support[hand] as Vector3).y + PALM - (_animated[hand] as Vector3).y
+            rising += 1
+    rise = rise / rising if rising > 0 else 0.0
     for hand in _bones:
         var b: Array = _bones[hand]
         var shoulder := to_world * skeleton.get_bone_global_pose(b[0]).origin
@@ -189,6 +199,9 @@ func _process_modification() -> void:
         var move: Vector3 = _raw.get(hand, Vector3.ZERO)
         if hand in resting:
             move = (_support[hand] as Vector3) + Vector3.UP * PALM - wrist if _support.has(hand) else Vector3.ZERO
+            _raw[hand] = move
+        elif not resting.is_empty():
+            move = Vector3.UP * rise
             _raw[hand] = move
         move *= _want / weight if weight > 0.0 else 0.0
         if not _reach.is_empty() and _reach["hand"] == hand and is_instance_valid(_reach["node"]):

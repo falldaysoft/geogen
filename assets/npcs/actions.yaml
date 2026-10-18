@@ -10,11 +10,16 @@
 #       walk (navmesh) to the affordance's approach point, the anchor itself,
 #       a random point in the NPC's home, a portal's near/far side, or the nearest
 #       way out of the scene (a building entrance), or out of the player's way
+#       close: true              ...and past the navmesh (which keeps a player's width off
+#                                everything) step straight up to it, if it is near and clear:
+#                                a worktop is worked at from closer than that
 #   vanish: true                 leave the world (routines bring the NPC back later)
 #   face: anchor | portal | player  turn toward the anchor's heading / through the portal /
 #                                toward the player
 #   play: <clip>                 play one of the body's clips once (a skeletal body; others wait
 #                                a moment) and return to standing
+#       loop: duration | S | [lo, hi]  ...over and over for that long instead (work at a counter:
+#                                a body without the clip just stands there that long)
 #   pose: <name>                 put the body in a pose from its body asset's `poses:` (a skeletal
 #                                body plays its transition clip for the change: sit_down, ...)
 #       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
@@ -85,6 +90,45 @@ actions:
       - go_to: approach
       - face: anchor
       - wait: duration
+
+  # Work at a worktop: stand at it and do the work (the body's looping clips over its
+  # work_counter pose, hands on the real top). Affordances choose one with `action:`.
+  cook:                          # stir a pot on a range
+    approach: [0, 0, 0]
+    duration: [30, 80]
+    steps:
+      - go_to: approach
+        close: true
+      - face: anchor
+      - play: stir
+        loop: duration
+  prep:                          # chop on a board
+    approach: [0, 0, 0]
+    duration: [30, 80]
+    steps:
+      - go_to: approach
+        close: true
+      - face: anchor
+      - play: chop
+        loop: duration
+  wipe:                          # wipe a counter or a bar down
+    approach: [0, 0, 0]
+    duration: [10, 25]
+    steps:
+      - go_to: approach
+        close: true
+      - face: anchor
+      - play: wipe
+        loop: duration
+  write:                         # paperwork at a desk
+    approach: [0, 0, 0]
+    duration: [20, 60]
+    steps:
+      - go_to: approach
+        close: true
+      - face: anchor
+      - play: write
+        loop: duration
 
   use:                           # operate an object's interaction, then leave it as found
     approach: [0, 0, 0.6]

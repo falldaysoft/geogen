@@ -214,9 +214,12 @@ transition clip cross-fade into the pose clip instead.
 A pose clip whose hands rest on something (extras `rests`: `pose_sit_at_table`,
 `pose_lean_on_sill`) was made for a default table or sill height and reach; while it plays,
 `scripts/hands.gd` (`GeogenHands`, a `SkeletonModifier3D` after the head look) probes
-down from each resting hand and up to 24 cm ahead of it for a top within 15 cm of its height,
+down from each resting hand and up to 24 cm ahead of it for a top within 20 cm of its height,
 and a `TwoBoneIK3D` after it moves the hand onto that top (5 cm in from an edge found ahead),
-the elbow bending as the clip bends it, eased in and out with the pose. The NPC summary's
+the elbow bending as the clip bends it, eased in and out with the pose. A work clip (`stir`,
+`chop`, `wipe`, `write`: one hand resting, the other working) moves its working hand up or down
+by as much as the resting one moves, so the strokes stay on the real top (a bar is ~18 cm above
+the 0.9 m worktop the clips are made for). The NPC summary's
 `hands` reports it: `{weight, hands: {LeftHand: {at, support, shift}}}`.
 Standing feet go on the ground that is really under them (`scripts/feet.gd`, `GeogenFeet`,
 leg `TwoBoneIK3D`s): the clips are made on flat ground at the NPC's origin, so each foot looks
@@ -396,7 +399,13 @@ windows or doors:
   `quests` ({id: status}) and `quest_goals`.
 - **Running**: the action's steps (`assets/npcs/actions.yaml`): `go_to` (navmesh path),
   `face`, `pose` (the body asset's `poses:`, placed at the affordance anchor), `wait`, `use`
-  (drives an interaction to a state, as the player's E does), `play` (a body clip, once).
+  (drives an interaction to a state, as the player's E does), `play` (a body clip, once; with
+  `loop`, over and over for that long: work at a counter).
+  - *Work at a counter*: the navmesh keeps a player's width (0.35 m) off everything, further than
+    anyone works at a worktop from. `go_to` with `close: true` adds a last straight step past the
+    path's end to the target (`_close_in`: within 0.5 m, if a sweep of the NPC's cylinder is
+    clear; ended within 3 cm), so the work actions (`cook`, `prep`, `wipe`, `write`) stand at
+    the counter and loop the body's work clip there. The summary counts `close_ins`.
 - **Doors**: exported `portal`s. When the path ahead crosses a portal whose interaction isn't
   open, the NPC runs the `pass` action first: stop clear of the leaf, open it, walk through,
   and close it if the NPC's `closes_doors` flag is set. A portal with `handles` (one a side)
@@ -427,7 +436,9 @@ windows or doors:
 - **The player** (the definition's `attention:`, on by default; `false` or a part `false` turns it off):
   - *look*: within `range` m and a `cone` ahead, a standing or seated skeletal NPC turns its neck
     and head toward the player's eyes, clamped to `yaw`/`pitch` degrees and eased
-    (`scripts/head_look.gd`, a `SkeletonModifier3D` run after the clips).
+    (`scripts/head_look.gd`, a `SkeletonModifier3D` run after the clips). Busy at work (a
+    looping `play` step), it only glances up: for `busy_glance` s (1.2) every `busy_every`
+    [lo, hi] s ([5, 12]).
   - *greet*: aiming at an NPC that is here (not `away`) shows `E: <prompt>`, in any pose and
     whatever it is doing. A seated or lying NPC has no collider, so the aim line passing its
     body (hips to head, `npc.aim_distance`) finds it, if the eyes have a clear line to its

@@ -108,15 +108,16 @@ def _people(scene: str) -> dict:
 
 REVIEWED = [(scene, name) for scene in ("clothing_fit", "people_gallery") for name in _people(scene)]
 REVIEW_CORE = [("clothing_fit", "dress"), ("people_gallery", "athletic_crop")]
-REVIEW_POSES = ["stand", "sit", "sit_at_table", "lie"]
-REVIEW_FRAMES = {"walk": 8, "idle": 3, "sit_down": 6, "stand_up": 6, "lie_down": 5, "get_up": 5}
+REVIEW_POSES = ["stand", "sit", "sit_at_table", "lie", "work_counter"]
+REVIEW_FRAMES = {"walk": 8, "idle": 3, "sit_down": 6, "stand_up": 6, "lie_down": 5, "get_up": 5,
+                 "stir": 2, "chop": 2, "wipe": 2, "write": 2}
 
 
 @pytest.mark.parametrize("scene,name", [pytest.param(s, n, marks=() if (s, n) in REVIEW_CORE else pytest.mark.exhaustive)
                                         for s, n in REVIEWED], ids=lambda x: x)
 def test_review_scenes_pass_the_penetration_check(scene, name):
     """geogen.11.5.5's acceptance: everyone in `clothing_fit` and `people_gallery`, standing,
-    seated and lying and through the walk, idle and the transitions: no body through loose
+    seated, lying and at work and through the walk, idle, transitions and work clips: no body through loose
     cloth, no hand or forearm in the body or the clothes (generators/arms.py), no heel through a
     shoe. And what that costs at runtime: four influences a vertex and at most 8 morph targets."""
     import numpy as np

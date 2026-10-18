@@ -40,7 +40,7 @@ place:
 
 ## Affordances
 
-stand at (0, 0, 0.6) [staff, bar]
+stand at (0, 0, 0.55) [staff, bar]
 
 ## Clearance
 

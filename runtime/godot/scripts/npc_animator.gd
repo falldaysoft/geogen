@@ -83,6 +83,13 @@ func play_once(clip_name: String) -> float:
     return player.get_animation(clip_name).length
 
 
+## Play ``clip_name`` from standing over and over (a looping clip: work at a counter) until the
+## NPC moves on.
+func play_loop(clip_name: String) -> void:
+    player.speed_scale = 1.0
+    player.play(clip_name, POSE_BLEND)
+
+
 ## The NPC changed pose from ``was``: the body goes from ``start`` (its old transform, in the NPC's
 ## new frame) to ``target``, by the change's keyframed move if it has one (true: it is playing),
 ## else easing there while the pose clips cross-fade (``owner`` runs the tween).

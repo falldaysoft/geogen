@@ -179,3 +179,56 @@ def test_clips_key_the_drape_correctives():
     np.testing.assert_allclose(at("stand_up", 0), at("pose_sit", 0), atol=1e-6)
     np.testing.assert_allclose(at("sit_down", 0), 0.0, atol=0.02)      # (its first frame plants the feet)
     np.testing.assert_allclose(at("walk", 0), at("walk", -1), atol=1e-9)
+
+
+def test_loop_path_is_smooth_and_closed():
+    from geogen.generators.clips import loop_path
+
+    square = [[1, 0, 0], [0, 0, 1], [-1, 0, 0], [0, 0, -1]]
+    np.testing.assert_allclose(loop_path(square, 0.0), [1, 0, 0])
+    np.testing.assert_allclose(loop_path(square, 0.25), [0, 0, 1])        # through every key
+    np.testing.assert_allclose(loop_path(square, 1.0), loop_path(square, 0.0), atol=1e-12)
+    np.testing.assert_allclose(loop_path(square, 0.5, cycles=2), [1, 0, 0], atol=1e-12)
+    assert np.linalg.norm(loop_path(square, 0.125)) > 0.5                 # a curve, not a corner cut
+    np.testing.assert_allclose(loop_path([], 0.3), [0, 0, 0])
+
+
+def test_work_clips_move_the_working_hand_and_rest_the_other(body):
+    """stir / chop / wipe / write: declared hand paths over the work_counter pose. The right hand
+    moves along its path, the left stays where the pose rests it on the worktop (the clip's
+    `rests`), the feet stay planted, and the loop closes."""
+    pose = _clip(body, "pose_work_counter")
+    pose.apply(body, 0.0)
+    rest_left = body.find("LeftHand").world_transform()[:3, 3]
+    feet = body.find("LeftFoot").world_transform()[:3, 3]
+    assert pose.meta["rests"] == ["LeftHand", "RightHand"]
+    for name, travel in (("stir", 0.08), ("chop", 0.05), ("wipe", 0.25), ("write", 0.06)):
+        clip = _clip(body, name)
+        assert clip.loop and clip.meta["rests"] == ["LeftHand"] and clip.samples
+        right, left = [], []
+        for t in np.linspace(0, clip.duration, 31):
+            clip.apply(body, t)
+            right.append(body.find("RightHand").world_transform()[:3, 3])
+            left.append(body.find("LeftHand").world_transform()[:3, 3])
+            np.testing.assert_allclose(body.find("LeftFoot").world_transform()[:3, 3], feet, atol=1e-6)
+        right, left = np.array(right), np.array(left)
+        assert np.ptp(right, axis=0).max() > travel, name
+        # (breathing moves the shoulders, so the resting hand a few millimetres)
+        np.testing.assert_allclose(left, np.broadcast_to(rest_left, left.shape), atol=0.01, err_msg=name)
+        np.testing.assert_allclose(right[0], right[-1], atol=1e-6, err_msg=name)
+
+
+def test_gesture_clips_are_checked():
+    from geogen.core.skeleton import load_skeleton
+    from geogen.generators.clips import generate_clip
+
+    s = load_skeleton()
+    poses = {"lean": {"ik": {"LeftHand": {"target": [0.15, 0.92, 0.27], "rest": True}}}}
+    with pytest.raises(ValueError, match="not one of the body's IK poses"):
+        generate_clip(s, None, "x", {"generator": "gesture", "pose": "stand"}, poses=poses)
+    with pytest.raises(ValueError, match="hands.RightHand"):
+        generate_clip(s, None, "x", {"generator": "gesture", "pose": "lean", "hands": {"RightHand": {"path": []}}},
+                      poses=poses)
+    clip = generate_clip(s, None, "x", {"generator": "gesture", "pose": "lean",
+                                        "hands": {"LeftHand": {"path": [[0, 0.05, 0], [0, 0, 0]]}}}, poses=poses)
+    assert clip.loop and "rests" not in clip.meta              # the one resting hand moves

@@ -57,6 +57,7 @@ place:
 | `seat_height` | `0.45` |  | seat the sit poses plant the feet for (floor to seat) |
 | `table_height` | `0.74` |  |  |
 | `sill_height` | `0.95` |  |  |
+| `worktop_height` | `0.9` |  | worktop the work poses and clips put the hands on (kitchen counters) |
 
 ## Size
 
@@ -82,4 +83,4 @@ lie, sit, stand
 
 ## Clips
 
-get_up, idle, lie_down, pose_lean_on_sill, pose_lie, pose_look, pose_reach_low, pose_sit, pose_sit_at_table, pose_stand, pose_t_pose, sit_down, stand_up, walk, wave
+chop, get_up, idle, lie_down, pose_lean_on_sill, pose_lie, pose_look, pose_reach_low, pose_sit, pose_sit_at_table, pose_stand, pose_t_pose, pose_work_counter, sit_down, stand_up, stir, walk, wave, wipe, write

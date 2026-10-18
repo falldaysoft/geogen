@@ -28,7 +28,7 @@ place:
 
 ## Affordances
 
-stand at (0, 0, 0.75) [staff, cook]
+stand at (0, 0, 0.6) [staff, cook]
 
 ## Clearance
 

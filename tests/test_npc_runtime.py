@@ -289,3 +289,24 @@ def test_far_off_npcs_sleep_and_carry_on(godot_script, scene_export):
     assert reports and all(r["slept"] > 0 for r in reports), [(r["npc"], r["slept"]) for r in reports]
     assert sum(r["decisions"] for r in reports) >= len(reports)
     assert all(r["failures"] == [] for r in reports)
+
+
+def test_a_cook_steps_up_to_the_counter_and_works_with_hands_on_it(godot_script, scene_export):
+    # kitchen_work: Marco at a prep counter and a range. The navmesh keeps a player's width off
+    # them; his work actions step up past it (`close`) and loop chop / stir with his left hand on
+    # the real top (hands.gd: resting, a centimetre or two at most from where the clip puts it).
+    generated = scene_export("kitchen_work")
+    run = godot_script([step("npcs.force", npc="marco_npc", option="counter#0"),
+                        step("time.simulate", seconds=10, id="chop"),
+                        step("npcs.force", npc="marco_npc", option="range#0"),     # once he's done chopping
+                        step("time.simulate", seconds=150, id="later")],
+                       "--scene=kitchen_work", f"--generated={generated}", start={"timescale": 8}, engine_args=FAST)
+    (chop,) = run["chop"]["npcs"]
+    assert chop["doing"] == "counter#0: loop duration" and chop["clip"] == "chop", chop["doing"]
+    assert chop["close_ins"] >= 1 and chop["name"] == "Marco Bellini"
+    hand = chop["hands"]["hands"]["LeftHand"]
+    assert hand["support"] is not None and hand["shift"] < 0.03, hand
+    (later,) = run["later"]["npcs"]
+    # (A wander in so small a room may pick where the player stands; the work never fails.)
+    assert not [f for f in later["failures"] if f.startswith(("counter", "range"))] and later["unstuck"] == 0, later
+    assert {"counter#0", "range#0"} <= set(later["used"]), later["used"]

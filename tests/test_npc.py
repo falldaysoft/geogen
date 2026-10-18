@@ -306,3 +306,24 @@ def test_a_character_is_a_named_person_on_top_of_a_role(tmp_path):
     assert reseeded.meta["npc"]["seed"] == 9
     with pytest.raises(ValueError, match="one person"):
         SceneComposer().compose_string(scene.replace("home: house.floor", "home: house.floor\n    npc: npcs/resident.yaml"))
+
+
+def test_work_steps_loop_a_clip_and_close_in():
+    """`play` takes `loop` (how long to loop its clip) and `go_to` takes `close` (step up to the
+    spot past the navmesh); the work actions use both, and the kitchen furniture names them."""
+    actions = load_actions()
+    for name, clip in (("cook", "stir"), ("prep", "chop"), ("wipe", "wipe"), ("write", "write")):
+        steps = actions[name]["steps"]
+        assert steps[0] == {"go_to": "approach", "close": True}
+        assert steps[-1] == {"play": clip, "loop": "duration"}
+    for bad in ({"wait": 3, "loop": "duration"}, {"face": "anchor", "close": True}, {"go_to": "approach", "close": 1}):
+        with pytest.raises(ValueError):
+            parse_actions({"kind": "npc_actions", "version": 1, "actions": {"x": {"steps": [bad]}}})
+    parsed = parse_actions({"kind": "npc_actions", "version": 1,
+                            "actions": {"x": {"steps": [{"play": "stir", "loop": [5, 9]}]}}})
+    assert parsed["x"]["steps"][0]["loop"] == [5.0, 9.0]
+    loader = LayoutLoader()
+    for asset, action in (("kitchen_range", "cook"), ("prep_counter", "prep"), ("bar_counter", "wipe")):
+        assert loader.load(ASSETS_DIR / f"{asset}.yaml").meta["affordances"][0]["action"] == action
+    look = load_definition(ASSETS_DIR / "npcs/resident.yaml")["attention"]["look"]
+    assert look["busy_every"] == [5.0, 12.0] and look["busy_glance"] == 1.2

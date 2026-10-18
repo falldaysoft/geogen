@@ -41,7 +41,7 @@ ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play"}
-STEP_OPTIONS = {"at", "if", "hold"}
+STEP_OPTIONS = {"at", "if", "hold", "loop", "close"}
 GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit", "aside"}
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
@@ -66,7 +66,10 @@ POSE_KEYS = {"offset", "rotation", "scale"}
 # waves again, and ``acknowledge`` how long it keeps looking at the greeter), and step
 # ``step`` m aside when it stands within ``distance`` m of the player walking at it (``yield``).
 ATTENTION_DEFAULTS = {
-    "look": {"range": 4.0, "cone": 150.0, "yaw": 70.0, "pitch": 25.0, "speed": 4.0},
+    # Busy (a `play` step's looping clip: work at a counter) it only glances up: for `busy_glance`
+    # s, every `busy_every` [lo, hi] s.
+    "look": {"range": 4.0, "cone": 150.0, "yaw": 70.0, "pitch": 25.0, "speed": 4.0,
+             "busy_every": [5.0, 12.0], "busy_glance": 1.2},
     "greet": {"action": "greet", "prompt": "Say hello", "cooldown": 8.0, "signal": "greeted",
               "debounce": 0.5, "acknowledge": 3.0},
     "yield": {"distance": 1.0, "step": 0.9, "action": "step_aside"},
@@ -107,6 +110,10 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
         raise ValueError(f"{where}: face must be one of {sorted(FACE_TARGETS)}, got {arg!r}")
     if "hold" in step and (verb != "pose" or not isinstance(step["hold"], str) or not step["hold"]):
         raise ValueError(f"{where}: hold names the body pose to hold in place of a pose step's own, got {step!r}")
+    if "close" in step and (verb != "go_to" or step["close"] is not True):
+        raise ValueError(f"{where}: close: true is a go_to step's option (step up to the target off the navmesh)")
+    if "loop" in step and verb != "play":
+        raise ValueError(f"{where}: loop is a play step's option (how long to loop its clip), got {step!r}")
     if "at" in step and step["at"] not in POSE_AT:
         raise ValueError(f"{where}: at must be one of {sorted(POSE_AT)}, got {step['at']!r}")
     out = dict(step)
@@ -114,6 +121,8 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
         raise ValueError(f"{where}: vanish: true")
     if verb == "wait" and arg != "duration":
         out["wait"] = _range(arg, f"{where}: wait")
+    if "loop" in step and step["loop"] != "duration":
+        out["loop"] = _range(step["loop"], f"{where}: loop")
     return out
 
 
@@ -350,7 +359,8 @@ def parse_attention(value: Any, actions: dict, where: str) -> dict[str, Any]:
             raise ValueError(f"{where}: {part}: unknown keys {sorted(unknown)}")
         merged = {**defaults, **spec}
         for k, v in merged.items():
-            merged[k] = v if isinstance(defaults[k], str) else float(v)
+            merged[k] = v if isinstance(defaults[k], str) else (_range(v, f"{where}: {part}.{k}")
+                                                                if isinstance(defaults[k], list) else float(v))
         if "action" in merged and merged["action"] not in actions:
             raise ValueError(f"{where}: {part}: unknown action {merged['action']!r}")
         out[part] = merged

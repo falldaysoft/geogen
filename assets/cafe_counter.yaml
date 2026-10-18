@@ -79,5 +79,5 @@ parts:
     collider: none
 
 affordances:
-  - { type: stand, at: [0, 0, -0.75], approach: [0, 0, 0], facing: 0, duration: [40, 90],
+  - { type: stand, action: wipe, at: [0, 0, -0.55], approach: [0, 0, 0], facing: 0, duration: [40, 90],
       advertises: { work: 1.0 }, tags: [staff, shop] }
