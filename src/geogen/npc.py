@@ -41,7 +41,7 @@ ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play"}
-STEP_OPTIONS = {"at", "if"}
+STEP_OPTIONS = {"at", "if", "hold"}
 GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit", "aside"}
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
@@ -97,6 +97,8 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
         raise ValueError(f"{where}: go_to must be one of {sorted(GO_TO_TARGETS)}, got {arg!r}")
     if verb == "face" and arg not in FACE_TARGETS:
         raise ValueError(f"{where}: face must be one of {sorted(FACE_TARGETS)}, got {arg!r}")
+    if "hold" in step and (verb != "pose" or not isinstance(step["hold"], str) or not step["hold"]):
+        raise ValueError(f"{where}: hold names the body pose to hold in place of a pose step's own, got {step!r}")
     if "at" in step and step["at"] not in POSE_AT:
         raise ValueError(f"{where}: at must be one of {sorted(POSE_AT)}, got {step['at']!r}")
     out = dict(step)

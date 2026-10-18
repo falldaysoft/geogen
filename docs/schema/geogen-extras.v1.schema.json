@@ -94,6 +94,7 @@
               "loop": { "type": "boolean" },
               "speed": { "description": "Locomotion clips: the ground speed (m/s) the cycle was made for; scale playback by actual speed / this.", "type": "number" },
               "stride": { "type": "number" },
+              "rests": { "description": "Pose clips: the hands (IK end bones) resting on a support in this pose, a table top or a sill, made for a default height: a runtime may move them onto the support that is really there.", "type": "array", "items": { "type": "string" } },
               "from": { "description": "Transition clips (sit_down, stand_up, ...): the pose the clip starts in.", "type": "string" },
               "to": { "description": "Transition clips: the pose the clip ends in. Play the clip when changing pose from 'from' to 'to'.", "type": "string" },
               "root": {
@@ -741,7 +742,7 @@
       "additionalProperties": { "type": ["number", "string", "boolean", "array", "null"] }
     },
     "npc_step": {
-      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held) and 'if' (a flag it needs).",
+      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it) and 'if' (a flag it needs).",
       "type": "object", "additionalProperties": false, "minProperties": 1,
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }],
@@ -754,6 +755,7 @@
         "vanish": { "const": true },
         "play": { "type": "string" },
         "at": { "enum": ["anchor", "approach"] },
+        "hold": { "type": "string" },
         "if": { "type": "string" }
       }
     },

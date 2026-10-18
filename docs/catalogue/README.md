@@ -69,7 +69,7 @@ place:
 | [bed](assets/bed.md) | Hotel double bed: upholstered headboard, base on short legs, mattress, duvet folded back at the head, and two pillows. | `width`, `length`, `headboard`, `leg`, `base`, `mattress`, `hb_depth` |
 | [bookshelf](assets/bookshelf.md) | Open bookshelf: wooden carcass with back panel, four shelves and rows of books. | `width`, `height`, `depth`, `board`, `plinth` |
 | [booth](assets/booth.md) | A restaurant booth: a table between two high-backed upholstered benches. |  |
-| [chair](assets/chair.md) | Dining chair: filleted seat, turned front legs, back posts with rails and spindles, and side stretchers. | `width`, `height`, `depth`, `seat_height`, `seat_thickness`, `leg_width`, `leg_inset` |
+| [chair](assets/chair.md) | Dining chair: filleted seat, turned front legs, back posts with rails and spindles, and side stretchers. | `width`, `height`, `depth`, `seat_height`, `seat_thickness`, `leg_width`, `leg_inset`, `at_table` |
 | [coffee_table](assets/coffee_table.md) | Low coffee table: rounded top on four square legs with a lower shelf. | `width`, `depth`, `height` |
 | [curtains](assets/curtains.md) | Pair of pleated curtains on a chrome rod, drawn open to the sides. | `width`, `height`, `panel` |
 | [desk](assets/desk.md) | Writing desk: top on two panel ends with a modesty panel and a shallow drawer. | `width`, `height`, `depth`, `board` |

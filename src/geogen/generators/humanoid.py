@@ -656,12 +656,14 @@ def lining_faces(mesh: Mesh) -> np.ndarray:
 
 def pose_clips(skeleton: Skeleton, poses: dict) -> list[Clip]:
     """A static clip ``pose_<name>`` per skeletal pose, keying every joint's local rotation, so a
-    runtime can switch poses by playing clips."""
+    runtime can switch poses by playing clips. A pose with hands resting on a support says
+    which (``rests``: its IK ends marked ``rest``), so a runtime can put them on the real one."""
     from .clips import tracks_from_poses
 
     times = np.array([0.0, POSE_CLIP_SECONDS])
     return [Clip(f"pose_{name}", tracks_from_poses(skeleton, [Pose.from_spec(spec, skeleton)] * 2, times),
-                 loop=False) for name, spec in poses.items()]
+                 loop=False, meta={"rests": Pose.rest_ends(spec)} if Pose.rest_ends(spec) else {})
+            for name, spec in poses.items()]
 
 
 def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, params: dict | None = None,

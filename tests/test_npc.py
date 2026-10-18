@@ -77,7 +77,9 @@ def test_approach_points_follow_the_anchor_heading():
 def test_affordances_carry_npc_fields():
     chair = LayoutLoader().load(ASSETS_DIR / "chair.yaml")
     (a,) = chair.meta["affordances"]
-    assert a["action"] == "sit" and a["tags"] == ["seat", "table"] and a["slots"] == 1
+    assert a["action"] == "sit_at_table" and a["tags"] == ["seat", "table"] and a["slots"] == 1
+    alone = LayoutLoader().load(ASSETS_DIR / "chair.yaml", params={"at_table": 0})
+    assert alone.meta["affordances"][0]["action"] == "sit"                 # hands in the lap
     assert a["approach"] == pytest.approx([0.6, 0.0, 0.18])
     window = LayoutLoader().load(ASSETS_DIR / "window.yaml")
     assert window.meta["affordances"][0]["action"] == "look"

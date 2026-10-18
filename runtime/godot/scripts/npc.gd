@@ -116,6 +116,7 @@ var _was_at := Vector2.ZERO       # where we were a frame ago (plan)
 ## Off the map during a routine's `away` block (vanished into a building), back when it ends.
 var away := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
+var _hands: GeogenHandRest = null  # resting hands onto what is really under them (hand_rest.gd)
 var _playing := false             # a `play:` step holds the body's animation
 var _greeted_at := -INF           # clock of the last greeting taken (attention.greet debounce)
 var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
@@ -158,6 +159,12 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
                 npc._look.pitch_limit = deg_to_rad(float(look["pitch"]))
                 npc._look.speed = float(look["speed"])
             skeletons[0].add_child(npc._look)
+            var rests := {}
+            for clip in WorldLoader.geogen_extras(npc.body).get("clips", []):
+                if clip.has("rests"):
+                    rests[clip["name"]] = clip["rests"]
+            if not rests.is_empty():     # hands on the real table top or sill, not the default one
+                npc._hands = GeogenHandRest.attach(skeletons[0], rests, npc.animator.current, npc.get_rid())
     var h: Dictionary = data.get("home", {})
     for p in h.get("polygon", []):
         var w := xform * Vector3(p[0], 0.0, p[1])
@@ -547,7 +554,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
     if step.has("pose"):
         if not definition.get("body", {}).get("poses", {}).has(step["pose"]):
             return "body has no pose '%s'" % step["pose"]
-        _set_pose(step["pose"], ctx, str(step.get("at", "anchor")))
+        _set_pose(step["pose"], ctx, str(step.get("at", "anchor")), str(step.get("hold", "")))
         return ""
     if step.has("wait"):
         var r = ctx["duration"] if str(step["wait"]) == "duration" else step["wait"]
@@ -1176,7 +1183,7 @@ func _parent_yaw() -> float:
 
 
 ## Put the body in a pose: sit/lie at the anchor (collider off), stand where it stands.
-func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
+func _set_pose(pose_name: String, ctx: Dictionary, at: String, hold := "") -> void:
     var pose: Dictionary = definition["body"]["poses"][pose_name]
     var yaw := deg_to_rad(float(ctx["yaw_deg"]))
     var place: Vector3 = ctx["anchor"] if at == "anchor" else ctx["approach"]
@@ -1195,6 +1202,8 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String) -> void:
         # Deep seats: sit forward until the shins clear the front edge.
         var forward := Basis(Vector3.UP, yaw) * Vector3.BACK
         global_position += forward * maxf(0.0, float(ctx["depth"]) + SEAT_CLEAR - float(pose["reach"]))
+    if animator != null:
+        animator.hold = hold if pose_name != "stand" else ""
     if body != null:
         var o: Array = pose["offset"]
         var r: Array = pose["rotation"]
@@ -1490,6 +1499,7 @@ func report() -> Dictionary:
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
+        "hands": _hands.report() if _hands != null else {},
         "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),

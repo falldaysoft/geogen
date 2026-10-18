@@ -51,6 +51,20 @@ def test_humanoid_resident_plays_clips(godot_script, cottage_dir):
     assert later["cost_us"] > 0                           # script time per physics frame
 
 
+def test_at_the_table_her_hands_rest_on_its_top(godot_script, cottage_dir):
+    # A dining chair's action is sit_at_table: sit, holding the pose with the forearms on the table
+    # (hand_rest.gd). The pose is made for a default table and reach; her hands find the real
+    # top ahead of them and the arm IK puts them on it, a little way in from its edge.
+    seated = simulate(godot_script, cottage_dir, 140)
+    assert (seated["pose"], seated["clip"]) == ("sit", "pose_sit_at_table")
+    hands = seated["hands"]
+    assert hands["weight"] == 1.0 and set(hands["hands"]) == {"LeftHand", "RightHand"}
+    for hand in hands["hands"].values():
+        support, at = hand["support"], hand["at"]
+        assert support is not None and support[1] == pytest.approx(1.07, abs=0.02)   # the dining table's top
+        assert 0.05 < hand["shift"] < 0.3                       # moved forward onto it, not far
+
+
 def test_resident_sits_facing_the_seat_in_a_turned_cottage(godot_script, cottage_dir, scene_export):
     # house_plot turns the cottage to face east, so the NPC's parent is rotated: poses and
     # turns must use world headings (she used to sit sideways here, backwards on the island).

@@ -208,8 +208,16 @@ change (extras `from` / `to`: `sit_down`, `stand_up`, `lie_down`, `get_up`)
 and moves the body along the clip's `root` path, so the feet stay where they
 stood while the hips go to the seat; the path was made for the default approach
 and seat height, and the difference to the actual ones is blended in over the
-clip. Then it holds `pose_sit` / `pose_lie`. Bodies without a transition clip
-cross-fade into the pose clip instead. While standing it plays `walk`
+clip. Then it holds `pose_sit` / `pose_lie`, or the pose an action's step names with
+`hold` (`sit_at_table`: sit, forearms on the table), cross-fading into it. Bodies without a
+transition clip cross-fade into the pose clip instead.
+A pose clip whose hands rest on something (extras `rests`: `pose_sit_at_table`,
+`pose_lean_on_sill`) was made for a default table or sill height and reach; while it plays,
+`scripts/hand_rest.gd` (`GeogenHandRest`, a `SkeletonModifier3D` after the head look) probes
+down from each resting hand and up to 24 cm ahead of it for a top within 15 cm of its height,
+and a `TwoBoneIK3D` after it moves the hand onto that top (5 cm in from an edge found ahead),
+the elbow bending as the clip bends it, eased in and out with the pose. The NPC summary's
+`hands` reports it: `{weight, hands: {LeftHand: {at, support, shift}}}`. While standing it plays `walk`
 (speed-scaled to the NPC's velocity over the clip's recorded speed, so feet
 don't slide) or `idle`.
 

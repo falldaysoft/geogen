@@ -18,6 +18,8 @@
 #   pose: <name>                 put the body in a pose from its body asset's `poses:` (a skeletal
 #                                body plays its transition clip for the change: sit_down, ...)
 #       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
+#       hold: <pose>             ...holding that skeletal pose (pose_<name> clip) instead of the
+#                                pose's own once there: sit, but with the forearms on the table
 #   wait: duration | S | [lo, hi]  seconds (duration = the affordance's range)
 #   use: <state>                 drive the affordance's/portal's interaction to <state>
 #                                (presses it like the player does, waits for arrival);
@@ -39,6 +41,19 @@ actions:
       - face: anchor
       - pose: sit
         at: anchor
+      - wait: duration
+      - pose: stand
+        at: approach
+
+  sit_at_table:                  # a chair at a table: sit, forearms on the table top
+    approach: [0, 0, 0.5]
+    duration: [20, 50]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - pose: sit
+        at: anchor
+        hold: sit_at_table
       - wait: duration
       - pose: stand
         at: approach

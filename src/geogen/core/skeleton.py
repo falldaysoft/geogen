@@ -222,7 +222,9 @@ class Pose:
         """``{End: {target: [x, y, z], pole: [x, y, z], flat: bool}, mirror: bool}``: place hands/feet
         (body frame, after ``bones``/``hips``). ``flat`` keeps the end bone at its rest orientation
         (feet flat on the floor); ``mirror`` also solves the Right* twin of each Left* entry.
-        ``floor`` marks a floor-relative target, which seat fitting moves (humanoid.fit_seats)."""
+        ``floor`` marks a floor-relative target, which seat fitting moves (humanoid.fit_seats);
+        ``rest`` a hand resting on a support (a table top, a sill) that a runtime may move onto
+        the real one (``rest_ends``)."""
         from .ik import LIMBS, solve_limb
 
         entries = {k: v for k, v in spec.items() if k != "mirror"}
@@ -236,11 +238,20 @@ class Pose:
         for end, entry in entries.items():
             if end not in LIMBS:
                 raise ValueError(f"pose ik: '{end}' is not an IK end (one of {sorted(LIMBS)})")
-            unknown = set(entry) - {"target", "pole", "flat", "floor"}
+            unknown = set(entry) - {"target", "pole", "flat", "floor", "rest"}
             if unknown:
                 raise ValueError(f"pose ik '{end}': unknown keys {sorted(unknown)}")
             solve_limb(skeleton, self, end, entry["target"], entry.get("pole"),
                        np.eye(3) if entry.get("flat") else None)
+
+    @staticmethod
+    def rest_ends(spec: dict | None) -> list[str]:
+        """The IK ends of a pose spec marked ``rest: true`` (mirrored twins too), sorted."""
+        ik = (spec or {}).get("ik") or {}
+        ends = {name for name, entry in ik.items() if isinstance(entry, dict) and entry.get("rest")}
+        if ik.get("mirror"):
+            ends |= {mirror_name(name) for name in ends if mirror_name(name)}
+        return sorted(ends)
 
     def apply(self, skeleton: Skeleton, nodes: dict[str, SceneNode]) -> None:
         """Set the joint nodes' transforms (from ``Skeleton.build``) to this pose."""

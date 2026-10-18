@@ -17,6 +17,9 @@ var transitions := {}               # "<from>><to>" -> {clip, times, positions, 
 var transition := {}                # the one playing: {move, t, start, target, pose}
 var _clips := {}                    # clip name -> Animation, until attach()
 var _tween: Tween = null
+## The skeletal pose held in place of the pose's own (an action's `hold`: sit, with the forearms
+## on the table), where the body has its clip; "" for the pose's own.
+var hold := ""
 
 
 ## Read the body's clips while it is still where the export put it (beside its AnimationPlayer).
@@ -143,6 +146,9 @@ func play_pose(pose_name: String, blend: float) -> void:
     var clip := "pose_" + pose_name
     if pose_name == "stand" and player.has_animation("idle"):
         clip = "idle"
+    elif hold != "" and player.has_animation("pose_" + hold):
+        clip = "pose_" + hold
+        blend = maxf(blend, POSE_BLEND)          # out of the pose a transition clip ends in
     if player.has_animation(clip):
         player.speed_scale = 1.0
         player.play(clip, blend)

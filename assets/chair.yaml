@@ -14,6 +14,7 @@ params:
   seat_thickness: { default: 0.035 }
   leg_width:      { default: 0.038 }
   leg_inset:      { default: 0.035 }   # leg centre distance from the seat edge
+  at_table:       { default: 1 }       # NPCs sit with their forearms on the table (sit_at_table); 0: hands in the lap
 
 size: ["{width}", "{height}", "{depth}"]
 
@@ -129,4 +130,4 @@ surfaces:
 
 affordances:
   - { type: sit, at: [0, "{seat_height}", 0.03], facing: 0, height: "{seat_height}", approach: [0.6, 0, 0.15],
-      advertises: { rest: 0.35 }, tags: [seat, table] }
+      advertises: { rest: 0.35 }, tags: [seat, table], action: "{'sit_at_table' if at_table else 'sit'}" }

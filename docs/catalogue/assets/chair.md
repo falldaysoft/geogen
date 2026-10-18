@@ -24,6 +24,7 @@ place:
 | `seat_thickness` | `0.035` |  |  |
 | `leg_width` | `0.038` |  |  |
 | `leg_inset` | `0.035` |  | leg centre distance from the seat edge |
+| `at_table` | `1` |  | NPCs sit with their forearms on the table (sit_at_table); 0: hands in the lap |
 
 ## Size
 
