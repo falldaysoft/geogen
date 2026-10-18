@@ -256,6 +256,7 @@ class MeshReport:
     boundary_edges: int = 0
     non_manifold_edges: int = 0
     inconsistent_winding_edges: int = 0
+    flipped_area: float = 0.0     # share of the area wound against its own normals (mirrored)
     bad_normals: int = 0
     issues: list[str] = field(default_factory=list)
 
@@ -268,14 +269,17 @@ class MeshReport:
         return not self.issues
 
 
+FLIPPED_LIMIT = 0.05    # validate: share of a mesh's area that may face against its normals
+
+
 def validate(mesh: Mesh, tol: float = 1e-6, area_eps: float = 1e-12) -> MeshReport:
     """Check a mesh for common defects.
 
     Topology checks (boundary / non-manifold / winding) are done on welded
     positions so UV and normal seams don't count as open edges.
     ``issues`` lists only hard errors (NaNs, degenerate faces, bad indices,
-    bad normals); openness is reported but not treated as an error since
-    many parts are intentionally open.
+    bad normals, faces wound against their normals); openness is reported but
+    not treated as an error since many parts are intentionally open.
     """
     v, f = mesh.vertices, mesh.faces
     report = MeshReport(vertex_count=len(v), face_count=len(f))
@@ -309,6 +313,13 @@ def validate(mesh: Mesh, tol: float = 1e-6, area_eps: float = 1e-12) -> MeshRepo
         fwd_count = np.bincount(inverse.reshape(-1), weights=forward, minlength=len(uniq))
         two = counts == 2
         report.inconsistent_winding_edges = int(np.count_nonzero(two & (fwd_count != 1)))
+        if mesh.normals is not None:
+            # Winding against the normals: a mirrored transform reverses the winding but not the
+            # (inverse-transpose) normals, so renderers cull the outside and show the inside.
+            n = mesh.normals
+            facing = np.einsum("ij,ij->i", np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]]),
+                               n[f[:, 0]] + n[f[:, 1]] + n[f[:, 2]])
+            report.flipped_area = float(area[facing < 0].sum() / max(area.sum(), area_eps))
 
     if report.nan_values:
         report.issues.append(f"{report.nan_values} non-finite values")
@@ -318,6 +329,8 @@ def validate(mesh: Mesh, tol: float = 1e-6, area_eps: float = 1e-12) -> MeshRepo
         report.issues.append(f"{report.bad_normals} non-unit normals")
     if report.inconsistent_winding_edges:
         report.issues.append(f"{report.inconsistent_winding_edges} edges with inconsistent winding")
+    if report.flipped_area > FLIPPED_LIMIT:
+        report.issues.append(f"{report.flipped_area:.0%} of the area wound against its normals (inside out)")
     return report
 
 

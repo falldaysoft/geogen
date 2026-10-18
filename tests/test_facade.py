@@ -35,7 +35,9 @@ def test_styles_clad_walls_and_frame_windows(style, cladding, frame):
     assert [c.meta["storey"]["index"] for c in facade.children] == [0, 1, 2]
     for part in facade.iter_nodes():
         if part.mesh is not None:
-            assert meshops.validate(part.mesh).nan_values == 0
+            report = meshops.validate(part.mesh)
+            # Wound outward: an inside-out door canopy shows no underside and z-fights the wall.
+            assert report.nan_values == 0 and report.flipped_area == 0.0, (part.name, report.flipped_area)
 
 
 def test_every_exterior_window_gets_glass_in_its_opening():

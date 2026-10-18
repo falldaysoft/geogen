@@ -27,6 +27,7 @@ import numpy as np
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.profile import Shape
+from .floorplan import COPLANAR_GAP
 from .primitives import box_between
 
 WINDOW_RECESS = 0.1     # glass set back from the outer wall face
@@ -92,10 +93,13 @@ def _window_parts(width: float, height: float, style: FacadeStyle, storefront: b
                                    [width / 2 - FRAME, y + 0.02, z_frame + 0.03]))
     parts["glass"].append(box_between([-width / 2 + FRAME, FRAME, z_frame - 0.006], [width / 2 - FRAME, height - FRAME,
                                                                                z_frame + 0.006]))
+    # The sill's top and the lintel's underside stand off the opening's own faces (else they z-fight).
     if style.sills and not storefront:
-        parts["trim"].append(box_between([-width / 2 - 0.06, -0.06, -WINDOW_RECESS - 0.02], [width / 2 + 0.06, 0.0, 0.06]))
+        parts["trim"].append(box_between([-width / 2 - 0.06, -0.06, -WINDOW_RECESS - 0.02],
+                                         [width / 2 + 0.06, COPLANAR_GAP, 0.06]))
     if style.lintels:
-        parts["trim"].append(box_between([-width / 2 - 0.1, height, -0.02], [width / 2 + 0.1, height + 0.16, 0.015]))
+        parts["trim"].append(box_between([-width / 2 - 0.1, height - COPLANAR_GAP, -0.02],
+                                         [width / 2 + 0.1, height + 0.16, 0.015]))
     return parts
 
 
@@ -132,7 +136,7 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
                     continue
                 inward = _INWARD[side]
                 out = -inward
-                along = np.array([-out[2], 0.0, out[0]])  # left -> right seen from outside
+                along = np.array([out[2], 0.0, -out[0]])  # left -> right seen from outside (along x up = out)
                 mid = (o["lo"] + o["hi"]) / 2
                 axis = 0 if side in ("north", "south") else 2
                 face = centre.copy()
@@ -150,7 +154,8 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
                                            for mesh in _juliet_rail(width)]
                 elif o["kind"] == "door" and index == 0:
                     y = o["top"] + 0.35
-                    canopy = box_between([-width / 2 - 0.6, y, 0.0], [width / 2 + 0.6, y + 0.15, 1.6])
+                    # From 2 cm inside the wall: no face of it on the wall's.
+                    canopy = box_between([-width / 2 - 0.6, y, -0.02], [width / 2 + 0.6, y + 0.15, 1.6])
                     groups["canopy"].append(_oriented(canopy, face, along, out))
 
     # String courses at each floor line, cornice at the top.
