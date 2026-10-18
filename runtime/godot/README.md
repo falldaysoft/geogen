@@ -586,7 +586,9 @@ leaving (`quests/catch_train.yaml`). Each platform is a place (`station_<name>`)
 
 `GeogenTrain` (`scripts/train.gd`) only looks these up.
 - **Timing**: departure k leaves at `offset + k * headway` of world time (the clock's position in
-  its day), so a train is where the timetable says whenever the world is loaded.
+  its day), so a train is where the timetable says whenever the world is loaded. On a loop a
+  departure is one lap, `duration` equals `headway`, and each lap starts where the last one
+  ended (standing at the first station), so one consist goes round and round.
 - **Placement**: each departure on the line gets a copy of the consist. Each car's bogies sit on
   the track, the body goes between them, the bogies turn to the rails, and the wheels spin.
 - **Crossings**: during a closure window the crossing is closed. Its barriers' `barrier`

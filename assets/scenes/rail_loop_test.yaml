@@ -23,8 +23,8 @@ railways:
       - { name: east, at: { s: 103 }, length: 36, side: right }   # just past the east crossing (s 71), before the corner
       - { name: west, at: { s: 364 }, length: 36, side: right }   # just past the west crossing (s 332)
 place:
-  train_a: { train: trains/commuter.yaml, railway: loop }
-  train_b: { train: trains/commuter.yaml, railway: loop, timetable: { offset: 130 } }
+  train_a: { train: trains/commuter.yaml, railway: loop, timetable: { headway: 120 } }               # half a lap apart
+  train_b: { train: trains/commuter.yaml, railway: loop, timetable: { headway: 120, offset: 70 } }
   traffic: { traffic: traffic/town.yaml, seed: 2, count: 6 }
 spawns:
   start: { position: [12, 0.15, 12], facing: south }

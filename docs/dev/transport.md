@@ -68,6 +68,8 @@ They're built along +Z (the front) with the origin on the ground midway between 
 - **Rolling stock:** `vehicles/loco.yaml` and `vehicles/carriage.yaml` have bogies (with the wheels attached to them) and couplers. `meta.vehicle.bogie_centers` records where each bogie pivots.
 - **Trains:** `kind: train` definitions (`assets/trains/commuter.yaml`) declare a `consist`, `speed`, `accel`, `decel`, `timetable {headway, dwell, offset}` and `warning`.
   - A placement is `{train: trains/commuter.yaml, railway: <name>}`. `trains.place_train` simulates the run once (`simulate_run`: stops with the train's middle at each station) and computes crossing `closures`.
+  - On a loop a train goes round and round: each lap starts standing at its first station and ends back there, and takes exactly the `headway` (the spare time is shared out as longer dwells; a lap that can't be run that fast is an error). More trains on the loop means more placements with `offset`s (the city runs two, half a lap apart). Open lines run end to end, a fresh consist per departure.
+  - `trains.check_spacing` (run by the composer) fails the build if two trains on one line would come within `SPACING` (20 m) of each other over an hour of world time.
   - The runtime is `runtime/godot/scripts/train.gd` (see the README's Trains section).
   - `-s level_crossing` is the test scene, and `town` has a line along its north edge. Tests: `tests/test_railway.py` and `tests/test_traffic_runtime.py`.
 

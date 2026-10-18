@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from geogen.core import meshops
-from geogen.trains import DT, closures, simulate_run
+from geogen.trains import DT, check_spacing, closures, simulate_run
 
 ASSETS = Path(__file__).parent.parent / "assets"
 
@@ -58,9 +58,38 @@ def test_simulated_run_stops_at_stations():
     assert run[int(stops[0]["arrive"] / DT) + 2] == pytest.approx(130.0)
 
 
-def test_loop_run_does_a_lap():
-    run, stops = simulate_run(500.0, True, 50.0, [{"name": "a", "s": 200.0}], 15.0, 0.6, 0.9, 10.0)
-    assert run[0] == 0.0 and run[-1] == pytest.approx(500.0) and len(stops) == 1
+def test_loop_run_does_a_lap_from_its_first_station_back_to_it():
+    stations = [{"name": "b", "s": 400.0}, {"name": "a", "s": 200.0}]
+    run, stops = simulate_run(500.0, True, 50.0, stations, 15.0, 0.6, 0.9, 10.0)
+    assert run[0] == 225.0 and run[-1] == pytest.approx(725.0)        # middle at 'a', round to it again
+    assert [s["station"] for s in stops] == ["a", "b"] and stops[0]["arrive"] == 0.0
+    # Given a headway, the lap takes exactly that: the time to spare is longer dwells.
+    run, stops = simulate_run(500.0, True, 50.0, stations, 15.0, 0.6, 0.9, 10.0, period=120.0)
+    assert (len(run) - 1) * DT == 120.0 and run[-1] == pytest.approx(725.0)
+    dwells = [s["depart"] - s["arrive"] for s in stops]
+    assert min(dwells) > 10.0 and max(dwells) - min(dwells) <= DT
+    with pytest.raises(ValueError, match="longer than the headway"):
+        simulate_run(500.0, True, 50.0, stations, 15.0, 0.6, 0.9, 10.0, period=40.0)
+
+
+def _line(*trains, length=500.0):
+    from geogen.core.node import SceneNode
+
+    root = SceneNode("scene")
+    root.add_child(SceneNode("rail")).meta["railway"] = {"id": "loop", "length": length, "loop": True}
+    run, _ = simulate_run(length, True, 50.0, [{"name": "a", "s": 100.0}, {"name": "b", "s": 350.0}],
+                          15.0, 0.6, 0.9, 10.0, period=120.0)
+    for name, offset in trains:
+        node = root.add_child(SceneNode(name))
+        node.meta.update(type="train", train={"railway": "loop", "length": 50.0, "dt": DT, "run": list(run),
+                                               "duration": 120.0, "timetable": {"headway": 120.0, "offset": offset}})
+    return root
+
+
+def test_trains_on_a_loop_keep_their_distance():
+    assert check_spacing(_line(("a", 0.0), ("b", 60.0))) == []          # half a lap apart
+    (problem,) = check_spacing(_line(("a", 0.0), ("b", 8.0)))
+    assert "railway 'loop'" in problem and "behind" in problem
 
 
 def test_crossing_windows_cover_the_train_on_it():

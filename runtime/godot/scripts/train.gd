@@ -154,7 +154,7 @@ func _physics_process(delta: float) -> void:
     var k1 := floori((t - offset) / headway)
     for k in range(k0, k1 + 1):
         var tau := t - (offset + k * headway)
-        if tau >= 0.0 and tau <= duration:
+        if tau >= 0.0 and tau < duration:      # (a loop's next lap starts where this one ends)
             active[k] = tau
     # Consist copies: keep each departure's set, free the finished ones, clone when short.
     for k in _set_of.keys():

@@ -532,7 +532,7 @@ class SceneComposer:
         if not b.fleets:
             return
         from ..traffic import build_traffic, place_traffic
-        from ..trains import place_train
+        from ..trains import check_spacing, place_train
 
         graph = build_traffic(b.root)
         for obj_name, obj_def in b.fleets.items():
@@ -542,6 +542,9 @@ class SceneComposer:
                 node = place_traffic(b.root, obj_name, obj_def, self._load_object, graph, self._assets_dir)
             b.root.add_child(node)
             b.loaded[obj_name] = node
+        problems = check_spacing(b.root)
+        if problems:
+            raise ValueError("; ".join(problems))
 
     def _add_attachments(self, b: _SceneBuild) -> None:
         """The scene's own attachment points, for parent scenes."""

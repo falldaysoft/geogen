@@ -67,8 +67,9 @@ place:
     slot: hub_portal
     params: { label: Hub }
     travel: { scene: hub, spawn: from_city }
-  commuter_a: { train: trains/commuter.yaml, railway: loop }
-  commuter_b: { train: trains/commuter.yaml, railway: loop, timetable: { offset: 130 } }
+  # Two trains round the loop, half a lap apart: a lap (146 s running) every 160 s.
+  commuter_a: { train: trains/commuter.yaml, railway: loop, timetable: { headway: 160 } }
+  commuter_b: { train: trains/commuter.yaml, railway: loop, timetable: { headway: 160, offset: 90 } }
   traffic: { traffic: traffic/town.yaml, seed: 7, count: 16 }
   pedestrians:
     npc: npcs/pedestrian.yaml

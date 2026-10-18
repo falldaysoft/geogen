@@ -16,8 +16,8 @@
 Placed on a railway (``place: {commuter: {train: trains/commuter.yaml, railway: main}}``),
 the run is simulated once here: the head's position along the line every
 ``DT`` seconds from departure to arrival (open lines run end to end; loops do
-one lap), stopping at every station (the train's middle at the station's
-centre) for ``dwell``, plus each level crossing's closed windows (relative to
+one lap, from the first station back to it, taking the headway), stopping at
+every station (the train's middle at the station's centre) for ``dwell``, plus each level crossing's closed windows (relative to
 departure). The runtime (``runtime/godot/scripts/train.gd``) only looks these
 up: departure k leaves at ``offset + k * headway`` of world time.
 """
@@ -55,45 +55,67 @@ def load_train(path) -> dict[str, Any]:
 
 
 def simulate_run(line_length: float, loop: bool, train_length: float, stations: list[dict], speed: float,
-                 accel: float, decel: float, dwell: float) -> tuple[np.ndarray, list[dict]]:
+                 accel: float, decel: float, dwell: float,
+                 period: float | None = None) -> tuple[np.ndarray, list[dict]]:
     """Head position every DT from departure to arrival, and the station stops (times).
 
-    Open lines run from the train fully on the line to its head at the end; loops run one
-    lap. The train stops with its middle at each station's centre.
+    Open lines run from the train fully on the line to its head at the end. The train stops
+    with its middle at each station's centre.
+
+    A loop goes round and round, one lap per departure: the lap starts standing at its first
+    station (by s), dwelling, and ends back there, so laps follow each other seamlessly. With
+    ``period`` (the headway) the lap takes exactly that long: the time to spare goes to longer
+    dwells, shared between the stations (a ValueError if the lap can't be run that fast).
     """
-    start = 0.0 if loop else train_length
-    end = start + line_length if loop else line_length
+    if loop and not stations:            # nothing to stop for: round at an even speed
+        steps = int(round((period or line_length / speed) / DT))
+        if line_length / (steps * DT) > speed + 1e-6:
+            raise ValueError(f"a lap of {line_length:.0f} m at {speed} m/s takes more than the headway ({period} s)")
+        return np.linspace(0.0, line_length, steps + 1), []
     stops = []
     for st in stations:
         at = st["s"] + train_length / 2
-        if loop and at < start:
-            at += line_length
-        if start < at < end:
-            stops.append((at, st["name"]))
+        stops.append((at % line_length if loop else at, st["name"]))
     stops.sort()
-    targets = stops + ([] if loop else [(end, "")])
-    s, v, t = start, 0.0, 0.0
-    samples = [s]
-    events = []
-    for k, (target, station) in enumerate(targets):
-        while target - s > 0.05 or v > 0.3:
-            vmax = min(speed, float(np.sqrt(max(2.0 * decel * (target - s), 0.0))))
-            v = min(v + accel * DT, vmax) if v < vmax else max(v - decel * DT, vmax)
-            s = min(s + v * DT, target)
-            t += DT
-            samples.append(s)
-            if len(samples) > 200_000:
-                raise RuntimeError("train run did not finish")
-        s, v = target, 0.0
-        if k < len(stops):
-            events.append({"station": station, "arrive": round(t, 2), "depart": round(t + dwell, 2)})
-            for _ in range(int(round(dwell / DT))):
+    if loop:
+        start = stops[0][0]
+        end = start + line_length
+    else:
+        start, end = train_length, line_length
+        stops = [(at, name) for at, name in stops if start < at < end]
+    targets = stops + [(end, "")]
+
+    def run(extra: list[int]) -> tuple[list[float], list[dict]]:
+        s, v, t = start, 0.0, 0.0
+        samples = [s]
+        events = []
+        for k, (target, station) in enumerate(targets):
+            while target - s > 0.05 or v > 0.3:
+                vmax = min(speed, float(np.sqrt(max(2.0 * decel * (target - s), 0.0))))
+                v = min(v + accel * DT, vmax) if v < vmax else max(v - decel * DT, vmax)
+                s = min(s + v * DT, target)
                 t += DT
                 samples.append(s)
-    while loop and s < end - 0.01:     # finish the lap
-        v = min(v + accel * DT, speed)
-        s = min(s + v * DT, end)
-        samples.append(s)
+                if len(samples) > 200_000:
+                    raise RuntimeError("train run did not finish")
+            s, v = target, 0.0
+            if k < len(stops):
+                n = int(round(dwell / DT)) + extra[k]
+                events.append({"station": station, "arrive": round(t, 2), "depart": round(t + n * DT, 2)})
+                for _ in range(n):
+                    t += DT
+                    samples.append(s)
+        return samples, events
+
+    samples, events = run([0] * len(stops))
+    if loop and period:
+        # A lap of ``period`` is period / DT steps; its last sample is the next lap's first.
+        spare = int(round(period / DT)) - (len(samples) - 1)
+        if spare < 0:
+            raise ValueError(f"a lap takes {(len(samples) - 1) * DT:.0f} s, longer than the headway ({period:.0f} s)")
+        share = [spare // len(stops)] * len(stops)
+        share[0] += spare - sum(share)
+        samples, events = run(share)
     return np.asarray(samples), events
 
 
@@ -115,6 +137,46 @@ def closures(run: np.ndarray, train_length: float, crossings: list[dict], warnin
             windows.append([round(max(t_in - warning, 0.0), 2), round(t_out + 2.0, 2)])
         out[c["id"]] = windows
     return out
+
+
+SPACING = 20.0             # m a train keeps behind the one in front of it on the same line
+SPACING_HORIZON = 3600.0   # s of world time the check looks over (a day of 1440 s repeats inside it)
+
+
+def check_spacing(root: SceneNode) -> list[str]:
+    """Trains on one line that would run into each other: each line's departures, every second
+    over ``SPACING_HORIZON``, must keep ``SPACING`` m between one's tail and the next one's head."""
+    railways = {n.meta["railway"]["id"]: n.meta["railway"] for n in root.iter_nodes()
+                if isinstance(n.meta.get("railway"), dict)}
+    by_line: dict[str, list[tuple[str, dict]]] = {}
+    for n in root.iter_nodes():
+        if n.meta.get("type") == "train":
+            by_line.setdefault(n.meta["train"]["railway"], []).append((n.name, n.meta["train"]))
+    problems = []
+    for line, trains in by_line.items():
+        length, loop = float(railways[line]["length"]), bool(railways[line]["loop"])
+        for t in np.arange(0.0, SPACING_HORIZON, 1.0):
+            heads = []                   # (head s, train length, name) of every departure on the line
+            for name, tr in trains:
+                tt, run = tr["timetable"], tr["run"]
+                k1 = int(np.floor((t - tt["offset"]) / tt["headway"]))
+                k0 = int(np.ceil((t - tt["offset"] - tr["duration"]) / tt["headway"]))
+                for k in range(k0, k1 + 1):
+                    tau = t - (tt["offset"] + k * tt["headway"])
+                    if 0.0 <= tau < tr["duration"]:
+                        head = run[min(int(round(tau / tr["dt"])), len(run) - 1)]
+                        heads.append((head % length if loop else head, tr["length"], f"{name}#{k}"))
+            heads.sort()
+            pairs = list(zip(heads, heads[1:])) + ([(heads[-1], heads[0])] if loop and len(heads) > 1 else [])
+            for (s_back, _, back), (s_front, front_length, front) in pairs:
+                gap = (s_front - s_back) % length if loop else s_front - s_back
+                if gap - front_length < SPACING:
+                    problems.append(f"railway '{line}': at {t:.0f} s {back} is {gap - front_length:.1f} m "
+                                    f"behind {front} (keep {SPACING:.0f} m: retime them)")
+                    break
+            if problems and problems[-1].startswith(f"railway '{line}'"):
+                break
+    return problems
 
 
 def place_train(root: SceneNode, name: str, spec: dict[str, Any], load, assets_dir) -> SceneNode:
@@ -144,13 +206,14 @@ def place_train(root: SceneNode, name: str, spec: dict[str, Any], load, assets_d
     train_length = head - COUPLING
     speed = min(train["speed"], float(railway.get("speed", train["speed"])))
     run, stops = simulate_run(railway["length"], railway["loop"], train_length, railway["stations"], speed,
-                              train["accel"], train["decel"], train["timetable"]["dwell"])
+                              train["accel"], train["decel"], train["timetable"]["dwell"],
+                              period=train["timetable"]["headway"] if railway["loop"] else None)
     node = SceneNode(name, tags=["train"])
     node.meta["type"] = "train"
     node.meta["train"] = {
         "definition": train["definition"], "railway": railway["id"], "length": round(train_length, 3),
         "speed": speed, "timetable": train["timetable"], "warning": train["warning"], "dt": DT,
-        "run": [round(float(x), 3) for x in run], "duration": round(len(run) * DT, 2), "stops": stops,
+        "run": [round(float(x), 3) for x in run], "duration": round((len(run) - 1) * DT if railway["loop"] else len(run) * DT, 2), "stops": stops,
         "closures": closures(run, train_length, railway.get("crossings", []), train["warning"], speed,
                              railway["length"], railway["loop"]),
         "cars": [{"node": car.name, "offset": off, "bogies": v["bogie_centers"]}
