@@ -240,3 +240,39 @@ def test_an_npc_climbs_to_the_lighthouse_gallery_for_its_quest(godot_script, tmp
     report = simulate(godot_script, out, 60, scene="lighthouse_errand")
     assert report["quests"] == {"climb_lighthouse": "complete"}, report
     assert report["quest_goals"] >= 1 and report["failures"] == [] and report["unstuck"] == 0, report
+
+
+# --- ownership (geogen.11.17) -------------------------------------------------------------------
+
+TWO_RESIDENTS = """
+name: two_residents
+size: [14, 6, 14]
+place:
+  cottage: { scene: scenes/cottage.yaml, params: { quest: 0 } }
+  guest:
+    npc: npcs/resident.yaml
+    on: cottage/house.floor
+    at: { u: { abs: 2.0 }, v: { abs: 3.2 } }
+    home: cottage/house.floor
+    seed: 5
+    owns: [cottage/armchair]
+"""
+
+
+def test_only_its_owner_sits_in_an_owned_armchair(godot_script, tmp_path):
+    # A placement's `owns` (references) becomes the NPC's owned stable IDs: the cottage's own
+    # resident never takes the guest's armchair, and the guest likes it best.
+    from pathlib import Path
+
+    from geogen.layout.composer import SceneComposer
+
+    path = tmp_path / "two_residents.yaml"
+    path.write_text(TWO_RESIDENTS)
+    root = SceneComposer(assets_dir=Path(__file__).parent.parent / "assets").compose(path)
+    export_scene(root, tmp_path / "out" / "two_residents.glb")
+    run = godot_script([step("time.simulate", seconds=240)], "--scene=two_residents",
+                       f"--generated={tmp_path / 'out'}", start={"timescale": 8}, engine_args=FAST)
+    reports = {r["npc"].removesuffix("_npc"): r for r in run["time.simulate"]["npcs"]}
+    armchair = lambda r: sum(n for k, n in r["used"].items() if k.startswith("armchair"))   # noqa: E731
+    assert armchair(reports["resident"]) == 0, reports["resident"]["used"]
+    assert armchair(reports["guest"]) >= 1, reports["guest"]["used"]

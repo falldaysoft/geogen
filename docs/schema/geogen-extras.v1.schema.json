@@ -494,6 +494,9 @@
               "distance": { "type": "number" }, "recency": { "type": "number" }, "memory": { "type": "number" },
               "noise": { "type": "number" }, "retry": { "type": "number" } } },
             "home_margin": { "type": "number" },
+            "owns": { "description": "Stable IDs of the things only this NPC uses (an affordance under one is refused to others); it likes them best.", "type": "array", "items": { "type": "string" } },
+            "prefers": { "description": "Stable IDs of things it likes best (an affordance under one scores higher), still free for others.", "type": "array", "items": { "type": "string" } },
+            "work": { "description": "Stable ID of where its routine's 'at: work' blocks keep it: their options are the affordances under it, wherever that is from home.", "type": "string" },
             "flags": { "type": "object", "additionalProperties": { "type": "boolean" } },
             "affordance_tags": { "description": "Only affordances with one of these tags (empty: any).", "type": "array", "items": { "type": "string" } },
             "wander": {
@@ -508,6 +511,7 @@
                 "properties": { "name": { "type": "string" },
                   "from": { "type": "number", "minimum": 0, "maximum": 24 }, "to": { "type": "number", "minimum": 0, "maximum": 24 },
                   "away": { "type": "boolean" },
+                  "at": { "description": "work: the block's options are the affordances under the NPC's 'work'.", "const": "work" },
                   "activities": { "type": "object", "additionalProperties": { "type": "number" } },
                   "preferences": { "type": "object", "additionalProperties": { "type": "number" } } } }
             },

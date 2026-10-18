@@ -48,7 +48,8 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention"}
-ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name"}
+ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at"}
+ROUTINE_AT = ("home", "work")        # where a block's options are: the home region, or the placement's `work`
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
 POSE_KEYS = {"offset", "rotation", "scale"}
 # How an NPC notices the player (runtime/godot/scripts/npc.gd): turn its head toward them
@@ -333,12 +334,15 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
 
     ``activities`` / ``preferences`` multiply the scores of the NPC's own activities / of
     affordances with those tags; ``away`` sends the NPC off (the ``leave`` action) until the
-    block ends.
+    block ends; ``at: work`` keeps its options to the affordances inside the placement's
+    ``work`` (a reference), wherever that is from home.
     """
     out = []
     for i, block in enumerate(blocks):
         if not isinstance(block, dict) or set(block) - ROUTINE_KEYS or not {"from", "to"} <= set(block):
             raise ValueError(f"{where}[{i}]: needs from/to (keys {sorted(ROUTINE_KEYS)}), got {block!r}")
+        if block.get("at", "home") not in ROUTINE_AT:
+            raise ValueError(f"{where}[{i}]: at is one of {', '.join(ROUTINE_AT)}, got {block['at']!r}")
         acts = {str(k): float(v) for k, v in (block.get("activities") or {}).items()}
         unknown = set(acts) - set(activities)
         if unknown:
@@ -346,7 +350,42 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
         out.append({"name": str(block.get("name", i)), "from": parse_time(block["from"], f"{where}[{i}]"),
                     "to": parse_time(block["to"], f"{where}[{i}]"), "away": bool(block.get("away", False)),
                     "activities": acts,
-                    "preferences": {str(k): float(v) for k, v in (block.get("preferences") or {}).items()}})
+                    "preferences": {str(k): float(v) for k, v in (block.get("preferences") or {}).items()},
+                    **({"at": block["at"]} if block.get("at", "home") != "home" else {})})
+    return out
+
+
+OWNERSHIP = {
+    "owns": "references: the things only this NPC uses (its armchair, its bed); it also likes them best",
+    "prefers": "references: things it likes best, still free for others",
+    "work": "a reference: where its routine's `at: work` blocks happen (an office, a shop, a room)",
+}
+OWN_BONUS = 1.6                      # how much more an NPC likes what it owns (score multiplier)
+PREFER_BONUS = 1.3
+
+
+def resolve_ownership(node: SceneNode, placement: dict[str, Any], refs: Any, keys: list) -> None:
+    """An NPC placement's ``owns`` / ``prefers`` (lists of references, selectors too) and ``work``
+    (one reference), kept as the nodes until export writes their stable IDs (``meta.npc_owns``)."""
+    found: dict[str, list] = {}
+    for key in ("owns", "prefers"):
+        listed = placement.get(key) or []
+        if not isinstance(listed, list):
+            raise refs.fail(f"npc {key}: a list of references, got {listed!r}", [*keys, key])
+        found[key] = [n for i, text in enumerate(listed) for n in refs.nodes(text, [*keys, key, i])]
+    if "work" in placement:
+        found["work"] = [refs.node(placement["work"], [*keys, "work"])]
+    if any(found.values()):
+        node.meta["npc_owns"] = found
+
+
+def ownership_extras(node: SceneNode) -> dict[str, Any]:
+    """``meta.npc_owns`` as the stable IDs the runtime matches affordances by: {owns, prefers, work}."""
+    out: dict[str, Any] = {}
+    for key, nodes in (node.meta.get("npc_owns") or {}).items():
+        ids = [n.meta["uid"] for n in nodes if "uid" in n.meta]
+        if ids:
+            out[key] = ids[0] if key == "work" else ids
     return out
 
 

@@ -30,6 +30,8 @@ const SIDESTEP_SECONDS := 0.4
 const FAIL_SECONDS := 4.0         # no progress this long: give up on the step
 const REPLAN_SECONDS := 1.5       # no progress this long on a detour round a character: plan again
 const MAX_REPLANS := 2            # ... this often per go_to
+const OWN_BONUS := 1.6            # score multiplier of what an NPC owns (geogen/npc.py OWN_BONUS)
+const PREFER_BONUS := 1.3         # ...and of what it prefers
 const HANDLE_STAND := 0.45        # m from a door's face to stand and open it by its handle (the leaf swings away)
 const HANDLE_LEAD := 0.35         # s from reaching for a handle to pressing it
 const HANDLE_HOLD := 0.6          # s the hand stays on the handle once the door moves
@@ -256,6 +258,9 @@ func options() -> Array[Dictionary]:
     var actions: Dictionary = definition.get("actions", {})
     var margin := float(definition.get("home_margin", 1.0))
     var only: Array = definition.get("affordance_tags", [])
+    # A routine block `at: work`: the affordances under the NPC's work, wherever that is.
+    var work := str(definition.get("work", ""))
+    var at_work := work != "" and routine_blocks().any(func(b): return b.get("at", "") == "work")
     for a in world.affordances:
         if not actions.has(a.get("action", "")) or not is_instance_valid(a.get("node")):
             continue
@@ -263,9 +268,15 @@ func options() -> Array[Dictionary]:
             continue
         if clock < float(_retry_at.get(a["id"], -1.0)):
             continue
-        if home_distance(a["approach"]) > margin:
+        var uid := WorldLoader.uid_of(a["node"])
+        if _owned_by_another(uid):
+            continue    # someone's armchair
+        if at_work:
+            if not _under(uid, [work]):
+                continue
+        elif home_distance(a["approach"]) > margin:
             continue
-        if absf((a["approach"] as Vector3).y - home_y) > FLOOR_TOLERANCE:
+        elif absf((a["approach"] as Vector3).y - home_y) > FLOOR_TOLERANCE:
             continue    # another storey above or below the home region
         if world.npc_reserved(a["id"], self) >= int(a.get("slots", 1)):
             continue
@@ -290,6 +301,12 @@ func options() -> Array[Dictionary]:
             utility += (1.0 - float(needs.get(need, 1.0))) * float(o["advertises"][need])
         for tag in o["tags"]:
             utility *= float(prefs.get(tag, 1.0))
+        if o.has("affordance"):
+            var uid := WorldLoader.uid_of(o["affordance"]["node"])
+            if _under(uid, definition.get("owns", [])):
+                utility *= OWN_BONUS
+            elif _under(uid, definition.get("prefers", [])):
+                utility *= PREFER_BONUS
         utility *= float(act_mult.get(o["id"], 1.0))
         var distance := global_position.distance_to(o["at"])
         var recency := 0.0
@@ -299,6 +316,24 @@ func options() -> Array[Dictionary]:
             - float(w.get("recency", 0.4)) * recency + float(w.get("noise", 0.05)) * rng.randf()
     result.sort_custom(func(x, y): return x["score"] > y["score"])
     return result
+
+
+## Whether a thing (stable ID) is one of `ids` or inside one of them.
+static func _under(uid: String, ids: Array) -> bool:
+    if uid == "":
+        return false
+    for id in ids:
+        if uid == str(id) or uid.begins_with(str(id) + "/"):
+            return true
+    return false
+
+
+## Whether another NPC owns a thing (definition `owns`: only its owner uses it).
+func _owned_by_another(uid: String) -> bool:
+    for other in world.npcs:
+        if other != self and is_instance_valid(other) and _under(uid, other.definition.get("owns", [])):
+            return true
+    return false
 
 
 ## Make the next decision take option ``id`` (an affordance id or "self/<activity>") if it is
@@ -653,6 +688,71 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             it.use(WorldLoader.actor_id(self))   # someone turned it back: press again
         return "running" if _timer < USE_TIMEOUT else "%s never reached '%s'" % [it.name, state]
     return "unknown step"
+
+
+## What a save keeps of this NPC (the save's `npcs`, by stable ID; docs/rules.md "Saving"): its
+## needs, whether it is away, how long ago it last used each thing, and where it is: a seated or
+## lying NPC by the affordance it is on (`seat`), so loading puts it back on it, else its
+## position and heading. What it was doing otherwise isn't kept: it decides again.
+func save_state() -> Dictionary:
+    var out := {"needs": _rounded_needs(), "away": away,
+        "position": [snappedf(global_position.x, 0.001), snappedf(global_position.y, 0.001), snappedf(global_position.z, 0.001)],
+        "yaw": snappedf(rad_to_deg(_yaw()), 0.1)}
+    var recent := {}
+    for id in _recent:
+        recent[id] = snappedf(clock - float(_recent[id]), 0.1)
+    if not recent.is_empty():
+        out["recent"] = recent
+    if _pose != "stand" and _option.has("affordance"):
+        out["seat"] = _option["id"]
+    return out
+
+
+## Take up a save_state(): drop what it is doing, stand where it was (or go back to the seat
+## it was on: it walks the last step and sits again), with the needs and memory it had.
+func restore_state(data: Dictionary) -> void:
+    _stack.clear()
+    _stair = null
+    _playing = false
+    _path = PackedVector3Array()
+    velocity = Vector3.ZERO
+    if not _option.is_empty():
+        world.npc_release(str(_option.get("id", "")), self)
+        _option = {}
+    if _pose != "stand":
+        _pose = "stand"
+        _shape.set_deferred("disabled", false)
+        if animator != null:
+            animator.hold = ""
+            animator.transition = {}
+            if body != null:
+                body.transform = Transform3D.IDENTITY
+            animator.play_pose("stand", 0.0)
+    var saved_needs: Dictionary = data.get("needs", {})
+    for need in saved_needs:
+        if needs.has(need):
+            needs[need] = clampf(float(saved_needs[need]), 0.0, 1.0)
+    _recent = {}
+    var recent: Dictionary = data.get("recent", {})
+    for id in recent:
+        _recent[id] = clock - float(recent[id])
+    var p: Array = data.get("position", [global_position.x, global_position.y, global_position.z])
+    global_position = Vector3(p[0], p[1], p[2])
+    rotation = Vector3(0, deg_to_rad(float(data.get("yaw", rad_to_deg(_yaw())))) - _parent_yaw(), 0)
+    var seat := str(data.get("seat", ""))
+    if seat != "":
+        for a in world.affordances:
+            if a["id"] == seat:
+                global_position = a["approach"]
+        force_option(seat)
+    away = bool(data.get("away", false))
+    visible = not away
+    _shape.set_deferred("disabled", away)
+    if away:
+        remove_from_group(CHARACTER_GROUP)
+    elif not is_in_group(CHARACTER_GROUP):
+        add_to_group(CHARACTER_GROUP)
+    _trace({"event": "restored", "pos": _v(global_position), "seat": seat, "away": away})
 
 
 ## Whether the feet are the ground's to place: standing, not in a transition clip.

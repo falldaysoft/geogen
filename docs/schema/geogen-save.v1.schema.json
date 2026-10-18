@@ -56,6 +56,21 @@
       "type": "array",
       "items": {"$ref": "#/$defs/timer"}
     },
+    "npcs": {
+      "description": "NPCs by stable ID, written by runtimes that run them: their needs, whether they are away, how long ago they last used each option (seconds), and where they are: on an affordance ('seat', its id: loading puts them back on it) or at 'position' facing 'yaw' degrees. What they were otherwise doing isn't kept: they decide again. Machine.load ignores it.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "needs": {"type": "object", "additionalProperties": {"type": "number"}},
+          "away": {"type": "boolean"},
+          "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+          "yaw": {"type": "number"},
+          "recent": {"type": "object", "additionalProperties": {"type": "number"}},
+          "seat": {"type": "string"}
+        }
+      }
+    },
     "flows": {
       "description": "Spawned items (geogen/flows.py), written by runtimes that run them: the items in the world (on a track by its stable ID and distance 's', or a physics item's pose) and how far each source (its wave phase and timers, its pick) and effector (its cooldown) had got. Counts are rules state in 'world'. Loading takes the items in the world away and brings these back.",
       "type": "object",

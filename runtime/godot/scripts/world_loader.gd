@@ -98,6 +98,7 @@ var night := false
 ## Doorways NPCs path through: [{interaction, open, closed, center, normal (world),
 ## width, height, depth, clearance, node}]
 var portals: Array[Dictionary] = []
+var _npcs_scene := ""            # the scene the NPCs spawned for (their states go in saves.trips on unload)
 var _reservations := {}   # affordance id -> [GeogenNpc]
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
@@ -334,6 +335,13 @@ func unload() -> void:
     _load_started = t
     rules.remember_reports()      # for the quest log, while the interactions it counts are still here
     rules.take_interactions()     # their state, kept for when the package comes back
+    var people := {}
+    for npc in npcs:
+        if is_instance_valid(npc):
+            people[actor_id(npc)] = npc.save_state()
+    if not people.is_empty() and _npcs_scene != "":
+        saves.trips[_npcs_scene] = people   # and its NPCs', for when the scene loads again
+    saves.pending_npcs = {}
     for child in get_children():
         if child == events or child == rules or child == props or child == flows:
             continue
@@ -846,6 +854,11 @@ func arm_travel() -> void:
 ## Nodes with extras.geogen type npc become GeogenNpc bodies.
 func _spawn_npcs(root: Node) -> void:
     var spec := player_spec()
+    # Back from a trip to another scene: its NPCs as they were left.
+    if saves.trips.has(scene_name):
+        saves.pending_npcs.merge(saves.trips[scene_name])
+        saves.trips.erase(scene_name)
+    _npcs_scene = scene_name
     for node in root.find_children("*", "Node3D", true, false):
         var g := geogen_extras(node)
         if g.get("type") != "npc" or not g.get("npc") is Dictionary or node.has_meta("geogen_npc"):
@@ -865,6 +878,10 @@ func _spawn_npcs(root: Node) -> void:
         if spec != null:
             npc.step_height = spec.step_height
         npcs.append(npc)
+        if not saves.pending_npcs.is_empty() and npc.is_node_ready():
+            saves.restore_npc(npc)       # a loaded save's, or as it was when its scene was left
+        elif not saves.pending_npcs.is_empty():
+            npc.ready.connect(func(): saves.restore_npc(npc), CONNECT_ONE_SHOT)
 
 
 ## Nodes with extras.geogen type traffic drive their vehicles over the lane graph (traffic.gd).

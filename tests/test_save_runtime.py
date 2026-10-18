@@ -272,3 +272,24 @@ def test_a_save_keeps_a_move_and_a_dwell_part_way(door_rt):
     rt.call("time.step", frames=30)                                              # 2.2 s
     assert gate(rt)["target"] == "closed"
     rt.call("time.resume")
+
+
+def test_npcs_are_saved_and_come_back_to_their_seats(godot_runtime, scene_export):
+    # A save holds each NPC (geogen.11.17): the resident, saved while she sits at the dining
+    # table, is back on that chair after a load a minute later, with the needs she had.
+    rt = godot_runtime("cottage", scene_export("cottage"))
+    rt.call("wait_ready")
+    rt.call("time.advance", seconds=140, scale=8)
+    (before,) = rt.call("npcs.list")
+    assert before["pose"] == "sit"
+    saved = validate(rt.call("state.save"))
+    (entry,) = saved["npcs"].values()
+    assert entry["seat"] == before["doing"].split(":")[0] and entry["needs"] == before["needs"]
+    rt.call("time.advance", seconds=60, scale=8)
+    assert rt.call("npcs.list")[0]["doing"] != before["doing"]
+    rt.call("state.load", state=saved)
+    rt.call("time.advance", seconds=4, scale=1)
+    (after,) = rt.call("npcs.list")
+    assert (after["pose"], after["doing"]) == ("sit", before["doing"])
+    for need, value in before["needs"].items():
+        assert after["needs"][need] == pytest.approx(value, abs=0.06)

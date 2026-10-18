@@ -407,6 +407,10 @@ class SceneComposer:
                 from ..npc import resolve_home
 
                 resolve_home(node, obj_def.get("home"), b.refs, ["place", obj_name, "home"])
+                if any(k in obj_def for k in ("owns", "prefers", "work")):
+                    from ..npc import resolve_ownership
+
+                    resolve_ownership(node, obj_def, b.refs, ["place", obj_name])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
                 if obj_def.get("quests"):         # quests this NPC holds from the start (quests.collect)

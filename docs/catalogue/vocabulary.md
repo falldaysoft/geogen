@@ -107,6 +107,9 @@
 | `pickup` | <item> or {item, count, prompt}: something to take (as the asset key) |
 | `readable` | <prompt> or true: something to read (as the asset key) |
 | `quests` | an NPC's quests (files or {file, if}): it holds and works on them |
+| `owns` | an NPC's things (references): only it uses them, and it likes them best |
+| `prefers` | things an NPC likes best (references), still free for others |
+| `work` | an NPC's work (a reference): where its routine's `at: work` blocks keep it |
 | `archetype` | a random person (characters/archetypes/adult.yaml) |
 | `traffic` | a moving fleet (traffic/town.yaml) on the scene's lanes |
 | `count` | fleet size for a traffic placement |

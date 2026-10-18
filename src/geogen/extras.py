@@ -52,6 +52,7 @@ BUILD_ONLY: dict[str, str] = {
     "placed_by": "marks what the furnishing solver placed, for layout QA",
     "furnish_report": "the furnishing rules a plan couldn't meet (--inspect and tests read it)",
     "affordance_actor": "a body staged at an affordance by affordance QA (never part of a scene)",
+    "npc_owns": "an NPC's owns / prefers / work as nodes: exported as stable IDs in npc.owns|prefers|work",
     # What a generator was asked for; the geometry is the result
     "facade": "the facade style a building was clad in",
     "storey": "a storey's index, elevation and height (the tag storey.<n> carries the index)",

@@ -93,14 +93,23 @@ def test_walk_from_the_hub_to_the_cottage_and_back(godot_script, hub_dir):
 
 def test_a_scene_comes_back_as_it_was_left(godot_script, hub_dir):
     # The cottage's door, opened, is still open after a trip to the hub and back (geogen.70.1).
+    # So is the resident: where she was, with the needs she had (geogen.11.17).
     run = godot_script([
         step("interactions.set", asset="door", state="open", instant=True),
+        step("wait", seconds=20),
+        step("npcs.list"),
         step("world.switch", scene="hub"),
         step("world.switch", scene="cottage"),
         step("interactions.list", asset="door"),
+        step("npcs.list"),
     ], f"--generated={hub_dir}", "--scene=cottage")
     (door,) = run["interactions.list"]
     assert door["state"] == "open" and door["target"] == "open"
+    (before,), (after,) = run.all("npcs.list")
+    if before["pose"] == "stand":
+        assert after["position"] == pytest.approx(before["position"], abs=0.35)
+    for need, value in before["needs"].items():
+        assert after["needs"][need] == pytest.approx(value, abs=0.06)
 
 
 @pytest.mark.exhaustive

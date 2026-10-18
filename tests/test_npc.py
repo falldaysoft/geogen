@@ -188,3 +188,41 @@ def test_wave_clip_raises_the_right_hand():
     hand = mid.find("RightHand").world_transform()[1, 3]
     head = mid.find("Head").world_transform()[1, 3]
     assert hand > head - 0.1 > start                      # up by the head, from the hip
+
+
+def test_routine_blocks_can_keep_an_npc_at_work():
+    from geogen.npc import parse_routine
+    (block,) = parse_routine([{"from": "09:00", "to": "17:00", "at": "work"}], {}, "routine")
+    assert block["at"] == "work"
+    with pytest.raises(ValueError, match="at is one of home, work"):
+        parse_routine([{"from": "09:00", "to": "17:00", "at": "school"}], {}, "routine")
+
+
+def test_ownership_is_exported_as_stable_ids(tmp_path):
+    from geogen import refs
+    from geogen.export import exported_extras
+    from geogen.layout.composer import SceneComposer
+
+    path = tmp_path / "two.yaml"
+    path.write_text("""
+name: two
+size: [14, 6, 14]
+place:
+  cottage: { scene: scenes/cottage.yaml, params: { quest: 0 } }
+  guest:
+    npc: npcs/resident.yaml
+    on: cottage/house.floor
+    home: cottage/house.floor
+    owns: [cottage/armchair]
+    prefers: ["cottage/dining/[tag=furniture.chair]"]
+    work: cottage/dining
+""")
+    root = SceneComposer(assets_dir=ASSETS_DIR).compose(path)
+    refs.assign_ids(root, "two")
+    guest = next(n for n in root.iter_nodes() if n.name == "guest")
+    npc = exported_extras(guest)["geogen"]["npc"]
+    assert npc["owns"] == ["two:cottage/armchair"] and npc["work"] == "two:cottage/dining"
+    assert len(npc["prefers"]) == 4 and all(p.startswith("two:cottage/dining/chairs_") for p in npc["prefers"])
+    path.write_text(path.read_text().replace("cottage/armchair]", "cottage/armchiar]"))
+    with pytest.raises(refs.RefError, match="place.guest.owns.0: .*Did you mean 'armchair'"):
+        SceneComposer(assets_dir=ASSETS_DIR).compose(path)
