@@ -55,14 +55,46 @@ Chairs are attached at the table's seat attachment points
 
 `scene: vending_machine.yaml` · [source](../../assets/vending_machine.yaml)
 
-A vending machine to play with. Press A-D on its column (Cola, Lemonade, Crisps,
-Chocolate bar) and that product drops into the tray at the bottom, a physics prop
-to pick up (E), carry off and put down anywhere. Every press gives another (up to
-40 of each in the world); one waits while the last of its kind is still where it
-appears. Placed by the quest yard and outside the restaurant. Origin: on the ground
-under the machine; it faces +Z.
+A vending machine to play with. Press A-D on its column and that slot's product drops
+into the tray at the bottom, a physics prop to pick up (E), carry off and put down
+anywhere. Every press gives another (up to 40 of each in the world); one waits while
+the last of its kind is still where it appears. Origin: on the ground under the machine;
+it faces +Z.
 
-**Places**: `cabinet: {asset: vending_cabinet.yaml}`; `cola: {asset: vend_chute.yaml}`; `lemonade: {asset: vend_chute.yaml}`; `crisps: {asset: vend_chute.yaml}`; `chocolate: {asset: vend_chute.yaml}`
+What it sells is params, a slot at a time (a at the top): `<slot>` is the item
+(items/<id>.yaml; "" leaves the slot empty: sold out), with the cabinet's `<slot>_label`,
+`<slot>_price` (gold, from the buyer's purse: actor.gold; 0 is free), `<slot>_stock`
+(the shelf's shape: can, bag, bar, packet) and `<slot>_tint`; plus `colour` and `title`.
+The defaults are drinks and snacks for free (Cola, Lemonade, Crisps, Chocolate bar),
+placed by the quest yard and outside the restaurant; the farm's seed machine is one
+selling seed packets.
+
+| Param | Default | Notes |
+| --- | --- | --- |
+| `colour` | `car_red` |  |
+| `title` | `DRINKS & SNACKS` |  |
+| `a` | `cola` |  |
+| `a_label` | `Cola` |  |
+| `a_price` | `0` |  |
+| `a_stock` | `can` |  |
+| `a_tint` | `car_red` |  |
+| `b` | `lemonade` |  |
+| `b_label` | `Lemonade` |  |
+| `b_price` | `0` |  |
+| `b_stock` | `can` |  |
+| `b_tint` | `taxi_yellow` |  |
+| `c` | `crisps` |  |
+| `c_label` | `Crisps` |  |
+| `c_price` | `0` |  |
+| `c_stock` | `bag` |  |
+| `c_tint` | `car_blue` |  |
+| `d` | `chocolate_bar` |  |
+| `d_label` | `Chocolate bar` |  |
+| `d_price` | `0` |  |
+| `d_stock` | `bar` |  |
+| `d_tint` | `maroon` |  |
+
+**Places**: `cabinet: {asset: vending_cabinet.yaml}`; `chute_a: {asset: vend_chute.yaml}`; `chute_b: {asset: vend_chute.yaml}`; `chute_c: {asset: vend_chute.yaml}`; `chute_d: {asset: vend_chute.yaml}`
 
 ## archetype_gallery
 

@@ -1,0 +1,9 @@
+# Carrot seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop
+# on it, which plants it. A physics item; it stays where it is left (stuck: 0).
+kind: item
+title: Carrot seeds
+tags: [seeds]
+body: {asset: seed_packet.yaml, params: {colour: orange}}
+mode: physics
+stuck: 0
+radius: 0.05

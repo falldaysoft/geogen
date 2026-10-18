@@ -1,9 +1,13 @@
-# A vending machine's cabinet. For vending_machine.yaml: a red steel box with a glass window
+# A vending machine's cabinet. For vending_machine.yaml: a steel box with a glass window
 # on four shelves of stock, a lit header, a column of four selection buttons
 # (each with a swatch of its product's colour) and a tray at the bottom that runs out onto
 # a ledge in front, where products land (and a pile tumbles off). Pressing a
 # button emits `a`..`d`; vending_machine.yaml wires them to the sources that drop the
 # product into the tray (`tray_a`..`tray_d` are where each one appears).
+# Each slot (a-d, top to bottom) is params: its button's `<slot>_label`, a `<slot>_price`
+# in the user's gold (0: free; else the button refuses who can't pay, and takes it from who
+# can), the `<slot>_stock` shown on its shelf (can, bag, bar, packet; none: sold out, the
+# button refuses) and its `<slot>_tint`.
 # Origin: on the ground under the cabinet's middle; the front faces +Z.
 
 name: vending_cabinet
@@ -14,6 +18,23 @@ bounds: geometry
 
 params:
   colour: {default: car_red, type: text}
+  title:  {default: "DRINKS & SNACKS", type: text}
+  a_label: {default: "Cola", type: text}
+  a_price: {default: 0}
+  a_stock: {default: can, choices: [can, bag, bar, packet, none]}
+  a_tint:  {default: car_red, type: text}
+  b_label: {default: "Lemonade", type: text}
+  b_price: {default: 0}
+  b_stock: {default: can, choices: [can, bag, bar, packet, none]}
+  b_tint:  {default: taxi_yellow, type: text}
+  c_label: {default: "Crisps", type: text}
+  c_price: {default: 0}
+  c_stock: {default: bag, choices: [can, bag, bar, packet, none]}
+  c_tint:  {default: car_blue, type: text}
+  d_label: {default: "Chocolate bar", type: text}
+  d_price: {default: 0}
+  d_stock: {default: bar, choices: [can, bag, bar, packet, none]}
+  d_tint:  {default: maroon, type: text}
 
 parts:
   # The shell: sides full height, base and top between them, a back panel.
@@ -134,7 +155,7 @@ parts:
     collider: none
   lettering:
     primitive: text
-    text: "DRINKS & SNACKS"
+    text: "{title}"
     height: 0.05
     depth: 0.004
     anchor: bottom_center
@@ -200,13 +221,15 @@ parts:
     offset: [0.245, 1.215, 0.408]
     bevel: 0
     material: car_paint
-    tint: car_red
+    tint: "{a_tint}"
     collider: none
-  swatch_b: { <<: *swatch, offset: [0.245, 1.115, 0.408], tint: taxi_yellow }
-  swatch_c: { <<: *swatch, offset: [0.245, 1.015, 0.408], tint: car_blue }
-  swatch_d: { <<: *swatch, offset: [0.245, 0.915, 0.408], tint: maroon }
+    when: "{a_stock != 'none'}"
+  swatch_b: { <<: *swatch, offset: [0.245, 1.115, 0.408], tint: "{b_tint}", when: "{b_stock != 'none'}" }
+  swatch_c: { <<: *swatch, offset: [0.245, 1.015, 0.408], tint: "{c_tint}", when: "{c_stock != 'none'}" }
+  swatch_d: { <<: *swatch, offset: [0.245, 0.915, 0.408], tint: "{d_tint}", when: "{d_stock != 'none'}" }
 
-  # The stock behind the glass, a row a shelf: cola, lemonade, crisps, chocolate.
+  # The stock behind the glass, a row a shelf (slot a at the top): each row in its slot's
+  # shape and tint.
   shelf: &shelf
     primitive: cube
     size: [0.56, 0.012, 0.17]
@@ -216,48 +239,73 @@ parts:
     material: metal
     collider: none
     array: {count: 4, step: [0, 0.18, 0]}
-  cola: &can
+  a_can: &can
     primitive: cylinder
     size: [0.066, 0.122, 0.066]
     anchor: bottom_center
     offset: [-0.29, 1.46, 0.29]
     material: car_paint
-    tint: car_red
+    tint: "{a_tint}"
     collider: none
     array: {count: 4, step: [0.12, 0, 0]}
-  lemonade:
-    <<: *can
-    offset: [-0.29, 1.28, 0.29]
-    tint: taxi_yellow
-  crisps:
+    when: "{a_stock == 'can'}"
+  a_bag: &bag
     primitive: cube
     size: [0.1, 0.15, 0.04]
     anchor: bottom_center
-    offset: [-0.29, 1.1, 0.29]
+    offset: [-0.29, 1.46, 0.29]
     bevel: 0.015
     material: car_paint
-    tint: car_blue
+    tint: "{a_tint}"
     collider: none
     array: {count: 4, step: [0.12, 0, 0]}
-  chocolate:
+    when: "{a_stock == 'bag'}"
+  a_bar: &bar
     primitive: cube
     size: [0.1, 0.03, 0.05]
     anchor: bottom_center
-    offset: [-0.29, 0.92, 0.29]
+    offset: [-0.29, 1.46, 0.29]
     bevel: 0.004
     bevel_segments: 1
     material: car_paint
-    tint: maroon
+    tint: "{a_tint}"
     collider: none
     array: {count: 4, step: [0.12, 0, 0]}
+    when: "{a_stock == 'bar'}"
+  a_packet: &packet                # a seed packet standing on end
+    primitive: cube
+    size: [0.08, 0.12, 0.012]
+    anchor: bottom_center
+    offset: [-0.29, 1.46, 0.29]
+    bevel: 0.003
+    bevel_segments: 1
+    material: car_paint
+    tint: "{a_tint}"
+    collider: none
+    array: {count: 4, step: [0.12, 0, 0]}
+    when: "{a_stock == 'packet'}"
+  b_can: { <<: *can, offset: [-0.29, 1.28, 0.29], tint: "{b_tint}", when: "{b_stock == 'can'}" }
+  b_bag: { <<: *bag, offset: [-0.29, 1.28, 0.29], tint: "{b_tint}", when: "{b_stock == 'bag'}" }
+  b_bar: { <<: *bar, offset: [-0.29, 1.28, 0.29], tint: "{b_tint}", when: "{b_stock == 'bar'}" }
+  b_packet: { <<: *packet, offset: [-0.29, 1.28, 0.29], tint: "{b_tint}", when: "{b_stock == 'packet'}" }
+  c_can: { <<: *can, offset: [-0.29, 1.1, 0.29], tint: "{c_tint}", when: "{c_stock == 'can'}" }
+  c_bag: { <<: *bag, offset: [-0.29, 1.1, 0.29], tint: "{c_tint}", when: "{c_stock == 'bag'}" }
+  c_bar: { <<: *bar, offset: [-0.29, 1.1, 0.29], tint: "{c_tint}", when: "{c_stock == 'bar'}" }
+  c_packet: { <<: *packet, offset: [-0.29, 1.1, 0.29], tint: "{c_tint}", when: "{c_stock == 'packet'}" }
+  d_can: { <<: *can, offset: [-0.29, 0.92, 0.29], tint: "{d_tint}", when: "{d_stock == 'can'}" }
+  d_bag: { <<: *bag, offset: [-0.29, 0.92, 0.29], tint: "{d_tint}", when: "{d_stock == 'bag'}" }
+  d_bar: { <<: *bar, offset: [-0.29, 0.92, 0.29], tint: "{d_tint}", when: "{d_stock == 'bar'}" }
+  d_packet: { <<: *packet, offset: [-0.29, 0.92, 0.29], tint: "{d_tint}", when: "{d_stock == 'packet'}" }
 
 interactions:
   a: &press
     targets: [button_a]
     initial: up
     duration: 0.1
+    when: "{'false' if a_stock == 'none' else 'true'} and actor.gold >= {a_price}"
+    refused: "{'Sold out' if a_stock == 'none' else 'Not enough gold'}"
     states:
-      up:   {prompt: "A: Cola", next: down}
+      up:   {prompt: "A: {a_label}", next: down}
       down: {then: up, after: 0.25, emit: a}
     motions:
       - parts: [button_a]
@@ -266,24 +314,39 @@ interactions:
   b:
     <<: *press
     targets: [button_b]
+    when: "{'false' if b_stock == 'none' else 'true'} and actor.gold >= {b_price}"
+    refused: "{'Sold out' if b_stock == 'none' else 'Not enough gold'}"
     states:
-      up:   {prompt: "B: Lemonade", next: down}
+      up:   {prompt: "B: {b_label}", next: down}
       down: {then: up, after: 0.25, emit: b}
     motions: [{parts: [button_b], translate: z, values: {up: 0, down: -0.008}}]
   c:
     <<: *press
     targets: [button_c]
+    when: "{'false' if c_stock == 'none' else 'true'} and actor.gold >= {c_price}"
+    refused: "{'Sold out' if c_stock == 'none' else 'Not enough gold'}"
     states:
-      up:   {prompt: "C: Crisps", next: down}
+      up:   {prompt: "C: {c_label}", next: down}
       down: {then: up, after: 0.25, emit: c}
     motions: [{parts: [button_c], translate: z, values: {up: 0, down: -0.008}}]
   d:
     <<: *press
     targets: [button_d]
+    when: "{'false' if d_stock == 'none' else 'true'} and actor.gold >= {d_price}"
+    refused: "{'Sold out' if d_stock == 'none' else 'Not enough gold'}"
     states:
-      up:   {prompt: "D: Chocolate bar", next: down}
+      up:   {prompt: "D: {d_label}", next: down}
       down: {then: up, after: 0.25, emit: d}
     motions: [{parts: [button_d], translate: z, values: {up: 0, down: -0.008}}]
+
+state:
+  gold: {scope: actor, type: number, default: 0}    # the user's purse (the scene's default wins)
+
+rules:                     # a paid-for product: its price comes out of the purse of who pressed
+  - {id: pay_a, if: "{a_price}", on: {signal: self.a}, do: [{set: actor.gold, to: "actor.gold - {a_price}"}]}
+  - {id: pay_b, if: "{b_price}", on: {signal: self.b}, do: [{set: actor.gold, to: "actor.gold - {b_price}"}]}
+  - {id: pay_c, if: "{c_price}", on: {signal: self.c}, do: [{set: actor.gold, to: "actor.gold - {c_price}"}]}
+  - {id: pay_d, if: "{d_price}", on: {signal: self.d}, do: [{set: actor.gold, to: "actor.gold - {d_price}"}]}
 
 signals:
   a: {emit: a}

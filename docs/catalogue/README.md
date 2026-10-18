@@ -386,13 +386,16 @@ place:
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
 <td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
-<td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
+<td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 <td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
 <td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 <td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 </tr>
 </table>
@@ -408,9 +411,10 @@ place:
 | [parcel](assets/parcel.md) | A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). | `width`, `height`, `depth` |
 | [room_key](assets/room_key.md) | A room key on a red fob, to pick up. |  |
 | [rover](assets/rover.md) | A little yellow delivery rover on four wheels with a sensor dome: a walking item for tracks (items/rover.yaml). |  |
+| [seed_packet](assets/seed_packet.md) | A packet of seeds. | `colour` |
 | [snack_bar](assets/snack_bar.md) | A chocolate bar. | `colour` |
 | [soda_can](assets/soda_can.md) | A drink can. | `colour`, `band` |
 | [spawner](assets/spawner.md) | A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a second, or `waves` a waves file it plays instead; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end). | `item`, `waves`, `rate`, `drop`, `initial`, `max_alive`, `count`, `width`, `height` |
 | [turret](assets/turret.md) | A small gun turret: a steel drum base, a post and a turning head with a barrel. | `range`, `rate`, `damage`, `targets`, `enabled` |
 | [vend_chute](assets/vend_chute.md) | A vending machine's drop point. | `item` |
-| [vending_cabinet](assets/vending_cabinet.md) | A vending machine's cabinet. | `colour` |
+| [vending_cabinet](assets/vending_cabinet.md) | A vending machine's cabinet. | `colour`, `title`, `a_label`, `a_price`, `a_stock`, `a_tint`, `b_label`, `b_price`, `b_stock`, `b_tint`, `c_label`, `c_price`, `c_stock`, `c_tint`, `d_label`, `d_price`, `d_stock`, `d_tint` |

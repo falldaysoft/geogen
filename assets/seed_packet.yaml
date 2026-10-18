@@ -1,0 +1,43 @@
+# A packet of seeds. Lying face up, a flat paper envelope in the crop's colour with a white
+# label and a sealed flap at the top end; a carryable physics prop. The farm's seed machine
+# hands them out (items/<crop>_seeds.yaml), and dropping one on a plot plants it.
+# Origin: bottom centre; the flap is at -Z.
+
+name: seed_packet
+tags: [prop.seeds]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: {default: british_green, type: text}
+
+physics: {mass: 0.03, friction: 0.9, bounce: 0.02, carry: true}
+
+parts:
+  envelope:
+    primitive: cube
+    size: [0.09, 0.012, 0.13]
+    anchor: bottom_center
+    bevel: 0.003
+    bevel_segments: 1
+    material: car_paint
+    tint: "{colour}"
+  flap:
+    primitive: cube
+    size: [0.09, 0.004, 0.025]
+    anchor: bottom_center
+    offset: [0, 0.011, -0.05]
+    bevel: 0.001
+    bevel_segments: 1
+    material: car_paint
+    tint: "{colour}"
+    collider: none
+  label:
+    primitive: cube
+    size: [0.06, 0.003, 0.06]
+    anchor: bottom_center
+    offset: [0, 0.0105, 0.015]
+    bevel: 0
+    material: paint_white
+    collider: none

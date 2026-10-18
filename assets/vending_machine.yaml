@@ -1,22 +1,73 @@
-# A vending machine to play with. Press A-D on its column (Cola, Lemonade, Crisps,
-# Chocolate bar) and that product drops into the tray at the bottom, a physics prop
-# to pick up (E), carry off and put down anywhere. Every press gives another (up to
-# 40 of each in the world); one waits while the last of its kind is still where it
-# appears. Placed by the quest yard and outside the restaurant. Origin: on the ground
-# under the machine; it faces +Z.
+# A vending machine to play with. Press A-D on its column and that slot's product drops
+# into the tray at the bottom, a physics prop to pick up (E), carry off and put down
+# anywhere. Every press gives another (up to 40 of each in the world); one waits while
+# the last of its kind is still where it appears. Origin: on the ground under the machine;
+# it faces +Z.
+#
+# What it sells is params, a slot at a time (a at the top): `<slot>` is the item
+# (items/<id>.yaml; "" leaves the slot empty: sold out), with the cabinet's `<slot>_label`,
+# `<slot>_price` (gold, from the buyer's purse: actor.gold; 0 is free), `<slot>_stock`
+# (the shelf's shape: can, bag, bar, packet) and `<slot>_tint`; plus `colour` and `title`.
+# The defaults are drinks and snacks for free (Cola, Lemonade, Crisps, Chocolate bar),
+# placed by the quest yard and outside the restaurant; the farm's seed machine is one
+# selling seed packets.
 
 name: vending_machine
 tags: [machine.vending]
 
+params:
+  colour: {default: car_red, type: text}
+  title:  {default: "DRINKS & SNACKS", type: text}
+  a:       {default: cola, type: text}
+  a_label: {default: "Cola", type: text}
+  a_price: {default: 0}
+  a_stock: {default: can, choices: [can, bag, bar, packet]}
+  a_tint:  {default: car_red, type: text}
+  b:       {default: lemonade, type: text}
+  b_label: {default: "Lemonade", type: text}
+  b_price: {default: 0}
+  b_stock: {default: can, choices: [can, bag, bar, packet]}
+  b_tint:  {default: taxi_yellow, type: text}
+  c:       {default: crisps, type: text}
+  c_label: {default: "Crisps", type: text}
+  c_price: {default: 0}
+  c_stock: {default: bag, choices: [can, bag, bar, packet]}
+  c_tint:  {default: car_blue, type: text}
+  d:       {default: chocolate_bar, type: text}
+  d_label: {default: "Chocolate bar", type: text}
+  d_price: {default: 0}
+  d_stock: {default: bar, choices: [can, bag, bar, packet]}
+  d_tint:  {default: maroon, type: text}
+
 place:
-  cabinet: { asset: vending_cabinet.yaml }
-  cola:      { asset: vend_chute.yaml, attach_to: cabinet, at: tray_a, params: { item: items/cola.yaml } }
-  lemonade:  { asset: vend_chute.yaml, attach_to: cabinet, at: tray_b, params: { item: items/lemonade.yaml } }
-  crisps:    { asset: vend_chute.yaml, attach_to: cabinet, at: tray_c, params: { item: items/crisps.yaml } }
-  chocolate: { asset: vend_chute.yaml, attach_to: cabinet, at: tray_d, params: { item: items/chocolate_bar.yaml } }
+  cabinet:
+    asset: vending_cabinet.yaml
+    params:
+      colour: "{colour}"
+      title: "{title}"
+      a_label: "{a_label}"
+      a_price: "{a_price}"
+      a_stock: "{'none' if a == '' else a_stock}"
+      a_tint: "{a_tint}"
+      b_label: "{b_label}"
+      b_price: "{b_price}"
+      b_stock: "{'none' if b == '' else b_stock}"
+      b_tint: "{b_tint}"
+      c_label: "{c_label}"
+      c_price: "{c_price}"
+      c_stock: "{'none' if c == '' else c_stock}"
+      c_tint: "{c_tint}"
+      d_label: "{d_label}"
+      d_price: "{d_price}"
+      d_stock: "{'none' if d == '' else d_stock}"
+      d_tint: "{d_tint}"
+  chute_a: {asset: vend_chute.yaml, attach_to: cabinet, at: tray_a, params: {item: "items/{a}.yaml"}, when: "{a != ''}"}
+  chute_b: {asset: vend_chute.yaml, attach_to: cabinet, at: tray_b, params: {item: "items/{b}.yaml"}, when: "{b != ''}"}
+  chute_c: {asset: vend_chute.yaml, attach_to: cabinet, at: tray_c, params: {item: "items/{c}.yaml"}, when: "{c != ''}"}
+  chute_d: {asset: vend_chute.yaml, attach_to: cabinet, at: tray_d, params: {item: "items/{d}.yaml"}, when: "{d != ''}"}
 
 wire:
-  - { from: cabinet.a, to: cola.emit }
-  - { from: cabinet.b, to: lemonade.emit }
-  - { from: cabinet.c, to: crisps.emit }
-  - { from: cabinet.d, to: chocolate.emit }
+  - {from: cabinet.a, to: chute_a.emit, if: "{a != ''}"}
+  - {from: cabinet.b, to: chute_b.emit, if: "{b != ''}"}
+  - {from: cabinet.c, to: chute_c.emit, if: "{c != ''}"}
+  - {from: cabinet.d, to: chute_d.emit, if: "{d != ''}"}

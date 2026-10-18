@@ -203,15 +203,18 @@ Keys: `body`, `data`, `gait`, `lifetime`, `mode`, `name`, `opens`, `radius`, `sp
 
 | File | What it is |
 | --- | --- |
+| [items/carrot_seeds.yaml](../../assets/items/carrot_seeds.yaml) | Carrot seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |
 | [items/chocolate_bar.yaml](../../assets/items/chocolate_bar.yaml) | Chocolate bar from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/cola.yaml](../../assets/items/cola.yaml) | Cola from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/crisps.yaml](../../assets/items/crisps.yaml) | Crisps from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/key_room_207.yaml](../../assets/items/key_room_207.yaml) | The key to hotel room 207: its id is the room door's lock key (hotel guest doors lock with key_room_<n>), so carrying it lets L unlock that door. |
 | [items/lemonade.yaml](../../assets/items/lemonade.yaml) | Lemonade from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
+| [items/pumpkin_seeds.yaml](../../assets/items/pumpkin_seeds.yaml) | Pumpkin seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |
 | [items/raider.yaml](../../assets/items/raider.yaml) | A raiding rover: walks a track at its own pace, takes 6 damage to stop, is worth 2 when it is and does 1 harm if it gets through. |
 | [items/room_key.yaml](../../assets/items/room_key.yaml) | A hotel room key: carried (give / take, has("room_key")), and what room_key.yaml gives whoever picks it up. |
 | [items/rover.yaml](../../assets/items/rover.yaml) | A delivery rover that drives along walk tracks at its own pace. |
+| [items/wheat_seeds.yaml](../../assets/items/wheat_seeds.yaml) | Wheat seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |
 
 ### npc
 

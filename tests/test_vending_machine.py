@@ -11,7 +11,7 @@ from geogen.runtime_client import step
 pytestmark = pytest.mark.xdist_group("test_quest_yard")
 
 PKG = "quest_yard"
-CHUTES = {"a": "cola", "b": "lemonade", "c": "crisps", "d": "chocolate"}
+CHUTES = {"a": "chute_a", "b": "chute_b", "c": "chute_c", "d": "chute_d"}
 
 
 def test_each_button_queues_its_own_product(built_scene):
@@ -19,7 +19,7 @@ def test_each_button_queues_its_own_product(built_scene):
     for _ in range(3):
         machine.post({"type": "signal", "subject": f"{PKG}:vending/cabinet", "name": "c", "actor": "player"})
     assert {name: machine.get(f"{PKG}:vending/{name}#queued") for name in CHUTES.values()} == \
-        {"cola": 0, "lemonade": 0, "crisps": 3, "chocolate": 0}
+        {"chute_a": 0, "chute_b": 0, "chute_c": 3, "chute_d": 0}
 
 
 def press(button, n=1, gap=0.25) -> list[dict]:
@@ -79,3 +79,51 @@ def test_a_product_is_carried_off_put_down_and_picked_up_off_the_ground(godot_sc
                                             step("wait", seconds=0.3), step("player.look", at=[x, y, z]),
                                             step("wait", frames=3), step("player.use")])
     assert run.all("player.use")[-1] == {"kind": "carry", "prompt": "Pick up", "prop": held["prop"]}
+
+
+SEED_SHOP = """
+name: seed_shop
+size: [4, 3, 4]
+state:
+  gold: {scope: actor, type: number, default: 7}
+place:
+  seeds:
+    scene: vending_machine.yaml
+    params:
+      colour: british_green
+      title: SEEDS
+      a: wheat_seeds
+      a_label: "Wheat seeds (5 gold)"
+      a_price: 5
+      a_stock: packet
+      a_tint: taxi_yellow
+      b: carrot_seeds
+      b_label: "Carrot seeds (2 gold)"
+      b_price: 2
+      b_stock: packet
+      b_tint: orange
+      c: ""
+      d: ""
+"""
+
+
+def test_a_machine_sells_what_its_params_say_for_gold(tmp_path):
+    from geogen.layout.composer import SceneComposer
+
+    path = tmp_path / "seed_shop.yaml"
+    path.write_text(SEED_SHOP)
+    root = SceneComposer(assets_dir="assets").compose(path)
+    found = collect(root, "seed_shop")
+    sources = {r.name: r.meta["flows"]["source"]["items"] for r in root.iter_nodes()
+               if "source" in r.meta.get("flows", {})}
+    assert sorted(sources) == ["chute_a", "chute_b"]                    # the empty slots have none
+    machine = Machine(found.program(), {"player": {"kind": "player"}})
+    cabinet = "seed_shop:seeds/cabinet"
+    use = lambda button: machine.use(f"{cabinet}#{button}", "player")   # noqa: E731
+    gold = lambda: machine.get("actor:seed_shop.gold", "player")         # noqa: E731
+    assert use("a") and (machine.advance(1) or gold() == 2)               # 7 - 5
+    assert not use("a") and machine.feedback[-2:] == [["notify", "Not enough gold", "player"],
+                                                      ["play", "refused", "player"]]
+    assert use("b") and (machine.advance(1) or gold() == 0)
+    assert not use("c") and machine.feedback[-2][1] == "Sold out"
+    assert [s for s in machine.signals if s[0] == cabinet] == [[cabinet, "a", "player"], [cabinet, "b", "player"]]
