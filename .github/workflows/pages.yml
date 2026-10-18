@@ -47,7 +47,7 @@ jobs:
       - if: steps.cache.outputs.cache-hit != 'true'
         name: Install geogen
         run: |
-          sudo apt-get update -q && sudo apt-get install -yq libgl1 libegl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+          sudo apt-get update -q && sudo apt-get install -yq libgl1 libegl1 libglu1-mesa libxkbcommon0 libfontconfig1 libdbus-1-3 xvfb
           # pyrender 0.1.45 pins PyOpenGL==3.1.0 and geogen needs >=3.1.7 (numpy 2), so pip can't
           # resolve `pip install -e .`: the dependencies first, then pyrender and geogen without theirs.
           python -c "import tomllib; print('\n'.join(d for d in tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies'] if not d.startswith('pyrender')))" > /tmp/reqs.txt
@@ -75,7 +75,8 @@ jobs:
         run: |
           templates=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           mkdir -p "$templates" && cp ~/godot/web_nothreads_release.zip "$templates/"
-          python runtime/godot/tools/export_web.py _play --godot ~/godot/godot
+          # geogen.main imports the renderer (pyrender, pyglet), which needs a display even unused.
+          xvfb-run -a python runtime/godot/tools/export_web.py _play --godot ~/godot/godot
       - uses: actions/upload-artifact@v4
         with:
           name: play
