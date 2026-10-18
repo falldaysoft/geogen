@@ -77,6 +77,9 @@ KINDS: dict[str, dict[str, str]] = {
     "npc": {"doc": "An NPC: body, needs, preferences, activities and daily routine; the runtime interprets it.",
             "use": "place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}",
             "keys": "geogen.npc:NPC_KEYS"},
+    "character": {"doc": "A named person: an NPC role (`npc:`) with its own name, look and placement defaults.",
+                  "use": "place: {marco: {character: people/marco.yaml, home: kitchen.floor}}",
+                  "keys": "geogen.npc:CHARACTER_KEYS"},
     "npc_actions": {"doc": "The actions NPCs run at affordances, as steps (go_to, face, pose, wait, use, play, vanish).",
                     "use": "referenced by affordances: {type: sit, action: sit}", "keys": "geogen.npc:STEP_KEYS"},
     "archetype": {"doc": "A seeded distribution over a body's params: each seed is a different person.",
@@ -227,7 +230,7 @@ def static_entry(name: str, kind: str, path: Path, assets_dir: Path = ASSETS_DIR
         entry["category"] = "Scenes"
         placements = data.get("place") or {}
         entry["places"] = {
-            str(n): next((f"{{{k}: {d[k]}}}" for k in ("asset", "scene", "npc", "archetype", "traffic", "train")
+            str(n): next((f"{{{k}: {d[k]}}}" for k in ("asset", "scene", "character", "npc", "archetype", "traffic", "train")
                           if isinstance(d, dict) and k in d), "?")
             for n, d in placements.items()}
         entry["spawns"] = sorted((data.get("spawns") or {}))

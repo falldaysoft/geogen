@@ -376,6 +376,7 @@ PLACEMENT_KEYS: dict[str, str] = {
     "scatter": "{seed, rect | path | on | on_terrain | on_tag, count, spacing, avoid, yaw, scale}: many copies "
                "(`avoid` takes references, selectors included: [house, 'bench_*', '[tag=furniture]'])",
     "npc": "an NPC definition (npcs/resident.yaml), with `on`/`home`",
+    "character": "a named person (people/marco.yaml), with defaults the placement's keys override",
     "home": "<object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in",
     "seed": "random seed (which person an archetype or NPC is)",
     "pickup": "<item> or {item, count, prompt}: something to take (as the asset key)",

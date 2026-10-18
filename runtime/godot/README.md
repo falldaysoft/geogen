@@ -375,7 +375,9 @@ python -m geogen.runtime_client --log | --stop
 
 Scenes place NPCs like assets (`place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor}}`).
 Each one arrives as a node with `extras.geogen.type = "npc"`, the fully resolved definition in
-`extras.geogen.npc`, and its body asset as a child. `WorldLoader` turns it into a `GeogenNpc`
+`extras.geogen.npc`, and its body asset as a child. A named person (`place: {marco: {character: people/marco.yaml}}`,
+a `kind: character` file on top of a role) also carries `npc.character` (its file) and `npc.name`, which the
+`--npc-labels` label, the greeting prompt and `npcs.list` show. `WorldLoader` turns it into a `GeogenNpc`
 (`scripts/npc.gd`): a `CharacterBody3D` (cylinder, layer 2, with the player's step-up) with the
 body reparented under it. The script is a generic interpreter; nothing in it knows about chairs,
 windows or doors:

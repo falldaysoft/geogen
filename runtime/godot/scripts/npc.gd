@@ -505,7 +505,7 @@ func _step(delta: float) -> void:
     if home_distance(global_position) > float(definition.get("home_margin", 1.0)) + 0.5:
         stats["outside"] += delta
     if label.visible:
-        label.text = "%s\n%s" % [_status(), _needs_text()]
+        label.text = ("%s\n" % person_name() if person_name() != "" else "") + "%s\n%s" % [_status(), _needs_text()]
     if _stack.is_empty():
         var map := get_world_3d().navigation_map
         if NavigationServer3D.map_get_iteration_id(map) > 0 \
@@ -1532,7 +1532,13 @@ func _body_line() -> Array:
 
 
 func greet_prompt() -> String:
-    return str(definition.get("attention", {}).get("greet", {}).get("prompt", "Say hello"))
+    var prompt := str(definition.get("attention", {}).get("greet", {}).get("prompt", "Say hello"))
+    return "%s (%s)" % [prompt, person_name()] if person_name() != "" else prompt
+
+
+## A named person's name (a `kind: character` placement), or "".
+func person_name() -> String:
+    return str(definition.get("name", ""))
 
 
 ## An actor (the player by default) greets this NPC. Rules hear it as the NPC's `greeted`
@@ -1657,7 +1663,8 @@ func _quests() -> Dictionary:
 
 func report() -> Dictionary:
     var p := global_position
-    return {"npc": String(name), "uid": WorldLoader.actor_id(self), "used": stats["used"], "distinct": stats["used"].size(),
+    return {"npc": String(name), "uid": WorldLoader.actor_id(self), "name": person_name(),
+        "character": str(definition.get("character", "")), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)), "slept": int(stats.get("slept", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",

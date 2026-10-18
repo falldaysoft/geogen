@@ -77,10 +77,9 @@ place:
     home: { rect: [5.5, -6.0, 7.8, 1.6] }
     seed: 4
   chef:
-    npc: npcs/hotel_staff.yaml
+    character: people/marco.yaml     # Marco Bellini, a named person (assets/people/)
     slot: chef
     home: { rect: [-7.8, 1.9, 0.9, 6.0] }
-    seed: 5
 
   # Diners (dining room and bar).
   diner_1: &diner { npc: npcs/diner.yaml, slot: diner_1, home: { rect: [-7.8, -6.0, 5.6, 1.6] }, seed: 11 }

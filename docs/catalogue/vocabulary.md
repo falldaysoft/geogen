@@ -103,6 +103,7 @@
 | `furnish` | true or a seed: furnish a floor plan's rooms from their room types |
 | `scatter` | {seed, rect \| path \| on \| on_terrain \| on_tag, count, spacing, avoid, yaw, scale}: many copies (`avoid` takes references, selectors included: [house, 'bench_*', '[tag=furniture]']) |
 | `npc` | an NPC definition (npcs/resident.yaml), with `on`/`home` |
+| `character` | a named person (people/marco.yaml), with defaults the placement's keys override |
 | `home` | <object>.<surface> (the object is a reference, like `on`) or {rect, y}: the area an NPC lives in |
 | `seed` | random seed (which person an archetype or NPC is) |
 | `pickup` | <item> or {item, count, prompt}: something to take (as the asset key) |
@@ -160,6 +161,18 @@ Keys: `body`, `description`, `extends`, `name`, `params`, `tags`, `variants`
 | [characters/archetypes/townsfolk.yaml](../../assets/characters/archetypes/townsfolk.yaml) | Whoever you meet in the street: a weighted mix of the other archetypes. |
 | [characters/archetypes/young_man.yaml](../../assets/characters/archetypes/young_man.yaml) | A man in his twenties or thirties in everyday clothes. |
 | [characters/archetypes/young_woman.yaml](../../assets/characters/archetypes/young_woman.yaml) | A woman in her twenties or thirties in everyday clothes. |
+
+### character
+
+A named person: an NPC role (`npc:`) with its own name, look and placement defaults.
+
+Use: `place: {marco: {character: people/marco.yaml, home: kitchen.floor}}`
+
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `wander`, `work`
+
+| File | What it is |
+| --- | --- |
+| [people/marco.yaml](../../assets/people/marco.yaml) | Marco Bellini, the chef at the Corner Bistro: a named person on top of the hotel staff role. |
 
 ### dialogue
 

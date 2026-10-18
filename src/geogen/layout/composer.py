@@ -253,6 +253,8 @@ class SceneComposer:
         placements = {k: {kk: vv for kk, vv in v.items() if kk != "when"} if isinstance(v, dict) else v
                       for k, v in placements.items()
                       if not (isinstance(v, dict) and not enabled(v.get("when", True)))}
+        placements = {k: self._character_placement(k, v, source) if isinstance(v, dict) and "character" in v else v
+                      for k, v in placements.items()}
         if source is not None:      # where each travel was written, for export diagnostics
             from .yaml_utils import source_of
 
@@ -382,6 +384,18 @@ class SceneComposer:
                 raise b.refs.fail(f"population: '{name}' is also a placement", ["population"])
             b.scatters[name] = placement
             b.refs.pending.add(name)
+
+    def _character_placement(self, name: str, obj_def: dict[str, Any], source: Path | None) -> dict[str, Any]:
+        """A ``character:`` placement as an NPC placement: the character's defaults (home, work,
+        owns, prefers, quests, seed) under the placement's own keys. A character is one person,
+        so it can't be scattered."""
+        from ..npc import load_character
+
+        where = f"{source}: place.{name}" if source is not None else f"place.{name}"
+        if "npc" in obj_def or "scatter" in obj_def:
+            raise ValueError(f"{where}: a character placement takes neither `npc` nor `scatter` (it is one person)")
+        _, defaults = load_character(roots.find(obj_def["character"], self._assets_dir), self._assets_dir)
+        return {**defaults, **obj_def, "npc": obj_def["character"]}
 
     def _scatter(self, b: _SceneBuild) -> None:
         if not b.scatters:
@@ -539,7 +553,7 @@ class SceneComposer:
         import json
 
         # The seed picks the person for archetypes and NPCs (their bodies may be archetypes).
-        keys = ("asset", "scene", "recipe", "npc", "archetype", "params", "furnish")
+        keys = ("asset", "scene", "recipe", "npc", "character", "archetype", "params", "furnish")
         if "archetype" in obj_def or "npc" in obj_def:
             keys = (*keys, "seed")
         # (in a scene folder a name may be one of its private files)
@@ -571,6 +585,11 @@ class SceneComposer:
             from .recipes import build_recipe
 
             return build_recipe(obj_def["recipe"], obj_def.get("params") or {}, self._loader)
+        if "character" in obj_def:
+            from ..npc import build_npc, load_character
+
+            definition, _ = load_character(roots.find(obj_def["character"], self._assets_dir), self._assets_dir)
+            return build_npc(definition, self._loader, self._assets_dir, seed=int(obj_def.get("seed", 0)))
         if "npc" in obj_def:
             from ..npc import build_npc, load_definition
 

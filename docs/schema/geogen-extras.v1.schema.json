@@ -470,6 +470,8 @@
           "additionalProperties": false,
           "properties": {
             "definition": { "type": "string" },
+            "character": { "description": "A named person's character file (assets/people/<character>.yaml, kind: character); 'definition' is then its role.", "type": "string" },
+            "name": { "description": "A named person's name, for labels, prompts and dialogue.", "type": "string" },
             "body": {
               "description": "The body: an 'asset' file or a character 'archetype' (with the person drawn as 'character'), built with 'params', placed as the child 'node'; 'poses' are its root transforms per pose.",
               "type": "object", "required": ["node", "poses"], "additionalProperties": false,

@@ -274,3 +274,35 @@ def test_population_puts_people_in_every_place_it_names():
                          ({"npc": "x", "on": "[tag=room].floor", "size": 1}, "population entry")]:
         with pytest.raises(ValueError, match=message):
             population_placements({"g": bad}, _Refs(2), "s", ["p"])
+
+
+def test_a_character_is_a_named_person_on_top_of_a_role(tmp_path):
+    """A `character:` placement builds the role's NPC with the character's keys on top: its name,
+    its look (body params on the role's archetype, its seed) and its own needs; the placement's
+    keys override the character's defaults."""
+    from geogen.export import exported_extras
+    from geogen.npc import load_character
+
+    definition, defaults = load_character(ASSETS_DIR / "people/marco.yaml", ASSETS_DIR)
+    role = load_definition(ASSETS_DIR / "npcs/hotel_staff.yaml")
+    assert definition["definition"] == "hotel_staff" and definition["character"] == "marco"
+    assert definition["name"] == "Marco Bellini" and defaults == {"seed": 5}
+    assert definition["body"]["archetype"] == role["body"]["archetype"]
+    assert definition["body"]["params"]["hair_style"] == "crop"
+    assert definition["needs"]["work"] == {"initial": 0.1, "decay": 0.03}
+    assert definition["needs"]["rest"] == role["needs"]["rest"]        # merged key by key
+
+    scene = COTTAGE_NPC.replace("npc: npcs/resident.yaml", "character: people/marco.yaml").replace("seed: 7\n", "")
+    npc = _npc(SceneComposer().compose_string(scene))
+    data = npc.meta["npc"]
+    assert data["seed"] == 5 and data["name"] == "Marco Bellini"
+    assert data["body"]["character"]["seed"] == 5
+    extras = exported_extras(npc)["geogen"]["npc"]
+    assert extras["character"] == "marco" and extras["name"] == "Marco Bellini"
+    # Same person in another placement; the placement's seed wins over the character's.
+    again = _npc(SceneComposer().compose_string(scene))
+    assert again.meta["npc"]["body"]["params"] == data["body"]["params"]
+    reseeded = _npc(SceneComposer().compose_string(scene.replace("home: house.floor", "home: house.floor\n    seed: 9")))
+    assert reseeded.meta["npc"]["seed"] == 9
+    with pytest.raises(ValueError, match="one person"):
+        SceneComposer().compose_string(scene.replace("home: house.floor", "home: house.floor\n    npc: npcs/resident.yaml"))

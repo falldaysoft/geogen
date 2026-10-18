@@ -124,9 +124,9 @@ def validate_scene_yaml(data: dict[str, Any]) -> list[str]:
         if not isinstance(obj_def, dict):
             raise ValidationError(f"Placement '{obj_name}' must be a mapping")
 
-        if not {"asset", "scene", "npc", "archetype", "traffic", "train"} & set(obj_def):
+        if not {"asset", "scene", "npc", "character", "archetype", "traffic", "train"} & set(obj_def):
             raise ValidationError(
-                f"Placement '{obj_name}' requires 'asset', 'scene', 'npc' or 'archetype' field"
+                f"Placement '{obj_name}' requires 'asset', 'scene', 'npc', 'character' or 'archetype' field"
             )
 
         for key in obj_def:

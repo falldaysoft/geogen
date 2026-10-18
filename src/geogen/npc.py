@@ -48,6 +48,11 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention"}
+CHARACTER_KIND = "character"
+# Placement keys a character file may give defaults for (the scene's placement wins).
+CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "quests", "seed")
+CHARACTER_KEYS = {"name", "npc", "body", *CHARACTER_PLACEMENT_KEYS,
+                  *(NPC_KEYS - {"kind", "version", "body", "seed"})}
 ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at"}
 ROUTINE_AT = ("home", "work")        # where a block's options are: the home region, or the placement's `work`
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
@@ -236,7 +241,50 @@ def approach_point(action: str, position: np.ndarray, yaw_deg: float,
 
 def load_definition(path: str | Path) -> dict[str, Any]:
     """Load and validate an NPC definition (``kind: npc``). Body and home are resolved later."""
-    data = load_kind(path, NPC_KIND, VERSION, NPC_KEYS)
+    return _definition(load_kind(path, NPC_KIND, VERSION, NPC_KEYS), path)
+
+
+def load_character(path: str | Path, assets_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A named person (``kind: character``): the NPC definition of its role (``npc:``) with the
+    character's own keys on top, and the placement defaults it brings (``home``, ``work``, ``owns``,
+    ``prefers``, ``quests``, ``seed``), which a scene's placement overrides.
+
+    Role keys that are mappings (needs, preferences, activities, ...) merge key by key; the rest
+    replace. A ``body`` with an ``asset`` or ``archetype`` replaces the role's; one with only
+    ``params`` adds them to the role's body (the role's archetype, a few params fixed).
+    """
+    data = load_kind(path, CHARACTER_KIND, VERSION, CHARACTER_KEYS)
+    for key in ("name", "npc"):
+        if not isinstance(data.get(key), str) or not data[key]:
+            raise ValueError(f"{path}: a character needs `{key}`")
+    role_path = roots.find(data["npc"], assets_dir)
+    role = load_kind(role_path, NPC_KIND, VERSION, NPC_KEYS)
+    merged = dict(role)
+    for key in set(data) & (NPC_KEYS - {"kind", "version", "body", "seed"}):
+        value = data[key]
+        merged[key] = {**(role.get(key) or {}), **value} if isinstance(value, dict) and isinstance(role.get(key), dict) \
+            else value
+    body = data.get("body")
+    if isinstance(body, str):
+        body = {"asset": body}
+    if body is not None:
+        if not isinstance(body, dict):
+            raise ValueError(f"{path}: body is {{asset|archetype, params}} or {{params}}, got {body!r}")
+        if {"asset", "archetype"} & set(body):
+            merged["body"] = body
+        else:
+            base = role.get("body") or {"asset": "characters/capsule.yaml"}
+            base = {"asset": base} if isinstance(base, str) else base
+            merged["body"] = {**base, "params": {**(base.get("params") or {}), **(body.get("params") or {})}}
+    definition = _definition(merged, path)
+    definition["definition"] = Path(role_path).stem
+    definition["character"] = Path(path).stem
+    definition["name"] = data["name"]
+    defaults = {k: data[k] for k in CHARACTER_PLACEMENT_KEYS if k in data}
+    return definition, defaults
+
+
+def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
     actions = load_actions()
     needs = {}
     for need, spec in (data.get("needs") or {}).items():

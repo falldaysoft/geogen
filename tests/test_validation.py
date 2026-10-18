@@ -105,7 +105,7 @@ class TestSceneValidation:
                 "obj": {"slot": "center"}  # missing asset/scene
             },
         }
-        with pytest.raises(ValidationError, match="requires 'asset', 'scene', 'npc' or 'archetype'"):
+        with pytest.raises(ValidationError, match="requires 'asset', 'scene', 'npc', 'character' or 'archetype'"):
             validate_scene_yaml(data)
 
 
