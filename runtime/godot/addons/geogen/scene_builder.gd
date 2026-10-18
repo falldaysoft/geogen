@@ -251,30 +251,25 @@ static func nav_mesh_for(spec) -> NavigationMesh:
     return mesh
 
 
-## Parse the static colliders under ``roots`` for one navigation tile: the source
-## geometry reaches ``border`` beyond ``tile`` and the bake is clipped back to it,
-## so neighbouring tiles meet edge to edge. Moving parts (doors) are left out.
+## Parse static collider ``bodies`` for one navigation tile (the caller picks the ones
+## overlapping it: parsing a whole streamed piece, like a city's streets, costs a long frame):
+## the source geometry reaches ``border`` beyond ``tile`` and the bake is clipped back to it,
+## so neighbouring tiles meet edge to edge.
 ## Bake the result with NavigationServer3D.bake_from_source_geometry_data(_async).
-static func parse_tile(roots: Array, tile: AABB, spec, border: float) -> Array:
+static func parse_tile(bodies: Array, tile: AABB, spec, border: float) -> Array:
     var mesh := nav_mesh_for(spec)
-    mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+    mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_EXPLICIT
     mesh.geometry_source_group_name = &"geogen_nav_parse"
     mesh.filter_baking_aabb = tile.grow(border)
     mesh.border_size = border
-    var moving: Array[CollisionObject3D] = []
-    for root in roots:
-        root.add_to_group("geogen_nav_parse")
-        for body in root.find_children("*", "AnimatableBody3D", true, false):
-            if body.collision_layer & 1:
-                moving.append(body)
-                body.collision_layer &= ~1
     var source := NavigationMeshSourceGeometryData3D.new()
-    if not roots.is_empty():
-        NavigationServer3D.parse_source_geometry_data(mesh, source, roots[0])
-    for body in moving:
-        body.collision_layer |= 1
-    for root in roots:
-        root.remove_from_group("geogen_nav_parse")
+    if bodies.is_empty():
+        return [mesh, source]
+    for body in bodies:
+        body.add_to_group("geogen_nav_parse")
+    NavigationServer3D.parse_source_geometry_data(mesh, source, bodies[0])
+    for body in bodies:
+        body.remove_from_group("geogen_nav_parse")
     return [mesh, source]
 
 

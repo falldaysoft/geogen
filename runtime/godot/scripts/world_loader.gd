@@ -46,10 +46,15 @@ var open_only := ""              # with open_before_bake: only assets whose name
 var show_colliders := false:
     set(value):
         show_colliders = value
+        if value:                        # built on first show: most runs never look at them
+            for body in get_tree().get_nodes_in_group("geogen_collider_body"):
+                _add_debug_mesh(body)
         for node in get_tree().get_nodes_in_group("geogen_collider_debug"):
             node.visible = value
 
 var _mtimes := {}  # manifest path -> modified time at last load
+var _player_spec: PlayerSpec       # player_spec(), parsed from _player_spec_key (manifest@mtime)
+var _player_spec_key := ""
 ## Gap between models when several exports load at once.
 const MODEL_SPACING := 6.0
 var _next_x := 0.0    # where the next model's -X edge goes when loading several
@@ -383,7 +388,13 @@ func unload() -> void:
 ## Player spec from the first loaded manifest, or null if none.
 func player_spec() -> PlayerSpec:
     for manifest in _manifests():
-        return PlayerSpec.from_manifest(manifest)
+        # Parsing a manifest (a city's chunk index is megabytes) costs more than a frame:
+        # once per file and version, not per chunk or navigation tile.
+        var key := "%s@%d" % [manifest, FileAccess.get_modified_time(manifest)]
+        if key != _player_spec_key:
+            _player_spec = PlayerSpec.from_manifest(manifest)
+            _player_spec_key = key
+        return _player_spec
     return null
 
 
@@ -1151,6 +1162,15 @@ func room_at(pos: Vector3) -> String:
 ## shingles) alias badly at a distance. Build mipmaps and filter anisotropically.
 ## Surfaces with vertex colours get them as an albedo tint.
 func _prepare_materials(root: Node) -> void:
+    prepare_materials(root)
+
+
+## Material fixes for a loaded glTF (static: streamed chunks run it on a worker before the
+## root enters the tree). ``mipmapped`` maps a texture to its mipmapped stand-in; textures
+## not in it get their mipmaps made here, by reading them back from the GPU (slow, and only
+## safe on the main thread): with ``read_back`` false they are left, and the root gets meta
+## `geogen_unmipped` so the main thread finishes the job.
+static func prepare_materials(root: Node, mipmapped := {}, read_back := true) -> void:
     var done := {}
     for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
         if mi.mesh == null:
@@ -1173,6 +1193,12 @@ func _prepare_materials(root: Node) -> void:
                 var tex := mat.get_texture(param)
                 if tex == null or done.has(tex):
                     continue
+                if mipmapped.has(tex):
+                    mat.set_texture(param, mipmapped[tex])
+                    continue
+                if not read_back:
+                    root.set_meta("geogen_unmipped", true)
+                    continue
                 var image := tex.get_image()
                 if image == null or image.has_mipmaps():
                     continue
@@ -1189,31 +1215,62 @@ func _prepare_materials(root: Node) -> void:
 ## geogen) fall back to a trimesh collider on every mesh.
 func _add_collision(root: Node) -> int:
     var meshes := root.find_children("*", "MeshInstance3D", true, false)
-    var colliders: Array[MeshInstance3D] = []
-    for mi: MeshInstance3D in meshes:
-        if _is_collider(mi):
-            colliders.append(mi)
+    var colliders := collider_meshes(meshes)
+    var shapes := {}
     if colliders.is_empty():
         for mi: MeshInstance3D in meshes:
-            if mi.mesh != null:
-                _add_body(mi, mi.mesh.create_trimesh_shape(), Transform3D.IDENTITY)
-        return meshes.size()
-    var shapes := {}   # [mesh, convex] -> Shape3D: instances share their collider mesh, so share the shape
-    for mi in colliders:
-        if mi.mesh != null:
-            var convex: bool = String(mi.name).ends_with("-convcolonly") or geogen_extras(mi).get("shape") in ["box", "hull"]
-            var key := [mi.mesh, convex]
-            var shape: Shape3D = shapes.get(key)
-            if shape == null:
-                shape = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
-                if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
-                    shape = mi.mesh.create_trimesh_shape()
-                shapes[key] = shape
+            var shape := collider_shape(mi, false, shapes)
             if shape != null:
-                _add_body(mi.get_parent(), shape, mi.transform)
+                _add_body(mi, shape, Transform3D.IDENTITY, mi.get_aabb())
+        return meshes.size()
+    for mi in colliders:
+        var shape := collider_shape(mi, true, shapes)
+        if shape != null:
+            _add_body(mi.get_parent(), shape, mi.transform, mi.get_aabb())
         mi.get_parent().remove_child(mi)
         mi.free()
     return meshes.size() - colliders.size()
+
+
+## The exported collider meshes among ``meshes`` (none: older exports, every mesh collides).
+static func collider_meshes(meshes: Array) -> Array[MeshInstance3D]:
+    var out: Array[MeshInstance3D] = []
+    for mi: MeshInstance3D in meshes:
+        if _is_collider(mi):
+            out.append(mi)
+    return out
+
+
+## The collision shape for a collider mesh (``exported``) or a plain mesh's triangles. Built
+## once per mesh and kind (``shapes``: instances share their collider mesh, so share the shape),
+## or taken from meta `geogen_shape` when a loader built it on a worker (precompute_shapes).
+static func collider_shape(mi: MeshInstance3D, exported: bool, shapes: Dictionary) -> Shape3D:
+    if mi.has_meta("geogen_shape"):
+        return mi.get_meta("geogen_shape")
+    if mi.mesh == null:
+        return null
+    var convex: bool = exported and (String(mi.name).ends_with("-convcolonly")
+        or geogen_extras(mi).get("shape") in ["box", "hull"])
+    var key := [mi.mesh, convex]
+    var shape: Shape3D = shapes.get(key)
+    if shape == null:
+        shape = mi.mesh.create_convex_shape(true, false) if convex else mi.mesh.create_trimesh_shape()
+        if shape == null:   # a flat or degenerate hull: fall back to the exact triangles
+            shape = mi.mesh.create_trimesh_shape()
+        shapes[key] = shape
+    return shape
+
+
+## Build a loaded root's collision shapes ahead of _add_collision (safe on a worker thread:
+## the root isn't in the tree yet); _add_collision then only adds the bodies.
+static func precompute_shapes(root: Node) -> void:
+    var meshes := root.find_children("*", "MeshInstance3D", true, false)
+    var colliders := collider_meshes(meshes)
+    var shapes := {}
+    for mi: MeshInstance3D in (meshes if colliders.is_empty() else colliders):
+        var shape := collider_shape(mi, not colliders.is_empty(), shapes)
+        if shape != null:
+            mi.set_meta("geogen_shape", shape)
 
 
 func _is_moving(node: Node) -> bool:
@@ -1229,7 +1286,9 @@ static func _is_collider(mi: MeshInstance3D) -> bool:
     return n.ends_with("-colonly") or n.ends_with("-convcolonly") or geogen_extras(mi).get("type") == "collider"
 
 
-func _add_body(parent: Node, shape: Shape3D, xform: Transform3D) -> void:
+## ``box``: the shape's bounds in the body's frame (kept as meta `geogen_aabb`: streamed
+## navigation tiles parse only the bodies overlapping them).
+func _add_body(parent: Node, shape: Shape3D, xform: Transform3D, box: AABB) -> void:
     # Bodies under a part an interaction moves must be animatable so they
     # push the player and carry their new pose into physics.
     var body: PhysicsBody3D
@@ -1243,13 +1302,27 @@ func _add_body(parent: Node, shape: Shape3D, xform: Transform3D) -> void:
         body = StaticBody3D.new()
     body.name = "Collider"
     body.transform = xform
+    body.set_meta("geogen_aabb", box)
+    body.add_to_group("geogen_collider_body")
     var col := CollisionShape3D.new()
     col.shape = shape
     body.add_child(col)
     parent.add_child(body)
-    var debug := MeshInstance3D.new()
-    debug.mesh = shape.get_debug_mesh()
-    debug.material_override = _collider_material
-    debug.visible = show_colliders
-    debug.add_to_group("geogen_collider_debug")
-    body.add_child(debug)
+    if show_colliders:
+        _add_debug_mesh(body)
+
+
+## The wireframe overlay of a collider body's shape (once per body).
+func _add_debug_mesh(body: Node) -> void:
+    if body.has_meta("geogen_debug"):
+        return
+    body.set_meta("geogen_debug", true)
+    for col: CollisionShape3D in body.find_children("*", "CollisionShape3D", false, false):
+        if col.shape == null:
+            continue
+        var debug := MeshInstance3D.new()
+        debug.mesh = col.shape.get_debug_mesh()
+        debug.material_override = _collider_material
+        debug.visible = show_colliders
+        debug.add_to_group("geogen_collider_debug")
+        body.add_child(debug)

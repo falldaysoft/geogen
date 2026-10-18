@@ -12,14 +12,17 @@ extends Node
 ##   the full exterior is loaded;
 ## - pieces unload ``hysteresis`` metres further out than they load;
 ## - navigation: ``nav_tile``-metre tiles within ``nav_radius`` are baked from
-##   the loaded pieces overlapping them (parsed on the main thread, baked
+##   the static colliders overlapping them (parsed on the main thread, baked
 ##   async), clipped to the tile so neighbours join, and re-baked whenever a
 ##   piece overlapping them loads or unloads. Moving parts (doors) are left
 ##   out, like WorldLoader's single-file bake.
 ##
-## GLB parsing and scene generation run on the WorkerThreadPool; the main
-## thread builds texture mipmaps (reading texture images off the main thread
-## crashes), adds the nodes and runs WorldLoader.setup_root.
+## GLB parsing, scene generation, texture mipmaps (each shared texture file
+## once, loaded from disk: reading a texture back off the main thread crashes)
+## and collision shapes run on the WorkerThreadPool; the main thread adds one
+## piece per frame and runs WorldLoader.setup_root. ``report()`` carries what
+## streaming cost the main thread (``slow_frames``, the ``worst`` frame by
+## phase) and whole-frame times (``frames``).
 ## ``prime()`` loads what the start position needs synchronously.
 
 const INDEX_FORMAT := "geogen-chunks"
@@ -44,8 +47,16 @@ var nav_tile := 24.0
 var nav_radius := 30.0
 var nav_border := 1.0
 var _piece_bounds := {}    # file -> AABB of the loaded piece
+static var _textures := {}          # "path|normal" -> mipmapped texture, shared by chunks
+static var _textures_lock := Mutex.new()
+var _piece_bodies := {}    # file -> [[static collider body, world AABB], ...] for navigation tiles
 var _tiles := {}           # Vector2i -> {"region": NavigationRegion3D, "dirty": bool, "baking": bool}
 var _bakes := 0            # async bakes in flight
+var _cost := {}            # main-thread ms this frame per phase (attach, unload, nav_parse)
+var _worst := {}           # the costliest frame so far: {ms, phases, files}
+var _slow_frames := 0      # frames the streamer spent more than SLOW_MS on the main thread
+const SLOW_MS := 8.0
+var _frames := {"count": 0, "over_33ms": 0, "worst_ms": 0.0}   # whole-frame times while streaming
 
 
 func open(index_path: String, index: Dictionary) -> void:
@@ -81,7 +92,29 @@ func prime(focus: Vector3) -> void:
                 _bake_tile(key, false)     # the start tile synchronously: agents can path at once
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+    _frames["count"] += 1
+    if delta > 0.0333:
+        _frames["over_33ms"] += 1
+    _frames["worst_ms"] = maxf(float(_frames["worst_ms"]), snappedf(delta * 1000.0, 0.1))
+    _cost = {"files": []}
+    var started := Time.get_ticks_usec()
+    _step()
+    var ms := (Time.get_ticks_usec() - started) / 1000.0
+    if ms > SLOW_MS:
+        _slow_frames += 1
+    if ms > float(_worst.get("ms", 0.0)):
+        _cost["ms"] = snappedf(ms, 0.1)
+        _worst = _cost
+
+
+func _lap(phase: String, since: int) -> int:
+    var now := Time.get_ticks_usec()
+    _cost[phase] = snappedf(float(_cost.get(phase, 0.0)) + (now - since) / 1000.0, 0.1)
+    return now
+
+
+func _step() -> void:
     var focus := world.stream_focus
     var wanted := _wanted(focus)
     for file in wanted:
@@ -95,20 +128,28 @@ func _process(_delta: float) -> void:
         var w := world
         var id := WorkerThreadPool.add_task(func(): out.append(GeogenChunkStreamer._load_glb(path, w)), true)
         _tasks[file] = {"id": id, "out": out}
+    var attached := false
     for file in _tasks.keys():
         var task: Dictionary = _tasks[file]
-        if not WorkerThreadPool.is_task_completed(task["id"]):
-            continue
+        if attached or not WorkerThreadPool.is_task_completed(task["id"]):
+            continue                    # one piece enters the tree per frame: the rest wait
         WorkerThreadPool.wait_for_task_completion(task["id"])
         _tasks.erase(file)
         var root: Node3D = task["out"][0] if not task["out"].is_empty() else null
         if file in _wanted(world.stream_focus):
+            var t := Time.get_ticks_usec()
             _attach(file, root)
+            _lap("attach", t)
+            _cost["files"].append(file)
+            attached = true
         elif root != null:
             root.free()
+    var t := Time.get_ticks_usec()
     _unload_unwanted(focus)
+    t = _lap("unload", t)
     if navigation:
         _update_navigation(focus)
+        _lap("nav", t)
 
 
 ## Never leave a worker parsing a chunk behind (quitting or reloading).
@@ -161,6 +202,7 @@ func _unload_unwanted(focus: Vector3) -> void:
         _unloads += 1
         _mark_dirty(_piece_bounds.get(file, AABB()))
         _piece_bounds.erase(file)
+        _piece_bodies.erase(file)
 
 
 func _attach(file: String, root: Node3D) -> void:
@@ -170,23 +212,74 @@ func _attach(file: String, root: Node3D) -> void:
         world.add_child(_loaded[file])
         return
     root.name = file.get_basename()
-    world._prepare_materials(root)
+    if root.has_meta("geogen_unmipped"):
+        world._prepare_materials(root)     # textures embedded in the GLB: read back here
     world.add_child(root)
     world.setup_root(root)
     _loaded[file] = root
     _loads += 1
     var box := WorldLoader._aabb(root)
     _piece_bounds[file] = box
+    # The static colliders navigation is baked from (moving parts, like doors, left out).
+    var bodies := []
+    for body: StaticBody3D in root.find_children("*", "StaticBody3D", true, false):
+        if body is AnimatableBody3D or not body.collision_layer & 1:
+            continue
+        var local = body.get_meta("geogen_aabb", null)
+        bodies.append([body, body.global_transform * local if local is AABB else box])
+    _piece_bodies[file] = bodies
     _mark_dirty(box)
 
 
-## Parse a GLB into a scene (safe on a worker thread: nothing is in the tree yet).
+## Parse a GLB into a scene with its materials prepared (safe on a worker thread: nothing is
+## in the tree yet).
 static func _load_glb(path: String, _w: WorldLoader = null) -> Node3D:
     var doc := GLTFDocument.new()
     var state := GLTFState.new()
     if doc.append_from_file(ProjectSettings.globalize_path(path), state) != OK:
         return null
-    return doc.generate_scene(state) as Node3D
+    var mipmapped := _mipmapped(state, path.get_base_dir())
+    var root := doc.generate_scene(state) as Node3D
+    if root != null:
+        WorldLoader.prepare_materials(root, mipmapped, false)
+        WorldLoader.precompute_shapes(root)
+    return root
+
+
+## The chunk's textures, mipmapped once per file for every chunk that shares it (the export's
+## shared textures/ folder names them by content): {glTF texture: mipmapped texture}.
+static func _mipmapped(state: GLTFState, dir: String) -> Dictionary:
+    var images := state.get_images()
+    var listed: Array = state.json.get("images", [])
+    var normals := {}
+    for material in state.json.get("materials", []):
+        var index = material.get("normalTexture", {}).get("index")
+        var textures: Array = state.json.get("textures", [])
+        if index != null and int(index) < textures.size():
+            normals[int(textures[int(index)].get("source", -1))] = true
+    var out := {}
+    for i in mini(images.size(), listed.size()):
+        var uri := str(listed[i].get("uri", ""))
+        if uri == "" or images[i] == null:
+            continue                   # embedded: prepare_materials mipmaps it
+        var key := "%s|%s" % [dir.path_join(uri), normals.has(i)]
+        _textures_lock.lock()
+        var tex: Texture2D = _textures.get(key)
+        _textures_lock.unlock()
+        if tex == null:
+            var image := Image.load_from_file(ProjectSettings.globalize_path(dir.path_join(uri)))
+            if image == null:
+                continue
+            if image.is_compressed():
+                image.decompress()
+            image.generate_mipmaps(normals.has(i))
+            tex = ImageTexture.create_from_image(image)
+            _textures_lock.lock()
+            tex = _textures.get(key, tex)  # another worker may have got there first
+            _textures[key] = tex
+            _textures_lock.unlock()
+        out[images[i]] = tex
+    return out
 
 
 func _path(file: String) -> String:
@@ -262,12 +355,16 @@ func _bake_tile(key: Vector2i, threaded_bake: bool) -> void:
         tile = {"region": region, "dirty": true, "baking": false}
         _tiles[key] = tile
     var aabb := _tile_aabb(key)
-    var roots := []
+    var bodies := []
+    var reach := aabb.grow(nav_border + 0.5)
     for file in _loaded:
         var box: AABB = _piece_bounds.get(file, AABB())
-        if box.size != Vector3.ZERO and box.intersects(aabb.grow(nav_border + 0.5)):
-            roots.append(_loaded[file])
-    var parsed := GeogenSceneBuilder.parse_tile(roots, aabb, world.player_spec(), nav_border)
+        if box.size == Vector3.ZERO or not box.intersects(reach):
+            continue
+        for entry in _piece_bodies.get(file, []):
+            if entry[1].intersects(reach) and is_instance_valid(entry[0]):
+                bodies.append(entry[0])
+    var parsed := GeogenSceneBuilder.parse_tile(bodies, aabb, world.player_spec(), nav_border)
     var mesh: NavigationMesh = parsed[0]
     var source: NavigationMeshSourceGeometryData3D = parsed[1]
     tile["dirty"] = false
@@ -292,10 +389,14 @@ static func _bake_done(streamer_ref: WeakRef, tile: Dictionary, mesh: Navigation
         tile["region"].navigation_mesh = mesh
 
 
-## True while navigation tiles near the focus are missing, stale or baking.
+## True while pieces the focus wants are still loading, or navigation tiles near it are
+## missing, stale or baking.
 func navigation_busy() -> bool:
-    if _bakes > 0:
+    if _bakes > 0 or not _tasks.is_empty():
         return true
+    for file in _wanted(world.stream_focus):
+        if not _loaded.has(file):
+            return true
     for key in _wanted_tiles(world.stream_focus):
         if not _tiles.has(key) or _tiles[key]["dirty"]:
             return true
@@ -316,4 +417,5 @@ func report() -> Dictionary:
             if _loaded.has(interior["file"]):
                 interiors.append("%s/%s" % [chunk["name"], interior["building"]])
     return {"full": full, "lod": lod, "interiors": interiors, "pending": _tasks.size(),
-        "loads": _loads, "unloads": _unloads, "nav_tiles": _tiles.size(), "nav_baking": _bakes}
+        "loads": _loads, "unloads": _unloads, "nav_tiles": _tiles.size(), "nav_baking": _bakes,
+        "slow_frames": _slow_frames, "worst": _worst, "frames": _frames}

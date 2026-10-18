@@ -886,8 +886,8 @@ func _random_surface_point(tags: Array):
         for tag in tags:
             for node in get_tree().get_nodes_in_group(tag):
                 for mi: MeshInstance3D in ([node] if node is MeshInstance3D else []) + node.find_children("*", "MeshInstance3D", true, false):
-                    if mi.mesh == null:
-                        continue
+                    if mi.mesh == null or mi.is_in_group("geogen_collider_debug"):
+                        continue                   # (collider overlays aren't more pavement)
                     var faces := mi.mesh.get_faces()
                     var xf := mi.global_transform
                     for k in range(0, faces.size(), 3):

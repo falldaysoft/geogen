@@ -665,16 +665,17 @@ export to `generated/town_chunks/`:
 
 Loading runs as follows:
 - `prime()` loads what the spawn needs synchronously.
-- After that, GLB parsing and mipmap generation run on the `WorkerThreadPool`; the main thread adds the nodes and runs `WorldLoader.setup_root`.
+- After that, the `WorkerThreadPool` parses the GLBs, builds texture mipmaps and makes the collision shapes. Each shared texture file is mipmapped once for every chunk that uses it.
+- The main thread adds one piece per frame and runs `WorldLoader.setup_root`.
 - An unloaded chunk is unregistered with `WorldLoader.forget`.
 
 Navigation comes as 24 m tiles within 30 m of the player, baked from the loaded pieces that overlap them:
 - Each tile is clipped to its own box with a border, so neighbouring tiles join edge to edge.
-- Parsing happens on the main thread and baking runs async.
+- Parsing happens on the main thread, and only the static collider bodies overlapping the tile are parsed. Baking runs async.
 - A tile re-bakes when a chunk or interior overlapping it loads or unloads.
 - `wait_ready` (and so `--nav`) waits until the nearby tiles are baked.
 
-The overlay shows full / LOD / interior counts, and `player.status` / `player.move` results carry a `stream` report (including `nav_tiles`). `--playtest` still needs a single-file export, since it checks every room at once.
+The overlay shows full / LOD / interior counts, and `player.status` / `player.move` results carry a `stream` report. It includes `nav_tiles`, the main thread's streaming cost (`slow_frames` over 8 ms, and the `worst` frame by phase: `attach`, `unload`, `nav`, with the files attached) and whole-frame times (`frames`: count, `over_33ms`, `worst_ms`). `--playtest` still needs a single-file export, since it checks every room at once.
 
 ## Stable IDs
 

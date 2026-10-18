@@ -564,6 +564,7 @@ def test_stream_swaps_detail_as_the_player_walks(godot_script, strip_dir):
     stream = end["stream"]
     assert "block_1_0" in stream["full"] and "block_0_0" in stream["lod"]
     assert stream["unloads"] > 0
+    assert stream["worst"]["ms"] < 100, stream["worst"]       # the main thread's share of streaming
 
 
 def test_stream_loads_interiors_next_to_buildings(godot_script, strip_dir):
@@ -587,6 +588,7 @@ def test_rules_hold_an_interaction_while_its_chunk_is_away(godot_runtime, strip_
     rt.call("state.set", key=door, value="closed")                  # back to how it starts
     rt.call("player.teleport", pos=[-75, 0.2, -20])
     rt.call("time.advance", seconds=3)
+    rt.call("wait_ready")                                          # block_0_0 back in
     assert [i["state"] for i in rt.call("interactions.list", asset="shop_door")] == ["closed"]
 
 
