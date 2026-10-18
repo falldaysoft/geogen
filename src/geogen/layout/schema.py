@@ -175,6 +175,14 @@ PRIMITIVES: dict[str, Primitive] = {
          "fronds": Key("int", "frond count (palm)")},
         example="{primitive: tree, size: [1, 1, 1], anchor: bottom_center, seed: 3, trunk_radius: 0.04, "
                 "step: 0.09, leaf_size: 0.14, material: bark, foliage_material: foliage_green}"),
+    "crop": Primitive(
+        "A patch of crop plants in staggered rows filling the part's footprint, at a growth stage "
+        "(the box's height is the full-grown height). No collider.",
+        {"kind": Key("wheat | carrot | pumpkin", "what grows"),
+         "growth": Key("0-1", "how far it has got: seedlings below 0.25, ripe from 0.8", 1.0),
+         "seed": _SEED,
+         "spacing": Key("m", "between plants (default: the kind's own)")},
+        example="{primitive: crop, size: [1, 1, 1], anchor: bottom_center, kind: wheat, growth: 1}"),
     "rock": Primitive(
         "A random convex cage, subdivided, displaced and flat-bottomed.",
         {"seed": _SEED,

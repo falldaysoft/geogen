@@ -300,6 +300,23 @@ A tree grown in the part box: trunk (hull collider), branches and noise-displace
 {primitive: tree, size: [1, 1, 1], anchor: bottom_center, seed: 3, trunk_radius: 0.04, step: 0.09, leaf_size: 0.14, material: bark, foliage_material: foliage_green}
 ```
 
+## crop
+
+<img src="img/primitives/crop.png" width="256" alt="crop">
+
+A patch of crop plants in staggered rows filling the part's footprint, at a growth stage (the box's height is the full-grown height). No collider.
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `kind` | wheat \| carrot \| pumpkin | `wheat` | what grows |
+| `growth` | 0-1 | `1` | how far it has got: seedlings below 0.25, ripe from 0.8 |
+| `seed` | int | `0` | random seed |
+| `spacing` | m | `0` | between plants (default: the kind's own) |
+
+```yaml
+{primitive: crop, size: [1, 1, 1], anchor: bottom_center, kind: wheat, growth: 1}
+```
+
 ## rock
 
 <img src="img/primitives/rock.png" width="256" alt="rock">

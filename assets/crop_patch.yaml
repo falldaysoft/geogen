@@ -1,0 +1,33 @@
+# A bed of tilled soil with a crop growing in it: the crop generator's review piece, and
+# the look of a farm plot (crop `kind` at `growth` 0-1). Origin: on the ground at the
+# bed's middle.
+
+name: crop_patch
+tags: [vegetation.crop]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  kind:   {default: wheat, choices: [wheat, carrot, pumpkin]}
+  growth: {default: 1}
+  seed:   {default: 0}
+  height: {default: 0.9}
+
+parts:
+  soil:
+    primitive: cube
+    size: [1.2, 0.08, 1.2]
+    anchor: bottom_center
+    bevel: 0.03
+    bevel_segments: 1
+    material: dirt
+    walkable: true
+  crop:
+    primitive: crop
+    size: [1.1, "{height}", 1.1]
+    attach_to: soil
+    at: top
+    kind: "{kind}"
+    growth: "{growth}"
+    seed: "{seed}"

@@ -10,6 +10,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
+| [crop_test](#crop_test) | Review scene for the crop generator: wheat, carrots and pumpkins (rows, back to front) at growth 0.15, 0.5, 0.8 and 1 (left to right). |  |
 | [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic and a few pedestrians. | test |
 | [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
 | [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two waves of raiders (6 hp) down a lane past a turret. | test |
@@ -125,6 +126,17 @@ Each window/door cuts its own opening into the wall it is placed on.
 **Slots**: lawn, west_lawn
 
 **Spawns**: from_hub, front_path
+
+## crop_test
+
+`scene: scenes/crop_test.yaml` · [source](../../assets/scenes/crop_test.yaml)
+
+Review scene for the crop generator: wheat, carrots and pumpkins (rows, back to front)
+at growth 0.15, 0.5, 0.8 and 1 (left to right).
+
+**Places**: `wheat_1: {asset: crop_patch.yaml}`; `wheat_2: {asset: crop_patch.yaml}`; `wheat_3: {asset: crop_patch.yaml}`; `wheat_4: {asset: crop_patch.yaml}`; `carrot_1: {asset: crop_patch.yaml}`; `carrot_2: {asset: crop_patch.yaml}`; `carrot_3: {asset: crop_patch.yaml}`; `carrot_4: {asset: crop_patch.yaml}`; `pumpkin_1: {asset: crop_patch.yaml}`; `pumpkin_2: {asset: crop_patch.yaml}`; `pumpkin_3: {asset: crop_patch.yaml}`; `pumpkin_4: {asset: crop_patch.yaml}`
+
+**Slots**: carrot_1, carrot_2, carrot_3, carrot_4, pumpkin_1, pumpkin_2, pumpkin_3, pumpkin_4, wheat_1, wheat_2, wheat_3, wheat_4
 
 ## crossroads
 

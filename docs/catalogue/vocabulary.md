@@ -395,11 +395,13 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `car_trim` | painted_wall |
 | `cardboard` | painted_wall |
 | `carpet` | cut_pile_carpet |
+| `carrot_root` | painted_wall |
 | `ceiling_white` | painted_wall |
 | `ceramic_white` | painted_wall |
 | `chrome` | metal |
 | `cloth` | fabric |
 | `concrete` | concrete |
+| `crop_leaf` | painted_wall |
 | `denim` | fabric |
 | `dirt` | dirt |
 | `door_paint` | painted_wall |
@@ -436,6 +438,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `play_paint` | painted_wall |
 | `play_yellow` | painted_wall |
 | `portal_glow` | painted_wall |
+| `pumpkin_skin` | painted_wall |
 | `red_metal` | metal |
 | `road_paint_white` | painted_wall |
 | `road_paint_yellow` | painted_wall |
@@ -459,5 +462,6 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `wall` | plaster |
 | `wall_plaster` | plaster |
 | `water` | painted_wall |
+| `wheat_straw` | painted_wall |
 | `wood` | wood |
 | `wood_dark` | wood |

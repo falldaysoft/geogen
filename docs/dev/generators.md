@@ -47,6 +47,7 @@ Mesh and composite generators (`src/geogen/generators/`), the furniture library,
   - Branch radii use the pipe model. The trunk mesh gets a hull collider; the `branches` and `foliage` children (noise-displaced leaf clusters on the twigs) have no collider.
   - `primitive: rock` is a random convex cage (`seed`, `points`, `levels`, `roughness`, `crease`), subdivided, displaced and flat-bottomed.
   - Generated child meshes inherit the part's `material` (bark).
+- **Crops** (`crops.py`, geogen.70.2): `primitive: crop` plants `kind: wheat | carrot | pumpkin` in staggered, jittered rows filling the part's footprint (`spacing`, default per kind: `crops.SPACING`), at `growth` 0-1: seedlings below `SPROUT` (0.25) for every kind; wheat tufts whose ears appear from 0.5 and ripen to `wheat_straw` from `RIPE` (0.8), nodding over; carrot rosettes with an orange shoulder (`carrot_root`) from 0.6; pumpkin vines with broad leaves and a ribbed lathed fruit from 0.45, `pumpkin_skin` when ripe. The box's height is the full-grown height and the plants stand on its bottom. Pieces are closed (tree `_tube`s, palm `_frond` blades) and low-poly: a grown 1.1 m patch is ≤ 6.5k triangles. No collider (`vegetation.crop`). `crop_patch.yaml` is a soil bed with one (params `kind`, `growth`, `seed`, `height`); review scene `-s crop_test` (the kinds by row, growth 0.15 / 0.5 / 0.8 / 1 by column). Tests `tests/test_crops.py`.
 
 
 ## Furniture library

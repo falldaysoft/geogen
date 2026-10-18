@@ -10,6 +10,7 @@ import numpy as np
 from .. import roots
 from ..core.node import SceneNode
 from ..core.profile import Shape, polyline_from_spec, shape_from_spec
+from ..generators.crops import CropGenerator
 from ..generators.nature import RockGenerator, TreeGenerator
 from ..generators.primitives import (
     ConeGenerator,
@@ -62,6 +63,7 @@ PRIMITIVE_REGISTRY = {
     "torus": TorusGenerator,
     "capsule": CapsuleGenerator,
     "tree": TreeGenerator,
+    "crop": CropGenerator,
     "rock": RockGenerator,
     "text": TextGenerator,
     "paths": PathsGenerator,
@@ -1197,6 +1199,11 @@ def _build_tree(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
         "leaf_size": float, "segments": int, "foliage_material": str, "fronds": int}))
 
 
+def _build_crop(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
+    return CropGenerator(width=size[0], height=size[1], depth=size[2], seed=_seed_of(config),
+                         **_cast(config, {"kind": str, "growth": float, "spacing": float}))
+
+
 def _build_rock(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
     args = _cast(config, {"points": int, "levels": int, "roughness": float,
                           "crease": lambda v: None if v is None else float(v)})
@@ -1225,6 +1232,7 @@ _BUILDERS: dict[str, Any] = {
     "stairs": _build_stairs,
     "roof": _build_roof,
     "tree": _build_tree,
+    "crop": _build_crop,
     "rock": _build_rock,
     "prism": lambda loader, size, config: PrismGenerator(width=size[0], height=size[1], depth=size[2],
                                                          apex=config.get("apex", "center")),

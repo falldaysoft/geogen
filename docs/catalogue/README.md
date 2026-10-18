@@ -254,16 +254,19 @@ place:
 <table>
 <tr>
 <td align="center"><a href="assets/bush.md"><img src="img/bush.png" width="150" alt="bush"><br>bush</a></td>
+<td align="center"><a href="assets/crop_patch.md"><img src="img/crop_patch.png" width="150" alt="crop_patch"><br>crop_patch</a></td>
 <td align="center"><a href="assets/island_grounds.md"><img src="img/island_grounds.png" width="150" alt="island_grounds"><br>island_grounds</a></td>
 <td align="center"><a href="assets/island_terrain.md"><img src="img/island_terrain.png" width="150" alt="island_terrain"><br>island_terrain</a></td>
 <td align="center"><a href="assets/maple_tree.md"><img src="img/maple_tree.png" width="150" alt="maple_tree"><br>maple_tree</a></td>
-<td align="center"><a href="assets/palm_tree.md"><img src="img/palm_tree.png" width="150" alt="palm_tree"><br>palm_tree</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/palm_tree.md"><img src="img/palm_tree.png" width="150" alt="palm_tree"><br>palm_tree</a></td>
 <td align="center"><a href="assets/pine_tree.md"><img src="img/pine_tree.png" width="150" alt="pine_tree"><br>pine_tree</a></td>
 <td align="center"><a href="assets/pond.md"><img src="img/pond.png" width="150" alt="pond"><br>pond</a></td>
 <td align="center"><a href="assets/rock_large.md"><img src="img/rock_large.png" width="150" alt="rock_large"><br>rock_large</a></td>
 <td align="center"><a href="assets/rock_medium.md"><img src="img/rock_medium.png" width="150" alt="rock_medium"><br>rock_medium</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/rock_small.md"><img src="img/rock_small.png" width="150" alt="rock_small"><br>rock_small</a></td>
 </tr>
 </table>
@@ -271,6 +274,7 @@ place:
 | Asset | What it is | Params |
 | --- | --- | --- |
 | [bush](assets/bush.md) | Bush/shrub - cluster of overlapping spheres, noise-displaced into lumpy foliage. | `width`, `height`, `depth` |
+| [crop_patch](assets/crop_patch.md) | A bed of tilled soil with a crop growing in it: the crop generator's review piece, and the look of a farm plot (crop `kind` at `growth` 0-1). | `kind`, `growth`, `seed`, `height` |
 | [island_grounds](assets/island_grounds.md) | The island showcase's ground (scenes/island.yaml): terrain rising from sandy beaches to a wooded hill, levelled pads for the jetty, the hub portal, two cottages and the lighthouse, gravel paths between them, the sea all round, and an invisible wall where the water gets half a metre deep (with a gap where the jetty runs out over it). | `sea_level` |
 | [island_terrain](assets/island_terrain.md) | An island in the sea: noise hills inside a wobbly coastline (sand at the shore, rock on steep slopes, grass elsewhere), a sea sheet reaching well past the terrain, and an invisible wall where the water gets half a metre deep. | `extent`, `peak`, `sea_level`, `sea`, `seed` |
 | [maple_tree](assets/maple_tree.md) | Maple tree - a space-colonisation branch skeleton with leaf clusters (generators/nature.py). | `scale`, `seed`, `height`, `trunk` |

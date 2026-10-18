@@ -1,0 +1,33 @@
+# Review scene for the crop generator: wheat, carrots and pumpkins (rows, back to front)
+# at growth 0.15, 0.5, 0.8 and 1 (left to right).
+
+name: crop_test
+size: [6, 2, 5]
+
+slots:
+  wheat_1: {position: [-2.25, 0, -1.6]}
+  wheat_2: {position: [-0.75, 0, -1.6]}
+  wheat_3: {position: [0.75, 0, -1.6]}
+  wheat_4: {position: [2.25, 0, -1.6]}
+  carrot_1: {position: [-2.25, 0, 0]}
+  carrot_2: {position: [-0.75, 0, 0]}
+  carrot_3: {position: [0.75, 0, 0]}
+  carrot_4: {position: [2.25, 0, 0]}
+  pumpkin_1: {position: [-2.25, 0, 1.6]}
+  pumpkin_2: {position: [-0.75, 0, 1.6]}
+  pumpkin_3: {position: [0.75, 0, 1.6]}
+  pumpkin_4: {position: [2.25, 0, 1.6]}
+
+place:
+  wheat_1: {asset: crop_patch.yaml, slot: wheat_1, params: {kind: wheat, growth: 0.15, height: 0.9}}
+  wheat_2: {asset: crop_patch.yaml, slot: wheat_2, params: {kind: wheat, growth: 0.5, height: 0.9}}
+  wheat_3: {asset: crop_patch.yaml, slot: wheat_3, params: {kind: wheat, growth: 0.8, height: 0.9}}
+  wheat_4: {asset: crop_patch.yaml, slot: wheat_4, params: {kind: wheat, growth: 1, height: 0.9}}
+  carrot_1: {asset: crop_patch.yaml, slot: carrot_1, params: {kind: carrot, growth: 0.15, height: 0.35}}
+  carrot_2: {asset: crop_patch.yaml, slot: carrot_2, params: {kind: carrot, growth: 0.5, height: 0.35}}
+  carrot_3: {asset: crop_patch.yaml, slot: carrot_3, params: {kind: carrot, growth: 0.8, height: 0.35}}
+  carrot_4: {asset: crop_patch.yaml, slot: carrot_4, params: {kind: carrot, growth: 1, height: 0.35}}
+  pumpkin_1: {asset: crop_patch.yaml, slot: pumpkin_1, params: {kind: pumpkin, growth: 0.15, height: 0.4}}
+  pumpkin_2: {asset: crop_patch.yaml, slot: pumpkin_2, params: {kind: pumpkin, growth: 0.5, height: 0.4}}
+  pumpkin_3: {asset: crop_patch.yaml, slot: pumpkin_3, params: {kind: pumpkin, growth: 0.8, height: 0.4}}
+  pumpkin_4: {asset: crop_patch.yaml, slot: pumpkin_4, params: {kind: pumpkin, growth: 1, height: 0.4}}

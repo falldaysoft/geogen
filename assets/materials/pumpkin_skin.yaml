@@ -1,0 +1,15 @@
+# A ripe pumpkin's orange rind.
+name: pumpkin_skin
+texture:
+  type: painted_wall
+  params:
+    base_color: [222, 120, 30]
+    sheen: 0.15
+    seed: 14
+size: [256, 256]
+tile_size: 0.5  # metres per texture repeat
+pbr:
+  roughness: 0.8
+  metallic: 0.0
+  normal_strength: 0.2
+  ao_strength: 1.0
