@@ -43,6 +43,9 @@ CLEARANCE = 0.01          # m the outer wall keeps off the skin (the lining is a
 SEAT_EDGE = 0.02          # m before a seat's front over which the cloth on it eases off
 SEAT_CLOTH = 0.012        # m of cloth between the seat flesh and the seat
 LEGS = ("LeftUpperLeg", "RightUpperLeg")       # what a skirt's rings on the thighs go round, with the seat
+ARM_PARTS = ("Shoulder", "UpperArm", "LowerArm", "Hand", "Thumb", "Index", "Middle", "Ring", "Little")
+ARM_BONES = {f"{side}{part}{k}" for side in ("Left", "Right") for part in ARM_PARTS
+             for k in ("", "Metacarpal", "Proximal", "Intermediate", "Distal")}   # the drape doesn't hang on these
 SHINS = ("LeftLowerLeg", "RightLowerLeg")
 TRUNK_SHARE = 0.5                              # a ring with less of its weight than this on the thighs is on the pelvis
 KNEE = 0.06                                    # m below the knee joints that still counts as knee
@@ -399,9 +402,21 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
     clothes = next(n for n in root.children if n.name == "clothes")
 
     actor = root.instance()                                    # clips key every joint: one actor does
+    # Frames where nothing the clothes or the body under them hang on moves (a wave: only an arm)
+    # drape the same: keyed by those joints' local transforms (and the seat), done once.
+    hangs = {j.name for j in clothes.skin.joints} | {j.name for j in _named(root, "body").skin.joints
+                                                    if j.name not in ARM_BONES}
+    joints = [n for n in actor.iter_nodes() if n.name in hangs]
+    done: dict = {}
 
     def delta_at(clip, t: float, seat: bool) -> np.ndarray:
         clip.apply(actor, t)
+        key = (seat, *(np.round(n.transform.to_matrix(), 9).tobytes() for n in joints))
+        if key not in done:
+            done[key] = _delta(clip, seat)
+        return done[key]
+
+    def _delta(clip, seat: bool) -> np.ndarray:
         shell_node = _named(actor, "clothes")
         shell, out, blended = draper.positions(actor, seat)
         # Posed displacement -> rest-space delta, through each vertex's blended skinning matrix.
