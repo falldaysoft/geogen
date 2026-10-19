@@ -286,6 +286,18 @@ def test_population_puts_people_in_every_place_it_names():
             population_placements({"g": bad}, _Refs(2), "s", ["p"])
 
 
+def test_routine_blocks_list_quests_that_repeat():
+    from geogen.npc import parse_routine
+    (block,) = parse_routine([{"from": "09:00", "to": "17:00", "quests": [
+        "quests/a.yaml", {"file": "quests/b.yaml", "repeat": "daily"}, {"file": "quests/c.yaml", "repeat": {"if": "true"}}]}],
+        {}, "r")
+    assert block["quests"] == [{"file": "quests/a.yaml"}, {"file": "quests/b.yaml", "repeat": "daily"},
+                               {"file": "quests/c.yaml", "repeat": {"if": "true"}}]
+    for bad in ({"file": "quests/a.yaml", "repeat": "weekly"}, {"repeat": "daily"}, 3):
+        with pytest.raises(ValueError, match="a quest file or"):
+            parse_routine([{"from": "09:00", "to": "17:00", "quests": [bad]}], {}, "r")
+
+
 def test_activities_take_weights_cooldowns_and_visits(tmp_path):
     path = tmp_path / "npcs" / "visitor.yaml"
     path.parent.mkdir()

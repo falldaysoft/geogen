@@ -114,7 +114,9 @@ unavailable <-> available -> active -> complete
   `rewards` run then. Optional objectives can't be done afterwards.
 - `fail` is watched while active. If the last objective and the fail condition
   come true at the same moment, the quest completes.
-- `complete` and `failed` are final. Repeatable quests are not designed yet.
+- `complete` and `failed` are final, except that `{reset_quest: id}` puts a quest
+  back to where it started. An NPC's routine repeats its quests that way (see
+  "NPC holders").
 
 ## What a quest compiles to
 
@@ -211,8 +213,23 @@ and quests" and "HUD"); the rest is planned.
   unmet goal of an open objective before anything else it might do, walks up
   to the thing and presses it, or walks into the place. An objective an NPC
   holder can't act on (a condition over world variables, a signal) is an export
-  warning. Not built: fetching and giving items (18), quests in a definition's
-  `quests:` list, and saving an NPC's progress beyond the session (11.17).
+  warning. Not built: fetching and giving items (18), and saving an NPC's progress
+  beyond the session (11.17).
+- **Quests in a routine** (geogen.74.4, built): an NPC definition's routine block
+  may list `quests: [file | {file, repeat}]`. The NPC is given them when the
+  block starts and works on them only while it lasts. `repeat` is `daily` (started
+  over each day the block starts), `always` (started over as soon as it is done,
+  while the block lasts) or `{if: <condition>}` (started over once it is done and
+  the condition holds, naming things in the scene the NPC is placed in); without
+  it the quest is done once. `quests.collect` compiles each placed NPC's to wiring
+  rules (`quests.routine_rules`): a watch on `actor.id` and the block's
+  `clock.time` that starts it (`daily`: `reset_quest` then `start_quest`), and
+  for `always` / `{if}` a watch on its status being `complete` that starts it
+  over. So the rules machines need nothing new, and progress is actor state
+  (saved). Beware `always` with an objective that is still true after it is done
+  (all lights off): it would complete again at once, round after round, until
+  the machine's round limit stops it. `tests/test_quests.py` (`routine`) and
+  `tests/test_npc_runtime.py::test_a_routine_quest_waits_for_its_block`.
 - **Quest bot** (15.9, built): `python -m geogen.quest_bot SCENE [--quest ID]`
   (`geogen/quest_bot.py`) plays every quest with the real player body over the
   control protocol, so it runs against any runtime, and exits 1 on a quest it
@@ -300,9 +317,10 @@ three in the evaluator and in Godot.
 | Quest log screen (`scripts/hud_quest_log.gd`, `hud.log`) | 15.13 | done (`tests/test_hud_log_runtime.py`) |
 | World markers (`scripts/hud_markers.gd`, `hud.markers`) | 15.12 | done (`tests/test_hud_markers_runtime.py`); routes over several scenes, fade and occlusion, counted objectives (geogen.37, `tests/test_hud_markers_routes_runtime.py`) |
 | An NPC does one: the resident switches off the lights; an NPC climbs to the lighthouse gallery | 15.8 | done (`tests/test_npc_runtime.py`, the cottage's `resident_quest`) |
+| An NPC's routine gives it quests that repeat (daily, always, `{if}`) | 74.4 | done (`tests/test_quests.py`, `tests/test_npc_runtime.py`) |
 | Other archetypes, playtest bot | 15.5, 15.7, 15.9 | open |
 | Items for fetch quests | 18 | done (`docs/rules.md` "Items") |
 | Fetch and deliver: the parcel for room 207 | 15.7 | done: `quests/deliver_parcel.yaml` in `hotel_showcase`; on the evaluator and walked in Godot (`tests/test_showcases.py`, exhaustive tier) |
 
-Not designed: repeatable and daily quests, quests shared by a party, quest
+Not designed: repeatable quests for the player, quests shared by a party, quest
 chains beyond one quest's rewards starting another, branching outcomes.

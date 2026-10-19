@@ -447,10 +447,9 @@ class SceneComposer:
                     resolve_ownership(node, obj_def, b.refs, ["place", obj_name])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
-                if obj_def.get("quests"):         # quests this NPC holds from the start (quests.collect)
-                    from ..quests import declare_scene as declare_quests
+                from ..npc import declare_quests   # it holds from the start, or in its routine (quests.collect)
 
-                    declare_quests(node, {"quests": obj_def["quests"]}, source, self._assets_dir)
+                declare_quests(node, obj_def.get("quests") or [], source, self._assets_dir)
             if obj_def.get("tags"):           # extra semantic tags, e.g. tags: [door.interior]
                 node.tags = [*node.tags, *[t for t in obj_def["tags"] if t not in node.tags]]
         b.root.tags = list(b.data.get("tags", []))

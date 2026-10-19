@@ -62,7 +62,10 @@ ACTIVITY_KEYS = {
     "cooldown": "s after doing it before it is an option again (a rare trip)",
     "visit": "one of the placement's `visits`: the region its `go_to: visit` goes to (the dining room)",
 }
-ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at", "only", "hold"}
+ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at", "only", "hold", "quests"}
+# A routine quest's `repeat`: once (left out), every day the block starts, as soon as it is done,
+# or when it is done and a condition holds.
+ROUTINE_REPEATS = ("daily", "always")
 ROUTINE_OWNS = "owns"               # in a block's `only`: the things the NPC owns, whatever their tags
 ROUTINE_AT = ("home", "work")        # where a block's options are: the home region, or the placement's `work`
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
@@ -410,6 +413,7 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
           - { from: "12:00", to: "14:00", activities: { pause: 2 }, preferences: { seat: 2 } }
           - { from: "22:30", to: "07:00", away: true }    # wraps midnight; off to an entrance
           - { from: "23:00", to: "07:00", only: [bed], hold: true }   # to bed, and stays there
+          - { from: "09:00", to: "17:00", quests: [{ file: quests/prep.yaml, repeat: daily }] }
 
     ``activities`` / ``preferences`` multiply the scores of the NPC's own activities / of
     affordances with those tags; ``away`` sends the NPC off (the ``leave`` action) until the
@@ -418,6 +422,11 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
     with one of those tags (``owns``: the things the NPC owns), none of its own activities, and
     ``hold`` keeps it on the one it takes until the block ends (in its bed all night) instead of
     the affordance's duration. With nothing in ``only`` to take, it carries on as without them.
+    ``quests`` are quest files (or ``{file, repeat}``) the NPC is given when the block starts and
+    works on only while it lasts; ``repeat`` is ``daily`` (started over each day the block
+    starts), ``always`` (again as soon as it is done, within the block) or ``{if: <condition>}``
+    (again once it is done and the condition holds). The scene's export compiles them
+    (``quests.collect``).
     """
     out = []
     for i, block in enumerate(blocks):
@@ -428,6 +437,16 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
         only = block.get("only", [])
         if not isinstance(only, list) or not all(isinstance(t, str) and t for t in only):
             raise ValueError(f"{where}[{i}]: only is a list of affordance tags (or {ROUTINE_OWNS!r}), got {only!r}")
+        quests = []
+        for j, entry in enumerate(block.get("quests") or []):
+            entry = {"file": entry} if isinstance(entry, str) else entry
+            repeat = entry.get("repeat") if isinstance(entry, dict) else None
+            if not isinstance(entry, dict) or not isinstance(entry.get("file"), str) or set(entry) - {"file", "repeat"} \
+                    or not (repeat is None or repeat in ROUTINE_REPEATS
+                            or isinstance(repeat, dict) and set(repeat) == {"if"} and isinstance(repeat["if"], str)):
+                raise ValueError(f"{where}[{i}].quests[{j}]: a quest file or {{file, repeat: "
+                                 f"{' | '.join(ROUTINE_REPEATS)} | {{if: <condition>}}}}, got {entry!r}")
+            quests.append({"file": entry["file"], **({"repeat": repeat} if repeat is not None else {})})
         acts = {str(k): float(v) for k, v in (block.get("activities") or {}).items()}
         unknown = set(acts) - set(activities)
         if unknown:
@@ -438,7 +457,8 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
                     "preferences": {str(k): float(v) for k, v in (block.get("preferences") or {}).items()},
                     **({"at": block["at"]} if block.get("at", "home") != "home" else {}),
                     **({"only": list(only)} if only else {}),
-                    **({"hold": True} if block.get("hold", False) else {})})
+                    **({"hold": True} if block.get("hold", False) else {}),
+                    **({"quests": quests} if quests else {})})
     return out
 
 
@@ -515,6 +535,33 @@ def resolve_ownership(node: SceneNode, placement: dict[str, Any], refs: Any, key
         found["work"] = [refs.node(placement["work"], [*keys, "work"])]
     if any(found.values()):
         node.meta["npc_owns"] = found
+
+
+def declare_quests(node: SceneNode, placement_quests: list, source: Any, assets_dir: Path) -> None:
+    """An NPC's quests: its placement's ``quests`` (given at the start) and its routine blocks'
+    (given while a block lasts; ``meta.npc_routine_quests``: ``{id, from, to, repeat?}`` per
+    quest and block, for ``quests.collect``). In the exported routine a block's ``quests`` are
+    the quests' ids."""
+    from .quests import META, declare_scene
+
+    routine = node.meta["npc"].get("routine", [])   # type: ignore[union-attr]
+    files = [q["file"] for block in routine for q in block.get("quests", [])]
+    if not placement_quests and not files:
+        return
+    declare_scene(node, {"quests": [*placement_quests, *files]}, source, assets_dir)
+    ids = {e["source"]: str(e["spec"].get("id") or Path(e["source"]).stem) for e in node.meta.get(META) or []}
+    found, blocks = [], []
+    for block in routine:
+        listed = []
+        for q in block.get("quests", []):
+            quest_id = ids[str(roots.find(q["file"], assets_dir))]
+            listed.append(quest_id)
+            found.append({"id": quest_id, "from": block["from"], "to": block["to"],
+                          **({"repeat": q["repeat"]} if "repeat" in q else {})})
+        blocks.append({**block, "quests": listed} if listed else block)
+    if found:                       # (a copy: placed copies of one NPC may share the definition)
+        node.meta["npc"] = {**node.meta["npc"], "routine": blocks}   # type: ignore[dict-item]
+        node.meta["npc_routine_quests"] = found
 
 
 def ownership_extras(node: SceneNode) -> dict[str, Any]:

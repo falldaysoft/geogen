@@ -1258,16 +1258,20 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
 
     files: set[str] = set()
     for node in root.iter_nodes():
+        given: set[str] = set()
         for entry in node.meta.get(META) or []:
             if entry.get("source") not in files or entry.get("source") is None:   # two NPCs may hold one quest
                 files.add(entry.get("source"))
                 # (A placed NPC's quests name things in the scene it is placed in.)
                 scope = node.parent if node.meta.get("type") == "npc" and node.parent is not None else node
                 specs.append((entry["spec"], entry.get("source"), scope))
-            if node.meta.get("type") == "npc":          # a placed NPC's own: give it to that NPC
-                quest_id = str(entry["spec"].get("id") or Path(str(entry["source"])).stem)
-                wiring.append(Source({"rules": [{"id": f"give_{quest_id}", "when": f'actor.id == "{uid(node)}"',
-                                                 "do": [{"start_quest": quest_id}]}]}, None, node, True))
+            quest_id = str(entry["spec"].get("id") or Path(str(entry["source"])).stem)
+            if node.meta.get("type") == "npc" and quest_id not in given:   # a placed NPC's own: give it to that NPC
+                given.add(quest_id)
+                routine = [r for r in node.meta.get("npc_routine_quests") or [] if r["id"] == quest_id]
+                wiring.append(Source({"rules": routine_rules(uid(node), quest_id, routine) if routine else [
+                    {"id": f"give_{quest_id}", "when": f'actor.id == "{uid(node)}"', "do": [{"start_quest": quest_id}]}]},
+                    None, node.parent if routine and node.parent is not None else node, True))   # (a repeat's `if` names scene things)
 
     built = switch_bindings(root, uid)
     guards = [(f"{uid(node)}#{it.name}", it.when, node) for node in root.iter_nodes()
@@ -1288,6 +1292,31 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
         return Quests(declarations)
     return compile_quests(specs, declarations, rules=rules, wiring=wiring, by_name=False, built=built,
                           guards=guards, huds=huds, items=keys, dialogues=dialogues)
+
+
+def routine_rules(npc: str, quest_id: str, blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The rules that give NPC ``npc`` (a stable ID) a quest of its routine (``npc.parse_routine``):
+    per block it is in, started when the block starts (``daily``: started over); ``always`` /
+    ``{if}``: started over when it is done while the block lasts (and the condition holds)."""
+    def clock(hours: float) -> str:
+        minutes = round(hours * 60) % 1440
+        return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+    out = []
+    for k, block in enumerate(blocks):
+        a, z = clock(block["from"]), clock(block["to"])
+        within = (f'clock.time >= "{a}" and clock.time < "{z}"' if a < z else
+                  f'(clock.time >= "{a}" or clock.time < "{z}")' if a > z else "true")
+        who = f'actor.id == "{npc}" and {within}'
+        again = [{"reset_quest": quest_id}, {"start_quest": quest_id}]
+        repeat = block.get("repeat")
+        rule = f"routine:{npc}:{quest_id}:{k}"
+        out.append({"id": rule, "when": who, "do": again if repeat == "daily" else [{"start_quest": quest_id}]})
+        if repeat == "always" or isinstance(repeat, dict):
+            done = f'{who} and actor.quest_{quest_id} == "complete"'
+            out.append({"id": rule + ":again", "when": f"{done} and ({repeat['if']})" if isinstance(repeat, dict) else done,
+                        "do": again})
+    return out
 
 
 def markers(root: SceneNode, quests: Quests) -> dict[str, list[float]]:

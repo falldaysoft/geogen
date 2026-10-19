@@ -14,6 +14,7 @@ from geogen.state import Declarations
 from test_state import GATE, LAMP, LEVER
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-quests.v1.schema.json"
+ASSETS = Path(__file__).parent.parent / "assets"
 STATE_SCHEMA = SCHEMA.with_name("geogen-state.v1.schema.json")
 ACTORS = {"player": {"kind": "player"}, "npc:ann": {"kind": "npc"}}
 SWITCH = {"initial": "on", "duration": 0.2, "states": {"on": {"next": "off"}, "off": {"next": "on"}}}
@@ -559,3 +560,83 @@ def test_items_are_actor_state_given_and_taken_by_effects():
         compile_quests([{**fetch, "rewards": [{"give": "parcle"}]}], declarations())
     with pytest.raises(QuestError, match="whole number"):
         compile_quests([{**fetch, "rewards": [{"give": "rover", "count": 0}]}], declarations())
+
+
+ROUTINE_SCENE = """
+name: shift
+place:
+  house: {{ asset: house_peaked.yaml }}
+  lamp_a: {{ asset: floor_lamp.yaml, on: house.floor, at: {{ u: 0.2, v: 0.5 }} }}
+  lamp_b: {{ asset: floor_lamp.yaml, on: house.floor, at: {{ u: 0.8, v: 0.5 }} }}
+  switch_a: {{ asset: light_switch.yaml, params: {{ light: lamp_a }}, on: house.front_inside, at: {{ u: 0.3, v: {{ abs: 1.08 }} }} }}
+  switch_b: {{ asset: light_switch.yaml, params: {{ light: lamp_b }}, on: house.front_inside, at: {{ u: 0.7, v: {{ abs: 1.08 }} }} }}
+  worker:
+    npc: {role}
+    on: house.floor
+    at: {{ u: 0.5, v: 0.5 }}
+    home: house.floor
+"""
+
+
+def _routine_quest(tmp_path, repeat):
+    """A house with two switched lamps and a resident whose 09:00-17:00 block has lights_out with ``repeat``."""
+    entry = "quests/lights_out.yaml" if repeat is None else {"file": "quests/lights_out.yaml", "repeat": repeat}
+    role = tmp_path / "worker.yaml"
+    role.write_text((ASSETS / "npcs" / "resident.yaml").read_text()
+                    + "\nroutine:\n  - " + json.dumps({"name": "shift", "from": "09:00", "to": "17:00",
+                                                        "quests": [entry]}) + "\n")
+    scene = tmp_path / "shift.yaml"
+    scene.write_text(ROUTINE_SCENE.format(role=role))
+    quests = collect(SceneComposer(assets_dir=ASSETS).compose(scene), "shift")
+    switches = ["shift:switch_a#switch", "shift:switch_b#switch"]
+    machine = Machine(quests.program(), {"player": {"kind": "player"}, "shift:worker": {"kind": "npc"}})
+    return quests, machine, switches
+
+
+def test_a_routine_quest_is_given_when_its_block_starts_and_repeats_daily(tmp_path):
+    quests, machine, switches = _routine_quest(tmp_path, "daily")
+    status = lambda: quests.status(machine, "lights_out", "shift:worker")     # noqa: E731
+    # The machine starts at 12:00, in the block: the worker has it, not the player.
+    assert status() == "active" and quests.status(machine, "lights_out", "player") == "available"
+    for switch in switches:
+        machine.use(switch, "shift:worker")
+    assert status() == "complete"
+    machine.set_clock(time="13:00")
+    assert status() == "complete"                                  # once a day
+    for switch in switches:
+        machine.use(switch, "player")                              # the lights back on
+    machine.set_clock(time="18:00")
+    machine.set_clock(time="09:00", day=1)                         # the next morning: again
+    assert status() == "active" and machine.errors == []
+    (objective,) = quests.report(machine, "shift:worker")["lights_out"]["objectives"]
+    assert objective["state"] == "open"
+
+
+def test_a_routine_quest_without_repeat_is_done_once(tmp_path):
+    quests, machine, switches = _routine_quest(tmp_path, None)
+    for switch in switches:
+        machine.use(switch, "shift:worker")
+    machine.set_clock(time="18:00")
+    machine.set_clock(time="09:00", day=1)
+    assert quests.status(machine, "lights_out", "shift:worker") == "complete"
+
+
+def test_a_routine_quest_repeats_when_its_condition_holds(tmp_path):
+    # Again once it is done and the lights are all on (someone switched them back on).
+    quests, machine, switches = _routine_quest(tmp_path, {"if": 'all("[tag=switch.light]", it.switch == "on")'})
+    status = lambda: quests.status(machine, "lights_out", "shift:worker")     # noqa: E731
+    machine.set_clock(time="10:00")
+    for switch in switches:
+        machine.use(switch, "shift:worker")
+    assert status() == "complete"
+    machine.use(switches[0], "player")
+    assert status() == "complete"                                  # not all on yet
+    for switch in switches[1:]:
+        machine.use(switch, "player")
+    assert status() == "active" and machine.errors == []
+    machine.set_clock(time="17:30")
+    for switch in switches:
+        machine.use(switch, "shift:worker")
+    for switch in switches:
+        machine.use(switch, "player")
+    assert status() == "complete"                                  # outside its block: not again

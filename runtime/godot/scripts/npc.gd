@@ -393,8 +393,16 @@ func quest_option() -> Dictionary:
         return {}
     var best := {}
     var nearest := INF
+    # A routine block's quests are worked on only while the block lasts (its rules give them).
+    var routine_quests := {}
+    for b in definition.get("routine", []):
+        for id in b.get("quests", []):
+            routine_quests[id] = false
+    for b in routine_blocks():
+        for id in b.get("quests", []):
+            routine_quests[id] = true
     for quest in world.rules.report(WorldLoader.actor_id(self)):
-        if quest["status"] != "active":
+        if quest["status"] != "active" or not routine_quests.get(quest["id"], true):
             continue
         for objective in quest["objectives"]:
             if objective["state"] != "open":

@@ -207,6 +207,31 @@ def test_the_resident_switches_off_every_light_for_its_own_quest(godot_script, t
     assert sum(1 for k in report["used"] if k.startswith("quest/lights_out/")) == 3
 
 
+def test_a_routine_quest_waits_for_its_block(godot_script, tmp_path):
+    # A resident whose 09:00-17:00 block holds "lights out": started at 08:50, nobody has the
+    # quest and the lights stay on; from 09:00 it has it and switches every light off.
+    from pathlib import Path
+
+    from geogen.layout.composer import SceneComposer
+
+    assets = Path(__file__).parent.parent / "assets"
+    role = tmp_path / "worker.yaml"
+    role.write_text((assets / "npcs" / "resident.yaml").read_text() + "\nroutine:\n  - { name: shift, from: '09:00', "
+                    "to: '17:00', quests: [{ file: quests/lights_out.yaml, repeat: daily }] }\n")
+    scene = tmp_path / "shift.yaml"
+    scene.write_text(f"name: shift\nplace:\n  cottage: {{ scene: scenes/cottage.yaml, params: {{ quest: 0 }} }}\n"
+                     f"  worker: {{ npc: {role}, on: cottage/house.floor, at: {{ u: {{ abs: 4.4 }}, v: {{ abs: 1.6 }} }}, "
+                     f"home: cottage/house.floor }}\n")
+    out = tmp_path / "generated"
+    export_scene(SceneComposer(assets_dir=assets).compose(scene), out / "shift.glb")
+    run = godot_script([step("time.simulate", seconds=5), step("time.simulate", seconds=120)], "--scene=shift",
+                       f"--generated={out}", start={"timescale": 8, "time": "08:50", "day_length": 1440},
+                       engine_args=FAST)
+    before, after = ({r["npc"]: r for r in run[i]["npcs"]}["worker_npc"] for i in (0, 1))
+    assert before["quests"] == {} and before["quest_goals"] == 0, before          # 08:55: not yet
+    assert after["quests"] == {"lights_out": "complete"} and after["quest_goals"] == 3, after
+
+
 LIGHTHOUSE_QUEST = """
 name: lighthouse_errand
 size: [16, 14, 16]

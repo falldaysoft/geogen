@@ -523,6 +523,7 @@
                   "at": { "description": "work: the block's options are the affordances under the NPC's 'work'.", "const": "work" },
                   "only": { "description": "Affordance tags ('owns': the NPC's own things): the block's options are only affordances with one of them, none of its activities (all of them if none is free).", "type": "array", "items": { "type": "string" } },
                   "hold": { "description": "The NPC stays on the affordance it takes (its wait on 'duration') until the block ends: in its bed all night.", "const": true },
+                  "quests": { "description": "Ids of the quests the NPC is given when the block starts (the export's rules do that, and repeat them); it works on them only while the block lasts.", "type": "array", "items": { "type": "string" } },
                   "activities": { "type": "object", "additionalProperties": { "type": "number" } },
                   "preferences": { "type": "object", "additionalProperties": { "type": "number" } } } }
             },

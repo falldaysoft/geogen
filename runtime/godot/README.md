@@ -625,7 +625,9 @@ up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the 
   the NPC's own things) and drops its activities; with none free it decides as without it. With
   `hold: true` the affordance it takes lasts until the block ends (its `duration` wait, or a
   looping `play` on `duration`): `npcs/hotel_guest.yaml` goes to bed at 23:00 and gets up at
-  07:00 (`-s bedtime`).
+  07:00 (`-s bedtime`). A block's `quests` (ids) are given to the NPC by the export's rules when
+  the block starts; `quest_option` works on them only while the block lasts (docs/quests.md,
+  "Quests in a routine").
 - **Traffic schedule**: a fleet's `schedule: [["HH:MM", share], ...]` (linear, wrapping) sets how
   much of it is on the road. Surplus vehicles park, and parked ones return, only 45 m or more
   from the player.
