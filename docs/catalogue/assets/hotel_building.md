@@ -1,16 +1,16 @@
-# hotel
+# hotel_building
 
-`asset: hotel.yaml` · [source](../../../assets/hotel.yaml) · `building.hotel`
+`asset: hotel_building.yaml` · [source](../../../assets/hotel_building.yaml) · `building.hotel`
 
-<img src="../img/hotel.png" width="256" alt="hotel"> <img src="../img/hotel_views.png" width="512" alt="hotel: front and side">
+<img src="../img/hotel_building.png" width="256" alt="hotel_building"> <img src="../img/hotel_building_views.png" width="512" alt="hotel_building: front and side">
 
-A generated hotel: lobby level plus three guest floors, stair cores at
-both ends, flat roof with a parapet. Guest rooms are furnished from their
-room archetypes.
+A generated hotel building: lobby level plus three guest floors, stair
+cores at both ends, flat roof with a parapet. Guest rooms are furnished
+from their room archetypes. hotel.yaml is this building with its staff.
 
 ```yaml
 place:
-  hotel: {asset: hotel.yaml}
+  hotel_building: {asset: hotel_building.yaml}
 ```
 
 ## Size

@@ -8,7 +8,7 @@ description: The receptionist has a parcel for the guest in room 207, and the ke
 objectives:
   - id: room
     text: Let yourself into room 207
-    done: { enter: hotel/room_207 }
+    done: { enter: hotel/building/room_207 }
   - id: deliver
     text: Give the parcel to the guest in room 207
     after: [room]

@@ -188,7 +188,7 @@ Keys: `anchor`, `id`, `once`, `open`, `passages`, `start`, `title`
 | File | What it is |
 | --- | --- |
 | [dialogues/hotel_plaque.yaml](../../assets/dialogues/hotel_plaque.yaml) | The plinth outside the hotel (scenes/hotel_showcase.yaml): it reads differently once you have taken the parcel for room 207 (quests/deliver_parcel.yaml). |
-| [dialogues/receptionist.yaml](../../assets/dialogues/receptionist.yaml) | The hotel receptionist (scenes/hotel_showcase.yaml): offers the parcel for room 207 (quests/deliver_parcel.yaml), says where to take it, and thanks you after. |
+| [dialogues/receptionist.yaml](../../assets/dialogues/receptionist.yaml) | The hotel receptionist (hotel.yaml, in scenes/hotel_showcase.yaml): offers the parcel for room 207 (quests/deliver_parcel.yaml), says where to take it, and thanks you after. |
 
 ### garment
 

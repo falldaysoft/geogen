@@ -187,7 +187,7 @@ place:
 <td align="center"><a href="assets/door.md"><img src="img/door.png" width="150" alt="door"><br>door</a></td>
 <td align="center"><a href="assets/fascia_sign.md"><img src="img/fascia_sign.png" width="150" alt="fascia_sign"><br>fascia_sign</a></td>
 <td align="center"><a href="assets/handrail.md"><img src="img/handrail.png" width="150" alt="handrail"><br>handrail</a></td>
-<td align="center"><a href="assets/hotel.md"><img src="img/hotel.png" width="150" alt="hotel"><br>hotel</a></td>
+<td align="center"><a href="assets/hotel_building.md"><img src="img/hotel_building.png" width="150" alt="hotel_building"><br>hotel_building</a></td>
 </tr>
 <tr>
 <td align="center"><a href="assets/hotel_floor.md"><img src="img/hotel_floor.png" width="150" alt="hotel_floor"><br>hotel_floor</a></td>
@@ -215,7 +215,7 @@ place:
 | [door](assets/door.md) | Four-panel front door with frame, knob and step. | `width`, `height`, `frame`, `recess`, `step_height`, `leaf_gap`, `open_angle` |
 | [fascia_sign](assets/fascia_sign.md) | A shop or restaurant fascia: a painted board with raised lettering and a slim cap, for fixing across a front wall above the door and windows. | `label`, `width`, `height`, `letter`, `font` |
 | [handrail](assets/handrail.md) | Stair/landing handrail: turned posts and a round rail swept along a path that bends down into the floor at both ends. | `length`, `height` |
-| [hotel](assets/hotel.md) | A generated hotel: lobby level plus three guest floors, stair cores at both ends, flat roof with a parapet. |  |
+| [hotel_building](assets/hotel_building.md) | A generated hotel building: lobby level plus three guest floors, stair cores at both ends, flat roof with a parapet. |  |
 | [hotel_floor](assets/hotel_floor.md) | A generated hotel guest floor: double-loaded corridor with fire stairs at the ends, a lift lobby mid-floor and ensuite guest rooms on both sides. |  |
 | [hotel_lobby](assets/hotel_lobby.md) | Generated hotel ground floor: street entrance, lobby, reception, lounge, restaurant, restrooms and back-of-house. |  |
 | [hotel_suite](assets/hotel_suite.md) | Hotel suite floor plan: bedroom, ensuite bathroom and an entry corridor. |  |

@@ -151,16 +151,19 @@ def difference(target: Mesh, *cutters: Mesh, crease_angle: float = 40.0) -> Mesh
                           columns)
 
 
-def union(*meshes: Mesh, crease_angle: float = 40.0) -> Mesh:
+def union(*meshes: Mesh, crease_angle: float = 40.0, check: bool = True) -> Mesh:
     """Merge solids into one watertight mesh (internal faces removed); faces keep
-    their operand's material (material groups when they differ)."""
+    their operand's material (material groups when they differ). ``check=False``
+    leaves an operand that isn't watertight by our count (an edge where two
+    sheets pinch together) to manifold3d, which merges what it can."""
     if not meshes:
         raise ValueError("union needs at least one mesh")
     slots, per_mesh = _slots(list(meshes))
     columns = _joint_columns(meshes)
     result = None
     for i, (mesh, face_slots) in enumerate(zip(meshes, per_mesh)):
-        _check(mesh, f"CSG operand #{i}")
+        if check:
+            _check(mesh, f"CSG operand #{i}")
         m = _to_manifold(mesh, face_slots, columns)
         result = m if result is None else result + m
     return _from_manifold(result, slots[0] if slots else None, crease_angle,

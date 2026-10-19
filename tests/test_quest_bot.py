@@ -31,7 +31,7 @@ def test_the_bot_delivers_the_parcel_to_room_207(godot_runtime, scene_export):
     report = quest_bot.play(rt, ["deliver_parcel"], timeout=600)
     assert report["ok"], report
     parcel = report["quests"]["deliver_parcel"]
-    assert parcel["started"] == "by greeting hotel_showcase:receptionist"
+    assert parcel["started"] == "by greeting hotel_showcase:hotel/receptionist"
     assert ["accept"] == [a for step in parcel["steps"] for a in step.get("answers", []) if a]
 
 

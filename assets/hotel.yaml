@@ -1,26 +1,21 @@
-# A generated hotel: lobby level plus three guest floors, stair cores at
-# both ends, flat roof with a parapet. Guest rooms are furnished from their
-# room archetypes.
+# The hotel (hotel_building.yaml) with its staff: a receptionist works the
+# front desk and takes breaks on the lobby seating. Scenes place it whole
+# (`scene: hotel.yaml`), so wherever the hotel stands it is staffed; its
+# rooms are hotel/building/<room>, the receptionist hotel/receptionist.
 
 name: hotel
 tags: [building.hotel]
 
-building:
-  storeys:
-    - floorplan:
-        generate: hotel_lobby
-        length: 30
-        depth: 15
-        wall_height: 3.6
-        materials: { walls: paint_white, floor: tile_floor_grey, ceiling: ceiling_white }
-      furnish: true
-    - floorplan:
-        generate: hotel_corridor
-        length: 30
-        depth: 15
-        module: 3.8
-        materials: { walls: paint_white, floor: carpet, ceiling: ceiling_white }
-      repeat: 3
-      furnish: true
-  facade: { style: brick_hotel, balconies: true }
-  roof: { parapet: 1.0, material: concrete }
+slots:
+  front_desk: { position: [0.0, 0.0, 5.0], facing: south }        # behind the reception desk
+
+place:
+  building:
+    asset: hotel_building.yaml
+
+  # Front of house: works the reception desk, breaks on the lobby seating.
+  receptionist:
+    npc: npcs/hotel_staff.yaml
+    slot: front_desk
+    home: { rect: [-2.9, -7.3, 2.9, 5.2] }
+    seed: 2

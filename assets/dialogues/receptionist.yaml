@@ -1,9 +1,9 @@
-# The hotel receptionist (scenes/hotel_showcase.yaml): offers the parcel for room
+# The hotel receptionist (hotel.yaml, in scenes/hotel_showcase.yaml): offers the parcel for room
 # 207 (quests/deliver_parcel.yaml), says where to take it, and thanks you after.
 kind: dialogue
 version: 1
 title: Reception
-anchor: receptionist
+anchor: hotel/receptionist
 start:
   - { when: 'actor.quest_deliver_parcel == "complete"', passage: thanks }
   - { when: 'actor.quest_deliver_parcel == "active"', passage: directions }

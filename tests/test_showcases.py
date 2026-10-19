@@ -99,7 +99,7 @@ def test_the_parcel_for_room_207_runs_on_the_reference_machine(built_scene):
     held = lambda item: machine.get(f"actor:hotel_showcase.item_{item}", "player")
     greet = lambda npc: machine.post({"type": "signal", "subject": f"hotel_showcase:{npc}", "name": "greeted",
                                       "actor": "player"})
-    talk = lambda passage, choice: machine.post({"type": "signal", "subject": "hotel_showcase:receptionist",
+    talk = lambda passage, choice: machine.post({"type": "signal", "subject": "hotel_showcase:hotel/receptionist",
                                                  "name": "dialogue", "actor": "player",
                                                  "data": {"passage": passage, "choice": choice}})
     dialogue = lambda: machine.get("actor:hotel_showcase.dialogue_receptionist", "player")
@@ -111,17 +111,17 @@ def test_the_parcel_for_room_207_runs_on_the_reference_machine(built_scene):
     close_notice("open")
     greet("guest_207")                                                     # nothing to give yet
     assert status() == "available"
-    greet("receptionist")                                                  # the offer (geogen.17.4)
+    greet("hotel/receptionist")                                            # the offer (geogen.17.4)
     assert dialogue() == "hello"
     talk("hello", "accept")
     assert dialogue() == "given" and status() == "active" and held("parcel") == 1 and held("key_room_207") == 1
     talk("given", "")
-    greet("receptionist")                                                  # now: directions, no second parcel
+    greet("hotel/receptionist")                                            # now: directions, no second parcel
     assert dialogue() == "directions" and held("parcel") == 1
     talk("directions", "")
     assert read_notice() == "taken"                                        # the notice reads differently now
     close_notice("taken")
-    machine.post({"type": "enter", "subject": "hotel_showcase:hotel/storey_2/room_207", "actor": "player",
+    machine.post({"type": "enter", "subject": "hotel_showcase:hotel/building/storey_2/room_207", "actor": "player",
                   "data": {"room": True}})
     greet("guest_207")
     assert status() == "complete" and held("parcel") == 0 and held("key_room_207") == 0

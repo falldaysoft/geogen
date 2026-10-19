@@ -5,6 +5,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | Scene | What it is | Runtime |
 | --- | --- | --- |
 | [dining_set](#dining_set) | Dining set: table with 4 chairs. | test |
+| [hotel](#hotel) | The hotel (hotel_building.yaml) with its staff: a receptionist works the front desk and takes breaks on the lobby seating. | test |
 | [vending_machine](#vending_machine) | A vending machine to play with. |  |
 | [archetype_gallery](#archetype_gallery) | Character archetypes (assets/characters/archetypes/): one row per archetype, eight seeded people each (a path scatter draws a seed per copy). |  |
 | [bedtime](#bedtime) | A hotel guest goes to bed at 23:00 and sleeps there until 07:00. |  |
@@ -19,7 +20,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
 | [hotel_room](#hotel_room) | Furnished hotel suite (hand-placed; the furnishing solver, geogen-3cc.6, will do this from room archetypes). | test |
 | [hotel_room_auto](#hotel_room_auto) | The hotel suite furnished automatically from its rooms' archetypes (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand). | test |
-| [hotel_showcase](#hotel_showcase) | The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors, stairs and a working lift) on a short street: a paved forecourt with lamps, benches and planters, taxis waiting at the kerb, a receptionist at the desk, guests upstairs, people strolling past, and a travel door back to the hub. | showcase |
+| [hotel_showcase](#hotel_showcase) | The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors, stairs and a working lift, a receptionist at the desk) on a short street: a paved forecourt with lamps, benches and planters, taxis waiting at the kerb, guests upstairs, people strolling past, and a travel door back to the hub. | showcase |
 | [house_plot](#house_plot) | House plot - a yard with a house. |  |
 | [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
@@ -55,6 +56,19 @@ Dining set: table with 4 chairs
 Chairs are attached at the table's seat attachment points
 
 **Places**: `table: {asset: table.yaml}`; `chairs: {asset: chair.yaml}`
+
+## hotel
+
+`scene: hotel.yaml` · [source](../../assets/hotel.yaml)
+
+The hotel (hotel_building.yaml) with its staff: a receptionist works the
+front desk and takes breaks on the lobby seating. Scenes place it whole
+(`scene: hotel.yaml`), so wherever the hotel stands it is staffed; its
+rooms are hotel/building/<room>, the receptionist hotel/receptionist.
+
+**Places**: `building: {asset: hotel_building.yaml}`; `receptionist: {npc: npcs/hotel_staff.yaml}`
+
+**Slots**: front_desk
 
 ## vending_machine
 
@@ -290,15 +304,15 @@ The hotel suite furnished automatically from its rooms' archetypes
 `scene: scenes/hotel_showcase.yaml` · [source](../../assets/scenes/hotel_showcase.yaml)
 
 The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors,
-stairs and a working lift) on a short street: a paved forecourt with lamps,
-benches and planters, taxis waiting at the kerb, a receptionist at the desk,
+stairs and a working lift, a receptionist at the desk) on a short street: a
+paved forecourt with lamps, benches and planters, taxis waiting at the kerb,
 guests upstairs, people strolling past, and a travel door back to the hub.
 
 The hotel's street door is on its south side (-Z, entrance_spawn at z = -10).
 
-**Places**: `hotel: {asset: hotel.yaml}`; `forecourt: {asset: sidewalk.yaml}`; `road: {asset: road.yaml}`; `far_walk: {asset: sidewalk.yaml}`; `notice: {asset: info_plinth.yaml}`; `hub_door: {asset: travel_door.yaml}`; `taxi_1: {asset: vehicles/car.yaml}`; `taxi_2: {asset: vehicles/car.yaml}`; `lamp_fw: {asset: street_lamp.yaml}`; `lamp_fe: {asset: street_lamp.yaml}`; `lamp_aw: {asset: street_lamp.yaml}`; `lamp_ae: {asset: street_lamp.yaml}`; `bench_w: {asset: bench.yaml}`; `bench_e: {asset: bench.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_e: {asset: planter.yaml}`; `tree_1: {asset: maple_tree.yaml}`; `tree_2: {asset: maple_tree.yaml}`; `tree_3: {asset: maple_tree.yaml}`; `tree_4: {asset: maple_tree.yaml}`; `receptionist: {npc: npcs/hotel_staff.yaml}`; `guest_101: {npc: npcs/hotel_guest.yaml}`; `guest_207: {npc: npcs/hotel_guest.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
+**Places**: `hotel: {scene: hotel.yaml}`; `forecourt: {asset: sidewalk.yaml}`; `road: {asset: road.yaml}`; `far_walk: {asset: sidewalk.yaml}`; `notice: {asset: info_plinth.yaml}`; `hub_door: {asset: travel_door.yaml}`; `taxi_1: {asset: vehicles/car.yaml}`; `taxi_2: {asset: vehicles/car.yaml}`; `lamp_fw: {asset: street_lamp.yaml}`; `lamp_fe: {asset: street_lamp.yaml}`; `lamp_aw: {asset: street_lamp.yaml}`; `lamp_ae: {asset: street_lamp.yaml}`; `bench_w: {asset: bench.yaml}`; `bench_e: {asset: bench.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_e: {asset: planter.yaml}`; `tree_1: {asset: maple_tree.yaml}`; `tree_2: {asset: maple_tree.yaml}`; `tree_3: {asset: maple_tree.yaml}`; `tree_4: {asset: maple_tree.yaml}`; `guest_101: {npc: npcs/hotel_guest.yaml}`; `guest_207: {npc: npcs/hotel_guest.yaml}`; `pedestrians: {npc: npcs/pedestrian.yaml}`
 
-**Slots**: bench_e, bench_w, far_walk, forecourt, front_desk, guest_101, guest_207, hub_door, lamp_ae, lamp_aw, lamp_fe, lamp_fw, notice, planter_e, planter_w, road, taxi_1, taxi_2, tree_1, tree_2, tree_3, tree_4
+**Slots**: bench_e, bench_w, far_walk, forecourt, guest_101, guest_207, hub_door, lamp_ae, lamp_aw, lamp_fe, lamp_fw, notice, planter_e, planter_w, road, taxi_1, taxi_2, tree_1, tree_2, tree_3, tree_4
 
 **Spawns**: from_hub
 
