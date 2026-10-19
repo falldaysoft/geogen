@@ -48,15 +48,20 @@ from pathlib import Path
 import numpy as np
 
 from .. import roots as content_roots
+from ..core import csg, meshops, uvmap
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
-from ..core.skin import Clip, Skin
+from ..core.skin import Clip, Skin, normalize_weights
+from .head import SHAPE_DEFAULTS, HeadShape, build_head, sdf_normals
 from .ringloft import Chain, Ring, Span, loft_body
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
               "rings", "cap_rings", "joint_rings", "joint_blend", "hem", "root", "samples"}
 RING_KEYS = {"offset", "power", "twist"}
+# body.head (generators/head.py): size, the eye line (when there's no painted face to place it),
+# neck radius, the Head->Neck weight blend and where it starts; plus the shape params.
+HEAD_KEYS = {"size", "eyes", "neck_radius", "blend", "weight_shift"}
 
 
 def _point(skeleton: Skeleton, spec, where: str) -> np.ndarray:
@@ -666,6 +671,46 @@ def pose_clips(skeleton: Skeleton, poses: dict) -> list[Clip]:
             for name, spec in poses.items()]
 
 
+def sculpted_head(spec: dict, face: dict | None, skeleton: Skeleton) -> tuple[HeadShape, np.ndarray]:
+    """The body's ``head:`` block as a ``HeadShape`` and where its frame sits (the painted eye
+    line, on the head bone's line), with eyes and mouth placed where the face texture paints them."""
+    from ..textures.character import FaceTextureGenerator
+
+    head_joint = skeleton["Head"].head
+    size = float(spec.get("size", 1.0))
+    shape = {k: float(spec[k]) for k in SHAPE_DEFAULTS if k in spec}
+    unknown = set(spec) - set(SHAPE_DEFAULTS) - HEAD_KEYS
+    if unknown:
+        raise ValueError(f"head: unknown keys {sorted(unknown)}")
+    eyes_y, eye_spacing, mouth_y = float(spec.get("eyes", head_joint[1] + 0.07 * size)), 0.072 * size, None
+    if face:
+        x0, y0, x1, y1 = (float(v) for v in face["box"])
+        paint = FaceTextureGenerator
+        eyes_y = y0 + paint.eye_v * (y1 - y0)
+        eye_spacing = paint.eye_spacing * (x1 - x0)
+        mouth_y = y0 + paint.mouth_v * (y1 - y0)
+    origin = np.array([0.0, eyes_y, float(head_joint[2])])
+    neck = skeleton["Neck"].head
+    head = HeadShape(size, eye_spacing=eye_spacing,
+                     mouth_drop=(eyes_y - mouth_y) if mouth_y is not None else 0.084 * size,
+                     neck_radius=float(spec.get("neck_radius", 0.048 * size)),
+                     neck_drop=eyes_y - float(neck[1]), **shape)
+    return head, origin
+
+
+def head_weights(mesh: Mesh, skeleton: Skeleton, blend: float, shift: float) -> tuple[np.ndarray, np.ndarray]:
+    """The head moves with Head; below the jaw (``shift`` under the head joint) it hands over to
+    Neck over ``blend`` metres, as the torso chain's head did."""
+    names = skeleton.names
+    joint = float(skeleton["Head"].head[1]) + shift
+    share = np.clip((mesh.vertices[:, 1] - (joint - blend)) / (2 * blend), 0.0, 1.0)
+    share = share * share * (3 - 2 * share)
+    dense = np.zeros((len(mesh.vertices), len(names)))
+    dense[:, names.index("Head")] = share
+    dense[:, names.index("Neck")] = 1 - share
+    return normalize_weights(np.tile(np.arange(len(names)), (len(mesh.vertices), 1)), dense)
+
+
 def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, params: dict | None = None,
                    root_poses: dict | None = None) -> SceneNode:
     """``root_poses`` are the asset's top-level ``poses:`` (where the root goes per pose), which
@@ -740,9 +785,21 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     mesh = loft_body(skeleton, chains, crease, mirrored, materials if len(materials) > 1 else None)
     budget = spec.get("max_triangles")
     if budget and len(mesh.faces) > int(budget):
-        from ..core import meshops
-
         mesh = meshops.decimate(mesh, int(budget) / len(mesh.faces), crease_angle=crease)
+    head = None
+    if spec.get("head"):
+        # The sculpted head goes on after the body's decimation, which would flatten its features.
+        head, head_origin = sculpted_head(spec["head"], spec.get("face"), skeleton)
+        head_mesh = build_head(head, head_origin)
+        head_mesh.joints, head_mesh.weights = head_weights(head_mesh, skeleton, float(spec["head"].get("blend", 0.04)),
+                                                           float(spec["head"].get("weight_shift", -0.06)))
+        head_mesh = uvmap.box_project(head_mesh)
+        if len(materials) > 1:
+            head_mesh.face_materials = np.zeros(len(head_mesh.faces), dtype=np.int64)
+            head_mesh.materials = list(materials)
+            mesh.materials = list(materials) if mesh.materials is None else mesh.materials
+        head_mesh.material = skin
+        mesh = csg.union(mesh, head_mesh, crease_angle=crease)
     if len(materials) > 1:
         # Map the union's slots (ordered by first appearance) back to ours by material identity.
         slots, result_materials = mesh.effective_face_materials()
@@ -762,6 +819,11 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if spec.get("face"):
         face = dict(spec["face"])
         mesh = apply_face(mesh, face["box"], face_material(face, skin), float(face.get("min_normal", 0.25)))
+    if head is not None:
+        # Shade the head from its sculpt, not from how the simplifier triangulated it.
+        on = np.abs(head(mesh.vertices - head_origin)) < 2e-4
+        mesh.normals = meshops.ensure_normals(mesh, crease).normals.copy()
+        mesh.normals[on] = sdf_normals(head, mesh.vertices[on] - head_origin)
 
     root = SceneNode(name)
     joints, nodes = skeleton.build()

@@ -41,7 +41,7 @@ def test_presets_build_clean_bodies_within_budget(bodies, preset, height):
     assert body.meta["humanoid"]["height"] == pytest.approx(height)
     assert body.meta["humanoid"]["pose"] == "stand"
     mesh = body.find("body").mesh
-    assert len(mesh.faces) <= 2800
+    assert len(mesh.faces) <= 3800          # trunk and limbs ~2.3k, the sculpted head ~1.3k
     assert meshops.validate(mesh).ok
     posed = body.find("body").world_mesh()
     assert meshops.validate(posed).watertight
@@ -171,7 +171,7 @@ def test_hair_styles_build_closed_skinned_shells(style):
     # Hair sits on the head: above the chin, over the crown, clear of the face in front.
     top = body.meta["humanoid"]["height"]
     assert hair.world_mesh().vertices[:, 1].max() > top
-    assert body.meta["humanoid"]["triangles"] <= 4200
+    assert body.meta["humanoid"]["triangles"] <= 5000
 
 
 def test_no_hair_style_means_no_hair_node():
@@ -184,12 +184,12 @@ def test_face_decal_slot_and_skin_tone(bodies):
     mesh = bodies["feminine"].find("body").mesh
     assert mesh.multi_material and mesh.materials[0].name == "skin" and mesh.materials[-1].name == "face"
     face = mesh.faces[mesh.face_materials == len(mesh.materials) - 1]
-    assert 30 < len(face) < 300
+    assert 30 < len(face) < 700
     uv = mesh.uvs[np.unique(face)]
     assert uv.min() > -0.2 and uv.max() < 1.2
     # The face region is on the front of the head.
     pts = mesh.vertices[np.unique(face)]
-    assert pts[:, 2].min() > 0 and pts[:, 1].min() > 1.35
+    assert pts[:, 2].min() > -0.01 and pts[:, 1].min() > 1.35
     dark = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "skin_tone": 0.9}).find("body").mesh
 
     def skin_tint(m):                  # a vertex on skin faces (slot 0), not clothes or shoes

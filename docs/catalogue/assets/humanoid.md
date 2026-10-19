@@ -37,6 +37,12 @@ place:
 | `belly` | `0` |  | 0 .. 1: a fuller waist and stomach |
 | `head_size` | `1` |  |  |
 | `jaw_width` | `1` |  |  |
+| `nose` | `1` |  | head sculpt (generators/head.py): feature sizes, 1 = neutral |
+| `chin` | `1` |  |  |
+| `brow` | `1` |  | brow ridge |
+| `cheeks` | `1` |  |  |
+| `lips` | `1` |  |  |
+| `ears` | `1` |  |  |
 | `neck_length` | `0.1` |  |  |
 | `hand_size` | `1` |  |  |
 | `foot_length` | `0.24` |  |  |
@@ -61,12 +67,12 @@ place:
 
 ## Size
 
-0.736 x 1.754 x 0.385 m (x, y, z); geometry (-0.368, -0.009, -0.121) to (0.368, 1.754, 0.192) from the origin; 3542 triangles
+0.736 x 1.754 x 0.385 m (x, y, z); geometry (-0.368, -0.009, -0.121) to (0.368, 1.754, 0.192) from the origin; 4616 triangles
 
 ## Presets
 
-- feminine: height=1.66, build=0.42, shoulder_width=0.3, hip_width=0.19, hips=1.12, waist=0.8, bust=1, glutes=0.9, limb=0.88, jaw_width=0.86, neck_length=0.1, hand_size=0.92, foot_length=0.23, hair_style=long, outfit=casual_f, top_color=coral, bottom_color=navy, shoe_color=black, lashes=1, lip_strength=0.7, blush=0.35, brow_thickness=0.8, brow_arch=1.2
-- masculine: height=1.79, build=0.55, shoulder_width=0.38, hip_width=0.17, hips=0.94, waist=0.84, bust=0, glutes=0.3, limb=1.1, jaw_width=1.12, neck_length=0.11, hand_size=1.05, foot_length=0.26, hair_style=crop, hair_color=dark_brown, outfit=jeans_tee, top_color=grey, bottom_color=denim, shoe_color=white, lashes=0, lip_strength=0.12, blush=0, brow_thickness=1.45, brow_arch=0.4
+- feminine: height=1.66, build=0.42, shoulder_width=0.3, hip_width=0.19, hips=1.12, waist=0.8, bust=1, glutes=0.9, limb=0.88, jaw_width=0.86, nose=0.85, chin=0.85, brow=0.3, cheeks=1.1, lips=1.15, neck_length=0.1, hand_size=0.92, foot_length=0.23, hair_style=long, outfit=casual_f, top_color=coral, bottom_color=navy, shoe_color=black, lashes=1, lip_strength=0.7, blush=0.35, brow_thickness=0.8, brow_arch=1.2
+- masculine: height=1.79, build=0.55, shoulder_width=0.38, hip_width=0.17, hips=0.94, waist=0.84, bust=0, glutes=0.3, limb=1.1, jaw_width=1.12, nose=1.15, chin=1.25, brow=1.4, cheeks=0.9, lips=0.8, neck_length=0.11, hand_size=1.05, foot_length=0.26, hair_style=crop, hair_color=dark_brown, outfit=jeans_tee, top_color=grey, bottom_color=denim, shoe_color=white, lashes=0, lip_strength=0.12, blush=0, brow_thickness=1.45, brow_arch=0.4
 - slim: build=0.1, limb_scale=0.92
 - athletic: build=0.35, limb_scale=1.08, glutes=0.65
 - curvy: build=0.6, hips=1.28, waist=0.8, glutes=1

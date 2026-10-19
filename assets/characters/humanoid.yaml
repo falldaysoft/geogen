@@ -26,6 +26,12 @@ params:
   belly:          { default: 0.0 }    # 0 .. 1: a fuller waist and stomach
   head_size:      { default: 1.0 }
   jaw_width:      { default: 1.0 }
+  nose:           { default: 1.0 }    # head sculpt (generators/head.py): feature sizes, 1 = neutral
+  chin:           { default: 1.0 }
+  brow:           { default: 1.0 }    # brow ridge
+  cheeks:         { default: 1.0 }
+  lips:           { default: 1.0 }
+  ears:           { default: 1.0 }
   neck_length:    { default: 0.10 }
   hand_size:      { default: 1.0 }
   foot_length:    { default: 0.24 }
@@ -60,6 +66,11 @@ presets:
     glutes: 0.9
     limb: 0.88
     jaw_width: 0.86
+    nose: 0.85
+    chin: 0.85
+    brow: 0.3
+    cheeks: 1.1
+    lips: 1.15
     neck_length: 0.10
     hand_size: 0.92
     foot_length: 0.23
@@ -84,6 +95,11 @@ presets:
     glutes: 0.3
     limb: 1.1
     jaw_width: 1.12
+    nose: 1.15
+    chin: 1.25
+    brow: 1.4
+    cheeks: 0.9
+    lips: 0.8
     neck_length: 0.11
     hand_size: 1.05
     foot_length: 0.26
@@ -200,6 +216,18 @@ body:
     brow_thickness: "{brow_thickness}"
     brow_arch: "{brow_arch}"
     brow_color: "{hair_color}"
+  # The sculpted head (generators/head.py), unioned onto the torso's neck; eyes and mouth
+  # follow the painted face's box.
+  head:
+    size: "{hs}"
+    neck_radius: "{0.049 * k - 0.001}"
+    jaw: "{jaw}"
+    nose: "{nose}"
+    chin: "{chin}"
+    brow: "{brow}"
+    cheeks: "{cheeks}"
+    lips: "{lips}"
+    ears: "{ears}"
   hair: "{hair_style}"
   hair_color: "{hair_color}"
   # Outfits: garments from assets/clothing (tight ones edit the body's rings, loose ones are shells).
@@ -234,17 +262,16 @@ body:
       - { garment: dress, color: "{top_color}" }
       - { garment: flats, color: "{shoe_color}" }
   crease_angle: 80
-  max_triangles: 2600
+  max_triangles: 2400                 # the trunk and limbs; the sculpted head (~1.2k) has its own tolerance
   chains:
     torso:
-      bones: [Hips, Spine, Chest, UpperChest, Neck, Head]
-      end: head_top
+      bones: [Hips, Spine, Chest, UpperChest, Neck]
+      end: Head
       sides: 16
       spacing: 0.2
       blend: 0.04
       joint_rings: false
       cap_rings: 2
-      weight_shift: { Head: -0.06 }           # jaw and chin (below the head joint) follow the head
       rings:
         - [Hips, -0.65, "{0.062 * tf}", "{0.052 * tf}", { power: 2.2 }]
         - [Hips, -0.4, "{hips_rx}", "{0.086 * tf + 0.016 * glutes}", { offset: [0, "{-0.014 * glutes}"], power: 2.2 }]
@@ -257,13 +284,8 @@ body:
         - [Neck, 0.0, "{0.112 * tf}", "{0.062 * tf}", { offset: [0, -0.008], power: 2.4 }]
         - [Neck, 0.12, "{0.056 * k}", "{0.05 * k}", { offset: [0, -0.006] }]
         - [Neck, 0.28, "{0.049 * k}", "{0.049 * k}", { offset: [0, -0.002] }]
-        # Head: a round cranium, full cheeks, a soft jaw tapering to a small chin.
-        - [Neck, 0.44, "{0.042 * hs * jaw}", "{0.072 * hs}", { offset: [0, "{0.021 * hs}"] }]
-        - [Neck, 0.72, "{0.062 * hs * jaw}", "{0.09 * hs}", { offset: [0, "{0.012 * hs}"] }]
-        - [Head, 0.07, "{0.075 * hs}", "{0.099 * hs}", { offset: [0, "{0.006 * hs}"] }]
-        - [Head, 0.26, "{0.084 * hs}", "{0.104 * hs}", { offset: [0, "{0.002 * hs}"] }]
-        - [Head, 0.44, "{0.088 * hs}", "{0.106 * hs}"]
-        - [Head, 0.6, "{0.085 * hs}", "{0.102 * hs}", { offset: [0, "{-0.004 * hs}"] }]
+        # The neck ends inside the sculpted head (body.head), which carries on from here.
+        - [Neck, 0.7, "{0.04 * k}", "{0.04 * k}", { offset: [0, -0.008] }]
 
     arm:
       bones: [LeftShoulder, LeftUpperArm, LeftLowerArm, LeftHand, LeftMiddleProximal, LeftMiddleIntermediate,
@@ -345,18 +367,6 @@ body:
         - [LeftFoot, 0.55, "{0.040 * k}", "{0.036 * k}", { offset: [0.003, "{-0.039 * k}"], power: 2.6 }]
         - [LeftToes, 0.0, "{0.044 * k}", "{0.026 * k}", { offset: [0.004, "{-0.050 * k}"], power: 2.8 }]
         - [LeftToes, 0.6, "{0.039 * k}", "{0.019 * k}", { offset: [0.002, "{-0.056 * k}"], power: 2.6 }]
-
-    nose:                                   # a small wedge from between the eyes to the tip
-      bones: [Head]
-      end: head_top
-      sides: 6
-      spacing: 0.2
-      joint_rings: false
-      cap_rings: 1
-      rings:
-        - [Head, 0.1, "{0.013 * hs}", "{0.016 * hs}", { offset: [0, "{0.096 * hs}"] }]
-        - [Head, 0.2, "{0.009 * hs}", "{0.012 * hs}", { offset: [0, "{0.1 * hs}"] }]
-        - [Head, 0.33, "{0.006 * hs}", "{0.008 * hs}", { offset: [0, "{0.098 * hs}"] }]
 
   # Hair shells: ring-lofted chains on the head/neck/back bones minus `cut` boxes
   # ([x0, y0, z0, x1, y1, z1], rest pose), skinned like the body.
