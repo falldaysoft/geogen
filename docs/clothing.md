@@ -114,7 +114,7 @@ plane. In that plane:
    plane, which is the seat flesh's underside less 12 mm of cloth.
 
 Everything that is not a ring vertex (lining, rolled hem, the buried top cap) moves with the ring
-vertex nearest it. The waistband ring is left as skinned. The rest pose comes out unchanged
+vertex nearest it. The waistband ring is left as skinned, except that it never comes nearer the body than at rest (bent far forward, skinning pulls the inside of the bend into the belly). The rest pose comes out unchanged
 exactly, so a standing character needs no morph.
 
 `fit` drapes every static pose and sampled frames of every clip (16 of the walk, 8 of idle, 10 of

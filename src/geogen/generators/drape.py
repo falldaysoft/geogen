@@ -67,7 +67,7 @@ class ShellGrid:
     rings: list[np.ndarray]                 # per ring: vertex indices ordered round the ring
     s: np.ndarray                           # arc length of each ring
     follow: np.ndarray                      # per mesh vertex: the ring vertex it moves with (-1: stays)
-    gain: np.ndarray                        # per ring: 0 (the waistband stays as skinned) .. 1
+    gain: np.ndarray                        # per ring: 0 (the waistband: as skinned, but never nearer the body) .. 1
     trunk: np.ndarray = None                # per ring: it rides the pelvis more than the thighs
     rest: list[dict] = field(default_factory=list)       # per ring, from the rest pose (see _measure)
 
@@ -249,6 +249,12 @@ def drape_frame(grid: ShellGrid, shell: np.ndarray, tris: tuple[np.ndarray, np.n
     out = shell.copy()
     for k, (ring, rest, posed, gain) in enumerate(zip(grid.rings, grid.rest, now, grid.gain)):
         if gain <= 0:
+            # The waistband stays as skinned, except that it never comes nearer the body than at
+            # rest (bent far forward, skinning pulls the inside of the bend into the belly).
+            e1, e2 = posed["axes"]
+            rays = posed["u"][:, :1] * e1 + posed["u"][:, 1:] * e2
+            radius = np.maximum(posed["r"], posed["hull"] + rest["clear"])
+            out[ring] = posed["centre"] + radius[:, None] * rays + posed["off"][:, None] * posed["normal"]
             continue
         # Round a bend the rings fan apart on its outside, and the cloth's faces cut the corner
         # between them: stand off by the sagitta of the chord to the next ring (none when level).
