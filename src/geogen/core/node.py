@@ -324,13 +324,15 @@ class SceneNode:
                 _remap_skins(self, new_node)
         return new_node
 
-    def instance(self) -> SceneNode:
+    def instance(self, share_clips: bool = False) -> SceneNode:
         """A deep copy of this subtree that shares its meshes (and their materials).
 
         Transforms, meta, surfaces and interactions are copied (interaction
         targets are remapped to the copied nodes), so the instance can be
         placed, animated or cut (CSG assigns new meshes) independently while
-        identical geometry is stored once and exported once.
+        identical geometry is stored once and exported once. ``share_clips``
+        shares the ``Clip`` objects too: for a throwaway actor that is only
+        posed (copying a humanoid's clips is most of the cost of the copy).
         """
         import copy
 
@@ -342,6 +344,9 @@ class SceneNode:
                 memo[id(node.mesh)] = node.mesh
             for cutter in node.host_cutters:
                 memo[id(cutter)] = cutter
+            if share_clips:
+                for clip in node.clips:
+                    memo[id(clip)] = clip
         return copy.deepcopy(self, memo)
 
     def __repr__(self) -> str:

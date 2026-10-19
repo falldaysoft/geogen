@@ -33,9 +33,9 @@ Clipping of skirts and dresses, before and after (worst depth in mm, and how man
 | Skin at the hip crease of a skirt (three builds were expected failures) | a 2 to 3 mm sliver | none; the expected failures are removed |
 
 Costs: a skirt is about 1,100 triangles (was 670), so a dressed character with one is up to about
-4,650 (the test's limit was 4,200). Building a character takes about 2.2 s in trousers (1.7 s
-before the arms pass) and 3.3 s in a skirt (2.4 s): the drape is about 0.65 s of that and the
-arms 0.5 s, or 1 s with a skirt to keep out of. Nothing is added at runtime: the arms' swing is
+4,650 (the test's limit was 4,200). Building a character takes about 0.6 s in trousers and
+1.4 s in a skirt (2026-10-18, after the fast skeleton maths of geogen.11.5.29; it was 2.2 s and
+3.3 s): the drape is about 0.4 s of that and the arms 0.3 s, or 0.65 s with a skirt to keep out of. Nothing is added at runtime: the arms' swing is
 in the clips' keys.
 
 ## The system

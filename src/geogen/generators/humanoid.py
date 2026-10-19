@@ -937,7 +937,7 @@ def seat_contact(root, clip: str) -> tuple[float, SceneNode, np.ndarray, np.ndar
     and each vertex's dominant bone."""
     from ..core.skin import pose_clips as apply_clip
 
-    actor = root.instance()
+    actor = root.instance(share_clips=True)
     apply_clip(actor, clip, 0.0)
     body = next((n for n in actor.iter_nodes() if n.name == "body" and n.skin is not None), None)
     if body is None:

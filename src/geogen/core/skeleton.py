@@ -27,7 +27,7 @@ from numpy.typing import NDArray
 
 from .. import roots
 from .node import SceneNode
-from .transform import Transform, matrix_from_quat, quat_from_matrix
+from .transform import Transform, matrices_from_quats, matrix_from_quat, quat_from_matrix
 
 SKELETONS_DIR = roots.CORE / "skeletons"
 DEFAULT_SKELETON = SKELETONS_DIR / "humanoid.yaml"
@@ -98,8 +98,9 @@ class Skeleton:
     bones: dict[str, Bone]
     landmarks: dict[str, NDArray[np.float64]] = field(default_factory=dict)
     params: dict[str, float] = field(default_factory=dict)
-    # name -> (the rest it was computed from, rest_local): FK asks for it ~100k times a body.
-    _rest_cache: dict = field(default_factory=dict, init=False, repr=False, compare=False)
+    # The rest as arrays (see ``_rig``): FK reads it thousands of times a body. Bones are fixed
+    # once the skeleton is built.
+    _rig_cache: _Rig | None = field(default=None, init=False, repr=False, compare=False)
 
     def __getitem__(self, name: str) -> Bone:
         return self.bones[name]
@@ -108,22 +109,16 @@ class Skeleton:
     def names(self) -> list[str]:
         return list(self.bones)
 
+    @property
+    def _rig(self) -> _Rig:
+        if self._rig_cache is None:
+            self._rig_cache = _Rig(self)
+        return self._rig_cache
+
     def rest_local(self, name: str) -> NDArray[np.float64]:
         """A bone's rest transform in its parent's frame (a fresh array: callers may change it)."""
-        bone = self.bones[name]
-        parent = self.bones[bone.parent] if bone.parent is not None else None
-        key = (bone.head.tobytes(), bone.rotation.tobytes(),
-               (parent.head.tobytes(), parent.rotation.tobytes()) if parent is not None else None)
-        cached = self._rest_cache.get(name)
-        if cached is None or cached[0] != key:
-            if parent is None:
-                local = bone.rest_world
-            else:       # the parent's rest is rigid: its inverse is (R^T, -R^T t)
-                rt = parent.rotation.T
-                local = _matrix(rt @ bone.rotation, rt @ (bone.head - parent.head))
-            cached = (key, local)
-            self._rest_cache[name] = cached
-        return cached[1].copy()
+        rig = self._rig
+        return rig.rest[rig.index[name]].copy()
 
     def children(self, name: str) -> list[str]:
         return [b.name for b in self.bones.values() if b.parent == name]
@@ -148,19 +143,56 @@ class Skeleton:
             local[:3, 3] += pose.root
         return local
 
+    def posed_locals(self, poses: list[Pose]) -> NDArray[np.float64]:
+        """Every bone's ``posed_local`` in each of ``poses``, at once: (poses, bones, 4, 4) in
+        ``names`` order."""
+        rig = self._rig
+        local = np.repeat(rig.rest[None], len(poses), axis=0)
+        frames, bones, quats = [], [], []
+        for f, pose in enumerate(poses):
+            for name, q in pose.rotations.items():
+                i = rig.index.get(name)          # (a pose may name bones this skeleton lacks)
+                if i is not None:
+                    frames.append(f)
+                    bones.append(i)
+                    quats.append(q)
+        if quats:
+            frames, bones = np.array(frames), np.array(bones)
+            local[frames, bones, :3, :3] = local[frames, bones, :3, :3] @ matrices_from_quats(np.array(quats))
+        for f, pose in enumerate(poses):
+            for name, offset in pose.offsets.items():
+                if name in rig.index:
+                    local[f, rig.index[name], :3, 3] += offset
+            local[f, rig.roots, :3, 3] += pose.root
+        return local
+
+    def fk_many(self, poses: list[Pose]) -> NDArray[np.float64]:
+        """World matrices of every bone in each of ``poses``: (poses, bones, 4, 4) in ``names``
+        order. One pass per hierarchy level, all frames at once."""
+        local = self.posed_locals(poses)
+        world = local.copy()
+        for bones, parents in self._rig.levels:
+            world[:, bones] = world[:, parents] @ local[:, bones]
+        return world
+
     def fk(self, pose: Pose | None = None) -> dict[str, NDArray[np.float64]]:
         """World matrices of every bone in ``pose`` (rest when None)."""
-        world: dict[str, NDArray[np.float64]] = {}
-        for name, bone in self.bones.items():
-            local = self.posed_local(name, pose)
-            world[name] = world[bone.parent] @ local if bone.parent else local
+        return dict(zip(self._rig.names, self.fk_many([pose or Pose()])[0]))
+
+    def world(self, name: str, pose: Pose | None = None) -> NDArray[np.float64]:
+        """One bone's world matrix in ``pose``: ``fk(pose)[name]``, from its ancestors only."""
+        world = None
+        for bone in self._rig.chain[name]:
+            local = self.posed_local(bone, pose)
+            world = local if world is None else world @ local
         return world
 
     def pose_quat(self, name: str, parent_world: NDArray[np.float64], world_rotation: NDArray[np.float64]):
         """The pose rotation (relative to rest) that gives bone ``name`` ``world_rotation`` under a
         parent at ``parent_world``."""
         local = parent_world[:3, :3].T @ world_rotation
-        return quat_from_matrix(self.rest_local(name)[:3, :3].T @ local)
+        rig = self._rig
+        return quat_from_matrix(rig.rest[rig.index[name], :3, :3].T @ local)
 
     def body_quat(self, name: str, rotation: NDArray[np.float64]):
         """A body-frame rotation (3x3, about the character's own axes) as a pose rotation for ``name``."""
@@ -180,6 +212,35 @@ class Skeleton:
             else:
                 nodes[bone.parent].add_child(node)
         return root, nodes
+
+
+class _Rig:
+    """A skeleton's hierarchy and rest as arrays, for FK: bone ``names`` (hierarchy order) and
+    their ``index``; ``rest`` locals (bones x 4 x 4); the ``roots``; ``levels`` (bone indices,
+    their parents' indices) by depth below the roots; each bone's ``chain`` of ancestors from
+    its root down to itself."""
+
+    def __init__(self, skeleton: Skeleton) -> None:
+        bones = skeleton.bones
+        self.names = list(bones)
+        self.index = {name: i for i, name in enumerate(self.names)}
+        self.rest = np.empty((len(bones), 4, 4))
+        depth, chain = {}, {}
+        for i, (name, bone) in enumerate(bones.items()):
+            if bone.parent is None:
+                self.rest[i] = bone.rest_world
+                depth[name], chain[name] = 0, [name]
+            else:       # the parent's rest is rigid: its inverse is (R^T, -R^T t)
+                parent = bones[bone.parent]
+                rt = parent.rotation.T
+                self.rest[i] = _matrix(rt @ bone.rotation, rt @ (bone.head - parent.head))
+                depth[name], chain[name] = depth[bone.parent] + 1, chain[bone.parent] + [name]
+        self.roots = np.array([i for i, b in enumerate(bones.values()) if b.parent is None])
+        self.levels = []
+        for d in range(1, max(depth.values(), default=0) + 1):
+            at = [i for i, name in enumerate(self.names) if depth[name] == d]
+            self.levels.append((np.array(at), np.array([self.index[bones[self.names[i]].parent] for i in at])))
+        self.chain = chain
 
 
 @dataclass

@@ -26,7 +26,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .mesh import Mesh
-from .transform import Transform, matrix_from_quat, slerp
+from .transform import Transform, euler_xyz, matrix_from_quat, slerp
 
 if TYPE_CHECKING:
     from .node import SceneNode
@@ -182,14 +182,11 @@ class Clip:
 def set_local(node: SceneNode, rotation: NDArray[np.float64] | None = None,
               translation: NDArray[np.float64] | None = None) -> None:
     """Set a node's local rotation (quaternion) and/or translation, keeping its scale."""
-    m = node.transform.to_matrix()
-    s = node.transform.scale
-    if rotation is not None:
-        m[:3, :3] = matrix_from_quat(rotation) * s[None, :]
-    if translation is not None:
-        m[:3, 3] = translation
-    node.transform = Transform.from_matrix(m)
-    node.transform.scale = s.copy()
+    current = node.transform
+    node.transform = Transform(
+        translation=current.translation.copy() if translation is None else np.array(translation, dtype=np.float64),
+        rotation=current.rotation.copy() if rotation is None else euler_xyz(matrix_from_quat(rotation)),
+        scale=current.scale.copy())
 
 
 def pose_clips(root: SceneNode, clip_name: str, t: float) -> int:

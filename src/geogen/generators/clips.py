@@ -31,7 +31,7 @@ import numpy as np
 from ..core import ik
 from ..core.skeleton import Pose, Skeleton
 from ..core.skin import Clip, Track
-from ..core.transform import Transform, matrix_from_quat, quat_from_matrix, slerp
+from ..core.transform import Transform, matrix_from_quat, quat_from_matrix, quats_from_matrices, slerp
 
 WALK_DEFAULTS = {"speed": 1.2, "duty": 0.6, "knee_drop": 0.03, "bob": 0.026, "hip_sway": 0.02,
                  "pelvis_yaw": 6.0, "pelvis_list": 3.0, "chest_yaw": 8.0, "arm_swing": 16.0,
@@ -66,18 +66,17 @@ def _smooth(x: float) -> float:
 
 def tracks_from_poses(skeleton: Skeleton, poses: list[Pose], times: np.ndarray) -> dict[str, Track]:
     """Every bone's absolute local rotation per pose (+ Hips translation) as clip tracks."""
+    locals_ = skeleton.posed_locals(poses)                  # (poses, bones, 4, 4)
+    rotations = quats_from_matrices(locals_[:, :, :3, :3])
+    # Keep consecutive quaternions in one hemisphere so LINEAR (slerp) keys take the short way.
+    for i in range(1, len(rotations)):
+        flip = np.einsum("bi,bi->b", rotations[i], rotations[i - 1]) < 0
+        rotations[i, flip] *= -1
+    offset = {bone for p in poses for bone in p.offsets}
     tracks = {}
-    for bone in skeleton.names:
-        locals_ = [skeleton.posed_local(bone, p) for p in poses]
-        rotations = np.array([quat_from_matrix(m[:3, :3]) for m in locals_])
-        # Keep consecutive quaternions in one hemisphere so LINEAR (slerp) keys take the short way.
-        for i in range(1, len(rotations)):
-            if np.dot(rotations[i], rotations[i - 1]) < 0:
-                rotations[i] = -rotations[i]
-        translations = None
-        if bone == "Hips" or any(bone in p.offsets for p in poses):
-            translations = np.array([m[:3, 3] for m in locals_])
-        tracks[bone] = Track(times, rotations=rotations, translations=translations)
+    for b, bone in enumerate(skeleton.names):
+        translations = locals_[:, b, :3, 3].copy() if bone == "Hips" or bone in offset else None
+        tracks[bone] = Track(times, rotations=rotations[:, b].copy(), translations=translations)
     return tracks
 
 

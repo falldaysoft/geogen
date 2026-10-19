@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Self
 
@@ -36,46 +37,20 @@ class Transform:
 
         Order: Scale -> Rotate -> Translate (standard game engine order)
         """
-        # Scale matrix
-        s = np.diag([*self.scale, 1.0])
-
-        # Rotation matrices (XYZ Euler order)
-        rx, ry, rz = self.rotation
-
-        cos_x, sin_x = np.cos(rx), np.sin(rx)
-        cos_y, sin_y = np.cos(ry), np.sin(ry)
-        cos_z, sin_z = np.cos(rz), np.sin(rz)
-
-        rot_x = np.array([
-            [1, 0, 0, 0],
-            [0, cos_x, -sin_x, 0],
-            [0, sin_x, cos_x, 0],
-            [0, 0, 0, 1],
-        ], dtype=np.float64)
-
-        rot_y = np.array([
-            [cos_y, 0, sin_y, 0],
-            [0, 1, 0, 0],
-            [-sin_y, 0, cos_y, 0],
-            [0, 0, 0, 1],
-        ], dtype=np.float64)
-
-        rot_z = np.array([
-            [cos_z, -sin_z, 0, 0],
-            [sin_z, cos_z, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-        ], dtype=np.float64)
-
-        # Combined rotation (Z * Y * X for XYZ Euler)
-        r = rot_z @ rot_y @ rot_x
-
-        # Translation matrix
-        t = np.eye(4, dtype=np.float64)
-        t[:3, 3] = self.translation
-
+        # R = Rz @ Ry @ Rx (XYZ Euler), written out: this runs for every node of every posed frame.
+        rx, ry, rz = self.rotation.tolist()
+        cx, sx = math.cos(rx), math.sin(rx)
+        cy, sy = math.cos(ry), math.sin(ry)
+        cz, sz = math.cos(rz), math.sin(rz)
+        kx, ky, kz = self.scale.tolist()
+        tx, ty, tz = self.translation.tolist()
         # Combine: T * R * S
-        return t @ r @ s
+        return np.array([
+            [cz * cy * kx, (cz * sy * sx - sz * cx) * ky, (cz * sy * cx + sz * sx) * kz, tx],
+            [sz * cy * kx, (sz * sy * sx + cz * cx) * ky, (sz * sy * cx - cz * sx) * kz, ty],
+            [-sy * kx, cy * sx * ky, cy * cx * kz, tz],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
 
     @classmethod
     def from_matrix(cls, matrix: NDArray[np.float64]) -> Self:
@@ -83,42 +58,17 @@ class Transform:
 
         Note: Assumes the matrix was created with uniform or axis-aligned scaling.
         """
-        # Extract translation
-        translation = matrix[:3, 3].copy()
-
-        # Extract scale (length of each basis vector)
-        scale = np.array([
-            np.linalg.norm(matrix[:3, 0]),
-            np.linalg.norm(matrix[:3, 1]),
-            np.linalg.norm(matrix[:3, 2]),
-        ], dtype=np.float64)
-
-        # Extract rotation matrix (normalize columns)
-        rot = matrix[:3, :3].copy()
-        rot[:, 0] /= scale[0] if scale[0] != 0 else 1
-        rot[:, 1] /= scale[1] if scale[1] != 0 else 1
-        rot[:, 2] /= scale[2] if scale[2] != 0 else 1
-
-        # Extract Euler angles (XYZ order)
-        # Using standard decomposition
-        if abs(rot[2, 0]) < 0.9999:
-            ry = np.arcsin(-rot[2, 0])
-            rx = np.arctan2(rot[2, 1], rot[2, 2])
-            rz = np.arctan2(rot[1, 0], rot[0, 0])
-        else:
-            # Gimbal lock
-            rz = 0.0
-            if rot[2, 0] < 0:
-                ry = np.pi / 2
-                rx = np.arctan2(rot[0, 1], rot[0, 2])
-            else:
-                ry = -np.pi / 2
-                rx = np.arctan2(-rot[0, 1], -rot[0, 2])
-
+        (m00, m01, m02, tx), (m10, m11, m12, ty), (m20, m21, m22, tz) = np.asarray(matrix)[:3].tolist()
+        # Scale: the length of each basis vector; rotation: the columns normalised.
+        kx = math.sqrt(m00 * m00 + m10 * m10 + m20 * m20)
+        ky = math.sqrt(m01 * m01 + m11 * m11 + m21 * m21)
+        kz = math.sqrt(m02 * m02 + m12 * m12 + m22 * m22)
+        ix, iy, iz = 1.0 / (kx or 1.0), 1.0 / (ky or 1.0), 1.0 / (kz or 1.0)
         return cls(
-            translation=translation,
-            rotation=np.array([rx, ry, rz], dtype=np.float64),
-            scale=scale,
+            translation=np.array([tx, ty, tz]),
+            rotation=euler_xyz([[m00 * ix, m01 * iy, m02 * iz], [m10 * ix, m11 * iy, m12 * iz],
+                                [m20 * ix, m21 * iy, m22 * iz]]),
+            scale=np.array([kx, ky, kz]),
         )
 
     def copy(self) -> Self:
@@ -140,32 +90,96 @@ class Transform:
         return Transform.from_matrix(combined)
 
 
+def euler_xyz(rot) -> NDArray[np.float64]:
+    """XYZ Euler angles (radians, as ``Transform.rotation``) of a rotation matrix (3x3, no scale)."""
+    (r00, r01, r02), (r10, _, _), (r20, r21, r22) = np.asarray(rot, dtype=np.float64).tolist()
+    if abs(r20) < 0.9999:
+        ry = math.asin(-r20)
+        rx = math.atan2(r21, r22)
+        rz = math.atan2(r10, r00)
+    else:
+        # Gimbal lock
+        rz = 0.0
+        if r20 < 0:
+            ry = math.pi / 2
+            rx = math.atan2(r01, r02)
+        else:
+            ry = -math.pi / 2
+            rx = math.atan2(-r01, -r02)
+    return np.array([rx, ry, rz])
+
+
 def quat_from_matrix(r: NDArray[np.float64]) -> NDArray[np.float64]:
     """Rotation matrix (3x3, no scale) -> unit quaternion (x, y, z, w), glTF order."""
-    t = np.trace(r)
+    r = np.asarray(r, dtype=np.float64).tolist()        # plain floats: this runs ~10k times a body
+    t = r[0][0] + r[1][1] + r[2][2]
     if t > 0:
-        s = np.sqrt(t + 1.0) * 2
-        q = [(r[2, 1] - r[1, 2]) / s, (r[0, 2] - r[2, 0]) / s, (r[1, 0] - r[0, 1]) / s, 0.25 * s]
+        s = math.sqrt(t + 1.0) * 2
+        q = [(r[2][1] - r[1][2]) / s, (r[0][2] - r[2][0]) / s, (r[1][0] - r[0][1]) / s, 0.25 * s]
     else:
-        i = int(np.argmax(np.diag(r)))
+        diag = (r[0][0], r[1][1], r[2][2])
+        i = diag.index(max(diag))
         j, k = (i + 1) % 3, (i + 2) % 3
-        s = np.sqrt(1.0 + r[i, i] - r[j, j] - r[k, k]) * 2
-        q = [0.0, 0.0, 0.0, (r[k, j] - r[j, k]) / s]
+        s = math.sqrt(1.0 + r[i][i] - r[j][j] - r[k][k]) * 2
+        q = [0.0, 0.0, 0.0, (r[k][j] - r[j][k]) / s]
         q[i] = 0.25 * s
-        q[j] = (r[j, i] + r[i, j]) / s
-        q[k] = (r[k, i] + r[i, k]) / s
-    q = np.array(q)
-    return q / np.linalg.norm(q)
+        q[j] = (r[j][i] + r[i][j]) / s
+        q[k] = (r[k][i] + r[i][k]) / s
+    n = math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3])
+    return np.array([q[0] / n, q[1] / n, q[2] / n, q[3] / n])
 
 
 def matrix_from_quat(q: NDArray[np.float64]) -> NDArray[np.float64]:
     """Unit quaternion (x, y, z, w) -> 3x3 rotation matrix."""
-    x, y, z, w = np.asarray(q, dtype=np.float64) / np.linalg.norm(q)
+    x, y, z, w = np.asarray(q, dtype=np.float64).tolist()
+    n = math.sqrt(x * x + y * y + z * z + w * w)
+    x, y, z, w = x / n, y / n, z / n, w / n
     return np.array([
         [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
         [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
         [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
     ])
+
+
+def quats_from_matrices(r: NDArray[np.float64]) -> NDArray[np.float64]:
+    """``quat_from_matrix`` over a stack of rotation matrices (..., 3, 3) -> (..., 4)."""
+    r = np.asarray(r, dtype=np.float64)
+    shape = r.shape[:-2]
+    r = r.reshape(-1, 3, 3)
+    q = np.empty((len(r), 4))
+    t = r[:, 0, 0] + r[:, 1, 1] + r[:, 2, 2]
+    pos = t > 0
+    if pos.any():
+        m = r[pos]
+        s = np.sqrt(t[pos] + 1.0) * 2
+        q[pos] = np.stack([(m[:, 2, 1] - m[:, 1, 2]) / s, (m[:, 0, 2] - m[:, 2, 0]) / s,
+                           (m[:, 1, 0] - m[:, 0, 1]) / s, 0.25 * s], axis=1)
+    big = np.argmax(np.diagonal(r, axis1=1, axis2=2), axis=1)
+    for i in range(3):
+        rows = ~pos & (big == i)
+        if not rows.any():
+            continue
+        m = r[rows]
+        j, k = (i + 1) % 3, (i + 2) % 3
+        s = np.sqrt(1.0 + m[:, i, i] - m[:, j, j] - m[:, k, k]) * 2
+        q[rows, 3] = (m[:, k, j] - m[:, j, k]) / s
+        q[rows, i] = 0.25 * s
+        q[rows, j] = (m[:, j, i] + m[:, i, j]) / s
+        q[rows, k] = (m[:, k, i] + m[:, i, k]) / s
+    q /= np.sqrt(np.einsum("ij,ij->i", q, q))[:, None]
+    return q.reshape(*shape, 4)
+
+
+def matrices_from_quats(q: NDArray[np.float64]) -> NDArray[np.float64]:
+    """``matrix_from_quat`` over a stack of quaternions (..., 4) -> (..., 3, 3)."""
+    q = np.asarray(q, dtype=np.float64)
+    q = q / np.sqrt(np.einsum("...i,...i->...", q, q))[..., None]
+    x, y, z, w = q[..., 0], q[..., 1], q[..., 2], q[..., 3]
+    return np.stack([
+        np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], axis=-1),
+        np.stack([2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], axis=-1),
+        np.stack([2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)], axis=-1),
+    ], axis=-2)
 
 
 def quat_axis_angle(axis, angle: float) -> NDArray[np.float64]:
@@ -178,11 +192,11 @@ def quat_axis_angle(axis, angle: float) -> NDArray[np.float64]:
 def slerp(a: NDArray[np.float64], b: NDArray[np.float64], t: float) -> NDArray[np.float64]:
     """Spherical interpolation between unit quaternions (shortest arc), as glTF LINEAR rotation does."""
     a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
-    d = float(np.dot(a, b))
+    d = float(a @ b)
     if d < 0:
         b, d = -b, -d
     if d > 0.9995:
         q = a + (b - a) * t
-        return q / np.linalg.norm(q)
-    theta = np.arccos(d)
-    return (np.sin((1 - t) * theta) * a + np.sin(t * theta) * b) / np.sin(theta)
+        return q / math.sqrt(float(q @ q))
+    theta = math.acos(d)
+    return (math.sin((1 - t) * theta) * a + math.sin(t * theta) * b) / math.sin(theta)

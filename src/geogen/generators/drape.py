@@ -346,7 +346,7 @@ class Draper:
         self.grids = [g for g in (shell_grid(clothes.mesh, s["vertices"], s["s_range"]) for s in shells)
                       if g is not None]
         self.dominant = dominant_bones(body.mesh, [j.name for j in body.skin.joints])
-        rest = root.instance()
+        rest = root.instance(share_clips=True)
         for node in rest.iter_nodes():
             node.morph_weights = {}
         rest_tris = _body_tris(_named(rest, "body"), _named(rest, "body").world_mesh())
@@ -401,7 +401,7 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
         return {}
     clothes = next(n for n in root.children if n.name == "clothes")
 
-    actor = root.instance()                                    # clips key every joint: one actor does
+    actor = root.instance(share_clips=True)                    # clips key every joint: one actor does
     # Frames where nothing the clothes or the body under them hang on moves (a wave: only an arm)
     # drape the same: keyed by those joints' local transforms (and the seat), done once.
     hangs = {j.name for j in clothes.skin.joints} | {j.name for j in _named(root, "body").skin.joints

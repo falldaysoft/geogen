@@ -269,7 +269,7 @@ def clear_arms(root: SceneNode) -> dict:
         return {}
     names = [j.name for j in body.skin.joints]
     mesh = body.mesh
-    actor = root.instance()
+    actor = root.instance(share_clips=True)
     nodes = {n.name: n for n in actor.iter_nodes()}
     if not all(f"{side}{bone}" in nodes for side in SIDES for bone in ("UpperArm", "Shoulder", "Hand")):
         return {}
