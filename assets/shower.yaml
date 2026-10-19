@@ -35,9 +35,9 @@ parts:
     collider: none
   screen:
     primitive: cube
-    size: ["{(width * 0.55) / width}", "{(height - 0.1) / height}", "{0.008 / depth}"]
-    anchor: bottom_center
-    offset: ["{-(width * 0.225) / width}", "{0.045 / height}", "{(depth / 2 - 0.02) / depth}"]
+    size: ["{(width * 0.55 - 0.003) / width}", "{(height - 0.097) / height}", "{0.008 / depth}"]
+    anchor: bottom_center              # 3 mm into the tray and inside the profile (level faces z-fight)
+    offset: ["{(0.0015 - width * 0.225) / width}", "{0.042 / height}", "{(depth / 2 - 0.02) / depth}"]
     bevel: 0.002
     material: glass
     collider: box

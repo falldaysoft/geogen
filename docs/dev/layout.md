@@ -339,6 +339,8 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 - **Checks:** `mesh`, `uvs` (metric), `layout`, `affordances`, `coplanar`, `overlaps`, `traffic`, `extras` (the closed contract) and `state` (state, wiring and quests compile) (`--checks`), one line per finding, with repeats folded.
 - **Options:** `--depth`, `--select GLOB` (adds attachments and surfaces), `--detail`, `--json`.
 
+`coplanar` only sees horizontal faces facing the same way. Transparent materials (`opacity` < 1: glass, car_glass, water, portal_glow) export double-sided, so their back faces are drawn too: a glass box standing on a counter, or a pane whose edge is level with its frame's inner face, z-fights in Godot although the faces point opposite ways. Run transparent parts 3 mm into what holds them (display_case, window, bus_shelter, vending_cabinet, shower, lighthouse, back_bar, portal) rather than leaving a gap (geogen.79; a check for any orientation is geogen.44).
+
 ## Affordance QA
 
 `layout/affordance_qa.py` checks affordances the way the runtime uses them: walk to `approach`, face the anchor, and hold the action's `pose:` at the anchor.

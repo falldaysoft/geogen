@@ -68,7 +68,7 @@ parts:
     axis: z
     size: ["{width - 0.02}", "{height - 0.01}", 0.03]
     anchor: bottom_center
-    offset: [0, "{plinth}", 0]
+    offset: [0, "{plinth - 0.003}", 0]   # 3 mm into the plinth: level with it, the glow z-fights
     material: portal_glow
     collider: none
 

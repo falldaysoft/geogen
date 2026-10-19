@@ -162,11 +162,11 @@ parts:
     offset: [0, 1.655, 0.402]
     material: plastic_black
     collider: none
-  window:
+  window:                        # edges 3 mm into the frame (level with it, glass z-fights)
     primitive: cube
-    size: [0.56, 0.72, 0.008]
+    size: [0.566, 0.726, 0.008]
     anchor: bottom_center
-    offset: [-0.11, 0.9, 0.38]
+    offset: [-0.11, 0.897, 0.38]
     bevel: 0
     material: glass
   column:

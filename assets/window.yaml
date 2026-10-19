@@ -51,11 +51,11 @@ parts:
     offset: [0, 0, "{-recess}"]
     material: trim_white
 
-  glass:
+  glass:                         # edges 3 mm into the frame (level with it, glass z-fights)
     primitive: cube
-    size: ["{(width - 2 * frame) / width}", "{(height - 2 * frame) / height}", 0.01]
+    size: ["{(width - 2 * frame + 0.006) / width}", "{(height - 2 * frame + 0.006) / height}", 0.01]
     anchor: bottom_center
-    offset: [0, "{frame / height}", "{-recess}"]
+    offset: [0, "{(frame - 0.003) / height}", "{-recess}"]
     bevel: 0
     material: glass
 

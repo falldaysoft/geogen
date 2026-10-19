@@ -37,9 +37,9 @@ parts:
     offset: [0, 2.3, 0]
     bevel: 0.01
     material: lamp_iron
-  back_glass:
+  back_glass:                    # ends 3 mm into the posts (an edge level with a post face z-fights)
     primitive: cube
-    size: ["{width - 0.06}", 1.9, 0.02]
+    size: ["{width - 0.054}", 1.9, 0.02]
     anchor: bottom_center
     offset: [0, 0.25, -0.55]
     bevel: 0

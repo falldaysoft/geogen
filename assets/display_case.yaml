@@ -19,11 +19,11 @@ parts:
     anchor: bottom_center
     bevel: 0.01
     material: wood_dark
-  glass:
-    primitive: cube
-    size: ["{width - 0.04}", 0.4, 0.56]
+  glass:                         # sunk 3 mm into the cabinet: glass is double-sided, so a
+    primitive: cube              # bottom face level with the cabinet top z-fights with it
+    size: ["{width - 0.04}", 0.403, 0.56]
     anchor: bottom_center
-    offset: [0, 0.85, 0]
+    offset: [0, 0.847, 0]
     bevel: 0.004
     material: glass
   item_1: &item

@@ -147,15 +147,15 @@ parts:
     material: lamp_iron
     collider: mesh
 
-  lantern:                       # glazing, with a doorway onto the gallery (+Z)
-    primitive: lathe
-    profile: [["{lantern_r - 0.04}", 0], ["{lantern_r}", 0], ["{lantern_r}", 2.3], ["{lantern_r - 0.04}", 2.3],
+  lantern:                       # glazing, with a doorway onto the gallery (+Z); its ends run
+    primitive: lathe             # 3 mm into the deck and sill (double-sided glass level with them z-fights)
+    profile: [["{lantern_r - 0.04}", 0], ["{lantern_r}", 0], ["{lantern_r}", 2.306], ["{lantern_r - 0.04}", 2.306],
               ["{lantern_r - 0.04}", 0]]   # closed: a glass drum wall, not capped
     fit: none
     segments: 16
-    size: ["{2 * lantern_r}", 2.3, "{2 * lantern_r}"]
+    size: ["{2 * lantern_r}", 2.306, "{2 * lantern_r}"]
     anchor: bottom_center
-    offset: [0, "{height}", 0]
+    offset: [0, "{height - 0.003}", 0]
     material: glass
     subtract: [lantern_door]
     collider: mesh

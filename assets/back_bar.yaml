@@ -51,11 +51,11 @@ parts:
     shape: { rect: ["{width - 0.4}", 0.08], radius: 0.035 }
     fit: none
     axis: y
-    size: ["{width - 0.4}", 0.28, 0.08]
+    size: ["{width - 0.4}", 0.283, 0.08]
     anchor: bottom_center
-    offset: [0, 1.43, -0.06]
+    offset: [0, 1.427, -0.06]        # 3 mm into the shelf: level with it, the glass z-fights
     material: car_glass
     collider: none
   bottles_high:
     <<: *bottles
-    offset: [0, 1.83, -0.06]
+    offset: [0, 1.827, -0.06]
