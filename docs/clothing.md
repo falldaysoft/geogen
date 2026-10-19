@@ -35,7 +35,9 @@ Clipping of skirts and dresses, before and after (worst depth in mm, and how man
 Costs: a skirt is about 1,100 triangles (was 670), so a dressed character with one is up to about
 4,650 (the test's limit was 4,200). Building a character takes about 0.6 s in trousers and
 1.4 s in a skirt (2026-10-18, after the fast skeleton maths of geogen.11.5.29; it was 2.2 s and
-3.3 s): the drape is about 0.4 s of that and the arms 0.3 s, or 0.65 s with a skirt to keep out of. Nothing is added at runtime: the arms' swing is
+3.3 s): the drape is about 0.4 s of that and the arms 0.3 s, or 0.65 s with a skirt to keep out of.
+With sculpted hands (2026-10-19) it is 0.93 s in jeans and 1.58 s in a skirt (drape ~0.3 s, the
+arms ~0.75 s: the skirt is a second obstacle every probe tests). Nothing is added at runtime: the arms' swing is
 in the clips' keys.
 
 ## The system
@@ -115,7 +117,10 @@ exactly, so a standing character needs no morph.
 
 `fit` drapes every static pose and sampled frames of every clip (16 of the walk, 8 of idle, 10 of
 the others), maps each displacement back to the rest frame through the vertex's blended skinning
-matrix, and reduces the lot to at most 8 morph targets `drape_0..7`:
+matrix, and reduces the lot to at most 8 morph targets `drape_0..7`. A frame is draped once per
+pose of the joints it depends on (those moving the shell or the pelvis and thighs it reads, and
+their ancestors), so a wave, the work clips' arms and breathing reuse the standing drape: 57
+drapes of 119 frames. Of the body, the drape skins only those triangles and the seat flesh.
 
 - up to three static poses get a target of their own, so they are exact (sit, sit at table and
   the crouch: poses held for minutes);

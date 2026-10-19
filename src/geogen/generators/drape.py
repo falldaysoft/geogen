@@ -43,9 +43,6 @@ CLEARANCE = 0.01          # m the outer wall keeps off the skin (the lining is a
 SEAT_EDGE = 0.02          # m before a seat's front over which the cloth on it eases off
 SEAT_CLOTH = 0.012        # m of cloth between the seat flesh and the seat
 LEGS = ("LeftUpperLeg", "RightUpperLeg")       # what a skirt's rings on the thighs go round, with the seat
-ARM_PARTS = ("Shoulder", "UpperArm", "LowerArm", "Hand", "Thumb", "Index", "Middle", "Ring", "Little")
-ARM_BONES = {f"{side}{part}{k}" for side in ("Left", "Right") for part in ARM_PARTS
-             for k in ("", "Metacarpal", "Proximal", "Intermediate", "Distal")}   # the drape doesn't hang on these
 SHINS = ("LeftLowerLeg", "RightLowerLeg")
 TRUNK_SHARE = 0.5                              # a ring with less of its weight than this on the thighs is on the pelvis
 KNEE = 0.06                                    # m below the knee joints that still counts as knee
@@ -216,7 +213,7 @@ def _smooth_ring(values: np.ndarray, passes: int = 1) -> np.ndarray:
 
 def prepare(grid: ShellGrid, rest_shell: np.ndarray, rest_tris: tuple[np.ndarray, np.ndarray], thigh: np.ndarray) -> None:
     """Record what each ring is like at rest: its looseness round the body, and its length.
-    ``rest_tris``: the body's triangles for thigh rings and for trunk rings (``_body_tris``);
+    ``rest_tris``: the body's triangles for thigh rings and for trunk rings (``_body_faces``);
     ``thigh``: each shell vertex's weight on the thighs."""
     grid.trunk = np.array([thigh[ring].mean() < TRUNK_SHARE for ring in grid.rings])
     grid.rest = _measure(grid, rest_shell, rest_tris)
@@ -229,7 +226,7 @@ def prepare(grid: ShellGrid, rest_shell: np.ndarray, rest_tris: tuple[np.ndarray
 def drape_frame(grid: ShellGrid, shell: np.ndarray, tris: tuple[np.ndarray, np.ndarray], up=(0.0, 1.0, 0.0),
                 seat: tuple[float, float, float] | None = None) -> np.ndarray:
     """The shell (skinned vertex positions ``shell``) draped over the posed body (``tris``: its
-    triangles for thigh rings and for trunk rings, see ``_body_tris``). ``seat``: (height, front z, hip height) of a seat under it: what is
+    triangles for thigh rings and for trunk rings, see ``_body_faces``). ``seat``: (height, front z, hip height) of a seat under it: what is
     below the hips and behind the front edge rests on it. Returns new positions for every vertex."""
     up = np.asarray(up, dtype=np.float64)
     now = _measure(grid, shell, tris, [e["size"] for e in grid.rest])
@@ -293,47 +290,58 @@ def drape_frame(grid: ShellGrid, shell: np.ndarray, tris: tuple[np.ndarray, np.n
     return out
 
 
+def _ancestors(node: SceneNode):
+    while node.parent is not None:
+        node = node.parent
+        yield node
+
+
 def _named(root: SceneNode, name: str) -> SceneNode | None:
     return next((n for n in root.iter_nodes() if n.name == name and n.mesh is not None), None)
 
 
-def _body_tris(body: SceneNode, posed: Mesh) -> tuple[np.ndarray, np.ndarray]:
-    """The posed body's triangles that (a ring on the thighs, a ring on the pelvis) goes round.
-    A thigh ring goes round the thighs and the seat (the back half of the pelvis), not the belly:
-    cloth on a lap passes under a belly that overhangs it."""
-    from .humanoid import dominant_bones
-
-    dominant = dominant_bones(body.mesh, [j.name for j in body.skin.joints])
-    faces = posed.faces
-    legs = np.isin(dominant, LEGS)[faces].all(axis=1)
-    trunk = np.isin(dominant, LEGS + TRUNK)[faces].all(axis=1)
+def _body_faces(body: SceneNode, dominant: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The body's faces that (a ring on the thighs, a ring on the pelvis) goes round. A thigh ring
+    goes round the thighs and the seat (the back half of the pelvis), not the belly: cloth on a
+    lap passes under a belly that overhangs it. The knees count too (a hem at the knee goes over
+    them), not the shins below."""
+    faces = body.mesh.faces
     rest = body.mesh.vertices[faces]
-    behind = rest[:, :, 2].mean(axis=1) < 0
-    hips = np.isin(dominant, LEGS + ("Hips",))[faces].all(axis=1)
-    # The knees too (a hem at the knee goes over them), not the shins below.
+    of = lambda bones: np.isin(dominant, bones)[faces].all(axis=1)
     names = [j.name for j in body.skin.joints]
     knee_y = float(np.linalg.inv(body.skin.inverse_bind[names.index("LeftLowerLeg")])[1, 3])
-    knees = np.isin(dominant, LEGS + SHINS)[faces].all(axis=1) & (rest[:, :, 1].min(axis=1) > knee_y - KNEE)
-    return posed.vertices[faces[legs | knees | (hips & behind)]], posed.vertices[faces[trunk | knees]]
+    knees = of(LEGS + SHINS) & (rest[:, :, 1].min(axis=1) > knee_y - KNEE)
+    behind = rest[:, :, 2].mean(axis=1) < 0
+    return faces[of(LEGS) | knees | (of(LEGS + ("Hips",)) & behind)], faces[of(LEGS + TRUNK) | knees]
 
 
-def seat_under(actor: SceneNode, body_mesh: Mesh, dominant: np.ndarray) -> tuple[float, float, float]:
-    """(height, front z, hip height) of the seat under a seated ``actor``: the seat flesh's
-    underside less the cloth on it, as far forward as the knees. (``humanoid.fit_seats`` puts the
-    seat ``SEAT_SINK`` above that. Seats differ in depth: stopping at the front edge the seat
-    flesh is measured to, ``humanoid.KNEE_OVERHANG``, leaves cloth hanging in deeper ones.)"""
+def seat_under(actor: SceneNode, flesh: np.ndarray) -> tuple[float, float, float]:
+    """(height, front z, hip height) of the seat under a seated ``actor``, from the posed points of
+    its seat flesh (the pelvis and thighs): their underside less the cloth on it, as far forward
+    as the knees. (``humanoid.fit_seats`` puts the seat ``SEAT_SINK`` above that. Seats differ in
+    depth: stopping at the front edge the seat flesh is measured to, ``humanoid.KNEE_OVERHANG``,
+    leaves cloth hanging in deeper ones.)"""
     from .humanoid import KNEE_OVERHANG
 
     hip = actor.find("LeftUpperLeg").world_transform()[:3, 3]
     knee = actor.find("LeftLowerLeg").world_transform()[:3, 3]
     front = knee[2] - KNEE_OVERHANG * np.linalg.norm(knee - hip)
-    flesh = np.isin(dominant, ["Hips", "LeftUpperLeg", "RightUpperLeg"]) & (body_mesh.vertices[:, 2] < front)
-    height = float(body_mesh.vertices[flesh][:, 1].min()) - SEAT_CLOTH
+    height = float(flesh[flesh[:, 2] < front][:, 1].min()) - SEAT_CLOTH
     return height, float(knee[2]), float(hip[1])
 
 
+def _skinned(node: SceneNode, rows: np.ndarray | slice = slice(None)) -> tuple[np.ndarray, np.ndarray]:
+    """World positions of ``rows`` of a skinned node's vertices as posed, and their blended
+    skinning matrices (3x3)."""
+    mesh, world = node.mesh, node.world_transform()
+    blended = np.einsum("vk,vkij->vij", mesh.weights[rows], node.skin.matrices(node)[mesh.joints[rows]])
+    local = np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.vertices[rows]) + blended[:, :3, 3]
+    return local @ world[:3, :3].T + world[:3, 3], blended[:, :3, :3]
+
+
 class Draper:
-    """Drapes the ``clothes`` shells of a built humanoid in any pose of it."""
+    """Drapes the ``clothes`` shells of a built humanoid in any pose of it. Of the body it skins
+    only what the cloth goes round and sits on."""
 
     def __init__(self, root: SceneNode, shells: list[dict]) -> None:
         from .humanoid import dominant_bones
@@ -345,42 +353,33 @@ class Draper:
             return
         self.grids = [g for g in (shell_grid(clothes.mesh, s["vertices"], s["s_range"]) for s in shells)
                       if g is not None]
-        self.dominant = dominant_bones(body.mesh, [j.name for j in body.skin.joints])
+        dominant = dominant_bones(body.mesh, [j.name for j in body.skin.joints])
+        faces = _body_faces(body, dominant)
+        flesh = np.flatnonzero(np.isin(dominant, ["Hips", *LEGS]))
+        self.used = np.union1d(np.concatenate([f.ravel() for f in faces]), flesh)
+        # The joints a drape depends on: what moves the clothes or the body it reads.
+        moving = np.concatenate([clothes.mesh.joints[clothes.mesh.weights > 0], body.mesh.joints[self.used][body.mesh.weights[self.used] > 0]])
+        self.joints = {body.skin.joints[j].name for j in np.unique(moving)}
+        self.faces = [np.searchsorted(self.used, f) for f in faces]
+        self.flesh = np.searchsorted(self.used, flesh)
         rest = root.instance(share_clips=True)
         for node in rest.iter_nodes():
             node.morph_weights = {}
-        rest_tris = _body_tris(_named(rest, "body"), _named(rest, "body").world_mesh())
-        rest_shell = _named(rest, "clothes").world_mesh().vertices
+        body_rest = _skinned(_named(rest, "body"), self.used)[0]
+        rest_shell = _skinned(_named(rest, "clothes"))[0]
         names = [j.name for j in clothes.skin.joints]
         thigh = np.where(np.isin(names, LEGS)[clothes.mesh.joints], clothes.mesh.weights, 0.0).sum(axis=1)
         for grid in self.grids:
-            prepare(grid, rest_shell, rest_tris, thigh)
+            prepare(grid, rest_shell, tuple(body_rest[f] for f in self.faces), thigh)
 
     def positions(self, actor: SceneNode, seat: bool | tuple = False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """(skinned, draped) positions of the clothes vertices of ``actor`` (a posed instance,
         morph weights at 0) and their blended skinning matrices. ``seat``: it sits on a seat
         (True: the one under its seat flesh; or ``seat_under``'s (height, front, hips))."""
-        body_node, shell_node = _named(actor, "body"), _named(actor, "clothes")
-        # Every joint's world matrix in one walk of the tree (both skins share the joints).
-        world: dict[int, np.ndarray] = {}
-        stack = [(actor, actor.parent.world_transform() if actor.parent is not None else np.eye(4))]
-        while stack:
-            node, parent = stack.pop()
-            world[id(node)] = parent @ node.transform.to_matrix()
-            stack += [(child, world[id(node)]) for child in node.children]
-
-        def skinned(node: SceneNode) -> tuple[np.ndarray, np.ndarray]:
-            to_mesh = np.linalg.inv(world[id(node)])
-            mats = np.array([to_mesh @ world[id(j)] @ ibm for j, ibm in zip(node.skin.joints, node.skin.inverse_bind)])
-            blended = np.einsum("vk,vkij->vij", node.mesh.weights, mats[node.mesh.joints])
-            local = np.einsum("vij,vj->vi", blended[:, :3, :3], node.mesh.vertices) + blended[:, :3, 3]
-            return local @ world[id(node)][:3, :3].T + world[id(node)][:3, 3], blended[:, :3, :3]
-
-        body = body_node.mesh.copy()
-        body.vertices = skinned(body_node)[0]
-        tris = _body_tris(body_node, body)
-        shell, blended = skinned(shell_node)
-        under = seat if isinstance(seat, tuple) else seat_under(actor, body, self.dominant) if seat else None
+        body = _skinned(_named(actor, "body"), self.used)[0]
+        tris = tuple(body[f] for f in self.faces)
+        shell, blended = _skinned(_named(actor, "clothes"))
+        under = seat if isinstance(seat, tuple) else seat_under(actor, body[self.flesh]) if seat else None
         out = shell.copy()
         for grid in self.grids:
             mine = grid.follow >= 0
@@ -402,11 +401,10 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
     clothes = next(n for n in root.children if n.name == "clothes")
 
     actor = root.instance(share_clips=True)                    # clips key every joint: one actor does
-    # Frames where nothing the clothes or the body under them hang on moves (a wave: only an arm)
-    # drape the same: keyed by those joints' local transforms (and the seat), done once.
-    hangs = {j.name for j in clothes.skin.joints} | {j.name for j in _named(root, "body").skin.joints
-                                                    if j.name not in ARM_BONES}
-    joints = [n for n in actor.iter_nodes() if n.name in hangs]
+    # Frames where nothing the drape depends on moves (a wave, a work clip: arms and chest) drape
+    # the same: keyed by those joints' and their ancestors' local transforms (and the seat), done once.
+    joints = [n for n in actor.iter_nodes() if n.name in draper.joints]
+    joints += {id(a): a for n in joints for a in _ancestors(n) if a.name not in draper.joints}.values()
     done: dict = {}
 
     def delta_at(clip, t: float, seat: bool) -> np.ndarray:
