@@ -7,6 +7,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [dining_set](#dining_set) | Dining set: table with 4 chairs. | test |
 | [vending_machine](#vending_machine) | A vending machine to play with. |  |
 | [archetype_gallery](#archetype_gallery) | Character archetypes (assets/characters/archetypes/): one row per archetype, eight seeded people each (a path scatter draws a seed per copy). |  |
+| [bedtime](#bedtime) | A hotel guest goes to bed at 23:00 and sleeps there until 07:00. |  |
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
@@ -107,6 +108,20 @@ Character archetypes (assets/characters/archetypes/): one row per archetype,
 eight seeded people each (a path scatter draws a seed per copy). Faces +Z.
 
 **Places**: `young_woman: {archetype: characters/archetypes/young_woman.yaml}`; `young_man: {archetype: characters/archetypes/young_man.yaml}`; `older_woman: {archetype: characters/archetypes/older_woman.yaml}`; `older_man: {archetype: characters/archetypes/older_man.yaml}`; `office_worker: {archetype: characters/archetypes/office_worker.yaml}`; `hotel_staff: {archetype: characters/archetypes/hotel_staff.yaml}`
+
+## bedtime
+
+`scene: scenes/bedtime.yaml` · [source](../../assets/scenes/bedtime.yaml)
+
+A hotel guest goes to bed at 23:00 and sleeps there until 07:00.
+
+The test scene for a routine block that keeps an NPC to its bed and holds it
+there (npcs/hotel_guest.yaml's night block: only: [bed], hold: true). Run it
+from 22:58 with a short day to watch the guest turn in and get up again.
+
+**Places**: `room: {scene: scenes/hotel_room.yaml}`; `guest: {npc: npcs/hotel_guest.yaml}`
+
+**Spawns**: start
 
 ## city
 

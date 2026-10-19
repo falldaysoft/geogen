@@ -198,6 +198,16 @@ def test_routine_blocks_can_keep_an_npc_at_work():
         parse_routine([{"from": "09:00", "to": "17:00", "at": "school"}], {}, "routine")
 
 
+def test_a_night_block_keeps_an_npc_to_its_bed():
+    from geogen.npc import parse_routine
+    (block,) = parse_routine([{"from": "23:00", "to": "07:00", "only": ["bed", "owns"], "hold": True}], {}, "r")
+    assert block["only"] == ["bed", "owns"] and block["hold"] is True
+    (plain,) = parse_routine([{"from": "09:00", "to": "17:00"}], {}, "r")
+    assert "only" not in plain and "hold" not in plain
+    with pytest.raises(ValueError, match="only is a list"):
+        parse_routine([{"from": "23:00", "to": "07:00", "only": "bed"}], {}, "r")
+
+
 def test_ownership_is_exported_as_stable_ids(tmp_path):
     from geogen import refs
     from geogen.export import exported_extras

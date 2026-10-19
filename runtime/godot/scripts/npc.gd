@@ -243,6 +243,11 @@ func _away_block() -> bool:
     return routine_blocks().any(func(b): return b.get("away", false))
 
 
+## An active block that `hold`s: the NPC stays on what it took until the block ends (its bed).
+func _hold_block() -> bool:
+    return routine_blocks().any(func(b): return b.get("hold", false))
+
+
 ## Back from an `away` block: at an entrance if there is one, else somewhere in the NPC's haunts.
 func _reappear() -> void:
     var at = null
@@ -262,11 +267,17 @@ func _reappear() -> void:
     _trace({"event": "return", "pos": _v(global_position)})
 
 
-func options() -> Array[Dictionary]:
+## A routine block's `only` keeps them to affordances with one of its tags (`owns`: the NPC's
+## own things) and none of its activities; with nothing to take, they are as without it.
+func options(restricted := true) -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     var actions: Dictionary = definition.get("actions", {})
     var margin := float(definition.get("home_margin", 1.0))
     var only: Array = definition.get("affordance_tags", [])
+    var block_only := []
+    if restricted:
+        for b in routine_blocks():
+            block_only.append_array(b.get("only", []))
     # A routine block `at: work`: the affordances under the NPC's work, wherever that is.
     var work := str(definition.get("work", ""))
     var at_work := work != "" and routine_blocks().any(func(b): return b.get("at", "") == "work")
@@ -280,6 +291,9 @@ func options() -> Array[Dictionary]:
         var uid := WorldLoader.uid_of(a["node"])
         if _owned_by_another(uid):
             continue    # someone's armchair
+        if not block_only.is_empty() and not block_only.any(func(t): return t in a.get("tags", []) \
+                or (t == "owns" and _under(uid, definition.get("owns", [])))):
+            continue    # not what this time of day is for (the bed at night)
         if at_work:
             if not _under(uid, [work]):
                 continue
@@ -291,7 +305,9 @@ func options() -> Array[Dictionary]:
             continue
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
             "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "at": a["approach"]})
-    var activities: Dictionary = definition.get("activities", {})
+    if not block_only.is_empty() and result.is_empty():
+        return options(false)
+    var activities: Dictionary = definition.get("activities", {}) if block_only.is_empty() else {}
     for n in activities:
         var act: Dictionary = activities[n]
         result.append({"id": "self/%s" % n, "action": act["action"], "activity": act,
@@ -438,7 +454,8 @@ func _decide() -> void:
     var a: Dictionary = _option.get("affordance", {})
     if not a.is_empty():
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
-            "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth")}
+            "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
+            "held": _hold_block()}
     else:
         ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
             "duration": _option["activity"].get("duration")}
@@ -686,9 +703,13 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         return "done" if _timer >= POSE_SECONDS else "running"
     if step.has("wait"):
         _timer -= delta
+        if ctx.get("held", false) and str(step["wait"]) == "duration":
+            return "running" if _hold_block() else "done"     # until the block ends (morning)
         return "done" if _timer <= 0.0 else "running"
     if step.has("play"):
         _timer -= delta
+        if ctx.get("held", false) and str(step.get("loop", "")) == "duration" and _hold_block():
+            return "running"
         if _timer > 0.0:
             return "running"
         _playing = false

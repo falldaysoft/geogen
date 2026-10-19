@@ -26,10 +26,11 @@ Everything is data; the Godot side is a generic interpreter (decision recorded o
 
 The Godot runtime has a world clock (`scripts/clock.gd`, `--time=HH:MM`, `--day-length=S`) that drives the sun, sky, moon and night state.
 - **Lights:** `light: {..., auto: night}` fixtures (the rebuilt 4.5 m `street_lamp.yaml`, with an emissive `lamp_glass` lantern) turn on after dark, and vehicle lamps brighten.
-- **NPC `routine:`:** blocks `{name, from, to, activities, preferences, away}` are parsed by `npc.parse_routine`, with times as "HH:MM".
+- **NPC `routine:`:** blocks `{name, from, to, activities, preferences, away, at, only, hold}` are parsed by `npc.parse_routine`, with times as "HH:MM".
   - The active blocks bias scoring.
   - `away` runs the new `leave` action: `go_to: exit` (building entrance spawns), then `vanish: true` (a new step verb). The NPC reappears when the block ends.
   - `npcs/pedestrian.yaml` goes home 22:30–07:00, sits more at lunch, and strolls more in the evening.
+  - `only: [tags]` (geogen.74.2) keeps a block's options to affordances with one of the tags (`owns`: the NPC's own things), none of its activities; `npc.gd` `options()` falls back to the unrestricted options when none is free. `hold: true` makes the affordance taken last until the block ends (`_hold_block`, ctx `held`: the `duration` wait, or a `play` looping on `duration`). `npcs/hotel_guest.yaml` sleeps 23:00–07:00; test scene `-s bedtime`, `tests/test_npc_runtime.py::test_a_guest_sleeps_the_night_in_bed`.
 - **Traffic `schedule:`:** `[["HH:MM", share], ...]` parks surplus vehicles out of the player's sight. `traffic/town.yaml` drops to 15% at night.
 - Details are in the runtime README's "Time of day" section.
 

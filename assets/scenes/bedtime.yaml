@@ -1,0 +1,23 @@
+# A hotel guest goes to bed at 23:00 and sleeps there until 07:00.
+#
+# The test scene for a routine block that keeps an NPC to its bed and holds it
+# there (npcs/hotel_guest.yaml's night block: only: [bed], hold: true). Run it
+# from 22:58 with a short day to watch the guest turn in and get up again.
+
+name: bedtime
+tags: [test.npc]
+
+spawns:
+  start: { position: [3.0, 0.05, 1.0], facing: west }
+
+place:
+  room:
+    scene: scenes/hotel_room.yaml
+
+  guest:
+    npc: npcs/hotel_guest.yaml
+    on: room/suite.bedroom.floor
+    at: { u: 0.6, v: 0.3 }
+    home: room/suite.bedroom.floor
+    owns: [room/bed]
+    seed: 3

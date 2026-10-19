@@ -1,5 +1,5 @@
-# A hotel guest in their room: sleeps, sits, looks out of the window, wanders
-# the room. The home is the room itself (a tight margin: the neighbours' beds
+# A hotel guest in their room: sleeps the night through in its bed, sits,
+# looks out of the window, wanders the room. The home is the room itself (a tight margin: the neighbours' beds
 # are a party wall away), on the room's storey (home: {rect: [...], y: floor}).
 
 kind: npc
@@ -20,6 +20,10 @@ preferences:
 activities:
   wander: { action: wander, advertises: { curiosity: 0.05 } }
   idle:   { action: idle, advertises: { rest: 0.04 } }
+
+# At night, to bed (a `bed` affordance in the room) and asleep there until morning.
+routine:
+  - { name: night, from: "23:00", to: "07:00", only: [bed], hold: true }
 
 scoring: { distance: 0.02, recency: 0.4, memory: 120, noise: 0.05, retry: 30 }
 home_margin: 0.3

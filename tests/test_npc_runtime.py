@@ -259,6 +259,18 @@ place:
 """
 
 
+def test_a_guest_sleeps_the_night_in_bed(godot_script, scene_export):
+    # The hotel guest's night block (only: [bed], hold: true): from 23:00 it goes to its bed and
+    # lies there past the bed's longest duration (180 s), until 07:00, when it gets up. (A day of
+    # 1440 s: a minute a second.)
+    generated = scene_export("bedtime")
+    night = simulate(godot_script, generated, 300, scene="bedtime", time="23:00", day_length=1440)
+    assert night["pose"] == "lie" and night["doing"].startswith("bed#")
+    assert not any(k.startswith("bed#") for k in night["used"])    # not got up yet, at 04:00
+    morning = simulate(godot_script, generated, 300, scene="bedtime", time="06:57", day_length=1440)
+    assert sum(n for k, n in morning["used"].items() if k.startswith("bed#")) >= 1   # up at 07:00
+
+
 def test_only_its_owner_sits_in_an_owned_armchair(godot_script, tmp_path):
     # A placement's `owns` (references) becomes the NPC's owned stable IDs: the cottage's own
     # resident never takes the guest's armchair, and the guest likes it best.

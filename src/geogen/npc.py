@@ -53,7 +53,8 @@ CHARACTER_KIND = "character"
 CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "quests", "seed")
 CHARACTER_KEYS = {"name", "npc", "body", *CHARACTER_PLACEMENT_KEYS,
                   *(NPC_KEYS - {"kind", "version", "body", "seed"})}
-ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at"}
+ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at", "only", "hold"}
+ROUTINE_OWNS = "owns"               # in a block's `only`: the things the NPC owns, whatever their tags
 ROUTINE_AT = ("home", "work")        # where a block's options are: the home region, or the placement's `work`
 SCORING_DEFAULTS = {"distance": 0.02, "recency": 0.4, "memory": 120.0, "noise": 0.05, "retry": 30.0}
 POSE_KEYS = {"offset", "rotation", "scale"}
@@ -389,11 +390,15 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
         routine:
           - { from: "12:00", to: "14:00", activities: { pause: 2 }, preferences: { seat: 2 } }
           - { from: "22:30", to: "07:00", away: true }    # wraps midnight; off to an entrance
+          - { from: "23:00", to: "07:00", only: [bed], hold: true }   # to bed, and stays there
 
     ``activities`` / ``preferences`` multiply the scores of the NPC's own activities / of
     affordances with those tags; ``away`` sends the NPC off (the ``leave`` action) until the
     block ends; ``at: work`` keeps its options to the affordances inside the placement's
-    ``work`` (a reference), wherever that is from home.
+    ``work`` (a reference), wherever that is from home. ``only`` keeps the options to affordances
+    with one of those tags (``owns``: the things the NPC owns), none of its own activities, and
+    ``hold`` keeps it on the one it takes until the block ends (in its bed all night) instead of
+    the affordance's duration. With nothing in ``only`` to take, it carries on as without them.
     """
     out = []
     for i, block in enumerate(blocks):
@@ -401,6 +406,9 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
             raise ValueError(f"{where}[{i}]: needs from/to (keys {sorted(ROUTINE_KEYS)}), got {block!r}")
         if block.get("at", "home") not in ROUTINE_AT:
             raise ValueError(f"{where}[{i}]: at is one of {', '.join(ROUTINE_AT)}, got {block['at']!r}")
+        only = block.get("only", [])
+        if not isinstance(only, list) or not all(isinstance(t, str) and t for t in only):
+            raise ValueError(f"{where}[{i}]: only is a list of affordance tags (or {ROUTINE_OWNS!r}), got {only!r}")
         acts = {str(k): float(v) for k, v in (block.get("activities") or {}).items()}
         unknown = set(acts) - set(activities)
         if unknown:
@@ -409,7 +417,9 @@ def parse_routine(blocks: list, activities: dict, where: str) -> list[dict[str, 
                     "to": parse_time(block["to"], f"{where}[{i}]"), "away": bool(block.get("away", False)),
                     "activities": acts,
                     "preferences": {str(k): float(v) for k, v in (block.get("preferences") or {}).items()},
-                    **({"at": block["at"]} if block.get("at", "home") != "home" else {})})
+                    **({"at": block["at"]} if block.get("at", "home") != "home" else {}),
+                    **({"only": list(only)} if only else {}),
+                    **({"hold": True} if block.get("hold", False) else {})})
     return out
 
 

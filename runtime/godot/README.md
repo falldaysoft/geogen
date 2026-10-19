@@ -613,11 +613,16 @@ up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the 
 - **Night**: fixtures exported with `light.auto: night` switch on after dark, together with
   their glowing glass. Street lamps are these, and have no shadows since there are many.
   Vehicle head and tail lamps brighten. `WorldLoader.set_night` handles the switch.
-- **NPC routines**: definitions take `routine:` blocks `{from, to, activities, preferences, away}`.
+- **NPC routines**: definitions take `routine:` blocks `{from, to, activities, preferences, away, at, only, hold}`.
   The active blocks multiply activity and tag scores. An `away` block runs the `leave` action:
   `go_to: exit` (the nearest building entrance spawn), then `vanish` (hidden, but not while the
   player is within 12 m). When the block ends the NPC reappears at an entrance or on its wander
   surfaces.
+  A block with `only: [tags]` keeps the options to affordances with one of those tags (`owns`:
+  the NPC's own things) and drops its activities; with none free it decides as without it. With
+  `hold: true` the affordance it takes lasts until the block ends (its `duration` wait, or a
+  looping `play` on `duration`): `npcs/hotel_guest.yaml` goes to bed at 23:00 and gets up at
+  07:00 (`-s bedtime`).
 - **Traffic schedule**: a fleet's `schedule: [["HH:MM", share], ...]` (linear, wrapping) sets how
   much of it is on the road. Surplus vehicles park, and parked ones return, only 45 m or more
   from the player.
