@@ -53,6 +53,7 @@ from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
 from ..core.skin import Clip, Skin, normalize_weights
+from .hair import build_sculpted_hair
 from .head import SHAPE_DEFAULTS, HeadShape, build_head, sdf_normals
 from .ringloft import Chain, Ring, Span, loft_body
 
@@ -841,10 +842,18 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         styles = spec.get("hair_styles") or {}
         if hair_style not in styles:
             raise ValueError(f"'{name}': unknown hair style '{hair_style}'. Styles: {sorted(styles)}")
-        hair_mesh = build_hair(styles[hair_style], skeleton, material_loader, crease)
+        color = _color(spec.get("hair_color", "brown"), HAIR_COLORS, "hair colour")
+        style = styles[hair_style]
+        if style.get("sculpt") is not None:
+            if head is None:
+                raise ValueError(f"'{name}': hair style '{hair_style}' is sculpted, which needs a body.head")
+            hair_mesh = build_sculpted_hair(head, head_origin, style["sculpt"], skeleton, color)
+            hair_mesh.material = material_loader.load(style.get("material", "hair"))
+        else:
+            hair_mesh = build_hair(style, skeleton, material_loader, crease)
+            if hair_mesh is not None:
+                hair_mesh.colors = np.tile([*color, 1.0], (len(hair_mesh.vertices), 1))
         if hair_mesh is not None:
-            color = _color(spec.get("hair_color", "brown"), HAIR_COLORS, "hair colour")
-            hair_mesh.colors = np.tile([*color, 1.0], (len(hair_mesh.vertices), 1))
             hair = root.add_child(SceneNode("hair", mesh=hair_mesh))
             hair.meta["collider"] = "none"
             hair.skin = Skin.bind(hair, [nodes[n] for n in skeleton.names], name=f"{name}_hair_skin")

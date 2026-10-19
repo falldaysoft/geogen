@@ -253,8 +253,8 @@ Tracked as geogen.11.5.25 (hidden faces: geogen.11.5.24; build time: geogen.11.5
   speed. Weights blend linearly, which is right for morphs, but only sampled frames are checked.
 - **The moment of sitting down.** For about a tenth of the clip before the character lands, the
   back of the skirt can be in the seat (see the seat entries under "What was tried").
-- **Hair** has no pose correctives: long hair lies 3 mm in the dining chair's top rail, which is
-  the one remaining failure of `test_no_clipping_beyond_tolerance`.
+- **Hair** has no pose correctives. Sculpted hair (geogen.11.5.32) no longer lies in the dining
+  chair's top rail, but a fall of long hair can still meet a high chair back.
 - **The bare crotch, seated** (`outfit: none` only, every garment hides it). The bottom of the
   pelvis tube stays with the Hips while the thighs swing up, so a seated body without clothes
   shows a small faceted lump between the thighs (largest on `hourglass`, the `nude` of

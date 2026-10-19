@@ -85,7 +85,7 @@ class HeadShape:
             d[near] = _smax(d[near], -other, k) if cut else _smin(d[near], other, k)
 
         # Cranium and the face's lower mass: the jaw narrows to the chin and tucks in behind.
-        d = _ellipsoid(p, [0, 0.026, -0.006], [0.084, 0.103, 0.101])
+        d = _ellipsoid(p, [0, 0.028, -0.006], [0.084, 0.107, 0.101])      # the crown at the skeleton's head top
         add([0, my + 0.008, 0.012], [0.07 * jaw, 0.064, 0.082], 0.045)
         add([0, my - 0.032, 0.05 + 0.006 * f["chin"]], [0.026 * (0.8 + 0.2 * jaw), 0.022, 0.03 + 0.006 * f["chin"]],
             0.025)
@@ -211,17 +211,21 @@ def surface_nets(sdf, lo, hi, step: float) -> Mesh:
     return Mesh(vertices, faces)
 
 
-def build_head(shape: HeadShape, origin, step: float = 0.004, tolerance: float = 0.002) -> Mesh:
-    """A closed head mesh from ``shape``, its head frame at ``origin`` (body frame, rest pose),
-    simplified to within ``tolerance`` metres of the sculpt (both scaled by the head size).
+def build_head(shape, origin, step: float = 0.004, tolerance: float = 0.002, bounds=None) -> Mesh:
+    """A closed mesh of ``shape`` (a ``HeadShape``, or any sdf with a head size ``s``, given
+    ``bounds``), its head frame at ``origin`` (body frame, rest pose), simplified to within
+    ``tolerance`` metres of the sculpt (both scaled by the head size).
 
     manifold3d's import merges the odd pinched vertex surface nets leave, so the result is
     always a closed manifold."""
     from ..core import csg
 
     s = shape.s
-    lo = np.array([-0.115, -shape.neck_drop - 0.01, -0.13]) * s
-    hi = np.array([0.115, 0.145, 0.15]) * s
+    if bounds is None:
+        lo = np.array([-0.115, -shape.neck_drop - 0.01, -0.13]) * s
+        hi = np.array([0.115, 0.145, 0.15]) * s
+    else:
+        lo, hi = bounds
     net = surface_nets(shape, lo, hi, step * s)
     simple = csg._to_manifold(net).simplify(tolerance * s).to_mesh()
     # Weld: manifold keeps a vertex split where its properties differ, which relax would tear.
@@ -230,8 +234,27 @@ def build_head(shape: HeadShape, origin, step: float = 0.004, tolerance: float =
     index[np.asarray(simple.merge_from_vert, dtype=np.int64)] = np.asarray(simple.merge_to_vert, dtype=np.int64)
     used, faces = np.unique(index[np.asarray(simple.tri_verts).astype(np.int64)], return_inverse=True)
     faces = faces.reshape(-1, 3)
-    vertices = relax(shape, vertices[used], faces)
+    vertices = _unflatten(relax(shape, vertices[used], faces), faces)
     return Mesh(vertices + np.asarray(origin, dtype=np.float64), faces)
+
+
+def _unflatten(vertices: NDArray, faces: NDArray, nudge: float = 1e-4) -> NDArray:
+    """Move the middle vertex of any triangle squashed onto a line (where the clip box's planes
+    meet, inside the head) a hair off it, so every face has an area."""
+    v = vertices.copy()
+    for _ in range(3):
+        e1, e2 = v[faces[:, 1]] - v[faces[:, 0]], v[faces[:, 2]] - v[faces[:, 0]]
+        flat = np.flatnonzero(0.5 * np.linalg.norm(np.cross(e1, e2), axis=1) < 1e-10)
+        if not len(flat):
+            break
+        for f in faces[flat]:
+            tri = v[f]
+            lengths = [np.linalg.norm(tri[(k + 1) % 3] - tri[(k + 2) % 3]) for k in range(3)]
+            mid = int(np.argmax(lengths))                       # opposite the longest edge
+            line = tri[(mid + 1) % 3] - tri[(mid + 2) % 3]
+            off = np.cross(line, [0.0, 0.0, 1.0] if abs(line[2]) < 0.9 * np.linalg.norm(line) else [1.0, 0.0, 0.0])
+            v[f[mid]] += nudge * off / max(np.linalg.norm(off), 1e-12)
+    return v
 
 
 def _face_normals(v: NDArray, faces: NDArray) -> NDArray:
@@ -239,7 +262,8 @@ def _face_normals(v: NDArray, faces: NDArray) -> NDArray:
     return n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-15)
 
 
-def relax(sdf, vertices: NDArray, faces: NDArray, iterations: int = 8, rate: float = 0.3) -> NDArray:
+def relax(sdf, vertices: NDArray, faces: NDArray, iterations: int = 8, rate: float = 0.3,
+          limit: float = 0.002) -> NDArray:
     """Even out a simplified mesh's slivers: move each vertex toward its neighbours' mean in
     its tangent plane, then back onto the surface. Topology (and so where the simplifier spent
     its triangles) is kept; the triangles get rounder, which is what smooth shading needs. A
@@ -259,17 +283,26 @@ def relax(sdf, vertices: NDArray, faces: NDArray, iterations: int = 8, rate: flo
         move = mean - v
         move -= (move * normal).sum(axis=1, keepdims=True) * normal
         moved = v + rate * move
-        moved -= sdf(moved)[:, None] * normal                 # back onto the surface
-        for _ in range(4):
-            bad = (_face_normals(moved, faces) * _face_normals(v, faces)).sum(axis=1) < 0.5
-            if not bad.any():
-                break
-            stuck = np.unique(faces[bad])
-            moved[stuck] = v[stuck]
-        v = moved
-    for _ in range(2):                                     # exactly onto the surface
-        v = v - sdf(v)[:, None] * sdf_normals(sdf, v)
+        moved -= np.clip(sdf(moved), -limit, limit)[:, None] * normal          # back onto the surface
+        v = _keep_sound(v, moved, faces)
+    for _ in range(2):                                     # onto the surface (a step at most: creases)
+        v = _keep_sound(v, v - np.clip(sdf(v), -limit, limit)[:, None] * sdf_normals(sdf, v), faces)
     return v
+
+
+def _keep_sound(before: NDArray, after: NDArray, faces: NDArray, min_area: float = 1e-9) -> NDArray:
+    """``after``, except the vertices of faces it would turn over (or nearly) or squash flat,
+    which stay as ``before`` had them."""
+    after = after.copy()
+    for _ in range(4):
+        e1, e2 = after[faces[:, 1]] - after[faces[:, 0]], after[faces[:, 2]] - after[faces[:, 0]]
+        area = 0.5 * np.linalg.norm(np.cross(e1, e2), axis=1)
+        bad = ((_face_normals(after, faces) * _face_normals(before, faces)).sum(axis=1) < 0.5) | (area < min_area)
+        if not bad.any():
+            break
+        stuck = np.unique(faces[bad])
+        after[stuck] = before[stuck]
+    return after
 
 
 def sdf_normals(sdf, points: NDArray, eps: float = 0.0008) -> NDArray:

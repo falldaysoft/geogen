@@ -374,195 +374,67 @@ body:
         - [LeftToes, 0.0, "{0.044 * k}", "{0.026 * k}", { offset: [0.004, "{-0.050 * k}"], power: 2.8 }]
         - [LeftToes, 0.6, "{0.039 * k}", "{0.019 * k}", { offset: [0.002, "{-0.056 * k}"], power: 2.6 }]
 
-  # Hair shells: ring-lofted chains on the head/neck/back bones minus `cut` boxes
-  # ([x0, y0, z0, x1, y1, z1], rest pose), skinned like the body.
+  # Hair styles, sculpted round the head (generators/hair.py): head frame, metres at head size 1
+  # (x across, y up from the eye line, z forward; the crown is ~0.13 up, the nape ~-0.08).
+  # cover: the hairline's height at the front, temple, above the ear and the nape, and the
+  # thickness [crown, sides, back]; shapes are smooth-unioned on, cuts carved out.
   hair_styles:
     buzz:
-      chains:
-        cap:
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, 0.008, 0] }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.5, "{0.058 * hs + 0.004}", "{0.062 * hs + 0.004}", { offset: [0, "{-0.016 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.006}", "{0.1 * hs + 0.006}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.006}", "{0.105 * hs + 0.006}", { offset: [0, "{-0.001 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + (0.006 + 0.008) / 2}", "{0.107 * hs + (0.006 + 0.008) / 2}", { offset: [0, -0.003] }]
-            - [Head, 0.6, "{0.086 * hs + 0.008}", "{0.103 * hs + 0.008}", { offset: [0, "{-0.006 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
-        - { center: [0, "{eyes_y - 0.13 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }                  # sides, rounded above the ears
-        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.1 * hs}", 0.05]                                                                  # the nape, short
+      sculpt:
+        cover: { front: 0.082, temple: 0.06, ear: 0.03, back: -0.06, thickness: [0.004, 0.003, 0.003], taper: 0.012 }
     crop:
-      chains:
-        cap:
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, 0.018, 0] }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.008}", "{0.1 * hs + 0.008}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.008}", "{0.105 * hs + 0.008}", { offset: [0, "{-0.001 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + (0.008 + 0.018) / 2}", "{0.107 * hs + (0.008 + 0.018) / 2}", { offset: [0, -0.003] }]
-            - [Head, 0.6, "{0.086 * hs + 0.018}", "{0.103 * hs + 0.022}", { offset: [0, "{0.004 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
-        - { center: [0, "{eyes_y - 0.1 * hs}", 0.0], radii: [0.2, "{0.092 * hs}", "{0.094 * hs}"] }                        # sides, rounded above the ears
-        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.085 * hs}", 0.05]                                                                  # the nape, short
+      sculpt:
+        cover: { front: 0.085, temple: 0.064, ear: 0.026, back: -0.065, thickness: [0.022, 0.009, 0.012] }
+        shapes:
+          - { ellipsoid: [0.012, 0.106, 0.06, 0.062, 0.026, 0.042] }       # a little lift at the front
+        blend: 0.03
+        ridges: [34, 0.0015]
+    pixie:                                  # short, full on top, a fringe swept across the brow
+      sculpt:
+        cover: { front: 0.07, temple: 0.045, ear: 0.016, back: -0.075, thickness: [0.026, 0.012, 0.016] }
+        shapes:
+          - { ellipsoid: [-0.018, 0.068, 0.088, 0.07, 0.024, 0.022] }
+        blend: 0.025
+        ridges: [30, 0.0018]
     bob:
-      chains:
-        cap: &bob_cap
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, 0.024, 0] }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.15, "{0.088 * hs}", "{0.096 * hs}", { offset: [0, "{-0.022 * hs}"], power: 2.2 }]
-            - [Neck, 0.55, "{0.086 * hs}", "{0.1 * hs}", { offset: [0, "{-0.014 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.02}", "{0.1 * hs + 0.02}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.02}", "{0.105 * hs + 0.02}", { offset: [0, "{-0.001 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + (0.02 + 0.024) / 2}", "{0.107 * hs + (0.02 + 0.024) / 2}", { offset: [0, -0.003] }]
-            - [Head, 0.6, "{0.086 * hs + 0.024}", "{0.103 * hs + 0.024}", { offset: [0, "{-0.006 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+      sculpt: &bob
+        cover: { front: 0.07, temple: 0.035, ear: -0.12, back: -0.13, thickness: [0.026, 0.02, 0.022] }
+        shapes:
+          - { ellipsoid: [0.0, -0.035, -0.012, 0.112, 0.102, 0.12] }      # the volume falling to the jaw
+          - { ellipsoid: [0.0, 0.07, 0.088, 0.074, 0.022, 0.024] }        # the fringe
+        blend: 0.03
+        cuts:
+          - { ellipsoid: [0.0, -0.04, 0.125, 0.075, 0.115, 0.085] }       # the face
+          - { ellipsoid: [0.0, -0.33, 0.0, 0.3, 0.19, 0.3] }              # the hem, level with the jaw
+        ridges: [22, 0.0014]
     long:
-      chains:
-        cap: *bob_cap
-        back:
-          bones: [Head, Neck, UpperChest]
-          end: { bone: UpperChest, along: "{-0.13 * k}" }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          blend: 0.06
-          rings:
-            - [Head, -0.6, "{0.08 * hs}", "{0.05 * hs}", { offset: [0, "{-0.064 * hs}"] }]
-            - [Neck, 0.2, "{0.094 * hs}", "{0.036 * hs}", { offset: [0, "{-0.084 * hs}"] }]
-            - [UpperChest, 0.6, "{0.1 * hs}", "{0.026 * hs}", { offset: [0, "{-0.104 * tf}"], power: 2.4 }]
-            - [UpperChest, 1.2, "{0.07 * hs}", "{0.018 * hs}", { offset: [0, "{-0.1 * tf}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
+      sculpt:
+        <<: *bob
+        shapes:
+          - { ellipsoid: [0.0, -0.035, -0.012, 0.112, 0.102, 0.12] }
+          - { ellipsoid: [0.0, 0.07, 0.088, 0.074, 0.022, 0.024] }
+          - { ellipsoid: [0.0, -0.2, -0.1, 0.1, 0.21, 0.035] }            # the fall down the back
+        cuts:
+          - { ellipsoid: [0.0, -0.04, 0.125, 0.075, 0.115, 0.085] }
+        weights: back                       # what falls below the neck goes with the back
     ponytail:
-      chains:
-        cap:
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, 0.014, 0] }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.01}", "{0.1 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.01}", "{0.105 * hs + 0.01}", { offset: [0, "{-0.001 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + (0.01 + 0.014) / 2}", "{0.107 * hs + (0.01 + 0.014) / 2}", { offset: [0, -0.003] }]
-            - [Head, 0.6, "{0.086 * hs + 0.014}", "{0.103 * hs + 0.014}", { offset: [0, "{-0.006 * hs}"] }]
-        tail:
-          bones: [Head, Neck]
-          end: { bone: Neck, along: "{-0.2 * k}" }
-          bind: { Neck: [Head] }                 # the tail swings with the head
-          sides: 10
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          rings:
-            - [Head, -0.5, "{0.022 * hs}", "{0.022 * hs}", { offset: [0, "{-0.115 * hs}"] }]
-            - [Head, 0.0, "{0.036 * hs}", "{0.032 * hs}", { offset: [0, "{-0.128 * hs}"] }]
-            - [Neck, 0.6, "{0.03 * hs}", "{0.026 * hs}", { offset: [0, "{-0.112 * hs}"] }]
-            - [Neck, 1.5, "{0.014 * hs}", "{0.012 * hs}", { offset: [0, "{-0.1 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
-        - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }
-    afro:                                   # a rounded halo of volume
-      chains:
-        cap:
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, "{0.07 * hs}", 0] }
-          sides: 16
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 4
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.5, "{0.058 * hs + 0.012}", "{0.062 * hs + 0.012}", { offset: [0, "{-0.02 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.04}", "{0.1 * hs + 0.035}", { offset: [0, "{-0.006 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.06}", "{0.105 * hs + 0.05}", { offset: [0, "{-0.01 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + 0.07}", "{0.107 * hs + 0.058}", { offset: [0, "{-0.012 * hs}"] }]
-            - [Head, 0.6, "{0.086 * hs + 0.068}", "{0.103 * hs + 0.058}", { offset: [0, "{-0.012 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.03 * hs}", "{0.13 * hs}"], radii: ["{0.078 * hs}", "{0.116 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
-        - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.3, "{0.07 * hs}", "{0.1 * hs}"] }                 # clear of the ears and jaw
-        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.1 * hs}", 0.05]                                                                  # the nape
-    pixie:                                  # short, full on top, with a low fringe
-      chains:
-        cap:
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, 0.026, 0] }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.01}", "{0.1 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.012}", "{0.105 * hs + 0.014}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + 0.02}", "{0.107 * hs + 0.024}", { offset: [0, "{0.004 * hs}"] }]
-            - [Head, 0.6, "{0.086 * hs + 0.026}", "{0.103 * hs + 0.028}", { offset: [0, "{0.006 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.05 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.108 * hs}", "{0.13 * hs}"] }   # the face, the fringe low on the brow
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
-        - { center: [0, "{eyes_y - 0.11 * hs}", 0.0], radii: [0.2, "{0.092 * hs}", "{0.094 * hs}"] }                        # sides, above the ears
-        - [-0.3, 1.0, -0.3, 0.3, "{eyes_y - 0.09 * hs}", 0.05]                                                                  # the nape, short
+      sculpt:
+        cover: { front: 0.075, temple: 0.045, ear: 0.016, back: -0.075, thickness: [0.012, 0.007, 0.01] }
+        shapes:
+          - { ellipsoid: [0.0, 0.03, -0.112, 0.024, 0.024, 0.022] }       # gathered at the back
+          - { capsule: [0.0, 0.025, -0.13, 0.0, -0.16, -0.122, 0.024, 0.01] }   # the tail (swings with the head)
+        blend: 0.015
+        ridges: [34, 0.0012]
     bun:
-      chains:
-        cap:
-          bones: [Neck, Head]
-          end: { landmark: head_top, offset: [0, 0.014, 0] }
-          sides: 14
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          weight_shift: { Head: -0.06 }
-          rings:
-            - [Neck, 0.5, "{0.058 * hs + 0.006}", "{0.062 * hs + 0.006}", { offset: [0, "{-0.016 * hs}"] }]
-            - [Head, 0.07, "{0.077 * hs + 0.01}", "{0.1 * hs + 0.01}", { offset: [0, "{0.002 * hs}"] }]
-            - [Head, 0.26, "{0.085 * hs + 0.01}", "{0.105 * hs + 0.01}", { offset: [0, "{-0.001 * hs}"] }]
-            - [Head, 0.44, "{0.089 * hs + (0.01 + 0.014) / 2}", "{0.107 * hs + (0.01 + 0.014) / 2}", { offset: [0, -0.003] }]
-            - [Head, 0.6, "{0.086 * hs + 0.014}", "{0.103 * hs + 0.014}", { offset: [0, "{-0.006 * hs}"] }]
-        knot:
-          bones: [Head]
-          end: head_top
-          sides: 12
-          spacing: 0.2
-          joint_rings: false
-          cap_rings: 3
-          rings:
-            - [Head, 0.4, "{0.04 * hs}", "{0.038 * hs}", { offset: [0, "{-0.116 * hs}"] }]
-            - [Head, 0.58, "{0.042 * hs}", "{0.04 * hs}", { offset: [0, "{-0.106 * hs}"] }]
-      cut:
-        - { center: [0, "{eyes_y - 0.02 * hs}", "{0.12 * hs}"], radii: ["{0.074 * hs}", "{0.112 * hs}", "{0.13 * hs}"] }   # the face, an oval hairline
-        - { center: [0, "{eyes_y - 0.2 * hs}", "{0.09 * hs}"], radii: [0.3, "{0.1 * hs}", "{0.1 * hs}"] }                   # nothing in front of the jaw
-        - { center: [0, "{eyes_y - 0.14 * hs}", "{0.035 * hs}"], radii: [0.2, "{0.1 * hs}", "{0.1 * hs}"] }
+      sculpt:
+        cover: { front: 0.075, temple: 0.045, ear: 0.016, back: -0.075, thickness: [0.012, 0.007, 0.01] }
+        shapes:
+          - { ellipsoid: [0.0, 0.088, -0.098, 0.042, 0.036, 0.036] }
+        blend: 0.015
+        ridges: [34, 0.0012]
+    afro:                                   # a rounded halo of volume
+      sculpt:
+        cover: { front: 0.072, temple: 0.042, ear: 0.0, back: -0.08, thickness: [0.062, 0.05, 0.058], taper: 0.03 }
 
   # Skeletal poses (body-frame degrees, see core.skeleton.Pose); each is also a `pose_<name>` clip.
   poses:

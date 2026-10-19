@@ -56,10 +56,8 @@ def test_clipping_no_worse_than_baseline(preset, outfit):
     assert _worse(_report(preset, outfit), baseline, key) == []
 
 
-@pytest.mark.parametrize("preset,outfit", [
-    pytest.param(["feminine"], "casual_f", marks=pytest.mark.xfail(
-        reason="long hair lies 3 mm in the dining chair's top rail (hair has no pose correctives)", strict=False)),
-    (["masculine"], "jeans_tee")], ids=["feminine_casual_f", "masculine_jeans_tee"])
+@pytest.mark.parametrize("preset,outfit", [(["feminine"], "casual_f"), (["masculine"], "jeans_tee")],
+                         ids=["feminine_casual_f", "masculine_jeans_tee"])
 def test_no_clipping_beyond_tolerance(preset, outfit):
     def bad(d):
         return [k for k, v in d.items() if isinstance(v, dict) and (v.get("count", 0) > 0 if "count" in v else bad(v))]

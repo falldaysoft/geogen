@@ -167,11 +167,13 @@ def test_hair_styles_build_closed_skinned_shells(style):
     np.testing.assert_allclose(hair.mesh.weights.sum(axis=1), 1.0)
     names = [j.name for j in hair.skin.joints]
     assert "Head" in {names[j] for j in np.unique(hair.mesh.joints[hair.mesh.weights > 0.5])}
-    np.testing.assert_allclose(hair.mesh.colors[0, :3], (0.55, 0.26, 0.14))
+    # Auburn at the surface, darker toward the scalp.
+    np.testing.assert_allclose(hair.mesh.colors[:, :3].max(axis=0), (0.55, 0.26, 0.14), atol=0.01)
+    assert hair.mesh.colors[:, 0].min() < 0.55 * 0.8
     # Hair sits on the head: above the chin, over the crown, clear of the face in front.
     top = body.meta["humanoid"]["height"]
     assert hair.world_mesh().vertices[:, 1].max() > top
-    assert body.meta["humanoid"]["triangles"] <= 5000
+    assert body.meta["humanoid"]["triangles"] <= 5200          # long hair ~1.3k
 
 
 def test_no_hair_style_means_no_hair_node():
