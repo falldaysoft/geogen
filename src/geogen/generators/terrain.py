@@ -136,12 +136,37 @@ class TerrainGenerator(MeshGenerator):
         dz = (self.height_at(x, z + eps) - self.height_at(x, z - eps)) / (2 * eps)
         return np.degrees(np.arctan(np.hypot(dx, dz)))
 
-    def path_mesh(self, lift: float = 0.04, thickness: float = 0.065, step: float = 0.5) -> Mesh | None:
-        """Smooth-edged ribbons along ``paths``, draped ``lift`` above the ground (each path a
-        centimetre higher than the last, so they don't z-fight where they meet). A closed
-        slab per path; the terrain's own path faces sit hidden underneath. The thickness
-        isn't a whole number of centimetres, so no underside lands on the ground level (a
-        pad's floor or a foundation's underside would z-fight with it)."""
+    def surface_at(self, x, z) -> np.ndarray:
+        """The height of the generated mesh at (x, z): ``height_at`` sampled on the grid and
+        interpolated over its triangles (in hollows it sits a few centimetres above
+        ``height_at``; ``_cut`` only splits faces, so the surface is unchanged)."""
+        x = np.atleast_1d(np.asarray(x, dtype=np.float64))
+        z = np.atleast_1d(np.asarray(z, dtype=np.float64))
+        sx, sz = (float(v) for v in self.size)
+        nx = max(2, int(round(sx / self.resolution)))
+        nz = max(2, int(round(sz / self.resolution)))
+        rx, rz = sx / nx, sz / nz
+        fx = np.clip((x + sx / 2) / rx, 0.0, nx - 1e-9)
+        fz = np.clip((z + sz / 2) / rz, 0.0, nz - 1e-9)
+        i, j = np.floor(fx), np.floor(fz)
+        u, v = fx - i, fz - j
+        x0, z0 = i * rx - sx / 2, j * rz - sz / 2
+        ha = self.height_at(x0, z0)
+        hb = self.height_at(x0 + rx, z0)
+        hc = self.height_at(x0 + rx, z0 + rz)
+        hd = self.height_at(x0, z0 + rz)
+        # The cell's two faces, as generate() splits it: a-d-c (v > u) and a-c-b.
+        return np.where(v > u, ha + v * (hd - ha) + u * (hc - hd), ha + u * (hb - ha) + v * (hc - hb))
+
+    def path_mesh(self, lift: float = 0.05, thickness: float = 0.065, step: float = 1 / 3) -> Mesh | None:
+        """Smooth-edged ribbons along ``paths``, draped ``lift`` above the terrain's mesh (each
+        path a centimetre higher than the last, so they don't z-fight where they meet). A
+        closed slab per path, a grid of vertices ``step`` apart along and across it: a third
+        of the terrain's grid, so the ground's creases bulge at most a couple of centimetres
+        up between them (straight across a 2 m path they came through it). The terrain's own
+        path faces sit hidden underneath. The thickness isn't a whole number of centimetres,
+        so no underside lands on the ground level (a pad's floor or a foundation's underside
+        would z-fight with it)."""
         from shapely.geometry import LineString
 
         from .paths import path_points
@@ -149,30 +174,34 @@ class TerrainGenerator(MeshGenerator):
         slabs = []
         for k, spec in enumerate(self.paths):
             line = LineString(path_points(spec["points"]))
+            width = float(spec.get("width", 2.0))
             s = np.linspace(0.0, line.length, max(2, int(np.ceil(line.length / step)) + 1))
             c = np.array([line.interpolate(v).coords[0] for v in s])
             t = np.gradient(c, axis=0)
             t /= np.maximum(np.linalg.norm(t, axis=1, keepdims=True), 1e-9)
-            side = np.column_stack([t[:, 1], -t[:, 0]]) * float(spec.get("width", 2.0)) / 2
-            left, right = c + side, c - side
-            up = lift + 0.01 * k
-            yl = self.height_at(left[:, 0], left[:, 1]) + up
-            yr = self.height_at(right[:, 0], right[:, 1]) + up
-            ring = np.stack([np.column_stack([left[:, 0], yl, left[:, 1]]),
-                             np.column_stack([right[:, 0], yr, right[:, 1]]),
-                             np.column_stack([right[:, 0], yr - thickness, right[:, 1]]),
-                             np.column_stack([left[:, 0], yl - thickness, left[:, 1]])], axis=1)
-            verts = ring.reshape(-1, 3)
-            faces = []
-            for i in range(len(c) - 1):
-                for j in range(4):
-                    a, b = i * 4 + j, i * 4 + (j + 1) % 4
-                    faces += [[a, b, b + 4], [a, b + 4, a + 4]]
-            last = (len(c) - 1) * 4
-            faces += [[0, 2, 1], [0, 3, 2], [last, last + 1, last + 2], [last, last + 2, last + 3]]
-            slab = Mesh(verts, np.array(faces, dtype=np.int64))
+            normal = np.column_stack([t[:, 1], -t[:, 0]])
+            across = np.linspace(0.5, -0.5, max(2, int(np.ceil(width / step)) + 1)) * width   # left to right
+            xz = c[:, None, :] + normal[:, None, :] * across[None, :, None]                    # (rows, cols, 2)
+            flat = xz.reshape(-1, 2)
+            top_y = self.surface_at(flat[:, 0], flat[:, 1]) + lift + 0.01 * k
+            rows, cols = xz.shape[:2]
+            top = np.column_stack([flat[:, 0], top_y, flat[:, 1]])
+            bottom = top - [0.0, thickness, 0.0]
+            verts = np.vstack([top, bottom])
+            n = rows * cols
+            idx = np.arange(n).reshape(rows, cols)
+            a, b, cc, d = idx[:-1, :-1], idx[:-1, 1:], idx[1:, 1:], idx[1:, :-1]
+            quads = [np.column_stack([a.ravel(), b.ravel(), cc.ravel(), d.ravel()])]            # top
+            quads.append(quads[0][:, ::-1] + n)                                                  # bottom
+            # The rim: left and right sides, then the two ends.
+            for edge in (idx[:, 0], idx[::-1, -1], idx[0, ::-1], idx[-1, :]):
+                e0, e1 = edge[:-1], edge[1:]
+                quads.append(np.column_stack([e0, e1, e1 + n, e0 + n]))
+            q = np.vstack(quads)
+            faces = np.vstack([q[:, [0, 1, 2]], q[:, [0, 2, 3]]]).astype(np.int64)
+            slab = Mesh(verts, faces)
             if slab.to_trimesh().volume < 0:
-                slab = Mesh(verts, slab.faces[:, [0, 2, 1]])
+                slab = Mesh(verts, faces[:, [0, 2, 1]])
             slabs.append(slab)
         if not slabs:
             return None

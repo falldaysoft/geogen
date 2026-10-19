@@ -24,7 +24,7 @@ place:
 
 ## Size
 
-420 x 18.436 x 420 m (x, y, z); geometry (-210, -0.9, -210) to (210, 17.536, 210) from the origin; 63136 triangles
+420 x 18.436 x 420 m (x, y, z); geometry (-210, -0.9, -210) to (210, 17.536, 210) from the origin; 70780 triangles
 
 ## Parts
 
