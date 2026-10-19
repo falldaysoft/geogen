@@ -24,6 +24,7 @@ slots:
   bench_3: { position: [7.86, 0.05, -6.76], facing: center }
   bench_x0: { position: [-4.10, 0.05, 25.50], facing: west }
   bench_x1: { position: [-0.40, 0.05, -12.00], facing: east }
+  rosa: { position: [1.20, 0.05, -12.00], facing: west }
   picnic_0: { position: [-19.00, 0.05, -13.50], facing: north }
   picnic_1: { position: [-23.50, 0.05, -17.50], facing: north }
   picnic_2: { position: [-18.50, 0.05, -20.50], facing: north }
@@ -110,3 +111,11 @@ place:
     npc: npcs/park_visitor.yaml
     home: { rect: [-35.0, -28.0, 35.0, 28.0] }
     scatter: { on_tag: park.path, count: 8, spacing: 6, seed: 31, radius: 0.5 }
+
+  # Rosa Lind (people/rosa.yaml): round the pond in the day, but at lunch she is
+  # at the Corner Bistro (scenes/restaurant.yaml), and in the evening at home.
+  rosa:
+    character: people/rosa.yaml
+    slot: rosa
+    home: { rect: [-10.0, -14.0, 10.0, 12.0] }
+    present: 'clock.time >= "09:00" and clock.time < "20:00" and (clock.time < "12:00" or clock.time >= "14:00")'

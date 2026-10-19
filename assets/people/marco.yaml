@@ -1,22 +1,21 @@
 # Marco Bellini, the chef at the Corner Bistro: a named person on top of the
-# hotel staff role. The params fix his look whatever scene places him (the
-# seed draws the rest); the placement puts him in the kitchen:
-#   chef: { character: people/marco.yaml, slot: chef, home: { rect: [...] } }
+# chef role (npcs/chef.yaml: the range, the prep counter, a look into the dining
+# room now and then, home at night). The params fix his look whatever scene
+# places him (the seed draws the rest); the placement puts him in the kitchen:
+#   chef: { character: people/marco.yaml, slot: chef, home: { rect: [...] },
+#           visits: { dining: { rect: [...] } } }
 
 kind: character
 version: 1
 
 name: Marco Bellini
-npc: npcs/hotel_staff.yaml
+npc: npcs/chef.yaml
 seed: 5
 body:
   params: { preset: [masculine, athletic], hair_style: crop, hair_color: black, top_color: white,
             bottom_color: charcoal }
 
+# Nosier than most cooks: he looks in on the diners more often (curiosity falls
+# faster, and the look into the dining room answers it).
 needs:
-  work: { initial: 0.1, decay: 0.03 }    # back to the kitchen sooner than front-of-house staff
-
-# Now and then (at most every 4 minutes) he looks into the dining room: the
-# placement's `visits: {dining: ...}` says where it is.
-activities:
-  look_in: { action: visit, visit: dining, advertises: { curiosity: 0.4 }, duration: [4, 8], weight: 0.8, cooldown: 240 }
+  curiosity: { initial: 0.7, decay: 0.008 }

@@ -1,0 +1,43 @@
+# A cook: works the range and the prep counter (affordances tagged `cook`),
+# rests on a stool or chair now and then, looks into the dining room every few
+# minutes and goes home for the night. Place with a home round the kitchen and
+# where the dining room is (an activity's `visit`):
+#   chef: { npc: npcs/chef.yaml, slot: chef, home: { rect: [...] },
+#           visits: { dining: { rect: [...] } } }
+# A named cook builds on it: people/marco.yaml.
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/hotel_staff.yaml }
+speed: 1.2
+turn_speed: 320
+
+needs:
+  work:      { initial: 0.1, decay: 0.03 }     # back to the stove soon after leaving it
+  rest:      { initial: 0.9, decay: 0.003 }
+  curiosity: { initial: 0.7, decay: 0.004 }
+
+preferences:
+  cook: 1.5
+  seat: 0.6
+
+activities:
+  walk_about: { action: wander, advertises: { curiosity: 0.1 } }
+  idle:       { action: idle, advertises: { rest: 0.02 } }
+  # How the diners are getting on: at most every 4 minutes (needs the placement's
+  # `visits: {dining: ...}`; without it the cook stays in the kitchen).
+  look_in:    { action: visit, visit: dining, advertises: { curiosity: 0.4 }, duration: [4, 8], weight: 0.8,
+                cooldown: 240 }
+
+# The stove and the counter, and somewhere to sit; not the diners' tables.
+affordance_tags: [cook, seat]
+
+routine:
+  - { name: night, from: "23:30", to: "08:00", away: true }     # home after service
+
+scoring: { distance: 0.02, recency: 0.15, memory: 60, noise: 0.05, retry: 30 }
+home_margin: 1.0
+
+flags:
+  closes_doors: true

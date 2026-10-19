@@ -333,12 +333,12 @@ def test_a_character_is_a_named_person_on_top_of_a_role(tmp_path):
     from geogen.npc import load_character
 
     definition, defaults = load_character(ASSETS_DIR / "people/marco.yaml", ASSETS_DIR)
-    role = load_definition(ASSETS_DIR / "npcs/hotel_staff.yaml")
-    assert definition["definition"] == "hotel_staff" and definition["character"] == "marco"
+    role = load_definition(ASSETS_DIR / "npcs/chef.yaml")
+    assert definition["definition"] == "chef" and definition["character"] == "marco"
     assert definition["name"] == "Marco Bellini" and defaults == {"seed": 5}
     assert definition["body"]["archetype"] == role["body"]["archetype"]
     assert definition["body"]["params"]["hair_style"] == "crop"
-    assert definition["needs"]["work"] == {"initial": 0.1, "decay": 0.03}
+    assert definition["needs"]["curiosity"] == {"initial": 0.7, "decay": 0.008}
     assert definition["needs"]["rest"] == role["needs"]["rest"]        # merged key by key
 
     scene = COTTAGE_NPC.replace("npc: npcs/resident.yaml", "character: people/marco.yaml").replace("seed: 7\n", "")

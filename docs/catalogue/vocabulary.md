@@ -174,7 +174,8 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home`, `ho
 
 | File | What it is |
 | --- | --- |
-| [people/marco.yaml](../../assets/people/marco.yaml) | Marco Bellini, the chef at the Corner Bistro: a named person on top of the hotel staff role. |
+| [people/marco.yaml](../../assets/people/marco.yaml) | Marco Bellini, the chef at the Corner Bistro: a named person on top of the chef role (npcs/chef.yaml: the range, the prep counter, a look into the dining room now and then, home at night). |
+| [people/rosa.yaml](../../assets/people/rosa.yaml) | Rosa Lind, a regular: lunch at the Corner Bistro, the rest of the day in the park. |
 
 ### dialogue
 
@@ -248,6 +249,7 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home_margi
 
 | File | What it is |
 | --- | --- |
+| [npcs/chef.yaml](../../assets/npcs/chef.yaml) | A cook: works the range and the prep counter (affordances tagged `cook`), rests on a stool or chair now and then, looks into the dining room every few minutes and goes home for the night. |
 | [npcs/diner.yaml](../../assets/npcs/diner.yaml) | Out for a meal or a drink: sits at a table or in a booth, or at the bar, and moves between them now and then. |
 | [npcs/hotel_guest.yaml](../../assets/npcs/hotel_guest.yaml) | A hotel guest in their room: sleeps the night through in its bed, sits, looks out of the window, wanders the room. |
 | [npcs/hotel_staff.yaml](../../assets/npcs/hotel_staff.yaml) | Hotel front-of-house staff: works the reception desk (its staff-side `stand` affordance, tagged `staff`), takes breaks on the lobby seating and walks the lobby now and then. |

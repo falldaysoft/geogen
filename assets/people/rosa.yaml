@@ -1,0 +1,14 @@
+# Rosa Lind, a regular: lunch at the Corner Bistro, the rest of the day in the
+# park. One person in two scenes (geogen.74.5): each placement says when she is
+# there (`present:`), and her needs go with her from one to the other.
+#   restaurant: rosa: { character: people/rosa.yaml, slot: ..., present: <lunchtime> }
+#   park:       rosa: { character: people/rosa.yaml, position: ..., present: <not lunchtime> }
+
+kind: character
+version: 1
+
+name: Rosa Lind
+npc: npcs/diner.yaml
+seed: 23
+body:
+  params: { preset: [feminine], hair_style: bob, hair_color: auburn, top_color: teal }

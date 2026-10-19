@@ -88,7 +88,12 @@ place:
   diner_3: { <<: *diner, slot: diner_3, seed: 13 }
   diner_4: { <<: *diner, slot: diner_4, seed: 14 }
   diner_5: { <<: *diner, slot: diner_5, seed: 15 }
-  diner_6: { <<: *diner, slot: diner_6, seed: 16 }
+  # Rosa Lind (people/rosa.yaml), a regular: here for lunch, in the park the rest of the day.
+  rosa:
+    character: people/rosa.yaml
+    slot: diner_6
+    home: { rect: [-7.8, -6.0, 5.6, 1.6] }
+    present: 'clock.time >= "12:00" and clock.time < "14:00"'
 
   pedestrians:
     npc: npcs/pedestrian.yaml
