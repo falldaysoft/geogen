@@ -447,6 +447,8 @@ class SceneComposer:
                     resolve_ownership(node, obj_def, b.refs, ["place", obj_name])
                 if "seed" in obj_def:
                     node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
+                if obj_def.get("present") is not None:   # there only while it holds (a binding: quests.collect)
+                    node.meta["npc_present"] = str(obj_def["present"])
                 from ..npc import declare_quests   # it holds from the start, or in its routine (quests.collect)
 
                 declare_quests(node, obj_def.get("quests") or [], source, self._assets_dir)

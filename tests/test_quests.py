@@ -640,3 +640,31 @@ def test_a_routine_quest_repeats_when_its_condition_holds(tmp_path):
     for switch in switches:
         machine.use(switch, "player")
     assert status() == "complete"                                  # outside its block: not again
+
+
+def test_a_character_is_one_actor_wherever_it_is_placed(tmp_path):
+    # A named person's quests are given to its character actor, not to the placement.
+    scene = tmp_path / "errand.yaml"
+    scene.write_text("name: errand\nplace:\n  house: { asset: house_peaked.yaml }\n"
+                     "  lamp: { asset: floor_lamp.yaml, on: house.floor, at: { u: 0.2, v: 0.5 } }\n"
+                     "  switch: { asset: light_switch.yaml, params: { light: lamp }, on: house.front_inside, "
+                     "at: { u: 0.3, v: { abs: 1.08 } } }\n"
+                     "  marco: { character: people/marco.yaml, on: house.floor, home: house.floor, "
+                     "quests: [quests/lights_out.yaml] }\n")
+    quests = collect(SceneComposer(assets_dir=ASSETS).compose(scene), "errand")
+    machine = Machine(quests.program(), {"player": {"kind": "player"}, "character:marco": {"kind": "npc"},
+                                         "errand:marco": {"kind": "npc"}})
+    assert quests.status(machine, "lights_out", "character:marco") == "active"
+    assert quests.status(machine, "lights_out", "errand:marco") == "available"
+
+
+def test_an_npc_placed_with_present_is_there_while_it_holds(tmp_path):
+    scene = tmp_path / "evening.yaml"
+    scene.write_text("name: evening\nplace:\n  house: { asset: house_peaked.yaml }\n"
+                     "  guest: { npc: npcs/resident.yaml, on: house.floor, home: house.floor, present: clock.night }\n")
+    quests = collect(SceneComposer(assets_dir=ASSETS).compose(scene), "evening")
+    assert quests.declarations.variables["evening:guest#present"] == {"type": "bool", "default": True}
+    machine = Machine(quests.program(), {"player": {"kind": "player"}})
+    assert machine.get("evening:guest#present") is False            # the machine starts at noon
+    machine.set_clock(night=True)
+    assert machine.get("evening:guest#present") is True and machine.errors == []

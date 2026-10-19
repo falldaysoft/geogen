@@ -163,6 +163,11 @@ func _ready() -> void:
     rules.reset.connect(_sync_trains)
     rules.reset.connect(lights.sync_fixtures)
     events.posted.connect(lights.on_lit)
+    events.posted.connect(_on_present)
+    rules.reset.connect(func():
+        for npc in npcs:
+            if is_instance_valid(npc):
+                _sync_present(npc))
     rules.world = self
     add_child(rules)
     props = GeogenProps.new(self)
@@ -343,7 +348,8 @@ func unload() -> void:
     var people := {}
     for npc in npcs:
         if is_instance_valid(npc):
-            people[actor_id(npc)] = npc.save_state()
+            people[npc_uid(npc)] = npc.save_state()
+    saves.note_characters()
     if not people.is_empty() and _npcs_scene != "":
         saves.trips[_npcs_scene] = people   # and its NPCs', for when the scene loads again
     saves.pending_npcs = {}
@@ -884,14 +890,17 @@ func _spawn_npcs(root: Node) -> void:
         npc.trace_enabled = npc_trace
         var actor := actor_id(npc)
         npc.traced.connect(func(event: Dictionary): events.post("npc", actor, str(event.get("event", "")), actor, event))
-        npc.greeted.connect(func(signal_name: String, by: String): events.post("signal", actor, signal_name, by))
+        var uid := npc_uid(npc)        # the greeting is the placed NPC's signal (state.npc_signal)
+        npc.greeted.connect(func(signal_name: String, by: String): events.post("signal", uid, signal_name, by))
         rules.add_actor(actor, "npc")
+        _sync_present.call_deferred(npc)          # (once it is ready)
         if spec != null:
             npc.step_height = spec.step_height
         npcs.append(npc)
-        if not saves.pending_npcs.is_empty() and npc.is_node_ready():
+        var saved := not saves.pending_npcs.is_empty() or not saves.characters.is_empty()
+        if saved and npc.is_node_ready():
             saves.restore_npc(npc)       # a loaded save's, or as it was when its scene was left
-        elif not saves.pending_npcs.is_empty():
+        elif saved:
             npc.ready.connect(func(): saves.restore_npc(npc), CONNECT_ONE_SHOT)
 
 
@@ -1080,12 +1089,39 @@ func _collect_rooms(root: Node) -> void:
 
 
 ## What events call ``body``: "player", an NPC's stable ID (its name without one), or "" for anything else.
+## An NPC placed with `present: <condition>` is in the world only while its `present` state is
+## true (a binding the export compiled from the condition).
+func _sync_present(npc: GeogenNpc) -> void:
+    if is_instance_valid(npc):
+        var present = rules.get_value("%s#present" % npc_uid(npc))
+        npc.set_present(present != false)
+
+
+func _on_present(event: Dictionary) -> void:
+    if event["type"] != "changed" or event["name"] != "present":
+        return
+    for npc in npcs:
+        if is_instance_valid(npc) and npc_uid(npc) == event["subject"]:
+            npc.set_present(bool(event["data"].get("to", true)))
+
+
 static func actor_id(body: Node) -> String:
     if body is Player:
         return "player"
     if body is GeogenNpc:
-        return str(body.get_meta("geogen_uid", body.name))
+        # A named person is one actor wherever it is placed: its quests and the state content
+        # packages keep for it follow it from scene to scene.
+        var character := str(body.definition.get("character", ""))
+        return CHARACTER_ACTOR % character if character != "" else npc_uid(body)
     return ""
+
+
+const CHARACTER_ACTOR := "character:%s"     # a character's actor ID (geogen.npc.actor_id)
+
+
+## An NPC's stable ID: its placement, what saves keep where it is by.
+static func npc_uid(npc: Node) -> String:
+    return str(npc.get_meta("geogen_uid", npc.name))
 
 
 func _collect_interactions(root: Node) -> void:

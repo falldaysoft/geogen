@@ -428,6 +428,15 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   (`seat`: loading puts it back on that seat) or at `position` / `yaw`. What it
   was otherwise doing isn't kept; it decides again. The Godot runtime also keeps
   them over a trip to another scene. `Machine.load` ignores it.
+- Named people (an NPC placed from a `kind: character` file) are one actor
+  wherever they are placed: `character:<name>` (`npc.actor_id`), so their quests
+  and a content package's actor state follow them from scene to scene. Their
+  `npcs` entries stay per placement (where each copy is), and `characters`
+  holds each one's needs as last seen, which a placement in another scene takes
+  up. An NPC placement's `present: <condition>` declares the NPC's `present`
+  (bool) and binds it to the condition; while it is false the runtime takes the
+  NPC out of the world (hidden, no collider, not deciding), so a story can move
+  a character on.
 
 ## What export must reject
 

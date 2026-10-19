@@ -11,6 +11,9 @@ var pending: Dictionary = {}
 var pending_npcs: Dictionary = {}
 ## The NPCs of scenes left for another, by scene: {uid: save_state()} (they come back as they were).
 var trips: Dictionary = {}
+## Named people (character actors) as last seen, wherever that was: {actor: {needs}}. Placed
+## in another scene they carry on from there.
+var characters: Dictionary = {}
 
 
 ## Keep ``it``'s state while its chunk is away (when the rules program doesn't hold it).
@@ -85,7 +88,10 @@ func save() -> Dictionary:
     var people := {}
     for npc in world.npcs:
         if is_instance_valid(npc):
-            people[WorldLoader.actor_id(npc)] = npc.save_state()
+            people[WorldLoader.npc_uid(npc)] = npc.save_state()
+    note_characters()
+    if not characters.is_empty():
+        data["characters"] = characters.duplicate(true)
     for uid in pending_npcs:                 # in chunks that aren't loaded: as the save said
         if not people.has(uid):
             people[uid] = pending_npcs[uid]
@@ -125,10 +131,20 @@ func _clock_now() -> Dictionary:
 
 ## An NPC that has just spawned (or is loaded with a save): what the save says of it, once.
 func restore_npc(npc: GeogenNpc) -> void:
-    var uid := WorldLoader.actor_id(npc)
+    var uid := WorldLoader.npc_uid(npc)
     if pending_npcs.has(uid):
         npc.restore_state(pending_npcs[uid])
         pending_npcs.erase(uid)
+    var person: Dictionary = characters.get(WorldLoader.actor_id(npc), {})
+    if not person.is_empty():
+        npc.take_needs(person.get("needs", {}))     # newer than a scene's: last seen elsewhere
+
+
+## Note the named people here as they are now (on saving, and on leaving the scene).
+func note_characters() -> void:
+    for npc in world.npcs:
+        if is_instance_valid(npc) and npc.definition.get("character", "") != "":
+            characters[WorldLoader.actor_id(npc)] = {"needs": npc.save_state()["needs"]}
 
 
 ## Restore a save: whatever it doesn't mention goes back to how it started. Entries for
@@ -190,6 +206,7 @@ func load(data: Dictionary) -> void:
     world.flows.restore(data.get("flows", {}))     # spawned items, after the program has its counts
     # NPCs where they were (and what they needed); ones not loaded yet take theirs as they spawn.
     pending_npcs = (data.get("npcs", {}) as Dictionary).duplicate(true)
+    characters = (data.get("characters", {}) as Dictionary).duplicate(true)
     for npc in world.npcs:
         if is_instance_valid(npc):
             restore_npc(npc)

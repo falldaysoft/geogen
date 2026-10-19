@@ -380,7 +380,10 @@ Scenes place NPCs like assets (`place: {resident: {npc: npcs/resident.yaml, on: 
 Each one arrives as a node with `extras.geogen.type = "npc"`, the fully resolved definition in
 `extras.geogen.npc`, and its body asset as a child. A named person (`place: {marco: {character: people/marco.yaml}}`,
 a `kind: character` file on top of a role) also carries `npc.character` (its file) and `npc.name`, which the
-`--npc-labels` label, the greeting prompt and `npcs.list` show. `WorldLoader` turns it into a `GeogenNpc`
+`--npc-labels` label, the greeting prompt and `npcs.list` show. Its rules actor is `character:<name>`
+in every scene (`WorldLoader.actor_id`; `npc_uid` is the placement), and a save's `characters` carries
+its needs between scenes. A placement's `present` state (from `present: <condition>`) takes it out of
+the world while false (`GeogenNpc.set_present`). `WorldLoader` turns it into a `GeogenNpc`
 (`scripts/npc.gd`): a `CharacterBody3D` (cylinder, layer 2, with the player's step-up) with the
 body reparented under it. The script is a generic interpreter; nothing in it knows about chairs,
 windows or doors:

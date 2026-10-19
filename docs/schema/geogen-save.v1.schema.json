@@ -71,6 +71,14 @@
         }
       }
     },
+    "characters": {
+      "description": "Named people (NPCs placed from kind: character files) by actor ID ('character:<name>'), as last seen in whichever scene that was: their needs. Placed in another scene they carry on from these; where they are stays per placement in 'npcs'. Machine.load ignores it.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "properties": {"needs": {"type": "object", "additionalProperties": {"type": "number"}}}
+      }
+    },
     "flows": {
       "description": "Spawned items (geogen/flows.py), written by runtimes that run them: the items in the world (on a track by its stable ID and distance 's', or a physics item's pose) and how far each source (its wave phase and timers, its pick) and effector (its cooldown) had got. Counts are rules state in 'world'. Loading takes the items in the world away and brings these back.",
       "type": "object",

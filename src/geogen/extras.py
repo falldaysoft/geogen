@@ -53,6 +53,7 @@ BUILD_ONLY: dict[str, str] = {
     "furnish_report": "the furnishing rules a plan couldn't meet (--inspect and tests read it)",
     "affordance_actor": "a body staged at an affordance by affordance QA (never part of a scene)",
     "npc_owns": "an NPC's owns / prefers / work as nodes: exported as stable IDs in npc.owns|prefers|work",
+    "npc_present": "an NPC placement's `present` condition: compiled to a binding of its `present` state by quests.collect",
     "npc_routine_quests": "an NPC's routine quests with their blocks' hours and repeats: compiled to rules by quests.collect",
     # What a generator was asked for; the geometry is the result
     "facade": "the facade style a building was clad in",

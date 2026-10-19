@@ -1269,10 +1269,16 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
             if node.meta.get("type") == "npc" and quest_id not in given:   # a placed NPC's own: give it to that NPC
                 given.add(quest_id)
                 routine = [r for r in node.meta.get("npc_routine_quests") or [] if r["id"] == quest_id]
-                wiring.append(Source({"rules": routine_rules(uid(node), quest_id, routine) if routine else [
-                    {"id": f"give_{quest_id}", "when": f'actor.id == "{uid(node)}"', "do": [{"start_quest": quest_id}]}]},
+                from .npc import actor_id
+
+                actor = actor_id(node, uid(node))
+                wiring.append(Source({"rules": routine_rules(actor, quest_id, routine) if routine else [
+                    {"id": f"give_{quest_id}", "when": f'actor.id == "{actor}"', "do": [{"start_quest": quest_id}]}]},
                     None, node.parent if routine and node.parent is not None else node, True))   # (a repeat's `if` names scene things)
 
+    for node in root.iter_nodes():         # NPCs there only while their `present` condition holds
+        if node.meta.get("npc_present") and node.parent is not None:
+            wiring.append(Source({"bind": {f"{node.name}.present": node.meta["npc_present"]}}, None, node.parent, False))
     built = switch_bindings(root, uid)
     guards = [(f"{uid(node)}#{it.name}", it.when, node) for node in root.iter_nodes()
               for it in node.interactions if it.when]
@@ -1295,7 +1301,7 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
 
 
 def routine_rules(npc: str, quest_id: str, blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The rules that give NPC ``npc`` (a stable ID) a quest of its routine (``npc.parse_routine``):
+    """The rules that give NPC ``npc`` (its actor ID, ``npc.actor_id``) a quest of its routine (``npc.parse_routine``):
     per block it is in, started when the block starts (``daily``: started over); ``always`` /
     ``{if}``: started over when it is done while the block lasts (and the condition holds)."""
     def clock(hours: float) -> str:

@@ -239,7 +239,7 @@ def state_names(node: SceneNode) -> list[str]:
     """Every state name a thing has: its interactions, their locks, its declared variables and
     what it has by being what it is (a train's stations, a light fixture's `lit`)."""
     return ([i.name for i in node.interactions] + [f"{i.name}{LOCKED}" for i in node.interactions]
-            + list(instance_state(node)) + list(light_state(node)))
+            + list(instance_state(node)) + list(light_state(node)) + list(presence_state(node)))
 
 
 def set_values(node: SceneNode, values: dict[str, Any], where: str) -> None:
@@ -405,6 +405,13 @@ def npc_signal(node: SceneNode) -> str | None:
     return str(greet["signal"]) if greet.get("signal") else None
 
 
+def presence_state(node: SceneNode) -> dict[str, dict[str, Any]]:
+    """An NPC placed with ``present: <condition>`` has ``present``, bound to the condition
+    (``quests.collect``): while it is false the runtime takes the NPC out of the world, so a story
+    can move a character from one scene to another."""
+    return {"present": {"type": "bool", "default": True}} if node.meta.get("npc_present") else {}
+
+
 def light_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     """A light fixture's variable: ``lit`` (on to begin with), which the runtime shows and
     hides the fixture's light and glow by. A switch binds it (``switch_bindings``); any rule
@@ -487,7 +494,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
         declares = node.meta.get(META)
         greeting = npc_signal(node)
         timetable = {**train_state(node), **place_state(node), **flow_state(node)}
-        lit = light_state(node)
+        lit = {**light_state(node), **presence_state(node)}
         if not node.interactions and not declares and not greeting and not timetable and not lit:
             continue
         thing = uid(node)

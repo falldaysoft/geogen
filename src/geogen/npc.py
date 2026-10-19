@@ -564,6 +564,18 @@ def declare_quests(node: SceneNode, placement_quests: list, source: Any, assets_
         node.meta["npc_routine_quests"] = found
 
 
+CHARACTER_ACTOR = "character:{}"
+
+
+def actor_id(node: SceneNode, uid: str) -> str:
+    """The rules actor an NPC is: a named person (``meta.npc.character``) is ``character:<name>``
+    wherever it is placed, so its quests and the state content packages keep for it follow it
+    from scene to scene; any other NPC is its placement (``uid``, its stable ID). Runtimes use the
+    same rule (``WorldLoader.actor_id``)."""
+    character = (node.meta.get("npc") or {}).get("character")
+    return CHARACTER_ACTOR.format(character) if character else uid
+
+
 def ownership_extras(node: SceneNode) -> dict[str, Any]:
     """``meta.npc_owns`` as the stable IDs the runtime matches affordances by: {owns, prefers, work}."""
     out: dict[str, Any] = {}

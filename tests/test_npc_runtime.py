@@ -232,6 +232,38 @@ def test_a_routine_quest_waits_for_its_block(godot_script, tmp_path):
     assert after["quests"] == {"lights_out": "complete"} and after["quest_goals"] == 3, after
 
 
+STORY_SCENE = """
+name: {name}
+place:
+  house: {{ asset: house_peaked.yaml }}
+  marco: {{ character: people/marco.yaml, on: house.floor, at: {{ u: 0.5, v: 0.5 }}, home: house.floor{extra} }}
+"""
+
+
+def test_a_character_carries_its_needs_and_goes_where_the_story_says(godot_script, tmp_path):
+    # Marco is one person in two scenes: the same actor in both, with the needs he had when he was
+    # last seen. In the second he is placed with `present: clock.night`: at noon he isn't there.
+    from pathlib import Path
+
+    from geogen.layout.composer import SceneComposer
+
+    assets = Path(__file__).parent.parent / "assets"
+    out = tmp_path / "generated"
+    for name, extra in (("story_a", ""), ("story_b", ", present: clock.night")):
+        (tmp_path / f"{name}.yaml").write_text(STORY_SCENE.format(name=name, extra=extra))
+        export_scene(SceneComposer(assets_dir=assets).compose(tmp_path / f"{name}.yaml"), out / f"{name}.glb")
+    run = godot_script([step("wait", seconds=20), step("npcs.list", id="a"), step("world.switch", scene="story_b"),
+                        step("npcs.list", id="b"), step("time.clock", time="22:00"), step("wait", seconds=1),
+                        step("npcs.list", id="night")],
+                       "--scene=story_a", f"--generated={out}", start={"timescale": 4}, engine_args=FAST)
+    (a,), (b,), (night,) = run["a"], run["b"], run["night"]
+    assert a["actor"] == b["actor"] == "character:marco" and a["uid"] != b["uid"]
+    assert a["needs"]["work"] < 0.05                   # down from 0.1 in his first scene
+    for need, value in a["needs"].items():
+        assert b["needs"][need] == pytest.approx(value, abs=0.06), (a["needs"], b["needs"])
+    assert b["absent"] and not night["absent"]
+
+
 LIGHTHOUSE_QUEST = """
 name: lighthouse_errand
 size: [16, 14, 16]

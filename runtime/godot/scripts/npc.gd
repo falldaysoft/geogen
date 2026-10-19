@@ -129,6 +129,9 @@ var _streets := GeogenNpcStreets.new()   # the crossings and pedestrian signals 
 var _was_at := Vector2.ZERO       # where we were a frame ago (plan)
 ## Off the map during a routine's `away` block (vanished into a building), back when it ends.
 var away := false
+## Out of the world while its placement's `present` condition is false (a story has moved it
+## on); back, where it was, when it holds again.
+var absent := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
 var _hands: GeogenHands = null     # hands onto what is really there: tables, door handles (hands.gd)
 var _press_in := 0.0               # s until a reaching hand presses what it reaches for (a use step)
@@ -539,6 +542,8 @@ func _physics_process(delta: float) -> void:
 
 func _step(delta: float) -> void:
     clock += delta
+    if absent:
+        return
     if away:
         if not _away_block():
             _reappear()
@@ -792,6 +797,52 @@ func save_state() -> Dictionary:
 ## Take up a save_state(): drop what it is doing, stand where it was (or go back to the seat
 ## it was on: it walks the last step and sits again), with the needs and memory it had.
 func restore_state(data: Dictionary) -> void:
+    _drop_everything()
+    take_needs(data.get("needs", {}))
+    _recent = {}
+    var recent: Dictionary = data.get("recent", {})
+    for id in recent:
+        _recent[id] = clock - float(recent[id])
+    var p: Array = data.get("position", [global_position.x, global_position.y, global_position.z])
+    global_position = Vector3(p[0], p[1], p[2])
+    rotation = Vector3(0, deg_to_rad(float(data.get("yaw", rad_to_deg(_yaw())))) - _parent_yaw(), 0)
+    var seat := str(data.get("seat", ""))
+    if seat != "":
+        for a in world.affordances:
+            if a["id"] == seat:
+                global_position = a["approach"]
+        force_option(seat)
+    away = bool(data.get("away", false))
+    _show()
+    _trace({"event": "restored", "pos": _v(global_position), "seat": seat, "away": away})
+
+
+## In the world or out of it, by its placement's `present` state (WorldLoader keeps it in step).
+func set_present(on: bool) -> void:
+    if absent != on:
+        return
+    absent = not on
+    if absent:
+        if _pose != "stand" and _option.has("at"):
+            global_position = _option["at"]      # off the seat: it comes back standing beside it
+        _drop_everything()
+    _show()
+    _trace({"event": "present" if on else "absent", "pos": _v(global_position)})
+
+
+## Seen, solid and among the characters unless it is away or absent.
+func _show() -> void:
+    var out := away or absent
+    visible = not out
+    _shape.set_deferred("disabled", out)
+    if out:
+        remove_from_group(CHARACTER_GROUP)
+    elif not is_in_group(CHARACTER_GROUP):
+        add_to_group(CHARACTER_GROUP)
+
+
+## Stop whatever it is doing and stand: off its seat, its option given up.
+func _drop_everything() -> void:
     _stack.clear()
     _stair = null
     _playing = false
@@ -810,31 +861,13 @@ func restore_state(data: Dictionary) -> void:
             if body != null:
                 body.transform = Transform3D.IDENTITY
             animator.play_pose("stand", 0.0)
-    var saved_needs: Dictionary = data.get("needs", {})
-    for need in saved_needs:
+
+
+## Take up saved needs (a save's, or a named person's from the scene it was last seen in).
+func take_needs(saved: Dictionary) -> void:
+    for need in saved:
         if needs.has(need):
-            needs[need] = clampf(float(saved_needs[need]), 0.0, 1.0)
-    _recent = {}
-    var recent: Dictionary = data.get("recent", {})
-    for id in recent:
-        _recent[id] = clock - float(recent[id])
-    var p: Array = data.get("position", [global_position.x, global_position.y, global_position.z])
-    global_position = Vector3(p[0], p[1], p[2])
-    rotation = Vector3(0, deg_to_rad(float(data.get("yaw", rad_to_deg(_yaw())))) - _parent_yaw(), 0)
-    var seat := str(data.get("seat", ""))
-    if seat != "":
-        for a in world.affordances:
-            if a["id"] == seat:
-                global_position = a["approach"]
-        force_option(seat)
-    away = bool(data.get("away", false))
-    visible = not away
-    _shape.set_deferred("disabled", away)
-    if away:
-        remove_from_group(CHARACTER_GROUP)
-    elif not is_in_group(CHARACTER_GROUP):
-        add_to_group(CHARACTER_GROUP)
-    _trace({"event": "restored", "pos": _v(global_position), "seat": seat, "away": away})
+            needs[need] = clampf(float(saved[need]), 0.0, 1.0)
 
 
 ## Whether the feet are the ground's to place: standing, not in a transition clip.
@@ -1605,7 +1638,7 @@ func _attend(delta: float) -> void:
 ## Whether the player can greet this NPC now (their E prompt): it has a greeting and is here,
 ## whatever it is doing (standing, walking, seated, lying down).
 func can_greet() -> bool:
-    return not definition.get("attention", {}).get("greet", {}).is_empty() and not away
+    return not definition.get("attention", {}).get("greet", {}).is_empty() and not away and not absent
 
 
 ## Seated or lying: out of its standing collider.
@@ -1790,14 +1823,14 @@ func _quests() -> Dictionary:
 
 func report() -> Dictionary:
     var p := global_position
-    return {"npc": String(name), "uid": WorldLoader.actor_id(self), "name": person_name(),
+    return {"npc": String(name), "uid": WorldLoader.npc_uid(self), "actor": WorldLoader.actor_id(self), "name": person_name(),
         "character": str(definition.get("character", "")), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)), "slept": int(stats.get("slept", 0)),
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
         "hands": _hands.report() if _hands != null else {},
         "feet": _feet.report() if _feet != null else {},
-        "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away,
+        "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away, "absent": absent,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
         "close_ins": int(stats.get("close_ins", 0)),
