@@ -219,8 +219,8 @@ def _waist(character: SceneNode, actor: SceneNode, rest: dict, now: dict) -> dic
       (``max_mm``: how far outside its shell), or any at all when the bottom is tight too
       (``max_mm``: how far from the hem).
     - ``waist_overlap``: ``min_mm``, the least the two overlap anywhere round the hem. Under a
-      loose bottom: from the hem to the nearest body surface that shows (negative: how far the
-      hem itself is outside the shell). Tight on tight they are one surface, so it is how far
+      loose bottom: from the hem to the nearest body surface that shows, out of the shell by more
+      than ``TOLERANCE`` (negative: how far the hem itself is outside the shell). Tight on tight they are one surface, so it is how far
       the bottom runs on under the top (``meta.humanoid.waist_overlap``), whatever the pose.
     - ``hem``: the hem as a smooth loop: vertices more than ``HEM_SPIKE`` out of line with their
       two neighbours (``max_mm`` the worst), and ``ends``, hem vertices without two neighbours.
@@ -265,7 +265,10 @@ def _waist(character: SceneNode, actor: SceneNode, rest: dict, now: dict) -> dic
         if outside.any():
             depth[outside] = distance(pts[outside], shell)
         out["waist_gap"] = _metric(depth)
+        # (what is out by less than TOLERANCE doesn't show, as for every other metric: a crease
+        # grazing the shell would otherwise decide it, by which of its faces were sampled)
         showing = samples[winding(samples, solid) < 0.5]
+        showing = showing[distance(showing, shell) > TOLERANCE] if len(showing) else showing
         hem_pts = body.vertices[hem]
         hem_out = winding(hem_pts, solid) < 0.5
         overlap = np.full(len(hem_pts), WAIST_BAND)

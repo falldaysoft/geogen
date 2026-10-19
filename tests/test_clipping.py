@@ -143,11 +143,7 @@ SEPARATES = ["casual", "jeans_tee", "smart", "shorts_tee", "casual_f", "skirt_sw
 WAIST_CORE = [(["feminine"], "casual_f"), (["feminine"], "jeans_tee"), (["masculine"], "jeans_tee"),
               (["feminine"], "skirt_sweater")]
 WAIST_MIN_OVERLAP = 15.0     # mm, in any pose (the generator laps them 30 mm at rest: humanoid.WAIST_OVERLAP)
-# Crouched (reach_low), the sweater's front pokes out of the skirt 13 mm above its hem since the
-# arms stopped at the wrist: the trunk's decimation moved, and no budget brings it back (geogen.11.5.34).
-WAIST_FRAGILE = {(("feminine",), "skirt_sweater"), (("feminine", "hourglass"), "skirt_sweater")}
-WAIST = [pytest.param(p, o, marks=([] if (p, o) in WAIST_CORE else [pytest.mark.exhaustive])
-                      + ([pytest.mark.xfail(reason="geogen.11.5.34", strict=False)] if (tuple(p), o) in WAIST_FRAGILE else []))
+WAIST = [pytest.param(p, o, marks=[] if (p, o) in WAIST_CORE else [pytest.mark.exhaustive])
          for p in PRESETS for o in SEPARATES]
 
 
