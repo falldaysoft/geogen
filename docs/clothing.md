@@ -87,7 +87,9 @@ watertight.
 - `hug_body` moves the shell's walls out to the body under them plus a clearance at rest, so one
   authored skirt fits every build.
 - `leg_weights` skins it: the waist to the Hips, handing over to the two thighs between a height
-  above the hip joints and one below. See "Weights" below for why it is shaped as it is.
+  above the hip joints and one below. See "Weights" below for why it is shaped as it is. The start
+  cap above the first key ring, tucked under the top, takes the body's weights on bones other than
+  the pelvis and legs (the spine): on the Hips alone, a back bent far forward came out through it.
 - `drape.fit` works out where the cloth should really be in each pose and stores the difference
   as morph targets.
 
@@ -114,8 +116,9 @@ plane. In that plane:
    plane, which is the seat flesh's underside less 12 mm of cloth.
 
 Everything that is not a ring vertex (lining, rolled hem, the buried top cap) moves with the ring
-vertex nearest it. The waistband ring is left as skinned, except that it never comes nearer the body than at rest (bent far forward, skinning pulls the inside of the bend into the belly). The rest pose comes out unchanged
-exactly, so a standing character needs no morph.
+vertex nearest it. The waistband ring is left as skinned, except that it never comes nearer the
+body than at rest (bent far forward, skinning pulls the inside of the bend into the belly). The
+rest pose comes out unchanged exactly, so a standing character needs no morph.
 
 `fit` drapes every static pose and sampled frames of every clip (16 of the walk, 8 of idle, 10 of
 the others), maps each displacement back to the rest frame through the vertex's blended skinning

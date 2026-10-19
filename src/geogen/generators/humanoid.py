@@ -626,8 +626,11 @@ def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE, h
 LEG_SPLIT = 0.25               # how much more of its own side's thigh a skirt vertex follows (0: both alike .. 0.5)
 
 
+CAP_EASE = 0.02          # m of arc length before the first key ring over which a skirt's start cap takes the body's weights
+
+
 def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise: float = 0.07,
-                fall: float = 0.11, split: float = LEG_SPLIT, seam: float = 0.08) -> None:
+                fall: float = 0.11, split: float = LEG_SPLIT, seam: float = 0.08, cap: float | None = None) -> None:
     """Skirt weights: the waist rides the Hips; from ``rise`` above the hip joints to ``fall``
     below them the shell hands over to the two thighs: half each, ``split`` more of its own
     side's (eased across ``seam`` either side of the centre line), so the cloth mostly hangs
@@ -637,7 +640,8 @@ def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise:
     where the legs go together (up onto the lap when seated) and hangs from the pelvis when they
     part (a stride), and its rings fan round the hip like an elbow's. ``drape`` then gives each
     ring its girth back and room for the legs. No shin weights: a hem near the knee doesn't swing
-    down with the lower leg when seated."""
+    down with the lower leg when seated. ``cap``: the arc length (uv v) of the first key ring; the
+    start cap before it, tucked under a top round the spine, rides what the ``body`` there does."""
     from ..core.skin import normalize_weights
 
     names = skeleton.names
@@ -657,7 +661,28 @@ def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise:
     left = 0.5 + split * (2 * u * u * (3 - 2 * u) - 1)
     dense[:, names.index("LeftUpperLeg")] = thigh * left
     dense[:, names.index("RightUpperLeg")] = thigh * (1 - left)
+    if body is not None and cap is not None and shell.uvs is not None:
+        # The start cap takes as much of the body's weights as is on bones other than the pelvis
+        # and legs (bent forward, the spine would take the skin out through a cap on the Hips).
+        under = Mesh(shell.vertices.copy(), shell.faces)
+        transfer_weights(under, body)
+        body_dense = np.zeros_like(dense)
+        np.put_along_axis(body_dense, under.joints, under.weights, axis=1)
+        share = 1.0 - body_dense[:, [names.index(n) for n in ("Hips", "LeftUpperLeg", "RightUpperLeg")]].sum(axis=1)
+        share = np.clip(share, 0.0, 1.0) * np.clip((cap - shell.uvs[:, 1]) / CAP_EASE, 0.0, 1.0)
+        dense = (1 - share[:, None]) * dense + share[:, None] * body_dense
     shell.joints, shell.weights = normalize_weights(np.tile(np.arange(len(names)), (len(y), 1)), dense)
+
+
+def _key_range(garment: dict, skeleton: Skeleton) -> tuple[float, float] | None:
+    """A single-tube loose garment's (drape.py can drape it) first and last key rings' arc lengths."""
+    if len(garment["chains"]) != 1 or garment.get("cut"):
+        return None
+    from .ringloft import ChainPath
+
+    chain = parse_chain(*next(iter(garment["chains"].items())), skeleton)
+    keys = [ChainPath(skeleton, chain).s_of(r.bone, r.t) for r in chain.rings]
+    return min(keys), max(keys)
 
 
 def build_hair(spec: dict, skeleton: Skeleton, material_loader, crease: float) -> Mesh | None:
@@ -956,7 +981,8 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             if mode == "body":
                 transfer_weights(shell, mesh)
             elif mode == "legs":
-                leg_weights(shell, skeleton, mesh)
+                keys = _key_range(garment, skeleton)
+                leg_weights(shell, skeleton, mesh, cap=keys[0] if keys else None)
             else:
                 raise ValueError(f"garment '{garment.get('name')}': unknown weights '{mode}' (body | legs)")
             shell.colors = np.tile([*color, 1.0], (len(shell.vertices), 1))
@@ -968,13 +994,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             if entry["shell"] is not None:
                 entry["shell_vertices"] = np.arange(starts[entry["shell"]], starts[entry["shell"] + 1])
         for k, (garment, _, _) in enumerate(loose):
-            if len(garment["chains"]) == 1 and not garment.get("cut"):      # a single tube: drape.py can drape it
-                from .ringloft import ChainPath
-
-                chain = parse_chain(*next(iter(garment["chains"].items())), skeleton)
-                path = ChainPath(skeleton, chain)
-                keys = [path.s_of(r.bone, r.t) for r in chain.rings]
-                draped.append({"vertices": np.arange(starts[k], starts[k + 1]), "s_range": (min(keys), max(keys))})
+            keys = _key_range(garment, skeleton)
+            if keys is not None:
+                draped.append({"vertices": np.arange(starts[k], starts[k + 1]), "s_range": keys})
         clothes = root.add_child(SceneNode("clothes", mesh=Mesh.merge(shells)))
         clothes.meta["collider"] = "none"
         clothes.skin = Skin.bind(clothes, [nodes[n] for n in skeleton.names], name=f"{name}_clothes_skin")
