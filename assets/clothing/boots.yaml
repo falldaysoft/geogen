@@ -8,3 +8,4 @@ thickness: 0.012
 cover:
   foot: [[LeftFoot, -2.0], [LeftToes, 2.0]]
   leg: [[LeftLowerLeg, 0.45], [LeftLowerLeg, 1.0]]
+sole: { height: 0.018, color: black }

@@ -137,7 +137,7 @@ def build_hand(skeleton: Skeleton, size: float = 1.0, wrist: tuple[float, float]
     """The sculpted left hand (rest pose, body frame), skinned, with the SDF's normals."""
     shape = HandShape(skeleton, size, wrist)
     lo, hi = shape.bounds()
-    mesh = build_head(shape, np.zeros(3), step=0.003, tolerance=0.0012, bounds=(lo, hi))
+    mesh = build_head(shape, np.zeros(3), step=0.0035, tolerance=0.0022, bounds=(lo, hi))
     mesh.normals = sdf_normals(shape, mesh.vertices)
     mesh.joints, mesh.weights = shape.weights(mesh.vertices, skeleton.names)
     return mesh, shape

@@ -41,7 +41,7 @@ def test_presets_build_clean_bodies_within_budget(bodies, preset, height):
     assert body.meta["humanoid"]["height"] == pytest.approx(height)
     assert body.meta["humanoid"]["pose"] == "stand"
     mesh = body.find("body").mesh
-    assert len(mesh.faces) <= 3800          # trunk and limbs ~2.3k, the sculpted head ~1.3k
+    assert len(mesh.faces) <= 6000          # trunk and limbs ~2.3k, the sculpted head ~1.3k, hands ~0.9k each
     assert meshops.validate(mesh).ok
     posed = body.find("body").world_mesh()
     assert meshops.validate(posed).watertight
@@ -173,7 +173,7 @@ def test_hair_styles_build_closed_skinned_shells(style):
     # Hair sits on the head: above the chin, over the crown, clear of the face in front.
     top = body.meta["humanoid"]["height"]
     assert hair.world_mesh().vertices[:, 1].max() > top
-    assert body.meta["humanoid"]["triangles"] <= 5200          # long hair ~1.3k
+    assert body.meta["humanoid"]["triangles"] <= 7400          # long hair ~1.3k
 
 
 def test_no_hair_style_means_no_hair_node():

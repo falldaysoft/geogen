@@ -54,8 +54,9 @@ from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
 from ..core.skin import Clip, Skin, normalize_weights
 from .hair import build_sculpted_hair
+from .hand import build_hand
 from .head import SHAPE_DEFAULTS, HeadShape, build_head, sdf_normals
-from .ringloft import Chain, Ring, Span, loft_body
+from .ringloft import Chain, Ring, Span, _signed_volume, loft_body, mirror_mesh
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
               "rings", "cap_rings", "joint_rings", "joint_blend", "hem", "root", "samples"}
@@ -63,6 +64,7 @@ RING_KEYS = {"offset", "power", "twist"}
 # body.head (generators/head.py): size, the eye line (when there's no painted face to place it),
 # neck radius, the Head->Neck weight blend and where it starts; plus the shape params.
 HEAD_KEYS = {"size", "eyes", "neck_radius", "blend", "weight_shift"}
+HAND_KEYS = {"size", "wrist"}
 
 
 def _point(skeleton: Skeleton, spec, where: str) -> np.ndarray:
@@ -236,7 +238,8 @@ CLOTH_COLORS = {"white": (0.95, 0.95, 0.94), "cream": (0.94, 0.9, 0.8), "black":
                 "teal": (0.12, 0.47, 0.5), "lavender": (0.67, 0.6, 0.82), "brown": (0.42, 0.28, 0.18),
                 "tan": (0.73, 0.59, 0.41), "sky": (0.55, 0.72, 0.9)}
 GARMENT_KEYS = {"kind", "name", "type", "part", "material", "layer", "thickness", "cover", "chains", "cut", "weights",
-                "ease"}
+                "ease", "sole"}
+SOLE_KEYS = {"height", "color", "material"}
 GARMENT_PARTS = ("top", "bottom", "dress", "shoes")      # what a garment is worn as (clipping QA's waist check)
 
 
@@ -257,6 +260,52 @@ def load_garment(assets_dir: Path, name: str, params: dict) -> dict:
     if spec.get("part") not in (None, *GARMENT_PARTS):
         raise ValueError(f"{path}: part '{spec['part']}' is not one of {list(GARMENT_PARTS)}")
     return resolve_value(spec, params)
+
+
+def build_sole(mesh: Mesh, skeleton: Skeleton, height: float) -> Mesh | None:
+    """A shoe's sole under the left foot: the outline of the shoe's bottom (``mesh`` is the lofted
+    body, rest pose, feet flat) a little proud of it, from just under the shoe up to ``height``
+    above the floor, with a chamfered tread edge. Skinned like the shoe it wraps."""
+    from scipy.spatial import cKDTree
+    from shapely.geometry import MultiPoint
+
+    names = skeleton.names
+    foot = [names.index("LeftFoot"), names.index("LeftToes")]
+    dominant = mesh.joints[np.arange(len(mesh.vertices)), np.argmax(mesh.weights, axis=1)]
+    v = mesh.vertices
+    pick = np.isin(dominant, foot) & (v[:, 0] > 0) & (v[:, 1] < height + 0.01)
+    if pick.sum() < 8:
+        return None
+    y0 = float(v[pick, 1].min()) + 0.004               # the shoe's rounded bottom (under the floor) stays the lowest point
+    outline = MultiPoint(v[pick][:, [0, 2]]).convex_hull.buffer(0.0025, quad_segs=3).simplify(0.0015)
+    ring = np.asarray(outline.exterior.coords)[:-1]
+    if outline.exterior.is_ccw:                       # looking down +y onto (x, z): clockwise is ccw seen from above
+        ring = ring[::-1]
+    centre = ring.mean(axis=0)
+    inward = centre - ring
+    inward /= np.linalg.norm(inward, axis=1, keepdims=True)
+    levels = [(y0, 0.007), (y0 + 0.006, 0.0), (height, 0.0), (height, 0.004)]     # the tread inside the shoe's outline (a heel strike rolls onto its edge)
+    n = len(ring)
+    verts = [np.column_stack([xz[:, 0], np.full(n, y), xz[:, 1]])
+             for y, inset in levels for xz in [ring + inward * inset]]
+    verts = np.vstack(verts + [[centre[0], y0, centre[1]], [centre[0], height, centre[1]]])
+    faces = []
+    for k in range(len(levels) - 1):
+        a, b = k * n, (k + 1) * n
+        for i in range(n):
+            j = (i + 1) % n
+            faces += [[a + i, a + j, b + j], [a + i, b + j, b + i]]
+    bottom, top = len(verts) - 2, len(verts) - 1
+    last = (len(levels) - 1) * n
+    for i in range(n):
+        j = (i + 1) % n
+        faces += [[bottom, j, i], [top, last + i, last + j]]
+    sole = Mesh(verts, np.asarray(faces, dtype=np.int64))
+    if _signed_volume(sole) < 0:
+        sole.faces = sole.faces[:, ::-1].copy()
+    near = cKDTree(v[pick]).query(verts)[1]
+    sole.joints, sole.weights = mesh.joints[pick][near], mesh.weights[pick][near]
+    return uvmap.box_project(sole)
 
 
 def split_by_slot(mesh: Mesh, slot_colors: list, slots_out: list | None = None) -> Mesh:
@@ -771,6 +820,15 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                 by_name[chain_name].spans.append(span)
                 worn[-1]["spans"][chain_name] = span
                 levels += [(worn[-1], chain_name, k, e["level"]) for k, e in enumerate((start, end)) if isinstance(e, dict)]
+        if garment.get("sole"):
+            sole = dict(garment["sole"])
+            if set(sole) - SOLE_KEYS:
+                raise ValueError(f"garment '{item['garment']}': sole: unknown keys {sorted(set(sole) - SOLE_KEYS)}")
+            worn[-1]["sole"] = len(materials)
+            worn[-1]["sole_height"] = float(sole.get("height", 0.012))
+            sole_base = material_loader.load(sole.get("material", "leather"))
+            materials.append(copy.copy(sole_base))
+            slot_colors.append((_color(sole.get("color", "black"), CLOTH_COLORS, "sole colour"), sole_base))
         if garment.get("chains"):
             worn[-1]["shell"] = len(loose)
             loose.append((garment, color, base))
@@ -792,21 +850,44 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     budget = spec.get("max_triangles")
     if budget and len(mesh.faces) > int(budget):
         mesh = meshops.decimate(mesh, int(budget) / len(mesh.faces), crease_angle=crease)
+    # Sculpted parts go on after the body's decimation, which would flatten them: soles (their flat
+    # tread and sharp edge are the point), hands and the head, joined in one union.
+    parts = []
+
+    def sculpted(part: Mesh, slot: int = 0) -> None:
+        if len(materials) > 1:
+            part.face_materials = np.full(len(part.faces), slot, dtype=np.int64)
+            part.materials = list(materials)
+        part.material = skin
+        parts.append(part)
+
+    for entry in worn:
+        if entry.get("sole") is not None:
+            left = build_sole(mesh, skeleton, entry["sole_height"])
+            if left is not None:
+                for sole in (left, mirror_mesh(left, skeleton)):
+                    sculpted(sole, entry["sole"])
+    hands = None
+    if spec.get("hands"):
+        unknown = set(spec["hands"]) - HAND_KEYS
+        if unknown:
+            raise ValueError(f"'{name}': body.hands: unknown keys {sorted(unknown)} (known: {sorted(HAND_KEYS)})")
+        wrist = tuple(float(r) for r in spec["hands"].get("wrist", (0.02, 0.028)))
+        left, hands = build_hand(skeleton, float(spec["hands"].get("size", 1.0)), wrist)
+        for hand_mesh in (left, mirror_mesh(left, skeleton)):
+            sculpted(uvmap.box_project(hand_mesh))
     head = None
     if spec.get("head"):
-        # The sculpted head goes on after the body's decimation, which would flatten its features.
         head, head_origin = sculpted_head(spec["head"], spec.get("face"), skeleton)
         head_mesh = build_head(head, head_origin)
         head_mesh.joints, head_mesh.weights = head_weights(head_mesh, skeleton, float(spec["head"].get("blend", 0.04)),
                                                            float(spec["head"].get("weight_shift", -0.06)))
-        head_mesh = uvmap.box_project(head_mesh)
-        if len(materials) > 1:
-            head_mesh.face_materials = np.zeros(len(head_mesh.faces), dtype=np.int64)
-            head_mesh.materials = list(materials)
-            mesh.materials = list(materials) if mesh.materials is None else mesh.materials
-        head_mesh.material = skin
+        sculpted(uvmap.box_project(head_mesh))
+    if parts:
+        if len(materials) > 1 and mesh.materials is None:
+            mesh.materials = list(materials)
         # (the lofted trunk can pinch where two chains touch: geogen.11.5.35)
-        mesh = csg.union(mesh, head_mesh, crease_angle=crease, check=False)
+        mesh = csg.union(mesh, *parts, crease_angle=crease, check=False)
     if len(materials) > 1:
         # Map the union's slots (ordered by first appearance) back to ours by material identity.
         slots, result_materials = mesh.effective_face_materials()
@@ -826,11 +907,17 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if spec.get("face"):
         face = dict(spec["face"])
         mesh = apply_face(mesh, face["box"], face_material(face, skin), float(face.get("min_normal", 0.25)))
-    if head is not None:
-        # Shade the head from its sculpt, not from how the simplifier triangulated it.
-        on = np.abs(head(mesh.vertices - head_origin)) < 2e-4
+    if head is not None or hands is not None:
+        # Shade the head and hands from their sculpts, not from how the simplifier triangulated them.
         mesh.normals = meshops.ensure_normals(mesh, crease).normals.copy()
-        mesh.normals[on] = sdf_normals(head, mesh.vertices[on] - head_origin)
+        if head is not None:
+            on = np.abs(head(mesh.vertices - head_origin)) < 2e-4
+            mesh.normals[on] = sdf_normals(head, mesh.vertices[on] - head_origin)
+        if hands is not None:
+            for side in (1, -1):                         # the right hand is the left's mirror image
+                local = mesh.vertices * [side, 1, 1]
+                on = (local[:, 0] > 0) & (np.abs(hands(local)) < 2e-4)
+                mesh.normals[on] = sdf_normals(hands, local[on]) * [side, 1, 1]
 
     root = SceneNode(name)
     joints, nodes = skeleton.build()
@@ -935,7 +1022,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     # (The face's vertices are copies appended after the split: bare skin.)
     root.meta["humanoid"]["garments"] = [
         {"name": g["name"], "part": g["part"],
-         "body": np.flatnonzero(vertex_slot == g["slot"]) if g["slot"] is not None else np.empty(0, dtype=np.int64),
+         "body": np.flatnonzero(np.isin(vertex_slot, [k for k in (g["slot"], g.get("sole")) if k is not None])),
          "clothes": g.get("shell_vertices", np.empty(0, dtype=np.int64))} for g in worn]
     root.tags = ["character"]
     return root

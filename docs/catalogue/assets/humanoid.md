@@ -70,7 +70,7 @@ place:
 
 ## Size
 
-0.736 x 1.742 x 0.385 m (x, y, z); geometry (-0.368, -0.009, -0.123) to (0.368, 1.742, 0.192) from the origin; 4856 triangles
+0.705 x 1.742 x 0.39 m (x, y, z); geometry (-0.353, -0.009, -0.123) to (0.353, 1.742, 0.195) from the origin; 6924 triangles
 
 ## Presets
 

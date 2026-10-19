@@ -52,6 +52,9 @@ garment's `thickness` between two `(bone, t)` positions and their faces take the
 material slot. So the body under it does not exist, and it cannot poke through. Where two
 garments overlap the higher `layer` wins. Edges become hem ring pairs 2 mm apart.
 
+Shoes add a sole (`sole: {height, color}`): not a span but a slab under the shoe's outline,
+unioned on after decimation (`humanoid.build_sole`), so the shoe has a flat tread and an edge.
+
 Rules that keep the waist closed (geogen.11.5.19): `lap_waist` makes a top and a bottom overlap
 by 3 cm, `smooth_hem` levels the top's hem after decimation and gives it trunk weights only, the
 leg chain has `root: Hips` so the top of the thigh tube stays with the pelvis.
@@ -178,7 +181,7 @@ hold it.
 ### Measuring
 
 `clipping.measure(character, pose | clip, t, seat)` reports, in millimetres: body vertices outside
-a shell that covered them at rest (`shell_poke`), hands inside the body or a shell, bare heels in
+a shell that covered them at rest (`shell_poke`), hands inside the body (not their own upper arm) or a shell, bare heels in
 shoes, and, at the waist of separates, skin showing, overlap and the hem's smoothness. With a
 seat it poses the character on it as the runtime does and reports what is inside the seat.
 

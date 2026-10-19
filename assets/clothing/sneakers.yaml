@@ -8,3 +8,4 @@ thickness: 0.011
 cover:
   foot: [[LeftFoot, -2.0], [LeftToes, 2.0]]
   leg: [[LeftLowerLeg, 0.9], [LeftLowerLeg, 1.0]]
+sole: { height: 0.02, color: white }          # a thick rubber sole, proud of the shoe

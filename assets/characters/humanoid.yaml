@@ -224,6 +224,9 @@ body:
     brow_color: "{hair_color}"
   # The sculpted head (generators/head.py), unioned onto the torso's neck; eyes and mouth
   # follow the painted face's box.
+  hands:                              # sculpted (generators/hand.py), joined on at the wrist
+    size: "{hk}"
+    wrist: ["{0.020 * lf}", "{0.028 * lf}"]
   head:
     size: "{hs}"
     neck_radius: "{0.049 * k - 0.001}"
@@ -294,49 +297,23 @@ body:
         - [Neck, 0.7, "{0.04 * k}", "{0.04 * k}", { offset: [0, -0.008] }]
 
     arm:
-      bones: [LeftShoulder, LeftUpperArm, LeftLowerArm, LeftHand, LeftMiddleProximal, LeftMiddleIntermediate,
-              LeftMiddleDistal]
-      end: { bone: LeftMiddleDistal, along: "{0.02 * hk}" }
+      # The arm ends at the wrist: the sculpted hands (body.hands) carry on from there.
+      bones: [LeftShoulder, LeftUpperArm, LeftLowerArm]
+      end: LeftHand
       mirror: true
       sides: 10
       spacing: 0.12
       blend: 0.05
       joint_rings: [LeftUpperArm, LeftLowerArm]
       cap_rings: 2
-      joint_blend: { LeftMiddleProximal: 0.015, LeftMiddleIntermediate: 0.01, LeftMiddleDistal: 0.008 }
-      # The mitten follows the two centre fingers: hand + 2 fingers (knuckle) or 2 + 2 (finger
-      # joints) stay within glTF's 4 influences, and library grips curl every finger alike.
-      bind:
-        LeftMiddleProximal: [LeftMiddleProximal, LeftRingProximal]
-        LeftMiddleIntermediate: [LeftMiddleIntermediate, LeftRingIntermediate]
-        LeftMiddleDistal: [LeftMiddleDistal, LeftRingDistal]
       rings:
-        - [LeftShoulder, 0.42, "{0.042 * tf}", "{0.046 * tf}", { offset: [-0.016, 0] }]
-        - [LeftUpperArm, -0.05, "{shoulder_r * 1.06}", "{shoulder_r * 1.02}", { offset: [0.006, 0] }]
+        - [LeftShoulder, 0.42, "{0.042 * tf}", "{0.046 * tf}", { offset: [-0.02, 0] }]
+        - [LeftUpperArm, -0.05, "{shoulder_r * 1.0}", "{shoulder_r * 1.02}", { offset: [-0.014, 0] }]
         - [LeftUpperArm, 0.15, "{0.048 * lf}", "{0.049 * lf}"]
         - [LeftUpperArm, 0.55, "{0.040 * lf}", "{0.043 * lf}"]
         - [LeftLowerArm, 0.0, "{0.033 * lf}", "{0.035 * lf}"]
         - [LeftLowerArm, 0.3, "{0.035 * lf}", "{0.039 * lf}"]
         - [LeftLowerArm, 0.95, "{0.020 * lf}", "{0.028 * lf}"]
-        - [LeftHand, 0.45, "{0.016 * hk}", "{0.042 * hk}", { offset: [0.002, "{-0.008 * hk}"], power: 2.6 }]
-        - [LeftMiddleProximal, 0.0, "{0.014 * hk}", "{0.041 * hk}", { offset: [0, "{-0.010 * hk}"], power: 2.6 }]
-        - [LeftMiddleProximal, 0.6, "{0.011 * hk}", "{0.036 * hk}", { offset: [0, "{-0.008 * hk}"], power: 2.4 }]
-        - [LeftMiddleDistal, 0.2, "{0.008 * hk}", "{0.028 * hk}", { offset: [0, "{-0.006 * hk}"] }]
-
-    thumb:
-      bones: [LeftThumbMetacarpal, LeftThumbProximal, LeftThumbDistal]
-      end: { bone: LeftThumbDistal, along: "{0.022 * hk}" }
-      front: [0, 1, 0]
-      mirror: true
-      sides: 5
-      spacing: 0.1
-      blend: 0.015
-      joint_rings: false
-      cap_rings: 1
-      rings:
-        - [LeftThumbMetacarpal, 0.1, "{0.015 * hk}", "{0.013 * hk}"]
-        - [LeftThumbProximal, 0.0, "{0.012 * hk}", "{0.011 * hk}"]
-        - [LeftThumbDistal, 0.3, "{0.010 * hk}", "{0.009 * hk}"]
 
     leg:
       bones: [LeftUpperLeg, LeftLowerLeg]
@@ -441,17 +418,41 @@ body:
     t_pose: {}
     stand:
       bones: &arms_down
+        <<: &hand_rest                       # relaxed hands: the thumb folded along the hand, fingers a little curled
+          LeftThumbMetacarpal: [0, 28, 0]
+          RightThumbMetacarpal: [0, -28, 0]
+          LeftIndexProximal: [0, 0, -10]
+          RightIndexProximal: [0, 0, 10]
+          LeftIndexIntermediate: [0, 0, -16]
+          RightIndexIntermediate: [0, 0, 16]
+          LeftIndexDistal: [0, 0, -10]
+          RightIndexDistal: [0, 0, 10]
+          LeftMiddleProximal: [0, 0, -12]
+          RightMiddleProximal: [0, 0, 12]
+          LeftMiddleIntermediate: [0, 0, -18]
+          RightMiddleIntermediate: [0, 0, 18]
+          LeftMiddleDistal: [0, 0, -12]
+          RightMiddleDistal: [0, 0, 12]
+          LeftRingProximal: [0, 0, -14]
+          RightRingProximal: [0, 0, 14]
+          LeftRingIntermediate: [0, 0, -20]
+          RightRingIntermediate: [0, 0, 20]
+          LeftRingDistal: [0, 0, -14]
+          RightRingDistal: [0, 0, 14]
+          LeftLittleProximal: [0, 0, -16]
+          RightLittleProximal: [0, 0, 16]
+          LeftLittleIntermediate: [0, 0, -22]
+          RightLittleIntermediate: [0, 0, 22]
+          LeftLittleDistal: [0, 0, -16]
+          RightLittleDistal: [0, 0, 16]
         LeftUpperArm: [0, 0, -74]
         RightUpperArm: [0, 0, 74]
         LeftLowerArm: [0, -12, 0]
         RightLowerArm: [0, 12, 0]
-        LeftThumbMetacarpal: [0, 28, 0]      # fold the rest pose's splayed thumb along the hand
-        RightThumbMetacarpal: [0, -28, 0]
     sit:
       seat: "{hips_h - seat_drop}"   # seat surface this is solved for; refitted per body (humanoid.fit_seats)
       bones: &sit_upper
-        LeftThumbMetacarpal: [0, 28, 0]
-        RightThumbMetacarpal: [0, -28, 0]
+        <<: *hand_rest
         Spine: [-4, 0, 0]
       ik: &sit_ik
         LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.07 * k}"], flat: true, floor: true }
@@ -471,16 +472,14 @@ body:
       bones:
         LeftUpperArm: [0, 0, -80]
         RightUpperArm: [0, 0, 80]
-        LeftThumbMetacarpal: [0, 28, 0]
-        RightThumbMetacarpal: [0, -28, 0]
+        <<: *hand_rest
     lean_on_sill:                           # hands on a sill in front, leaning in to look out
       hips: [0, 0, -0.03]
       bones:
         Spine: [9, 0, 0]
         Chest: [6, 0, 0]
         Neck: [-8, 0, 0]
-        LeftThumbMetacarpal: [0, 28, 0]
-        RightThumbMetacarpal: [0, -28, 0]
+        <<: *hand_rest
       ik:
         LeftFoot: { target: ["{hip_j}", "{ankle_h}", 0.02], flat: true }
         LeftHand: { target: ["{0.19 * k}", "{sill_height + 0.02}", "{0.36 * k}"], pole: [0.6, -0.4, -1], rest: true }
@@ -492,8 +491,7 @@ body:
         Chest: [5, 0, 0]
         Neck: [10, 0, 0]
         Head: [12, 0, 0]
-        LeftThumbMetacarpal: [0, 28, 0]
-        RightThumbMetacarpal: [0, -28, 0]
+        <<: *hand_rest
       ik:
         LeftFoot: { target: ["{hip_j}", "{ankle_h}", 0.02], flat: true }
         LeftHand: { target: ["{0.15 * k}", "{worktop_height + 0.02}", "{0.27 * k}"], pole: [0.7, -0.2, -1], rest: true }
@@ -504,8 +502,7 @@ body:
         Spine: [30, 0, 0]
         Chest: [18, 0, 0]
         Neck: [-18, 0, 0]
-        LeftThumbMetacarpal: [0, 28, 0]
-        RightThumbMetacarpal: [0, -28, 0]
+        <<: *hand_rest
       ik:
         LeftFoot: { target: ["{hip_j + 0.02}", "{ankle_h}", "{0.08 * k}"], flat: true }
         RightFoot: { target: ["{-hip_j - 0.02}", "{ankle_h}", "{-0.1 * k}"], flat: true }

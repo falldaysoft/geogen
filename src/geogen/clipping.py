@@ -7,8 +7,9 @@ and reports, in millimetres:
   *covered* when it lies inside the shell in the pose the garment was built in (stand); in the
   measured pose, covered vertices outside the shell poke through (unless they are nearer its
   hem's opening than its cloth: they left by the opening).
-- ``hands``: hand and forearm vertices inside the rest of the body (thighs, hips, belly) or
-  inside the loose shell (a palm through the skirt).
+- ``hands``: hand and forearm vertices inside the rest of the body (thighs, hips, belly, the
+  other upper arm; not their own, which a bent elbow folds into) or inside the loose shell
+  (a palm through the skirt).
 - ``feet_skin``: skin (not shoe) vertices on the heels of a body wearing shoes: behind and below
   the ankle joint (an open instep, as in flats, is fine).
 - ``seat``: with ``seat=(node, spot)`` from ``layout.affordance_qa``: body and shell vertices
@@ -314,20 +315,25 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
             left = distance(pts[outside], opening) < wall if len(opening) else np.zeros(len(wall), bool)
             depth[outside] = np.where(left, 0.0, wall)
         out["shell_poke"] = _metric(depth)
-    # Hands and forearms in the rest of the body, or in the shell.
-    hand = _bone_mask(actor, body, HAND_BONES)
-    others = ~np.any(hand[body.faces], axis=1)
-    pts = body.vertices[hand]
-    inside = winding(pts, _tris(body, body.faces[others])) > 0.5
-    if "clothes" in now:
-        inside |= winding(pts, _solid(now["clothes"])) > 0.5
-    depth = np.zeros(len(pts))
-    if inside.any():
-        tris = _tris(body, body.faces[others])
+    # Hands and forearms in the rest of the body, or in the shell. Each side's against the body
+    # without that arm: a forearm folding into its own upper arm is the elbow, not a hand in the body.
+    hands, depths = _bone_mask(actor, body, HAND_BONES), []
+    for side in ("Left", "Right"):
+        hand = _bone_mask(actor, body, tuple(side + b for b in HAND_BONES))
+        own = hands | _bone_mask(actor, body, (side + "UpperArm",))
+        others = ~np.any(own[body.faces], axis=1)
+        pts = body.vertices[hand]
+        inside = winding(pts, _tris(body, body.faces[others])) > 0.5
         if "clothes" in now:
-            tris = np.concatenate([tris, _tris(now["clothes"])])
-        depth[inside] = distance(pts[inside], tris)
-    out["hands"] = _metric(depth)
+            inside |= winding(pts, _solid(now["clothes"])) > 0.5
+        depth = np.zeros(len(pts))
+        if inside.any():
+            tris = _tris(body, body.faces[others])
+            if "clothes" in now:
+                tris = np.concatenate([tris, _tris(now["clothes"])])
+            depth[inside] = distance(pts[inside], tris)
+        depths.append(depth)
+    out["hands"] = _metric(np.concatenate(depths))
     # Bare feet inside shoes (only when the outfit has shoes: leather on the body).
     if body.materials and any(m is not None and m.name == "leather" for m in body.materials):
         skin_feet = _slot_vertices(body, "skin") & _bone_mask(actor, body, FOOT_BONES)
