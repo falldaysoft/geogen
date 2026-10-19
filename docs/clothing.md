@@ -37,7 +37,9 @@ Costs: a skirt is about 1,100 triangles (was 670), so a dressed character with o
 1.4 s in a skirt (2026-10-18, after the fast skeleton maths of geogen.11.5.29; it was 2.2 s and
 3.3 s): the drape is about 0.4 s of that and the arms 0.3 s, or 0.65 s with a skirt to keep out of.
 With sculpted hands (2026-10-19) it is 0.93 s in jeans and 1.58 s in a skirt (drape ~0.3 s, the
-arms ~0.75 s: the skirt is a second obstacle every probe tests). Nothing is added at runtime: the arms' swing is
+arms ~0.75 s: the skirt is a second obstacle every probe tests). Probing the skirt through its
+rings instead of its triangles (`arms._Tube`) brought that to 1.31 s (the arms 0.30 s in jeans,
+0.44 s in a skirt: the skirt is cheap to probe now, but more frames need a swing). Nothing is added at runtime: the arms' swing is
 in the clips' keys.
 
 ## The system
@@ -142,11 +144,17 @@ nothing but the upper arms' rotation keys.
 
 - **What is kept clear:** the forearm and hand of each side (what `clipping.measure` reports as
   `hands`), by the vertices on their convex hulls.
-- **Of what:** the body without its arms, head and feet, and the loose shell's outer wall with
-  its hem capped (the same solid clipping QA uses), in the pose of the frame, drape morphs
-  included. Depth is the distance to the nearest triangle, signed by the triangle the point is
-  most squarely in front of or behind among those that meet there. That goes wrong at a rolled
-  hem's lip, so a point found inside a shell is confirmed with the winding number.
+- **Of what:** the body without its arms, head and feet, and the loose shell, in the pose of the
+  frame, drape morphs included. For the body, depth is the distance to the nearest triangle,
+  signed by the triangle the point is most squarely in front of or behind among those that meet
+  there. A draped shell is the solid its rings bound (`drape.solid_rings`: the key rings and the
+  start cap's, capped at the first and last; `arms._Tube`): each ring is tabled per frame, round
+  its centre, by how far it reaches and how far off its plane it is in each direction, and a
+  point is measured between the two rings it lies between, in their planes. That is over 10x
+  quicker than triangles and agrees with clipping QA's solid (the outer wall with its hem capped)
+  to within a few mm, except under a seated skirt. A loose shell that isn't draped is its outer
+  wall with its openings capped, as triangles; a point found inside one is confirmed with the
+  winding number (the nearest triangle goes wrong at a rolled hem's lip).
 - **How:** if anything is more than 1 mm inside, the arm turns about the shoulder joint so that
   the hand moves outward, away from the body's centre plane, until everything is 4 mm clear. The
   angle is found in a few steps, each as far as the deepest vertex still lacks.

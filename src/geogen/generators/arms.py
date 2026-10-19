@@ -10,8 +10,9 @@ clear is left exactly as authored.
 
 The swing is a rotation about the shoulder joint that carries the hand outward, away from the
 body's centre plane: the same way in every frame, so the swings of neighbouring frames blend.
-What it has to clear is the body's surface other than the arms, and the loose shell: its outer
-wall, with the hems' openings capped. A static pose is solved exactly; a clip's sampled frames
+What it has to clear is the body's surface other than the arms, and the loose shell: a draped
+one as the solid its rings bound (``_Tube``), any other as its outer wall with the hems' openings
+capped. A static pose is solved exactly; a clip's sampled frames
 are spread over their neighbours (``_spread``) and interpolated onto its keys.
 """
 
@@ -116,6 +117,87 @@ class _Obstacle:
         rows = np.arange(len(points))
         distance = distance[rows, pick]
         return np.where(side[rows, pick] < 0, distance, -distance), faces[rows, pick]
+
+
+class _Tube:
+    """A draped shell (its ``drape.solid_rings``) as an obstacle: the solid its rings bound, capped
+    at the first and last ring. ``probe`` answers as ``_Obstacle.probe`` does, from the two rings
+    a point lies between rather than from triangles (no search, no winding number): each ring is
+    tabled once per pose, round its centre, as how far it reaches and how far it is off its plane
+    in each direction."""
+
+    BINS = 64                                                  # directions each ring is tabled in
+
+    def __init__(self, rings: list[np.ndarray], x: np.ndarray) -> None:
+        planes = []
+        for ring in rings:
+            centre = x[ring].mean(axis=0)
+            _, _, vt = np.linalg.svd(x[ring] - centre, full_matrices=False)
+            planes.append((centre, vt[2], vt[0]))
+        self.centre = np.array([c for c, _, _ in planes])
+        ahead = np.diff(self.centre, axis=0)
+        ahead = np.vstack([ahead, ahead[-1:]])
+        self.normal = np.array([n if n @ a >= 0 else -n for (_, n, _), a in zip(planes, ahead)])    # toward the hem
+        self.e1 = np.array([e for _, _, e in planes])
+        self.e2 = np.cross(self.normal, self.e1)
+        bins = np.linspace(-np.pi, np.pi, self.BINS, endpoint=False)
+        rays = np.column_stack([np.cos(bins), np.sin(bins)])
+        self.reach = np.zeros((len(rings), self.BINS))
+        self.off = np.zeros((len(rings), self.BINS))
+        for k, ring in enumerate(rings):
+            # Where each ray from the centre leaves the ring (as a polygon in its plane): the far
+            # crossing of the edges it meets, and how far off the plane the ring is there.
+            rel = x[ring] - self.centre[k]
+            a = np.column_stack([rel @ self.e1[k], rel @ self.e2[k]])
+            h = rel @ self.normal[k]
+            e = np.roll(a, -1, axis=0) - a
+            across = rays[:, :1] * e[:, 1] - rays[:, 1:] * e[:, 0]                  # (rays, edges)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                t = (a[:, 0] * e[:, 1] - a[:, 1] * e[:, 0]) / across
+                s = (a[:, 0] * rays[:, 1:] - a[:, 1] * rays[:, :1]) / across
+            t = np.where((s >= 0) & (s <= 1) & (t > 0), t, 0.0)
+            edge = np.argmax(t, axis=1)
+            s = np.clip(s[np.arange(self.BINS), edge], 0.0, 1.0)
+            self.reach[k] = t.max(axis=1)
+            self.off[k] = (1 - s) * h[edge] + s * np.roll(h, -1)[edge]
+
+    def probe(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        rel = points[:, None, :] - self.centre[None]                               # (points, rings, 3)
+        h = np.einsum("pkd,kd->pk", rel, self.normal)
+        u, v = np.einsum("pkd,kd->pk", rel, self.e1), np.einsum("pkd,kd->pk", rel, self.e2)
+        r = np.sqrt(u * u + v * v)
+        at = (np.arctan2(v, u) + np.pi) * (self.BINS / (2 * np.pi))
+        lo = np.floor(at).astype(int) % self.BINS
+        f = at - np.floor(at)
+        rings = np.arange(len(self.centre))[None]
+        table = lambda t: (1 - f) * t[rings, lo] + f * t[rings, (lo + 1) % self.BINS]
+        d = h - table(self.off)                                # past each ring (toward the hem)
+        gap = table(self.reach) - r                            # inside it (in its plane)
+        rows = np.arange(len(points))
+        # The two rings a point is between: of the pairs it is past the first and short of the
+        # second of (their planes cross round a bend), the pair whose centres it is nearest.
+        between = (d[:, :-1] >= 0) & (d[:, 1:] < 0)
+        t = np.clip(d[:, :-1] / np.maximum(d[:, :-1] - d[:, 1:], 1e-12), 0.0, 1.0)
+        mid = self.centre[None, :-1] + t[..., None] * (self.centre[None, 1:] - self.centre[None, :-1])
+        far = np.where(between, np.linalg.norm(points[:, None, :] - mid, axis=2), np.inf)
+        k = np.argmin(far, axis=1)
+        spanned = np.isfinite(far[rows, k])
+        t = t[rows, k]
+        g0, g1 = gap[rows, k], gap[rows, k + 1]
+        wall = ((1 - t) * g0 + t * g1) / np.sqrt(1.0 + ((g1 - g0) / np.maximum(d[rows, k] - d[rows, k + 1], 1e-9)) ** 2)
+        out = lambda j: np.stack([u[rows, j], v[rows, j]], axis=1) / np.maximum(r[rows, j], 1e-9)[:, None]
+        radial = lambda j, w: w[:, :1] * self.e1[j] + w[:, 1:] * self.e2[j]
+        normal = (1 - t)[:, None] * radial(k, out(k)) + t[:, None] * radial(k + 1, out(k + 1))
+        top, hem = d[:, 0], -d[:, -1]
+        depth = np.where(wall > 0, np.minimum(wall, np.minimum(top, hem)), wall)
+        # Beyond an end: off its cap, or off its rim.
+        last = len(self.centre) - 1
+        end = np.where(top < hem, 0, last)
+        beyond = -np.where(end == 0, top, hem)
+        rim = gap[rows, end]
+        depth = np.where(spanned, depth, -np.where(rim >= 0, beyond, np.sqrt(beyond ** 2 + rim ** 2)))
+        normal = np.where(spanned[:, None], normal, np.where((end == 0)[:, None], -self.normal[0], self.normal[last]))
+        return depth, normal / np.maximum(np.linalg.norm(normal, axis=1), 1e-9)[:, None]
 
 
 def _cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:           # (np.cross is several times slower)
@@ -258,9 +340,10 @@ def _reversed(clip, other) -> bool:
     return True
 
 
-def clear_arms(root: SceneNode) -> dict:
+def clear_arms(root: SceneNode, shells: list[dict] | None = None) -> dict:
     """Swing the arms of a built humanoid ``root`` clear of its body and clothes in every clip
-    (see the module docstring). Rewrites the upper arms' rotation keys; returns
+    (see the module docstring). ``shells``: its draped shells, as ``drape.fit`` takes them
+    (default: ``meta.humanoid.shells``). Rewrites the upper arms' rotation keys; returns
     {clip: the largest swing in degrees} for the clips it changed."""
     from .humanoid import dominant_bones, lining_faces
 
@@ -300,13 +383,39 @@ def clear_arms(root: SceneNode) -> dict:
     solid = mesh.faces[~left_out]
     surface = _Surface(solid, mesh.vertices, on_hole[solid].any(axis=1))
     wanted = np.unique(np.concatenate([solid.ravel(), *kept.values()]))
-    shell = None
+    shell, tubes = None, []
     cloth = nodes.get("clothes")
     if cloth is not None and cloth.mesh is not None:
-        # A loose shell: its outer wall, with each opening (hem) capped as clipping QA's solid is.
-        wall = cloth.mesh.faces[~lining_faces(cloth.mesh)]
-        shell = _Surface(wall, cloth.mesh.vertices, fans=_fans(wall, cloth.mesh.vertices))
+        from .drape import solid_rings
+
+        cm = cloth.mesh
+        if shells is None:
+            shells = root.meta.get("humanoid", {}).get("shells", [])
+        # A draped shell is a tube of rings; anything else loose is its outer wall, with each
+        # opening (hem) capped as clipping QA's solid is.
+        tubed = np.zeros(len(cm.vertices), bool)
+        for s in shells:
+            rings = solid_rings(cm, s["vertices"], s["s_range"])
+            if len(rings) >= 3:
+                tubes.append(rings)
+                tubed[s["vertices"]] = True
+        wall = cm.faces[~lining_faces(cm)]
+        wall = wall[~tubed[wall].all(axis=1)]
+        if len(wall):
+            shell = _Surface(wall, cm.vertices, fans=_fans(wall, cm.vertices))
+        ring_rows = np.unique(np.concatenate([r for rings in tubes for r in rings])) if tubes else np.zeros(0, int)
     to_world = nodes["body"].world_transform()
+
+    def cloth_at(rows: np.ndarray | slice) -> np.ndarray:
+        """World positions of ``rows`` of the clothes' vertices as posed (drape morphs included)."""
+        node = nodes["clothes"]
+        rest = cm.vertices[rows].copy()
+        for name, delta in (cm.morphs or {}).items():
+            if node.morph_weights.get(name, 0.0):
+                rest += node.morph_weights[name] * delta[rows]
+        m = np.einsum("vk,vkij->vij", cm.weights[rows], node.skin.matrices(node)[cm.joints[rows]])
+        world = node.world_transform()
+        return (np.einsum("vij,vj->vi", m[:, :3, :3], rest) + m[:, :3, 3]) @ world[:3, :3].T + world[:3, 3]
 
     def needed(clip, t: float) -> dict[str, np.ndarray]:
         """Per side, the swing this frame needs as a rotation vector in the shoulder's frame."""
@@ -315,7 +424,13 @@ def clear_arms(root: SceneNode) -> dict:
         posed = np.zeros_like(mesh.vertices)
         posed[wanted] = (np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.vertices[wanted]) + blended[:, :3, 3]) \
             @ to_world[:3, :3].T + to_world[:3, 3]
-        obstacles = [surface.at(posed)] + ([shell.at(cloth.world_mesh().vertices)] if shell is not None else [])
+        obstacles = [surface.at(posed)]
+        if shell is not None:
+            obstacles.append(shell.at(cloth_at(slice(None))))
+        if tubes:
+            x = np.zeros((len(cm.vertices), 3))
+            x[ring_rows] = cloth_at(ring_rows)
+            obstacles += [_Tube(rings, x) for rings in tubes]
         centre = nodes["Chest" if "Chest" in nodes else "Hips"].world_transform()[:3, :3]
         out = {}
         for side, sign in SIDES.items():

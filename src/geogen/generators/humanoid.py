@@ -998,7 +998,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     drape_report = drape.fit(root, draped, set(seats)) if draped else {}
     from .arms import clear_arms
 
-    arms_report = clear_arms(root) if spec.get("clear_arms", True) else {}
+    arms_report = clear_arms(root, draped) if spec.get("clear_arms", True) else {}
     if pose_name is not None:
         if pose_name not in poses:
             raise ValueError(f"'{name}': unknown pose '{pose_name}'. Poses: {sorted(poses)}")

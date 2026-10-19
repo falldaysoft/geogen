@@ -26,6 +26,32 @@ def test_probe_tells_inside_from_outside_and_how_deep():
     assert normal[1] == pytest.approx([1.0, 0.0, 0.0])
 
 
+def test_tube_probe_measures_off_its_rings():
+    """A skirt as rings: a cone 0.2 m long, radius 0.1 at the top and 0.15 at the hem, hanging
+    from y = 0 (the hem ring tilted 0.02 m up at +X)."""
+    from geogen.generators.arms import _Tube
+
+    angle = np.linspace(0, 2 * np.pi, 24, endpoint=False)
+    rings, x = [], []
+    for k, y in enumerate(np.linspace(0.0, -0.2, 5)):
+        r = 0.1 + 0.25 * -y
+        ring = np.column_stack([r * np.cos(angle), np.full(24, y), r * np.sin(angle)])
+        if k == 4:
+            ring[:, 1] += 0.01 * (1 + np.cos(angle))
+        rings.append(np.arange(24 * k, 24 * k + 24))
+        x.append(ring)
+    tube = _Tube(rings, np.concatenate(x))
+    slant = 1 / np.hypot(1, 0.25)
+    points = np.array([[0.0, -0.1, 0.0], [0.1, -0.1, 0.0], [0.15, -0.1, 0.0], [0.0, 0.05, 0.0], [0.0, -0.25, 0.0], [0.0, -0.21, 0.0]])
+    depth, normal = tube.probe(points)
+    assert depth[0] == pytest.approx(0.09, abs=0.001)                      # nearer the hem (at -0.19 on the axis) than the wall
+    assert depth[1] == pytest.approx(0.025 * slant, abs=0.001)
+    assert depth[2] == pytest.approx(-0.025 * slant, abs=0.001)
+    assert normal[2] == pytest.approx([1.0, 0.0, 0.0], abs=0.01)
+    assert depth[3:] == pytest.approx([-0.05, -0.06, -0.02], abs=0.001)    # off the caps
+    assert normal[3] == pytest.approx([0.0, 1.0, 0.0])
+
+
 def test_swing_takes_an_arm_out_of_a_block():
     """A hanging arm whose hand is in a block beside it swings outward until it is clear, and
     one that is clear already is left alone."""

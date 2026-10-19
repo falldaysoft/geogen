@@ -89,19 +89,8 @@ def shell_grid(mesh: Mesh, vertices: np.ndarray, s_range: tuple[float, float]) -
     outer[mesh.faces[~lining].ravel()] = True
     outer &= mine
     s_all = mesh.uvs[:, 1]
-    wall = outer & (s_all >= s_range[0] - 1e-6) & (s_all <= s_range[1] + 1e-6)
-    rings, ring_s = [], []
-    for s in np.unique(np.round(s_all[wall], 5)):
-        idx = np.flatnonzero(wall & (np.abs(s_all - s) < 2e-5))
-        # One vertex per position (the UV seam and creases duplicate them), in order round the ring.
-        _, first = np.unique(np.round(mesh.vertices[idx], 5), axis=0, return_index=True)
-        idx = idx[np.sort(first)]
-        idx = idx[np.argsort(mesh.uvs[idx, 0], kind="stable")]
-        if len(idx) < 6:
-            return None
-        rings.append(idx)
-        ring_s.append(float(s))
-    if len(rings) < 3:
+    rings, ring_s = _rings(mesh, outer & (s_all >= s_range[0] - 1e-6) & (s_all <= s_range[1] + 1e-6))
+    if any(len(r) < 6 for r in rings) or len(rings) < 3:
         return None
     grid_vertices = np.concatenate(rings)
     follow = np.full(len(mesh.vertices), -1)
@@ -110,6 +99,33 @@ def shell_grid(mesh: Mesh, vertices: np.ndarray, s_range: tuple[float, float]) -
     gain = np.ones(len(rings))
     gain[0] = 0.0                                             # the waistband: under the top's hem
     return ShellGrid(rings, np.array(ring_s), follow, gain)
+
+
+def _rings(mesh: Mesh, wall: np.ndarray) -> tuple[list[np.ndarray], list[float]]:
+    """The rings of the vertices ``wall`` (a mask) of a ``ringloft`` tube, by arc length: each
+    one vertex per position (the UV seam and creases duplicate them), in order round the ring."""
+    s_all = mesh.uvs[:, 1]
+    rings, ring_s = [], []
+    for s in np.unique(np.round(s_all[wall], 5)):
+        idx = np.flatnonzero(wall & (np.abs(s_all - s) < 2e-5))
+        _, first = np.unique(np.round(mesh.vertices[idx], 5), axis=0, return_index=True)
+        idx = idx[np.sort(first)]
+        rings.append(idx[np.argsort(mesh.uvs[idx, 0], kind="stable")])
+        ring_s.append(float(s))
+    return rings, ring_s
+
+
+def solid_rings(mesh: Mesh, vertices: np.ndarray, s_range: tuple[float, float]) -> list[np.ndarray]:
+    """The rings that bound the solid of a draped shell, as clipping QA caps it: its key rings
+    and those of the start cap before them (buried under the top), but not the rolled hem's."""
+    from .humanoid import lining_faces
+
+    outer = np.zeros(len(mesh.vertices), bool)
+    outer[mesh.faces[~lining_faces(mesh)].ravel()] = True
+    mine = np.zeros(len(mesh.vertices), bool)
+    mine[vertices] = True
+    rings, _ = _rings(mesh, outer & mine & (mesh.uvs[:, 1] <= s_range[1] + 1e-6))
+    return [r for r in rings if len(r) >= 6]
 
 
 def _plane(points: np.ndarray, toward: np.ndarray | None) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
