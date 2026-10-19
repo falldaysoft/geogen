@@ -112,6 +112,7 @@
 | `owns` | an NPC's things (references): only it uses them, and it likes them best |
 | `prefers` | things an NPC likes best (references), still free for others |
 | `work` | an NPC's work (a reference): where its routine's `at: work` blocks keep it |
+| `visits` | {name: <object>.<surface> \| {rect, y}}: places outside an NPC's home its activities' `visit` goes to |
 | `archetype` | a random person (characters/archetypes/adult.yaml) |
 | `traffic` | a moving fleet (traffic/town.yaml) on the scene's lanes |
 | `count` | fleet size for a traffic placement |
@@ -168,7 +169,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `wander`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `visits`, `wander`, `work`
 
 | File | What it is |
 | --- | --- |

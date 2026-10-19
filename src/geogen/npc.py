@@ -42,7 +42,7 @@ VERSION = 1
 
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play"}
 STEP_OPTIONS = {"at", "if", "hold", "loop", "close"}
-GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit", "aside"}
+GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit", "aside", "visit"}
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
 
@@ -50,9 +50,18 @@ NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention"}
 CHARACTER_KIND = "character"
 # Placement keys a character file may give defaults for (the scene's placement wins).
-CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "quests", "seed")
+CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "visits", "quests", "seed")
 CHARACTER_KEYS = {"name", "npc", "body", *CHARACTER_PLACEMENT_KEYS,
                   *(NPC_KEYS - {"kind", "version", "body", "seed"})}
+# An NPC's own activities (things it can always do, besides the affordances around it).
+ACTIVITY_KEYS = {
+    "action": "the action it runs (default: the activity's name)",
+    "advertises": "{need: amount}: what doing it adds to the needs",
+    "duration": "[lo, hi] s: the action's `wait: duration`",
+    "weight": "multiplies its score (default 1): how much more or less often it wins",
+    "cooldown": "s after doing it before it is an option again (a rare trip)",
+    "visit": "one of the placement's `visits`: the region its `go_to: visit` goes to (the dining room)",
+}
 ROUTINE_KEYS = {"from", "to", "away", "activities", "preferences", "name", "at", "only", "hold"}
 ROUTINE_OWNS = "owns"               # in a block's `only`: the things the NPC owns, whatever their tags
 ROUTINE_AT = ("home", "work")        # where a block's options are: the home region, or the placement's `work`
@@ -306,9 +315,19 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         action = spec.get("action", name)
         if action not in actions:
             raise ValueError(f"{path}: activity {name}: unknown action {action!r}")
+        unknown = set(spec) - set(ACTIVITY_KEYS)
+        if unknown:
+            raise ValueError(f"{path}: activity {name}: unknown keys {sorted(unknown)} (keys: {sorted(ACTIVITY_KEYS)})")
         activity = {"action": action, "advertises": _advertises(spec.get("advertises"), needs, f"{path}: {name}")}
         if "duration" in spec:
             activity["duration"] = _range(spec["duration"], f"{path}: {name}: duration")
+        for key in ("weight", "cooldown"):
+            if key in spec:
+                activity[key] = float(spec[key])
+                if activity[key] < 0:
+                    raise ValueError(f"{path}: activity {name}: {key} can't be negative")
+        if "visit" in spec:
+            activity["visit"] = str(spec["visit"])
         activities[name] = activity
     scoring = {**SCORING_DEFAULTS, **{k: float(v) for k, v in (data.get("scoring") or {}).items()}}
     if set(scoring) - set(SCORING_DEFAULTS):
@@ -560,26 +579,43 @@ def resolve_home(node: SceneNode, spec: Any, refs: Any, keys: list | None = None
     NPC's home is a 6 m square around where it is placed.
     """
     npc: dict[str, Any] = node.meta["npc"]  # type: ignore[assignment]
-    to_local = np.linalg.inv(node.transform.to_matrix())
     if spec is None:
         npc["home"] = {"polygon": [[-3.0, -3.0], [3.0, -3.0], [3.0, 3.0], [-3.0, 3.0]], "y": 0.0}
         return
+    npc["home"] = _region(node, spec, refs, list(keys or ["home"]), "home")
+
+
+def resolve_visits(node: SceneNode, spec: Any, refs: Any, keys: list) -> None:
+    """An NPC placement's ``visits: {name: <object>.<surface> | {rect, y}}``: places outside its
+    home that its activities with ``visit: <name>`` make short trips to, recorded like the home
+    (``meta.npc.visits = {name: {polygon, y}}``, in the NPC's frame). An activity whose visit a
+    placement doesn't give isn't an option there (a scene without the chef's dining room)."""
+    npc: dict[str, Any] = node.meta["npc"]  # type: ignore[assignment]
+    spec = spec or {}
+    if not isinstance(spec, dict):
+        raise refs.fail(f"npc visits: {{name: <object>.<surface> | {{rect, y}}}}, got {spec!r}", keys)
+    if spec:
+        npc["visits"] = {str(k): _region(node, v, refs, [*keys, k], "visit") for k, v in spec.items()}
+
+
+def _region(node: SceneNode, spec: Any, refs: Any, keys: list, what: str) -> dict[str, Any]:
+    """A home or visit region, ``<object>.<surface>`` or ``{rect, y}``, as {polygon, y} in the NPC's frame."""
+    to_local = np.linalg.inv(node.transform.to_matrix())
     if isinstance(spec, dict) and "rect" in spec:
         x0, z0, x1, z1 = (float(v) for v in spec["rect"])
         y = float(spec.get("y", 0.0))
         corners = [np.array([x, y, z]) for x, z in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))]
     elif isinstance(spec, str) and "." in spec:
-        keys = list(keys or ["home"])
         target, surface = refs.surface(spec, keys)
         if abs(surface.normal[1]) < 0.9:
-            raise refs.fail(f"npc home: {spec} is not a horizontal surface", keys, spec)
+            raise refs.fail(f"npc {what}: {spec} is not a horizontal surface", keys, spec)
         to_scene = np.linalg.inv(refs.root.world_transform()) @ target.world_transform()
         corners = []
         for u, v in ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)):
             local = surface.resolve(u, v).translation
             corners.append((to_scene @ np.append(local, 1.0))[:3])
     else:
-        raise ValueError(f"npc home: expected <object>.<surface> or {{rect: [...]}}, got {spec!r}")
+        raise ValueError(f"npc {what}: expected <object>.<surface> or {{rect: [...]}}, got {spec!r}")
     pts = np.array([(to_local @ np.append(c, 1.0))[:3] for c in corners])
-    npc["home"] = {"polygon": [[round(float(p[0]), 4), round(float(p[2]), 4)] for p in pts],
-                   "y": round(float(pts[:, 1].mean()), 4)}
+    return {"polygon": [[round(float(p[0]), 4), round(float(p[2]), 4)] for p in pts],
+            "y": round(float(pts[:, 1].mean()), 4)}

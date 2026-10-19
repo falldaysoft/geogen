@@ -15,3 +15,8 @@ body:
 
 needs:
   work: { initial: 0.1, decay: 0.03 }    # back to the kitchen sooner than front-of-house staff
+
+# Now and then (at most every 4 minutes) he looks into the dining room: the
+# placement's `visits: {dining: ...}` says where it is.
+activities:
+  look_in: { action: visit, visit: dining, advertises: { curiosity: 0.4 }, duration: [4, 8], weight: 0.8, cooldown: 240 }

@@ -385,6 +385,7 @@ PLACEMENT_KEYS: dict[str, str] = {
     "owns": "an NPC's things (references): only it uses them, and it likes them best",
     "prefers": "things an NPC likes best (references), still free for others",
     "work": "an NPC's work (a reference): where its routine's `at: work` blocks keep it",
+    "visits": "{name: <object>.<surface> | {rect, y}}: places outside an NPC's home its activities' `visit` goes to",
     "archetype": "a random person (characters/archetypes/adult.yaml)",
     "traffic": "a moving fleet (traffic/town.yaml) on the scene's lanes",
     "count": "fleet size for a traffic placement",

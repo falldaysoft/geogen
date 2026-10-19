@@ -171,6 +171,13 @@ actions:
     steps:
       - wait: duration
 
+  visit:                         # a short trip out of home (an activity's `visit`: the chef looks into the dining room)
+    duration: [4, 10]
+    steps:
+      - go_to: visit
+      - wait: duration
+      - go_to: random              # and back home
+
   leave:                         # routines' `away` blocks: go off (into a building) until later
     steps:
       - go_to: exit

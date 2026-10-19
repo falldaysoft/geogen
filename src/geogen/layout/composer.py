@@ -411,8 +411,11 @@ class SceneComposer:
             if "npc" in obj_def:          # a crowd: every copy shares the placement's home
                 from ..npc import resolve_home
 
+                from ..npc import resolve_visits
+
                 for node in placed:
                     resolve_home(node, obj_def.get("home"), b.refs, [*keys, "home"])
+                    resolve_visits(node, obj_def.get("visits"), b.refs, [*keys, "visits"])
 
     def _placement_extras(self, b: _SceneBuild) -> None:
         """Per-placement keys on the placed copy: pickup and readable (as the asset keys), an NPC's
@@ -435,6 +438,9 @@ class SceneComposer:
                 from ..npc import resolve_home
 
                 resolve_home(node, obj_def.get("home"), b.refs, ["place", obj_name, "home"])
+                from ..npc import resolve_visits
+
+                resolve_visits(node, obj_def.get("visits"), b.refs, ["place", obj_name, "visits"])
                 if any(k in obj_def for k in ("owns", "prefers", "work")):
                     from ..npc import resolve_ownership
 

@@ -80,6 +80,7 @@ place:
     character: people/marco.yaml     # Marco Bellini, a named person (assets/people/)
     slot: chef
     home: { rect: [-7.8, 1.9, 0.9, 6.0] }
+    visits: { dining: { rect: [-6.5, -4.5, 3.0, 0.5] } }   # he looks in on the diners now and then
 
   # Diners (dining room and bar).
   diner_1: &diner { npc: npcs/diner.yaml, slot: diner_1, home: { rect: [-7.8, -6.0, 5.6, 1.6] }, seed: 11 }

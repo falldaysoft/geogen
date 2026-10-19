@@ -491,7 +491,14 @@
             "activities": { "type": "object", "additionalProperties": {
               "type": "object", "required": ["action", "advertises"], "additionalProperties": false,
               "properties": { "action": { "type": "string" }, "duration": { "$ref": "#/$defs/range" },
-                "advertises": { "type": "object", "additionalProperties": { "type": "number" } } } } },
+                "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
+                "weight": { "description": "Multiplies its score (default 1).", "type": "number", "minimum": 0 },
+                "cooldown": { "description": "Seconds after doing it before it is an option again.", "type": "number", "minimum": 0 },
+                "visit": { "description": "A key of 'visits': the region its action's 'go_to: visit' goes to.", "type": "string" } } } },
+            "visits": { "description": "Places outside the home its activities' 'visit' makes short trips to: {name: {polygon, y}} in the node's frame, like 'home'.",
+              "type": "object", "additionalProperties": { "type": "object", "required": ["polygon", "y"], "additionalProperties": false,
+                "properties": { "polygon": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } },
+                  "y": { "type": "number" } } } },
             "scoring": { "type": "object", "additionalProperties": false, "properties": {
               "distance": { "type": "number" }, "recency": { "type": "number" }, "memory": { "type": "number" },
               "noise": { "type": "number" }, "retry": { "type": "number" } } },
@@ -762,7 +769,7 @@
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }],
       "properties": {
-        "go_to": { "enum": ["approach", "anchor", "random", "near", "far", "exit", "aside"] },
+        "go_to": { "enum": ["approach", "anchor", "random", "near", "far", "exit", "aside", "visit"] },
         "face": { "enum": ["anchor", "portal", "player"] },
         "pose": { "type": "string" },
         "wait": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },

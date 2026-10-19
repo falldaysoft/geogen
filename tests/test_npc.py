@@ -286,6 +286,33 @@ def test_population_puts_people_in_every_place_it_names():
             population_placements({"g": bad}, _Refs(2), "s", ["p"])
 
 
+def test_activities_take_weights_cooldowns_and_visits(tmp_path):
+    path = tmp_path / "npcs" / "visitor.yaml"
+    path.parent.mkdir()
+    path.write_text("kind: npc\nversion: 1\nneeds: { curiosity: { initial: 0.5, decay: 0.01 } }\n"
+                    "activities:\n  look_in: { action: visit, visit: dining, weight: 0.5, cooldown: 120,"
+                    " advertises: { curiosity: 0.3 } }\n")
+    d = load_definition(path)
+    assert d["activities"]["look_in"] == {"action": "visit", "advertises": {"curiosity": 0.3}, "weight": 0.5,
+                                          "cooldown": 120.0, "visit": "dining"}
+    path.write_text("kind: npc\nversion: 1\nactivities: { idle: { often: 2 } }\n")
+    with pytest.raises(ValueError, match="unknown keys"):
+        load_definition(path)
+
+
+def test_visits_are_regions_in_the_npcs_frame(tmp_path):
+    scene = COTTAGE_NPC.replace("npc: npcs/resident.yaml", "character: people/marco.yaml").replace("seed: 7\n", "")
+    scene = scene.replace("home: house.floor", "home: house.floor\n    visits: { lawn: { rect: [-1, 4, 1, 6] } }")
+    path = tmp_path / "scene.yaml"
+    path.write_text(scene)
+    root = SceneComposer(assets_dir=ASSETS_DIR).compose(path)
+    npc = next(n for n in root.iter_nodes() if n.meta.get("type") == "npc")
+    lawn = npc.meta["npc"]["visits"]["lawn"]
+    m = npc.transform.to_matrix()            # back to the scene frame: the rect at y = 0
+    corners = [(m @ np.array([x, lawn["y"], z, 1.0]))[:3] for x, z in lawn["polygon"]]
+    assert np.allclose(corners, [[-1, 0, 4], [1, 0, 4], [1, 0, 6], [-1, 0, 6]], atol=1e-3)
+
+
 def test_a_character_is_a_named_person_on_top_of_a_role(tmp_path):
     """A `character:` placement builds the role's NPC with the character's keys on top: its name,
     its look (body params on the role's archetype, its seed) and its own needs; the placement's

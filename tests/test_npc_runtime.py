@@ -290,6 +290,43 @@ def test_only_its_owner_sits_in_an_owned_armchair(godot_script, tmp_path):
     assert armchair(reports["guest"]) >= 1, reports["guest"]["used"]
 
 
+MARCO_AT_THE_COTTAGE = """
+name: marco_visits
+size: [14, 6, 14]
+place:
+  cottage: { scene: scenes/cottage.yaml, params: { quest: 0 } }
+  marco:
+    character: people/marco.yaml
+    on: cottage/house.floor
+    at: { u: { abs: 4.4 }, v: { abs: 1.6 } }
+    home: cottage/house.floor
+    visits: { dining: { rect: [-1.5, 4.6, 1.5, 6.0] } }    # the front lawn, out of the door
+"""
+
+
+def test_a_visit_is_a_short_trip_out_of_home_and_back(godot_script, tmp_path):
+    # Marco's look_in activity (visit: dining, cooldown: 240): he goes out of the front door to
+    # the placement's `dining` region, looks about and comes back in, and isn't offered it again
+    # for a while.
+    from pathlib import Path
+
+    from geogen.layout.composer import SceneComposer
+
+    path = tmp_path / "marco_visits.yaml"
+    path.write_text(MARCO_AT_THE_COTTAGE)
+    root = SceneComposer(assets_dir=Path(__file__).parent.parent / "assets").compose(path)
+    export_scene(root, tmp_path / "out" / "marco_visits.glb")
+    run = godot_script([step("npcs.force", npc="marco_npc", option="self/look_in"),
+                        step("time.simulate", seconds=45), step("npcs.options", npc="marco_npc")],
+                       "--scene=marco_visits", f"--generated={tmp_path / 'out'}", start={"timescale": 8},
+                       engine_args=FAST)
+    (marco,) = [r for r in run["time.simulate"]["npcs"] if r["npc"] == "marco_npc"]
+    assert marco["used"].get("self/look_in") == 1, marco["used"]
+    assert marco["outside"] > 2.0                          # seconds out of home
+    assert abs(marco["position"][2]) < 3.0                 # back inside (the front wall is at z = 3)
+    assert "self/look_in" not in [o["id"] for o in run["npcs.options"]]    # cooling down
+
+
 def test_far_off_npcs_sleep_and_carry_on(godot_script, scene_export):
     # Off screen and further than SLEEP_DISTANCE (80 m) an NPC steps every 8th frame with its
     # clips paused (geogen.11.16): the crossroads' pedestrians, with the player 200 m away, sleep

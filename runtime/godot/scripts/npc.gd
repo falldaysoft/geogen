@@ -72,6 +72,8 @@ var rng := RandomNumberGenerator.new()
 var body: Node3D
 var home := PackedVector2Array()  # world XZ polygon
 var home_y := 0.0
+## Places outside home its activities' `visit` makes trips to: name -> {polygon (world XZ), y}.
+var visits := {}
 ## Affordances more than this above or below the home's floor belong to another storey.
 const FLOOR_TOLERANCE := 1.5
 var step_height := 0.3
@@ -188,6 +190,13 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
         var w := xform * Vector3(p[0], 0.0, p[1])
         npc.home.append(Vector2(w.x, w.z))
     npc.home_y = (xform * Vector3(0, float(h.get("y", 0.0)), 0)).y
+    var spots: Dictionary = data.get("visits", {})
+    for name in spots:
+        var poly := PackedVector2Array()
+        for p in spots[name]["polygon"]:
+            var w := xform * Vector3(p[0], 0.0, p[1])
+            poly.append(Vector2(w.x, w.z))
+        npc.visits[name] = {"polygon": poly, "y": (xform * Vector3(0, float(spots[name]["y"]), 0)).y}
     node.set_meta("geogen_npc", npc)
     return npc
 
@@ -310,6 +319,10 @@ func options(restricted := true) -> Array[Dictionary]:
     var activities: Dictionary = definition.get("activities", {}) if block_only.is_empty() else {}
     for n in activities:
         var act: Dictionary = activities[n]
+        if clock < float(_retry_at.get("self/%s" % n, -1.0)):
+            continue    # failed, or done and cooling down (a rare trip)
+        if act.has("visit") and not visits.has(act["visit"]):
+            continue
         result.append({"id": "self/%s" % n, "action": act["action"], "activity": act,
             "advertises": act.get("advertises", {}), "tags": [], "at": global_position})
     var w: Dictionary = definition.get("scoring", {})
@@ -332,7 +345,7 @@ func options(restricted := true) -> Array[Dictionary]:
                 utility *= OWN_BONUS
             elif _under(uid, definition.get("prefers", [])):
                 utility *= PREFER_BONUS
-        utility *= float(act_mult.get(o["id"], 1.0))
+        utility *= float(act_mult.get(o["id"], 1.0)) * float(o.get("activity", {}).get("weight", 1.0))
         var distance := global_position.distance_to(o["at"])
         var recency := 0.0
         if _recent.has(o["id"]):
@@ -458,7 +471,7 @@ func _decide() -> void:
             "held": _hold_block()}
     else:
         ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
-            "duration": _option["activity"].get("duration")}
+            "duration": _option["activity"].get("duration"), "visit": _option["activity"].get("visit", "")}
     _trace({"event": "decide", "chosen": _option["id"], "top": ranked.slice(0, 3).map(
         func(o): return {"id": o["id"], "score": snappedf(o["score"], 0.001)}),
         "needs": _rounded_needs()})
@@ -482,6 +495,8 @@ func _finish_option(ok: bool, reason := "") -> void:
             if needs.has(need):
                 needs[need] = clampf(needs[need] + float(_option["advertises"][need]), 0.0, 1.0)
         stats["used"][id] = int(stats["used"].get(id, 0)) + 1
+        if _option.has("activity") and _option["activity"].has("cooldown"):
+            _retry_at[id] = clock + float(_option["activity"]["cooldown"])
         _trace({"event": "done", "option": id, "needs": _rounded_needs()})
     else:
         stats["failures"].append("%s: %s" % [id, reason])
@@ -864,6 +879,9 @@ func _target(kind: String, ctx: Dictionary):
             return p["center"] + p["normal"] * side * (p["depth"] / 2.0 + clear)
         "random":
             return _random_home_point()
+        "visit":
+            var spot: Dictionary = visits.get(str(ctx.get("visit", "")), {})
+            return null if spot.is_empty() else _random_point_in(spot["polygon"], spot["y"])
         "exit":
             # The nearest way out (a building entrance); none: stay put and vanish from here.
             var best = null
@@ -878,19 +896,24 @@ func _random_home_point():
     var tags: Array = definition.get("wander", {}).get("tags", [])
     if not tags.is_empty():
         return _random_surface_point(tags)
-    if home.size() < 3:
+    return _random_point_in(home, home_y)
+
+
+## A random navmesh point inside a region (world XZ polygon at floor height y), or null.
+func _random_point_in(poly: PackedVector2Array, y: float):
+    if poly.size() < 3:
         return null
-    var lo := home[0]
-    var hi := home[0]
-    for p in home:
+    var lo := poly[0]
+    var hi := poly[0]
+    for p in poly:
         lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
         hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
     for _i in 20:
         var p := Vector2(rng.randf_range(lo.x, hi.x), rng.randf_range(lo.y, hi.y))
-        if Geometry2D.is_point_in_polygon(p, home):
+        if Geometry2D.is_point_in_polygon(p, poly):
             var map := get_world_3d().navigation_map
-            var q := NavigationServer3D.map_get_closest_point(map, Vector3(p.x, home_y, p.y))
-            if Vector2(q.x - p.x, q.z - p.y).length() < 0.5 and absf(q.y - home_y) < 0.5:
+            var q := NavigationServer3D.map_get_closest_point(map, Vector3(p.x, y, p.y))
+            if Vector2(q.x - p.x, q.z - p.y).length() < 0.5 and absf(q.y - y) < 0.5:
                 return q
     return null
 
