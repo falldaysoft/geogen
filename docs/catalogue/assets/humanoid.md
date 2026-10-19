@@ -58,6 +58,9 @@ place:
 | `lip_strength` | `0.4` |  |  |
 | `blush` | `0.1` |  |  |
 | `freckles` | `0` |  |  |
+| `age` | `0.15` |  | face paint: 0 young .. 1 old (smile lines, crow's feet, forehead) |
+| `stubble` | `0` |  |  |
+| `smile` | `0.4` |  |  |
 | `brow_thickness` | `1.1` |  |  |
 | `brow_arch` | `0.8` |  |  |
 | `seat_height` | `0.45` |  | seat the sit poses plant the feet for (floor to seat) |

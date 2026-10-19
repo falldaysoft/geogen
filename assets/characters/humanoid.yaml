@@ -47,6 +47,9 @@ params:
   lip_strength:   { default: 0.4 }
   blush:          { default: 0.1 }
   freckles:       { default: 0.0 }
+  age:            { default: 0.15 }   # face paint: 0 young .. 1 old (smile lines, crow's feet, forehead)
+  stubble:        { default: 0.0 }
+  smile:          { default: 0.4 }
   brow_thickness: { default: 1.1 }
   brow_arch:      { default: 0.8 }
   seat_height:    { default: 0.45 }   # seat the sit poses plant the feet for (floor to seat)
@@ -213,6 +216,9 @@ body:
     lip_strength: "{lip_strength}"
     blush: "{blush}"
     freckles: "{freckles}"
+    age: "{age}"
+    stubble: "{stubble}"
+    smile: "{smile}"
     brow_thickness: "{brow_thickness}"
     brow_arch: "{brow_arch}"
     brow_color: "{hair_color}"

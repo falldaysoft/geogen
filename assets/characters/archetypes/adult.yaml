@@ -9,6 +9,8 @@ params:
   skin_tone: { random: [0.0, 1.0] }
   eye_color: { choice: [brown, dark_brown, hazel, green, blue, grey], weights: [4, 3, 2, 1, 2, 1] }
   freckles: { choice: [0.0, 0.0, 0.0, 0.3, 0.6] }
+  age: { random: [0.15, 0.5] }
+  smile: { random: [0.1, 0.7] }
   shoe_color: { choice: [black, white, brown, grey, navy, tan], weights: [4, 3, 2, 1, 1, 1] }
   bottom_color: { choice: [denim, light_denim, black, charcoal, navy, grey, tan, brown, olive], weights: [4, 2, 3, 2, 2, 1, 1, 1, 1] }
   top_color: { choice: [white, cream, black, charcoal, grey, navy, red, burgundy, coral, pink, mustard, olive, green, teal, lavender, sky] }

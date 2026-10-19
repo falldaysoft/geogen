@@ -9,3 +9,10 @@ params:
   hair_style: { choice: [crop, buzz, afro, long, none, pixie], weights: [5, 3, 1, 1, 1, 1] }
   hair_color: { choice: [black, dark_brown, brown, blonde, light_blonde, red], weights: [3, 4, 3, 2, 1, 1] }
   outfit: { choice: [jeans_tee, casual, shorts_tee, smart], weights: [4, 3, 1, 1] }
+  # Face (generators/head.py, textures/character.py): spread round the masculine preset's shape.
+  nose: { normal: [1.15, 0.12], clamp: [0.9, 1.45] }
+  chin: { normal: [1.25, 0.12], clamp: [1.0, 1.5] }
+  brow: { normal: [1.4, 0.2], clamp: [1.0, 1.8] }
+  lips: { normal: [0.8, 0.1], clamp: [0.6, 1.0] }
+  stubble: { choice: [0.0, 0.0, 0.3, 0.6, 0.9] }
+  age: { random: [0.0, 0.25] }

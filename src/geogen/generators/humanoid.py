@@ -142,8 +142,10 @@ HAIR_COLORS = {"black": (0.13, 0.11, 0.1), "dark_brown": (0.28, 0.19, 0.13), "br
 EYE_COLORS = {"brown": (84, 56, 36), "dark_brown": (52, 34, 24), "hazel": (120, 96, 50), "green": (74, 110, 70),
               "blue": (64, 104, 150), "grey": (110, 120, 128)}
 FACE_KEYS = {"box", "min_normal", "eye_color", "eye_v", "eye_spacing", "eye_size", "brow_color", "brow_thickness",
-             "brow_arch", "lashes", "lip_color", "lip_strength", "mouth_v", "mouth_width", "blush", "freckles"}
+             "brow_arch", "lashes", "lip_color", "lip_strength", "mouth_v", "mouth_width", "blush", "freckles", "smile",
+             "age", "stubble"}
 _face_materials: dict = {}
+FACE_TEXTURE = 512                # texels across the face decal (sharp eyes at a conversation's distance)
 
 
 def skin_tone(t: float) -> np.ndarray:
@@ -167,6 +169,9 @@ def face_material(spec: dict, skin):
     from ..textures.character import FaceTextureGenerator
 
     params = {k: v for k, v in spec.items() if k not in ("box", "min_normal")}
+    x0, y0, x1, y1 = (float(v) for v in spec["box"])
+    # Paint in true proportions; to 0.05, so faces still share a texture across heights.
+    params["aspect"] = round((y1 - y0) / (x1 - x0) * 20) / 20
     unknown = set(spec) - FACE_KEYS
     if unknown:
         raise ValueError(f"face: unknown keys {sorted(unknown)}")
@@ -178,10 +183,10 @@ def face_material(spec: dict, skin):
                 tuple(int(c * 255) for c in _color(params[key], HAIR_COLORS, "colour"))
     key = (skin.name, tuple(sorted((k, str(v)) for k, v in params.items())))
     if key not in _face_materials:
-        gen = FaceTextureGenerator(width=256, height=256, seed=71,
+        gen = FaceTextureGenerator(width=FACE_TEXTURE, height=FACE_TEXTURE, seed=71,
                                    base_color=getattr(skin.texture_generator, "base_color", (236, 204, 184)),
                                    **params)
-        _face_materials[key] = Material(name="face", texture_generator=gen, texture_size=(256, 256),
+        _face_materials[key] = Material(name="face", texture_generator=gen, texture_size=(FACE_TEXTURE, FACE_TEXTURE),
                                         roughness=skin.roughness, metallic=0.0, normal_strength=0.0,
                                         tile_size=(1.0, 1.0))
     return _face_materials[key]

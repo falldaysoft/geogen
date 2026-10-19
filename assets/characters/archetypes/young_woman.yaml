@@ -11,3 +11,9 @@ params:
   outfit: { choice: [casual_f, jeans_tee, dress, skirt_sweater, casual, shorts_tee], weights: [3, 3, 2, 2, 2, 1] }
   blush: { random: [0.15, 0.45] }
   lip_strength: { random: [0.4, 0.9] }
+  # Face (generators/head.py, textures/character.py): spread round the feminine preset's shape.
+  nose: { normal: [0.85, 0.1], clamp: [0.65, 1.1] }
+  chin: { normal: [0.85, 0.1], clamp: [0.65, 1.1] }
+  lips: { normal: [1.15, 0.12], clamp: [0.9, 1.4] }
+  cheeks: { normal: [1.1, 0.1], clamp: [0.9, 1.3] }
+  age: { random: [0.0, 0.25] }

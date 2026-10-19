@@ -369,7 +369,7 @@ place:
 | Asset | What it is | Params |
 | --- | --- | --- |
 | [capsule](assets/capsule.md) | Placeholder character body: a capsule with a visor showing which way it faces (+Z). | `height`, `radius` |
-| [humanoid](assets/humanoid.md) | Parametric humanoid body: the humanoid skeleton (assets/skeletons/humanoid.yaml) skinned by ring-lofted chains (generators/ringloft.py). | `height`, `build`, `shoulder_width`, `hip_width`, `leg_ratio`, `hips`, `waist`, `bust`, `glutes`, `limb`, `limb_scale`, `belly`, `head_size`, `jaw_width`, `nose`, `chin`, `brow`, `cheeks`, `lips`, `ears`, `neck_length`, `hand_size`, `foot_length`, `skin_tone`, `hair_style`, `hair_color`, `eye_color`, `outfit`, `top_color`, `bottom_color`, `shoe_color`, `lashes`, `lip_strength`, `blush`, `freckles`, `brow_thickness`, `brow_arch`, `seat_height`, `table_height`, `sill_height`, `worktop_height` |
+| [humanoid](assets/humanoid.md) | Parametric humanoid body: the humanoid skeleton (assets/skeletons/humanoid.yaml) skinned by ring-lofted chains (generators/ringloft.py). | `height`, `build`, `shoulder_width`, `hip_width`, `leg_ratio`, `hips`, `waist`, `bust`, `glutes`, `limb`, `limb_scale`, `belly`, `head_size`, `jaw_width`, `nose`, `chin`, `brow`, `cheeks`, `lips`, `ears`, `neck_length`, `hand_size`, `foot_length`, `skin_tone`, `hair_style`, `hair_color`, `eye_color`, `outfit`, `top_color`, `bottom_color`, `shoe_color`, `lashes`, `lip_strength`, `blush`, `freckles`, `age`, `stubble`, `smile`, `brow_thickness`, `brow_arch`, `seat_height`, `table_height`, `sill_height`, `worktop_height` |
 
 ## Other
 
