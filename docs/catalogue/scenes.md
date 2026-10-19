@@ -32,6 +32,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
 | [plot_test](#plot_test) | Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat, carrots and pumpkins by row; planted, sprouting and grown by column). | test |
+| [portraits](#portraits) | Heads for face review: presets, ages, skin tones, eye colours and every common hair style side by side, close enough to frame together. |  |
 | [quest_yard](#quest_yard) | A plaza for trying quests and the quest HUD (docs/quests.md). | showcase |
 | [rail_loop_test](#rail_loop_test) | Test scene for city exits and a loop railway: a 2 x 2 grid whose avenues run on out of town across a railway looping round it (four level crossings), two stations on the straights and two trains. | test |
 | [restaurant](#restaurant) | The restaurant showcase: assets/restaurant_building.yaml on a street corner. | showcase |
@@ -473,6 +474,19 @@ carrots and pumpkins by row; planted, sprouting and grown by column).
 **Places**: `plot: {asset: farm_plot.yaml}`; `seeds: {scene: vending_machine.yaml}`; `wheat_1: {asset: farm_plot.yaml}`; `wheat_2: {asset: farm_plot.yaml}`; `wheat_3: {asset: farm_plot.yaml}`; `carrot_1: {asset: farm_plot.yaml}`; `carrot_2: {asset: farm_plot.yaml}`; `carrot_3: {asset: farm_plot.yaml}`; `pumpkin_1: {asset: farm_plot.yaml}`; `pumpkin_2: {asset: farm_plot.yaml}`; `pumpkin_3: {asset: farm_plot.yaml}`
 
 **Slots**: c1, c2, c3, p1, p2, p3, plot, seeds, w1, w2, w3
+
+## portraits
+
+`scene: scenes/portraits.yaml` · [source](../../assets/scenes/portraits.yaml)
+
+Heads for face review: presets, ages, skin tones, eye colours and every
+common hair style side by side, close enough to frame together. Faces +Z.
+-r out.png --frame Head --view front --fov 10 --resolution 2400x600 (a narrow
+field of view so the heads at the ends face the camera too)
+
+**Places**: `young_woman: {asset: characters/humanoid.yaml}`; `young_man: {asset: characters/humanoid.yaml}`; `dark_afro: {asset: characters/humanoid.yaml}`; `freckled_ponytail: {asset: characters/humanoid.yaml}`; `older_woman: {asset: characters/humanoid.yaml}`; `older_man: {asset: characters/humanoid.yaml}`
+
+**Slots**: dark_afro, freckled_ponytail, older_man, older_woman, young_man, young_woman
 
 ## quest_yard
 

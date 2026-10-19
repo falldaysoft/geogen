@@ -210,3 +210,16 @@ def test_face_texture_paints_features():
     left_eye = img[eye_row - 3:eye_row + 3, int(128 * 0.28):int(128 * 0.32)].mean()
     cheek = img[int(128 * 0.55):int(128 * 0.6), int(128 * 0.1):int(128 * 0.15)].mean()
     assert left_eye < cheek - 40
+
+
+def test_frame_bounds_fits_what_a_joint_moves(bodies):
+    from geogen.render import frame_bounds
+
+    body = bodies["feminine"]
+    head = frame_bounds(body, "Head")
+    hand = frame_bounds(body, "LeftHand")
+    height = body.meta["humanoid"]["height"]
+    assert head[0][1] > 0.8 * height and head[1][1] <= height + 0.05      # the head with its hair
+    assert np.all(head[1] - head[0] < 0.4)
+    assert hand[0][0] > 0.2 and np.all(hand[1] - hand[0] < 0.3)          # the left hand (+X) and fingers
+    assert frame_bounds(body, "Nothing*") is None

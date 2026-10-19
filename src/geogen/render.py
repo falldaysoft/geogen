@@ -49,6 +49,7 @@ class RenderOptions:
     camera: np.ndarray | None = None
     target: np.ndarray | None = None
     zoom: float = 1.0
+    frame: str | None = None    # fit the camera to these nodes (frame_bounds), not the whole scene
 
 
 _renderer: pyrender.OffscreenRenderer | None = None
@@ -158,6 +159,37 @@ def scene_bounds(root: SceneNode) -> np.ndarray:
     return np.array([lo, hi])
 
 
+def frame_bounds(root: SceneNode, pattern: str) -> np.ndarray | None:
+    """World bounds of the nodes whose name matches ``pattern`` (fnmatch), or ``None`` if none do.
+
+    A matched joint of a skinned mesh (``Head``, ``LeftHand``) stands for the vertices its subtree
+    moves most (a head with its hair and jaw, a hand with its fingers); any other matched node
+    for the meshes under it. Several matches frame their union (every head in a lineup)."""
+    from fnmatch import fnmatchcase
+
+    matched = [n for n in root.iter_nodes() if fnmatchcase(n.name, pattern)]
+    if not matched:
+        return None
+    subtree = {id(n) for m in matched for n in m.iter_nodes()}
+    points = []
+    for node in root.iter_visible():
+        mesh = node.mesh
+        if mesh is None or not len(mesh.vertices) or node.meta.get("type") == "collider":
+            continue
+        if node.skin is not None and mesh.joints is not None and mesh.weights is not None:
+            mine = np.array([id(j) in subtree for j in node.skin.joints])
+            dominant = mesh.joints[np.arange(len(mesh.joints)), mesh.weights.argmax(axis=1)]
+            keep = mine[dominant]
+            if keep.any():
+                points.append(node.world_mesh().vertices[keep])
+        elif id(node) in subtree:
+            points.append(node.world_mesh().vertices)
+    if not points:
+        return None
+    points = np.concatenate(points)
+    return np.array([points.min(axis=0), points.max(axis=0)])
+
+
 def _ground_mesh(bounds: np.ndarray) -> pyrender.Mesh:
     center = bounds.mean(axis=0)
     extent = max(float(np.max(bounds[1] - bounds[0])), 1.0) * 10
@@ -209,6 +241,13 @@ class SceneRenderer:
     def __init__(self, root: SceneNode, options: RenderOptions | None = None) -> None:
         self.options = options or RenderOptions()
         self.bounds = scene_bounds(root)
+        self.framed = self.bounds
+        if self.options.frame:
+            framed = frame_bounds(root, self.options.frame)
+            if framed is None:
+                print(f"Warning: nothing named '{self.options.frame}' to frame")
+            else:
+                self.framed = framed
         self.scene = pyrender.Scene(ambient_light=[0.25, 0.27, 0.3], bg_color=BACKGROUND)
         materials = _MaterialCache()
         shared: dict[int, pyrender.Mesh] = {}
@@ -243,19 +282,29 @@ class SceneRenderer:
 
     def camera_pose(self, view: str = "iso") -> np.ndarray:
         opts = self.options
-        center = self.bounds.mean(axis=0)
+        center = self.framed.mean(axis=0)
         target = opts.target if opts.target is not None else center
         if opts.camera is not None:
             return look_at(np.asarray(opts.camera, dtype=np.float64), target)
         azimuth, elevation = VIEWS[view]
         az, el = np.radians(azimuth), np.radians(elevation)
         direction = np.array([np.sin(az) * np.cos(el), np.sin(el), np.cos(az) * np.cos(el)])
-        radius = float(np.linalg.norm(self.bounds[1] - self.bounds[0])) / 2
+        radius = float(np.linalg.norm(self.framed[1] - self.framed[0])) / 2
         half_fov = np.radians(opts.fov) / 2
         aspect = opts.width / opts.height
         fit = min(np.tan(half_fov), np.tan(half_fov) * aspect)
         distance = radius / np.sin(np.arctan(fit)) * 1.02 / opts.zoom
         up = (0.0, 0.0, -1.0) if elevation > 80 else (0.0, 1.0, 0.0)
+        if self.framed is not self.bounds:
+            # A framed box (a row of heads) fits by its corners, not its bounding sphere.
+            axes = look_at(direction, np.zeros(3), up)[:3, :3]
+            lo, hi = self.framed
+            corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
+                                for z in (lo[2], hi[2])]) - target
+            local = corners @ axes      # right, up, toward the camera
+            tan_v = np.tan(half_fov)
+            needed = local[:, 2] + np.maximum(np.abs(local[:, 0]) / (tan_v * aspect), np.abs(local[:, 1]) / tan_v)
+            distance = float(needed.max()) * 1.08 / opts.zoom
         return look_at(target + direction * max(distance, 0.1), target, up)
 
     def render(self, view: str = "iso") -> Image.Image:

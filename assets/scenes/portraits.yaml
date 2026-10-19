@@ -1,0 +1,45 @@
+# Heads for face review: presets, ages, skin tones, eye colours and every
+# common hair style side by side, close enough to frame together. Faces +Z.
+# -r out.png --frame Head --view front --fov 10 --resolution 2400x600 (a narrow
+# field of view so the heads at the ends face the camera too)
+name: portraits
+
+slots:
+  young_woman: { position: [-1.5, 0, 0], facing: north }
+  young_man: { position: [-0.9, 0, 0], facing: north }
+  dark_afro: { position: [-0.3, 0, 0], facing: north }
+  freckled_ponytail: { position: [0.3, 0, 0], facing: north }
+  older_woman: { position: [0.9, 0, 0], facing: north }
+  older_man: { position: [1.5, 0, 0], facing: north }
+
+place:
+  young_woman:
+    asset: characters/humanoid.yaml
+    slot: young_woman
+    params: { preset: feminine, hair_style: long, hair_color: dark_brown, skin_tone: 0.2, eye_color: green,
+              outfit: casual_f, top_color: teal }
+  young_man:
+    asset: characters/humanoid.yaml
+    slot: young_man
+    params: { preset: masculine, hair_style: crop, hair_color: brown, skin_tone: 0.35, eye_color: hazel,
+              outfit: jeans_tee, top_color: navy }
+  dark_afro:
+    asset: characters/humanoid.yaml
+    slot: dark_afro
+    params: { preset: masculine, hair_style: afro, hair_color: black, skin_tone: 0.95, eye_color: dark_brown,
+              outfit: smart, top_color: white }
+  freckled_ponytail:
+    asset: characters/humanoid.yaml
+    slot: freckled_ponytail
+    params: { preset: feminine, hair_style: ponytail, hair_color: auburn, skin_tone: 0.05, eye_color: blue,
+              freckles: 0.6, outfit: jeans_tee, top_color: mustard }
+  older_woman:
+    asset: characters/humanoid.yaml
+    slot: older_woman
+    params: { preset: [feminine, heavy], hair_style: bun, hair_color: grey, skin_tone: 0.6, eye_color: dark_brown,
+              outfit: smart, top_color: burgundy }
+  older_man:
+    asset: characters/humanoid.yaml
+    slot: older_man
+    params: { preset: [masculine, stocky], belly: 0.5, hair_style: buzz, hair_color: white, skin_tone: 0.45,
+              eye_color: blue, outfit: casual, top_color: olive }

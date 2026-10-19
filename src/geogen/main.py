@@ -154,6 +154,9 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
         help="Viewer display mode (default: lit)",
     )
     parser.add_argument("--zoom", type=float, default=1.0, help="Camera zoom factor for --render")
+    parser.add_argument("--frame", metavar="NAME",
+                        help="--render: fit the camera to the nodes named NAME (a glob) instead of the whole "
+                             "scene; a skeleton joint frames what it moves (Head, LeftHand)")
     parser.add_argument("--no-shadows", action="store_true", help="Disable shadows in --render")
     parser.add_argument("--no-ground", action="store_true", help="Don't add a ground plane in --render")
     parser.add_argument("--cutaway", action="store_true",
@@ -380,6 +383,7 @@ def main() -> None:
             camera=np.array([float(x) for x in args.camera.split(",")]) if args.camera else None,
             target=np.array([float(x) for x in args.target.split(",")]) if args.target else None,
             zoom=args.zoom,
+            frame=args.frame,
         )
         if args.views:
             views = [v.strip() for v in args.views.split(",")]
