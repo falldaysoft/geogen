@@ -886,8 +886,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if parts:
         if len(materials) > 1 and mesh.materials is None:
             mesh.materials = list(materials)
-        # (the lofted trunk can pinch where two chains touch: geogen.11.5.35)
-        mesh = csg.union(mesh, *parts, crease_angle=crease, check=False)
+        mesh = csg.union(mesh, *parts, crease_angle=crease)
     if len(materials) > 1:
         # Map the union's slots (ordered by first appearance) back to ours by material identity.
         slots, result_materials = mesh.effective_face_materials()
