@@ -89,7 +89,8 @@ watertight.
 - `leg_weights` skins it: the waist to the Hips, handing over to the two thighs between a height
   above the hip joints and one below. See "Weights" below for why it is shaped as it is. The start
   cap above the first key ring, tucked under the top, takes the body's weights on bones other than
-  the pelvis and legs (the spine): on the Hips alone, a back bent far forward came out through it.
+  the pelvis and legs (the spine), from the few body vertices right under it, unsmoothed: on the
+  Hips, or smoothed with the pelvis below, a back bent far forward came out through it.
 - `drape.fit` works out where the cloth should really be in each pose and stores the difference
   as morph targets.
 

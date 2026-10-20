@@ -665,7 +665,7 @@ def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise:
         # The start cap takes as much of the body's weights as is on bones other than the pelvis
         # and legs (bent forward, the spine would take the skin out through a cap on the Hips).
         under = Mesh(shell.vertices.copy(), shell.faces)
-        transfer_weights(under, body)
+        transfer_weights(under, body, neighbours=4, smooth=0)      # (the skin right under it: smoothed, the pelvis leaks in)
         body_dense = np.zeros_like(dense)
         np.put_along_axis(body_dense, under.joints, under.weights, axis=1)
         share = 1.0 - body_dense[:, [names.index(n) for n in ("Hips", "LeftUpperLeg", "RightUpperLeg")]].sum(axis=1)

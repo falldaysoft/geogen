@@ -24,7 +24,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 0.3
+    "max_mm": 0.4
    },
    "shell_poke": {
     "count": 0,
@@ -50,7 +50,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 0.3
+    "max_mm": 0.4
    },
    "shell_poke": {
     "count": 0,
@@ -76,7 +76,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 0.3
+    "max_mm": 0.4
    },
    "shell_poke": {
     "count": 0,
@@ -98,7 +98,7 @@
   },
   "seat_chair": {
    "count": 1,
-   "max_mm": 3.5
+   "max_mm": 3.6
   },
   "seat_sofa": {
    "count": 0,
@@ -343,7 +343,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 76.7
+    "min_mm": 119.9
    }
   },
   "sit_at_table": {
@@ -369,7 +369,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 118.6
+    "min_mm": 116.6
    }
   },
   "stand": {
@@ -560,7 +560,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 3.0
+    "max_mm": 2.8
    },
    "waist_gap": {
     "count": 0,
@@ -582,7 +582,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 3.0
+    "max_mm": 2.8
    },
    "waist_gap": {
     "count": 0,
@@ -604,7 +604,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 3.0
+    "max_mm": 2.8
    },
    "waist_gap": {
     "count": 0,
@@ -788,7 +788,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 1.4
+    "max_mm": 1.2
    },
    "waist_gap": {
     "count": 0,
@@ -810,7 +810,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 1.4
+    "max_mm": 1.2
    },
    "waist_gap": {
     "count": 0,
@@ -832,7 +832,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 1.4
+    "max_mm": 1.2
    },
    "waist_gap": {
     "count": 0,
@@ -959,7 +959,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 46.3
+    "min_mm": 46.1
    }
   },
   "sit_at_table": {
@@ -985,7 +985,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 40.6
+    "min_mm": 40.4
    }
   },
   "stand": {
@@ -1096,7 +1096,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 2.2
+    "max_mm": 2.3
    },
    "waist_gap": {
     "count": 0,
@@ -1118,7 +1118,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 2.2
+    "max_mm": 2.3
    },
    "waist_gap": {
     "count": 0,
@@ -1140,7 +1140,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 2.2
+    "max_mm": 2.3
    },
    "waist_gap": {
     "count": 0,
@@ -1176,7 +1176,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 2.6
+    "max_mm": 2.7
    },
    "waist_gap": {
     "count": 0,
@@ -1198,7 +1198,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 2.6
+    "max_mm": 2.7
    },
    "waist_gap": {
     "count": 0,
@@ -1220,7 +1220,7 @@
    "hem": {
     "count": 0,
     "ends": 0,
-    "max_mm": 2.6
+    "max_mm": 2.7
    },
    "waist_gap": {
     "count": 0,

@@ -1,5 +1,5 @@
 # Parametric humanoid body: the humanoid skeleton (assets/skeletons/humanoid.yaml)
-# skinned by ring-lofted chains (generators/ringloft.py). Stylized ~6.5 heads,
+# skinned by ring-lofted chains (generators/ringloft.py). Stylized ~7 heads,
 # low-poly, one watertight skinned mesh. Continuous shape params; `presets`
 # are named bundles (params: {preset: feminine, height: 1.6}: explicit values
 # win). Built in the relaxed `stand` pose over the T-pose rest.
@@ -25,6 +25,7 @@ params:
   limb_scale:     { default: 1.0 }    # body-type multiplier on limb (presets stack without overriding it)
   belly:          { default: 0.0 }    # 0 .. 1: a fuller waist and stomach
   head_size:      { default: 1.0 }
+  head_units:     { default: 7.0 }    # height in head lengths (6.5 read big-headed and left no neck)
   jaw_width:      { default: 1.0 }
   nose:           { default: 1.0 }    # head sculpt (generators/head.py): feature sizes, 1 = neutral
   chin:           { default: 1.0 }
@@ -32,7 +33,7 @@ params:
   cheeks:         { default: 1.0 }
   lips:           { default: 1.0 }
   ears:           { default: 1.0 }
-  neck_length:    { default: 0.10 }
+  neck_length:    { default: 0.12 }
   hand_size:      { default: 1.0 }
   foot_length:    { default: 0.24 }
   skin_tone:      { default: 0.25 }   # 0 very light .. 1 very dark (vertex colour over `skin`)
@@ -74,7 +75,7 @@ presets:
     brow: 0.3
     cheeks: 1.1
     lips: 1.15
-    neck_length: 0.10
+    neck_length: 0.12
     hand_size: 0.92
     foot_length: 0.23
     hair_style: long
@@ -103,7 +104,7 @@ presets:
     brow: 1.4
     cheeks: 0.9
     lips: 0.8
-    neck_length: 0.11
+    neck_length: 0.13
     hand_size: 1.05
     foot_length: 0.26
     hair_style: crop
@@ -137,7 +138,7 @@ presets:
     build: 1.3
     limb_scale: 1.12
     belly: 0.85
-    neck_length: 0.085
+    neck_length: 0.105
   hourglass:                          # exaggerated, a clothing-fit stress test
     build: 0.5
     bust: 1.7
@@ -161,20 +162,20 @@ presets:
     limb_scale: 1.15
     belly: 0.3
     leg_ratio: 0.505
-    neck_length: 0.08
+    neck_length: 0.10
   lanky:
     height: 1.86
     build: 0.1
     limb_scale: 0.9
     leg_ratio: 0.555
-    neck_length: 0.12
+    neck_length: 0.14
 
 derived:
   k: "{height / 1.7}"                              # size scale
   bf: "{0.85 + 0.3 * build}"                       # flesh factor
   tf: "{bf * k}"                                   # torso radii scale
   lf: "{limb * limb_scale * bf * k}"                            # limb radii scale
-  hs: "{head_size * k}"
+  hs: "{head_size * k * 6.5 / head_units}"             # the sculpted head is drawn for 6.5 heads
   hk: "{hand_size * k}"
   jaw: "{jaw_width}"
   hips_rx: "{(hip_width / 2 + 0.072 * tf) * hips}"
@@ -192,7 +193,7 @@ derived:
   lap: "{0.071 * lf + 0.02 + 0.018 * k + 0.02 * belly}"
   sit_floor: "{hips_h - seat_drop - seat_height}"  # the floor's height in a seated body's frame
   # Head landmarks (skeleton: head top = height, chin one head unit below).
-  hu: "{height / 6.5}"
+  hu: "{height / head_units}"
   eyes_y: "{height - 0.5 * hu}"
   hairline: "{eyes_y + 0.085 * hs}"
 
@@ -204,6 +205,7 @@ body:
     hip_width: "{hip_width}"
     leg_ratio: "{leg_ratio}"
     neck_length: "{neck_length}"
+    head_units: "{head_units}"
     hand_size: "{hand_size}"
     foot_length: "{foot_length}"
   material: skin

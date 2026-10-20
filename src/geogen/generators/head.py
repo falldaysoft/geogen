@@ -89,6 +89,10 @@ class HeadShape:
         add([0, my + 0.008, 0.012], [0.07 * jaw, 0.064, 0.082], 0.045)
         add([0, my - 0.032, 0.05 + 0.006 * f["chin"]], [0.026 * (0.8 + 0.2 * jaw), 0.022, 0.03 + 0.006 * f["chin"]],
             0.025)
+        # The jaw's angles below the ears: the face comes down from the cheekbones and turns in
+        # to the chin there, rather than narrowing all the way down into the neck.
+        for side in (-1, 1):
+            add([side * 0.05 * jaw, my - 0.012, -0.012], [0.024, 0.03, 0.036], 0.03)
         # Cheekbones, brow ridge.
         for side in (-1, 1):
             add([side * 0.044, -0.026, 0.044], [0.032, 0.026, 0.034 * f["cheeks"]], 0.045)
@@ -126,8 +130,9 @@ class HeadShape:
 
             add(center, [0.015 * e, 0.034 * e, 0.034 * e], 0.008, ear)
         # The neck, blending into the underside of the jaw.
+        # (a narrow blend: the jaw's underside reads as a plane over the neck, not a funnel into it)
         d = _smin(d, _capsule(p, [0, -self.neck_drop, -0.012], [0, my - 0.01, -0.016],
-                              self.neck_radius, self.neck_radius * 1.05), 0.03)
+                              self.neck_radius, self.neck_radius * 1.05), 0.014)
         return (d * self.s).reshape(points.shape[:-1])
 
 
