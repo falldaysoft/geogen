@@ -578,19 +578,19 @@ def transfer_weights(shell: Mesh, body: Mesh, neighbours: int = 12, smooth: int 
 
 HUG_BONES = ("Hips", "Spine", "Chest", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg")
 HUG_CLEARANCE = 0.01          # m a loose garment's outer wall stands off the body
-HUG_REACH = 0.05              # m: how far inside the body's surface a wall vertex is still brought out
-HIP_ROOM = 0.015              # m more round the hip joints, where the thigh tops rise when they lift
-HIP_ZONE = (-0.16, 0.1)       # m below / above the hip joints that the room is added over
-HIP_EASE = 0.08               # m over which it eases in at each end
+HUG_REACH = 0.05              # m: how far inside the body's surface a buried start-cap vertex is still brought out
 
 
-def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE, hip_y: float | None = None) -> None:
+def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE,
+             s_range: tuple[float, float] | None = None) -> None:
     """Fit a loose garment round the trunk and legs it hangs on (rest pose, in place): a wall
     vertex nearer the body's centre line than the body's own surface plus ``clearance`` (wide
     hips under a waistband authored for narrower ones) moves straight out to it, the lining one
     cloth thickness inside the outer wall. So the waistband sits on the body under the top's hem
-    for every build, with no skin showing through. Round the hip joints (height ``hip_y``) it
-    keeps ``HIP_ROOM`` more, for the thigh tops to lift into. The buried start cap is left alone."""
+    for every build, with no skin showing through, and a skirt authored close to the body gets
+    its room from the body under it, not from a fixed ease. The whole wall from the first key
+    ring (arc length ``s_range[0]``) down is fitted, however far inside the body it was
+    authored; the buried start cap before it only within ``HUG_REACH`` of the surface."""
     keep = np.isin(dominant_bones(body, names), HUG_BONES)
     tris = body.vertices[body.faces[keep[body.faces].all(axis=1)]]
     if not len(tris):
@@ -600,10 +600,61 @@ def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE, h
     radius = np.linalg.norm(radial, axis=1)
     ok = radius > 1e-6
     direction = np.where(ok[:, None], radial / np.maximum(radius, 1e-9)[:, None], 0.0)
-    # Furthest crossing of each ray (centre line -> vertex) with the body: Moeller-Trumbore.
-    a, e1, e2 = tris[:, 0], tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]
+    lining = np.zeros(len(radius), bool)
+    outer = np.zeros(len(radius), bool)
+    inner_faces = lining_faces(shell)
+    lining[shell.faces[inner_faces].ravel()] = True
+    outer[shell.faces[~inner_faces].ravel()] = True
+    # A wall vertex answers for the patch of cloth round it, half-way to the neighbouring rings
+    # and vertices: the body is measured over that patch (a hip that bulges between two rings,
+    # or between two vertices of a 20-sided ring, would show through a wall fitted at the
+    # vertices alone). The lining follows the outer wall: its own ray does.
+    heights, turns = _patch(shell, outer)
     extent = np.zeros(len(radius))
-    for i in range(0, len(radius), 256):
+    for dy, dt in [(0.0, 0.0)] + [(h, t) for h in (-1.0, 0.0, 1.0) for t in (-1.0, 0.0, 1.0) if h or t]:
+        rows = np.flatnonzero(ok) if dy == 0 and dt == 0 else np.flatnonzero(ok & outer)
+        angle = dt * turns[rows]
+        c, s = np.cos(angle), np.sin(angle)
+        d = direction[rows]
+        d = np.column_stack([c * d[:, 0] + s * d[:, 2], d[:, 1], -s * d[:, 0] + c * d[:, 2]])
+        o = origin[rows] + np.outer(dy * heights[rows] if dy else np.zeros(len(rows)), [0.0, 1.0, 0.0])
+        extent[rows] = np.maximum(extent[rows], _furthest_hit(o, d, tris))
+    want = extent + np.where(lining & ~outer, clearance * 0.4, clearance)
+    wall = np.zeros(len(radius), bool) if s_range is None or shell.uvs is None else shell.uvs[:, 1] >= s_range[0] - 1e-6
+    move = ok & (radius < want) & ((radius > want - HUG_REACH) | wall)
+    shell.vertices[move] = origin[move] + direction[move] * want[move, None]
+
+
+def _patch(shell: Mesh, outer: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Per vertex of a lofted shell: half the height to the next ring (the larger of the two
+    sides) and half the angle round the centre line to the next vertex of its ring, from its
+    UVs (v: arc length along the chain, one value per ring; u: the way round it)."""
+    heights = np.zeros(len(shell.vertices))
+    turns = np.zeros(len(shell.vertices))
+    if shell.uvs is None:
+        return heights, turns
+    s = np.round(shell.uvs[:, 1], 5)
+    levels, ring_of = np.unique(s, return_inverse=True)
+    y = np.array([shell.vertices[(ring_of == k) & outer, 1].mean() if ((ring_of == k) & outer).any()
+                  else shell.vertices[ring_of == k, 1].mean() for k in range(len(levels))])
+    gap = np.abs(np.diff(y))
+    half = np.zeros(len(levels))
+    if len(levels) > 1:
+        half[:-1] = gap / 2
+        half[1:] = np.maximum(half[1:], gap / 2)
+    heights = half[ring_of]
+    for k in range(len(levels)):
+        mine = ring_of == k
+        sides = max(len(np.unique(np.round(shell.uvs[mine, 0], 6))) - 1, 1)
+        turns[mine] = np.pi / sides
+    return heights, turns
+
+
+def _furthest_hit(origin: np.ndarray, direction: np.ndarray, tris: np.ndarray) -> np.ndarray:
+    """Distance along each ray to its furthest crossing of ``tris`` (0: none): Moeller-Trumbore."""
+    a, e1, e2 = tris[:, 0], tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]
+    extent = np.zeros(len(origin))
+    for i in range(0, len(origin), 256):
         d, o = direction[i:i + 256, None, :], origin[i:i + 256, None, :]
         p = np.cross(d, e2[None])
         det = np.einsum("fk,rfk->rf", e1, p)
@@ -615,19 +666,7 @@ def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE, h
         dist = np.einsum("fk,rfk->rf", e2, q) * inv
         hit = (np.abs(det) > 1e-12) & (u >= 0) & (v >= 0) & (u + v <= 1) & (dist > 0)
         extent[i:i + 256] = np.where(hit, dist, 0.0).max(axis=1)
-    lining = np.zeros(len(radius), bool)
-    outer = np.zeros(len(radius), bool)
-    inner_faces = lining_faces(shell)
-    lining[shell.faces[inner_faces].ravel()] = True
-    outer[shell.faces[~inner_faces].ravel()] = True
-    want = extent + np.where(lining & ~outer, clearance * 0.4, clearance)
-    if hip_y is not None:
-        y = shell.vertices[:, 1] - hip_y
-        lo = np.clip((y - HIP_ZONE[0]) / HIP_EASE, 0.0, 1.0)
-        hi = np.clip((HIP_ZONE[1] - y) / HIP_EASE, 0.0, 1.0)
-        want = want + HIP_ROOM * np.minimum(lo, hi)
-    move = ok & (radius < want) & (radius > want - HUG_REACH)
-    shell.vertices[move] = origin[move] + direction[move] * want[move, None]
+    return extent
 
 
 LEG_SPLIT = 0.25               # how much more of its own side's thigh a skirt vertex follows (0: both alike .. 0.5)
@@ -1002,12 +1041,12 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         for garment, color, base in loose:
             shell = build_hair({"chains": garment["chains"], "cut": garment.get("cut"),
                                 "material": garment.get("material", "cloth")}, skeleton, material_loader, crease)
-            hug_body(shell, mesh, skeleton.names, hip_y=float(skeleton["LeftUpperLeg"].head[1]))
+            keys = _key_range(garment, skeleton)
+            hug_body(shell, mesh, skeleton.names, s_range=keys)
             mode = garment.get("weights", "body")
             if mode == "body":
                 transfer_weights(shell, mesh)
             elif mode == "legs":
-                keys = _key_range(garment, skeleton)
                 leg_weights(shell, skeleton, mesh, cap=keys[0] if keys else None)
             else:
                 raise ValueError(f"garment '{garment.get('name')}': unknown weights '{mode}' (body | legs)")

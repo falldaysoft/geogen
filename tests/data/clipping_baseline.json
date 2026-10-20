@@ -343,7 +343,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 119.9
+    "min_mm": 115.4
    }
   },
   "sit_at_table": {
@@ -369,7 +369,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 116.6
+    "min_mm": 112.1
    }
   },
   "stand": {
@@ -959,7 +959,7 @@
     "max_mm": 0.0
    },
    "waist_overlap": {
-    "min_mm": 46.1
+    "min_mm": 49.4
    }
   },
   "sit_at_table": {

@@ -85,7 +85,11 @@ over a rim and runs it back inside itself, so it has an outer wall and a lining 
 watertight.
 
 - `hug_body` moves the shell's walls out to the body under them plus a clearance at rest, so one
-  authored skirt fits every build.
+  authored skirt fits every build. The body is measured over the patch of cloth round each
+  vertex (half-way to the neighbouring rings and vertices), since the wall between them is
+  straight and a hip that bulges between two rings would show through. The waist rings are
+  authored close to the body (8 mm), so the room a build gets is the body's own plus the
+  clearance, and a slim body's dress no longer juts out at the waist seam.
 - `leg_weights` skins it: the waist to the Hips, handing over to the two thighs between a height
   above the hip joints and one below. See "Weights" below for why it is shaped as it is. The start
   cap above the first key ring, tucked under the top, takes the body's weights on bones other than
@@ -228,9 +232,11 @@ In order. The first four are earlier work, from the commit history and the task 
    work and would need rebasing.
 4. **Room at the hips** (30332bf): `HIP_ROOM` in `hug_body` and extra rings (`samples`) where the
    skirt bends. This closed the waist in most poses; three builds kept a sliver of thigh at the
-   hip crease. The extra rings are gone again (the shell is evenly dense now); `HIP_ROOM` is still
-   there, and is still needed: without it a heavy body's hips show through a skirt (tried
-   2026-10-19, geogen.11.5.38.1).
+   hip crease. The extra rings are gone again (the shell is evenly dense now), and so is
+   `HIP_ROOM` (geogen.11.5.38.5): what it covered for was the wall between two rings cutting
+   through a heavy body's hips, and the ring vertices authored just past `HUG_REACH` being left
+   where they were. `hug_body` now measures the body over each vertex's patch of wall and fits
+   the whole wall below the first key ring.
 5. **The geometric drape** (this work). Things tried inside it and dropped:
    - *Looseness measured from the rest pose* (the hull plus what the ring had to spare at rest).
      A leg that swings forward then pushes the cloth as far forward again as it was loose,
