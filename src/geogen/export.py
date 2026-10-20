@@ -276,6 +276,8 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
         return collider_kinds[key]
 
     def visit(node: SceneNode, parent_name: str) -> None:
+        if node.meta.get("build_only"):                    # the generator's own (a character's closed body)
+            return
         name = name_of(node)
         matrix = node.transform.to_matrix()
         has_mesh = node.mesh is not None and len(node.mesh.faces) > 0

@@ -5,6 +5,7 @@ import pytest
 
 from geogen.core import meshops
 from geogen.export import export_scene, read_gltf
+from geogen.generators.humanoid import closed_body
 from geogen.layout import LayoutLoader
 
 HUMANOID = "assets/characters/humanoid.yaml"
@@ -44,7 +45,7 @@ def test_presets_build_clean_bodies_within_budget(bodies, preset, height):
     assert len(mesh.faces) <= 6000          # trunk and limbs ~2.3k, the sculpted head ~1.3k, hands ~0.9k each
     assert meshops.validate(mesh).ok
     posed = body.find("body").world_mesh()
-    assert meshops.validate(posed).watertight
+    assert meshops.validate(closed_body(body).world_mesh()).watertight      # (a skirt hides faces of the drawn body)
     assert posed.vertices[:, 1].max() == pytest.approx(height, abs=0.01)
     assert posed.vertices[:, 1].min() == pytest.approx(0.0, abs=0.01)     # feet on the floor
     np.testing.assert_allclose(mesh.weights.sum(axis=1), 1.0)
@@ -152,7 +153,7 @@ def test_ik_poses_reach_their_targets(bodies):
     reach = _posed(body, "reach_low")
     assert reach.find("RightHand").world_transform()[1, 3] < 0.55
     for pose in ("sit_at_table", "look", "reach_low", "lean_on_sill"):
-        assert meshops.validate(_posed(body, pose).find("body").world_mesh()).watertight
+        assert meshops.validate(closed_body(_posed(body, pose)).world_mesh()).watertight
 
 
 STYLES = ["buzz", "crop", "bob", "long", "ponytail", "bun"]

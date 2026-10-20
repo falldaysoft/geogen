@@ -161,7 +161,9 @@ class _Tube:
             self.reach[k] = t.max(axis=1)
             self.off[k] = (1 - s) * h[edge] + s * np.roll(h, -1)[edge]
 
-    def probe(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def probe(self, points: np.ndarray, ends: bool = False) -> tuple[np.ndarray, ...]:
+        """(depth inside, outward normal) per point; with ``ends`` also how far each point is
+        short of the tube's two ends (the first ring and the hem), the nearer of the two."""
         rel = points[:, None, :] - self.centre[None]                               # (points, rings, 3)
         h = np.einsum("pkd,kd->pk", rel, self.normal)
         u, v = np.einsum("pkd,kd->pk", rel, self.e1), np.einsum("pkd,kd->pk", rel, self.e2)
@@ -197,7 +199,10 @@ class _Tube:
         rim = gap[rows, end]
         depth = np.where(spanned, depth, -np.where(rim >= 0, beyond, np.sqrt(beyond ** 2 + rim ** 2)))
         normal = np.where(spanned[:, None], normal, np.where((end == 0)[:, None], -self.normal[0], self.normal[last]))
-        return depth, normal / np.maximum(np.linalg.norm(normal, axis=1), 1e-9)[:, None]
+        normal = normal / np.maximum(np.linalg.norm(normal, axis=1), 1e-9)[:, None]
+        if ends:
+            return depth, normal, np.minimum(top, hem)
+        return depth, normal
 
 
 def _cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:           # (np.cross is several times slower)

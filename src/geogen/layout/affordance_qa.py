@@ -427,8 +427,10 @@ def _pose_clashes(scene, spots, meshes, body, loader, assets_dir) -> list[Issue]
 
 def _clash_one(spot: Spot, body_node: SceneNode, meshes, floors) -> list[Issue]:
     issues = []
+    from ..generators.humanoid import closed_body
+
     actor = pose_actor(body_node, spot)
-    skin = next((n for n in actor.iter_nodes() if n.skin is not None and n.name == "body"), None)
+    skin = closed_body(actor)
     if skin is None:
         return []
     mesh = skin.world_mesh()          # posed, in the actor's (scene) frame

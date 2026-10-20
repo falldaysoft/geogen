@@ -156,7 +156,7 @@ def posed(character: SceneNode, pose: str | None = None, clip: str | None = None
 def _meshes(actor: SceneNode) -> dict[str, Any]:
     out = {}
     for n in actor.iter_nodes():
-        if n.mesh is not None and n.name in ("body", "clothes", "hair"):
+        if n.mesh is not None and n.name in ("body", "clothes", "hair", "body_closed"):
             out[n.name] = n.world_mesh()
     return out
 
@@ -320,18 +320,20 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
         out["shell_poke"] = _metric(depth)
     # Hands and forearms in the rest of the body, or in the shell. Each side's against the body
     # without that arm: a forearm folding into its own upper arm is the elbow, not a hand in the body.
+    # (against the closed body where the drawn one has faces left out under loose clothes)
+    whole = now.get("body_closed", body)
     hands, depths = _bone_mask(actor, body, HAND_BONES), []
     for side in ("Left", "Right"):
         hand = _bone_mask(actor, body, tuple(side + b for b in HAND_BONES))
         own = hands | _bone_mask(actor, body, (side + "UpperArm",))
-        others = ~np.any(own[body.faces], axis=1)
+        others = ~np.any(own[whole.faces], axis=1)
         pts = body.vertices[hand]
-        inside = winding(pts, _tris(body, body.faces[others])) > 0.5
+        inside = winding(pts, _tris(whole, whole.faces[others])) > 0.5
         if "clothes" in now:
             inside |= winding(pts, _solid(now["clothes"])) > 0.5
         depth = np.zeros(len(pts))
         if inside.any():
-            tris = _tris(body, body.faces[others])
+            tris = _tris(whole, whole.faces[others])
             if "clothes" in now:
                 tris = np.concatenate([tris, _tris(now["clothes"])])
             depth[inside] = distance(pts[inside], tris)

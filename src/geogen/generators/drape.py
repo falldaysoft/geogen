@@ -51,6 +51,8 @@ MARGIN = 0.003            # m more where the body has moved under the cloth (the
 SLAB = 0.05               # m either side of a ring's plane that it answers for
 REACH = 1.8               # body further than this many ring radii from a ring's centre is not its business
 MAX_MORPHS = 8
+HIDE_DEPTH = 0.008        # m inside the cloth, in every frame, before a body vertex counts as hidden by it
+HIDE_END = 0.04           # m a hidden vertex keeps from the shell's ends (nothing near the hem's opening goes)
 MORPH = "drape_{}"
 MAX_OWN = 3               # static poses that may have a target of their own (the rest share the clips')
 OWN_TARGET = 0.004        # m: a static pose this far from what the targets so far give gets its own
@@ -366,15 +368,17 @@ class Draper:
     only what the cloth goes round and sits on."""
 
     def __init__(self, root: SceneNode, shells: list[dict]) -> None:
-        from .humanoid import dominant_bones
+        from .humanoid import closed_body, dominant_bones
 
         self.grids: list[ShellGrid] = []
         clothes = next((n for n in root.children if n.name == "clothes" and n.mesh is not None), None)
-        body = next((n for n in root.children if n.name == "body" and n.skin is not None), None)
+        body = closed_body(root)
         if clothes is None or body is None or clothes.skin is None:
             return
         self.grids = [g for g in (shell_grid(clothes.mesh, s["vertices"], s["s_range"]) for s in shells)
                       if g is not None]
+        # The same shells as tubes of rings (arms._Tube), to measure how deep inside the cloth the body is.
+        self.tubes = [r for r in (solid_rings(clothes.mesh, s["vertices"], s["s_range"]) for s in shells) if len(r) >= 3]
         dominant = dominant_bones(body.mesh, [j.name for j in body.skin.joints])
         faces = _body_faces(body, dominant)
         flesh = np.flatnonzero(np.isin(dominant, ["Hips", *LEGS]))
@@ -387,7 +391,7 @@ class Draper:
         rest = root.instance(share_clips=True)
         for node in rest.iter_nodes():
             node.morph_weights = {}
-        body_rest = _skinned(_named(rest, "body"), self.used)[0]
+        body_rest = _skinned(closed_body(rest), self.used)[0]
         rest_shell = _skinned(_named(rest, "clothes"))[0]
         names = [j.name for j in clothes.skin.joints]
         thigh = np.where(np.isin(names, LEGS)[clothes.mesh.joints], clothes.mesh.weights, 0.0).sum(axis=1)
@@ -398,7 +402,13 @@ class Draper:
         """(skinned, draped) positions of the clothes vertices of ``actor`` (a posed instance,
         morph weights at 0) and their blended skinning matrices. ``seat``: it sits on a seat
         (True: the one under its seat flesh; or ``seat_under``'s (height, front, hips))."""
-        body = _skinned(_named(actor, "body"), self.used)[0]
+        return self._positions(actor, seat)[:3]
+
+    def _positions(self, actor: SceneNode, seat: bool | tuple = False) -> tuple[np.ndarray, ...]:
+        """``positions`` plus the posed body vertices the drape reads (rows ``used``)."""
+        from .humanoid import closed_body
+
+        body = _skinned(closed_body(actor), self.used)[0]
         tris = tuple(body[f] for f in self.faces)
         shell, blended = _skinned(_named(actor, "clothes"))
         under = seat if isinstance(seat, tuple) else seat_under(actor, body[self.flesh]) if seat else None
@@ -406,21 +416,41 @@ class Draper:
         for grid in self.grids:
             mine = grid.follow >= 0
             out[mine] = drape_frame(grid, shell, tris, seat=under)[mine]
-        return shell, out, blended
+        return shell, out, blended, body
+
+    def depth(self, draped: np.ndarray, body: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """How deep inside the draped cloth each of the ``body`` points is (the deepest of the
+        shells; negative outside), and how far it is from that shell's ends (its top ring and
+        hem), from the shells as tubes of rings (``arms._Tube``)."""
+        from .arms import _Tube
+
+        depth = np.full(len(body), -np.inf)
+        ends = np.full(len(body), -np.inf)
+        for rings in self.tubes:
+            d, _, e = _Tube(rings, draped).probe(body, ends=True)
+            deeper = d > depth
+            depth, ends = np.where(deeper, d, depth), np.where(deeper, e, ends)
+        return depth, ends
 
 
-def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int = MAX_MORPHS) -> dict:
+def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int = MAX_MORPHS) -> tuple[dict, np.ndarray | None]:
     """Bake drape correctives for the ``clothes`` node of a built humanoid ``root``.
 
     ``shells``: per loose garment {"vertices": its vertices of the clothes mesh, "s_range": its
     key rings' arc lengths}. ``seated``: names of the poses that sit on a seat. Every
     ``pose_<name>`` clip and sampled frames of the other clips are draped; the clothes mesh gets
     morph targets ``drape_0..`` and every clip a weights track for them. Returns a report
-    ({"morphs", "frames", "residual_mm"}), empty when there is nothing to drape."""
+    ({"morphs", "frames", "residual_mm"}, empty when there is nothing to drape) and, per body
+    vertex, whether the cloth hides it in every frame: at least ``HIDE_DEPTH`` inside the draped
+    shell (plus what the baked targets can be off by) and ``HIDE_END`` from its ends, so the
+    build can drop the faces it never shows (None when there is no shell)."""
     draper = Draper(root, shells)
     if not draper.grids:
-        return {}
+        return {}, None
     clothes = next(n for n in root.children if n.name == "clothes")
+    body_node = next(n for n in root.children if n.name == "body")
+    depth_min = np.full(len(draper.used), np.inf)                 # per body vertex the drape reads, over every frame
+    ends_min = np.full(len(draper.used), np.inf)
 
     actor = root.instance(share_clips=True)                    # clips key every joint: one actor does
     # Frames where nothing the drape depends on moves (a wave, a work clip: arms and chest) drape
@@ -438,7 +468,10 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
 
     def _delta(clip, seat: bool) -> np.ndarray:
         shell_node = _named(actor, "clothes")
-        shell, out, blended = draper.positions(actor, seat)
+        shell, out, blended, body = draper._positions(actor, seat)
+        depth, ends = draper.depth(out, body)
+        np.minimum(depth_min, depth, out=depth_min)
+        np.minimum(ends_min, ends, out=ends_min)
         # Posed displacement -> rest-space delta, through each vertex's blended skinning matrix.
         world = out - shell
         local = world @ np.linalg.inv(shell_node.world_transform()[:3, :3]).T
@@ -472,8 +505,15 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
         frames.append((clip, times, len(deltas), len(deltas) + len(rows)))
         deltas += rows
     data = np.array([d.ravel() for d in deltas])               # (frames, 3 * vertices)
+
+    def hidden(slack: float = 0.0) -> np.ndarray:
+        rows = (depth_min >= HIDE_DEPTH + slack) & (ends_min >= HIDE_END)
+        out = np.zeros(len(body_node.mesh.vertices), bool)
+        out[draper.used[rows]] = True
+        return out
+
     if not len(data) or np.abs(data).max() < 1e-5:
-        return {}
+        return {}, hidden()
     # The targets: first the static poses' own drapes (held for minutes: exact), biggest first,
     # each less what the ones before it already give; then the principal components of what is
     # left of the clips' frames.
@@ -516,6 +556,7 @@ def fit(root: SceneNode, shells: list[dict], seated: set[str], max_morphs: int =
 
         clip.morphs["clothes"] = MorphTrack(times, {MORPH.format(i): coefficients[start:end, i] for i in range(count)})
     error = np.abs(data - coefficients * peak @ (basis / peak[:, None])).reshape(len(data), -1)
-    return {"morphs": count, "frames": len(data), "residual_mm": round(float(residual) * 1000, 2),
-            "clips": {clip.name: [round(float(np.abs(data[a:b]).max()) * 1000, 1), round(float(error[a:b].max()) * 1000, 1)]
-                      for clip, _, a, b in frames}}
+    report = {"morphs": count, "frames": len(data), "residual_mm": round(float(residual) * 1000, 2),
+              "clips": {clip.name: [round(float(np.abs(data[a:b]).max()) * 1000, 1), round(float(error[a:b].max()) * 1000, 1)]
+                        for clip, _, a, b in frames}}
+    return report, hidden(float(error.max()))

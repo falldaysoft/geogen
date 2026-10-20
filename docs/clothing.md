@@ -16,7 +16,7 @@ in `src/geogen/clipping.py`.
 | 2. Offline cloth simulation over poses and clips | Replaced by a geometric drape (`drape.py`). A simulation was tried first and not finished: see "What was tried". |
 | 3. A runtime rig fitted to the drape: skinning plus a few blend shapes | Done for skirts and dresses: linear blend skinning and at most 8 morph targets, keyed by every clip. No extra bones, no secondary motion. |
 | 4. Poses and clips that keep the arms clear of the body and the clothes | Done (`arms.py`): each body's upper arms swing out by what its own hips, thighs and skirt need, in every static pose and every clip. See "Arms". |
-| 5. Deleting body faces that clothes always hide | Not done, and not wanted as it stands: see "What is open" (geogen.11.5.24). |
+| 5. Deleting body faces that clothes always hide | Done (geogen.11.5.24): faces well inside the draped cloth in every pose and sampled frame are left out of the drawn body (about 370-400 on a skirted build); the closed body stays beside it, build-only, for fitting and QA. See "Hidden faces". |
 | 6. A test: nothing past 2 mm over presets, outfits and sampled clip frames | Done. Cloth against body and seats on five skirted bodies (`tests/test_clipping.py::test_nothing_pokes_through_a_skirt_in_any_pose_or_clip`), and the task's acceptance: all 18 people of `clothing_fit` and `people_gallery`, standing, seated, lying and through the walk, idle and the four transitions (`test_review_scenes_pass_the_penetration_check`). A heavy build in a skirt is still left out. |
 
 Clipping of skirts and dresses, before and after (worst depth in mm, and how many vertices):
@@ -258,9 +258,33 @@ In order. The first four are earlier work, from the commit history and the task 
    - *Hard thresholds* on which body points a ring answers for. Points popped in and out as the
      body moved and the drape jumped 20 to 50 mm between frames. They fade now.
 
+## Hidden faces
+
+A character in a skirt or dress no longer carries the pelvis and thighs under it (geogen.11.5.24).
+While `drape.fit` drapes each static pose and sampled clip frame it also measures, for every
+body vertex the drape reads (the pelvis, thighs and knees), how deep inside the draped shell it
+is, through the shell's rings as `arms._Tube` probes them. A vertex is hidden when it is at
+least `HIDE_DEPTH` (8 mm, plus the most the baked targets are off by anywhere) inside the cloth
+in every frame and `HIDE_END` (4 cm) from the shell's two ends, so nothing near the hem's
+opening goes. A body face all of whose vertices are hidden is left out of the drawn `body`
+(about 370 to 400 triangles on a skirted build; the heavy build keeps nearly all of them, since
+its belly comes near the cloth seated). The vertices stay, so `meta.humanoid.garments` and the
+morphs keep their indices; `meta.humanoid.hidden_faces` is the count.
+
+The drawn body is then open, and four things need it closed: `affordance_qa`'s `pose_clash`
+(a manifold3d volume), `fit_seats` and `fit_seated_pose` (the underside of the seat flesh),
+`drape.Draper` on a posed instance (the hull of the pelvis and thighs' section) and `clipping`'s
+hand check (winding numbers against the body). So the build keeps the whole body as a second
+skinned node, `body_closed`, hidden and marked `build_only` in its meta: renders and
+`iter_meshes` skip it (hidden), the export leaves it out entirely (`build_only`, listed in
+`extras.BUILD_ONLY`), and `humanoid.closed_body(root)` is what those four read, falling back to
+`body` when there is none (no loose garment, or nothing hidden). The clipping QA's `shell_poke`
+still checks every covered vertex, hidden ones included, so a dropped face that came to show
+would fail `test_nothing_pokes_through_a_skirt_in_any_pose_or_clip`.
+
 ## What is open
 
-Tracked as geogen.11.5.25 (hidden faces: geogen.11.5.24; build time: geogen.11.5.23).
+Tracked as geogen.11.5.25 (build time: geogen.11.5.23).
 
 - **A belly over a lap.** On the `heavy` build, leaning forward on a seat or crouching, the
   belly's underside shows through the cloth by 4 to 10 mm. Rings on the thighs pass under the
@@ -295,13 +319,6 @@ Tracked as geogen.11.5.25 (hidden faces: geogen.11.5.24; build time: geogen.11.5
   the rings found another way, and the choice of body parts to go round (`drape.LEGS`, `TRUNK`)
   is the skirt's.
 - **No secondary motion**: a skirt does not swing or lag. That needs bones or a runtime solve.
-- **Deleting hidden body faces** (part 5, geogen.11.5.24): not done. A character in a long
-  skirt still carries the thighs under it, about 300 triangles, and deleting them would also
-  end the heavy build's belly showing through. But the body would no longer be closed, and four
-  things need it closed: `affordance_qa`'s `pose_clash` (a manifold3d volume), `fit_seats` and
-  `fit_seated_pose` (the underside of the seat flesh), `drape.Draper` on a posed instance (the
-  hull of the pelvis and thighs' section) and `clipping`'s winding numbers. It needs the build
-  to keep the closed body beside the one that is drawn.
 - **Crowd cost.** Eight morph targets on about 600 vertices per skirted character, and about 450
   more triangles than before. Character LODs are geogen.11.5.17.
 - **Knees and hips losing volume in deep bends** (geogen.11.5.22) is a fault of the body's own

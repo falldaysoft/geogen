@@ -1014,6 +1014,13 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     body = root.add_child(SceneNode("body", mesh=mesh))
     body.meta["collider"] = "none"
     body.skin = Skin.bind(body, [nodes[n] for n in skeleton.names], name=f"{name}_skin")
+    # The closed body, kept beside the drawn one (bound now, in the rest pose) in case loose
+    # clothes hide faces of it: fitting, draping and QA need the whole solid (closed_body).
+    closed = root.add_child(SceneNode(CLOSED_BODY, mesh=mesh))
+    closed.hidden = True
+    closed.meta["collider"] = "none"
+    closed.meta["build_only"] = True
+    closed.skin = Skin.bind(closed, [nodes[n] for n in skeleton.names], name=f"{name}_closed_skin")
     hair_style = spec.get("hair", "none")
     if hair_style not in (None, "none"):
         styles = spec.get("hair_styles") or {}
@@ -1081,10 +1088,25 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                           for clip_name, clip_spec in spec["clips"].items())
     from . import drape
 
-    drape_report = drape.fit(root, draped, set(seats)) if draped else {}
+    drape_report, hidden = drape.fit(root, draped, set(seats)) if draped else ({}, None)
     from .arms import clear_arms
 
     arms_report = clear_arms(root, draped) if spec.get("clear_arms", True) else {}
+    # Skin faces the loose clothes hide in every pose and sampled frame (all three vertices well
+    # inside the draped cloth) are left out of the drawn body; the closed one stays for the
+    # generator. Vertices are kept in place, so garments' and morphs' indices still hold. Tight
+    # garments keep every face: a top's hem under a skirt's waistband is what the waist QA reads.
+    drop = hidden[mesh.faces].all(axis=1) if hidden is not None else None
+    if drop is not None and mesh.face_materials is not None:
+        drop &= mesh.face_materials == 0
+    if drop is not None and drop.any():
+        drawn = mesh.copy()
+        drawn.faces = mesh.faces[~drop]
+        if mesh.face_materials is not None:
+            drawn.face_materials = mesh.face_materials[~drop]
+        body.mesh = drawn
+    else:
+        root.remove_child(closed)
     if pose_name is not None:
         if pose_name not in poses:
             raise ValueError(f"'{name}': unknown pose '{pose_name}'. Poses: {sorted(poses)}")
@@ -1094,13 +1116,15 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             clip.apply(root, 0.0)
         else:
             Pose.from_spec(poses[pose_name], skeleton).apply(skeleton, nodes)
-    posed = Mesh.merge([n.world_mesh() for n in root.iter_nodes() if n.mesh is not None])
+    posed = Mesh.merge([n.world_mesh() for n in root.iter_visible() if n.mesh is not None])
     lo, hi = posed.vertices.min(axis=0), posed.vertices.max(axis=0)
     root.size = np.array([2 * max(abs(lo[0]), abs(hi[0])), hi[1], 2 * max(abs(lo[2]), abs(hi[2]))])
     root.meta["humanoid"] = {"skeleton": skeleton.name, "height": round(float(skeleton.landmarks["head_top"][1]), 4)
                              if "head_top" in skeleton.landmarks else round(float(hi[1]), 4),
                              "pose": pose_name, "hair": hair_style, "outfit": outfit_name,
-                             "triangles": int(sum(len(n.mesh.faces) for n in root.iter_nodes() if n.mesh is not None))}
+                             "triangles": int(sum(len(n.mesh.faces) for n in root.iter_visible() if n.mesh is not None))}
+    if drop is not None and drop.any():
+        root.meta["humanoid"]["hidden_faces"] = int(drop.sum())
     root.meta["humanoid"]["seats"] = seats
     root.meta["humanoid"]["shells"] = draped            # for drape.Draper (review, tests)
     if drape_report:
@@ -1119,6 +1143,22 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     return root
 
 
+CLOSED_BODY = "body_closed"      # the whole body, hidden and build-only, beside a drawn `body` with faces left out
+
+
+def closed_body(root: SceneNode) -> SceneNode | None:
+    """The skinned body of a character to fit, drape and measure against: its closed body
+    (``CLOSED_BODY``, kept when loose clothes hide faces of the drawn ``body``), else ``body``."""
+    found = None
+    for node in root.iter_nodes():
+        if node.skin is not None and node.mesh is not None:
+            if node.name == CLOSED_BODY:
+                return node
+            if node.name == "body" and found is None:
+                found = node
+    return found
+
+
 SEAT_SINK = 0.0015       # m the seat flesh/cloth presses into a seat (within clipping QA's tolerance)
 SEAT_CLEAR = 0.03        # m the calves keep in front of a seat's front edge
 KNEE_OVERHANG = 0.3      # share of the thigh, behind the knee joint, that clears the seat front
@@ -1132,7 +1172,7 @@ def seat_contact(root, clip: str) -> tuple[float, SceneNode, np.ndarray, np.ndar
 
     actor = root.instance(share_clips=True)
     apply_clip(actor, clip, 0.0)
-    body = next((n for n in actor.iter_nodes() if n.name == "body" and n.skin is not None), None)
+    body = closed_body(actor)
     if body is None:
         return None
     mesh = body.world_mesh()

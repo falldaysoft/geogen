@@ -109,3 +109,38 @@ def test_exported_morph_targets_turn_the_normals(skirted, tmp_path):
     turned = sum(w * meshops.morph_normal_deltas(mesh, mesh.morphs[k]) for k, w in worn.morph_weights.items())
     moved = np.linalg.norm(delta, axis=1) > 0.03                  # the cloth the drape moves a lot
     assert moved.sum() > 20 and np.linalg.norm(turned[moved], axis=1).mean() > 0.1
+
+
+def test_faces_the_skirt_always_hides_are_left_out(skirted):
+    """A character in a skirt doesn't carry the pelvis and thighs under it: faces whose vertices
+    are well inside the draped cloth in every pose and sampled frame are left out of the drawn
+    body (geogen.11.5.24). The closed body stays beside it, hidden and build-only, for seat
+    fitting, draping and QA, and never reaches an export."""
+    from geogen.export import to_trimesh_scene
+    from geogen.generators.humanoid import closed_body, dominant_bones
+
+    body, closed = skirted.find("body"), skirted.find("body_closed")
+    assert closed is not None and closed.hidden and closed.meta["build_only"]
+    assert closed_body(skirted) is closed and closed.skin is not None
+    assert meshops.validate(closed.mesh).watertight and not meshops.validate(body.mesh).watertight
+    dropped = skirted.meta["humanoid"]["hidden_faces"]
+    assert 200 < dropped == len(closed.mesh.faces) - len(body.mesh.faces)
+    assert np.array_equal(body.mesh.vertices, closed.mesh.vertices)         # indices still hold
+    drawn = {tuple(f) for f in body.mesh.faces.tolist()}
+    gone = np.array([f for f in closed.mesh.faces.tolist() if tuple(f) not in drawn])
+    names = [j.name for j in closed.skin.joints]
+    assert set(dominant_bones(closed.mesh, names)[np.unique(gone)]) <= {"Hips", "Spine", "LeftUpperLeg", "RightUpperLeg"}
+    # What went is inside the cloth, seated and mid-walk alike, by more than the drape's margin.
+    from geogen.clipping import _meshes, _solid, distance, posed, winding
+
+    for pose, clip, t in (("sit", None, 0.0), (None, "walk", 0.4), (None, "sit_down", 0.5)):
+        now = _meshes(posed(skirted, pose, clip, t))
+        pts = now["body"].vertices[np.unique(gone)]
+        solid, fans = _solid(now["clothes"], caps=True)
+        assert np.all(winding(pts, solid) > 0.5)
+        # ... and well off the cloth itself: the outer wall (the lining is 6 mm inside it; the
+        # fans QA caps the hem's opening with cut through a lap).
+        assert distance(pts, solid[:len(solid) - len(fans)]).min() > 0.004
+    assert "body_closed" not in to_trimesh_scene(skirted).graph.nodes
+    plain = LayoutLoader().load(HUMANOID, params={"preset": "feminine", "outfit": "jeans_tee"})
+    assert plain.find("body_closed") is None and "hidden_faces" not in plain.meta["humanoid"]
