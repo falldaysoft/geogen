@@ -68,7 +68,7 @@ presets:
     waist: 0.80
     bust: 1.0
     glutes: 0.9
-    limb: 0.88
+    limb: 1.0
     jaw_width: 0.86
     nose: 0.85
     chin: 0.85
@@ -311,10 +311,10 @@ body:
       rings:
         - [LeftShoulder, 0.42, "{0.042 * tf}", "{0.046 * tf}", { offset: [-0.02, 0] }]
         - [LeftUpperArm, -0.05, "{shoulder_r * 1.0}", "{shoulder_r * 1.02}", { offset: [-0.014, 0] }]
-        - [LeftUpperArm, 0.15, "{0.048 * lf}", "{0.049 * lf}"]
+        - [LeftUpperArm, 0.15, "{0.05 * lf}", "{0.052 * lf}"]
         - [LeftUpperArm, 0.55, "{0.040 * lf}", "{0.043 * lf}"]
         - [LeftLowerArm, 0.0, "{0.033 * lf}", "{0.035 * lf}"]
-        - [LeftLowerArm, 0.3, "{0.035 * lf}", "{0.039 * lf}"]
+        - [LeftLowerArm, 0.3, "{0.037 * lf}", "{0.042 * lf}"]
         - [LeftLowerArm, 0.95, "{0.020 * lf}", "{0.028 * lf}"]
 
     leg:
@@ -332,9 +332,9 @@ body:
         - [LeftUpperLeg, 0.06, "{0.082 * lf * hips}", "{0.080 * lf}", { offset: ["{0.012 * hips}", 0] }]
         - [LeftUpperLeg, 0.55, "{0.063 * lf}", "{0.067 * lf}"]
         - [LeftLowerLeg, 0.0, "{0.045 * lf}", "{0.049 * lf}"]
-        - [LeftLowerLeg, 0.3, "{0.049 * lf}", "{0.055 * lf}", { offset: [0, "{-0.010 * lf}"] }]
-        - [LeftLowerLeg, 0.85, "{0.031 * lf}", "{0.034 * lf}"]
-        - [LeftLowerLeg, 1.0, "{0.030 * lf}", "{0.033 * lf}"]
+        - [LeftLowerLeg, 0.3, "{0.054 * lf}", "{0.06 * lf}", { offset: [0, "{-0.014 * lf}"] }]
+        - [LeftLowerLeg, 0.85, "{0.034 * lf}", "{0.037 * lf}"]
+        - [LeftLowerLeg, 1.0, "{0.033 * lf}", "{0.036 * lf}"]
 
     foot:
       bones: [LeftFoot, LeftToes]

@@ -370,4 +370,13 @@ def decimate(mesh: Mesh, ratio: float, crease_angle: float = 40.0) -> Mesh:
             break
     if best.num_tri() == 0:
         return mesh
-    return _from_manifold(best, mesh.material, crease_angle, mesh.materials if slots is not None else None, columns)
+    out = _from_manifold(best, mesh.material, crease_angle, mesh.materials if slots is not None else None, columns)
+    if slots is not None and out.face_materials is not None and len(out.faces):
+        # Each face takes the slot of the surface it lies on (the nearest original face to its
+        # middle), not its first corner's: a collapse across a slot boundary leaves a triangle
+        # from one slot reaching well into the next (a shoe's colour up the shin).
+        from scipy.spatial import cKDTree
+
+        tree = cKDTree(mesh.vertices[mesh.faces].mean(axis=1))
+        out.face_materials = np.asarray(slots)[tree.query(out.vertices[out.faces].mean(axis=1))[1]]
+    return out

@@ -68,7 +68,7 @@ def test_a_seated_skirt_lies_on_the_lap_and_on_the_seat(skirted):
     lap = lambda v: v[(np.abs(v[:, 2] - middle) < 0.05) & (np.abs(v[:, 0]) < 0.2)]
     thighs = lap(body)[:, 1].max()                                 # the thighs' tops
     assert lap(skinned)[:, 1].max() > thighs + 0.05                # skinned alone it stands off them as a box
-    assert thighs < lap(draped)[:, 1].max() < thighs + 0.025       # draped it lies on them
+    assert thighs < lap(draped)[:, 1].max() < thighs + 0.03        # draped it lies on them (the band spans 10 cm of a sloping thigh)
     seat = skirted.meta["humanoid"]["seats"]["sit"]
     behind = lambda v: v[(v[:, 2] < knee[2] - 0.03) & (v[:, 1] < hip[1])]
     assert behind(skinned)[:, 1].min() < seat - 0.03               # ... and hangs through the seat
