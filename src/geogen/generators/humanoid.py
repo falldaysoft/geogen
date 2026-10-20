@@ -148,6 +148,8 @@ FACE_KEYS = {"box", "min_normal", "eye_color", "eye_v", "eye_spacing", "eye_size
              "brow_arch", "lashes", "lip_color", "lip_strength", "mouth_v", "mouth_width", "blush", "freckles", "smile",
              "age", "stubble"}
 _face_materials: dict = {}
+BROW_LUMINANCE = 0.35            # brows are painted no lighter than this
+HEAD_AO = 0.55                   # how much of the head sculpt's ambient occlusion darkens its skin
 FACE_TEXTURE = 512                # texels across the face decal (sharp eyes at a conversation's distance)
 
 
@@ -184,6 +186,11 @@ def face_material(spec: dict, skin):
         if key in params:
             params[key] = tuple(params[key]) if not isinstance(params[key], str) else \
                 tuple(int(c * 255) for c in _color(params[key], HAIR_COLORS, "colour"))
+    if "brow_color" in params:
+        # Brows are darker than light hair (blonde brows in the hair's colour vanish into the skin).
+        rgb = np.asarray(params["brow_color"], dtype=np.float64)
+        lum = float(rgb @ [0.2126, 0.7152, 0.0722]) / 255
+        params["brow_color"] = tuple(int(c) for c in rgb * min(1.0, BROW_LUMINANCE / max(lum, 1e-6)))
     key = (skin.name, tuple(sorted((k, str(v)) for k, v in params.items())))
     if key not in _face_materials:
         gen = FaceTextureGenerator(width=FACE_TEXTURE, height=FACE_TEXTURE, seed=71,
@@ -778,6 +785,19 @@ def sculpted_head(spec: dict, face: dict | None, skeleton: Skeleton) -> tuple[He
     return head, origin
 
 
+def sdf_occlusion(sdf, points: np.ndarray, normals: np.ndarray, steps: int = 5, reach: float = 0.04) -> np.ndarray:
+    """Ambient occlusion of surface ``points`` of a signed-distance ``sdf`` (1 open .. 0 shut): how
+    far the field falls short of the distance stepped out along each normal, nearer steps
+    counting more."""
+    occ = np.zeros(len(points))
+    weight = 1.0
+    for i in range(1, steps + 1):
+        h = reach * i / steps
+        occ += weight * np.maximum(h - sdf(points + normals * h), 0.0) / h
+        weight *= 0.7
+    return np.clip(1.0 - occ / sum(0.7 ** k for k in range(steps)), 0.0, 1.0)
+
+
 def head_weights(mesh: Mesh, skeleton: Skeleton, blend: float, shift: float) -> tuple[np.ndarray, np.ndarray]:
     """The head moves with Head; below the jaw (``shift`` under the head joint) it hands over to
     Neck over ``blend`` metres, as the torso chain's head did."""
@@ -937,6 +957,12 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         if head is not None:
             on = np.abs(head(mesh.vertices - head_origin)) < 2e-4
             mesh.normals[on] = sdf_normals(head, mesh.vertices[on] - head_origin)
+            # Shade it from its own sculpt: sockets, under the nose and lip, round the ears and
+            # under the jaw (a flat-lit face otherwise reads as paint on an egg).
+            if mesh.colors is not None:
+                bare = on & np.all(np.abs(mesh.colors[:, :3] - tone) < 1e-6, axis=1)    # (not a collar on the neck)
+                ao = sdf_occlusion(head, mesh.vertices[bare] - head_origin, mesh.normals[bare])
+                mesh.colors[bare, :3] *= (1.0 - HEAD_AO * (1.0 - ao))[:, None]
         if hands is not None:
             for side in (1, -1):                         # the right hand is the left's mirror image
                 local = mesh.vertices * [side, 1, 1]

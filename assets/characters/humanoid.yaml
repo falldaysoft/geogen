@@ -83,7 +83,7 @@ presets:
     top_color: coral
     bottom_color: navy
     shoe_color: black
-    lashes: 1.0
+    lashes: 0.5
     lip_strength: 0.7
     blush: 0.35
     brow_thickness: 0.8
