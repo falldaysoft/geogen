@@ -10,6 +10,10 @@ standard library, so the Pages workflow (.github/workflows/pages.yml) runs it
 on a bare checkout. Links that leave the catalogue (an asset's YAML source)
 point at the repository on GitHub (``--repo``, ``--ref``).
 
+With ``OUT_DIR/models`` (``docs/make_models.py``), the Three.js viewer in
+runtime/web goes in at ``view/`` and each asset page's picture opens the
+model in it.
+
 It reads the subset of markdown the catalogue pages use: headings, paragraphs,
 fenced code, tables, ``-`` lists, links, bold, code spans and the raw
 ``<img>`` / thumbnail ``<table>`` lines.
@@ -19,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import posixpath
 import re
@@ -31,6 +36,8 @@ REPO_ROOT = Path(__file__).parent.parent
 NAV = [("index.html", "Assets"), ("primitives.html", "Primitives"), ("vocabulary.html", "Vocabulary"),
        ("scenes.html", "Scenes")]
 PLAY = ("play/", "Play")     # the web build of the Godot runtime, when the site has one (pages.yml)
+VIEW = ("view/", "3D viewer")    # runtime/web, when the site has models (docs/make_models.py)
+WEB_VIEWER = REPO_ROOT / "runtime" / "web"
 
 CSS = """
 :root {
@@ -91,6 +98,15 @@ td:first-child { white-space: nowrap; }
 .filter:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .empty { color: var(--muted); }
 .crumb { font-size: .9rem; color: var(--muted); margin: 0; }
+.view3d { position: relative; display: inline-block; padding: 0; border: 0; background: none; cursor: pointer;
+          vertical-align: top; }
+.view3d::after { content: "View in 3D"; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+                 padding: .2rem .6rem; border-radius: 999px; background: var(--accent); color: #fff;
+                 font: 600 .78rem/1.4 system-ui, sans-serif; white-space: nowrap; opacity: .9; }
+.view3d:hover::after { opacity: 1; }
+.shots iframe { width: min(512px, 100%); aspect-ratio: 1; border: 1px solid var(--line); border-radius: 10px;
+                background: var(--code-bg); }
+.full3d { display: block; font-size: .85rem; }
 footer { max-width: 72rem; margin: 0 auto; padding: 0 1rem 2rem; color: var(--muted); font-size: .85rem; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 """
@@ -116,6 +132,18 @@ document.addEventListener('keydown', e => {
 });
 """
 
+VIEW_JS = """
+for (const button of document.querySelectorAll('.view3d')) {
+  button.addEventListener('click', () => {
+    const frame = document.createElement('iframe');
+    frame.src = button.dataset.src + '&embed=1';
+    frame.title = '3D view';
+    frame.allow = 'fullscreen';
+    button.replaceWith(frame);
+  });
+}
+"""
+
 _CARD = re.compile(r'<td[^>]*><a href="([^"]+)"><img src="([^"]+)"[^>]*alt="([^"]*)"[^>]*><br>([^<]*)</a></td>')
 _ATTR_URL = re.compile(r'\b(href|src)="([^"]+)"')
 _INLINE = re.compile(r"(`[^`]+`)|\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*")
@@ -133,6 +161,7 @@ class Site:
         self.repo = repo.rstrip("/")
         self.ref = ref
         self.play = False
+        self.models: set[str] = set()
 
     # -- links -----------------------------------------------------------------------------
 
@@ -262,7 +291,7 @@ class Site:
         root = "../" * page.count("/")
         here = "index.html" if page.startswith("assets/") or page == "README.md" else page[:-3] + ".html"
         nav = "".join(f'<a href="{root}{href}"{" class=here" if href == here else ""}>{label}</a>'
-                      for href, label in NAV + ([PLAY] if self.play else []))
+                      for href, label in NAV + ([VIEW] if self.models else []) + ([PLAY] if self.play else []))
         extra = ""
         if page == "README.md":
             # The filter goes above the first category; the usage example stays with the intro.
@@ -272,6 +301,10 @@ class Site:
             extra = f"<script>{FILTER_JS}</script>"
         elif page.startswith("assets/"):
             body = f'<p class="crumb"><a href="{root}index.html">Assets</a> /</p>\n' + body
+            name = page[len("assets/"):-3]
+            if name in self.models:
+                body = self.view_button(body, name, root)
+                extra = f"<script>{VIEW_JS}</script>"
         name = "Geogen catalogue"
         full_title = name if title == name else f"{title} · {name}"
         return (f'<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
@@ -284,9 +317,25 @@ class Site:
                 f"<footer>Generated from <code>docs/catalogue</code> by <code>docs/make_site.py</code>.</footer>\n"
                 f"{extra}\n</body>\n</html>\n")
 
+    @staticmethod
+    def view_button(body: str, name: str, root: str) -> str:
+        """The asset's picture as a button that swaps itself for the 3D viewer, and a link to the full viewer."""
+        src = f"{root}view/?m={name}"
+        img = re.search(rf'<img src="[^"]*img/{re.escape(name)}\.png"[^>]*>', body)
+        if not img:
+            return body
+        return (body[:img.start()] + f'<button class="view3d" data-src="{html.escape(src)}" '
+                f'aria-label="View {html.escape(name)} in 3D">{img.group(0)}</button>' + body[img.end():]
+                ).replace('<p class="shots">', f'<a class="full3d" href="{html.escape(src)}">Open in the 3D viewer</a>\n'
+                          '<p class="shots">', 1)
+
     def build(self, out: Path) -> int:
         out.mkdir(parents=True, exist_ok=True)
         self.play = (out / PLAY[0] / "index.html").exists()      # copied in before the pages are made
+        index = out / "models" / "index.json"
+        if index.is_file():                                      # docs/make_models.py, also run first
+            self.models = set(json.loads(index.read_text())["assets"])
+            shutil.copytree(WEB_VIEWER, out / VIEW[0], dirs_exist_ok=True)
         count = 0
         for md in sorted(self.source.rglob("*.md")):
             page = md.relative_to(self.source).as_posix()

@@ -1,6 +1,7 @@
 # Publishes the asset catalogue (docs/catalogue, turned into HTML by docs/make_site.py)
 # to GitHub Pages, with the web build of the Godot runtime at play/
-# (runtime/godot/tools/export_web.py). Needs Settings > Pages > Source set to "GitHub Actions".
+# (runtime/godot/tools/export_web.py) and every asset as a GLB at models/ (docs/make_models.py)
+# for the Three.js viewer (runtime/web, at view/). Needs Settings > Pages > Source set to "GitHub Actions".
 name: Catalogue site
 
 on:
@@ -13,6 +14,8 @@ on:
       - src/**
       - assets/**
       - runtime/godot/**
+      - runtime/web/**
+      - docs/make_models.py
       - pyproject.toml
   workflow_dispatch:
 
@@ -30,7 +33,7 @@ env:
 
 jobs:
   web:
-    # The runtime and its scenes, rebuilt only when something they're made from changed.
+    # The runtime and its scenes, and the models, rebuilt only when something they're made from changed.
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -38,8 +41,8 @@ jobs:
       - id: cache
         uses: actions/cache@v4
         with:
-          path: _play
-          key: play-${{ env.GODOT_VERSION }}-${{ hashFiles('src/**', 'assets/**', 'runtime/godot/**', 'pyproject.toml') }}
+          path: _web
+          key: web-${{ env.GODOT_VERSION }}-${{ hashFiles('src/**', 'assets/**', 'runtime/godot/**', 'docs/make_models.py', 'pyproject.toml') }}
       - if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@v5
         with:
@@ -76,11 +79,16 @@ jobs:
           templates=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           mkdir -p "$templates" && cp ~/godot/web_nothreads_release.zip "$templates/"
           # geogen.main imports the renderer (pyrender, pyglet), which needs a display even unused.
-          xvfb-run -a python runtime/godot/tools/export_web.py _play --godot ~/godot/godot
+          xvfb-run -a python runtime/godot/tools/export_web.py _web/play --godot ~/godot/godot
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Export the models
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: xvfb-run -a python docs/make_models.py _web
       - uses: actions/upload-artifact@v4
         with:
-          name: play
-          path: _play
+          name: web
+          path: _web
 
   deploy:
     needs: web
@@ -92,8 +100,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: play
-          path: _site/play
+          name: web
+          path: _site
       - name: Build the site
         run: python3 docs/make_site.py _site
       - uses: actions/configure-pages@v5

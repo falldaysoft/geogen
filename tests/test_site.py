@@ -72,3 +72,15 @@ def test_play_is_in_the_nav_only_with_a_web_build(make_site, tmp_path):
     (tmp_path / "play" / "index.html").write_text("<html></html>")
     make_site.Site(DOCS / "catalogue", "https://github.com/example/geogen", "main").build(tmp_path)
     assert '<a href="../play/">Play</a>' in (tmp_path / "assets" / "door.html").read_text()
+
+
+def test_models_give_asset_pages_a_3d_view(make_site, tmp_path):
+    """With models/ (docs/make_models.py), the viewer goes in at view/ and listed assets' pictures open it."""
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "index.json").write_text('{"assets": ["door"]}')
+    make_site.Site(DOCS / "catalogue", "https://github.com/example/geogen", "main").build(tmp_path)
+    assert (tmp_path / "view" / "index.html").exists() and (tmp_path / "view" / "viewer.js").exists()
+    door = (tmp_path / "assets" / "door.html").read_text()
+    assert '<button class="view3d" data-src="../view/?m=door"' in door and 'href="../view/?m=door"' in door
+    assert 'href="../view/"' in door                       # the nav
+    assert "view3d" not in (tmp_path / "assets" / "sofa.html").read_text()

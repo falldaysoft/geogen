@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geogen viewer</title>
+<link rel="stylesheet" href="viewer.css">
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="bar">
+  <a class="back" href="../index.html">Catalogue</a>
+  <select id="model" aria-label="Model"></select>
+  <span id="status" class="status"></span>
+</div>
+<div id="actions" class="actions" hidden></div>
+<aside id="info" class="info" hidden>
+  <button class="close" aria-label="Close">×</button>
+  <h2 id="info-name"></h2>
+  <p id="info-path" class="path"></p>
+  <pre id="info-extras"></pre>
+</aside>
+<p class="hint">Drag to orbit · right-drag to pan · scroll to zoom · click a part to inspect it</p>
+<script type="module" src="viewer.js"></script>
+</body>
+</html>

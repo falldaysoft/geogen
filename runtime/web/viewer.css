@@ -1,0 +1,37 @@
+:root {
+  --bg: #e9e7e1; --panel: rgba(255, 255, 255, .92); --ink: #1d2126; --muted: #5d6670; --line: #dcd9d0;
+  --accent: #b4532a; --code-bg: #efede6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #16181b; --panel: rgba(30, 33, 37, .92); --ink: #e4e2dc; --muted: #9aa1a9; --line: #30343a;
+          --accent: #e58a5e; --code-bg: #24282d; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+             font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+a { color: var(--accent); text-decoration: none; }
+.bar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; align-items: center;
+       gap: 8px 12px; pointer-events: none; }
+.bar > * { pointer-events: auto; }
+.back, select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+                font: inherit; color: var(--ink); }
+.status { color: var(--muted); }
+.actions { position: absolute; left: 12px; bottom: 40px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 60%; }
+.actions button { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px;
+                  font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); cursor: pointer; }
+.actions select { max-width: 100%; padding: 4px 8px; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.actions button:hover { border-color: var(--accent); }
+.info { position: absolute; top: 60px; right: 12px; width: min(380px, calc(100% - 24px)); max-height: calc(100% - 110px);
+        overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.info h2 { margin: 0 24px 2px 0; font-size: 15px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.info .path { margin: 0 0 8px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.info pre { margin: 0; padding: 8px; background: var(--code-bg); border-radius: 6px; font-size: 11.5px;
+            white-space: pre-wrap; overflow-wrap: anywhere; }
+.info .close { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: var(--muted);
+               font-size: 20px; cursor: pointer; }
+.hint { position: absolute; bottom: 8px; left: 12px; right: 12px; margin: 0; color: var(--muted); font-size: 12px;
+        pointer-events: none; }
+/* Embedded in an asset page: just the model. */
+.embed .bar, .embed .info, .embed .hint { display: none; }
+.embed .actions { bottom: 8px; }
