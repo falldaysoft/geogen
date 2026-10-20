@@ -228,7 +228,8 @@ In order. The first four are earlier work, from the commit history and the task 
 4. **Room at the hips** (30332bf): `HIP_ROOM` in `hug_body` and extra rings (`samples`) where the
    skirt bends. This closed the waist in most poses; three builds kept a sliver of thigh at the
    hip crease. The extra rings are gone again (the shell is evenly dense now); `HIP_ROOM` is still
-   there and may no longer be needed.
+   there, and is still needed: without it a heavy body's hips show through a skirt (tried
+   2026-10-19, geogen.11.5.38.1).
 5. **The geometric drape** (this work). Things tried inside it and dropped:
    - *Looseness measured from the rest pose* (the hull plus what the ring had to spare at rest).
      A leg that swings forward then pushes the cloth as far forward again as it was loose,

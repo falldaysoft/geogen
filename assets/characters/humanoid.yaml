@@ -445,8 +445,8 @@ body:
           RightLittleIntermediate: [0, 0, 10]
           LeftLittleDistal: [0, 0, -6]
           RightLittleDistal: [0, 0, 6]
-        LeftUpperArm: [0, 0, -74]
-        RightUpperArm: [0, 0, 74]
+        LeftUpperArm: [0, 0, -82]
+        RightUpperArm: [0, 0, 82]
         LeftLowerArm: [0, -12, 0]
         RightLowerArm: [0, 12, 0]
     sit:

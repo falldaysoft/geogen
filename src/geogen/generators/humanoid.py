@@ -1023,7 +1023,12 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if pose_name is not None:
         if pose_name not in poses:
             raise ValueError(f"'{name}': unknown pose '{pose_name}'. Poses: {sorted(poses)}")
-        Pose.from_spec(poses[pose_name], skeleton).apply(skeleton, nodes)
+        # As its clip has it: with the swing clear_arms gave the arms (and the drape's morphs).
+        clip = next((c for c in root.clips if c.name == f"pose_{pose_name}"), None)
+        if clip is not None:
+            clip.apply(root, 0.0)
+        else:
+            Pose.from_spec(poses[pose_name], skeleton).apply(skeleton, nodes)
     posed = Mesh.merge([n.world_mesh() for n in root.iter_nodes() if n.mesh is not None])
     lo, hi = posed.vertices.min(axis=0), posed.vertices.max(axis=0)
     root.size = np.array([2 * max(abs(lo[0]), abs(hi[0])), hi[1], 2 * max(abs(lo[2]), abs(hi[2]))])
