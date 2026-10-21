@@ -72,6 +72,7 @@ class Project:
     root: Path                      # its content root
     overrides: frozenset[str] = field(default_factory=frozenset)
     generated: Path | None = None   # where its runtime exports go
+    description: str = ""           # its one-line description (geogen.yaml)
 
     @property
     def catalogue(self) -> Path | None:
@@ -107,7 +108,8 @@ def load_project(directory: str | Path) -> Project:
     if not isinstance(overrides, list) or not all(isinstance(o, str) for o in overrides):
         raise RootsError(f"{config}: overrides is a list of file names relative to the assets directory")
     project = Project(str(spec.get("name") or directory.name), directory, root, frozenset(overrides),
-                      (directory / str(spec.get("generated", "generated"))).resolve())
+                      (directory / str(spec.get("generated", "generated"))).resolve(),
+                      str(spec.get("description") or ""))
     if root == CORE:
         raise RootsError(f"{directory}: a project's assets can't be geogen's own")
     shadowed = sorted(p.relative_to(root).as_posix() for p in root.rglob("*")

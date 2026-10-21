@@ -1,6 +1,7 @@
 # Publishes the asset catalogue (docs/catalogue, turned into HTML by docs/make_site.py)
-# to GitHub Pages, with the web build of the Godot runtime at play/
-# (runtime/godot/tools/export_web.py) and every asset as a GLB at models/ (docs/make_models.py)
+# to GitHub Pages, with web builds of the Godot runtime at play/ (the showcases) and
+# play/<example>/ (each project in examples/), sharing one engine at play/engine/
+# (runtime/godot/tools/export_web.py), and every asset as a GLB at models/ (docs/make_models.py)
 # for the Three.js viewer (runtime/web, at view/). Needs Settings > Pages > Source set to "GitHub Actions".
 name: Catalogue site
 
@@ -15,6 +16,7 @@ on:
       - assets/**
       - runtime/godot/**
       - runtime/web/**
+      - examples/**
       - docs/make_models.py
       - pyproject.toml
   workflow_dispatch:
@@ -42,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _web
-          key: web-${{ env.GODOT_VERSION }}-${{ hashFiles('src/**', 'assets/**', 'runtime/godot/**', 'docs/make_models.py', 'pyproject.toml') }}
+          key: web-${{ env.GODOT_VERSION }}-${{ hashFiles('src/**', 'assets/**', 'examples/**', 'runtime/godot/**', 'docs/make_models.py', 'pyproject.toml') }}
       - if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@v5
         with:
@@ -79,7 +81,11 @@ jobs:
           templates=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           mkdir -p "$templates" && cp ~/godot/web_nothreads_release.zip "$templates/"
           # geogen.main imports the renderer (pyrender, pyglet), which needs a display even unused.
-          xvfb-run -a python runtime/godot/tools/export_web.py _web/play --godot ~/godot/godot
+          export=(xvfb-run -a python runtime/godot/tools/export_web.py --godot ~/godot/godot --engine _web/play/engine)
+          "${export[@]}" _web/play
+          for project in examples/*/; do
+            "${export[@]}" "_web/play/$(basename "$project")" --project "$project"
+          done
       - if: steps.cache.outputs.cache-hit != 'true'
         name: Export the models
         env:

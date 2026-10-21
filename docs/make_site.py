@@ -12,7 +12,9 @@ point at the repository on GitHub (``--repo``, ``--ref``).
 
 With ``OUT_DIR/models`` (``docs/make_models.py``), the Three.js viewer in
 runtime/web goes in at ``view/`` and each asset page's picture opens the
-model in it.
+model in it. With web builds of the runtime at ``OUT_DIR/play/`` and
+``OUT_DIR/play/<project>/`` (``runtime/godot/tools/export_web.py``, each with
+a ``build.json``), the index lists them under "Play in the browser".
 
 It reads the subset of markdown the catalogue pages use: headings, paragraphs,
 fenced code, tables, ``-`` lists, links, bold, code spans and the raw
@@ -161,6 +163,7 @@ class Site:
         self.repo = repo.rstrip("/")
         self.ref = ref
         self.play = False
+        self.builds: list[tuple[str, dict]] = []     # (href, build.json) of the web builds at play/
         self.models: set[str] = set()
 
     # -- links -----------------------------------------------------------------------------
@@ -296,7 +299,8 @@ class Site:
         if page == "README.md":
             # The filter goes above the first category; the usage example stays with the intro.
             first = body.find("<h2")
-            body = (body[:first] + '<input class="filter" type="search" placeholder="Filter assets (press /)" '
+            body = (body[:first] + self.play_section()
+                    + '<input class="filter" type="search" placeholder="Filter assets (press /)" '
                     'aria-label="Filter assets by name">\n<p class="empty" hidden>No asset matches.</p>\n' + body[first:])
             extra = f"<script>{FILTER_JS}</script>"
         elif page.startswith("assets/"):
@@ -317,6 +321,16 @@ class Site:
                 f"<footer>Generated from <code>docs/catalogue</code> by <code>docs/make_site.py</code>.</footer>\n"
                 f"{extra}\n</body>\n</html>\n")
 
+    def play_section(self) -> str:
+        """The web builds of the runtime, for the index page: one line each (empty: none)."""
+        if not self.builds:
+            return ""
+        items = "".join(f'<li><a href="{html.escape(href)}">{html.escape(info.get("name", href))}</a>'
+                        f'{" · " + html.escape(info["description"]) if info.get("description") else ""}</li>\n'
+                        for href, info in self.builds)
+        return (f'<h2 id="play">Play in the browser</h2>\n<p>The Godot runtime, built for the web, with scenes packed in '
+                f'(WASD to walk, E to interact, F6 lists the scenes).</p>\n<ul class="play">\n{items}</ul>\n')
+
     @staticmethod
     def view_button(body: str, name: str, root: str) -> str:
         """The asset's picture as a button that swaps itself for the 3D viewer, and a link to the full viewer."""
@@ -332,6 +346,10 @@ class Site:
     def build(self, out: Path) -> int:
         out.mkdir(parents=True, exist_ok=True)
         self.play = (out / PLAY[0] / "index.html").exists()      # copied in before the pages are made
+        self.builds = [(f"{PLAY[0]}{'' if info.parent == out / PLAY[0] else info.parent.name + '/'}",
+                        json.loads(info.read_text()))
+                       for info in sorted((out / PLAY[0]).glob("build.json")) + sorted((out / PLAY[0]).glob("*/build.json"))
+                       if (info.parent / "index.html").exists()]
         index = out / "models" / "index.json"
         if index.is_file():                                      # docs/make_models.py, also run first
             self.models = set(json.loads(index.read_text())["assets"])

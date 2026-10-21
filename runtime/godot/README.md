@@ -645,7 +645,15 @@ up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the 
 runtime for the web (`export_presets.cfg`, preset "Web") with those catalogue scenes packed in;
 the Pages workflow (`.github/workflows/pages.yml`) publishes it at
 [falldaysoft.github.io/geogen/play](https://falldaysoft.github.io/geogen/play/). It needs Godot
-4.7's web export templates.
+4.7's web export templates. `--project DIR` builds a project instead (its catalogue, all of its
+scenes, starting in its default one): the workflow builds each project in `examples/` at
+`play/<name>/`, and the catalogue site's index lists them.
+
+- `--engine DIR` puts the engine (the wasm, its loader, the audio worklets: about 10 MB gzipped,
+  the same for every build of one Godot version) in DIR and the page loads it from there, so
+  builds on one site share one download; the site's builds share `play/engine/`. Only the pack
+  (the scenes and the runtime's scripts) and the icons stay with each build. A `build.json` in
+  OUT_DIR (name, description, default scene) is what the site lists.
 
 - It builds the scenes into a staging copy of this project (not your `generated/`), bakes each
   scene's navmesh there (`generated/navcache/`, packed with them: `res://` can't be written on

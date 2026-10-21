@@ -1,6 +1,7 @@
 """The HTML catalogue (docs/make_site.py) built from the committed markdown pages."""
 
 import importlib.util
+import json
 import re
 from pathlib import Path
 
@@ -84,3 +85,35 @@ def test_models_give_asset_pages_a_3d_view(make_site, tmp_path):
     assert '<button class="view3d" data-src="../view/?m=door"' in door and 'href="../view/?m=door"' in door
     assert 'href="../view/"' in door                       # the nav
     assert "view3d" not in (tmp_path / "assets" / "sofa.html").read_text()
+
+
+def test_web_builds_are_listed_on_the_index(make_site, tmp_path):
+    """Builds at play/ and play/<project>/ (each with a build.json and a page) get a line on the index."""
+    out = tmp_path / "site"
+    for where, info in (("play", {"name": "geogen", "description": "The showcases"}),
+                        ("play/sandwich", {"name": "sandwich", "description": "A kitchen"}),
+                        ("play/half_built", {"name": "no page", "description": "left out"})):
+        (out / where).mkdir(parents=True)
+        (out / where / "build.json").write_text(json.dumps(info))
+        if where != "play/half_built":
+            (out / where / "index.html").write_text("<html></html>")
+    make_site.Site(DOCS / "catalogue", "https://github.com/example/geogen", "main").build(out)
+    index = (out / "index.html").read_text()
+    assert '<a href="play/">geogen</a> · The showcases' in index
+    assert '<a href="play/sandwich/">sandwich</a> · A kitchen' in index
+    assert "half_built" not in index and 'href="play/"' in index    # the nav's Play link too
+
+
+def test_an_exported_page_can_load_a_shared_engine():
+    """export_web.point_at_engine: the engine from engine/, the pack from beside the page."""
+    spec = importlib.util.spec_from_file_location(
+        "export_web", DOCS.parent / "runtime" / "godot" / "tools" / "export_web.py")
+    export_web = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(export_web)
+    page = ('<script src="index.js"></script>\n<script>\nconst GODOT_CONFIG = {"args":[],"executable":"index",'
+            '"fileSizes":{"index.pck":10,"index.wasm":20}};\nconst GODOT_THREADS_ENABLED = false;\n</script>')
+    out = export_web.point_at_engine(page, "../engine")
+    config = json.loads(re.search(r"const GODOT_CONFIG = (\{.*\});", out).group(1))
+    assert config["executable"] == "../engine/index" and config["mainPack"] == "index.pck"
+    assert config["fileSizes"] == {"index.pck": 10, "../engine/index.wasm": 20}
+    assert '<script src="../engine/index.js"></script>' in out and "GODOT_THREADS_ENABLED = false" in out
