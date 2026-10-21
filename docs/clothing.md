@@ -284,7 +284,7 @@ would fail `test_nothing_pokes_through_a_skirt_in_any_pose_or_clip`.
 
 ## What is open
 
-Tracked as geogen.11.5.25 (build time: geogen.11.5.23).
+Tracked as geogen.11.5.39 (build time: geogen.11.5.23).
 
 - **A belly over a lap.** On the `heavy` build, leaning forward on a seat or crouching, the
   belly's underside shows through the cloth by 4 to 10 mm. Rings on the thighs pass under the
@@ -292,8 +292,11 @@ Tracked as geogen.11.5.25 (build time: geogen.11.5.23).
   is as much the body's own belly meeting its thighs as a clothing fault. The heavy build is in
   the baseline but not in the strict test.
 - **Hems over wide hips.** A top's hem still stands out over the hips of the `hourglass` build
-  like a peplum: it ends on the widest part of the body and steps out by its own thickness over
-  the trousers' there. Stiffness doesn't change a garment's ends.
+  like a peplum: it ends on the widest part of the body. Garment layers don't stack (the topmost
+  garment's thickness alone sets the surface: `ringloft._sample_rings` `cover`), so a 5 mm top
+  ends 4 mm inside 9 mm trousers' waistband. Stacking thicknesses at overlaps, with the
+  under-garment's edge eased off under the top, is the fix to try. Stiffness doesn't change a
+  garment's ends.
 - **Arms only swing at the shoulder.** The elbow never bends to get a hand out of the way, the
   upper arm isn't kept out of the bust or the ribs (it isn't measured either), and a hand is not
   kept out of the other hand, the hair, or furniture. A wide skirt holds the arms of the
@@ -312,8 +315,6 @@ Tracked as geogen.11.5.25 (build time: geogen.11.5.23).
   `clothing_fit`; a tooth or two on other builds). It doesn't cut into the thighs: the heavy
   build's crotch was reported as interpenetrating (geogen.11.5.22) and measures the same as the
   default build now. Accepted as is (geogen.35).
-- **Bare heels in flats on the heavy build.** `feet_skin` counts 2 to 6 heel vertices of
-  `masculine+heavy` outside its flats in every pose (in the baseline, not the strict tests).
 - **Only single-tube shells are draped.** A loose garment with several chains or `cut` shapes is
   left as skinned (`build_humanoid` skips it). A loose top, a coat or wide trouser legs would need
   the rings found another way, and the choice of body parts to go round (`drape.LEGS`, `TRUNK`)
