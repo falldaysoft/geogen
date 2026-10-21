@@ -8,6 +8,12 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 
 **[Play it in the browser](https://falldaysoft.github.io/geogen/play/)**: the Godot runtime built for the web, starting at the hub, with the cottage, the farm, the island and the quest yard (about 110 MB to download; a desktop browser with WebGL 2).
 
+**Play the example projects**, each a small game built on geogen as declarative content in [`examples/`](examples/) (a 1 to 2 MB scene on top of the 40 MB engine, which the builds share):
+- [Sandwich](https://falldaysoft.github.io/geogen/play/sandwich/): a kitchen and a quest to make a sandwich in it ([source](examples/sandwich/))
+- [Test chamber](https://falldaysoft.github.io/geogen/play/test_chamber/): a Portal-style test chamber with a dropper, a weighted cube and a floor button ([source](examples/test_chamber/))
+- [Marble run](https://falldaysoft.github.io/geogen/play/marble_run/): a hopper, a winding brass trough and a catch bowl, all physics ([source](examples/marble_run/))
+- [Tower defense](https://falldaysoft.github.io/geogen/play/tower_defense/): waves of robots walk a path to a core; towers on pads shoot them ([source](examples/tower_defense/))
+
 ## Examples
 
 **Town**: a `city:` scene. It has a street grid with an avenue and sidewalks, zoned lots and street furniture. Buildings are generated to fit their lots:
