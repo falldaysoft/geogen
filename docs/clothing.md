@@ -284,7 +284,8 @@ would fail `test_nothing_pokes_through_a_skirt_in_any_pose_or_clip`.
 
 ## What is open
 
-Tracked as geogen.11.5.39 (build time: geogen.11.5.23).
+Known limitations, accepted as they are (geogen.11.5.39, closed 2026-10-21; build time was geogen.11.5.23). A new task is
+wanted before any of these is worked on.
 
 - **A belly over a lap.** On the `heavy` build, leaning forward on a seat or crouching, the
   belly's underside shows through the cloth by 4 to 10 mm. Rings on the thighs pass under the
