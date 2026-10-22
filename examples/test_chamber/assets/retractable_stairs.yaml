@@ -1,0 +1,128 @@
+# Retractable stairs: ten white step blocks that rise out of the floor, each
+# to its own height, making a flight that climbs `rise` metres along +Z
+# (`deploy`: retracted, sunk flush under the floor, or extended). Wiring
+# drives `extend` / `retract`; `extended` / `retracted` are raised on arrival.
+# Riser 0.3 and tread 0.4 suit the player's step (assets/player.yaml). Origin:
+# on the floor at the foot of the flight, the first step just ahead (+Z).
+# The blocks are tall enough to stand on the floor slab extended and to sink
+# under it retracted (their tops 3 mm under the floor's), so the steps need
+# no pocket.
+
+name: retractable_stairs
+tags: [structure.stairs]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 1.6 }
+  riser: { default: 0.3 }      # rise = 10 * riser
+  tread: { default: 0.4 }      # run = 10 * tread
+
+parts:
+  step_1:
+    primitive: cube
+    size: ["{width}", "{1 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{0.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_2:
+    primitive: cube
+    size: ["{width}", "{2 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{1.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_3:
+    primitive: cube
+    size: ["{width}", "{3 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{2.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_4:
+    primitive: cube
+    size: ["{width}", "{4 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{3.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_5:
+    primitive: cube
+    size: ["{width}", "{5 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{4.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_6:
+    primitive: cube
+    size: ["{width}", "{6 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{5.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_7:
+    primitive: cube
+    size: ["{width}", "{7 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{6.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_8:
+    primitive: cube
+    size: ["{width}", "{8 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{7.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_9:
+    primitive: cube
+    size: ["{width}", "{9 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{8.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  step_10:
+    primitive: cube
+    size: ["{width}", "{10 * riser + 0.3}", "{tread}"]
+    anchor: bottom_center
+    offset: [0, -0.303, "{9.5 * tread}"]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+
+interactions:
+  deploy:
+    initial: retracted
+    duration: 1.5
+    states:
+      retracted: { emit: retracted }
+      extended:  { emit: extended }
+    motions:
+      - { parts: [step_1], translate: y, values: { extended: 0, retracted: "{-1 * riser}" } }
+      - { parts: [step_2], translate: y, values: { extended: 0, retracted: "{-2 * riser}" } }
+      - { parts: [step_3], translate: y, values: { extended: 0, retracted: "{-3 * riser}" } }
+      - { parts: [step_4], translate: y, values: { extended: 0, retracted: "{-4 * riser}" } }
+      - { parts: [step_5], translate: y, values: { extended: 0, retracted: "{-5 * riser}" } }
+      - { parts: [step_6], translate: y, values: { extended: 0, retracted: "{-6 * riser}" } }
+      - { parts: [step_7], translate: y, values: { extended: 0, retracted: "{-7 * riser}" } }
+      - { parts: [step_8], translate: y, values: { extended: 0, retracted: "{-8 * riser}" } }
+      - { parts: [step_9], translate: y, values: { extended: 0, retracted: "{-9 * riser}" } }
+      - { parts: [step_10], translate: y, values: { extended: 0, retracted: "{-10 * riser}" } }
+
+signals:
+  extended:  { emit: extended }
+  retracted: { emit: retracted }
+inputs:
+  extend:  { set: deploy, to: extended }
+  retract: { set: deploy, to: retracted }

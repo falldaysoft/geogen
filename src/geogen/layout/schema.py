@@ -319,6 +319,8 @@ SCENE_KEYS: dict[str, str] = {
               "`{file, if: \"{expr}\"}` contributes one only when the expression isn't 0",
     "dialogues": "[dialogues/name.yaml | {file, if}]: conversations anchored to things (geogen.dialogue)",
     "hud": "{stats: [{label, value, of}], banners: [{when, text, tone}]}: on-screen numbers (geogen.hud)",
+    "ground": "false: the runtime keeps no ground plane at y = 0 while the scene is loaded, so the scene's own "
+              "floors are all there is and things can go below them (a pit); default true",
     "physics": "{ticks: n}: physics steps a second while the scene is loaded (runtime default 60); fast "
                "rolling bodies on curved meshes need 120",
     "spawns": "{name: {position | anchor, facing}}: where the player can start",

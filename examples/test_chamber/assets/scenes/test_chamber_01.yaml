@@ -5,7 +5,7 @@
 # exit door (north) open while something heavy is on it. Standing on it opens
 # the door, but stepping off shuts it: the cube has to stay on the button.
 # The indicator dots run from the button to the door and light orange while
-# it is held.
+# it is held. The exit hall leads to chamber 02.
 
 name: test_chamber_01
 tags: [level.test_chamber]
@@ -22,6 +22,7 @@ slots:
 place:
   chamber:
     asset: test_chamber.yaml
+    travel: { scene: test_chamber_02, spawn: start }
   entry_door:
     asset: chamber_door.yaml
     attach_to: chamber
@@ -33,6 +34,7 @@ place:
     at: north_door
   sign:
     asset: chamber_sign.yaml
+    params: { number: "01", total: "05", progress: 0.2 }
     on: chamber.south_inside
     at: { u: { abs: 2.8 }, v: { abs: 2.6 } }
 

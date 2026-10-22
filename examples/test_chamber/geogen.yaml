@@ -1,8 +1,10 @@
-# A project built on geogen: a test chamber in the style of a certain
-# enrichment centre, for the Halcyon Applied Sciences labs. A dropper drops a
-# weighted cube; carry it onto the floor button to hold the exit door open.
-#   python -m geogen.main --project examples/test_chamber -s test_chamber_01 --export-godot
+# A project built on geogen: a course of five test chambers in the style of a
+# certain enrichment centre, for the Halcyon Applied Sciences labs. Droppers
+# drop weighted cubes for floor buttons that hold doors open and raise stairs;
+# platforms shuttle over pits of goo that send you back to the start; a timed
+# button, and a fizzler that dissolves cubes carried through it.
+#   python -m geogen.main --project examples/test_chamber --export-catalogue
 #   godot --path runtime/godot -- --generated=$PWD/examples/test_chamber/generated
 kind: project
 name: test_chamber
-description: A Portal-style test chamber with a dropper, a weighted cube and a floor button
+description: Five Portal-style test chambers - cubes, buttons, goo, a moving platform, retractable stairs, a timed door and a fizzler

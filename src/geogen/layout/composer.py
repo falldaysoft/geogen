@@ -290,6 +290,11 @@ class SceneComposer:
         declare_scene(root, data, source)
         declare_wiring(root, data, source, asset=False)
         declare_hud(root, data, source)
+        if data.get("ground") is not None:
+            if not isinstance(data["ground"], bool):
+                raise ValueError(f"{source}: ground is true or false, got {data['ground']!r}")
+            if not data["ground"]:
+                root.meta["ground"] = False     # the manifest's ground: the runtime drops its ground plane
         if data.get("physics") is not None:
             physics = data["physics"]
             ticks = physics.get("ticks") if isinstance(physics, dict) else None

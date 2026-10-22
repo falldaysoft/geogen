@@ -80,7 +80,8 @@ place:
 They're exported as `extras.geogen.travel` (`on: use` also gets a `travel`
 interaction that emits `travel`, so aim + E works as for any interaction;
 `on: enter` gets `volume: {center, size}`, turned into an Area3D). Using one
-fades out, loads the target through the same path as the scene switcher (or
+drops whatever the player carries (it stays behind: a cube over goo goes in), fades out,
+loads the target through the same path as the scene switcher (or
 just moves the player for same-scene travel), puts the player at the named
 spawn facing its way, prints `travelled: {...}` and fades back in. Walk-in
 volumes stay quiet for a few physics frames after a load or move, so arriving
@@ -770,6 +771,11 @@ for that with `physics: {ticks: 120}`: the manifest's (and chunk index's) `physi
 which `WorldLoader._use_physics` applies while the scene is loaded (unload puts the
 project's rate back), so other scenes keep paying for 60.
 
+The ground (`main.tscn`'s `Ground`, a plane at y = 0) is under every scene, so nothing
+falls below it. A scene whose floors go lower (a pit in a chamber floor at y = 0) says
+`ground: false`: the manifest's `ground`, which `WorldLoader._use_ground` applies while
+it is loaded (the plane hidden, its collision off, and the navmesh baked without it).
+
 An asset with `physics:` (`geogen/physics.py`) is exported with
 `extras.geogen.physics` (`mass`, `friction`, `bounce`, `carry`, a box `size` and
 `center`; with `shape`, a sphere `radius` or an upright capsule `radius` and
@@ -783,8 +789,13 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   about 0.9 m ahead; `player_focus._pick_up_reach`); it is held
   `HOLD_DISTANCE` (1.4 m) in front of the eyes, chased there by velocity so it
   still collides, level and turning with the player, and never collides with the
-  holder. E drops it; so does being snagged more than 1.4 m from the hold point
-  for half a second. The player walking into a prop shoves it (`player.gd`
+  holder. When the world is in the way of that point (a wall, the next steps of a
+  stair being climbed) it is held nearer: `HOLD_BACK` (0.5 m) short of what the eye's
+  ray hits, past any prop, and never nearer than `HOLD_MIN` (0.7 m), so it isn't pressed
+  into the obstacle and let go (`player_focus.hold_point`). One caught short of that point
+  and getting nowhere for 0.2 s (dragged into a stair's steps: Jolt doesn't push a body out of
+  a kinematic box it is wedged in) is set at the point (`GeogenProps._carry`). E drops it; so
+  does being snagged more than 1.4 m from the hold point for half a second. The player walking into a prop shoves it (`player.gd`
   `_push_props`).
 - **Spawn:** a prop with `spawn: <thing>.<attachment>` has a `spawn` interaction
   (`stowed | live`) that rules drive. Stowed, it is hidden, frozen and out of

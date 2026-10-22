@@ -38,6 +38,9 @@ var generated_dir := DEFAULT_GENERATED_DIR
 var bake_navigation := true
 ## The runtime's ground plane (main.tscn, y = 0) is walkable this far around each model.
 var ground_margin := 6.0
+## The loaded scene said ``ground: false`` (its manifest): the ground plane is no floor while
+## it is loaded, so the scene's own floors are all there is and a pit goes below them.
+var ground_off := false
 ## Open every openable interaction before baking, with the open parts as
 ## obstacles (headless playtests: doors must not block routes, leaves must).
 var open_before_bake := false
@@ -363,6 +366,7 @@ func unload() -> void:
     rules.unload()
     physics_rate = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
     apply_physics_rate()
+    _use_ground({})
     interactions_by_key.clear()
     streamer = null
     _lap("unload", t)
@@ -494,6 +498,23 @@ func _use_physics(manifest: Dictionary) -> void:
         print("geogen: physics at %d ticks a second" % physics_rate)
 
 
+## A scene's ``ground: false`` (the manifest's ``ground``): main.tscn's Ground (a plane at y = 0)
+## is hidden and stops colliding while it is loaded, and the navmesh bake leaves it out.
+func _use_ground(manifest: Dictionary) -> void:
+    ground_off = manifest.get("ground") == false
+    var ground := get_parent().get_node_or_null("Ground") if get_parent() != null else null
+    if ground == null:
+        return
+    ground.visible = not ground_off
+    for shape in ground.find_children("*", "CollisionShape3D", true, false):
+        shape.disabled = ground_off
+
+
+## How far round each model the ground plane is walkable in the navmesh bake: none without one.
+func nav_ground_margin() -> float:
+    return 0.0 if ground_off else ground_margin
+
+
 ## Physics steps a second for ``physics_rate`` at the world's time scale (sped up, it steps
 ## more often, so a step covers the same world time).
 func apply_physics_rate() -> void:
@@ -523,6 +544,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
         return
     root.name = manifest.get("name", model_path.get_file().get_basename())
     _use_physics(manifest)
+    _use_ground(manifest)
     events.package = scene_name if scene_name != "" else String(root.name)
     rules.load_package(events.package, manifest)
     var t := Time.get_ticks_usec()
@@ -655,6 +677,7 @@ func forget(root: Node) -> void:
 
 func _load_chunked(index_path: String, index: Dictionary) -> void:
     _use_physics(index)
+    _use_ground(index)
     # Tiles are baked around the player as it goes: sync them off the main thread.
     NavigationServer3D.map_set_use_async_iterations(get_world_3d().navigation_map, true)
     streamer = GeogenChunkStreamer.new()

@@ -1,0 +1,76 @@
+# A moving platform: a white deck with striped edges and a blue glow under
+# it, riding a carriage along a dark rail sunk below it. It shuttles on its
+# own between `near` (its origin) and `far` (`span` metres along +Z), pausing
+# `pause` seconds at each end: the `ride` interaction dwells its way back and
+# forth from the moment the scene loads. The deck's top is at the origin's
+# height: lay the rail across a goo pit with the deck flush with the floor at
+# both ends. Origin: the middle of the deck's top at the near end.
+
+name: moving_platform
+tags: [machine.platform]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  { default: 1.6 }
+  length: { default: 1.6 }
+  span:   { default: 3.2 }     # how far it travels along +Z
+  speed:  { default: 1.0 }     # m/s
+  pause:  { default: 1.5 }     # s at each end
+
+parts:
+  deck:
+    primitive: cube
+    size: ["{width}", 0.3, "{length}"]
+    anchor: bottom_center
+    offset: [0, -0.3, 0]
+    bevel: 0.01
+    material: lab_white
+    walkable: true
+  # Striped bands along the deck's two side edges, 3 mm proud of the top.
+  edge_l: &edge
+    primitive: cube
+    size: [0.16, 0.006, "{length}"]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.08}", -0.003, 0]
+    bevel: 0
+    material: hazard_stripe
+    collider: none
+  edge_r:
+    <<: *edge
+    offset: ["{width / 2 - 0.08}", -0.003, 0]
+  glow:
+    primitive: cube
+    size: ["{width - 0.3}", 0.03, "{length - 0.3}"]
+    anchor: bottom_center
+    offset: [0, -0.36, 0]
+    bevel: 0
+    material: indicator_blue
+    collider: none
+  carriage:
+    primitive: cube
+    size: [0.4, 0.3, 0.7]
+    anchor: bottom_center
+    offset: [0, -0.6, 0]
+    bevel: 0.01
+    material: lab_dark
+    collider: none
+  rail:
+    primitive: cube
+    size: [0.24, 0.12, "{span + length}"]
+    anchor: bottom_center
+    offset: [0, -0.72, "{span / 2}"]
+    bevel: 0.01
+    material: lab_dark
+    collider: none
+
+interactions:
+  ride:
+    initial: near
+    duration: "{span / speed}"
+    states:
+      near: { then: far, after: "{pause}" }
+      far:  { then: near, after: "{pause}" }
+    motions:
+      - { parts: [deck, edge_l, edge_r, glow, carriage], translate: z, values: { near: 0, far: "{span}" } }

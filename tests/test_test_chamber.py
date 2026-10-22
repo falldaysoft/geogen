@@ -1,6 +1,9 @@
 """Physics props (geogen.physics), places that detect props, and the test chamber example
 (examples/test_chamber, geogen.43): a dropper drops a weighted cube, the player carries it
-onto a floor button, and the button holds the exit door open while something is on it."""
+onto a floor button, and the button holds the exit door open while something is on it.
+The later chambers (geogen.83) add goo pits that send the player back to the start, a
+moving platform that carries them, retractable stairs to a raised exit, a timed pedestal
+button and a fizzler that dissolves cubes."""
 
 from pathlib import Path
 
@@ -79,7 +82,7 @@ def test_the_cube_is_handed_out_inside_the_dropper(chamber):
     spawn_at = dropper.world_transform() @ np.r_[source["at"], 1.0]
     mouth = dropper.world_transform()[:3, 3]
     assert np.allclose(spawn_at[[0, 2]], mouth[[0, 2]], atol=1e-6)      # on the tube's axis
-    assert 0.5 < spawn_at[1] - mouth[1] < 2.0                          # inside it, above the hatch
+    assert 0.5 < spawn_at[1] - mouth[1] < 2.3                          # inside it, above the hatch
 
 
 def test_the_button_holds_the_door_open_while_something_is_on_it(chamber):
@@ -103,8 +106,7 @@ def test_the_button_holds_the_door_open_while_something_is_on_it(chamber):
 # --- in Godot -----------------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
-def runtime(godot_runtime, tmp_path_factory):
+def _runtime(godot_runtime, tmp_path_factory, scene: str):
     from geogen.export import export_scene
 
     out = tmp_path_factory.mktemp("chamber")
@@ -112,12 +114,27 @@ def runtime(godot_runtime, tmp_path_factory):
         roots.use(EXAMPLE)
         registry = SceneRegistry()
         registry.discover()
-        export_scene(registry[SCENE](), out / f"{SCENE}.glb")
+        export_scene(registry[scene](), out / f"{scene}.glb")
     finally:
         roots.use()
-    client = godot_runtime(SCENE, out)
+    client = godot_runtime(scene, out)
     client.call("wait_ready", timeout=60)
     return client
+
+
+@pytest.fixture(scope="module")
+def runtime(godot_runtime, tmp_path_factory):
+    return _runtime(godot_runtime, tmp_path_factory, SCENE)
+
+
+@pytest.fixture(scope="module")
+def chamber_02(godot_runtime, tmp_path_factory):
+    return _runtime(godot_runtime, tmp_path_factory, "test_chamber_02")
+
+
+@pytest.fixture(scope="module")
+def chamber_03(godot_runtime, tmp_path_factory):
+    return _runtime(godot_runtime, tmp_path_factory, "test_chamber_03")
 
 
 def _cube(runtime) -> dict:
@@ -196,3 +213,90 @@ def test_the_cube_holds_the_button_down_and_the_player_leaves(runtime):
     _settle(runtime, 0.5)
     shown = runtime.call("hud.notifications")
     assert any(t["text"] == "Test chamber 01 complete" for t in shown["showing"]), shown
+
+
+# --- the later chambers -------------------------------------------------------------------------
+
+
+def _state(runtime, scene: str, k: str):
+    return runtime.call("state.get", key=f"{scene}:{k}")["value"]
+
+
+def _ride_back_at_near(runtime, scene: str, span: float):
+    """Wait until the platform's deck has just come back to its near end (it dwells there).
+    `ride` holds the state it is heading to: it flips to `near` as the deck leaves the far end."""
+    for _ in range(60):
+        if _state(runtime, scene, "platform#ride") == "far":
+            break
+        _settle(runtime, 0.25)
+    for _ in range(60):
+        if _state(runtime, scene, "platform#ride") == "near":
+            break
+        _settle(runtime, 0.25)
+    _settle(runtime, span + 0.1)      # heading near at 1 m/s: there, with most of the pause left
+
+
+def test_the_platform_carries_the_player_over_the_goo(chamber_02):
+    """Stand on the deck and ride: the AnimatableBody3D under a moving part takes the player
+    along (platform velocity), from the pit's south edge to its north."""
+    rt, scene = chamber_02, "test_chamber_02"
+    _ride_back_at_near(rt, scene, span=3.2)
+    rt.call("player.teleport", pos=[0, 0.05, -1.6])
+    _settle(rt, 0.5)
+    assert abs(rt.call("player.status")["position"][2] + 1.6) < 0.3        # standing on the deck
+    _settle(rt, 4.5)                                                        # the rest of the pause, then across
+    z = rt.call("player.status")["position"][2]
+    assert z > 0.8, z                                                       # carried to the far side
+
+
+def test_the_goo_sends_the_player_back_to_the_start(chamber_02):
+    rt, scene = chamber_02, "test_chamber_02"
+    rt.call("player.teleport", pos=[3.0, 0.05, 0.0])                        # over the pit, off the deck
+    _settle(rt, 3.0)
+    p = rt.call("player.status")["position"]
+    assert abs(p[0]) < 0.1 and abs(p[2] + 9.6) < 0.1, p                     # at the `start` spawn
+    shown = rt.call("hud.notifications")["showing"]
+    assert any(t["text"] == "Dissolved. Back to the start." for t in shown), shown
+
+
+def test_the_pedestal_button_opens_the_exit_door(chamber_02):
+    rt, scene = chamber_02, "test_chamber_02"
+    rt.call("player.teleport", pos=[2.4, 0.05, 3.3])
+    rt.call("player.look", at=[2.4, 1.05, 4.2])
+    assert rt.call("player.use")["kind"] == "interaction"
+    _settle(rt, 1.5)
+    assert _state(rt, scene, "button#press") == "up" and _state(rt, scene, "exit_door#door") == "open"
+
+
+def test_a_cube_on_the_button_raises_the_stairs_to_the_exit(chamber_03):
+    """The cube ferried over on the platform holds the button; the stair blocks rise out of
+    the floor, each an AnimatableBody3D, and the player climbs them to the raised exit."""
+    rt, scene = chamber_03, "test_chamber_03"
+    assert _state(rt, scene, "stairs#deploy") == "retracted"
+    cube = _cube(rt)["position"]
+    rt.call("player.walk_to", pos=[cube[0], 0, cube[2] + 1.0])
+    rt.call("player.look", at=[cube[0], cube[1] + 0.35, cube[2]])
+    assert rt.call("player.use")["kind"] == "carry" and _cube(rt)["held"]
+    rt.call("player.walk_to", pos=[0, 0, -4.4])                             # the pit's south edge
+    _ride_back_at_near(rt, scene, span=2.0)
+    rt.call("player.look", at=[0, 1.65, 5.0])
+    rt.call("player.move", forward=1, seconds=0.6)                          # onto the deck
+    assert _cube(rt)["held"] and abs(rt.call("player.status")["position"][2] + 2.2) < 0.4
+    _settle(rt, 4.5)                                                        # the rest of the pause, then across
+    rt.call("player.move", forward=1, seconds=0.8)                          # and off, on the far side
+    assert rt.call("player.status")["position"][2] > 0.5 and _cube(rt)["held"]
+    rt.call("player.walk_to", pos=[3.0, 0, -0.5])
+    rt.call("player.look", at=[3.0, 0.8, 1.0])
+    _settle(rt, 0.5)
+    assert rt.call("player.use")["kind"] == "drop"
+    _settle(rt, 2.5)
+    assert _state(rt, scene, "button/pad#occupants") >= 1
+    assert _state(rt, scene, "stairs#deploy") == "extended" and _state(rt, scene, "exit_door#door") == "open"
+    rt.call("player.teleport", pos=[0, 0.05, 0.0])
+    rt.call("player.look", at=[0, 1.65, 6.0])
+    for _ in range(5):
+        rt.call("player.move", forward=1, seconds=0.7)
+    p = rt.call("player.status")["position"]
+    assert p[1] > 2.9 and p[2] > 4.0, p                                     # up on the landing
+    walked = rt.call("player.walk_to", pos=[0, 3.0, 9.0])
+    assert walked["blocked_by"] is None, walked

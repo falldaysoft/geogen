@@ -45,7 +45,7 @@ func build(root: Node3D, manifest_path: String, model_path: String) -> void:
                     if body.collision_layer & 1:
                         body.collision_layer &= ~1
                         shut.append(body)
-    var nav := GeogenSceneBuilder.build_navigation(root, spec, world.open_before_bake, world.ground_margin)
+    var nav := GeogenSceneBuilder.build_navigation(root, spec, world.open_before_bake, world.nav_ground_margin())
     in_step(nav)
     for body in shut:
         body.collision_layer |= 1
@@ -79,7 +79,7 @@ func _cache_path(root: Node3D, manifest_path: String, model_path: String, spec: 
     var where := model_path if model_path.begins_with("res://") else ProjectSettings.globalize_path(model_path)
     var key := JSON.stringify([WorldLoader.NAV_CACHE_VERSION, where,
         model_md5, FileAccess.get_md5(manifest_path),
-        spec.to_dict() if spec else {}, world.open_before_bake, world.open_only, world.ground_margin, var_to_str(root.global_transform),
+        spec.to_dict() if spec else {}, world.open_before_bake, world.open_only, world.nav_ground_margin(), var_to_str(root.global_transform),
         FileAccess.get_md5("res://addons/geogen/scene_builder.gd"), FileAccess.get_md5("res://scripts/world_loader.gd"),
         FileAccess.get_md5("res://scripts/world_navigation.gd")])
     return world.generated_dir.path_join("navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),

@@ -4,6 +4,10 @@
 # east wall, and a hall at each end: the entry hall (south, -Z) and the exit
 # hall (north, +Z) whose far end is the `exit` place. The doorways between are
 # open: the scene puts doors in them (`north_door` / `south_door` attachments).
+# With `exit_height` the exit hall, its doorway and the `exit` place are that
+# much higher, on a landing against the north wall (stairs lead up to it).
+# Reaching the far end of the exit hall travels on (`travel_volume`): the
+# scene says where (`travel: {scene, spawn}` on the placement).
 #
 # Origin: the middle of the chamber floor. Sizes are metres; the panel grid is
 # 1.2 m, so keep width, depth and height multiples of it.
@@ -13,6 +17,8 @@ tags: [structure.test_chamber]
 origin: bottom_center
 size: [1, 1, 1]
 bounds: geometry
+
+travel: { on: enter, prompt: "" }
 
 params:
   width:       { default: 9.6 }
@@ -25,6 +31,8 @@ params:
   hall_height: { default: 3.6 }
   hall_length: { default: 4.8 }
   kick:        { default: 1.2 }    # height of the dark band along the chamber's foot
+  exit_height: { default: 0 }      # the exit hall's floor over the chamber's
+  landing:     { default: 3.2 }    # how far the raised exit's landing reaches into the chamber
 
 parts:
   # The walls and roof of the chamber, both halls and the booth: one solid each,
@@ -41,7 +49,7 @@ parts:
   hall_n:
     <<: *shell
     size: ["{hall_width + 2 * wall}", "{hall_height + wall + 1.5}", "{hall_length}"]
-    offset: [0, -1.5, "{depth / 2 + wall + hall_length / 2}"]
+    offset: [0, "{-1.5 + exit_height}", "{depth / 2 + wall + hall_length / 2}"]
   hall_s:
     <<: *shell
     size: ["{hall_width + 2 * wall}", "{hall_height + wall + 1.5}", "{hall_length}"]
@@ -64,7 +72,7 @@ parts:
   hall_n_void:
     <<: *void
     size: ["{hall_width}", "{hall_height + 1.2}", "{hall_length - wall + 0.1}"]
-    offset: [0, -1.2, "{depth / 2 + wall + (hall_length - wall) / 2 - 0.05}"]
+    offset: [0, "{-1.2 + exit_height}", "{depth / 2 + wall + (hall_length - wall) / 2 - 0.05}"]
   hall_s_void:
     <<: *void
     size: ["{hall_width}", "{hall_height + 1.2}", "{hall_length - wall + 0.1}"]
@@ -72,7 +80,7 @@ parts:
   door_n:
     <<: *void
     size: ["{door_width}", "{door_height + 1.2}", "{wall + 0.2}"]
-    offset: [0, -1.2, "{depth / 2 + wall / 2}"]
+    offset: [0, "{-1.2 + exit_height}", "{depth / 2 + wall / 2}"]
   door_s:
     <<: *void
     size: ["{door_width}", "{door_height + 1.2}", "{wall + 0.2}"]
@@ -81,7 +89,7 @@ parts:
   pocket_n:
     <<: *void
     size: ["{2 * door_width + 0.2}", "{door_height + 1.25}", 0.18]
-    offset: [0, -1.2, "{depth / 2 + wall / 2}"]
+    offset: [0, "{-1.2 + exit_height}", "{depth / 2 + wall / 2}"]
   pocket_s:
     <<: *void
     size: ["{2 * door_width + 0.2}", "{door_height + 1.25}", 0.18]
@@ -108,7 +116,7 @@ parts:
     primitive: cube
     size: ["{hall_width}", 0.3, "{hall_length}"]
     anchor: bottom_center
-    offset: [0, -0.3, "{depth / 2 + hall_length / 2}"]
+    offset: [0, "{-0.3 + exit_height}", "{depth / 2 + hall_length / 2}"]
     bevel: 0
     material: panel_dark
     walkable: true
@@ -163,7 +171,7 @@ parts:
     primitive: cube
     size: ["{hall_width}", 0.06, "{hall_length - wall}"]
     anchor: bottom_center
-    offset: [0, "{hall_height - 0.06}", "{depth / 2 + wall + (hall_length - wall) / 2}"]
+    offset: [0, "{hall_height - 0.06 + exit_height}", "{depth / 2 + wall + (hall_length - wall) / 2}"]
     bevel: 0
     material: panel_dark
     collider: none
@@ -191,7 +199,7 @@ parts:
     primitive: cube
     size: [0.24, 0.04, "{hall_length - 1.2}"]
     anchor: bottom_center
-    offset: [0, "{hall_height - 0.1}", "{depth / 2 + wall + hall_length / 2}"]
+    offset: [0, "{hall_height - 0.1 + exit_height}", "{depth / 2 + wall + hall_length / 2}"]
     bevel: 0.01
     material: light_panel
     collider: none
@@ -225,9 +233,45 @@ parts:
     size: [0.4, 1.56, 3.96]
     offset: ["{width / 2 + 0.04}", 4.42, 0]
 
+  # A raised exit's landing: a white block against the north wall, its top the
+  # hall's floor, with a dark band at its foot like the chamber's.
+  landing_block:
+    primitive: cube
+    size: [4.8, "{exit_height}", "{landing}"]
+    anchor: bottom_center
+    offset: [0, 0, "{depth / 2 - landing / 2}"]
+    bevel: 0
+    material: panel_white
+    walkable: true
+    when: "{exit_height > 0}"
+  landing_kick:
+    primitive: cube
+    size: [4.84, "{min(kick - 0.01, exit_height - 0.1)}", "{landing + 0.02}"]
+    anchor: bottom_center
+    offset: [0, 0, "{depth / 2 - landing / 2 - 0.01}"]
+    bevel: 0
+    material: panel_dark
+    collider: none
+    when: "{exit_height > 0}"
+    subtract: [landing_kick_void]
+  landing_kick_void:
+    primitive: cube
+    size: [4.8, "{kick + 1}", "{landing - 0.04}"]
+    anchor: bottom_center
+    offset: [0, -0.5, "{depth / 2 - landing / 2}"]
+    bevel: 0
+    cutter: true
+    when: "{exit_height > 0}"
+  # The far end of the exit hall: entering it travels on (taken out of the geometry).
+  travel_volume:
+    primitive: cube
+    size: ["{hall_width}", 2.4, 0.5]
+    anchor: bottom_center
+    offset: [0, "{exit_height}", "{depth / 2 + hall_length - 0.3}"]
+
 attachments:
   # Where the scene hangs the doors: the doorway's foot, on the chamber side.
-  north_door: { anchor: bottom_center, offset: [0, 0, "{depth / 2}"], facing: south }
+  north_door: { anchor: bottom_center, offset: [0, "{exit_height}", "{depth / 2}"], facing: south }
   south_door: { anchor: bottom_center, offset: [0, 0, "{-depth / 2}"], facing: north }
 
 surfaces:
@@ -242,4 +286,4 @@ places:
   # The far end of the exit hall.
   exit:
     box: ["{hall_width}", 2.4, 1.6]
-    position: [0, 0, "{depth / 2 + hall_length - wall - 0.8}"]
+    position: [0, "{exit_height}", "{depth / 2 + hall_length - wall - 0.8}"]

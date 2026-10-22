@@ -1,0 +1,78 @@
+# Test chamber 03: the stairs. The dropper is by the entry, on the near side
+# of a goo pit; the floor button is on the far side, and the exit is up on a
+# landing that only a flight of retractable stairs reaches. Carry the cube
+# across on the platform (fall in and the cube is gone: another drops), put
+# it on the button, and the stairs rise and the exit door opens while it
+# stays there. The exit hall leads to chamber 04.
+
+name: test_chamber_03
+tags: [level.test_chamber]
+ground: false
+
+spawns:
+  start: { position: [0, 0.05, -9.6], facing: north }
+
+slots:
+  dropper:  { position: [-3.6, 4.8, -5.0] }
+  platform: { position: [0, 0, -2.9] }                    # the deck flush with the pit's south edge
+  button:   { position: [3.0, 0, 1.0] }
+  line_w:   { position: [2.1, 0, 1.0], facing: west }     # from the button to the stairs' foot
+  stairs:   { position: [0, 0, 0.4] }                     # climbs +Z to the landing at 4.4
+
+place:
+  chamber:
+    asset: test_chamber.yaml
+    params: { exit_height: 3.0, landing: 1.6 }
+    travel: { scene: test_chamber_04, spawn: start }
+  entry_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: south_door
+    state: open
+  exit_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: north_door
+  sign:
+    asset: chamber_sign.yaml
+    params: { number: "03", total: "05", progress: 0.6 }
+    on: chamber.south_inside
+    at: { u: { abs: 2.8 }, v: { abs: 2.6 } }
+
+  dropper:
+    asset: dropper.yaml
+    params: { length: 2.34 }
+    slot: dropper
+  pit:
+    asset: goo_pit.yaml
+    params: { width: 9.0, depth: 3.6 }
+    on: chamber.floor
+    at: { u: 0.5, v: { abs: 4.1 } }       # z from -3.7 to -0.1
+  platform:
+    asset: moving_platform.yaml
+    params: { span: 2.0, speed: 1.0, pause: 2.0 }
+    slot: platform
+  button:
+    asset: floor_button.yaml
+    slot: button
+  line_w:
+    asset: indicator_line.yaml
+    params: { length: 1.5 }
+    slot: line_w
+  stairs:
+    asset: retractable_stairs.yaml
+    slot: stairs
+
+rules:
+  - id: complete
+    on: { enter: chamber/exit, actor: player }
+    once: true
+    do: [{ notify: "Test chamber 03 complete" }, { play: success }]
+
+wire:
+  - { from: button.pressed,  to: stairs.extend }
+  - { from: button.released, to: stairs.retract }
+  - { from: button.pressed,  to: exit_door.open }
+  - { from: button.released, to: exit_door.close }
+  - { from: button.pressed,  to: line_w.on }
+  - { from: button.released, to: line_w.off }

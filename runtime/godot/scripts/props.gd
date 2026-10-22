@@ -21,6 +21,9 @@ const KILL_DEPTH := 10.0         ## m below the lowest loaded model: fallen out 
 const HOLD_SPEED := 12.0         ## m/s at most toward the hold point
 const HOLD_GAIN := 14.0          ## 1/s: how hard a held prop chases the hold point
 const DROP_DISTANCE := 1.4       ## m from the hold point for SNAG_SECONDS: a snagged prop is let go
+const CAUGHT_DISTANCE := 0.3     ## m short of the hold point, and no CAUGHT_GAIN (m) nearer its best
+const CAUGHT_GAIN := 0.03        ## for CAUGHT_SECONDS: set at the hold point
+const CAUGHT_SECONDS := 0.2
 const SNAG_SECONDS := 0.5
 
 var world: WorldLoader
@@ -31,6 +34,8 @@ var held := ""                   ## uid of the prop the player carries, or ""
 var _holder: Node3D = null       ## the player body carrying it
 var _hold_point := Callable()    ## () -> Vector3: where the held prop goes
 var _snagged := 0.0              ## s the held prop has been too far from the hold point
+var _caught := 0.0               ## s it has been short of the hold point without moving
+var _best_gap := INF             ## the nearest it has got to the hold point since it was last close
 
 
 func _init(owner_world: WorldLoader) -> void:
@@ -183,6 +188,8 @@ func pick(uid: String, holder: PhysicsBody3D, point: Callable) -> bool:
     var body: RigidBody3D = props[uid]["body"]
     held = uid
     _snagged = 0.0
+    _caught = 0.0
+    _best_gap = INF
     _holder = holder
     _hold_point = point
     body.gravity_scale = 0.0
@@ -242,6 +249,23 @@ func _carry(delta: float) -> void:
     _snagged = _snagged + delta if gap.length() > DROP_DISTANCE else 0.0
     if _snagged > SNAG_SECONDS:
         drop()
+        return
+    # Caught on the way (dragged into the steps of a stair, say: a body wedged in a kinematic
+    # box isn't pushed out, and its velocity goes nowhere): after a moment, set it at the hold
+    # point, which the holder keeps clear of the world (player_focus.hold_point).
+    if gap.length() <= CAUGHT_DISTANCE:
+        _caught = 0.0
+        _best_gap = INF
+    elif gap.length() < _best_gap - CAUGHT_GAIN:        # still closing in (wedged, it only jitters)
+        _best_gap = gap.length()
+        _caught = 0.0
+    else:
+        _caught += delta
+    if _caught > CAUGHT_SECONDS:
+        _caught = 0.0
+        _best_gap = INF
+        body.global_position += gap
+        body.linear_velocity = Vector3.ZERO
         return
     body.linear_velocity = (gap * HOLD_GAIN).limit_length(HOLD_SPEED)
     # Turn it to face the way the holder does (about Y only), so it doesn't tumble in hand.

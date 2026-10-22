@@ -1,0 +1,17 @@
+# The fizzler's field: a pale blue sheet of light, see-through.
+name: field_blue
+texture:
+  type: painted_wall
+  params:
+    base_color: [140, 205, 255]
+    seed: 613
+size: [64, 64]
+tile_size: 1.0
+pbr:
+  roughness: 0.2
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [0.35, 0.7, 1.0]
+  emissive_strength: 0.9
+  opacity: 0.35

@@ -10,6 +10,12 @@ const AIM_SLACK := 0.2
 const PICK_UP_BEND := 0.25
 ## How far in front of the eyes a carried prop is held (m).
 const HOLD_DISTANCE := 1.4
+## Room a held prop needs round the hold point (m: a 0.7 m cube's half-diagonal, near enough),
+## how much nearer it is tried while that isn't clear, and the nearest it is ever held.
+const HOLD_ROOM := 0.5
+const HOLD_STEP := 0.15
+const HOLD_MIN := 0.7
+var _hold_probe: PhysicsShapeQueryParameters3D = null
 
 var main: Node                    # main.gd: player, player_spec, world, hud, held_keys()
 var prompt: Label                 # the E prompt (part of the HUD)
@@ -235,7 +241,29 @@ func _press() -> void:
         main.player.take_pose(affordance)
 
 
-## Where a carried prop is held: in front of the eyes.
+## Where a carried prop is held: in front of the eyes, or nearer when the world is in the way
+## there (a wall, the steps of a stair being climbed), so it isn't pressed into that and let go:
+## the nearest point back along the eye's line, down to HOLD_MIN, with HOLD_ROOM clear round it.
 func hold_point() -> Vector3:
     var cam: Camera3D = main.player.camera
-    return cam.global_position - cam.global_basis.z * HOLD_DISTANCE
+    var from := cam.global_position
+    var back := cam.global_basis.z
+    if _hold_probe == null:
+        _hold_probe = PhysicsShapeQueryParameters3D.new()
+        var ball := SphereShape3D.new()
+        ball.radius = HOLD_ROOM
+        _hold_probe.shape = ball
+        _hold_probe.exclude = [main.player.get_rid()]
+    var space: PhysicsDirectSpaceState3D = main.get_world_3d().direct_space_state
+    var distance := HOLD_DISTANCE
+    while distance > HOLD_MIN:
+        _hold_probe.transform = Transform3D(Basis.IDENTITY, from - back * distance)
+        var clear := true
+        for hit in space.intersect_shape(_hold_probe, 8):
+            if not hit["collider"] is RigidBody3D:      # props (the held one first of all) don't count
+                clear = false
+                break
+        if clear:
+            break
+        distance -= HOLD_STEP
+    return from - back * maxf(distance, HOLD_MIN)

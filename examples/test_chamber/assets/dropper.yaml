@@ -1,10 +1,12 @@
 # A ceiling dropper: a white tube from the ceiling with a dark collar and a
 # two-leaf hatch at its mouth, striped underneath. It is a source of spawned items
 # (geogen.flows): one `item` at a time appears at `spawn_at`, high in the tube, and the
-# hatch opens under it, so it falls out; when that one is lost (it falls out of the
-# world) another comes. `drop` opens the hatch for a couple of seconds by hand (raising
-# `dropped`). Origin: the middle of the tube's mouth (bottom); hang it so its top meets
-# the ceiling.
+# hatch swings open under it (its own rule, on `emitted`) so it falls out; when that one
+# is lost (it falls out of the world, or a sink takes it) another comes. The hatch is for
+# the eye only (no collider): a cube is never caught on it, however the timing falls.
+# `drop` opens the hatch for a couple of seconds by hand (raising `dropped`). With
+# `initial: stopped` nothing comes until wiring drives `start`. Origin: the middle of
+# the tube's mouth (bottom); hang it so its top meets the ceiling.
 
 name: dropper
 tags: [machine.dropper]
@@ -16,9 +18,11 @@ params:
   length: { default: 2.4 }      # mouth to ceiling
   bore:   { default: 0.62 }     # inner radius; a 0.7 m cube passes on its diagonal
   item:   { default: items/weighted_cube.yaml, type: text }
+  initial: { default: running, type: text, choices: [running, stopped] }   # stopped: waits for `start`
 
 source:
   items: "{item}"
+  initial: "{initial}"
   at: spawn_at
   max_alive: 1
   rate: 0.5
@@ -77,6 +81,7 @@ parts:
     anchor: bottom_center
     offset: [0, 0.02, 0]
     material: hazard_stripe
+    collider: none
     subtract: [half_right]
   hatch_right:
     <<: *leaf
@@ -95,7 +100,7 @@ parts:
 interactions:
   hatch:
     initial: closed
-    duration: 0.5
+    duration: 0.3
     states:
       closed: {}
       open:   { emit: dropped, then: closed, after: 2.5 }
@@ -109,5 +114,5 @@ inputs:
   drop: { set: hatch, to: open }
 
 attachments:
-  # Where the load waits, high in the tube.
-  spawn_at: { anchor: bottom_center, offset: [0, "{length - 1.0}", 0] }
+  # Where the load waits, high in the tube (the fall outlasts the hatch's swing).
+  spawn_at: { anchor: bottom_center, offset: [0, "{length - 0.3}", 0] }

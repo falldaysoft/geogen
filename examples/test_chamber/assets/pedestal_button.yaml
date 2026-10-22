@@ -1,0 +1,76 @@
+# A pedestal button: a white stalk with a dark cap and a big red dome. Press
+# it (E) and it emits `pressed`, lights orange and springs back up after
+# `hold` seconds, emitting `released`: a momentary switch (hold 0.8) or a
+# timed one (hold 10) that gives the player that long. Origin: on the floor
+# under the stalk.
+
+name: pedestal_button
+tags: [switch.pedestal]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  hold: { default: 0.8 }        # seconds down before it springs back
+
+parts:
+  foot:
+    primitive: lathe
+    profile: [[0, 0], [0.3, 0], [0.3, 0.06], [0.18, 0.1], [0.18, 0.12], [0, 0.12]]
+    size: [0.6, 0.12, 0.6]
+    anchor: bottom_center
+    segments: 40
+    material: lab_dark
+  stalk:
+    primitive: cylinder
+    size: [0.3, 0.8, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.12, 0]
+    material: lab_white
+  cap:
+    primitive: lathe
+    profile: [[0, 0], [0.22, 0], [0.24, 0.04], [0.24, 0.1], [0.19, 0.1], [0, 0.1]]
+    size: [0.48, 0.1, 0.48]
+    anchor: bottom_center
+    offset: [0, 0.92, 0]
+    segments: 40
+    material: lab_dark
+  dome:
+    primitive: lathe
+    profile: [[0, 0], [0.18, 0], [0.18, 0.05], [0.15, 0.09], [0.09, 0.115], [0, 0.12]]
+    size: [0.36, 0.12, 0.36]
+    anchor: bottom_center
+    offset: [0, 1.0, 0]
+    segments: 40
+    material: button_red
+  lamp_off: &lamp
+    primitive: lathe
+    profile: [[0.24, 0.04], [0.25, 0.04], [0.25, 0.08], [0.24, 0.08], [0.24, 0.04]]
+    size: [0.5, 0.04, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.92, 0]
+    segments: 40
+    material: indicator_blue
+    collider: none
+  lamp_on:
+    <<: *lamp
+    material: indicator_orange
+
+interactions:
+  press:
+    targets: [dome, cap]
+    initial: up
+    duration: 0.15
+    states:
+      up:   { prompt: "Press the button", next: down, emit: released }
+      down: { then: up, after: "{hold}", emit: pressed }
+    motions:
+      - { parts: [dome], translate: y, values: { up: 0, down: -0.04 } }
+      - { parts: [lamp_off], show: [up] }
+      - { parts: [lamp_on], show: [down] }
+
+signals:
+  pressed:  { emit: pressed }
+  released: { emit: released }
+
+clearance: { front: 0.6 }

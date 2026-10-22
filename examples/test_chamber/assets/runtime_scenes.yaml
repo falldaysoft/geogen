@@ -1,4 +1,4 @@
-# The scenes this project offers in the runtime.
+# The scenes this project offers in the runtime: the five chambers of the course, in order.
 #   python -m geogen.main --project examples/test_chamber --export-catalogue
 #   godot --path runtime/godot -- --generated=$PWD/examples/test_chamber/generated
 kind: scene_catalogue
@@ -8,3 +8,15 @@ scenes:
   test_chamber_01:
     group: showcase
     description: Test chamber 01 - drop the cube, hold the button, leave by the exit
+  test_chamber_02:
+    group: showcase
+    description: Test chamber 02 - ride the platform over the goo and press the button
+  test_chamber_03:
+    group: showcase
+    description: Test chamber 03 - ferry the cube across, raise the stairs, climb to the exit
+  test_chamber_04:
+    group: showcase
+    description: Test chamber 04 - a timed button, a slow platform, a door that waits for no one
+  test_chamber_05:
+    group: showcase
+    description: Test chamber 05 - two cubes, a fizzler between them, stairs and a door to hold

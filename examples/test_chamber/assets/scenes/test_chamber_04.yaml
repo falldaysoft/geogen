@@ -1,0 +1,73 @@
+# Test chamber 04: timing. The pedestal button by the entry holds the exit
+# door open for twelve seconds. Between them a goo pit, crossed by a slow
+# platform that pauses at each side. Press the button as the platform comes
+# in, ride over and run for the door before it shuts (sprint: Shift). The
+# exit hall leads to chamber 05.
+
+name: test_chamber_04
+tags: [level.test_chamber]
+ground: false
+
+spawns:
+  start: { position: [0, 0.05, -9.6], facing: north }
+
+slots:
+  button:   { position: [-3.6, 0, -5.0] }
+  platform: { position: [0, 0, -2.9] }
+  line_n:   { position: [-3.6, 0, -4.6] }                 # from the button toward the pit's edge
+  line_e:   { position: [1.0, 0, 0.3], facing: east }      # and from the platform's far end to the door's side
+
+place:
+  chamber:
+    asset: test_chamber.yaml
+    travel: { scene: test_chamber_05, spawn: start }
+  entry_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: south_door
+    state: open
+  exit_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: north_door
+  sign:
+    asset: chamber_sign.yaml
+    params: { number: "04", total: "05", progress: 0.8 }
+    on: chamber.south_inside
+    at: { u: { abs: 2.8 }, v: { abs: 2.6 } }
+
+  button:
+    asset: pedestal_button.yaml
+    params: { hold: 12 }
+    slot: button
+  pit:
+    asset: goo_pit.yaml
+    params: { width: 9.0, depth: 3.6 }
+    on: chamber.floor
+    at: { u: 0.5, v: { abs: 4.1 } }       # z from -3.7 to -0.1
+  platform:
+    asset: moving_platform.yaml
+    params: { span: 2.0, speed: 0.8, pause: 2.5 }
+    slot: platform
+  line_n:
+    asset: indicator_line.yaml
+    params: { length: 0.6 }
+    slot: line_n
+  line_e:
+    asset: indicator_line.yaml
+    params: { length: 1.2 }
+    slot: line_e
+
+rules:
+  - id: complete
+    on: { enter: chamber/exit, actor: player }
+    once: true
+    do: [{ notify: "Test chamber 04 complete" }, { play: success }]
+
+wire:
+  - { from: button.pressed,  to: exit_door.open }
+  - { from: button.released, to: exit_door.close }
+  - { from: button.pressed,  to: line_n.on }
+  - { from: button.released, to: line_n.off }
+  - { from: button.pressed,  to: line_e.on }
+  - { from: button.released, to: line_e.off }

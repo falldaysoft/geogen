@@ -306,16 +306,8 @@ func set_state(new_state: String, instant := false, by := "") -> void:
 
 
 func _physics_process(delta: float) -> void:
-    if state == target:
-        # Dwelling: auto-advance after 'after' seconds (e.g. a door closing itself).
-        var s: Dictionary = states.get(state, {})
-        if _dwells(s) and not hold:
-            _dwell += delta
-            if _dwell >= float(s["after"]):
-                _dwell = 0.0
-                _head_to(str(s["then"]), actor)
-        return
-    _dwell = 0.0
+    # The parts always head for the target's values: also when the target is the state last
+    # reached (a rule sent it back before it arrived elsewhere), or they would stay ajar.
     var arrived := true
     for motion in _motions:
         var goal := float(motion["values"].get(target, 0.0))
@@ -326,6 +318,16 @@ func _physics_process(delta: float) -> void:
             _apply(motion)
         if not is_equal_approx(value, goal):
             arrived = false
+    if state == target:
+        # Dwelling: auto-advance after 'after' seconds (e.g. a door closing itself).
+        var s: Dictionary = states.get(state, {})
+        if arrived and _dwells(s) and not hold:
+            _dwell += delta
+            if _dwell >= float(s["after"]):
+                _dwell = 0.0
+                _head_to(str(s["then"]), actor)
+        return
+    _dwell = 0.0
     if arrived and state != target:
         state = target
         var s: Dictionary = states.get(state, {})

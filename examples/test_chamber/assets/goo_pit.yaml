@@ -1,0 +1,95 @@
+# A pit of toxic goo sunk into a chamber floor: a dark basin under the floor
+# slab with a hazard-striped lip, filled with a luminous green liquid that
+# ripples. Place it `on: chamber.floor`: its `cut` opens the slab. Anyone who
+# goes under the surface is dissolved and wakes at the scene's `start` spawn
+# (same-scene travel on entering `travel_volume`, at the bottom), and a
+# weighted cube that goes in is lost (`drain` is a sink; the dropper sends
+# another). Origin: the middle of the opening at floor level.
+
+name: goo_pit
+tags: [hazard.goo]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:   { default: 4.0 }      # the opening, x
+  depth:   { default: 4.0 }      # the opening, z
+  deep:    { default: 1.8 }      # floor of the pit under the slab's top: deep enough that a cube
+                                 # in the hands of someone standing on it is under the drain's top
+  surface: { default: 0.5 }      # the goo's surface under the slab's top
+
+travel: { on: enter, spawn: start, prompt: "" }
+
+parts:
+  # The opening in the floor slab (the host's).
+  cut:
+    primitive: cube
+    size: ["{width}", 1.0, "{depth}"]
+    anchor: bottom_center
+    offset: [0, -0.5, 0]
+    bevel: 0
+    cut_host: true
+  # The basin under the slab: its top sits just under the slab's underside.
+  basin:
+    primitive: cube
+    size: ["{width + 0.3}", "{deep - 0.3 + 0.15}", "{depth + 0.3}"]
+    anchor: bottom_center
+    offset: [0, "{-deep - 0.15}", 0]
+    bevel: 0
+    material: panel_dark
+    subtract: [pit_void]
+  pit_void:
+    primitive: cube
+    size: ["{width}", 2.0, "{depth}"]
+    anchor: bottom_center
+    offset: [0, "{-deep}", 0]
+    bevel: 0
+    cutter: true
+  goo:
+    primitive: water
+    shape: { rect: ["{width}", "{depth}"] }
+    size: ["{width}", 0.02, "{depth}"]
+    anchor: bottom_center
+    offset: [0, "{-surface - 0.02}", 0]
+    shallow_color: [0.55, 0.95, 0.15]
+    deep_color: [0.15, 0.45, 0.05]
+    depth_scale: 0.3
+    wave_scale: 0.4
+    wave_speed: 0.6
+    foam: 0.0
+  # A striped lip round the opening, 2 cm proud of the floor.
+  lip:
+    primitive: extrude
+    shape: { outer: { rect: ["{width + 0.4}", "{depth + 0.4}"] }, holes: [{ rect: ["{width}", "{depth}"] }] }
+    fit: none
+    axis: y
+    size: ["{width + 0.4}", 0.02, "{depth + 0.4}"]
+    anchor: bottom_center
+    bevel: 0
+    material: hazard_stripe
+    collider: none
+  # Under the surface: entering it is the end (taken out of the geometry).
+  travel_volume:
+    primitive: cube
+    size: ["{width - 0.2}", "{deep - surface - 0.1}", "{depth - 0.2}"]
+    anchor: bottom_center
+    offset: [0, "{-deep}", 0]
+
+places:
+  # Who is under the surface (the player's feet on the pit floor).
+  pool:
+    box: ["{width}", "{deep - surface}", "{depth}"]
+    position: [0, "{-deep}", 0]
+    detect: [actors]
+  # Cubes in the goo are gone: anything in the pit below the floor's level (a cube on a
+  # platform crossing at floor level, or carried across, stays above it).
+  drain:
+    box: ["{width}", "{deep - 0.1}", "{depth}"]
+    position: [0, "{-deep}", 0]
+    sink: { accepts: [weighted_cube] }
+
+rules:
+  - id: dissolved
+    on: { enter: pool, actor: player }
+    do: [{ notify: "Dissolved. Back to the start." }, { play: refused }]

@@ -1,0 +1,56 @@
+# Test chamber 02: the goo. A pit of toxic goo cuts the chamber in two; a
+# platform shuttles across it, pausing at each side. Ride it over (fall in
+# and you start again at the entry), press the pedestal button on the far
+# side to open the exit door, and leave. The exit hall leads to chamber 03.
+
+name: test_chamber_02
+tags: [level.test_chamber]
+ground: false        # the pit goes below the floor: no runtime ground plane under the chamber
+
+spawns:
+  start: { position: [0, 0.05, -9.6], facing: north }
+
+slots:
+  platform: { position: [0, 0, -1.6] }      # the deck's near end flush with the pit's south edge
+  button:   { position: [2.4, 0, 4.2] }
+
+place:
+  chamber:
+    asset: test_chamber.yaml
+    travel: { scene: test_chamber_03, spawn: start }
+  entry_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: south_door
+    state: open
+  exit_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: north_door
+  sign:
+    asset: chamber_sign.yaml
+    params: { number: "02", total: "05", progress: 0.4 }
+    on: chamber.south_inside
+    at: { u: { abs: 2.8 }, v: { abs: 2.6 } }
+
+  pit:
+    asset: goo_pit.yaml
+    params: { width: 9.0, depth: 4.8 }
+    on: chamber.floor
+    at: { u: 0.5, v: 0.5 }
+  platform:
+    asset: moving_platform.yaml
+    params: { span: 3.2, speed: 1.0, pause: 1.5 }
+    slot: platform
+  button:
+    asset: pedestal_button.yaml
+    slot: button
+
+rules:
+  - id: complete
+    on: { enter: chamber/exit, actor: player }
+    once: true
+    do: [{ notify: "Test chamber 02 complete" }, { play: success }]
+
+wire:
+  - { from: button.pressed, to: exit_door.open }

@@ -1,0 +1,99 @@
+# Test chamber 05: everything. A goo pit with a platform divides the chamber,
+# and a fizzler on the far edge dissolves any cube carried across: each side
+# has its own. The near dropper's cube on the near floor button raises the
+# stairs on the far side. Over there the pedestal button starts the second
+# dropper; carry its cube up the stairs onto the button on the landing, and
+# the exit door opens while it stays there. The exit hall leads back to
+# chamber 01.
+
+name: test_chamber_05
+tags: [level.test_chamber]
+ground: false
+
+spawns:
+  start: { position: [0, 0.05, -9.6], facing: north }
+
+slots:
+  dropper_a: { position: [-3.6, 4.8, -5.0] }
+  button_a:  { position: [3.0, 0, -5.0] }
+  platform:  { position: [0, 0, -2.9] }
+  fizzler:   { position: [0, 0, -0.75] }
+  stairs:    { position: [0, 0, 0.5] }                    # climbs +Z (treads 0.35) to the landing at 4.0
+  pedestal:  { position: [-2.0, 0, 1.0] }
+  dropper_b: { position: [-3.6, 4.8, 1.6] }
+  button_b:  { position: [1.2, 3.0, 4.8] }
+  line_b:    { position: [1.2, 3.0, 5.65], facing: west }
+
+place:
+  chamber:
+    asset: test_chamber.yaml
+    params: { exit_height: 3.0, landing: 2.0 }
+    travel: { scene: test_chamber_01, spawn: start }
+  entry_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: south_door
+    state: open
+  exit_door:
+    asset: chamber_door.yaml
+    attach_to: chamber
+    at: north_door
+  sign:
+    asset: chamber_sign.yaml
+    params: { number: "05", total: "05", progress: 1.0 }
+    on: chamber.south_inside
+    at: { u: { abs: 2.8 }, v: { abs: 2.6 } }
+
+  dropper_a:
+    asset: dropper.yaml
+    params: { length: 2.34 }
+    slot: dropper_a
+  button_a:
+    asset: floor_button.yaml
+    slot: button_a
+  pit:
+    asset: goo_pit.yaml
+    params: { width: 9.0, depth: 2.8 }
+    on: chamber.floor
+    at: { u: 0.5, v: { abs: 3.7 } }       # z from -3.7 to -0.9
+  platform:
+    asset: moving_platform.yaml
+    params: { span: 1.2, speed: 1.0, pause: 2.0 }
+    slot: platform
+  fizzler:
+    asset: fizzler.yaml
+    params: { width: 9.0, height: 3.6, gap: 0.03 }
+    slot: fizzler
+  stairs:
+    asset: retractable_stairs.yaml
+    params: { tread: 0.35 }
+    slot: stairs
+  pedestal:
+    asset: pedestal_button.yaml
+    slot: pedestal
+  dropper_b:
+    asset: dropper.yaml
+    params: { length: 2.34, initial: stopped }
+    slot: dropper_b
+  button_b:
+    asset: floor_button.yaml
+    slot: button_b
+  line_b:
+    asset: indicator_line.yaml
+    params: { length: 1.0 }
+    slot: line_b
+
+rules:
+  - id: complete
+    on: { enter: chamber/exit, actor: player }
+    once: true
+    do: [{ notify: "Test chamber 05 complete. Course complete." }, { play: complete }]
+
+wire:
+  - { from: button_a.pressed,  to: stairs.extend }
+  - { from: button_a.released, to: stairs.retract }
+  - { from: pedestal.pressed,  to: dropper_b.start }
+  - { from: button_b.pressed,  to: exit_door.open }
+  - { from: button_b.released, to: exit_door.close }
+  - { from: button_b.pressed,  to: line_b.on }
+  - { from: button_b.released, to: line_b.off }

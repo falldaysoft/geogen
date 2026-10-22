@@ -1,0 +1,66 @@
+# A material emancipation grill ("fizzler"): a sheet of pale blue light
+# between two dark posts under a bar. The player walks through it; a
+# weighted cube carried or thrown through is dissolved (`grill` is a sink
+# accepting cubes), so cubes stay on their own side of it. Origin: the middle
+# of the field's foot; the field spans x, the player passes along z.
+
+name: fizzler
+tags: [hazard.fizzler]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  { default: 2.0 }
+  height: { default: 3.0 }
+  gap:    { default: 0.0 }       # the field's foot over the origin (over a lip it crosses)
+
+parts:
+  post_l: &post
+    primitive: cube
+    size: [0.14, "{height}", 0.14]
+    anchor: bottom_center
+    offset: ["{-width / 2 - 0.07}", 0, 0]
+    bevel: 0.01
+    material: lab_dark
+  post_r:
+    <<: *post
+    offset: ["{width / 2 + 0.07}", 0, 0]
+  bar:
+    primitive: cube
+    size: ["{width + 0.28}", 0.12, 0.16]
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    bevel: 0.01
+    material: lab_dark
+    collider: none
+  emitter_l: &emitter
+    primitive: cube
+    size: [0.03, "{height - 0.1}", 0.06]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.015}", 0.05, 0]
+    bevel: 0
+    material: indicator_blue
+    collider: none
+  emitter_r:
+    <<: *emitter
+    offset: ["{width / 2 - 0.015}", 0.05, 0]
+  field:
+    primitive: cube
+    size: ["{width - 0.06}", "{height - gap - 0.06}", 0.02]
+    anchor: bottom_center
+    offset: [0, "{gap + 0.03}", 0]
+    bevel: 0
+    material: field_blue
+    collider: none
+
+places:
+  grill:
+    box: ["{width}", "{height}", 0.3]
+    position: [0, 0, 0]
+    sink: { accepts: [weighted_cube] }
+
+rules:
+  - id: fizzled
+    on: { signal: grill.received }
+    do: [{ notify: "The cube was emancipated." }, { play: refused }]

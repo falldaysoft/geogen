@@ -10,7 +10,7 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 
 **Play the example projects**, each a small game built on geogen as declarative content in [`examples/`](examples/) (a 1 to 2 MB scene on top of the 40 MB engine, which the builds share):
 - [Sandwich](https://falldaysoft.github.io/geogen/play/sandwich/): a kitchen and a quest to make a sandwich in it ([source](examples/sandwich/))
-- [Test chamber](https://falldaysoft.github.io/geogen/play/test_chamber/): a Portal-style test chamber with a dropper, a weighted cube and a floor button ([source](examples/test_chamber/))
+- [Test chamber](https://falldaysoft.github.io/geogen/play/test_chamber/): five Portal-style chambers with cubes, buttons, goo, a moving platform, retractable stairs, a timed door and a fizzler ([source](examples/test_chamber/))
 - [Marble run](https://falldaysoft.github.io/geogen/play/marble_run/): a hopper, a winding brass trough and a catch bowl, all physics ([source](examples/marble_run/))
 - [Tower defense](https://falldaysoft.github.io/geogen/play/tower_defense/): waves of robots walk a path to a core; towers on pads shoot them ([source](examples/tower_defense/))
 

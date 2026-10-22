@@ -581,6 +581,8 @@ func _travel(travel: Dictionary) -> void:
         _travelling = false
         return
     player.scripted_move = null
+    if world.props.held != "":
+        world.props.drop()          # what you carry stays behind (a cube over goo goes in)
     player.process_mode = Node.PROCESS_MODE_DISABLED
     await _fade_to(1.0)
     var ok := true

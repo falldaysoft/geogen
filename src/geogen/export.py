@@ -371,6 +371,8 @@ def gameplay_summary(root: SceneNode, compiled: Any = None) -> dict[str, list[di
     ticks = [node.meta["physics_ticks"] for node in root.iter_nodes() if "physics_ticks" in node.meta]
     if ticks:
         out["physics"] = {"ticks": max(ticks)}     # the runtime steps at least this often while it is loaded
+    if root.meta.get("ground") is False:
+        out["ground"] = False                      # the runtime keeps no ground plane while it is loaded
     from .travel import travel_summary
 
     travel = travel_summary(root)       # where the scene's travel points go (catalogue validation)
