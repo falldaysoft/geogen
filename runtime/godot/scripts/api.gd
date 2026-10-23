@@ -90,6 +90,8 @@ const COMMANDS := {
     "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: "
         + "{open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; "
         + "track makes the tracker follow the selected quest",
+    "hud.keys": "{open?: bool} the HUD's keys panel (? opens it): {open, groups: [{title, keys: [[key, does]]}], "
+        + "columns, hint, rect, viewport}; the groups are the game's keys and every panel's hud_keys()",
     "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: "
         + "{visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, "
         + "distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
@@ -566,6 +568,14 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 await get_tree().process_frame      # laid out before its rect is read
                 await get_tree().process_frame
             return quest_log.hud_report()
+        "hud.keys":
+            var keys: GeogenHudKeys = main.hud.panel("keys")
+            if args.has("open"):
+                keys.set_open(bool(args["open"]))
+                main.hud.refresh()
+                await get_tree().process_frame      # laid out before its rect is read
+                await get_tree().process_frame
+            return keys.hud_report()
         "hud.markers":
             var marks: GeogenHudMarkers = main.hud.panel("markers")
             if args.has("enabled"):

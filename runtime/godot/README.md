@@ -99,7 +99,7 @@ Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 (Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F6 scene list,
 F7 / F8 previous / next scene, E use, L lock, Q track the next active quest,
-J quest log.
+J quest log, I / F select and use a carried item, ? this list of keys.
 
 ## Layout
 
@@ -356,6 +356,7 @@ metres, angles degrees. `help` lists every command; the groups are:
   `--headless`.
 - `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
 - `hud.log`: the HUD's quest log (see "HUD"); `open`, `select` and `track` change it first.
+- `hud.keys`: the HUD's keys panel (see "HUD"): the groups it lists; `open` opens or closes it first.
 - `hud.markers`: the HUD's world markers (see "HUD"): each one's kind, world and screen position, distance and whether it is clamped to the edge.
 - `hud.notifications`: the HUD's quest toasts, on screen and waiting (see "HUD"); `hold`, `gap`, `limit`,
   `muted` and `clear` change them first.
@@ -1049,6 +1050,7 @@ is its name in `hud.report()` and `hud.panel(name)`. It may define:
 | `hud_attach(hud)` | once, before it enters the tree: connect to what it shows (`hud.world.events`, `hud.world.rules`) and call `hud.queue_refresh()` from those handlers |
 | `hud_refresh()` | once per frame at most, after `queue_refresh()`; and whenever the program or its state is replaced (a scene loaded or unloaded, a save restored: `GeogenRules.reset`) or the window resizes |
 | `hud_key(keycode) -> bool` | a key was pressed (not while the scene list is open); true if the panel used it |
+| `hud_keys() -> Dictionary` | `{title, keys: [[key, what it does]]}`: the keys it answers, listed by the keys panel |
 | `hud_report() -> Dictionary` | what it displays, for the control API and tests |
 
 Panels hold presentation state only and read what the console reads, so a
@@ -1103,6 +1105,21 @@ panel shows its text, `{condition}` parts filled in with their values, and the c
 closes. Choosing raises the anchor's `dialogue {passage, choice}` signal on the event bus as
 the player, and the compiled rules move it on. While open it is the HUD's modal panel.
 Control API `dialogue.show`, `dialogue.choose {index | choice | close}`.
+
+**Keys** (`scripts/hud_keys.gd`, panel `keys`, slot `screen`, geogen.85): **?**
+opens a screen over the game listing what each key does, in groups; ? or Esc
+closes it. It is modal like the quest log (the player parks, the mouse is
+free). The groups are the game's own keys (`main.GAME_KEYS`: moving, playing,
+scenes and debugging) and then whatever each panel's `hud_keys()` returns, in
+the order the panels were added (the tracker's Q, the inventory's I and F, the
+quest log's J, the dialogue's numbers), so a panel that adds a key lists it
+itself. Two columns on a window at least 560 px wide, one below that; the
+frame scrolls when the window is short. ? is Shift+/ on most keyboards and
+panels get the physical key, so `/` opens it with or without Shift; a typed ?
+on any other layout reads as `KEY_QUESTION` (`GeogenHud._key_of`), which is
+also what `input.key {key: Question}` sends. Control API `hud.keys {open?}`
+returns `{open, groups, columns, hint, rect, viewport}`. Tests:
+`tests/test_hud_runtime.py`.
 
 **Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom right, geogen.18):
 what the player carries, one row an item (the manifest's `items` titles, a count

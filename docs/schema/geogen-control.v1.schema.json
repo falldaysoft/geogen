@@ -129,6 +129,7 @@
             "hud.aim",
             "hud.crossing",
             "hud.inventory",
+            "hud.keys",
             "hud.log",
             "hud.markers",
             "hud.notifications",
@@ -421,6 +422,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/hud.inventory"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.keys"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.keys"
               }
             }
           }
@@ -1607,6 +1624,7 @@
         "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): {visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
         "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how long a finished quest stays up",
         "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: {open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; track makes the tracker follow the selected quest",
+        "hud.keys": "{open?: bool} the HUD's keys panel (? opens it): {open, groups: [{title, keys: [[key, does]]}], columns, hint, rect, viewport}; the groups are the game's keys and every panel's hud_keys()",
         "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: {visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
         "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's toasts: visible, showing [{seq, kind: started | objective_done | complete | failed | notice, package, quest, objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, sounds (what rules played), hold, gap, limit, rect, viewport; hold sets how long a toast stays, gap the time between two appearing, limit how many are up at once; clear drops them all",
         "npcs.list": "every NPC's report (doing, needs, position, ...)",
@@ -2213,6 +2231,15 @@
             "type": "string"
           },
           "track": {
+            "type": "boolean"
+          }
+        }
+      },
+      "hud.keys": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "open": {
             "type": "boolean"
           }
         }

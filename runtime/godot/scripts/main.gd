@@ -124,6 +124,29 @@ const COMPATIBILITY_EXPOSURE := 0.6
 const COMPATIBILITY_SKY := 1.4
 
 const SETTINGS_PATH := "user://settings.cfg"
+## The game's own keys, as the keys panel (hud_keys.gd, on ?) lists them; the panels add theirs.
+## Keep in step with `_unhandled_input` here and in player.gd, and the overlay's third line.
+const GAME_KEYS := [
+    {"title": "Moving", "keys": [
+        ["W A S D / arrows", "walk"],
+        ["Shift", "sprint"],
+        ["Space", "jump"],
+        ["Ctrl / C", "crouch"],
+        ["Mouse", "look around; click to capture it"],
+        ["Esc", "free the mouse"]]},
+    {"title": "Playing", "keys": [
+        ["E", "use what you aim at"],
+        ["L", "lock or unlock it, with a key you hold"],
+        ["?", "this list"]]},
+    {"title": "Scenes and debugging", "keys": [
+        ["F1", "the overlay (position, time, frame rate)"],
+        ["F2", "collider wireframes"],
+        ["F3", "fly: Space and Ctrl for up and down"],
+        ["F4", "overview camera"],
+        ["F5", "NPC labels"],
+        ["F6", "the scene list"],
+        ["F7 / F8", "previous / next scene"]]},
+]
 var _day_length := 1440.0
 var _api_port := -1
 ## Control API steps to run once the world is loaded (--script / --run, then the action flags').
@@ -342,6 +365,9 @@ func _ready() -> void:
     hud.add_panel(GeogenHudCrossing.new(), "screen")
     hud.add_panel(GeogenHudQuestLog.new(), "screen")
     hud.add_panel(GeogenHudDialogue.new(), "screen")
+    var keys := GeogenHudKeys.new()                 # ? lists these and every panel's hud_keys()
+    keys.groups = GAME_KEYS
+    hud.add_panel(keys, "screen")
     hud.modal_changed.connect(_hud_modal)
     world.load_all()
     add_child(clock)          # applies the time (night lights) once the world is loaded
@@ -731,7 +757,7 @@ func _process(_delta: float) -> void:
         var chunk_info := "" if stream.is_empty() else "   chunks %d full / %d lod / %d interiors%s" % [
             stream["full"].size(), stream["lod"].size(), stream["interiors"].size(),
             " (+%d loading)" % stream["pending"] if stream["pending"] > 0 else ""]
-        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Q quest  F6 scenes  F7/F8 prev/next  Esc mouse" % [
+        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Q quest  F6 scenes  F7/F8 prev/next  Esc mouse  ? keys" % [
             Engine.get_frames_per_second(), clock.label(),
             world.scene_name if world.scene_name != "" else "all exports", chunk_info,
             p.x, p.y, p.z, room if room != "" else "-",

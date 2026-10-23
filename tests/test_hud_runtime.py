@@ -345,3 +345,43 @@ def test_another_actors_quests_raise_no_toasts(fresh):
     hud = rt.call("hud.notifications")
     assert hud["raised"] == before["raised"] and hud["showing"] == [] and hud["queued"] == []
     assert hud["chimes"] == before["chimes"] and not hud["visible"]
+
+
+def test_the_keys_panel_lists_every_key_and_takes_the_keyboard_while_open(fresh):
+    """? (Shift+/ on most keyboards: the panel takes the physical / too) opens the keys panel
+    (hud_keys.gd, geogen.85): the game's groups from main.gd, then each panel's hud_keys()."""
+    rt = fresh
+    rt.call("window.size", size=[1280, 720])
+    hud = rt.call("hud.keys")
+    assert not hud["open"] and hud["rect"] == [] and hud["hint"] == "" and hud["columns"] == 0
+    groups = {g["title"]: dict(g["keys"]) for g in hud["groups"]}      # listed while closed too
+    assert list(groups) == ["Moving", "Playing", "Scenes and debugging", "Quests", "Inventory", "Quest log",
+                            "Talking"]
+    assert groups["Playing"]["E"] == "use what you aim at" and groups["Playing"]["?"] == "this list"
+    assert "Q" in groups["Quests"] and "J" in groups["Quest log"] and set(groups["Inventory"]) == {"I", "F"}
+
+    assert rt.call("input.key", key="Slash")
+    hud = rt.call("hud.keys")
+    assert hud["open"] and hud["columns"] == 2 and hud["hint"] == "? / Esc: close"
+    x, y, w, h = hud["rect"]
+    assert x >= 0 and y >= 0 and x + w <= 1280 and y + h <= 720 and w == 760 and h == 560
+    tracked = rt.call("hud.quests")["tracked"]
+    rt.call("input.key", key="Q")                      # the tracker's key: the panel has the keyboard
+    assert rt.call("hud.quests")["tracked"] == tracked and rt.call("hud.keys")["open"]
+    rt.call("input.key", key="Escape")
+    assert not rt.call("hud.keys")["open"]
+    rt.call("input.key", key="Question")               # what a typed ? reads as
+    assert rt.call("hud.keys")["open"]
+    rt.call("input.key", key="Slash")                  # the same key closes it
+    assert not rt.call("hud.keys")["open"]
+
+    hud = rt.call("hud.keys", open=True)
+    assert hud["open"] and hud["rect"][2] == 760
+    rt.call("window.size", size=[320, 200])
+    hud = rt.call("hud.keys", open=False)
+    hud = rt.call("hud.keys", open=True)
+    assert hud["columns"] == 1 and hud["viewport"] == [320, 200]
+    x, y, w, h = hud["rect"]
+    assert x >= 0 and y >= 0 and x + w <= 320 and y + h <= 200
+    assert not rt.call("hud.keys", open=False)["open"]
+    rt.call("window.size", size=[1280, 720])

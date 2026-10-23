@@ -163,6 +163,15 @@ func set_open(open: bool) -> void:
     _hud.refresh()
 
 
+## For the keys panel.
+func hud_keys() -> Dictionary:
+    var key := OS.get_keycode_string(OPEN_KEY)
+    return {"title": "Quest log", "keys": [
+        [key, "open or close the log of your quests"],
+        ["Up / Down", "select a quest in it"],
+        ["Enter", "track the selected quest"]]}
+
+
 func hud_key(keycode: int) -> bool:
     if not _open:
         if keycode != OPEN_KEY:

@@ -113,6 +113,13 @@ func _usable() -> Array:
     return out
 
 
+## For the keys panel.
+func hud_keys() -> Dictionary:
+    return {"title": "Inventory", "keys": [
+        [OS.get_keycode_string(CYCLE_KEY), "select the next item you can use"],
+        [OS.get_keycode_string(USE_KEY), "use it, as the item says (eat, crack open)"]]}
+
+
 ## I selects the next usable item; F uses the selected one.
 func hud_key(keycode: int) -> bool:
     var usable := _usable()

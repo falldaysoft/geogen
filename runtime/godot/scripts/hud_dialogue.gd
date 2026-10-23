@@ -139,6 +139,14 @@ func close() -> void:
         _hud.queue_refresh()
 
 
+## For the keys panel.
+func hud_keys() -> Dictionary:
+    return {"title": "Talking", "keys": [
+        ["1 - 9", "give that answer"],
+        ["Up / Down", "select an answer, Enter gives it"],
+        ["Esc", "leave the conversation"]]}
+
+
 func hud_key(keycode: int) -> bool:
     if _open.is_empty():
         return false

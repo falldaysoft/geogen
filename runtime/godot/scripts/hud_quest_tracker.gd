@@ -215,6 +215,11 @@ func hud_key(keycode: int) -> bool:
     return true
 
 
+## For the keys panel.
+func hud_keys() -> Dictionary:
+    return {"title": "Quests", "keys": [[OS.get_keycode_string(CYCLE_KEY), "track the next active quest"]]}
+
+
 static func _active(report: Array) -> Array:
     return report.filter(func(q): return q["status"] == "active").map(func(q): return q["id"])
 

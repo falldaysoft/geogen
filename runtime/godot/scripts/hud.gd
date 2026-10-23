@@ -25,6 +25,8 @@ extends CanvasLayer
 ##                           hud.queue_refresh() from those handlers
 ##   hud_refresh()           re-read its source and redraw
 ##   hud_key(keycode) -> bool   a key was pressed; true if the panel used it
+##   hud_keys() -> Dictionary   {title, keys: [[key, what it does]]}: the keys it answers, for the
+##                           keys panel (hud_keys.gd, which ? opens)
 ##   hud_report() -> Dictionary  what it displays
 ## Panels read what the console reads; they hold presentation state only.
 ##
@@ -126,6 +128,11 @@ func panel(panel_name: String) -> Control:
     return _panels.get(panel_name)
 
 
+## Every panel, in the order added.
+func panels() -> Array:
+    return _panels.values()
+
+
 ## A panel takes the keyboard for itself (`on`) or gives it back. While one has it, keys go
 ## only to its `hud_key`, and no other input reaches the game.
 func set_modal(panel: Control, on: bool) -> void:
@@ -184,12 +191,22 @@ func _unhandled_input(event: InputEvent) -> void:
     if modal != null:
         if event is InputEventKey or event is InputEventMouseButton:
             if event is InputEventKey and event.pressed and modal.has_method("hud_key"):
-                modal.hud_key(event.physical_keycode)       # repeats too: holding an arrow moves down a list
+                modal.hud_key(_key_of(event))       # repeats too: holding an arrow moves down a list
             get_viewport().set_input_as_handled()
         return
     if not (event is InputEventKey and event.pressed and not event.echo):
         return
+    var keycode := _key_of(event)
     for panel_name in _panels:
-        if _panels[panel_name].has_method("hud_key") and _panels[panel_name].hud_key(event.physical_keycode):
+        if _panels[panel_name].has_method("hud_key") and _panels[panel_name].hud_key(keycode):
             get_viewport().set_input_as_handled()
             return
+
+
+## The key a panel is told about: the physical key, so W is W on every layout. A typed ? is
+## KEY_QUESTION whichever key it sits on (Shift+/ on most keyboards, so the keys panel takes
+## KEY_SLASH as well).
+static func _key_of(event: InputEventKey) -> int:
+    if event.unicode == 0x3F:
+        return KEY_QUESTION
+    return event.physical_keycode
