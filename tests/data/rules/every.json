@@ -1,0 +1,301 @@
+{
+ "name": "every",
+ "about": "Periodic rules (every): one runs on a clock period per actor (hunger falls each hour for the player, not an NPC), another in seconds for the world; a skip catches up the periods it passes in order, a watch sees what they do, the periods survive a save, and the first run is one period after the first input, counted on the clock as it stands then.",
+ "program": {
+  "format": "geogen-rules",
+  "version": 1,
+  "variables": {
+   "actor:demo.hunger": {
+    "type": "number",
+    "default": 100
+   },
+   "actor:demo.weak": {
+    "type": "bool",
+    "default": false
+   },
+   "world:demo.ticks": {
+    "type": "number",
+    "default": 0
+   }
+  },
+  "rules": [
+   {
+    "id": "decay",
+    "every": {
+     "minutes": 60
+    },
+    "actor": "player",
+    "do": [
+     {
+      "set": "actor:demo.hunger",
+      "to": {
+       "op": "max",
+       "args": [
+        {
+         "op": "-",
+         "args": [
+          {
+           "get": "actor",
+           "name": "hunger",
+           "package": "demo"
+          },
+          10
+         ]
+        },
+        0
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "tick",
+    "every": 30,
+    "do": [
+     {
+      "set": "world:demo.ticks",
+      "to": {
+       "op": "+",
+       "args": [
+        {
+         "get": "world",
+         "name": "ticks",
+         "package": "demo"
+        },
+        1
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "weak",
+    "when": {
+     "op": "<=",
+     "args": [
+      {
+       "get": "actor",
+       "name": "hunger",
+       "package": "demo"
+      },
+      70
+     ]
+    },
+    "do": [
+     {
+      "set": "actor:demo.weak",
+      "to": true
+     },
+     {
+      "notify": "You are weak with hunger"
+     }
+    ]
+   },
+   {
+    "id": "sleep",
+    "on": {
+     "type": "signal",
+     "subject": "demo:bed",
+     "name": "slept"
+    },
+    "do": [
+     {
+      "skip": {
+       "minutes": 180
+      }
+     }
+    ]
+   },
+   {
+    "id": "eat",
+    "on": {
+     "type": "signal",
+     "subject": "demo:bowl",
+     "name": "eaten"
+    },
+    "do": [
+     {
+      "set": "actor:demo.hunger",
+      "to": {
+       "op": "min",
+       "args": [
+        {
+         "op": "+",
+         "args": [
+          {
+           "get": "actor",
+           "name": "hunger",
+           "package": "demo"
+          },
+          30
+         ]
+        },
+        100
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "actors": {
+  "player": {
+   "kind": "player"
+  },
+  "npc:a": {
+   "kind": "npc"
+  }
+ },
+ "steps": [
+  {
+   "clock": {
+    "time": "08:00",
+    "day": 0
+   }
+  },
+  {
+   "expect": {
+    "timers": 0
+   }
+  },
+  {
+   "advance": 61
+  },
+  {
+   "expect": {
+    "state": {
+     "world:demo.ticks": 2
+    },
+    "fired": [
+     "tick",
+     "tick"
+    ],
+    "timers": 2
+   }
+  },
+  {
+   "clock": {
+    "time": "08:59"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.hunger": 100
+     }
+    },
+    "fired": []
+   }
+  },
+  {
+   "clock": {
+    "time": "09:00"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.hunger": 90
+     },
+     "npc:a": {
+      "actor:demo.hunger": 100
+     }
+    },
+    "fired": [
+     "decay"
+    ]
+   }
+  },
+  {
+   "clock": {
+    "time": "09:30"
+   }
+  },
+  {
+   "save_load": true
+  },
+  {
+   "expect": {
+    "timers": 2
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:bed",
+    "name": "slept",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "clock": {
+     "time": "12:30"
+    },
+    "actors": {
+     "player": {
+      "actor:demo.hunger": 60,
+      "actor:demo.weak": true
+     },
+     "npc:a": {
+      "actor:demo.hunger": 100,
+      "actor:demo.weak": false
+     }
+    },
+    "fired": [
+     "sleep",
+     "decay",
+     "decay",
+     "weak",
+     "decay"
+    ],
+    "feedback": [
+     [
+      "notify",
+      "You are weak with hunger",
+      "player"
+     ]
+    ]
+   }
+  },
+  {
+   "event": {
+    "type": "signal",
+    "subject": "demo:bowl",
+    "name": "eaten",
+    "actor": "player"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.hunger": 90
+     }
+    },
+    "fired": [
+     "eat"
+    ]
+   }
+  },
+  {
+   "clock": {
+    "time": "13:00"
+   }
+  },
+  {
+   "expect": {
+    "actors": {
+     "player": {
+      "actor:demo.hunger": 80
+     }
+    },
+    "fired": [
+     "decay"
+    ]
+   }
+  }
+ ]
+}

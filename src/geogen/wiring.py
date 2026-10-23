@@ -15,6 +15,9 @@ Three keys, in a scene or an asset (``docs/rules.md`` has the semantics)::
           - {notify: "The gate opens"}      # tell the actor; {play: <sound>} (geogen.rules.SOUNDS)
         after: 2                            # seconds before the effects run ({hours: 6}: clock time)
         once: true                          # once per actor (once in all with no actor)
+      - every: {hours: 1}                   # instead of on/when: runs each period its `when` holds, per
+        actor: player                       # actor when it touches actor state (actor: narrows who)
+        do: [{set: actor.hunger, to: "max(actor.hunger - 5, 0)"}]
         if: "{quests}"                      # build time: no such rule when the param is 0 (wires too)
     wire:
       - {from: lever.pulled, to: gate.open}     # a signal drives an input (`value`, `when`, `after` too)
@@ -47,7 +50,7 @@ from .core.node import SceneNode
 
 META = "wiring"                   # node.meta key the loaders record wiring under
 KEYS = ("rules", "wire", "bind")
-RULE_KEYS = {"id", "on", "when", "do", "after", "once", "if"}
+RULE_KEYS = {"id", "on", "when", "do", "after", "once", "if", "every", "actor"}
 WIRE_KEYS = {"from", "to", "value", "when", "after", "if"}
 RULE_EVENTS = {
     "enter": "an actor enters this place or room (a reference)",
@@ -125,8 +128,9 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 out["on"] = on
                 if on["type"] == "signal":
                     compiler.listening.append((src.where(*at, "on"), on))
-            elif "when" not in rule:
-                compiler.bad(src.where(*at), "a rule needs on: (an event) or when: (a condition to watch)")
+            elif "when" not in rule and "every" not in rule:
+                compiler.bad(src.where(*at), "a rule needs on: (an event), when: (a condition to watch) "
+                                             "or every: (a period)")
                 continue
             if "when" in rule:
                 when = attempt(src.where(*at, "when"), lambda: compiler.condition(src, rule["when"]))
@@ -145,6 +149,16 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 out["after"] = after
             if rule.get("once"):
                 out["once"] = True
+            if "every" in rule:
+                every = attempt(src.where(*at, "every"), lambda: _after(rule["every"]))
+                if every is None:
+                    continue
+                out["every"] = every
+            if "actor" in rule:
+                if rule["actor"] not in ("player", "npc"):
+                    compiler.bad(src.where(*at, "actor"), f"actor is player or npc, got {rule['actor']!r}")
+                    continue
+                out["actor"] = rule["actor"]
             compiler.event_reads.append((src.where(*at), out))
             rules.append(out)
             compiler.out.written[out["id"]] = src.where(*at)

@@ -60,6 +60,7 @@ EVENT_TYPES = {
     "start": "a new game began for an actor",
 }
 ACTORLESS = ("clock",)     # event types that never have an actor
+ACTOR_KINDS = ("player", "npc")
 # Feedback effects: what a rule tells its actor. Neither is state or an event: the machine
 # logs them (`feedback`) and a runtime shows or plays them; nothing reacts to them.
 FEEDBACK = {
@@ -163,6 +164,19 @@ def rule_reads_event(rule: dict[str, Any]) -> bool:
     return _reads_event(rule.get("when")) or any(
         _reads_event(e.get("to")) or e.get("forward") or any(_reads_event(t) for t in (e.get("data") or {}).values())
         for e in rule.get("do", []))
+
+
+def rule_touches_actor(rule: dict[str, Any]) -> bool:
+    """Whether a rule reads or writes actor state: a periodic rule (``every``) that does runs per actor."""
+    return _reads_actor(rule.get("when")) or any(
+        is_actor_key(e.get("set", "")) or _reads_actor(e.get("to"))
+        or any(_reads_actor(t) for t in (e.get("data") or {}).values())
+        for e in rule.get("do", []))
+
+
+def _every_ok(every: Any) -> bool:
+    """A period: seconds or ``{minutes: n}``, more than none."""
+    return _after_ok(every) and (every["minutes"] if isinstance(every, dict) else every) > 0
 
 
 # ---- checking a program ------------------------------------------------------------------------
@@ -269,17 +283,32 @@ def check_program(program: dict[str, Any]) -> list[str]:
             problems.append(f"{where}: rules need distinct ids")
         seen.add(rid)
         on = rule.get("on")
-        if on is None and "when" not in rule:
-            problems.append(f"{where}: needs 'on' (an event) or 'when' (a condition to watch)")
+        every = rule.get("every")
+        if on is None and "when" not in rule and every is None:
+            problems.append(f"{where}: needs 'on' (an event), 'when' (a condition to watch) or 'every' (a period)")
+        if every is not None:
+            if on is not None:
+                problems.append(f"{where}: has both 'on' and 'every': a periodic rule runs on its timer, not an event")
+            if not _every_ok(every):
+                problems.append(f"{where}: every: seconds, or {{minutes: n}} of clock time, more than 0")
+            if rule.get("once"):
+                problems.append(f"{where}: 'once' with 'every': a periodic rule that runs once is a delayed rule (after)")
+            if rule.get("after"):
+                problems.append(f"{where}: 'after' with 'every': the first run is one period after the start")
+            if rule_reads_event(rule):
+                problems.append(f"{where}: reads event data, but it runs on a timer: only a rule with 'on' has an event")
+        if "actor" in rule and (every is None or rule["actor"] not in ACTOR_KINDS):
+            problems.append(f"{where}: actor: player | npc narrows who a periodic rule (every) runs for"
+                            + ("" if every is None else f", got {rule['actor']!r}"))
         if on is not None and on.get("type") not in EVENT_TYPES:
             problems.append(f"{where}: unknown event type {on.get('type')!r} (types: {', '.join(EVENT_TYPES)})")
         if "when" in rule:
             tree(where, rule["when"])
-        has_actor = (_reads_actor(rule.get("when")) if on is None
+        has_actor = (rule_touches_actor(rule) if every is not None else _reads_actor(rule.get("when")) if on is None
                      else on.get("type") not in ACTORLESS and on.get("actor") != "none")
         if not has_actor and "when" in rule and on is not None and _reads_actor(rule["when"]):
             problems.append(f"{where}: its condition reads actor state, but its event never has an actor")
-        if on is None and rule_reads_event(rule):
+        if on is None and every is None and rule_reads_event(rule):
             problems.append(f"{where}: reads event data, but it watches a condition: only a rule with 'on' has an event")
         if not rule.get("do"):
             problems.append(f"{where}: does nothing")
@@ -362,11 +391,13 @@ class Machine:
         self._seq = 0
         self._base: float | None = None              # the clock minute the clock timer firing now was due
         self._catching = False
+        self._every_pending: list[tuple[dict[str, Any], str | None]] = []   # periodic rules not yet on a timer
         self.signals: list[list[Any]] = []           # [subject, name, actor]
         self.signal_data: list[dict[str, Any]] = []  # the data of each of `signals`, in step
         self.fired: list[list[Any]] = []             # [rule id, actor]
         self.feedback: list[list[Any]] = []          # [notify | play, text or sound, actor]: never saved
         self.errors: list[str] = []
+        self._every_pending += [(rule, None) for rule in self.rules if "every" in rule and not rule_touches_actor(rule)]
         for actor, info in (actors or {}).items():
             self.add_actor(actor, **info)
         self._settle([])                             # bindings and watches see the starting state
@@ -374,8 +405,18 @@ class Machine:
     # -- reading -------------------------------------------------------------------------------
 
     def add_actor(self, actor: str, kind: str = "npc", **info: Any) -> None:
+        if actor not in self.actors:                 # new here: its periodic rules start with it
+            self._every_pending += [(rule, actor) for rule in self.rules if "every" in rule
+                                    and rule_touches_actor(rule) and rule.get("actor", kind) == kind]
         self.actors.setdefault(actor, {})
         self.actor_info[actor] = {"kind": kind, "room": "", **info}
+
+    def _start_every(self) -> None:
+        """Put the periodic rules that are waiting on timers: at the first input after the machine or
+        an actor arrives (not ``set_clock``, so a host that sets the clock first counts from that)."""
+        for rule, actor in self._every_pending:
+            self._schedule(rule["every"], kind="every", rule=rule["id"], actor=actor)
+        self._every_pending = []
 
     def get(self, key: str, actor: str | None = None) -> Any:
         """The value of a variable (``actor`` for ``actor:`` keys)."""
@@ -413,12 +454,14 @@ class Machine:
 
     def post(self, event: Event) -> None:
         """An event from outside (a place entered, a signal an asset raised, a new game)."""
+        self._start_every()
         self._settle([{**event, "depth": 0}])
 
     def use(self, key: str, actor: str | None = None) -> bool:
         """An actor uses an interaction; False when it can't be used now."""
         if key not in self.interactions:
             raise RuleError(f"'{key}' isn't an interaction")
+        self._start_every()
         thing, _, name = key.rpartition("#")
         state = self.interactions[key]["states"][self.get(key)]
         if state.get("next") is None:
@@ -449,6 +492,7 @@ class Machine:
 
     def set(self, key: str, value: Any, actor: str | None = None) -> None:
         """Set a variable from outside (a test, a console, a loaded tool)."""
+        self._start_every()
         queue: list[Event] = []
         self._set(key, value, actor, queue, 0)
         self._settle(queue)
@@ -467,6 +511,7 @@ class Machine:
 
     def advance(self, seconds: float) -> None:
         """Let ``seconds`` pass: interactions arrive, dwells and delayed rules run, in time order."""
+        self._start_every()
         end = self.now + seconds
         while self.timers and "at" in self.timers[0] and self.timers[0]["at"] <= end + 1e-9:
             timer = self.timers.pop(0)
@@ -542,6 +587,13 @@ class Machine:
             rule = next((r for r in self.rules if r["id"] == timer["rule"]), None)
             if rule is not None:
                 self._effects(rule, actor, queue, 0, timer.get("data"))
+        elif kind == "every":
+            rule = next((r for r in self.rules if r["id"] == timer["rule"]), None)
+            if rule is not None:                     # runs if its condition holds now; the next is a period on
+                if self._holds(rule, actor):
+                    self.fired.append([rule["id"], actor])
+                    self._effects(rule, actor, queue, 0)
+                self._schedule(rule["every"], kind="every", rule=rule["id"], actor=actor)
         elif kind == "arrive" and self.get(key) == timer["state"]:      # not reversed on the way
             thing = key.rpartition("#")[0]
             state = self.interactions[key]["states"][timer["state"]]
@@ -708,7 +760,7 @@ class Machine:
         actor state). Every condition is judged against the same settled state before any fires."""
         newly: list[tuple[dict[str, Any], str | None]] = []
         for rule in self.rules:
-            if rule.get("on") is not None:
+            if rule.get("on") is not None or "every" in rule:
                 continue
             latch = f"watch:{rule['id']}"
             subjects: Iterable[str | None] = list(self.actors) if _reads_actor(rule["when"]) else [None]
@@ -748,6 +800,7 @@ class Machine:
         self.actor_info = {actor: saved.get(actor) or known.get(actor) or {"kind": "npc", "room": ""}
                            for actor in {**self.actors, **saved}}
         self.timers = sorted(data.get("timers", []), key=_timer_order)
+        self._every_pending = []                     # the save holds the periodic timers
         self._seq = max((t["seq"] for t in self.timers), default=0)
         self.derived = {}
         self._rebind([], 0)             # recompute, silently: nothing changed while saved

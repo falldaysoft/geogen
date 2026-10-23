@@ -228,6 +228,20 @@ becomes true. If the condition reads actor state it is watched separately for
 every actor, and fires for that actor. This is what "done when every light is
 off" compiles to. A condition that is already true at the start fires once.
 
+**A rule with `every` is periodic**: `{"every": s | {"minutes": n}}` instead of
+`on`, and it runs its effects each period its `when` holds (checked when the
+period is up; nothing latches). One that reads or writes actor state runs
+separately for every actor, from when that actor arrives; `actor: player | npc`
+narrows who. One that touches no actor state runs once per period for the
+world. The first run is one period after the first input following the
+machine's or the actor's arrival, not `set_clock`, so a host that sets the
+clock first counts from that; each next period starts from the due time of the
+one before, so a clock that jumps (a `skip`, sleeping until morning) catches up
+every period it passed, in order. The pending period is a timer (`every`), saved
+with the others. A periodic rule can't have `on`, `once` or `after`, and has no
+event to read. Hunger falling every hour of the game clock is one; so is a
+counter that ticks every thirty seconds. Trace `every.json`.
+
 ## Feedback
 
 `notify` and `play` effects say something to the rule's actor: a line of text
@@ -400,7 +414,8 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   `watch:<rule>`) with the state they belong to.
 - Bindings are never saved. Loading recomputes them without raising events:
   nothing changed while saved.
-- `timers` are what is still to happen (`rule`: a delayed rule; `arrive` and
+- `timers` are what is still to happen (`rule`: a delayed rule; `every`: a
+  periodic rule's next period; `arrive` and
   `dwell`: an interaction on its way or waiting to move on), on `now`'s scale
   (`at`), or, for clock time, at a clock minute (`clock`).
   A runtime that moves things itself saves its own as these too, so a door
@@ -448,7 +463,10 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
 - actor state written or read by a rule whose trigger never has an actor (a
   `clock` event, `actor: none`, a watched condition over world state only)
 - an unresolved reference or selector in a condition, including an interaction's `when`
-- a rule with neither `on` nor `when`, or with no effects
+- a rule with none of `on`, `when` and `every`, or with no effects
+- a periodic rule (`every`) with `on`, `once` or `after`, or that reads event
+  data; `actor:` on a rule that isn't periodic, or naming anything but `player`
+  or `npc`
 - a `play` of a sound that isn't in `rules.SOUNDS`, a `notify` without text, an
   interaction's `refused` without a `when`
 
@@ -475,6 +493,11 @@ rules:
     after: 2
     once: true
     if: "{quests}"                      # build time: see below
+  - id: hunger
+    every: {hours: 1}                   # periodic: no `on`; runs each period its `when` holds
+    actor: player                       # per actor, since it touches actor state; only players
+    when: "actor.hunger > 0"
+    do: [{set: actor.hunger, to: "max(actor.hunger - 5, 0)"}]
 wire:
   - {from: lever.pulled, to: gate.open}     # a declared signal drives a declared input
 bind:

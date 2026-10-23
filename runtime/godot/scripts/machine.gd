@@ -116,6 +116,8 @@ var _busy := false
 var _silent := false                # no hooks: loading a save
 var _inbox: Array = []              # events posted while an input was being handled
 var _base: Variant = null           # the clock minute the clock timer firing now was due
+var _every_pending: Array = []      # [rule, actor] periodic rules (`every`) not yet on a timer
+var _touches_actor := {}            # rule id -> reads or writes actor state (a periodic rule runs per actor)
 var _catching := false
 
 
@@ -134,6 +136,9 @@ func _init(rules_program: Dictionary, with_actors: Dictionary = {}, host: Dictio
     for rule in rules:
         _reads_actor[rule["id"]] = rule.has("when") and _tree_reads_actor(rule["when"])
         _reads_event[rule["id"]] = _rule_reads_event(rule)
+        _touches_actor[rule["id"]] = _rule_touches_actor(rule)
+        if rule.has("every") and not _touches_actor[rule["id"]]:
+            _every_pending.append([rule, ""])
     _bindings = _binding_order()
     for binding in _bindings:
         _bound[binding["set"]] = true
@@ -154,6 +159,9 @@ func _init(rules_program: Dictionary, with_actors: Dictionary = {}, host: Dictio
 func add_actor(actor: String, kind := "npc", info: Dictionary = {}) -> void:
     if not actors.has(actor):
         actors[actor] = {}
+        for rule in rules:                  # new here: its periodic rules start with it
+            if rule.has("every") and _touches_actor[rule["id"]] and str(rule.get("actor", kind)) == kind:
+                _every_pending.append([rule, actor])
     var entry := {"kind": kind, "room": ""}
     for field in info:
         if field != "kind":
@@ -192,7 +200,17 @@ static func key_of(term: Dictionary) -> String:
 
 ## An event from outside: {type, subject, name, actor, key, data}. Posted from
 ## a hook, it is handled once the current input is finished.
+## Put the periodic rules that are waiting on timers: at the first input after the machine or
+## an actor arrives (not `set_clock`, so a host that sets the clock first counts from that).
+func _start_every() -> void:
+    for pair in _every_pending:
+        var rule: Dictionary = pair[0]
+        _schedule(rule["every"], {"kind": "every", "rule": rule["id"], "actor": pair[1]})
+    _every_pending = []
+
+
 func post(event: Dictionary) -> void:
+    _start_every()
     var copy := event.duplicate()
     copy["actor"] = _text(event.get("actor"))
     copy["subject"] = _text(event.get("subject"))
@@ -210,6 +228,7 @@ func use(key: String, actor := "") -> bool:
         return false
     if not interactions.has(key):
         return _bad("use", "'%s' isn't an interaction" % key)
+    _start_every()
     var thing := key.substr(0, key.rfind("#"))
     var interaction_name := key.substr(key.rfind("#") + 1)
     var state: Dictionary = interactions[key]["states"].get(_text(_read(key, "")), {})
@@ -236,6 +255,7 @@ func use(key: String, actor := "") -> bool:
 func set_value(key: String, to: Variant, actor := "") -> bool:
     if _refused("set"):
         return false
+    _start_every()
     var queue: Array = []
     var problem := _write(key, to, actor, queue, 0)
     _input(queue)
@@ -265,6 +285,7 @@ func set_clock(values: Dictionary) -> void:
 ## Let `seconds` pass: interactions arrive, dwells and delayed rules run, in
 ## time order (ties to the one scheduled first), each as its own input.
 func advance(seconds: float) -> void:
+    _start_every()
     if _refused("advance"):
         return
     var end := now + seconds
@@ -464,6 +485,14 @@ func _timer(timer: Dictionary) -> Array:
         for rule in rules:
             if rule["id"] == timer["rule"]:
                 _effects(rule, actor, queue, 0, timer.get("data"))
+                break
+    elif kind == "every":
+        for rule in rules:
+            if rule["id"] == timer["rule"]:     # runs if its condition holds now; the next is a period on
+                if _holds(rule, actor):
+                    fired.append([rule["id"], actor])
+                    _effects(rule, actor, queue, 0)
+                _schedule(rule["every"], {"kind": "every", "rule": rule["id"], "actor": actor})
                 break
     elif kind == "arrive" and _text(_read(key, "")) == timer["state"]:    # not reversed on the way
         var state: Dictionary = interactions[key]["states"][timer["state"]]
@@ -714,7 +743,7 @@ func _rebind(queue: Array, depth: int) -> void:
 func _watch(queue: Array) -> void:
     var newly: Array = []
     for rule in rules:
-        if rule.get("on") != null:
+        if rule.get("on") != null or rule.has("every"):
             continue
         var latch := "watch:%s" % rule["id"]
         var subjects: Array = actors.keys() if _reads_actor[rule["id"]] else [""]
@@ -753,6 +782,19 @@ static func _tree_has_get(tree: Variant, kind: String) -> bool:
         if _tree_has_get(arg, kind):
             return true
     return _tree_has_get(tree.get("where"), kind)
+
+
+## Whether a rule reads or writes actor state (a periodic rule that does runs per actor).
+static func _rule_touches_actor(rule: Dictionary) -> bool:
+    if _tree_reads_actor(rule.get("when")):
+        return true
+    for effect in rule.get("do", []):
+        if is_actor_key(str(effect.get("set", ""))) or _tree_reads_actor(effect.get("to")):
+            return true
+        for field in effect.get("data", {}):
+            if _tree_reads_actor(effect["data"][field]):
+                return true
+    return false
 
 
 static func _tree_reads_actor(tree: Variant) -> bool:
@@ -843,6 +885,7 @@ func load_save(data: Dictionary) -> bool:
         actor_info[actor] = saved.get(actor, known.get(actor, {"kind": "npc", "room": ""}))
     timers = copy.get("timers", [])
     timers.sort_custom(_sooner)
+    _every_pending = []                 # the save holds the periodic timers
     _seq = 0
     for timer in timers:
         _seq = maxi(_seq, int(timer["seq"]))

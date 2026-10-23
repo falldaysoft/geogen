@@ -30,6 +30,51 @@ TOGGLE = {"off": {"next": "on"}, "on": {"next": "off"}}
 TOGGLE_SHUT = {"shut": {"next": "open"}, "open": {"next": "shut"}}
 traces = {}
 
+traces["every"] = {
+    "about": "Periodic rules (every): one runs on a clock period per actor (hunger falls each hour for the "
+             "player, not an NPC), another in seconds for the world; a skip catches up the periods it passes "
+             "in order, a watch sees what they do, the periods survive a save, and the first run is one "
+             "period after the first input, counted on the clock as it stands then.",
+    "program": program(
+        variables={"actor:demo.hunger": {"type": "number", "default": 100},
+                   "actor:demo.weak": {"type": "bool", "default": False},
+                   "world:demo.ticks": {"type": "number", "default": 0}},
+        rules=[
+            {"id": "decay", "every": {"minutes": 60}, "actor": "player",
+             "do": [{"set": "actor:demo.hunger", "to": c("max(actor.hunger - 10, 0)")}]},
+            {"id": "tick", "every": 30, "do": [{"set": "world:demo.ticks", "to": c("world.ticks + 1")}]},
+            {"id": "weak", "when": c("actor.hunger <= 70"),
+             "do": [{"set": "actor:demo.weak", "to": True}, {"notify": "You are weak with hunger"}]},
+            {"id": "sleep", "on": {"type": "signal", "subject": "demo:bed", "name": "slept"},
+             "do": [{"skip": {"minutes": 180}}]},
+            {"id": "eat", "on": {"type": "signal", "subject": "demo:bowl", "name": "eaten"},
+             "do": [{"set": "actor:demo.hunger", "to": c("min(actor.hunger + 30, 100)")}]}]),
+    "actors": {"player": {"kind": "player"}, "npc:a": {"kind": "npc"}},
+    "steps": [
+        {"clock": {"time": "08:00", "day": 0}},                            # setting the clock starts no period
+        {"expect": {"timers": 0}},
+        {"advance": 61},                                                    # the first input does: ticks at 30 and 60
+        {"expect": {"state": {"world:demo.ticks": 2}, "fired": ["tick", "tick"], "timers": 2}},   # the next tick, the player's hour
+        {"clock": {"time": "08:59"}},
+        {"expect": {"actors": {"player": {"actor:demo.hunger": 100}}, "fired": []}},
+        {"clock": {"time": "09:00"}},                                       # an hour after the first input
+        {"expect": {"actors": {"player": {"actor:demo.hunger": 90}, "npc:a": {"actor:demo.hunger": 100}},
+                    "fired": ["decay"]}},
+        {"clock": {"time": "09:30"}},
+        {"save_load": True},
+        {"expect": {"timers": 2}},
+        {"event": {"type": "signal", "subject": "demo:bed", "name": "slept", "actor": "player"}},   # to 12:30
+        {"expect": {"clock": {"time": "12:30"}, "actors": {"player": {"actor:demo.hunger": 60, "actor:demo.weak": True},
+                                                         "npc:a": {"actor:demo.hunger": 100, "actor:demo.weak": False}},
+                    "fired": ["sleep", "decay", "decay", "weak", "decay"],   # 10:00, 11:00 (weak), 12:00
+                    "feedback": [["notify", "You are weak with hunger", "player"]]}},
+        {"event": {"type": "signal", "subject": "demo:bowl", "name": "eaten", "actor": "player"}},
+        {"expect": {"actors": {"player": {"actor:demo.hunger": 90}}, "fired": ["eat"]}},
+        {"clock": {"time": "13:00"}},                                       # the period runs on from 12:00
+        {"expect": {"actors": {"player": {"actor:demo.hunger": 80}}, "fired": ["decay"]}},
+    ],
+}
+
 traces["lever_opens_gate"] = {
     "about": "Wiring with no player: a lever's signal opens a gate; pulling it back closes it.",
     "program": program(
