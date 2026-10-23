@@ -58,6 +58,7 @@ EVENT_TYPES = {
     "travel": "an actor travelled to another scene or spawn",
     "clock": "the clock crossed dusk or dawn (name: night | day)",
     "start": "a new game began for an actor",
+    "use_item": "an actor used an item from their inventory (name: the item's id)",
 }
 ACTORLESS = ("clock",)     # event types that never have an actor
 ACTOR_KINDS = ("player", "npc")

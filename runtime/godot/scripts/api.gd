@@ -80,6 +80,7 @@ const COMMANDS := {
     "hud.inventory": "what the HUD's inventory panel shows: {visible, items: [{id, title, count, tags?}]}",
     "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
     "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
+    "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
     "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): "
         + "{visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
     "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
@@ -530,6 +531,12 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 str(args.get("actor", "player")))
             if problem != "":
                 return _err(problem)
+            return {"items": world.rules.carried(str(args.get("actor", "player")))}
+        "inventory.use":
+            var problem: String = world.rules.use_item(str(args.get("item", "")), str(args.get("actor", "player")))
+            if problem != "":
+                return _err(problem)
+            main.hud.refresh()
             return {"items": world.rules.carried(str(args.get("actor", "player")))}
         "hud.quests":
             var tracker: GeogenHudQuestTracker = main.hud.panel("quests")

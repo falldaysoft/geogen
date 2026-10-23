@@ -74,6 +74,7 @@ EVENT_SOURCES = {
     "signal": "<thing>.<name>: the thing raises this signal, caused by the holder",
     "use": "<thing> or <thing>.<interaction>: the holder uses it",
     "changed": "<thing>.<state> | world.<name> | actor.<name> changes (`to`: only to that value), caused by the holder",
+    "use_item": "<item id>: the holder uses it from their inventory (the item declares use:)",
 }
 EVENT_KEYS = {*EVENT_SOURCES, "to", "when", "count"}
 EFFECTS = {
@@ -741,6 +742,14 @@ class _Compiler:
                                  f"{refs._near(name or '', known)} "
                                  + (f"It has: {', '.join(known)}" if known else "It has none"))
             return {"type": "use", "subject": subject, **({"name": name} if name else {})}
+        if kind == "use_item":
+            item = done[kind]
+            if not isinstance(item, str) or not item.isidentifier():
+                raise QuestError(f"use_item: an item's id (items/<id>.yaml), got {item!r}")
+            self.item(item)
+            if "use" not in self.out.items.get(item, {}):
+                raise QuestError(f"item '{item}' declares no use: (a verb: Eat, Drink), so no inventory offers using it")
+            return {"type": "use_item", "name": item}
         key = self.key(quest, done[kind])
         on = {"type": "changed", "key": key}
         if "to" in done:

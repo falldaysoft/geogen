@@ -172,6 +172,7 @@ An event is `{type, subject, name, actor, data}`. `subject` is a stable ID,
 | `travel` | an actor travelled to another scene or spawn |
 | `clock` | dusk or dawn: `name` is `night` or `day`. Never has an actor |
 | `start` | a new game began for an actor |
+| `use_item` | an actor used an item from their inventory: `name` is the item's id (see "Items") |
 
 **Greeting an NPC** (the player pressing E on one) is the signal `greeted`
 from the NPC, with the greeter as the actor: `{type: signal, subject:
@@ -278,6 +279,16 @@ items use, with an optional `title` and `tags` for an inventory). Nothing new ru
 - An item's variable is declared the first time a rule, binding or quest of the
   package names it, and naming an item with no file is an export error. The
   compiled quests list the items they name (`Quests.items`: title, tags).
+
+An item whose file declares `use: <verb>` ("Eat", "Drink") can be used from the
+inventory: a runtime offers the verb for one the actor carries (the Godot HUD's F;
+API `inventory.use`) and raises the event `{type: use_item, name: <id>}` with the
+user as the actor. What it does is a rule, `{on: {use_item: berries}, do: [{take:
+berries}, {set: actor.hunger, to: ...}]}`, which gets an implicit `has(<id>)` in its
+`when`, so one that runs out of a save or a console can't use what isn't there.
+Naming an item with no `use:` in a `use_item` event is an export error; an item is
+usable anywhere its rules say nothing about place. Trace: none (it is an ordinary
+event); the survival example's berries, coconut and cooked fish are the worked case.
 
 Objects to take are pickups (`geogen/inventory.py`): an asset's or a placement's
 `pickup: <item>` (or `{item, count, prompt}`) adds a `pickup` interaction,

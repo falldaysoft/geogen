@@ -900,6 +900,7 @@ and `package` is the scene the subject belongs to.
 | `travel` | an actor went through a travel point | `name`: the target scene, `data.spawn` |
 | `clock` | dusk or dawn; never has an actor | `name`: `night` or `day` |
 | `start` | a new game began for the player: the first world of a run, unless `--load` | |
+| `use_item` | an actor used an item from their inventory (the panel's F, API `inventory.use`) | `name`: the item's id |
 | `arrived` | an interaction reached a state (runtime only) | `data.state`, `data.emit`, `data.asset` |
 | `npc` | an NPC's trace: decide, step, done, ... (runtime only) | `name`, `data`: the trace |
 
@@ -1107,9 +1108,13 @@ Control API `dialogue.show`, `dialogue.choose {index | choice | close}`.
 what the player carries, one row an item (the manifest's `items` titles, a count
 when more than one), from `GeogenRules.carried`; hidden while empty. Each change to
 one of the player's item counts (a pickup, a rule's give or take) toasts "Picked up"
-or "Handed over" in the notifications panel (`item_note`). Control API
-`hud.inventory`, `inventory.list {actor}`, `inventory.give {item, count, actor}`
-(negative counts take); `--give=ITEM[:N]` gives at start.
+or "Handed over" in the notifications panel (`item_note`). An item whose file
+declares `use:` (a verb) shows it on its row; one of those is selected ("F: Eat"),
+I selects the next and F uses it: `GeogenRules.use_item` posts the rules' `use_item`
+event for the player, and the scene's rule on it does the rest ("Items" in
+`docs/rules.md`). Control API `hud.inventory` (with `selected`), `inventory.list
+{actor}`, `inventory.give {item, count, actor}` (negative counts take),
+`inventory.use {item, actor}`; `--give=ITEM[:N]` gives at start.
 
 **Notifications** (`scripts/hud_notifications.gd`, panel `notifications`, bottom
 left): a toast for each quest event of the player's (`GeogenRules.quest_event`):

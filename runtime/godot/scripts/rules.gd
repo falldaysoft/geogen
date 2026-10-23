@@ -81,7 +81,20 @@ func give(id: String, count := 1, actor := "player") -> String:
     return set_value("actor:%s.item_%s" % [package, id], maxi(held(id, actor) + count, 0), actor)
 
 
-## Everything ``actor`` carries: [{id, title, count, tags?}], in the manifest's order.
+## An actor uses an item they carry (the inventory's F, API `inventory.use`): the rules'
+## `use_item` event. "" when it went, else why not.
+func use_item(id: String, actor := "player") -> String:
+    if not items.has(id):
+        return "no item '%s' here (items: %s)" % [id, ", ".join(PackedStringArray(items.keys()))]
+    if not items[id].has("use"):
+        return "'%s' has no use" % id
+    if held(id, actor) < 1:
+        return "not carrying '%s'" % id
+    world.events.post("use_item", "", id, actor)
+    return ""
+
+
+## Everything ``actor`` carries: [{id, title, count, tags?, use?}], in the manifest's order.
 func carried(actor := "player") -> Array:
     var out := []
     for id in items:
@@ -90,6 +103,8 @@ func carried(actor := "player") -> Array:
             var entry := {"id": id, "title": str(items[id].get("title", id)), "count": n}
             if items[id].has("tags"):
                 entry["tags"] = items[id]["tags"]
+            if items[id].has("use"):
+                entry["use"] = str(items[id]["use"])
             out.append(entry)
     return out
 

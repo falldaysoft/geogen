@@ -195,7 +195,7 @@ def test_manifest_has_the_program(assets, tmp_path):
     ("yard", "on: {clock: night}", "on: {signal: lever.pushed}",
      r"yard.yaml:\d+: rules.1.on: 'yard:lever' never raises 'pushed'. Did you mean 'pulled'\?"),
     ("yard", "on: {clock: night}", "on: {signal: lamp.greeted}", r"rules.1.on: 'yard:lamp' never raises 'greeted'"),
-    ("yard", '    when: "plate.occupants >= 2"\n', "", r"rules.2: a rule needs on: \(an event\) or when:"),
+    ("yard", '    when: "plate.occupants >= 2"\n', "", r"rules.2: a rule needs on: \(an event\), when: .* or every:"),
     ("plate", "on: {enter: top}", "on: {enter: tpo}", r"plate.yaml:\d+: rules.0.on: .*'tpo'"),
     ("plate", "set: self.occupants, to: \"self.occupants + 1\"", "set: self.ocupants, to: 1",
      r"plate.yaml:\d+: rules.0.do.0: .*has no state 'ocupants'"),

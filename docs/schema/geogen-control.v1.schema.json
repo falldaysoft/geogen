@@ -143,6 +143,7 @@
             "interactions.use",
             "inventory.give",
             "inventory.list",
+            "inventory.use",
             "npcs.force",
             "npcs.greet",
             "npcs.list",
@@ -644,6 +645,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/inventory.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "inventory.use"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.use"
               }
             }
           }
@@ -1586,6 +1603,7 @@
         "hud.inventory": "what the HUD's inventory panel shows: {visible, items: [{id, title, count, tags?}]}",
         "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
         "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
+        "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
         "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): {visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
         "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how long a finished quest stays up",
         "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: {open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; track makes the tracker follow the selected quest",
@@ -2149,6 +2167,18 @@
           },
           "count": {
             "type": "integer"
+          },
+          "actor": {
+            "type": "string"
+          }
+        }
+      },
+      "inventory.use": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "type": "string"
           },
           "actor": {
             "type": "string"

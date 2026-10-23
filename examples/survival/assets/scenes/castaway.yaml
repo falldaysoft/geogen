@@ -9,7 +9,8 @@
 # Ways through: logs from driftwood (no axe, but finite) or felled trees (the axe); the fire
 # lit by a fire drill (sticks, fibre) or flint (the boulder, with a stone); walls of logs or of
 # woven sticks and rope; a roof of planks or thatch; food from bushes, coconuts or the fishing
-# rock (with a spear); water from the spring or coconuts cracked at the workstone.
+# rock (with a spear), eaten from the inventory (F), off the bush or at the fire; water from the
+# spring or coconuts cracked with a stone (F, or at the workstone).
 
 name: castaway
 size: [150, 24, 150]
@@ -80,6 +81,29 @@ rules:
       - {take: raw_fish, count: 99}
       - {take: cooked_fish, count: 99}
       - {skip: {to: "06:00"}}
+  # Eating from the inventory (F on the selected item): what each food does.
+  - id: eat_berries
+    on: {use_item: berries}
+    do:
+      - {take: berries}
+      - {set: actor.hunger, to: "min(actor.hunger + 20, 100)"}
+      - {set: actor.thirst, to: "min(actor.thirst + 5, 100)"}
+      - {notify: "You eat a handful of berries"}
+  - id: eat_fish
+    on: {use_item: cooked_fish}
+    do: [{take: cooked_fish}, {set: actor.hunger, to: "min(actor.hunger + 50, 100)"}, {notify: "You eat the fish: a proper meal"}]
+  - id: crack_coconut
+    on: {use_item: coconut}
+    when: 'has("stone")'
+    do:
+      - {take: coconut}
+      - {set: actor.hunger, to: "min(actor.hunger + 25, 100)"}
+      - {set: actor.thirst, to: "min(actor.thirst + 35, 100)"}
+      - {notify: "You crack the coconut on a stone, drink the milk and eat the flesh"}
+  - id: coconut_needs_a_stone
+    on: {use_item: coconut}
+    when: 'not has("stone")'
+    do: [{notify: "You need a stone to crack it"}, {play: refused}]
   # Waking: a moment after a skip that was slept through (its hours have run by then).
   - id: wake
     on: {changed: actor.asleep, to: true}

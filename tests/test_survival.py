@@ -265,6 +265,46 @@ def test_food_and_water_by_every_route(castaway):
     assert c.get("hunger") == 90 and c.held("cooked_fish") == 0
 
 
+def test_food_is_eaten_from_the_inventory(castaway, built):
+    c = castaway
+    _, quests = built
+    assert {k: v.get("use") for k, v in quests.items.items() if "use" in v} == {
+        "berries": "Eat", "coconut": "Crack open", "cooked_fish": "Eat"}
+    c.set("hunger", 40)
+    c.set("thirst", 40)
+    use = lambda item: c.m.post({"type": "use_item", "name": item, "actor": "player"})     # noqa: E731
+    use("berries")                                                       # none carried: the guard holds it
+    assert c.get("hunger") == 40 and c.held("berries") == 0
+    c.give(berries=2, cooked_fish=1, coconut=1)
+    use("berries")
+    assert (c.get("hunger"), c.get("thirst"), c.held("berries")) == (60, 45, 1)
+    use("cooked_fish")
+    assert c.get("hunger") == 100 and c.held("cooked_fish") == 0
+    use("coconut")                                                       # no stone: told, kept
+    assert c.held("coconut") == 1 and "You need a stone to crack it" in c.notes()
+    c.give(stone=1)
+    c.set("hunger", 40)
+    use("coconut")
+    assert (c.get("hunger"), c.get("thirst"), c.held("coconut"), c.held("stone")) == (65, 80, 0, 1)
+
+
+def test_an_item_without_a_use_cannot_be_used(tmp_path):
+    from geogen.layout.composer import SceneComposer
+    from geogen.quests import QuestError
+
+    path = tmp_path / "scenes" / "pebbles.yaml"
+    path.parent.mkdir()
+    path.write_text("name: pebbles\nsize: [4, 3, 4]\nstate:\n  thrown: {scope: actor, type: number, default: 0}\n"
+                    "place:\n  stones: {asset: loose_stones.yaml}\n"
+                    "rules:\n  - {on: {use_item: stone}, do: [{take: stone}, {set: actor.thrown, to: 'actor.thrown + 1'}]}\n")
+    try:
+        roots.use(EXAMPLE)
+        with pytest.raises(QuestError, match="declares no use"):
+            collect(SceneComposer(assets_dir="assets").compose(path), "pebbles")
+    finally:
+        roots.use()
+
+
 def test_needs_fall_on_the_clock_and_a_collapse_costs_the_night(castaway):
     c = castaway
     c.use("sticks_1#gather")                                             # the first input starts the periods
@@ -400,6 +440,12 @@ def test_in_godot_fire_is_made_the_clock_takes_its_toll_and_a_night_is_slept(run
     rt.call("time.advance", seconds=0.5, scale=1)
     assert (need("hunger"), need("thirst"), need("energy")) == (88, 85, 91)
     assert "Hunger" in str(rt.call("hud.stats"))
+    rt.call("inventory.give", item="berries", count=2)                                # eaten from the inventory
+    shown = rt.call("hud.inventory")
+    assert shown["selected"] == "berries" and next(i for i in shown["items"] if i["id"] == "berries")["use"] == "Eat"
+    rt.call("inventory.use", item="berries")
+    rt.call("time.advance", seconds=0.3, scale=1)
+    assert (need("hunger"), need("thirst")) == (100, 90) and carried()["berries"] == 1  # hunger was full already
     rt.call("time.skip", until="06:00")                                               # the first night, by the fire
     rt.call("time.advance", seconds=0.5, scale=1)
     quests = {q["id"]: q for q in rt.call("quests.list")}
@@ -413,7 +459,7 @@ def test_in_godot_fire_is_made_the_clock_takes_its_toll_and_a_night_is_slept(run
     use("shelter", "roof_thatch", 3.0)
     assert state("shelter#roofed") is True and state("shelter#roof_planks") == "gone"
     use("shelter", "bed")
-    assert state("shelter#sleep") == "ready" and carried() == {"fire_drill": 1, "fibre": 1, "stick": 1}
+    assert state("shelter#sleep") == "ready" and carried() == {"fire_drill": 1, "fibre": 1, "stick": 1, "berries": 1}
     rt.call("state.set", key=f"actor:{SCENE}.energy", value=20)
     rt.call("state.set", key=f"actor:{SCENE}.hunger", value=100)
     rt.call("state.set", key=f"actor:{SCENE}.thirst", value=100)

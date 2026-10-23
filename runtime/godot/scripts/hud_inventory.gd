@@ -7,14 +7,22 @@ extends PanelContainer
 ## events and when the HUD refreshes everything (a scene loaded, a save restored). A change
 ## the actor's own (a give or a take, by a rule or a pickup) also raises a toast in the
 ## notifications panel: "Picked up: Room key", "Handed over: Parcel". Hidden while empty.
+##
+## An item whose file declares `use:` (a verb) can be used from here: one of them is selected
+## (`USE_KEY`'s verb shows on its row, "F: Eat"), `CYCLE_KEY` selects the next, `USE_KEY`
+## raises the rules' `use_item` event for it (`GeogenRules.use_item`); its rules do the rest.
 
+const CYCLE_KEY := KEY_I
+const USE_KEY := KEY_F
 const TITLE_SIZE := 13
 const ROW_SIZE := 17
-const COLORS := {"title": Color(0.78, 0.8, 0.84), "item": Color(0.95, 0.8, 0.5), "count": Color(0.9, 0.9, 0.9)}
+const COLORS := {"title": Color(0.78, 0.8, 0.84), "item": Color(0.95, 0.8, 0.5), "count": Color(0.9, 0.9, 0.9),
+    "use": Color(0.75, 0.9, 0.75), "other": Color(0.5, 0.55, 0.5)}
 
 var _hud: GeogenHud
 var _rows: GridContainer
-var _shown: Array = []          # [{id, title, count, tags?}]
+var _shown: Array = []          # [{id, title, count, tags?, use?}]
+var _selected := ""             # the usable item USE_KEY uses
 
 
 func _init() -> void:
@@ -40,7 +48,7 @@ func _init() -> void:
     title.add_theme_color_override("font_color", COLORS["title"])
     column.add_child(title)
     _rows = GridContainer.new()
-    _rows.columns = 2
+    _rows.columns = 3
     _rows.add_theme_constant_override("h_separation", 14)
     column.add_child(_rows)
 
@@ -70,6 +78,9 @@ func _on_changed(event: Dictionary) -> void:
 
 func hud_refresh() -> void:
     _shown = _hud.world.rules.carried(_hud.actor)
+    var usable := _usable()
+    if not usable.has(_selected):
+        _selected = usable[0] if not usable.is_empty() else ""
     for child in _rows.get_children():
         _rows.remove_child(child)
         child.queue_free()
@@ -84,9 +95,41 @@ func hud_refresh() -> void:
         count.add_theme_font_size_override("font_size", ROW_SIZE)
         count.add_theme_color_override("font_color", COLORS["count"])
         _rows.add_child(count)
+        var verb := Label.new()
+        if entry.has("use"):
+            var chosen: bool = entry["id"] == _selected
+            verb.text = ("%s: %s" % [OS.get_keycode_string(USE_KEY), entry["use"]]) if chosen else str(entry["use"])
+            verb.add_theme_color_override("font_color", COLORS["use"] if chosen else COLORS["other"])
+        verb.add_theme_font_size_override("font_size", ROW_SIZE - 3)
+        _rows.add_child(verb)
     visible = not _shown.is_empty()
 
 
-## What is on screen: {visible, items: [{id, title, count, tags?}]}.
+func _usable() -> Array:
+    var out := []
+    for entry in _shown:
+        if entry.has("use"):
+            out.append(entry["id"])
+    return out
+
+
+## I selects the next usable item; F uses the selected one.
+func hud_key(keycode: int) -> bool:
+    var usable := _usable()
+    if usable.is_empty():
+        return false
+    if keycode == CYCLE_KEY:
+        _selected = usable[(usable.find(_selected) + 1) % usable.size()]
+        _hud.queue_refresh()
+        return true
+    if keycode == USE_KEY:
+        var problem: String = _hud.world.rules.use_item(_selected, _hud.actor)
+        if problem != "":
+            push_warning("inventory: " + problem)
+        return true
+    return false
+
+
+## What is on screen: {visible, items: [{id, title, count, tags?, use?}], selected}.
 func hud_report() -> Dictionary:
-    return {"visible": visible, "items": _shown.duplicate(true)}
+    return {"visible": visible, "items": _shown.duplicate(true), "selected": _selected}

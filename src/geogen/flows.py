@@ -53,6 +53,7 @@ ITEM_KEYS = {
     "title": "its name when carried (default: the name, capitalised)",
     "tags": "[tag, ...] for the inventory (key, quest)",
     "opens": "[lock key, ...] (globs) it unlocks besides its own id: a master key's key_room_*",
+    "use": "a verb (Eat, Drink): an inventory offers using the item; a rule on {use_item: <id>} says what happens",
     "body": "the asset each copy is: a file, or {asset, params}",
     "mode": "physics (a rigid body: the body has physics:) | belt | walk (along a track)",
     "data": "{field: number or text}: what each copy carries (value, hp, harm): signals give it to rules",
@@ -106,6 +107,11 @@ def carried(path: str | Path) -> dict[str, Any]:
             raise FlowError(f"{path}: {key} is a list of words")
         if listed:
             out[key] = list(listed)
+    use = spec.get("use")
+    if use is not None:
+        if not isinstance(use, str) or not use.strip():
+            raise FlowError(f"{path}: use is a verb (Eat, Drink), got {use!r}")
+        out["use"] = use.strip()
     return out
 
 

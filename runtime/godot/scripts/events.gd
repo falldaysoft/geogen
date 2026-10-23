@@ -31,7 +31,7 @@ extends Node
 
 signal posted(event: Dictionary)
 
-const RULE_TYPES := ["signal", "changed", "use", "enter", "leave", "travel", "clock", "start"]
+const RULE_TYPES := ["signal", "changed", "use", "enter", "leave", "travel", "clock", "start", "use_item"]
 const RUNTIME_TYPES := ["arrived", "npc"]
 const HISTORY := 256
 

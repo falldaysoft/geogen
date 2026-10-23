@@ -1,5 +1,7 @@
-# A coconut: gathered under a palm. Cracked at the workstone for food and drink.
+# A coconut: gathered under a palm. Cracked open for food and drink with a stone in hand, from the
+# inventory (F) or at the workstone.
 kind: item
 title: Coconut
 tags: [food]
 body: coconut.yaml
+use: Crack open

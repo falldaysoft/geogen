@@ -26,8 +26,9 @@ Three keys, in a scene or an asset (``docs/rules.md`` has the semantics)::
 
 Events (``on``): ``{enter | leave: <place or room>}``, ``{signal: <thing>.<name>}``,
 ``{use: <thing>[.<interaction>]}``, ``{changed: <state>, to}``, ``{start: true}`` (a new game),
-``{clock: night | day}``, ``{travel: true | <scene>}``; ``actor: player | npc | none | any``
-narrows who.
+``{clock: night | day}``, ``{travel: true | <scene>}``, ``{use_item: <item id>}`` (an item used
+from the inventory: the item declares ``use:``; the rule gets an implicit ``has(item)``);
+``actor: player | npc | none | any`` narrows who.
 
 Names are relative to where they are written, so every placed instance wires itself:
 ``self`` is the instance (``self.lit``, ``{signal: self.pulled}``: an asset, or a placed
@@ -61,6 +62,8 @@ RULE_EVENTS = {
     "start": "true: a new game begins for an actor",
     "clock": "night | day: dusk or dawn (never has an actor)",
     "travel": "true, or a scene name: an actor travels (there)",
+    "use_item": "<item id>: an actor uses it from their inventory (the item file declares use:); "
+                "the rule runs only while they carry it",
 }
 EVENT_KEYS = {*RULE_EVENTS, "to", "actor"}
 
@@ -142,6 +145,9 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
                 if isinstance(rule.get("do"), list) and not rule["do"]:
                     compiler.bad(src.where(*at), "a rule needs do: [effects]")
                 continue
+            if out.get("on", {}).get("type") == "use_item":        # only while the actor carries it
+                guard = compiler.condition(src, f'has("{out["on"]["name"]}")')
+                out["when"] = {"op": "and", "args": [guard, out["when"]]} if "when" in out else guard
             if rule.get("after"):
                 after = attempt(src.where(*at, "after"), lambda: _after(rule["after"]))
                 if after is None:

@@ -1,5 +1,6 @@
-# A cooked fish: the best meal on the island. Eaten at the fire.
+# A cooked fish: the best meal on the island. Eaten from the inventory (F) or at the fire.
 kind: item
 title: Cooked fish
 tags: [food]
 body: {asset: fish.yaml, params: {skin: fish_cooked}}
+use: Eat
