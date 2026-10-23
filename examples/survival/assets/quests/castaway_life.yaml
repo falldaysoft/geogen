@@ -1,5 +1,5 @@
 # The third quest: living here. Water from the spring, a fish speared and cooked, and three
-# days survived. Optional: a coconut cracked at the workstone.
+# days survived. Optional: a coconut cracked at the workstone, berries eaten from the pack (F).
 kind: quest
 version: 1
 title: Castaway life
@@ -28,6 +28,11 @@ objectives:
     optional: true
     done: {signal: workstone.cracked}
     marker: workstone
+  - id: snack
+    text: Eat berries from your pack (F)
+    optional: true
+    done: {use_item: berries}
+    marker: hidden
   - id: days
     text: Survive three days
     done: "clock.day >= 3"

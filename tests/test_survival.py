@@ -2,7 +2,7 @@
 combined, chopped, burnt, built and slept in through the core vocabulary alone, and hunger, thirst
 and energy fall on the game clock through periodic rules. The project's checks, the loop on the
 reference machine by both routes (driftwood and woven walls, or an axe and logs), the needs, the
-quests, and a Godot playthrough over the control API."""
+quests, and a Godot playthrough over the control API (exhaustive tier: the island's navmesh bake)."""
 
 import subprocess
 import sys
@@ -383,6 +383,9 @@ def test_the_quests_follow_the_player_by_either_route(castaway):
     assert c.m.clock["day"] == 2
     c.use("spring#drink", seconds=1.6)
     assert c.get("quest_castaway_life_drink")
+    c.give(berries=1)
+    c.m.post({"type": "use_item", "name": "berries", "actor": "player"})    # an objective on using an item
+    assert c.get("quest_castaway_life_snack") and c.held("berries") == 0
     c.clock("06:00", day=3)
     assert c.get("quest_castaway_life_days") and status("castaway_life") == "active"   # the fish is still to catch
 
@@ -406,6 +409,7 @@ def runtime(godot_runtime, tmp_path_factory):
     return client
 
 
+@pytest.mark.exhaustive
 def test_in_godot_fire_is_made_the_clock_takes_its_toll_and_a_night_is_slept(runtime):
     """The beach route over the control API: the workstone makes a drill from what the beach gives,
     the fire ring is laid and lit, the needs fall as the clock is skipped (the periodic rules in the
