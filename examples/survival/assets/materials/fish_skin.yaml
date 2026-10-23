@@ -1,0 +1,6 @@
+# A fish's silver-blue skin.
+name: fish_skin
+texture: { type: painted_wall, params: { base_color: [150, 170, 185], seed: 705 } }
+size: [64, 64]
+tile_size: 0.5
+pbr: { roughness: 0.3, metallic: 0.2, normal_strength: 0.1, ao_strength: 0.5 }

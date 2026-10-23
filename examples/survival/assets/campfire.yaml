@@ -1,0 +1,197 @@
+# A campfire site on the beach: a ring of pale sand marks where a fire can go. Build the ring
+# (E on the mark: 2 stones, 3 sticks), then light it (E on the ash: a fire drill or flint in
+# hand) and it burns `burn_hours` of the game clock before sinking to embers, which go out
+# `ember_hours` later; feed it a stick (E) any time it is alight to start the burn over. It
+# gives light and warmth: anyone within a few metres is `near_fire`, which the night's cold
+# spares while it is alight. A spit over it cooks a raw fish (E on the spit, 3 s), and the
+# log beside it is where a cooked fish is eaten (E). Origin: on the ground at the fire's middle.
+name: campfire
+tags: [station.campfire]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  burn_hours: {default: 4}
+  ember_hours: {default: 2}
+
+state:
+  near_fire: {scope: actor, type: bool, default: false}  # the castaway is within the fire's warmth
+  hunger: {scope: actor, type: number, default: 100}     # the castaway's (the scene's default wins)
+
+light: {energy: 1.8, range: 8.0, color: [1.0, 0.62, 0.3], offset: [0, 0.6, 0]}
+
+parts:
+  mark:                          # the site, until the ring is built: a scorched patch
+    primitive: cylinder
+    size: [1.3, 0.012, 1.3]
+    anchor: bottom_center
+    material: charcoal
+    walkable: true
+  ash:
+    primitive: cylinder
+    size: [0.8, 0.03, 0.8]
+    anchor: bottom_center
+    bevel: 0.01
+    bevel_segments: 1
+    material: charcoal
+    walkable: true
+  stone_0: &stone
+    primitive: rock
+    size: [0.24, 0.16, 0.2]
+    anchor: bottom_center
+    offset: [0.5, 0, 0]
+    seed: 41
+    roughness: 0.1
+    material: rock
+  stone_1: {<<: *stone, offset: [0.25, 0, 0.43], seed: 42}
+  stone_2: {<<: *stone, offset: [-0.25, 0, 0.43], seed: 43}
+  stone_3: {<<: *stone, offset: [-0.5, 0, 0], seed: 44}
+  stone_4: {<<: *stone, offset: [-0.25, 0, -0.43], seed: 45}
+  stone_5: {<<: *stone, offset: [0.25, 0, -0.43], seed: 46}
+  stick_a: &stick
+    primitive: cylinder
+    size: [0.04, 0.5, 0.04]
+    anchor: bottom_center         # turned about its middle (y 0.25): offset brings the foot down
+    rotation: [0, 0, 60]
+    offset: [0.1, -0.1, 0]
+    material: bark
+    collider: none
+  stick_b: {<<: *stick, rotation: [60, 0, 0], offset: [0, -0.1, 0.1]}
+  stick_c: {<<: *stick, rotation: [0, 0, -60], offset: [-0.1, -0.1, -0.05]}
+  flame:
+    primitive: lathe
+    profile: {spline: [[0, 0], [0.22, 0.05], [0.18, 0.3], [0.08, 0.55], [0, 0.75]]}
+    size: [0.44, 0.75, 0.44]
+    anchor: bottom_center
+    offset: [0, 0.06, 0]
+    segments: 12
+    material: flame
+    collider: none
+  flame_inner:
+    primitive: lathe
+    profile: {spline: [[0, 0], [0.12, 0.05], [0.09, 0.25], [0, 0.45]]}
+    size: [0.24, 0.45, 0.24]
+    anchor: bottom_center
+    offset: [0.04, 0.1, 0.03]
+    segments: 10
+    material: flame
+    collider: none
+  embers:
+    primitive: cylinder
+    size: [0.5, 0.05, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.03, 0]
+    material: ember
+    collider: none
+  spit_post_a: &post
+    primitive: cylinder
+    size: [0.045, 0.75, 0.045]
+    anchor: bottom_center
+    offset: [0.55, 0, 0.1]
+    rotation: [0, 0, -6]
+    material: bark
+  spit_post_b: {<<: *post, offset: [-0.55, 0, 0.1], rotation: [0, 0, 6]}
+  spit_bar:
+    primitive: extrude
+    shape: {circle: 0.015, segments: 10}
+    fit: none
+    axis: x
+    size: [1.2, 0.03, 0.03]
+    anchor: bottom_center
+    offset: [0, 0.72, 0.1]
+    material: bark
+  seat:
+    primitive: extrude
+    shape: {circle: 0.15, segments: 14}
+    fit: none
+    axis: x
+    size: [1.4, 0.3, 0.3]
+    anchor: bottom_center
+    offset: [0, 0, 1.3]
+    material: driftwood
+
+places:
+  warmth:
+    box: [7, 3, 7]
+    position: [0, 0, 0]
+    detect: [actors]
+
+interactions:
+  build:
+    targets: [mark]
+    reach: 2.5
+    initial: site
+    duration: 1.5
+    when: 'held("stone") >= 2 and held("stick") >= 3'
+    refused: "A fire ring takes 2 stones and 3 sticks"
+    states:
+      site:  {prompt: "Build a fire ring (2 stones, 3 sticks)", next: built}
+      built: {emit: built}
+    motions:
+      - {parts: [mark], show: [site]}
+      - {parts: [ash, stone_0, stone_1, stone_2, stone_3, stone_4, stone_5, spit_post_a, spit_post_b, spit_bar], show: [built]}
+  fire:
+    targets: [ash, stick_a, stick_b, stick_c, flame, embers]
+    reach: 2.5
+    initial: out
+    duration: 1.5
+    when: "(self.fire == 'out' and self.build == 'built' and (has('fire_drill') or has('flint'))) or (self.fire != 'out' and has('stick'))"
+    refused: "Lighting it takes a fire drill or flint; feeding it takes a stick"
+    states:
+      out:    {prompt: "Light the fire (fire drill or flint)", next: lit}
+      lit:    {prompt: "Feed the fire (1 stick)", next: fed, emit: lit, then: embers, after: {hours: "{burn_hours}"}}
+      fed:    {emit: fed, then: lit}
+      embers: {prompt: "Feed the fire (1 stick)", next: fed, then: out, after: {hours: "{ember_hours}"}}
+    motions:
+      - {parts: [stick_a, stick_b, stick_c, flame, flame_inner], show: [lit, fed]}
+      - {parts: [embers], show: [embers]}
+  cook:
+    targets: [spit_post_a, spit_post_b, spit_bar]
+    initial: ready
+    duration: 3.0
+    when: "has('raw_fish') and (self.fire == 'lit' or self.fire == 'fed')"
+    refused: "Cooking takes a raw fish and a burning fire"
+    states:
+      ready:   {prompt: "Cook a fish (3 s)", next: cooking}
+      cooking: {emit: cooked, then: ready}
+  eat:
+    targets: [seat]
+    reach: 2.5
+    initial: ready
+    duration: 1.5
+    when: "has('cooked_fish') and actor.hunger < 95"
+    refused: "Eating here takes a cooked fish, and an appetite"
+    states:
+      ready:  {prompt: "Eat a cooked fish", next: eating}
+      eating: {emit: ate, then: ready}
+
+bind:
+  self.lit: "self.fire == 'lit' or self.fire == 'fed' or self.fire == 'embers'"
+
+rules:
+  - id: ring
+    on: {signal: self.built}
+    do: [{take: stone, count: 2}, {take: stick, count: 3}, {notify: "The fire ring is laid"}, {play: success}]
+  - id: feed
+    on: {signal: self.fed}
+    do: [{take: stick}]
+  - id: cooked
+    on: {signal: self.cooked}
+    do: [{take: raw_fish}, {give: cooked_fish}, {notify: "The fish is cooked"}]
+  - id: ate
+    on: {signal: self.ate}
+    do: [{take: cooked_fish}, {set: actor.hunger, to: "min(actor.hunger + 50, 100)"}, {notify: "You eat the fish: a proper meal"}]
+  - id: warm
+    on: {enter: warmth}
+    do: [{set: actor.near_fire, to: true}]
+  - id: cold
+    on: {leave: warmth}
+    do: [{set: actor.near_fire, to: false}]
+
+signals:
+  built: {emit: built}
+  lit: {emit: lit}
+  fed: {emit: fed}
+  cooked: {emit: cooked}
+  ate: {emit: ate}

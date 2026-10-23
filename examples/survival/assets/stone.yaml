@@ -1,0 +1,17 @@
+# A fist-sized stone. The body of items/stone.yaml (a carryable physics prop). Origin: bottom centre.
+name: stone
+tags: [prop.material]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+params:
+  seed: {default: 4}
+physics: {mass: 1.2, friction: 0.9, bounce: 0.02, carry: true}
+parts:
+  body:
+    primitive: rock
+    size: [0.16, 0.1, 0.13]
+    anchor: bottom_center
+    seed: "{seed}"
+    roughness: 0.12
+    material: rock

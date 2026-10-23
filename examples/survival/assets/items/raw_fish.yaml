@@ -1,0 +1,5 @@
+# A fish, speared at the fishing rock. Cooked on the campfire's spit.
+kind: item
+title: Raw fish
+tags: [food]
+body: fish.yaml

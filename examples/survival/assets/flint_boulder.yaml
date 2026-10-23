@@ -1,0 +1,49 @@
+# A grey boulder with a dark seam of flint: strike it with a stone (E, needs a stone in hand,
+# which you keep) to knap off a flake of flint, which strikes a spark on the campfire and tips a
+# spear. Another flake can be struck an hour later. Origin: on the ground at the boulder's middle.
+name: flint_boulder
+tags: [resource.flint, terrain.rock]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  seed: {default: 3}
+
+parts:
+  boulder:
+    primitive: rock
+    size: [1.8, 1.3, 1.5]
+    anchor: bottom_center
+    offset: [0, -0.1, 0]
+    seed: "{seed}"
+    roughness: 0.1
+    material: rock
+  seam:
+    primitive: rock
+    size: [0.7, 0.45, 0.5]
+    anchor: bottom_center
+    offset: [0.5, 0.35, 0.55]
+    seed: "{seed + 4}"
+    roughness: 0.03
+    material: charcoal
+    collider: hull
+
+interactions:
+  knap:
+    targets: [seam]
+    initial: ready
+    duration: 1.0
+    when: 'has("stone")'
+    refused: "You need a stone to strike it with"
+    states:
+      ready:  {prompt: "Knap flint (with a stone)", next: struck}
+      struck: {emit: knapped, then: ready, after: {hours: 1}}
+
+rules:
+  - id: give
+    on: {signal: self.knapped}
+    do: [{give: flint}, {notify: "A flake of flint comes away"}, {play: click}]
+
+signals:
+  knapped: {emit: knapped}

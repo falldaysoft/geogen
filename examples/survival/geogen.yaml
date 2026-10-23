@@ -1,0 +1,12 @@
+# A project built on geogen: a castaway survival game. You wash up on an island with nothing.
+# Find sticks, stones, fibre, driftwood, berries and coconuts; combine them at the workstone
+# into an axe, rope, a fire drill and a spear; chop trees for logs; build and feed a fire;
+# raise a shelter in stages and sleep in it. Hunger, thirst, energy and health run on the game
+# clock (the core's periodic rules). More than one way through: driftwood or an axe for logs,
+# a fire drill or flint to light the fire, planks or thatch for the roof, berries, coconuts or
+# fish to eat, the spring or coconuts to drink.
+#   python -m geogen.main --project examples/survival --export-catalogue
+#   godot --path runtime/godot -- --generated=$PWD/examples/survival/generated
+kind: project
+name: survival
+description: Castaway survival - find, craft, chop, burn, build and sleep on an island while hunger and thirst run on the clock

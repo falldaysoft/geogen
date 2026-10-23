@@ -1,0 +1,39 @@
+# The second quest: a shelter in the clearing, in stages. Logs come off the beach as driftwood
+# (five, no axe) or from trees (a stone axe at the workstone); each stage after the frame has
+# two ways: log walls or woven ones, a plank roof or thatch. A bed, then sleep in it.
+kind: quest
+version: 1
+title: A roof over your head
+description: Raise a shelter in the clearing and sleep in it.
+objectives:
+  - id: logs
+    text: Get four logs (driftwood on the beach, or fell trees with a stone axe)
+    done: 'held("log") >= 4 or shelter.frame == "framed"'
+    marker: {at: drift_1, area: 8}
+  - id: frame
+    text: Raise the frame at the clearing
+    after: logs
+    done: 'shelter.frame == "framed"'
+    marker: shelter
+  - id: walls
+    text: Build walls of logs, or weave them from sticks and rope
+    after: frame
+    done: 'shelter.walls_logs == "done" or shelter.walls_woven == "done"'
+    marker: shelter
+  - id: roof
+    text: Roof it with planks, or thatch it with fibre and rope
+    after: walls
+    done: shelter.roofed
+    marker: shelter
+  - id: bed
+    text: Make a bed of fibre and sticks
+    after: roof
+    done: 'shelter.bed == "done"'
+    marker: shelter
+  - id: sleep
+    text: Sleep until morning
+    after: bed
+    done: {signal: shelter.slept}
+    marker: shelter
+rewards:
+  - {start_quest: castaway_life}

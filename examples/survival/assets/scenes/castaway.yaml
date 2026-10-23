@@ -1,0 +1,186 @@
+# The castaway island. You come to on the south beach with nothing. Sticks, stones and
+# grass lie about; driftwood, the workstone and a fire site are on the beach; a spring is on
+# the west slope, the clearing for a shelter to the north-east, the flint boulder on a knoll
+# beyond, trees on the hill, palms and berry bushes between. Hunger, thirst and energy fall
+# every hour of the game clock (the core's periodic rules), health follows them and the
+# night's cold; at zero you collapse and wake at dawn, weaker and lighter. The HUD shows
+# the four needs and the day; three quests walk through it, each leaving the choice of route.
+#
+# Ways through: logs from driftwood (no axe, but finite) or felled trees (the axe); the fire
+# lit by a fire drill (sticks, fibre) or flint (the boulder, with a stone); walls of logs or of
+# woven sticks and rope; a roof of planks or thatch; food from bushes, coconuts or the fishing
+# rock (with a spear); water from the spring or coconuts cracked at the workstone.
+
+name: castaway
+size: [150, 24, 150]
+tags: [showcase.survival]
+quests: [quests/first_night.yaml, quests/a_roof.yaml, quests/castaway_life.yaml]
+
+state:
+  health: {scope: actor, type: number, default: 100}
+  hunger: {scope: actor, type: number, default: 100}
+  thirst: {scope: actor, type: number, default: 100}
+  energy: {scope: actor, type: number, default: 100}
+  near_fire: {scope: actor, type: bool, default: false}     # kept by the campfire's warmth place
+  sheltered: {scope: actor, type: bool, default: false}     # kept by the shelter's inside place
+  asleep: {scope: actor, type: bool, default: false}        # through a night skipped in bed, or passed out
+
+rules:
+  # Needs fall on the game clock, for players only.
+  - id: hunger_falls
+    every: {hours: 1}
+    actor: player
+    when: "actor.hunger > 0"
+    do: [{set: actor.hunger, to: "max(actor.hunger - 4, 0)"}]
+  - id: thirst_falls
+    every: {hours: 1}
+    actor: player
+    when: "actor.thirst > 0"
+    do: [{set: actor.thirst, to: "max(actor.thirst - 5, 0)"}]
+  - id: energy_falls
+    every: {hours: 1}
+    actor: player
+    when: "actor.energy > 0 and not actor.asleep"
+    do: [{set: actor.energy, to: "max(actor.energy - 3, 0)"}]
+  # Health follows: starving, parched or spent it falls; cold at night, out of shelter and away
+  # from a burning fire, it falls; fed and watered it mends.
+  - id: starving
+    every: {hours: 1}
+    actor: player
+    when: "actor.hunger <= 0 or actor.thirst <= 0 or actor.energy <= 0"
+    do: [{set: actor.health, to: "max(actor.health - 5, 0)"}, {notify: "You are fading: eat, drink, rest"}]
+  - id: cold
+    every: {hours: 1}
+    actor: player
+    when: "clock.night and not (actor.sheltered and shelter.roofed) and not (actor.near_fire and fire.lit)"
+    do: [{set: actor.health, to: "max(actor.health - 3, 0)"}, {notify: "You shiver in the cold"}]
+  - id: mending
+    every: {hours: 1}
+    actor: player
+    when: "actor.hunger > 30 and actor.thirst > 30 and actor.health < 100"
+    do: [{set: actor.health, to: "min(actor.health + 4, 100)"}]
+  # Warnings, once each time a need gets low.
+  - {id: hungry, when: "actor.hunger <= 25", do: [{notify: "You are hungry"}, {play: notice}]}
+  - {id: thirsty, when: "actor.thirst <= 25", do: [{notify: "You are thirsty"}, {play: notice}]}
+  - {id: tired, when: "actor.energy <= 20", do: [{notify: "You are exhausted: sleep"}, {play: notice}]}
+  # Collapse: the night passes (the hours skipped still take their toll, as in bed), and you
+  # wake weaker and without your food.
+  - id: collapse
+    when: "actor.health <= 0"
+    do:
+      - {notify: "Everything goes dark. You wake at dawn, weak, your food gone"}
+      - {play: failed}
+      - {set: actor.asleep, to: true}
+      - {set: actor.health, to: 50}
+      - {set: actor.hunger, to: 90}
+      - {set: actor.thirst, to: 90}
+      - {set: actor.energy, to: 80}
+      - {take: berries, count: 99}
+      - {take: coconut, count: 99}
+      - {take: raw_fish, count: 99}
+      - {take: cooked_fish, count: 99}
+      - {skip: {to: "06:00"}}
+  # Waking: a moment after a skip that was slept through (its hours have run by then).
+  - id: wake
+    on: {changed: actor.asleep, to: true}
+    after: 1
+    do: [{set: actor.asleep, to: false}]
+
+hud:
+  stats:
+    - {label: Health, value: actor.health, of: 100}
+    - {label: Hunger, value: actor.hunger, of: 100}
+    - {label: Thirst, value: actor.thirst, of: 100}
+    - {label: Energy, value: actor.energy, of: 100}
+    - {label: Day, value: "clock.day + 1"}
+    - {label: Time, value: clock.time}
+  banners:
+    - {when: "actor.health <= 20", text: "You are dying: eat, drink, get warm", tone: bad}
+    - {when: "clock.night and not (actor.sheltered and shelter.roofed) and not (actor.near_fire and fire.lit)", text: "Night: the cold bites away from a fire or a roof", tone: info}
+
+spawns:
+  start: {position: [0, 3.05, -46], facing: north}      # on the beach, the workstone and fire site ahead
+
+slots:
+  workstone: {position: [4, 3.0, -42], facing: north}
+  fire: {position: [-1, 3.0, -40], facing: north}
+  fishing: {position: [0, 2.55, -55], facing: north}     # at the water's edge, the sea to the south
+  shelter: {position: [16, 7.0, -18], facing: south}     # the open side toward the camp path
+  spring: {position: [-20, 8.5, -12], facing: south}
+  boulder: {position: [-8, 12.0, 10], facing: south}
+  drift_1: {position: [-6, 3.0, -48], facing: east}
+  drift_2: {position: [5, 3.0, -49.5], facing: north}
+  drift_3: {position: [-2.5, 3.0, -51], facing: east}
+  drift_4: {position: [8.5, 3.0, -45], facing: south}
+  drift_5: {position: [-8, 3.0, -43], facing: north}
+  sticks_1: {position: [-3, 3.0, -37]}
+  sticks_2: {position: [7, 3.0, -37.5]}
+  stones_1: {position: [2.5, 3.0, -47]}
+  stones_2: {position: [-5, 3.0, -39]}
+  grass_1: {position: [-1.5, 3.0, -35]}
+  grass_2: {position: [8, 3.0, -40.5]}
+
+place:
+  grounds:
+    asset: castaway_grounds.yaml
+
+  workstone: {asset: workstone.yaml, slot: workstone}
+  fire: {asset: campfire.yaml, slot: fire}
+  fishing: {asset: fishing_spot.yaml, slot: fishing}
+  shelter: {asset: shelter_site.yaml, slot: shelter}
+  spring: {asset: spring.yaml, slot: spring}
+  boulder: {asset: flint_boulder.yaml, slot: boulder}
+
+  # The beach's own supplies: five logs of driftwood, and enough to start on.
+  drift_1: {asset: driftwood.yaml, slot: drift_1, params: {seed: 1}}
+  drift_2: {asset: driftwood.yaml, slot: drift_2, params: {seed: 2}}
+  drift_3: {asset: driftwood.yaml, slot: drift_3, params: {seed: 3}}
+  drift_4: {asset: driftwood.yaml, slot: drift_4, params: {seed: 4}}
+  drift_5: {asset: driftwood.yaml, slot: drift_5, params: {seed: 5}}
+  sticks_1: {asset: stick_pile.yaml, slot: sticks_1}
+  sticks_2: {asset: stick_pile.yaml, slot: sticks_2}
+  stones_1: {asset: loose_stones.yaml, slot: stones_1, params: {seed: 1}}
+  stones_2: {asset: loose_stones.yaml, slot: stones_2, params: {seed: 4}}
+  grass_1: {asset: grass_tuft.yaml, slot: grass_1, params: {seed: 1}}
+  grass_2: {asset: grass_tuft.yaml, slot: grass_2, params: {seed: 2}}
+
+  # The island's: trees on the hill, palms along the beaches, bushes and grass between.
+  pines:
+    asset: timber_tree.yaml
+    params: {seed: {choice: [1, 2, 3, 4, 5, 6]}, scale: {random: [0.85, 1.15]}}
+    scatter: {seed: 9, on_terrain: grounds, height: [4.5, 20], slope: [0, 24], spacing: 6.5, count: 36,
+              avoid: [shelter, spring, boulder], margin: 5.0}
+  maples:
+    asset: timber_tree.yaml
+    params: {style: deciduous, width: 4.0, height: 5.2, seed: {choice: [1, 2, 3, 4]}, scale: {random: [0.9, 1.1]}}
+    scatter: {seed: 10, on_terrain: grounds, height: [3.0, 10], slope: [0, 20], spacing: 7, count: 10,
+              avoid: [shelter, spring, boulder, workstone, fire], margin: 5.0}
+  palms:
+    asset: coconut_palm.yaml
+    params: {seed: {choice: [1, 2, 3, 4, 5, 6, 7, 8]}, scale: {random: [0.85, 1.15]}}
+    scatter: {seed: 5, on_terrain: grounds, height: [0.5, 2.8], slope: [0, 16], spacing: 7, count: 16,
+              avoid: [workstone, fire, fishing, drift_1, drift_2, drift_3, drift_4, drift_5], margin: 2.5}
+  bushes:
+    asset: berry_bush.yaml
+    params: {seed: {choice: [1, 2, 3, 4, 5]}}
+    scatter: {seed: 11, on_terrain: grounds, height: [2.6, 10], slope: [0, 20], spacing: 5, count: 12,
+              avoid: [shelter, spring, boulder, workstone, fire], margin: 3.0}
+  grass:
+    asset: grass_tuft.yaml
+    params: {seed: {choice: [1, 2, 3, 4, 5, 6]}}
+    scatter: {seed: 12, on_terrain: grounds, height: [0.6, 8], slope: [0, 22], spacing: 3.5, count: 24,
+              avoid: [shelter, spring, boulder, workstone, fire, fishing], margin: 2.0}
+  sticks:
+    asset: stick_pile.yaml
+    scatter: {seed: 13, on_terrain: grounds, height: [0.6, 12], slope: [0, 25], spacing: 5, count: 16,
+              avoid: [shelter, spring, boulder, workstone, fire], margin: 2.0}
+  stones:
+    asset: loose_stones.yaml
+    params: {seed: {choice: [1, 2, 3, 4, 5, 6]}}
+    scatter: {seed: 14, on_terrain: grounds, height: [1.0, 14], slope: [4, 40], spacing: 5, count: 12,
+              avoid: [shelter, spring, boulder, workstone, fire], margin: 2.0}
+  rocks:
+    asset: rock_large.yaml
+    params: {seed: {choice: [1, 2, 3, 4, 5, 6, 7]}}
+    scatter: {seed: 15, on_terrain: grounds, height: [1.0, 20], slope: [18, 90], spacing: 6, count: 10,
+              avoid: [shelter, spring, boulder, workstone, fire, fishing], margin: 2.0}

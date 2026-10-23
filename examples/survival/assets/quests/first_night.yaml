@@ -1,0 +1,43 @@
+# The first quest: a fire before dark. Gather what the beach gives, make something to light a
+# fire with (a fire drill at the workstone, or flint off the boulder), lay the ring and light it,
+# and live to see the morning. The route is yours: the fire needs a drill OR flint.
+kind: quest
+version: 1
+title: The first night
+description: Make fire before dark, and live to see the morning.
+start: auto
+objectives:
+  - id: sticks
+    text: Gather sticks (stick piles on the beach)
+    done: 'held("stick") >= 5'
+    marker: {at: sticks_1, area: 4}
+  - id: stones
+    text: Gather stones
+    done: 'held("stone") >= 2'
+    marker: {at: stones_1, area: 4}
+  - id: fibre
+    text: Gather fibre from the beach grass
+    done: 'has("fibre")'
+    marker: {at: grass_1, area: 4}
+  - id: spark
+    text: Make a fire drill at the workstone, or knap flint off the boulder
+    after: [sticks, fibre]
+    done: 'has("fire_drill") or has("flint")'
+    marker: workstone
+  - id: ring
+    text: Lay the fire ring at the camp
+    after: [sticks, stones]
+    done: 'fire.build == "built"'
+    marker: fire
+  - id: lit
+    text: Light the fire
+    after: [spark, ring]
+    done: 'fire.fire == "lit"'
+    marker: fire
+  - id: morning
+    text: Keep it fed and see the morning
+    after: lit
+    done: "clock.day >= 1"
+    marker: fire
+rewards:
+  - {start_quest: a_roof}

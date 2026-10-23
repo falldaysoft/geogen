@@ -1,0 +1,28 @@
+# A bundle of plant fibre tied round the middle. The body of items/fibre.yaml (a carryable
+# physics prop). Origin: bottom centre; lying along Z.
+name: fibre_bundle
+tags: [prop.material]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+physics: {mass: 0.2, friction: 0.9, bounce: 0.02, carry: true}
+parts:
+  strands:
+    primitive: extrude
+    shape: {circle: 0.03, segments: 12}
+    fit: none
+    axis: z
+    size: [0.06, 0.06, 0.4]
+    anchor: bottom_center
+    material: wheat_straw
+  tie:
+    primitive: extrude
+    shape: {circle: 0.036, segments: 12}
+    fit: none
+    axis: z
+    size: [0.072, 0.072, 0.025]
+    anchor: bottom_center
+    offset: [0, -0.006, 0]
+    material: cloth
+    tint: maroon
+    collider: none

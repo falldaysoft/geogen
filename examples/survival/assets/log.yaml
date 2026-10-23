@@ -1,0 +1,33 @@
+# A log: a length of trunk, bark on, ends sawn. The body of items/log.yaml (a carryable
+# physics prop). Origin: bottom centre; lying along Z.
+name: log
+tags: [prop.material]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+params:
+  length: {default: 1.4}
+  radius: {default: 0.12}
+physics: {mass: 14, friction: 0.9, bounce: 0.0, carry: true}
+parts:
+  trunk:
+    primitive: extrude
+    shape: {circle: "{radius}", segments: 14}
+    fit: none
+    axis: z
+    size: ["{2 * radius}", "{2 * radius}", "{length}"]
+    anchor: bottom_center
+    material: bark
+  end_a: &end
+    primitive: extrude
+    shape: {circle: "{0.8 * radius}", segments: 14}
+    fit: none
+    axis: z
+    size: ["{1.6 * radius}", "{1.6 * radius}", 0.01]
+    anchor: bottom_center
+    offset: [0, "{0.2 * radius}", "{length / 2 + 0.003}"]
+    material: wood
+    collider: none
+  end_b:
+    <<: *end
+    offset: [0, "{0.2 * radius}", "{-length / 2 - 0.003}"]

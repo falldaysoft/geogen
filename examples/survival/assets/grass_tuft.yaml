@@ -1,0 +1,47 @@
+# A clump of tall beach grass: gather it (E) for two bundles of fibre. It grows back after
+# `regrow_hours` of the game clock. Origin: on the ground at the clump's middle.
+name: grass_tuft
+tags: [resource.fibre]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  regrow_hours: {default: 12}
+  seed: {default: 0}
+
+parts:
+  grass:
+    primitive: crop
+    size: [0.8, 0.7, 0.8]
+    anchor: bottom_center
+    kind: wheat
+    growth: 0.55
+    seed: "{seed}"
+  base:                          # a low mound the blades stand in: something solid to aim at
+    primitive: ellipsoid
+    size: [0.6, 0.08, 0.6]
+    anchor: bottom_center
+    offset: [0, -0.04, 0]
+    material: dirt
+    walkable: true
+
+interactions:
+  gather:
+    targets: [grass, base]
+    reach: 2.2
+    initial: here
+    duration: 0.4
+    states:
+      here:  {prompt: "Gather fibre", next: taken}
+      taken: {emit: gathered, then: here, after: {hours: "{regrow_hours}"}}
+    motions:
+      - {parts: [grass], show: [here]}
+
+rules:
+  - id: give
+    on: {signal: self.gathered}
+    do: [{give: fibre, count: 2}, {notify: "Gathered: 2 fibre"}]
+
+signals:
+  gathered: {emit: gathered}

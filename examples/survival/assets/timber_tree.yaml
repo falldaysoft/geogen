@@ -1,0 +1,67 @@
+# A tree that can be felled: with a stone axe in hand, chop it (E) twice and it comes down,
+# leaving three logs in your hands and a stump; a new tree stands there `regrow_days` later.
+# `style` is the tree generator's (conifer, deciduous, palm) with `width` and `height` of the
+# crown box; `seed` grows a different tree. Origin: on the ground at the trunk's foot.
+name: timber_tree
+tags: [resource.tree, vegetation.tree]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  style:  {default: conifer, choices: [conifer, deciduous, palm]}
+  width:  {default: 3.4}
+  height: {default: 6.0}
+  scale:  {default: 1}
+  seed:   {default: 2}
+  regrow_days: {default: 2}
+
+parts:
+  tree:
+    primitive: tree
+    style: "{style}"
+    size: ["{width * scale}", "{height * scale}", "{width * scale}"]
+    anchor: bottom_center
+    seed: "{seed}"
+    trunk_radius: "{0.16 * scale}"
+    step: "{0.3 * scale}"
+    leaf_size: "{0.38 * scale}"
+    attractors: 500
+    material: bark
+  stump:
+    primitive: lathe
+    profile: [[0, 0], ["{0.2 * scale}", 0], ["{0.17 * scale}", "{0.45 * scale}"], [0, "{0.45 * scale}"]]
+    size: ["{0.4 * scale}", "{0.45 * scale}", "{0.4 * scale}"]
+    anchor: bottom_center
+    segments: 12
+    material: bark
+  stump_top:
+    primitive: cylinder
+    size: ["{0.3 * scale}", 0.01, "{0.3 * scale}"]
+    anchor: bottom_center
+    offset: [0, "{0.45 * scale}", 0]
+    material: wood
+    collider: none
+interactions:
+  chop:
+    targets: [tree]
+    initial: standing
+    duration: 1.2
+    when: 'has("stone_axe")'
+    refused: "You need an axe"
+    states:
+      standing: {prompt: "Chop (stone axe)", next: notched}
+      notched:  {prompt: "Chop again", next: felled}
+      felled:   {emit: felled, then: stump, after: 3}
+      stump:    {then: standing, after: {days: "{regrow_days}"}}
+    motions:
+      - {parts: [tree], show: [standing, notched]}
+      - {parts: [stump, stump_top], show: [felled, stump]}
+
+rules:
+  - id: logs
+    on: {signal: self.felled}
+    do: [{give: log, count: 3}, {notify: "The tree comes down: 3 logs"}, {play: success}]
+
+signals:
+  felled: {emit: felled}

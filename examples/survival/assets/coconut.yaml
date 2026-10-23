@@ -1,0 +1,14 @@
+# A coconut in its husk. The body of items/coconut.yaml (a carryable physics prop). Origin:
+# bottom centre.
+name: coconut
+tags: [prop.food]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+physics: {mass: 1.0, friction: 0.8, bounce: 0.1, carry: true, shape: sphere, damping: {linear: 0.5, angular: 0.8}}
+parts:
+  husk:
+    primitive: ellipsoid
+    size: [0.16, 0.2, 0.16]
+    anchor: bottom_center
+    material: coconut_husk

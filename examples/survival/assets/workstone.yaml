@@ -1,0 +1,138 @@
+# The workstone: a flat slab of rock on the beach where things are made. Five small slabs on
+# its top each stand for a recipe, labelled; aim at one and press E to make it from what you
+# carry (the prompt says what it takes; a refusal says what is missing):
+#   AXE     2 sticks, a stone, fibre      -> a stone axe (fells trees)
+#   ROPE    3 fibre                       -> rope
+#   DRILL   2 sticks, fibre               -> a fire drill (lights the fire)
+#   SPEAR   a stick, flint, rope          -> a spear (fish)
+#   COCONUT a coconut and a stone (kept)  -> eaten and drunk on the spot
+# Origin: on the ground at the slab's middle; the labels face +Z.
+name: workstone
+tags: [station.workstone]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+state:
+  hunger: {scope: actor, type: number, default: 100}    # the castaway's (the scene's default wins)
+  thirst: {scope: actor, type: number, default: 100}
+
+parts:
+  slab:
+    primitive: cube
+    size: [2.0, 0.55, 1.1]
+    anchor: bottom_center
+    bevel: 0.08
+    bevel_segments: 2
+    material: rock
+    walkable: true
+  foot:
+    primitive: rock
+    size: [2.3, 0.3, 1.4]
+    anchor: bottom_center
+    offset: [0, -0.1, 0]
+    seed: 31
+    roughness: 0.08
+    material: rock
+    collider: none
+  pad_axe: &pad
+    primitive: cube
+    size: [0.3, 0.03, 0.3]
+    anchor: bottom_center
+    offset: [-0.8, 0.55, 0.1]
+    bevel: 0.006
+    bevel_segments: 1
+    material: stone
+  pad_rope:    {<<: *pad, offset: [-0.4, 0.55, 0.1]}
+  pad_drill:   {<<: *pad, offset: [0.0, 0.55, 0.1]}
+  pad_spear:   {<<: *pad, offset: [0.4, 0.55, 0.1]}
+  pad_coconut: {<<: *pad, offset: [0.8, 0.55, 0.1]}
+  label_axe: &label
+    primitive: text
+    text: AXE
+    font: sans
+    height: 0.05
+    depth: 0.012
+    anchor: bottom_center
+    offset: [-0.8, 0.55, -0.15]
+    material: charcoal
+    collider: none
+  label_rope:    {<<: *label, text: ROPE, offset: [-0.4, 0.55, -0.15]}
+  label_drill:   {<<: *label, text: DRILL, offset: [0.0, 0.55, -0.15]}
+  label_spear:   {<<: *label, text: SPEAR, offset: [0.4, 0.55, -0.15]}
+  label_coconut: {<<: *label, text: COCONUT, offset: [0.8, 0.55, -0.15]}
+
+interactions:
+  axe:
+    targets: [pad_axe]
+    initial: ready
+    duration: 2.0
+    when: 'held("stick") >= 2 and has("stone") and has("fibre")'
+    refused: "A stone axe takes 2 sticks, a stone and fibre"
+    states:
+      ready:  {prompt: "Make a stone axe (2 sticks, stone, fibre)", next: making}
+      making: {emit: made_axe, then: ready}
+  rope:
+    targets: [pad_rope]
+    initial: ready
+    duration: 2.0
+    when: 'held("fibre") >= 3'
+    refused: "Rope takes 3 fibre"
+    states:
+      ready:  {prompt: "Twist rope (3 fibre)", next: making}
+      making: {emit: made_rope, then: ready}
+  drill:
+    targets: [pad_drill]
+    initial: ready
+    duration: 2.0
+    when: 'held("stick") >= 2 and has("fibre")'
+    refused: "A fire drill takes 2 sticks and fibre"
+    states:
+      ready:  {prompt: "Make a fire drill (2 sticks, fibre)", next: making}
+      making: {emit: made_drill, then: ready}
+  spear:
+    targets: [pad_spear]
+    initial: ready
+    duration: 2.0
+    when: 'has("stick") and has("flint") and has("rope")'
+    refused: "A spear takes a stick, flint and rope"
+    states:
+      ready:  {prompt: "Make a spear (stick, flint, rope)", next: making}
+      making: {emit: made_spear, then: ready}
+  coconut:
+    targets: [pad_coconut]
+    initial: ready
+    duration: 1.5
+    when: 'has("coconut") and has("stone")'
+    refused: "Cracking a coconut takes a coconut and a stone"
+    states:
+      ready:    {prompt: "Crack a coconut (with a stone)", next: cracking}
+      cracking: {emit: cracked, then: ready}
+
+rules:
+  - id: axe
+    on: {signal: self.made_axe}
+    do: [{take: stick, count: 2}, {take: stone}, {take: fibre}, {give: stone_axe}, {notify: "Made: a stone axe"}, {play: success}]
+  - id: rope
+    on: {signal: self.made_rope}
+    do: [{take: fibre, count: 3}, {give: rope}, {notify: "Made: rope"}, {play: success}]
+  - id: drill
+    on: {signal: self.made_drill}
+    do: [{take: stick, count: 2}, {take: fibre}, {give: fire_drill}, {notify: "Made: a fire drill"}, {play: success}]
+  - id: spear
+    on: {signal: self.made_spear}
+    do: [{take: stick}, {take: flint}, {take: rope}, {give: spear}, {notify: "Made: a spear"}, {play: success}]
+  - id: coconut
+    on: {signal: self.cracked}
+    do:
+      - {take: coconut}
+      - {set: actor.hunger, to: "min(actor.hunger + 25, 100)"}
+      - {set: actor.thirst, to: "min(actor.thirst + 35, 100)"}
+      - {notify: "You crack the coconut, drink the milk and eat the flesh"}
+
+signals:
+  made_axe: {emit: made_axe}
+  made_rope: {emit: made_rope}
+  made_drill: {emit: made_drill}
+  made_spear: {emit: made_spear}
+  cracked: {emit: cracked}

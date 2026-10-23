@@ -1,0 +1,5 @@
+# A coconut: gathered under a palm. Cracked at the workstone for food and drink.
+kind: item
+title: Coconut
+tags: [food]
+body: coconut.yaml

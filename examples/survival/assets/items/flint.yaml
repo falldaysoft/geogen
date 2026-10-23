@@ -1,0 +1,5 @@
+# A flint flake: knapped off the flint boulder. Strikes a spark; tips a spear.
+kind: item
+title: Flint
+tags: [material]
+body: flint.yaml

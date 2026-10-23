@@ -1,0 +1,5 @@
+# A fire drill: a board and spindle made at the workstone. Lights the campfire.
+kind: item
+title: Fire drill
+tags: [tool]
+body: fire_drill.yaml

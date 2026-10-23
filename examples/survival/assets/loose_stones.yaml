@@ -1,0 +1,56 @@
+# A scatter of fist-sized stones on the ground: gather them (E) for two stones. More have
+# worked loose after `regrow_hours` of the game clock. Origin: on the ground at the middle.
+name: loose_stones
+tags: [resource.stones]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  regrow_hours: {default: 24}
+  seed: {default: 1}
+
+parts:
+  stone_a:
+    primitive: rock
+    size: [0.18, 0.11, 0.15]
+    anchor: bottom_center
+    seed: "{seed}"
+    roughness: 0.12
+    material: rock
+  stone_b:
+    primitive: rock
+    size: [0.14, 0.09, 0.13]
+    anchor: bottom_center
+    offset: [0.2, 0, 0.08]
+    seed: "{seed + 1}"
+    roughness: 0.12
+    material: rock
+  stone_c:
+    primitive: rock
+    size: [0.16, 0.1, 0.12]
+    anchor: bottom_center
+    offset: [-0.12, 0, 0.17]
+    seed: "{seed + 2}"
+    roughness: 0.12
+    material: rock
+
+interactions:
+  gather:
+    targets: [stone_a, stone_b, stone_c]
+    reach: 2.2
+    initial: here
+    duration: 0.3
+    states:
+      here:  {prompt: "Gather stones", next: taken}
+      taken: {emit: gathered, then: here, after: {hours: "{regrow_hours}"}}
+    motions:
+      - {parts: [stone_a, stone_b, stone_c], show: [here]}
+
+rules:
+  - id: give
+    on: {signal: self.gathered}
+    do: [{give: stone, count: 2}, {notify: "Gathered: 2 stones"}]
+
+signals:
+  gathered: {emit: gathered}

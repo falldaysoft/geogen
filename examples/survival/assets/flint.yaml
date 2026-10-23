@@ -1,0 +1,18 @@
+# A flint flake: dark, angular, sharp-edged. The body of items/flint.yaml (a carryable physics
+# prop). Origin: bottom centre.
+name: flint
+tags: [prop.material]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+params:
+  seed: {default: 9}
+physics: {mass: 0.3, friction: 0.9, bounce: 0.02, carry: true}
+parts:
+  flake:
+    primitive: rock
+    size: [0.12, 0.05, 0.09]
+    anchor: bottom_center
+    seed: "{seed}"
+    roughness: 0.02
+    material: charcoal

@@ -1,0 +1,52 @@
+# A few fallen sticks lying crossed on the ground: gather them (E) for two sticks. They are
+# back after `regrow_hours` of the game clock (the wind brings more down). Origin: on the
+# ground at the pile's middle.
+name: stick_pile
+tags: [resource.sticks]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  regrow_hours: {default: 10}
+
+parts:
+  stick_a: &stick
+    primitive: extrude
+    shape: {circle: 0.018, segments: 8}
+    fit: none
+    axis: z
+    size: [0.036, 0.036, 0.7]
+    anchor: bottom_center
+    rotation: [0, 20, 0]
+    material: bark
+  stick_b:
+    <<: *stick
+    size: [0.036, 0.036, 0.55]
+    rotation: [0, -35, 0]
+    offset: [0.08, 0.03, 0.05]
+  stick_c:
+    <<: *stick
+    size: [0.036, 0.036, 0.5]
+    rotation: [0, 75, 0]
+    offset: [-0.06, 0, -0.1]
+
+interactions:
+  gather:
+    targets: [stick_a, stick_b, stick_c]
+    reach: 2.2                   # on the ground: further from the eye than the player's reach
+    initial: here
+    duration: 0.3
+    states:
+      here:  {prompt: "Gather sticks", next: taken}
+      taken: {emit: gathered, then: here, after: {hours: "{regrow_hours}"}}
+    motions:
+      - {parts: [stick_a, stick_b, stick_c], show: [here]}
+
+rules:
+  - id: give
+    on: {signal: self.gathered}
+    do: [{give: stick, count: 2}, {notify: "Gathered: 2 sticks"}]
+
+signals:
+  gathered: {emit: gathered}

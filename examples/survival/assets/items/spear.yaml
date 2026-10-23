@@ -1,0 +1,5 @@
+# A flint-tipped spear: made at the workstone (stick, flint, rope). Spears fish at the fishing rock.
+kind: item
+title: Spear
+tags: [tool]
+body: spear.yaml

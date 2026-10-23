@@ -1,0 +1,16 @@
+# A coil of rope: a ring of twisted fibre. The body of items/rope.yaml (a carryable physics
+# prop). Origin: bottom centre; lying flat.
+name: rope_coil
+tags: [prop.material]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+physics: {mass: 0.5, friction: 0.9, bounce: 0.02, carry: true}
+parts:
+  coil:
+    primitive: lathe
+    profile: {spline: [[0.1, 0.0], [0.15, 0.0], [0.17, 0.03], [0.15, 0.06], [0.1, 0.06], [0.08, 0.03], [0.1, 0.0]]}
+    size: [0.34, 0.06, 0.34]
+    anchor: bottom_center
+    segments: 24
+    material: wheat_straw

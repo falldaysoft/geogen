@@ -1,0 +1,5 @@
+# A handful of berries: picked from a bush. Eaten at the bush or at the fire.
+kind: item
+title: Berries
+tags: [food]
+body: berries.yaml

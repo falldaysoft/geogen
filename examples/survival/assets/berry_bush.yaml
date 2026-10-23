@@ -1,0 +1,92 @@
+# A berry bush: a lumpy shrub with ripe berries over it. Aim at the berries and pick them
+# (E) for a handful to carry, or aim at the leaves and eat from the bush (E) when you are
+# hungry; either way the berries are gone until they ripen again after `regrow_hours` of the
+# game clock. Origin: on the ground at the bush's middle.
+name: berry_bush
+tags: [resource.berries, vegetation.bush]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  regrow_hours: {default: 24}
+  seed: {default: 1}
+
+state:
+  hunger: {scope: actor, type: number, default: 100}    # the castaway's (the scene's default wins)
+  thirst: {scope: actor, type: number, default: 100}
+
+parts:
+  centre:
+    primitive: sphere
+    size: [0.9, 0.8, 0.9]
+    anchor: bottom_center
+    offset: [0, 0.05, 0]
+    subdivide: 1
+    displace: {amplitude: 0.06, scale: 0.2, octaves: 3, seed: "{seed}"}
+    material: foliage_green
+  side:
+    primitive: sphere
+    size: [0.6, 0.55, 0.6]
+    anchor: bottom_center
+    offset: [0.35, 0.02, 0.15]
+    subdivide: 1
+    displace: {amplitude: 0.05, scale: 0.2, octaves: 3, seed: "{seed + 1}"}
+    material: foliage_green
+  berry_a: &berry
+    primitive: sphere
+    size: [0.06, 0.06, 0.06]
+    anchor: bottom_center
+    offset: [-0.25, 0.42, 0.3]
+    segments: 10
+    array: {count: 3, step: [0.14, 0.05, 0.02]}
+    material: berry
+    collider: hull
+  berry_b:
+    <<: *berry
+    offset: [-0.1, 0.58, 0.18]
+    array: {count: 3, step: [0.15, -0.02, 0.1]}
+  berry_c:
+    <<: *berry
+    offset: [0.3, 0.3, 0.35]
+    array: {count: 2, step: [0.12, 0.08, -0.04]}
+  berry_d:
+    <<: *berry
+    offset: [-0.38, 0.22, 0.12]
+    array: {count: 2, step: [0.02, 0.12, 0.1]}
+
+interactions:
+  pick:
+    targets: [berry_a, berry_b, berry_c, berry_d]
+    initial: ripe
+    duration: 0.4
+    states:
+      ripe:   {prompt: "Pick berries", next: picked}
+      picked: {emit: picked, then: ripe, after: {hours: "{regrow_hours}"}}
+    motions:
+      - {parts: [berry_a, berry_b, berry_c, berry_d], show: [ripe]}
+  eat:
+    targets: [centre, side]
+    initial: ready
+    duration: 1.2
+    when: "self.pick == 'ripe' and actor.hunger < 95"
+    refused: "No ripe berries here, or you aren't hungry"
+    states:
+      ready:  {prompt: "Eat berries from the bush", next: eating}
+      eating: {emit: eaten, then: ready}
+
+rules:
+  - id: give
+    on: {signal: self.picked}
+    do: [{give: berries, count: 3}, {notify: "Picked: berries"}]
+  - id: ate
+    on: {signal: self.eaten}
+    do:
+      - {set: self.pick, to: picked}
+      - {set: actor.hunger, to: "min(actor.hunger + 20, 100)"}
+      - {set: actor.thirst, to: "min(actor.thirst + 5, 100)"}
+      - {notify: "You eat a handful of berries"}
+
+signals:
+  picked: {emit: picked}
+  eaten: {emit: eaten}

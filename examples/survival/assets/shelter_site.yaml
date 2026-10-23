@@ -1,0 +1,357 @@
+# The shelter site in the clearing: four pegs mark where a hut can go, and it goes up in
+# stages, each from what you carry (E on the mark; a refusal says what is missing):
+#   frame   4 logs                               -> four posts and their beams
+#   walls   6 logs (log walls)  or  8 sticks + 2 rope (woven walls): a mark for each appears
+#   roof    4 logs (planks)     or  10 fibre + 1 rope (thatch)
+#   bed     6 fibre + 3 sticks                   -> a bed: sleep in it (E) until morning
+# The open side faces +Z. Inside it you are `sheltered`; once it has a roof (`roofed`) the
+# night's cold spares you there. Origin: on the ground at the hut's middle.
+name: shelter_site
+tags: [station.shelter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+state:
+  roofed: {type: bool, default: false}                    # it has a roof of either kind
+  sheltered: {scope: actor, type: bool, default: false}   # the castaway is inside
+  energy: {scope: actor, type: number, default: 100}      # the castaway's (the scene's default wins)
+  asleep: {scope: actor, type: bool, default: false}      # the scene clears it after the skip
+
+parts:
+  peg_0: &peg
+    primitive: cylinder
+    size: [0.05, 0.4, 0.05]
+    anchor: bottom_center
+    offset: [1.4, 0, 1.1]
+    material: driftwood
+  peg_1: {<<: *peg, offset: [-1.4, 0, 1.1]}
+  peg_2: {<<: *peg, offset: [1.4, 0, -1.1]}
+  peg_3: {<<: *peg, offset: [-1.4, 0, -1.1]}
+  post_0: &post
+    primitive: cylinder
+    size: [0.14, 2.1, 0.14]
+    anchor: bottom_center
+    offset: [1.4, 0, 1.1]
+    material: bark
+  post_1: {<<: *post, offset: [-1.4, 0, 1.1]}
+  post_2: {<<: *post, offset: [1.4, 0, -1.1], size: [0.14, 1.8, 0.14]}
+  post_3: {<<: *post, offset: [-1.4, 0, -1.1], size: [0.14, 1.8, 0.14]}
+  beam_front: &beam
+    primitive: extrude
+    shape: {circle: 0.06, segments: 10}
+    fit: none
+    axis: x
+    size: [3.0, 0.12, 0.12]
+    anchor: bottom_center
+    offset: [0, 2.1, 1.1]
+    material: bark
+  beam_back: {<<: *beam, offset: [0, 1.8, -1.1]}
+  beam_left: &sidebeam               # sloping: the front posts stand taller
+    primitive: extrude
+    shape: {circle: 0.05, segments: 10}
+    fit: none
+    axis: z
+    size: [0.1, 0.1, 2.4]
+    anchor: bottom_center
+    rotation: [-7, 0, 0]
+    offset: [1.4, 1.95, 0]
+    material: bark
+  beam_right: {<<: *sidebeam, offset: [-1.4, 1.95, 0]}
+  # The wall offers: a little stack of logs by the left post, a woven panel by the right.
+  offer_logs:
+    primitive: extrude
+    shape: {circle: 0.1, segments: 12}
+    fit: none
+    axis: z
+    size: [0.2, 0.2, 0.7]
+    anchor: bottom_center
+    offset: [1.75, 0, 0.4]
+    array: {count: 2, step: [0, 0.2, 0]}
+    material: bark
+  offer_woven:
+    primitive: cube
+    size: [0.05, 0.6, 0.6]
+    anchor: bottom_center
+    offset: [-1.75, 0, 0.4]
+    bevel: 0.005
+    bevel_segments: 1
+    material: wheat_straw
+  wall_logs_left: &logwall
+    primitive: extrude
+    shape: {circle: 0.11, segments: 12}
+    fit: none
+    axis: z
+    size: [0.22, 0.22, 2.2]
+    anchor: bottom_center
+    offset: [1.4, 0, 0]
+    array: {count: 8, step: [0, 0.21, 0]}
+    material: bark
+  wall_logs_right: {<<: *logwall, offset: [-1.4, 0, 0]}
+  wall_logs_back:
+    primitive: extrude
+    shape: {circle: 0.11, segments: 12}
+    fit: none
+    axis: x
+    size: [2.8, 0.22, 0.22]
+    anchor: bottom_center
+    offset: [0, 0, -1.1]
+    array: {count: 8, step: [0, 0.21, 0]}
+    material: bark
+  wall_woven_left: &wovenwall
+    primitive: cube
+    size: [0.06, 1.75, 2.2]
+    anchor: bottom_center
+    offset: [1.4, 0, 0]
+    bevel: 0.005
+    bevel_segments: 1
+    material: wheat_straw
+  wall_woven_right: {<<: *wovenwall, offset: [-1.4, 0, 0]}
+  wall_woven_back:
+    primitive: cube
+    size: [2.8, 1.75, 0.06]
+    anchor: bottom_center
+    offset: [0, 0, -1.1]
+    bevel: 0.005
+    bevel_segments: 1
+    material: wheat_straw
+  # The roof offers: a plank on the front-left post top, a bundle of thatch on the front-right.
+  offer_planks:
+    primitive: cube
+    size: [0.3, 0.04, 0.9]
+    anchor: bottom_center
+    offset: [1.75, 1.5, 0.3]
+    rotation: [0, 0, 10]
+    bevel: 0.004
+    bevel_segments: 1
+    material: wood
+  offer_thatch:
+    primitive: extrude
+    shape: {circle: 0.125, segments: 12}
+    fit: none
+    axis: x
+    size: [0.7, 0.25, 0.25]
+    anchor: bottom_center
+    rotation: [0, 0, 10]
+    offset: [-1.75, 1.5, 0.3]
+    material: wheat_straw
+  roof_plank_slab:
+    primitive: cube
+    size: [3.4, 0.08, 2.9]
+    anchor: bottom_center
+    rotation: [-7.5, 0, 0]
+    offset: [0, 1.98, 0.0]
+    bevel: 0.01
+    bevel_segments: 1
+    material: wood
+  roof_thatch_slab:
+    primitive: cube
+    size: [3.5, 0.22, 3.0]
+    anchor: bottom_center
+    rotation: [-7.5, 0, 0]
+    offset: [0, 1.96, 0.0]
+    bevel: 0.04
+    bevel_segments: 2
+    material: wheat_straw
+  bed_frame:
+    primitive: extrude
+    shape: {circle: 0.04, segments: 10}
+    fit: none
+    axis: z
+    size: [0.08, 0.08, 1.9]
+    anchor: bottom_center
+    offset: [-0.95, 0, -0.1]
+    array: {count: 3, step: [0.5, 0, 0]}
+    material: bark
+  bed_mat:
+    primitive: cube
+    size: [1.1, 0.14, 1.9]
+    anchor: bottom_center
+    offset: [-0.45, 0.08, -0.1]
+    bevel: 0.04
+    bevel_segments: 2
+    material: wheat_straw
+
+places:
+  inside:
+    box: [2.7, 2.2, 2.1]
+    position: [0, 0, 0]
+    detect: [actors]
+
+interactions:
+  frame:
+    targets: [peg_0, peg_1, peg_2, peg_3]
+    reach: 2.5
+    initial: site
+    duration: 2.0
+    when: 'held("log") >= 4'
+    refused: "The frame takes 4 logs"
+    states:
+      site:   {prompt: "Raise the frame (4 logs)", next: framed}
+      framed: {emit: framed}
+    motions:
+      - {parts: [peg_0, peg_1, peg_2, peg_3], show: [site]}
+      - {parts: [post_0, post_1, post_2, post_3, beam_front, beam_back, beam_left, beam_right], show: [framed]}
+  walls_logs:
+    targets: [offer_logs]
+    reach: 2.5
+    initial: pending
+    duration: 2.5
+    when: 'held("log") >= 6'
+    refused: "Log walls take 6 logs"
+    states:
+      pending: {}
+      offer:   {prompt: "Build log walls (6 logs)", next: done}
+      done:    {emit: walled_logs}
+      gone:    {}
+    motions:
+      - {parts: [offer_logs], show: [offer]}
+      - {parts: [wall_logs_left, wall_logs_right, wall_logs_back], show: [done]}
+  walls_woven:
+    targets: [offer_woven]
+    reach: 2.5
+    initial: pending
+    duration: 2.5
+    when: 'held("stick") >= 8 and held("rope") >= 2'
+    refused: "Woven walls take 8 sticks and 2 rope"
+    states:
+      pending: {}
+      offer:   {prompt: "Weave stick walls (8 sticks, 2 rope)", next: done}
+      done:    {emit: walled_woven}
+      gone:    {}
+    motions:
+      - {parts: [offer_woven], show: [offer]}
+      - {parts: [wall_woven_left, wall_woven_right, wall_woven_back], show: [done]}
+  roof_planks:
+    targets: [offer_planks]
+    reach: 3.0
+    initial: pending
+    duration: 2.5
+    when: 'held("log") >= 4'
+    refused: "A plank roof takes 4 logs"
+    states:
+      pending: {}
+      offer:   {prompt: "Lay a plank roof (4 logs)", next: done}
+      done:    {emit: roofed_planks}
+      gone:    {}
+    motions:
+      - {parts: [offer_planks], show: [offer]}
+      - {parts: [roof_plank_slab], show: [done]}
+  roof_thatch:
+    targets: [offer_thatch]
+    reach: 3.0
+    initial: pending
+    duration: 2.5
+    when: 'held("fibre") >= 10 and has("rope")'
+    refused: "A thatched roof takes 10 fibre and rope"
+    states:
+      pending: {}
+      offer:   {prompt: "Thatch the roof (10 fibre, rope)", next: done}
+      done:    {emit: roofed_thatch}
+      gone:    {}
+    motions:
+      - {parts: [offer_thatch], show: [offer]}
+      - {parts: [roof_thatch_slab], show: [done]}
+  bed:
+    targets: [bed_frame]
+    reach: 2.5
+    initial: pending
+    duration: 2.0
+    when: 'held("fibre") >= 6 and held("stick") >= 3'
+    refused: "A bed takes 6 fibre and 3 sticks"
+    states:
+      pending: {}
+      offer:   {prompt: "Make a bed (6 fibre, 3 sticks)", next: done}
+      done:    {emit: bedded}
+    motions:
+      - {parts: [bed_frame], show: [offer, done]}
+      - {parts: [bed_mat], show: [done]}
+  sleep:
+    targets: [bed_mat]
+    reach: 2.5
+    initial: none
+    duration: 0.1
+    states:
+      none:   {}
+      ready:  {prompt: "Sleep until morning", next: asleep}
+      asleep: {emit: slept, then: ready, after: 0.5}
+
+bind:
+  self.roofed: "self.roof_planks == 'done' or self.roof_thatch == 'done'"
+
+rules:
+  - id: framed
+    on: {signal: self.framed}
+    do:
+      - {take: log, count: 4}
+      - {set: self.walls_logs, to: offer}
+      - {set: self.walls_woven, to: offer}
+      - {notify: "The frame stands"}
+      - {play: success}
+  - id: walled_logs
+    on: {signal: self.walled_logs}
+    do:
+      - {take: log, count: 6}
+      - {set: self.walls_woven, to: gone}
+      - {set: self.roof_planks, to: offer}
+      - {set: self.roof_thatch, to: offer}
+      - {notify: "Log walls, three sides"}
+      - {play: success}
+  - id: walled_woven
+    on: {signal: self.walled_woven}
+    do:
+      - {take: stick, count: 8}
+      - {take: rope, count: 2}
+      - {set: self.walls_logs, to: gone}
+      - {set: self.roof_planks, to: offer}
+      - {set: self.roof_thatch, to: offer}
+      - {notify: "Woven walls, three sides"}
+      - {play: success}
+  - id: roofed_planks
+    on: {signal: self.roofed_planks}
+    do:
+      - {take: log, count: 4}
+      - {set: self.roof_thatch, to: gone}
+      - {set: self.bed, to: offer}
+      - {notify: "A roof of split logs"}
+      - {play: success}
+  - id: roofed_thatch
+    on: {signal: self.roofed_thatch}
+    do:
+      - {take: fibre, count: 10}
+      - {take: rope}
+      - {set: self.roof_planks, to: gone}
+      - {set: self.bed, to: offer}
+      - {notify: "A roof of thatch"}
+      - {play: success}
+  - id: bedded
+    on: {signal: self.bedded}
+    do:
+      - {take: fibre, count: 6}
+      - {take: stick, count: 3}
+      - {set: self.sleep, to: ready}
+      - {notify: "A bed: the shelter is done"}
+      - {play: complete}
+  - id: slept
+    on: {signal: self.slept}
+    do:
+      - {set: actor.asleep, to: true}
+      - {set: actor.energy, to: 100}
+      - {skip: {to: "06:00"}}
+      - {notify: "You sleep until morning"}
+  - id: in
+    on: {enter: inside}
+    do: [{set: actor.sheltered, to: true}]
+  - id: out
+    on: {leave: inside}
+    do: [{set: actor.sheltered, to: false}]
+
+signals:
+  framed: {emit: framed}
+  walled_logs: {emit: walled_logs}
+  walled_woven: {emit: walled_woven}
+  roofed_planks: {emit: roofed_planks}
+  roofed_thatch: {emit: roofed_thatch}
+  bedded: {emit: bedded}
+  complete: {changed: bed, to: done}      # the shelter is finished
+  slept: {emit: slept}

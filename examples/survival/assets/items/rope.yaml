@@ -1,0 +1,5 @@
+# A coil of rope: three fibre twisted at the workstone. Lashings, thatch, a spear.
+kind: item
+title: Rope
+tags: [material]
+body: rope_coil.yaml

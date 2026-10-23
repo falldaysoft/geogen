@@ -1,0 +1,6 @@
+# Sea-bleached wood: pale grey, dry and rough.
+name: driftwood
+texture: { type: painted_wall, params: { base_color: [172, 160, 140], seed: 707 } }
+size: [128, 128]
+tile_size: 0.6
+pbr: { roughness: 0.95, metallic: 0.0, normal_strength: 0.5, ao_strength: 0.8 }

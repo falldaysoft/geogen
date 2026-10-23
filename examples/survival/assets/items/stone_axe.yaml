@@ -1,0 +1,5 @@
+# A stone axe: made at the workstone (sticks, a stone, fibre). Fells trees for logs.
+kind: item
+title: Stone axe
+tags: [tool]
+body: stone_axe.yaml

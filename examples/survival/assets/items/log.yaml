@@ -1,0 +1,5 @@
+# A log: a chopped tree's trunk, or driftwood off the beach. Frames, walls, planks.
+kind: item
+title: Log
+tags: [material]
+body: log.yaml

@@ -1,0 +1,38 @@
+# A fish: a plump body, a forked tail and a dorsal fin. The body of items/raw_fish.yaml and,
+# with `skin: fish_cooked`, items/cooked_fish.yaml (carryable physics props). Origin: bottom centre;
+# lying along Z, head at +Z.
+name: fish
+tags: [prop.food]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+params:
+  skin: {default: fish_skin, type: text}   # fish_cooked for the cooked one
+physics: {mass: 0.6, friction: 0.8, bounce: 0.02, carry: true}
+parts:
+  body:
+    primitive: ellipsoid
+    size: [0.08, 0.11, 0.34]
+    anchor: bottom_center
+    material: "{skin}"
+  tail:
+    primitive: extrude
+    shape: {polygon: [[0, 0], [0.09, 0.07], [0.06, 0], [0.09, -0.07]]}
+    fit: none
+    axis: x
+    size: [0.012, 0.14, 0.09]
+    anchor: bottom_center
+    offset: [0, 0.055, -0.21]
+    rotation: [0, 180, 0]
+    material: "{skin}"
+    collider: none
+  fin:
+    primitive: extrude
+    shape: {polygon: [[0, 0], [0.1, 0], [0.06, 0.04], [0.02, 0.03]]}
+    fit: none
+    axis: x
+    size: [0.008, 0.04, 0.1]
+    anchor: bottom_center
+    offset: [0, 0.1, 0.02]
+    material: "{skin}"
+    collider: none

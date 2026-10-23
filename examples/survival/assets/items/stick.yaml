@@ -1,0 +1,5 @@
+# A stick: gathered from stick piles on the island. Handles, frames, kindling.
+kind: item
+title: Stick
+tags: [material]
+body: stick.yaml

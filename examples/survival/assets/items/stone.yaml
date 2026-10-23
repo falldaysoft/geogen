@@ -1,0 +1,5 @@
+# A fist-sized stone: gathered from loose stones. An axe head, a fire ring.
+kind: item
+title: Stone
+tags: [material]
+body: stone.yaml

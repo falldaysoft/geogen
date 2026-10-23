@@ -1,0 +1,34 @@
+# The third quest: living here. Water from the spring, a fish speared and cooked, and three
+# days survived. Optional: a coconut cracked at the workstone.
+kind: quest
+version: 1
+title: Castaway life
+description: Keep yourself fed and watered for three days.
+objectives:
+  - id: drink
+    text: Drink at the spring
+    done: {use: spring.drink}
+    marker: spring
+  - id: spear
+    text: Make a spear (a stick, flint, rope)
+    done: 'has("spear") or has("raw_fish") or has("cooked_fish")'
+    marker: workstone
+  - id: fish
+    text: Spear a fish at the fishing rock
+    after: spear
+    done: {signal: fishing.caught}
+    marker: fishing
+  - id: cook
+    text: Cook it on the campfire's spit and eat it
+    after: fish
+    done: {signal: fire.ate}
+    marker: fire
+  - id: coconut
+    text: Crack a coconut at the workstone
+    optional: true
+    done: {signal: workstone.cracked}
+    marker: workstone
+  - id: days
+    text: Survive three days
+    done: "clock.day >= 3"
+    marker: hidden

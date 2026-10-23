@@ -1,0 +1,5 @@
+# A bundle of plant fibre: gathered from grass tufts. Bindings, rope, thatch, bedding.
+kind: item
+title: Fibre
+tags: [material]
+body: fibre_bundle.yaml

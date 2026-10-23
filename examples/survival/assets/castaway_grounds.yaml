@@ -1,0 +1,51 @@
+# The castaway island's ground (scenes/castaway.yaml): a wooded hill rising from sandy beaches,
+# with levelled pads for the camp on the south beach, the spring on the west slope, the
+# clearing where the shelter goes and the flint boulder's knoll, sandy paths between them, the
+# sea all round and an invisible wall where the water gets half a metre deep. Positions are in
+# the scene frame; the pads' heights are what the scene's slots stand on.
+
+name: castaway_grounds
+tags: [terrain.island]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  sea_level: { default: 2.0 }
+  seed: { default: 7 }
+
+parts:
+  ground:
+    primitive: terrain
+    extent: [150, 150]
+    resolution: 1.0
+    height: 13
+    sea_level: "{sea_level}"
+    depth: "{sea_level - 0.1}"   # the sea bed stays just above the runtime's ground plane
+    seed: "{seed}"
+    scale: 34
+    octaves: 4
+    falloff: { radius: 0.3, edge: 0.13, power: 1.3 }
+    pads:
+      - { center: [0, -42], radius: 9, blend: 10, height: 3.0 }     # the camp, on the south beach
+      - { center: [-20, -12], radius: 3.5, blend: 6, height: 8.5 }  # the spring
+      - { center: [16, -18], radius: 8, blend: 10, height: 7.0 }    # the clearing: the shelter site
+      - { center: [-8, 10], radius: 3, blend: 5, height: 12.0 }     # the flint boulder's knoll
+    paths:
+      - { points: { spline: [[2, -40], [8, -30], [14, -22]] }, width: 1.8 }           # camp -> clearing
+      - { points: { spline: [[-2, -40], [-10, -30], [-18, -16]] }, width: 1.6 }       # camp -> spring
+      - { points: { spline: [[14, -14], [4, -2], [-6, 8]] }, width: 1.4 }             # clearing -> boulder
+    materials: { sand: sand, grass: grass, rock: rock, path: sand }
+    shore: { depth: 0.5, height: 1.5 }
+    collider: mesh
+    walkable: true
+
+  sea:
+    primitive: water
+    shape: { rect: [400, 400] }
+    size: [400, 0.02, 400]
+    anchor: bottom_center
+    offset: [0, "{sea_level - 0.02}", 0]
+    depth_scale: 2.5
+    wave_scale: 3.0
+    foam: 0.3

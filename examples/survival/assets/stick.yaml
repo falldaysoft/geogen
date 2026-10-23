@@ -1,0 +1,17 @@
+# A stick: a length of branch, bark on. The body of items/stick.yaml (a carryable physics
+# prop). Origin: bottom centre; lying along Z.
+name: stick
+tags: [prop.material]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+physics: {mass: 0.3, friction: 0.9, bounce: 0.05, carry: true}
+parts:
+  shaft:
+    primitive: extrude
+    shape: {circle: 0.017, segments: 8}
+    fit: none
+    axis: z
+    size: [0.034, 0.034, 0.6]
+    anchor: bottom_center
+    material: bark

@@ -1,0 +1,7 @@
+# The survival example's runtime catalogue (python -m geogen.main --project examples/survival --export-catalogue).
+kind: scene_catalogue
+default: castaway
+scenes:
+  castaway:
+    group: showcase
+    description: Washed up with nothing - gather, craft, chop, keep a fire and build a shelter while hunger and thirst run on the clock

@@ -1,0 +1,30 @@
+# A fire drill: a flat hearth board with a charred notch and a spindle standing in it. The body
+# of items/fire_drill.yaml (a carryable physics prop). Origin: bottom centre.
+name: fire_drill
+tags: [prop.tool]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+physics: {mass: 0.5, friction: 0.9, bounce: 0.02, carry: true}
+parts:
+  board:
+    primitive: cube
+    size: [0.3, 0.025, 0.08]
+    anchor: bottom_center
+    bevel: 0.004
+    bevel_segments: 1
+    material: wood
+  notch:
+    primitive: cylinder
+    size: [0.03, 0.004, 0.03]
+    anchor: bottom_center
+    offset: [0.08, 0.025, 0]
+    material: charcoal
+    collider: none
+  spindle:
+    primitive: cylinder
+    size: [0.02, 0.32, 0.02]
+    anchor: bottom_center
+    offset: [0.08, 0.025, 0]
+    rotation: [0, 0, 8]
+    material: bark

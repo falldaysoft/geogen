@@ -1,0 +1,49 @@
+# A sea-bleached log washed up on the beach: take it (E) for a log, no axe needed. There are
+# only so many; trees give more. Origin: on the ground at the log's middle; lying along X.
+name: driftwood
+tags: [resource.driftwood]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  seed: {default: 1}
+
+parts:
+  trunk:
+    primitive: lathe
+    profile: [[0, 0], [0.13, 0], [0.15, 0.5], [0.12, 1.1], [0.09, 1.5], [0, 1.5]]
+    size: [0.3, 1.5, 0.3]
+    anchor: center               # turned about the container's middle (y 0.5): offset puts it on the ground
+    segments: 12
+    rotation: [0, 0, 90]
+    offset: [0, -0.36, 0]
+    material: driftwood
+  stub:
+    primitive: cylinder
+    size: [0.07, 0.3, 0.07]
+    anchor: bottom_center
+    rotation: [0, 0, -40]
+    offset: [-0.3, 0.08, -0.05]
+    material: driftwood
+    collider: none
+
+interactions:
+  take:
+    targets: [trunk]
+    reach: 2.2
+    initial: here
+    duration: 0.3
+    states:
+      here:  {prompt: "Take the driftwood log", next: taken}
+      taken: {emit: taken}
+    motions:
+      - {parts: [trunk, stub], show: [here]}
+
+rules:
+  - id: give
+    on: {signal: self.taken}
+    do: [{give: log}, {notify: "Taken: a log of driftwood"}]
+
+signals:
+  taken: {emit: taken}

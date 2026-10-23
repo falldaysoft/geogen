@@ -1,0 +1,59 @@
+# A coconut palm with fallen coconuts at its foot: gather them (E) for two coconuts, which the
+# workstone cracks open for food and drink. More fall after `regrow_hours` of the game clock.
+# Origin: on the ground at the trunk's foot.
+name: coconut_palm
+tags: [resource.coconuts, vegetation.tree, vegetation.palm]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  regrow_hours: {default: 24}
+  seed: {default: 1}
+  scale: {default: 1}
+
+parts:
+  tree:
+    primitive: tree
+    style: palm
+    size: ["{5.0 * scale}", "{6.5 * scale}", "{5.0 * scale}"]
+    anchor: bottom_center
+    seed: "{seed}"
+    trunk_radius: "{0.2 * scale}"
+    fronds: 11
+    material: palm_bark
+  coconut_a:
+    primitive: ellipsoid
+    size: [0.16, 0.2, 0.16]
+    anchor: bottom_center
+    offset: [0.55, 0, 0.3]
+    material: coconut_husk
+    collider: hull
+  coconut_b:
+    primitive: ellipsoid
+    size: [0.16, 0.2, 0.16]
+    anchor: bottom_center
+    offset: [-0.4, 0, 0.5]
+    rotation: [0, 0, 70]
+    material: coconut_husk
+    collider: hull
+
+interactions:
+  gather:
+    targets: [coconut_a, coconut_b]
+    reach: 2.2
+    initial: here
+    duration: 0.3
+    states:
+      here:  {prompt: "Gather coconuts", next: taken}
+      taken: {emit: gathered, then: here, after: {hours: "{regrow_hours}"}}
+    motions:
+      - {parts: [coconut_a, coconut_b], show: [here]}
+
+rules:
+  - id: give
+    on: {signal: self.gathered}
+    do: [{give: coconut, count: 2}, {notify: "Gathered: 2 coconuts"}]
+
+signals:
+  gathered: {emit: gathered}

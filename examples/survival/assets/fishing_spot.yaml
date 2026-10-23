@@ -1,0 +1,46 @@
+# A flat rock at the water's edge where fish gather in the shallows: with a spear in hand,
+# fish from it (E) and a few seconds later you have one; then the shoal needs a while to
+# come back. Origin: on the ground at the rock's middle; the water is toward -Z.
+name: fishing_spot
+tags: [resource.fish]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  rock:
+    primitive: rock
+    size: [2.2, 0.45, 1.6]
+    anchor: bottom_center
+    offset: [0, -0.15, 0]
+    seed: 21
+    roughness: 0.04
+    material: rock
+    walkable: true
+  post:                          # a forked stick stuck in the sand, the fisher's mark
+    primitive: cylinder
+    size: [0.05, 1.1, 0.05]
+    anchor: bottom_center
+    offset: [1.0, 0, 0.6]
+    rotation: [0, 0, 6]
+    material: driftwood
+
+interactions:
+  fish:
+    targets: [rock, post]
+    reach: 2.5
+    initial: ready
+    duration: 4.0
+    when: 'has("spear")'
+    refused: "You need a spear"
+    states:
+      ready:   {prompt: "Spear fish", next: fishing}
+      fishing: {emit: caught, then: ready, after: 10}
+
+rules:
+  - id: give
+    on: {signal: self.caught}
+    do: [{give: raw_fish}, {notify: "You spear a fish"}, {play: success}]
+
+signals:
+  caught: {emit: caught}
