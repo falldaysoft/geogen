@@ -172,7 +172,7 @@ place:
               avoid: [shelter, spring, boulder, workstone, fire, fishing], margin: 2.0}
   sticks:
     asset: stick_pile.yaml
-    scatter: {seed: 13, on_terrain: grounds, height: [0.6, 12], slope: [0, 25], spacing: 5, count: 16,
+    scatter: {seed: 17, on_terrain: grounds, height: [0.6, 12], slope: [0, 25], spacing: 5, count: 16,
               avoid: [shelter, spring, boulder, workstone, fire], margin: 2.0}
   stones:
     asset: loose_stones.yaml
