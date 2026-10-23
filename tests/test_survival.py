@@ -345,3 +345,81 @@ def test_the_quests_follow_the_player_by_either_route(castaway):
     assert c.get("quest_castaway_life_drink")
     c.clock("06:00", day=3)
     assert c.get("quest_castaway_life_days") and status("castaway_life") == "active"   # the fish is still to catch
+
+
+# ---- in Godot -----------------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def runtime(godot_runtime, tmp_path_factory):
+    from geogen.export import export_scene
+
+    out = tmp_path_factory.mktemp("survival")
+    try:
+        roots.use(EXAMPLE)
+        registry = SceneRegistry()
+        registry.discover()
+        export_scene(registry[SCENE](), out / f"{SCENE}.glb")
+    finally:
+        roots.use()
+    client = godot_runtime(SCENE, out)
+    client.call("wait_ready", timeout=120)
+    return client
+
+
+def test_in_godot_fire_is_made_the_clock_takes_its_toll_and_a_night_is_slept(runtime):
+    """The beach route over the control API: the workstone makes a drill from what the beach gives,
+    the fire ring is laid and lit, the needs fall as the clock is skipped (the periodic rules in the
+    GDScript machine), the shelter goes up by the woven route, and a night in its bed restores energy."""
+    rt = runtime
+    need = lambda name: rt.call("state.get", key=f"actor:{SCENE}.{name}")["value"]            # noqa: E731
+    state = lambda thing: rt.call("state.get", key=f"{SCENE}:{thing}")["value"]              # noqa: E731
+    carried = lambda: {i["id"]: i["count"] for i in rt.call("inventory.list")["items"]}      # noqa: E731
+    use = lambda asset, interaction, seconds=2.5: (                                           # noqa: E731
+        rt.call("interactions.use", asset=asset, interaction=interaction, actor="player"),
+        rt.call("time.advance", seconds=seconds, scale=1))
+    assert (need("hunger"), need("thirst"), need("energy"), need("health")) == (100, 100, 100, 100)
+    quests = {q["id"]: q for q in rt.call("quests.list")}
+    assert quests["first_night"]["status"] == "active" and quests["a_roof"]["status"] == "available"
+
+    for item, count in (("stick", 5), ("stone", 2), ("fibre", 2)):
+        rt.call("inventory.give", item=item, count=count)
+    use("workstone", "drill")
+    assert carried() == {"stick": 3, "stone": 2, "fibre": 1, "fire_drill": 1}
+    use("fire", "fire", 1.0)                                                          # no ring yet: refused
+    assert state("fire#fire") == "out"
+    use("fire", "build", 2.0)
+    assert state("fire#build") == "built" and carried() == {"fire_drill": 1, "fibre": 1}
+    rt.call("inventory.give", item="stick", count=1)
+    use("fire", "fire", 2.0)
+    assert state("fire#fire") == "lit" and state("fire#lit") is True
+    quests = {q["id"]: q for q in rt.call("quests.list")}
+    done = {o["id"] for o in quests["first_night"]["objectives"] if o["state"] == "done"}
+    assert {"ring", "lit"} <= done
+
+    rt.call("time.skip", hours=3)                                                     # three periods pass
+    rt.call("time.advance", seconds=0.5, scale=1)
+    assert (need("hunger"), need("thirst"), need("energy")) == (88, 85, 91)
+    assert "Hunger" in str(rt.call("hud.stats"))
+    rt.call("time.skip", until="06:00")                                               # the first night, by the fire
+    rt.call("time.advance", seconds=0.5, scale=1)
+    quests = {q["id"]: q for q in rt.call("quests.list")}
+    assert quests["first_night"]["status"] == "complete" and quests["a_roof"]["status"] == "active"
+
+    for item, count in (("log", 4), ("stick", 11), ("rope", 3), ("fibre", 16)):
+        rt.call("inventory.give", item=item, count=count)
+    use("shelter", "frame")
+    assert state("shelter#frame") == "framed" and state("shelter#walls_woven") == "offer"
+    use("shelter", "walls_woven", 3.0)
+    use("shelter", "roof_thatch", 3.0)
+    assert state("shelter#roofed") is True and state("shelter#roof_planks") == "gone"
+    use("shelter", "bed")
+    assert state("shelter#sleep") == "ready" and carried() == {"fire_drill": 1, "fibre": 1, "stick": 1}
+    rt.call("state.set", key=f"actor:{SCENE}.energy", value=20)
+    rt.call("state.set", key=f"actor:{SCENE}.hunger", value=100)
+    rt.call("state.set", key=f"actor:{SCENE}.thirst", value=100)
+    use("shelter", "sleep", 2.0)
+    assert rt.call("time.clock")["clock"].startswith("06:") and rt.call("time.clock")["day"] == 2
+    assert need("energy") == 100
+    assert need("hunger") < 100 and need("thirst") < 100                           # the night's hours ran
+    quests = {q["id"]: q for q in rt.call("quests.list")}
+    assert quests["a_roof"]["status"] == "complete" and quests["castaway_life"]["status"] == "active"

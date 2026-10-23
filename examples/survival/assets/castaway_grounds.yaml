@@ -27,7 +27,7 @@ parts:
     octaves: 4
     falloff: { radius: 0.3, edge: 0.13, power: 1.3 }
     pads:
-      - { center: [0, -42], radius: 9, blend: 10, height: 3.0 }     # the camp, on the south beach
+      - { center: [0, -42], radius: 9, blend: 16, height: 3.0 }     # the camp, on the south beach: a gentle rise behind it
       - { center: [-20, -12], radius: 3.5, blend: 6, height: 8.5 }  # the spring
       - { center: [16, -18], radius: 8, blend: 10, height: 7.0 }    # the clearing: the shelter site
       - { center: [-8, 10], radius: 3, blend: 5, height: 12.0 }     # the flint boulder's knoll
