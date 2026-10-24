@@ -74,3 +74,36 @@ def parse_pickup(spec: Any, root: SceneNode, name: str, assets_dir: str | Path |
         wiring = {"source": str(source) if source is not None else None, "asset": True, "spec": {"rules": [rule]}}
     root.meta[META] = wiring
     return {"item": item, "count": count}
+
+
+ICON_META = "item_icon"
+ICONS_NODE = "item_icons"
+
+
+def attach_icons(root: SceneNode, items: dict[str, Any], assets_dir: str | Path | None = None) -> list[str]:
+    """Give ``root`` a hidden child ``item_icons`` holding each item's body (``items/<id>.yaml``
+    ``body``), named ``<id>_icon`` with ``meta.item_icon = {item: id}``, so a runtime can draw
+    the items an actor carries (the Godot HUD's hotbar renders them). Not part of the world:
+    the runtime takes the node out on load, as it does flow templates. Done once per export
+    (a second call finds the node and adds nothing); an item with no file gets no icon, and a
+    body that won't load fails the export, as a flow template's does. Returns the ids given one."""
+    from .layout import LayoutLoader
+    from .flows import load_item
+
+    if any(child.name == ICONS_NODE for child in root.children):
+        return [child.name[: -len("_icon")] for child in next(c for c in root.children if c.name == ICONS_NODE).children]
+    gallery = SceneNode(name=ICONS_NODE)
+    gallery.hidden = True
+    loader = LayoutLoader()
+    for item_id in sorted(items):
+        path = roots.find(f"items/{item_id}.yaml", assets_dir)
+        if not path.exists():
+            continue
+        item = load_item(path)
+        body = loader.load(roots.find(item["body"]["asset"], assets_dir), params=item["body"]["params"] or None)
+        body.name = f"{item_id}_icon"
+        body.meta[ICON_META] = {"item": item_id}
+        gallery.add_child(body)
+    if gallery.children:
+        root.add_child(gallery)
+    return [child.name[: -len("_icon")] for child in gallery.children]

@@ -139,3 +139,71 @@ def test_the_hud_shows_what_the_player_carries(godot_runtime, yard, tmp_path):
     assert ("Picked up", "Room key") in notes and ("Handed over", "Parcel  ×3") in notes, notes
     with pytest.raises(Exception, match="no item 'coin'"):
         rt.call("inventory.give", item="coin")
+
+
+def test_an_export_carries_each_items_body_as_an_icon(yard, tmp_path):
+    # geogen.84.14: the exporter adds a hidden item_icons node with every compiled item's body,
+    # extras item_icon {item}, once (a second export of the same root adds no more).
+    from geogen.export import read_gltf
+    from geogen.inventory import attach_icons
+
+    export_scene(yard, tmp_path / "pickup_yard.glb")
+    gltf = read_gltf(export_scene(yard, tmp_path / "again.glb").read_bytes())
+    icons = sorted(n["name"] for n in gltf["nodes"] if n.get("extras", {}).get("geogen", {}).get("item_icon"))
+    assert icons == ["parcel_icon", "room_key_icon"]
+    assert sum(n["name"] == "item_icons" for n in gltf["nodes"]) == 1
+    assert attach_icons(yard, {"parcel": {}, "room_key": {}}) == ["parcel", "room_key"]      # found, not added
+
+
+SNACK_PROJECT = {
+    "items/snack.yaml": "kind: item\ntitle: Snack\ntags: [food]\nbody: {asset: snack_bar.yaml}\nuse: Eat\n",
+    "scenes/snack_yard.yaml": """
+name: snack_yard
+size: [6, 2, 6]
+state:
+  fed: {scope: actor, type: number, default: 0}
+rules:
+  - id: eat
+    on: {use_item: snack}
+    do: [{take: snack}, {set: actor.fed, to: "actor.fed + 1"}, {notify: "Yum"}]
+place:
+  key: {asset: room_key.yaml}
+spawns:
+  start: {position: [0, 0, 2], facing: north}
+""",
+}
+
+
+def test_the_hotbar_selects_with_i_and_digits_and_f_uses(godot_runtime, tmp_path):
+    # geogen.84.14: the inventory is a hotbar: one slot per item, one selected; I selects the next,
+    # a digit its slot, F uses the selected item when its file says how (and does nothing otherwise).
+    from geogen import roots
+
+    project = tmp_path / "snacks"
+    for name, text in SNACK_PROJECT.items():
+        (project / "assets" / name).parent.mkdir(parents=True, exist_ok=True)
+        (project / "assets" / name).write_text(text)
+    try:
+        roots.use(project)
+        scene = SceneComposer(assets_dir=ASSETS).compose(project / "assets" / "scenes" / "snack_yard.yaml")
+        export_scene(scene, tmp_path / "snack_yard.glb")
+    finally:
+        roots.use()
+    rt = godot_runtime("snack_yard", tmp_path, "--give=snack:2", "--give=room_key")
+    rt.call("time.advance", seconds=0.2)
+    shown = rt.call("hud.inventory")
+    assert [s["id"] for s in shown["slots"]] == ["room_key", "snack"] and shown["selected"] == "room_key"
+    assert all(len(s["rect"]) == 4 and s["icon"] is False for s in shown["slots"])      # headless: initials
+    rt.call("input.key", key="F")                                                        # a key has no use
+    assert rt.call("state.get", key="actor:snack_yard.fed")["value"] == 0
+    rt.call("input.key", key="I")
+    assert rt.call("hud.inventory")["selected"] == "snack"
+    rt.call("input.key", key="F")
+    rt.call("time.advance", seconds=0.2)
+    assert rt.call("state.get", key="actor:snack_yard.fed")["value"] == 1
+    assert [i["count"] for i in rt.call("hud.inventory")["items"] if i["id"] == "snack"] == [1]
+    rt.call("input.key", key="1")
+    assert rt.call("hud.inventory")["selected"] == "room_key"
+    rt.call("input.key", key="I")
+    rt.call("input.key", key="I")                                                        # wraps round
+    assert rt.call("hud.inventory")["selected"] == "room_key"

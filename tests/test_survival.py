@@ -422,6 +422,7 @@ def test_in_godot_fire_is_made_the_clock_takes_its_toll_and_a_night_is_slept(run
         rt.call("interactions.use", asset=asset, interaction=interaction, actor="player"),
         rt.call("time.advance", seconds=seconds, scale=1))
     assert (need("hunger"), need("thirst"), need("energy"), need("health")) == (100, 100, 100, 100)
+    assert rt.call("time.clock")["clock"].startswith("16:")          # the scene's atmosphere.time
     quests = {q["id"]: q for q in rt.call("quests.list")}
     assert quests["first_night"]["status"] == "active" and quests["a_roof"]["status"] == "available"
 

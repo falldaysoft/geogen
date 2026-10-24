@@ -48,7 +48,7 @@ extends Node3D
 ##   --simulate=SECONDS            run SECONDS of world time and report NPCs, traffic and cost (time.simulate)
 ##   --npc-limit=N                 spawn at most N of the export's NPCs (crowd measurements)
 ##   --npc-labels                  show what each NPC is doing and its needs (F5 toggles)
-##   --time=HH:MM                  world clock at start (default 13:00): sun, sky, street lamps,
+##   --time=HH:MM                  world clock at start (default 13:00, or the scene's atmosphere.time): sun, sky, street lamps,
 ##                                 routines and traffic follow it
 ##   --day-length=SECONDS          real seconds per 24 h of world time (default 1440; 0 freezes it)
 ##   --traffic-trace               print traffic claims, overlaps and respawns ("traffic: {...}")
@@ -108,6 +108,7 @@ var _play := ""
 var _play_at := -1.0
 var clock: GeogenClock
 var _start_time := 13.0
+var _time_given := false
 var _menu: GeogenSceneMenu
 var hud: GeogenHud                # the game HUD (hud.gd): the quest tracker, notifications and later panels
 var _list_scenes := false
@@ -241,6 +242,7 @@ func _ready() -> void:
             world.npc_limit = int(value)
         elif arg.begins_with("--time="):
             _start_time = GeogenClock.parse(value)
+            _time_given = true
         elif arg.begins_with("--day-length="):
             _day_length = float(value)
         elif arg == "--traffic-trace":
@@ -339,6 +341,7 @@ func _ready() -> void:
     clock.name = "Clock"
     clock.night_changed.connect(func(night: bool): world.events.post("clock", "", "night" if night else "day"))
     clock.hours = _start_time
+    clock.time_pinned = _time_given
     clock.day_length = _day_length
     clock.sun = $Sun
     clock.environment = ($WorldEnvironment as WorldEnvironment).environment
@@ -358,7 +361,7 @@ func _ready() -> void:
     hud.add_panel(GeogenHudStats.new(), "top_left")
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
     hud.add_panel(GeogenHudNotifications.new(), "bottom_left")
-    hud.add_panel(GeogenHudInventory.new(), "bottom_right")
+    hud.add_panel(GeogenHudInventory.new(), "bottom")
     hud.add_panel(GeogenHudMarkers.new(), "screen")
     hud.move_child(hud.panel("markers"), 0)         # under the corner panels and the quest log
     hud.add_panel(GeogenHudBanner.new(), "screen")

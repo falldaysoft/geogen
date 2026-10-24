@@ -22,7 +22,7 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 ## (tests/test_extras_contract.py fails when the two differ). The exporter writes no others.
 const KNOWN_KEYS := ["version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
     "joint", "clips", "interactions", "footprint", "clearance", "light",
-    "affordances", "portal", "place", "physics", "flows", "item", "travel", "poses", "npc", "container", "nav", "size",
+    "affordances", "portal", "place", "physics", "flows", "item_icon", "item", "travel", "poses", "npc", "container", "nav", "size",
     "city", "block", "lot", "building", "street_furniture", "lod", "interior",
     "signal", "character", "stairs", "water", "driving", "fleet", "train", "vehicle"]
 
@@ -49,6 +49,13 @@ static func is_geogen_scene(root: Node) -> bool:
 static func build(root: Node, options := {}) -> Dictionary:
     var summary := {"rooms": 0, "places": 0, "spawns": 0, "tagged": 0, "warnings": []}
     var warned := {}
+    # The items' icon bodies (the hidden item_icons node, extras item_icon) are the runtime
+    # HUD's, not the world's: the runtime takes them out before colliders (WorldLoader), and an
+    # imported scene has no use for them.
+    for node in root.find_children("*", "", true, false):
+        if node.get_parent() != null and (node.name == "item_icons" or extras(node).has("item_icon")):
+            node.get_parent().remove_child(node)
+            node.queue_free()
     for node in [root] + root.find_children("*", "", true, false):
         var g := extras(node)
         if g.is_empty():

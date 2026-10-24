@@ -68,6 +68,7 @@
 | `hud` | {stats: [{label, value, of}], banners: [{when, text, tone}]}: on-screen numbers (geogen.hud) |
 | `ground` | false: the runtime keeps no ground plane at y = 0 while the scene is loaded, so the scene's own floors are all there is and things can go below them (a pit); default true |
 | `physics` | {ticks: n}: physics steps a second while the scene is loaded (runtime default 60); fast rolling bodies on curved meshes need 120 |
+| `atmosphere` | {preset: clear \| overcast \| grim \| storm, time, fog, haze, saturation, contrast, sun, sun_color, sun_height, sky, moon, night, glow}: the lighting mood the runtime plays the scene in (geogen.atmosphere); a preset's values, overridden |
 | `spawns` | {name: {position \| anchor, facing}}: where the player can start |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes (enter / leave events) |
 | `population` | {name: {npc, count: n \| [lo, hi], on: <places>.<surface>, spacing, seed}}: NPCs living on each place a reference or selector names (residents per house), drawn deterministically |

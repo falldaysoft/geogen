@@ -612,6 +612,16 @@ Vehicles with `vehicle.sound` get synthesised audio from `scripts/sound.gd` (no 
 up. `--time=HH:MM` sets the start (default 13:00) and `--day-length=S` sets the real seconds per
 24 h (default 1440; 0 freezes it). The overlay shows the time.
 
+- **Atmosphere**: a scene's `atmosphere:` block (its manifest's `atmosphere`, resolved by the
+  exporter from a preset `clear | overcast | grim | storm` and overrides) is the light it plays in.
+  `GeogenClock.set_atmosphere` sets fog density (`fog`), how far it climbs into the sky (`haze`),
+  colour grading (`saturation`, `contrast`) and bloom (`glow`) once per load over `main.tscn`'s
+  values, and feeds the sun's noon energy, colour and elevation (`sun`, `sun_color`, `sun_height`),
+  the day sky (`sky: {top, horizon, ground}`), moonlight (`moon`) and the night's ambient floor
+  (`night`) into the hourly cycle. Its `time` sets the clock the first time the scene loads in a
+  run, unless `--time` was given; a restored save sets the clock after that and wins. Unloading puts
+  the default look back. The Compatibility renderer applies what it supports of these.
+
 - **Sun, sky and moon**: the sun's elevation, azimuth, colour and energy follow the hour, with
   warm light low in the sky. The sky and fog fade through a pink twilight to a blue night, and a
   faint shadowless moonlight keeps shapes readable.
@@ -665,6 +675,11 @@ scenes, starting in its default one): the workflow builds each project in `examp
   Forward+: under it `main.gd` lowers the exposure (`COMPATIBILITY_EXPOSURE`) and raises the
   sky's energy, and fixture lights cast no shadows (shadowed omni lights wash out there).
   `godot --path runtime/godot --rendering-method gl_compatibility` shows the same on the desktop.
+- A scene's `atmosphere:` applies in part there: its fog, haze, sky colours, sun and moon and
+  glow (Compatibility's simpler glow) do, its grading (`saturation`, `contrast`) does not, since
+  the renderer has no colour adjustments. A `grim` scene is greyer on the web but keeps its
+  green. The inventory's hotbar is as on the desktop, icons included (they render in
+  `SubViewport`s, which the web supports); the keys are the same, I, 1-9 and F.
 - A portal to a scene the build leaves out shows "<Scene> isn't in this build" and does nothing
   else (`travelled: {"ok": false, "missing": ...}`).
 - No command-line flags on the web: it starts in the catalogue's default scene; F6 lists the scenes.
@@ -1111,7 +1126,7 @@ opens a screen over the game listing what each key does, in groups; ? or Esc
 closes it. It is modal like the quest log (the player parks, the mouse is
 free). The groups are the game's own keys (`main.GAME_KEYS`: moving, playing,
 scenes and debugging) and then whatever each panel's `hud_keys()` returns, in
-the order the panels were added (the tracker's Q, the inventory's I and F, the
+the order the panels were added (the tracker's Q, the inventory's I, 1-9 and F, the
 quest log's J, the dialogue's numbers), so a panel that adds a key lists it
 itself. Two columns on a window at least 560 px wide, one below that; the
 frame scrolls when the window is short. ? is Shift+/ on most keyboards and
@@ -1121,17 +1136,26 @@ also what `input.key {key: Question}` sends. Control API `hud.keys {open?}`
 returns `{open, groups, columns, hint, rect, viewport}`. Tests:
 `tests/test_hud_runtime.py`.
 
-**Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom right, geogen.18):
-what the player carries, one row an item (the manifest's `items` titles, a count
-when more than one), from `GeogenRules.carried`; hidden while empty. Each change to
-one of the player's item counts (a pickup, a rule's give or take) toasts "Picked up"
-or "Handed over" in the notifications panel (`item_note`). An item whose file
-declares `use:` (a verb) shows it on its row; one of those is selected ("F: Eat"),
-I selects the next and F uses it: `GeogenRules.use_item` posts the rules' `use_item`
-event for the player, and the scene's rule on it does the rest ("Items" in
-`docs/rules.md`). Control API `hud.inventory` (with `selected`), `inventory.list
-{actor}`, `inventory.give {item, count, actor}` (negative counts take),
-`inventory.use {item, actor}`; `--give=ITEM[:N]` gives at start.
+**Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom centre, geogen.18,
+geogen.84.14): a hotbar of what the player carries, one square slot an item in the
+manifest's `items` order (`GeogenRules.carried`), hidden while empty. A slot shows the
+item's icon, a count badge when more than one, and its slot digit. One slot is selected
+and framed, its title and verb on a line above the bar ("Coconut   F: Crack open"): I
+selects the next slot, 1 to 9 a slot outright, and F uses the selected item when its file
+declares `use:` (a verb): `GeogenRules.use_item` posts the rules' `use_item` event for the
+player, and the scene's rule on it does the rest ("Items" in `docs/rules.md`). A tool with
+no verb (an axe) is selected all the same: it is what you hold. Icons are rendered by the
+runtime from the items' bodies: the exporter puts each item's body under a hidden
+`item_icons` node (extras `item_icon: {item}`, `geogen/inventory.py attach_icons`), the
+loader takes them out of the world on load (`WorldLoader.item_bodies`) and `item_icons()`
+renders each once into a 96 px texture (a SubViewport in its own world, orthographic
+three-quarter view framed on the body, transparent background), raising `item_icons_ready`
+as they come in; until an icon exists, or headless where nothing renders, the slot shows the
+title's initials. Each change to one of the player's item counts (a pickup, a rule's give or
+take) toasts "Picked up" or "Handed over" in the notifications panel (`item_note`). Control
+API `hud.inventory` (`items`, `selected`, `slots` with each slot's rectangle and whether an
+icon fills it), `inventory.list {actor}`, `inventory.give {item, count, actor}` (negative
+counts take), `inventory.use {item, actor}`; `--give=ITEM[:N]` gives at start.
 
 **Notifications** (`scripts/hud_notifications.gd`, panel `notifications`, bottom
 left): a toast for each quest event of the player's (`GeogenRules.quest_event`):
@@ -1324,6 +1348,7 @@ A new key needs a schema entry and a row here.
 | `physics` | `scripts/props.gd` | rigid-body props, carrying, spawn / stow |
 | `flows` | `scripts/flows.gd` | spawned items: a source's rate, limits and spawn point |
 | `item` | `scripts/flows.gd` | an item template: taken out of the world on load and copied by its source |
+| `item_icon` | `scripts/world_loader.gd` | an item's body under the hidden `item_icons` node: taken out of the world on load and rendered into the HUD hotbar's icon for that item (`item_icons()`) |
 | `travel` | `scripts/world_loader.gd` | travel points |
 | `npc` | `scripts/world_loader.gd` | a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition |
 | `poses` | - | on body assets; NPCs read the copy in `npc.body.poses` |

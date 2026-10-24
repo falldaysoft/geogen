@@ -5,6 +5,7 @@
 # every hour of the game clock (the core's periodic rules), health follows them and the
 # night's cold; at zero you collapse and wake at dawn, weaker and lighter. The HUD shows
 # the four needs and the day; three quests walk through it, each leaving the choice of route.
+# The light is grim (`atmosphere: grim`): you come to at 16:00 with the first night coming on.
 #
 # Ways through: logs from driftwood (no axe, but finite) or felled trees (the axe); the fire
 # lit by a fire drill (sticks, fibre) or flint (the boulder, with a stone); walls of logs or of
@@ -16,6 +17,9 @@ name: castaway
 size: [150, 24, 150]
 tags: [showcase.survival]
 quests: [quests/first_night.yaml, quests/a_roof.yaml, quests/castaway_life.yaml]
+# Washed up late on a grey afternoon: low cold sun, the far shore lost in haze, the colour
+# drained, and a night you can see through (the fire the one warm thing in it).
+atmosphere: {preset: grim, time: "16:00"}
 
 state:
   health: {scope: actor, type: number, default: 100}

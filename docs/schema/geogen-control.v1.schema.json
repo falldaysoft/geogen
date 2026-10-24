@@ -1617,7 +1617,7 @@
         "hud.stats": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value, of?, text}]}, banner: {visible, text?, tone?}}",
         "dialogue.show": "the open conversation as shown: {open, dialogue?, anchor?, passage?, title?, text?, choices?: [{id, text}], selected?}",
         "dialogue.choose": "{index? (from 0) | choice? (id) | close?: true} choose one of what is shown, or close it; -> dialogue.show",
-        "hud.inventory": "what the HUD's inventory panel shows: {visible, items: [{id, title, count, tags?}]}",
+        "hud.inventory": "what the HUD's inventory hotbar shows: {visible, items: [{id, title, count, tags?, use?}], selected (the slot's item id), slots: [{id, rect, icon}]}",
         "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
         "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
         "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",

@@ -373,6 +373,8 @@ def gameplay_summary(root: SceneNode, compiled: Any = None) -> dict[str, list[di
         out["physics"] = {"ticks": max(ticks)}     # the runtime steps at least this often while it is loaded
     if root.meta.get("ground") is False:
         out["ground"] = False                      # the runtime keeps no ground plane while it is loaded
+    if root.meta.get("atmosphere"):
+        out["atmosphere"] = root.meta["atmosphere"]    # the lighting mood, resolved (geogen.atmosphere)
     from .travel import travel_summary
 
     travel = travel_summary(root)       # where the scene's travel points go (catalogue validation)
@@ -903,6 +905,10 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
 
         refs.assign_ids(root, package)
         compiled = collect(root, package)   # bad declarations and quests fail the export before anything is written
+        if compiled.items:
+            from .inventory import attach_icons
+
+            attach_icons(root, compiled.items)   # the items' bodies, for a runtime's inventory to draw
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
     scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
     # What the passes below need, taken off the scene first: trimesh writes scene.metadata into the

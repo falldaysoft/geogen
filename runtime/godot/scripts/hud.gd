@@ -4,8 +4,8 @@ extends CanvasLayer
 ## markers, the quest log; later inventory, dialogue).
 ##
 ## The host owns what panels share and nothing a panel shows:
-## - a slot per screen corner (`SLOTS`), each a column inside the screen margin,
-##   so panels in one corner stack instead of overlapping;
+## - a slot per screen corner and one centred along the bottom (`SLOTS`), each a column
+##   inside the screen margin, so panels in one slot stack instead of overlapping;
 ## - sizes that follow the window (`panel_width()`, `slot_height(slot)`);
 ## - one coalesced refresh: `queue_refresh()` any number of times in a frame
 ##   re-reads each panel once, after the events of that frame are through;
@@ -36,7 +36,7 @@ extends CanvasLayer
 ## A modal panel opened (true) or closed (false).
 signal modal_changed(open: bool)
 
-const SLOTS := ["top_left", "top_right", "bottom_left", "bottom_right"]
+const SLOTS := ["top_left", "top_right", "bottom_left", "bottom_right", "bottom"]   # bottom: centred
 const MARGIN := 12
 ## The debug overlay's three lines are in the top-left corner and run most of the
 ## way across a small window: while it is shown the top slots start under them
@@ -79,14 +79,16 @@ func _init() -> void:
         column.add_theme_constant_override("separation", 8)
         var right: bool = slot.ends_with("right")
         var bottom: bool = slot.begins_with("bottom")
-        column.anchor_left = 1.0 if right else 0.0
+        var centre: bool = slot == "bottom"
+        column.anchor_left = 0.5 if centre else (1.0 if right else 0.0)
         column.anchor_right = column.anchor_left
         column.anchor_top = 1.0 if bottom else 0.0
         column.anchor_bottom = column.anchor_top
-        column.grow_horizontal = Control.GROW_DIRECTION_BEGIN if right else Control.GROW_DIRECTION_END
+        column.grow_horizontal = Control.GROW_DIRECTION_BOTH if centre \
+            else (Control.GROW_DIRECTION_BEGIN if right else Control.GROW_DIRECTION_END)
         column.grow_vertical = Control.GROW_DIRECTION_BEGIN if bottom else Control.GROW_DIRECTION_END
         column.alignment = BoxContainer.ALIGNMENT_END if bottom else BoxContainer.ALIGNMENT_BEGIN
-        var x := -MARGIN if right else MARGIN
+        var x := 0 if centre else (-MARGIN if right else MARGIN)
         var y := -MARGIN if bottom else TOP_INSET
         column.offset_left = x
         column.offset_right = x

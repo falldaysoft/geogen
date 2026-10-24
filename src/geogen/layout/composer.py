@@ -281,7 +281,8 @@ class SceneComposer:
                "_add_attachments")
 
     def _declare(self, b: _SceneBuild) -> None:
-        """Scene-level declarations: state, wiring, HUD, physics ticks, quests and dialogues."""
+        """Scene-level declarations: state, wiring, HUD, atmosphere, physics ticks, quests and dialogues."""
+        from ..atmosphere import declare as declare_atmosphere
         from ..hud import declare as declare_hud
         from ..state import declare_scene
         from ..wiring import declare as declare_wiring
@@ -290,6 +291,7 @@ class SceneComposer:
         declare_scene(root, data, source)
         declare_wiring(root, data, source, asset=False)
         declare_hud(root, data, source)
+        declare_atmosphere(root, data, source)
         if data.get("ground") is not None:
             if not isinstance(data["ground"], bool):
                 raise ValueError(f"{source}: ground is true or false, got {data['ground']!r}")

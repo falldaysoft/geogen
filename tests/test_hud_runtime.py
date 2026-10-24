@@ -358,7 +358,7 @@ def test_the_keys_panel_lists_every_key_and_takes_the_keyboard_while_open(fresh)
     assert list(groups) == ["Moving", "Playing", "Scenes and debugging", "Quests", "Inventory", "Quest log",
                             "Talking"]
     assert groups["Playing"]["E"] == "use what you aim at" and groups["Playing"]["?"] == "this list"
-    assert "Q" in groups["Quests"] and "J" in groups["Quest log"] and set(groups["Inventory"]) == {"I", "F"}
+    assert "Q" in groups["Quests"] and "J" in groups["Quest log"] and set(groups["Inventory"]) == {"I", "1-9", "F"}
 
     assert rt.call("input.key", key="Slash")
     hud = rt.call("hud.keys")

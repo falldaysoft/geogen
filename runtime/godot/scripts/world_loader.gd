@@ -112,6 +112,14 @@ var _reservations := {}   # affordance id -> [GeogenNpc]
 var interactions: Array[GeogenInteraction] = []
 ## Physics props (extras.geogen.physics): rigid bodies, carrying, spawn and stow.
 var props: GeogenProps
+## Items' icon bodies (extras.geogen.item_icon, the export's hidden ``item_icons`` node): item id -> Node3D,
+## out of the tree; ``item_icons()`` renders them for the HUD's hotbar.
+var item_bodies := {}
+var _item_icons := {}
+var _icons_rendering := {}
+const ICON_PX := 96
+## More item icons were rendered (``item_icons()``).
+signal item_icons_ready
 ## Spawned items (extras.geogen.flows / item): sources, templates and the items in the world.
 var flows: GeogenFlows
 var _moving := {}     # Node3D driven by an interaction -> true
@@ -363,10 +371,12 @@ func unload() -> void:
         child.free()
     flows.clear()
     props.clear()
+    _clear_item_icons()
     rules.unload()
     physics_rate = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
     apply_physics_rate()
     _use_ground({})
+    _use_atmosphere({})
     interactions_by_key.clear()
     streamer = null
     _lap("unload", t)
@@ -488,6 +498,121 @@ func _exit_tree() -> void:
         WorkerThreadPool.wait_for_task_completion(_parse_task)
 
 
+## The ``item_icons`` node of an export (geogen/inventory.py attach_icons): each child is an
+## item's body with extras ``item_icon: {item}``. They leave the world here and are kept by
+## item id for ``item_icons()`` to draw.
+func _take_item_icons(root: Node) -> void:
+    for node: Node3D in root.find_children("*", "Node3D", true, false):
+        var icon: Variant = geogen_extras(node).get("item_icon")
+        if icon is Dictionary and node.get_parent() != null:
+            node.get_parent().remove_child(node)
+            node.visible = true
+            var old: Node = item_bodies.get(str(icon["item"]))
+            if old != null and is_instance_valid(old):
+                old.free()
+            item_bodies[str(icon["item"])] = node
+    for node in root.find_children("item_icons", "Node3D", true, false):
+        node.get_parent().remove_child(node)
+        node.free()
+
+
+func _clear_item_icons() -> void:
+    for body in item_bodies.values():
+        if is_instance_valid(body):
+            body.free()
+    item_bodies.clear()
+    _item_icons.clear()
+    _icons_rendering.clear()
+
+
+## The icons of the items this export can draw: item id -> Texture2D, the ones rendered so
+## far. A body with no icon yet is rendered now (one frame, off screen, in its own world:
+## an orthographic three-quarter view over a transparent background) and `item_icons_ready`
+## says when more are in. Headless runs render none: the hotbar shows initials instead.
+func item_icons() -> Dictionary:
+    if DisplayServer.get_name() != "headless":
+        for id in item_bodies:
+            if not _item_icons.has(id) and not _icons_rendering.has(id):
+                _icons_rendering[id] = true
+                _render_item_icon(id)
+    return _item_icons
+
+
+func _render_item_icon(id: String) -> void:
+    var body: Node3D = item_bodies[id]
+    var viewport := SubViewport.new()
+    viewport.size = Vector2i(ICON_PX, ICON_PX)
+    viewport.transparent_bg = true
+    viewport.own_world_3d = true
+    viewport.msaa_3d = Viewport.MSAA_4X
+    viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    add_child(viewport)
+    var copy: Node3D = body.duplicate()
+    copy.transform = Transform3D.IDENTITY
+    viewport.add_child(copy)
+    for mi: MeshInstance3D in copy.find_children("*", "MeshInstance3D", true, false):
+        if _is_collider(mi):
+            mi.visible = false
+    var box := _subtree_aabb(copy)
+    var centre := box.get_center()
+    var radius := maxf(box.size.length() / 2.0, 0.01)
+    var camera := Camera3D.new()
+    camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+    camera.near = 0.01
+    camera.far = radius * 12.0 + 1.0
+    camera.position = centre + Vector3(1.0, 0.8, 1.2).normalized() * (radius * 5.0 + 0.5)
+    viewport.add_child(camera)
+    camera.look_at(centre, Vector3.UP)
+    # Frame what the camera actually sees: the box's corners in its view, not its diagonal (a
+    # lying stick would be a hair otherwise), and centre on them.
+    var into_view := camera.global_transform.affine_inverse()
+    var lo := Vector2(INF, INF)
+    var hi := Vector2(-INF, -INF)
+    for i in 8:
+        var corner := into_view * box.get_endpoint(i)
+        lo = Vector2(minf(lo.x, corner.x), minf(lo.y, corner.y))
+        hi = Vector2(maxf(hi.x, corner.x), maxf(hi.y, corner.y))
+    var seen := hi - lo
+    camera.size = maxf(seen.x, seen.y) * 1.12
+    camera.global_translate(camera.global_transform.basis * Vector3((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0, 0.0))
+    var key := DirectionalLight3D.new()
+    key.rotation = Vector3(deg_to_rad(-50.0), deg_to_rad(30.0), 0.0)
+    key.light_energy = 1.1
+    viewport.add_child(key)
+    var env := WorldEnvironment.new()
+    env.environment = Environment.new()
+    env.environment.background_mode = Environment.BG_CLEAR_COLOR
+    env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    env.environment.ambient_light_color = Color(0.75, 0.78, 0.85)
+    env.environment.ambient_light_energy = 0.7
+    viewport.add_child(env)
+    await RenderingServer.frame_post_draw
+    await RenderingServer.frame_post_draw
+    if is_instance_valid(viewport):
+        var image := viewport.get_texture().get_image()
+        if image != null and not image.is_empty():
+            _item_icons[id] = ImageTexture.create_from_image(image)
+        viewport.queue_free()
+    _icons_rendering.erase(id)
+    item_icons_ready.emit()
+
+
+## The bounds of every drawn mesh under ``node`` (global space; colliders left out).
+static func _subtree_aabb(node: Node3D) -> AABB:
+    var out := AABB()
+    var first := true
+    var meshes: Array[Node] = node.find_children("*", "MeshInstance3D", true, false)
+    if node is MeshInstance3D:
+        meshes.append(node)
+    for mi: MeshInstance3D in meshes:
+        if _is_collider(mi) or not mi.visible or mi.mesh == null:
+            continue
+        var box: AABB = mi.global_transform * mi.get_aabb()
+        out = box if first else out.merge(box)
+        first = false
+    return out
+
+
 ## A scene's ``physics: {ticks}``: step physics at least that often while it is loaded (Jolt
 ## lets a fast ball sink into a curved trimesh wall at 60; unload puts the project's rate back).
 func _use_physics(manifest: Dictionary) -> void:
@@ -508,6 +633,17 @@ func _use_ground(manifest: Dictionary) -> void:
     ground.visible = not ground_off
     for shape in ground.find_children("*", "CollisionShape3D", true, false):
         shape.disabled = ground_off
+
+
+## A scene's ``atmosphere`` (the manifest's, resolved: fog, grading, sun, sky, moon, night, glow,
+## start time): the clock plays the scene in that light while it is loaded (clock.gd).
+func _use_atmosphere(manifest: Dictionary) -> void:
+    if clock == null:
+        return
+    var spec = manifest.get("atmosphere")
+    clock.set_atmosphere(spec if spec is Dictionary else {}, String(manifest.get("name", scene_name)))
+    if spec is Dictionary:
+        print("geogen: atmosphere %s" % spec.get("preset", "custom"))
 
 
 ## How far round each model the ground plane is walkable in the navmesh bake: none without one.
@@ -545,6 +681,7 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
     root.name = manifest.get("name", model_path.get_file().get_basename())
     _use_physics(manifest)
     _use_ground(manifest)
+    _use_atmosphere(manifest)
     events.package = scene_name if scene_name != "" else String(root.name)
     rules.load_package(events.package, manifest)
     var t := Time.get_ticks_usec()
@@ -599,6 +736,7 @@ func setup_root(root: Node) -> Dictionary:
             node.get_parent().remove_child(node)
             node.queue_free()
     flows.setup(root)        # item templates leave the world before anything else sees them
+    _take_item_icons(root)   # and the items' icon bodies (inventory.attach_icons)
     for node in [root] + root.find_children("*", "Node3D", true, false):
         var uid := uid_of(node)
         if uid != "":
@@ -678,6 +816,7 @@ func forget(root: Node) -> void:
 func _load_chunked(index_path: String, index: Dictionary) -> void:
     _use_physics(index)
     _use_ground(index)
+    _use_atmosphere(index)
     # Tiles are baked around the player as it goes: sync them off the main thread.
     NavigationServer3D.map_set_use_async_iterations(get_world_3d().navigation_map, true)
     streamer = GeogenChunkStreamer.new()
