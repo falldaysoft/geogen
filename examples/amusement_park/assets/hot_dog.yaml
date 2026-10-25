@@ -1,0 +1,30 @@
+# A hot dog: a sausage in a split bun with a line of mustard, lying along X. The body of
+# items/hot_dog.yaml (what a "Hot Dogs" fair stall hands over). Origin: bottom centre.
+name: hot_dog
+tags: [food.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  bun:
+    primitive: ellipsoid
+    size: [0.17, 0.06, 0.075]
+    anchor: bottom_center
+    material: bread_crust
+  sausage:
+    primitive: ellipsoid
+    size: [0.185, 0.034, 0.034]
+    anchor: bottom_center
+    offset: [0, 0.036, 0]
+    material: car_paint
+    tint: [150, 62, 42]
+    collider: none
+  mustard:
+    primitive: ellipsoid
+    size: [0.13, 0.008, 0.012]
+    anchor: bottom_center
+    offset: [0, 0.068, 0]
+    material: car_paint
+    tint: mustard
+    collider: none

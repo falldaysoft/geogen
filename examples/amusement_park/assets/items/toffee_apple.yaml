@@ -1,0 +1,6 @@
+# A toffee apple on a stick from a fair stall (kind "Toffee Apples"); eaten with F, leaving a wrapper.
+kind: item
+title: Toffee apple
+tags: [food]
+body: toffee_apple.yaml
+use: Eat

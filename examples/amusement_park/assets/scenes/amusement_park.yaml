@@ -1,7 +1,8 @@
 # The amusement park: four rides round a midway, inside railings with a gate at the south;
 # an avenue of stalls from the gate, more stalls round the midway's south-west arc, a
 # strength tester by the gate, a petting zoo in the north-east corner, and a crowd of
-# fairgoers and stallholders on the paths. Each ride is a mechanism the runtime simulates
+# fairgoers and stallholders on the paths, who buy from the stalls, eat and bin the wrappers
+# (the `rules` below say what eating each thing does). Each ride is a mechanism the runtime simulates
 # as rigid bodies on motorised joints, running cycles on their own with an operator at the
 # controls; sit on a seat (E) while it is stopped and ride. Fairgoers ride too. The carousel
 # is west, the Ferris wheel north, the drop tower east and the swings south-east. The stalls
@@ -38,6 +39,12 @@ slots:
   lamp_zoo:   {position: [27, 0.05, 12.5]}
   picnic:     {position: [-30, 0.05, -24]}
   picnic_2:   {position: [-34, 0.05, -20]}
+  bin_sw:     {position: [-14.1, 0.05, -11.7], facing: center}   # a bin beside each bench, just off the ring (r 18.3), and two on the avenue
+  bin_se:     {position: [14.1, 0.05, -11.7], facing: center}
+  bin_nw:     {position: [-14.1, 0.05, 11.7], facing: center}
+  bin_ne:     {position: [11.7, 0.05, 14.1], facing: center}   # clear of the spoke to the zoo
+  bin_ave_w:  {position: [-2.6, 0.05, -24], facing: east}
+  bin_ave_e:  {position: [2.6, 0.05, -20], facing: west}
 
 place:
   ground:
@@ -93,6 +100,12 @@ place:
   lamp_zoo:  {asset: street_lamp.yaml, slot: lamp_zoo}
   picnic:    {asset: picnic_table.yaml, slot: picnic}
   picnic_2:  {asset: picnic_table.yaml, slot: picnic_2}
+  bin_sw:    {asset: trashcan.yaml, slot: bin_sw}
+  bin_se:    {asset: trashcan.yaml, slot: bin_se}
+  bin_nw:    {asset: trashcan.yaml, slot: bin_nw}
+  bin_ne:    {asset: trashcan.yaml, slot: bin_ne}
+  bin_ave_w: {asset: trashcan.yaml, slot: bin_ave_w}
+  bin_ave_e: {asset: trashcan.yaml, slot: bin_ave_e}
 
   # Trees on the lawns, clear of everything placed.
   maples:
@@ -119,3 +132,12 @@ rules:
     on: {start: true}
     do:
       - {notify: "Welcome to the fair. Pull a ride's lever to start it, and get on."}
+  # Eating what the stalls sell (F on the item, or a fairgoer's `buy`): the food goes, a
+  # wrapper is left in the hand for a bin (trashcan.yaml).
+  - {id: eat_hot_dog, on: {use_item: hot_dog}, do: [{take: hot_dog}, {give: wrapper}, {notify: "You eat the hot dog"}]}
+  - {id: eat_popcorn, on: {use_item: popcorn}, do: [{take: popcorn}, {give: wrapper}, {notify: "You finish the popcorn"}]}
+  - {id: drink_lemonade, on: {use_item: lemonade_cup}, do: [{take: lemonade_cup}, {give: wrapper}, {notify: "You drink the lemonade"}]}
+  - {id: eat_candy_floss, on: {use_item: candy_floss}, do: [{take: candy_floss}, {give: wrapper}, {notify: "You eat the candy floss"}]}
+  - {id: eat_ice_cream, on: {use_item: ice_cream}, do: [{take: ice_cream}, {give: wrapper}, {notify: "You eat the ice cream"}]}
+  - {id: eat_pretzel, on: {use_item: pretzel}, do: [{take: pretzel}, {give: wrapper}, {notify: "You eat the pretzel"}]}
+  - {id: eat_toffee_apple, on: {use_item: toffee_apple}, do: [{take: toffee_apple}, {give: wrapper}, {notify: "You eat the toffee apple"}]}

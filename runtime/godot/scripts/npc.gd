@@ -49,6 +49,9 @@ const REACT_DRIFT := 0.1          # m: a reaction that moved the NPC further sen
 const SEAT_CLEAR := 0.03          # m the calves keep in front of a seat's front edge
 const PORTAL_LOOKAHEAD := 2.5     # react to closed doors this far ahead
 const AVOID_AHEAD := 1.6          # steer around characters (player, NPCs) this far ahead
+const NEARBY := 4.0               # m: `go_to: nearby` picks a navmesh point within this of where the NPC stands
+const NEARBY_MIN := 1.5           # m: ...and at least this far, so it is a few steps away
+const NEARBY_DETOUR := 1.4        # ...reached by a walk at most this many times the straight line
 const AVOID_MARGIN := 0.2
 const DETOUR_HORIZON := 8.0       # m of path ahead whose waypoints are moved off characters (farther ones as they come up)
 const CROWD_CELL := 2.0           # m, cells of the shared character grid
@@ -317,6 +320,9 @@ func options(restricted := true) -> Array[Dictionary]:
             continue    # another storey above or below the home region
         if world.npc_reserved(a["id"], self) >= int(a.get("slots", 1)):
             continue
+        var gate = a.get("interaction")
+        if gate is GeogenInteraction and not (gate as GeogenInteraction).allowed(WorldLoader.actor_id(self)):
+            continue    # its `when` says no for this actor (a bin with nothing to throw away)
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
             "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "at": a["approach"]})
     if not block_only.is_empty() and result.is_empty():
@@ -709,6 +715,16 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
                 _timer = animator.play_once(clip)
             _playing = true
         return ""
+    if step.has("use_item"):
+        var id := _carried_item(str(step["use_item"]))
+        if id == "":
+            return "carrying nothing to use for %s" % step["use_item"]
+        var err: String = world.rules.use_item(id, WorldLoader.actor_id(self))
+        if err != "":
+            return err
+        stats["items_used"] = int(stats.get("items_used", 0)) + 1
+        _trace({"event": "use_item", "item": id, "pos": _v(global_position)})
+        return ""
     if step.has("use"):
         var it: GeogenInteraction = ctx.get("interaction")
         if it == null:
@@ -774,6 +790,8 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         remove_from_group(CHARACTER_GROUP)
         stats["aways"] = int(stats.get("aways", 0)) + 1
         _trace({"event": "away", "pos": _v(global_position)})
+        return "done"
+    if step.has("use_item"):
         return "done"
     if step.has("use"):
         var it: GeogenInteraction = ctx.get("interaction")
@@ -937,6 +955,8 @@ func _target(kind: String, ctx: Dictionary):
             return p["center"] + p["normal"] * side * (p["depth"] / 2.0 + clear)
         "random":
             return _random_home_point()
+        "nearby":
+            return _nearby_point()
         "visit":
             var spot: Dictionary = visits.get(str(ctx.get("visit", "")), {})
             return null if spot.is_empty() else _random_point_in(spot["polygon"], spot["y"])
@@ -948,6 +968,56 @@ func _target(kind: String, ctx: Dictionary):
                     best = p
             return best if best != null else global_position
     return null
+
+
+## An item this NPC carries that a `use_item` step names: an item id, or "[tag=<tag>]" for the
+## first carried item with that tag; "" when it carries no such thing.
+func _carried_item(spec: String) -> String:
+    var actor := WorldLoader.actor_id(self)
+    if spec.begins_with("[tag=") and spec.ends_with("]"):
+        var tag := spec.substr(5, spec.length() - 6)
+        for entry in world.rules.carried(actor):
+            if (entry.get("tags", []) as Array).has(tag):
+                return str(entry["id"])
+        return ""
+    return spec if world.rules.held(spec, actor) > 0 else ""
+
+
+## A navmesh point a few steps from where the NPC stands (`go_to: nearby`): within NEARBY m, at
+## least NEARBY_MIN away, and reached without a detour (the walk there no longer than NEARBY_DETOUR
+## times the straight line: not round the back of a stall through a gap) when one can be found,
+## else wherever it stands.
+func _nearby_point() -> Vector3:
+    var c := Vector2(global_position.x, global_position.z)
+    var poly := PackedVector2Array([c + Vector2(-NEARBY, -NEARBY), c + Vector2(NEARBY, -NEARBY),
+                                    c + Vector2(NEARBY, NEARBY), c + Vector2(-NEARBY, NEARBY)])
+    var map := get_world_3d().navigation_map
+    var fallback = null
+    for _i in 10:
+        var p = _random_point_in(poly, global_position.y)
+        if p == null:
+            continue
+        var straight := (p as Vector3).distance_to(global_position)
+        if straight < NEARBY_MIN:
+            fallback = p
+            continue
+        if _someone_at(p):
+            continue
+        var path := NavigationServer3D.map_get_path(map, global_position, p, true)
+        var walked := 0.0
+        for i in range(1, path.size()):
+            walked += path[i - 1].distance_to(path[i])
+        if path.size() >= 2 and path[path.size() - 1].distance_to(p) < 0.5 and walked <= NEARBY_DETOUR * straight:
+            return p
+    return fallback if fallback != null else global_position
+
+
+## Whether another character (the player, an NPC) stands within NEARBY_MIN of a point.
+func _someone_at(p: Vector3) -> bool:
+    for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+        if other != self and other is Node3D and (other as Node3D).global_position.distance_to(p) < NEARBY_MIN:
+            return true
+    return false
 
 
 func _random_home_point():
@@ -1868,6 +1938,9 @@ func report() -> Dictionary:
         "signal_crossings": int(stats.get("signal_crossings", 0)),
         "signal_violations": int(stats.get("signal_violations", 0)),
         "waves": int(stats.get("waves", 0)),
+        # Items it has used (`use_item` steps) and what it carries now (item ids).
+        "items_used": int(stats.get("items_used", 0)),
+        "carrying": world.rules.carried(WorldLoader.actor_id(self)).map(func(e): return str(e["id"])) if world.rules != null else [],
         # Quests it holds ({id: status}) and the quest goals it has set off to work on.
         "quests": _quests(), "quest_goals": int(stats.get("quest_goals", 0)),
         "yields": int(stats.get("yields", 0)), "transitions": int(stats.get("transitions", 0)),

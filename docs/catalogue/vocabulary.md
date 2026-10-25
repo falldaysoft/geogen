@@ -241,6 +241,7 @@ Keys: `body`, `data`, `gait`, `lifetime`, `mode`, `name`, `opens`, `radius`, `sp
 | [items/rover.yaml](../../assets/items/rover.yaml) | A delivery rover that drives along walk tracks at its own pace. |
 | [items/wheat.yaml](../../assets/items/wheat.yaml) | Wheat from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold at the farm's counter. |
 | [items/wheat_seeds.yaml](../../assets/items/wheat_seeds.yaml) | Wheat seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |
+| [items/wrapper.yaml](../../assets/items/wrapper.yaml) | A screwed-up wrapper: what eating something from a stall leaves in the hand (a scene's rule on use_item gives one); trashcan.yaml's `bin` interaction takes it. |
 
 ### npc
 
@@ -266,7 +267,7 @@ The actions NPCs run at affordances, as steps (go_to, face, pose, wait, use, pla
 
 Use: `referenced by affordances: {type: sit, action: sit}`
 
-Keys: `face`, `go_to`, `play`, `pose`, `use`, `vanish`, `wait`
+Keys: `face`, `go_to`, `play`, `pose`, `use`, `use_item`, `vanish`, `wait`
 
 | File | What it is |
 | --- | --- |

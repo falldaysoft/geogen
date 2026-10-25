@@ -1,0 +1,31 @@
+# An ice cream: two scoops on a wafer cone, point down. The body of items/ice_cream.yaml.
+# Origin: the cone's point.
+name: ice_cream
+tags: [food.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  cone:
+    primitive: lathe
+    profile: [[0.002, 0], [0.036, 0.12]]
+    size: [0.072, 0.12, 0.072]
+    anchor: bottom_center
+    material: bread_crust
+  scoop:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0, 0.1, 0]
+    material: car_paint
+    tint: cream
+    collider: none
+  scoop_top:
+    primitive: sphere
+    size: [0.07, 0.07, 0.07]
+    anchor: bottom_center
+    offset: [0.01, 0.165, 0]
+    material: car_paint
+    tint: blush
+    collider: none

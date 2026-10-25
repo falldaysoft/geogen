@@ -1,0 +1,6 @@
+# A screwed-up wrapper: what eating something from a stall leaves in the hand (a scene's rule
+# on use_item gives one); trashcan.yaml's `bin` interaction takes it.
+kind: item
+title: Wrapper
+tags: [litter]
+body: wrapper.yaml

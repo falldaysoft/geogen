@@ -1,0 +1,7 @@
+# A hot dog from a fair stall (fair_stall.yaml, kind "Hot Dogs"): carried, eaten with F (or by
+# a fairgoer, npcs/actions.yaml `buy`); the scene's rule on use_item swaps it for a wrapper.
+kind: item
+title: Hot dog
+tags: [food]
+body: hot_dog.yaml
+use: Eat

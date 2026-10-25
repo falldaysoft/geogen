@@ -80,6 +80,42 @@
       "amusement_park:zoo#restarts": {
         "type": "number",
         "default": 0
+      },
+      "actor:amusement_park.item_hot_dog": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_wrapper": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_popcorn": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_lemonade_cup": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_candy_floss": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_ice_cream": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_pretzel": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_toffee_apple": {
+        "type": "number",
+        "default": 0
+      },
+      "actor:amusement_park.item_balloon": {
+        "type": "number",
+        "default": 0
       }
     },
     "interactions": {
@@ -180,6 +216,497 @@
             "then": "ready",
             "after": 3.5
           }
+        }
+      },
+      "amusement_park:bin_sw#bin": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "binning"
+          },
+          "binning": {
+            "then": "ready",
+            "emit": "binned",
+            "after": 0.5
+          }
+        },
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_wrapper"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:bin_se#bin": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "binning"
+          },
+          "binning": {
+            "then": "ready",
+            "emit": "binned",
+            "after": 0.5
+          }
+        },
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_wrapper"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:bin_nw#bin": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "binning"
+          },
+          "binning": {
+            "then": "ready",
+            "emit": "binned",
+            "after": 0.5
+          }
+        },
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_wrapper"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:bin_ne#bin": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "binning"
+          },
+          "binning": {
+            "then": "ready",
+            "emit": "binned",
+            "after": 0.5
+          }
+        },
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_wrapper"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:bin_ave_w#bin": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "binning"
+          },
+          "binning": {
+            "then": "ready",
+            "emit": "binned",
+            "after": 0.5
+          }
+        },
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_wrapper"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:bin_ave_e#bin": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "binning"
+          },
+          "binning": {
+            "then": "ready",
+            "emit": "binned",
+            "after": 0.5
+          }
+        },
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_wrapper"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:stalls_west_1#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_hot_dog"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_west_2#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_ice_cream"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_west_3#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_balloon"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_east_1#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_ice_cream"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_east_2#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_toffee_apple"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_east_3#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_ice_cream"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_arc_1#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_popcorn"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_arc_2#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_toffee_apple"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_arc_3#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_balloon"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_arc_4#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_candy_floss"
+                },
+                1
+              ]
+            }
+          ]
+        }
+      },
+      "amusement_park:stalls_arc_5#serve": {
+        "initial": "ready",
+        "duration": 0.3,
+        "states": {
+          "ready": {
+            "next": "serving"
+          },
+          "serving": {
+            "then": "ready",
+            "emit": "served",
+            "after": 1.5
+          }
+        },
+        "refused": "You already have one",
+        "when": {
+          "op": "not",
+          "args": [
+            {
+              "op": ">=",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_candy_floss"
+                },
+                1
+              ]
+            }
+          ]
         }
       }
     },
@@ -305,6 +832,74 @@
       "amusement_park:operators_4#greeted": {
         "subject": "amusement_park:operators_4",
         "name": "greeted"
+      },
+      "amusement_park:bin_sw#binned": {
+        "subject": "amusement_park:bin_sw",
+        "name": "binned"
+      },
+      "amusement_park:bin_se#binned": {
+        "subject": "amusement_park:bin_se",
+        "name": "binned"
+      },
+      "amusement_park:bin_nw#binned": {
+        "subject": "amusement_park:bin_nw",
+        "name": "binned"
+      },
+      "amusement_park:bin_ne#binned": {
+        "subject": "amusement_park:bin_ne",
+        "name": "binned"
+      },
+      "amusement_park:bin_ave_w#binned": {
+        "subject": "amusement_park:bin_ave_w",
+        "name": "binned"
+      },
+      "amusement_park:bin_ave_e#binned": {
+        "subject": "amusement_park:bin_ave_e",
+        "name": "binned"
+      },
+      "amusement_park:stalls_west_1#served": {
+        "subject": "amusement_park:stalls_west_1",
+        "name": "served"
+      },
+      "amusement_park:stalls_west_2#served": {
+        "subject": "amusement_park:stalls_west_2",
+        "name": "served"
+      },
+      "amusement_park:stalls_west_3#served": {
+        "subject": "amusement_park:stalls_west_3",
+        "name": "served"
+      },
+      "amusement_park:stalls_east_1#served": {
+        "subject": "amusement_park:stalls_east_1",
+        "name": "served"
+      },
+      "amusement_park:stalls_east_2#served": {
+        "subject": "amusement_park:stalls_east_2",
+        "name": "served"
+      },
+      "amusement_park:stalls_east_3#served": {
+        "subject": "amusement_park:stalls_east_3",
+        "name": "served"
+      },
+      "amusement_park:stalls_arc_1#served": {
+        "subject": "amusement_park:stalls_arc_1",
+        "name": "served"
+      },
+      "amusement_park:stalls_arc_2#served": {
+        "subject": "amusement_park:stalls_arc_2",
+        "name": "served"
+      },
+      "amusement_park:stalls_arc_3#served": {
+        "subject": "amusement_park:stalls_arc_3",
+        "name": "served"
+      },
+      "amusement_park:stalls_arc_4#served": {
+        "subject": "amusement_park:stalls_arc_4",
+        "name": "served"
+      },
+      "amusement_park:stalls_arc_5#served": {
+        "subject": "amusement_park:stalls_arc_5",
+        "name": "served"
       }
     },
     "inputs": {
@@ -362,7 +957,913 @@
             "notify": "Welcome to the fair. Pull a ride's lever to start it, and get on."
           }
         ]
+      },
+      {
+        "id": "eat_hot_dog",
+        "on": {
+          "type": "use_item",
+          "name": "hot_dog"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_hot_dog",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_hot_dog"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You eat the hot dog"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_hot_dog"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "eat_popcorn",
+        "on": {
+          "type": "use_item",
+          "name": "popcorn"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_popcorn",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_popcorn"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You finish the popcorn"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_popcorn"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "drink_lemonade",
+        "on": {
+          "type": "use_item",
+          "name": "lemonade_cup"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_lemonade_cup",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_lemonade_cup"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You drink the lemonade"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_lemonade_cup"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "eat_candy_floss",
+        "on": {
+          "type": "use_item",
+          "name": "candy_floss"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_candy_floss",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_candy_floss"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You eat the candy floss"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_candy_floss"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "eat_ice_cream",
+        "on": {
+          "type": "use_item",
+          "name": "ice_cream"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_ice_cream",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_ice_cream"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You eat the ice cream"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_ice_cream"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "eat_pretzel",
+        "on": {
+          "type": "use_item",
+          "name": "pretzel"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_pretzel",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_pretzel"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You eat the pretzel"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_pretzel"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "eat_toffee_apple",
+        "on": {
+          "type": "use_item",
+          "name": "toffee_apple"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_toffee_apple",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_toffee_apple"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          },
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_wrapper"
+                },
+                1
+              ]
+            }
+          },
+          {
+            "notify": "You eat the toffee apple"
+          }
+        ],
+        "when": {
+          "op": ">=",
+          "args": [
+            {
+              "get": "actor",
+              "package": "amusement_park",
+              "name": "item_toffee_apple"
+            },
+            1
+          ]
+        }
+      },
+      {
+        "id": "amusement_park:bin_sw#take_wrapper",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:bin_sw",
+          "name": "binned"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_wrapper"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:bin_se#take_wrapper",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:bin_se",
+          "name": "binned"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_wrapper"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:bin_nw#take_wrapper",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:bin_nw",
+          "name": "binned"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_wrapper"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:bin_ne#take_wrapper",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:bin_ne",
+          "name": "binned"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_wrapper"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:bin_ave_w#take_wrapper",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:bin_ave_w",
+          "name": "binned"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_wrapper"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:bin_ave_e#take_wrapper",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:bin_ave_e",
+          "name": "binned"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_wrapper",
+            "to": {
+              "op": "max",
+              "args": [
+                {
+                  "op": "-",
+                  "args": [
+                    {
+                      "get": "actor",
+                      "package": "amusement_park",
+                      "name": "item_wrapper"
+                    },
+                    1
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_west_1#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_west_1",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_hot_dog",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_hot_dog"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_west_2#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_west_2",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_ice_cream",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_ice_cream"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_west_3#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_west_3",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_balloon",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_balloon"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_east_1#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_east_1",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_ice_cream",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_ice_cream"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_east_2#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_east_2",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_toffee_apple",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_toffee_apple"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_east_3#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_east_3",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_ice_cream",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_ice_cream"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_arc_1#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_arc_1",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_popcorn",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_popcorn"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_arc_2#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_arc_2",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_toffee_apple",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_toffee_apple"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_arc_3#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_arc_3",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_balloon",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_balloon"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_arc_4#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_arc_4",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_candy_floss",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_candy_floss"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amusement_park:stalls_arc_5#hand_over",
+        "on": {
+          "type": "signal",
+          "subject": "amusement_park:stalls_arc_5",
+          "name": "served"
+        },
+        "do": [
+          {
+            "set": "actor:amusement_park.item_candy_floss",
+            "to": {
+              "op": "+",
+              "args": [
+                {
+                  "get": "actor",
+                  "package": "amusement_park",
+                  "name": "item_candy_floss"
+                },
+                1
+              ]
+            }
+          }
+        ]
       }
     ]
+  },
+  "items": {
+    "balloon": {
+      "title": "Balloon",
+      "tags": [
+        "toy"
+      ]
+    },
+    "candy_floss": {
+      "title": "Candy floss",
+      "tags": [
+        "food"
+      ],
+      "use": "Eat"
+    },
+    "hot_dog": {
+      "title": "Hot dog",
+      "tags": [
+        "food"
+      ],
+      "use": "Eat"
+    },
+    "ice_cream": {
+      "title": "Ice cream",
+      "tags": [
+        "food"
+      ],
+      "use": "Eat"
+    },
+    "lemonade_cup": {
+      "title": "Lemonade",
+      "tags": [
+        "food"
+      ],
+      "use": "Drink"
+    },
+    "popcorn": {
+      "title": "Popcorn",
+      "tags": [
+        "food"
+      ],
+      "use": "Eat"
+    },
+    "pretzel": {
+      "title": "Pretzel",
+      "tags": [
+        "food"
+      ],
+      "use": "Eat"
+    },
+    "toffee_apple": {
+      "title": "Toffee apple",
+      "tags": [
+        "food"
+      ],
+      "use": "Eat"
+    },
+    "wrapper": {
+      "title": "Wrapper",
+      "tags": [
+        "litter"
+      ]
+    }
   }
 }

@@ -1,6 +1,8 @@
 """The amusement park example (examples/amusement_park, geogen.86): four rides that are
 mechanisms (jointed rigid bodies with motors) the Godot runtime simulates. The carousel is
-checked in the default tier; the wheel, drop tower and swings in the exhaustive tier."""
+checked in the default tier; the wheel, drop tower and swings in the exhaustive tier. The
+fairgoers buy from the stalls, eat and bin the wrapper (geogen.87.1): the rules chain in the
+reference machine here, the behaviour in Godot in the exhaustive tier."""
 
 import math
 import subprocess
@@ -11,6 +13,7 @@ import pytest
 
 from geogen import roots
 from geogen.registry import SceneRegistry
+from geogen.runtime_client import step
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "amusement_park"
 SCENE = "amusement_park"
@@ -226,3 +229,83 @@ def test_the_swing_chairs_fly_out_as_the_crown_spins_in_godot(park):
     assert min(radii) > 5.0, radii                                               # swung out past the arms
     assert max(b["tilt_deg"] for b in bodies.values()) > 15                       # leaning out on their chains
     rt.call("interactions.set", asset="swings", interaction="run", state="stopped")
+
+
+def test_a_stall_sells_what_its_kind_says_and_eating_leaves_a_wrapper_for_a_bin(built):
+    """The stall's `serve` interaction gives its item to whoever used it (an NPC actor here) and
+    refuses a second; using the item (the scene's rule) swaps it for a wrapper; a trashcan's
+    `bin` takes the wrapper, and only opens to someone carrying one."""
+    from geogen.quests import collect
+    from geogen.rules import Machine
+
+    try:
+        roots.use(EXAMPLE)                      # (another module's fixture may have switched the roots)
+        program = collect(built, "amusement_park").program()
+    finally:
+        roots.use()
+    stalls = {k: program["interactions"][k] for k in program["interactions"] if k.endswith("#serve")}
+    bins = [k for k in program["interactions"] if k.endswith("#bin")]
+    assert len(stalls) == 11 and len(bins) == 6
+    npc = "amusement_park:visitors_1"
+    m = Machine(program, {"player": {"kind": "player"}, npc: {"kind": "npc"}})
+    for key in bins:
+        assert not m.use(key, npc)                           # nothing to throw away yet
+    key = next(k for k in stalls if k.endswith("stalls_west_1#serve"))
+    assert m.use(key, npc)
+    m.advance(0.5)
+    carried = {k.split("item_")[1]: m.get(k, npc) for k in program["variables"] if "item_" in k and m.get(k, npc)}
+    (item,) = carried
+    assert carried[item] == 1 and item in {"hot_dog", "popcorn", "lemonade_cup", "candy_floss", "ice_cream",
+                                           "pretzel", "toffee_apple", "balloon"}
+    assert not m.use(key, npc)                               # "You already have one"
+    if item == "balloon":
+        return                                               # kept, not eaten
+    m.post({"type": "use_item", "name": item, "actor": npc})
+    m.advance(0.1)
+    assert m.get(f"actor:amusement_park.item_{item}", npc) == 0
+    assert m.get("actor:amusement_park.item_wrapper", npc) == 1
+    assert m.use(bins[0], npc)
+    m.advance(2.5)                                           # the bin and the stall are back at ready
+    assert m.get("actor:amusement_park.item_wrapper", npc) == 0
+    assert m.use(key, npc)                                   # hungry again: the stall serves
+
+
+def test_in_godot_the_player_buys_eats_and_bins_with_the_same_blocks(godot_runtime):
+    """The player's half of the chain: E on a stall (its `serve` interaction) gives the item, a
+    second press is refused, F (`inventory.use`) eats it and leaves the wrapper, and a bin takes
+    the wrapper."""
+    rt = godot_runtime("amusement_park", EXAMPLE / "generated")
+    stall = next(a for a in rt.call("interactions.list") if a["interaction"] == "serve")["asset"]
+    rt.call("interactions.use", asset=stall, interaction="serve", actor="player", wait=True)
+    rt.call("time.advance", seconds=2.5, scale=1)
+    (item,) = rt.call("inventory.list")["items"]
+    assert item["count"] == 1 and (item["tags"] == ["food"] or item["id"] == "balloon")
+    rt.call("interactions.use", asset=stall, interaction="serve", actor="player", wait=True)    # refused: still one
+    rt.call("time.advance", seconds=2.5, scale=1)
+    assert [i["count"] for i in rt.call("inventory.list")["items"]] == [1]
+    if item["id"] == "balloon":
+        return
+    rt.call("inventory.use", item=item["id"])
+    rt.call("time.advance", seconds=0.5, scale=1)
+    assert [i["id"] for i in rt.call("inventory.list")["items"]] == ["wrapper"]
+    rt.call("interactions.use", asset="bin_sw", interaction="bin", actor="player", wait=True)
+    rt.call("time.advance", seconds=1.5, scale=1)
+    assert rt.call("inventory.list")["items"] == []
+
+
+@pytest.mark.exhaustive
+def test_in_godot_fairgoers_buy_eat_and_bin(godot_script):
+    """A crowd in the runtime: within a few minutes some visitors have bought (the stall's `buy`
+    affordance), eaten (`use_item`, the `eat` clip) and thrown the wrapper in a bin, with none of
+    the new steps failing."""
+    run = godot_script([step("time.simulate", seconds=240)],
+                       "--scene=amusement_park", f"--generated={EXAMPLE / 'generated'}",
+                       start={"timescale": 8}, engine_args=("--fixed-fps", "60"))
+    visitors = [n for n in run["time.simulate"]["npcs"] if n["npc"].startswith("visitors")]
+    bought = sum(v for n in visitors for k, v in n["used"].items() if k.startswith("stalls_"))
+    ate = sum(n["items_used"] for n in visitors)
+    binned = sum(v for n in visitors for k, v in n["used"].items() if k.startswith("bin_"))
+    assert bought >= 3 and ate >= 2 and binned >= 1, (bought, ate, binned)
+    # (A `nearby` spot someone else walked onto first is an ordinary walk failure; the NPC decides again.)
+    assert not [f for n in visitors for f in n["failures"]
+                if ("use_item" in f or "nearby" in f or "binning" in f) and "occupied" not in f]

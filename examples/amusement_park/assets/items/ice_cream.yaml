@@ -1,0 +1,6 @@
+# An ice cream cone from a fair stall (kind "Ice Cream"); eaten with F, leaving a wrapper (the napkin).
+kind: item
+title: Ice cream
+tags: [food]
+body: ice_cream.yaml
+use: Eat

@@ -1,0 +1,31 @@
+# A soft pretzel: a ring with a twist across it, lying flat. The body of items/pretzel.yaml.
+# Origin: bottom centre.
+name: pretzel
+tags: [food.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  ring:
+    primitive: torus
+    size: [0.14, 0.028, 0.14]
+    tube: 0.014
+    anchor: bottom_center
+    material: bread_crust
+  twist:
+    primitive: ellipsoid
+    size: [0.11, 0.026, 0.03]
+    anchor: bottom_center
+    offset: [0, 0, 0.015]
+    rotation: [0, 0.6, 0]
+    material: bread_crust
+    collider: none
+  twist_2:
+    primitive: ellipsoid
+    size: [0.11, 0.026, 0.03]
+    anchor: bottom_center
+    offset: [0, 0, 0.015]
+    rotation: [0, -0.6, 0]
+    material: bread_crust
+    collider: none

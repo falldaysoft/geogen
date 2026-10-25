@@ -331,7 +331,8 @@ def resolve_document(
 
     ``params: {preset: feminine, height: 1.6}`` applies the preset's values, then the explicit
     ones; a top-level ``preset:`` is the default, and a list applies several in order, later
-    ones winning. ``derived:`` values are expressions over params (and earlier derived values).
+    ones winning. ``derived:`` values are expressions over params (and earlier derived values):
+    numbers, or text when the expression picks some (``"{'a' if kind == 'A' else 'b'}"``).
 
     Returns (the resolved document, the resolved params, the preset name or None).
     """
@@ -349,7 +350,8 @@ def resolve_document(
         preset = "+".join(names)
     params = resolve_params(data.get("params"), overrides)
     for key, expr in (data.get("derived") or {}).items():
-        params[key] = float(resolve_value(expr, params))
+        value = resolve_value(expr, params)
+        params[key] = value if isinstance(value, str) else float(value)   # a text pick stays text
     out = {key: (value if key in RAW_KEYS else resolve_value(value, params)) for key, value in data.items()}
     if preset is not None:
         out["preset"] = preset

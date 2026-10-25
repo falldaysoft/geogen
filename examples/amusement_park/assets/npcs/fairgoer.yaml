@@ -1,7 +1,10 @@
 # Someone at the fair: wanders the paths between the rides and stalls, rests on the benches
-# and at the picnic tables, and rides the rides (their seats are affordances tagged `ride`
-# that advertise fun; a seat is only taken while its ride stands still at the ground). Place
-# a crowd with a scatter on the paths:
+# and at the picnic tables, rides the rides (their seats are affordances tagged `ride`
+# that advertise fun; a seat is only taken while its ride stands still at the ground), and
+# when hungry buys something at a stall and eats it a few steps away (the stall's `buy`
+# affordance), then throws the wrapper in a bin (trashcan.yaml's `bin` affordance, open to
+# whoever carries one; `tidy` is the itch to be rid of it). Place a crowd with a scatter on
+# the paths:
 #   visitors: { npc: npcs/fairgoer.yaml, home: { rect: [...] }, scatter: { on_tag: park.path, count: 12 } }
 
 kind: npc
@@ -15,11 +18,14 @@ needs:
   rest:      { initial: 0.7, decay: 0.006 }
   fun:       { initial: 0.3, decay: 0.012 }
   curiosity: { initial: 0.5, decay: 0.014 }
+  hunger:    { initial: 0.5, decay: 0.008 }
+  tidy:      { initial: 0.0, decay: 0.05 }    # only a bin advertises it, and only to someone holding a wrapper
 
 preferences:
   seat: 1.0
   picnic: 1.2
   ride: 1.6
+  food: 1.2
 
 activities:
   stroll: { action: wander, advertises: { curiosity: 0.12 } }

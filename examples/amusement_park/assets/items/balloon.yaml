@@ -1,0 +1,5 @@
+# A balloon on a string from a fair stall (kind "Balloons"): kept, not eaten (no `use`).
+kind: item
+title: Balloon
+tags: [toy]
+body: balloon.yaml

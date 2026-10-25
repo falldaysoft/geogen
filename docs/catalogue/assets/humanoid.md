@@ -93,4 +93,4 @@ lie, sit, stand
 
 ## Clips
 
-chop, get_up, idle, lie_down, pose_lean_on_sill, pose_lie, pose_look, pose_reach_low, pose_sit, pose_sit_at_table, pose_stand, pose_t_pose, pose_work_counter, sit_down, stand_up, stir, walk, wave, wipe, write
+chop, eat, get_up, idle, lie_down, pose_hold_food, pose_lean_on_sill, pose_lie, pose_look, pose_reach_low, pose_sit, pose_sit_at_table, pose_stand, pose_t_pose, pose_work_counter, sit_down, stand_up, stir, walk, wave, wipe, write

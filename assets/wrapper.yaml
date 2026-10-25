@@ -1,0 +1,30 @@
+# A screwed-up paper wrapper: a crumpled ball with a couple of creases standing proud. The body
+# of items/wrapper.yaml. Origin: bottom centre.
+name: wrapper
+tags: [prop.litter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  ball:
+    primitive: ellipsoid
+    size: [0.1, 0.065, 0.09]
+    anchor: bottom_center
+    material: paint_white
+  crease:
+    primitive: ellipsoid
+    size: [0.07, 0.03, 0.045]
+    anchor: bottom_center
+    offset: [0.025, 0.04, 0.02]
+    rotation: [0.3, 0.7, 0.2]
+    material: paint_white
+    collider: none
+  crease_2:
+    primitive: ellipsoid
+    size: [0.06, 0.035, 0.04]
+    anchor: bottom_center
+    offset: [-0.03, 0.035, -0.02]
+    rotation: [-0.2, -0.5, 0.4]
+    material: paint_white
+    collider: none

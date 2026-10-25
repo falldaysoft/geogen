@@ -6,10 +6,11 @@
 # `action:` (default: its `type`). NPC activities (wander, idle) name one too.
 #
 # Step vocabulary:
-#   go_to: approach | anchor | random | near | far | exit | aside
+#   go_to: approach | anchor | random | nearby | near | far | exit | aside
 #       walk (navmesh) to the affordance's approach point, the anchor itself,
-#       a random point in the NPC's home, a portal's near/far side, or the nearest
-#       way out of the scene (a building entrance), or out of the player's way
+#       a random point in the NPC's home, one a few metres from where it stands,
+#       a portal's near/far side, or the nearest way out of the scene (a building
+#       entrance), or out of the player's way
 #       close: true              ...and past the navmesh (which keeps a player's width off
 #                                everything) step straight up to it, if it is near and clear:
 #                                a worktop is worked at from closer than that
@@ -29,6 +30,10 @@
 #   use: <state>                 drive the affordance's/portal's interaction to <state>
 #                                (presses it like the player does, waits for arrival);
 #                                `use: goal` drives it to the state a quest goal wants
+#   use_item: <id> | "[tag=<tag>]"  use an item the NPC carries, as the player's F does (the
+#                                rules' use_item event with the NPC as the actor; what happens is
+#                                a rule): an item id, or the first carried item with that tag;
+#                                carrying none, the action fails
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
 #
 # `approach` is where the actor stands to start the action, in the anchor's
@@ -139,6 +144,38 @@ actions:
       - use: on
       - wait: duration
       - use: off
+
+  buy:                           # a stall's customer spot: buy what it sells, step aside and eat it
+    approach: [0, 0, 0]
+    duration: [12, 20]           # the eating
+    steps:
+      - go_to: approach
+      - face: anchor
+      - use: serving
+      - wait: [1.5, 3]
+      - go_to: nearby
+      - use_item: "[tag=food]"
+      - play: eat
+        loop: duration
+
+  shop:                          # a stall selling something to keep (a balloon): buy it and move on
+    approach: [0, 0, 0]
+    duration: [2, 5]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - use: serving
+      - wait: duration
+      - go_to: nearby
+
+  bin:                           # a trashcan: throw away what's in hand (its interaction takes it)
+    approach: [0, 0, 0]
+    duration: [0.5, 1.0]
+    steps:
+      - go_to: approach
+      - face: anchor
+      - use: binning
+      - wait: duration
 
   quest_use:                     # a quest goal: bring a thing to the objective's state (npc.gd quest_option)
     steps:

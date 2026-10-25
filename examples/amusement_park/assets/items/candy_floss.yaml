@@ -1,0 +1,6 @@
+# Candy floss on a stick from a fair stall (kind "Candy Floss"); eaten with F, leaving a wrapper.
+kind: item
+title: Candy floss
+tags: [food]
+body: candy_floss.yaml
+use: Eat

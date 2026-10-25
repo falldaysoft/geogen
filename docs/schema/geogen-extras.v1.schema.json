@@ -822,16 +822,17 @@
       "additionalProperties": { "type": ["number", "string", "boolean", "array", "null"] }
     },
     "npc_step": {
-      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter) and 'if' (a flag it needs).",
+      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter) and 'if' (a flag it needs). go_to 'nearby' is a random navmesh point a few metres from where the NPC stands.",
       "type": "object", "additionalProperties": false, "minProperties": 1,
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
-                { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }],
+                { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] }],
       "properties": {
-        "go_to": { "enum": ["approach", "anchor", "random", "near", "far", "exit", "aside", "visit"] },
+        "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit"] },
         "face": { "enum": ["anchor", "portal", "player"] },
         "pose": { "type": "string" },
         "wait": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },
         "use": { "type": "string" },
+        "use_item": { "description": "Use an item the NPC carries, as the player's F does (the rules' use_item event with the NPC as the actor): an item id, or \"[tag=<tag>]\" for the first carried item with that tag.", "type": "string" },
         "vanish": { "const": true },
         "play": { "type": "string" },
         "at": { "enum": ["anchor", "approach"] },

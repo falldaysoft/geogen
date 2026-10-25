@@ -23,6 +23,7 @@ travel with the model or chunk they're placed in.
 from __future__ import annotations
 
 import copy
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -40,9 +41,10 @@ NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
-STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play"}
+STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item"}
 STEP_OPTIONS = {"at", "if", "hold", "loop", "close"}
-GO_TO_TARGETS = {"approach", "anchor", "random", "near", "far", "exit", "aside", "visit"}
+GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit"}
+ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
 
@@ -132,6 +134,9 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
     out = dict(step)
     if verb == "vanish" and arg is not True:
         raise ValueError(f"{where}: vanish: true")
+    if verb == "use_item" and not (isinstance(arg, str) and (arg.isidentifier() or ITEM_SELECTOR.match(arg))):
+        raise ValueError(f"{where}: use_item names an item (items/<id>.yaml) or \"[tag=<tag>]\" (the first such "
+                         f"item carried), got {arg!r}")
     if verb == "wait" and arg != "duration":
         out["wait"] = _range(arg, f"{where}: wait")
     if "loop" in step and step["loop"] != "duration":

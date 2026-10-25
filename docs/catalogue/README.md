@@ -360,7 +360,7 @@ place:
 | [signal_head](assets/signal_head.md) | Traffic signal: a post with a three-lamp head facing +Z (toward the traffic it controls). |  |
 | [signpost](assets/signpost.md) | A fingerpost: a post with up to four arrow boards, each lettered on both faces and pointing along a compass bearing (0 = north / +Z, 90 = east / +X). | `arm1`, `arm2`, `arm3`, `arm4`, `dir1`, `dir2`, `dir3`, `dir4`, `post_height`, `arm_length`, `letter` |
 | [street_lamp](assets/street_lamp.md) | Street lamp: a tapered cast-iron post with a glass lantern. | `scale` |
-| [trashcan](assets/trashcan.md) | City street trash receptacle. | `width`, `height`, `depth` |
+| [trashcan](assets/trashcan.md) | City street trash receptacle: a square bin with a swing-top lid. | `width`, `height`, `depth` |
 | [travel_door](assets/travel_door.md) | A freestanding door in a frame that leads somewhere else: press E on the leaf to travel (geogen/travel.py). | `label`, `width`, `height`, `transom`, `frame`, `depth`, `plinth`, `letter`, `board` |
 
 ## Characters
@@ -415,6 +415,9 @@ place:
 <td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 <td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 </tr>
+<tr>
+<td align="center"><a href="assets/wrapper.md"><img src="img/wrapper.png" width="150" alt="wrapper"><br>wrapper</a></td>
+</tr>
 </table>
 
 | Asset | What it is | Params |
@@ -444,3 +447,4 @@ place:
 | [vend_chute](assets/vend_chute.md) | A vending machine's drop point. | `item` |
 | [vending_cabinet](assets/vending_cabinet.md) | A vending machine's cabinet. | `colour`, `title`, `a_label`, `a_price`, `a_stock`, `a_tint`, `b_label`, `b_price`, `b_stock`, `b_tint`, `c_label`, `c_price`, `c_stock`, `c_tint`, `d_label`, `d_price`, `d_stock`, `d_tint` |
 | [wheat_sheaf](assets/wheat_sheaf.md) | A sheaf of wheat: a bundle of straw-gold stalks tied round the middle, ears at one end. |  |
+| [wrapper](assets/wrapper.md) | A screwed-up paper wrapper: a crumpled ball with a couple of creases standing proud. |  |

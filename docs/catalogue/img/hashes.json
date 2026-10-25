@@ -52,7 +52,7 @@
  "hotel_suite": "1285e5986530656fbb3252b1465b6ea680a5a669",
  "house_peaked": "646162cfc92bf85132b5f25b9dacc47d29701802",
  "house_simple": "8049d7325e08eb11e2ad09cdd02f6a0923b5f57b",
- "humanoid": "eb839edd3bbc6c14b87286b3cd3a7c064841a7ce",
+ "humanoid": "fa6375041f3a977b755684ad1c58b3b8eb190565",
  "info_plinth": "109dcaac1f9701be4cbc2baadc140338b310dd87",
  "island_grounds": "28a09ab390cc3f97f87e17d15df1232e8ca0415a",
  "island_terrain": "d1cbbfde6370e09771b1127a0ee26789e4248383",
@@ -146,7 +146,7 @@
  "toilet": "ebcaa8d49056180ee1f959721858a61628e3c99a",
  "toilet_stall": "f6f9a7d6d40fa998cdac81372a035958d0082353",
  "towel_rail": "46acfedfbeb6f0a9669d1ad24364a8b1d7c57663",
- "trashcan": "296b45d5d733b05a7ddae5fd050d6047be408bf1",
+ "trashcan": "be75a3bf1e00e60540aab9dc3866acacd5ce113d",
  "travel_door": "1df9d5492bff63d3b0bc3cfc0de5024d38c763e6",
  "turret": "7f02dfc79cc70f5ca53124ba9bf1ef1840e173e7",
  "tv": "4f587051c55c109fa556edface3e8009e7d0b0dc",
@@ -161,5 +161,6 @@
  "wardrobe": "c94d3f317f27caf4bde71012dfd649bee6c05249",
  "wheat_sheaf": "1d9eece7f45cc557c92703bcd0b379d2d33c903a",
  "windmill": "44474a5cb4dbc2dfea0d0124bd5eb4f70fc5dda6",
- "window": "fef189c4cb347c5d4eddde67fd24c5c7bba00f75"
+ "window": "fef189c4cb347c5d4eddde67fd24c5c7bba00f75",
+ "wrapper": "b2243df15d7c2abc75501e121dcdeced31e75359"
 }

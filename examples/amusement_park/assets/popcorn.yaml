@@ -1,0 +1,42 @@
+# A striped box of popcorn, heaped over the top. The body of items/popcorn.yaml. Origin: bottom centre.
+name: popcorn
+tags: [food.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  box:
+    primitive: cube
+    size: [0.09, 0.11, 0.07]
+    anchor: bottom_center
+    bevel: 0.005
+    material: car_paint
+    tint: car_red
+  stripe:
+    primitive: cube
+    size: [0.012, 0.11, 0.072]
+    anchor: bottom_center
+    offset: [-0.027, 0, 0]
+    bevel: 0
+    array: {count: 3, step: [0.027, 0, 0]}
+    material: car_paint
+    tint: cream
+    collider: none
+  heap:
+    primitive: ellipsoid
+    size: [0.1, 0.05, 0.08]
+    anchor: bottom_center
+    offset: [0, 0.095, 0]
+    material: car_paint
+    tint: warm_white
+    collider: none
+  kernel:
+    primitive: ellipsoid
+    size: [0.03, 0.025, 0.03]
+    anchor: bottom_center
+    offset: [-0.03, 0.125, -0.01]
+    array: {count: 3, step: [0.028, 0.004, 0.012]}
+    material: car_paint
+    tint: mustard
+    collider: none

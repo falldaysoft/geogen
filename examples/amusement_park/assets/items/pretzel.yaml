@@ -1,0 +1,6 @@
+# A pretzel from a fair stall (kind "Pretzels"); eaten with F, leaving a wrapper.
+kind: item
+title: Pretzel
+tags: [food]
+body: pretzel.yaml
+use: Eat

@@ -1,0 +1,6 @@
+# A cup of lemonade from a fair stall (kind "Lemonade"); drunk with F, leaving a wrapper (the cup).
+kind: item
+title: Lemonade
+tags: [food]
+body: lemonade_cup.yaml
+use: Drink

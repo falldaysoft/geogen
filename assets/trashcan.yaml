@@ -1,6 +1,7 @@
-# City street trash receptacle
-# Square bin with swing-top lid
-# Origin is at bottom_center
+# City street trash receptacle: a square bin with a swing-top lid. Anyone carrying a wrapper
+# (items/wrapper.yaml) can throw it away: the `bin` interaction's `when` lets them, its
+# rule takes the wrapper, and the `bin` affordance in front offers it to NPCs with a `tidy`
+# need (the fairgoers of examples/amusement_park). Origin is at bottom_center.
 
 name: trashcan
 tags: [street.trashcan]
@@ -65,3 +66,25 @@ parts:
     from: back
     offset: [0, 0.05, 0.01]
     material: metal
+
+interactions:
+  bin:
+    targets: [body_upper, rim, lid, opening_frame]
+    when: 'has("wrapper")'          # no prompt without one
+    initial: ready
+    duration: 0.3
+    states:
+      ready:   {prompt: "Throw away the wrapper", next: binning}
+      binning: {then: ready, after: 0.5, emit: binned}
+
+signals:
+  binned: {emit: binned}
+
+rules:
+  - id: take_wrapper
+    on: {signal: self.binned}
+    do: [{take: wrapper}]
+
+affordances:
+  - {type: stand, at: [0, 0, 0.55], facing: 180, action: bin, duration: [0.5, 1.0], advertises: {tidy: 1.0},
+     tags: [outside, bin], interaction: bin, approach: [0, 0, 0]}

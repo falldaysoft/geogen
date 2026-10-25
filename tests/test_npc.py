@@ -37,10 +37,26 @@ def test_actions_file_parses():
     ({"dance": 1}, "exactly one"),
     ({"pose": "sit", "at": "ceiling"}, "at must be"),
     ({"wait": [5, 1]}, "lo, hi"),
+    ({"use_item": "[food]"}, "use_item names an item"),
+    ({"use_item": 3}, "use_item names an item"),
 ])
 def test_bad_steps_are_rejected(step, message):
     with pytest.raises(ValueError, match=message):
         parse_actions({"kind": "npc_actions", "version": 1, "actions": {"x": {"steps": [step]}}})
+
+
+def test_buying_eats_a_carried_item_a_few_steps_away():
+    """geogen.87.1: `use_item` (an id or "[tag=<tag>]") and `go_to: nearby` are steps; the stall's
+    `buy` action buys, steps aside and eats, `bin` throws the wrapper away."""
+    parsed = parse_actions({"kind": "npc_actions", "version": 1, "actions": {
+        "x": {"steps": [{"use_item": "hot_dog"}, {"use_item": "[tag=food]"}, {"go_to": "nearby"}]}}})
+    assert parsed["x"]["steps"] == [{"use_item": "hot_dog"}, {"use_item": "[tag=food]"}, {"go_to": "nearby"}]
+    actions = load_actions()
+    assert [next(iter(s)) for s in actions["buy"]["steps"]] == ["go_to", "face", "use", "wait", "go_to", "use_item", "play"]
+    assert actions["buy"]["steps"][4] == {"go_to": "nearby"} and actions["buy"]["steps"][5] == {"use_item": "[tag=food]"}
+    assert actions["buy"]["steps"][6] == {"play": "eat", "loop": "duration"}
+    assert actions["bin"]["steps"][2] == {"use": "binning"}
+    assert "use_item" not in actions["shop"]["steps"][-1]       # a balloon is kept
 
 
 def test_definition_resolves():

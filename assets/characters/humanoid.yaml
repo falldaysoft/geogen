@@ -515,6 +515,15 @@ body:
         <<: *arms_down
         Neck: [-8, 14, 0]
         Head: [-8, 10, 0]
+    hold_food:                              # standing, the right hand up in front of the chest holding something
+      bones:
+        <<: *hand_rest
+        LeftUpperArm: [0, 0, -82]
+        LeftLowerArm: [0, -12, 0]
+      ik:
+        LeftFoot: { target: ["{hip_j}", "{ankle_h}", 0.02], flat: true }
+        RightFoot: { target: ["{-hip_j}", "{ankle_h}", 0.02], flat: true }
+        RightHand: { target: ["{-0.1 * k}", "{height * 0.72}", "{0.24 * k}"], pole: [-0.7, -0.4, -0.5] }
   pose: stand
   # Procedural clips over the stand pose (generators/clips.py); walk matches the NPC speed.
   clips:
@@ -562,6 +571,15 @@ body:
       bones:
         <<: *breathe
         Head: { path: [[0.8, 0, 0], [-0.8, 0, 0]], cycles: 3 }
+    eat:                               # a bite: the right hand up to the mouth and back down, nodding to meet it
+      generator: gesture
+      pose: hold_food
+      duration: 4
+      hands:
+        RightHand: { cycles: 2, path: [[0, 0, 0], [0.06, 0.27, -0.09]] }
+      bones:
+        <<: *breathe
+        Head: { path: [[0, 0, 0], [10, 0, 0]], cycles: 2 }
     # Between poses (the runtime plays `from` -> `to` when an action changes pose). `approach` is
     # where the action has the body stand (npcs/actions.yaml), in the anchor's frame.
     sit_down: { generator: transition, from: stand, to: sit, duration: 1.4, plant: true, lean: 32 }

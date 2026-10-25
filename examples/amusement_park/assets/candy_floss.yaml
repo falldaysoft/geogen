@@ -1,0 +1,30 @@
+# Pink candy floss on a paper stick. The body of items/candy_floss.yaml. Origin: the stick's bottom.
+name: candy_floss
+tags: [food.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  stick:
+    primitive: cylinder
+    size: [0.012, 0.3, 0.012]
+    anchor: bottom_center
+    material: car_paint
+    tint: car_white
+  floss:
+    primitive: ellipsoid
+    size: [0.2, 0.22, 0.19]
+    anchor: bottom_center
+    offset: [0, 0.16, 0]
+    material: car_paint
+    tint: blush
+    collider: none
+  wisp:
+    primitive: ellipsoid
+    size: [0.09, 0.08, 0.1]
+    anchor: bottom_center
+    offset: [0.07, 0.3, 0.03]
+    material: car_paint
+    tint: blush
+    collider: none

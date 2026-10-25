@@ -1,0 +1,6 @@
+# A box of popcorn from a fair stall (kind "Popcorn"); eaten with F, leaving a wrapper.
+kind: item
+title: Popcorn
+tags: [food]
+body: popcorn.yaml
+use: Eat

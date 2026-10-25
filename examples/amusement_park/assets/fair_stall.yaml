@@ -1,8 +1,12 @@
 # A fairground stall: a counter under a striped awning on four posts, a lettered sign across
 # the front and a few goods on the counter, in one of several `kind`s (what the sign says
-# and what is on the counter; `colour` the stripes). Customers come to the front (+Z); the
-# vendor stands behind the counter, at the `serve` affordance (tagged `stall`, which
-# npcs/vendor.yaml looks for). Origin: bottom centre of the counter's front.
+# and what it sells; `colour` the stripes). Each kind sells an item (items/<item>.yaml, derived
+# from the kind): the `serve` interaction at the front hands one over (its rule gives it to
+# whoever used it, player or NPC, and its `when` refuses while they still have one). Customers
+# come to the front (+Z): the `buy` affordance there sends hungry NPCs (npcs/actions.yaml `buy`:
+# buy, step aside, eat; a balloon stall's `shop` keeps what it sells). The vendor stands behind
+# the counter, at the affordance tagged `stall` (npcs/vendor.yaml). Origin: bottom centre of
+# the counter's front.
 
 name: fair_stall
 tags: [fair.stall]
@@ -14,6 +18,11 @@ params:
   kind:   {default: "Hot Dogs", type: text, choices: ["Hot Dogs", "Popcorn", "Lemonade", "Candy Floss", "Ice Cream", "Pretzels", "Toffee Apples", "Balloons"]}
   colour: {default: red, type: text, choices: [red, blue, yellow]}
   width:  {default: 3.0}
+
+derived:
+  item: "{'hot_dog' if kind == 'Hot Dogs' else 'popcorn' if kind == 'Popcorn' else 'lemonade_cup' if kind == 'Lemonade' else 'candy_floss' if kind == 'Candy Floss' else 'ice_cream' if kind == 'Ice Cream' else 'pretzel' if kind == 'Pretzels' else 'toffee_apple' if kind == 'Toffee Apples' else 'balloon'}"
+  food: "{item != 'balloon'}"
+  buy_action: "{'buy' if food else 'shop'}"
 
 parts:
   counter:
@@ -111,5 +120,27 @@ parts:
     material: paint_cream
     collider: none
 
+interactions:
+  serve:                              # at the counter's front: one of what the stall sells
+    targets: [counter_top, counter]
+    when: 'not has("{item}")'
+    refused: "You already have one"
+    initial: ready
+    duration: 0.3
+    states:
+      ready:   {prompt: "Buy one ({kind})", next: serving}
+      serving: {then: ready, after: 1.5, emit: served}
+
+signals:
+  served: {emit: served}
+
+rules:
+  - id: hand_over
+    on: {signal: self.served}
+    do: [{give: "{item}"}]
+
 affordances:
   - {type: stand, at: [0, 0, -1.25], facing: 0, action: stand, duration: [40, 120], advertises: {duty: 0.6}, tags: [stall], approach: [0, 0, 0]}
+  - {type: stand, at: [0, 0, 0.6], facing: 180, action: "{buy_action}", duration: [12, 20],
+     advertises: {hunger: "{0.9 if food else 0.0}", fun: "{0.2 if food else 0.6}"},
+     tags: [outside, food], interaction: serve, approach: [0, 0, 0]}

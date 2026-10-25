@@ -1,0 +1,23 @@
+# A toffee apple: a glossy red apple on a stick. The body of items/toffee_apple.yaml.
+# Origin: the stick's bottom.
+name: toffee_apple
+tags: [food.snack]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  stick:
+    primitive: cylinder
+    size: [0.012, 0.2, 0.012]
+    anchor: bottom_center
+    material: car_paint
+    tint: beige
+  apple:
+    primitive: sphere
+    size: [0.08, 0.08, 0.08]
+    anchor: bottom_center
+    offset: [0, 0.13, 0]
+    material: car_paint
+    tint: car_red
+    collider: none

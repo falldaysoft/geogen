@@ -1,0 +1,30 @@
+# A paper cup of lemonade with a lid and a straw. The body of items/lemonade_cup.yaml. Origin: bottom centre.
+name: lemonade_cup
+tags: [food.drink]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  cup:
+    primitive: cylinder
+    size: [0.075, 0.12, 0.075]
+    anchor: bottom_center
+    material: car_paint
+    tint: taxi_yellow
+  lid:
+    primitive: cylinder
+    size: [0.082, 0.012, 0.082]
+    anchor: bottom_center
+    offset: [0, 0.12, 0]
+    material: car_paint
+    tint: car_white
+    collider: none
+  straw:
+    primitive: cylinder
+    size: [0.007, 0.17, 0.007]
+    anchor: bottom_center
+    offset: [0.018, 0.06, 0.0]
+    material: car_paint
+    tint: car_red
+    collider: none
