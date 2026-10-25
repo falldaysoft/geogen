@@ -94,6 +94,8 @@ const COMMANDS := {
         + "track makes the tracker follow the selected quest",
     "hud.keys": "{open?: bool} the HUD's keys panel (? opens it): {open, groups: [{title, keys: [[key, does]]}], "
         + "columns, hint, rect, viewport}; the groups are the game's keys and every panel's hud_keys()",
+    "hud.overlay": "{visible?: bool} show or hide the F1 debug overlay (frame rate, clock, position, keys): {visible}; "
+        + "hide it to record clean footage (--write-movie)",
     "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: "
         + "{visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, "
         + "distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
@@ -570,6 +572,11 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 await get_tree().process_frame      # laid out before its rect is read
                 await get_tree().process_frame
             return quest_log.hud_report()
+        "hud.overlay":
+            if args.has("visible"):
+                main.overlay.visible = bool(args["visible"])
+                main.hud.overlay_shown = main.overlay.visible
+            return {"visible": main.overlay.visible}
         "hud.keys":
             var keys: GeogenHudKeys = main.hud.panel("keys")
             if args.has("open"):

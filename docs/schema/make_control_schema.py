@@ -19,7 +19,7 @@ TYPES = {
     "until": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
     "frames": INT, "limit": INT, "index": INT, "since": INT, "count": INT,
     "instant": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
-    "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL,
+    "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL, "visible": BOOL,
     "button": {"enum": ["left", "right", "middle"]},
     "asset": STR, "interaction": STR, "scene": STR, "spawn": STR, "name": STR, "uid": STR, "node_path": STR,
     "node": STR, "tag": STR, "type": STR, "room": STR, "key": STR, "item": STR, "actor": STR, "npc": STR,

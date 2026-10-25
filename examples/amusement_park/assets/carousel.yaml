@@ -67,12 +67,12 @@ parts:
     offset: ["{radius - 0.9}", 0.95, 0]
     array: {count: 8, turn: 45}
     material: paint_cream
-  horse_neck:
+  horse_neck:                            # the horses face -Z at the +X pole: head-first as the deck turns (+Y)
     primitive: cube
     size: [0.2, 0.55, 0.3]
     anchor: bottom_center
-    offset: ["{radius - 0.9}", 1.25, 0.5]
-    rotation: [-25, 0, 0]
+    offset: ["{radius - 0.9}", 1.25, -0.5]
+    rotation: [25, 0, 0]
     array: {count: 8, turn: 45}
     bevel: 0.03
     material: paint_cream
@@ -80,15 +80,15 @@ parts:
     primitive: ellipsoid
     size: [0.22, 0.26, 0.5]
     anchor: bottom_center
-    offset: ["{radius - 0.9}", 1.72, 0.78]
-    rotation: [20, 0, 0]
+    offset: ["{radius - 0.9}", 1.72, -0.78]
+    rotation: [-20, 0, 0]
     array: {count: 8, turn: 45}
     material: paint_cream
   saddle:
     primitive: cube
     size: [0.42, 0.08, 0.5]
     anchor: bottom_center
-    offset: ["{radius - 0.9}", 1.42, -0.1]
+    offset: ["{radius - 0.9}", 1.42, 0.1]
     array: {count: 8, turn: 45}
     bevel: 0.02
     material: paint_red
@@ -158,14 +158,14 @@ interactions:
 # A seat on every horse, riding with the platform (the saddle's top, facing along the deck);
 # it is reached from the lawn just off the deck's edge (sitting puts you on the horse).
 affordances:
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(0)}", 1.5, "{-(radius - 0.9) * sind(0)}"], facing: 0, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(45)}", 1.5, "{-(radius - 0.9) * sind(45)}"], facing: 45, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(90)}", 1.5, "{-(radius - 0.9) * sind(90)}"], facing: 90, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(135)}", 1.5, "{-(radius - 0.9) * sind(135)}"], facing: 135, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(180)}", 1.5, "{-(radius - 0.9) * sind(180)}"], facing: 180, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(225)}", 1.5, "{-(radius - 0.9) * sind(225)}"], facing: 225, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(270)}", 1.5, "{-(radius - 0.9) * sind(270)}"], facing: 270, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
-  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(315)}", 1.5, "{-(radius - 0.9) * sind(315)}"], facing: 315, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(0)}", 1.5, "{-(radius - 0.9) * sind(0)}"], facing: 180, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(45)}", 1.5, "{-(radius - 0.9) * sind(45)}"], facing: 225, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(90)}", 1.5, "{-(radius - 0.9) * sind(90)}"], facing: 270, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(135)}", 1.5, "{-(radius - 0.9) * sind(135)}"], facing: 315, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(180)}", 1.5, "{-(radius - 0.9) * sind(180)}"], facing: 0, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(225)}", 1.5, "{-(radius - 0.9) * sind(225)}"], facing: 45, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(270)}", 1.5, "{-(radius - 0.9) * sind(270)}"], facing: 90, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(315)}", 1.5, "{-(radius - 0.9) * sind(315)}"], facing: 135, approach: [-1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
 
   - {type: stand, at: ["{radius + 1.0}", 0, 0.6], facing: 270, action: stand, duration: [120, 300], advertises: {duty: 0.8}, tags: [operator], approach: [0, 0, 0]}
 

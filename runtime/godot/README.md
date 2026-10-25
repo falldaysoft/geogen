@@ -357,6 +357,7 @@ metres, angles degrees. `help` lists every command; the groups are:
 - `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
 - `hud.log`: the HUD's quest log (see "HUD"); `open`, `select` and `track` change it first.
 - `hud.keys`: the HUD's keys panel (see "HUD"): the groups it lists; `open` opens or closes it first.
+- `hud.overlay`: the F1 debug overlay; `visible` shows or hides it first (hide it to record clean footage with Godot's `--write-movie`).
 - `hud.markers`: the HUD's world markers (see "HUD"): each one's kind, world and screen position, distance and whether it is clamped to the edge.
 - `hud.notifications`: the HUD's quest toasts, on screen and waiting (see "HUD"); `hold`, `gap`, `limit`,
   `muted` and `clear` change them first.
