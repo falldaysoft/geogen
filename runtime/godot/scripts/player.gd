@@ -8,6 +8,10 @@ extends CharacterBody3D
 ## a step's edge at a steep angle and slides off, so ledges of exactly
 ## step_height (the door step) can't be climbed. A flat bottom stands on them.
 
+## The player's collision layer: its own, so a mechanism body (mechanisms.gd, mask 1 | 2) can
+## lift the player standing on it (a kinematic body is immovable to what scans it; the
+## player scans the body, so it stands on it and is carried). Props and NPCs scan it too.
+const LAYER := 4
 const WALK_SPEED := 4.0
 const SPRINT_SPEED := 7.0
 const FLY_SPEED := 10.0
@@ -24,6 +28,8 @@ const SHAPE_MARGIN := 0.001
 ## How far over step_height a landing may be: Jolt stands bodies right on the
 ## floor, so the probe's landing can be a few centimetres above the start.
 const STEP_TOLERANCE := 0.03
+## A lip this low (a path's edge on a lawn) is stepped onto whatever its edge's normal says.
+const LIP_HEIGHT := 0.08
 
 var spec := PlayerSpec.new()
 ## Noclip flying for inspecting geometry.
@@ -40,6 +46,7 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 func _init() -> void:
     name = "Player"
+    collision_layer = LAYER
     collision_mask = 1 | 2   # the world, and NPC bodies (GeogenNpc.LAYER)
     add_to_group("geogen_character")   # NPCs steer around it
     _shape = CollisionShape3D.new()
@@ -99,6 +106,10 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Sitting or lying on an affordance: {} when standing.
 var pose := {}
 var _stand_at := Vector3.ZERO
+## A pose on a mechanism body (`follow` in the affordance): the seat's yaw when taken, and
+## where to stand up in the body's frame, so the rider gets off where the ride is now.
+var _pose_yaw := 0.0
+var _stand_local := Vector3.ZERO
 
 
 ## Take a pose (sit/lie) from world_loader.affordances: body parked, camera at the pose.
@@ -110,6 +121,12 @@ func take_pose(affordance: Dictionary) -> void:
     var hips: Vector3 = affordance["position"]
     global_position = Vector3(hips.x, hips.y - (0.0 if affordance["type"] == "lie" else 0.0), hips.z)
     rotation = Vector3(0, deg_to_rad(float(affordance["yaw_deg"])), 0)
+    if affordance.has("follow"):
+        var seat := GeogenMechanisms.seat_now(affordance)
+        global_position = seat.origin
+        _pose_yaw = seat.basis.get_euler().y
+        rotation.y = _pose_yaw
+        _stand_local = (affordance["follow"] as Node3D).global_transform.affine_inverse() * _stand_at
     if affordance["type"] == "lie":
         head.position.y = 0.25
         head.rotation = Vector3(deg_to_rad(70.0), 0, 0)   # looking up at the ceiling
@@ -121,6 +138,8 @@ func take_pose(affordance: Dictionary) -> void:
 func leave_pose() -> void:
     if pose.is_empty():
         return
+    if pose.has("follow") and is_instance_valid(pose["follow"]):
+        _stand_at = (pose["follow"] as Node3D).global_transform * _stand_local
     pose = {}
     global_position = _stand_at
     head.position.y = spec.eye_height
@@ -134,6 +153,8 @@ func _physics_process(delta: float) -> void:
     if not pose.is_empty():
         if input.length() > 0.5:
             leave_pose()   # walking off stands you up
+        elif pose.has("follow"):
+            _ride(pose)
         return
     if flying:
         _fly(input, delta)
@@ -155,6 +176,15 @@ func _physics_process(delta: float) -> void:
         velocity.y -= _gravity * delta
     move_and_slide()
     _push_props(delta)
+
+
+## Seated on a mechanism body: stay on the seat as it moves, turning with it.
+func _ride(affordance: Dictionary) -> void:
+    var seat := GeogenMechanisms.seat_now(affordance)
+    global_position = seat.origin
+    var yaw := seat.basis.get_euler().y
+    rotation.y += angle_difference(_pose_yaw, yaw)
+    _pose_yaw = yaw
 
 
 ## Walking into a physics prop shoves it along (a CharacterBody3D doesn't by itself).
@@ -198,9 +228,13 @@ static func step_up(body: CharacterBody3D, motion: Vector3, step_height: float) 
     var hit := KinematicCollision3D.new()
     if not body.test_move(ahead, -up, hit):
         return false  # no floor to land on within the step height
-    if hit.get_normal().angle_to(Vector3.UP) > body.floor_max_angle:
-        return false
     var landed := ahead.origin + hit.get_travel()
+    # A landing on a slope is a wall, not a step (a lever base's bevelled edge, a rock's
+    # side), except a lip no taller than LIP_HEIGHT: a flat-bottomed shape coming down on a
+    # path edge's chamfer reports its normal, and a 4 cm kerb must never refuse the step.
+    if hit.get_normal().angle_to(Vector3.UP) > body.floor_max_angle \
+            and landed.y - from.origin.y > LIP_HEIGHT:
+        return false
     if landed.y - from.origin.y > step_height + STEP_TOLERANCE:
         return false
     body.global_position = landed

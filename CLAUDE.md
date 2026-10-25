@@ -60,7 +60,7 @@ Detailed notes per subsystem are in `docs/dev/`; read the one for the area you a
 | Interactions, NPCs, time of day, light fixtures, physics props, spawned items (flows); conditions, state, wiring, rules, content packages, quests, items, dialogue, HUD | `layout/interactions.py`, `npc.py`, `physics.py`, `flows.py`, `conditions.py`, `state.py`, `rules.py`, `wiring.py`, `content.py`, `quests.py`, `dialogue.py`, `inventory.py`, `hud.py` | `docs/dev/gameplay.md`, `docs/rules.md`, `docs/quests.md` |
 | Offscreen render, glTF/OBJ export, manifests, extras contract, LODs, chunks and caching, the Qt viewer, the Godot runtime and its control API | `render.py`, `export.py`, `extras.py`, `chunks.py`, `viewer/`, `runtime/godot/` | `docs/dev/runtime.md`, `runtime/godot/README.md` |
 
-Worked examples of projects built on geogen: `examples/sandwich`, `examples/test_chamber`, `examples/marble_run`, `examples/tower_defense`.
+Worked examples of projects built on geogen: `examples/sandwich`, `examples/test_chamber`, `examples/marble_run`, `examples/tower_defense`, `examples/survival`, `examples/amusement_park` (rides as mechanisms: jointed rigid bodies with motors).
 
 ### Files and formats
 

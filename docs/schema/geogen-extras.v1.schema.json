@@ -151,17 +151,21 @@
                   "type": "object",
                   "required": ["nodes", "type", "values"],
                   "additionalProperties": false,
-                  "if": { "properties": { "type": { "enum": ["rotate", "translate"] } } },
-                  "then": { "required": ["axis", "pivot"] },
+                  "allOf": [
+                    { "if": { "properties": { "type": { "enum": ["rotate", "translate"] } } }, "then": { "required": ["axis", "pivot"] } },
+                    { "if": { "properties": { "type": { "const": "drive" } } }, "then": { "required": ["body", "free"] } }
+                  ],
                   "properties": {
                     "nodes": { "type": "array", "items": { "type": "string" } },
                     "type": {
-                      "description": "rotate: values in degrees about axis through pivot; translate: metres along axis; visible: 1 shown, 0 hidden (with their colliders), no axis or pivot.",
-                      "enum": ["rotate", "translate", "visible"]
+                      "description": "rotate: values in degrees about axis through pivot; translate: metres along axis; visible: 1 shown, 0 hidden (with their colliders), no axis or pivot; drive: values are the target speed (deg/s or m/s) of the motor on mechanism body 'body' (this node's 'mechanism'), ramped like any motion, a missing state 0 (a brake), the motor off in the 'free' states; no nodes.",
+                      "enum": ["rotate", "translate", "visible", "drive"]
                     },
                     "axis": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
                     "pivot": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
-                    "values": { "type": "object", "additionalProperties": { "type": "number" } }
+                    "values": { "type": "object", "additionalProperties": { "type": "number" } },
+                    "body": { "type": "string" },
+                    "free": { "type": "array", "items": { "type": "string" } }
                   }
                 }
               }
@@ -210,7 +214,8 @@
               "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
               "tags": { "type": "array", "items": { "type": "string" } },
               "slots": { "type": "integer", "minimum": 1 },
-              "interaction": { "type": "string" }
+              "interaction": { "type": "string" },
+              "body": { "description": "A body of this node's 'mechanism' the seat is part of: a seated player rides with it.", "type": "string" }
             }
           }
         },
@@ -272,6 +277,51 @@
               "type": "object",
               "additionalProperties": false,
               "properties": { "linear": { "type": "number", "minimum": 0 }, "angular": { "type": "number", "minimum": 0 } }
+            }
+          }
+        },
+        "mechanism": {
+          "description": "A mechanism (geogen/mechanism.py): the asset's parts in 'nodes' (exported names) form rigid bodies, one per entry, each held by its 'joint' to body 'to' (absent: the world) at 'pivot' (the asset's frame): a 'hinge' turns about 'axis', a 'slide' moves along it, within 'limits' (degrees or metres from the exported pose) when given; a 'pin' is a ball joint. 'motor' is a motor on a hinge or slide the node's interactions run with 'drive' motions: 'speed' deg/s or m/s, 'force' the most it pushes with (N·m or N). Bodies collide as the convex hulls of their parts' colliders; the two bodies a joint holds don't collide with each other; the asset's other parts are static.",
+          "type": "object",
+          "required": ["bodies"],
+          "additionalProperties": false,
+          "properties": {
+            "bodies": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["nodes", "mass", "friction", "bounce"],
+                "additionalProperties": false,
+                "properties": {
+                  "nodes": { "type": "array", "items": { "type": "string" } },
+                  "mass": { "type": "number", "exclusiveMinimum": 0 },
+                  "friction": { "type": "number", "minimum": 0 },
+                  "bounce": { "type": "number", "minimum": 0 },
+                  "damping": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": { "linear": { "type": "number", "minimum": 0 }, "angular": { "type": "number", "minimum": 0 } }
+                  },
+                  "joint": {
+                    "type": "object",
+                    "required": ["type", "pivot"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": { "enum": ["hinge", "slide", "pin"] },
+                      "to": { "type": "string" },
+                      "axis": { "$ref": "#/$defs/vec3" },
+                      "pivot": { "$ref": "#/$defs/vec3" },
+                      "limits": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+                      "motor": {
+                        "type": "object",
+                        "required": ["speed", "force"],
+                        "additionalProperties": false,
+                        "properties": { "speed": { "type": "number" }, "force": { "type": "number", "exclusiveMinimum": 0 } }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         },

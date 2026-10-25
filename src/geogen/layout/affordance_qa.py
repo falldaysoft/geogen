@@ -67,6 +67,8 @@ def affordance_spots(scene: SceneNode) -> list[Spot]:
         if node.meta.get("type") == "npc" or _inside_npc(node):
             continue
         for i, a in enumerate(node.meta.get("affordances") or []):
+            if a.get("body"):
+                continue    # a seat on a mechanism body: wherever the ride is (a gondola round a wheel)
             m = to_scene @ node.world_transform()
             yaw = np.radians(a["yaw"])
             local = Transform(translation=np.asarray(a["position"], dtype=float),

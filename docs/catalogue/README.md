@@ -122,11 +122,13 @@ place:
 <td align="center"><a href="assets/butter_knife.md"><img src="img/butter_knife.png" width="150" alt="butter_knife"><br>butter_knife</a></td>
 <td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
 <td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
+<td align="center"><a href="assets/hanging_chain.md"><img src="img/hanging_chain.png" width="150" alt="hanging_chain"><br>hanging_chain</a></td>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
-<td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 <td align="center"><a href="assets/plate.md"><img src="img/plate.png" width="150" alt="plate"><br>plate</a></td>
+<td align="center"><a href="assets/swing_gate.md"><img src="img/swing_gate.png" width="150" alt="swing_gate"><br>swing_gate</a></td>
 <td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
 </tr>
@@ -137,9 +139,11 @@ place:
 | [butter_knife](assets/butter_knife.md) | A butter knife lying flat, handle toward +Z. |  |
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
 | [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
+| [hanging_chain](assets/hanging_chain.md) | A chain with a lantern, hanging from a bracket on a post. | `height`, `links`, `link` |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
 | [plate](assets/plate.md) | A white dinner plate. |  |
+| [swing_gate](assets/swing_gate.md) | A field gate on a free hinge: walk into it and it swings open. | `width`, `height`, `swing` |
 | [switch_board](assets/switch_board.md) | A board on two posts for wall switches. | `width`, `height`, `panel`, `depth` |
 | [wall_art](assets/wall_art.md) | Framed print for a wall. | `width`, `height`, `frame`, `mat` |
 
@@ -205,6 +209,7 @@ place:
 </tr>
 <tr>
 <td align="center"><a href="assets/staircase.md"><img src="img/staircase.png" width="150" alt="staircase"><br>staircase</a></td>
+<td align="center"><a href="assets/windmill.md"><img src="img/windmill.png" width="150" alt="windmill"><br>windmill</a></td>
 <td align="center"><a href="assets/window.md"><img src="img/window.png" width="150" alt="window"><br>window</a></td>
 </tr>
 </table>
@@ -227,6 +232,7 @@ place:
 | [room](assets/room.md) | Single room with a door and windows, built as a one-room floor plan (clean wall corners, finishes, a hinged door). |  |
 | [shop](assets/shop.md) | Corner shop: a double-height storefront on the ground floor with a stock room behind, and a flat above. |  |
 | [staircase](assets/staircase.md) | Parametric staircase: straight, L-shaped (quarter landing) or spiral, with handrails. | `rise`, `width` |
+| [windmill](assets/windmill.md) | A windmill whose sails turn. | `height`, `sail`, `speed` |
 | [window](assets/window.md) | Casement window with frame, glazing bars, sill and lintel. | `width`, `height`, `frame`, `recess` |
 
 ## Vehicles
@@ -385,24 +391,26 @@ place:
 <td align="center"><a href="assets/farm_shed.md"><img src="img/farm_shed.png" width="150" alt="farm_shed"><br>farm_shed</a></td>
 <td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 <td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
+<td align="center"><a href="assets/lift_platform.md"><img src="img/lift_platform.png" width="150" alt="lift_platform"><br>lift_platform</a></td>
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
-<td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
 <td align="center"><a href="assets/produce_counter.md"><img src="img/produce_counter.png" width="150" alt="produce_counter"><br>produce_counter</a></td>
 <td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
 <td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
-<td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 <td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
+<td align="center"><a href="assets/seesaw.md"><img src="img/seesaw.png" width="150" alt="seesaw"><br>seesaw</a></td>
 <td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 <td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
-<td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
-<td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
+<td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 <td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
 <td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 <td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
@@ -419,6 +427,7 @@ place:
 | [farm_shed](assets/farm_shed.md) | A farm's lean-to shed to sleep in: a plank floor, three board walls and a sloping roof, open at the front, with a cot inside. |  |
 | [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
 | [lever](assets/lever.md) | A floor lever: a cast base with a handle that throws forward and back. | `height` |
+| [lift_platform](assets/lift_platform.md) | A goods lift: a platform that rides up a mast. | `rise`, `speed`, `width` |
 | [light_switch](assets/light_switch.md) | Wall light switch: a plate with a rocker that tips when switched off. | `light` |
 | [loaf](assets/loaf.md) | A loaf of bread with two slices cut at its +Z end. |  |
 | [parcel](assets/parcel.md) | A taped cardboard parcel: a belt item for conveyors (items/parcel.yaml). | `width`, `height`, `depth` |
@@ -427,6 +436,7 @@ place:
 | [room_key](assets/room_key.md) | A room key on a red fob, to pick up. |  |
 | [rover](assets/rover.md) | A little yellow delivery rover on four wheels with a sensor dome: a walking item for tracks (items/rover.yaml). |  |
 | [seed_packet](assets/seed_packet.md) | A packet of seeds. | `colour` |
+| [seesaw](assets/seesaw.md) | A playground seesaw: a plank tipping on a hinge. | `length`, `tilt` |
 | [snack_bar](assets/snack_bar.md) | A chocolate bar. | `colour` |
 | [soda_can](assets/soda_can.md) | A drink can. | `colour`, `band` |
 | [spawner](assets/spawner.md) | A spawner arch: two posts and a lintel with a glowing strip, and a source of spawned items (geogen.flows) between the posts. `item` is the item file it makes, `rate` how many a second, or `waves` a waves file it plays instead; `drop` lifts the spawn point (a belt's height, so it feeds a conveyor's back end). | `item`, `waves`, `rate`, `drop`, `initial`, `max_alive`, `count`, `width`, `height` |

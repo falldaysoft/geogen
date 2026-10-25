@@ -30,6 +30,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [level_crossing](#level_crossing) | A railway crossing a road: a two-lane road (a route), a line with two stations, barriers where they cross, traffic on the road and a commuter train. | test |
 | [lighthouse_keepers](#lighthouse_keepers) | NPCs on a spiral stair (test). |  |
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
+| [mechanism_test](#mechanism_test) | Mechanisms on a lawn: a gate to push through, a seesaw with a pumpkin on one end, a chain with a lantern, a lift to ride and a windmill turning. | test |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
 | [plot_test](#plot_test) | Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat, carrots and pumpkins by row; planted, sprouting and grown by column). | test |
@@ -448,6 +449,20 @@ back to the hub.
 **Spawns**: from_hub, start
 
 **Features**: city
+
+## mechanism_test
+
+`scene: scenes/mechanism_test.yaml` · [source](../../assets/scenes/mechanism_test.yaml)
+
+Mechanisms on a lawn: a gate to push through, a seesaw with a pumpkin on one end, a
+chain with a lantern, a lift to ride and a windmill turning. A catalogue test scene for
+geogen.mechanism: every moving thing is a rigid body on a joint the runtime simulates.
+
+**Places**: `lawn: {asset: ground.yaml}`; `gate: {asset: swing_gate.yaml}`; `seesaw: {asset: seesaw.yaml}`; `pumpkin: {asset: pumpkin.yaml}`; `chain: {asset: hanging_chain.yaml}`; `lift: {asset: lift_platform.yaml}`; `windmill: {asset: windmill.yaml}`
+
+**Slots**: chain, gate, lift, pumpkin, seesaw, windmill
+
+**Spawns**: start
 
 ## park
 

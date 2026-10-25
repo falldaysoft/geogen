@@ -1,0 +1,6 @@
+# A goat, quicker than the sheep, on the petting zoo's track (a walking item).
+kind: item
+body: goat.yaml
+mode: walk
+speed: 0.8
+gait: {stride: 0.55, bob: 0.03, sway: 4, waddle: 5}

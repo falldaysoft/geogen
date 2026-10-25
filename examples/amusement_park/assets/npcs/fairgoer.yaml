@@ -1,0 +1,29 @@
+# Someone at the fair: wanders the paths between the rides and stalls, rests on the benches
+# and at the picnic tables, and rides the rides (their seats are affordances tagged `ride`
+# that advertise fun; a seat is only taken while its ride stands still at the ground). Place
+# a crowd with a scatter on the paths:
+#   visitors: { npc: npcs/fairgoer.yaml, home: { rect: [...] }, scatter: { on_tag: park.path, count: 12 } }
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/townsfolk.yaml }
+speed: 1.1
+turn_speed: 300
+
+needs:
+  rest:      { initial: 0.7, decay: 0.006 }
+  fun:       { initial: 0.3, decay: 0.012 }
+  curiosity: { initial: 0.5, decay: 0.014 }
+
+preferences:
+  seat: 1.0
+  picnic: 1.2
+  ride: 1.6
+
+activities:
+  stroll: { action: wander, advertises: { curiosity: 0.12 } }
+  pause:  { action: idle, advertises: { rest: 0.03, curiosity: 0.02 } }
+
+affordance_tags: [outside]
+wander: { tags: [park.path] }

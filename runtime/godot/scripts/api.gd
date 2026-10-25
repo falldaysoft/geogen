@@ -51,7 +51,8 @@ const COMMANDS := {
     "player.carry": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere: "
         + "-> {ok, held}",
     "player.drop": "let go of what the player carries -> {dropped}",
-    "world.bodies": "every physics prop: uid, node, position, center (of its box), yaw_deg, live, held, sleeping, speed",
+    "world.bodies": "every physics prop: uid, node, position, center (of its box), yaw_deg, live, held, sleeping, speed; "
+        + "then every mechanism body (uid <asset>/<body>): position (centre of mass), yaw_deg, tilt_deg, speed, angular_speed, motor {on, speed}",
     "flows.list": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], "
         + "items: [{id, source, item, mode, position, data, age}]}",
     "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
@@ -443,7 +444,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             world.props.drop()
             return {"dropped": dropped}
         "world.bodies":
-            return world.props.report()
+            return world.props.report() + world.mechanisms.report()
         "world.lights":
             return _lights()
         "world.skeletons":

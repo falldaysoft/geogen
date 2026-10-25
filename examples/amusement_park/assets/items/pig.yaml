@@ -1,0 +1,6 @@
+# A pig, trotting round the petting zoo's track (a walking item).
+kind: item
+body: pig.yaml
+mode: walk
+speed: 0.65
+gait: {stride: 0.4, bob: 0.015, sway: 2, waddle: 8}

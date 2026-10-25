@@ -14,6 +14,7 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 - [Marble run](https://falldaysoft.github.io/geogen/play/marble_run/): a hopper, a winding brass trough and a catch bowl, all physics ([source](examples/marble_run/))
 - [Tower defense](https://falldaysoft.github.io/geogen/play/tower_defense/): waves of robots walk a path to a core; towers on pads shoot them ([source](examples/tower_defense/))
 - [Survival](https://falldaysoft.github.io/geogen/play/survival/): washed up on an island with nothing: gather, craft, chop, keep a fire and build a shelter while hunger and thirst run on the clock ([source](examples/survival/))
+- [Amusement park](https://falldaysoft.github.io/geogen/play/amusement_park/): a carousel, a Ferris wheel, a drop tower and a swing ride, each a real mechanism of rigid bodies on motorised joints, with stalls, a petting zoo, a strength tester and a crowd that rides too ([source](examples/amusement_park/))
 
 ## Examples
 

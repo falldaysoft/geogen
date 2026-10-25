@@ -1,0 +1,67 @@
+# A playground seesaw: a plank tipping on a hinge. A mechanism with one body on a free
+# hinge with limits: something heavy on one end puts it down (a dropped prop; the player
+# weighs nothing, being kinematic). The plank runs along X. Origin: bottom centre of the
+# fulcrum.
+
+name: seesaw
+tags: [play.seesaw, mechanism.seesaw]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  length: {default: 3.6}
+  tilt:   {default: 22}         # degrees each way before an end meets the ground
+
+mechanism:
+  bodies:
+    plank:
+      parts: [board, seat, handle]
+      mass: 30
+      damping: {angular: 0.3}
+      joint: {type: hinge, axis: z, pivot: [0, 0.55, 0], limits: ["{-tilt}", "{tilt}"]}
+
+parts:
+  pad:
+    primitive: cube
+    size: ["{length + 0.6}", 0.04, 1.2]
+    anchor: bottom_center
+    bevel: 0
+    material: rubber_play
+    walkable: true
+  fulcrum:
+    primitive: prism
+    size: [0.9, 0.5, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.04, 0]
+    material: play_paint
+  pin:
+    primitive: cylinder
+    size: [0.06, 0.7, 0.06]
+    anchor: center
+    offset: [0, 0.05, 0]              # across the fulcrum's top (a centre anchor sits 0.5 up)
+    rotation: [90, 0, 0]
+    material: metal
+  board:
+    primitive: cube
+    size: ["{length}", 0.06, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.58, 0]
+    bevel: 0.01
+    material: play_yellow
+  seat:
+    primitive: cube
+    size: [0.36, 0.04, 0.3]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.25}", 0.64, 0]
+    array: {count: 2, step: ["{length - 0.5}", 0, 0]}
+    bevel: 0.01
+    material: play_paint
+  handle:
+    primitive: cube
+    size: [0.04, 0.3, 0.3]
+    anchor: bottom_center
+    offset: ["{-length / 2 + 0.5}", 0.64, 0]
+    array: {count: 2, step: ["{length - 1.0}", 0, 0]}
+    bevel: 0.005
+    material: metal

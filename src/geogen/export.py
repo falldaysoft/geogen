@@ -174,6 +174,10 @@ def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda
             by_name.setdefault(n.name, n)
         aim = {k: (name_of(by_name[v]) if k in ("yaw", "pitch") and v in by_name else v) for k, v in effector["aim"].items()}
         extras["geogen"]["flows"] = {**extras["geogen"]["flows"], "effector": {**effector, "aim": aim}}
+    mechanism = extras.get("geogen", {}).get("mechanism")
+    if isinstance(mechanism, dict):
+        from .mechanism import exported_mechanism
+        extras["geogen"]["mechanism"] = exported_mechanism(mechanism, node, name_of)
     if node.interactions:
         exported = {}
         for interaction in node.interactions:

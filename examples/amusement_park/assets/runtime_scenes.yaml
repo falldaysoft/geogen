@@ -1,0 +1,7 @@
+# The amusement park's runtime catalogue (python -m geogen.main --project examples/amusement_park --export-catalogue).
+kind: scene_catalogue
+default: amusement_park
+scenes:
+  amusement_park:
+    group: showcase
+    description: A carousel, a Ferris wheel, a drop tower and a swing ride, all real physics

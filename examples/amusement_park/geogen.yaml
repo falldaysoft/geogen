@@ -1,0 +1,9 @@
+# A project built on geogen: an amusement park. A carousel, a Ferris wheel, a drop tower and
+# a swing ride, every one a real mechanism: rigid bodies on motorised joints that the Jolt
+# runtime simulates, so gondolas swing, chairs fly out and the tower's car free-falls, and a
+# rider standing or sitting on one goes with it. No tickets: pull a ride's lever and get on.
+#   python -m geogen.main --project examples/amusement_park --export-catalogue
+#   godot --path runtime/godot -- --generated=$PWD/examples/amusement_park/generated
+kind: project
+name: amusement_park
+description: An amusement park - a carousel, a Ferris wheel, a drop tower and a swing ride, all real physics

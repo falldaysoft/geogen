@@ -1,0 +1,14 @@
+# Glossy fairground red for the rides' trim, cars and the carousel's canopy.
+name: paint_red
+texture:
+  type: painted_wall
+  params:
+    base_color: [196, 38, 44]
+    seed: 11
+size: [128, 128]
+tile_size: 1.0
+pbr:
+  roughness: 0.35
+  metallic: 0.0
+  normal_strength: 0.15
+  ao_strength: 1.0

@@ -114,7 +114,7 @@ func _make_body(node: Node3D, data: Dictionary, uid: String) -> RigidBody3D:
     body.name = "%s_body" % node.name
     body.mass = float(data.get("mass", 10.0))
     body.collision_layer = LAYER
-    body.collision_mask = 1 | 2
+    body.collision_mask = 1 | 2 | Player.LAYER
     body.continuous_cd = true
     body.can_sleep = false        # resting on a hatch that swings away, it must notice
     var material := PhysicsMaterial.new()

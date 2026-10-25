@@ -1,0 +1,144 @@
+# A drop tower: a drum round a square column with eight seats on brackets facing out, on a
+# slide joint with a motor (a mechanism). Sit in a seat (E) from the plinth and the car lifts
+# `lift` metres at `speed` m/s, holds, lets go (the motor off: free fall), brakes hard with
+# the motor near the bottom and lowers the rest of the way; the cycle is the `ride`
+# interaction's states, `dropping` the one the motor is off in, and it starts itself every
+# `pause` seconds (the lever starts it early). Origin: the centre of the column, on the
+# ground; the lever stands east (+X).
+
+name: drop_tower
+tags: [ride.drop_tower]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: {default: 22}         # the column
+  lift:   {default: 16}         # how far the car rises
+  speed:  {default: 2.0}        # m/s lifting
+  fall:   {default: 1.6}        # seconds of free fall before the brake (12.5 m from 16: 3.5 m up, 15.7 m/s)
+  hold:   {default: 3}          # seconds at the top
+  pause:  {default: 35}         # seconds at the bottom between rides
+
+mechanism:
+  bodies:
+    car:
+      parts: [drum, seat, bracket, back]
+      mass: 2000
+      joint: {type: slide, axis: y, pivot: [0, 0, 0], limits: [0, "{lift}"], motor: {speed: "{speed}", force: 120000}}
+
+parts:
+  plinth:
+    primitive: cylinder
+    size: [6.4, 0.25, 6.4]
+    anchor: bottom_center
+    segments: 64
+    material: concrete
+    walkable: true
+  column:
+    primitive: cube
+    size: [0.9, "{height - 0.25}", 0.9]
+    anchor: bottom_center
+    offset: [0, 0.25, 0]              # on the plinth
+    bevel: 0.02
+    material: steel
+  cap:
+    primitive: cube
+    size: [1.8, 0.5, 1.8]
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    bevel: 0.03
+    material: paint_red
+  beacon:
+    primitive: sphere
+    size: [0.4, 0.4, 0.4]
+    anchor: bottom_center
+    offset: [0, "{height + 0.5}", 0]
+    material: paint_yellow
+    collider: none
+  # The car: a drum round the column, eight seats on brackets facing out, seat tops 1.03 m up.
+  drum:
+    primitive: lathe
+    profile: [[0.55, 0], [0.95, 0], [0.95, 1.6], [0.55, 1.6], [0.55, 0]]
+    size: [1.9, 1.6, 1.9]
+    anchor: bottom_center
+    offset: [0, 0.4, 0]
+    segments: 48
+    material: paint_blue
+  bracket:
+    primitive: cube
+    size: [0.45, 0.06, 0.12]
+    anchor: bottom_center
+    offset: [1.15, 0.91, 0]
+    array: {count: 8, turn: 45}
+    bevel: 0
+    material: steel
+  seat:
+    primitive: cube
+    size: [0.5, 0.06, 0.5]
+    anchor: bottom_center
+    offset: [1.2, 0.97, 0]
+    array: {count: 8, turn: 45}
+    bevel: 0.01
+    material: paint_red
+  back:
+    primitive: cube
+    size: [0.05, 0.65, 0.5]
+    anchor: bottom_center
+    offset: [0.975, 0.973, 0]            # 3 mm off the seat's underside (coplanar QA)
+    array: {count: 8, turn: 45}
+    bevel: 0.01
+    material: paint_red
+  # The operator's pedestal and lever, off the plinth's east edge.
+  pedestal:
+    primitive: cube
+    size: [0.4, 0.95, 0.4]
+    anchor: bottom_center
+    offset: [3.8, 0, 0]
+    bevel: 0.02
+    material: steel
+  handle:
+    primitive: cylinder
+    size: [0.04, 0.5, 0.04]
+    anchor: bottom_center
+    offset: [3.8, 0.95, 0]
+    material: paint_red
+  knob:
+    primitive: sphere
+    size: [0.09, 0.09, 0.09]
+    attach_to: handle
+    at: top
+    from: center
+    material: tyre
+
+interactions:
+  ride:
+    targets: [handle, knob]
+    initial: waiting
+    duration: 1.5                                   # the motor ramps to speed in this
+    states:
+      waiting:  {prompt: Start the drop tower, next: lifting, then: lifting, after: "{pause}"}
+      lifting:  {then: holding, after: "{lift / speed + 2}"}
+      holding:  {then: dropping, after: "{hold}", emit: at_the_top}
+      dropping: {then: braking, after: "{fall}", emit: dropped}
+      braking:  {then: landing, after: 2.5}
+      landing:  {then: waiting, after: "{lift / 8 + 3}"}
+    motions:
+      - {body: car, drive: {lifting: "{speed}", holding: 0, braking: 0, landing: -1.0, waiting: 0}, free: [dropping]}
+      - {parts: [handle], rotate: x, pivot: [3.8, 0.95, 0], values: {waiting: -30, lifting: 30, holding: 30, dropping: 30, braking: 30, landing: 30}}
+
+# A seat every 45 degrees, riding with the car, facing out, boarded from the plinth just
+# in front; and the operator's spot by the lever.
+affordances:
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(0)}", 1.03, "{-1.2 * sind(0)}"], facing: 90, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(45)}", 1.03, "{-1.2 * sind(45)}"], facing: 135, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(90)}", 1.03, "{-1.2 * sind(90)}"], facing: 180, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(135)}", 1.03, "{-1.2 * sind(135)}"], facing: 225, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(180)}", 1.03, "{-1.2 * sind(180)}"], facing: 270, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(225)}", 1.03, "{-1.2 * sind(225)}"], facing: 315, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(270)}", 1.03, "{-1.2 * sind(270)}"], facing: 0, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: sit, body: car, height: 1.03, at: ["{1.2 * cosd(315)}", 1.03, "{-1.2 * sind(315)}"], facing: 45, approach: [0, -0.78, 0.9], duration: [30, 60], advertises: {fun: 0.7}, tags: [ride, outside]}
+  - {type: stand, at: [3.8, 0, 0.6], facing: 270, action: stand, duration: [120, 300], advertises: {duty: 0.8}, tags: [operator], approach: [0, 0, 0]}
+
+attachments:
+  operator: {anchor: bottom_center, offset: [4.6, 0, 0], offset_mode: absolute}

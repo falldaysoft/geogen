@@ -45,8 +45,14 @@ func build(root: Node3D, manifest_path: String, model_path: String) -> void:
                     if body.collision_layer & 1:
                         body.collision_layer &= ~1
                         shut.append(body)
+    # Mechanism bodies (rides) count where they stand at rest: their static shadows join the bake.
+    var shadows := world.mechanisms.nav_shadows().filter(func(s): return root.is_ancestor_of(s))
+    for s in shadows:
+        s.collision_layer = 1
     var nav := GeogenSceneBuilder.build_navigation(root, spec, world.open_before_bake, world.nav_ground_margin())
     in_step(nav)
+    for s in shadows:
+        s.collision_layer = 0
     for body in shut:
         body.collision_layer |= 1
     world.load_timings["nav_cache"] = "miss"
@@ -81,6 +87,6 @@ func _cache_path(root: Node3D, manifest_path: String, model_path: String, spec: 
         model_md5, FileAccess.get_md5(manifest_path),
         spec.to_dict() if spec else {}, world.open_before_bake, world.open_only, world.nav_ground_margin(), var_to_str(root.global_transform),
         FileAccess.get_md5("res://addons/geogen/scene_builder.gd"), FileAccess.get_md5("res://scripts/world_loader.gd"),
-        FileAccess.get_md5("res://scripts/world_navigation.gd")])
+        FileAccess.get_md5("res://scripts/world_navigation.gd"), FileAccess.get_md5("res://scripts/mechanisms.gd")])
     return world.generated_dir.path_join("navcache").path_join("%s-%s.scn" % [String(root.name).replace("-", "_"),
         key.md5_text()])

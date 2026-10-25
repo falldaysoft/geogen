@@ -1,0 +1,61 @@
+# A goat: a lean brown body on long legs, a narrow head with two horns and a little beard,
+# about 1 m tall (the body of items/goat.yaml). Origin: bottom centre; it walks toward +Z.
+
+name: goat
+tags: [animal.goat]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  body:
+    primitive: ellipsoid
+    size: [0.4, 0.42, 0.9]
+    anchor: bottom_center
+    offset: [0, 0.45, 0]
+    material: leather
+  neck:
+    primitive: cube
+    size: [0.14, 0.4, 0.16]
+    anchor: bottom_center
+    offset: [0, 0.65, 0.42]
+    rotation: [-30, 0, 0]
+    bevel: 0.03
+    material: leather
+  head:
+    primitive: ellipsoid
+    size: [0.16, 0.18, 0.32]
+    anchor: bottom_center
+    offset: [0, 0.92, 0.6]
+    material: leather
+  horn:
+    primitive: cone
+    size: [0.04, 0.18, 0.04]
+    anchor: bottom_center
+    offset: [-0.05, 1.08, 0.52]
+    rotation: [-25, 0, 0]
+    array: {count: 2, step: [0.1, 0, 0]}
+    material: wood_dark
+    collider: none
+  beard:
+    primitive: cone
+    size: [0.06, 0.1, 0.06]
+    anchor: bottom_center
+    offset: [0, 0.82, 0.72]
+    rotation: [180, 0, 0]
+    material: wood_dark
+    collider: none
+  leg:
+    primitive: cylinder
+    size: [0.07, 0.5, 0.07]
+    anchor: bottom_center
+    offset: [-0.12, 0, -0.3]
+    array: {count: 2, step: [0.24, 0, 0]}
+    material: leather
+  leg_front:
+    primitive: cylinder
+    size: [0.07, 0.5, 0.07]
+    anchor: bottom_center
+    offset: [-0.12, 0, 0.3]
+    array: {count: 2, step: [0.24, 0, 0]}
+    material: leather

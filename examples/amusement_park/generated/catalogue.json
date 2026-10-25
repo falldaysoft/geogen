@@ -1,0 +1,16 @@
+{
+  "format": "geogen-catalogue",
+  "version": 1,
+  "default": "amusement_park",
+  "scenes": [
+    {
+      "name": "amusement_park",
+      "group": "showcase",
+      "description": "A carousel, a Ferris wheel, a drop tower and a swing ride, all real physics",
+      "stream": false,
+      "manifest": "amusement_park.manifest.json",
+      "exported": true
+    }
+  ],
+  "packages": []
+}

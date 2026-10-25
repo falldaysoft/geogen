@@ -112,6 +112,7 @@ var _reservations := {}   # affordance id -> [GeogenNpc]
 var interactions: Array[GeogenInteraction] = []
 ## Physics props (extras.geogen.physics): rigid bodies, carrying, spawn and stow.
 var props: GeogenProps
+var mechanisms: GeogenMechanisms
 ## Items' icon bodies (extras.geogen.item_icon, the export's hidden ``item_icons`` node): item id -> Node3D,
 ## out of the tree; ``item_icons()`` renders them for the HUD's hotbar.
 var item_bodies := {}
@@ -183,6 +184,8 @@ func _ready() -> void:
     add_child(rules)
     props = GeogenProps.new(self)
     add_child(props)
+    mechanisms = GeogenMechanisms.new(self)
+    add_child(mechanisms)
     flows = GeogenFlows.new(self)
     add_child(flows)
     _collider_material = StandardMaterial3D.new()
@@ -365,12 +368,13 @@ func unload() -> void:
         saves.trips[_npcs_scene] = people   # and its NPCs', for when the scene loads again
     saves.pending_npcs = {}
     for child in get_children():
-        if child == events or child == rules or child == props or child == flows:
+        if child == events or child == rules or child == props or child == flows or child == mechanisms:
             continue
         remove_child(child)
         child.free()
     flows.clear()
     props.clear()
+    mechanisms.clear()
     _clear_item_icons()
     rules.unload()
     physics_rate = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
@@ -743,6 +747,7 @@ func setup_root(root: Node) -> Dictionary:
             nodes_by_uid[uid] = node
     _collect_interactions(root)
     props.setup(root)        # before colliders: a prop's parts' colliders give way to its body
+    mechanisms.setup(root)   # likewise: a mechanism's bodies take their parts' colliders as shapes
     lights.add(root)
     lights.sync_fixtures()
     _collect_affordances(root)
@@ -751,6 +756,7 @@ func setup_root(root: Node) -> Dictionary:
     _apply_water(root)
     t = _lap("setup", t)
     var count := _add_collision(root)
+    mechanisms.exclude_frames()   # bodies pass their own asset's static parts
     t = _lap("colliders", t)
     _spawn_npcs(root)
     t = _lap("npcs", t)
@@ -795,6 +801,7 @@ func forget(root: Node) -> void:
             it.queue_free()
     flows.forget(root)
     props.forget(root)
+    mechanisms.forget(root)
     for uid in nodes_by_uid.keys():
         if inside.call(nodes_by_uid[uid]):
             nodes_by_uid.erase(uid)
@@ -918,6 +925,8 @@ func _collect_affordances(root: Node) -> void:
                 for it in interactions_of(String(node.name)):
                     if it.interaction_name == a["interaction"] and it.asset == node:
                         entry["interaction"] = it
+            if a.has("body") and not mechanisms.ride(entry, node, str(a["body"])):
+                push_warning("geogen: affordance on %s names body '%s', which its mechanism hasn't" % [node.name, a["body"]])
             affordances.append(entry)
 
 
@@ -981,7 +990,7 @@ func _collect_travel(root: Node) -> void:
         var area := Area3D.new()
         area.name = "TravelVolume"
         area.collision_layer = 0
-        area.collision_mask = 1
+        area.collision_mask = 1 | Player.LAYER
         area.monitorable = false
         var shape := CollisionShape3D.new()
         var box := BoxShape3D.new()

@@ -1,0 +1,263 @@
+# A Ferris wheel: a double-rimmed wheel of sixteen spokes turning on a motorised hinge
+# between two A-frames on concrete feet, with eight open gondolas hanging from its rim on
+# free hinges (a mechanism: the wheel is one body, every gondola its own, swinging as physics
+# takes it). A gondola is a bench for two under a top bar, with knee-high panels round it
+# and nothing above eye level, so riders look out. The wheel stands in the XY plane; you sit
+# (E) in the bottom gondola from the step on its south (+Z) side, and the gondolas hang
+# upright so the bench always faces south. The ride runs itself: `run` is stopped for
+# `pause` seconds to let people on and off, then turns at `speed` degrees a second for
+# `cycle` seconds; the operator's lever by the south-east leg starts or stops it early.
+# Origin: on the ground under the hub.
+
+name: ferris_wheel
+tags: [ride.ferris_wheel]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  radius: {default: 6.0}        # the rim's radius (the hub is 9.2 m up: keep it under 6.6)
+  speed:  {default: 12}         # degrees a second when running (2 rpm)
+  ramp:   {default: 8}          # seconds to reach full speed (and to stop)
+  cycle:  {default: 75}         # seconds a ride lasts
+  pause:  {default: 30}         # seconds stopped between rides
+
+mechanism:
+  bodies:
+    wheel:
+      parts: [hub_disc, spoke_a, spoke_b, rim_a, rim_b, pin]
+      mass: 3000
+      joint: {type: hinge, axis: z, pivot: [0, 9.2, 0], motor: {speed: "{speed}", force: 400000}}
+    gondola:
+      parts: [hanger, top_bar, arm_l, arm_r, floor, bench, back, front, side_l, side_r]
+      array: true                                # gondola_0 .. gondola_7
+      mass: 250
+      damping: {linear: 0.0, angular: 0.6}       # a swing dies down
+      joint: {type: hinge, to: wheel, axis: z, pivot: hanger.top}
+
+parts:
+  # The A-frames: a pair of legs each side of the wheel, on feet, carrying the axle.
+  leg_se: &leg
+    primitive: cylinder
+    size: [0.26, 9.51, 0.26]
+    anchor: bottom_center
+    offset: [1.2, 0, 1.3]
+    rotation: [0, 0, 14.62]           # foot at x = 2.4, top under the hub
+    material: steel
+  leg_sw:
+    <<: *leg
+    offset: [-1.2, 0, 1.3]
+    rotation: [0, 0, -14.62]
+  leg_ne:
+    <<: *leg
+    offset: [1.2, 0, -1.3]
+  leg_nw:
+    <<: *leg
+    offset: [-1.2, 0, -1.3]
+    rotation: [0, 0, -14.62]
+  foot_se: &foot
+    primitive: cube
+    size: [1.0, 0.3, 0.7]
+    anchor: bottom_center
+    offset: [2.4, 0, 1.3]
+    bevel: 0.02
+    material: concrete
+  foot_sw:
+    <<: *foot
+    offset: [-2.4, 0, 1.3]
+  foot_ne:
+    <<: *foot
+    offset: [2.4, 0, -1.3]
+  foot_nw:
+    <<: *foot
+    offset: [-2.4, 0, -1.3]
+  axle:
+    primitive: cylinder
+    size: [0.3, 3.4, 0.3]
+    anchor: center
+    offset: [0, 8.7, 0]               # centre at the hub (a centre anchor sits 0.5 up)
+    rotation: [90, 0, 0]
+    material: steel
+  # The boarding step, south of the bottom gondola.
+  step_s:
+    primitive: cube
+    size: [2.4, 0.3, 1.2]
+    anchor: bottom_center
+    offset: [0, 0, 1.25]              # right up to the gondola's front panel: the bench is within reach
+    bevel: 0.01
+    material: concrete
+    walkable: true
+  # The wheel.
+  hub_disc:
+    primitive: cylinder
+    size: [1.2, 1.4, 1.2]
+    anchor: center
+    offset: [0, 8.7, 0]
+    rotation: [90, 0, 0]
+    material: paint_red
+  spoke_a:
+    primitive: cube
+    size: [0.1, "{2 * radius}", 0.1]
+    anchor: center
+    offset: [0, 8.7, 0.55]
+    array: {count: 8, turn: 22.5, axis: z, about: [0, 9.2, 0]}
+    bevel: 0
+    material: steel
+  spoke_b:
+    primitive: cube
+    size: [0.1, "{2 * radius}", 0.1]
+    anchor: center
+    offset: [0, 8.7, -0.55]
+    array: {count: 8, turn: 22.5, axis: z, about: [0, 9.2, 0]}
+    bevel: 0
+    material: steel
+  rim_a:
+    primitive: cube
+    size: [0.14, "{2 * radius * sind(11.25) + 0.06}", 0.14]
+    anchor: center
+    offset: ["{radius}", 8.7, 0.55]
+    array: {count: 16, turn: 22.5, axis: z, about: [0, 9.2, 0]}
+    bevel: 0.01
+    material: paint_yellow
+  rim_b:
+    primitive: cube
+    size: [0.14, "{2 * radius * sind(11.25) + 0.06}", 0.14]
+    anchor: center
+    offset: ["{radius}", 8.7, -0.55]
+    array: {count: 16, turn: 22.5, axis: z, about: [0, 9.2, 0]}
+    bevel: 0.01
+    material: paint_yellow
+  pin:                                # the gondolas' pivots, joining the two rims
+    primitive: cylinder
+    size: [0.1, 1.3, 0.1]
+    anchor: center
+    offset: ["{radius}", 8.7, 0]
+    rotation: [90, 0, 0]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0]}
+    material: steel
+  # A gondola: an open bench on a hanger from the rim. Copy 0 is written at the bottom of the
+  # wheel (its pin at the rim's lowest point, the floor top 0.45 m up: a step from the step);
+  # the others hang from their pins round the rim (`upright` carries the pin point).
+  hanger:
+    primitive: cylinder
+    size: [0.08, "{9.2 - radius - 0.45 - 1.9}", 0.08]
+    anchor: bottom_center
+    offset: [0, "{0.45 + 1.9}", 0]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    material: steel
+  top_bar:
+    primitive: cube
+    size: [1.6, 0.06, 0.06]
+    anchor: bottom_center
+    offset: [0, 2.29, 0]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.005
+    material: steel
+  arm_l: &arm
+    primitive: cube
+    size: [0.05, 1.85, 0.05]
+    anchor: bottom_center
+    offset: [-0.775, 0.45, 0]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.005
+    material: steel
+  arm_r:
+    <<: *arm
+    offset: [0.775, 0.45, 0]
+  floor:
+    primitive: cube
+    size: [1.6, 0.1, 1.2]
+    anchor: bottom_center
+    offset: [0, 0.35, 0]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.01
+    material: hardwood_floor
+  bench:                              # a bench for two, facing south (+Z)
+    primitive: cube
+    size: [1.4, 0.5, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.45, -0.25]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.02
+    material: paint_cream
+  back:                               # a backrest above the bench
+    primitive: cube
+    size: [1.5, 0.5, 0.05]
+    anchor: bottom_center
+    offset: [0, 0.95, -0.575]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.01
+    material: paint_blue
+  front:                              # knee-high panels: the view stays open
+    primitive: cube
+    size: [1.5, 0.5, 0.05]
+    anchor: bottom_center
+    offset: [0, 0.45, 0.575]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.01
+    material: paint_blue
+  side_l: &side
+    primitive: cube
+    size: [0.05, 0.5, 1.2]
+    anchor: bottom_center
+    offset: [-0.775, 0.45, 0]
+    array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}
+    bevel: 0.01
+    material: paint_blue
+  side_r:
+    <<: *side
+    offset: [0.775, 0.45, 0]
+  # The operator's pedestal and lever, by the south-east leg.
+  pedestal:
+    primitive: cube
+    size: [0.4, 0.95, 0.4]
+    anchor: bottom_center
+    offset: [3.6, 0, 2.6]
+    bevel: 0.02
+    material: steel
+  handle:
+    primitive: cylinder
+    size: [0.04, 0.5, 0.04]
+    anchor: bottom_center
+    offset: [3.6, 0.95, 2.6]
+    material: paint_red
+  knob:
+    primitive: sphere
+    size: [0.09, 0.09, 0.09]
+    attach_to: handle
+    at: top
+    from: center
+    material: tyre
+
+interactions:
+  run:
+    targets: [handle, knob]
+    initial: stopped
+    duration: "{ramp}"
+    states:
+      stopped: {prompt: Start the wheel, next: running, then: running, after: "{pause}"}
+      running: {prompt: Stop the wheel, next: stopped, then: stopped, after: "{cycle}"}
+    motions:
+      - {body: wheel, drive: {running: "{speed}", stopped: 0}}
+      - {parts: [handle], rotate: x, pivot: [3.6, 0.95, 2.6], values: {stopped: -30, running: 30}}
+
+# Two seats in every gondola, riding with it (the bench top, facing south), boarded from the
+# step while the wheel is stopped; and the operator's spot by the lever.
+affordances:
+  - {type: sit, body: gondola_0, height: 0.95, at: [-0.35, 0.95, -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_0, height: 0.95, at: [0.35, 0.95, -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_1, height: 0.95, at: ["{-0.35 + 0.707107 * radius}", "{0.95 + 0.292893 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_1, height: 0.95, at: ["{0.35 + 0.707107 * radius}", "{0.95 + 0.292893 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_2, height: 0.95, at: ["{-0.35 + 1.000000 * radius}", "{0.95 + 1.000000 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_2, height: 0.95, at: ["{0.35 + 1.000000 * radius}", "{0.95 + 1.000000 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_3, height: 0.95, at: ["{-0.35 + 0.707107 * radius}", "{0.95 + 1.707107 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_3, height: 0.95, at: ["{0.35 + 0.707107 * radius}", "{0.95 + 1.707107 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_4, height: 0.95, at: ["{-0.35 + 0.000000 * radius}", "{0.95 + 2.000000 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_4, height: 0.95, at: ["{0.35 + 0.000000 * radius}", "{0.95 + 2.000000 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_5, height: 0.95, at: ["{-0.35 + -0.707107 * radius}", "{0.95 + 1.707107 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_5, height: 0.95, at: ["{0.35 + -0.707107 * radius}", "{0.95 + 1.707107 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_6, height: 0.95, at: ["{-0.35 + -1.000000 * radius}", "{0.95 + 1.000000 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_6, height: 0.95, at: ["{0.35 + -1.000000 * radius}", "{0.95 + 1.000000 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_7, height: 0.95, at: ["{-0.35 + -0.707107 * radius}", "{0.95 + 0.292893 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: gondola_7, height: 0.95, at: ["{0.35 + -0.707107 * radius}", "{0.95 + 0.292893 * radius}", -0.25], facing: 0, approach: [0, -0.65, 1.5], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: stand, at: [3.6, 0, 3.2], facing: 180, action: stand, duration: [120, 300], advertises: {duty: 0.8}, tags: [operator], approach: [0, 0, 0]}

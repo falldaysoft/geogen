@@ -66,6 +66,42 @@ place:
     assert np.allclose(lamps[:, 1], 2.0)
 
 
+FACING = """
+name: s
+place:
+  stalls:
+    asset: bench.yaml
+    scatter: { seed: 7, path: [[0, -10], [0, 10]], spacing: 5, count: 4, facing: right }
+  ring:
+    asset: bench.yaml
+    scatter: { seed: 8, rect: [-20, -20, 20, 20], spacing: 6, count: 6, facing: center }
+  posts:
+    asset: bench.yaml
+    scatter: { seed: 9, rect: [-20, -20, 20, 20], spacing: 6, count: 3, facing: 45, yaw: [-5, 5] }
+"""
+
+
+def test_scatter_facing_turns_copies_toward_a_path_or_a_centre():
+    """`facing` sets each copy's yaw (degrees about +Y, 0 = +Z): `right` of a path heading
+    north is +X, `center` looks at the rect's middle, a number is fixed (plus `yaw` jitter)."""
+    scene = SceneComposer().compose_string(FACING)
+    by_group = {}
+    for c in scene.children:
+        group = c.meta.get("scatter", {}).get("group")
+        if group:
+            by_group.setdefault(group, []).append(c)
+    assert all(np.degrees(c.transform.rotation[1]) == pytest.approx(90.0) for c in by_group["stalls"])
+    for c in by_group["ring"]:
+        x, _, z = c.transform.translation
+        expected = np.degrees(np.arctan2(-x, -z))
+        assert ((np.degrees(c.transform.rotation[1]) - expected + 180) % 360 - 180) == pytest.approx(0, abs=1e-6)
+    assert all(40 <= np.degrees(c.transform.rotation[1]) <= 50 for c in by_group["posts"])
+    with pytest.raises(ValueError, match="needs a path"):
+        SceneComposer().compose_string(FACING.replace("facing: center", "facing: along"))
+    with pytest.raises(ValueError, match="facing is"):
+        SceneComposer().compose_string(FACING.replace("facing: center", "facing: sideways"))
+
+
 def test_random_param_values():
     rng = np.random.default_rng(0)
     params = resolve_random_params({"a": {"random": [1, 2]}, "b": {"choice": ["x", "y"]}, "c": 5}, rng)

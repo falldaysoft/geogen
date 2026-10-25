@@ -73,7 +73,7 @@ How assets and scenes are written and composed (`src/geogen/layout/`): YAML form
 
   Placements take `when: "{expr}"` (dropped when 0 / false / ""), like parts.
 
-  Parts take `array: {count, step: [x, y, z]}` to repeat as `<part>_0..n-1` (step in `offset` units; `count` may be an expression, e.g. `"{round(length / 3) + 1}"`); a `subtract:` naming an arrayed cutter takes every copy. Paths (`paths`, `fence`) accept `{circle: r, segments, center}`.
+  Parts take `array: {count, step: [x, y, z], turn: deg}` to repeat as `<part>_0..n-1` (step in `offset` units; `count` may be an expression, e.g. `"{round(length / 3) + 1}"`; `turn` swings each placed copy that much further round the asset's `axis` (y by default; z, x) through `about` (offset units; default the origin) and adds it to the copy's own rotation about it, unless `upright: true` keeps the copies' rotation, or `upright: [x, y, z]` keeps it and carries that point round, moving the copy with it: a polar array for a carousel's horses, a wheel's spokes, or the gondolas hanging round it (every gondola part arrayed round the pin point); anchored parts only); a `subtract:` naming an arrayed cutter takes every copy. Paths (`paths`, `fence`) accept `{circle: r, segments, center}`.
 
   Attachment-based composition:
   ```yaml
@@ -275,7 +275,7 @@ parts:
     anchor: bottom_center
 ```
 
-Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scale}"]` with part sizes in metres) set `bounds: geometry` so their reported `size` is the real extent. Overrides come in through `LayoutLoader.load(path, params={"width": 12})`, or per placement in scenes: `door: {asset: door.yaml, params: {width: 1.1}, on: ...}`. Scenes can declare `params:` and use `{expr}` too (`SceneComposer.compose(path, params=...)`, or `scene: plot.yaml, params: {...}` from a parent scene). Unknown params raise. The expression evaluator is AST-restricted: numeric and text literals, param references, `+ - * /`, parens, unit literals (`50cm`, `2m`, `20%`), comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`, chained, `in [..]`), `and`/`or`/`not`, `a if c else b`, and a fixed list of functions (`sind`, `cosd`, `min`, `max`, `abs`, `round`, `floor`, `ceil`). No other calls, no attribute access. A comparison is 1.0 or 0.0, so `when: "{paint == 'taxi' and seats >= 4}"` works, and `"{'brick' if storeys > 1 else 'wood'}"` picks text.
+Assets whose container is just a unit (e.g. `size: ["{scale}", "{scale}", "{scale}"]` with part sizes in metres) set `bounds: geometry` so their reported `size` is the real extent. Overrides come in through `LayoutLoader.load(path, params={"width": 12})`, or per placement in scenes: `door: {asset: door.yaml, params: {width: 1.1}, on: ...}`. Scenes can declare `params:` and use `{expr}` too (`SceneComposer.compose(path, params=...)`, or `scene: plot.yaml, params: {...}` from a parent scene). Unknown params raise. The expression evaluator is AST-restricted: numeric and text literals, param references, `+ - * /`, parens, unit literals (`50cm`, `2m`, `20%`), comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`, chained, `in [..]`), `and`/`or`/`not`, `a if c else b`, and a fixed list of functions (`sind`, `cosd`, `atan2d`, `hypot`, `sqrt`, `min`, `max`, `abs`, `round`, `floor`, `ceil`). No other calls, no attribute access. A comparison is 1.0 or 0.0, so `when: "{paint == 'taxi' and seats >= 4}"` works, and `"{'brick' if storeys > 1 else 'wood'}"` picks text.
 
 Relevant module: `src/geogen/layout/expressions.py`.
 
@@ -357,7 +357,7 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 
 ## Scatter placement
 
-`layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.
+`layout/scatter.py`: a scene placement with `scatter: {seed, rect: [x0, z0, x1, z1] | path: [[x, z], ...] | on: <object>.<surface> | on_terrain: <object> (+ `height: [lo, hi]` above sea level, `slope: [lo, hi]` degrees), count, spacing, avoid: [objects], margin, yaw: [lo, hi], facing: along | back | left | right (a path's direction) | center | outward (the region's centre) | degrees, scale: [lo, hi], radius, offset, jitter}` places many seeded copies (Poisson disk in regions/on surfaces, evenly along paths), keeping off avoided objects' footprints and other scatter groups; `params:` values may be `{random: [lo, hi]}` or `{choice: [...]}`, drawn per copy. Scatter placements run after all other placements. Example: `scenes/park.yaml`.
 
 ## References and stable IDs
 

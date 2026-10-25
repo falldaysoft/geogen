@@ -2,7 +2,8 @@ class_name GeogenInteraction
 extends Node
 ## One interaction exported in an asset node's extras.geogen.interactions:
 ## a small state machine whose states pose parts by rotating about a pivot
-## or translating along an axis (asset frame). See
+## or translating along an axis (asset frame), or run the motor of a mechanism body
+## (a `drive` motion: its value is the motor's target speed, GeogenMechanisms.drive). See
 ## docs/schema/geogen-extras.v1.schema.json.
 ##
 ## Exported transforms show the `initial` state, so each part's rest pose is
@@ -88,6 +89,12 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
                     shown["parts"].append(part)
             it._shows.append(shown)
             continue
+        if m.get("type") == "drive":
+            var drive := {"type": "drive", "body": str(m.get("body", "")), "free": m.get("free", []),
+                "values": m.get("values", {}), "parts": [], "rest": {}}
+            drive["value"] = float(drive["values"].get(it.state, 0.0))
+            it._motions.append(drive)
+            continue
         var a: Array = m.get("axis", [0, 1, 0])
         var p: Array = m.get("pivot", [0, 0, 0])
         var motion := {
@@ -113,6 +120,13 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
         it._motions.append(motion)
     for motion in it._motions:
         var vals: Array = motion["values"].values()
+        if motion["type"] == "drive":
+            # A motor reaches its fastest speed in `duration` seconds, whatever the parts do.
+            var top := 0.0
+            for v in vals:
+                top = maxf(top, absf(float(v)))
+            motion["speed"] = maxf(top, 1e-6) / it.duration
+            continue
         motion["speed"] = maxf(widest, 1e-6) / it.duration if not vals.is_empty() else 0.0
     it._apply_visibility()
     return it
@@ -295,6 +309,7 @@ func set_state(new_state: String, instant := false, by := "") -> void:
         _head_to(new_state, by)
         return
     target = new_state
+    _dwell = 0.0                      # a timed state starts its wait afresh
     if instant:
         for motion in _motions:
             motion["value"] = float(motion["values"].get(new_state, 0.0))
@@ -316,6 +331,8 @@ func _physics_process(delta: float) -> void:
             value = move_toward(value, goal, motion["speed"] * delta)
             motion["value"] = value
             _apply(motion)
+        elif motion["type"] == "drive":
+            _apply(motion)       # the motor follows the state (free or braked) even at a steady speed
         if not is_equal_approx(value, goal):
             arrived = false
     if state == target:
@@ -373,6 +390,10 @@ func _apply_visibility() -> void:
 
 
 func _apply(motion: Dictionary) -> void:
+    if motion["type"] == "drive":
+        var free: Array = motion["free"]
+        GeogenMechanisms.drive(asset, motion["body"], motion["value"], not (free.has(target) or free.has(state)))
+        return
     var m := _matrix(motion, motion["value"])
     for part: Node3D in motion["parts"]:
         part.global_transform = asset.global_transform * m * motion["rest"][part]

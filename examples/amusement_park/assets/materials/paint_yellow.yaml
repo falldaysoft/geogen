@@ -1,0 +1,14 @@
+# Fairground yellow for the Ferris wheel's rim and the swing ride's crown.
+name: paint_yellow
+texture:
+  type: painted_wall
+  params:
+    base_color: [232, 186, 48]
+    seed: 14
+size: [128, 128]
+tile_size: 1.0
+pbr:
+  roughness: 0.35
+  metallic: 0.0
+  normal_strength: 0.15
+  ao_strength: 1.0

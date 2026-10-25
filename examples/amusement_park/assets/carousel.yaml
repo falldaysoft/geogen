@@ -1,0 +1,173 @@
+# A carousel: a round deck under a red-and-cream canopy, eight horses on brass poles, all
+# one rigid body turning on a motorised hinge about the centre mast (a mechanism). Step onto
+# the deck and it carries you round; sit on a horse (E) and you ride it. The operator's
+# pedestal beside the deck has the lever that starts and stops it: the `run` interaction
+# drives the platform's motor, ramping up to `speed` degrees a second over `ramp` seconds;
+# it runs by itself, `pause` seconds stopped then `cycle` seconds round, and the lever starts
+# or stops it early.
+# Origin: the centre of the mast, on the ground; the pedestal stands east (+X).
+
+name: carousel
+tags: [ride.carousel]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  radius: {default: 4.0}        # the deck's radius
+  speed:  {default: 18}         # degrees a second when running (3 rpm)
+  ramp:   {default: 6}          # seconds to reach full speed (and to stop)
+  cycle:  {default: 60}         # seconds a ride lasts
+  pause:  {default: 25}         # seconds stopped between rides
+
+mechanism:
+  bodies:
+    platform:
+      parts: [deck, deck_edge, pole, horse_body, horse_neck, horse_head, saddle, canopy, canopy_rim, crown, crown_ball]
+      mass: 4000
+      friction: 0.9
+      joint: {type: hinge, axis: y, pivot: [0, 0, 0], motor: {speed: "{speed}", force: 60000}}
+
+parts:
+  # The fixed mast the platform turns about.
+  mast:
+    primitive: cylinder
+    size: [0.36, 4.9, 0.36]
+    anchor: bottom_center
+    material: steel
+  # The turning platform.
+  deck:
+    primitive: cylinder
+    size: ["{2 * radius}", 0.24, "{2 * radius}"]
+    anchor: bottom_center
+    offset: [0, 0.03, 0]
+    segments: 64
+    material: hardwood_floor
+    walkable: true
+  deck_edge:
+    primitive: lathe
+    profile: [["{radius - 0.02}", 0], ["{radius + 0.08}", 0], ["{radius + 0.08}", 0.3], ["{radius - 0.02}", 0.3], ["{radius - 0.02}", 0]]
+    size: ["{2 * radius + 0.16}", 0.3, "{2 * radius + 0.16}"]
+    anchor: bottom_center
+    offset: [0, 0.033, 0]              # 3 mm off the deck's underside (coplanar QA)
+    segments: 64
+    material: paint_red
+    collider: none
+  pole:
+    primitive: cylinder
+    size: [0.06, 3.3, 0.06]
+    anchor: bottom_center
+    offset: ["{radius - 0.9}", 0.27, 0]
+    array: {count: 8, turn: 45}
+    material: brass
+  horse_body:
+    primitive: ellipsoid
+    size: [0.46, 0.5, 1.2]
+    anchor: bottom_center
+    offset: ["{radius - 0.9}", 0.95, 0]
+    array: {count: 8, turn: 45}
+    material: paint_cream
+  horse_neck:
+    primitive: cube
+    size: [0.2, 0.55, 0.3]
+    anchor: bottom_center
+    offset: ["{radius - 0.9}", 1.25, 0.5]
+    rotation: [-25, 0, 0]
+    array: {count: 8, turn: 45}
+    bevel: 0.03
+    material: paint_cream
+  horse_head:
+    primitive: ellipsoid
+    size: [0.22, 0.26, 0.5]
+    anchor: bottom_center
+    offset: ["{radius - 0.9}", 1.72, 0.78]
+    rotation: [20, 0, 0]
+    array: {count: 8, turn: 45}
+    material: paint_cream
+  saddle:
+    primitive: cube
+    size: [0.42, 0.08, 0.5]
+    anchor: bottom_center
+    offset: ["{radius - 0.9}", 1.42, -0.1]
+    array: {count: 8, turn: 45}
+    bevel: 0.02
+    material: paint_red
+  canopy:
+    primitive: cone
+    size: ["{2 * radius + 0.8}", 1.4, "{2 * radius + 0.8}"]
+    anchor: bottom_center
+    offset: [0, 3.6, 0]
+    material: paint_red
+    collider: none
+  canopy_rim:
+    primitive: torus
+    size: ["{2 * radius + 0.8}", 0.16, "{2 * radius + 0.8}"]
+    tube: 0.08
+    anchor: bottom_center
+    offset: [0, 3.52, 0]
+    material: paint_cream
+    collider: none
+  crown:
+    primitive: cylinder
+    size: [0.5, 0.3, 0.5]
+    anchor: bottom_center
+    offset: [0, 5.0, 0]
+    material: brass
+    collider: none
+  crown_ball:
+    primitive: sphere
+    size: [0.36, 0.36, 0.36]
+    anchor: bottom_center
+    offset: [0, 5.3, 0]
+    material: brass
+    collider: none
+  # The operator's pedestal and its lever, off the east edge.
+  pedestal:
+    primitive: cube
+    size: [0.4, 0.95, 0.4]
+    anchor: bottom_center
+    offset: ["{radius + 1.0}", 0, 0]
+    bevel: 0.02
+    material: steel
+  handle:
+    primitive: cylinder
+    size: [0.04, 0.5, 0.04]
+    anchor: bottom_center
+    offset: ["{radius + 1.0}", 0.95, 0]
+    material: paint_red
+  knob:
+    primitive: sphere
+    size: [0.09, 0.09, 0.09]
+    attach_to: handle
+    at: top
+    from: center
+    material: tyre
+
+interactions:
+  run:
+    targets: [handle, knob]
+    initial: stopped
+    duration: "{ramp}"
+    states:
+      stopped: {prompt: Start the carousel, next: running, then: running, after: "{pause}"}
+      running: {prompt: Stop the carousel, next: stopped, then: stopped, after: "{cycle}"}
+    motions:
+      - {body: platform, drive: {running: "{speed}", stopped: 0}}
+      - {parts: [handle], rotate: x, pivot: [0, 0.95, 0], values: {stopped: -30, running: 30}}
+
+# A seat on every horse, riding with the platform (the saddle's top, facing along the deck);
+# it is reached from the lawn just off the deck's edge (sitting puts you on the horse).
+affordances:
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(0)}", 1.5, "{-(radius - 0.9) * sind(0)}"], facing: 0, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(45)}", 1.5, "{-(radius - 0.9) * sind(45)}"], facing: 45, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(90)}", 1.5, "{-(radius - 0.9) * sind(90)}"], facing: 90, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(135)}", 1.5, "{-(radius - 0.9) * sind(135)}"], facing: 135, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(180)}", 1.5, "{-(radius - 0.9) * sind(180)}"], facing: 180, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(225)}", 1.5, "{-(radius - 0.9) * sind(225)}"], facing: 225, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(270)}", 1.5, "{-(radius - 0.9) * sind(270)}"], facing: 270, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: platform, height: 1.5, at: ["{(radius - 0.9) * cosd(315)}", 1.5, "{-(radius - 0.9) * sind(315)}"], facing: 315, approach: [1.6, -1.23, 0], duration: [30, 90], advertises: {fun: 0.6}, tags: [ride, outside]}
+
+  - {type: stand, at: ["{radius + 1.0}", 0, 0.6], facing: 270, action: stand, duration: [120, 300], advertises: {duty: 0.8}, tags: [operator], approach: [0, 0, 0]}
+
+attachments:
+  operator: {anchor: bottom_center, offset: ["{radius + 1.8}", 0, 0], offset_mode: absolute}

@@ -20,6 +20,8 @@ A placement with ``scatter:`` places many copies of its asset::
           avoid: [house, road]          # keep off these placed objects' footprints
           margin: 0.5                   # extra clearance around avoided objects
           yaw: [0, 360]                 # random heading range (degrees); or a number
+          facing: along                 # along | back | left | right (a path's direction) | center | outward
+                                        # (a rect's or surface's centre) | degrees; `yaw` then jitters it ([0, 0])
           scale: [0.9, 1.1]             # random uniform scale range; or a number
           radius: 1.0                   # each copy's keep-out radius against other scatters
                                         # (default: spacing / 2; 0.75 along paths)
@@ -42,7 +44,8 @@ from ..core.node import SceneNode
 from ..core.transform import Transform
 
 KNOWN = {"seed", "rect", "path", "on", "on_tag", "count", "spacing", "avoid", "margin", "yaw", "scale", "jitter",
-         "offset", "radius", "on_terrain", "height", "slope"}
+         "offset", "radius", "on_terrain", "height", "slope", "facing"}
+FACINGS = ("along", "back", "left", "right", "center", "outward")
 
 
 def resolve_random_params(params: dict[str, Any] | None, rng: np.random.Generator) -> dict[str, Any] | None:
@@ -204,6 +207,29 @@ def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], refs, keys
     return [(points[k], float(y[k])) for k in rng.permutation(np.flatnonzero(ok))]
 
 
+def _facing_yaw(facing, p: np.ndarray, heading: np.ndarray | None, centre: np.ndarray) -> float:
+    """Degrees about +Y (0 = +Z) a copy at ``p`` turns to face as ``facing`` says: a path's
+    direction of travel (``heading``: along, back, left, right), a region's ``centre``
+    (center, outward) or a fixed number."""
+    if facing is None:
+        return 0.0
+    if isinstance(facing, (int, float)):
+        return float(facing)
+    if facing in ("along", "back", "left", "right"):
+        d = heading if heading is not None else np.array([0.0, 1.0])
+        if facing == "back":
+            d = -d
+        elif facing == "left":
+            d = np.array([-d[1], d[0]])
+        elif facing == "right":
+            d = np.array([d[1], -d[0]])
+    else:
+        d = centre - p if facing == "center" else p - centre
+        if np.linalg.norm(d) < 1e-9:
+            return 0.0
+    return float(np.degrees(np.arctan2(d[0], d[1])))
+
+
 def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
             occupied: list[tuple[np.ndarray, float]], keys: list | None = None) -> list[SceneNode]:
     """Place copies for one scatter placement; returns the added nodes.
@@ -236,15 +262,22 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
             return False
         return all(np.linalg.norm(p - q) >= r + radius for q, r in occupied)
 
+    facing = spec.get("facing")
+    if facing is not None and not isinstance(facing, (int, float)) and facing not in FACINGS:
+        raise ValueError(f"scatter '{name}': facing is {', '.join(FACINGS)} or degrees, got {facing!r}")
+    if facing in ("along", "back", "left", "right") and "path" not in spec:
+        raise ValueError(f"scatter '{name}': facing {facing} needs a path: to follow")
+    centre = np.zeros(2)                    # what `center` / `outward` face (scene frame x, z)
     # Candidate positions (scene frame x, z) plus surface frames where relevant.
-    frames: list[tuple[np.ndarray, float, np.ndarray | None]] = []   # (xz, y, local normal or None)
+    frames: list[tuple[np.ndarray, float, np.ndarray | None, np.ndarray | None]] = []   # (xz, y, local normal, heading)
     if "on_terrain" in spec:
         for p, y in _terrain_points(root, name, spec, refs, keys, rng, spacing, clear, to_scene):
-            frames.append((p, y, None))
+            frames.append((p, y, None, None))
     elif "rect" in spec:
         x0, z0, x1, z1 = (float(v) for v in spec["rect"])
+        centre = np.array([(x0 + x1) / 2, (z0 + z1) / 2])
         for p in poisson_disk(rng, np.array([x0, z0]), np.array([x1, z1]), spacing, clear):
-            frames.append((p, 0.0, None))
+            frames.append((p, 0.0, None, None))
     elif "path" in spec:
         path = np.asarray(spec["path"], dtype=np.float64)
         step = float(spec.get("spacing", 3.0))
@@ -260,7 +293,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
             side = np.array([-d[1], d[0]])
             p = path[i] + seg[i] * t + side * offset + rng.uniform(-jitter, jitter, 2)
             if clear(p):
-                frames.append((p, 0.0, None))
+                frames.append((p, 0.0, None, d))
     elif "on" in spec:
         target, surface = refs.surface(str(spec["on"]), [*keys, "on"])
         m = to_scene @ target.world_transform()
@@ -269,17 +302,19 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
             world = m @ np.r_[local, 1.0]
             p = world[[0, 2]]
             if clear(p):
-                frames.append((p, float(world[1]), m[:3, :3] @ surface.normal))
+                frames.append((p, float(world[1]), m[:3, :3] @ surface.normal, None))
+        centre = (m @ np.r_[surface.origin + surface.u_axis * surface.u_extent / 2
+                            + surface.v_axis * surface.v_extent / 2, 1.0])[[0, 2]]
     elif "on_tag" in spec:
         for p, y in _tagged_surface_points(root, str(spec["on_tag"]), rng, spacing, clear, to_scene):
-            frames.append((p, y, None))
+            frames.append((p, y, None, None))
     else:
         raise ValueError(f"scatter '{name}' needs rect:, path:, on:, on_tag: or on_terrain:")
 
-    yaw_spec = spec.get("yaw", [0.0, 360.0])
+    yaw_spec = spec.get("yaw", [0.0, 360.0] if facing is None else 0.0)
     scale_spec = spec.get("scale", 1.0)
     placed = []
-    for k, (p, y, _normal) in enumerate(frames[:count]):
+    for k, (p, y, _normal, heading) in enumerate(frames[:count]):
         params = resolve_random_params(obj_def.get("params"), rng)
         if "archetype" in obj_def or "npc" in obj_def:
             # Each copy is its own person (archetype/NPC body seed).
@@ -287,6 +322,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
         else:
             node = load({**obj_def, "params": params})
         yaw = float(rng.uniform(*yaw_spec)) if isinstance(yaw_spec, (list, tuple)) else float(yaw_spec)
+        yaw += _facing_yaw(facing, p, heading, centre)
         scale = float(rng.uniform(*scale_spec)) if isinstance(scale_spec, (list, tuple)) else float(scale_spec)
         node.name = f"{name}_{k + 1}"
         node.transform = Transform(translation=np.array([p[0], y, p[1]]),

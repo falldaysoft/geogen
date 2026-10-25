@@ -1,0 +1,46 @@
+# The park's ground: a lawn with a ring of asphalt path round the midway, a spur to the gate
+# in the south (-Z) railings and one north to the wheel. Origin: the park's centre, on the
+# ground; the gate's gap in the railings is 4.4 m wide at the middle of the south side.
+
+name: park_ground
+tags: [terrain.park]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: {default: 90}
+  depth: {default: 70}
+
+parts:
+  lawn:
+    primitive: cube
+    size: ["{width}", 0.05, "{depth}"]
+    anchor: bottom_center
+    bevel: 0
+    material: grass
+    walkable: true
+  paths:
+    primitive: paths
+    width: 3.0
+    thickness: 0.04
+    bevel: 0
+    offset: [0, 0.05, 0]
+    paths:
+      - [[0.0, "{-depth / 2 + 1}"], [0.0, -14.0]]                               # from the gate
+      - {circle: 16.0, segments: 48, center: [0.0, 0.0]}                        # the midway ring
+      - [[0.0, 14.0], [0.0, 20.0]]                                              # to the wheel
+      - [[-14.0, 0.0], [-18.0, 0.0]]                                            # to the carousel
+      - [[14.0, 0.0], [18.0, 0.0]]                                              # to the drop tower
+      - [[11.5, 11.0], [30.0, 15.3]]                                          # to the petting zoo
+    material: asphalt
+    walkable: true
+    tags: [park.path]
+  railings:
+    primitive: fence
+    path: [["{-width / 2 + 1}", "{-depth / 2 + 1}"], ["{width / 2 - 1}", "{-depth / 2 + 1}"], ["{width / 2 - 1}", "{depth / 2 - 1}"], ["{-width / 2 + 1}", "{depth / 2 - 1}"]]
+    closed: true
+    height: 1.2
+    gaps: [["{width / 2 - 1 - 2.2}", "{width / 2 - 1 + 2.2}"]]
+    offset: [0, 0.05, 0]
+    material: steel

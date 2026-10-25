@@ -1,0 +1,65 @@
+# A field gate on a free hinge: walk into it and it swings open. A mechanism with one body
+# (the leaf) on a hinge with limits, no motor and no interaction: physics does it. The
+# opening is `width` between the posts; the hinge post is at -X. Origin: bottom centre of
+# the opening, the leaf closed across it (along X).
+
+name: swing_gate
+tags: [decor.gate, mechanism.gate]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width:  {default: 1.6}        # clear opening between the posts
+  height: {default: 1.2}
+  swing:  {default: 110}        # degrees it opens to, each way
+
+mechanism:
+  bodies:
+    leaf:
+      parts: [stile_hinge, stile_latch, bar, brace]
+      mass: 25
+      damping: {angular: 1.2}                   # a push swings it open; it settles, not slams
+      joint: {type: hinge, axis: y, pivot: ["{-width / 2 + 0.05}", 0, 0], limits: ["{-swing}", "{swing}"]}
+
+parts:
+  post_hinge: &post
+    primitive: cube
+    size: [0.14, "{height + 0.2}", 0.14]
+    anchor: bottom_center
+    offset: ["{-width / 2 - 0.07}", 0, 0]
+    bevel: 0.01
+    material: wood_dark
+  post_latch:
+    <<: *post
+    offset: ["{width / 2 + 0.07}", 0, 0]
+  stile_hinge:                        # the leaf's upright by the hinge
+    primitive: cube
+    size: [0.06, "{height}", 0.05]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.05}", 0.1, 0]
+    bevel: 0.005
+    material: wood
+  stile_latch:
+    primitive: cube
+    size: [0.06, "{height}", 0.05]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.07}", 0.1, 0]
+    bevel: 0.005
+    material: wood
+  bar:
+    primitive: cube
+    size: ["{width - 0.1}", 0.06, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.2, 0]
+    array: {count: 4, step: [0, "{(height - 0.3) / 3}", 0]}
+    bevel: 0.005
+    material: wood
+  brace:                              # a diagonal from the hinge's foot to the latch's top
+    primitive: cube
+    size: [0.05, "{hypot(width - 0.1, height - 0.4) - 0.1}", 0.035]
+    anchor: center
+    offset: [-0.01, "{height / 2 + 0.1 - 0.5}", 0]
+    rotation: [0, 0, "{-atan2d(width - 0.1, height - 0.4)}"]
+    bevel: 0.005
+    material: wood

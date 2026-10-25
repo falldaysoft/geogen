@@ -1,0 +1,100 @@
+# A goods lift: a platform that rides up a mast. A mechanism: a body on a slide joint with a
+# motor. The lever at the mast's foot calls it: `ride` goes `down` → `rising` → `up` → `lowering` →
+# `down`, the drive motion running the motor up or down and braking at each end; the
+# lever can be used from the platform (`reach`). Step on and ride it `rise` metres up.
+# Origin: the mast's foot; the platform reaches out along +X, its deck 0.15 m up.
+
+name: lift_platform
+tags: [machine.lift, mechanism.lift]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  rise:  {default: 4.0}
+  speed: {default: 1.0}         # m/s
+  width: {default: 1.6}
+
+mechanism:
+  bodies:
+    platform:
+      parts: [deck, cage, rail_side, rail_end]
+      mass: 400
+      joint: {type: slide, axis: y, pivot: [0, 0, 0], limits: [0, "{rise}"], motor: {speed: "{speed}", force: 30000}}
+
+parts:
+  mast:
+    primitive: cube
+    size: [0.3, "{rise + 2.6}", 0.3]
+    anchor: bottom_center
+    offset: [-0.2, 0, 0]
+    bevel: 0.01
+    material: metal
+  deck:
+    primitive: cube
+    size: ["{width}", 0.1, "{width}"]
+    anchor: bottom_center
+    offset: ["{width / 2 + 0.05}", 0.05, 0]
+    bevel: 0.005
+    material: wood
+    walkable: true
+  cage:                               # the carriage sleeve round the mast
+    primitive: cube
+    size: [0.5, 1.2, 0.5]
+    anchor: bottom_center
+    offset: [-0.2, 0.02, 0]              # clear of the mast's foot (coplanar QA)
+    bevel: 0.01
+    material: metal
+  rail_side:
+    primitive: cube
+    size: [0.04, 1.0, "{width}"]
+    anchor: bottom_center
+    offset: ["{width + 0.03}", 0.15, 0]
+    bevel: 0.005
+    material: metal
+  rail_end:
+    primitive: cube
+    size: ["{width}", 0.04, 0.04]
+    anchor: bottom_center
+    offset: ["{width / 2 + 0.05}", 1.11, "{width / 2 - 0.02}"]
+    array: {count: 2, step: [0, 0, "{-(width - 0.04)}"]}
+    bevel: 0.005
+    material: metal
+  pedestal:
+    primitive: cube
+    size: [0.3, 0.9, 0.3]
+    anchor: bottom_center
+    offset: [-0.2, 0, 0.6]
+    bevel: 0.01
+    material: metal
+  handle:
+    primitive: cylinder
+    size: [0.04, 0.45, 0.04]
+    anchor: bottom_center
+    offset: [-0.2, 0.9, 0.6]
+    material: red_metal
+  knob:
+    primitive: sphere
+    size: [0.08, 0.08, 0.08]
+    attach_to: handle
+    at: top
+    from: center
+    material: tyre
+
+interactions:
+  ride:
+    targets: [handle, knob]
+    reach: "{rise + 3}"
+    initial: down
+    duration: 1.0
+    states:
+      down:     {prompt: Call the lift up, next: rising}
+      rising:   {then: up, after: "{rise / speed}"}        # the dwell starts once the motor is at speed
+      up:       {prompt: Send the lift down, next: lowering}
+      lowering: {then: down, after: "{rise / speed}"}
+    motions:
+      - {body: platform, drive: {rising: "{speed}", lowering: "{-speed}", up: 0, down: 0}}
+      - {parts: [handle], rotate: x, pivot: [-0.2, 0.9, 0.6], values: {down: -30, rising: 30, up: 30, lowering: -30}}
+
+attachments:
+  deck: {anchor: bottom_center, offset: ["{width / 2 + 0.05}", 0.15, 0], offset_mode: absolute}

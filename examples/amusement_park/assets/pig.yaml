@@ -1,0 +1,54 @@
+# A pig: a round pink body low on short legs, a blunt snout and floppy ears, about 0.7 m
+# tall (the body of items/pig.yaml). Origin: bottom centre; it walks toward +Z.
+
+name: pig
+tags: [animal.pig]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  body:
+    primitive: ellipsoid
+    size: [0.5, 0.48, 0.95]
+    anchor: bottom_center
+    offset: [0, 0.22, 0]
+    material: skin
+  head:
+    primitive: ellipsoid
+    size: [0.32, 0.3, 0.32]
+    anchor: bottom_center
+    offset: [0, 0.32, 0.48]
+    material: skin
+  snout:
+    primitive: cylinder
+    size: [0.14, 0.1, 0.14]
+    anchor: center
+    offset: [0, -0.03, 0.66]
+    rotation: [90, 0, 0]
+    material: skin
+    collider: none
+  ear:
+    primitive: cube
+    size: [0.1, 0.03, 0.12]
+    anchor: bottom_center
+    offset: [-0.12, 0.6, 0.5]
+    rotation: [20, 0, 0]
+    array: {count: 2, step: [0.24, 0, 0]}
+    bevel: 0.01
+    material: skin
+    collider: none
+  leg:
+    primitive: cylinder
+    size: [0.09, 0.26, 0.09]
+    anchor: bottom_center
+    offset: [-0.15, 0, -0.3]
+    array: {count: 2, step: [0.3, 0, 0]}
+    material: skin
+  leg_front:
+    primitive: cylinder
+    size: [0.09, 0.26, 0.09]
+    anchor: bottom_center
+    offset: [-0.15, 0, 0.3]
+    array: {count: 2, step: [0.3, 0, 0]}
+    material: skin

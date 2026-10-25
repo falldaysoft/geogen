@@ -1,0 +1,63 @@
+# A chain with a lantern, hanging from a bracket on a post. A mechanism whose links are
+# each a body pinned to the one before (`to: previous`), the first to the bracket, so it
+# swings when pushed and settles. Origin: the post's foot; the bracket reaches out along +X.
+
+name: hanging_chain
+tags: [decor.chain, mechanism.chain]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: {default: 3.2}        # the bracket
+  links:  {default: 6}
+  link:   {default: 0.25}       # each link's length
+
+mechanism:
+  bodies:
+    link:
+      parts: [ring]
+      array: true
+      mass: 1.5
+      damping: {linear: 0.3, angular: 0.5}
+      joint: {type: pin, to: previous, pivot: ring.top}
+    lantern:
+      parts: [lamp_body, lamp_cap]
+      mass: 3
+      damping: {linear: 0.3, angular: 0.5}
+      joint: {type: pin, to: "link_{links - 1}", pivot: lamp_cap.top}
+
+light: {energy: 0.6, range: 5.0, color: [1.0, 0.8, 0.5], offset: [0.9, "{height - links * link - 0.3}", 0], auto: night}
+
+parts:
+  post:
+    primitive: cylinder
+    size: [0.12, "{height + 0.1}", 0.12]
+    anchor: bottom_center
+    material: lamp_iron
+  bracket:
+    primitive: cube
+    size: [1.0, 0.05, 0.05]
+    anchor: bottom_center
+    offset: [0.45, "{height}", 0]
+    bevel: 0.005
+    material: lamp_iron
+  ring:
+    primitive: cylinder
+    size: [0.04, "{link}", 0.04]
+    anchor: bottom_center
+    offset: [0.9, "{height - link}", 0]
+    array: {count: "{links}", step: [0, "{-link}", 0]}
+    material: lamp_iron
+  lamp_cap:
+    primitive: cone
+    size: [0.3, 0.12, 0.3]
+    anchor: bottom_center
+    offset: [0.9, "{height - links * link - 0.12}", 0]
+    material: lamp_iron
+  lamp_body:
+    primitive: cylinder
+    size: [0.2, 0.3, 0.2]
+    anchor: bottom_center
+    offset: [0.9, "{height - links * link - 0.42}", 0]
+    material: lamp_glass

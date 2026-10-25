@@ -1,0 +1,43 @@
+# Mechanisms on a lawn: a gate to push through, a seesaw with a pumpkin on one end, a
+# chain with a lantern, a lift to ride and a windmill turning. A catalogue test scene for
+# geogen.mechanism: every moving thing is a rigid body on a joint the runtime simulates.
+
+name: mechanism_test
+size: [40, 14, 30]
+tags: [test.mechanisms]
+
+physics: {ticks: 120}
+
+spawns:
+  start: {position: [0, 0.1, -10], facing: north}
+
+slots:
+  gate:     {position: [0, 0.05, -4], facing: north}
+  seesaw:   {position: [-8, 0.05, 2]}
+  pumpkin:  {position: [-9.55, 0.75, 2]}
+  chain:    {position: [-3, 0.05, 6]}
+  lift:     {position: [7, 0.05, 2]}
+  windmill: {position: [12, 0.05, 10], facing: south}
+
+place:
+  lawn:
+    asset: ground.yaml
+    params: {width: 40, depth: 30}
+  gate:
+    asset: swing_gate.yaml
+    slot: gate
+  seesaw:
+    asset: seesaw.yaml
+    slot: seesaw
+  pumpkin:                              # a physics prop on the seesaw's west end: it tips
+    asset: pumpkin.yaml
+    slot: pumpkin
+  chain:
+    asset: hanging_chain.yaml
+    slot: chain
+  lift:
+    asset: lift_platform.yaml
+    slot: lift
+  windmill:
+    asset: windmill.yaml
+    slot: windmill

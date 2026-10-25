@@ -270,6 +270,12 @@ class LayoutLoader:
             root.interactions = parse_interactions(interactions, root, part_nodes, arrays)
             for interaction in root.interactions:
                 apply_state(root, interaction, interaction.initial)
+        if data.get("mechanism") is not None:
+            from ..mechanism import parse_mechanism
+
+            root.meta["mechanism"] = parse_mechanism(data["mechanism"], root, part_nodes, name, arrays)
+        elif any(m.kind == "drive" for i in root.interactions for m in i.motions):
+            raise ValueError(f"'{name}': a drive motion needs a mechanism: block with the body it drives")
 
         for key, handler in _ROOT_META:
             if data.get(key) or (key == "clearance" and key in data):   # `clearance: {}` still records the footprint
@@ -433,6 +439,29 @@ class LayoutLoader:
             if rotation is not None:
                 rotation_rad = np.radians(np.array(rotation, dtype=np.float64))
                 node.transform.rotation = rotation_rad
+
+            # A polar array's copy (_expand_arrays): swing the placed part round the axis.
+            turn = part_def.get("_turn")
+            if turn is not None:
+                about = np.array(turn["about"], dtype=np.float64) * container_size
+                a = np.radians(turn["angle"])
+                c, s = np.cos(a), np.sin(a)
+                upright = turn["upright"]
+                # The point carried round: the part's own position, or with `upright: [x, y, z]`
+                # that point, every part of the copy moving with it (a gondola hung from its pin).
+                carried = (np.array(upright, dtype=np.float64) * container_size if isinstance(upright, list)
+                           else node.transform.translation)
+                x, y, z = carried - about
+                if turn["axis"] == "y":
+                    swung = np.array([c * x + s * z, y, -s * x + c * z])
+                elif turn["axis"] == "z":
+                    swung = np.array([c * x - s * y, s * x + c * y, z])
+                else:
+                    swung = np.array([x, c * y - s * z, s * y + c * z])
+                node.transform.translation = node.transform.translation + (swung + about - carried)
+                if not upright:
+                    node.transform.rotation["xyz".index(turn["axis"])] += a
+                node.meta["array_turn"] = {"axis": turn["axis"], "angle": float(turn["angle"])}
 
             root.add_child(node)
 
@@ -804,7 +833,7 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
-                   "advertises", "tags", "slots", "interaction", "depth"}
+                   "advertises", "tags", "slots", "interaction", "depth", "body"}
 
 
 def _apply_tints(parts: dict[str, Any], part_nodes: dict[str, SceneNode]) -> None:
@@ -862,28 +891,62 @@ def _array_copies(parts: dict[str, Any]) -> dict[str, list[str]]:
 
 
 def _expand_arrays(parts: dict[str, Any]) -> dict[str, Any]:
-    """``array: {count, step: [x, y, z]}`` repeats a part as ``<part>_0 .. <part>_<n-1>``,
-    each ``step`` further along (the units of ``offset``: metres in a unit container).
-    ``count`` may be an expression (rounded; 0 drops the part). Other parts can't attach to
-    an arrayed part; a ``subtract:`` naming an arrayed cutter takes all its copies, and so does
-    an interaction's ``parts`` / ``targets``."""
+    """``array: {count, step: [x, y, z], turn: <deg>, axis: y, about: [x, y, z], upright: false}``
+    repeats a part as ``<part>_0 .. <part>_<n-1>``, each ``step`` further along (the units of
+    ``offset``: metres in a unit container) and, with ``turn``, each turned that many degrees
+    further about the asset's ``axis`` (y, the vertical, by default; z or x) through ``about``
+    (``offset`` units from the asset's bottom centre; default the origin): a polar array, whose
+    placed part swings round the axis and whose own rotation grows with it (a carousel's horses,
+    a wheel's spokes). ``upright: true`` keeps every copy's own rotation (lamps round a ring);
+    ``upright: [x, y, z]`` moreover carries that one point round and moves the copy with it, so
+    several arrayed parts written round the point stay assembled (a gondola hung from its pin on
+    a wheel's rim). The swing is applied once the part is placed (``_place_part``), so it works
+    for any anchor. ``count`` may be an expression (rounded; 0 drops the part). Other
+    parts can't attach to an arrayed part; a ``subtract:`` naming an arrayed cutter takes all its
+    copies, and so does an interaction's ``parts`` / ``targets``."""
     out: dict[str, Any] = {}
     for name, part in parts.items():
         spec = part.get("array")
         if spec is None:
             out[name] = part
             continue
-        unknown = set(spec) - {"count", "step"}
+        unknown = set(spec) - {"count", "step", "turn", "axis", "about", "upright"}
         if unknown:
-            raise ValueError(f"Part '{name}' array: unknown keys {sorted(unknown)} (count, step)")
+            raise ValueError(f"Part '{name}' array: unknown keys {sorted(unknown)} "
+                             f"(count, step, turn, axis, about, upright)")
         if any(p.get("attach_to") == name for p in parts.values()):
             raise ValueError(f"Part '{name}' is arrayed: other parts can't attach_to it")
         count = int(round(float(spec.get("count", 1))))
         step = np.array(spec.get("step", [0, 0, 0]), dtype=np.float64)
+        turn = float(spec.get("turn", 0.0))
+        axis = str(spec.get("axis", "y"))
+        upright = spec.get("upright", False)
+        if isinstance(upright, (list, tuple)):
+            if len(upright) != 3:
+                raise ValueError(f"Part '{name}' array: upright is true or a point [x, y, z], got {upright!r}")
+            upright = [float(v) for v in upright]
+        else:
+            upright = bool(upright)
         base = np.array(part.get("offset", [0, 0, 0]), dtype=np.float64)
+        rotation = np.array(part.get("rotation", [0, 0, 0]), dtype=np.float64)
+        if axis not in ("x", "y", "z"):
+            raise ValueError(f"Part '{name}' array: axis is x, y or z, got {axis!r}")
+        # XYZ Euler composes as Rz Ry Rx: a further turn about z is exact; about y it needs no z
+        # rotation of its own, about x none about y or z.
+        if turn and not upright and (axis == "y" and abs(rotation[2]) > 1e-9
+                                     or axis == "x" and (abs(rotation[1]) > 1e-9 or abs(rotation[2]) > 1e-9)):
+            raise ValueError(f"Part '{name}' array: turn about {axis} can't combine with the part's own rotation "
+                             f"about a later axis (give it upright: true to keep its rotation)")
+        if turn and part.get("attach_to") is not None:
+            raise ValueError(f"Part '{name}' array: turn needs an anchored part, not attach_to")
+        about = [float(v) for v in spec.get("about", [0, 0, 0])]
+        if len(about) != 3:
+            raise ValueError(f"Part '{name}' array: about is [x, y, z], got {spec.get('about')!r}")
         for i in range(max(count, 0)):
             copy = {k: v for k, v in part.items() if k != "array"}
             copy["offset"] = (base + step * i).tolist()
+            if turn:
+                copy["_turn"] = {"axis": axis, "angle": turn * i, "about": about, "upright": upright}
             out[f"{name}_{i}"] = copy
     # A subtract list naming an arrayed cutter means all of its copies.
     copies = _array_copies(parts)
@@ -942,7 +1005,8 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
     of the anchor or [x, y, z] in its frame; default from the action),
     ``duration`` (seconds or [lo, hi]), ``advertises`` ({need: amount}),
     ``tags``, ``slots`` (actors at once, default 1) and ``interaction`` (the
-    asset interaction a ``use:`` step drives).
+    asset interaction a ``use:`` step drives). ``body`` names a mechanism body
+    (``mechanism:``) the seat rides on: a seated player moves with it.
     """
     from ..npc import _range, approach_point, load_actions
 
@@ -989,6 +1053,12 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
         if not any(i.name == name for i in root.interactions):
             raise ValueError(f"affordance interaction {name!r} not on this asset")
         out["interaction"] = name
+    if "body" in spec:
+        bodies = (root.meta.get("mechanism") or {}).get("bodies", {})
+        if str(spec["body"]) not in bodies:
+            raise ValueError(f"affordance body {spec['body']!r} is not a mechanism body of this asset; "
+                             f"bodies: {sorted(bodies)}")
+        out["body"] = str(spec["body"])
     return out
 
 

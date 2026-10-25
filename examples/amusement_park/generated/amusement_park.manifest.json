@@ -1,0 +1,368 @@
+{
+  "format": "geogen-manifest",
+  "version": 1,
+  "name": "amusement_park",
+  "model": "amusement_park.glb",
+  "units": "m",
+  "up": "+Y",
+  "extras": {
+    "key": "geogen",
+    "version": 1,
+    "schema": "docs/schema/geogen-extras.v1.schema.json"
+  },
+  "player": {
+    "kind": "player_spec",
+    "version": 1,
+    "radius": 0.3,
+    "height": 1.8,
+    "eye_height": 1.65,
+    "step_height": 0.3,
+    "max_slope_deg": 40.0,
+    "door_min_width": 0.85,
+    "door_min_height": 2.0,
+    "corridor_min_width": 1.2,
+    "reach": 1.5
+  },
+  "rooms": [],
+  "spawns": [
+    {
+      "name": "start",
+      "uid": "amusement_park:start",
+      "position": [
+        0.0,
+        0.1,
+        -31.0
+      ],
+      "forward": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "physics": {
+    "ticks": 120
+  },
+  "state": {
+    "format": "geogen-state",
+    "version": 1,
+    "schema": "docs/schema/geogen-state.v1.schema.json",
+    "package": "amusement_park",
+    "variables": {
+      "amusement_park:zoo#running": {
+        "type": "bool",
+        "default": true
+      },
+      "amusement_park:zoo#queued": {
+        "type": "number",
+        "default": 0
+      },
+      "amusement_park:zoo#emitted": {
+        "type": "number",
+        "default": 0,
+        "driven": "flows"
+      },
+      "amusement_park:zoo#alive": {
+        "type": "number",
+        "default": 0,
+        "driven": "flows"
+      },
+      "amusement_park:zoo#killed": {
+        "type": "number",
+        "default": 0,
+        "driven": "flows"
+      },
+      "amusement_park:zoo#wave": {
+        "type": "number",
+        "default": 0,
+        "driven": "flows"
+      },
+      "amusement_park:zoo#restarts": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "interactions": {
+      "amusement_park:carousel#run": {
+        "initial": "stopped",
+        "duration": 6.0,
+        "states": {
+          "stopped": {
+            "next": "running",
+            "then": "running",
+            "after": 25.0
+          },
+          "running": {
+            "next": "stopped",
+            "then": "stopped",
+            "after": 60.0
+          }
+        }
+      },
+      "amusement_park:wheel#run": {
+        "initial": "stopped",
+        "duration": 8.0,
+        "states": {
+          "stopped": {
+            "next": "running",
+            "then": "running",
+            "after": 30.0
+          },
+          "running": {
+            "next": "stopped",
+            "then": "stopped",
+            "after": 75.0
+          }
+        }
+      },
+      "amusement_park:tower#ride": {
+        "initial": "waiting",
+        "duration": 1.5,
+        "states": {
+          "waiting": {
+            "next": "lifting",
+            "then": "lifting",
+            "after": 35.0
+          },
+          "lifting": {
+            "then": "holding",
+            "after": 10.0
+          },
+          "holding": {
+            "then": "dropping",
+            "emit": "at_the_top",
+            "after": 3.0
+          },
+          "dropping": {
+            "then": "braking",
+            "emit": "dropped",
+            "after": 1.6
+          },
+          "braking": {
+            "then": "landing",
+            "after": 2.5
+          },
+          "landing": {
+            "then": "waiting",
+            "after": 5.0
+          }
+        }
+      },
+      "amusement_park:swings#run": {
+        "initial": "stopped",
+        "duration": 10.0,
+        "states": {
+          "stopped": {
+            "next": "running",
+            "then": "running",
+            "after": 30.0
+          },
+          "running": {
+            "next": "stopped",
+            "then": "stopped",
+            "after": 45.0
+          }
+        }
+      },
+      "amusement_park:striker#strike": {
+        "initial": "ready",
+        "duration": 0.15,
+        "states": {
+          "ready": {
+            "next": "struck"
+          },
+          "struck": {
+            "then": "flying",
+            "emit": "struck",
+            "after": 0.2
+          },
+          "flying": {
+            "then": "ready",
+            "after": 3.5
+          }
+        }
+      }
+    },
+    "signals": {
+      "amusement_park:zoo#emitted": {
+        "subject": "amusement_park:zoo",
+        "name": "emitted",
+        "data": {
+          "item": "text"
+        }
+      },
+      "amusement_park:zoo#killed": {
+        "subject": "amusement_park:zoo",
+        "name": "killed",
+        "data": {
+          "item": "text"
+        }
+      },
+      "amusement_park:visitors_1#greeted": {
+        "subject": "amusement_park:visitors_1",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_2#greeted": {
+        "subject": "amusement_park:visitors_2",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_3#greeted": {
+        "subject": "amusement_park:visitors_3",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_4#greeted": {
+        "subject": "amusement_park:visitors_4",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_5#greeted": {
+        "subject": "amusement_park:visitors_5",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_6#greeted": {
+        "subject": "amusement_park:visitors_6",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_7#greeted": {
+        "subject": "amusement_park:visitors_7",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_8#greeted": {
+        "subject": "amusement_park:visitors_8",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_9#greeted": {
+        "subject": "amusement_park:visitors_9",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_10#greeted": {
+        "subject": "amusement_park:visitors_10",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_11#greeted": {
+        "subject": "amusement_park:visitors_11",
+        "name": "greeted"
+      },
+      "amusement_park:visitors_12#greeted": {
+        "subject": "amusement_park:visitors_12",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_1#greeted": {
+        "subject": "amusement_park:vendors_1",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_2#greeted": {
+        "subject": "amusement_park:vendors_2",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_3#greeted": {
+        "subject": "amusement_park:vendors_3",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_4#greeted": {
+        "subject": "amusement_park:vendors_4",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_5#greeted": {
+        "subject": "amusement_park:vendors_5",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_6#greeted": {
+        "subject": "amusement_park:vendors_6",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_7#greeted": {
+        "subject": "amusement_park:vendors_7",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_8#greeted": {
+        "subject": "amusement_park:vendors_8",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_9#greeted": {
+        "subject": "amusement_park:vendors_9",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_10#greeted": {
+        "subject": "amusement_park:vendors_10",
+        "name": "greeted"
+      },
+      "amusement_park:vendors_11#greeted": {
+        "subject": "amusement_park:vendors_11",
+        "name": "greeted"
+      },
+      "amusement_park:operators_1#greeted": {
+        "subject": "amusement_park:operators_1",
+        "name": "greeted"
+      },
+      "amusement_park:operators_2#greeted": {
+        "subject": "amusement_park:operators_2",
+        "name": "greeted"
+      },
+      "amusement_park:operators_3#greeted": {
+        "subject": "amusement_park:operators_3",
+        "name": "greeted"
+      },
+      "amusement_park:operators_4#greeted": {
+        "subject": "amusement_park:operators_4",
+        "name": "greeted"
+      }
+    },
+    "inputs": {
+      "amusement_park:zoo#start": {
+        "set": "amusement_park:zoo#running",
+        "to": true
+      },
+      "amusement_park:zoo#stop": {
+        "set": "amusement_park:zoo#running",
+        "to": false
+      },
+      "amusement_park:zoo#emit": {
+        "set": "amusement_park:zoo#queued",
+        "to": {
+          "op": "+",
+          "args": [
+            {
+              "get": "instance",
+              "id": "amusement_park:zoo",
+              "name": "queued"
+            },
+            1
+          ]
+        }
+      },
+      "amusement_park:zoo#reset": {
+        "set": "amusement_park:zoo#restarts",
+        "to": {
+          "op": "+",
+          "args": [
+            {
+              "get": "instance",
+              "id": "amusement_park:zoo",
+              "name": "restarts"
+            },
+            1
+          ]
+        }
+      }
+    }
+  },
+  "rules": {
+    "format": "geogen-rules",
+    "version": 1,
+    "package": "amusement_park",
+    "bindings": [],
+    "rules": [
+      {
+        "id": "welcome",
+        "on": {
+          "type": "start"
+        },
+        "do": [
+          {
+            "notify": "Welcome to the fair. Pull a ride's lever to start it, and get on."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+# A strength tester (high striker): a tall board with a bell at the top and a puck that
+# flies up it, a mechanism. The puck is a body on a slide joint up the board, with a motor
+# that gives it a hard shove when the mallet comes down (`strike`: `struck` runs the motor
+# for a moment, `flying` lets go, and the puck coasts up to the bell and falls back; `ready`
+# brings it to the bottom). Use the mallet (E) to play. Origin: bottom centre of the board's
+# foot; the puck and mallet are on the +Z face.
+
+name: strength_tester
+tags: [fair.game, mechanism.striker]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: {default: 5.0}        # the board
+  shove:  {default: 10}         # m/s the motor sends the puck up at
+
+mechanism:
+  bodies:
+    puck:
+      parts: [puck_block]
+      mass: 4
+      joint: {type: slide, axis: y, pivot: [0, 0, 0], limits: [0, "{height - 0.45}"], motor: {speed: "{shove}", force: 600}}
+
+parts:
+  base:
+    primitive: cube
+    size: [1.6, 0.3, 1.2]
+    anchor: bottom_center
+    bevel: 0.02
+    material: paint_red
+  board:
+    primitive: cube
+    size: [0.5, "{height}", 0.12]
+    anchor: bottom_center
+    offset: [0, 0.3, -0.2]
+    bevel: 0.01
+    material: paint_cream
+  rung:                               # the scale up the board
+    primitive: cube
+    size: [0.4, 0.04, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.8, -0.13]
+    array: {count: "{round((height - 1.4) / 0.4)}", step: [0, 0.4, 0]}
+    bevel: 0
+    material: paint_red
+    collider: none
+  bell:
+    primitive: lathe
+    profile: [[0, 0], [0.16, 0], [0.22, 0.12], [0.2, 0.3], [0.08, 0.36], [0, 0.36], [0, 0]]
+    size: [0.44, 0.36, 0.44]
+    anchor: bottom_center
+    offset: [0, "{height + 0.3}", -0.2]
+    segments: 32
+    material: brass
+    collider: none
+  puck_block:
+    primitive: cube
+    size: [0.3, 0.16, 0.14]
+    anchor: bottom_center
+    offset: [0, 0.32, -0.06]
+    bevel: 0.01
+    material: paint_blue
+  pad:                                # the pad the mallet hits
+    primitive: cylinder
+    size: [0.5, 0.12, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.3, 0.3]
+    material: steel
+  mallet_handle:
+    primitive: cylinder
+    size: [0.05, 1.1, 0.05]
+    anchor: bottom_center
+    offset: [0.6, 0.3, 0.3]
+    rotation: [0, 0, -50]
+    material: wood
+  mallet_head:
+    primitive: cylinder
+    size: [0.22, 0.3, 0.22]
+    anchor: center
+    offset: [1.23, 0.6, 0.3]
+    rotation: [0, 0, 40]
+    material: wood_dark
+
+interactions:
+  strike:
+    targets: [mallet_handle, mallet_head]
+    initial: ready
+    duration: 0.15
+    states:
+      ready:  {prompt: Swing the mallet, next: struck}
+      struck: {then: flying, after: 0.2, emit: struck}
+      flying: {then: ready, after: 3.5}
+    motions:
+      - {body: puck, drive: {struck: "{shove}", ready: -2.0}, free: [flying]}
+      - {parts: [mallet_handle, mallet_head], rotate: z, pivot: [0.6, 0.3, 0.3], values: {ready: 0, struck: 80, flying: 80}}

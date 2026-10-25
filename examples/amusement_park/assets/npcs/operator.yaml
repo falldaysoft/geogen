@@ -1,0 +1,25 @@
+# A ride operator: walks to a ride's controls and stands there (the `operator` affordance
+# by every ride's lever) through its cycles, then strolls to another. Place one per ride
+# with a scatter on the paths:
+#   operators: { npc: npcs/operator.yaml, home: { rect: [...] }, scatter: { on_tag: park.path, count: 4 } }
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/townsfolk.yaml }
+speed: 1.2
+turn_speed: 300
+
+needs:
+  duty:      { initial: 0.1, decay: 0.03 }
+  curiosity: { initial: 0.6, decay: 0.003 }
+
+preferences:
+  operator: 2.0
+
+activities:
+  stroll: { action: wander, advertises: { curiosity: 0.1 } }
+  pause:  { action: idle, advertises: { curiosity: 0.02 } }
+
+affordance_tags: [operator]
+wander: { tags: [park.path] }

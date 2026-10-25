@@ -49,6 +49,7 @@ BUILD_ONLY: dict[str, str] = {
     "source": "the asset file and params a root was built from (inspection, prototype caching)",
     "scope": "marks a placed scene, recipe or NPC as its own namespace for references",
     "ref_key": "a refs index stand-in node's key",
+    "array_turn": "a polar array copy's turn (axis, degrees): a mechanism turns an arrayed body's joint axis with it",
     # Furnishing and layout QA
     "openings": "a room's doors and windows per wall, for the furnishing solver, facades and layout QA",
     "wall_inset": "how far a room's lining and skirting stand off the walls, for furnishing and QA",

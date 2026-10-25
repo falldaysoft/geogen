@@ -1,0 +1,6 @@
+# A sheep that plods round the petting zoo's track (a walking item, geogen.flows).
+kind: item
+body: sheep.yaml
+mode: walk
+speed: 0.5
+gait: {stride: 0.5, bob: 0.02, sway: 3, waddle: 6}

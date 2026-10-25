@@ -777,7 +777,10 @@ subdivided trimesh, so a ball couldn't roll down a swept trough. Two things chan
 with the switch: the player's and NPCs' cylinders have a 1 mm `margin` (Jolt rounds the
 rim by it, which tilted a step's contact) and step-up allows a landing 3 cm over
 `step_height`. Chunk loads are high-priority `WorkerThreadPool` tasks: a low-priority
-one was never run under Jolt.
+one was never run under Jolt. Step-up refuses a landing on a
+slope (a lever base's bevelled edge is a wall, not a step) unless the rise is a lip of
+8 cm or less: a flat-bottomed body coming down on a path edge's chamfer reports its normal,
+which used to refuse a 4 cm kerb now and then.
 
 At 60 steps a second Jolt lets a fast body sink into a curved trimesh wall: a 12 cm
 ball going 2 m/s round the marble run's helix sat 2-4 cm into the trough (the contact is
@@ -823,6 +826,40 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   picks up and drops too (`focus.kind`: `carry` / `drop`).
 
 The example is `examples/test_chamber` (`tests/test_test_chamber.py`).
+
+### Mechanisms
+
+An asset with `mechanism:` (`geogen/mechanism.py`, `extras.geogen.mechanism`) is several
+rigid bodies joined by joints, some motorised: a carousel's platform, a Ferris wheel and
+its swinging gondolas, a drop tower's car. `GeogenMechanisms` (`scripts/mechanisms.gd`,
+`WorldLoader.mechanisms`) makes a `RigidBody3D` per body beside the asset node, in the
+asset's frame, moves the body's parts under it and turns their exported collider meshes
+into convex shapes (a dynamic body can't be concave), then a joint per body at its pivot:
+`HingeJoint3D` (local Z the axis), `Generic6DOFJoint3D` locked to one linear axis (a
+slide; `SliderJoint3D` has no motor) or `PinJoint3D`, holding it to the body its `to`
+names or to the world. The two bodies a joint holds don't collide with each other, and
+once the colliders are built (`exclude_frames`) a body ignores its own asset's static
+parts: the frame it is mounted on, which its hull may enclose (a deck round a mast).
+Bodies collide with the world, props and NPCs on layer 1, but don't scan the player's
+layer (`Player.LAYER`, 4): a kinematic body is immovable to what scans it, so a car
+couldn't lift a rider standing on it; the player scans the bodies, stands on them and is
+carried (platform velocity). Props, NPCs and place areas scan the player's layer.
+
+Interactions run the motors with `drive` motions (`interaction.gd` `_apply` →
+`GeogenMechanisms.drive`): the motion's value is the motor's target speed (deg/s or m/s,
+ramped like any motion over the interaction's `duration`), 0 a brake, and in the motion's
+`free` states the motor is off. Godot's hinge motor and limits turn the other way from
+the right-hand rule about the joint's Z, so `HINGE_SIGN` keeps `drive` speeds and
+`limits` in the `rotate` motions' convention. An affordance with `body` rides that body:
+`ride` keeps its position, yaws and approach where the body is and sets `boardable` (still,
+and as low as the seat has been), a seated player's pose follows it (`player.gd` `_ride`),
+and NPCs take boardable seats and ride them (`npc.gd` `_ride`), staying seated until the
+seat is boardable again. For the navmesh bake each body has a static shadow (boxes over its
+shapes, at least 2 m tall, `nav_shadows`, on no layer until `world_navigation.gd` bakes): a
+ride is an obstacle, never floor. Bodies aren't saved: a load puts a mechanism back at its exported
+pose and the restored interaction states run the motors again. `world.bodies` lists every
+body after the props: uid `<asset>/<body>`, position (centre of mass), `yaw_deg`,
+`tilt_deg` (its up axis off vertical: a level gondola reads 0), speeds and the motor.
 
 ## Spawned items
 
@@ -1346,6 +1383,7 @@ A new key needs a schema entry and a row here.
 | `portal` | `scripts/world_loader.gd` | doorways NPC paths open (`scripts/npc.gd`) |
 | `place` | `scene_builder.gd` | `PlaceArea` trigger volumes |
 | `physics` | `scripts/props.gd` | rigid-body props, carrying, spawn / stow |
+| `mechanism` | `scripts/mechanisms.gd` | jointed rigid bodies with motors (rides); `drive` motions in `interaction.gd` run the motors |
 | `flows` | `scripts/flows.gd` | spawned items: a source's rate, limits and spawn point |
 | `item` | `scripts/flows.gd` | an item template: taken out of the world on load and copied by its source |
 | `item_icon` | `scripts/world_loader.gd` | an item's body under the hidden `item_icons` node: taken out of the world on load and rendered into the HUD hotbar's icon for that item (`item_icons()`) |

@@ -1,0 +1,121 @@
+# The amusement park: four rides round a midway, inside railings with a gate at the south;
+# an avenue of stalls from the gate, more stalls round the midway's south-west arc, a
+# strength tester by the gate, a petting zoo in the north-east corner, and a crowd of
+# fairgoers and stallholders on the paths. Each ride is a mechanism the runtime simulates
+# as rigid bodies on motorised joints, running cycles on their own with an operator at the
+# controls; sit on a seat (E) while it is stopped and ride. Fairgoers ride too. The carousel
+# is west, the Ferris wheel north, the drop tower east and the swings south-east. The stalls
+# are one parametric asset scattered along the paths (`facing` them); the animals are
+# walking items on a loop track inside their pen.
+
+name: amusement_park
+size: [90, 30, 70]
+tags: [level.amusement_park]
+
+physics: {ticks: 120}
+
+spawns:
+  start: {position: [0, 0.1, -31], facing: north}
+
+slots:
+  gate:       {position: [0, 0.05, -34], facing: south}
+  carousel:   {position: [-25, 0.05, 0]}
+  wheel:      {position: [0, 0.05, 26], facing: south}    # its step, lever and the benches' view toward the park
+  tower:      {position: [25, 0.05, 0]}
+  swings:     {position: [19, 0.05, -19]}
+  zoo:        {position: [30, 0.05, 22], facing: south}     # its gate toward the path
+  striker:    {position: [7.5, 0.05, -26], facing: west}
+  bench_sw:   {position: [-12, 0.05, -12], facing: center}
+  bench_se:   {position: [12, 0.05, -12], facing: center}
+  bench_nw:   {position: [-12, 0.05, 12], facing: center}
+  bench_ne:   {position: [12, 0.05, 12], facing: center}
+  bench_zoo:  {position: [22, 0.05, 23], facing: east}
+  lamp_s:     {position: [2.5, 0.05, -19.5]}
+  lamp_n:     {position: [2.5, 0.05, 19.5]}
+  lamp_w:     {position: [-19.5, 0.05, 2.5]}
+  lamp_e:     {position: [19.5, 0.05, 2.5]}
+  lamp_gate:  {position: [-3.5, 0.05, -30]}
+  lamp_zoo:   {position: [27, 0.05, 12.5]}
+  picnic:     {position: [-30, 0.05, -24]}
+  picnic_2:   {position: [-34, 0.05, -20]}
+
+place:
+  ground:
+    asset: park_ground.yaml
+  gate:
+    asset: park_gate.yaml
+    params: {label: "Fallday Fair", width: 3.6}
+    slot: gate
+  carousel:
+    asset: carousel.yaml
+    slot: carousel
+  wheel:
+    asset: ferris_wheel.yaml
+    slot: wheel
+  tower:
+    asset: drop_tower.yaml
+    slot: tower
+  swings:
+    asset: swing_ride.yaml
+    slot: swings
+  zoo:
+    asset: petting_zoo.yaml
+    slot: zoo
+  striker:
+    asset: strength_tester.yaml
+    slot: striker
+
+  # Stalls: a row each side of the avenue from the gate, facing it, and an arc of them
+  # outside the midway's south-west quarter, facing the ring.
+  stalls_west:
+    asset: fair_stall.yaml
+    params: {kind: {choice: ["Hot Dogs", "Popcorn", "Lemonade", "Candy Floss", "Ice Cream", "Pretzels", "Toffee Apples", "Balloons"]}, colour: {choice: [red, blue, yellow]}}
+    scatter: {seed: 41, path: [[-4.2, -29.5], [-4.2, -17.5]], spacing: 4.0, count: 3, facing: right, radius: 1.8}
+  stalls_east:
+    asset: fair_stall.yaml
+    params: {kind: {choice: ["Hot Dogs", "Popcorn", "Lemonade", "Candy Floss", "Ice Cream", "Pretzels", "Toffee Apples", "Balloons"]}, colour: {choice: [red, blue, yellow]}}
+    scatter: {seed: 42, path: [[4.2, -29.5], [4.2, -17.5]], spacing: 4.0, count: 3, facing: left, radius: 1.8, avoid: [striker], margin: 1.0}
+  stalls_arc:
+    asset: fair_stall.yaml
+    params: {kind: {choice: ["Hot Dogs", "Popcorn", "Lemonade", "Candy Floss", "Ice Cream", "Pretzels", "Toffee Apples", "Balloons"]}, colour: {choice: [red, blue, yellow]}}
+    scatter: {seed: 43, path: [[-19.7, -4.5], [-18.4, -8.5], [-16.0, -12.3], [-12.7, -15.4], [-8.6, -17.7], [-4.0, -19.4]], spacing: 4.5, count: 5, facing: center, radius: 1.8}
+
+  bench_sw: {asset: bench.yaml, slot: bench_sw}
+  bench_se: {asset: bench.yaml, slot: bench_se}
+  bench_nw: {asset: bench.yaml, slot: bench_nw}
+  bench_ne: {asset: bench.yaml, slot: bench_ne}
+  bench_zoo: {asset: bench.yaml, slot: bench_zoo}
+  lamp_s:    {asset: street_lamp.yaml, slot: lamp_s}
+  lamp_n:    {asset: street_lamp.yaml, slot: lamp_n}
+  lamp_w:    {asset: street_lamp.yaml, slot: lamp_w}
+  lamp_e:    {asset: street_lamp.yaml, slot: lamp_e}
+  lamp_gate: {asset: street_lamp.yaml, slot: lamp_gate}
+  lamp_zoo:  {asset: street_lamp.yaml, slot: lamp_zoo}
+  picnic:    {asset: picnic_table.yaml, slot: picnic}
+  picnic_2:  {asset: picnic_table.yaml, slot: picnic_2}
+
+  # Trees on the lawns, clear of everything placed.
+  maples:
+    asset: maple_tree.yaml
+    params: {scale: {random: [0.9, 1.2]}, seed: {choice: [1, 2, 3, 4, 5]}}
+    scatter: {seed: 51, rect: [-43, -33, 43, 33], spacing: 9, count: 14, avoid: [carousel, wheel, tower, swings, zoo, striker, gate, "stalls_*", picnic, picnic_2, "lamp_*", "bench_*"], margin: 4.0, radius: 3.0}
+
+  # People: fairgoers on the paths, and a stallholder for every stall.
+  visitors:
+    npc: npcs/fairgoer.yaml
+    home: {rect: [-44.0, -34.0, 44.0, 34.0]}
+    scatter: {on_tag: park.path, count: 12, spacing: 6, seed: 71, radius: 0.5}
+  vendors:
+    npc: npcs/vendor.yaml
+    home: {rect: [-44.0, -34.0, 44.0, 34.0]}
+    scatter: {on_tag: park.path, count: 11, spacing: 5, seed: 62, radius: 0.5}
+  operators:
+    npc: npcs/operator.yaml
+    home: {rect: [-44.0, -34.0, 44.0, 34.0]}
+    scatter: {on_tag: park.path, count: 4, spacing: 8, seed: 66, radius: 0.5}
+
+rules:
+  - id: welcome
+    on: {start: true}
+    do:
+      - {notify: "Welcome to the fair. Pull a ride's lever to start it, and get on."}

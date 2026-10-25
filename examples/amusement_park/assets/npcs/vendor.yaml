@@ -1,0 +1,26 @@
+# A stallholder: walks to a stall and stands behind its counter (the `stall` affordance in
+# fair_stall.yaml) for a good while, then strolls the paths and finds another. Place as
+# many as there are stalls with a scatter on the paths:
+#   vendors: { npc: npcs/vendor.yaml, home: { rect: [...] }, scatter: { on_tag: park.path, count: 8 } }
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/adult.yaml }
+speed: 1.2
+turn_speed: 300
+
+needs:
+  duty:      { initial: 0.2, decay: 0.02 }
+  curiosity: { initial: 0.6, decay: 0.004 }
+
+preferences:
+  stall: 2.0
+
+activities:
+  stroll: { action: wander, advertises: { curiosity: 0.1 } }
+  pause:  { action: idle, advertises: { curiosity: 0.02 } }
+
+# Stalls only, not the visitors' benches.
+affordance_tags: [stall]
+wander: { tags: [park.path] }

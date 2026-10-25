@@ -11,8 +11,8 @@ Supported syntax:
 - Parentheses: `(a + b) * c`
 - Unit-suffixed literals: `50cm`, `2m`, `1.5mm` (meters-normalised)
 - Percent literals: `20%` → 0.2
-- A few functions: `sind(deg)`, `cosd(deg)`, `min(a, b, ...)`, `max(...)`, `abs(x)`, `round`, `floor`, `ceil`
-  (e.g. placing a signpost's arms around its post)
+- A few functions: `sind(deg)`, `cosd(deg)`, `atan2d(y, x)` (degrees), `hypot(x, y)`, `sqrt(x)`, `min(a, b, ...)`,
+  `max(...)`, `abs(x)`, `round`, `floor`, `ceil` (e.g. placing a signpost's arms around its post, a gate's brace)
 - Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=` (chained too: `2 <= storeys < 5`), `in` / `not in`
   a list of literals; numbers compare with numbers and text with text
 - Booleans: `and`, `or`, `not`, `true`, `false`; 0, "" and false are false
@@ -52,6 +52,9 @@ class ExpressionError(ValueError):
 _FUNCTIONS = {
     "sind": lambda deg: math.sin(math.radians(deg)),
     "cosd": lambda deg: math.cos(math.radians(deg)),
+    "atan2d": lambda y, x: math.degrees(math.atan2(y, x)),
+    "hypot": math.hypot,
+    "sqrt": math.sqrt,
     "min": min,
     "max": max,
     "abs": abs,

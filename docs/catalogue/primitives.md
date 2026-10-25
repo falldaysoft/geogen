@@ -25,7 +25,7 @@ parts:
 | `material` | material |  | a material from assets/materials/ (see Materials) |
 | `tint` | colour |  | vertex colour over the material: a palette name or [r, g, b] |
 | `when` | expr |  | drop the part, and parts attached to it, when it resolves to 0 / false (`"{paint == 'taxi' and seats >= 4}"`) |
-| `array` | {count, step: [x, y, z]} |  | repeat the part as <part>_0..n-1, each `step` further along |
+| `array` | {count, step: [x, y, z], turn: deg, axis: y, about: [x, y, z], upright: false} |  | repeat the part as <part>_0..n-1, each `step` further along and `turn` degrees further round the asset's `axis` through `about` (a polar array; `upright: true` keeps the copies' own rotation, `upright: [x, y, z]` also carries that point round, moving each copy with it) |
 | `subtract` | [part, ...] |  | cut these parts out of this one (CSG difference) |
 | `cutter` | bool | `false` | helper part: only used by another part's `subtract`, then removed |
 | `cut_host` | bool | `false` | opening cutter applied to the surface the asset is placed on (doors, windows) |

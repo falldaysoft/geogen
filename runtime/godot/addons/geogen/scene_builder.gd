@@ -22,7 +22,7 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 ## (tests/test_extras_contract.py fails when the two differ). The exporter writes no others.
 const KNOWN_KEYS := ["version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
     "joint", "clips", "interactions", "footprint", "clearance", "light",
-    "affordances", "portal", "place", "physics", "flows", "item_icon", "item", "travel", "poses", "npc", "container", "nav", "size",
+    "affordances", "portal", "place", "physics", "mechanism", "flows", "item_icon", "item", "travel", "poses", "npc", "container", "nav", "size",
     "city", "block", "lot", "building", "street_furniture", "lod", "interior",
     "signal", "character", "stairs", "water", "driving", "fleet", "train", "vehicle"]
 
@@ -105,7 +105,7 @@ static func _room_area(node: Node3D, g: Dictionary) -> void:
     var area := Area3D.new()
     area.name = "RoomArea"
     area.monitorable = false
-    area.collision_mask = 1 | 2   # the player, and NPC bodies (GeogenNpc.LAYER)
+    area.collision_mask = 1 | 2 | 4   # the world, NPC bodies (GeogenNpc.LAYER) and the player (Player.LAYER)
     area.set_meta("geogen_room", g.get("room", {}))
     area.add_to_group("geogen_room", true)
     var shape := CollisionShape3D.new()
@@ -127,7 +127,7 @@ static func _place_area(node: Node3D, g: Dictionary) -> void:
     area.name = "PlaceArea"
     area.monitorable = false
     area.collision_layer = 0
-    area.collision_mask = 1 | 2   # the player, and NPC bodies (GeogenNpc.LAYER)
+    area.collision_mask = 1 | 2 | 4   # the world, NPC bodies (GeogenNpc.LAYER) and the player (Player.LAYER)
     area.set_meta("geogen_place", {"id": str(place.get("id", node.name)), "uid": str(g.get("uid", "")),
         "detect": place.get("detect", ["actors"]), "sink": place.get("sink")})
     area.add_to_group("geogen_place", true)

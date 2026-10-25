@@ -1,0 +1,45 @@
+# A sheep: a woolly body on four legs with a dark face and ears, about 0.9 m tall (the body
+# of items/sheep.yaml). Origin: bottom centre; it walks toward +Z.
+
+name: sheep
+tags: [animal.sheep]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  body:
+    primitive: ellipsoid
+    size: [0.55, 0.5, 0.9]
+    anchor: bottom_center
+    offset: [0, 0.35, 0]
+    material: bedding_white
+  head:
+    primitive: ellipsoid
+    size: [0.22, 0.26, 0.3]
+    anchor: bottom_center
+    offset: [0, 0.55, 0.5]
+    material: plastic_black
+  ear:
+    primitive: cube
+    size: [0.12, 0.04, 0.08]
+    anchor: bottom_center
+    offset: [-0.14, 0.72, 0.5]
+    array: {count: 2, step: [0.28, 0, 0]}
+    bevel: 0.01
+    material: plastic_black
+    collider: none
+  leg:
+    primitive: cylinder
+    size: [0.08, 0.4, 0.08]
+    anchor: bottom_center
+    offset: [-0.16, 0, -0.28]
+    array: {count: 2, step: [0.32, 0, 0]}
+    material: plastic_black
+  leg_front:
+    primitive: cylinder
+    size: [0.08, 0.4, 0.08]
+    anchor: bottom_center
+    offset: [-0.16, 0, 0.28]
+    array: {count: 2, step: [0.32, 0, 0]}
+    material: plastic_black

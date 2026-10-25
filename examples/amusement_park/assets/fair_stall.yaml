@@ -1,0 +1,115 @@
+# A fairground stall: a counter under a striped awning on four posts, a lettered sign across
+# the front and a few goods on the counter, in one of several `kind`s (what the sign says
+# and what is on the counter; `colour` the stripes). Customers come to the front (+Z); the
+# vendor stands behind the counter, at the `serve` affordance (tagged `stall`, which
+# npcs/vendor.yaml looks for). Origin: bottom centre of the counter's front.
+
+name: fair_stall
+tags: [fair.stall]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  kind:   {default: "Hot Dogs", type: text, choices: ["Hot Dogs", "Popcorn", "Lemonade", "Candy Floss", "Ice Cream", "Pretzels", "Toffee Apples", "Balloons"]}
+  colour: {default: red, type: text, choices: [red, blue, yellow]}
+  width:  {default: 3.0}
+
+parts:
+  counter:
+    primitive: cube
+    size: ["{width}", 1.0, 0.8]
+    anchor: bottom_center
+    offset: [0, 0, -0.4]
+    bevel: 0.02
+    material: wood
+  counter_top:
+    primitive: cube
+    size: ["{width + 0.1}", 0.05, 0.9]
+    anchor: bottom_center
+    offset: [0, 1.0, -0.4]
+    bevel: 0.01
+    material: paint_cream
+  post:
+    primitive: cylinder
+    size: [0.08, 2.5, 0.08]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.1}", 0, 0.1]
+    array: {count: 2, step: ["{width - 0.2}", 0, 0]}
+    material: steel
+  post_back:
+    primitive: cylinder
+    size: [0.08, 2.5, 0.08]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.1}", 0, -1.7]
+    array: {count: 2, step: ["{width - 0.2}", 0, 0]}
+    material: steel
+  awning:
+    primitive: prism
+    size: ["{width + 0.4}", 0.5, 2.2]
+    anchor: bottom_center
+    offset: [0, 2.5, -0.8]
+    material: "paint_{colour}"
+    collider: none
+  stripe:                             # cream stripes across the awning's front slope
+    primitive: cube
+    size: [0.3, 0.02, 0.9]
+    anchor: bottom_center
+    offset: ["{-width / 2 + 0.15}", 2.51, 0.0]
+    rotation: [-29, 0, 0]
+    array: {count: "{round(width / 0.6)}", step: [0.6, 0, 0]}
+    bevel: 0
+    material: paint_cream
+    collider: none
+  back_wall:
+    primitive: cube
+    size: ["{width}", 2.2, 0.06]
+    anchor: bottom_center
+    offset: [0, 0.3, -1.7]
+    bevel: 0.01
+    material: paint_cream
+  sign:
+    primitive: cube
+    size: ["{width - 0.2}", 0.5, 0.06]
+    anchor: bottom_center
+    offset: [0, 2.0, 0.13]
+    bevel: 0.01
+    material: "paint_{colour}"
+    collider: none
+  lettering:
+    primitive: text
+    text: "{kind}"
+    font: sans
+    height: 0.28
+    depth: 0.02
+    anchor: bottom_center
+    offset: [0, 2.11, 0.17]
+    material: paint_cream
+    collider: none
+  # Goods on the counter: a tray, a jar and a stack of cups (the kinds share them).
+  tray:
+    primitive: cube
+    size: [0.6, 0.06, 0.4]
+    anchor: bottom_center
+    offset: [-0.7, 1.05, -0.4]
+    bevel: 0.01
+    material: steel
+    collider: none
+  jar:
+    primitive: cylinder
+    size: [0.24, 0.3, 0.24]
+    anchor: bottom_center
+    offset: [0.2, 1.05, -0.5]
+    material: glass
+    collider: none
+  cups:
+    primitive: cylinder
+    size: [0.1, 0.12, 0.1]
+    anchor: bottom_center
+    offset: [0.75, 1.05, -0.3]
+    array: {count: 3, step: [0, 0, -0.14]}
+    material: paint_cream
+    collider: none
+
+affordances:
+  - {type: stand, at: [0, 0, -1.25], facing: 0, action: stand, duration: [40, 120], advertises: {duty: 0.6}, tags: [stall], approach: [0, 0, 0]}

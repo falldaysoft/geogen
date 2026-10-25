@@ -44,6 +44,7 @@
  "ground": "fdbbc59bec6fa5f9f7018ae453c3aae321dac466",
  "hand_dryer": "e1195f3e507bd778335029cc150c7f2d35874e7e",
  "handrail": "bf67a6f3d293882d2d24677247a47b576afeec6b",
+ "hanging_chain": "57f7bf05e800bff075a40f6e13930e63afe408bc",
  "host_stand": "4997e58f4a14f38e2fc76d368569dfc5b266300b",
  "hotel_building": "62588205430ac99bd31c70c76ada4a7fb00ca902",
  "hotel_floor": "618a55a3e3b2321e76f7c3a5775bb33ac8586483",
@@ -62,6 +63,7 @@
  "kitchen_range": "a4474619f4f2287c360086918fb68e7a7e3abf68",
  "lettering": "8be44033fd68540cd965906e3d1f82b1fe4920e9",
  "lever": "6aff85e6aa456dc38833bead161ee90ebb2f0aea",
+ "lift_platform": "377bb6b9c05c3d15a5a4840ebe89b07554a4a6d6",
  "light_switch": "6f99191c8288c65a6369988ac43da4b4c224809e",
  "lighthouse": "0ded89afd93f370fa6e7356e6a2add32e14ab9c2",
  "loaf": "e3595ba59f641a9c7049bb8aa20455bd03e809ff",
@@ -123,6 +125,7 @@
  "rowing_boat": "a1e0236ee38c52eae9e50569432a905a894cdbfa",
  "rug": "9ae77242f28b771c145816161a8edebbeba0a9bb",
  "seed_packet": "fa9a5f40eb9b2925217e54c0ecb261f88c30b61b",
+ "seesaw": "4b8c6aee3e8eb56de62ef1f3e689bc508cceefd1",
  "shop": "65964c6f02de9c4da3e61225e27e6bda31d8267f",
  "shower": "08fee641ea26359f248a1fd7549dcb04c588c99d",
  "sidewalk": "d3a553c8f850395d3867a9e6f28955805b9c5b03",
@@ -134,6 +137,7 @@
  "spawner": "e62fcbf5d551adc0e2ff80deee23bdfb2a4a110a",
  "staircase": "2bfdd1e16cd067fca16af5756584ca97934a861b",
  "street_lamp": "cd9fd270a47db993d3155baf979a12f0967f263b",
+ "swing_gate": "53989991319a356c61a04bc4653ce5e090ba6b71",
  "switch_board": "a5ce18ca2411d5004599e37da9f0c5a513fb67a1",
  "table": "6b4ad0c82fe94bae2ab8bc409cf1475e3cfb2275",
  "table_lamp": "6f862f6bfdf5cef9165db149cc0c2da950a34ac1",
@@ -156,5 +160,6 @@
  "wall_shelving": "81df537ab5db61fd45962acc994679517de6796e",
  "wardrobe": "c94d3f317f27caf4bde71012dfd649bee6c05249",
  "wheat_sheaf": "1d9eece7f45cc557c92703bcd0b379d2d33c903a",
+ "windmill": "44474a5cb4dbc2dfea0d0124bd5eb4f70fc5dda6",
  "window": "fef189c4cb347c5d4eddde67fd24c5c7bba00f75"
 }

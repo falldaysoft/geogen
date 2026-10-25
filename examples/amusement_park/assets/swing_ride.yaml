@@ -1,0 +1,179 @@
+# A swing ride (chair-o-planes): a crown of eight arms under a pointed roof turning on a
+# motorised hinge at the top of a mast, with a chair hanging from each arm on two chains (a
+# mechanism: the crown is one body, every chair its own, on a hinge across its chain tops
+# that lets it swing out but not twist, so it keeps facing the way it goes). Sit in a chair
+# (E) and wait: the ride runs itself, `pause` seconds stopped then `cycle` seconds spinning
+# up to `speed` degrees a second, when the chairs fly out on their own; the lever starts or
+# stops it early. Origin: the centre of the mast, on the ground; the lever stands east (+X),
+# clear of the flying chairs.
+
+name: swing_ride
+tags: [ride.swing]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  radius: {default: 4.0}        # the arms' reach, where the chains hang
+  height: {default: 7.5}        # the crown's top
+  chain:  {default: 6.0}        # chain length (the seats hang 1.1 m up at rest)
+  speed:  {default: 45}         # degrees a second when running (7.5 rpm)
+  ramp:   {default: 10}         # seconds to reach full speed (and to stop)
+  cycle:  {default: 45}         # seconds a ride lasts
+  pause:  {default: 30}         # seconds stopped between rides
+
+mechanism:
+  bodies:
+    top:
+      parts: [crown, arm, roof, finial]
+      mass: 1500
+      joint: {type: hinge, axis: y, pivot: [0, 0, 0], motor: {speed: "{speed}", force: 80000}}
+    chair:
+      parts: [hook, chain_l, chain_r, seat, back]
+      array: true                                # chair_0 .. chair_7
+      mass: 90
+      damping: {linear: 0.05, angular: 0.4}
+      # Across the chain tops: tangential for the chair at +X, and turned with every copy.
+      joint: {type: hinge, to: top, axis: z, pivot: hook.top}
+
+parts:
+  plinth:
+    primitive: cylinder
+    size: [3.0, 0.3, 3.0]
+    anchor: bottom_center
+    segments: 48
+    material: concrete
+    walkable: true
+  mast:
+    primitive: cylinder
+    size: [0.5, "{height - 0.303}", 0.5]    # on the plinth, 3 mm short of the crown's top (coplanar QA)
+    anchor: bottom_center
+    offset: [0, 0.3, 0]
+    material: steel
+  # The turning crown: a drum with eight arms and a roof.
+  crown:
+    primitive: cylinder
+    size: [3.0, 0.5, 3.0]
+    anchor: bottom_center
+    offset: [0, "{height - 0.5}", 0]
+    material: paint_yellow
+  arm:
+    primitive: cube
+    size: ["{radius - 0.5}", 0.12, 0.12]
+    anchor: bottom_center
+    offset: ["{(radius + 1.5) / 2}", "{height - 0.4}", 0]
+    array: {count: 8, turn: 45}
+    bevel: 0
+    material: steel
+  roof:
+    primitive: cone
+    size: [3.6, 1.3, 3.6]
+    anchor: bottom_center
+    offset: [0, "{height}", 0]
+    material: paint_red
+    collider: none
+  finial:
+    primitive: sphere
+    size: [0.3, 0.3, 0.3]
+    anchor: bottom_center
+    offset: [0, "{height + 1.3}", 0]
+    material: brass
+    collider: none
+  # A chair: two chains from the arm's end to a seat with a back, facing the way it travels
+  # (the crown turns anticlockwise seen from above: at +X that is toward -Z). The hook is the
+  # hinge's pivot, between the chain tops.
+  hook:
+    primitive: cylinder
+    size: [0.03, 0.06, 0.03]
+    anchor: bottom_center
+    offset: ["{radius}", "{height - 0.46}", 0]
+    array: {count: 8, turn: 45}
+    material: steel
+    collider: none
+  chain_l: &chain
+    primitive: cylinder
+    size: [0.03, "{chain}", 0.03]
+    anchor: bottom_center
+    offset: ["{radius - 0.22}", "{height - 0.4 - chain}", 0]
+    array: {count: 8, turn: 45}
+    material: steel
+  chain_r:
+    <<: *chain
+    offset: ["{radius + 0.22}", "{height - 0.4 - chain}", 0]
+  seat:
+    primitive: cube
+    size: [0.5, 0.06, 0.5]
+    anchor: bottom_center
+    offset: ["{radius}", "{height - 0.4 - chain - 0.06}", 0]
+    array: {count: 8, turn: 45}
+    bevel: 0.01
+    material: paint_blue
+  back:
+    primitive: cube
+    size: [0.5, 0.55, 0.05]
+    anchor: bottom_center
+    offset: ["{radius}", "{height - 0.4 - chain}", 0.225]
+    array: {count: 8, turn: 45}
+    bevel: 0.01
+    material: paint_blue
+  # A fence round the ride, with the way in at the east by the lever: people (NPCs path round
+  # it) keep out of the flying chairs' way.
+  fence:
+    primitive: fence
+    path: {circle: 7.6, segments: 32}
+    closed: true
+    height: 1.0
+    gaps: [["{2 * 3.14159 * 7.6 - 1.1}", "{2 * 3.14159 * 7.6 + 1.1}"]]
+    offset: [0, 0, 0]
+    material: steel
+  # The operator's pedestal and lever, east, out of the flying chairs' reach (an operator
+  # standing inside the ring would be hit by the chairs as they settle).
+  pedestal:
+    primitive: cube
+    size: [0.4, 0.95, 0.4]
+    anchor: bottom_center
+    offset: [7.2, 0, 0]
+    bevel: 0.02
+    material: steel
+  handle:
+    primitive: cylinder
+    size: [0.04, 0.5, 0.04]
+    anchor: bottom_center
+    offset: [7.2, 0.95, 0]
+    material: paint_red
+  knob:
+    primitive: sphere
+    size: [0.09, 0.09, 0.09]
+    attach_to: handle
+    at: top
+    from: center
+    material: tyre
+
+interactions:
+  run:
+    targets: [handle, knob]
+    initial: stopped
+    duration: "{ramp}"
+    states:
+      stopped: {prompt: Start the swings, next: running, then: running, after: "{pause}"}
+      running: {prompt: Stop the swings, next: stopped, then: stopped, after: "{cycle}"}
+    motions:
+      - {body: top, drive: {running: "{speed}", stopped: 0}}
+      - {parts: [handle], rotate: x, pivot: [7.2, 0.95, 0], values: {stopped: -30, running: 30}}
+
+# A seat in every chair, riding with it (the seat's top, facing the way it goes), reached from
+# outside the fence beside it (inside, a waiting rider is in the chairs' way); and the
+# operator's spot by the lever.
+affordances:
+  - {type: sit, body: chair_0, height: "{height - 0.4 - chain}", at: ["{radius * cosd(0)}", "{height - 0.4 - chain}", "{-radius * sind(0)}"], facing: 180, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_1, height: "{height - 0.4 - chain}", at: ["{radius * cosd(45)}", "{height - 0.4 - chain}", "{-radius * sind(45)}"], facing: 225, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_2, height: "{height - 0.4 - chain}", at: ["{radius * cosd(90)}", "{height - 0.4 - chain}", "{-radius * sind(90)}"], facing: 270, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_3, height: "{height - 0.4 - chain}", at: ["{radius * cosd(135)}", "{height - 0.4 - chain}", "{-radius * sind(135)}"], facing: 315, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_4, height: "{height - 0.4 - chain}", at: ["{radius * cosd(180)}", "{height - 0.4 - chain}", "{-radius * sind(180)}"], facing: 0, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_5, height: "{height - 0.4 - chain}", at: ["{radius * cosd(225)}", "{height - 0.4 - chain}", "{-radius * sind(225)}"], facing: 45, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_6, height: "{height - 0.4 - chain}", at: ["{radius * cosd(270)}", "{height - 0.4 - chain}", "{-radius * sind(270)}"], facing: 90, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: sit, body: chair_7, height: "{height - 0.4 - chain}", at: ["{radius * cosd(315)}", "{height - 0.4 - chain}", "{-radius * sind(315)}"], facing: 135, approach: [-4.4, "{-(height - 0.4 - chain)}", 0], duration: [30, 80], advertises: {fun: 0.6}, tags: [ride, outside]}
+  - {type: stand, at: [7.2, 0, 0.7], facing: 270, action: stand, duration: [120, 300], advertises: {duty: 0.8}, tags: [operator], approach: [0, 0, 0]}
+
+attachments:
+  operator: {anchor: bottom_center, offset: [7.2, 0, 1.4], offset_mode: absolute}

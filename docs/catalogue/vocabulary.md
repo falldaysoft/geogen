@@ -16,14 +16,14 @@
 | `attachments` | {name: {anchor, offset, facing}}: named points other assets attach to (`attach_to` + `at`) |
 | `surfaces` | {name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` (`flip: true` faces the other way, e.g. a cutter's face seen from inside the room) |
 | `tags` | dotted gameplay tags (furniture.chair, door.exterior) |
-| `interactions` | {name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers) |
+| `interactions` | {name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers) or drive a mechanism body's motor (a `drive` motion) |
 | `state` | {name: {type: bool \| number \| text \| choice, default, choices}}: variables each placed instance holds (read as `thing.name` in conditions) |
 | `signals` | {name: {emit \| changed \| enter \| leave: <name>, of, to}}: named outputs wiring can listen to |
 | `inputs` | {name: {set: <state or interaction>, to, of}}: named things wiring can drive |
 | `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
 | `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
-| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, ...}]: what actors can do here |
+| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on) |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes |
 | `clearance` | {front, back, left, right}: free space the furnishing solver keeps around it |
 | `container` | {capacity, part}: the asset holds items |
@@ -33,6 +33,7 @@
 | `travel` | {scene, spawn, prompt, on: use \| enter, target}: moves the player to another scene |
 | `vehicle` | {class, wheels, steer, lamps, max_speed, ...}: the asset drives (meta.vehicle) |
 | `physics` | {mass, friction, bounce, carry, spawn, initial, shape, damping}: a rigid body (geogen.physics) |
+| `mechanism` | {bodies: {name: {parts, mass, joint: {type: hinge \| slide \| pin, to, axis, pivot, limits, motor}}}}: parts as jointed rigid bodies, motors run by `drive` motions (geogen.mechanism) |
 | `pickup` | <item> or {item, count, prompt}: something to take (E gives the item, hides it) |
 | `readable` | <prompt> or true: a `read` interaction a dialogue can open on (geogen.dialogue) |
 | `source` | {items, rate, at, max_alive, count, initial, velocity, spread, seed}: makes items (geogen.flows) |

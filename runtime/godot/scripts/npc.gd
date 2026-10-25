@@ -209,7 +209,7 @@ func _ready() -> void:
     _phases = (_phases + 1) % 2
     _streets.world = world
     collision_layer = LAYER
-    collision_mask = 1 | LAYER
+    collision_mask = 1 | LAYER | Player.LAYER
     add_to_group(CHARACTER_GROUP)
     floor_snap_length = step_height
     floor_block_on_wall = true
@@ -296,6 +296,8 @@ func options(restricted := true) -> Array[Dictionary]:
     for a in world.affordances:
         if not actions.has(a.get("action", "")) or not is_instance_valid(a.get("node")):
             continue
+        if a.has("follow") and not a.get("boardable", true):
+            continue    # a ride's seat, away from the ground or moving
         if not only.is_empty() and not only.any(func(t): return t in a.get("tags", [])):
             continue
         if clock < float(_retry_at.get(a["id"], -1.0)):
@@ -479,7 +481,7 @@ func _decide() -> void:
     if not a.is_empty():
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
-            "held": _hold_block()}
+            "held": _hold_block(), "ride": a if a.has("follow") else {}}
     else:
         ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
             "duration": _option["activity"].get("duration"), "visit": _option["activity"].get("visit", "")}
@@ -497,6 +499,8 @@ func _push(action_name: String, ctx: Dictionary) -> void:
 
 
 func _finish_option(ok: bool, reason := "") -> void:
+    if _pose == "stand":
+        _ride = {}
     if _option.is_empty():
         return
     var id: String = _option["id"]
@@ -519,9 +523,17 @@ func _finish_option(ok: bool, reason := "") -> void:
 
 # --- running --------------------------------------------------------------
 
+## Riding: the affordance (one with `follow`, on a mechanism body) the NPC is posed on, and
+## the NPC's offset from its seat, kept every frame as the seat moves (mechanisms.gd).
+var _ride: Dictionary = {}
+var _ride_offset := Transform3D.IDENTITY
+
+
 func _physics_process(delta: float) -> void:
     var started := Time.get_ticks_usec()
     _frame_delta = delta
+    if not _ride.is_empty():
+        global_transform = GeogenMechanisms.seat_now(_ride) * _ride_offset
     # Out of sight (or far off), step every other frame over both frames' time: half the
     # cost, and nobody sees the coarser motion. NPCs alternate, so each frame takes half.
     # Far off and out of sight, sleep: a step every SLEEP_EVERY frames, the clips paused.
@@ -668,6 +680,9 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
     if step.has("pose"):
         if not definition.get("body", {}).get("poses", {}).has(step["pose"]):
             return "body has no pose '%s'" % step["pose"]
+        var ride: Dictionary = ctx.get("ride", {})
+        if step["pose"] != "stand" and not ride.is_empty() and not ride.get("boardable", true):
+            return "the ride has started"          # it moved off while the NPC walked up: try later
         _set_pose(step["pose"], ctx, str(step.get("at", "anchor")), str(step.get("hold", "")))
         return ""
     if step.has("wait"):
@@ -733,6 +748,8 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         _timer -= delta
         if ctx.get("held", false) and str(step["wait"]) == "duration":
             return "running" if _hold_block() else "done"     # until the block ends (morning)
+        if _timer <= 0.0 and not _ride.is_empty() and not _ride.get("boardable", true):
+            return "running"              # the ride is going: stay in the seat until it stops at the ground
         return "done" if _timer <= 0.0 else "running"
     if step.has("play"):
         _timer -= delta
@@ -1490,6 +1507,11 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String, hold := "") -> vo
     var pose: Dictionary = definition["body"]["poses"][pose_name]
     var yaw := deg_to_rad(float(ctx["yaw_deg"]))
     var place: Vector3 = ctx["anchor"] if at == "anchor" else ctx["approach"]
+    var ride: Dictionary = ctx.get("ride", {})
+    if not ride.is_empty():
+        # A seat on a mechanism body: where it (and the way off it) is now, not at decision time.
+        place = ride["position"] if at == "anchor" else ride["approach"]
+        yaw = deg_to_rad(float(ride["npc_yaw_deg"]))
     var was := _pose
     var before := body.global_transform if body != null else Transform3D.IDENTITY
     if pose_name == "stand":
@@ -1505,6 +1527,12 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String, hold := "") -> vo
         # Deep seats: sit forward until the shins clear the front edge.
         var forward := Basis(Vector3.UP, yaw) * Vector3.BACK
         global_position += forward * maxf(0.0, float(ctx["depth"]) + SEAT_CLEAR - float(pose["reach"]))
+    if pose_name != "stand" and at == "anchor" and not ride.is_empty():
+        # Go with the seat from here on.
+        _ride = ride
+        _ride_offset = GeogenMechanisms.seat_now(ride).affine_inverse() * global_transform
+    else:
+        _ride = {}
     if animator != null:
         animator.hold = hold if pose_name != "stand" else ""
     if body != null:
