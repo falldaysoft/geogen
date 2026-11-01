@@ -1,0 +1,61 @@
+# Features
+
+Everything geogen does, by area. [The guide](guide.md) shows how to use it; [the developer notes](dev/README.md) say how each part works.
+
+- **YAML assets and scenes**: parts positioned by anchors or attached to each other by named points; `{expr}` parameters (`"{width / 2}"`, `50cm`); scenes compose assets and other scenes through slots, attachments and surfaces (`on: house.front_wall`), and can scatter seeded copies (`scatter:`).
+- **Geometry**:
+  - rounded boxes, cylinders, spheres, capsules and tori;
+  - `extrude`, `lathe` and `sweep` profiles;
+  - stairs, and gable/hip/shed/flat roofs;
+  - Loop subdivision and noise displacement (`subdivide:`, `displace:`);
+  - space-colonisation `tree`s and displaced `rock`s;
+  - CSG (`subtract:`, and `cut_host:` so windows and doors cut their own openings).
+- **Buildings**:
+  - multi-room floor plans, with walls, doors and windows generated from room rectangles;
+  - multi-storey buildings with stair cores, lifts, façades and roofs;
+  - interior finishes (linings, skirting, cornices, lights and switches).
+- **Furnishing**: room archetypes (bedroom, bathroom, lobby, office, shop, ...) furnish rooms automatically. Layout QA checks for overlaps, blocked door swings and windows, doors too narrow for the player, unreachable furniture, z-fighting surfaces and NPCs placed inside something solid.
+- **Interactions**: doors, drawers, switches, TVs and lifts are declarative state machines, with locks, keys, auto-close and seats (sit / lie). They're exported as extras and as glTF animations.
+- **Cities**:
+  - a street grid with blocks and lots;
+  - zoning: commercial along avenues, residential elsewhere, landmark blocks and parks;
+  - building recipes sized to each lot (houses, shop rows, apartments, offices, hotels), with full, lobby-only or shell interiors;
+  - street furniture.
+- **Scale**: instanced meshes, shared glTF meshes, an on-disk generation cache, LODs (`MSFT_lod`) and chunked export with exterior LODs and per-building interiors.
+- **Quality checks**:
+  - Meshes are closed and consistently wound; `meshops.validate` checks them, and a test runs it on every asset.
+  - UVs are metric (1 unit = 1 m), so texture density doesn't depend on object size.
+  - Every scene must pass layout QA, including the z-fighting check.
+- **Procedural PBR materials**: wood, bark, metal, brick, concrete, asphalt, roof shingles, grass, rock, fabric, carpet, tile, marble, glass, emissive shades and more, with base colour, normal, roughness and AO maps. Every texture tiles seamlessly. Meshes can carry several materials (one glTF primitive each) and vertex colours.
+- **Viewer**:
+  - scene list, node tree and inspector (sizes, triangle counts, materials, surfaces, interactions, validation, layout check);
+  - lit/clay/normals/UV-checker display modes;
+  - cutaway, storey and interaction-state sections, and night lighting;
+  - hot reload of `assets/**/*.yaml`.
+- **Rendering**: offscreen rendering with shadows and PBR, auto-framed, view presets, cutaways, and multi-view contact sheets.
+- **Export**: glTF/GLB with the node hierarchy, PBR textures, colliders (Godot import suffixes), gameplay extras (a versioned JSON schema), punctual lights, interaction animations and a JSON manifest; or OBJ+MTL+PNG.
+- **Characters**:
+  - a humanoid skeleton (Godot's humanoid profile) sized by body parameters;
+  - a ring-lofted, skinned body with a painted face and hair styles;
+  - poses solved with IK, and procedural walk, idle and wave clips;
+  - clothing that is fitted to the body and follows it when skinned;
+  - archetypes, seeded distributions over all of these, and a clipping QA that checks for poke-through.
+- **Transport**:
+  - vehicles built from profiles with measured wheels and clearance;
+  - a lane graph for city streets and declared routes, with turns, conflicts, crosswalks and traffic signals;
+  - kerbside parking;
+  - railways with stations and level crossings, and timetabled trains.
+- **NPCs**: declarative characters. Assets advertise affordances (sit, lie, look, stand, use) with what they satisfy, doors advertise portals, and actions are step lists (`assets/npcs/actions.yaml`). An NPC definition (`assets/npcs/resident.yaml`) gives a body asset, needs, preferences and scoring weights. A scattered crowd can come in groups (`group: {size: [1, 3]}`) that keep loosely together, and items say how a hand holds them (`held:`). The runtime runs these as a generic interpreter: utility selection, navmesh walking, poses, and opening doors on the way.
+- **Player spec**: one file (`assets/player.yaml`) defines the player's size (radius, height, eye and step height, max slope, minimum door and corridor clearances, reach). Generation and the runtime both read it, so "enterable" means the same thing on both sides.
+- **Godot 4 runtime** (`runtime/godot/`):
+  - a first-person player sized from the manifest, with step-up, collision, fly mode and a debug overlay;
+  - interactions (E to use, L to lock), seats, light switches, save/load and live reload;
+  - an automated playtest that checks every room is reachable;
+  - NPCs that decide, walk, sit, look out of windows and use doors, with a trace, labels, a follow camera and fast headless simulation;
+  - NPCs that notice the player: they look at you, wave back, and step aside;
+  - groups of friends and families that stay loosely together, and actors (the player too) holding what they carry in their hands;
+  - pedestrian crowds that stroll the pavements, cross at crossings and sit on benches;
+  - traffic that follows the lane graph and signals, and trains that run to a timetable and close level crossings;
+  - a world clock that drives the sun, the sky, street lamps, NPC routines and the amount of traffic;
+  - a scene catalogue: the runtime starts in one default scene instead of loading every export;
+  - chunk streaming (full, LOD and interiors) with navmesh tiles baked around the player.

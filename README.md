@@ -1,373 +1,56 @@
 # Geogen
 
-Procedural 3D geometry generator for game assets. You describe objects and scenes in YAML (parts, profiles, cut-outs, roofs, materials, anchors) and geogen builds watertight, UV-mapped meshes with procedural PBR textures. It renders them, shows them in an interactive viewer, exports them to glTF/OBJ, and runs them in a Godot 4 runtime that you can walk around in first person.
+Procedural 3D geometry for game worlds. You describe objects and scenes in YAML and geogen builds watertight, UV-mapped meshes with procedural PBR textures, then renders them, exports them to glTF, or runs them in a Godot 4 runtime you can walk around in.
 
-The goal is nested, generated worlds: cities that contain neighbourhoods that contain streets, houses and furnished rooms. A small version of that works today: a town district of generated shops, houses, offices, an apartment block and a hotel, with furnished interiors you can walk into in Godot. The town has traffic, a railway and people going about their day.
-
-**[Browse the asset catalogue](https://falldaysoft.github.io/geogen/)**: every primitive, asset and scene, with thumbnails and parameters.
-
-**[Play it in the browser](https://falldaysoft.github.io/geogen/play/)**: the Godot runtime built for the web, starting at the hub, with the cottage, the farm, the island and the quest yard (about 110 MB to download; a desktop browser with WebGL 2).
-
-**Play the example projects**, each a small game built on geogen as declarative content in [`examples/`](examples/) (a 1 to 2 MB scene on top of the 40 MB engine, which the builds share):
-- [Sandwich](https://falldaysoft.github.io/geogen/play/sandwich/): a kitchen and a quest to make a sandwich in it ([source](examples/sandwich/))
-- [Test chamber](https://falldaysoft.github.io/geogen/play/test_chamber/): five Portal-style chambers with cubes, buttons, goo, a moving platform, retractable stairs, a timed door and a fizzler ([source](examples/test_chamber/))
-- [Marble run](https://falldaysoft.github.io/geogen/play/marble_run/): a hopper, a winding brass trough and a catch bowl, all physics ([source](examples/marble_run/))
-- [Tower defense](https://falldaysoft.github.io/geogen/play/tower_defense/): waves of robots walk a path to a core; towers on pads shoot them ([source](examples/tower_defense/))
-- [Survival](https://falldaysoft.github.io/geogen/play/survival/): washed up on an island with nothing: gather, craft, chop, keep a fire and build a shelter while hunger and thirst run on the clock ([source](examples/survival/))
-- [Amusement park](https://falldaysoft.github.io/geogen/play/amusement_park/): a carousel, a Ferris wheel, a drop tower and a swing ride, each a real mechanism of rigid bodies on motorised joints, with stalls, a petting zoo, a strength tester and a crowd that rides too ([source](examples/amusement_park/))
-
-## Examples
-
-**Town**: a `city:` scene. It has a street grid with an avenue and sidewalks, zoned lots and street furniture. Buildings are generated to fit their lots:
-- shop rows with flats above along the avenue;
-- houses on the side streets;
-- a hotel and an apartment block as landmarks;
-- a park.
+The goal is nested, generated worlds: cities of neighbourhoods of streets, houses and furnished rooms, with people, traffic and trains going about their day. A town district of that already works.
 
 ![Town](docs/images/geogen_town.png)
 
-**Walking the town in Godot**: the district streams in chunks around the player (left). Buildings have furnished interiors, like the hotel lobby (right):
-
-| Streamed street | Hotel lobby |
+| Walking the streamed town in Godot | A furnished hotel lobby |
 |---|---|
 | ![Godot town street](docs/images/godot_town_street.png) | ![Godot hotel lobby](docs/images/godot_hotel_lobby.png) |
 
-**Hotel**: a multi-storey building generated from floor-plan layouts: a lobby floor, guest floors, scissor stairs, a working lift, a façade and a roof (left). A guest room furnished by the furnishing solver, shown with the ceiling cut away (right):
-
-| Hotel | Furnished room (cutaway) |
+| People, drawn from seeded archetypes | Fairgoers who buy, eat and stay together |
 |---|---|
-| ![Hotel](docs/images/geogen_hotel.png) | ![Hotel room](docs/images/geogen_hotel_room.png) |
+| ![People gallery](docs/images/geogen_people.png) | ![Fairgoers in the amusement park](docs/images/godot_fairgoers.png) |
 
-**Park**: seeded scatter placement of space-colonisation trees and displaced rocks around a cottage and a lamp-lit path:
+More in [the gallery](docs/gallery.md).
 
-![Park](docs/images/geogen_park.png)
+## Try it
 
-**Street**: a composed scene. Each side of the road is a nested `street_side` scene whose house plots place cottages, and the lamps, trees, hydrant and bench are placed in named slots.
+- **[Play in the browser](https://falldaysoft.github.io/geogen/play/)**: the Godot runtime built for the web (a desktop browser with WebGL 2, about 110 MB).
+- **[Browse the catalogue](https://falldaysoft.github.io/geogen/)**: every primitive, asset and scene, with thumbnails and parameters.
+- **Example games**, each built as declarative content in [`examples/`](examples/):
+  [Sandwich](https://falldaysoft.github.io/geogen/play/sandwich/),
+  [Test chamber](https://falldaysoft.github.io/geogen/play/test_chamber/),
+  [Marble run](https://falldaysoft.github.io/geogen/play/marble_run/),
+  [Tower defense](https://falldaysoft.github.io/geogen/play/tower_defense/),
+  [Survival](https://falldaysoft.github.io/geogen/play/survival/) and
+  [Amusement park](https://falldaysoft.github.io/geogen/play/amusement_park/).
 
-![Street](docs/images/geogen_street.png)
+## Quick start
 
-**Cottage**: a hollow brick shell with a gable roof and chimney. The door and windows each cut their own opening into the wall they're placed on. Contact sheet from `--views` (iso, front, side, top):
-
-![Cottage contact sheet](docs/images/geogen_cottage_views.png)
-
-**Dining set**: turned (`lathe`) legs and spindles, a rounded (`extrude`) tabletop, and four chairs attached to the table's `seat_*` attachment points:
-
-![Dining set](docs/images/geogen_dining_set.png)
-
-| Chair | Room |
-|---|---|
-| ![Chair](docs/images/geogen_chair.png) | ![Room](docs/images/geogen_room.png) |
-
-**Godot runtime**: the cottage exported with `--export-godot` and walked in first person (left); F2 shows the collision shapes (right):
-
-| First person | Collider wireframes |
-|---|---|
-| ![Godot first person](docs/images/godot_first_person.png) | ![Godot colliders](docs/images/godot_colliders.png) |
-
-**NPCs**: the cottage has a resident, a young woman drawn from a character archetype (skinned body, painted face, hair and clothes), walking with procedural clips. Everything she does is data: the furniture, windows and door advertise what can be done there, and the Godot runtime scores those offers against her needs and runs the chosen action's steps. Here she walks over to the armchair, rests in it, and later steps out of the front door:
-
-| Walking | Resting | On the doorstep |
-|---|---|---|
-| ![NPC walking](docs/images/godot_npc_walking.png) | ![NPC in the armchair](docs/images/godot_npc_armchair.png) | ![NPC on the doorstep](docs/images/godot_npc_doorstep.png) |
-
-**Fairgoers**: the amusement park's crowd come in groups of one to three that stay loosely together: the others wander near the leader, drift back when they've been apart a while, and take the seats beside each other's. They buy from the stalls and carry what they bought in their hands while they eat it, then bin the wrapper:
-
-![Fairgoers in the amusement park](docs/images/godot_fairgoers.png)
-
-**People**: humanoid characters are generated from a skeleton and a body shape. Presets, body types, skin tones, hair styles and outfits are all parameters, and character archetypes draw them at random, so a crowd is a set of seeds. Bodies are skinned, posed with IK, animated with procedural walk and idle clips, and dressed in garments that follow the body:
-
-![People gallery](docs/images/geogen_people.png)
-
-**Vehicles**: cars (sedan, hatchback, estate, taxi), a van and a bus, plus rolling stock for trains. In the runtime they drive a precomputed lane graph with signals, give way to pedestrians and wait at level crossings:
-
-![Vehicle lineup](docs/images/geogen_vehicles.png)
-
-**Interactive viewer** (Qt/OpenGL) viewport: shadows, PBR, grid, picking:
-
-![Viewer](docs/images/geogen_viewer.png)
-
-## Features
-
-- **YAML assets and scenes**: parts positioned by anchors or attached to each other by named points; `{expr}` parameters (`"{width / 2}"`, `50cm`); scenes compose assets and other scenes through slots, attachments and surfaces (`on: house.front_wall`), and can scatter seeded copies (`scatter:`).
-- **Geometry**:
-  - rounded boxes, cylinders, spheres, capsules and tori;
-  - `extrude`, `lathe` and `sweep` profiles;
-  - stairs, and gable/hip/shed/flat roofs;
-  - Loop subdivision and noise displacement (`subdivide:`, `displace:`);
-  - space-colonisation `tree`s and displaced `rock`s;
-  - CSG (`subtract:`, and `cut_host:` so windows and doors cut their own openings).
-- **Buildings**:
-  - multi-room floor plans, with walls, doors and windows generated from room rectangles;
-  - multi-storey buildings with stair cores, lifts, façades and roofs;
-  - interior finishes (linings, skirting, cornices, lights and switches).
-- **Furnishing**: room archetypes (bedroom, bathroom, lobby, office, shop, ...) furnish rooms automatically. Layout QA checks for overlaps, blocked door swings and windows, doors too narrow for the player, unreachable furniture, z-fighting surfaces and NPCs placed inside something solid.
-- **Interactions**: doors, drawers, switches, TVs and lifts are declarative state machines, with locks, keys, auto-close and seats (sit / lie). They're exported as extras and as glTF animations.
-- **Cities**:
-  - a street grid with blocks and lots;
-  - zoning: commercial along avenues, residential elsewhere, landmark blocks and parks;
-  - building recipes sized to each lot (houses, shop rows, apartments, offices, hotels), with full, lobby-only or shell interiors;
-  - street furniture.
-- **Scale**: instanced meshes, shared glTF meshes, an on-disk generation cache, LODs (`MSFT_lod`) and chunked export with exterior LODs and per-building interiors.
-- **Quality checks**:
-  - Meshes are closed and consistently wound; `meshops.validate` checks them, and a test runs it on every asset.
-  - UVs are metric (1 unit = 1 m), so texture density doesn't depend on object size.
-  - Every scene must pass layout QA, including the z-fighting check.
-- **Procedural PBR materials**: wood, bark, metal, brick, concrete, asphalt, roof shingles, grass, rock, fabric, carpet, tile, marble, glass, emissive shades and more, with base colour, normal, roughness and AO maps. Every texture tiles seamlessly. Meshes can carry several materials (one glTF primitive each) and vertex colours.
-- **Viewer**:
-  - scene list, node tree and inspector (sizes, triangle counts, materials, surfaces, interactions, validation, layout check);
-  - lit/clay/normals/UV-checker display modes;
-  - cutaway, storey and interaction-state sections, and night lighting;
-  - hot reload of `assets/**/*.yaml`.
-- **Rendering**: offscreen rendering with shadows and PBR, auto-framed, view presets, cutaways, and multi-view contact sheets.
-- **Export**: glTF/GLB with the node hierarchy, PBR textures, colliders (Godot import suffixes), gameplay extras (a versioned JSON schema), punctual lights, interaction animations and a JSON manifest; or OBJ+MTL+PNG.
-- **Characters**:
-  - a humanoid skeleton (Godot's humanoid profile) sized by body parameters;
-  - a ring-lofted, skinned body with a painted face and hair styles;
-  - poses solved with IK, and procedural walk, idle and wave clips;
-  - clothing that is fitted to the body and follows it when skinned;
-  - archetypes, seeded distributions over all of these, and a clipping QA that checks for poke-through.
-- **Transport**:
-  - vehicles built from profiles with measured wheels and clearance;
-  - a lane graph for city streets and declared routes, with turns, conflicts, crosswalks and traffic signals;
-  - kerbside parking;
-  - railways with stations and level crossings, and timetabled trains.
-- **NPCs**: declarative characters. Assets advertise affordances (sit, lie, look, stand, use) with what they satisfy, doors advertise portals, and actions are step lists (`assets/npcs/actions.yaml`). An NPC definition (`assets/npcs/resident.yaml`) gives a body asset, needs, preferences and scoring weights. A scattered crowd can come in groups (`group: {size: [1, 3]}`) that keep loosely together, and items say how a hand holds them (`held:`). The runtime runs these as a generic interpreter: utility selection, navmesh walking, poses, and opening doors on the way.
-- **Player spec**: one file (`assets/player.yaml`) defines the player's size (radius, height, eye and step height, max slope, minimum door and corridor clearances, reach). Generation and the runtime both read it, so "enterable" means the same thing on both sides.
-- **Godot 4 runtime** (`runtime/godot/`):
-  - a first-person player sized from the manifest, with step-up, collision, fly mode and a debug overlay;
-  - interactions (E to use, L to lock), seats, light switches, save/load and live reload;
-  - an automated playtest that checks every room is reachable;
-  - NPCs that decide, walk, sit, look out of windows and use doors, with a trace, labels, a follow camera and fast headless simulation;
-  - NPCs that notice the player: they look at you, wave back, and step aside;
-  - groups of friends and families that stay loosely together, and actors (the player too) holding what they carry in their hands;
-  - pedestrian crowds that stroll the pavements, cross at crossings and sit on benches;
-  - traffic that follows the lane graph and signals, and trains that run to a timetable and close level crossings;
-  - a world clock that drives the sun, the sky, street lamps, NPC routines and the amount of traffic;
-  - a scene catalogue: the runtime starts in one default scene instead of loading every export;
-  - chunk streaming (full, LOD and interiors) with navmesh tiles baked around the player.
-
-## Installation
-
-Requires Python 3.10+.
+Requires Python 3.10+, and [Godot 4.7](https://godotengine.org/download) for the runtime.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-```
 
-For the runtime, install [Godot 4.7](https://godotengine.org/download). The tests look for `godot`/`godot4` on `PATH`, then `$GODOT`, then `/Applications/Godot.app`.
-
-## Usage
-
-Every YAML file in `assets/` and `assets/scenes/` is a scene you can pass to `-s` (for example `chair`, `dining_set`, `cottage`, `street`, `hotel`, `hotel_room_auto`, `park`, `town`), plus the Python-coded `nature` scene. Run `python -m geogen.main --help` for the full list.
-
-```bash
-# Interactive viewer
-python -m geogen.main -s dining_set
-
-# Render to a PNG and quit (shadows, PBR, auto-framed)
-python -m geogen.main -s room -r out.png --resolution 1280x720
-python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
-python -m geogen.main -s cottage -r sheet.png --views                  # iso/front/side/top
-python -m geogen.main -s cottage -r sheet.png --views iso,back,top
-python -m geogen.main -s hotel_room_auto -r out.png --cutaway          # hide ceilings/roofs to see inside
-
-# Screenshot the interactive viewer (display: lit | clay | normals | uv)
-python -m geogen.main -s street --viewer-screenshot shot.png --display uv
-
-# Export for game engines
-python -m geogen.main -s dining_set -e out/dining_set.glb              # .glb / .gltf / .obj
-python -m geogen.main -s hotel -e out/hotel.glb --lods 0.5,0.25        # with decimated LODs
-python -m geogen.main -s town --chunks out/town_chunks --cache         # streamable chunks; cache generated assets
-```
-
-### Walking a scene in Godot
-
-```bash
-python -m geogen.main -s cottage --export-godot                        # -> runtime/godot/generated/
+python -m geogen.main -s dining_set                      # interactive viewer
+python -m geogen.main -s cottage -r out.png --views      # render a contact sheet
+python -m geogen.main -s cottage -e out/cottage.glb      # export glTF
+python -m geogen.main -s cottage --export-godot          # then walk it in first person:
 godot --path runtime/godot -- --scene cottage
 ```
 
-The runtime's scenes are listed in [`assets/runtime_scenes.yaml`](assets/runtime_scenes.yaml), grouped as `showcase` or `test`. It also names a `default`: the scene the runtime opens when you don't pass `--scene`.
+## Documentation
 
-```bash
-python -m geogen.main --export-catalogue              # export every catalogue scene (or: showcase, test, NAME,NAME)
-python -m geogen.main --catalogue                     # rewrite generated/catalogue.json after changing the default
-godot --path runtime/godot                            # open the default scene
-godot --path runtime/godot -- --scene=all             # load every export side by side (slow)
-```
-
-You spawn at the scene's spawn point (or in front of the model). The controls are:
-- WASD moves, Shift sprints, Space jumps, and the mouse looks around (click to capture it, Esc to release).
-- E uses what you're looking at (doors, drawers, switches, the lift) or sits/lies on furniture, and L locks or unlocks a door you hold the key for.
-- F1 toggles the overlay, F2 the collider wireframes, F3 fly mode, and F4 an overview camera.
-
-If you re-export while the game is running, it reloads the model within half a second.
-
-Large scenes stream: the runtime loads nearby blocks in full, distant ones as LODs, and building interiors as you approach them, and bakes navigation tiles around you.
-
-```bash
-python -m geogen.main -s town --export-godot --stream                 # -> runtime/godot/generated/town_chunks/
-godot --path runtime/godot -- --scene town --stream
-```
-
-Traffic, trains and pedestrians start moving when the scene loads (`-s crossroads` and `-s level_crossing` are small test scenes). `--time=21:00` starts at night, when the street lamps and headlights come on. NPCs placed in the scene come to life when it loads. F5 shows what each one is doing, `--camera=follow` watches one, and `--timescale=8 --simulate=600 --npc-trace` runs ten minutes of their day headless and prints every decision.
-
-To check that a building is enterable, export it (`-s hotel --export-godot`) and run `godot --headless --fixed-fps 60 --path runtime/godot -- --scene hotel --playtest`. It reports any rooms or interaction targets the player can't reach from the spawn. See [`runtime/godot/README.md`](runtime/godot/README.md) for all the runtime's options and the manifest and chunk index formats.
-
-## Defining assets
-
-An asset is a set of parts in a container of `size` metres, with its origin at the bottom centre. Parts are positioned by `anchor` + `offset` (as fractions of the container) or attached to another part with `attach_to`/`at`/`from`. Parameters can be overridden from code with `LayoutLoader().load(path, params={...})`.
-
-```yaml
-name: table
-origin: bottom_center
-
-params:
-  width:  { default: 1.2 }
-  height: { default: 0.75 }
-  depth:  { default: 0.8 }
-  top_thickness: { default: 0.035 }
-
-size: ["{width}", "{height}", "{depth}"]
-
-parts:
-  top:                                   # rounded slab: 2D shape extruded along Y
-    primitive: extrude
-    shape: { rect: ["{width}", "{depth}"], radius: 0.05 }
-    fit: none                            # shape is in metres
-    axis: y
-    bevel: 0.008
-    size: [1.0, "{top_thickness / height}", 1.0]
-    anchor: bottom_center
-    offset: [0, "{1 - top_thickness / height}", 0]
-    material: wood
-
-  leg_front_left:                        # turned leg: (radius, height) profile revolved around Y
-    primitive: lathe
-    profile: { spline: [[0.62, 0.0], [0.42, 0.3], [0.72, 0.6], [1.0, 1.0]] }
-    size: [0.05, "{1 - top_thickness / height}", 0.075]
-    anchor: bottom_front_left
-    offset: [0.08, 0, -0.08]
-    material: wood
-
-attachments:                             # where other objects can attach
-  seat_front:
-    anchor: bottom_front_center
-    offset: [0, 0, 0.4]
-    facing: center
-```
-
-Buildings use CSG and architectural primitives:
-
-```yaml
-parts:
-  walls:
-    primitive: cube
-    subtract: [interior]                 # hollow shell
-    material: brick
-  interior: { primitive: cube, cutter: true, ... }
-  roof:
-    primitive: roof
-    style: gable                         # gable | hip | shed | flat
-    overhang: 0.4
-    material: roof_shingle
-
-surfaces:                                # 2D regions other objects can be placed on
-  front_wall: { from: walls.front }
-```
-
-### Composing scenes
-
-Scenes place assets (and other scenes) using slots, attachment points or surfaces:
-
-```yaml
-name: cottage
-place:
-  house:
-    asset: house_peaked.yaml
-  door:
-    asset: door.yaml
-    on: house.front_wall                 # cuts its own opening into the wall
-    at: { u: 0.5, v: { abs: 0 } }
-  window_front_left:
-    asset: window.yaml
-    on: house.front_wall
-    at: { u: 0.2, v: { abs: 0.85 } }
-```
-
-```yaml
-name: dining_set
-place:
-  table:
-    asset: table.yaml
-  chairs:
-    asset: chair.yaml
-    attach_to: table
-    at: [seat_front, seat_back, seat_left, seat_right]   # one chair per attachment point
-```
-
-A district is a `city:` block. Buildings come from recipes generated to fit each lot:
-
-```yaml
-name: town
-city:
-  blocks: [3, 2]
-  block_size: [44, 36]
-  avenues: { ew: [1] }                   # the middle east-west street is an avenue
-  landmarks: { "1,0": { recipe: hotel, storeys: 4, interior: lobby } }
-  parks: ["2,1"]
-  buildings:
-    residential: [{ recipe: detached_house, storeys: [1, 2] }]
-    commercial:  [{ recipe: shop_row, storeys: [2, 3], interior: lobby }]
-  furniture:
-    lamp: { asset: street_lamp.yaml, spacing: 20 }
-    tree: { asset: maple_tree.yaml, spacing: 10 }
-```
-
-## Architecture
-
-| Package | Contents |
-|---|---|
-| `core/` | `SceneNode` hierarchy (with instancing), `Mesh` (material groups, vertex colours), `Transform`; `meshops` (normals, welding, tangents, decimation, `validate`), `uvmap` (metric projections), `profile` (2D shapes), `csg` (manifold3d booleans), `subdiv` (Loop subdivision, displacement) |
-| `generators/` | Primitives, profiles, sweeps, stairs, roofs, doors, floor plans and plan layouts, multi-storey buildings, façades, interior finishes, trees and rocks |
-| `textures/`, `materials/` | Tiling procedural texture generators; PBR materials loaded from `assets/materials/*.yaml` with a metric `tile_size` |
-| `layout/` | `LayoutLoader` (assets) and `SceneComposer` (scenes); anchors, attachments, surfaces, the `{expr}` evaluator; interactions, the furnishing solver, layout QA, scatter, city layout, building recipes, the prototype cache |
-| `viewer/` | Qt window, OpenGL view (shadows, PBR, debug display modes, picking, sections, night mode), pure-numpy orbit camera |
-| `render.py`, `export.py`, `chunks.py` | Offscreen pyrender renderer; glTF/GLB/OBJ export (colliders, extras, lights, LODs, animations) and the runtime manifest; chunked export |
-| `player.py` | `PlayerSpec`, loaded from `assets/player.yaml` |
-| `characters.py`, `clipping.py` | Character archetypes; clothing and seat clipping QA (the humanoid generator, ring lofting and clips are in `generators/`, and the skeleton, skinning and IK in `core/`) |
-| `npc.py` | NPC definitions, actions, routines and attention |
-| `vehicles.py`, `traffic.py`, `railway.py`, `trains.py` | Vehicle metadata, lane graphs and signals, railways and level crossings, train timetables |
-| `catalogue.py` | The runtime scene catalogue (`assets/runtime_scenes.yaml`) and its `catalogue.json` index |
-| `describe.py` | `--describe`: the vocabulary (primitives, assets, scenes, kinds) as text, JSON and the [catalogue](docs/catalogue/README.md) |
-| `registry.py` | Discovers YAML assets/scenes and Python-coded scenes |
-| `runtime/godot/` | Godot 4.7 project: runtime glTF loading, first-person player, interactions, playtest, chunk streaming, NPCs, traffic, trains, the world clock |
-
-[`CLAUDE.md`](CLAUDE.md) has the detailed design notes and conventions.
-
-## Tests
-
-```bash
-pytest                                   # everything
-pytest tests/test_scenes.py -k chair     # a subset
-```
-
-The tests cover assets, textures, exports and (when Godot is installed) the runtime:
-- Every asset and scene's meshes are valid, and every scene passes layout QA (including the z-fighting check).
-- Textures tile, and exports round-trip.
-- The Godot runtime is run headless: the player walks into the cottage (the wall blocks, the door step is climbed, the closed door blocks), rides the hotel lift, and playtests the hotel from the street.
-- In the streamed town, the tests walk the avenue into a shop and the hotel lobby.
-- NPCs, traffic, pedestrians and trains are simulated headless: residents meet their needs, groups stay together, traffic yields and doesn't deadlock, and trains close the level crossings in time.
-- Dressed characters are checked for clipping against a recorded baseline.
-
-The Godot tests are skipped when Godot isn't found.
-
-To regenerate the screenshots in this README, run `docs/make_screenshots.sh`.
-
-## Catalogue
-
-The catalogue lists every primitive, asset and scene with thumbnails, params, attachment points, surfaces and interactions. The same data prints with `python -m geogen.main --describe [NAME] [--json]`, compact enough to hand to an LLM. Browse it at [falldaysoft.github.io/geogen](https://falldaysoft.github.io/geogen/), or as Markdown in [docs/catalogue](docs/catalogue/README.md). Regenerate the pages with `docs/make_catalogue.sh`; the site is rebuilt from them by `docs/make_site.py` when they change on `main`.
+- [Guide](docs/guide.md): running, rendering and exporting scenes, the Godot runtime, and writing assets and scenes.
+- [Features](docs/features.md): everything geogen does, by area.
+- [Gallery](docs/gallery.md): towns, buildings, furniture, people, vehicles and the runtime, with how each is made.
+- [Catalogue](docs/catalogue/README.md): the vocabulary of primitives, assets and scenes (also `--describe`).
+- [Godot runtime](runtime/godot/README.md): its options, controls, control API and file formats.
+- [Developer notes](docs/dev/README.md): how each part works, the package layout and the tests.
 
 ## License
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Regenerate the README screenshots in docs/images/.
+# Regenerate the screenshots in docs/images/ (the README and docs/gallery.md).
 # Needs the venv (.venv) and, for the Godot shots, Godot 4.7 ($GODOT or the
 # macOS app bundle). Run from the repository root: docs/make_screenshots.sh
 set -euo pipefail
