@@ -67,6 +67,34 @@ func _ready() -> void:
     apply_spec(spec)
 
 
+## Where the item in hand sits in the player's view (camera frame, m), and its turn (rad).
+const HELD_VIEW := Vector3(0.27, -0.27, -0.5)
+const HELD_VIEW_TURN := Vector3(0.2, 0.35, 0.0)
+var _held: Node3D = null
+
+
+## Show an item's body in view as the one in hand (the hotbar's selected item, from
+## ``WorldLoader.held_body``; null: empty hands). ``id`` names it, so the same item isn't rebuilt.
+func show_held(id: String, body: Node3D) -> void:
+    if _held != null and is_instance_valid(_held):
+        if str(_held.get_meta("held_item", "")) == id and body != null:
+            body.free()
+            return
+        _held.queue_free()
+    _held = null
+    if body == null:
+        return
+    body.transform = Transform3D(Basis.from_euler(HELD_VIEW_TURN), HELD_VIEW)
+    body.set_meta("held_item", id)
+    camera.add_child(body)
+    _held = body
+
+
+## The item shown in hand ("" for none).
+func holding() -> String:
+    return str(_held.get_meta("held_item", "")) if _held != null and is_instance_valid(_held) else ""
+
+
 func apply_spec(new_spec: PlayerSpec) -> void:
     spec = new_spec
     var body := _shape.shape as CylinderShape3D

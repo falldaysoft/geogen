@@ -4,3 +4,4 @@ kind: item
 title: Wrapper
 tags: [litter]
 body: wrapper.yaml
+held: {offset: [0, 0.11, 0.045], rotation: [0, 0, 180]}                               # screwed up in the fist

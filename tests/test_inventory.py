@@ -207,3 +207,80 @@ def test_the_hotbar_selects_with_i_and_digits_and_f_uses(godot_runtime, tmp_path
     rt.call("input.key", key="I")
     rt.call("input.key", key="I")                                                        # wraps round
     assert rt.call("hud.inventory")["selected"] == "room_key"
+
+
+HELD_PROJECT = {
+    "items/snack.yaml": "kind: item\ntitle: Snack\ntags: [food]\nbody: {asset: snack_bar.yaml}\nuse: Eat\n"
+                        "held: {offset: [0, 0.1, 0.04], rotation: [0, 0, 180]}\n",
+    "scenes/held_yard.yaml": """
+name: held_yard
+size: [8, 2, 8]
+rules:
+  - {id: eat, on: {use_item: snack}, do: [{take: snack}]}
+place:
+  key: {asset: room_key.yaml}
+  walker: {npc: npcs/park_visitor.yaml, position: [1.5, 0, 0], home: {rect: [-3, -3, 3, 3]}, seed: 4}
+spawns:
+  start: {position: [0, 0, 2.5], facing: north}
+""",
+}
+
+
+def _held_yard(tmp_path):
+    from geogen import roots
+
+    project = tmp_path / "held"
+    for name, text in HELD_PROJECT.items():
+        (project / "assets" / name).parent.mkdir(parents=True, exist_ok=True)
+        (project / "assets" / name).write_text(text)
+    try:
+        roots.use(project)
+        scene = SceneComposer(assets_dir=ASSETS).compose(project / "assets" / "scenes" / "held_yard.yaml")
+        export_scene(scene, tmp_path / "held_yard.glb", package="held_yard")
+    finally:
+        roots.use()
+    return scene
+
+
+def test_a_held_item_exports_how_the_hand_holds_it(tmp_path):
+    # geogen.87.2: an item's `held` (true: the defaults) goes with its body in item_icon.
+    from geogen.export import read_gltf
+    from geogen.flows import HELD_DEFAULTS, FlowError, load_item
+
+    _held_yard(tmp_path)
+    gltf = read_gltf((tmp_path / "held_yard.glb").read_bytes())
+    icons = {n["name"]: n["extras"]["geogen"]["item_icon"] for n in gltf["nodes"]
+             if n.get("extras", {}).get("geogen", {}).get("item_icon")}
+    assert icons["snack_icon"]["held"] == {"bone": "RightHand", "offset": [0.0, 0.1, 0.04], "rotation": [0.0, 0.0, 180.0]}
+    assert "held" not in icons["room_key_icon"]
+    item = tmp_path / "items" / "thing.yaml"
+    item.parent.mkdir(parents=True)
+    item.write_text("kind: item\nbody: snack_bar.yaml\nheld: true\n")
+    assert load_item(item)["held"] == HELD_DEFAULTS
+    item.write_text("kind: item\nbody: snack_bar.yaml\nheld: {offset: [0, 1]}\n")
+    with pytest.raises(FlowError, match="held offset is"):
+        load_item(item)
+
+
+def test_actors_show_the_item_they_hold_in_godot(godot_runtime, tmp_path):
+    # geogen.87.2: an NPC carrying an item with `held` shows its body on the hand bone and drops
+    # it when the item is taken; the player's view shows the hotbar's selected item.
+    _held_yard(tmp_path)
+    rt = godot_runtime("held_yard", tmp_path)
+    rt.call("time.advance", seconds=0.5)
+    walker = next(n for n in rt.call("npcs.list") if n["npc"] == "walker_npc")
+    assert walker["holding"] == ""
+    rt.call("inventory.give", item="snack", actor=walker["actor"])
+    rt.call("time.advance", seconds=0.5)
+    assert next(n for n in rt.call("npcs.list") if n["npc"] == "walker_npc")["holding"] == "snack"
+    rt.call("inventory.give", item="snack", count=-1, actor=walker["actor"])
+    rt.call("time.advance", seconds=0.5)
+    assert next(n for n in rt.call("npcs.list") if n["npc"] == "walker_npc")["holding"] == ""
+    rt.call("inventory.give", item="room_key")
+    rt.call("inventory.give", item="snack")
+    rt.call("time.advance", seconds=0.2)
+    shown = rt.call("hud.inventory")
+    assert shown["selected"] == "room_key" and shown["held"] == ""                       # a key isn't held up
+    rt.call("input.key", key="I")
+    rt.call("time.advance", seconds=0.2)
+    assert rt.call("hud.inventory")["held"] == "snack"

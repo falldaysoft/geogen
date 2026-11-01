@@ -4,3 +4,4 @@ title: Lemonade
 tags: [food]
 body: lemonade_cup.yaml
 use: Drink
+held: {offset: [0, 0.14, 0.05], rotation: [0, 0, 180]}   # upright, gripped round the middle

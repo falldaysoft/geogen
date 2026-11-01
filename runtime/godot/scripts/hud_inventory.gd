@@ -73,6 +73,7 @@ func hud_refresh() -> void:
     if not ids.has(_selected):
         _selected = ids[0] if not ids.is_empty() else ""
     _icons = _hud.world.item_icons()
+    _show_held()
     var width := PAD * 2 + maxf(_shown.size() * (SLOT + GAP) - GAP, SLOT)
     custom_minimum_size = Vector2(width, PAD * 2 + SLOT + TITLE_SIZE + 10)
     size = custom_minimum_size
@@ -164,6 +165,17 @@ func hud_keys() -> Dictionary:
         [OS.get_keycode_string(USE_KEY), "use the selected item, as it says (eat, crack open)"]]}
 
 
+## The selected item is what the player holds: its body in view when its file says `held`
+## (geogen.87.2).
+func _show_held() -> void:
+    for node in get_tree().get_nodes_in_group("geogen_character"):
+        if node is Player:
+            var player := node as Player
+            if player.holding() != _selected or _selected == "":
+                player.show_held(_selected, _hud.world.held_body(_selected) if _selected != "" else null)
+            return
+
+
 ## I selects the next slot, a digit its slot, F uses the selected item (when it can be used).
 func hud_key(keycode: int) -> bool:
     var ids := _ids()
@@ -200,4 +212,9 @@ func hud_report() -> Dictionary:
         var at := global_position + r.position
         slots.append({"id": _shown[i]["id"], "rect": [at.x, at.y, r.size.x, r.size.y],
             "icon": _icons.has(_shown[i]["id"])})
-    return {"visible": visible, "items": _shown.duplicate(true), "selected": _selected, "slots": slots}
+    var held := ""
+    for node in get_tree().get_nodes_in_group("geogen_character"):
+        if node is Player:
+            held = (node as Player).holding()
+    return {"visible": visible, "items": _shown.duplicate(true), "selected": _selected, "slots": slots,
+        "held": held}

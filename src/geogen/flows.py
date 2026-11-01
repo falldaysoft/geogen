@@ -61,10 +61,14 @@ ITEM_KEYS = {
     "radius": "m: how much room it takes (default: from the body's bounds)",
     "lifetime": "s before it is taken away wherever it is (0: no limit)",
     "stuck": "s a physics item may rest anywhere but a sink before it is taken away (0: never; default 10)",
+    "held": "true or {bone, offset, rotation}: an actor carrying it shows its body in the hand (bone, default "
+            "RightHand; offset m and rotation deg in the hand's frame: y along the fingers, z out of the palm, "
+            "x forward)",
     "gait": "{stride: m, bob: m, sway: deg, waddle: deg}: a walk item's body bobs (twice a stride), rocks "
             "side to side and swings its heading as it goes (the runtime draws it; positions are unchanged)",
 }
 GAIT_KEYS = {"stride": 0.5, "bob": 0.0, "sway": 0.0, "waddle": 0.0}
+HELD_DEFAULTS = {"bone": "RightHand", "offset": [0.0, 0.09, 0.04], "rotation": [0.0, 0.0, 0.0]}
 SOURCE_KEYS = {
     "items": "an item file, or [{item, weight}]: what it makes (weighted, in turn)",
     "waves": "a waves file: it sends those, wave by wave, instead of items at a rate",
@@ -145,6 +149,8 @@ def load_item(path: str | Path) -> dict[str, Any]:
     for key in ("speed", "radius"):
         if key in spec:
             out[key] = float(spec[key])
+    if spec.get("held") not in (None, False):
+        out["held"] = _held(spec["held"], where)
     if "gait" in spec:
         gait = spec["gait"]
         if not isinstance(gait, dict) or set(gait) - set(GAIT_KEYS) \
@@ -153,6 +159,22 @@ def load_item(path: str | Path) -> dict[str, Any]:
         out["gait"] = {k: float(gait.get(k, default)) for k, default in GAIT_KEYS.items()}
         if out["gait"]["stride"] <= 0:
             raise FlowError(f"{where}: gait stride is more than 0 m")
+    return out
+
+
+def _held(spec: Any, where: str) -> dict[str, Any]:
+    """An item's ``held``: true, or {bone, offset, rotation} over ``HELD_DEFAULTS``."""
+    if spec is True:
+        spec = {}
+    if not isinstance(spec, dict) or set(spec) - set(HELD_DEFAULTS):
+        raise FlowError(f"{where}: held is true or {{{', '.join(HELD_DEFAULTS)}}}, got {spec!r}")
+    out = {"bone": str(spec.get("bone", HELD_DEFAULTS["bone"]))}
+    for key in ("offset", "rotation"):
+        value = spec.get(key, HELD_DEFAULTS[key])
+        if not isinstance(value, (list, tuple)) or len(value) != 3 \
+                or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value):
+            raise FlowError(f"{where}: held {key} is [x, y, z], got {value!r}")
+        out[key] = [float(v) for v in value]
     return out
 
 

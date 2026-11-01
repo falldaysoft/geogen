@@ -4,3 +4,4 @@ title: Pretzel
 tags: [food]
 body: pretzel.yaml
 use: Eat
+held: {offset: [0, 0.09, 0.05], rotation: [180, 0, 0]}

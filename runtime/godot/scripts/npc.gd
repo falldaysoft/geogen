@@ -75,7 +75,8 @@ const GROUP_WANDER := 0.75        # members wander within this share of the grou
 const GROUP_REJOIN_GAP := 1.4     # m from the groupmate a rejoin walks to (nearer is standing on them)
 const GROUP_FAR := 0.35           # a member's utility of things beyond the group's radius from its leader (or where it's going)
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
-const GROUP_REFRESH := 2.0        # s between looking up the groupmates (chunks stream NPCs in and out)
+const GROUP_REFRESH := 2.0
+const HELD_EVERY := 0.25          # s between looking at what the NPC carries (geogen.87.2)        # s between looking up the groupmates (chunks stream NPCs in and out)
 
 var world: WorldLoader
 var definition := {}
@@ -185,6 +186,7 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
         var look: Dictionary = data.get("attention", {}).get("look", {})
         var skeletons := npc.body.find_children("*", "Skeleton3D", true, false)
         if not skeletons.is_empty():
+            npc._skeleton = skeletons[0]
             # Every skeletal body has one: it lays gestures (a wave from a chair) over the pose
             # even when the NPC doesn't look at people (attention.look off).
             npc._look = GeogenHeadLook.new()
@@ -591,6 +593,9 @@ func _step(delta: float) -> void:
         needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
     if needs.has("together") and group_leader() != "":
         _keep_together(delta)
+    if _skeleton != null and clock >= _held_at:
+        _held_at = clock + HELD_EVERY
+        _hold(_held_item())
     if home_distance(global_position) > float(definition.get("home_margin", 1.0)) + 0.5:
         stats["outside"] += delta
     if label.visible:
@@ -1055,6 +1060,50 @@ func _wander_point():
     if not tags.is_empty():
         return _random_surface_point(tags)
     return _random_point_in(home, home_y)
+
+
+# --- held items (geogen.87.2) ------------------------------------------------
+
+var _skeleton: Skeleton3D = null
+var _held: Node3D = null          # the BoneAttachment3D showing the held item's body
+var _held_at := 0.0
+
+
+## What the NPC shows in its hand: the first item it carries whose file says `held`; "" for none.
+func _held_item() -> String:
+    if world.rules == null:
+        return ""
+    for entry in world.rules.carried(WorldLoader.actor_id(self)):
+        if world.item_held.has(str(entry["id"])):
+            return str(entry["id"])
+    return ""
+
+
+## Show ``id``'s body on its bone (none: empty hands); nothing changes while it is the same item.
+func _hold(id: String) -> void:
+    if _held != null and is_instance_valid(_held) and str(_held.get_meta("held_item", "")) == id:
+        return
+    if _held != null and is_instance_valid(_held):
+        _held.queue_free()
+    _held = null
+    if id == "":
+        return
+    var body := world.held_body(id)
+    var bone := str(world.item_held[id].get("bone", "RightHand"))
+    if body == null or _skeleton.find_bone(bone) < 0:
+        return
+    var attach := BoneAttachment3D.new()
+    attach.name = "Held"
+    attach.bone_name = bone
+    attach.set_meta("held_item", id)
+    _skeleton.add_child(attach)
+    attach.add_child(body)
+    _held = attach
+
+
+## The item in the NPC's hand now ("" for none), for the report.
+func holding() -> String:
+    return str(_held.get_meta("held_item", "")) if _held != null and is_instance_valid(_held) else ""
 
 
 # --- groups (geogen.87.3) ---------------------------------------------------
@@ -2090,6 +2139,7 @@ func report() -> Dictionary:
         "waves": int(stats.get("waves", 0)),
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
+        "holding": holding(),
         # Items it has used (`use_item` steps) and what it carries now (item ids).
         "items_used": int(stats.get("items_used", 0)),
         "carrying": world.rules.carried(WorldLoader.actor_id(self)).map(func(e): return str(e["id"])) if world.rules != null else [],

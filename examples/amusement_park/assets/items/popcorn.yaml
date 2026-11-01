@@ -4,3 +4,4 @@ title: Popcorn
 tags: [food]
 body: popcorn.yaml
 use: Eat
+held: {offset: [0, 0.15, 0.06], rotation: [0, 0, 180]}        # the box upright

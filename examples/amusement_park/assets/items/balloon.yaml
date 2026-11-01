@@ -3,3 +3,4 @@ kind: item
 title: Balloon
 tags: [toy]
 body: balloon.yaml
+held: {offset: [0, 0.45, 0.03], rotation: [0, 0, 180]}        # by the end of its string

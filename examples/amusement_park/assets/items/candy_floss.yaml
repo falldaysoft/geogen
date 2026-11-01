@@ -4,3 +4,4 @@ title: Candy floss
 tags: [food]
 body: candy_floss.yaml
 use: Eat
+held: {offset: [0, 0.14, 0.04], rotation: [0, 0, 180]}    # low on the stick, the floss over the fist

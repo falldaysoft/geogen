@@ -82,8 +82,9 @@ ICONS_NODE = "item_icons"
 
 def attach_icons(root: SceneNode, items: dict[str, Any], assets_dir: str | Path | None = None) -> list[str]:
     """Give ``root`` a hidden child ``item_icons`` holding each item's body (``items/<id>.yaml``
-    ``body``), named ``<id>_icon`` with ``meta.item_icon = {item: id}``, so a runtime can draw
-    the items an actor carries (the Godot HUD's hotbar renders them). Not part of the world:
+    ``body``), named ``<id>_icon`` with ``meta.item_icon = {item: id, held?}``, so a runtime can
+    draw the items an actor carries (the Godot HUD's hotbar renders them) and show one with
+    ``held`` in its hand (geogen.87.2). Not part of the world:
     the runtime takes the node out on load, as it does flow templates. Done once per export
     (a second call finds the node and adds nothing); an item with no file gets no icon, and a
     body that won't load fails the export, as a flow template's does. Returns the ids given one."""
@@ -102,7 +103,7 @@ def attach_icons(root: SceneNode, items: dict[str, Any], assets_dir: str | Path 
         item = load_item(path)
         body = loader.load(roots.find(item["body"]["asset"], assets_dir), params=item["body"]["params"] or None)
         body.name = f"{item_id}_icon"
-        body.meta[ICON_META] = {"item": item_id}
+        body.meta[ICON_META] = {"item": item_id, **({"held": item["held"]} if "held" in item else {})}
         gallery.add_child(body)
     if gallery.children:
         root.add_child(gallery)

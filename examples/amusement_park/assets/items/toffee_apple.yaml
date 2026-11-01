@@ -4,3 +4,4 @@ title: Toffee apple
 tags: [food]
 body: toffee_apple.yaml
 use: Eat
+held: {offset: [0, 0.16, 0.04], rotation: [0, 0, 180]}   # by the stick

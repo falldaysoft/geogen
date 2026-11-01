@@ -116,6 +116,8 @@ var mechanisms: GeogenMechanisms
 ## Items' icon bodies (extras.geogen.item_icon, the export's hidden ``item_icons`` node): item id -> Node3D,
 ## out of the tree; ``item_icons()`` renders them for the HUD's hotbar.
 var item_bodies := {}
+## Items' ``held`` specs (item_icon.held: {bone, offset, rotation}, geogen.87.2): item id -> spec.
+var item_held := {}
 var _item_icons := {}
 var _icons_rendering := {}
 const ICON_PX := 96
@@ -515,6 +517,8 @@ func _take_item_icons(root: Node) -> void:
             if old != null and is_instance_valid(old):
                 old.free()
             item_bodies[str(icon["item"])] = node
+            if icon.get("held") is Dictionary:
+                item_held[str(icon["item"])] = icon["held"]
     for node in root.find_children("item_icons", "Node3D", true, false):
         node.get_parent().remove_child(node)
         node.free()
@@ -525,8 +529,30 @@ func _clear_item_icons() -> void:
         if is_instance_valid(body):
             body.free()
     item_bodies.clear()
+    item_held.clear()
     _item_icons.clear()
     _icons_rendering.clear()
+
+
+## A copy of an item's body as held in a hand (its ``held`` spec's offset and rotation, in the
+## hand's frame), for a bone attachment or the player's view; null for an item with no body or
+## no ``held``. Colliders are left out: it is only drawn.
+func held_body(id: String) -> Node3D:
+    var body: Node3D = item_bodies.get(id)
+    if body == null or not is_instance_valid(body) or not item_held.has(id):
+        return null
+    var spec: Dictionary = item_held[id]
+    var copy := body.duplicate() as Node3D
+    for node in copy.find_children("*", "CollisionObject3D", true, false):
+        node.get_parent().remove_child(node)
+        node.free()
+    var rot: Array = spec.get("rotation", [0, 0, 0])
+    var off: Array = spec.get("offset", [0, 0, 0])
+    copy.transform = Transform3D(Basis.from_euler(Vector3(deg_to_rad(rot[0]), deg_to_rad(rot[1]), deg_to_rad(rot[2])),
+        EULER_ORDER_XYZ), Vector3(off[0], off[1], off[2]))
+    copy.name = "held_%s" % id
+    copy.set_meta("held_item", id)
+    return copy
 
 
 ## The icons of the items this export can draw: item id -> Texture2D, the ones rendered so

@@ -4,3 +4,4 @@ title: Ice cream
 tags: [food]
 body: ice_cream.yaml
 use: Eat
+held: {offset: [0, 0.17, 0.045], rotation: [0, 0, 180]}      # by the cone

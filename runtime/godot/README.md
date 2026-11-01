@@ -392,6 +392,9 @@ body reparented under it. The script is a generic interpreter; nothing in it kno
 windows or doors:
 
 - **Needs** fall at their declared rates. Finishing something adds its `advertises` to them.
+- **Held items**: an NPC with a skeleton shows the body of the first item it carries whose file says
+  `held` (`item_icon.held`: bone, offset, rotation) on that bone, and drops it when the item is taken;
+  the report gives `holding`. The player's view shows the hotbar's selected item (`hud.inventory.held`).
 - **Groups** (`npc.group: {leader, radius}`, from a scatter's `group:`): the `together` need refills
   while a groupmate (same `leader`) is within `radius` and decays apart; `go_to: group` (the `rejoin`
   activity) walks a member to its leader and the leader to its nearest member. Members wander near
