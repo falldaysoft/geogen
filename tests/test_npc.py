@@ -255,6 +255,52 @@ place:
 
 
 
+def test_a_scattered_group_is_people_beside_their_leader():
+    # geogen.87.3: each scatter copy is a leader and the rest of its group on the same ground.
+    from geogen import refs
+    from geogen.export import exported_extras
+    from geogen.layout.composer import SceneComposer
+    from geogen.layout.qa import Solids, npc_body
+
+    root = SceneComposer(assets_dir=ASSETS_DIR).compose(ASSETS_DIR / "scenes/group_test/scene.yaml")
+    refs.assign_ids(root, "group_test")
+    people = {n.name: n for n in root.children if n.meta.get("type") == "npc"}
+    assert sorted(people) == ["visitors_1", "visitors_1_2", "visitors_1_3", "visitors_2", "visitors_2_2", "visitors_2_3"]
+    paving = (-8.0, 8.0)
+    solids = Solids(root)
+    for name, node in people.items():
+        npc = exported_extras(node)["geogen"]["npc"]
+        leader = name.rsplit("_", 1)[0] if name.count("_") == 2 else name
+        assert npc["group"] == {"leader": f"group_test:{leader}", "radius": 3.5}
+        assert "together" in npc["needs"] and npc["activities"]["rejoin"]["action"] == "rejoin"
+        x, y, z = node.transform.translation
+        assert paving[0] < x < paving[1] and paving[0] < z < paving[1] and abs(y - 0.1) < 1e-6, name
+        assert solids.blocking(node.transform.translation, **npc_body(node)) == [], name
+        offset = np.linalg.norm(node.transform.translation - people[leader].transform.translation)
+        assert offset <= 1.2 + 1e-6, (name, offset)
+    # Members advertise more for rejoining than their leader does (it wanders freely).
+    lead, member = (exported_extras(people[n])["geogen"]["npc"]["activities"]["rejoin"]["advertises"]["together"]
+                    for n in ("visitors_1", "visitors_1_2"))
+    assert member > lead
+
+
+def test_group_needs_an_npc_scatter_on_ground_it_can_share():
+    from geogen.layout.composer import SceneComposer
+
+    with pytest.raises(ValueError, match="group needs a rect: or on_tag: scatter"):
+        SceneComposer(assets_dir=ASSETS_DIR).compose_string("""
+name: bad_group
+place:
+  walkers: {npc: npcs/park_visitor.yaml, home: {rect: [-5, -5, 5, 5]}, scatter: {path: [[0, 0], [4, 0]], spacing: 2}, group: {size: 2}}
+""")
+    with pytest.raises(ValueError, match="group is"):
+        SceneComposer(assets_dir=ASSETS_DIR).compose_string("""
+name: bad_group
+place:
+  walkers: {npc: npcs/park_visitor.yaml, home: {rect: [-5, -5, 5, 5]}, scatter: {rect: [-4, -4, 4, 4], count: 1}, group: {sizes: 2}}
+""")
+
+
 class _Refs:
     """Stand-in SceneRefs: a root with `n` rooms, each with a floor surface."""
 

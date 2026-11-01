@@ -67,6 +67,15 @@ const VEHICLE_MARGIN := 0.35
 const VEHICLE_LOOKAHEAD := 3.0    # s: a vehicle that would cross our next steps this soon has priority
 const VEHICLE_PROBE := 2.5        # m of our path checked against vehicles
 const VEHICLE_PATIENCE := 3.0     # s waiting at the kerb before stepping out anyway (traffic yields)
+# Groups (geogen.87.3, definition `group`: {leader, radius}).
+const GROUP_REFILL := 0.15        # `together` per s while a groupmate is within the group's radius
+const GROUP_BONUS := 1.5          # score multiplier of a seat on the same thing as, or beside, one a groupmate holds
+const GROUP_BESIDE := 1.2         # m: a groupmate's affordance this near counts as beside
+const GROUP_WANDER := 0.75        # members wander within this share of the group's radius of the leader
+const GROUP_REJOIN_GAP := 1.4     # m from the groupmate a rejoin walks to (nearer is standing on them)
+const GROUP_FAR := 0.35           # a member's utility of things beyond the group's radius from its leader (or where it's going)
+const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
+const GROUP_REFRESH := 2.0        # s between looking up the groupmates (chunks stream NPCs in and out)
 
 var world: WorldLoader
 var definition := {}
@@ -334,6 +343,8 @@ func options(restricted := true) -> Array[Dictionary]:
             continue    # failed, or done and cooling down (a rare trip)
         if act.has("visit") and not visits.has(act["visit"]):
             continue
+        if act["action"] == "rejoin" and (_rejoin_target() == null or _near_groupmate()):
+            continue    # nobody to go back to, or with them already
         result.append({"id": "self/%s" % n, "action": act["action"], "activity": act,
             "advertises": act.get("advertises", {}), "tags": [], "at": global_position})
     var w: Dictionary = definition.get("scoring", {})
@@ -344,6 +355,8 @@ func options(restricted := true) -> Array[Dictionary]:
             prefs[t] = float(prefs.get(t, 1.0)) * float(b["preferences"][t])
         for n in b.get("activities", {}):
             act_mult["self/%s" % n] = float(act_mult.get("self/%s" % n, 1.0)) * float(b["activities"][n])
+    var lead = _group_lead()
+    var lead_at: Vector3 = _heading_for(lead) if lead != null else Vector3.ZERO
     for o in result:
         var utility := 0.0
         for need in o["advertises"]:
@@ -356,6 +369,10 @@ func options(restricted := true) -> Array[Dictionary]:
                 utility *= OWN_BONUS
             elif _under(uid, definition.get("prefers", [])):
                 utility *= PREFER_BONUS
+            if _beside_groupmate(o["affordance"]):
+                utility *= GROUP_BONUS    # the seat next to a friend's, the same gondola
+            if lead != null and NpcGeometry.flat(o["at"] - lead_at).length() > _group_radius():
+                utility *= GROUP_FAR      # a member keeps near its leader; the leader goes where it likes
         utility *= float(act_mult.get(o["id"], 1.0)) * float(o.get("activity", {}).get("weight", 1.0))
         var distance := global_position.distance_to(o["at"])
         var recency := 0.0
@@ -572,6 +589,8 @@ func _step(delta: float) -> void:
     _attend(delta)
     for need in needs:
         needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
+    if needs.has("together") and group_leader() != "":
+        _keep_together(delta)
     if home_distance(global_position) > float(definition.get("home_margin", 1.0)) + 0.5:
         stats["outside"] += delta
     if label.visible:
@@ -957,6 +976,8 @@ func _target(kind: String, ctx: Dictionary):
             return _random_home_point()
         "nearby":
             return _nearby_point()
+        "group":
+            return _rejoin_point()
         "visit":
             var spot: Dictionary = visits.get(str(ctx.get("visit", "")), {})
             return null if spot.is_empty() else _random_point_in(spot["polygon"], spot["y"])
@@ -1021,10 +1042,139 @@ func _someone_at(p: Vector3) -> bool:
 
 
 func _random_home_point():
+    var lead = _group_lead()
+    if lead != null:
+        var near = _point_near_leader(lead)
+        if near != null:
+            return near
+    return _wander_point()
+
+
+func _wander_point():
     var tags: Array = definition.get("wander", {}).get("tags", [])
     if not tags.is_empty():
         return _random_surface_point(tags)
     return _random_point_in(home, home_y)
+
+
+# --- groups (geogen.87.3) ---------------------------------------------------
+
+var _mates: Array = []
+var _mates_at := -INF
+
+
+## The stable ID of this NPC's group leader ("" for none); the leader's is its own.
+func group_leader() -> String:
+    return str(definition.get("group", {}).get("leader", ""))
+
+
+func _group_radius() -> float:
+    return float(definition.get("group", {}).get("radius", 4.0))
+
+
+## The other people of this NPC's group who are here now (not away, not absent).
+func _groupmates() -> Array:
+    if group_leader() == "":
+        return []
+    if clock - _mates_at > GROUP_REFRESH:
+        _mates_at = clock
+        _mates = world.npcs.filter(func(o): return o != self and is_instance_valid(o) and o.group_leader() == group_leader())
+    return _mates.filter(func(o): return is_instance_valid(o) and not o.away and not o.absent)
+
+
+## A member's leader when it is here; null for the leader itself or one without a group.
+func _group_lead():
+    var id := group_leader()
+    if id == "" or id == WorldLoader.npc_uid(self):
+        return null
+    for o in _groupmates():
+        if WorldLoader.npc_uid(o) == id:
+            return o
+    return null
+
+
+func _near_groupmate() -> bool:
+    var r := _group_radius()
+    for o in _groupmates():
+        var d: Vector3 = o.global_position - global_position
+        if Vector2(d.x, d.z).length() <= r and absf(d.y) < FLOOR_TOLERANCE:
+            return true
+    return false
+
+
+## Together refills near a groupmate and decays apart (the decay ran already); alone in the
+## scene (the rest away), there is nobody to miss.
+func _keep_together(delta: float) -> void:
+    if _groupmates().is_empty():
+        needs["together"] = 1.0
+    elif _near_groupmate():
+        needs["together"] = minf(1.0, needs["together"] + GROUP_REFILL * delta)
+    else:
+        stats["apart"] = float(stats.get("apart", 0.0)) + delta
+
+
+## Who a rejoin walks to: a member's leader (or, with the leader away, its nearest groupmate);
+## the leader's nearest member. Null when nobody is here.
+func _rejoin_target():
+    var lead = _group_lead()
+    if lead != null:
+        return lead
+    var best = null
+    for o in _groupmates():
+        if best == null or global_position.distance_to(o.global_position) < global_position.distance_to(best.global_position):
+            best = o
+    return best
+
+
+## The navmesh point beside the groupmate a rejoin goes to (on this side of them), or null.
+func _rejoin_point():
+    var mate = _rejoin_target()
+    if mate == null:
+        return null
+    var at: Vector3 = mate.global_position
+    var side := NpcGeometry.flat(global_position - at)
+    side = side.normalized() if side.length() > 1e-3 else Vector3(rng.randf() - 0.5, 0, rng.randf() - 0.5).normalized()
+    return NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, at + side * GROUP_REJOIN_GAP)
+
+
+## A member's wander: one of its usual points within reach of the leader (where it is, or where
+## it is going), else any navmesh point near there.
+func _point_near_leader(lead: Node3D):
+    var r := _group_radius() * GROUP_WANDER
+    var at := _heading_for(lead)
+    var c := Vector2(at.x, at.z)
+    var poly := PackedVector2Array([c + Vector2(-r, -r), c + Vector2(r, -r), c + Vector2(r, r), c + Vector2(-r, r)])
+    for i in 12:
+        # Its usual kind of spot first (the paths), then anywhere on the navmesh near the leader.
+        var p = _wander_point() if i < 8 else _random_point_in(poly, at.y)
+        if p != null and Vector2((p as Vector3).x, (p as Vector3).z).distance_to(c) <= r and not _taken_spot(p):
+            return p
+    return null
+
+
+## Whether another character stands within GROUP_GAP of a point (not a spot to walk to).
+func _taken_spot(p: Vector3) -> bool:
+    for other in get_tree().get_nodes_in_group(CHARACTER_GROUP):
+        if other != self and other is Node3D and NpcGeometry.flat((other as Node3D).global_position - p).length() < GROUP_GAP:
+            return true
+    return false
+
+
+## Where a groupmate is, or where it is going when it has taken an affordance.
+static func _heading_for(mate) -> Vector3:
+    var a: Dictionary = mate._option.get("affordance", {})
+    return a["approach"] if not a.is_empty() else mate.global_position
+
+
+## Whether a groupmate holds (or is on its way to) this affordance's thing or one beside it.
+func _beside_groupmate(a: Dictionary) -> bool:
+    for o in _groupmates():
+        var theirs: Dictionary = o._option.get("affordance", {})
+        if theirs.is_empty() or not is_instance_valid(theirs.get("node")):
+            continue
+        if theirs["node"] == a["node"] or (theirs["position"] as Vector3).distance_to(a["position"]) < GROUP_BESIDE:
+            return true
+    return false
 
 
 ## A random navmesh point inside a region (world XZ polygon at floor height y), or null.
@@ -1938,6 +2088,8 @@ func report() -> Dictionary:
         "signal_crossings": int(stats.get("signal_crossings", 0)),
         "signal_violations": int(stats.get("signal_violations", 0)),
         "waves": int(stats.get("waves", 0)),
+        # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
+        "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         # Items it has used (`use_item` steps) and what it carries now (item ids).
         "items_used": int(stats.get("items_used", 0)),
         "carrying": world.rules.carried(WorldLoader.actor_id(self)).map(func(e): return str(e["id"])) if world.rules != null else [],

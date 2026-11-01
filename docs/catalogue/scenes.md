@@ -47,6 +47,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [traffic_scale](#traffic_scale) | 150 vehicles on a grid. |  |
 | [trees](#trees) | Tree demo scene. |  |
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
+| [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
 
 ## dining_set
@@ -699,6 +700,22 @@ Vehicles for review: the car presets in a few paints, a van and a bus. Faces +X.
 **Places**: `sedan: {asset: vehicles/car.yaml}`; `hatchback: {asset: vehicles/car.yaml}`; `estate: {asset: vehicles/car.yaml}`; `taxi: {asset: vehicles/car.yaml}`; `sedan_red: {asset: vehicles/car.yaml}`; `van: {asset: vehicles/van.yaml}`; `bus: {asset: vehicles/bus.yaml}`
 
 **Slots**: bus, estate, hatchback, sedan, sedan_red, taxi, van
+
+## group_test
+
+`scene: scenes/group_test/scene.yaml` · [source](../../assets/scenes/group_test/scene.yaml)
+
+Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square
+with benches round it and two picnic tables. Each group's leader wanders where it likes; the
+others wander near it, walk back (rejoin) when they've drifted apart, and take the seat beside
+a groupmate's. Review: -s group_test -r out.png; runtime: godot ... -- --scene group_test
+--timescale=8 --simulate=240 (the report's `group` and `apart`).
+
+**Places**: `square: {asset: square.yaml}`; `bench_n: {asset: bench.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `picnic: {asset: picnic_table.yaml}`; `picnic_2: {asset: picnic_table.yaml}`; `visitors: {npc: npcs/park_visitor.yaml}`
+
+**Slots**: bench_e, bench_n, bench_w, picnic, picnic_2
+
+**Spawns**: start
 
 ## state_test
 

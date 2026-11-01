@@ -438,3 +438,17 @@ def test_a_cook_stops_working_to_step_aside_and_goes_back(godot_script, scene_ex
     assert aside["yields"] == 1 and aside["clip"] != "stir", (aside["doing"], aside["clip"])
     (back,) = run["back"]["npcs"]
     assert back["doing"].startswith("range#0") and back["clip"] == "stir" and back["failures"] == [], back["doing"]
+
+
+def test_a_group_stays_loosely_together(godot_script, scene_export):
+    # geogen.87.3: two groups of three on a square with benches and two picnic tables. The
+    # members keep near their leader (wandering by it, rejoining, taking the seat beside a
+    # groupmate's), so nobody spends long apart from all of their group.
+    run = godot_script([step("time.simulate", seconds=240)], "--scene=group_test",
+                       f"--generated={scene_export('group_test')}", start={"timescale": 8}, engine_args=FAST)
+    people = run["time.simulate"]["npcs"]
+    assert len(people) == 6 and all(p["group"] for p in people)
+    assert {p["group"] for p in people} == {"group_test:visitors_1", "group_test:visitors_2"}
+    assert all(p["unstuck"] == 0 for p in people), [(p["npc"], p["unstuck"]) for p in people]
+    assert max(p["apart"] for p in people) < 60, [(p["npc"], p["apart"]) for p in people]
+    assert sum(len(p["failures"]) for p in people) <= 2, [(p["npc"], p["failures"]) for p in people]

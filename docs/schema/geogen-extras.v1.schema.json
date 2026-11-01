@@ -563,6 +563,8 @@
             "owns": { "description": "Stable IDs of the things only this NPC uses (an affordance under one is refused to others); it likes them best.", "type": "array", "items": { "type": "string" } },
             "prefers": { "description": "Stable IDs of things it likes best (an affordance under one scores higher), still free for others.", "type": "array", "items": { "type": "string" } },
             "work": { "description": "Stable ID of where its routine's 'at: work' blocks keep it: their options are the affordances under it, wherever that is from home.", "type": "string" },
+            "group": { "description": "People who came together (a scatter's group): 'leader' is the stable ID of the group's leader (the leader's own for itself), 'radius' how near a groupmate counts as together (m). Its 'together' need refills within the radius and decays apart; 'go_to: group' walks a member to the leader and the leader to its nearest member; an affordance on the same thing as, or beside, one a groupmate holds scores higher.", "type": "object", "required": ["leader", "radius"], "additionalProperties": false,
+              "properties": { "leader": { "type": "string" }, "radius": { "type": "number" } } },
             "flags": { "type": "object", "additionalProperties": { "type": "boolean" } },
             "affordance_tags": { "description": "Only affordances with one of these tags (empty: any).", "type": "array", "items": { "type": "string" } },
             "wander": {
@@ -827,7 +829,7 @@
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] }],
       "properties": {
-        "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit"] },
+        "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group"] },
         "face": { "enum": ["anchor", "portal", "player"] },
         "pose": { "type": "string" },
         "wait": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },

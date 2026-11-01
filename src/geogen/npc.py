@@ -43,7 +43,7 @@ VERSION = 1
 
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item"}
 STEP_OPTIONS = {"at", "if", "hold", "loop", "close"}
-GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit"}
+GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group"}
 ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
@@ -579,6 +579,52 @@ def actor_id(node: SceneNode, uid: str) -> str:
     same rule (``WorldLoader.actor_id``)."""
     character = (node.meta.get("npc") or {}).get("character")
     return CHARACTER_ACTOR.format(character) if character else uid
+
+
+# Groups (geogen.87.3): people who came together. `together` is their need to be near each
+# other (it refills within `radius` of a groupmate, in the runtime, and decays apart), `rejoin`
+# the activity that walks back (members to the leader, the leader to its nearest member).
+GROUP_DEFAULTS = {"radius": 4.0, "spread": 1.2}
+GROUP_KEYS = {"size", "radius", "spread"}
+TOGETHER = {"initial": 1.0, "decay": 0.02}
+REJOIN = {"member": 0.9, "leader": 0.4}      # what rejoining advertises of `together`
+
+
+def parse_group(spec: Any, where: str) -> dict[str, Any]:
+    """A placement's ``group: {size: n | [lo, hi], radius, spread}``: how many people each scattered
+    copy is (the leader counts), how near counts as together (m) and how far from the leader the
+    others start (m)."""
+    if not isinstance(spec, dict) or "size" not in spec or set(spec) - GROUP_KEYS:
+        raise ValueError(f"{where}: group is {{size: n | [lo, hi], radius, spread}}, got {spec!r}")
+    size = spec["size"]
+    lo, hi = (size, size) if isinstance(size, (int, float)) else _range(size, f"{where}: size")
+    if not 1 <= lo <= hi:
+        raise ValueError(f"{where}: group size is at least 1 (the leader), got {size!r}")
+    out = {"size": [int(lo), int(hi)]}
+    for key, default in GROUP_DEFAULTS.items():
+        out[key] = float(spec.get(key, default))
+        if out[key] <= 0:
+            raise ValueError(f"{where}: group {key} must be positive")
+    return out
+
+
+def join_group(node: SceneNode, leader: SceneNode, group: dict[str, Any]) -> None:
+    """Make an NPC node one of ``leader``'s group (the leader joins its own first): the build-only
+    ``meta.npc_group`` (exported as the leader's stable ID, :func:`group_extras`), and the
+    ``together`` need and ``rejoin`` activity in its definition unless it has its own."""
+    node.meta["npc_group"] = {"leader": leader, "radius": group["radius"]}
+    npc: dict[str, Any] = node.meta["npc"]  # type: ignore[assignment]
+    npc["needs"].setdefault("together", dict(TOGETHER))
+    role = "leader" if node is leader else "member"
+    npc["activities"].setdefault("rejoin", {"action": "rejoin", "advertises": {"together": REJOIN[role]}})
+
+
+def group_extras(node: SceneNode) -> dict[str, Any]:
+    """``meta.npc_group`` as ``npc.group``: {leader: stable ID, radius}; {} for no group."""
+    group = node.meta.get("npc_group")
+    if not group or "uid" not in group["leader"].meta:
+        return {}
+    return {"group": {"leader": group["leader"].meta["uid"], "radius": group["radius"]}}
 
 
 def ownership_extras(node: SceneNode) -> dict[str, Any]:

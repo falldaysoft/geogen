@@ -134,8 +134,9 @@ def _footprint(node: SceneNode, to_scene: np.ndarray) -> tuple[np.ndarray, np.nd
 
 
 def _tagged_surface_points(root: SceneNode, tag: str, rng: np.random.Generator, spacing: float, clear,
-                           to_scene: np.ndarray) -> list[tuple[np.ndarray, float]]:
-    """Poisson-disk points on the up-facing faces of meshes under nodes tagged ``tag``."""
+                           to_scene: np.ndarray):
+    """Poisson-disk points on the up-facing faces of meshes under nodes tagged ``tag``, and the
+    surfaces' height at a point (scene frame x, z; None off them)."""
     from shapely import STRtree
     from shapely.geometry import Point, Polygon
 
@@ -167,7 +168,7 @@ def _tagged_surface_points(root: SceneNode, tag: str, rng: np.random.Generator, 
     lo = np.array([min(pl.bounds[0] for pl in polys), min(pl.bounds[1] for pl in polys)])
     hi = np.array([max(pl.bounds[2] for pl in polys), max(pl.bounds[3] for pl in polys)])
     points = poisson_disk(rng, lo, hi, spacing, lambda p: height_at(p) is not None and clear(p))
-    return [(p, float(height_at(p))) for p in points]
+    return [(p, float(height_at(p))) for p in points], height_at
 
 
 def _terrain_points(root: SceneNode, name: str, spec: dict[str, Any], refs, keys: list,
@@ -268,6 +269,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
     if facing in ("along", "back", "left", "right") and "path" not in spec:
         raise ValueError(f"scatter '{name}': facing {facing} needs a path: to follow")
     centre = np.zeros(2)                    # what `center` / `outward` face (scene frame x, z)
+    support = None                          # the ground's height at a point (x, z), None off it: where a group's others may stand
     # Candidate positions (scene frame x, z) plus surface frames where relevant.
     frames: list[tuple[np.ndarray, float, np.ndarray | None, np.ndarray | None]] = []   # (xz, y, local normal, heading)
     if "on_terrain" in spec:
@@ -276,6 +278,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
     elif "rect" in spec:
         x0, z0, x1, z1 = (float(v) for v in spec["rect"])
         centre = np.array([(x0 + x1) / 2, (z0 + z1) / 2])
+        support = lambda q: 0.0 if x0 <= q[0] <= x1 and z0 <= q[1] <= z1 else None   # noqa: E731
         for p in poisson_disk(rng, np.array([x0, z0]), np.array([x1, z1]), spacing, clear):
             frames.append((p, 0.0, None, None))
     elif "path" in spec:
@@ -306,18 +309,36 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
         centre = (m @ np.r_[surface.origin + surface.u_axis * surface.u_extent / 2
                             + surface.v_axis * surface.v_extent / 2, 1.0])[[0, 2]]
     elif "on_tag" in spec:
-        for p, y in _tagged_surface_points(root, str(spec["on_tag"]), rng, spacing, clear, to_scene):
+        points, support = _tagged_surface_points(root, str(spec["on_tag"]), rng, spacing, clear, to_scene)
+        for p, y in points:
             frames.append((p, y, None, None))
     else:
         raise ValueError(f"scatter '{name}' needs rect:, path:, on:, on_tag: or on_terrain:")
+
+    solids = None
+    to_world = root.world_transform()
+
+    def free(q: np.ndarray, y: float) -> bool:
+        return not solids.blocking((to_world @ np.array([q[0], y, q[1], 1.0]))[:3])
 
     if "npc" in obj_def and frames:
         # People don't start inside lamp posts and benches the surface carries (geogen.65).
         from .qa import Solids
 
-        solids, to_world = Solids(root), root.world_transform()
-        frames = [f for f in frames
-                  if not solids.blocking((to_world @ np.array([f[0][0], f[1], f[0][1], 1.0]))[:3])]
+        solids = Solids(root)
+        frames = [f for f in frames if free(f[0], f[1])]
+
+    group = None
+    if obj_def.get("group") is not None:
+        from ..npc import parse_group
+
+        group = parse_group(obj_def["group"], f"scatter '{name}'")
+        if "npc" not in obj_def:
+            raise ValueError(f"scatter '{name}': group is for NPCs (an npc: placement)")
+        if support is None:
+            raise ValueError(f"scatter '{name}': group needs a rect: or on_tag: scatter (its others stand on the same ground)")
+        # Its own random stream, so a scatter's leaders are the same people with or without groups.
+        group_rng = np.random.default_rng(int(spec.get("seed", 0)) + 7919)
 
     yaw_spec = spec.get("yaw", [0.0, 360.0] if facing is None else 0.0)
     scale_spec = spec.get("scale", 1.0)
@@ -340,4 +361,44 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
         root.add_child(node)
         occupied.append((p, radius))
         placed.append(node)
+        if group is not None:
+            placed += _group_members(root, node, obj_def, group, group_rng, load, support, free,
+                                     [q for q, _r in occupied], yaw)
     return placed
+
+
+GROUP_GAP = 0.7       # m between people of a group as they start
+GROUP_TRIES = 24
+
+
+def _group_members(root: SceneNode, leader: SceneNode, obj_def: dict[str, Any], group: dict[str, Any],
+                   rng: np.random.Generator, load, support, free, taken: list, yaw: float) -> list[SceneNode]:
+    """The rest of a scattered leader's group (geogen.87.3): each a person of its own, standing
+    within ``spread`` of the leader on the same ground (``support``), clear of solids and of the
+    people already placed. A spot that can't be found leaves the group smaller."""
+    from ..npc import join_group
+
+    join_group(leader, leader, group)
+    lo, hi = group["size"]
+    want = int(rng.integers(lo, hi + 1)) - 1
+    centre = leader.transform.translation[[0, 2]]
+    people = [centre, *taken]
+    members = []
+    for j in range(want):
+        for _ in range(GROUP_TRIES):
+            angle = rng.uniform(0, 2 * np.pi)
+            q = centre + rng.uniform(GROUP_GAP, group["spread"]) * np.array([np.cos(angle), np.sin(angle)])
+            y = support(q)
+            if y is None or any(np.linalg.norm(q - o) < GROUP_GAP for o in people) or not free(q, float(y)):
+                continue
+            node = load({**obj_def, "seed": int(rng.integers(1 << 30))})
+            node.name = f"{leader.name}_{j + 2}"
+            node.transform = Transform(translation=np.array([q[0], float(y), q[1]]),
+                                       rotation=np.array([0.0, np.radians(yaw + rng.uniform(-60, 60)), 0.0]))
+            node.meta["scatter"] = {**leader.meta["scatter"], "member": j + 2}
+            join_group(node, leader, group)
+            root.add_child(node)
+            people.append(q)
+            members.append(node)
+            break
+    return members

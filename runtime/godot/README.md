@@ -392,6 +392,11 @@ body reparented under it. The script is a generic interpreter; nothing in it kno
 windows or doors:
 
 - **Needs** fall at their declared rates. Finishing something adds its `advertises` to them.
+- **Groups** (`npc.group: {leader, radius}`, from a scatter's `group:`): the `together` need refills
+  while a groupmate (same `leader`) is within `radius` and decays apart; `go_to: group` (the `rejoin`
+  activity) walks a member to its leader and the leader to its nearest member. Members wander near
+  where the leader is or is going and score things far from it lower; anyone scores the seat beside
+  a groupmate's higher. The report gives `group` (the leader) and `apart` (seconds away from all of them).
 - **Deciding**: every affordance in the NPC's home (+ `home_margin`) with a free slot, plus its
   own activities (wander, idle), scores
   `sum((1 - need) x advertised) x preference(tags) - distance x m - recency x e^(-age/memory) + noise x rand`,

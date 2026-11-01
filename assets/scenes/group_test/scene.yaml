@@ -1,0 +1,32 @@
+# Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square
+# with benches round it and two picnic tables. Each group's leader wanders where it likes; the
+# others wander near it, walk back (rejoin) when they've drifted apart, and take the seat beside
+# a groupmate's. Review: -s group_test -r out.png; runtime: godot ... -- --scene group_test
+# --timescale=8 --simulate=240 (the report's `group` and `apart`).
+
+name: group_test
+size: [18, 3, 18]
+tags: [level.test]
+
+spawns:
+  start: {position: [0, 0, 7.5], facing: north}
+
+slots:
+  bench_n: {position: [0, 0, -6.5], facing: south}
+  bench_e: {position: [6.5, 0, 0], facing: west}
+  bench_w: {position: [-6.5, 0, 0], facing: east}
+  picnic:  {position: [3.5, 0, 4.5], facing: north}
+  picnic_2: {position: [-3.5, 0, -3.0], facing: north}
+
+place:
+  square: {asset: square.yaml}
+  bench_n: {asset: bench.yaml, slot: bench_n}
+  bench_e: {asset: bench.yaml, slot: bench_e}
+  bench_w: {asset: bench.yaml, slot: bench_w}
+  picnic: {asset: picnic_table.yaml, slot: picnic}
+  picnic_2: {asset: picnic_table.yaml, slot: picnic_2}
+  visitors:
+    npc: npcs/park_visitor.yaml
+    home: {rect: [-8.0, -8.0, 8.0, 8.0]}
+    scatter: {on_tag: park.path, count: 2, spacing: 7, seed: 5, radius: 0.5}
+    group: {size: 3, radius: 3.5}

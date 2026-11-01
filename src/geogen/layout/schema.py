@@ -394,6 +394,8 @@ PLACEMENT_KEYS: dict[str, str] = {
     "pickup": "<item> or {item, count, prompt}: something to take (as the asset key)",
     "readable": "<prompt> or true: something to read (as the asset key)",
     "quests": "an NPC's quests (files or {file, if}): it holds and works on them",
+    "group": "{size: n | [lo, hi], radius, spread}: on an NPC scatter, each copy is a group of people who stay "
+             "loosely together (the leader counts in size; radius: how near is together, spread: how far apart they start)",
     "owns": "an NPC's things (references): only it uses them, and it likes them best",
     "prefers": "things an NPC likes best (references), still free for others",
     "work": "an NPC's work (a reference): where its routine's `at: work` blocks keep it",

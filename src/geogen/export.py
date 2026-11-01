@@ -160,8 +160,8 @@ def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda
         body = next((c for c in node.children if c.name == npc["body"].get("node", "body")), None)
         if body is not None:
             extras["geogen"]["npc"] = {**npc, "body": {**npc["body"], "node": name_of(body)}}
-        from .npc import ownership_extras
-        owned = ownership_extras(node)
+        from .npc import group_extras, ownership_extras
+        owned = {**ownership_extras(node), **group_extras(node)}
         if owned:
             extras["geogen"]["npc"] = {**extras["geogen"]["npc"], **owned}
     vehicle = extras.get("geogen", {}).get("vehicle")

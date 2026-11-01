@@ -1,0 +1,11 @@
+# group_test's paved square: walkable paving tagged park.path, so park visitors stroll on it.
+size: [16, 0.1, 16]
+parts:
+  paving:
+    primitive: cube
+    size: [1, 1, 1]
+    bevel: 0
+    material: concrete
+    walkable: true
+    tags: [park.path]
+    anchor: bottom_center
