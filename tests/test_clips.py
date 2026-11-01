@@ -5,6 +5,7 @@ import pytest
 
 from geogen.core import meshops
 from geogen.core.ik import aim, two_bone
+from geogen.generators.humanoid import CLOSED_BODY
 from geogen.layout import LayoutLoader
 
 HUMANOID = "assets/characters/humanoid.yaml"
@@ -72,8 +73,10 @@ def test_walk_and_idle_poses_stay_on_the_floor_and_closed(body):
         clip = _clip(body, name)
         for f in fractions:
             clip.apply(body, clip.duration * f)
-            mesh = body.find("body").world_mesh()
-            assert meshops.validate(mesh).watertight
+            # The whole body: a skirted one draws `body` with the skin the skirt always hides
+            # left out, and keeps the closed one beside it (geogen.92).
+            mesh = (body.find(CLOSED_BODY) or body.find("body")).world_mesh()
+            assert meshops.validate(mesh).watertight, (name, f)
             assert mesh.vertices[:, 1].min() > -0.015, (name, f)
 
 
