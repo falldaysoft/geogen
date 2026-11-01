@@ -70,6 +70,10 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
 |---|---|---|
 | ![NPC walking](docs/images/godot_npc_walking.png) | ![NPC in the armchair](docs/images/godot_npc_armchair.png) | ![NPC on the doorstep](docs/images/godot_npc_doorstep.png) |
 
+**Fairgoers**: the amusement park's crowd come in groups of one to three that stay loosely together: the others wander near the leader, drift back when they've been apart a while, and take the seats beside each other's. They buy from the stalls and carry what they bought in their hands while they eat it, then bin the wrapper:
+
+![Fairgoers in the amusement park](docs/images/godot_fairgoers.png)
+
 **People**: humanoid characters are generated from a skeleton and a body shape. Presets, body types, skin tones, hair styles and outfits are all parameters, and character archetypes draw them at random, so a crowd is a set of seeds. Bodies are skinned, posed with IK, animated with procedural walk and idle clips, and dressed in garments that follow the body:
 
 ![People gallery](docs/images/geogen_people.png)
@@ -96,7 +100,7 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
   - multi-room floor plans, with walls, doors and windows generated from room rectangles;
   - multi-storey buildings with stair cores, lifts, façades and roofs;
   - interior finishes (linings, skirting, cornices, lights and switches).
-- **Furnishing**: room archetypes (bedroom, bathroom, lobby, office, shop, ...) furnish rooms automatically. Layout QA checks for overlaps, blocked door swings and windows, doors too narrow for the player, unreachable furniture and z-fighting surfaces.
+- **Furnishing**: room archetypes (bedroom, bathroom, lobby, office, shop, ...) furnish rooms automatically. Layout QA checks for overlaps, blocked door swings and windows, doors too narrow for the player, unreachable furniture, z-fighting surfaces and NPCs placed inside something solid.
 - **Interactions**: doors, drawers, switches, TVs and lifts are declarative state machines, with locks, keys, auto-close and seats (sit / lie). They're exported as extras and as glTF animations.
 - **Cities**:
   - a street grid with blocks and lots;
@@ -127,7 +131,7 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
   - a lane graph for city streets and declared routes, with turns, conflicts, crosswalks and traffic signals;
   - kerbside parking;
   - railways with stations and level crossings, and timetabled trains.
-- **NPCs**: declarative characters. Assets advertise affordances (sit, lie, look, stand, use) with what they satisfy, doors advertise portals, and actions are step lists (`assets/npcs/actions.yaml`). An NPC definition (`assets/npcs/resident.yaml`) gives a body asset, needs, preferences and scoring weights. The runtime runs these as a generic interpreter: utility selection, navmesh walking, poses, and opening doors on the way.
+- **NPCs**: declarative characters. Assets advertise affordances (sit, lie, look, stand, use) with what they satisfy, doors advertise portals, and actions are step lists (`assets/npcs/actions.yaml`). An NPC definition (`assets/npcs/resident.yaml`) gives a body asset, needs, preferences and scoring weights. A scattered crowd can come in groups (`group: {size: [1, 3]}`) that keep loosely together, and items say how a hand holds them (`held:`). The runtime runs these as a generic interpreter: utility selection, navmesh walking, poses, and opening doors on the way.
 - **Player spec**: one file (`assets/player.yaml`) defines the player's size (radius, height, eye and step height, max slope, minimum door and corridor clearances, reach). Generation and the runtime both read it, so "enterable" means the same thing on both sides.
 - **Godot 4 runtime** (`runtime/godot/`):
   - a first-person player sized from the manifest, with step-up, collision, fly mode and a debug overlay;
@@ -135,6 +139,7 @@ The goal is nested, generated worlds: cities that contain neighbourhoods that co
   - an automated playtest that checks every room is reachable;
   - NPCs that decide, walk, sit, look out of windows and use doors, with a trace, labels, a follow camera and fast headless simulation;
   - NPCs that notice the player: they look at you, wave back, and step aside;
+  - groups of friends and families that stay loosely together, and actors (the player too) holding what they carry in their hands;
   - pedestrian crowds that stroll the pavements, cross at crossings and sit on benches;
   - traffic that follows the lane graph and signals, and trains that run to a timetable and close level crossings;
   - a world clock that drives the sun, the sky, street lamps, NPC routines and the amount of traffic;
@@ -353,7 +358,7 @@ The tests cover assets, textures, exports and (when Godot is installed) the runt
 - Textures tile, and exports round-trip.
 - The Godot runtime is run headless: the player walks into the cottage (the wall blocks, the door step is climbed, the closed door blocks), rides the hotel lift, and playtests the hotel from the street.
 - In the streamed town, the tests walk the avenue into a shop and the hotel lobby.
-- NPCs, traffic, pedestrians and trains are simulated headless: residents meet their needs, traffic yields and doesn't deadlock, and trains close the level crossings in time.
+- NPCs, traffic, pedestrians and trains are simulated headless: residents meet their needs, groups stay together, traffic yields and doesn't deadlock, and trains close the level crossings in time.
 - Dressed characters are checked for clipping against a recorded baseline.
 
 The Godot tests are skipped when Godot isn't found.

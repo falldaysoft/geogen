@@ -13,11 +13,11 @@ render() { "$PY" -m geogen.main "$@" > /dev/null; }
 
 render -s chair      -r "$OUT/geogen_chair.png"      --resolution 1280x720
 render -s dining_set -r "$OUT/geogen_dining_set.png" --resolution 1280x720 --zoom 1.8
-render -s room       -r "$OUT/geogen_room.png"       --resolution 1280x720
+render -s room       -r "$OUT/geogen_room.png"       --resolution 1280x720 --cutaway
 render -s street     -r "$OUT/geogen_street.png"     --resolution 1280x720 --zoom 1.35
 render -s cottage    -r "$OUT/geogen_cottage_views.png" --views --resolution 1400x1000
 render -s street --viewer-screenshot "$OUT/geogen_viewer.png"
-render -s town       -r "$OUT/geogen_town.png"       --resolution 1400x800 --zoom 2.2
+render -s town       -r "$OUT/geogen_town.png"       --resolution 1400x800 --frame city --zoom 1.4
 render -s park       -r "$OUT/geogen_park.png"       --resolution 1280x720 --zoom 1.8
 render -s hotel      -r "$OUT/geogen_hotel.png"      --resolution 1280x720 --view iso_back
 render -s hotel_room_auto -r "$OUT/geogen_hotel_room.png" --resolution 1280x720 --cutaway --view top --zoom 1.3
@@ -48,6 +48,9 @@ render -s town --export-godot --stream
     --screenshot="$PWD/$OUT/godot_town_street.png" > /dev/null
 "$GODOT" --path runtime/godot -- --scene town --stream --spawn=-0.05,0.15,-12.5 --yaw=0 --quit-after=60 \
     --screenshot="$PWD/$OUT/godot_hotel_lobby.png" > /dev/null
+
+# The amusement park example: a group of fairgoers with what they bought in their hands.
+"$PY" docs/make_fair_shot.py "$OUT/godot_fairgoers.png" > /dev/null
 
 # Retina captures come out at 2x; keep the repo images modest.
 "$PY" - <<'PYEOF'
