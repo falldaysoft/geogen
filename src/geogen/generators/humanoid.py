@@ -578,6 +578,7 @@ def transfer_weights(shell: Mesh, body: Mesh, neighbours: int = 12, smooth: int 
 
 HUG_BONES = ("Hips", "Spine", "Chest", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg")
 HUG_CLEARANCE = 0.01          # m a loose garment's outer wall stands off the body
+FAN_CENTRE = 0.25            # a vertex under this share of its neighbours' distance from the centre line is a cap's centre
 HUG_REACH = 0.05              # m: how far inside the body's surface a buried start-cap vertex is still brought out
 
 
@@ -621,8 +622,22 @@ def hug_body(shell: Mesh, body: Mesh, names, clearance: float = HUG_CLEARANCE,
         extent[rows] = np.maximum(extent[rows], _furthest_hit(o, d, tris))
     want = extent + np.where(lining & ~outer, clearance * 0.4, clearance)
     wall = np.zeros(len(radius), bool) if s_range is None or shell.uvs is None else shell.uvs[:, 1] >= s_range[0] - 1e-6
-    move = ok & (radius < want) & ((radius > want - HUG_REACH) | wall)
+    move = ok & (radius < want) & ((radius > want - HUG_REACH) | wall) & ~_fan_centres(shell, radius)
     shell.vertices[move] = origin[move] + direction[move] * want[move, None]
+
+
+def _fan_centres(shell: Mesh, radius: np.ndarray) -> np.ndarray:
+    """Vertices much nearer the centre line than the vertices round them: the centres of a
+    shell's caps. Their way out is arbitrary (a few mm off the line), so pushing one out to the
+    body can land it on a ring vertex and collapse two of the cap's faces (geogen.91); a buried
+    cap is left a shallow cone inside the body instead."""
+    edges = np.concatenate([shell.faces[:, [0, 1]], shell.faces[:, [1, 2]], shell.faces[:, [2, 0]]])
+    total = np.zeros(len(radius))
+    count = np.zeros(len(radius))
+    np.add.at(total, edges[:, 0], radius[edges[:, 1]])
+    np.add.at(count, edges[:, 0], 1)
+    around = total / np.maximum(count, 1)
+    return (count > 0) & (radius < FAN_CENTRE * around)
 
 
 def _patch(shell: Mesh, outer: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
