@@ -311,6 +311,14 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
     else:
         raise ValueError(f"scatter '{name}' needs rect:, path:, on:, on_tag: or on_terrain:")
 
+    if "npc" in obj_def and frames:
+        # People don't start inside lamp posts and benches the surface carries (geogen.65).
+        from .qa import Solids
+
+        solids, to_world = Solids(root), root.world_transform()
+        frames = [f for f in frames
+                  if not solids.blocking((to_world @ np.array([f[0][0], f[1], f[0][1], 1.0]))[:3])]
+
     yaw_spec = spec.get("yaw", [0.0, 360.0] if facing is None else 0.0)
     scale_spec = spec.get("scale", 1.0)
     placed = []

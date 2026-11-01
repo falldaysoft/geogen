@@ -35,6 +35,40 @@ def test_parked_car_has_no_overlaps():
     assert object_overlaps(_garage(0.2)) == []
 
 
+def _diner(x: float):
+    """A booth with a diner placed at x (the booth's seats span about -1 to 1 m)."""
+    return SceneComposer().compose_string(f"""
+name: diner_test
+slots:
+  diner: {{position: [{x}, 0, 0]}}
+place:
+  booth: {{asset: booth.yaml}}
+  diner: {{npc: npcs/diner.yaml, slot: diner}}
+""")
+
+
+def test_an_npc_placed_inside_furniture_is_reported():
+    # geogen.65: a restaurant diner's slot was inside a booth; it started wedged.
+    blocked = [i for i in object_overlaps(_diner(0.0)) if i.kind == "npc_blocked"]
+    assert blocked and blocked[0].items == ("diner", "booth"), [str(i) for i in blocked]
+    assert not [i for i in object_overlaps(_diner(2.0)) if i.kind == "npc_blocked"]
+
+
+def test_scattered_npcs_skip_spots_inside_solids():
+    from geogen.layout.qa import Solids, npc_body
+
+    scene = SceneComposer().compose_string("""
+name: crowd_in_booths
+place:
+  booth: {asset: booth.yaml}
+  people: {npc: npcs/diner.yaml, home: {rect: [-2, -2, 2, 2]}, scatter: {rect: [-2, -2, 2, 2], spacing: 0.6, seed: 3}}
+""")
+    solids = Solids(scene)
+    assert solids.npcs
+    for node, world in solids.npcs:
+        assert solids.blocking(world[:3, 3], **npc_body(node)) == [], node.name
+
+
 def test_openings_and_ground_are_not_overlaps(built_scene):
     # Windows' sills sit in their wall, door steps in the foundation, houses in the ground.
     for issue in object_overlaps(built_scene("street")):

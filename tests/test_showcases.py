@@ -155,8 +155,7 @@ def test_restaurant_playtest_and_service(run_godot, godot_script, restaurant_dir
                     engine_args=("--fixed-fps", "60"))
     result = _json_line(out, "playtest: ")
     assert result["ok"] and not result["unreachable"] and not result["unreachable_targets"], result
-    report = _simulate(godot_script, "restaurant", restaurant_dir, 240, time="19:00",
-                       wedged=["diner_4_npc"])      # a known wedge: geogen.65
+    report = _simulate(godot_script, "restaurant", restaurant_dir, 240, time="19:00")
     npcs = {n["npc"]: n for n in report["npcs"]}
     works = {"host_npc": "host_stand", "bartender_npc": "bar_counter", "chef_npc": ("range", "prep")}
     for npc, station in works.items():

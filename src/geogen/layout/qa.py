@@ -514,39 +514,13 @@ def object_overlaps(scene: SceneNode, min_depth: float = OVERLAP_MIN_DEPTH,
     Deliberate embedding isn't reported: openings (objects with host cutters: sills and steps
     set into their wall) and anything sunk into a walkable slab no higher than its top
     (foundations in the ground, a road over the ground plane).
+
+    NPCs aren't meshes to measure (their bodies are skinned), but each one placed with its body
+    inside something solid (a diner's slot in a booth, geogen.65) is an ``npc_blocked`` issue:
+    the runtime would start it off the navmesh, wedged. See :class:`Solids`.
     """
-    from ..core import meshops
-
-    owners: dict[int, SceneNode] = {}
-    entries = []          # (node, owner, world matrix, lo, hi)
-
-    def visit(node: SceneNode, owner: SceneNode | None, world: np.ndarray) -> None:
-        if "item" in node.meta:
-            return                      # a spawned item's template (geogen.flows): not in the world
-        if "source" in node.meta or owner is None:
-            owner = node
-        world = world @ node.transform.to_matrix()
-        if (node.mesh is not None and len(node.mesh.faces) and node.skin is None
-                and node.meta.get("type") != "collider"):
-            v = node.mesh.vertices @ world[:3, :3].T + world[:3, 3]
-            entries.append((node, owner, world, v.min(axis=0), v.max(axis=0)))
-        for child in node.children:
-            visit(child, owner, world)
-
-    for child in scene.children:
-        visit(child, None, scene.world_transform())
-
-    local: dict[int, object] = {}
-
-    def solid(node: SceneNode, world: np.ndarray):
-        key = id(node.mesh)
-        if key not in local:
-            mesh = node.mesh
-            closed = meshops.validate(mesh).watertight
-            local[key] = _solid(mesh.vertices, mesh.faces) if closed else None
-        man = local[key]
-        return None if man is None else man.transform(world[:3])
-
+    solids = Solids(scene)
+    entries, solid = solids.entries, solids.solid
     entries.sort(key=lambda e: e[3][0])
     issues: list[Issue] = []
     unmeasured = 0
@@ -579,11 +553,95 @@ def object_overlaps(scene: SceneNode, min_depth: float = OVERLAP_MIN_DEPTH,
                                 f"{na} and {ne} overlap {depth:.2f} m deep ({volume * 1000:.1f} L)"
                                 f" around [{centre[0]:.2f}, {centre[1]:.2f}, {centre[2]:.2f}]"))
         active.append(e)
+    for node, world in solids.npcs:
+        feet = world[:3, 3]
+        for where in solids.blocking(feet, **npc_body(node)):
+            issues.append(Issue("npc_blocked", node.name, (node.name, where),
+                                f"{node.name} stands inside {where} at "
+                                f"[{feet[0]:.2f}, {feet[1]:.2f}, {feet[2]:.2f}]: it would start wedged"))
     issues.sort(key=lambda i: i.message)
     if unmeasured:
         issues.append(Issue("overlap_unmeasured", scene.name, (),
                             f"{unmeasured} touching pair(s) not measured (open meshes)"))
     return issues
+
+
+NPC_CLEAR_ABOVE = 0.2      # m over the feet: floors, rugs and a kerb's step don't block a body
+NPC_BLOCK_DEPTH = 0.05     # m: something solid this far into a placed NPC's body column
+
+
+def npc_body(node: SceneNode) -> dict[str, float]:
+    """An NPC node's body column for :meth:`Solids.blocking` (the runtime's capsule radius)."""
+    spec = node.meta.get("npc") or {}
+    return {"radius": float(spec.get("radius", 0.25)), "height": float(spec.get("height", 1.7))}
+
+
+class Solids:
+    """A scene's fixed solid meshes, world-placed, with their owners (the nearest asset root, or
+    the top-level placement) and world bounds: ``entries`` is (node, owner, world matrix, lo, hi).
+    Skinned bodies, colliders, spawned-item templates and NPCs (``npcs``: (node, world matrix))
+    are left out. ``solid`` makes a mesh's manifold (None for an open mesh), cached per mesh."""
+
+    def __init__(self, scene: SceneNode):
+        self.entries: list = []
+        self.npcs: list = []
+        self._local: dict[int, object] = {}
+
+        def visit(node: SceneNode, owner: SceneNode | None, world: np.ndarray) -> None:
+            if "item" in node.meta:
+                return                      # a spawned item's template (geogen.flows): not in the world
+            if "source" in node.meta or owner is None:
+                owner = node
+            world = world @ node.transform.to_matrix()
+            if node.meta.get("type") == "npc":
+                self.npcs.append((node, world))
+                return                      # a character moves: its parts aren't fixed objects
+            if (node.mesh is not None and len(node.mesh.faces) and node.skin is None
+                    and node.meta.get("type") != "collider"):
+                v = node.mesh.vertices @ world[:3, :3].T + world[:3, 3]
+                self.entries.append((node, owner, world, v.min(axis=0), v.max(axis=0)))
+            for child in node.children:
+                visit(child, owner, world)
+
+        for child in scene.children:
+            visit(child, None, scene.world_transform())
+
+    def solid(self, node: SceneNode, world: np.ndarray):
+        from ..core import meshops
+
+        key = id(node.mesh)
+        if key not in self._local:
+            mesh = node.mesh
+            closed = meshops.validate(mesh).watertight
+            self._local[key] = _solid(mesh.vertices, mesh.faces) if closed else None
+        man = self._local[key]
+        return None if man is None else man.transform(world[:3])
+
+    def blocking(self, feet: np.ndarray, radius: float = 0.25, height: float = 1.7) -> list[str]:
+        """What is solid inside a body standing at ``feet`` (scene frame), as ``owner`` names: a
+        column ``radius`` wide from ``NPC_CLEAR_ABOVE`` to ``height``, walkable slabs aside, with
+        anything at least ``NPC_BLOCK_DEPTH`` into it across."""
+        import manifold3d
+
+        lo = np.asarray(feet, dtype=np.float64) + np.array([-radius, NPC_CLEAR_ABOVE, -radius])
+        hi = np.asarray(feet, dtype=np.float64) + np.array([radius, height, radius])
+        column, found = None, {}
+        for node, owner, world, e_lo, e_hi in self.entries:
+            if (owner.name in found or node.meta.get("walkable")
+                    or np.any(np.minimum(hi, e_hi) - np.maximum(lo, e_lo) < NPC_BLOCK_DEPTH)):
+                continue
+            body = self.solid(node, world)
+            if body is None:
+                continue
+            if column is None:
+                column = manifold3d.Manifold.cube(tuple(hi - lo)).translate(tuple(lo))
+            shared = column ^ body
+            if shared.is_empty():
+                continue
+            box = np.array(shared.bounding_box())
+            if min(box[3] - box[0], box[5] - box[2]) >= NPC_BLOCK_DEPTH:
+                found[owner.name] = True
+        return list(found)
 
 
 def _path(node: SceneNode, owner: SceneNode) -> str:
