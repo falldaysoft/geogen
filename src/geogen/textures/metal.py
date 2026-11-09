@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 from .base import TextureGenerator
-from .noise import perlin_noise, fractal_noise
+from .noise import directional_noise, fractal_noise
 
 
 class MetalType(Enum):
@@ -140,45 +140,13 @@ class MetalTextureGenerator(TextureGenerator):
         angle: float,
         seed_offset: int,
     ) -> np.ndarray:
-        """Generate noise stretched in a specific direction."""
-        # Create coordinate grids
-        xv, yv = self._unit_grid()
-
-        # Rotate coordinates
-        cos_a, sin_a = np.cos(angle), np.sin(angle)
-        x_rot = xv * cos_a - yv * sin_a
-        y_rot = xv * sin_a + yv * cos_a
-
-        # Scale differently along each axis
-        x_scaled = x_rot * scale_along
-        y_scaled = y_rot * scale_across
-
-        # Sample noise at transformed coordinates
-        seed = self._seed_for(seed_offset)
-        rng = np.random.default_rng(seed)
-
-        # Generate noise using the transformed coordinates
-        # We'll use a simple approach: generate 2D noise and sample it
-        noise = perlin_noise(
+        """Streaked noise in [0, 1]: fine across ``angle`` (the larger scale), coarse along it."""
+        noise = directional_noise(
             self.width, self.height,
-            scale=scale_along,
-            offset_x=rng.uniform(0, 100),
-            offset_y=rng.uniform(0, 100),
-            seed=seed,
+            along=min(scale_along, scale_across), across=max(scale_along, scale_across),
+            angle=angle, seed=self._seed_for(seed_offset),
         )
-
-        # Add stretched component
-        noise_stretched = perlin_noise(
-            self.width, self.height,
-            scale=scale_across,
-            offset_x=rng.uniform(0, 100),
-            offset_y=rng.uniform(0, 100),
-            seed=seed + 1000,
-        )
-
-        # Blend based on direction
-        result = noise * abs(cos_a) + noise_stretched * abs(sin_a)
-        return result * 0.5 + 0.5  # Normalize to [0, 1]
+        return noise * 0.5 + 0.5
 
     def _generate_scratches(self) -> np.ndarray:
         """Generate random scratch marks."""

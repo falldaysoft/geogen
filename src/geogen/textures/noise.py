@@ -101,6 +101,62 @@ def perlin_noise(
     return result
 
 
+def directional_noise(
+    width: int,
+    height: int,
+    along: float,
+    across: float,
+    angle: float,
+    seed: int | None = None,
+) -> NDArray[np.float64]:
+    """2D Perlin noise in streaks: ``along`` cells per tile in the direction ``angle`` (radians,
+    0 = the image's x axis) and ``across`` cells per tile at right angles to it, so
+    ``along`` < ``across`` gives streaks that run along the direction. Values in [-1, 1].
+
+    It tiles at any angle. The noise coordinates are an integer matrix times the tile's unit
+    coordinates (the frequencies rounded to whole cells), so crossing the tile moves a sample by
+    a whole lattice vector, and corner hashes are taken modulo that lattice.
+    """
+    rng = np.random.default_rng(seed if seed is not None else 0)
+    perm = _generate_permutation(rng)
+    cos_a, sin_a = float(np.cos(angle)), float(np.sin(angle))
+    # u runs across the streaks, v along them: (u, v) = [[a, b], [c, d]] @ (x, y), x and y in [0, 1).
+    a, b = int(round(-across * sin_a)), int(round(across * cos_a))
+    c, d = int(round(along * cos_a)), int(round(along * sin_a))
+    if (a, b) == (0, 0):                                # under half a cell across: one cell
+        a, b = (0, 1) if abs(cos_a) >= abs(sin_a) else (1, 0)
+    if a * d - b * c == 0:                              # rounding made the rows parallel
+        g = int(np.gcd(a, b))
+        c, d = b // g, -a // g
+    det = abs(a * d - b * c)
+    # The lattice of tile translations, (a, c) and (b, d), has the basis (det / g, 0) and (e, g).
+    g = int(np.gcd(c, d))
+    _, k, m = _extended_gcd(c, d)
+    e, period = k * a + m * b, det // g
+
+    x, y = np.meshgrid(np.arange(width) / width, np.arange(height) / height)
+    u, v = a * x + b * y, c * x + d * y
+    u0, v0 = np.floor(u).astype(np.int64), np.floor(v).astype(np.int64)
+    uf, vf = u - u0, v - v0
+
+    def corner(i: NDArray[np.int64], j: NDArray[np.int64]) -> NDArray[np.int32]:
+        q = np.floor_divide(j, g)
+        return perm[(perm[np.mod(i - q * e, period) & 255] + (j - q * g)) & 255]
+
+    fu, fv = _fade(uf), _fade(vf)
+    low = _lerp(_grad2d(corner(u0, v0), uf, vf), _grad2d(corner(u0 + 1, v0), uf - 1, vf), fu)
+    high = _lerp(_grad2d(corner(u0, v0 + 1), uf, vf - 1), _grad2d(corner(u0 + 1, v0 + 1), uf - 1, vf - 1), fu)
+    return _lerp(low, high, fv)
+
+
+def _extended_gcd(a: int, b: int) -> tuple[int, int, int]:
+    """(g, k, m) with k * a + m * b == g == gcd(a, b) > 0 (b may be 0, not both)."""
+    if b == 0:
+        return (abs(a), 1 if a > 0 else -1, 0)
+    g, k, m = _extended_gcd(b, a % b)
+    return (g, m, k - (a // b) * m)
+
+
 def fractal_noise(
     width: int,
     height: int,
