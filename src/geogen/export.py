@@ -551,6 +551,16 @@ class Glb:
         body = struct.pack("<II", len(payload), json_type) + payload + rest
         return struct.pack("<III", magic, version, 12 + len(body)) + body
 
+    def write_gltf(self, path: Path) -> None:
+        """The same content as ``<name>.gltf`` (JSON) beside ``<name>.bin`` (the buffer; embedded
+        images stay in it as buffer views)."""
+        self.to_bytes()                                  # pads the buffer and updates its byteLength
+        gltf = dict(self.gltf)
+        if self.data:
+            gltf["buffers"] = [{**gltf["buffers"][0], "uri": path.with_suffix(".bin").name}]
+            path.with_suffix(".bin").write_bytes(bytes(self.data))
+        path.write_text(json.dumps(gltf, separators=(",", ":")))
+
 
 def read_gltf(glb: bytes) -> dict:
     """The glTF JSON of a GLB file's bytes."""
@@ -881,7 +891,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     """Export ``root`` to ``path``; the format is chosen by the file extension.
 
     glTF/GLB exports also get a manifest (see ``write_manifest``); ``player``
-    overrides the project's default player spec in it. ``lods`` (GLB only),
+    overrides the project's default player spec in it. ``lods`` (GLB and glTF),
     e.g. ``[0.5, 0.25]``, adds decimated levels per mesh as MSFT_lod.
     ``manifest=False`` skips the manifest (chunk files are indexed by
     ``chunks.export_chunks`` instead). GLBs also carry a glTF animation per
@@ -914,7 +924,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
 
             attach_icons(root, compiled.items)   # the items' bodies, for a runtime's inventory to draw
     # OBJ has no node extras or hierarchy, so collider meshes would just be clutter.
-    scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix == ".glb" else None)
+    scene = to_trimesh_scene(root, colliders=suffix != ".obj", lods=lods if suffix != ".obj" else None)
     # What the passes below need, taken off the scene first: trimesh writes scene.metadata into the
     # file's scene extras (megabytes of id()-keyed tables nothing reads, and different every run).
     meta = {key: scene.metadata.pop(key) for key in list(scene.metadata) if key.startswith("geogen_")}
@@ -922,9 +932,7 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         # OBJ has no hierarchy: bake world transforms. trimesh writes the
         # .mtl and texture images alongside the .obj.
         scene.export(str(path), file_type="obj", include_normals=True, include_texture=True)
-    elif suffix == ".glb":
-        # Write-then-rename so a runtime watching the file never reads half a GLB.
-        tmp = path.with_name(path.name + ".tmp")
+    else:
         glb = Glb(scene.export(file_type="glb"))
         add_punctual_lights(glb)
         add_lod_extension(glb)
@@ -934,20 +942,19 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
         names = meta["geogen_names"]
         add_animations(glb, (interaction_animations(root, names) if animations else []) + clip_animations(root, names))
         rename_nodes(glb, meta["geogen_joint_names"])
-        if textures_dir is not None:
-            import os
+        if suffix == ".gltf":
+            glb.write_gltf(path)                         # the GLB's content, as JSON beside a .bin
+        else:
+            if textures_dir is not None:
+                import os
 
-            prefix = Path(os.path.relpath(textures_dir, path.parent)).as_posix() + "/"
-            externalize_images(glb, textures_dir, prefix)
-        tmp.write_bytes(glb.to_bytes())
-        tmp.replace(path)
+                prefix = Path(os.path.relpath(textures_dir, path.parent)).as_posix() + "/"
+                externalize_images(glb, textures_dir, prefix)
+            # Write-then-rename so a runtime watching the file never reads half a GLB.
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_bytes(glb.to_bytes())
+            tmp.replace(path)
         if manifest:
-            refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
-            write_manifest(path, player, root, compiled)
-    else:
-        scene.export(str(path), file_type=suffix[1:])
-        if manifest:
-            names = meta["geogen_names"]
             refs.write_index(root, package, manifest_path(path), lambda n: names[id(n)])
             write_manifest(path, player, root, compiled)
     return path

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import trimesh
 
-from geogen.export import export_scene, manifest_path
+from geogen.export import export_scene, manifest_path, read_gltf
 from geogen.player import PlayerSpec, load_player_spec
 from geogen.render import scene_bounds
 
@@ -215,3 +215,19 @@ def test_switches_name_their_own_scenes_lights(built_scene, scene_export):
     assert set(wired) <= set(manifest["state"]["variables"])
     nodes = _gltf_json(scene_export("cottage") / "cottage.glb")["nodes"]
     assert not any("switch" in n.get("extras", {}).get("geogen", {}) for n in nodes)      # build-only now
+
+
+def test_gltf_export_has_what_the_glb_has(built_scene, tmp_path):
+    """.gltf is the GLB's content as JSON beside a .bin: the same nodes, lights, animations and
+    extras, not trimesh's plain export."""
+    root = built_scene("hotel_room_auto")
+    glb = read_gltf(export_scene(root, tmp_path / "a" / "room.glb").read_bytes())
+    path = export_scene(root, tmp_path / "b" / "room.gltf")
+    gltf = json.loads(path.read_text())
+    assert gltf["buffers"][0]["uri"] == "room.bin"
+    assert (tmp_path / "b" / "room.bin").stat().st_size == gltf["buffers"][0]["byteLength"]
+    for key in ("nodes", "meshes", "accessors", "extensions", "animations", "extensionsUsed"):
+        assert gltf.get(key) == glb.get(key), key
+    assert "KHR_lights_punctual" in gltf["extensionsUsed"] and gltf["animations"]
+    assert (tmp_path / "b" / "room.manifest.json").exists()
+    assert len(trimesh.load(path).geometry) > 0                 # a reader resolves the .bin
