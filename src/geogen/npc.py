@@ -671,8 +671,8 @@ def build_npc(definition: dict[str, Any], loader, assets_dir: Path, seed: int | 
     size = np.asarray(body.size, dtype=np.float64)
     npc["height"] = round(float(size[1]), 4)
     npc["radius"] = round(float(min(size[0], size[2]) / 2), 4)
-    # Only the actions this NPC can run: its activities, anything an
-    # affordance may name, and 'pass' for doors.
+    # The whole action table (about 3 KB as JSON): besides its own activities an NPC runs whatever
+    # action an affordance near it names, and the scene's affordances aren't known here.
     npc["actions"] = load_actions()
     node = SceneNode(name=definition["definition"], tags=["npc"], meta={"type": "npc", "npc": npc})
     node.add_child(body)
