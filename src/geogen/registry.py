@@ -69,6 +69,9 @@ class SceneRegistry:
                     raise roots.RootsError(
                         f"scene name '{name}' is both {first} and {yaml_path}: rename the project's")
                 return False                    # the project's file replaces this one (an override)
+            here = self._files.get(name)
+            if here is not None and here.is_relative_to(assets_dir):
+                raise roots.RootsError(f"scene name '{name}' is both {here} and {yaml_path}: rename one")
             return name not in self._factories
 
         # Discover assets and composed scenes in root assets dir

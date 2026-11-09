@@ -4,7 +4,6 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 
 | Scene | What it is | Runtime |
 | --- | --- | --- |
-| [dining_set](#dining_set) | Dining set: table with 4 chairs. | test |
 | [hotel](#hotel) | The hotel (hotel_building.yaml) with its staff: a receptionist works the front desk and takes breaks on the lobby seating. | test |
 | [vending_machine](#vending_machine) | A vending machine to play with. |  |
 | [archetype_gallery](#archetype_gallery) | Character archetypes (assets/characters/archetypes/): one row per archetype, eight seeded people each (a path scatter draws a seed per copy). |  |
@@ -15,6 +14,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [crop_test](#crop_test) | Review scene for the crop generator: wheat, carrots and pumpkins (rows, back to front) at growth 0.15, 0.5, 0.8 and 1 (left to right). | test |
 | [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic and a few pedestrians. | test |
 | [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
+| [dining_set](#dining_set) | Dining set: table with 4 chairs. | test |
 | [farm](#farm) | A small farm: a fenced field of eight plots, a seed machine and a produce counter on the yard, and a shed to sleep in. | showcase |
 | [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two waves of raiders (6 hp) down a lane past a turret. | test |
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
@@ -49,15 +49,6 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
-
-## dining_set
-
-`scene: dining_set.yaml` · [source](../../assets/dining_set.yaml)
-
-Dining set: table with 4 chairs
-Chairs are attached at the table's seat attachment points
-
-**Places**: `table: {asset: table.yaml}`; `chairs: {asset: chair.yaml}`
 
 ## hotel
 
@@ -234,6 +225,16 @@ runtime/godot/README.md.
 **Spawns**: start
 
 **Features**: city
+
+## dining_set
+
+`scene: scenes/dining_set.yaml` · [source](../../assets/scenes/dining_set.yaml)
+
+Dining set: table with 4 chairs
+Chairs are attached at the table's seat attachment points
+This scene can be placed into larger scenes (rooms, houses)
+
+**Places**: `table: {asset: table.yaml}`; `chairs: {asset: chair.yaml}`
 
 ## farm
 

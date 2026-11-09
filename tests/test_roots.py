@@ -141,6 +141,13 @@ def test_a_project_scene_cannot_take_a_core_scenes_name(project):
         SceneRegistry().discover()
 
 
+def test_one_root_cannot_hold_two_scenes_of_one_name(project):
+    (project / "assets" / "vault.yaml").write_text(SCENE)                  # beside assets/scenes/vault.yaml
+    roots.use(project)
+    with pytest.raises(roots.RootsError, match="scene name 'vault' is both"):
+        SceneRegistry().discover()
+
+
 @pytest.mark.parametrize("config, message", [
     ("kind: quest\n", "kind: project"),
     ("kind: project\nasets: stuff\n", "unknown key"),

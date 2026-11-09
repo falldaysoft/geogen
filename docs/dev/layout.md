@@ -397,7 +397,7 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 
 - **`src/geogen/scenes/*.py`**: Python-coded scenes, used when generation needs custom logic that YAML can't express. There are two, `nature.py` and `skin_test.py`, registered in `main._build_registry()`.
 
-- **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/dining_set.yaml` is a scene, not an asset.)
+- **`assets/*.yaml`** vs **`assets/scenes/*.yaml`**: assets in the root directory can be either primitives-based assets (have `parts:`) or composed scenes (have `place:`). Files under `assets/scenes/` are always composed scenes. (Example: `assets/hotel.yaml` is a scene, not an asset.) A name may be used once per root: the registry refuses two files that would both be scene `<name>`.
 
 ## Vocabulary catalogue (`--describe`)
 
