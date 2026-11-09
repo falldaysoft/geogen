@@ -65,3 +65,21 @@ place:
 """)
     street = composer.compose(tmp_path / "street.yaml")
     assert np.ptp(street.find("walls").mesh.vertices[:, 0]) == pytest.approx(10)
+
+
+def test_placement_keys_reach_every_copy_at_several_attachment_points():
+    """`attach_to` with a list of `at:` points makes a copy per point; the placement's `tags`
+    (and pickup, readable, the NPC keys) belong to each, not the first alone."""
+    scene = SceneComposer().compose_string("""
+name: set
+place:
+  table:
+    asset: table.yaml
+  chairs:
+    asset: chair.yaml
+    attach_to: table
+    at: [seat_front, seat_back, seat_left, seat_right]
+    tags: [seat.dining]
+""")
+    chairs = [n for n in scene.children if n.name.startswith("chairs_")]
+    assert len(chairs) == 4 and all("seat.dining" in c.tags for c in chairs)

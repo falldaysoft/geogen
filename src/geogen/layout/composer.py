@@ -69,6 +69,7 @@ class _SceneBuild:
     fleets: dict[str, Any]
     refs: Any                       # refs.SceneRefs
     loaded: dict[str, SceneNode] = field(default_factory=dict)   # placement name -> its node
+    copies: dict[str, list[SceneNode]] = field(default_factory=dict)   # attach_to with several at: points
 
 
 class SceneComposer:
@@ -370,6 +371,7 @@ class SceneComposer:
                 node.transform = attach_transform
                 root.add_child(node)
                 b.loaded.setdefault(obj_name, node)
+                b.copies.setdefault(obj_name, []).append(node)
 
     def _build_city(self, b: _SceneBuild) -> None:
         if "city" in b.data:
@@ -429,38 +431,38 @@ class SceneComposer:
         home, seed and quests, and extra tags. Then the scene root's own tags."""
         source = b.source
         for obj_name, obj_def in b.placements.items():
-            node = b.loaded.get(obj_name)
-            if node is None or not isinstance(obj_def, dict):
+            if obj_name not in b.loaded or not isinstance(obj_def, dict):
                 continue
             where = f"{source}: place.{obj_name}"
-            if obj_def.get("pickup"):
-                from ..inventory import parse_pickup
+            for node in b.copies.get(obj_name) or [b.loaded[obj_name]]:
+                if obj_def.get("pickup"):
+                    from ..inventory import parse_pickup
 
-                parse_pickup(obj_def["pickup"], node, where, self._assets_dir, source)
-            if obj_def.get("readable"):
-                from ..dialogue import parse_readable
+                    parse_pickup(obj_def["pickup"], node, where, self._assets_dir, source)
+                if obj_def.get("readable"):
+                    from ..dialogue import parse_readable
 
-                parse_readable(obj_def["readable"], node, where)
-            if "npc" in obj_def:
-                from ..npc import resolve_home
+                    parse_readable(obj_def["readable"], node, where)
+                if "npc" in obj_def:
+                    from ..npc import resolve_home
 
-                resolve_home(node, obj_def.get("home"), b.refs, ["place", obj_name, "home"])
-                from ..npc import resolve_visits
+                    resolve_home(node, obj_def.get("home"), b.refs, ["place", obj_name, "home"])
+                    from ..npc import resolve_visits
 
-                resolve_visits(node, obj_def.get("visits"), b.refs, ["place", obj_name, "visits"])
-                if any(k in obj_def for k in ("owns", "prefers", "work")):
-                    from ..npc import resolve_ownership
+                    resolve_visits(node, obj_def.get("visits"), b.refs, ["place", obj_name, "visits"])
+                    if any(k in obj_def for k in ("owns", "prefers", "work")):
+                        from ..npc import resolve_ownership
 
-                    resolve_ownership(node, obj_def, b.refs, ["place", obj_name])
-                if "seed" in obj_def:
-                    node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
-                if obj_def.get("present") is not None:   # there only while it holds (a binding: quests.collect)
-                    node.meta["npc_present"] = str(obj_def["present"])
-                from ..npc import declare_quests   # it holds from the start, or in its routine (quests.collect)
+                        resolve_ownership(node, obj_def, b.refs, ["place", obj_name])
+                    if "seed" in obj_def:
+                        node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
+                    if obj_def.get("present") is not None:   # there only while it holds (a binding: quests.collect)
+                        node.meta["npc_present"] = str(obj_def["present"])
+                    from ..npc import declare_quests   # it holds from the start, or in its routine (quests.collect)
 
-                declare_quests(node, obj_def.get("quests") or [], source, self._assets_dir)
-            if obj_def.get("tags"):           # extra semantic tags, e.g. tags: [door.interior]
-                node.tags = [*node.tags, *[t for t in obj_def["tags"] if t not in node.tags]]
+                    declare_quests(node, obj_def.get("quests") or [], source, self._assets_dir)
+                if obj_def.get("tags"):           # extra semantic tags, e.g. tags: [door.interior]
+                    node.tags = [*node.tags, *[t for t in obj_def["tags"] if t not in node.tags]]
         b.root.tags = list(b.data.get("tags", []))
 
     def _build_tracks(self, b: _SceneBuild) -> None:
