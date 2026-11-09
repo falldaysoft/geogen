@@ -18,6 +18,8 @@ from geogen.runtime_client import step
 EXAMPLE = Path(__file__).parent.parent / "examples" / "amusement_park"
 SCENE = "amusement_park"
 
+pytestmark = pytest.mark.xdist_group("test_amusement_park")      # one export for the module
+
 
 @pytest.fixture(scope="module")
 def built():
@@ -76,7 +78,8 @@ def test_every_ride_is_a_mechanism_with_a_drive(built):
 # ---- Godot --------------------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
-def park(godot_runtime, tmp_path_factory):
+def park_export(tmp_path_factory):
+    """A fresh export of the park, shared by the module's Godot runs (the navmesh bake too)."""
     from geogen.export import export_scene
 
     out = tmp_path_factory.mktemp("park")
@@ -87,7 +90,12 @@ def park(godot_runtime, tmp_path_factory):
         export_scene(registry[SCENE](), out / f"{SCENE}.glb")
     finally:
         roots.use()
-    client = godot_runtime(SCENE, out)
+    return out
+
+
+@pytest.fixture(scope="module")
+def park(godot_runtime, park_export):
+    client = godot_runtime(SCENE, park_export)
     client.call("wait_ready", timeout=90)
     return client
 
@@ -270,11 +278,12 @@ def test_a_stall_sells_what_its_kind_says_and_eating_leaves_a_wrapper_for_a_bin(
     assert m.use(key, npc)                                   # hungry again: the stall serves
 
 
-def test_in_godot_the_player_buys_eats_and_bins_with_the_same_blocks(godot_runtime):
+def test_in_godot_the_player_buys_eats_and_bins_with_the_same_blocks(godot_runtime, park_export):
     """The player's half of the chain: E on a stall (its `serve` interaction) gives the item, a
     second press is refused, F (`inventory.use`) eats it and leaves the wrapper, and a bin takes
     the wrapper."""
-    rt = godot_runtime("amusement_park", EXAMPLE / "generated")
+    rt = godot_runtime("amusement_park", park_export)
+    rt.call("wait_ready", timeout=90)
     stall = next(a for a in rt.call("interactions.list") if a["interaction"] == "serve")["asset"]
     rt.call("interactions.use", asset=stall, interaction="serve", actor="player", wait=True)
     rt.call("time.advance", seconds=2.5, scale=1)
@@ -294,12 +303,12 @@ def test_in_godot_the_player_buys_eats_and_bins_with_the_same_blocks(godot_runti
 
 
 @pytest.mark.exhaustive
-def test_in_godot_fairgoers_buy_eat_and_bin(godot_script):
+def test_in_godot_fairgoers_buy_eat_and_bin(godot_script, park_export):
     """A crowd in the runtime: within a few minutes some visitors have bought (the stall's `buy`
     affordance), eaten (`use_item`, the `eat` clip) and thrown the wrapper in a bin, with none of
     the new steps failing."""
     run = godot_script([step("time.simulate", seconds=240)],
-                       "--scene=amusement_park", f"--generated={EXAMPLE / 'generated'}",
+                       "--scene=amusement_park", f"--generated={park_export}",
                        start={"timescale": 8}, engine_args=("--fixed-fps", "60"))
     visitors = [n for n in run["time.simulate"]["npcs"] if n["npc"].startswith("visitors")]
     bought = sum(v for n in visitors for k, v in n["used"].items() if k.startswith("stalls_"))
