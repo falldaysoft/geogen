@@ -1029,7 +1029,7 @@ func _nearby_point() -> Vector3:
             continue
         if _someone_at(p):
             continue
-        var path := NavigationServer3D.map_get_path(map, global_position, p, true)
+        var path := GeogenWalker.find_path(map, global_position, p)
         var walked := 0.0
         for i in range(1, path.size()):
             walked += path[i - 1].distance_to(path[i])
