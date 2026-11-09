@@ -120,7 +120,7 @@ const COMMANDS := {
         + "frame_max_ms, draw_calls, primitives, objects}, traffic, trains}",
     "time.scale": "{scale} world speed",
     "time.clock": "{time? 'HH:MM', day?, day_length?} get or set the world clock",
-    "time.skip": "{until? 'HH:MM' | minutes? | hours? | days?} move the world clock forward (until: the next time it "
+    "time.skip": "{until? | minutes? | hours? | days?} move the world clock forward (until 'HH:MM': the next time it "
         + "shows that); the rules' clock-time waits that come due on the way run in order",
     "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
     "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
@@ -728,7 +728,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 if target <= start + 0.001:
                     target += 1440.0
             if target <= start:
-                return {"error": "time.skip needs until, minutes, hours or days ahead"}
+                return _err("time.skip needs until, minutes, hours or days ahead")
             clock.day = int(target / 1440.0)
             clock.hours = fmod(target, 1440.0) / 60.0
             clock.apply()
