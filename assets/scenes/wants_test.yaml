@@ -1,0 +1,47 @@
+# A resident in one room with things to carry: the test scene for wants (geogen.97).
+#
+# A can stands on the table and a pumpkin on the floor. Knock something to the
+# floor and the resident picks it up and puts it on whatever will hold it.
+
+name: wants_test
+tags: [test.npc]
+
+spawns:
+  start: { position: [1.4, 0.05, 1.4], facing: west }
+
+place:
+  room:
+    asset: room.yaml
+
+  table:
+    asset: table.yaml
+    on: room.room.floor
+    at: { u: { abs: 1.0 }, v: { abs: 3.3 } }
+
+  bookshelf:
+    asset: bookshelf.yaml
+    on: room.room.floor
+    at: { u: { abs: 3.3 }, v: { abs: 0.3 } }
+
+  chair:
+    asset: chair.yaml
+    on: room.room.floor
+    at: { u: { abs: 1.0 }, v: { abs: 2.45 } }
+    facing: north
+
+  can:
+    asset: soda_can.yaml
+    on: table.top
+    at: { u: 0.3, v: 0.5 }
+
+  pumpkin:
+    asset: pumpkin.yaml
+    on: room.room.floor
+    at: { u: { abs: 2.8 }, v: { abs: 2.4 } }
+
+  resident:
+    npc: npcs/resident.yaml
+    on: room.room.floor
+    at: { u: { abs: 2.4 }, v: { abs: 1.6 } }
+    home: room.room.floor
+    seed: 1

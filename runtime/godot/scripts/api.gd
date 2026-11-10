@@ -108,6 +108,10 @@ const COMMANDS := {
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
     "npcs.options": "{npc} the NPC's scored options now",
     "npcs.force": "{npc, option} make its next decision take that option",
+    "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: "
+        + "[{position, approach, uid, tags, height, score}]; and what the prop rests on",
+    "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a "
+        + "physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
     "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
     "npcs.pause": "{npc?} freeze one NPC (or all)",
     "npcs.resume": "{npc?}",
@@ -665,10 +669,36 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return world.saves.save()
         "npcs.list":
             return world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return n.report())
-        "npcs.options", "npcs.force", "npcs.greet":
+        "npcs.options", "npcs.force", "npcs.greet", "npcs.do", "npcs.places":
             var npc := _npc(str(args.get("npc", "")))
             if npc == null:
                 return _err("no NPC named '%s'" % args.get("npc", ""))
+            if cmd == "npcs.places":
+                var which := ""
+                for b in world.props.report():
+                    if b["uid"].match(str(args.get("prop", ""))) or b["node"] == str(args.get("prop", "")):
+                        which = b["uid"]
+                if which == "":
+                    return _err("no physics prop '%s'" % args.get("prop", ""))
+                if not (npc.definition.get("wants", {}) as Dictionary).has(str(args.get("want", ""))):
+                    return _err("the NPC has no want '%s'" % args.get("want", ""))
+                return {"resting_on": GeogenPlaceSearch.resting_on(world, which).get("kind", "none"),
+                    "places": GeogenWants.places(npc, str(args["want"]), which).map(func(p): return {
+                        "position": _v(p["position"]), "approach": _v(p["approach"]), "uid": p["uid"], "tags": p["tags"],
+                        "height": snappedf(p["height"], 0.001), "score": snappedf(p["score"], 0.001)})}
+            if cmd == "npcs.do":
+                var extra := {}
+                if args.has("subject"):
+                    for b in world.props.report():
+                        if b["uid"].match(str(args["subject"])) or b["node"] == str(args["subject"]):
+                            extra["subject"] = b["uid"]
+                    if not extra.has("subject"):
+                        return _err("no physics prop '%s'" % args["subject"])
+                if args.has("place"):
+                    var spot: Vector3 = _vec(args["place"])
+                    extra["place"] = {"position": spot, "approach": npc.stand_for(spot)}
+                var why := npc.do_action(str(args.get("action", "")), extra)
+                return _err(why) if why != "" else {"npc": String(npc.name), "action": args.get("action")}
             if cmd == "npcs.options":
                 return npc.options().map(func(o): return {"id": o["id"], "action": o["action"],
                     "score": snappedf(o["score"], 0.001), "at": _v(o["at"])})

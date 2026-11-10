@@ -590,6 +590,30 @@
                   "activities": { "type": "object", "additionalProperties": { "type": "number" } },
                   "preferences": { "type": "object", "additionalProperties": { "type": "number" } } } }
             },
+            "wants": {
+              "description": "Conditions on the world it puts right with whatever is there (geogen/npc.py WANT_KEYS), by name. 'of' is what a want is about (prop: a physics prop with carry); 'when' says which are a problem (resting_on: floor, anything actors walk on); 'action' runs with that subject and a place the runtime finds among the spots that hold it within reach, scored by 'place' (its tags' 'prefer' multipliers, less 'distance' per metre walked, less 'off_height' per metre from the 'height' above its feet it likes, less 'tried' for a spot already used for the subject, plus 'noise' x random; 'radius' m round it where it has no home). Utility: 'weight' plus what 'advertises' adds for its needs.",
+              "type": "object",
+              "additionalProperties": { "type": "object", "additionalProperties": false,
+                "required": ["of", "when", "action", "place", "weight", "advertises"],
+                "properties": {
+                  "of": { "enum": ["prop"] },
+                  "when": { "type": "object", "additionalProperties": false, "properties": { "resting_on": { "enum": ["floor"] } } },
+                  "action": { "type": "string" },
+                  "weight": { "type": "number", "minimum": 0 },
+                  "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
+                  "place": { "type": "object", "additionalProperties": false, "properties": {
+                    "prefer": { "type": "object", "additionalProperties": { "type": "number" } },
+                    "height": { "type": "number" }, "distance": { "type": "number" }, "off_height": { "type": "number" },
+                    "noise": { "type": "number" }, "tried": { "type": "number" }, "radius": { "type": "number" } } } } } },
+            "reach": {
+              "description": "What the body's hands get to: no further than 'distance' m on the ground from where it stands, between the 'heights' [lo, hi] m above its feet; 'stand' is how far short of a prop it stops to pick it up.",
+              "type": "object", "additionalProperties": false,
+              "properties": { "distance": { "type": "number" }, "stand": { "type": "number" },
+                "heights": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } } },
+            "carry": {
+              "description": "The physics props it can carry: at most 'mass' kg and 'size' m on the longest side.",
+              "type": "object", "additionalProperties": false,
+              "properties": { "mass": { "type": "number" }, "size": { "type": "number" } } },
             "attention": {
               "description": "How it notices the player (geogen/npc.py ATTENTION_DEFAULTS); a part left out is off. look: head look-at within 'range' m and a 'cone' of degrees, turning up to 'yaw' / 'pitch' degrees at 'speed'. greet: on E it raises 'signal' (not twice within 'debounce' s) and, standing, runs 'action' (waving at most every 'cooldown' s), looking at the greeter 'acknowledge' s. yield: steps 'step' m aside ('action') from a player walking at it within 'distance' m.",
               "type": "object", "additionalProperties": false,
@@ -831,9 +855,12 @@
       "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter) and 'if' (a flag it needs). go_to 'nearby' is a random navmesh point a few metres from where the NPC stands.",
       "type": "object", "additionalProperties": false, "minProperties": 1,
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
-                { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] }],
+                { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] },
+                { "required": ["pick_up"] }, { "required": ["put_down"] }],
       "properties": {
-        "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group"] },
+        "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group", "subject", "place"] },
+        "pick_up": { "description": "Take the action's subject (a physics prop with carry) in hand: the NPC must stand within its reach, and the prop be within its carry limits.", "const": "subject" },
+        "put_down": { "description": "Let the prop in hand go just above the action's place; where it settles is the physics' business.", "const": "place" },
         "face": { "enum": ["anchor", "portal", "player"] },
         "pose": { "type": "string" },
         "wait": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },

@@ -7,6 +7,11 @@ extends Node
 ## go. A live prop that falls below the world is stowed (or, with no spawn, put back where
 ## it started). The player picks up and carries props with `carry` (E; E again drops).
 ##
+## Any other actor (an NPC) holds a prop with `take` / `release`: taken, the body is frozen,
+## out of collision and set every physics frame where the actor's `point` says (its hand);
+## released, it is a free body again from there, and where it settles is up to the physics.
+## The player's `pick` takes a prop out of an actor's hand.
+##
 ## Owned by WorldLoader (`world.props`); main.gd asks it what is aimed at and drives carrying.
 ##
 ## Clones (`add_clone`) are spawned items in physics mode (flows.gd): bodies made the same
@@ -36,6 +41,8 @@ var _hold_point := Callable()    ## () -> Vector3: where the held prop goes
 var _snagged := 0.0              ## s the held prop has been too far from the hold point
 var _caught := 0.0               ## s it has been short of the hold point without moving
 var _best_gap := INF             ## the nearest it has got to the hold point since it was last close
+## Props other actors hold: uid -> {holder: Node3D, point: Callable () -> Transform3D}
+var taken := {}
 
 
 func _init(owner_world: WorldLoader) -> void:
@@ -103,6 +110,7 @@ func remove_clone(uid: String) -> void:
         return
     if held == uid:
         drop()
+    release(uid)
     _by_body.erase(entry["body"])
     props.erase(uid)
     if is_instance_valid(entry["body"]):
@@ -159,6 +167,7 @@ func forget(root: Node) -> void:
         if not is_instance_valid(body) or root.is_ancestor_of(body):
             if held == uid:
                 held = ""
+            taken.erase(uid)
             _by_body.erase(body)
             props.erase(uid)
 
@@ -167,6 +176,7 @@ func forget(root: Node) -> void:
 func clear() -> void:
     props.clear()
     _by_body.clear()
+    taken.clear()
     held = ""
     _holder = null
 
@@ -174,6 +184,65 @@ func clear() -> void:
 ## The uid of the prop ``body`` is (a hit collider), or "".
 func prop_of(body: Object) -> String:
     return str(_by_body.get(body, ""))
+
+
+## Whether an actor other than the player can take prop ``uid`` now: it is one to carry, live,
+## and in nobody's hands.
+func can_take(uid: String) -> bool:
+    var entry: Dictionary = props.get(uid, {})
+    return not entry.is_empty() and bool(entry["data"].get("carry", false)) and _live(entry) \
+        and held != uid and not taken.has(uid)
+
+
+## ``holder`` takes prop ``uid``; ``point`` gives the transform it is held at (its hand).
+func take(uid: String, holder: Node3D, point: Callable) -> bool:
+    if not can_take(uid):
+        return false
+    var body: RigidBody3D = props[uid]["body"]
+    taken[uid] = {"holder": holder, "point": point}
+    body.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+    body.freeze = true
+    (body.get_child(0) as CollisionShape3D).set_deferred("disabled", true)
+    return true
+
+
+## The actor holding ``uid`` lets go: it is a free body again where it is, or at ``at``.
+func release(uid: String, at = null) -> void:
+    if not taken.has(uid):
+        return
+    taken.erase(uid)
+    var entry: Dictionary = props.get(uid, {})
+    if entry.is_empty() or not is_instance_valid(entry["body"]):
+        return
+    var body: RigidBody3D = entry["body"]
+    if at is Transform3D:
+        _place(entry, at)
+    body.linear_velocity = Vector3.ZERO
+    body.angular_velocity = Vector3.ZERO
+    if _live(entry):
+        body.freeze = false
+        (body.get_child(0) as CollisionShape3D).set_deferred("disabled", false)
+
+
+## The prop ``holder`` has taken ("" for none).
+func taken_by(holder: Node3D) -> String:
+    for uid in taken:
+        if taken[uid]["holder"] == holder:
+            return uid
+    return ""
+
+
+## Who has prop ``uid``: the player's body, the actor that took it, or null.
+func holder_of(uid: String) -> Node3D:
+    if uid != "" and held == uid:
+        return _holder
+    return taken[uid]["holder"] if taken.has(uid) else null
+
+
+## The prop's box (extras `size` and `center`, in its own frame): {size, center}.
+func box_of(uid: String) -> Dictionary:
+    var data: Dictionary = props.get(uid, {}).get("data", {})
+    return {"size": _vec(data.get("size", [0.2, 0.2, 0.2])), "center": _vec(data.get("center", [0, 0, 0]))}
 
 
 func can_carry(uid: String) -> bool:
@@ -185,6 +254,7 @@ func can_carry(uid: String) -> bool:
 func pick(uid: String, holder: PhysicsBody3D, point: Callable) -> bool:
     if not can_carry(uid):
         return false
+    release(uid)                          # out of an actor's hand: it finds its hands empty
     var body: RigidBody3D = props[uid]["body"]
     held = uid
     _snagged = 0.0
@@ -220,6 +290,13 @@ func drop() -> void:
 func _physics_process(delta: float) -> void:
     if held != "":
         _carry(delta)
+    for uid in taken.keys():
+        var grip: Dictionary = taken[uid]
+        var entry: Dictionary = props.get(uid, {})
+        if entry.is_empty() or not is_instance_valid(grip["holder"]) or not (grip["point"] as Callable).is_valid():
+            release(uid)
+            continue
+        (entry["body"] as RigidBody3D).global_transform = grip["point"].call()
     var floor_y := _kill_height()
     for uid in props:
         var entry: Dictionary = props[uid]
@@ -296,6 +373,7 @@ func _freeze(entry: Dictionary) -> void:
     var body: RigidBody3D = entry["body"]
     if held == entry["uid"]:
         drop()
+    taken.erase(entry["uid"])
     body.freeze = true
     (body.get_child(0) as CollisionShape3D).set_deferred("disabled", true)
     _place(entry, entry["home"])
@@ -322,7 +400,7 @@ func _kill_height() -> float:
 
 
 ## Where the live props are, for a save: {uid: {position, rotation (Euler, degrees), velocity}}.
-## Carried props are saved where they are, and load dropped.
+## Carried props (the player's, or in an actor's hand) are saved where they are, and load dropped.
 func save() -> Dictionary:
     var out := {}
     for uid in props:
@@ -340,6 +418,8 @@ func save() -> Dictionary:
 func restore(bodies: Dictionary) -> void:
     if held != "":
         drop()
+    for uid in taken.keys():
+        release(uid)
     for uid in bodies:
         var entry: Dictionary = props.get(uid, {})
         var saved = bodies[uid]
@@ -367,10 +447,18 @@ func report() -> Array:
         out.append({"uid": uid, "node": String(entry["node"].name), "position": [snappedf(p.x, 0.001),
             snappedf(p.y, 0.001), snappedf(p.z, 0.001)], "center": [snappedf(c.x, 0.001), snappedf(c.y, 0.001),
             snappedf(c.z, 0.001)], "yaw_deg": snappedf(rad_to_deg(body.global_rotation.y), 0.1),
-            "live": _live(entry), "held": held == uid, "sleeping": body.sleeping,
+            "live": _live(entry), "held": held == uid,
+            "holder": _holder_id(taken[uid]["holder"]) if taken.has(uid) else ("player" if held == uid else ""),
+            "sleeping": body.sleeping,
             "speed": snappedf(body.linear_velocity.length(), 0.01)})
     return out
 
 
 static func _vec(a) -> Vector3:
     return Vector3(float(a[0]), float(a[1]), float(a[2]))
+
+
+static func _holder_id(holder: Node3D) -> String:
+    if not is_instance_valid(holder):
+        return ""
+    return WorldLoader.npc_uid(holder) if holder is GeogenNpc else WorldLoader.uid_of(holder)

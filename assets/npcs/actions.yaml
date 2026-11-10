@@ -34,6 +34,11 @@
 #                                rules' use_item event with the NPC as the actor; what happens is
 #                                a rule): an item id, or the first carried item with that tag;
 #                                carrying none, the action fails
+#   pick_up: subject             take the action's subject (a physics prop with `carry`) in hand:
+#                                the NPC stands within its `reach`, and the prop is within its `carry`
+#   put_down: place              let the prop in hand go just above the action's place; where it
+#                                settles is up to the physics
+#   (go_to also takes `subject`: beside the prop, and `place`: where to stand to put it down)
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
 #
 # `approach` is where the actor stands to start the action, in the anchor's
@@ -196,6 +201,13 @@ actions:
       - go_to: far
       - use: closed
         if: closes_doors
+
+  put_away:                      # carry the subject to the place (a want's, or the control API's npcs.do)
+    steps:
+      - go_to: subject
+      - pick_up: subject
+      - go_to: place
+      - put_down: place
 
   wander:
     duration: [2, 5]

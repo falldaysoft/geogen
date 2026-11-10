@@ -76,6 +76,9 @@ const GROUP_REJOIN_GAP := 1.4     # m from the groupmate a rejoin walks to (near
 const GROUP_FAR := 0.35           # a member's utility of things beyond the group's radius from its leader (or where it's going)
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
 const GROUP_REFRESH := 2.0
+const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
+const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor it is baked from
+const PUT_GAP := 0.01             # m above the spot a prop is let go at
 const HELD_EVERY := 0.25          # s between looking at what the NPC carries (geogen.87.2)        # s between looking up the groupmates (chunks stream NPCs in and out)
 
 var world: WorldLoader
@@ -95,6 +98,8 @@ var trace_enabled := false
 var label: Label3D
 ## Per-NPC counters for tests: used {id: count}, decisions, failures,
 ## max_stall (s), outside (s outside home + margin), passes (doors).
+var _queued := {}                 # an action asked for by name (do_action), taken at the next decision
+var _tried := {}                  # prop uid -> the spots (Vector3) it has put it at, for its wants (npc_wants.gd)
 var stats := {"used": {}, "decisions": 0, "failures": [], "max_stall": 0.0, "outside": 0.0, "passes": 0}
 var _stuck_at = null     # where the last wedged failure happened (see _unstick)
 var _wedged := false     # the step failing now made no progress at all (_walk), not e.g. a busy stair
@@ -349,6 +354,8 @@ func options(restricted := true) -> Array[Dictionary]:
             continue    # nobody to go back to, or with them already
         result.append({"id": "self/%s" % n, "action": act["action"], "activity": act,
             "advertises": act.get("advertises", {}), "tags": [], "at": global_position})
+    if block_only.is_empty():
+        result.append_array(GeogenWants.options(self))      # what its wants are unhappy about
     var w: Dictionary = definition.get("scoring", {})
     var prefs: Dictionary = definition.get("preferences", {}).duplicate()
     var act_mult := {}
@@ -360,7 +367,7 @@ func options(restricted := true) -> Array[Dictionary]:
     var lead = _group_lead()
     var lead_at: Vector3 = _heading_for(lead) if lead != null else Vector3.ZERO
     for o in result:
-        var utility := 0.0
+        var utility := float(o.get("base", 0.0))
         for need in o["advertises"]:
             utility += (1.0 - float(needs.get(need, 1.0))) * float(o["advertises"][need])
         for tag in o["tags"]:
@@ -378,7 +385,7 @@ func options(restricted := true) -> Array[Dictionary]:
         utility *= float(act_mult.get(o["id"], 1.0)) * float(o.get("activity", {}).get("weight", 1.0))
         var distance := global_position.distance_to(o["at"])
         var recency := 0.0
-        if _recent.has(o["id"]):
+        if _recent.has(o["id"]) and not o.has("want"):     # a want is about now: what fell again is a new problem
             recency = exp(-(clock - float(_recent[o["id"]])) / maxf(float(w.get("memory", 120.0)), 1.0))
         o["score"] = utility - float(w.get("distance", 0.02)) * distance \
             - float(w.get("recency", 0.4)) * recency + float(w.get("noise", 0.05)) * rng.randf()
@@ -481,6 +488,15 @@ func _goal_context(goal: Dictionary) -> Dictionary:
 
 
 func _decide() -> void:
+    if not _queued.is_empty():
+        _option = {"id": "do/%s" % _queued["action"], "action": _queued["action"], "advertises": {}}
+        var asked := {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position}
+        asked.merge(_queued["extra"], true)
+        _queued = {}
+        stats["decisions"] += 1
+        _trace({"event": "decide", "chosen": _option["id"]})
+        _push(_option["action"], asked)
+        return
     var goal := quest_option() if _forced == "" else {}
     if not goal.is_empty():
         stats["decisions"] += 1
@@ -503,7 +519,13 @@ func _decide() -> void:
         world.npc_reserve(_option["id"], self)
     var ctx := {}
     var a: Dictionary = _option.get("affordance", {})
-    if not a.is_empty():
+    if _option.has("want"):
+        ctx = GeogenWants.begin(self, _option)
+        if ctx.is_empty():
+            _trace({"event": "decide", "chosen": _option["id"]})
+            _finish_option(false, "nowhere to put it")
+            return
+    elif not a.is_empty():
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
             "held": _hold_block(), "ride": a if a.has("follow") else {}}
@@ -543,6 +565,8 @@ func _finish_option(ok: bool, reason := "") -> void:
         _retry_at[id] = clock + float(definition.get("scoring", {}).get("retry", 30.0))
         _trace({"event": "fail", "option": id, "reason": reason})
     world.npc_release(id, self)
+    if _option.has("want"):
+        GeogenWants.finish(self, _option, ok)
     _option = {}
 
 
@@ -650,6 +674,7 @@ func _step(delta: float) -> void:
 
 
 func _fail(reason: String) -> void:
+    _let_go()
     _stack.clear()
     _stair = null
     _playing = false
@@ -739,6 +764,32 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
                 _timer = animator.play_once(clip)
             _playing = true
         return ""
+    if step.has("pick_up"):
+        var uid := str(ctx.get("subject", ""))
+        if not world.props.can_take(uid):
+            return "can't take it (gone, or in someone's hands)"
+        var limit := _carry_limit(uid)
+        if limit != "":
+            return limit
+        var at := _prop_centre(uid)
+        if not _within_reach(at):
+            return "out of reach (%.2f m away, %.2f m up)" % [NpcGeometry.flat(at - global_position).length(), at.y - global_position.y]
+        _face_point(at)
+        if _hands != null:
+            _hands.reach("", world.props.props[uid]["body"], world.props.box_of(uid)["center"], PICK_SECONDS + 0.3)
+        _timer = PICK_SECONDS
+        return ""
+    if step.has("put_down"):
+        if world.props.taken_by(self) == "":
+            return "holding nothing"
+        var place: Dictionary = ctx.get("place", {})
+        if not place.has("position"):
+            return "no place to put it"
+        if not _within_reach(place["position"]):
+            return "the place is out of reach"
+        _face_point(place["position"])
+        _timer = PICK_SECONDS
+        return ""
     if step.has("use_item"):
         var id := _carried_item(str(step["use_item"]))
         if id == "":
@@ -807,6 +858,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             if other is Node3D and not other is GeogenNpc \
                     and (other as Node3D).global_position.distance_to(global_position) < VANISH_DISTANCE:
                 return "running"          # not in front of the player
+        _let_go()
         away = true
         visible = false
         velocity = Vector3.ZERO
@@ -814,6 +866,32 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         remove_from_group(CHARACTER_GROUP)
         stats["aways"] = int(stats.get("aways", 0)) + 1
         _trace({"event": "away", "pos": _v(global_position)})
+        return "done"
+    if step.has("pick_up") or step.has("put_down"):
+        var diff := wrapf(_yaw_goal - _yaw(), -PI, PI)
+        rotation.y += clampf(diff, -TAU * delta, TAU * delta)
+        _timer -= delta
+        if _timer > 0.0:
+            return "running"
+        if step.has("pick_up"):
+            var uid := str(ctx.get("subject", ""))
+            if not world.props.take(uid, self, _prop_point.bind(uid)):
+                return "can't take it (gone, or in someone's hands)"
+            stats["picked_up"] = int(stats.get("picked_up", 0)) + 1
+            _trace({"event": "pick_up", "prop": uid, "pos": _v(global_position)})
+            return "done"
+        var held_uid: String = world.props.taken_by(self)
+        if held_uid == "":
+            return "holding nothing"          # taken out of its hand as it turned
+        var place: Dictionary = ctx["place"]
+        var basis := Basis(Vector3.UP, float(place.get("yaw", _yaw())))
+        var centre: Vector3 = world.props.box_of(held_uid)["center"]
+        # Set down with its box's underside just above the spot: it settles the last few mm.
+        var size: Vector3 = world.props.box_of(held_uid)["size"]
+        var origin: Vector3 = place["position"] + Vector3.UP * (size.y / 2.0 + PUT_GAP) - basis * centre
+        world.props.release(held_uid, Transform3D(basis, origin))
+        stats["put_down"] = int(stats.get("put_down", 0)) + 1
+        _trace({"event": "put_down", "prop": held_uid, "at": _v(place["position"])})
         return "done"
     if step.has("use_item"):
         return "done"
@@ -902,6 +980,7 @@ func _show() -> void:
 
 ## Stop whatever it is doing and stand: off its seat, its option given up.
 func _drop_everything() -> void:
+    _let_go()
     _stack.clear()
     _stair = null
     _playing = false
@@ -910,6 +989,8 @@ func _drop_everything() -> void:
     velocity = Vector3.ZERO
     if not _option.is_empty():
         world.npc_release(str(_option.get("id", "")), self)
+        if _option.has("want"):
+            GeogenWants.finish(self, _option, false)
         _option = {}
     if _pose != "stand":
         _pose = "stand"
@@ -961,6 +1042,10 @@ func _target(kind: String, ctx: Dictionary):
     match kind:
         "aside":
             return ctx.get("aside")
+        "subject":
+            return _stand_by_prop(str(ctx.get("subject", "")))
+        "place":
+            return (ctx.get("place", {}) as Dictionary).get("approach")
         "approach":
             return ctx["approach"]
         "anchor":
@@ -994,6 +1079,100 @@ func _target(kind: String, ctx: Dictionary):
                     best = p
             return best if best != null else global_position
     return null
+
+
+# --- carrying physics props (geogen.97.1) --------------------------------------
+
+## Drop the prop in hand, if any, where it is.
+func _let_go() -> void:
+    if world != null and world.props != null:
+        world.props.release(world.props.taken_by(self))
+
+
+## The prop this NPC has taken ("" for none), for the report.
+func prop_in_hand() -> String:
+    return world.props.taken_by(self) if world != null and world.props != null else ""
+
+
+## Where a taken prop is held: its box's centre at the hand (a skeletal body), else in front
+## of the chest; upright, turned with the NPC.
+func _prop_point(uid: String) -> Transform3D:
+    var basis := Basis(Vector3.UP, _yaw())
+    var at := global_position + Vector3.UP * (float(definition.get("height", 1.7)) * 0.6) + basis * Vector3(0, 0, 0.3)
+    if _skeleton != null:
+        var bone := _skeleton.find_bone("RightHand")
+        if bone >= 0:
+            at = (_skeleton.global_transform * _skeleton.get_bone_global_pose(bone)).origin + basis * Vector3(0, -0.04, 0.08)
+    return Transform3D(basis, at - basis * (world.props.box_of(uid)["center"] as Vector3))
+
+
+func _prop_centre(uid: String) -> Vector3:
+    var body: Node3D = world.props.props[uid]["body"]
+    return body.global_transform * (world.props.box_of(uid)["center"] as Vector3)
+
+
+## Where to stand to pick prop ``uid`` up: on the navmesh, `reach.stand` m short of it on this
+## NPC's side (not on top of something lying on the floor).
+func _stand_by_prop(uid: String):
+    if not world.props.props.has(uid):
+        return null
+    return stand_for(_prop_centre(uid))
+
+
+## Where to stand to get the hands to ``point``: the nearest place on the navmesh of the floor
+## under it (beside the table it is on); for a point where one can walk, `reach.stand` m short
+## of it on this NPC's side. null when nowhere in reach.
+func stand_for(point: Vector3):
+    var map := get_world_3d().navigation_map
+    var reach: Dictionary = definition.get("reach", {})
+    var off := float(reach.get("stand", 0.5))
+    var heights: Array = reach.get("heights", [0.0, 1.5])
+    # Ask from hand height below the point, so the floor it is over is nearer than the one above.
+    var low := point - Vector3.UP * (float(heights[0]) + float(heights[1])) / 2.0
+    var near := NavigationServer3D.map_get_closest_point(map, low)
+    if NpcGeometry.flat(near - point).length() < off:
+        var back := NpcGeometry.flat(global_position - point)
+        near = NavigationServer3D.map_get_closest_point(map,
+            low + (back.normalized() * off if back.length() > 1e-3 else Vector3(off, 0, 0)))
+    return near if _within_reach(point, near) else null
+
+
+## Whether a point is one this body's hands get to from ``feet`` (where it stands): no further
+## than `reach.distance` on the ground, and between the `reach.heights` above its feet.
+func _within_reach(point: Vector3, feet = null) -> bool:
+    var reach: Dictionary = definition.get("reach", {})
+    var origin: Vector3 = feet if feet is Vector3 else global_position
+    var heights: Array = reach.get("heights", [0.0, 1.5])
+    var up := point.y - origin.y
+    return NpcGeometry.flat(point - origin).length() <= float(reach.get("distance", 1.0)) \
+        and up >= float(heights[0]) - REACH_SLACK and up <= float(heights[1])
+
+
+## "" when this body can carry prop ``uid`` (definition `carry: {mass, size}`), else why not.
+func _carry_limit(uid: String) -> String:
+    var carry: Dictionary = definition.get("carry", {})
+    var data: Dictionary = world.props.props[uid]["data"]
+    if float(data.get("mass", 10.0)) > float(carry.get("mass", 10.0)):
+        return "too heavy to carry"
+    var size: Vector3 = world.props.box_of(uid)["size"]
+    if maxf(size.x, maxf(size.y, size.z)) > float(carry.get("size", 0.6)):
+        return "too big to carry"
+    return ""
+
+
+func _face_point(point: Vector3) -> void:
+    var dir := NpcGeometry.flat(point - global_position)
+    if dir.length() > 1e-3:
+        _yaw_goal = atan2(dir.x, dir.z)
+
+
+## Run ``action`` with ``extra`` context as its next decision, once what it is doing is done (the
+## control API's npcs.do: a test hands it a `subject` and a `place`). "" or why not.
+func do_action(action: String, extra: Dictionary) -> String:
+    if not (definition.get("actions", {}) as Dictionary).has(action):
+        return "no action '%s'" % action
+    _queued = {"action": action, "extra": extra}
+    return ""
 
 
 ## An item this NPC carries that a `use_item` step names: an item id, or "[tag=<tag>]" for the
@@ -2140,6 +2319,9 @@ func report() -> Dictionary:
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         "holding": holding(),
+        # The physics prop in its hands (stable ID, "" for none), and how many it has picked up and put down.
+        "wants": int(stats.get("wants", 0)),
+        "prop": prop_in_hand(), "picked_up": int(stats.get("picked_up", 0)), "put_down": int(stats.get("put_down", 0)),
         # Items it has used (`use_item` steps) and what it carries now (item ids).
         "items_used": int(stats.get("items_used", 0)),
         "carrying": world.rules.carried(WorldLoader.actor_id(self)).map(func(e): return str(e["id"])) if world.rules != null else [],

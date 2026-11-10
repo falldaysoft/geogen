@@ -40,5 +40,13 @@ scoring: { distance: 0.02, recency: 0.4, memory: 120, noise: 0.05, retry: 30 }
 # Affordances this far outside the home region are still in scope (the doorstep).
 home_margin: 2.0
 
+# Things the resident puts right with whatever is to hand (geogen/npc.py WANT_KEYS).
+wants:
+  tidy:                                   # nothing loose on the floor
+    of: prop
+    when: { resting_on: floor }
+    action: put_away                      # pick it up, carry it to a spot that holds it, set it down
+    place: { prefer: { table: 1.5, bookshelf: 1.2 } }
+
 flags:
   closes_doors: true

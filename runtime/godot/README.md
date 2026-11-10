@@ -825,6 +825,17 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   a kinematic box it is wedged in) is set at the point (`GeogenProps._carry`). E drops it; so
   does being snagged more than 1.4 m from the hold point for half a second. The player walking into a prop shoves it (`player.gd`
   `_push_props`).
+- **NPCs carrying:** an NPC action's `pick_up: subject` / `put_down: place` steps take a prop
+  with `carry` in hand (`GeogenProps.take`: frozen, out of collision, kept at the hand) and let
+  it go just above a place (`release`: a free body again, settling by the physics), within the
+  definition's `reach` and `carry` limits. The player's E takes it out of the NPC's hand.
+  `world.bodies` reports each prop's `holder` ("player", an NPC's stable ID, or "").
+- **Wants:** an NPC definition's `wants` (`extras.geogen.npc.wants`) add options to its
+  decision: for `of: prop`, `when: {resting_on: floor}`, each prop with `carry` lying on a floor
+  in its home region. Taking one, it looks for a place among the spots the colliders offer
+  (`GeogenPlaceSearch`: level, not floor, room for the prop's box, all four corners held,
+  somewhere to stand in reach), scores them by the want's `place` weights and runs the want's
+  action with the prop as `subject` and the spot as `place` (`GeogenWants`, `npc_wants.gd`).
 - **Spawn:** a prop with `spawn: <thing>.<attachment>` has a `spawn` interaction
   (`stowed | live`) that rules drive. Stowed, it is hidden, frozen and out of
   collision; going live, it is put at `spawn_at` at rest and let go. A live prop

@@ -41,15 +41,37 @@ NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
-STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item"}
+STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down"}
 STEP_OPTIONS = {"at", "if", "hold", "loop", "close"}
-GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group"}
+GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group",
+                 "subject", "place"}
+# What a body's hands get to and what it can carry (physics props: pick_up / put_down).
+REACH_DEFAULTS = {"distance": 1.0, "heights": [0.0, 1.5], "stand": 0.5}
+CARRY_DEFAULTS = {"mass": 10.0, "size": 0.6}
 ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
-            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention"}
+            "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
+            "reach", "carry", "wants"}
+# A want (geogen.97): a condition on the world the NPC puts right with whatever is there.
+WANT_KEYS = {
+    "of": "what it is about: prop (a physics prop with `carry`)",
+    "when": "{resting_on: floor}: a subject like this is a problem (floor: anything actors walk on)",
+    "action": "the action that puts it right, run with the subject and a chosen place (put_away)",
+    "place": "{prefer: {tag: multiplier}, height, distance, off_height, noise, tried, radius}: how it "
+             "picks among the spots that hold the subject within its reach",
+    "weight": "utility of putting one subject right (default 0.5), beside what `advertises` adds",
+    "advertises": "{need: amount}: what doing it adds to the needs",
+}
+WANT_OF = ("prop",)
+WANT_WHEN = {"resting_on": ("floor",)}
+# How a spot is scored: its tags' `prefer` multipliers, less `distance` per metre to walk there,
+# less `off_height` per metre above or below the `height` (over its feet) it likes to put things
+# at, less `tried` for a spot it has already used for this subject, plus `noise` x random. It
+# looks `radius` m round itself where it has no home region.
+PLACE_DEFAULTS = {"height": 0.9, "distance": 0.1, "off_height": 0.3, "noise": 0.1, "tried": 1.0, "radius": 6.0}
 CHARACTER_KIND = "character"
 # Placement keys a character file may give defaults for (the scene's placement wins).
 CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "visits", "quests", "seed")
@@ -121,6 +143,10 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
     arg = step[verb]
     if verb == "go_to" and arg not in GO_TO_TARGETS:
         raise ValueError(f"{where}: go_to must be one of {sorted(GO_TO_TARGETS)}, got {arg!r}")
+    if verb == "pick_up" and arg != "subject":
+        raise ValueError(f"{where}: pick_up takes the action's subject (pick_up: subject), got {arg!r}")
+    if verb == "put_down" and arg != "place":
+        raise ValueError(f"{where}: put_down sets it at the action's place (put_down: place), got {arg!r}")
     if verb == "face" and arg not in FACE_TARGETS:
         raise ValueError(f"{where}: face must be one of {sorted(FACE_TARGETS)}, got {arg!r}")
     if "hold" in step and (verb != "pose" or not isinstance(step["hold"], str) or not step["hold"]):
@@ -365,7 +391,63 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "wander": {"tags": [str(t) for t in (data.get("wander") or {}).get("tags", [])]},
         "routine": parse_routine(data.get("routine") or [], activities, f"{path}: routine"),
         "attention": attention,
+        "reach": _limits(data.get("reach"), REACH_DEFAULTS, f"{path}: reach"),
+        "carry": _limits(data.get("carry"), CARRY_DEFAULTS, f"{path}: carry"),
+        "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
     }
+
+
+def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:
+    """``wants:`` -> {name: {of, when, action, place, weight, advertises}} (see ``WANT_KEYS``)."""
+    if spec is None:
+        return {}
+    if not isinstance(spec, dict):
+        raise ValueError(f"{where}: expected {{name: {{of, when, action, ...}}}}, got {spec!r}")
+    wants = {}
+    for name, want in spec.items():
+        at = f"{where}: {name}"
+        if not isinstance(want, dict) or set(want) - set(WANT_KEYS):
+            raise ValueError(f"{at}: keys are {sorted(WANT_KEYS)}, got {want!r}")
+        if want.get("of") not in WANT_OF:
+            raise ValueError(f"{at}: of is one of {list(WANT_OF)}, got {want.get('of')!r}")
+        when = want.get("when")
+        if not isinstance(when, dict) or not when or set(when) - set(WANT_WHEN):
+            known = ", ".join(f"{k}: {' | '.join(v)}" for k, v in WANT_WHEN.items())
+            raise ValueError(f"{at}: when is {{{known}}}, got {when!r}")
+        for key, value in when.items():
+            if value not in WANT_WHEN[key]:
+                raise ValueError(f"{at}: when.{key} is one of {list(WANT_WHEN[key])}, got {value!r}")
+        action = want.get("action")
+        if action not in actions:
+            raise ValueError(f"{at}: unknown action {action!r}")
+        place = want.get("place") or {}
+        if not isinstance(place, dict) or set(place) - set(PLACE_DEFAULTS) - {"prefer"}:
+            raise ValueError(f"{at}: place keys are {sorted([*PLACE_DEFAULTS, 'prefer'])}, got {place!r}")
+        weight = float(want.get("weight", 0.5))
+        if weight < 0:
+            raise ValueError(f"{at}: weight can't be negative")
+        wants[str(name)] = {
+            "of": want["of"], "when": dict(when), "action": action, "weight": weight,
+            "place": {**{k: float(place.get(k, v)) for k, v in PLACE_DEFAULTS.items()},
+                      "prefer": {str(k): float(v) for k, v in (place.get("prefer") or {}).items()}},
+            "advertises": _advertises(want.get("advertises"), needs, at),
+        }
+    return wants
+
+
+def _limits(spec: Any, defaults: dict[str, Any], where: str) -> dict[str, Any]:
+    """A body-limits block (``reach:``, ``carry:``) over its defaults; numbers, or [lo, hi] ranges."""
+    if spec is None:
+        spec = {}
+    if not isinstance(spec, dict) or set(spec) - set(defaults):
+        raise ValueError(f"{where}: keys are {sorted(defaults)}, got {spec!r}")
+    out: dict[str, Any] = {}
+    for key, default in defaults.items():
+        value = spec.get(key, default)
+        out[key] = _range(value, f"{where}: {key}") if isinstance(default, list) else float(value)
+        if not isinstance(default, list) and out[key] <= 0:
+            raise ValueError(f"{where}: {key} must be positive, got {value!r}")
+    return out
 
 
 def parse_attention(value: Any, actions: dict, where: str) -> dict[str, Any]:

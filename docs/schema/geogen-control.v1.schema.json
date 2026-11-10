@@ -146,11 +146,13 @@
             "inventory.give",
             "inventory.list",
             "inventory.use",
+            "npcs.do",
             "npcs.force",
             "npcs.greet",
             "npcs.list",
             "npcs.options",
             "npcs.pause",
+            "npcs.places",
             "npcs.resume",
             "ping",
             "player.carry",
@@ -703,6 +705,22 @@
           "if": {
             "properties": {
               "cmd": {
+                "const": "npcs.do"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.do"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
                 "const": "npcs.force"
               }
             }
@@ -775,6 +793,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/npcs.pause"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.places"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.places"
               }
             }
           }
@@ -1648,6 +1682,8 @@
         "npcs.list": "every NPC's report (doing, needs, position, ...)",
         "npcs.options": "{npc} the NPC's scored options now",
         "npcs.force": "{npc, option} make its next decision take that option",
+        "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: [{position, approach, uid, tags, height, score}]; and what the prop rests on",
+        "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
         "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
         "npcs.pause": "{npc?} freeze one NPC (or all)",
         "npcs.resume": "{npc?}",
@@ -2324,6 +2360,39 @@
           },
           "option": {
             "type": "string"
+          }
+        }
+      },
+      "npcs.places": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "want": {
+            "type": "string"
+          },
+          "prop": {
+            "type": "string"
+          }
+        }
+      },
+      "npcs.do": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "place": {
+            "$ref": "#/$defs/point"
           }
         }
       },

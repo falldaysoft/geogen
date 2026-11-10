@@ -47,6 +47,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [traffic_scale](#traffic_scale) | 150 vehicles on a grid. |  |
 | [trees](#trees) | Tree demo scene. |  |
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
+| [wants_test](#wants_test) | A resident in one room with things to carry: the test scene for wants (geogen.97). |  |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
 
@@ -701,6 +702,19 @@ Vehicles for review: the car presets in a few paints, a van and a bus. Faces +X.
 **Places**: `sedan: {asset: vehicles/car.yaml}`; `hatchback: {asset: vehicles/car.yaml}`; `estate: {asset: vehicles/car.yaml}`; `taxi: {asset: vehicles/car.yaml}`; `sedan_red: {asset: vehicles/car.yaml}`; `van: {asset: vehicles/van.yaml}`; `bus: {asset: vehicles/bus.yaml}`
 
 **Slots**: bus, estate, hatchback, sedan, sedan_red, taxi, van
+
+## wants_test
+
+`scene: scenes/wants_test.yaml` · [source](../../assets/scenes/wants_test.yaml)
+
+A resident in one room with things to carry: the test scene for wants (geogen.97).
+
+A can stands on the table and a pumpkin on the floor. Knock something to the
+floor and the resident picks it up and puts it on whatever will hold it.
+
+**Places**: `room: {asset: room.yaml}`; `table: {asset: table.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `chair: {asset: chair.yaml}`; `can: {asset: soda_can.yaml}`; `pumpkin: {asset: pumpkin.yaml}`; `resident: {npc: npcs/resident.yaml}`
+
+**Spawns**: start
 
 ## group_test
 

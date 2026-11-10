@@ -440,3 +440,18 @@ def test_work_steps_loop_a_clip_and_close_in():
         assert loader.load(ASSETS_DIR / f"{asset}.yaml").meta["affordances"][0]["action"] == action
     look = load_definition(ASSETS_DIR / "npcs/resident.yaml")["attention"]["look"]
     assert look["busy_every"] == [5.0, 12.0] and look["busy_glance"] == 1.2
+
+
+def test_wants_and_body_limits_are_validated():
+    from geogen.npc import PLACE_DEFAULTS, load_actions, parse_wants
+    actions = load_actions()
+    tidy = {"of": "prop", "when": {"resting_on": "floor"}, "action": "put_away", "place": {"prefer": {"table": 1.5}}}
+    want = parse_wants({"tidy": tidy}, actions, {}, "t")["tidy"]
+    assert want["weight"] == 0.5 and want["place"]["prefer"] == {"table": 1.5}
+    assert {k: want["place"][k] for k in PLACE_DEFAULTS} == PLACE_DEFAULTS
+    for bad, message in (({"of": "cat"}, "of is one of"), ({"when": {"resting_on": "moon"}}, "when.resting_on"),
+                         ({"action": "fly"}, "unknown action"), ({"place": {"near": 1}}, "place keys"),
+                         ({"colour": "red"}, "keys are")):
+        with pytest.raises(ValueError, match=message):
+            parse_wants({"tidy": {**tidy, **bad}}, actions, {}, "t")
+    assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["action"] == "put_away"

@@ -174,7 +174,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `visits`, `wander`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -250,7 +250,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `flags`, `home_margin`, `needs`, `preferences`, `radius`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `wander`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `needs`, `preferences`, `radius`, `reach`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |
@@ -268,7 +268,7 @@ The actions NPCs run at affordances, as steps (go_to, face, pose, wait, use, pla
 
 Use: `referenced by affordances: {type: sit, action: sit}`
 
-Keys: `face`, `go_to`, `play`, `pose`, `use`, `use_item`, `vanish`, `wait`
+Keys: `face`, `go_to`, `pick_up`, `play`, `pose`, `put_down`, `use`, `use_item`, `vanish`, `wait`
 
 | File | What it is |
 | --- | --- |
