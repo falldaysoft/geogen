@@ -7,7 +7,6 @@ import pytest
 
 from geogen import roots
 from geogen.layout.cache import source_fingerprint
-from geogen.layout.composer import SceneComposer
 from geogen.quests import collect
 from geogen.registry import SceneRegistry
 from geogen.rules import Machine

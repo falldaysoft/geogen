@@ -9,7 +9,6 @@ import json
 import pytest
 
 from geogen.export import export_scene
-from geogen.main import _build_registry
 from geogen.runtime_client import step
 
 FAST = ("--fixed-fps", "60")   # unthrottled: frames run back to back
@@ -60,7 +59,7 @@ def test_at_the_table_her_hands_rest_on_its_top(godot_script, cottage_dir):
     hands = seated["hands"]
     assert hands["weight"] == 1.0 and set(hands["hands"]) == {"LeftHand", "RightHand"}
     for hand in hands["hands"].values():
-        support, at = hand["support"], hand["at"]
+        support = hand["support"]
         assert support is not None and support[1] == pytest.approx(1.07, abs=0.02)   # the dining table's top
         assert 0.05 < hand["shift"] < 0.3                       # moved forward onto it, not far
 

@@ -11,7 +11,7 @@ from geogen.layout.validation import (
     pre_validate_scene_references,
     ValidationError,
 )
-from geogen.layout import LayoutLoader, SceneComposer
+from geogen.layout import LayoutLoader
 from geogen.materials.loader import MaterialLoader
 
 
@@ -202,3 +202,4 @@ parts:
             loader.load_string(yaml_str)
             material_warnings = [x for x in w if "wod" in str(x.message)]
             assert len(material_warnings) >= 1
+

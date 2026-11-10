@@ -1,12 +1,10 @@
 """Terrain heightfields (generators/terrain.py) and scatter on terrain (scenes/terrain_test.yaml)."""
 
-import json
 
 import numpy as np
 import pytest
 
 from geogen.core import meshops
-from geogen.export import export_scene
 from geogen.generators.terrain import GRASS, ROCK, SAND, TerrainGenerator, terrain_from_meta
 from geogen.runtime_client import step
 

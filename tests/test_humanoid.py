@@ -58,7 +58,6 @@ def test_coincident_vertices_move_together(bodies):
     rest, posed = body.mesh.vertices, body.world_mesh().vertices
     _, group = np.unique(np.round(rest / 1e-6).astype(np.int64), axis=0, return_inverse=True)
     group = group.reshape(-1)
-    spread = np.zeros((group.max() + 1, 3))
     lo = np.full((group.max() + 1, 3), np.inf)
     hi = np.full((group.max() + 1, 3), -np.inf)
     np.minimum.at(lo, group, posed)

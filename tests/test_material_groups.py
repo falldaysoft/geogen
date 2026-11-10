@@ -4,7 +4,6 @@ import json
 import struct
 
 import numpy as np
-import pytest
 
 from geogen.core import csg, meshops, uvmap
 from geogen.core.mesh import Mesh

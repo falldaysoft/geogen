@@ -1,7 +1,6 @@
 """Island assets (palm tree, jetty, rowing boat, lighthouse) and the features they brought:
 part arrays, round/floor/ceil, circle paths, closed lathe profiles, spiral stair ramps and links."""
 
-import json
 
 import numpy as np
 import pytest

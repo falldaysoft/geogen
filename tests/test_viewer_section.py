@@ -32,7 +32,7 @@ def test_inspector_lists_tags_rooms_and_interactions():
 def test_section_filters_facade_per_storey():
     from PyQt6.QtWidgets import QApplication
     from geogen.viewer.qt_viewer import ViewerWindow
-    app = QApplication.instance() or QApplication([])
+    app = QApplication.instance() or QApplication([])   # noqa: F841 (held so Qt keeps it alive)
     yaml = SMALL.replace("  roof: { parapet: 1.0 }", "  facade: { style: modern }\n  roof: { parapet: 1.0 }")
     window = ViewerWindow({"b": lambda: LayoutLoader().load_string(yaml)}, "b", watch_dir=None)
     try:
@@ -46,7 +46,7 @@ def test_section_filters_facade_per_storey():
 def test_section_filters_storeys(qtbot=None):
     from PyQt6.QtWidgets import QApplication
     from geogen.viewer.qt_viewer import ViewerWindow
-    app = QApplication.instance() or QApplication([])
+    app = QApplication.instance() or QApplication([])   # noqa: F841 (held so Qt keeps it alive)
     scenes = {"small": lambda: LayoutLoader().load_string(SMALL)}
     window = ViewerWindow(scenes, "small", watch_dir=None)
     try:

@@ -1,6 +1,5 @@
 """Building façades."""
 
-import numpy as np
 import pytest
 
 from geogen.core import meshops

@@ -24,6 +24,7 @@ dev = [
     "pytest>=7.0",
     "pytest-xdist>=3.5",  # parallel runs (addopts below); -n0 for a serial run
     "jsonschema>=4.0",  # validates exported extras against docs/schema
+    "ruff>=0.6",  # `ruff check` (rules in [tool.ruff.lint]); CI runs it
 ]
 
 [project.scripts]
@@ -35,6 +36,13 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# Real mistakes only (pyflakes, syntax errors); no style rules. CI runs `ruff check`.
+select = ["F", "E9"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from geogen.core import meshops
-from geogen.core.skin import pose_clips
 from geogen.layout import LayoutLoader
 
 HUMANOID = "assets/characters/humanoid.yaml"

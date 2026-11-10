@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from geogen.catalogue import Catalogue, CatalogueEntry, export_catalogue, write_index
-from geogen.export import export_scene, gameplay_summary, node_extras
+from geogen.catalogue import Catalogue, CatalogueEntry, export_catalogue
+from geogen.export import gameplay_summary, node_extras
 from geogen.layout.composer import SceneComposer
 from geogen.runtime_client import step
 from geogen.travel import apply_travel, check_travel, parse_travel

@@ -3,7 +3,6 @@
 import warnings
 
 from ..core.node import SceneNode
-from ..core.transform import Transform
 from ..generators.terrain import TerrainGenerator
 from ..layout import LayoutLoader
 from ..materials.loader import MaterialLoader

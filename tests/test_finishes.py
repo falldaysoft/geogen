@@ -5,7 +5,6 @@ import pytest
 
 from geogen.core import meshops
 from geogen.generators.floorplan import FloorPlan
-from geogen.layout import LayoutLoader
 
 SPEC = {
     "rooms": {

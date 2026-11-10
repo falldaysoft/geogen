@@ -9,7 +9,6 @@ import time
 
 import pytest
 
-from geogen.export import export_scene
 from geogen.runtime_client import ApiError
 
 pytestmark = pytest.mark.xdist_group("test_runtime_api")

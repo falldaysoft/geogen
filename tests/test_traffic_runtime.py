@@ -11,7 +11,6 @@ import pytest
 
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
-from geogen.main import _build_registry
 from geogen.runtime_client import step
 
 FAST = ("--fixed-fps", "60")

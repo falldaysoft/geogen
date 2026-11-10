@@ -162,7 +162,6 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
     first = storeys[0][1]
     x0, z0, x1, z1 = first.bounds
     t = first.exterior_wall
-    cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
     hx, hz = (x1 - x0 + t) / 2, (z1 - z0 + t) / 2
     ring = np.array([[-hx, 0, -hz], [-hx, 0, hz], [hx, 0, hz], [hx, 0, -hz]])  # right of travel = outward
     band = Shape(np.array([[0.0, 0.0], [0.04, 0.0], [0.04, style.band_height], [0.0, style.band_height]]))

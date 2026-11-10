@@ -1,6 +1,5 @@
 """primitive: water (generators/water.py): meta for the runtime shader, and the shore barrier."""
 
-import json
 
 import pytest
 

@@ -1,13 +1,12 @@
 """Floor texture generators for hardwood, tile, and carpet."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
-from numpy.typing import NDArray
 from PIL import Image
 
 from .base import TextureGenerator, NoiseTextureGenerator, NoiseLayer
-from .noise import fractal_noise, perlin_noise
+from .noise import fractal_noise
 
 
 @dataclass

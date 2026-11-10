@@ -250,7 +250,7 @@ def test_the_platform_carries_the_player_over_the_goo(chamber_02):
 
 
 def test_the_goo_sends_the_player_back_to_the_start(chamber_02):
-    rt, scene = chamber_02, "test_chamber_02"
+    rt = chamber_02
     rt.call("player.teleport", pos=[3.0, 0.05, 0.0])                        # over the pit, off the deck
     _settle(rt, 3.0)
     p = rt.call("player.status")["position"]

@@ -871,7 +871,6 @@ def place_traffic(root: SceneNode, name: str, spec: dict[str, Any], load, graph:
     """The traffic placement: a node carrying ``meta.fleet`` whose children are the starting
     vehicles, each on a lane (``meta.driving = {lane, s, factor}``). Runtimes drive these
     and clone them for later arrivals; renders show the traffic as a snapshot."""
-    from pathlib import Path
 
     from .characters import draw_params
 

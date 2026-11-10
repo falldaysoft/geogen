@@ -44,6 +44,7 @@ python -m geogen.runtime_client --launch cottage                        # contro
 docs/make_screenshots.sh                                                # README screenshots (docs/images/)
 
 pytest [tests/test_x.py -k name] [--fast | --all]                       # see Testing
+ruff check                                                              # pyflakes + syntax errors (pyproject.toml); CI runs it
 ```
 
 ## Where things are

@@ -1,8 +1,7 @@
 """Base class for procedural texture generators."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray

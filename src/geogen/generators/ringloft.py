@@ -295,7 +295,6 @@ def _hem(s: NDArray, rings: NDArray, slots: NDArray, thickness: float, skip: int
 
 def _cap_pole(path: ChainPath, chain: Chain, s: NDArray, rings: NDArray, at_end: bool) -> float:
     """Arc length of the pole vertex closing a chain end."""
-    edge = rings[-1] if at_end else rings[0]
     style = chain.cap_end if at_end else chain.cap_start
     if style != "round":
         return float(s[-1] if at_end else s[0])

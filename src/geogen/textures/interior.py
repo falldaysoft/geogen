@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from .base import TextureGenerator, unit_grid as _unit_grid
-from .noise import fractal_noise, turbulence
+from .noise import fractal_noise
 
 
 def _to_image(rgb: NDArray[np.float64]) -> Image.Image:

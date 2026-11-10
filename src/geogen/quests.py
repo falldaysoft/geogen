@@ -997,11 +997,11 @@ class _Compiler:
             self.bad(where, f"event.{read[0]}: only a rule with on: (an event) has event data")
             return
         carried = self.event_data(on)
-        for field in read:
-            if carried is not None and field not in carried:
-                self.bad(where, f"event.{field}: a {on['type']} event here carries "
+        for name in read:
+            if carried is not None and name not in carried:
+                self.bad(where, f"event.{name}: a {on['type']} event here carries "
                                 + (f"{', '.join(sorted(carried))}" if carried else "no data")
-                                + refs._near(field, carried))
+                                + refs._near(name, carried))
 
     def raised(self, thing: str) -> set[str]:
         """The signals a thing can raise: its interactions' emits (and ``locked``), what it or

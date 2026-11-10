@@ -5,7 +5,6 @@ import json
 import numpy as np
 import pytest
 
-from geogen.export import export_scene
 from geogen.railway import loop_around
 from geogen.traffic import build_traffic, check_clearance, check_graph
 from geogen.runtime_client import step

@@ -6,8 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import TextureGenerator, NoiseTextureGenerator, NoiseLayer
-from .noise import fractal_noise
+from .base import NoiseTextureGenerator, NoiseLayer
 
 
 @dataclass

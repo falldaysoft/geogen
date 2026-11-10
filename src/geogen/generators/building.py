@@ -29,7 +29,6 @@ from typing import Any
 
 import numpy as np
 
-from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from .primitives import box_between
@@ -58,7 +57,6 @@ def _storey_specs(spec: dict[str, Any]) -> list[dict[str, Any]]:
 
 def build_building(spec: dict[str, Any], name: str, material_loader, assets_dir: Path | None = None,
                    layout_loader=None) -> SceneNode:
-    from ..core import csg, uvmap
     from .plan_layouts import LAYOUTS
 
     root = SceneNode(name=name)
@@ -373,7 +371,6 @@ def _roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], material_loader
     pitched roof (``style: gable|hip|shed``, ``rise``, ``overhang``) with its
     gable ends filled in ``gable_material``."""
     from ..core import csg, uvmap
-    from .primitives import CubeGenerator
 
     size = plan.size
     t = plan.exterior_wall

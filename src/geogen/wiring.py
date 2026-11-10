@@ -173,8 +173,8 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
             at = ("wire", index)
             unknown = set(wire) - WIRE_KEYS
             if unknown or "from" not in wire or "to" not in wire:
-                compiler.bad(src.where(*at), f"a wire is {{from: <thing>.<signal>, to: <thing>.<input>}} "
-                                             f"(also value, when, after)" + (f"; unknown {sorted(unknown)}" if unknown else ""))
+                compiler.bad(src.where(*at), "a wire is {from: <thing>.<signal>, to: <thing>.<input>} "
+                                             "(also value, when, after)" + (f"; unknown {sorted(unknown)}" if unknown else ""))
                 continue
             if not built(wire):
                 continue

@@ -60,7 +60,6 @@ def test_player_yaml_is_not_a_scene():
 
 def test_godot_reads_manifest(tmp_path, godot_script):
     """The runtime's PlayerSpec parses exactly what the exporter wrote."""
-    import json
 
     from geogen.export import export_scene, manifest_path
 

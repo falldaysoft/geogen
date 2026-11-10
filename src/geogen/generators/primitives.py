@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..core.mesh import Mesh
-from ..core.geometry import make_cap_faces, make_tube_faces, make_cone_side_faces
 from .base import MeshGenerator, box_attachment_points, box_surfaces
 
 if TYPE_CHECKING:
