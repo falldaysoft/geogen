@@ -64,6 +64,7 @@ from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.profile import Shape, rect
 from ..core.transform import Transform
+from .attachments import CARDINAL_YAW
 
 KNOWN = {"seed", "blocks", "block_size", "street_width", "avenues", "avenue_width", "sidewalk", "curb_height",
          "lot_width", "landmarks", "parks", "buildings", "furniture", "corner_radius", "parking", "traffic", "exits"}
@@ -72,7 +73,7 @@ PARKING_KEYS = {"fleet", "fill", "bay", "drive", "both_sides", "clear", "seed"}
 _DEFAULT_SETBACK = {"residential": 3.0, "commercial": 0.0, "landmark": 2.0}
 _LOT_MATERIAL = {"residential": "grass", "park": "grass", "commercial": "concrete", "landmark": "concrete"}
 # Yaw that turns an asset's +Z front to face each street side.
-_YAW = {"south": np.pi, "north": 0.0, "east": np.pi / 2, "west": -np.pi / 2}
+_YAW = CARDINAL_YAW
 _OUT = {"south": np.array([0.0, -1.0]), "north": np.array([0.0, 1.0]), "east": np.array([1.0, 0.0]),
         "west": np.array([-1.0, 0.0])}
 

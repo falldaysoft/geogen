@@ -3,6 +3,7 @@
 import difflib
 from typing import Any
 
+from .attachments import FACINGS
 from .schema import ASSET_KEYS, PLACEMENT_KEYS, PRIMITIVES, SCENE_KEYS, SLOT_KEYS, part_known_keys
 
 
@@ -15,7 +16,7 @@ PLACEMENT_KNOWN_KEYS = set(PLACEMENT_KEYS)
 KNOWN_PRIMITIVES = set(PRIMITIVES)
 
 # Known facing directions
-KNOWN_FACINGS = {"center", "outward", "north", "south", "east", "west"}
+KNOWN_FACINGS = set(FACINGS)
 
 
 def suggest(value: str, known: set[str] | list[str]) -> str:

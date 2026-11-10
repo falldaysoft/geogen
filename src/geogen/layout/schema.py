@@ -51,7 +51,8 @@ PART_KEYS: dict[str, Key] = {
     "tags": Key("[tag, ...]", "dotted gameplay tags exported in extras.geogen"),
     "collider": Key("auto | none | box | hull | mesh", "collision shape exported for the part", "auto"),
     "walkable": Key("bool", "the part is floor the player and NPCs walk on", False),
-    "joint": Key("{type: hinge | slide, pivot, limits | range, with}",
+    "joint": Key("{type: hinge | slide, pivot, axis, limits | range, with, name, initial, duration, "
+                 "open_prompt, close_prompt, auto_close, lock}",
                  "shorthand for a closed/open interaction named after the part"),
 }
 

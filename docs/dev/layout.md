@@ -6,7 +6,7 @@ How assets and scenes are written and composed (`src/geogen/layout/`): YAML form
 
 - **Anchor** (`anchors.py`): Named anchor points using normalized coordinates (0-1). Examples: `bottom_center`, `top_front_left`. `resolve_anchor()` converts to world coordinates.
 
-- **AttachmentPoint** (`attachments.py`): Named points for connecting objects. Specifies position via anchor + offset, and orientation via `facing` direction (`center`, `outward`, compass directions) or explicit rotation.
+- **AttachmentPoint** (`attachments.py`): Named points for connecting objects. Specifies position via anchor + offset, and orientation via `facing` direction (`center`, `outward`, compass directions) or explicit rotation. `attachments.facing_to_yaw` is the one facing table (attachments, slots, placements; `FACINGS`, `CARDINAL_YAW`): an unknown value raises with a suggestion instead of facing north. A part's `joint:` shorthand rejects keys outside `loader.JOINT_KEYS` (`limit:` for `limits:` used to fall back to the default range).
 
 - **LayoutLoader** (`loader.py`): Loads composite objects from YAML. Profile primitives:
   ```yaml

@@ -749,6 +749,10 @@ class LayoutLoader:
         r = Rotation.from_euler('xyz', rotation)
         return r.apply(point)
 
+JOINT_KEYS = {"type", "pivot", "axis", "limits", "range", "with", "name", "initial", "duration",
+              "open_prompt", "close_prompt", "auto_close", "lock"}
+
+
 def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
     """Expand part ``joint:`` shorthands into interactions.
 
@@ -767,6 +771,12 @@ def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
         joint = part.get("joint") if isinstance(part, dict) else None
         if not joint:
             continue
+        unknown = sorted(set(joint) - JOINT_KEYS) if isinstance(joint, dict) else None
+        if unknown is None:
+            raise ValueError(f"Part '{name}' joint must be a mapping, e.g. {{type: hinge, pivot: left}}")
+        if unknown:
+            raise ValueError(f"Part '{name}' joint: unknown key '{unknown[0]}'.{suggest(unknown[0], JOINT_KEYS)}"
+                             f" Keys: {', '.join(sorted(JOINT_KEYS))}")
         kind = joint.get("type", "hinge")
         if kind not in ("hinge", "slide"):
             raise ValueError(f"Part '{name}' joint type must be hinge or slide, got {kind!r}")

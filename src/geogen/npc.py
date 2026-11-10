@@ -403,7 +403,10 @@ def parse_time(value: Any, where: str) -> float:
         text = str(value)
         try:
             hh, _, mm = text.partition(":")
-            hours = int(hh) + (int(mm) if mm else 0) / 60.0
+            minutes = int(mm) if mm else 0
+            if not 0 <= minutes < 60:
+                raise ValueError(text)
+            hours = int(hh) + minutes / 60.0
         except ValueError:
             raise ValueError(f"{where}: times are 'HH:MM', got {value!r}") from None
     if not 0.0 <= hours <= 24.0:

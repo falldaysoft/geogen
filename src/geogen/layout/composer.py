@@ -13,7 +13,7 @@ from ..core.node import SceneNode
 from ..core.transform import Transform
 from .loader import LayoutLoader
 from .anchors import resolve_anchor
-from .attachments import parse_attachment
+from .attachments import facing_to_yaw, parse_attachment
 from .expressions import enabled
 from .validation import suggest, validate_scene_yaml, pre_validate_scene_references
 from .yaml_utils import safe_load, safe_load_path
@@ -791,7 +791,7 @@ class SceneComposer:
     def _orient(self, transform: Transform, obj_def: dict[str, Any]) -> Transform:
         """Apply a placement's ``facing:`` / ``yaw:`` to a surface transform."""
         if "facing" in obj_def:
-            transform.rotation[1] = self._facing_to_rotation(obj_def["facing"], transform.translation)
+            transform.rotation[1] = facing_to_yaw(obj_def["facing"], transform.translation)
         if "yaw" in obj_def:
             transform.rotation[1] += np.radians(float(obj_def["yaw"]))
         return transform
@@ -824,7 +824,7 @@ class SceneComposer:
                 position += offset
 
             # Compute rotation from facing direction
-            rotation = self._facing_to_rotation(facing, position)
+            rotation = facing_to_yaw(facing, position)
 
             slots[slot_name] = Transform(
                 translation=position,
@@ -832,26 +832,3 @@ class SceneComposer:
             )
 
         return slots
-
-    def _facing_to_rotation(self, facing: str, position: np.ndarray) -> float:
-        """Convert facing direction to Y-axis rotation in radians."""
-        if facing == "center":
-            # Face toward origin
-            dx = -position[0]
-            dz = -position[2]
-            return float(np.arctan2(dx, dz))
-        elif facing == "outward":
-            # Face away from origin
-            dx = position[0]
-            dz = position[2]
-            return float(np.arctan2(dx, dz))
-        elif facing == "north":
-            return 0.0
-        elif facing == "south":
-            return float(np.pi)
-        elif facing == "east":
-            return float(np.pi / 2)
-        elif facing == "west":
-            return float(-np.pi / 2)
-        else:
-            return 0.0

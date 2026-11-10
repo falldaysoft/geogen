@@ -1,5 +1,6 @@
 """Attachment point system for connecting objects together."""
 
+import difflib
 from dataclasses import dataclass
 from typing import Literal
 
@@ -11,6 +12,27 @@ from .anchors import Anchor, resolve_anchor
 
 
 FacingDirection = Literal["center", "outward", "north", "south", "east", "west"]
+
+# Yaw (radians about +Y) that turns an object's +Z front to each compass facing.
+CARDINAL_YAW = {"north": 0.0, "south": np.pi, "east": np.pi / 2, "west": -np.pi / 2}
+FACINGS = ("center", "outward", *CARDINAL_YAW)
+
+
+def facing_to_yaw(facing: str, position: NDArray[np.float64]) -> float:
+    """The Y rotation (radians) for a ``facing:`` value at ``position``.
+
+    ``center`` faces the container's origin and ``outward`` away from it; the rest are compass
+    directions. An unknown value raises rather than quietly facing north.
+    """
+    if facing == "center":
+        return float(np.arctan2(-position[0], -position[2]))
+    if facing == "outward":
+        return float(np.arctan2(position[0], position[2]))
+    if facing in CARDINAL_YAW:
+        return float(CARDINAL_YAW[facing])
+    near = difflib.get_close_matches(str(facing), FACINGS, n=1, cutoff=0.5)
+    raise ValueError(f"Unknown facing {facing!r}: expected one of {', '.join(FACINGS)}."
+                     + (f" Did you mean '{near[0]}'?" if near else ""))
 
 
 OffsetMode = Literal["fractional", "absolute"]
@@ -87,33 +109,7 @@ class AttachmentPoint:
             # Explicit rotation in degrees, convert to radians
             return np.deg2rad(self.rotation)
 
-        # Semantic facing directions
-        if self.facing == "center":
-            # Face toward the center (0, y, 0)
-            # Calculate angle from position to center
-            dx = -position[0]  # direction to center x
-            dz = -position[2]  # direction to center z
-            return np.arctan2(dx, dz)
-
-        elif self.facing == "outward":
-            # Face away from center
-            dx = position[0]
-            dz = position[2]
-            return np.arctan2(dx, dz)
-
-        elif self.facing == "north":
-            return 0.0  # +Z direction
-
-        elif self.facing == "south":
-            return np.pi  # -Z direction
-
-        elif self.facing == "east":
-            return np.pi / 2  # +X direction
-
-        elif self.facing == "west":
-            return -np.pi / 2  # -X direction
-
-        return 0.0
+        return facing_to_yaw(self.facing, position)
 
 
 def parse_attachment(name: str, data: dict) -> AttachmentPoint:

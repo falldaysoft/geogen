@@ -35,7 +35,7 @@ parts:
 | `tags` | [tag, ...] |  | dotted gameplay tags exported in extras.geogen |
 | `collider` | auto \| none \| box \| hull \| mesh | `auto` | collision shape exported for the part |
 | `walkable` | bool | `false` | the part is floor the player and NPCs walk on |
-| `joint` | {type: hinge \| slide, pivot, limits \| range, with} |  | shorthand for a closed/open interaction named after the part |
+| `joint` | {type: hinge \| slide, pivot, axis, limits \| range, with, name, initial, duration, open_prompt, close_prompt, auto_close, lock} |  | shorthand for a closed/open interaction named after the part |
 
 Anchors: center, or any of top|bottom + front|back + left|right|center, e.g. bottom_center, top_front_left, left_center (x: left = -X, y: up, z: front = +Z).
 

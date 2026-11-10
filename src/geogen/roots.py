@@ -48,7 +48,6 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
 
 CORE = Path(__file__).resolve().parents[2] / "assets"
 CONFIG = "geogen.yaml"
@@ -92,7 +91,8 @@ def load_project(directory: str | Path) -> Project:
     config = directory / CONFIG
     spec: dict = {}
     if config.is_file():
-        spec = yaml.safe_load(config.read_text()) or {}
+        from .layout.yaml_utils import safe_load_path   # keeps on:/off:/yes:/no: as strings
+        spec = safe_load_path(config) or {}
         if not isinstance(spec, dict) or spec.get("kind", "project") != "project":
             raise RootsError(f"{config}: expected a mapping with kind: project")
         unknown = sorted(set(spec) - CONFIG_KEYS)

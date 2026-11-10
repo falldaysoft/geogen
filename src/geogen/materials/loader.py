@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
 
 from .material import Material
 from ..textures.asphalt import AsphaltTextureGenerator
@@ -192,8 +191,8 @@ class MaterialLoader:
 
     def _load_yaml(self, path: Path) -> Material:
         """Load material from YAML file."""
-        with open(path) as f:
-            data = yaml.safe_load(f)
+        from ..layout.yaml_utils import safe_load_path   # keeps on:/off:/yes:/no: as strings
+        data = safe_load_path(path)
 
         return self._parse_material(data)
 

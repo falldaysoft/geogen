@@ -156,6 +156,8 @@ def test_routine_blocks_parse(tmp_path):
     from geogen.npc import load_definition, parse_time
 
     assert parse_time("22:30", "t") == 22.5 and parse_time("07:00", "t") == 7.0
+    with pytest.raises(ValueError, match="HH:MM"):
+        parse_time("12:75", "t")
     d = load_definition(ASSETS_DIR / "npcs" / "pedestrian.yaml")
     night = next(b for b in d["routine"] if b["name"] == "night")
     assert night == {"name": "night", "from": 22.5, "to": 7.0, "away": True, "activities": {}, "preferences": {}}

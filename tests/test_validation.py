@@ -203,3 +203,31 @@ parts:
             material_warnings = [x for x in w if "wod" in str(x.message)]
             assert len(material_warnings) >= 1
 
+
+def test_an_unknown_facing_raises_instead_of_facing_north():
+    import numpy as np
+    from geogen.layout.attachments import FACINGS, facing_to_yaw, parse_attachment
+    at = np.array([1.0, 0.0, 0.0])
+    assert facing_to_yaw("east", at) == pytest.approx(np.pi / 2)
+    assert facing_to_yaw("center", at) == pytest.approx(-np.pi / 2)
+    assert all(np.isfinite(facing_to_yaw(f, at)) for f in FACINGS)
+    with pytest.raises(ValueError, match="Unknown facing 'nroth'.*Did you mean 'north'"):
+        facing_to_yaw("nroth", at)
+    with pytest.raises(ValueError, match="Unknown facing"):
+        parse_attachment("p", {"anchor": "center", "facing": "up"}).resolve(np.ones(3))
+
+
+def test_a_joint_with_a_misspelt_key_is_an_error_not_a_default():
+    from geogen.layout.loader import _joint_interactions
+    door = {"primitive": "cube", "joint": {"type": "hinge", "limits": [0, 100]}}
+    assert _joint_interactions({"door": door})["door"]["motions"][0]["values"]["open"] == 100.0
+    door["joint"] = {"type": "hinge", "limit": [0, 100]}
+    with pytest.raises(ValueError, match="unknown key 'limit'.*limits"):
+        _joint_interactions({"door": door})
+
+
+def test_a_floor_texture_without_a_seed_is_the_same_every_time():
+    import numpy as np
+    from geogen.textures.floor import HardwoodFloorTextureGenerator as Floor
+    a, b = (np.asarray(Floor(width=64, height=64).generate()) for _ in range(2))
+    assert (a == b).all()

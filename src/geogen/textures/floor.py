@@ -59,7 +59,7 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
         n_planks_y = int(np.ceil(self.height / plank_h_px))
 
         # Generate each plank
-        rng = np.random.default_rng(self.seed)
+        rng = np.random.default_rng(self._seed_for(0))   # seed 0 when unset: the same floor every build
 
         for px in range(n_planks_x):
             # Stagger odd columns by half a plank
