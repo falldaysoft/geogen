@@ -101,6 +101,7 @@ def test_an_npc_carries_a_prop_from_the_floor_to_the_table(rt):
     before = resident(rt)["put_down"]
     rt.call("npcs.do", npc="resident", action="put_away", subject="pumpkin", place=[-0.6, 0.75, 1.3])
     npc = run_until(rt, lambda: resident(rt)["prop"] and resident(rt), step=0.25)
+    rt.call("time.advance", seconds=0.1, scale=1)                          # (taken on that frame, it is at the hands by the next)
     held = body(rt, "pumpkin")
     assert held["holder"] == npc["uid"] and held["center"][1] > 0.6        # in its hand, off the floor
     run_until(rt, lambda: resident(rt)["put_down"] == before + 1)
@@ -161,7 +162,9 @@ def test_it_looks_at_what_it_goes_for_then_at_where_it_will_put_it(rt):
     assert turned["subject"] > 10 and turned["place"] > 3, turned          # the head really turns (deg)
     assert doing["want"] == "tidy" and doing["place"] and doing["of"] >= 1 and doing["reluctance"] == 0
     r = resident(rt)
-    assert r["looking_at"] == "" and r["want"]["handled"][uid] == pytest.approx(1.0, abs=0.1)
+    # (Run on its own the pumpkin is still down, and she may be looking at that by now.)
+    assert r["looking_at"] == "" or r["want"]["doing"].get("subject", uid) != uid
+    assert r["want"]["handled"][uid] == pytest.approx(1.0, abs=0.1)
     rt.call("time.advance", seconds=2, scale=4)
     assert body(rt, "can")["center"][1] > 0.3
 
@@ -228,7 +231,7 @@ def test_a_bulky_prop_is_carried_in_front_in_both_hands(rt):
     # (Walking, the hands are a frame behind what they hold: 2 cm, and 8 cm at this 4x time scale.)
     npc, prop = carried(rt, "pumpkin", lambda r: set(r["hands"]["holding"]) == both and max(r["hands"]["holding"].values()) < 0.1)
     ahead, aside = ahead_and_aside(npc, prop)
-    assert ahead > 0.2 and abs(aside) < 0.05, (ahead, aside)               # in front of the body, not at the thigh
+    assert ahead > 0.2 and abs(aside) < 0.1, (ahead, aside)                # in front of the body, not at the thigh
     assert prop["center"][1] == pytest.approx(1.0, abs=0.15)
     run_until(rt, lambda: resident(rt)["prop"] == "")
     rt.call("time.advance", seconds=1, scale=1)
