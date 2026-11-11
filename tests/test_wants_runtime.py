@@ -1,6 +1,8 @@
 """Wants in the Godot runtime (geogen.97): NPCs carrying physics props, on the wants_test scene."""
 
 
+import math
+
 import pytest
 
 pytestmark = [pytest.mark.godot, pytest.mark.xdist_group("test_wants_runtime")]
@@ -198,3 +200,60 @@ def test_reluctance_ends_a_want_that_keeps_being_undone(rt):
     assert option in now["want"]["left"] and option not in [o["id"] for o in now["want"]["seen"]]
     assert now["failures"] == was["failures"]                              # it has had enough: nothing failed
     assert body(rt, "can")["center"][1] < 0.3 and body(rt, "can")["holder"] == ""
+
+
+def carried(rt, node, settled=lambda npc: True):
+    """Have the resident carry ``node`` from the floor across the room to the bookshelf; returns
+    (its report, the prop) on the way there, once ``settled(report)``."""
+    to_the_floor(rt, node, resume=False)
+    shelf = next(p for p in rt.call("npcs.places", npc="resident", want="tidy", prop=node)["places"]
+                 if p["uid"].endswith("bookshelf"))
+    rt.call("npcs.resume", npc="resident")
+    rt.call("npcs.do", npc="resident", action="put_away", subject=node, place=shelf["position"])
+    npc = run_until(rt, lambda: (lambda r: r["prop"] != "" and "go_to" in r["doing"] and settled(r) and r)(resident(rt)),
+                    step=0.1)
+    return npc, body(rt, node)
+
+
+def ahead_and_aside(npc, prop):
+    """How far ``prop``'s centre is in front of the NPC and off to its side (m)."""
+    yaw = math.radians(npc["yaw"])
+    dx, dz = prop["center"][0] - npc["position"][0], prop["center"][2] - npc["position"][2]
+    return dx * math.sin(yaw) + dz * math.cos(yaw), dx * math.cos(yaw) - dz * math.sin(yaw)
+
+
+def test_a_bulky_prop_is_carried_in_front_in_both_hands(rt):
+    both = {"LeftHand", "RightHand"}
+    # (Walking, the hands are a frame behind what they hold: 2 cm, and 8 cm at this 4x time scale.)
+    npc, prop = carried(rt, "pumpkin", lambda r: set(r["hands"]["holding"]) == both and max(r["hands"]["holding"].values()) < 0.1)
+    ahead, aside = ahead_and_aside(npc, prop)
+    assert ahead > 0.2 and abs(aside) < 0.05, (ahead, aside)               # in front of the body, not at the thigh
+    assert prop["center"][1] == pytest.approx(1.0, abs=0.15)
+    run_until(rt, lambda: resident(rt)["prop"] == "")
+    rt.call("time.advance", seconds=1, scale=1)
+    assert resident(rt)["hands"]["holding"] == {}                          # hands off it once it is down
+    # The can (12 cm) is a one-hand thing: at the side, as before.
+    npc, prop = carried(rt, "can")
+    assert npc["hands"]["holding"] == {} and abs(ahead_and_aside(npc, prop)[1]) > 0.1
+    run_until(rt, lambda: resident(rt)["prop"] == "")
+
+
+def test_a_seat_with_something_on_it_is_not_sat_on(rt):
+    def offered():
+        return [o["id"] for o in rt.call("npcs.options", npc="resident")]
+
+    rt.call("npcs.pause", npc="resident")
+    assert "chair#0" in offered()
+    to_the_floor(rt, "pumpkin", resume=False)
+    seat = next(p for p in rt.call("npcs.places", npc="resident", want="tidy", prop="pumpkin")["places"]
+                if p["uid"].endswith("chair"))
+    before = resident(rt)["put_down"]
+    rt.call("npcs.resume", npc="resident")
+    rt.call("npcs.do", npc="resident", action="put_away", subject="pumpkin", place=seat["position"])
+    run_until(rt, lambda: resident(rt)["put_down"] == before + 1, step=0.1)
+    rt.call("npcs.pause", npc="resident")                                  # (before she moves on, and brushes it off)
+    rt.call("time.advance", seconds=2, scale=4)
+    assert abs(body(rt, "pumpkin")["center"][1] - seat["height"] - 0.135) < 0.03   # it is on the seat
+    assert "chair#0" not in offered()
+    to_the_floor(rt, "pumpkin")                                            # cleared, the chair is a seat again
+    assert "chair#0" in offered()

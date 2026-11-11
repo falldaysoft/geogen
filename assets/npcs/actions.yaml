@@ -36,6 +36,8 @@
 #                                carrying none, the action fails
 #   pick_up: subject             take the action's subject (a physics prop with `carry`) in hand:
 #                                the NPC stands within its `reach`, and the prop is within its `carry`
+#                                (one over its `carry.two_hands` m long is carried in front,
+#                                in both hands; a smaller one in one hand)
 #   put_down: place              let the prop in hand go just above the action's place; where it
 #                                settles is up to the physics
 #   (go_to also takes `subject`: beside the prop, and `place`: where to stand to put it down)

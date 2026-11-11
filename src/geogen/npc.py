@@ -48,9 +48,11 @@ STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look"}
 LOOK_TARGETS = {"subject", "place", "none"}
 GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group",
                  "subject", "place"}
-# What a body's hands get to and what it can carry (physics props: pick_up / put_down).
+# What a body's hands get to and what it can carry (physics props: pick_up / put_down). A prop
+# over `two_hands` m on its longest side is carried in front of the body in both hands; a
+# smaller one in one hand, at the side.
 REACH_DEFAULTS = {"distance": 1.0, "heights": [0.0, 1.5], "stand": 0.5}
-CARRY_DEFAULTS = {"mass": 10.0, "size": 0.6}
+CARRY_DEFAULTS = {"mass": 10.0, "size": 0.6, "two_hands": 0.2}
 ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
 FACE_TARGETS = {"anchor", "portal", "player"}
 POSE_AT = {"anchor", "approach"}

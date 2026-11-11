@@ -829,6 +829,9 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   with `carry` in hand (`GeogenProps.take`: frozen, out of collision, kept at the hand) and let
   it go just above a place (`release`: a free body again, settling by the physics), within the
   definition's `reach` and `carry` limits. The player's E takes it out of the NPC's hand.
+  A prop over `carry.two_hands` m long is carried in front of the body in both hands (arm IK,
+  `GeogenHands.hold`), a smaller one in the right hand. A seat or bed with a loose prop lying
+  on it isn't offered to NPCs until it is cleared.
   `world.bodies` reports each prop's `holder` ("player", an NPC's stable ID, or "").
 - **Wants:** an NPC definition's `wants` (`extras.geogen.npc.wants`) add options to its
   decision: for `of: prop`, `when: {resting_on: floor}`, each prop with `carry` lying on a floor

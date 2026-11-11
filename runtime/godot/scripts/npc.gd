@@ -77,6 +77,11 @@ const GROUP_FAR := 0.35           # a member's utility of things beyond the grou
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
 const GROUP_REFRESH := 2.0
 const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
+const ON_SEAT := 0.35             # m (flat) from a seat's anchor a loose prop is on the seat
+const ON_SEAT_ABOVE := 0.6        # m above the anchor it still is
+const CARRY_HEIGHT := 0.6         # of the body's height: where the middle of a thing carried in both hands is
+const CARRY_BODY := 0.14          # m from the body's middle to the near side of such a thing
+const CARRY_PALM := 0.02          # m off its side the hand bone is (the palm is on it)
 const STAND_SLACK := 0.2          # m short of its reach a spot must be from where it will stand (walks end a little off)
 const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor it is baked from
 const PUT_GAP := 0.01             # m above the spot a prop is let go at
@@ -100,6 +105,7 @@ var label: Label3D
 ## Per-NPC counters for tests: used {id: count}, decisions, failures,
 ## max_stall (s), outside (s outside home + margin), passes (doors).
 var _queued := {}                 # an action asked for by name (do_action), taken at the next decision
+var _held_bulky := ""             # the prop both hands are on now (_carry_hands)
 var _handled := {}                # prop uid -> the clock times it picked it up (reluctance, npc_wants.gd)
 var _wants_seen := []             # report: the want options at its last decision [{id, score}]
 var _wants_left := []             # report: want options it has had enough of (reluctance), at the last look
@@ -346,6 +352,8 @@ func options(restricted := true) -> Array[Dictionary]:
         var gate = a.get("interaction")
         if gate is GeogenInteraction and not (gate as GeogenInteraction).allowed(WorldLoader.actor_id(self)):
             continue    # its `when` says no for this actor (a bin with nothing to throw away)
+        if _poses_at_anchor(actions[a["action"]]) and _something_on(a["position"]):
+            continue    # a seat or a bed with a thing lying on it: it sits somewhere else
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
             "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "at": a["approach"]})
     if not block_only.is_empty() and result.is_empty():
@@ -401,6 +409,29 @@ func options(restricted := true) -> Array[Dictionary]:
 
 
 ## Whether a thing (stable ID) is one of `ids` or inside one of them.
+## Whether an action puts the body on its anchor (a `pose` step other than standing: sit, lie).
+static func _poses_at_anchor(action: Dictionary) -> bool:
+    return (action["steps"] as Array).any(func(s): return s.has("pose") and s["pose"] != "stand" \
+        and str(s.get("at", "anchor")) == "anchor")
+
+
+## Whether a loose physics prop lies where a body would go at ``anchor`` (a seat, a mattress).
+func _something_on(anchor: Vector3) -> bool:
+    if world.props == null:
+        return false
+    for uid in world.props.props:
+        var body: Node3D = world.props.props[uid]["body"]
+        if not is_instance_valid(body) or not body.is_visible_in_tree() or world.props.holder_of(uid) != null:
+            continue
+        var at := body.global_position
+        if absf(at.x - anchor.x) > ON_SEAT or absf(at.z - anchor.z) > ON_SEAT:
+            continue                # (most props, most of the time)
+        var centre := _prop_centre(uid)
+        if NpcGeometry.flat(centre - anchor).length() < ON_SEAT and centre.y > anchor.y - 0.1 and centre.y < anchor.y + ON_SEAT_ABOVE:
+            return true
+    return false
+
+
 static func _under(uid: String, ids: Array) -> bool:
     if uid == "":
         return false
@@ -623,6 +654,8 @@ func _step(delta: float) -> void:
         animator.advance(delta)
         animator.locomote(Vector2(velocity.x, velocity.z).length(), _pose == "stand", _playing)
     _attend(delta)
+    if _hands != null and world.props != null:
+        _carry_hands()
     for need in needs:
         needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
     if needs.has("together") and group_leader() != "":
@@ -1109,12 +1142,43 @@ func prop_in_hand() -> String:
     return world.props.taken_by(self) if world != null and world.props != null else ""
 
 
-## Where a taken prop is held: its box's centre at the hand (a skeletal body), else in front
-## of the chest; upright, turned with the NPC.
+## Whether prop ``uid`` is one for both hands: over the definition's `carry.two_hands` on its
+## longest side.
+func _two_handed(uid: String) -> bool:
+    if uid == "" or not world.props.props.has(uid):
+        return false
+    var size: Vector3 = world.props.box_of(uid)["size"]
+    return maxf(size.x, maxf(size.y, size.z)) > float(definition.get("carry", {}).get("two_hands", 0.2))
+
+
+## Hands on the sides of a bulky prop while it is carried, and off it once it is let go
+## (put down, dropped, taken by the player): the body's left hand on its +X side.
+func _carry_hands() -> void:
+    var uid := prop_in_hand()
+    var bulky := uid if _two_handed(uid) else ""
+    if bulky == _held_bulky:
+        return
+    _held_bulky = bulky
+    if bulky == "":
+        _hands.let_go()
+        return
+    var box: Dictionary = world.props.box_of(bulky)
+    var side := Vector3((box["size"] as Vector3).x / 2.0 + CARRY_PALM, 0, 0)
+    _hands.hold(world.props.props[bulky]["body"], {"LeftHand": (box["center"] as Vector3) + side,
+        "RightHand": (box["center"] as Vector3) - side})
+
+
+## Where a taken prop is held: a bulky one (`_two_handed`) in front of the body below the
+## chest, a small one with its box's centre at the right hand (a skeletal body; else in front
+## of the chest too); upright, turned with the NPC.
 func _prop_point(uid: String) -> Transform3D:
     var basis := Basis(Vector3.UP, _yaw())
     var at := global_position + Vector3.UP * (float(definition.get("height", 1.7)) * 0.6) + basis * Vector3(0, 0, 0.3)
-    if _skeleton != null:
+    if _two_handed(uid):
+        var depth: float = (world.props.box_of(uid)["size"] as Vector3).z
+        at = global_position + Vector3.UP * (float(definition.get("height", 1.7)) * CARRY_HEIGHT) \
+            + basis * Vector3(0, 0, CARRY_BODY + depth / 2.0)
+    elif _skeleton != null:
         var bone := _skeleton.find_bone("RightHand")
         if bone >= 0:
             at = (_skeleton.global_transform * _skeleton.get_bone_global_pose(bone)).origin + basis * Vector3(0, -0.04, 0.08)

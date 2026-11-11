@@ -613,9 +613,9 @@
               "properties": { "distance": { "type": "number" }, "stand": { "type": "number" },
                 "heights": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } } },
             "carry": {
-              "description": "The physics props it can carry: at most 'mass' kg and 'size' m on the longest side.",
+              "description": "The physics props it can carry: at most 'mass' kg and 'size' m on the longest side. One over 'two_hands' m on its longest side is carried in front of the body in both hands, a smaller one in one hand.",
               "type": "object", "additionalProperties": false,
-              "properties": { "mass": { "type": "number" }, "size": { "type": "number" } } },
+              "properties": { "mass": { "type": "number" }, "size": { "type": "number" }, "two_hands": { "type": "number" } } },
             "attention": {
               "description": "How it notices the player (geogen/npc.py ATTENTION_DEFAULTS); a part left out is off. look: head look-at within 'range' m and a 'cone' of degrees, turning up to 'yaw' / 'pitch' degrees at 'speed'. greet: on E it raises 'signal' (not twice within 'debounce' s) and, standing, runs 'action' (waving at most every 'cooldown' s), looking at the greeter 'acknowledge' s. yield: steps 'step' m aside ('action') from a player walking at it within 'distance' m.",
               "type": "object", "additionalProperties": false,

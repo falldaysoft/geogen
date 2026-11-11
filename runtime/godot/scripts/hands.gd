@@ -14,6 +14,9 @@ extends SkeletonModifier3D
 ## Reaching (`reach`): one hand goes to a point on a moving node (a door's handle) for a while,
 ## easing in over REACH_EASE, following the node (the handle swings with the leaf), easing out.
 ##
+## Holding (`hold`): hands kept on points of a node (the sides of something carried in front of
+## the body) until `let_go`, eased in and out over REACH_EASE.
+##
 ## A TwoBoneIK3D after this modifier moves the hands, keeping the elbows bent the way the
 ## animation bends them. This runs after the animation (and the head look) and reads the animated
 ## hands, so it must come before the TwoBoneIK3D among the skeleton's children (`attach`).
@@ -40,12 +43,15 @@ var _ik: TwoBoneIK3D = null
 var _targets := {}               # hand -> Marker3D the IK reaches for
 var _poles := {}                 # hand -> Marker3D the elbow bends toward
 var _bones := {}                 # hand -> [upper, lower, hand] bone indices
+var _placed := {}                # hand -> where it was last put (world), with the IK's influence
 var _animated := {}              # hand -> where the animation put it (world), last modification
 var _support := {}               # hand -> where on its support it goes (world), from the last probe
 var _want := 0.0                 # resting weight
 var _raw := {}                   # hand -> from it to its support (world), last resting
 var _shift := {}                 # hand -> how far it is being moved now (m, for reports)
 var _reach := {}                 # {hand, node, local, t, seconds}: a hand reaching for a point
+var _hold := {}                  # hand -> {node, local}: hands kept on a thing (carried in both hands)
+var _hold_w := 0.0               # holding weight
 var _reaches := 0                # how many reaches have started (for reports)
 
 
@@ -100,6 +106,26 @@ func reach(hand: String, node: Node3D, local: Vector3, seconds: float) -> String
     return hand
 
 
+## Keep hands on `points` ({hand: a point in `node`'s frame}) until `let_go`: what is carried
+## in both hands. Hands the body lacks are skipped; false when it has none of them.
+func hold(node: Node3D, points: Dictionary) -> bool:
+    _hold = {}
+    for hand in points:
+        if _bones.has(hand):
+            _hold[hand] = {"node": node, "local": points[hand]}
+    if not _hold.is_empty():
+        _reach = {}                  # the hand that reached for it has it
+    return not _hold.is_empty()
+
+
+func let_go() -> void:
+    _hold = {}
+
+
+func holding() -> bool:
+    return not _hold.is_empty()
+
+
 ## The hands resting now: where each is (the animation's), where on its support it goes, and how
 ## far it is being moved there (m); the hand reaching now, and for what.
 func report() -> Dictionary:
@@ -114,7 +140,13 @@ func report() -> Dictionary:
         var goal: Vector3 = (_reach["node"] as Node3D).global_transform * (_reach["local"] as Vector3)
         reaching = {"hand": _reach["hand"], "weight": snappedf(_reach_weight(), 0.01), "goal": _v(goal),
             "at": _v(_animated.get(_reach["hand"], Vector3.ZERO))}
-    return {"weight": snappedf(_want, 0.01), "hands": out, "reaching": reaching, "reaches": _reaches}
+    # Holding: the hands kept on a carried thing, and how far each is from its point (m).
+    var held := {}
+    for hand in _hold:
+        if is_instance_valid(_hold[hand]["node"]):
+            var goal: Vector3 = (_hold[hand]["node"] as Node3D).global_transform * (_hold[hand]["local"] as Vector3)
+            held[hand] = snappedf(goal.distance_to(_placed.get(hand, _animated.get(hand, Vector3.ZERO))), 0.001)
+    return {"weight": snappedf(_want, 0.01), "hands": out, "reaching": reaching, "reaches": _reaches, "holding": held}
 
 
 static func _v(p: Vector3) -> Array:
@@ -140,6 +172,10 @@ func _physics_process(delta: float) -> void:
         _reach["t"] = float(_reach["t"]) + delta
         if float(_reach["t"]) >= float(_reach["seconds"]) or not is_instance_valid(_reach["node"]):
             _reach = {}
+    for hand in _hold.keys():
+        if not is_instance_valid(_hold[hand]["node"]):
+            _hold.erase(hand)
+    _hold_w = move_toward(_hold_w, 1.0 if not _hold.is_empty() else 0.0, delta / REACH_EASE)
     var resting := _resting()
     var goal := 1.0 if not resting.is_empty() else 0.0
     _want = move_toward(_want, goal, delta * SPEED)
@@ -179,7 +215,7 @@ func _process_modification() -> void:
     var to_world := skeleton.global_transform
     var resting := _resting()
     var reach_w := _reach_weight()
-    var weight := maxf(_want, reach_w)
+    var weight := maxf(maxf(_want, reach_w), _hold_w)
     var moved := false
     # How far the resting hands go up or down onto their top: the working hands go with them.
     var rise := 0.0
@@ -208,6 +244,10 @@ func _process_modification() -> void:
             var goal: Vector3 = (_reach["node"] as Node3D).global_transform * (_reach["local"] as Vector3)
             goal -= (goal - shoulder).normalized() * GRIP
             move = (goal - wrist) * (reach_w / weight)
+        if _hold.has(hand) and is_instance_valid(_hold[hand]["node"]):
+            var grip: Vector3 = (_hold[hand]["node"] as Node3D).global_transform * (_hold[hand]["local"] as Vector3)
+            move = (grip - wrist) * (_hold_w / weight)
+        _placed[hand] = wrist + move * weight
         _shift[hand] = move.length() * weight
         moved = moved or move.length() > 0.001
         (_targets[hand] as Marker3D).global_position = wrist + move
