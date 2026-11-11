@@ -1,0 +1,11 @@
+# Smokey, a small grey cat: a named animal on top of the cat role
+# (npcs/cat.yaml), as named people are on theirs.
+
+kind: character
+version: 1
+
+name: Smokey
+npc: npcs/cat.yaml
+seed: 3
+body:
+  params: { size: 0.75, coat: grey, build: 0.7 }

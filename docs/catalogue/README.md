@@ -368,6 +368,7 @@ place:
 <table>
 <tr>
 <td align="center"><a href="assets/capsule.md"><img src="img/capsule.png" width="150" alt="capsule"><br>capsule</a></td>
+<td align="center"><a href="assets/cat.md"><img src="img/cat.png" width="150" alt="cat"><br>cat</a></td>
 <td align="center"><a href="assets/humanoid.md"><img src="img/humanoid.png" width="150" alt="humanoid"><br>humanoid</a></td>
 </tr>
 </table>
@@ -375,6 +376,7 @@ place:
 | Asset | What it is | Params |
 | --- | --- | --- |
 | [capsule](assets/capsule.md) | Placeholder character body: a capsule with a visor showing which way it faces (+Z). | `height`, `radius` |
+| [cat](assets/cat.md) | A cat: a four-legged skinned body with a walk and an idle, all from YAML. | `size`, `build`, `coat` |
 | [humanoid](assets/humanoid.md) | Parametric humanoid body: the humanoid skeleton (assets/skeletons/humanoid.yaml) skinned by ring-lofted chains (generators/ringloft.py). | `height`, `build`, `shoulder_width`, `hip_width`, `leg_ratio`, `hips`, `waist`, `bust`, `glutes`, `limb`, `limb_scale`, `belly`, `head_size`, `head_units`, `jaw_width`, `nose`, `chin`, `brow`, `cheeks`, `lips`, `ears`, `neck_length`, `hand_size`, `foot_length`, `skin_tone`, `hair_style`, `hair_color`, `eye_color`, `outfit`, `top_color`, `bottom_color`, `shoe_color`, `lashes`, `lip_strength`, `blush`, `freckles`, `age`, `stubble`, `smile`, `brow_thickness`, `brow_arch`, `seat_height`, `table_height`, `sill_height`, `worktop_height` |
 
 ## Other

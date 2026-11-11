@@ -1,0 +1,190 @@
+# A cat: a four-legged skinned body with a walk and an idle, all from YAML.
+#
+# The quadruped skeleton (assets/skeletons/quadruped.yaml) skinned by
+# ring-lofted chains, like the humanoid (generators/ringloft.py): one closed
+# mesh, stylised and low-poly. Faces +Z; origin on the floor under the middle
+# of the body.
+#
+# Ring frames: the trunk and tail have side = +X (rx = half width) and front =
+# up (rz = half height); legs have side = +X, front = +Z.
+
+name: cat
+tags: [npc.body, animal.cat]
+
+params:
+  size:  { default: 1.0 }           # 1: a house cat, 25 cm at the shoulder
+  build: { default: 0.5 }           # 0 lean .. 1 stocky
+  coat:  { default: ginger, choices: [ginger, grey, black, white, brown, cream] }
+
+derived:
+  k: "{size}"
+  f: "{(0.85 + 0.3 * build) * size}"    # flesh factor
+
+body:
+  skeleton: skeletons/quadruped.yaml
+  skeleton_params:
+    length: "{0.29 * k}"
+    back: "{0.185 * k}"
+    width: "{0.085 * k}"
+    neck_length: "{0.07 * k}"
+    head_length: "{0.085 * k}"
+    tail_length: "{0.26 * k}"
+    ear_size: "{0.042 * k}"
+  material: fur
+  color: "{coat}"
+  colors: &colors
+    ginger: [1.0, 0.42, 0.1]
+    grey: [0.24, 0.24, 0.26]
+    black: [0.025, 0.022, 0.022]
+    white: [0.92, 0.9, 0.86]
+    brown: [0.2, 0.09, 0.04]
+    cream: [0.9, 0.68, 0.4]
+    eye: [0.01, 0.01, 0.01]
+    nose: [0.6, 0.2, 0.2]
+  # Parts of a chain in another colour (from / to: [bone, t]; default: all of it).
+  markings:
+    - { chain: eye, color: eye }
+    - { chain: trunk, from: [Head, 0.9], color: nose }
+  crease_angle: 80
+  chains:
+    trunk:
+      bones: [Hips, Spine, Chest, Neck, Head]
+      end: Nose
+      front: [0, 1, 0]
+      sides: 12
+      spacing: 0.04
+      blend: 0.03
+      joint_rings: false
+      cap_rings: 2
+      rings:
+        - [Hips, -0.32, "{0.036 * f}", "{0.040 * f}"]
+        - [Hips, 0.1, "{0.062 * f}", "{0.068 * f}", { offset: [0, -0.010] }]
+        - [Spine, 0.3, "{0.068 * f}", "{0.076 * f}", { offset: [0, -0.020] }]
+        - [Chest, 0.2, "{0.066 * f}", "{0.078 * f}", { offset: [0, -0.022] }]
+        - [Chest, 0.95, "{0.054 * f}", "{0.062 * f}", { offset: [0, -0.012] }]
+        - [Neck, 0.6, "{0.046 * f}", "{0.048 * f}"]
+        - [Head, 0.0, "{0.050 * k}", "{0.048 * k}"]
+        - [Head, 0.3, "{0.060 * k}", "{0.056 * k}"]
+        - [Head, 0.6, "{0.056 * k}", "{0.050 * k}", { offset: [0, -0.002] }]
+        - [Head, 0.8, "{0.036 * k}", "{0.032 * k}", { offset: [0, -0.012] }]
+        - [Head, 0.9, "{0.013 * k}", "{0.010 * k}", { offset: [0, -0.012] }]     # the nose, from here on
+        - [Head, 0.97, "{0.011 * k}", "{0.009 * k}", { offset: [0, -0.012] }]
+    tail:
+      bones: [Tail1, Tail2, Tail3]
+      end: TailTip
+      root: Hips
+      front: [0, 1, 0]
+      sides: 8
+      spacing: 0.05
+      blend: 0.03
+      cap_rings: 2
+      rings:
+        - [Tail1, -0.5, "{0.017 * f}", "{0.017 * f}"]
+        - [Tail1, 0.5, "{0.015 * f}", "{0.015 * f}"]
+        - [Tail2, 0.5, "{0.014 * f}", "{0.014 * f}"]
+        - [Tail3, 0.9, "{0.012 * f}", "{0.012 * f}"]
+    front_leg:
+      bones: [LeftFrontUpperLeg, LeftFrontLowerLeg, LeftFrontFoot]
+      end: LeftFrontToes
+      root: Chest
+      mirror: true
+      sides: 8
+      spacing: 0.04
+      blend: 0.03
+      joint_rings: [LeftFrontLowerLeg]
+      cap_rings: 2
+      rings:
+        - [LeftFrontUpperLeg, -0.3, "{0.024 * f}", "{0.032 * f}"]
+        - [LeftFrontUpperLeg, 0.5, "{0.021 * f}", "{0.025 * f}"]
+        - [LeftFrontLowerLeg, 0.3, "{0.017 * f}", "{0.018 * f}"]
+        - [LeftFrontLowerLeg, 0.9, "{0.016 * f}", "{0.016 * f}"]
+        - [LeftFrontFoot, 0.6, "{0.019 * f}", "{0.015 * f}"]
+    hind_leg:
+      bones: [LeftHindUpperLeg, LeftHindLowerLeg, LeftHindFoot]
+      end: LeftHindToes
+      root: Hips
+      mirror: true
+      sides: 8
+      spacing: 0.04
+      blend: 0.03
+      joint_rings: [LeftHindLowerLeg, LeftHindFoot]
+      cap_rings: 2
+      rings:
+        - [LeftHindUpperLeg, -0.3, "{0.028 * f}", "{0.042 * f}"]
+        - [LeftHindUpperLeg, 0.5, "{0.025 * f}", "{0.034 * f}"]
+        - [LeftHindLowerLeg, 0.4, "{0.018 * f}", "{0.021 * f}"]
+        - [LeftHindFoot, 0.1, "{0.015 * f}", "{0.016 * f}"]
+        - [LeftHindFoot, 0.75, "{0.016 * f}", "{0.016 * f}"]
+        - [LeftHindFoot, 0.98, "{0.019 * f}", "{0.020 * f}", { offset: [0, 0.008] }]
+    ear:
+      bones: [LeftEar]
+      end: LeftEarTip
+      root: Head
+      mirror: true
+      sides: 6
+      spacing: 0.03
+      blend: 0.02
+      joint_rings: false
+      cap_rings: 1
+      rings:
+        - [LeftEar, -0.3, "{0.022 * k}", "{0.009 * k}"]
+        - [LeftEar, 0.4, "{0.016 * k}", "{0.006 * k}"]
+        - [LeftEar, 0.92, "{0.004 * k}", "{0.003 * k}"]
+    eye:
+      bones: [LeftEye]
+      end: LeftEyeFront
+      root: Head
+      mirror: true
+      sides: 10
+      spacing: 0.02
+      blend: 0.01
+      joint_rings: false
+      cap_rings: 2
+      rings:
+        - [LeftEye, 0.1, "{0.008 * k}", "{0.010 * k}"]
+        - [LeftEye, 0.7, "{0.008 * k}", "{0.010 * k}"]
+  poses:
+    stand: {}
+  pose: stand
+  # Motions, bone by bone (generators/clips.cycle_clip): closed paths of [x, y, z] degrees about
+  # the cat's own axes (a negative x swings a leg forward), keys evenly spaced round the loop.
+  clips:
+    # A walk, one foot at a time: left hind, left front, right hind, right front. A leg's keys
+    # are [reaching forward as it lands, under the body, pushed back, lifted and coming through];
+    # each leg has them turned round by its place in that order.
+    walk:
+      generator: cycle
+      duration: 0.8
+      speed: 0.45
+      bones:
+        LeftHindUpperLeg:   { path: [[-22, 0, 0], [0, 0, 0], [24, 0, 0], [-4, 0, 0]] }
+        LeftHindLowerLeg:   { path: [[-6, 0, 0], [0, 0, 0], [6, 0, 0], [38, 0, 0]] }
+        LeftHindFoot:       { path: [[10, 0, 0], [0, 0, 0], [-14, 0, 0], [-30, 0, 0]] }
+        LeftFrontUpperLeg:  { path: [[14, 0, 0], [-24, 0, 0], [0, 0, 0], [24, 0, 0]] }
+        LeftFrontLowerLeg:  { path: [[-34, 0, 0], [4, 0, 0], [0, 0, 0], [-4, 0, 0]] }
+        LeftFrontFoot:      { path: [[44, 0, 0], [-8, 0, 0], [0, 0, 0], [14, 0, 0]] }
+        RightHindUpperLeg:  { path: [[24, 0, 0], [-4, 0, 0], [-22, 0, 0], [0, 0, 0]] }
+        RightHindLowerLeg:  { path: [[6, 0, 0], [38, 0, 0], [-6, 0, 0], [0, 0, 0]] }
+        RightHindFoot:      { path: [[-14, 0, 0], [-30, 0, 0], [10, 0, 0], [0, 0, 0]] }
+        RightFrontUpperLeg: { path: [[0, 0, 0], [24, 0, 0], [14, 0, 0], [-24, 0, 0]] }
+        RightFrontLowerLeg: { path: [[0, 0, 0], [-4, 0, 0], [-34, 0, 0], [4, 0, 0]] }
+        RightFrontFoot:     { path: [[0, 0, 0], [14, 0, 0], [44, 0, 0], [-8, 0, 0]] }
+        Spine:              { path: [[0, 3, 0], [0, -3, 0]] }
+        Head:               { path: [[2, 0, 0], [-2, 0, 0]], cycles: 2 }
+        Tail1:              { path: [[0, 8, 0], [0, -8, 0]] }
+        Tail2:              { path: [[0, -6, 0], [0, 6, 0]] }
+      hips: { path: [[0, 0.004, 0], [0, -0.004, 0]], cycles: 2 }
+    # Standing: breathing, the tail's slow swish, an ear flick.
+    idle:
+      generator: cycle
+      duration: 4
+      bones:
+        Chest:   { path: [[-1.5, 0, 0], [1.5, 0, 0]], cycles: 2 }
+        Tail1:   { path: [[0, 14, 0], [0, -14, 0]] }
+        Tail2:   { path: [[0, 12, 0], [0, -12, 0]] }
+        Tail3:   { path: [[0, -16, 0], [0, 16, 0]] }
+        Head:    { path: [[0, 0, 0], [0, 10, 0], [3, 0, 0], [0, -8, 0]] }
+        LeftEar: { path: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, -18], [0, 0, 0], [0, 0, 0]] }
+
+poses:
+  stand: {}

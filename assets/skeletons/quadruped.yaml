@@ -1,0 +1,76 @@
+# Four-legged skeleton: a spine from the hips forward to the head, a leg at
+# each corner, a tail, two ears and two eyes. Its bones are its own (`hierarchy`), not a
+# profile's. Rest = standing square, facing +Z, the animal's left at +X, Root
+# on the floor under the middle of the body.
+#
+# bones: world rest head positions ([x, y, z], {expr} over params + derived).
+# Left* bones are mirrored to Right*. A bone rests pointing at its first child.
+kind: skeleton
+name: quadruped
+
+params:
+  length:      { default: 0.32 }   # hip joints to shoulder joints
+  back:        { default: 0.20 }   # floor to the spine
+  width:       { default: 0.085 }  # between the leg joints, left to right
+  neck_length: { default: 0.06 }
+  head_length: { default: 0.095 }  # skull base to the nose
+  tail_length: { default: 0.26 }
+  ear_size:    { default: 0.04 }
+
+derived:
+  fz: "{length / 2}"                            # the shoulders
+  hz: "{-length / 2}"                           # the hips
+  lx: "{width / 2}"
+  u: "{back / 0.20}"                            # leg lengths follow the back's height
+  head_y: "{back + neck_length * 0.9}"
+  head_z: "{fz + 0.02 + neck_length * 0.6}"
+
+bones:
+  Root: [0, 0, 0]
+  Hips: [0, "{back}", "{hz - 0.01}"]
+  Spine: [0, "{back + 0.005}", "{hz + length * 0.36}"]
+  Chest: [0, "{back}", "{hz + length * 0.74}"]
+  Neck: [0, "{back + 0.015}", "{fz + 0.02}"]
+  Head: [0, "{head_y}", "{head_z}"]
+  Nose: [0, "{head_y - 0.006}", "{head_z + head_length}"]
+  LeftEar: ["{head_length * 0.42}", "{head_y + head_length * 0.45}", "{head_z + head_length * 0.3}"]
+  LeftEarTip: ["{head_length * 0.56}", "{head_y + head_length * 0.45 + ear_size}", "{head_z + head_length * 0.26}"]
+  LeftEye: ["{head_length * 0.3}", "{head_y + head_length * 0.2}", "{head_z + head_length * 0.6}"]
+  LeftEyeFront: ["{head_length * 0.36}", "{head_y + head_length * 0.24}", "{head_z + head_length * 0.76}"]
+  Tail1: [0, "{back + 0.005}", "{hz - 0.045}"]
+  Tail2: [0, "{back + 0.03}", "{hz - 0.045 - tail_length * 0.33}"]
+  Tail3: [0, "{back + 0.08}", "{hz - 0.045 - tail_length * 0.6}"]
+  TailTip: [0, "{back + 0.15}", "{hz - 0.045 - tail_length * 0.74}"]
+  LeftFrontUpperLeg: ["{lx}", "{back - 0.03 * u}", "{fz - 0.01}"]
+  LeftFrontLowerLeg: ["{lx}", "{0.10 * u}", "{fz - 0.025}"]
+  LeftFrontFoot: ["{lx}", "{0.032 * u}", "{fz - 0.015}"]
+  LeftFrontToes: ["{lx}", 0.012, "{fz + 0.012}"]
+  LeftHindUpperLeg: ["{lx + 0.004}", "{back - 0.03 * u}", "{hz + 0.01}"]
+  LeftHindLowerLeg: ["{lx + 0.004}", "{0.11 * u}", "{hz + 0.05}"]
+  LeftHindFoot: ["{lx + 0.004}", "{0.06 * u}", "{hz - 0.012}"]
+  LeftHindToes: ["{lx + 0.004}", 0.014, "{hz + 0.004}"]
+
+hierarchy:
+  Root: null
+  Hips: Root
+  Spine: Hips
+  Chest: Spine
+  Neck: Chest
+  Head: Neck
+  Nose: Head
+  LeftEar: Head
+  LeftEarTip: LeftEar
+  LeftEye: Head
+  LeftEyeFront: LeftEye
+  Tail1: Hips
+  Tail2: Tail1
+  Tail3: Tail2
+  TailTip: Tail3
+  LeftFrontUpperLeg: Chest
+  LeftFrontLowerLeg: LeftFrontUpperLeg
+  LeftFrontFoot: LeftFrontLowerLeg
+  LeftFrontToes: LeftFrontFoot
+  LeftHindUpperLeg: Hips
+  LeftHindLowerLeg: LeftHindUpperLeg
+  LeftHindFoot: LeftHindLowerLeg
+  LeftHindToes: LeftHindFoot

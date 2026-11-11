@@ -8,6 +8,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [vending_machine](#vending_machine) | A vending machine to play with. |  |
 | [archetype_gallery](#archetype_gallery) | Character archetypes (assets/characters/archetypes/): one row per archetype, eight seeded people each (a path scatter draws a seed per copy). |  |
 | [bedtime](#bedtime) | A hotel guest goes to bed at 23:00 and sleeps there until 07:00. |  |
+| [cat_test](#cat_test) | A cat in a room: the test scene for four-legged bodies (geogen.100). |  |
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
 | [cottage](#cottage) | Brick cottage: house shell with a front door and windows on every side. | showcase |
@@ -47,11 +48,11 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [traffic_scale](#traffic_scale) | 150 vehicles on a grid. |  |
 | [trees](#trees) | Tree demo scene. |  |
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
-| [wants_places](#wants_places) | A room of places with different qualities: the test scene for what wants weigh in a place (geogen.97.6). |  |
+| [wants_places](#wants_places) | A room of places with different qualities, for what wants weigh in a place. |  |
 | [wants_test](#wants_test) | A resident in one room with things to carry: the test scene for wants (geogen.97). |  |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
-| [wants_house](#wants_house) | A house-proud person in a two-room flat: the test scene for wants about the state of things (geogen.97.5). |  |
+| [wants_house](#wants_house) | A house-proud person in a two-room flat: wants about the state of things. |  |
 
 ## hotel
 
@@ -131,6 +132,20 @@ there (npcs/hotel_guest.yaml's night block: only: [bed], hold: true). Run it
 from 22:58 with a short day to watch the guest turn in and get up again.
 
 **Places**: `room: {scene: scenes/hotel_room.yaml}`; `guest: {npc: npcs/hotel_guest.yaml}`
+
+**Spawns**: start
+
+## cat_test
+
+`scene: scenes/cat_test.yaml` · [source](../../assets/scenes/cat_test.yaml)
+
+A cat in a room: the test scene for four-legged bodies (geogen.100).
+
+Two cats (npcs/cat.yaml; Smokey is people/smokey.yaml, smaller and grey) wander
+the room and stand about. Their body, walk and idle are all declared in
+characters/cat.yaml.
+
+**Places**: `room: {asset: room.yaml}`; `sofa: {asset: sofa.yaml}`; `cat: {npc: npcs/cat.yaml}`; `smokey: {character: people/smokey.yaml}`
 
 **Spawns**: start
 
@@ -709,8 +724,8 @@ Vehicles for review: the car presets in a few paints, a van and a bus. Faces +X.
 
 `scene: scenes/wants_places.yaml` · [source](../../assets/scenes/wants_places.yaml)
 
-A room of places with different qualities: the test scene for what wants
-weigh in a place (geogen.97.6).
+A room of places with different qualities, for what wants weigh in a place.
+(The test scene for geogen.97.6.)
 
 A can lies on the floor. Tomas puts things up out of the way, so it goes as
 high and as tucked in as he can reach, whatever that turns out to be. The
@@ -781,8 +796,8 @@ rules layer in one small yard. In the runtime catalogue's test group.
 
 `scene: scenes/wants_house/scene.yaml` · [source](../../assets/scenes/wants_house/scene.yaml)
 
-A house-proud person in a two-room flat: the test scene for wants about the
-state of things (geogen.97.5).
+A house-proud person in a two-room flat: wants about the state of things.
+(The test scene for geogen.97.5 and for perception, geogen.99.1.)
 
 The flat's rooms each have a ceiling light with a switch by every door (the
 floor plan's finishes), all on. Hana puts out the light of a room nobody is

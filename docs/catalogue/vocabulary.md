@@ -42,7 +42,7 @@
 | `poses` | NPC root transforms per pose name (body assets) |
 | `floorplan` | rooms, doors and windows instead of parts; surfaces are <room>.<surface> |
 | `building` | {storeys: [{floorplan, repeat, furnish}], roof, facade}: stacked floor plans |
-| `body` | a skinned humanoid: skeleton, ring-lofted chains, hair, clothing, poses and clips |
+| `body` | a skinned body on a skeleton (a person, or an animal on a skeleton with its own bones): ring-lofted chains, a coat colour and markings, hair, clothing, poses and clips |
 
 ## Scene keys
 
@@ -181,6 +181,7 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `h
 | [people/hana.yaml](../../assets/people/hana.yaml) | Hana Mori, a house-proud resident: a named person on top of the resident role (npcs/resident.yaml). |
 | [people/marco.yaml](../../assets/people/marco.yaml) | Marco Bellini, the chef at the Corner Bistro: a named person on top of the chef role (npcs/chef.yaml: the range, the prep counter, a look into the dining room now and then, home at night). |
 | [people/rosa.yaml](../../assets/people/rosa.yaml) | Rosa Lind, a regular: lunch at the Corner Bistro, the rest of the day in the park. |
+| [people/smokey.yaml](../../assets/people/smokey.yaml) | Smokey, a small grey cat: a named animal on top of the cat role (npcs/cat.yaml), as named people are on theirs. |
 | [people/tomas.yaml](../../assets/people/tomas.yaml) | Tomas Lind, a resident who puts things up out of the way: a named person on top of the resident role (npcs/resident.yaml). |
 
 ### dialogue
@@ -256,6 +257,7 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `h
 
 | File | What it is |
 | --- | --- |
+| [npcs/cat.yaml](../../assets/npcs/cat.yaml) | A house cat: it wanders its home and stands about, tail swishing. |
 | [npcs/chef.yaml](../../assets/npcs/chef.yaml) | A cook: works the range and the prep counter (affordances tagged `cook`), rests on a stool or chair now and then, looks into the dining room every few minutes and goes home for the night. |
 | [npcs/diner.yaml](../../assets/npcs/diner.yaml) | Out for a meal or a drink: sits at a table or in a booth, or at the bar, and moves between them now and then. |
 | [npcs/hotel_guest.yaml](../../assets/npcs/hotel_guest.yaml) | A hotel guest in their room: sleeps the night through in its bed, sits, looks out of the window, wanders the room. |
@@ -278,9 +280,9 @@ Keys: `face`, `go_to`, `pick_up`, `play`, `pose`, `put_down`, `use`, `use_item`,
 
 ### npc_stimuli
 
+What NPCs with senses can notice: bus events and how far they carry.
 
-
-Use: ``
+Use: `an NPC's reacts: {thud: {interrupt: true}}`
 
 Keys: `stimuli`
 
@@ -356,6 +358,7 @@ Keys: `bones`, `derived`, `group_scale`, `landmarks`, `name`, `params`, `profile
 | File | What it is |
 | --- | --- |
 | [skeletons/humanoid.yaml](../../assets/skeletons/humanoid.yaml) | Humanoid skeleton: Godot SkeletonProfileHumanoid bones (humanoid_profile.json), placed by body proportions. |
+| [skeletons/quadruped.yaml](../../assets/skeletons/quadruped.yaml) | Four-legged skeleton: a spine from the hips forward to the head, a leg at each corner, a tail, two ears and two eyes. |
 
 ### traffic
 
@@ -458,6 +461,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `foliage_green` | painted_wall |
 | `foliage_palm` | painted_wall |
 | `foliage_pine` | painted_wall |
+| `fur` | hair |
 | `glass` | metal |
 | `glow_accent` | painted_wall |
 | `grass` | grass |

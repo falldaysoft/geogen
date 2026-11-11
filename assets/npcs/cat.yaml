@@ -1,0 +1,35 @@
+# A house cat: it wanders its home and stands about, tail swishing. The body is
+# characters/cat.yaml (four legs, from YAML); the brain is the same as a
+# person's, with a cat's needs.
+#
+# Place in a scene with:
+#   cat: { npc: npcs/cat.yaml, on: house.floor, at: {u: 0.5, v: 0.5}, home: house.floor }
+#
+# It takes only affordances tagged for animals (none yet: seats are for people),
+# so for now it has its own activities. Animal wants (a warm, high place to
+# nap) come with geogen.100.3.
+
+kind: npc
+version: 1
+
+body: { asset: characters/cat.yaml }
+speed: 0.45               # a cat's walk, m/s (its walk clip's speed)
+turn_speed: 300
+
+needs:
+  curiosity: { initial: 0.4, decay: 0.02 }
+  rest:      { initial: 0.7, decay: 0.008 }
+
+activities:
+  wander: { action: wander, advertises: { curiosity: 0.12 } }
+  idle:   { action: idle, advertises: { rest: 0.08 } }
+
+scoring: { distance: 0.02, recency: 0.3, memory: 30, noise: 0.08, retry: 10 }
+
+affordance_tags: [animal]
+
+# It looks at the player who comes near, and that is all: no wave, and it keeps its ground.
+attention:
+  look: { range: 3.0, cone: 200, yaw: 60, pitch: 40, speed: 5 }
+  greet: false
+  yield: false

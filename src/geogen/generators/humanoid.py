@@ -883,6 +883,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     crease = float(spec.get("crease_angle", 75.0))
     skin = material_loader.load(spec.get("material", "skin"))
     tone = tuple(skin_tone(spec.get("skin_tone", 0.2)))
+    if spec.get("color") is not None:
+        # A coat, not a skin tone (an animal): [r, g, b] over the material, or a name from `colors`.
+        tone = tuple(float(v) for v in _color(spec["color"], spec.get("colors") or {}, "body colour"))
 
     # Outfit: tight garments become spans on the body's chains (one slot each, with its own
     # copy of the garment material so slots stay apart through CSG); loose ones are shells.
@@ -932,6 +935,19 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
             worn[-1]["shell"] = len(loose)
             loose.append((garment, color, base))
 
+    # Markings: part of a chain in another colour (a nose, socks, a tail tip; a whole chain: an
+    # eye). The same material and thickness: only the colour changes.
+    for mark in spec.get("markings") or []:
+        if not isinstance(mark, dict) or set(mark) - {"chain", "from", "to", "color"} or mark.get("chain") not in by_name:
+            raise ValueError(f"'{name}': a marking is {{chain, color, from?: [bone, t], to?: [bone, t]}} on one of "
+                             f"{sorted(by_name)}, got {mark!r}")
+        chain = by_name[mark["chain"]]
+        start = mark.get("from", [chain.bones[0], -4.0])
+        end = mark.get("to", [chain.bones[-1], 4.0])
+        chain.spans.append(Span((str(start[0]), float(start[1])), (str(end[0]), float(end[1])), 0.0, len(materials)))
+        slot_colors.append((tuple(float(v) for v in _color(mark.get("color", "black"), spec.get("colors") or {},
+                                                             "marking colour")), skin))
+        materials.append(copy.copy(skin))
     waist_overlap = lap_waist(worn, by_name, skeleton, loose)
     for entry, chain_name, k, ref in levels:
         from .ringloft import ChainPath

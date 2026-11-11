@@ -452,8 +452,54 @@ def gesture_clip(skeleton: Skeleton, base: Pose, name: str = "gesture", *, poses
                 samples=GESTURE_SAMPLES)
 
 
+CYCLE_DEFAULTS = {"pose": None, "duration": 1.0, "speed": None, "bones": {}, "hips": None, "fps": 20}
+
+
+def cycle_clip(skeleton: Skeleton, base: Pose, name: str = "cycle", *, poses: dict | None = None,
+               **params) -> Clip:
+    """A looping motion declared bone by bone, for any skeleton: a gait, a tail's swish, breathing.
+
+    - ``bones: {Bone: {path, cycles}}``: [x, y, z] degree offsets (body frame: x about the
+      animal's left, so a negative x swings a leg forward) on top of the pose, as closed paths of
+      evenly spaced keys joined smoothly (``loop_path``), gone round ``cycles`` times a loop. A
+      gait is each leg's path with its keys turned round by its place in the footfall order.
+    - ``hips: {path, cycles}``: [x, y, z] m the hips move by (a bob, a sway).
+    - ``pose``: the body pose it plays over (default: the one the body is built in).
+    - ``speed``: m/s the motion suits; a runtime plays a ``walk`` faster or slower by it.
+    """
+    p = {**CYCLE_DEFAULTS, **params}
+    unknown = set(params) - set(CYCLE_DEFAULTS)
+    if unknown:
+        raise ValueError(f"cycle clip '{name}': unknown params {sorted(unknown)}")
+    if p["pose"] is not None and p["pose"] not in (poses or {}):
+        raise ValueError(f"cycle clip '{name}': pose {p['pose']!r} is not one of the body's poses")
+    held = Pose.from_spec(poses[p["pose"]], skeleton) if p["pose"] is not None else base
+    paths = {"hips": p["hips"]} if p["hips"] else {}
+    for bone, b in {**(p["bones"] or {}), **paths}.items():
+        if (bone != "hips" and bone not in skeleton.bones) or not isinstance(b, dict) or set(b) - GESTURE_BONE_KEYS:
+            raise ValueError(f"cycle clip '{name}': {bone} is {{path, cycles}} on a skeleton bone (or hips)")
+    duration = float(p["duration"])
+    frames = max(8, int(round(duration * p["fps"])))
+    times = np.linspace(0.0, duration, frames + 1)
+    out = []
+    for t in times:
+        u = t / duration
+        pose = held.copy()
+        for bone, b in (p["bones"] or {}).items():
+            degrees = np.radians(loop_path(b.get("path") or [], u, int(b.get("cycles", 1))))
+            extra = skeleton.body_quat(bone, Transform(rotation=degrees).to_matrix()[:3, :3])
+            q = pose.rotations.get(bone, np.array([0.0, 0.0, 0.0, 1.0]))
+            pose.rotations[bone] = quat_from_matrix(matrix_from_quat(q) @ matrix_from_quat(extra))
+        if p["hips"]:
+            move = loop_path(p["hips"].get("path") or [], u, int(p["hips"].get("cycles", 1)))
+            pose.offsets["Hips"] = pose.offsets.get("Hips", np.zeros(3)) + move
+        out.append(pose)
+    meta = {"speed": round(float(p["speed"]), 4)} if p["speed"] is not None else {}
+    return Clip(name, tracks_from_poses(skeleton, out, times), loop=True, meta=meta, samples=GESTURE_SAMPLES)
+
+
 GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip, "transition": transition_clip,
-              "gesture": gesture_clip}
+              "gesture": gesture_clip, "cycle": cycle_clip}
 
 
 def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict, poses: dict | None = None,
@@ -468,4 +514,6 @@ def generate_clip(skeleton: Skeleton, base: Pose, name: str, spec: dict, poses: 
         return transition_clip(skeleton, base, name=name, poses=poses, roots=roots, **spec)
     if kind == "gesture":
         return gesture_clip(skeleton, base, name=name, poses=poses, **spec)
+    if kind == "cycle":
+        return cycle_clip(skeleton, base, name=name, poses=poses, **spec)
     return GENERATORS[kind](skeleton, base, name=name, **spec)

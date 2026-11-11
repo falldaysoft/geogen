@@ -21,6 +21,7 @@ import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -67,6 +68,48 @@ def profile_rest_world(profile: tuple[ProfileBone, ...]) -> dict[str, NDArray[np
         local = _matrix(matrix_from_quat(bone.rotation), bone.translation)
         world[bone.name] = world[bone.parent] @ local if bone.parent else local
     return world
+
+
+def _own_profile(hierarchy: Any, heads: dict[str, NDArray[np.float64]], path: Path
+                 ) -> tuple[tuple[ProfileBone, ...], dict[str, NDArray[np.float64]]]:
+    """A skeleton's own ``hierarchy: {bone: parent}`` (parents first; Left* bones are mirrored to
+    Right* with their parents) as profile bones and world rest matrices. Every bone needs a
+    position. A bone rests with +Y toward its first child (an end bone: the way its parent
+    points) and X as near the character's left as that allows."""
+    if not isinstance(hierarchy, dict) or not hierarchy:
+        raise ValueError(f"{path}: hierarchy is {{bone: parent}} (parents first; the root's parent is null)")
+    parents: dict[str, str | None] = {}
+    for name, parent in hierarchy.items():
+        parents[str(name)] = None if parent is None else str(parent)
+        twin = mirror_name(str(name))
+        if twin is not None and twin not in hierarchy:
+            parents[twin] = None if parent is None else (mirror_name(str(parent)) or str(parent))
+    for name, parent in parents.items():
+        if parent is not None and (parent not in parents or list(parents).index(parent) > list(parents).index(name)):
+            raise ValueError(f"{path}: hierarchy: '{name}' comes before its parent '{parent}', or the parent is unknown")
+        if name not in heads:
+            raise ValueError(f"{path}: bone '{name}' needs a position (bones:)")
+    reference: dict[str, NDArray[np.float64]] = {}
+    bones = []
+    for name, parent in parents.items():
+        child = next((c for c, p in parents.items() if p == name), None)
+        if child is not None and np.linalg.norm(heads[child] - heads[name]) > 1e-9:
+            y = heads[child] - heads[name]
+        elif parent is not None:
+            y = reference[parent][:3, 1]
+        else:
+            y = np.array([0.0, 1.0, 0.0])
+        y = y / np.linalg.norm(y)
+        x = np.array([1.0, 0.0, 0.0]) - y * y[0]
+        if np.linalg.norm(x) < 1e-6:                       # the bone lies along X: Z is as good a side
+            x = np.array([0.0, 0.0, -1.0 if y[0] > 0 else 1.0])
+        x = x / np.linalg.norm(x)
+        rotation = np.column_stack([x, y, np.cross(x, y)])
+        reference[name] = _matrix(rotation, heads[name])
+        local = np.linalg.inv(reference[parent]) @ reference[name] if parent is not None else reference[name]
+        bones.append(ProfileBone(name, parent, "Body", child, tuple(local[:3, 3]),
+                                 tuple(quat_from_matrix(local[:3, :3]))))
+    return tuple(bones), reference
 
 
 def mirror_name(name: str) -> str | None:
@@ -358,14 +401,20 @@ def load_skeleton(path: str | Path = DEFAULT_SKELETON, params: dict[str, float] 
     for name, expr in (spec.get("derived") or {}).items():
         values[name] = float(resolve_value(expr, values))
 
-    profile = load_profile(path.parent / spec.get("profile", "humanoid_profile.json"))
-    reference = profile_rest_world(profile)
     heads: dict[str, NDArray[np.float64]] = {}
     for name, value in (spec.get("bones") or {}).items():
         heads[name] = _point(value, values)
         mirror = mirror_name(name)
         if mirror is not None and mirror not in (spec.get("bones") or {}):
             heads[mirror] = heads[name] * [-1, 1, 1]
+    if "hierarchy" in spec:
+        # The skeleton's own bones (any body: four legs, a tail), not a profile's.
+        if "profile" in spec:
+            raise ValueError(f"{path}: give hierarchy (its own bones) or profile, not both")
+        profile, reference = _own_profile(spec["hierarchy"], heads, path)
+    else:
+        profile = load_profile(path.parent / spec.get("profile", "humanoid_profile.json"))
+        reference = profile_rest_world(profile)
     known = {b.name for b in profile}
     unknown = set(heads) - known
     if unknown:

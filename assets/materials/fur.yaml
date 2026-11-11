@@ -1,0 +1,15 @@
+# Short fur: fine strands along the body, matte. Light and neutral: the colour
+# comes from vertex colours (a body's `color` and `markings`).
+name: fur
+texture:
+  type: hair
+  params:
+    base_color: [250, 248, 244]
+    seed: 11
+size: [256, 256]
+tile_size: [0.05, 0.2]
+pbr:
+  roughness: 0.96
+  metallic: 0.0
+  normal_strength: 0.35
+  ao_strength: 1.0

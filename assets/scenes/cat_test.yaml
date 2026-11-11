@@ -1,0 +1,35 @@
+# A cat in a room: the test scene for four-legged bodies (geogen.100).
+#
+# Two cats (npcs/cat.yaml; Smokey is people/smokey.yaml, smaller and grey) wander
+# the room and stand about. Their body, walk and idle are all declared in
+# characters/cat.yaml.
+
+name: cat_test
+tags: [test.npc]
+
+spawns:
+  start: { position: [1.4, 0.05, 1.4], facing: west }
+
+place:
+  room:
+    asset: room.yaml
+
+  sofa:
+    asset: sofa.yaml
+    on: room.room.floor
+    at: { u: { abs: 0.55 }, v: { abs: 1.3 } }
+    facing: east
+
+  cat:
+    npc: npcs/cat.yaml
+    on: room.room.floor
+    at: { u: { abs: 2.4 }, v: { abs: 2.2 } }
+    home: room.room.floor
+    seed: 7
+
+  smokey:
+    character: people/smokey.yaml
+    on: room.room.floor
+    at: { u: { abs: 3.0 }, v: { abs: 3.2 } }
+    home: room.room.floor
+    seed: 3

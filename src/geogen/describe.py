@@ -82,6 +82,8 @@ KINDS: dict[str, dict[str, str]] = {
                   "keys": "geogen.npc:CHARACTER_KEYS"},
     "npc_actions": {"doc": "The actions NPCs run at affordances, as steps (go_to, face, pose, wait, use, play, vanish).",
                     "use": "referenced by affordances: {type: sit, action: sit}", "keys": "geogen.npc:STEP_KEYS"},
+    "npc_stimuli": {"doc": "What NPCs with senses can notice: bus events and how far they carry.",
+                    "use": "an NPC's reacts: {thud: {interrupt: true}}"},
     "archetype": {"doc": "A seeded distribution over a body's params: each seed is a different person.",
                   "use": "place: {anna: {archetype: characters/archetypes/young_woman.yaml, seed: 3}}",
                   "keys": "geogen.characters:ARCHETYPE_KEYS"},

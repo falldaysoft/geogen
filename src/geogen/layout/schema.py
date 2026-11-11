@@ -301,7 +301,8 @@ ASSET_KEYS: dict[str, str] = {
     "poses": "NPC root transforms per pose name (body assets)",
     "floorplan": "rooms, doors and windows instead of parts; surfaces are <room>.<surface>",
     "building": "{storeys: [{floorplan, repeat, furnish}], roof, facade}: stacked floor plans",
-    "body": "a skinned humanoid: skeleton, ring-lofted chains, hair, clothing, poses and clips",
+    "body": "a skinned body on a skeleton (a person, or an animal on a skeleton with its own bones): ring-lofted "
+            "chains, a coat colour and markings, hair, clothing, poses and clips",
     "_params": "internal",
 }
 
