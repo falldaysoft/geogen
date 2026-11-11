@@ -2,7 +2,7 @@
 # wooden legs. Origin bottom_center, seats face +Z.
 
 name: sofa
-tags: [furniture.sofa]
+tags: [furniture.sofa, quality.soft]
 origin: bottom_center
 
 params:

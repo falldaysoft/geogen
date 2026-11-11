@@ -70,8 +70,8 @@ WANT_KEYS = {
     "to": "of a reference: the state the action brings the thing to",
     "action": "the action that puts it right: run with the subject and a chosen place (put_away), or with the "
               "thing as its anchor and `to` as the state `use: goal` works for (set)",
-    "place": "{prefer: {tag: multiplier}, height, distance, off_height, noise, tried, radius}: how it "
-             "picks among the spots that hold the subject within its reach",
+    "place": "{prefer: {tag: multiplier}, quality: {name: weight}, height, distance, off_height, noise, tried, "
+             "radius}: how it picks among the spots that hold the subject within its reach",
     "weight": "utility of putting one subject right (default 0.5), beside what `advertises` adds",
     "advertises": "{need: amount}: what doing it adds to the needs",
     "reluctance": "utility lost each time this NPC has picked the subject up (default 0.1), whatever for: once "
@@ -86,6 +86,16 @@ WANT_ROOM = ("empty",)                          # of a reference: when.room
 # less `off_height` per metre above or below the `height` (over its feet) it likes to put things
 # at, less `tried` for a spot it has already used for this subject, plus `noise` x random. It
 # looks `radius` m round itself where it has no home region.
+# `quality: {name: weight}` (or a name, or a list of names: weight 1 each) adds weight x how much a
+# spot has of that quality, 0..1 (PLACE_QUALITIES; any other name is one a thing is tagged with).
+PLACE_QUALITIES = {
+    "high": "how far above the floor it is (1 at 2 m)",
+    "enclosed": "how shut in: the share of the ways out of it, sideways and up, that are blocked within 0.6 m",
+    "hidden": "how hard to see: the share of the places to stand 2 m around it with no line of sight to it",
+    "warm": "in the sun (by the time of day), or on or near a thing tagged quality.warm",
+    "soft": "on a thing tagged quality.soft (a sofa, a bed)",
+}
+QUALITY_TAG = "quality."            # a thing's tag `quality.<name>` gives every spot on it that quality
 PLACE_DEFAULTS = {"height": 0.9, "distance": 0.1, "off_height": 0.3, "noise": 0.1, "tried": 1.0, "radius": 6.0}
 CHARACTER_KIND = "character"
 # Placement keys a character file may give defaults for (the scene's placement wins).
@@ -443,8 +453,17 @@ def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, 
                     raise ValueError(f"{at}: when.{key} is one of {list(WANT_WHEN[key])}, got {value!r}")
             if set(want) & {"to", "interaction"}:
                 raise ValueError(f"{at}: `to` and `interaction` belong to a want about things (of: a reference)")
-            if not isinstance(place, dict) or set(place) - set(PLACE_DEFAULTS) - {"prefer"}:
-                raise ValueError(f"{at}: place keys are {sorted([*PLACE_DEFAULTS, 'prefer'])}, got {place!r}")
+            if not isinstance(place, dict) or set(place) - set(PLACE_DEFAULTS) - {"prefer", "quality"}:
+                raise ValueError(f"{at}: place keys are {sorted([*PLACE_DEFAULTS, 'prefer', 'quality'])}, got {place!r}")
+            quality = place.get("quality") or {}
+            if isinstance(quality, str):
+                quality = [quality]
+            if isinstance(quality, list):
+                quality = dict.fromkeys(quality, 1.0)
+            if not isinstance(quality, dict) or not all(
+                    isinstance(k, str) and k.isidentifier() and isinstance(v, (int, float)) for k, v in quality.items()):
+                raise ValueError(f"{at}: place.quality is {{name: weight}}, a name or a list of names "
+                                 f"({', '.join(PLACE_QUALITIES)}, or one things are tagged with), got {place.get('quality')!r}")
         else:
             if not isinstance(when, dict) or not isinstance(when.get("state"), str) or set(when) - {"state", "room"}:
                 raise ValueError(f"{at}: when is {{state: <state>, room: empty}}, got {when!r}")
@@ -464,7 +483,8 @@ def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, 
                             "advertises": _advertises(want.get("advertises"), needs, at)}
         if of == WANT_PROP:
             wants[str(name)]["place"] = {**{k: float(place.get(k, v)) for k, v in PLACE_DEFAULTS.items()},
-                                         "prefer": {str(k): float(v) for k, v in (place.get("prefer") or {}).items()}}
+                                         "prefer": {str(k): float(v) for k, v in (place.get("prefer") or {}).items()},
+                                         "quality": {k: float(v) for k, v in quality.items()}}
         else:
             wants[str(name)].update({k: want[k] for k in ("to", "interaction") if k in want})
     return wants

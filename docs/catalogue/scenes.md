@@ -47,6 +47,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [traffic_scale](#traffic_scale) | 150 vehicles on a grid. |  |
 | [trees](#trees) | Tree demo scene. |  |
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
+| [wants_places](#wants_places) | A room of places with different qualities: the test scene for what wants weigh in a place (geogen.97.6). |  |
 | [wants_test](#wants_test) | A resident in one room with things to carry: the test scene for wants (geogen.97). |  |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
@@ -703,6 +704,22 @@ Vehicles for review: the car presets in a few paints, a van and a bus. Faces +X.
 **Places**: `sedan: {asset: vehicles/car.yaml}`; `hatchback: {asset: vehicles/car.yaml}`; `estate: {asset: vehicles/car.yaml}`; `taxi: {asset: vehicles/car.yaml}`; `sedan_red: {asset: vehicles/car.yaml}`; `van: {asset: vehicles/van.yaml}`; `bus: {asset: vehicles/bus.yaml}`
 
 **Slots**: bus, estate, hatchback, sedan, sedan_red, taxi, van
+
+## wants_places
+
+`scene: scenes/wants_places.yaml` · [source](../../assets/scenes/wants_places.yaml)
+
+A room of places with different qualities: the test scene for what wants
+weigh in a place (geogen.97.6).
+
+A can lies on the floor. Tomas puts things up out of the way, so it goes as
+high and as tucked in as he can reach, whatever that turns out to be. The
+sofa is soft (its tag), the lamp is warm (tagged here: it is lit) and so is
+what is near it, and the sun warms what it reaches by day.
+
+**Places**: `room: {asset: room.yaml}`; `table: {asset: table.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `sofa: {asset: sofa.yaml}`; `lamp: {asset: table_lamp.yaml}`; `can: {asset: soda_can.yaml}`; `tomas: {character: people/tomas.yaml}`
+
+**Spawns**: start
 
 ## wants_test
 

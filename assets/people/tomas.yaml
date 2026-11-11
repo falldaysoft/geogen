@@ -1,0 +1,20 @@
+# Tomas Lind, a resident who puts things up out of the way: a named person on
+# top of the resident role (npcs/resident.yaml). What he finds on the floor
+# goes as high as he can reach, and tucked in for preference: his `tidy` weighs
+# the qualities of places (geogen/npc.py PLACE_QUALITIES), not what they are.
+
+kind: character
+version: 1
+
+name: Tomas Lind
+npc: npcs/resident.yaml
+seed: 4
+body:
+  params: { preset: [masculine], hair_color: brown, top_color: olive, bottom_color: navy }
+
+wants:
+  tidy:
+    of: prop
+    when: { resting_on: floor }
+    action: put_away
+    place: { off_height: 0, quality: { high: 1.0, enclosed: 0.5 } }

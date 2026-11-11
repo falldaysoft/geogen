@@ -1,6 +1,6 @@
 # bed
 
-`asset: bed.yaml` · [source](../../../assets/bed.yaml) · `furniture.bed`
+`asset: bed.yaml` · [source](../../../assets/bed.yaml) · `furniture.bed` `quality.soft`
 
 <img src="../img/bed.png" width="256" alt="bed"> <img src="../img/bed_views.png" width="512" alt="bed: front and side">
 

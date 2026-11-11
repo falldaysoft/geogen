@@ -1,6 +1,6 @@
 # armchair
 
-`asset: armchair.yaml` · [source](../../../assets/armchair.yaml) · `furniture.armchair`
+`asset: armchair.yaml` · [source](../../../assets/armchair.yaml) · `furniture.armchair` `quality.soft`
 
 <img src="../img/armchair.png" width="256" alt="armchair"> <img src="../img/armchair_views.png" width="512" alt="armchair: front and side">
 

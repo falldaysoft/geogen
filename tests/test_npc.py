@@ -457,6 +457,13 @@ def test_wants_and_body_limits_are_validated():
             parse_wants({"tidy": {**tidy, **bad}}, actions, {}, "t")
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["action"] == "put_away"
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["reluctance"] == 0.15
+    # What a place is like: weights for its qualities (a name or a list of names: 1 each).
+    assert want["place"]["quality"] == {}
+    for given, weights in (({"high": 1, "warm": 0.5}, {"high": 1.0, "warm": 0.5}), ("hidden", {"hidden": 1.0}),
+                           (["warm", "high"], {"warm": 1.0, "high": 1.0})):
+        assert parse_wants({"tidy": {**tidy, "place": {"quality": given}}}, actions, {}, "t")["tidy"]["place"]["quality"] == weights
+    with pytest.raises(ValueError, match="place.quality"):
+        parse_wants({"tidy": {**tidy, "place": {"quality": {"high": "very"}}}}, actions, {}, "t")
     # A want about things: `of` is a reference, the state that is a problem and the one to bring it to.
     lights = {"of": "[tag=switch.light]", "when": {"state": "on", "room": "empty"}, "action": "set", "to": "off"}
     want = parse_wants({"lights_out": lights}, actions, {}, "t")["lights_out"]

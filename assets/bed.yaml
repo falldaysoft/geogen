@@ -3,7 +3,7 @@
 # foot at the front (+Z); origin bottom_center.
 
 name: bed
-tags: [furniture.bed]
+tags: [furniture.bed, quality.soft]
 origin: bottom_center
 
 params:

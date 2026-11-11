@@ -611,6 +611,8 @@
                   "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
                   "place": { "type": "object", "additionalProperties": false, "properties": {
                     "prefer": { "type": "object", "additionalProperties": { "type": "number" } },
+                    "quality": { "description": "Weights for qualities of a spot, each 0..1 and added to its score times the weight: high, enclosed, hidden and warm are worked out from the world (geogen/npc.py PLACE_QUALITIES); a thing tagged quality.<name> gives its spots that quality (soft, warm, any other name).",
+                      "type": "object", "additionalProperties": { "type": "number" } },
                     "height": { "type": "number" }, "distance": { "type": "number" }, "off_height": { "type": "number" },
                     "noise": { "type": "number" }, "tried": { "type": "number" }, "radius": { "type": "number" } } } } } },
             "reach": {

@@ -1,6 +1,6 @@
 # sofa
 
-`asset: sofa.yaml` · [source](../../../assets/sofa.yaml) · `furniture.sofa`
+`asset: sofa.yaml` · [source](../../../assets/sofa.yaml) · `furniture.sofa` `quality.soft`
 
 <img src="../img/sofa.png" width="256" alt="sofa"> <img src="../img/sofa_views.png" width="512" alt="sofa: front and side">
 

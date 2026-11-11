@@ -173,8 +173,9 @@ static func finish(npc: GeogenNpc, option: Dictionary, ok: bool) -> void:
 
 ## The places ``npc`` could put prop ``uid`` for its want ``want_name``, best first: the spots that
 ## hold its box in the NPC's home region (or `place.radius` m round it), at heights its hands get
-## to, with somewhere to stand in reach: [{position, approach, uid, tags, height, score}].
-static func places(npc: GeogenNpc, want_name: String, uid: String) -> Array:
+## to, with somewhere to stand in reach: [{position, approach, uid, tags, height, score, qualities}].
+## `qualities` has the ones the want weighs (`place.quality`), or with ``every`` all that are known.
+static func places(npc: GeogenNpc, want_name: String, uid: String, every := false) -> Array:
     var want: Dictionary = (npc.definition.get("wants", {}) as Dictionary).get(want_name, {})
     var cfg: Dictionary = want.get("place", {})
     var body: RigidBody3D = npc.world.props.props[uid]["body"]
@@ -187,6 +188,9 @@ static func places(npc: GeogenNpc, want_name: String, uid: String) -> Array:
         npc.get_world_3d().navigation_map, Vector3(side, box.y, side), npc.global_position, npc.home,
         float(cfg.get("radius", 6.0)), feet + float(heights[0]), feet + float(heights[1]), exclude)
     var prefer: Dictionary = cfg.get("prefer", {})
+    var weighed: Dictionary = cfg.get("quality", {})
+    var space := npc.get_world_3d().direct_space_state
+    var map := npc.get_world_3d().navigation_map
     var tried: Array = npc._tried.get(uid, [])
     var from: Vector3 = npc._prop_centre(uid)
     var out := []
@@ -198,6 +202,13 @@ static func places(npc: GeogenNpc, want_name: String, uid: String) -> Array:
         for key in prefer:
             if (spot["tags"] as Array).any(func(t): return _tag_is(str(t), str(key))):
                 score *= float(prefer[key])
+        var qualities := {}
+        for q in (GeogenPlaceSearch.QUALITIES if every else []) + weighed.keys():
+            if not qualities.has(q):
+                qualities[q] = snappedf(GeogenPlaceSearch.quality(npc.world, space, map, spot, str(q), feet, exclude), 0.01)
+        for q in weighed:
+            score += float(weighed[q]) * float(qualities[q])
+        spot["qualities"] = qualities
         score -= float(cfg.get("distance", 0.1)) * from.distance_to(approach)
         score -= float(cfg.get("off_height", 0.3)) * absf(float(spot["height"]) - feet - float(cfg.get("height", 0.9)))
         if tried.any(func(p): return (p as Vector3).distance_to(spot["position"]) < TRIED_NEAR):

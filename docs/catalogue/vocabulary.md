@@ -181,6 +181,7 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `h
 | [people/hana.yaml](../../assets/people/hana.yaml) | Hana Mori, a house-proud resident: a named person on top of the resident role (npcs/resident.yaml). |
 | [people/marco.yaml](../../assets/people/marco.yaml) | Marco Bellini, the chef at the Corner Bistro: a named person on top of the chef role (npcs/chef.yaml: the range, the prep counter, a look into the dining room now and then, home at night). |
 | [people/rosa.yaml](../../assets/people/rosa.yaml) | Rosa Lind, a regular: lunch at the Corner Bistro, the rest of the day in the park. |
+| [people/tomas.yaml](../../assets/people/tomas.yaml) | Tomas Lind, a resident who puts things up out of the way: a named person on top of the resident role (npcs/resident.yaml). |
 
 ### dialogue
 

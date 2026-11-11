@@ -2,7 +2,7 @@
 # cushions between padded arms. Origin bottom_center, front (seat) faces +Z.
 
 name: armchair
-tags: [furniture.armchair]
+tags: [furniture.armchair, quality.soft]
 origin: bottom_center
 
 params:

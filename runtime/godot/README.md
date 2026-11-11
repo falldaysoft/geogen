@@ -843,6 +843,9 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   over `forget` s); with none of its `weight` left the prop is left where it is. An action
   step's `look: subject | place | none` turns the head there until a later step or the action's
   end. The NPC report has `want: {seen, left, doing, handled}`, `looking_at` and `head_turn`.
+  A want's `place.quality` weighs what a spot is like, 0..1 each (`GeogenPlaceSearch.quality`):
+  `high`, `enclosed`, `hidden` and `warm` from the colliders, the navmesh and the sun, and any
+  name a thing is tagged with as `quality.<name>` (`quality.soft`); `npcs.places` reports them.
   A want with `subjects` (`[{subject, interaction}]`, the things its `of` named at export) is
   about their state: each subject whose interaction rests in `when.state` (with `room: empty`,
   while no character is in the room volume it is worked from) is an option, and its action

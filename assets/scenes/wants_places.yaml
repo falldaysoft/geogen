@@ -1,0 +1,51 @@
+# A room of places with different qualities: the test scene for what wants
+# weigh in a place (geogen.97.6).
+#
+# A can lies on the floor. Tomas puts things up out of the way, so it goes as
+# high and as tucked in as he can reach, whatever that turns out to be. The
+# sofa is soft (its tag), the lamp is warm (tagged here: it is lit) and so is
+# what is near it, and the sun warms what it reaches by day.
+
+name: wants_places
+tags: [test.npc]
+
+spawns:
+  start: { position: [1.4, 0.05, 1.4], facing: west }
+
+place:
+  room:
+    asset: room.yaml
+
+  table:
+    asset: table.yaml
+    on: room.room.floor
+    at: { u: { abs: 1.0 }, v: { abs: 3.3 } }
+
+  bookshelf:
+    asset: bookshelf.yaml
+    on: room.room.floor
+    at: { u: { abs: 3.3 }, v: { abs: 0.3 } }
+
+  sofa:
+    asset: sofa.yaml
+    on: room.room.floor
+    at: { u: { abs: 0.55 }, v: { abs: 1.3 } }
+    facing: east
+
+  lamp:
+    asset: table_lamp.yaml
+    on: table.top
+    at: { u: 0.8, v: 0.5 }
+    tags: [quality.warm]
+
+  can:
+    asset: soda_can.yaml
+    on: room.room.floor
+    at: { u: { abs: 2.4 }, v: { abs: 2.6 } }
+
+  tomas:
+    character: people/tomas.yaml
+    on: room.room.floor
+    at: { u: { abs: 2.2 }, v: { abs: 1.6 } }
+    home: room.room.floor
+    seed: 4

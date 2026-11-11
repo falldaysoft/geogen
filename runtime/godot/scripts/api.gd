@@ -109,7 +109,7 @@ const COMMANDS := {
     "npcs.options": "{npc} the NPC's scored options now",
     "npcs.force": "{npc, option} make its next decision take that option",
     "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: "
-        + "[{position, approach, uid, tags, height, score}]; and what the prop rests on",
+        + "[{position, approach, uid, tags, height, score, qualities: {high, enclosed, hidden, warm, soft, ...}}]; and what the prop rests on",
     "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a "
         + "physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
     "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
@@ -683,9 +683,9 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 if not (npc.definition.get("wants", {}) as Dictionary).has(str(args.get("want", ""))):
                     return _err("the NPC has no want '%s'" % args.get("want", ""))
                 return {"resting_on": GeogenPlaceSearch.resting_on(world, which).get("kind", "none"),
-                    "places": GeogenWants.places(npc, str(args["want"]), which).map(func(p): return {
+                    "places": GeogenWants.places(npc, str(args["want"]), which, true).map(func(p): return {
                         "position": _v(p["position"]), "approach": _v(p["approach"]), "uid": p["uid"], "tags": p["tags"],
-                        "height": snappedf(p["height"], 0.001), "score": snappedf(p["score"], 0.001)})}
+                        "height": snappedf(p["height"], 0.001), "score": snappedf(p["score"], 0.001), "qualities": p["qualities"]})}
             if cmd == "npcs.do":
                 var extra := {}
                 if args.has("subject"):
