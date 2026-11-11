@@ -450,13 +450,24 @@ def test_wants_and_body_limits_are_validated():
     assert want["weight"] == 0.5 and want["place"]["prefer"] == {"table": 1.5}
     assert want["reluctance"] == 0.1 and want["forget"] == 600.0
     assert {k: want["place"][k] for k in PLACE_DEFAULTS} == PLACE_DEFAULTS
-    for bad, message in (({"of": "cat"}, "of is one of"), ({"when": {"resting_on": "moon"}}, "when.resting_on"),
+    for bad, message in (({"when": {"resting_on": "moon"}}, "when.resting_on"),
                          ({"action": "fly"}, "unknown action"), ({"place": {"near": 1}}, "place keys"),
                          ({"colour": "red"}, "keys are"), ({"reluctance": -1}, "can't be negative")):
         with pytest.raises(ValueError, match=message):
             parse_wants({"tidy": {**tidy, **bad}}, actions, {}, "t")
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["action"] == "put_away"
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["reluctance"] == 0.15
+    # A want about things: `of` is a reference, the state that is a problem and the one to bring it to.
+    lights = {"of": "[tag=switch.light]", "when": {"state": "on", "room": "empty"}, "action": "set", "to": "off"}
+    want = parse_wants({"lights_out": lights}, actions, {}, "t")["lights_out"]
+    assert want["to"] == "off" and want["when"] == {"state": "on", "room": "empty"} and "place" not in want
+    for bad, message in (({"to": "on"}, "to is the state"), ({"when": {"room": "empty"}}, "when is"),
+                         ({"when": {"state": "on", "room": "full"}}, "when.room"), ({"place": {}}, "place belongs"),
+                         ({"interaction": ""}, "interaction names")):
+        with pytest.raises(ValueError, match=message):
+            parse_wants({"lights_out": {**lights, **bad}}, actions, {}, "t")
+    with pytest.raises(ValueError, match="belong to a want about things"):
+        parse_wants({"tidy": {**tidy, "to": "off"}}, actions, {}, "t")
     # A step's `look:` says where the head turns from then on.
     assert [s.get("look") for s in actions["put_away"]["steps"]] == ["subject", None, "place", None, None]
     with pytest.raises(ValueError, match="look must be one of"):

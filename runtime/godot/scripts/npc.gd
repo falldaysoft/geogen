@@ -109,7 +109,7 @@ var _handled := {}                # prop uid -> the clock times it picked it up 
 var _wants_seen := []             # report: the want options at its last decision [{id, score}]
 var _wants_left := []             # report: want options it has had enough of (reluctance), at the last look
 var _want_doing := {}             # report: the want it is on now (subject, place, score...)
-var _intent := ""                 # where a step's `look:` has the head turned: subject | place | ""
+var _intent := ""                 # where a step's `look:` has the head turned: subject | place | anchor | ""
 var _intent_ctx := {}             # ...and the action context that names them
 var _tried := {}                  # prop uid -> the spots (Vector3) it has put it at, for its wants (npc_wants.gd)
 var stats := {"used": {}, "decisions": 0, "failures": [], "max_stall": 0.0, "outside": 0.0, "passes": 0}
@@ -517,6 +517,24 @@ func _goal_context(goal: Dictionary) -> Dictionary:
     var state := str(goal["state"]) if goal.has("state") else str(it.states.get(it.target, {}).get("next", ""))
     if goal.has("state") and it.state == state and it.target == state:
         return {}                       # done already
+    for p in world.portals:
+        if p["interaction"] != it:
+            continue
+        # A door: stand where one going through it would, on the side its leaf swings away from
+        # (the side this NPC is on, when it swings neither way), near enough for the handle.
+        var centre: Vector3 = p["center"]
+        var side := -float(int(p.get("swing", 0)))
+        if side == 0.0:
+            side = 1.0 if (global_position - centre).dot(p["normal"]) >= 0.0 else -1.0
+        var clear: float = p["clearance"]
+        if _hands != null and (p.get("handles", {}) as Dictionary).has(int(side)):
+            clear = minf(clear, HANDLE_STAND)
+        var stand := NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map,
+            centre + (p["normal"] as Vector3) * side * (float(p["depth"]) / 2.0 + clear))
+        var to_door := NpcGeometry.flat(centre - stand)
+        return {"anchor": centre, "approach": stand, "interaction": it, "state": state, "portal": p, "side": side,
+            "yaw_deg": rad_to_deg(atan2(to_door.x, to_door.z)) if to_door.length() > 1e-3 else rad_to_deg(_yaw()),
+            "duration": [0.4, 0.8]}
     var thing: Node3D = it.targets[0] if not it.targets.is_empty() else it.asset
     var anchor := thing.global_position
     # Things face +Z (a wall switch out of its wall): stand in front of it, on the navmesh.
@@ -2124,6 +2142,8 @@ func _characters_in(lo: Vector2, hi: Vector2) -> Array:
 func _intent_point():
     if _intent == "" or _pose != "stand":
         return null
+    if _intent == "anchor":
+        return _intent_ctx.get("anchor")
     if _intent == "subject":
         var uid := str(_intent_ctx.get("subject", ""))
         return _prop_centre(uid) if world.props != null and world.props.props.has(uid) else null

@@ -1,0 +1,29 @@
+# Hana Mori, a house-proud resident: a named person on top of the resident role
+# (npcs/resident.yaml). Besides tidying what is on the floor, she puts out the
+# light of a room nobody is in and shuts doors left standing open. Place her
+# with a home that covers the rooms she looks after:
+#   hana: { character: people/hana.yaml, on: flat.living.floor, home: { rect: [...] } }
+
+kind: character
+version: 1
+
+name: Hana Mori
+npc: npcs/resident.yaml
+seed: 2
+body:
+  params: { hair_color: black, top_color: teal, bottom_color: charcoal }
+
+# What she wants of the things around her (geogen/npc.py WANT_KEYS): `of` is a
+# reference, resolved in the scene she is placed in.
+wants:
+  lights_out:                             # no light left on in an empty room
+    of: "[tag=switch.light]"
+    when: { state: "on", room: empty }
+    action: set
+    to: "off"
+    reluctance: 0.2                       # put on again and again, a light is left on after three or four
+  doors_shut:                             # no door left standing open
+    of: "[tag=door]"
+    when: { state: open }
+    action: set
+    to: closed

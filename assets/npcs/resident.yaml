@@ -40,7 +40,8 @@ scoring: { distance: 0.02, recency: 0.4, memory: 120, noise: 0.05, retry: 30 }
 # Affordances this far outside the home region are still in scope (the doorstep).
 home_margin: 2.0
 
-# Things the resident puts right with whatever is to hand (geogen/npc.py WANT_KEYS).
+# Things the resident puts right with whatever is to hand (geogen/npc.py WANT_KEYS). Wants
+# about the state of things (lights, doors) are on people/hana.yaml.
 wants:
   tidy:                                   # nothing loose on the floor
     of: prop

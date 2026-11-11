@@ -42,9 +42,10 @@
 #                                settles is up to the physics
 #   (go_to also takes `subject`: beside the prop, and `place`: where to stand to put it down)
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
-#   look: subject | place | none on any step: from here on the head turns to the action's subject
-#                                or place (as far as the neck goes), until a later step says
-#                                otherwise or the action ends
+#   look: subject | place | anchor | none
+#                                on any step: from here on the head turns to the action's subject,
+#                                place or anchor (as far as the neck goes), until a later step
+#                                says otherwise or the action ends
 #
 # `approach` is where the actor stands to start the action, in the anchor's
 # frame (x right, z forward, metres); an affordance may override it.
@@ -193,6 +194,14 @@ actions:
       - face: anchor
       - use: goal
       - wait: duration
+
+  set:                           # a want about a thing: bring it to the want's state (`to`)
+    steps:
+      - go_to: approach
+        look: anchor
+      - face: anchor
+      - use: goal
+      - wait: [0.4, 0.8]
 
   quest_go:                      # a quest goal: go into a place or room
     steps:

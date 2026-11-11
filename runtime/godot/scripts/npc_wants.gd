@@ -2,11 +2,16 @@ class_name GeogenWants
 extends RefCounted
 ## Wants (geogen.97, npc.py WANT_KEYS): conditions on the world an NPC puts right with whatever
 ## is there. Each subject a want is unhappy about is one more option in the NPC's decision,
-## scored beside its affordances and activities; choosing it, the NPC picks a place for the
-## subject among the spots the world offers (GeogenPlaceSearch) by its own weights. Nothing
-## here names a behaviour: a want says what it is about, when that is a problem, and the
-## action to run.
+## scored beside its affordances and activities. Nothing here names a behaviour: a want says
+## what it is about, when that is a problem, and the action to run.
+##
+## A want about props (`of: prop`): choosing it, the NPC picks a place for the subject among
+## the spots the world offers (GeogenPlaceSearch) by its own weights.
+## A want about things (`of` a reference; the export wrote `subjects`: [{subject, interaction}]):
+## a subject is a problem while its interaction shows `when.state` (and, with `room: empty`,
+## nobody is in the room it is in); the action goes to the thing and works it to `to`.
 
+const ROOM_PROBE := 1.0          ## m above the floor a point is asked which room it is in
 const TRIED_NEAR := 0.3          ## m: a spot this close to one already used for the subject
 
 
@@ -15,13 +20,16 @@ const TRIED_NEAR := 0.3          ## m: a spot this close to one already used for
 static func options(npc: GeogenNpc) -> Array[Dictionary]:
     var out: Array[Dictionary] = []
     var wants: Dictionary = npc.definition.get("wants", {})
-    if wants.is_empty() or npc.world.props == null or npc.prop_in_hand() != "":
+    if wants.is_empty() or npc.prop_in_hand() != "":
         return out
     var margin := float(npc.definition.get("home_margin", 1.0))
     npc._wants_left = []
     for want_name in wants:
         var want: Dictionary = wants[want_name]
         if str(want.get("of", "")) != "prop":
+            _thing_options(npc, want_name, want, margin, out)
+            continue
+        if npc.world.props == null:
             continue
         for uid in npc.world.props.props:
             var id := "want/%s/%s" % [want_name, uid]
@@ -45,6 +53,48 @@ static func options(npc: GeogenNpc) -> Array[Dictionary]:
     return out
 
 
+## A want about things: one option for each of its subjects that is a problem now and whose
+## place to stand is in the NPC's home region.
+static func _thing_options(npc: GeogenNpc, want_name: String, want: Dictionary, margin: float, out: Array[Dictionary]) -> void:
+    var when: Dictionary = want.get("when", {})
+    for entry in want.get("subjects", []):
+        var key := "%s#%s" % [entry["subject"], entry["interaction"]]
+        var id := "want/%s/%s" % [want_name, key]
+        if npc.clock < float(npc._retry_at.get(id, -1.0)) or npc.world.npc_reserved(_subject_key(key), npc) > 0:
+            continue
+        var it = npc.world.interactions_by_key.get(key)
+        if not it is GeogenInteraction or not is_instance_valid(it):
+            continue
+        if it.state != str(when.get("state", "")) or it.target != it.state or it.locked:
+            continue                    # not showing the state, on its way to another, or not its to work
+        var ctx := npc._goal_context({"subject": entry["subject"], "interaction": entry["interaction"], "state": want["to"]})
+        if ctx.is_empty():
+            continue
+        var at: Vector3 = ctx["approach"]
+        if npc.home_distance(at) > margin or absf(at.y - npc.home_y) > GeogenNpc.FLOOR_TOLERANCE:
+            continue
+        if when.has("room") and not _room_is(npc, at, str(when["room"])):
+            continue
+        var base := float(want.get("weight", 0.5)) - reluctance(npc, want, key)
+        if base <= 0.0:
+            npc._wants_left.append(id)
+            continue
+        out.append({"id": id, "action": want["action"], "want": want_name, "subject": key, "thing": ctx,
+            "advertises": want.get("advertises", {}), "tags": [], "at": at, "base": base})
+
+
+## Whether the room a thing is worked from (``at``: where one stands to use it) is ``how``:
+## `empty` is no character in that room volume, this NPC included. Outside every room: no.
+static func _room_is(npc: GeogenNpc, at: Vector3, how: String) -> bool:
+    var room := npc.world.room_at(at + Vector3.UP * ROOM_PROBE)
+    if room == "" or how != "empty":
+        return false
+    for c in npc._characters():
+        if npc.world.room_at((c["pos"] as Vector3) + Vector3.UP * ROOM_PROBE) == room:
+            return false
+    return true
+
+
 ## How many times ``npc`` has picked prop ``uid`` up, each fading to nothing over ``forget`` s.
 static func handled(npc: GeogenNpc, uid: String, forget: float) -> float:
     var total := 0.0
@@ -58,7 +108,8 @@ static func reluctance(npc: GeogenNpc, want: Dictionary, uid: String) -> float:
     return float(want.get("reluctance", 0.1)) * handled(npc, uid, float(want.get("forget", 600.0)))
 
 
-## ``npc`` has prop ``uid`` in hand (for a want or anything else): one more handling.
+## ``npc`` has prop ``uid`` in hand (for a want or anything else), or has worked a thing for a
+## want (``uid``: `<thing>#<interaction>`): one more handling.
 static func note_handled(npc: GeogenNpc, uid: String) -> void:
     var times: Array = npc._handled.get(uid, [])
     times.append(npc.clock)
@@ -78,6 +129,16 @@ static func _subject_key(uid: String) -> String:
 ## Take ``option`` (one of `options`): choose where its subject goes and keep others off it.
 ## Returns the action's context, or {} when the world offers no place.
 static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
+    if option.has("thing"):
+        var about: Dictionary = npc.definition["wants"][option["want"]]
+        npc.world.npc_reserve(_subject_key(option["subject"]), npc)
+        npc._want_doing = {"want": option["want"], "subject": option["subject"], "to": about["to"],
+            "at": GeogenNpc._v(option["thing"]["anchor"]),
+            "reluctance": snappedf(reluctance(npc, about, str(option["subject"])), 0.001)}
+        var thing_event := {"event": "want"}
+        thing_event.merge(npc._want_doing)
+        npc._trace(thing_event)
+        return option["thing"]
     var ranked := places(npc, str(option["want"]), str(option["subject"]))
     if ranked.is_empty():
         return {}
@@ -100,6 +161,9 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
 static func finish(npc: GeogenNpc, option: Dictionary, ok: bool) -> void:
     npc.world.npc_release(_subject_key(option["subject"]), npc)
     npc._want_doing = {}
+    if ok and option.has("thing"):
+        note_handled(npc, str(option["subject"]))     # worked it: once more, and it tires of this one
+        npc.stats["wants"] = int(npc.stats.get("wants", 0)) + 1
     if ok and option.has("place"):
         var tried: Array = npc._tried.get(option["subject"], [])
         tried.append(option["place"]["position"])

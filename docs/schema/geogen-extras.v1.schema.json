@@ -591,13 +591,19 @@
                   "preferences": { "type": "object", "additionalProperties": { "type": "number" } } } }
             },
             "wants": {
-              "description": "Conditions on the world it puts right with whatever is there (geogen/npc.py WANT_KEYS), by name. 'of' is what a want is about (prop: a physics prop with carry); 'when' says which are a problem (resting_on: floor, anything actors walk on); 'action' runs with that subject and a place the runtime finds among the spots that hold it within reach, scored by 'place' (its tags' 'prefer' multipliers, less 'distance' per metre walked, less 'off_height' per metre from the 'height' above its feet it likes, less 'tried' for a spot already used for the subject, plus 'noise' x random; 'radius' m round it where it has no home). Utility: 'weight' plus what 'advertises' adds for its needs, less 'reluctance' for each time this NPC has picked the subject up (for any reason; a handling fades over 'forget' s); a subject whose reluctance has used up the weight is left be.",
+              "description": "Conditions on the world it puts right with whatever is there (geogen/npc.py WANT_KEYS), by name. 'of' is what a want is about (prop: a physics prop with carry); 'when' says which are a problem (resting_on: floor, anything actors walk on); 'action' runs with that subject and a place the runtime finds among the spots that hold it within reach, scored by 'place' (its tags' 'prefer' multipliers, less 'distance' per metre walked, less 'off_height' per metre from the 'height' above its feet it likes, less 'tried' for a spot already used for the subject, plus 'noise' x random; 'radius' m round it where it has no home). Utility: 'weight' plus what 'advertises' adds for its needs, less 'reluctance' for each time this NPC has picked the subject up (for any reason; a handling fades over 'forget' s); a subject whose reluctance has used up the weight is left be. A want about things ('of' a reference, resolved at export into 'subjects') is unhappy with each subject whose interaction shows 'when.state' (with 'when.room': empty, only while no character is in the room volume the thing is in) and runs 'action' to bring it to 'to'; operating a subject is a handling.",
               "type": "object",
               "additionalProperties": { "type": "object", "additionalProperties": false,
-                "required": ["of", "when", "action", "place", "weight", "advertises"],
+                "required": ["of", "when", "action", "weight", "advertises"],
                 "properties": {
-                  "of": { "enum": ["prop"] },
-                  "when": { "type": "object", "additionalProperties": false, "properties": { "resting_on": { "enum": ["floor"] } } },
+                  "of": { "description": "prop, or the reference a want about things was written with (the runtime uses 'subjects').", "type": "string" },
+                  "when": { "type": "object", "additionalProperties": false, "properties": { "resting_on": { "enum": ["floor"] },
+                    "state": { "type": "string" }, "room": { "enum": ["empty"] } } },
+                  "to": { "description": "A want about things: the state its action brings a subject's interaction to.", "type": "string" },
+                  "interaction": { "type": "string" },
+                  "subjects": { "description": "A want about things: the things 'of' names in this scene, by stable ID, each with the interaction the want is about.",
+                    "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["subject", "interaction"],
+                      "properties": { "subject": { "type": "string" }, "interaction": { "type": "string" } } } },
                   "action": { "type": "string" },
                   "weight": { "type": "number", "minimum": 0 },
                   "reluctance": { "type": "number", "minimum": 0 },
@@ -854,7 +860,7 @@
       "additionalProperties": { "type": ["number", "string", "boolean", "array", "null"] }
     },
     "npc_step": {
-      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter), 'look' (where the head turns from this step on, until a later step says otherwise or the action ends: the action's subject or place) and 'if' (a flag it needs). go_to 'nearby' is a random navmesh point a few metres from where the NPC stands.",
+      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter), 'look' (where the head turns from this step on, until a later step says otherwise or the action ends: the action's subject, place or anchor) and 'if' (a flag it needs). go_to 'nearby' is a random navmesh point a few metres from where the NPC stands.",
       "type": "object", "additionalProperties": false, "minProperties": 1,
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] },
@@ -874,7 +880,7 @@
         "hold": { "type": "string" },
         "loop": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },
         "close": { "const": true },
-        "look": { "enum": ["subject", "place", "none"] },
+        "look": { "enum": ["subject", "place", "anchor", "none"] },
         "if": { "type": "string" }
       }
     },

@@ -57,6 +57,8 @@ BUILD_ONLY: dict[str, str] = {
     "placed_by": "marks what the furnishing solver placed, for layout QA",
     "furnish_report": "the furnishing rules a plan couldn't meet (--inspect and tests read it)",
     "affordance_actor": "a body staged at an affordance by affordance QA (never part of a scene)",
+    "npc_want_subjects": "the things an NPC's wants are about (of: a reference) as nodes: exported as stable IDs in "
+                         "npc.wants.<name>.subjects",
     "npc_owns": "an NPC's owns / prefers / work as nodes: exported as stable IDs in npc.owns|prefers|work",
     "npc_group": "an NPC's group leader as a node (geogen.87.3): exported as its stable ID in npc.group.leader",
     "npc_present": "an NPC placement's `present` condition: compiled to a binding of its `present` state by quests.collect",

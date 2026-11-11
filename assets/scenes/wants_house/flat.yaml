@@ -1,0 +1,20 @@
+# A two-room flat for the wants_house scene: a living room and a bedroom with a
+# door between them, built as a floor plan. Origin at the centre of the floor.
+
+name: flat
+tags: [building.flat]
+
+floorplan:
+  wall_height: 2.5
+  exterior_wall: 0.2
+  interior_wall: 0.12
+  materials: { walls: wall_plaster, floor: hardwood_floor, ceiling: ceiling_white }
+  rooms:
+    living:  { rect: [0, 0, 4.4, 4.2], type: living_room }
+    bedroom: { rect: [4.4, 0, 3.4, 4.2], type: bedroom }
+  doors:
+    - { name: front_door, room: living, side: south, at: 0.3, width: 1.0, height: 2.0 }
+    - { between: [living, bedroom], at: 0.5, width: 0.9 }
+  windows:
+    - { room: living, side: west, at: 0.5, width: 1.2, height: 1.0, sill: 0.9 }
+    - { room: bedroom, side: east, at: 0.5, width: 1.2, height: 1.0, sill: 0.9 }

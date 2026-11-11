@@ -1,0 +1,29 @@
+# A house-proud person in a two-room flat: the test scene for wants about the
+# state of things (geogen.97.5).
+#
+# The flat's rooms each have a ceiling light with a switch by every door (the
+# floor plan's finishes), all on. Hana puts out the light of a room nobody is
+# in and shuts doors left standing open (people/hana.yaml).
+
+name: wants_house
+tags: [test.npc]
+
+spawns:
+  start: { position: [-2.4, 0.05, 1.0], facing: east }
+
+place:
+  flat:
+    asset: flat.yaml
+
+  armchair:
+    asset: armchair.yaml
+    on: flat.living.floor
+    at: { u: { abs: 0.7 }, v: { abs: 2.0 } }
+    facing: east
+
+  hana:
+    character: people/hana.yaml
+    on: flat.living.floor
+    at: { u: 0.5, v: 0.5 }
+    home: { rect: [-3.8, -2.0, 3.8, 2.0] }     # both rooms
+    seed: 2

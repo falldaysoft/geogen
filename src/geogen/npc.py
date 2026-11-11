@@ -44,8 +44,8 @@ VERSION = 1
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down"}
 STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look"}
 # `look:` on any step: where the head turns from that step on, until a later step says otherwise
-# or the action ends (the action's subject or place; none: nowhere in particular).
-LOOK_TARGETS = {"subject", "place", "none"}
+# or the action ends (the action's subject, place or anchor; none: nowhere in particular).
+LOOK_TARGETS = {"subject", "place", "anchor", "none"}
 GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group",
                  "subject", "place"}
 # What a body's hands get to and what it can carry (physics props: pick_up / put_down). A prop
@@ -62,9 +62,14 @@ NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs",
             "reach", "carry", "wants"}
 # A want (geogen.97): a condition on the world the NPC puts right with whatever is there.
 WANT_KEYS = {
-    "of": "what it is about: prop (a physics prop with `carry`)",
-    "when": "{resting_on: floor}: a subject like this is a problem (floor: anything actors walk on)",
-    "action": "the action that puts it right, run with the subject and a chosen place (put_away)",
+    "of": "what it is about: prop (a physics prop with `carry`), or a reference to things with an interaction "
+          "(`[tag=door]`, `hall/switch`): resolved in the scene the NPC is placed in",
+    "interaction": "of a reference: which of the things' interactions (default: the only one a thing has)",
+    "when": "which subjects are a problem. A prop: {resting_on: floor} (floor: anything actors walk on). A thing: "
+            "{state: <state>} it shows that state, and with room: empty, nobody is in the room it is in",
+    "to": "of a reference: the state the action brings the thing to",
+    "action": "the action that puts it right: run with the subject and a chosen place (put_away), or with the "
+              "thing as its anchor and `to` as the state `use: goal` works for (set)",
     "place": "{prefer: {tag: multiplier}, height, distance, off_height, noise, tried, radius}: how it "
              "picks among the spots that hold the subject within its reach",
     "weight": "utility of putting one subject right (default 0.5), beside what `advertises` adds",
@@ -74,8 +79,9 @@ WANT_KEYS = {
     "forget": "seconds over which one handling fades from its reluctance (default 600)",
 }
 WANT_DEFAULTS = {"weight": 0.5, "reluctance": 0.1, "forget": 600.0}
-WANT_OF = ("prop",)
-WANT_WHEN = {"resting_on": ("floor",)}
+WANT_PROP = "prop"
+WANT_WHEN = {"resting_on": ("floor",)}          # of: prop
+WANT_ROOM = ("empty",)                          # of a reference: when.room
 # How a spot is scored: its tags' `prefer` multipliers, less `distance` per metre to walk there,
 # less `off_height` per metre above or below the `height` (over its feet) it likes to put things
 # at, less `tried` for a spot it has already used for this subject, plus `noise` x random. It
@@ -409,7 +415,8 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
 
 
 def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:
-    """``wants:`` -> {name: {of, when, action, place, weight, reluctance, forget, advertises}} (see ``WANT_KEYS``)."""
+    """``wants:`` -> {name: {of, when, action, weight, reluctance, forget, advertises, and place (of: prop) or
+    to, interaction (of: a reference)}} (see ``WANT_KEYS``)."""
     if spec is None:
         return {}
     if not isinstance(spec, dict):
@@ -419,31 +426,88 @@ def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, 
         at = f"{where}: {name}"
         if not isinstance(want, dict) or set(want) - set(WANT_KEYS):
             raise ValueError(f"{at}: keys are {sorted(WANT_KEYS)}, got {want!r}")
-        if want.get("of") not in WANT_OF:
-            raise ValueError(f"{at}: of is one of {list(WANT_OF)}, got {want.get('of')!r}")
+        of = want.get("of")
+        if not isinstance(of, str) or not of:
+            raise ValueError(f"{at}: of is `prop` or a reference to things with an interaction, got {of!r}")
         when = want.get("when")
-        if not isinstance(when, dict) or not when or set(when) - set(WANT_WHEN):
-            known = ", ".join(f"{k}: {' | '.join(v)}" for k, v in WANT_WHEN.items())
-            raise ValueError(f"{at}: when is {{{known}}}, got {when!r}")
-        for key, value in when.items():
-            if value not in WANT_WHEN[key]:
-                raise ValueError(f"{at}: when.{key} is one of {list(WANT_WHEN[key])}, got {value!r}")
         action = want.get("action")
         if action not in actions:
             raise ValueError(f"{at}: unknown action {action!r}")
         place = want.get("place") or {}
-        if not isinstance(place, dict) or set(place) - set(PLACE_DEFAULTS) - {"prefer"}:
-            raise ValueError(f"{at}: place keys are {sorted([*PLACE_DEFAULTS, 'prefer'])}, got {place!r}")
+        if of == WANT_PROP:
+            if not isinstance(when, dict) or not when or set(when) - set(WANT_WHEN):
+                known = ", ".join(f"{k}: {' | '.join(v)}" for k, v in WANT_WHEN.items())
+                raise ValueError(f"{at}: when is {{{known}}}, got {when!r}")
+            for key, value in when.items():
+                if value not in WANT_WHEN[key]:
+                    raise ValueError(f"{at}: when.{key} is one of {list(WANT_WHEN[key])}, got {value!r}")
+            if set(want) & {"to", "interaction"}:
+                raise ValueError(f"{at}: `to` and `interaction` belong to a want about things (of: a reference)")
+            if not isinstance(place, dict) or set(place) - set(PLACE_DEFAULTS) - {"prefer"}:
+                raise ValueError(f"{at}: place keys are {sorted([*PLACE_DEFAULTS, 'prefer'])}, got {place!r}")
+        else:
+            if not isinstance(when, dict) or not isinstance(when.get("state"), str) or set(when) - {"state", "room"}:
+                raise ValueError(f"{at}: when is {{state: <state>, room: empty}}, got {when!r}")
+            if "room" in when and when["room"] not in WANT_ROOM:
+                raise ValueError(f"{at}: when.room is one of {list(WANT_ROOM)}, got {when['room']!r}")
+            if not isinstance(want.get("to"), str) or not want["to"] or want["to"] == when["state"]:
+                raise ValueError(f"{at}: to is the state the action brings the thing to (not the one it is a "
+                                 f"problem in), got {want.get('to')!r}")
+            if "interaction" in want and not (isinstance(want["interaction"], str) and want["interaction"]):
+                raise ValueError(f"{at}: interaction names one of the things' interactions, got {want['interaction']!r}")
+            if "place" in want:
+                raise ValueError(f"{at}: place belongs to a want about props (of: prop)")
         numbers = {k: float(want.get(k, v)) for k, v in WANT_DEFAULTS.items()}
         if numbers["weight"] < 0 or numbers["reluctance"] < 0 or numbers["forget"] <= 0:
             raise ValueError(f"{at}: weight and reluctance can't be negative, and forget is seconds (> 0)")
-        wants[str(name)] = {
-            "of": want["of"], "when": dict(when), "action": action, **numbers,
-            "place": {**{k: float(place.get(k, v)) for k, v in PLACE_DEFAULTS.items()},
-                      "prefer": {str(k): float(v) for k, v in (place.get("prefer") or {}).items()}},
-            "advertises": _advertises(want.get("advertises"), needs, at),
-        }
+        wants[str(name)] = {"of": of, "when": dict(when), "action": action, **numbers,
+                            "advertises": _advertises(want.get("advertises"), needs, at)}
+        if of == WANT_PROP:
+            wants[str(name)]["place"] = {**{k: float(place.get(k, v)) for k, v in PLACE_DEFAULTS.items()},
+                                         "prefer": {str(k): float(v) for k, v in (place.get("prefer") or {}).items()}}
+        else:
+            wants[str(name)].update({k: want[k] for k in ("to", "interaction") if k in want})
     return wants
+
+
+def resolve_wants(node: SceneNode, refs: Any, keys: list) -> None:
+    """The things an NPC's wants are about, where ``of`` is a reference: every node it names in
+    the scene that has the want's interaction (its only one, when the want names none), kept
+    as the nodes until export writes their stable IDs (``meta.npc_want_subjects``). A selector
+    that names nothing here is a want with nothing to do in this scene."""
+    found: dict[str, list] = {}
+    for name, want in (node.meta["npc"].get("wants") or {}).items():
+        if want["of"] == WANT_PROP:
+            continue
+        at = [*keys, "wants", name, "of"]
+        subjects = []
+        for thing in refs.nodes(want["of"], at, optional=True):
+            names = [i.name for i in getattr(thing, "interactions", None) or []]
+            which = want.get("interaction") or (names[0] if len(names) == 1 else "")
+            if which not in names:
+                continue                # a door's leaf, a thing with other interactions
+            state_names = set(next(i for i in thing.interactions if i.name == which).states)
+            for state in (want["when"]["state"], want["to"]):
+                if state not in state_names:
+                    raise refs.fail(f"npc want {name}: {thing.name}.{which} has no state '{state}' "
+                                    f"(states: {sorted(state_names)})", at)
+            subjects.append((thing, which))
+        found[name] = subjects
+    if found:
+        node.meta["npc_want_subjects"] = found
+
+
+def want_extras(node: SceneNode, npc: dict[str, Any]) -> dict[str, Any]:
+    """``npc.wants`` with ``meta.npc_want_subjects`` as stable IDs: each want about things gets
+    ``subjects: [{subject, interaction}]``, what the runtime looks up."""
+    found = node.meta.get("npc_want_subjects") or {}
+    if not found:
+        return {}
+    wants = {name: dict(want) for name, want in (npc.get("wants") or {}).items()}
+    for name, subjects in found.items():
+        wants[name]["subjects"] = [{"subject": thing.meta["uid"], "interaction": which}
+                                   for thing, which in subjects if "uid" in thing.meta]
+    return {"wants": wants}
 
 
 def _limits(spec: Any, defaults: dict[str, Any], where: str) -> dict[str, Any]:

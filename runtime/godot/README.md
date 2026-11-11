@@ -843,6 +843,11 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   over `forget` s); with none of its `weight` left the prop is left where it is. An action
   step's `look: subject | place | none` turns the head there until a later step or the action's
   end. The NPC report has `want: {seen, left, doing, handled}`, `looking_at` and `head_turn`.
+  A want with `subjects` (`[{subject, interaction}]`, the things its `of` named at export) is
+  about their state: each subject whose interaction rests in `when.state` (with `room: empty`,
+  while no character is in the room volume it is worked from) is an option, and its action
+  goes to the thing and works it to `to`. A door is worked from where one passing through
+  stands, on the side its leaf swings away from.
 - **Spawn:** a prop with `spawn: <thing>.<attachment>` has a `spawn` interaction
   (`stowed | live`) that rules drive. Stowed, it is hidden, frozen and out of
   collision; going live, it is put at `spawn_at` at rest and let go. A live prop

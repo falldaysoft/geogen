@@ -50,6 +50,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [wants_test](#wants_test) | A resident in one room with things to carry: the test scene for wants (geogen.97). |  |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
+| [wants_house](#wants_house) | A house-proud person in a two-room flat: the test scene for wants about the state of things (geogen.97.5). |  |
 
 ## hotel
 
@@ -756,5 +757,20 @@ rules layer in one small yard. In the runtime catalogue's test group.
 **Places**: `ground: {asset: plaza.yaml}`; `puzzle_a: {scene: lever_puzzle.yaml}`; `puzzle_b: {scene: lever_puzzle.yaml}`; `barrier: {asset: crossing_barrier.yaml}`; `barrier_lamp: {asset: floor_lamp.yaml}`; `board: {asset: switch_board.yaml}`; `switch: {asset: light_switch.yaml}`; `switch_lamp: {asset: floor_lamp.yaml}`; `sign: {asset: info_plinth.yaml}`; `reset_lever: {asset: lever.yaml}`
 
 **Slots**: barrier, barrier_lamp, puzzle_a, puzzle_b, reset_lever, sign, switch, switch_lamp, switch_post
+
+**Spawns**: start
+
+## wants_house
+
+`scene: scenes/wants_house/scene.yaml` · [source](../../assets/scenes/wants_house/scene.yaml)
+
+A house-proud person in a two-room flat: the test scene for wants about the
+state of things (geogen.97.5).
+
+The flat's rooms each have a ceiling light with a switch by every door (the
+floor plan's finishes), all on. Hana puts out the light of a room nobody is
+in and shuts doors left standing open (people/hana.yaml).
+
+**Places**: `flat: {asset: flat.yaml}`; `armchair: {asset: armchair.yaml}`; `hana: {character: people/hana.yaml}`
 
 **Spawns**: start
