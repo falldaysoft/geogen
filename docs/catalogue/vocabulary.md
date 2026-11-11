@@ -174,7 +174,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -252,7 +252,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `needs`, `preferences`, `radius`, `reach`, `routine`, `scoring`, `seed`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `needs`, `preferences`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |
@@ -275,6 +275,18 @@ Keys: `face`, `go_to`, `pick_up`, `play`, `pose`, `put_down`, `use`, `use_item`,
 | File | What it is |
 | --- | --- |
 | [npcs/actions.yaml](../../assets/npcs/actions.yaml) | What NPCs do, as data. |
+
+### npc_stimuli
+
+
+
+Use: ``
+
+Keys: `stimuli`
+
+| File | What it is |
+| --- | --- |
+| [npcs/stimuli.yaml](../../assets/npcs/stimuli.yaml) | What can be noticed, as data: each stimulus is a kind of event on the world's bus (runtime/godot/scripts/events.gd) with how far it carries. |
 
 ### package
 

@@ -27,3 +27,11 @@ wants:
     when: { state: open }
     action: set
     to: closed
+
+# She notices what happens around her (geogen/npc.py SENSES_DEFAULTS; the
+# stimuli are npcs/stimuli.yaml): a thing hitting the floor has her look up and
+# leave her chair to see to it.
+senses: true
+reacts:
+  thud: { interrupt: true }
+  door: {}

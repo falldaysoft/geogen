@@ -77,6 +77,8 @@ const GROUP_FAR := 0.35           # a member's utility of things beyond the grou
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
 const GROUP_REFRESH := 2.0
 const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
+const CUT_PATIENCE := 3.0         # s an interrupt waits for the body to be ready (mid sit-down), then lapses
+const SEEN_NEAR := 0.4            # m: a ray toward a thing may stop this short of it (it hits the thing itself)
 const ON_SEAT := 0.35             # m (flat) from a seat's anchor a loose prop is on the seat
 const CARRY_HEIGHT := 0.6         # of the body's height: where the middle of a thing carried in both hands is
 const CARRY_BODY := 0.14          # m from the body's middle to the near side of such a thing
@@ -104,6 +106,10 @@ var label: Label3D
 ## Per-NPC counters for tests: used {id: count}, decisions, failures,
 ## max_stall (s), outside (s outside home + margin), passes (doors).
 var _queued := {}                 # an action asked for by name (do_action), taken at the next decision
+var _noticed := {}                # report: the last stimulus it noticed {stimulus, subject, at, by, clock}
+var _notice_point := Vector3.ZERO # ...where the head turns
+var _notice_until := -INF         # ...until then
+var _cut_until := -INF            # an interrupt is wanted until then (it waits for a pose to settle)
 var _held_bulky := ""             # the prop both hands are on now (_carry_hands)
 var _handled := {}                # prop uid -> the clock times it picked it up (reluctance, npc_wants.gd)
 var _wants_seen := []             # report: the want options at its last decision [{id, score}]
@@ -263,6 +269,8 @@ func _ready() -> void:
     label.no_depth_test = true
     label.visible = false
     add_child(label)
+    if not (definition.get("reacts", {}) as Dictionary).is_empty() and world != null and world.events != null:
+        world.events.posted.connect(_on_event)      # perception (geogen.99): only for who reacts to something
 
 
 # --- deciding -----------------------------------------------------------
@@ -675,6 +683,8 @@ func _step(delta: float) -> void:
         animator.advance(delta)
         animator.locomote(Vector2(velocity.x, velocity.z).length(), _pose == "stand", _playing)
     _attend(delta)
+    if clock < _cut_until and _cut_short():
+        _cut_until = -INF
     if _hands != null and world.props != null:
         _carry_hands()
     for need in needs:
@@ -2138,6 +2148,103 @@ func _characters_in(lo: Vector2, hi: Vector2) -> Array:
     return out
 
 
+# --- perception (geogen.99) ------------------------------------------------------
+
+## A bus event: is it one of the stimuli this NPC reacts to (definition `reacts`, from
+## npcs/stimuli.yaml), not its own doing, and does it hear or see it (`senses`)?
+func _on_event(event: Dictionary) -> void:
+    if absent or away or event.get("actor", "") == WorldLoader.actor_id(self):
+        return
+    var reacts: Dictionary = definition.get("reacts", {})
+    for stimulus in reacts:
+        var r: Dictionary = reacts[stimulus]
+        if r["event"] != event["type"]:
+            continue
+        var node = world.node_by_uid(str(event.get("subject", "")))
+        if r.has("of") and not (node is Node and GeogenPlaceSearch._tags(node).any(
+                func(t): return GeogenWants._tag_is(str(t), str(r["of"])))):
+            continue
+        var data: Dictionary = event.get("data", {})
+        var point: Vector3
+        if data.get("at") is Array:
+            point = Vector3(data["at"][0], data["at"][1], data["at"][2])
+        elif node is Node3D:
+            point = (node as Node3D).global_position
+        else:
+            continue
+        var by := _perceives(point, float(r["loudness"]) * float(data.get("strength", 1.0)))
+        if by == "":
+            continue
+        stats["noticed"] = int(stats.get("noticed", 0)) + 1
+        _noticed = {"stimulus": stimulus, "subject": str(event.get("subject", "")), "at": _v(point), "by": by,
+            "clock": snappedf(clock, 0.01)}
+        var look: Array = r["look"]
+        _notice_point = point
+        _notice_until = clock + rng.randf_range(float(look[0]), float(look[1]))
+        if r["interrupt"]:
+            _cut_until = clock + CUT_PATIENCE
+        var traced_event := {"event": "notice"}
+        traced_event.merge(_noticed)
+        _trace(traced_event)
+        return
+
+
+## How this NPC perceives something at ``point`` that carries ``loud`` of its hearing range:
+## "heard" (within that; only `hearing.muffled` of it with something in the way), "seen" (within
+## `sight.range` and its cone, with a clear line), or "".
+func _perceives(point: Vector3, loud: float) -> String:
+    var senses: Dictionary = definition.get("senses", {})
+    var eyes := head_point()
+    var distance := eyes.distance_to(point)
+    var hit := get_world_3d().direct_space_state.intersect_ray(
+        PhysicsRayQueryParameters3D.create(eyes, point, 1, [get_rid()]))
+    var clear := hit.is_empty() or (hit["position"] as Vector3).distance_to(point) < SEEN_NEAR
+    var hearing: Dictionary = senses.get("hearing", {})
+    if not hearing.is_empty() and distance <= float(hearing["range"]) * loud * (1.0 if clear else float(hearing["muffled"])):
+        return "heard"
+    var sight: Dictionary = senses.get("sight", {})
+    if not sight.is_empty() and clear and distance <= float(sight["range"]):
+        var to := NpcGeometry.flat(point - global_position)
+        var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
+        if to.length() < 1e-3 or rad_to_deg(forward.angle_to(to)) <= float(sight["cone"]) / 2.0:
+            return "seen"
+    return ""
+
+
+## Cut what it is doing short, for something it noticed: only an option of its own choosing
+## (an affordance or an activity) whose action is `interruptible`, with empty hands, off a ride
+## and outside a routine's hold. Seated or lying, it goes to the step that stands it up; on its
+## feet, the action just ends. The option counts as done: it decides again. False while it
+## can't yet (a reaction or a door is on top, the body is mid-move); true once done or not to be.
+func _cut_short() -> bool:
+    if _stack.size() > 1 or _moving_pose():
+        return false
+    if _stack.is_empty() or _option.is_empty() or not (_option.has("affordance") or _option.has("activity")):
+        return true
+    var frame: Dictionary = _stack[0]
+    if not definition["actions"][frame["action"]].get("interruptible", false) or prop_in_hand() != "" \
+            or not _ride.is_empty() or frame["ctx"].get("held", false):
+        return true
+    var steps: Array = frame["steps"]
+    var to: int = steps.size()
+    if _pose != "stand":
+        for i in range(frame["index"], steps.size()):
+            if steps[i].get("pose", "") == "stand":
+                to = i
+                break
+        if to == frame["index"] and frame["started"]:
+            return true                    # getting up already
+    velocity = Vector3.ZERO
+    _path = PackedVector3Array()
+    _playing = false
+    _looping = false
+    frame["index"] = to
+    frame["started"] = false
+    stats["cut_short"] = int(stats.get("cut_short", 0)) + 1
+    _trace({"event": "cut_short", "option": _option["id"], "for": _noticed.get("stimulus", "")})
+    return true
+
+
 ## The point a step's `look:` has the head turned to now (the action's subject or place), or null.
 func _intent_point():
     if _intent == "" or _pose != "stand":
@@ -2182,7 +2289,10 @@ func _attend(delta: float) -> void:
         var intent = _intent_point()
         # (Out of range and not just greeted: nothing to look at; skip the camera lookups.)
         # Lying down, only who just greeted them: the head turns on the pillow.
-        if intent != null and clock >= _attend_until:
+        if clock < _notice_until and clock >= _attend_until and _pose in ["stand", "sit"]:
+            want = 1.0                         # something it noticed, for a moment (`reacts.look`)
+            _look.target = _notice_point
+        elif intent != null and clock >= _attend_until:
             want = 1.0                         # a step's `look:` what it is about; a greeter comes first
             _look.target = intent
         elif who != null and not look.is_empty() and (_pose in ["stand", "sit"] or (_pose == "lie" and clock < _attend_until)) \
@@ -2446,6 +2556,9 @@ func report() -> Dictionary:
         "wants": int(stats.get("wants", 0)),
         # Its wants in detail (GeogenWants.report: seen, left, doing, handled), where a step's `look:` has the
         # head turned (subject | place | "") and how far the head is turned now (deg, yaw + pitch).
+        # Perception: stimuli it has noticed, the last one ({stimulus, subject, at, by: heard | seen, clock}) and
+        # the times that cut short what it was doing.
+        "noticed": int(stats.get("noticed", 0)), "notice": _noticed, "cut_short": int(stats.get("cut_short", 0)),
         "want": GeogenWants.report(self), "looking_at": _intent if _intent_point() != null else "",
         "head_turn": snappedf(rad_to_deg(_look.turned()), 0.1) if _look != null else 0.0,
         "prop": prop_in_hand(), "picked_up": int(stats.get("picked_up", 0)), "put_down": int(stats.get("put_down", 0)),

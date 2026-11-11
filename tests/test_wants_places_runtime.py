@@ -75,8 +75,6 @@ def test_a_want_weighs_them(found):
 def test_he_puts_the_can_up_out_of_the_way(rt, found):
     before = tomas(rt)["wants"]
     rt.call("npcs.resume", npc="tomas")
-    rt.call("time.advance", seconds=1, scale=4)
-    failed = len(tomas(rt)["failures"])                                    # (the fixture may have taken it out of his hands)
     spent = 0.0
     while tomas(rt)["wants"] == before and spent < 120:
         rt.call("time.advance", seconds=0.5, scale=4)
@@ -85,7 +83,8 @@ def test_he_puts_the_can_up_out_of_the_way(rt, found):
     rt.call("time.advance", seconds=2, scale=4)
     assert tomas(rt)["wants"] == before + 1, (tomas(rt)["doing"], tomas(rt)["failures"])
     assert can(rt)["holder"] == "" and can(rt)["center"][1] > 1.0          # nobody said "the bookshelf"
-    assert not [f for f in tomas(rt)["failures"][failed:] if f.startswith("want/")]
+    # (The fixture may have taken the can out of his hands: that tidy failed "holding nothing".)
+    assert not [f for f in tomas(rt)["failures"] if f.startswith("want/") and "holding nothing" not in f]
 
 
 def test_the_sun_warms_only_by_day(rt, found):

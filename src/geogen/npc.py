@@ -36,6 +36,21 @@ from .layout.yaml_utils import load_kind, safe_load_path
 
 ASSETS_DIR = roots.CORE
 ACTIONS_PATH = ASSETS_DIR / "npcs" / "actions.yaml"
+STIMULI_PATH = ASSETS_DIR / "npcs" / "stimuli.yaml"
+STIMULI_KIND = "npc_stimuli"
+# Perception (geogen.99): what an NPC notices of the stimuli around it (npcs/stimuli.yaml), and
+# what it does then. Opt-in: a definition without `senses:` notices nothing and costs nothing.
+STIMULUS_EVENTS = {"impact", "changed"}     # bus event types a stimulus can be (runtime/godot/scripts/events.gd)
+# Hearing: a stimulus carries `range` x its loudness (x its strength); with something in the way
+# (a wall, a shut door) only `muffled` of that. Sight: within `range` and a `cone` of degrees
+# ahead, with a clear line. (attention.look's range and cone are for looking at a person who
+# comes near; these are for noticing anything, so they are the definition's own.)
+SENSES_DEFAULTS = {"hearing": {"range": 10.0, "muffled": 0.3}, "sight": {"range": 8.0, "cone": 150.0}}
+REACT_KEYS = {
+    "look": "seconds (or [lo, hi]) the head turns to where it came from (default [0.8, 1.5])",
+    "interrupt": "true: cut short what it is doing, if that action is `interruptible` (actions.yaml), and "
+                 "decide again, so a want about what happened is seen to now",
+}
 
 NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
@@ -59,7 +74,7 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants"}
+            "reach", "carry", "wants", "senses", "reacts"}
 # A want (geogen.97): a condition on the world the NPC puts right with whatever is there.
 WANT_KEYS = {
     "of": "what it is about: prop (a physics prop with `carry`), or a reference to things with an interaction "
@@ -203,9 +218,11 @@ def parse_actions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         raise ValueError(f"npc actions: expected kind '{ACTIONS_KIND}' version {VERSION}")
     actions = {}
     for name, spec in (data.get("actions") or {}).items():
-        unknown = set(spec) - {"steps", "approach", "duration"}
+        unknown = set(spec) - {"steps", "approach", "duration", "interruptible"}
         if unknown:
             raise ValueError(f"action '{name}': unknown keys {sorted(unknown)}")
+        if spec.get("interruptible", False) not in (True, False):
+            raise ValueError(f"action '{name}': interruptible is true or false")
         steps = [_check_step(s, f"action '{name}' step {i}") for i, s in enumerate(spec.get("steps") or [])]
         if not steps:
             raise ValueError(f"action '{name}': needs steps")
@@ -214,8 +231,75 @@ def parse_actions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
             action["approach"] = _vec3(spec["approach"], f"action '{name}': approach")
         if "duration" in spec:
             action["duration"] = _range(spec["duration"], f"action '{name}': duration")
+        if spec.get("interruptible"):
+            action["interruptible"] = True      # something noticed may cut it short (`reacts: interrupt`)
         actions[name] = action
     return actions
+
+
+def parse_stimuli(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Validate an ``npc_stimuli`` document; returns {stimulus: {event, loudness, of?}}."""
+    if data.get("kind") != STIMULI_KIND or int(data.get("version", 0)) != VERSION:
+        raise ValueError(f"npc stimuli: expected kind '{STIMULI_KIND}' version {VERSION}")
+    stimuli = {}
+    for name, spec in (data.get("stimuli") or {}).items():
+        where = f"stimulus '{name}'"
+        if not isinstance(spec, dict) or set(spec) - {"event", "of", "loudness"}:
+            raise ValueError(f"{where}: keys are event, of, loudness, got {spec!r}")
+        if spec.get("event") not in STIMULUS_EVENTS:
+            raise ValueError(f"{where}: event is one of {sorted(STIMULUS_EVENTS)}, got {spec.get('event')!r}")
+        loudness = float(spec.get("loudness", 1.0))
+        if loudness < 0:
+            raise ValueError(f"{where}: loudness can't be negative")
+        stimuli[str(name)] = {"event": spec["event"], "loudness": loudness}
+        if "of" in spec:
+            if not isinstance(spec["of"], str) or not spec["of"]:
+                raise ValueError(f"{where}: of is a tag the event's subject carries, got {spec['of']!r}")
+            stimuli[str(name)]["of"] = spec["of"]
+    return stimuli
+
+
+@lru_cache(maxsize=4)
+def load_stimuli(path: str | Path = STIMULI_PATH) -> dict[str, dict[str, Any]]:
+    return parse_stimuli(safe_load_path(path) or {})
+
+
+def parse_senses(senses: Any, reacts: Any, where: str) -> dict[str, Any]:
+    """``senses:`` and ``reacts:`` -> {senses: {hearing, sight}, reacts: {stimulus: {event, loudness,
+    of?, look, interrupt}}}, or {} without either. ``senses: true`` is the defaults; ``reacts``
+    names stimuli from npcs/stimuli.yaml (inlined, like actions) and needs senses."""
+    if senses in (None, False) and not reacts:
+        return {}
+    if senses in (None, False):
+        raise ValueError(f"{where}: reacts needs senses (senses: true for the defaults)")
+    senses = {} if senses is True else senses
+    if not isinstance(senses, dict) or set(senses) - set(SENSES_DEFAULTS):
+        raise ValueError(f"{where}: senses is {{{', '.join(SENSES_DEFAULTS)}}} or true, got {senses!r}")
+    out_senses = {}
+    for part, defaults in SENSES_DEFAULTS.items():
+        spec = senses.get(part, True)
+        if spec is False:
+            continue                    # deaf, or blind
+        spec = {} if spec is True else spec
+        if not isinstance(spec, dict) or set(spec) - set(defaults):
+            raise ValueError(f"{where}: senses.{part}: keys are {sorted(defaults)}, got {spec!r}")
+        out_senses[part] = {k: float(spec.get(k, v)) for k, v in defaults.items()}
+    stimuli = load_stimuli()
+    out_reacts = {}
+    if reacts is not None and not isinstance(reacts, dict):
+        raise ValueError(f"{where}: reacts is {{stimulus: {{look, interrupt}}}}, got {reacts!r}")
+    for name, spec in (reacts or {}).items():
+        at = f"{where}: reacts.{name}"
+        if name not in stimuli:
+            raise ValueError(f"{at}: unknown stimulus (npcs/stimuli.yaml has {sorted(stimuli)})")
+        spec = {} if spec in (True, None) else spec
+        if not isinstance(spec, dict) or set(spec) - set(REACT_KEYS):
+            raise ValueError(f"{at}: keys are {sorted(REACT_KEYS)}, got {spec!r}")
+        if spec.get("interrupt", False) not in (True, False):
+            raise ValueError(f"{at}: interrupt is true or false")
+        out_reacts[str(name)] = {**stimuli[name], "look": _range(spec.get("look", [0.8, 1.5]), f"{at}: look"),
+                                 "interrupt": bool(spec.get("interrupt", False))}
+    return {"senses": out_senses, "reacts": out_reacts}
 
 
 @lru_cache(maxsize=4)
@@ -421,6 +505,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "reach": _limits(data.get("reach"), REACH_DEFAULTS, f"{path}: reach"),
         "carry": _limits(data.get("carry"), CARRY_DEFAULTS, f"{path}: carry"),
         "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
+        **parse_senses(data.get("senses"), data.get("reacts"), str(path)),
     }
 
 

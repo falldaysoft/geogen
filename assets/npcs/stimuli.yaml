@@ -1,0 +1,22 @@
+# What can be noticed, as data: each stimulus is a kind of event on the world's
+# bus (runtime/godot/scripts/events.gd) with how far it carries. An NPC with
+# `senses:` that `reacts:` to one notices it when it hears or sees it
+# (geogen/npc.py SENSES_DEFAULTS, REACT_KEYS); nothing here names a behaviour.
+#
+#   event:     the bus event's type: impact (a physics prop hit something:
+#              data.at, data.strength 0..1 by its speed) or changed (an
+#              interaction went to another state)
+#   of:        only events whose subject carries this tag (door, switch.light)
+#   loudness:  how far it is heard, as a share of the hearer's hearing.range
+#              (times the event's own strength, where it has one); 0: silent,
+#              it is only seen
+#
+# An actor never notices what it did itself.
+
+kind: npc_stimuli
+version: 1
+
+stimuli:
+  thud:   { event: impact, loudness: 1.0 }              # something fell, or was dropped or thrown
+  door:   { event: changed, of: door, loudness: 0.6 }   # a door opened or shut
+  switch: { event: changed, of: switch, loudness: 0.15 }   # a click

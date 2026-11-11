@@ -479,3 +479,21 @@ def test_wants_and_body_limits_are_validated():
     assert [s.get("look") for s in actions["put_away"]["steps"]] == ["subject", None, "place", None, None]
     with pytest.raises(ValueError, match="look must be one of"):
         parse_actions({"kind": "npc_actions", "version": 1, "actions": {"a": {"steps": [{"wait": [1, 2], "look": "sky"}]}}})
+
+
+def test_senses_and_reacts_are_validated():
+    from geogen.npc import SENSES_DEFAULTS, load_stimuli, parse_senses, parse_stimuli
+    assert parse_senses(None, None, "t") == {}                              # opt-in: nothing without them
+    assert parse_senses(True, None, "t") == {"senses": SENSES_DEFAULTS, "reacts": {}}
+    got = parse_senses({"hearing": {"range": 5}, "sight": False}, {"thud": {"interrupt": True}, "door": None}, "t")
+    assert got["senses"] == {"hearing": {"range": 5.0, "muffled": 0.3}}     # blind
+    assert got["reacts"]["thud"] == {**load_stimuli()["thud"], "look": [0.8, 1.5], "interrupt": True}
+    assert got["reacts"]["door"]["of"] == "door" and got["reacts"]["door"]["interrupt"] is False
+    for senses, reacts, message in ((None, {"thud": {}}, "reacts needs senses"), (True, {"bang": {}}, "unknown stimulus"),
+                                    ({"smell": {}}, None, "senses is"), (True, {"thud": {"run": True}}, "keys are"),
+                                    ({"sight": {"zoom": 2}}, None, "senses.sight")):
+        with pytest.raises(ValueError, match=message):
+            parse_senses(senses, reacts, "t")
+    with pytest.raises(ValueError, match="event is one of"):
+        parse_stimuli({"kind": "npc_stimuli", "version": 1, "stimuli": {"x": {"event": "smell"}}})
+    assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml").get("senses") is None

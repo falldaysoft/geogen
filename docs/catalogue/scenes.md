@@ -788,6 +788,6 @@ The flat's rooms each have a ceiling light with a switch by every door (the
 floor plan's finishes), all on. Hana puts out the light of a room nobody is
 in and shuts doors left standing open (people/hana.yaml).
 
-**Places**: `flat: {asset: flat.yaml}`; `armchair: {asset: armchair.yaml}`; `hana: {character: people/hana.yaml}`
+**Places**: `flat: {asset: flat.yaml}`; `armchair: {asset: armchair.yaml}`; `side_table: {asset: table.yaml}`; `can: {asset: soda_can.yaml}`; `hana: {character: people/hana.yaml}`
 
 **Spawns**: start

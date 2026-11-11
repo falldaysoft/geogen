@@ -20,6 +20,8 @@ extends Node
 ##   start    a new game began for an actor
 ## Runtime-only types, for tools and tests (no rule sees them):
 ##   arrived  an interaction reached a state (`name`; data.state, data.emit, data.asset)
+##   impact   a physics prop hit something (data.at [x, y, z], data.strength 0..1 by its speed,
+##            data.speed m/s; the actor is whoever had it last): a stimulus actors may notice
 ##   npc      an NPC's trace (`name`: decide, step, done, fail, greet, ...; data: the trace)
 ##
 ## An event the rules program caused (a variable it set, a signal it raised)
@@ -32,7 +34,7 @@ extends Node
 signal posted(event: Dictionary)
 
 const RULE_TYPES := ["signal", "changed", "use", "enter", "leave", "travel", "clock", "start", "use_item"]
-const RUNTIME_TYPES := ["arrived", "npc"]
+const RUNTIME_TYPES := ["arrived", "impact", "npc"]
 const HISTORY := 256
 
 ## Used for events whose subject has no package of its own (the clock, a new game).

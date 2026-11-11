@@ -47,6 +47,10 @@
 #                                place or anchor (as far as the neck goes), until a later step
 #                                says otherwise or the action ends
 #
+# `interruptible: true` on an action: something the NPC notices (its `reacts:` with
+# `interrupt: true`, geogen/npc.py) may cut it short. It skips to the step that stands the
+# body up again (`pose: stand`), or ends where it is; the option counts as done.
+#
 # `approach` is where the actor stands to start the action, in the anchor's
 # frame (x right, z forward, metres); an affordance may override it.
 
@@ -57,6 +61,7 @@ actions:
   sit:
     approach: [0, 0, 0.5]        # in front of the seat, then turn round and sit
     duration: [15, 40]
+    interruptible: true
     steps:
       - go_to: approach
       - face: anchor
@@ -69,6 +74,7 @@ actions:
   sit_at_table:                  # a chair at a table: sit, forearms on the table top
     approach: [0, 0, 0.5]
     duration: [20, 50]
+    interruptible: true
     steps:
       - go_to: approach
       - face: anchor
@@ -94,6 +100,7 @@ actions:
   look:                          # stand somewhere facing something (a window, a shelf)
     approach: [0, 0, 0]
     duration: [6, 15]
+    interruptible: true
     steps:
       - go_to: approach
       - face: anchor
@@ -102,6 +109,7 @@ actions:
   stand:                         # go and stand at a spot (the doorstep)
     approach: [0, 0, 0]
     duration: [5, 12]
+    interruptible: true
     steps:
       - go_to: approach
       - face: anchor
@@ -228,12 +236,14 @@ actions:
 
   wander:
     duration: [2, 5]
+    interruptible: true
     steps:
       - go_to: random
       - wait: duration
 
   idle:
     duration: [3, 8]
+    interruptible: true
     steps:
       - wait: duration
 

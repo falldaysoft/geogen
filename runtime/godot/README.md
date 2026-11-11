@@ -843,6 +843,11 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   over `forget` s); with none of its `weight` left the prop is left where it is. An action
   step's `look: subject | place | none` turns the head there until a later step or the action's
   end. The NPC report has `want: {seen, left, doing, handled}`, `looking_at` and `head_turn`.
+  An NPC with `senses` and `reacts` (`extras.geogen.npc`) notices stimuli: bus events (`impact`
+  from a physics prop that hit something, `changed` of a tagged thing) it hears (hearing range
+  x loudness x strength, muffled through walls) or sees (sight range and cone, clear line),
+  never its own doing. Its head turns there, and `interrupt` cuts an `interruptible` action
+  short so it decides again. Report: `noticed`, `notice`, `cut_short`.
   A want's `place.quality` weighs what a spot is like, 0..1 each (`GeogenPlaceSearch.quality`):
   `high`, `enclosed`, `hidden` and `warm` from the colliders, the navmesh and the sun, and any
   name a thing is tagged with as `quality.<name>` (`quality.soft`); `npcs.places` reports them.

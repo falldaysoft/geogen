@@ -615,6 +615,18 @@
                       "type": "object", "additionalProperties": { "type": "number" } },
                     "height": { "type": "number" }, "distance": { "type": "number" }, "off_height": { "type": "number" },
                     "noise": { "type": "number" }, "tried": { "type": "number" }, "radius": { "type": "number" } } } } } },
+            "senses": {
+              "description": "What it can notice (geogen/npc.py SENSES_DEFAULTS); a part left out is a sense it lacks. hearing: a stimulus carries 'range' m x its loudness x its strength, and only 'muffled' of that with something in the way. sight: within 'range' m and a 'cone' of degrees ahead, with a clear line.",
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "hearing": { "type": "object", "additionalProperties": false, "properties": { "range": { "type": "number" }, "muffled": { "type": "number" } } },
+                "sight": { "type": "object", "additionalProperties": false, "properties": { "range": { "type": "number" }, "cone": { "type": "number" } } } } },
+            "reacts": {
+              "description": "The stimuli it reacts to (assets/npcs/stimuli.yaml, inlined), by name. A stimulus is a bus 'event' (impact: a physics prop hit something; changed: an interaction went to another state), from a subject tagged 'of' if given, heard as far as 'loudness' of the hearing range. Noticing one (never its own doing), the head turns to it for 'look' s, and with 'interrupt' an interruptible action is cut short so it decides again.",
+              "type": "object",
+              "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["event", "loudness", "look", "interrupt"],
+                "properties": { "event": { "enum": ["impact", "changed"] }, "of": { "type": "string" }, "loudness": { "type": "number", "minimum": 0 },
+                  "look": { "$ref": "#/$defs/range" }, "interrupt": { "type": "boolean" } } } },
             "reach": {
               "description": "What the body's hands get to: no further than 'distance' m on the ground from where it stands, between the 'heights' [lo, hi] m above its feet; 'stand' is how far short of a prop it stops to pick it up.",
               "type": "object", "additionalProperties": false,
@@ -642,6 +654,7 @@
             "actions": { "type": "object", "additionalProperties": {
               "type": "object", "required": ["steps"], "additionalProperties": false,
               "properties": { "approach": { "$ref": "#/$defs/vec3" }, "duration": { "$ref": "#/$defs/range" },
+                "interruptible": { "description": "Something the NPC notices (reacts: interrupt) may cut this action short: it skips to the step that stands it up again, or ends.", "const": true },
                 "steps": { "type": "array", "items": { "$ref": "#/$defs/npc_step" } } } } },
             "home": {
               "type": "object", "required": ["polygon", "y"], "additionalProperties": false,

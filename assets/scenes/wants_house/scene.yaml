@@ -21,6 +21,16 @@ place:
     at: { u: { abs: 0.7 }, v: { abs: 2.0 } }
     facing: east
 
+  side_table:
+    asset: table.yaml
+    params: { width: 0.6, depth: 0.6 }
+    on: flat.living.floor
+    at: { u: { abs: 3.6 }, v: { abs: 3.5 } }
+  can:
+    asset: soda_can.yaml
+    on: side_table.top
+    at: { u: 0.5, v: 0.5 }
+
   hana:
     character: people/hana.yaml
     on: flat.living.floor

@@ -30,6 +30,10 @@ const CAUGHT_DISTANCE := 0.3     ## m short of the hold point, and no CAUGHT_GAI
 const CAUGHT_GAIN := 0.03        ## for CAUGHT_SECONDS: set at the hold point
 const CAUGHT_SECONDS := 0.2
 const SNAG_SECONDS := 0.5
+const IMPACT_MIN := 0.8          ## m/s a prop must be going for a stop to be an impact (a put-down settles slower)
+const IMPACT_KEPT := 0.6         ## of its speed: keeping more than this over a frame, it hit nothing
+const IMPACT_FULL := 4.0         ## m/s that is as loud as an impact gets (strength 1: dropped from about 0.8 m)
+const IMPACT_GAP_MSEC := 300     ## its bounces within this are the same impact
 
 var world: WorldLoader
 ## uid -> {uid, node, body, data, home: Transform3D, spawn: GeogenInteraction or null}
@@ -199,6 +203,7 @@ func take(uid: String, holder: Node3D, point: Callable) -> bool:
     if not can_take(uid):
         return false
     var body: RigidBody3D = props[uid]["body"]
+    props[uid]["last_actor"] = WorldLoader.actor_id(holder)
     taken[uid] = {"holder": holder, "point": point}
     body.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
     body.freeze = true
@@ -256,6 +261,7 @@ func pick(uid: String, holder: PhysicsBody3D, point: Callable) -> bool:
         return false
     release(uid)                          # out of an actor's hand: it finds its hands empty
     var body: RigidBody3D = props[uid]["body"]
+    props[uid]["last_actor"] = WorldLoader.actor_id(holder)
     held = uid
     _snagged = 0.0
     _caught = 0.0
@@ -301,6 +307,8 @@ func _physics_process(delta: float) -> void:
     for uid in props:
         var entry: Dictionary = props[uid]
         var body: RigidBody3D = entry["body"]
+        if is_instance_valid(body):
+            _impact(uid, entry, body)
         if is_instance_valid(body) and _live(entry) and body.global_position.y < floor_y:
             if entry.get("clone", false):
                 clone_fell.emit(uid)        # flows.gd removes it (not while iterating: deferred)
@@ -312,6 +320,25 @@ func _physics_process(delta: float) -> void:
                 _freeze(entry)
             else:
                 _place(entry, entry["home"])
+
+
+## A free prop that lost most of its speed in one frame hit something: an `impact` event (a
+## stimulus actors may notice, npcs/stimuli.yaml), with where, how hard (strength 0..1 by the
+## speed it had) and, as the actor, whoever had it last.
+func _impact(uid: String, entry: Dictionary, body: RigidBody3D) -> void:
+    var loose := not body.freeze and uid != held and not taken.has(uid)
+    var speed := body.linear_velocity.length() if loose else 0.0
+    var before := float(entry.get("speed", 0.0))
+    entry["speed"] = speed
+    var now := Time.get_ticks_msec()
+    if not loose or before < IMPACT_MIN or speed > before * IMPACT_KEPT or world.events == null \
+            or now - int(entry.get("impact_at", -IMPACT_GAP_MSEC)) < IMPACT_GAP_MSEC:
+        return
+    entry["impact_at"] = now
+    var at: Vector3 = body.global_transform * (box_of(uid)["center"] as Vector3)
+    world.events.post("impact", uid, "", str(entry.get("last_actor", "")),
+        {"at": [snappedf(at.x, 0.001), snappedf(at.y, 0.001), snappedf(at.z, 0.001)],
+        "strength": snappedf(clampf(before / IMPACT_FULL, 0.0, 1.0), 0.01), "speed": snappedf(before, 0.01)})
 
 
 func _carry(delta: float) -> void:
