@@ -130,3 +130,71 @@ def test_what_is_out_of_reach_or_too_heavy_is_refused(rt):
     rt.call("npcs.do", npc="resident", action="put_away", subject="can", place=[0.0, 0.0, 0.0])
     run_until(rt, lambda: len(resident(rt)["failures"]) > before + 1)
     assert "no subject point" in resident(rt)["failures"][-1]
+
+
+def prop_uid(rt, node):
+    return body(rt, node)["uid"]
+
+
+def test_it_looks_at_what_it_goes_for_then_at_where_it_will_put_it(rt):
+    # put_away's steps say where the head goes (look: subject, then a glance with look: place).
+    uid = prop_uid(rt, "can")
+    to_the_floor(rt, "can")
+    looked, turned, doing = [], {}, {}
+
+    def watch():
+        r = resident(rt)
+        on_it = r["want"]["doing"].get("subject") == uid
+        if on_it:
+            doing.update(r["want"]["doing"])
+            if r["looking_at"] and r["looking_at"] not in looked:
+                looked.append(r["looking_at"])
+            if r["looking_at"]:
+                turned[r["looking_at"]] = max(turned.get(r["looking_at"], 0.0), r["head_turn"])
+        return bool(doing) and not on_it and r["prop"] == ""
+
+    run_until(rt, watch, step=0.25)
+    assert looked == ["subject", "place"], looked
+    assert turned["subject"] > 10 and turned["place"] > 3, turned          # the head really turns (deg)
+    assert doing["want"] == "tidy" and doing["place"] and doing["of"] >= 1 and doing["reluctance"] == 0
+    r = resident(rt)
+    assert r["looking_at"] == "" and r["want"]["handled"][uid] == pytest.approx(1.0, abs=0.1)
+    rt.call("time.advance", seconds=2, scale=4)
+    assert body(rt, "can")["center"][1] > 0.3
+
+
+def test_reluctance_ends_a_want_that_keeps_being_undone(rt):
+    # The resident's tidy has weight 0.5 and reluctance 0.15 a handling: knocked down again and
+    # again, the can is worth less each time, and after the fourth it is left where it fell.
+    uid = prop_uid(rt, "can")
+    option = f"want/tidy/{uid}"
+    scores = []
+
+    def handled():
+        return resident(rt)["want"]["handled"].get(uid, 0.0)
+
+    for _ in range(6):
+        to_the_floor(rt, "can", resume=False)
+        offered = {o["id"]: o["score"] for o in rt.call("npcs.options", npc="resident")}
+        if option in resident(rt)["want"]["left"]:
+            break
+        if option in offered:                                              # (not while its hands are full)
+            scores.append(offered[option])
+        before = handled()
+        rt.call("npcs.resume", npc="resident")
+        run_until(rt, lambda: handled() > before + 0.5 and resident(rt)["prop"] == "")
+        rt.call("time.advance", seconds=2, scale=4)
+        assert body(rt, "can")["center"][1] > 0.3                          # put somewhere, each time
+    else:
+        raise AssertionError(f"still wanted after six more handlings: {scores}")
+    assert 3.3 < handled() < 4.1                                           # 4 x 0.15 uses up the 0.5, less a little fading
+    assert all(b < a - 0.05 for a, b in zip(scores, scores[1:])), scores
+    assert rt.call("npcs.places", npc="resident", want="tidy", prop="can")["resting_on"] == "floor"
+    assert not [f for f in resident(rt)["failures"] if f.startswith("want/")]
+    rt.call("npcs.resume", npc="resident")
+    was = resident(rt)
+    rt.call("time.advance", seconds=30, scale=4)
+    now = resident(rt)
+    assert option in now["want"]["left"] and option not in [o["id"] for o in now["want"]["seen"]]
+    assert now["failures"] == was["failures"]                              # it has had enough: nothing failed
+    assert body(rt, "can")["center"][1] < 0.3 and body(rt, "can")["holder"] == ""

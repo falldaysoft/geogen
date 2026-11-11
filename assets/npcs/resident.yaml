@@ -47,6 +47,7 @@ wants:
     when: { resting_on: floor }
     action: put_away                      # pick it up, carry it to a spot that holds it, set it down
     place: { prefer: { table: 1.5, bookshelf: 1.2 } }
+    reluctance: 0.15                      # picked up four times in a few minutes, a thing is left where it fell
 
 flags:
   closes_doors: true

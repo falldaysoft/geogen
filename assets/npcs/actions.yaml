@@ -40,6 +40,9 @@
 #                                settles is up to the physics
 #   (go_to also takes `subject`: beside the prop, and `place`: where to stand to put it down)
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
+#   look: subject | place | none on any step: from here on the head turns to the action's subject
+#                                or place (as far as the neck goes), until a later step says
+#                                otherwise or the action ends
 #
 # `approach` is where the actor stands to start the action, in the anchor's
 # frame (x right, z forward, metres); an affordance may override it.
@@ -205,7 +208,10 @@ actions:
   put_away:                      # carry the subject to the place (a want's, or the control API's npcs.do)
     steps:
       - go_to: subject
+        look: subject              # eyes on what it is going for
       - pick_up: subject
+      - wait: [0.4, 0.7]           # a glance at where it will go, before setting off
+        look: place
       - go_to: place
       - put_down: place
 

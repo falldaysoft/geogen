@@ -448,10 +448,16 @@ def test_wants_and_body_limits_are_validated():
     tidy = {"of": "prop", "when": {"resting_on": "floor"}, "action": "put_away", "place": {"prefer": {"table": 1.5}}}
     want = parse_wants({"tidy": tidy}, actions, {}, "t")["tidy"]
     assert want["weight"] == 0.5 and want["place"]["prefer"] == {"table": 1.5}
+    assert want["reluctance"] == 0.1 and want["forget"] == 600.0
     assert {k: want["place"][k] for k in PLACE_DEFAULTS} == PLACE_DEFAULTS
     for bad, message in (({"of": "cat"}, "of is one of"), ({"when": {"resting_on": "moon"}}, "when.resting_on"),
                          ({"action": "fly"}, "unknown action"), ({"place": {"near": 1}}, "place keys"),
-                         ({"colour": "red"}, "keys are")):
+                         ({"colour": "red"}, "keys are"), ({"reluctance": -1}, "can't be negative")):
         with pytest.raises(ValueError, match=message):
             parse_wants({"tidy": {**tidy, **bad}}, actions, {}, "t")
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["action"] == "put_away"
+    assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml")["wants"]["tidy"]["reluctance"] == 0.15
+    # A step's `look:` says where the head turns from then on.
+    assert [s.get("look") for s in actions["put_away"]["steps"]] == ["subject", None, "place", None, None]
+    with pytest.raises(ValueError, match="look must be one of"):
+        parse_actions({"kind": "npc_actions", "version": 1, "actions": {"a": {"steps": [{"wait": [1, 2], "look": "sky"}]}}})

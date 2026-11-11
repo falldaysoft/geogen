@@ -591,7 +591,7 @@
                   "preferences": { "type": "object", "additionalProperties": { "type": "number" } } } }
             },
             "wants": {
-              "description": "Conditions on the world it puts right with whatever is there (geogen/npc.py WANT_KEYS), by name. 'of' is what a want is about (prop: a physics prop with carry); 'when' says which are a problem (resting_on: floor, anything actors walk on); 'action' runs with that subject and a place the runtime finds among the spots that hold it within reach, scored by 'place' (its tags' 'prefer' multipliers, less 'distance' per metre walked, less 'off_height' per metre from the 'height' above its feet it likes, less 'tried' for a spot already used for the subject, plus 'noise' x random; 'radius' m round it where it has no home). Utility: 'weight' plus what 'advertises' adds for its needs.",
+              "description": "Conditions on the world it puts right with whatever is there (geogen/npc.py WANT_KEYS), by name. 'of' is what a want is about (prop: a physics prop with carry); 'when' says which are a problem (resting_on: floor, anything actors walk on); 'action' runs with that subject and a place the runtime finds among the spots that hold it within reach, scored by 'place' (its tags' 'prefer' multipliers, less 'distance' per metre walked, less 'off_height' per metre from the 'height' above its feet it likes, less 'tried' for a spot already used for the subject, plus 'noise' x random; 'radius' m round it where it has no home). Utility: 'weight' plus what 'advertises' adds for its needs, less 'reluctance' for each time this NPC has picked the subject up (for any reason; a handling fades over 'forget' s); a subject whose reluctance has used up the weight is left be.",
               "type": "object",
               "additionalProperties": { "type": "object", "additionalProperties": false,
                 "required": ["of", "when", "action", "place", "weight", "advertises"],
@@ -600,6 +600,8 @@
                   "when": { "type": "object", "additionalProperties": false, "properties": { "resting_on": { "enum": ["floor"] } } },
                   "action": { "type": "string" },
                   "weight": { "type": "number", "minimum": 0 },
+                  "reluctance": { "type": "number", "minimum": 0 },
+                  "forget": { "type": "number", "exclusiveMinimum": 0 },
                   "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
                   "place": { "type": "object", "additionalProperties": false, "properties": {
                     "prefer": { "type": "object", "additionalProperties": { "type": "number" } },
@@ -852,7 +854,7 @@
       "additionalProperties": { "type": ["number", "string", "boolean", "array", "null"] }
     },
     "npc_step": {
-      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter) and 'if' (a flag it needs). go_to 'nearby' is a random navmesh point a few metres from where the NPC stands.",
+      "description": "One step of an NPC action (assets/npcs/actions.yaml): exactly one verb, with options 'at' (where a pose is held), 'hold' (a pose step: the skeletal pose clip pose_<hold> to hold instead of the pose's own, where the body has it), 'loop' (a play step: loop the clip for that long, 'duration' being the affordance's range), 'close' (a go_to step: past the navmesh path, step straight up to the target when it is near and clear: a counter), 'look' (where the head turns from this step on, until a later step says otherwise or the action ends: the action's subject or place) and 'if' (a flag it needs). go_to 'nearby' is a random navmesh point a few metres from where the NPC stands.",
       "type": "object", "additionalProperties": false, "minProperties": 1,
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] },
@@ -872,6 +874,7 @@
         "hold": { "type": "string" },
         "loop": { "anyOf": [{ "const": "duration" }, { "$ref": "#/$defs/range" }] },
         "close": { "const": true },
+        "look": { "enum": ["subject", "place", "none"] },
         "if": { "type": "string" }
       }
     },

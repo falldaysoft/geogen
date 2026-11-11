@@ -18,6 +18,7 @@ static func options(npc: GeogenNpc) -> Array[Dictionary]:
     if wants.is_empty() or npc.world.props == null or npc.prop_in_hand() != "":
         return out
     var margin := float(npc.definition.get("home_margin", 1.0))
+    npc._wants_left = []
     for want_name in wants:
         var want: Dictionary = wants[want_name]
         if str(want.get("of", "")) != "prop":
@@ -33,9 +34,35 @@ static func options(npc: GeogenNpc) -> Array[Dictionary]:
                 continue
             if not _is_problem(npc, uid, want.get("when", {})):
                 continue
+            # Reluctance: each time it has had this subject in hand takes some of the want away,
+            # and with none left the subject is left be (not a failure: it has had enough).
+            var base := float(want.get("weight", 0.5)) - reluctance(npc, want, uid)
+            if base <= 0.0:
+                npc._wants_left.append(id)
+                continue
             out.append({"id": id, "action": want["action"], "want": want_name, "subject": uid,
-                "advertises": want.get("advertises", {}), "tags": [], "at": at, "base": float(want.get("weight", 0.5))})
+                "advertises": want.get("advertises", {}), "tags": [], "at": at, "base": base})
     return out
+
+
+## How many times ``npc`` has picked prop ``uid`` up, each fading to nothing over ``forget`` s.
+static func handled(npc: GeogenNpc, uid: String, forget: float) -> float:
+    var total := 0.0
+    for t in npc._handled.get(uid, []):
+        total += clampf(1.0 - (npc.clock - float(t)) / maxf(forget, 1.0), 0.0, 1.0)
+    return total
+
+
+## The utility ``want`` has lost for prop ``uid``: its `reluctance` for each of those times.
+static func reluctance(npc: GeogenNpc, want: Dictionary, uid: String) -> float:
+    return float(want.get("reluctance", 0.1)) * handled(npc, uid, float(want.get("forget", 600.0)))
+
+
+## ``npc`` has prop ``uid`` in hand (for a want or anything else): one more handling.
+static func note_handled(npc: GeogenNpc, uid: String) -> void:
+    var times: Array = npc._handled.get(uid, [])
+    times.append(npc.clock)
+    npc._handled[uid] = times.slice(-16)
 
 
 static func _is_problem(npc: GeogenNpc, uid: String, when: Dictionary) -> bool:
@@ -57,8 +84,13 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
     var place: Dictionary = ranked[0]
     option["place"] = place
     npc.world.npc_reserve(_subject_key(option["subject"]), npc)
-    npc._trace({"event": "want", "want": option["want"], "subject": option["subject"], "place": place["uid"],
-        "at": GeogenNpc._v(place["position"]), "score": snappedf(place["score"], 0.001), "of": ranked.size()})
+    var want: Dictionary = npc.definition["wants"][option["want"]]
+    npc._want_doing = {"want": option["want"], "subject": option["subject"], "place": place["uid"],
+        "at": GeogenNpc._v(place["position"]), "score": snappedf(place["score"], 0.001), "of": ranked.size(),
+        "reluctance": snappedf(reluctance(npc, want, str(option["subject"])), 0.001)}
+    var event := {"event": "want"}
+    event.merge(npc._want_doing)
+    npc._trace(event)
     return {"anchor": npc.global_position, "yaw_deg": rad_to_deg(npc._yaw()), "approach": npc.global_position,
         "subject": option["subject"], "place": place}
 
@@ -67,6 +99,7 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
 ## it was put at, so a spot the subject fell off isn't the first choice again.
 static func finish(npc: GeogenNpc, option: Dictionary, ok: bool) -> void:
     npc.world.npc_release(_subject_key(option["subject"]), npc)
+    npc._want_doing = {}
     if ok and option.has("place"):
         var tried: Array = npc._tried.get(option["subject"], [])
         tried.append(option["place"]["position"])
@@ -111,6 +144,22 @@ static func places(npc: GeogenNpc, want_name: String, uid: String) -> Array:
         out.append(spot)
     out.sort_custom(func(a, b): return a["score"] > b["score"])
     return out
+
+
+## For the NPC's report: the problems its wants saw at its last decision ({id, score}, best
+## first), the ones it has had enough of (ids), the one it is putting right now (the `want`
+## trace event: {want, subject, place, at, score, of, reluctance}; {} for none) and how many
+## times lately it has handled each prop ({uid: n}, fading).
+static func report(npc: GeogenNpc) -> Dictionary:
+    var forget := 600.0
+    for want in (npc.definition.get("wants", {}) as Dictionary).values():
+        forget = maxf(forget, float(want.get("forget", 600.0)))
+    var held := {}
+    for uid in npc._handled:
+        var n := handled(npc, uid, forget)
+        if n > 0.0:
+            held[uid] = snappedf(n, 0.01)
+    return {"seen": npc._wants_seen, "left": npc._wants_left, "doing": npc._want_doing, "handled": held}
 
 
 ## Whether a dotted tag (`furniture.table`) is, or is a kind of, ``key`` (`table`, `furniture`).

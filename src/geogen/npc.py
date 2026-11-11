@@ -42,7 +42,10 @@ ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down"}
-STEP_OPTIONS = {"at", "if", "hold", "loop", "close"}
+STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look"}
+# `look:` on any step: where the head turns from that step on, until a later step says otherwise
+# or the action ends (the action's subject or place; none: nowhere in particular).
+LOOK_TARGETS = {"subject", "place", "none"}
 GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group",
                  "subject", "place"}
 # What a body's hands get to and what it can carry (physics props: pick_up / put_down).
@@ -64,7 +67,11 @@ WANT_KEYS = {
              "picks among the spots that hold the subject within its reach",
     "weight": "utility of putting one subject right (default 0.5), beside what `advertises` adds",
     "advertises": "{need: amount}: what doing it adds to the needs",
+    "reluctance": "utility lost each time this NPC has picked the subject up (default 0.1), whatever for: once "
+                  "that uses up `weight` it leaves the subject be, so wants that undo each other end",
+    "forget": "seconds over which one handling fades from its reluctance (default 600)",
 }
+WANT_DEFAULTS = {"weight": 0.5, "reluctance": 0.1, "forget": 600.0}
 WANT_OF = ("prop",)
 WANT_WHEN = {"resting_on": ("floor",)}
 # How a spot is scored: its tags' `prefer` multipliers, less `distance` per metre to walk there,
@@ -155,6 +162,8 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
         raise ValueError(f"{where}: close: true is a go_to step's option (step up to the target off the navmesh)")
     if "loop" in step and verb != "play":
         raise ValueError(f"{where}: loop is a play step's option (how long to loop its clip), got {step!r}")
+    if "look" in step and step["look"] not in LOOK_TARGETS:
+        raise ValueError(f"{where}: look must be one of {sorted(LOOK_TARGETS)}, got {step['look']!r}")
     if "at" in step and step["at"] not in POSE_AT:
         raise ValueError(f"{where}: at must be one of {sorted(POSE_AT)}, got {step['at']!r}")
     out = dict(step)
@@ -398,7 +407,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
 
 
 def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:
-    """``wants:`` -> {name: {of, when, action, place, weight, advertises}} (see ``WANT_KEYS``)."""
+    """``wants:`` -> {name: {of, when, action, place, weight, reluctance, forget, advertises}} (see ``WANT_KEYS``)."""
     if spec is None:
         return {}
     if not isinstance(spec, dict):
@@ -423,11 +432,11 @@ def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, 
         place = want.get("place") or {}
         if not isinstance(place, dict) or set(place) - set(PLACE_DEFAULTS) - {"prefer"}:
             raise ValueError(f"{at}: place keys are {sorted([*PLACE_DEFAULTS, 'prefer'])}, got {place!r}")
-        weight = float(want.get("weight", 0.5))
-        if weight < 0:
-            raise ValueError(f"{at}: weight can't be negative")
+        numbers = {k: float(want.get(k, v)) for k, v in WANT_DEFAULTS.items()}
+        if numbers["weight"] < 0 or numbers["reluctance"] < 0 or numbers["forget"] <= 0:
+            raise ValueError(f"{at}: weight and reluctance can't be negative, and forget is seconds (> 0)")
         wants[str(name)] = {
-            "of": want["of"], "when": dict(when), "action": action, "weight": weight,
+            "of": want["of"], "when": dict(when), "action": action, **numbers,
             "place": {**{k: float(place.get(k, v)) for k, v in PLACE_DEFAULTS.items()},
                       "prefer": {str(k): float(v) for k, v in (place.get("prefer") or {}).items()}},
             "advertises": _advertises(want.get("advertises"), needs, at),

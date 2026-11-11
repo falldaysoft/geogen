@@ -836,6 +836,10 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   (`GeogenPlaceSearch`: level, not floor, room for the prop's box, all four corners held,
   somewhere to stand in reach), scores them by the want's `place` weights and runs the want's
   action with the prop as `subject` and the spot as `place` (`GeogenWants`, `npc_wants.gd`).
+  Each time the NPC has picked a prop up takes the want's `reluctance` off that option (fading
+  over `forget` s); with none of its `weight` left the prop is left where it is. An action
+  step's `look: subject | place | none` turns the head there until a later step or the action's
+  end. The NPC report has `want: {seen, left, doing, handled}`, `looking_at` and `head_turn`.
 - **Spawn:** a prop with `spawn: <thing>.<attachment>` has a `spawn` interaction
   (`stowed | live`) that rules drive. Stowed, it is hidden, frozen and out of
   collision; going live, it is put at `spawn_at` at rest and let go. A live prop

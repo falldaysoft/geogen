@@ -77,6 +77,7 @@ const GROUP_FAR := 0.35           # a member's utility of things beyond the grou
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
 const GROUP_REFRESH := 2.0
 const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
+const STAND_SLACK := 0.2          # m short of its reach a spot must be from where it will stand (walks end a little off)
 const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor it is baked from
 const PUT_GAP := 0.01             # m above the spot a prop is let go at
 const HELD_EVERY := 0.25          # s between looking at what the NPC carries (geogen.87.2)        # s between looking up the groupmates (chunks stream NPCs in and out)
@@ -99,6 +100,12 @@ var label: Label3D
 ## Per-NPC counters for tests: used {id: count}, decisions, failures,
 ## max_stall (s), outside (s outside home + margin), passes (doors).
 var _queued := {}                 # an action asked for by name (do_action), taken at the next decision
+var _handled := {}                # prop uid -> the clock times it picked it up (reluctance, npc_wants.gd)
+var _wants_seen := []             # report: the want options at its last decision [{id, score}]
+var _wants_left := []             # report: want options it has had enough of (reluctance), at the last look
+var _want_doing := {}             # report: the want it is on now (subject, place, score...)
+var _intent := ""                 # where a step's `look:` has the head turned: subject | place | ""
+var _intent_ctx := {}             # ...and the action context that names them
 var _tried := {}                  # prop uid -> the spots (Vector3) it has put it at, for its wants (npc_wants.gd)
 var stats := {"used": {}, "decisions": 0, "failures": [], "max_stall": 0.0, "outside": 0.0, "passes": 0}
 var _stuck_at = null     # where the last wedged failure happened (see _unstick)
@@ -507,6 +514,8 @@ func _decide() -> void:
         return
     var ranked := options()
     stats["decisions"] += 1
+    _wants_seen = ranked.filter(func(o): return o.has("want")).map(
+        func(o): return {"id": o["id"], "score": snappedf(o["score"], 0.001)})
     if ranked.is_empty():
         return
     _option = ranked[0]
@@ -548,6 +557,7 @@ func _push(action_name: String, ctx: Dictionary) -> void:
 func _finish_option(ok: bool, reason := "") -> void:
     if _pose == "stand":
         _ride = {}
+    _intent = ""
     if _option.is_empty():
         return
     var id: String = _option["id"]
@@ -660,6 +670,9 @@ func _step(delta: float) -> void:
         return
     if not frame["started"]:
         frame["started"] = true
+        if step.has("look"):
+            _intent = "" if step["look"] == "none" else str(step["look"])
+            _intent_ctx = frame["ctx"]
         var err := _begin(step, frame["ctx"])
         _trace({"event": "step", "action": frame["action"], "step": step, "pos": _v(global_position)})
         if err != "":
@@ -878,6 +891,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             if not world.props.take(uid, self, _prop_point.bind(uid)):
                 return "can't take it (gone, or in someone's hands)"
             stats["picked_up"] = int(stats.get("picked_up", 0)) + 1
+            GeogenWants.note_handled(self, uid)
             _trace({"event": "pick_up", "prop": uid, "pos": _v(global_position)})
             return "done"
         var held_uid: String = world.props.taken_by(self)
@@ -981,6 +995,7 @@ func _show() -> void:
 ## Stop whatever it is doing and stand: off its seat, its option given up.
 func _drop_everything() -> void:
     _let_go()
+    _intent = ""
     _stack.clear()
     _stair = null
     _playing = false
@@ -1134,17 +1149,18 @@ func stand_for(point: Vector3):
         var back := NpcGeometry.flat(global_position - point)
         near = NavigationServer3D.map_get_closest_point(map,
             low + (back.normalized() * off if back.length() > 1e-3 else Vector3(off, 0, 0)))
-    return near if _within_reach(point, near) else null
+    # (A walk ends a little off the point it was for: what is only just in reach from there isn't.)
+    return near if _within_reach(point, near, STAND_SLACK) else null
 
 
 ## Whether a point is one this body's hands get to from ``feet`` (where it stands): no further
 ## than `reach.distance` on the ground, and between the `reach.heights` above its feet.
-func _within_reach(point: Vector3, feet = null) -> bool:
+func _within_reach(point: Vector3, feet = null, short := 0.0) -> bool:
     var reach: Dictionary = definition.get("reach", {})
     var origin: Vector3 = feet if feet is Vector3 else global_position
     var heights: Array = reach.get("heights", [0.0, 1.5])
     var up := point.y - origin.y
-    return NpcGeometry.flat(point - origin).length() <= float(reach.get("distance", 1.0)) \
+    return NpcGeometry.flat(point - origin).length() <= float(reach.get("distance", 1.0)) - short \
         and up >= float(heights[0]) - REACH_SLACK and up <= float(heights[1])
 
 
@@ -2037,6 +2053,22 @@ func _characters_in(lo: Vector2, hi: Vector2) -> Array:
     return out
 
 
+## The point a step's `look:` has the head turned to now (the action's subject or place), or null.
+func _intent_point():
+    if _intent == "" or _pose != "stand":
+        return null
+    if _intent == "subject":
+        var uid := str(_intent_ctx.get("subject", ""))
+        return _prop_centre(uid) if world.props != null and world.props.props.has(uid) else null
+    var place: Dictionary = _intent_ctx.get("place", {})
+    if not place.has("position"):
+        return null
+    # The middle of the thing once it is there, not the top it stands on.
+    var held: String = world.props.taken_by(self) if world.props != null else ""
+    var lift: float = (world.props.box_of(held)["size"] as Vector3).y / 2.0 if held != "" else 0.0
+    return (place["position"] as Vector3) + Vector3.UP * lift
+
+
 ## Busy at work (a looping `play` step), the head comes up only now and then, for `busy_glance` s
 ## every `busy_every` s; otherwise always.
 func _glancing(look: Dictionary) -> bool:
@@ -2060,9 +2092,13 @@ func _attend(delta: float) -> void:
     if _look != null:
         var look: Dictionary = attention.get("look", {})
         var want := 0.0
+        var intent = _intent_point()
         # (Out of range and not just greeted: nothing to look at; skip the camera lookups.)
         # Lying down, only who just greeted them: the head turns on the pillow.
-        if who != null and not look.is_empty() and (_pose in ["stand", "sit"] or (_pose == "lie" and clock < _attend_until)) \
+        if intent != null and clock >= _attend_until:
+            want = 1.0                         # a step's `look:` what it is about; a greeter comes first
+            _look.target = intent
+        elif who != null and not look.is_empty() and (_pose in ["stand", "sit"] or (_pose == "lie" and clock < _attend_until)) \
                 and (clock < _attend_until
                 or NpcGeometry.flat(who.global_position - global_position).length() < float(look["range"]) + 1.0):
             var eye: Vector3 = who.global_position + Vector3(0, 1.6, 0)
@@ -2321,6 +2357,10 @@ func report() -> Dictionary:
         "holding": holding(),
         # The physics prop in its hands (stable ID, "" for none), and how many it has picked up and put down.
         "wants": int(stats.get("wants", 0)),
+        # Its wants in detail (GeogenWants.report: seen, left, doing, handled), where a step's `look:` has the
+        # head turned (subject | place | "") and how far the head is turned now (deg, yaw + pitch).
+        "want": GeogenWants.report(self), "looking_at": _intent if _intent_point() != null else "",
+        "head_turn": snappedf(rad_to_deg(_look.turned()), 0.1) if _look != null else 0.0,
         "prop": prop_in_hand(), "picked_up": int(stats.get("picked_up", 0)), "put_down": int(stats.get("put_down", 0)),
         # Items it has used (`use_item` steps) and what it carries now (item ids).
         "items_used": int(stats.get("items_used", 0)),
