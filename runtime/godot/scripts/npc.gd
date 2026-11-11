@@ -78,7 +78,6 @@ const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer anoth
 const GROUP_REFRESH := 2.0
 const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
 const ON_SEAT := 0.35             # m (flat) from a seat's anchor a loose prop is on the seat
-const ON_SEAT_ABOVE := 0.6        # m above the anchor it still is
 const CARRY_HEIGHT := 0.6         # of the body's height: where the middle of a thing carried in both hands is
 const CARRY_BODY := 0.14          # m from the body's middle to the near side of such a thing
 const CARRY_PALM := 0.02          # m off its side the hand bone is (the palm is on it)
@@ -352,7 +351,7 @@ func options(restricted := true) -> Array[Dictionary]:
         var gate = a.get("interaction")
         if gate is GeogenInteraction and not (gate as GeogenInteraction).allowed(WorldLoader.actor_id(self)):
             continue    # its `when` says no for this actor (a bin with nothing to throw away)
-        if _poses_at_anchor(actions[a["action"]]) and _something_on(a["position"]):
+        if _poses_at_anchor(actions[a["action"]]) and _something_on(a["position"], uid):
             continue    # a seat or a bed with a thing lying on it: it sits somewhere else
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
             "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "at": a["approach"]})
@@ -415,8 +414,9 @@ static func _poses_at_anchor(action: Dictionary) -> bool:
         and str(s.get("at", "anchor")) == "anchor")
 
 
-## Whether a loose physics prop lies where a body would go at ``anchor`` (a seat, a mattress).
-func _something_on(anchor: Vector3) -> bool:
+## Whether a loose physics prop lies where a body would go at ``anchor`` (a seat, a mattress)
+## of thing ``seat``: one resting on that thing there, not on the table the chair is tucked under.
+func _something_on(anchor: Vector3, seat: String) -> bool:
     if world.props == null:
         return false
     for uid in world.props.props:
@@ -427,7 +427,10 @@ func _something_on(anchor: Vector3) -> bool:
         if absf(at.x - anchor.x) > ON_SEAT or absf(at.z - anchor.z) > ON_SEAT:
             continue                # (most props, most of the time)
         var centre := _prop_centre(uid)
-        if NpcGeometry.flat(centre - anchor).length() < ON_SEAT and centre.y > anchor.y - 0.1 and centre.y < anchor.y + ON_SEAT_ABOVE:
+        if NpcGeometry.flat(centre - anchor).length() > ON_SEAT or centre.y < anchor.y - 0.1:
+            continue
+        var under := str(GeogenPlaceSearch.resting_on(world, uid).get("uid", ""))
+        if _under(under, [seat]) or _under(seat, [under]):
             return true
     return false
 

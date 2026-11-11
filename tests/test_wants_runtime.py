@@ -12,6 +12,7 @@ pytestmark = [pytest.mark.godot, pytest.mark.xdist_group("test_wants_runtime")]
 def rt(scene_export, godot_runtime):
     client = godot_runtime("wants_test", scene_export("wants_test"))
     client.call("wait_ready")
+    client.call("time.pause")           # the world runs only inside time.advance: the same steps every run
     return client
 
 
@@ -251,7 +252,7 @@ def test_a_seat_with_something_on_it_is_not_sat_on(rt):
     rt.call("npcs.resume", npc="resident")
     rt.call("npcs.do", npc="resident", action="put_away", subject="pumpkin", place=seat["position"])
     run_until(rt, lambda: resident(rt)["put_down"] == before + 1, step=0.1)
-    rt.call("npcs.pause", npc="resident")                                  # (before she moves on, and brushes it off)
+    rt.call("npcs.pause", npc="resident")
     rt.call("time.advance", seconds=2, scale=4)
     assert abs(body(rt, "pumpkin")["center"][1] - seat["height"] - 0.135) < 0.03   # it is on the seat
     assert "chair#0" not in offered()
