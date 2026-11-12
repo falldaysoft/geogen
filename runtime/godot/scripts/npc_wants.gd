@@ -31,16 +31,24 @@ static func options(npc: GeogenNpc) -> Array[Dictionary]:
             continue
         if npc.world.props == null:
             continue
-        for uid in npc.world.props.props:
+        # With a memory, only the props it knows of, where it remembers them (npc_memory.gd).
+        var remembers := GeogenMemory.has(npc)
+        for uid in (npc._memory.keys() if remembers else npc.world.props.props.keys()):
             var id := "want/%s/%s" % [want_name, uid]
+            if not npc.world.props.props.has(uid):
+                continue
             if npc.clock < float(npc._retry_at.get(id, -1.0)) or not npc.world.props.can_take(uid):
                 continue
             if npc.world.npc_reserved(_subject_key(uid), npc) > 0 or npc._carry_limit(uid) != "":
                 continue
-            var at: Vector3 = npc._prop_centre(uid)
+            var at: Vector3 = npc._memory[uid]["at"] if remembers else npc._prop_centre(uid)
             if npc.home_distance(at) > margin or absf(at.y - npc.home_y) > GeogenNpc.FLOOR_TOLERANCE:
                 continue
-            if not _is_problem(npc, uid, want.get("when", {})):
+            if remembers:
+                var resting: String = npc._memory[uid]["resting"]
+                if resting != "" and resting != str(want.get("when", {}).get("resting_on", "")):
+                    continue            # not a problem as it remembers it ("": heard of, so worth a look)
+            elif not _is_problem(npc, uid, want.get("when", {})):
                 continue
             # Reluctance: each time it has had this subject in hand takes some of the want away,
             # and with none left the subject is left be (not a failure: it has had enough).
@@ -139,6 +147,20 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
         thing_event.merge(npc._want_doing)
         npc._trace(thing_event)
         return option["thing"]
+    var entry: Dictionary = npc._memory.get(option["subject"], {})
+    if not entry.is_empty() and GeogenMemory.needs_look(npc, str(option["subject"]), entry):
+        # It knows only that something fell there, or it isn't where it was: go and see first.
+        option["action"] = npc.definition["memory"]["search"]
+        option["advertises"] = {}
+        option["search"] = true
+        npc.world.npc_reserve(_subject_key(option["subject"]), npc)
+        npc.stats["searches"] = int(npc.stats.get("searches", 0)) + 1
+        npc._want_doing = {"want": option["want"], "subject": option["subject"], "search": true,
+            "at": GeogenNpc._v(entry["at"]), "by": entry["by"]}
+        var looking := {"event": "want"}
+        looking.merge(npc._want_doing)
+        npc._trace(looking)
+        return GeogenMemory.search_context(npc, entry)
     var ranked := places(npc, str(option["want"]), str(option["subject"]))
     if ranked.is_empty():
         return {}
@@ -161,6 +183,10 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
 static func finish(npc: GeogenNpc, option: Dictionary, ok: bool) -> void:
     npc.world.npc_release(_subject_key(option["subject"]), npc)
     npc._want_doing = {}
+    if option.get("search", false):
+        GeogenMemory.searched(npc, str(option["subject"]))
+        npc._recent.erase(option["id"])          # a look is not the want seen to
+        return
     if ok and option.has("thing"):
         note_handled(npc, str(option["subject"]))     # worked it: once more, and it tires of this one
         npc.stats["wants"] = int(npc.stats.get("wants", 0)) + 1

@@ -35,3 +35,8 @@ senses: true
 reacts:
   thud: { interrupt: true }
   door: {}
+
+# What she knows of the things in her flat is what she has seen or heard
+# (geogen/npc.py MEMORY_DEFAULTS): a thing dropped behind a shut door is news
+# to her when she next sees it; one she heard fall she goes to look for first.
+memory: true

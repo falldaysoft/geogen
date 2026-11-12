@@ -848,6 +848,12 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   x loudness x strength, muffled through walls) or sees (sight range and cone, clear line),
   never its own doing. Its head turns there, and `interrupt` cuts an `interruptible` action
   short so it decides again. Report: `noticed`, `notice`, `cut_short`.
+  With `memory: {forget, every, search}` it knows of the props it has seen (where, and what
+  they rested on) or heard land (where the noise was), for `forget` s after it last perceived
+  them, looking round every `every` s (`GeogenMemory`, `npc_memory.gd`); a spot it can see
+  where a remembered thing no longer is it forgets. Its wants about props are then about what it
+  remembers, and a thing only heard of, or not where it was, it first goes to look for with the
+  `search` action (`look_for`). Report: `memory` ({uid: {at, by, resting, age}}), `searches`.
   A want's `place.quality` weighs what a spot is like, 0..1 each (`GeogenPlaceSearch.quality`):
   `high`, `enclosed`, `hidden` and `warm` from the colliders, the navmesh and the sun, and any
   name a thing is tagged with as `quality.<name>` (`quality.soft`); `npcs.places` reports them.

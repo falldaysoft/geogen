@@ -211,6 +211,15 @@ actions:
       - use: goal
       - wait: [0.4, 0.8]
 
+  look_for:                      # memory: go and see whether a thing is where it was heard or last seen
+    interruptible: true
+    steps:
+      - go_to: approach
+        look: anchor
+      - face: anchor
+        look: anchor
+      - wait: [0.8, 1.5]
+
   quest_go:                      # a quest goal: go into a place or room
     steps:
       - go_to: anchor

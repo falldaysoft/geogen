@@ -497,3 +497,16 @@ def test_senses_and_reacts_are_validated():
     with pytest.raises(ValueError, match="event is one of"):
         parse_stimuli({"kind": "npc_stimuli", "version": 1, "stimuli": {"x": {"event": "smell"}}})
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml").get("senses") is None
+
+
+def test_memory_is_validated():
+    from geogen.npc import load_actions, parse_memory
+    actions = load_actions()
+    assert parse_memory(None, True, actions, "t") == {}                     # opt-in
+    assert parse_memory(True, True, actions, "t") == {"memory": {"forget": 300.0, "every": 0.5, "search": "look_for"}}
+    assert parse_memory({"forget": 60}, True, actions, "t")["memory"]["forget"] == 60.0
+    for bad, why in [({"forget": 0}, "seconds"), ({"recall": 1}, "memory is"), ({"search": "nope"}, "unknown action")]:
+        with pytest.raises(ValueError, match=why):
+            parse_memory(bad, True, actions, "t")
+    with pytest.raises(ValueError, match="needs senses"):
+        parse_memory(True, None, actions, "t")

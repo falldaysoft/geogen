@@ -174,7 +174,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `memory`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -253,7 +253,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `needs`, `preferences`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `memory`, `needs`, `preferences`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |

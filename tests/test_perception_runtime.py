@@ -1,6 +1,9 @@
 """Perception in the Godot runtime (geogen.99.1), on the wants_house scene: Hana has senses and
 reacts to stimuli (npcs/stimuli.yaml). A thing dropped in her room has her look up, leave her
-chair and see to it; what she can't hear or see, and what she did herself, she doesn't notice."""
+chair and see to it; what she can't hear or see, and what she did herself, she doesn't notice.
+With memory (geogen.99.2) her wants are about what she has seen or heard: a thing behind a shut
+door is news to her when she sees it, one she only heard fall she goes to look for first, and a
+spot she can see where a remembered thing no longer is she forgets."""
 
 
 import pytest
@@ -63,12 +66,18 @@ def drop_the_can(rt, at):
     rt.call("player.teleport", pos=[at[0], at[1], at[2] - 2.2], yaw=90)    # out of the way of whoever comes for it
 
 
+def can_id(rt):
+    return can(rt)["uid"]
+
+
 def test_the_definition_has_her_senses_and_what_she_reacts_to(built_scene):
     npc = next(n for n in built_scene("wants_house").iter_nodes() if n.name == "hana").meta["npc"]
     assert npc["senses"] == {"hearing": {"range": 10.0, "muffled": 0.3}, "sight": {"range": 8.0, "cone": 150.0}}
     assert npc["reacts"]["thud"] == {"event": "impact", "loudness": 1.0, "look": [0.8, 1.5], "interrupt": True}
     assert npc["reacts"]["door"]["of"] == "door" and not npc["reacts"]["door"]["interrupt"]
     assert npc["actions"]["sit"]["interruptible"] and "interruptible" not in npc["actions"]["put_away"]
+    assert npc["memory"] == {"forget": 300.0, "every": 0.5, "search": "look_for"}
+    assert "look_for" in npc["actions"]
 
 
 def test_a_thing_dropped_in_her_room_gets_her_out_of_her_chair(rt):
@@ -107,6 +116,9 @@ def test_a_thing_dropped_behind_a_closed_door_is_not_noticed(rt):
     assert can(rt)["center"][1] < 0.3 and can(rt)["center"][0] > 1.0       # it did fall, in there
     assert now["noticed"] == was["noticed"] and now["cut_short"] == was["cut_short"], (now["notice"], now["position"])
     assert now["pose"] == "sit"
+    # Nor does she know it is on the floor in there: it is no want of hers.
+    assert now["memory"].get(can_id(rt), {}).get("resting") != "floor", now["memory"]
+    assert not [o for o in rt.call("npcs.options", npc="hana") if o["id"].endswith(":can")]
 
 
 def test_a_door_opening_turns_her_head_but_leaves_her_be(rt):
@@ -117,3 +129,67 @@ def test_a_door_opening_turns_her_head_but_leaves_her_be(rt):
     assert now["noticed"] == was["noticed"] + 1 and now["notice"]["stimulus"] == "door", now["notice"]
     assert now["cut_short"] == was["cut_short"] and now["pose"] == "sit"
     assert now["head_turn"] > 5                                            # she looks its way
+
+
+def fetch_the_can(rt):
+    """The player picks the can up wherever it is and holds it."""
+    if can(rt)["held"]:
+        return
+    rt.call("interactions.set", asset="door_living_bedroom", state="open", instant=True)
+    at = can(rt)["center"]
+    rt.call("player.teleport", pos=[at[0] + 0.6, 0.05, at[2]], yaw=90)
+    assert rt.call("player.carry", prop="can")["ok"]
+    rt.call("time.advance", seconds=0.5, scale=1)
+
+
+def test_a_thing_she_only_heard_fall_she_goes_to_look_for(rt):
+    fetch_the_can(rt)
+    was = seated(rt)                                   # (the player brings the can along: she sees it held)
+    # Dropped beside and behind her: heard, out of sight.
+    rt.call("player.teleport", pos=[-2.45, 0.05, 1.7], yaw=90)
+    rt.call("time.advance", seconds=0.3, scale=1)
+    rt.call("player.drop")
+    rt.call("time.advance", seconds=0.8, scale=1)                         # (a fall from the player's hands)
+    rt.call("player.teleport", pos=[-1.5, 0.05, -1.5], yaw=90)
+    heard = hana(rt)
+    assert heard["notice"]["by"] == "heard" and heard["memory"][can_id(rt)]["by"] == "heard", heard["memory"]
+    assert heard["memory"][can_id(rt)]["resting"] == ""                    # where it ended up isn't known
+    looking = run_until(rt, lambda: hana(rt)["want"]["doing"].get("search") and hana(rt), seconds=10)
+    assert looking["searches"] == was["searches"] + 1 and looking["want"]["doing"]["by"] == "heard"
+    # Having looked, she knows it is on the floor, and puts it away.
+    run_until(rt, lambda: hana(rt)["prop"] != "", seconds=20)
+    now = run_until(rt, lambda: hana(rt)["prop"] == "" and hana(rt)["want"]["doing"] == {} and hana(rt))
+    assert can(rt)["center"][1] > 0.3 and now["failures"] == was["failures"]
+    assert now["searches"] == looking["searches"]
+
+
+def test_a_spot_she_can_see_with_the_thing_gone_she_forgets(rt):
+    fetch_the_can(rt)
+    seated(rt)
+    # Frozen in her chair, she can't look round; the can lands in plain view in front of her.
+    rt.call("npcs.pause", npc="hana")
+    rt.call("player.teleport", pos=[0.1, 0.05, 1.0], yaw=90)
+    rt.call("time.advance", seconds=0.3, scale=1)
+    rt.call("player.drop")
+    rt.call("time.advance", seconds=1.5, scale=1)
+    assert can(rt)["center"][1] < 0.3
+    noticed = hana(rt)["memory"][can_id(rt)]
+    assert noticed["by"] == "seen", noticed                                # she saw it land
+    # The player takes it away into the bedroom and shuts the door before she looks again.
+    fetch_the_can(rt)
+    rt.call("player.teleport", pos=[-0.6, 0.05, 0.0], yaw=-90)            # (through the doorway, not the wall)
+    rt.call("time.advance", seconds=1.0, scale=1)
+    rt.call("player.teleport", pos=BEDROOM, yaw=-90)
+    rt.call("time.advance", seconds=1.0, scale=1)
+    assert can(rt)["held"]
+    rt.call("interactions.set", asset="door_living_bedroom", state="closed", instant=True)
+    rt.call("player.drop")
+    rt.call("time.advance", seconds=1.0, scale=1)
+    was = hana(rt)
+    rt.call("npcs.resume", npc="hana")
+    rt.call("time.advance", seconds=1.0, scale=1)
+    now = hana(rt)
+    assert can_id(rt) not in now["memory"], now["memory"]                  # the spot is empty: forgotten
+    run_until(rt, lambda: hana(rt)["want"]["doing"] == {} and hana(rt)["decisions"] > was["decisions"] + 1, seconds=30)
+    assert hana(rt)["searches"] == was["searches"]
+    assert not [o for o in rt.call("npcs.options", npc="hana") if o["id"].endswith(":can")]

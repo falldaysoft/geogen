@@ -118,6 +118,8 @@ var _want_doing := {}             # report: the want it is on now (subject, plac
 var _intent := ""                 # where a step's `look:` has the head turned: subject | place | anchor | ""
 var _intent_ctx := {}             # ...and the action context that names them
 var _tried := {}                  # prop uid -> the spots (Vector3) it has put it at, for its wants (npc_wants.gd)
+var _memory := {}                 # prop uid -> what it last perceived of it (npc_memory.gd; with `memory:`)
+var _looked_at := -INF            # clock of its last look round (memory)
 var stats := {"used": {}, "decisions": 0, "failures": [], "max_stall": 0.0, "outside": 0.0, "passes": 0}
 var _stuck_at = null     # where the last wedged failure happened (see _unstick)
 var _wedged := false     # the step failing now made no progress at all (_walk), not e.g. a busy stair
@@ -683,6 +685,8 @@ func _step(delta: float) -> void:
         animator.advance(delta)
         animator.locomote(Vector2(velocity.x, velocity.z).length(), _pose == "stand", _playing)
     _attend(delta)
+    if GeogenMemory.has(self):
+        GeogenMemory.step(self)
     if clock < _cut_until and _cut_short():
         _cut_until = -INF
     if _hands != null and world.props != null:
@@ -2183,6 +2187,8 @@ func _on_event(event: Dictionary) -> void:
         _notice_until = clock + rng.randf_range(float(look[0]), float(look[1]))
         if r["interrupt"]:
             _cut_until = clock + CUT_PATIENCE
+        if GeogenMemory.has(self):
+            GeogenMemory.noticed(self, str(event.get("subject", "")), point)
         var traced_event := {"event": "notice"}
         traced_event.merge(_noticed)
         _trace(traced_event)
@@ -2202,13 +2208,28 @@ func _perceives(point: Vector3, loud: float) -> String:
     var hearing: Dictionary = senses.get("hearing", {})
     if not hearing.is_empty() and distance <= float(hearing["range"]) * loud * (1.0 if clear else float(hearing["muffled"])):
         return "heard"
-    var sight: Dictionary = senses.get("sight", {})
-    if not sight.is_empty() and clear and distance <= float(sight["range"]):
-        var to := NpcGeometry.flat(point - global_position)
-        var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
-        if to.length() < 1e-3 or rad_to_deg(forward.angle_to(to)) <= float(sight["cone"]) / 2.0:
-            return "seen"
-    return ""
+    return "seen" if clear and _in_view(point) else ""
+
+
+## Whether ``point`` is within `sight.range` of the eyes and the cone ahead (a clear line aside).
+func _in_view(point: Vector3) -> bool:
+    var sight: Dictionary = definition.get("senses", {}).get("sight", {})
+    if sight.is_empty() or head_point().distance_to(point) > float(sight["range"]):
+        return false
+    var to := NpcGeometry.flat(point - global_position)
+    var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
+    return to.length() < 1e-3 or rad_to_deg(forward.angle_to(to)) <= float(sight["cone"]) / 2.0
+
+
+## Whether it sees ``point``: in view, with nothing but ``exclude`` (the thing itself) in the way.
+func _sees(point: Vector3, exclude: Array[RID] = []) -> bool:
+    if not _in_view(point):
+        return false
+    var skip: Array[RID] = [get_rid()]
+    skip.append_array(exclude)
+    var hit := get_world_3d().direct_space_state.intersect_ray(
+        PhysicsRayQueryParameters3D.create(head_point(), point, 1, skip))
+    return hit.is_empty() or (hit["position"] as Vector3).distance_to(point) < SEEN_NEAR
 
 
 ## Cut what it is doing short, for something it noticed: only an option of its own choosing
@@ -2559,6 +2580,8 @@ func report() -> Dictionary:
         # Perception: stimuli it has noticed, the last one ({stimulus, subject, at, by: heard | seen, clock}) and
         # the times that cut short what it was doing.
         "noticed": int(stats.get("noticed", 0)), "notice": _noticed, "cut_short": int(stats.get("cut_short", 0)),
+        # Memory: the props it knows of ({uid: {at, by: seen | heard, resting, age}}) and its searches for them.
+        "memory": GeogenMemory.report(self), "searches": int(stats.get("searches", 0)),
         "want": GeogenWants.report(self), "looking_at": _intent if _intent_point() != null else "",
         "head_turn": snappedf(rad_to_deg(_look.turned()), 0.1) if _look != null else 0.0,
         "prop": prop_in_hand(), "picked_up": int(stats.get("picked_up", 0)), "put_down": int(stats.get("put_down", 0)),

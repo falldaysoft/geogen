@@ -627,6 +627,11 @@
               "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["event", "loudness", "look", "interrupt"],
                 "properties": { "event": { "enum": ["impact", "changed"] }, "of": { "type": "string" }, "loudness": { "type": "number", "minimum": 0 },
                   "look": { "$ref": "#/$defs/range" }, "interrupt": { "type": "boolean" } } } },
+            "memory": {
+              "description": "With memory, its wants about props know only the props it has seen (where, and what they rested on) or heard land (a stimulus it reacts to: where the noise was), each for 'forget' s after it last perceived it; it looks round every 'every' s, and forgets a remembered thing it can see is no longer where it was. One only heard of, or not where it was, it first goes to look for with the 'search' action.",
+              "type": "object", "additionalProperties": false, "required": ["forget", "every", "search"],
+              "properties": { "forget": { "type": "number", "exclusiveMinimum": 0 }, "every": { "type": "number", "exclusiveMinimum": 0 },
+                "search": { "type": "string" } } },
             "reach": {
               "description": "What the body's hands get to: no further than 'distance' m on the ground from where it stands, between the 'heights' [lo, hi] m above its feet; 'stand' is how far short of a prop it stops to pick it up.",
               "type": "object", "additionalProperties": false,

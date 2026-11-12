@@ -51,6 +51,13 @@ REACT_KEYS = {
     "interrupt": "true: cut short what it is doing, if that action is `interruptible` (actions.yaml), and "
                  "decide again, so a want about what happened is seen to now",
 }
+# Memory (geogen.99.2): with `memory:`, an NPC knows of the props it has seen (where, and what they
+# rested on then) or heard land (a stimulus it reacts to: only where), each kept `forget` s from
+# when it last perceived it; it looks round every `every` s. Its wants about props are then about
+# what it remembers, and a thing it only heard, or that isn't where it was, it goes to look for
+# first (the `search` action). A spot it can see where something it remembers no longer is
+# corrects the memory. Needs senses.
+MEMORY_DEFAULTS = {"forget": 300.0, "every": 0.5, "search": "look_for"}
 
 NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
@@ -74,7 +81,7 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants", "senses", "reacts"}
+            "reach", "carry", "wants", "senses", "reacts", "memory"}
 # A want (geogen.97): a condition on the world the NPC puts right with whatever is there.
 WANT_KEYS = {
     "of": "what it is about: prop (a physics prop with `carry`), or a reference to things with an interaction "
@@ -257,6 +264,24 @@ def parse_stimuli(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 raise ValueError(f"{where}: of is a tag the event's subject carries, got {spec['of']!r}")
             stimuli[str(name)]["of"] = spec["of"]
     return stimuli
+
+
+def parse_memory(memory: Any, senses: Any, actions: dict, where: str) -> dict[str, Any]:
+    """``memory:`` -> {memory: {forget, every, search}} (``MEMORY_DEFAULTS``; ``true`` for them), or {}."""
+    if memory in (None, False):
+        return {}
+    if senses in (None, False):
+        raise ValueError(f"{where}: memory needs senses (senses: true for the defaults)")
+    memory = {} if memory is True else memory
+    if not isinstance(memory, dict) or set(memory) - set(MEMORY_DEFAULTS):
+        raise ValueError(f"{where}: memory is {{{', '.join(MEMORY_DEFAULTS)}}} or true, got {memory!r}")
+    out: dict[str, Any] = {k: float(memory.get(k, v)) for k, v in MEMORY_DEFAULTS.items() if k != "search"}
+    if out["forget"] <= 0 or out["every"] <= 0:
+        raise ValueError(f"{where}: memory.forget and memory.every are seconds (> 0)")
+    out["search"] = str(memory.get("search", MEMORY_DEFAULTS["search"]))
+    if out["search"] not in actions:
+        raise ValueError(f"{where}: memory.search: unknown action {out['search']!r}")
+    return {"memory": out}
 
 
 @lru_cache(maxsize=4)
@@ -506,6 +531,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "carry": _limits(data.get("carry"), CARRY_DEFAULTS, f"{path}: carry"),
         "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
         **parse_senses(data.get("senses"), data.get("reacts"), str(path)),
+        **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),
     }
 
 
