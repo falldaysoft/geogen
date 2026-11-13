@@ -45,8 +45,13 @@ class Issue:
     items: tuple[str, ...]
     message: str
 
+    @property
+    def text(self) -> str:
+        """Where and what, without the kind (``str`` puts it in front)."""
+        return f"{self.room}: {self.message}"
+
     def __str__(self) -> str:
-        return f"[{self.kind}] {self.room}: {self.message}"
+        return f"[{self.kind}] {self.text}"
 
 
 @dataclass
@@ -79,8 +84,7 @@ def _world_points(node: SceneNode) -> np.ndarray | None:
     for n in node.iter_nodes():
         if n.mesh is None or not len(n.mesh.vertices):
             continue
-        v = n.mesh.vertices
-        pts.append((n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3])
+        pts.append(n.world_vertices())
     return np.concatenate(pts) if pts else None
 
 

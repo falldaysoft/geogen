@@ -9,6 +9,7 @@ import trimesh
 from geogen.export import export_scene, manifest_path, read_gltf
 from geogen.player import PlayerSpec, load_player_spec
 from geogen.render import scene_bounds
+from helpers import gltf_json
 
 
 def _visual(geometry: dict) -> dict:
@@ -68,19 +69,12 @@ def test_obj_export_has_no_manifest(built_scene, tmp_path):
     assert not manifest_path(path).exists()
 
 
-def _gltf_json(path):
-    import struct
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
-
-
 def test_node_extras_match_schema(scene_export):
     jsonschema = pytest.importorskip("jsonschema")
     from pathlib import Path
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
     for scene in ("hotel_suite", "cottage", "dining_set", "vehicle_lineup", "level_crossing", "lighthouse"):
-        gltf = _gltf_json(scene_export(scene) / f"{scene}.glb")       # the shared exports: exported once a run
+        gltf = gltf_json(scene_export(scene) / f"{scene}.glb")       # the shared exports: exported once a run
         extras = [n["extras"] for n in gltf["nodes"] if "extras" in n]
         assert extras, scene
         for e in extras:
@@ -88,7 +82,7 @@ def test_node_extras_match_schema(scene_export):
 
 
 def test_colliders_are_godot_suffixed_children(built_scene, tmp_path):
-    gltf = _gltf_json(export_scene(built_scene("hotel_suite"), tmp_path / "suite.glb"))
+    gltf = gltf_json(export_scene(built_scene("hotel_suite"), tmp_path / "suite.glb"))
     nodes = gltf["nodes"]
     by_name = {n["name"]: n for n in nodes}
     walls = by_name["walls"]
@@ -157,7 +151,7 @@ def test_interaction_transitions_export_as_gltf_animations(built_scene, tmp_path
     root = built_scene("cottage")
     path = export_scene(root, tmp_path / "cottage.glb")
     glb = path.read_bytes()
-    gltf = _gltf_json(path)
+    gltf = gltf_json(path)
     names = {a["name"]: a for a in gltf["animations"]}
     assert {"door/swing/closed->open", "door/swing/open->closed"} <= set(names)
     anim = names["door/swing/closed->open"]
@@ -187,7 +181,7 @@ def test_interaction_transitions_export_as_gltf_animations(built_scene, tmp_path
 def test_animations_can_be_disabled(built_scene, tmp_path):
     path = export_scene(built_scene("cottage"), tmp_path / "plain.glb", animations=False)
     # Only the resident's skeletal clips remain (always exported); no interaction transitions.
-    gltf = _gltf_json(path)
+    gltf = gltf_json(path)
     names = {a["name"] for a in gltf.get("animations", [])}
     clips = {c["animation"] for n in gltf["nodes"]
              for c in (n.get("extras") or {}).get("geogen", {}).get("clips", [])}
@@ -213,7 +207,7 @@ def test_switches_name_their_own_scenes_lights(built_scene, scene_export):
     assert wired == {"cottage:dining_light#lit": "cottage:dining_switch", "cottage:sitting_light#lit": "cottage:sitting_switch",
                      "cottage:reading_lamp#lit": "cottage:lamp_switch"}
     assert set(wired) <= set(manifest["state"]["variables"])
-    nodes = _gltf_json(scene_export("cottage") / "cottage.glb")["nodes"]
+    nodes = gltf_json(scene_export("cottage") / "cottage.glb")["nodes"]
     assert not any("switch" in n.get("extras", {}).get("geogen", {}) for n in nodes)      # build-only now
 
 

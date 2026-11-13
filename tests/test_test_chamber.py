@@ -13,7 +13,6 @@ import pytest
 from geogen import roots
 from geogen.layout.loader import LayoutLoader
 from geogen.quests import collect
-from geogen.registry import SceneRegistry
 from geogen.rules import Machine
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "test_chamber"
@@ -60,12 +59,10 @@ def test_physics_keys_are_checked():
 
 
 @pytest.fixture(scope="module")
-def chamber():
+def chamber(project_scene):
+    scene = project_scene(EXAMPLE, SCENE)
     try:
         roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        scene = registry[SCENE]()
         yield scene, collect(scene, SCENE)
     finally:
         roots.use()
@@ -106,35 +103,26 @@ def test_the_button_holds_the_door_open_while_something_is_on_it(chamber):
 # --- in Godot -----------------------------------------------------------------------------------
 
 
-def _runtime(godot_runtime, tmp_path_factory, scene: str):
-    from geogen.export import export_scene
-
-    out = tmp_path_factory.mktemp("chamber")
-    try:
-        roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        export_scene(registry[scene](), out / f"{scene}.glb")
-    finally:
-        roots.use()
+def _runtime(godot_runtime, project_export, scene: str):
+    out = project_export(EXAMPLE, scene)
     client = godot_runtime(scene, out)
     client.call("wait_ready", timeout=60)
     return client
 
 
 @pytest.fixture(scope="module")
-def runtime(godot_runtime, tmp_path_factory):
-    return _runtime(godot_runtime, tmp_path_factory, SCENE)
+def runtime(godot_runtime, project_export):
+    return _runtime(godot_runtime, project_export, SCENE)
 
 
 @pytest.fixture(scope="module")
-def chamber_02(godot_runtime, tmp_path_factory):
-    return _runtime(godot_runtime, tmp_path_factory, "test_chamber_02")
+def chamber_02(godot_runtime, project_export):
+    return _runtime(godot_runtime, project_export, "test_chamber_02")
 
 
 @pytest.fixture(scope="module")
-def chamber_03(godot_runtime, tmp_path_factory):
-    return _runtime(godot_runtime, tmp_path_factory, "test_chamber_03")
+def chamber_03(godot_runtime, project_export):
+    return _runtime(godot_runtime, project_export, "test_chamber_03")
 
 
 def _cube(runtime) -> dict:

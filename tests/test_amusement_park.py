@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 from geogen import roots
-from geogen.registry import SceneRegistry
 from geogen.runtime_client import step
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "amusement_park"
@@ -22,12 +21,11 @@ pytestmark = pytest.mark.xdist_group("test_amusement_park")      # one export fo
 
 
 @pytest.fixture(scope="module")
-def built():
+def built(project_scene):
+    scene = project_scene(EXAMPLE, SCENE)
     try:
         roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        yield registry[SCENE]()
+        yield scene
     finally:
         roots.use()
 
@@ -85,19 +83,9 @@ def test_every_ride_is_a_mechanism_with_a_drive(built):
 # ---- Godot --------------------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
-def park_export(tmp_path_factory):
-    """A fresh export of the park, shared by the module's Godot runs (the navmesh bake too)."""
-    from geogen.export import export_scene
-
-    out = tmp_path_factory.mktemp("park")
-    try:
-        roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        export_scene(registry[SCENE](), out / f"{SCENE}.glb")
-    finally:
-        roots.use()
-    return out
+def park_export(project_export):
+    """The park's export, shared by the module's Godot runs (the navmesh bake too)."""
+    return project_export(EXAMPLE, SCENE)
 
 
 @pytest.fixture(scope="module")

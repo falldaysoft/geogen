@@ -1,7 +1,5 @@
 """Transparent and emissive materials through loader, exporter and renderer."""
 
-import json
-import struct
 
 import numpy as np
 import pytest
@@ -10,12 +8,7 @@ from geogen.core.node import SceneNode
 from geogen.export import export_scene
 from geogen.generators.primitives import CubeGenerator
 from geogen.materials.loader import MaterialLoader
-
-
-def _gltf(path):
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
+from helpers import gltf_json
 
 
 def test_loader_reads_opacity_and_emission():
@@ -33,7 +26,7 @@ def test_gltf_export_blends_glass_and_emits_light(tmp_path):
         mesh = CubeGenerator(bevel=0).generate()
         mesh.material = MaterialLoader().load(name)
         root.add_child(SceneNode(name, mesh=mesh))
-    materials = {m["name"]: m for m in _gltf(export_scene(root, tmp_path / "m.glb"))["materials"]}
+    materials = {m["name"]: m for m in gltf_json(export_scene(root, tmp_path / "m.glb"))["materials"]}
     assert materials["glass"]["alphaMode"] == "BLEND" and materials["glass"]["doubleSided"]
     assert materials["glass"]["pbrMetallicRoughness"]["baseColorFactor"][3] == pytest.approx(0.3, abs=0.01)
     assert materials["lamp_shade"]["emissiveFactor"] == pytest.approx([0.6, 0.492, 0.33], abs=0.01)

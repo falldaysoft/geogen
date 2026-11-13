@@ -35,6 +35,7 @@ import numpy as np
 
 from . import roots
 from .core.node import SceneNode
+from .core.transform import transform_points
 
 VERSION = 1
 STEP = 0.5                  # resampling step (m)
@@ -641,7 +642,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
 
         for ln in g["lanes"]:
             p = np.asarray(ln["points"], dtype=np.float64)
-            p = (m @ np.c_[p, np.ones(len(p))].T).T[:, :3]
+            p = transform_points(m, p)
             lanes.append({**ln, "id": rid(ln["id"]), "successors": [rid(s) for s in ln["successors"]],
                           "points": [[round(float(v), 3) for v in q] for q in p]})
             seen.add(rid(ln["id"]))
@@ -667,7 +668,7 @@ def build_traffic(scene: SceneNode) -> dict[str, Any] | None:
             continue
         m = to_scene @ node.world_transform()
         p = np.asarray(rail["points"], dtype=np.float64)
-        p = (m @ np.c_[p, np.ones(len(p))].T).T[:, :3]
+        p = transform_points(m, p)
         railways.append({**rail, "points": [[round(float(v), 3) for v in q] for q in p]})
     if not lanes and not railways:
         return None
@@ -741,8 +742,7 @@ def check_clearance(scene: SceneNode, graph: dict[str, Any], classes=None, margi
             continue
         if node.meta.get("collider") == "none" and not node.name.startswith(("foliage", "branches")):
             continue
-        m = to_scene @ node.world_transform()
-        v = (m @ np.c_[node.mesh.vertices, np.ones(len(node.mesh.vertices))].T).T[:, :3]
+        v = node.world_vertices(to_scene)
         obstacles.append((node, v))
     issues = []
     for cls, (width, height) in classes.items():

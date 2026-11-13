@@ -13,6 +13,7 @@ from geogen.core.transform import Transform
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.layout.loader import LayoutLoader
+from helpers import gltf_json
 
 TOWN = """
 name: mini_town
@@ -29,12 +30,6 @@ city:
     lamp: {{ asset: street_lamp.yaml, spacing: 15 }}
 {extra}
 """
-
-
-def _gltf(path):
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +66,7 @@ def test_export_writes_shared_meshes_once(tmp_path):
     for i in range(5):
         root.add_child(SceneNode(f"n{i}", mesh=box, transform=Transform(translation=np.array([2.0 * i, 0, 0])),
                                  meta={"collider": "hull", "street_furniture": f"kind{i}"}))
-    gltf = _gltf(export_scene(root, tmp_path / "shared.glb"))
+    gltf = gltf_json(export_scene(root, tmp_path / "shared.glb"))
     named = {n["name"]: n for n in gltf["nodes"]}
     assert len(gltf["meshes"]) == 2                      # the mesh and its hull collider
     assert {named[f"n{i}"]["mesh"] for i in range(5)} == {named["n0"]["mesh"]}
@@ -112,7 +107,7 @@ def test_chunked_export(town, tmp_path):
     textures = list((tmp_path / "textures").iterdir())
     assert textures
     for chunk in blocks:
-        gltf = _gltf(tmp_path / chunk["file"])
+        gltf = gltf_json(tmp_path / chunk["file"])
         assert all("uri" in img and "bufferView" not in img for img in gltf.get("images", []))
         assert all((tmp_path / img["uri"]).exists() for img in gltf.get("images", []))
 
@@ -120,7 +115,6 @@ def test_chunked_export(town, tmp_path):
 def test_chunk_glbs_extras_match_schema(town, tmp_path):
     """Every GLB a chunked export writes (blocks, LOD stand-ins, interiors, base) keeps the extras contract."""
     jsonschema = pytest.importorskip("jsonschema")
-    import struct
 
     from geogen import extras
 

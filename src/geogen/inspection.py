@@ -463,7 +463,7 @@ def _qa(kind: str):
         from .layout import qa
 
         fn = {"layout": qa.check_layout, "coplanar": qa.coplanar_overlaps, "overlaps": qa.object_overlaps}[kind]
-        return [Finding(kind, i.kind, str(i).split("] ", 1)[-1], tuple(i.items)) for i in fn(root)]
+        return [Finding(kind, i.kind, i.text, tuple(i.items)) for i in fn(root)]
     return run
 
 
@@ -472,7 +472,7 @@ def _affordance_check(root: SceneNode) -> list[Finding]:
 
     if not any(n.meta.get("affordances") for n in root.iter_nodes()):
         return []
-    return [Finding("affordances", i.kind, str(i).split("] ", 1)[-1], tuple(i.items))
+    return [Finding("affordances", i.kind, i.text, tuple(i.items))
             for i in check_affordances(root)]
 
 

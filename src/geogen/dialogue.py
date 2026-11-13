@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from . import refs, roots
+from .compiler import Compiler, ContentError, Context
 from .core.node import SceneNode
 
 KIND = "dialogue"
@@ -96,8 +97,8 @@ def sources(root: SceneNode) -> list[tuple[dict[str, Any], Any, SceneNode]]:
             for entry in node.meta.get(META) or []]
 
 
-def compile_dialogues(compiler: Any, entries: Iterable[tuple[dict[str, Any], Any, SceneNode | None]]) -> dict[str, Any]:
-    """Compile ``entries`` with ``compiler`` (a ``quests._Compiler``): their state is declared,
+def compile_dialogues(compiler: Compiler, entries: Iterable[tuple[dict[str, Any], Any, SceneNode | None]]) -> dict[str, Any]:
+    """Compile ``entries`` with ``compiler`` (the run's ``compiler.Compiler``): their state is declared,
     their rules join ``compiler.out.wiring``; returns the manifest's ``dialogues`` section."""
     out: dict[str, Any] = {}
     for spec, source, node in entries:
@@ -110,9 +111,7 @@ def compile_dialogues(compiler: Any, entries: Iterable[tuple[dict[str, Any], Any
     return out
 
 
-def _compile(compiler: Any, spec: dict[str, Any], source: Any, node: SceneNode | None) -> dict[str, Any] | None:
-    from .quests import Context, QuestError
-
+def _compile(compiler: Compiler, spec: dict[str, Any], source: Any, node: SceneNode | None) -> dict[str, Any] | None:
     did = str(spec.get("id", ""))
     src = Context(did, spec, source, node, None, label=f"dialogue '{did}'")
     bad = lambda keys, message: compiler.bad(src.where(*keys), message)    # noqa: E731
@@ -126,7 +125,7 @@ def _compile(compiler: Any, spec: dict[str, Any], source: Any, node: SceneNode |
         return None
     try:
         anchor, anchor_node, _ = compiler.thing(src, spec.get("anchor"))
-    except (QuestError, TypeError) as exc:
+    except (ContentError, TypeError) as exc:
         bad(["anchor"], f"the anchor (a thing, NPC, place or room) doesn't resolve: {exc}")
         return None
     state = f"actor:{compiler.package}.dialogue_{did}"
@@ -144,7 +143,7 @@ def _compile(compiler: Any, spec: dict[str, Any], source: Any, node: SceneNode |
     def condition(text: Any, *keys: Any) -> Any:
         try:
             return compiler.condition(src, text)
-        except QuestError as exc:
+        except ContentError as exc:
             bad(keys, str(exc))
             return None
 
@@ -228,15 +227,14 @@ def parse_readable(spec: Any, root: SceneNode, name: str) -> None:
                                          initial="ready", motions=[], targets=list(parts), duration=0.0))
 
 
-def _opener(compiler: Any, src: Any, spec: dict[str, Any], anchor: str, node: SceneNode | None, bad) -> dict[str, Any] | None:
+def _opener(compiler: Compiler, src: Any, spec: dict[str, Any], anchor: str, node: SceneNode | None, bad) -> dict[str, Any] | None:
     """The event that opens it: ``open:`` as written, else by what the anchor is."""
-    from .quests import QuestError
     from .state import npc_signal
 
     if "open" in spec:
         try:
             on = compiler.event(src, spec["open"])
-        except QuestError as exc:
+        except ContentError as exc:
             bad(["open"], str(exc))
             return None
         return {**on, "actor": on.get("actor", "player")}

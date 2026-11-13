@@ -1,7 +1,6 @@
 """Declarative interactions: parsing, posing, and export into extras.geogen."""
 
 import json
-import struct
 from pathlib import Path
 
 import numpy as np
@@ -10,14 +9,9 @@ import pytest
 from geogen.export import export_scene
 from geogen.layout import LayoutLoader
 from geogen.layout.interactions import apply_state
+from helpers import gltf_json
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json"
-
-
-def _gltf_json(path):
-    data = Path(path).read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
 
 
 def _world_points(node):
@@ -88,7 +82,7 @@ def test_a_state_can_wait_clock_time():
 
 def test_interactions_exported_with_node_names(scene_export):
     jsonschema = pytest.importorskip("jsonschema")
-    gltf = _gltf_json(scene_export("cottage") / "cottage.glb")
+    gltf = gltf_json(scene_export("cottage") / "cottage.glb")
     names = {n["name"] for n in gltf["nodes"]}
     door = next(n for n in gltf["nodes"] if n["name"] == "door")
     swing = door["extras"]["geogen"]["interactions"]["swing"]
@@ -107,7 +101,7 @@ def test_floorplan_doors_get_swing_interactions(tmp_path):
     assert swing.motions[0].parts[0].name == "leaf_pivot"
     bath = root.find("door_corridor_bathroom")
     assert bath.interactions[0].initial == "closed"
-    gltf = _gltf_json(export_scene(root, tmp_path / "suite.glb"))
+    gltf = gltf_json(export_scene(root, tmp_path / "suite.glb"))
     exported = [n for n in gltf["nodes"] if "swing" in n.get("extras", {}).get("geogen", {}).get("interactions", {})]
     assert len(exported) == 3                                  # the three doors (switches have their own)
     # Exported node names are unique, and each interaction points at its own leaf pivot.
@@ -199,7 +193,7 @@ def test_affordances_and_containers_export(tmp_path):
     root = SceneNode("r")
     for name in ("bed", "armchair", "nightstand", "tv"):
         root.add_child(LayoutLoader().load(f"assets/{name}.yaml"))
-    gltf = _gltf_json(export_scene(root, tmp_path / "f.glb"))
+    gltf = gltf_json(export_scene(root, tmp_path / "f.glb"))
     by_name = {n["name"]: n.get("extras", {}).get("geogen", {}) for n in gltf["nodes"]}
     assert [a["type"] for a in by_name["bed"]["affordances"]] == ["lie", "lie", "sit"]
     assert by_name["armchair"]["affordances"][0]["height"] == pytest.approx(0.47)
@@ -247,7 +241,7 @@ def test_show_and_hide_motions_set_part_visibility_per_state(tmp_path):
     assert root.instance().find("lid").hidden
 
     apply_state(root, it, "shut")
-    gltf = _gltf_json(export_scene(root, tmp_path / "box.glb"))
+    gltf = gltf_json(export_scene(root, tmp_path / "box.glb"))
     names = {n["name"] for n in gltf["nodes"]}
     assert "note" in names                                    # hidden parts are still exported
     extras = next(n["extras"]["geogen"] for n in gltf["nodes"] if "interactions" in n.get("extras", {}).get("geogen", {}))

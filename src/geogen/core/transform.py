@@ -200,3 +200,9 @@ def slerp(a: NDArray[np.float64], b: NDArray[np.float64], t: float) -> NDArray[n
         return q / math.sqrt(float(q @ q))
     theta = math.acos(d)
     return (math.sin((1 - t) * theta) * a + math.sin(t * theta) * b) / math.sin(theta)
+
+
+def transform_points(matrix: NDArray[np.float64], points: NDArray[np.float64]) -> NDArray[np.float64]:
+    """``points`` (n x 3) moved by a 4x4 ``matrix``."""
+    points = np.asarray(points)
+    return (matrix @ np.c_[points, np.ones(len(points))].T).T[:, :3]

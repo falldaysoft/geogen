@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import conditions
+from .compiler import Compiler, ContentError, Context
 from .core.node import SceneNode
 
 META = "hud"
@@ -67,10 +68,8 @@ def sources(root: SceneNode) -> list[tuple[dict[str, Any], Any, SceneNode]]:
             for entry in [node.meta.get(META)] if entry]
 
 
-def compile_hud(compiler: Any, entries: list[tuple[dict[str, Any], Any, SceneNode]]) -> dict[str, Any]:
-    """The manifest's ``hud`` section; problems go to ``compiler`` (a ``quests._Compiler``)."""
-    from .quests import Context, QuestError
-
+def compile_hud(compiler: Compiler, entries: list[tuple[dict[str, Any], Any, SceneNode]]) -> dict[str, Any]:
+    """The manifest's ``hud`` section; problems go to ``compiler`` (the run's ``compiler.Compiler``)."""
     out: dict[str, list[dict[str, Any]]] = {"stats": [], "banners": []}
     for spec, source, node in entries:
         src = Context(compiler.uid(node), {}, source, node, node, label="hud")
@@ -81,9 +80,9 @@ def compile_hud(compiler: Any, entries: list[tuple[dict[str, Any], Any, SceneNod
             try:
                 compiled = compiler.condition(src, value)
                 if conditions.event_fields(compiled):
-                    raise QuestError("the HUD has no event to read: event.<field> is for rules")
+                    raise ContentError("the HUD has no event to read: event.<field> is for rules")
                 return compiled
-            except QuestError as exc:
+            except ContentError as exc:
                 compiler.bad(src.where("hud", *at), str(exc))
                 return None
 

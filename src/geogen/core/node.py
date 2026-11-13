@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .mesh import Mesh
-from .transform import Transform
+from .transform import Transform, transform_points
 
 if TYPE_CHECKING:
     from ..layout.attachments import AttachmentPoint
@@ -133,6 +133,12 @@ class SceneNode:
 
             mesh = skin_mesh(mesh, self.skin.matrices(self))
         return mesh.transform(self.world_transform())
+
+    def world_vertices(self, into: NDArray[np.float64] | None = None) -> NDArray[np.float64]:
+        """This node's mesh vertices in world space as authored (no morphs or skin: ``world_mesh``
+        applies those), or in the frame the 4x4 ``into`` takes world space to."""
+        world = self.world_transform()
+        return transform_points(world if into is None else into @ world, self.mesh.vertices)
 
     def mesh_bounds(self, frame: SceneNode | None = None) -> tuple[NDArray[np.float64], NDArray[np.float64]] | None:
         """(lo, hi) of every mesh vertex in this subtree, in ``frame``'s local coordinates

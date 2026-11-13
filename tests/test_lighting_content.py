@@ -1,7 +1,5 @@
 """Light fixtures: asset light blocks, switches, KHR_lights_punctual export, viewer fixture lights."""
 
-import json
-import struct
 
 import numpy as np
 import pytest
@@ -9,12 +7,7 @@ import pytest
 from geogen.export import CANDELA_PER_ENERGY, export_scene
 from geogen.layout import LayoutLoader
 from geogen.layout.interactions import apply_state
-
-
-def _gltf(path):
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
+from helpers import gltf_json
 
 
 def test_lamp_assets_declare_lights():
@@ -37,7 +30,7 @@ def test_switches_toggle_their_room_light():
 
 
 def test_khr_lights_punctual_export(tmp_path):
-    gltf = _gltf(export_scene(LayoutLoader().load("assets/hotel_suite.yaml"), tmp_path / "s.glb"))
+    gltf = gltf_json(export_scene(LayoutLoader().load("assets/hotel_suite.yaml"), tmp_path / "s.glb"))
     assert "KHR_lights_punctual" in gltf["extensionsUsed"]
     lights = gltf["extensions"]["KHR_lights_punctual"]["lights"]
     assert len(lights) == 3 and all(l["type"] == "point" for l in lights)

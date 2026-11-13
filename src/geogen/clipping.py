@@ -28,6 +28,7 @@ import numpy as np
 
 from . import roots
 from .core.node import SceneNode
+from .core.transform import transform_points
 
 TOLERANCE = 0.002            # m: penetration below this doesn't count
 HAND_BONES = ("Hand", "LowerArm", "Thumb", "Index", "Middle", "Ring", "Little")
@@ -346,7 +347,7 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
         for side in ("Left", "Right"):
             ankle = next(n for n in actor.iter_nodes() if n.name == f"{side}Foot")
             m = ankle.world_transform()
-            local = (np.linalg.inv(m) @ np.c_[body.vertices, np.ones(len(body.vertices))].T).T[:, :3]
+            local = transform_points(np.linalg.inv(m), body.vertices)
             # Foot bones point +Y toward the toes: behind the ankle is -Y, below it is (bone) -Z.
             below = body.vertices[:, 1] < m[1, 3] - 0.02         # under the ankle (not the ankle itself)
             heel |= (local[:, 1] < 0.0) & (np.linalg.norm(local, axis=1) < 0.2) & below

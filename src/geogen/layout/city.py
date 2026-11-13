@@ -326,8 +326,7 @@ class CityBuilder:
         for n in building.iter_nodes():
             if n.mesh is None or not len(n.mesh.vertices):
                 continue
-            v = n.mesh.vertices
-            w = (n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3]
+            w = n.world_vertices()
             if "wall" in n.tags:
                 walls.append(w[:, [0, 2]])
             contact.append(w[np.abs(w[:, 1] - base) < 0.05][:, [0, 2]])
@@ -372,8 +371,7 @@ class CityBuilder:
             for n in node.iter_nodes():
                 if n.mesh is None or not len(n.mesh.vertices) or n.meta.get("type") == "room_volume":
                     continue
-                v = n.mesh.vertices
-                pts = (to_local @ n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, :3]
+                pts = n.world_vertices(to_local)
                 full.append(pts)
                 if "wall" in n.tags:
                     body.append(pts)

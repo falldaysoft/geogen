@@ -36,6 +36,7 @@ from .attachments import parse_attachment
 from .expressions import enabled, resolve_document
 from .validation import suggest, validate_asset_yaml, pre_validate_asset_references
 from .yaml_utils import safe_load, safe_load_path
+from ..core.transform import transform_points
 
 logger = logging.getLogger("geogen.layout")
 
@@ -811,7 +812,7 @@ def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
 def _geometry_extent(root: SceneNode) -> np.ndarray | None:
     """Size of the axis-aligned box around all meshes, in ``root``'s frame."""
     inv = np.linalg.inv(root.world_transform())
-    pts = [(inv @ n.world_transform() @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3]
+    pts = [transform_points(inv @ n.world_transform(), n.mesh.vertices)
            for n in root.iter_nodes() if n.mesh is not None and len(n.mesh.vertices)]
     if not pts:
         return None
@@ -884,8 +885,7 @@ def _seat_depth(root: SceneNode, position: np.ndarray, yaw_deg: float) -> float 
     for n in root.iter_nodes():
         if n.mesh is None or not len(n.mesh.vertices):
             continue
-        m = to_root @ n.world_transform()
-        w = (m @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3] - position
+        w = n.world_vertices(to_root) - position
         # Points across every face (a long cushion's vertices are all at its ends).
         tri = w[n.mesh.faces]
         g = np.linspace(0.0, 1.0, 6)

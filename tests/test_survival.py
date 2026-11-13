@@ -12,7 +12,6 @@ import pytest
 
 from geogen import roots
 from geogen.quests import collect
-from geogen.registry import SceneRegistry
 from geogen.rules import Machine
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "survival"
@@ -21,12 +20,10 @@ PLAYER = {"player": {"kind": "player"}}
 
 
 @pytest.fixture(scope="module")
-def built():
+def built(project_scene):
+    scene = project_scene(EXAMPLE, SCENE)
     try:
         roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        scene = registry[SCENE]()
         yield scene, collect(scene, SCENE)
     finally:
         roots.use()
@@ -393,17 +390,8 @@ def test_the_quests_follow_the_player_by_either_route(castaway):
 # ---- in Godot -----------------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
-def runtime(godot_runtime, tmp_path_factory):
-    from geogen.export import export_scene
-
-    out = tmp_path_factory.mktemp("survival")
-    try:
-        roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        export_scene(registry[SCENE](), out / f"{SCENE}.glb")
-    finally:
-        roots.use()
+def runtime(godot_runtime, project_export):
+    out = project_export(EXAMPLE, SCENE)
     client = godot_runtime(SCENE, out)
     client.call("wait_ready", timeout=120)
     return client

@@ -125,8 +125,7 @@ def _footprint(node: SceneNode, to_scene: np.ndarray) -> tuple[np.ndarray, np.nd
     for n in node.iter_nodes():
         if n.mesh is None or not len(n.mesh.vertices):
             continue
-        v = n.mesh.vertices
-        pts.append((to_scene @ n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, [0, 2]])
+        pts.append(n.world_vertices(to_scene)[:, [0, 2]])
     if not pts:
         return None
     allp = np.vstack(pts)
@@ -147,8 +146,7 @@ def _tagged_surface_points(root: SceneNode, tag: str, rng: np.random.Generator, 
         for n in node.iter_nodes():
             if n.mesh is None or not len(n.mesh.faces):
                 continue
-            m = to_scene @ n.world_transform()
-            v = (m @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3]
+            v = n.world_vertices(to_scene)
             tri = v[n.mesh.faces]
             normal = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
             up = normal[:, 1] > 0.9 * np.linalg.norm(normal, axis=1)

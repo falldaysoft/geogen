@@ -9,6 +9,7 @@ from geogen.export import export_scene, manifest_path
 from geogen.layout.composer import SceneComposer
 from geogen.quests import collect
 from geogen.rules import Machine
+from helpers import gltf_json
 
 BALL = """
 name: ball
@@ -147,19 +148,11 @@ def test_the_export_carries_sources_and_templates(assets, tmp_path):
     out = tmp_path / "gen" / "yard.glb"
     out.parent.mkdir()
     export_scene(compose(assets), out)
-    gltf = _gltf(out)
+    gltf = gltf_json(out)
     extras = [n.get("extras", {}).get("geogen", {}) for n in gltf["nodes"]]
     assert any("flows" in e for e in extras) and any(e.get("item", {}).get("name") == "ball" for e in extras)
     state = json.loads(manifest_path(out).read_text())["state"]
     assert state["inputs"]["yard:hopper#emit"]["set"] == "yard:hopper#queued"
-
-
-def _gltf(path):
-    import struct
-
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
 
 
 # --- in Godot -----------------------------------------------------------------------------------

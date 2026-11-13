@@ -46,8 +46,7 @@ def _points(node: SceneNode, root: SceneNode) -> np.ndarray | None:
     for n in node.iter_nodes():
         if n.mesh is None or not len(n.mesh.vertices):
             continue
-        m = to_root @ n.world_transform()
-        pts.append((m @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T).T[:, :3])
+        pts.append(n.world_vertices(to_root))
     return np.concatenate(pts) if pts else None
 
 

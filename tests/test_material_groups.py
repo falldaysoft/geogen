@@ -1,7 +1,5 @@
 """Per-face material groups and vertex colours through mesh ops, CSG, export and rendering."""
 
-import json
-import struct
 
 import numpy as np
 
@@ -11,6 +9,7 @@ from geogen.core.node import SceneNode
 from geogen.core.subdiv import subdivide
 from geogen.generators.primitives import CubeGenerator
 from geogen.materials.loader import MaterialLoader
+from helpers import gltf_json
 
 LOADER = MaterialLoader()
 
@@ -64,12 +63,6 @@ def test_csg_keeps_materials():
     assert not csg.difference(_cube(), hole).multi_material
 
 
-def _gltf(path):
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
-
-
 def test_export_writes_one_primitive_per_group_and_color_0(tmp_path):
     from geogen.export import export_scene
 
@@ -78,7 +71,7 @@ def test_export_writes_one_primitive_per_group_and_color_0(tmp_path):
     root = SceneNode("root")
     for i in range(2):   # two instances share the mesh
         root.add_child(SceneNode(f"box{i}", mesh=mixed))
-    gltf = _gltf(export_scene(root, tmp_path / "groups.glb", manifest=False))
+    gltf = gltf_json(export_scene(root, tmp_path / "groups.glb", manifest=False))
     nodes = {n["name"]: n for n in gltf["nodes"]}
     box = gltf["meshes"][nodes["box0"]["mesh"]]
     assert nodes["box1"]["mesh"] == nodes["box0"]["mesh"]

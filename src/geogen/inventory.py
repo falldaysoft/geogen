@@ -1,7 +1,7 @@
 """Things actors carry (geogen.18; "Items" in docs/rules.md).
 
 What an actor carries is actor state, ``actor:<pkg>.item_<id>``: the quest compiler declares it
-and compiles ``give`` / ``take`` effects and ``has()`` conditions (``quests._Compiler.item``).
+and compiles ``give`` / ``take`` effects and ``has()`` conditions (``compiler.Compiler.item``).
 This module puts items in the world.
 
 A **pickup** is an object an actor takes: an asset's ``pickup: <item>`` or

@@ -4,7 +4,7 @@ The core data model and the per-module notes for `src/geogen/core/`, `textures/`
 
 ## Core System (`src/geogen/core/`)
 
-- **SceneNode** (`node.py`): Hierarchical scene graph with parent-child relationships. Each node has a local Transform, optional Mesh, and children. Provides `world_transform()` for combined transformation matrices, `flatten()` to merge all geometry, and `iter_meshes()` for traversal. Supports attachment points via `get_attachment()`.
+- **SceneNode** (`node.py`): Hierarchical scene graph with parent-child relationships. Each node has a local Transform, optional Mesh, and children. Provides `world_transform()` for combined transformation matrices, `flatten()` to merge all geometry, and `iter_meshes()` for traversal. Supports attachment points via `get_attachment()`. `world_vertices(into=None)` gives a node's mesh vertices in world space (or in the frame a 4x4 `into` takes world space to) and `mesh_bounds(frame=None)` a subtree's box; `transform.transform_points(matrix, points)` moves any n x 3 points. Use these rather than writing the homogeneous multiply out.
 
 - **Mesh** (`mesh.py`): Geometry container storing vertices, faces, normals, UVs, and optional Material. Has `transform()` method, `merge()` classmethod for combining meshes, and conversion to/from trimesh.
   - **Material groups:** optional per-face `face_materials` index into `materials`, and `merge()` of differently-materialled meshes produces these groups. `groups()` splits them for the renderers, and the exporter writes one glTF primitive each.

@@ -233,6 +233,78 @@ def scene_export(built_scene):
     return get
 
 
+def _project_key(project: Path, scene: str) -> str:
+    """A shared build's name for a project's scene: it changes with any of the project's files."""
+    import hashlib
+
+    digest = hashlib.sha1()
+    for path in sorted(p for p in Path(project).rglob("*") if p.is_file()):
+        stat = path.stat()
+        digest.update(f"{path.relative_to(project)}|{stat.st_size}|{stat.st_mtime_ns}".encode())
+    return f"{Path(project).name}-{scene}-{digest.hexdigest()[:10]}"
+
+
+@pytest.fixture(scope="session")
+def project_scene():
+    """``project_scene(project, name)``: a scene of a project (``examples/<project>``, a content
+    root), built once and shared like ``built_scene``; a fresh ``instance()`` each call. The
+    content roots are back to the core's afterwards: a test that goes on to read the project's
+    files (``collect``, an export of its own) wraps that in ``roots.use(project)`` itself."""
+    import pickle
+
+    from geogen import roots
+    from geogen.registry import SceneRegistry
+
+    cache = {}
+
+    def get(project: Path, name: str):
+        key = _project_key(project, name)
+        if key not in cache:
+            lock, path = _shared("project", key)
+            with lock:
+                if path.exists():
+                    cache[key] = pickle.loads(path.read_bytes())
+                else:
+                    try:
+                        roots.use(project)
+                        registry = SceneRegistry()
+                        registry.discover()
+                        cache[key] = registry[name]()
+                    finally:
+                        roots.use()
+                    tmp = path.with_suffix(".tmp")
+                    tmp.write_bytes(pickle.dumps(cache[key], protocol=pickle.HIGHEST_PROTOCOL))
+                    tmp.replace(path)
+        return cache[key].instance()
+
+    return get
+
+
+@pytest.fixture(scope="session")
+def project_export(project_scene):
+    """``project_export(project, name)``: a directory holding the scene's GLB and manifest,
+    exported once and shared like ``scene_export`` (read-only; the runtime's navmesh cache
+    lives in it too)."""
+    from geogen import roots
+    from geogen.export import export_scene
+
+    def get(project: Path, name: str) -> Path:
+        lock, path = _shared("project-export", _project_key(project, name))
+        with lock:
+            if not (path / f"{name}.manifest.json").exists():
+                shutil.rmtree(path, ignore_errors=True)
+                path.mkdir(parents=True)
+                scene = project_scene(project, name)
+                try:
+                    roots.use(project)
+                    export_scene(scene, path / f"{name}.glb")
+                finally:
+                    roots.use()
+        return path
+
+    return get
+
+
 # Module fixtures that build or export something expensive, mapped to the
 # xdist group their tests share (default: one group per module + fixture).
 # The town district joins the town scene's QA tests so town is built once.

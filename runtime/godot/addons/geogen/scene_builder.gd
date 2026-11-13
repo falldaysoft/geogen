@@ -18,13 +18,16 @@ extends RefCounted
 
 const SUPPORTED_VERSION := 1
 const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple of the 5 cm cell)
-## Every key of extras.geogen: the properties of docs/schema/geogen-extras.v1.schema.json, in its order
-## (tests/test_extras_contract.py fails when the two differ). The exporter writes no others.
-const KNOWN_KEYS := ["version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
-    "joint", "clips", "interactions", "footprint", "clearance", "light",
-    "affordances", "portal", "place", "physics", "mechanism", "flows", "item_icon", "item", "travel", "poses", "npc", "container", "nav", "size",
-    "city", "block", "lot", "building", "street_furniture", "lod", "interior",
-    "signal", "character", "stairs", "water", "driving", "fleet", "train", "vehicle"]
+## Every key of extras.geogen: the properties of docs/schema/geogen-extras.v1.schema.json, written from it
+## by docs/schema/make_extras_docs.py (tests/test_extras_contract.py fails when it is stale). The exporter
+## writes no others.
+const KNOWN_KEYS := [
+    "version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
+    "joint", "clips", "interactions", "footprint", "clearance", "light", "affordances", "portal", "place",
+    "physics", "mechanism", "flows", "item_icon", "item", "travel", "poses", "npc", "container", "nav", "size",
+    "city", "block", "lot", "building", "street_furniture", "lod", "interior", "signal", "character", "stairs",
+    "water", "driving", "fleet", "train", "vehicle",
+]
 
 
 static func extras(node: Node) -> Dictionary:

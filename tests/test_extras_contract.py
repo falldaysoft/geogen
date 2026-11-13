@@ -2,6 +2,7 @@
 exported, and the lists that mirror it can't drift. Every registered scene is checked
 against it in tests/test_asset_quality.py::test_extras_match_closed_schema."""
 
+import importlib.util
 import re
 from pathlib import Path
 
@@ -31,7 +32,7 @@ def test_schema_is_closed():
     for key, spec in GEOGEN["properties"].items():     # nothing is a bare {"type": "object"}
         if spec.get("type") == "object":
             assert "properties" in spec or "additionalProperties" in spec, key
-        assert spec.get("description") or key == "version", f"'{key}' needs a description"
+        assert spec.get("description"), f"'{key}' needs a description"
 
 
 def test_every_object_that_lists_its_properties_takes_no_others():
@@ -95,16 +96,16 @@ def test_scene_problems_reports_what_the_schema_rejects():
     assert all("uid" not in n.meta for n in root.iter_nodes())
 
 
-def test_scene_builder_known_keys_are_the_schema_keys():
-    """GeogenSceneBuilder warns about extras keys it doesn't know: its list is the schema's."""
-    source = (ROOT / "runtime/godot/addons/geogen/scene_builder.gd").read_text()
-    listed = re.search(r"const KNOWN_KEYS := \[(.*?)\]", source, re.S).group(1)
+def test_what_mirrors_the_schema_is_written_from_it():
+    """GeogenSceneBuilder.KNOWN_KEYS (it warns about extras keys it doesn't know) and the 'Node extras' table in
+    runtime/godot/README.md come from the schema: docs/schema/make_extras_docs.py."""
+    spec = importlib.util.spec_from_file_location("make_extras_docs", ROOT / "docs/schema/make_extras_docs.py")
+    make = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(make)
+    for path, text in make.generated().items():
+        assert path.read_text() == text, f"{path.name} is stale: run python docs/schema/make_extras_docs.py"
+    builder = (ROOT / "runtime/godot/addons/geogen/scene_builder.gd").read_text()
+    listed = re.search(r"const KNOWN_KEYS := \[(.*?)\]", builder, re.S).group(1)
     assert re.findall(r'"(\w+)"', listed) == list(GEOGEN["properties"])
-
-
-def test_runtime_readme_lists_every_key():
-    """The 'Node extras' table in runtime/godot/README.md has a row for each key, and no others."""
-    readme = (ROOT / "runtime/godot/README.md").read_text()
-    section = readme.split("\n## Node extras\n", 1)[1].split("\n## ", 1)[0]
-    listed = [key for row in re.findall(r"^\| (`[^|]*) \|", section, re.M) for key in re.findall(r"`(\w+)`", row)]
-    assert sorted(listed) == sorted(GEOGEN["properties"])
+    for key, spec in GEOGEN["properties"].items():
+        assert set(spec.get("x-godot", {})) <= {"by", "for"}, key

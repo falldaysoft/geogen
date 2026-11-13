@@ -11,7 +11,6 @@ import pytest
 
 from geogen import flows, roots
 from geogen.quests import collect
-from geogen.registry import SceneRegistry
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "tower_defense"
 SCENE = "tower_defense"
@@ -19,12 +18,10 @@ PADS = "abcdef"
 
 
 @pytest.fixture(scope="module")
-def built():
+def built(project_scene):
+    scene = project_scene(EXAMPLE, SCENE)
     try:
         roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        scene = registry[SCENE]()
         yield scene, collect(scene, SCENE)
     finally:
         roots.use()
@@ -119,17 +116,8 @@ def test_the_rules_keep_lives_gold_and_the_game(built):
 
 
 @pytest.fixture(scope="module")
-def runtime(godot_runtime, tmp_path_factory):
-    from geogen.export import export_scene
-
-    out = tmp_path_factory.mktemp("tower_defense")
-    try:
-        roots.use(EXAMPLE)
-        registry = SceneRegistry()
-        registry.discover()
-        export_scene(registry[SCENE](), out / f"{SCENE}.glb")
-    finally:
-        roots.use()
+def runtime(godot_runtime, project_export):
+    out = project_export(EXAMPLE, SCENE)
     client = godot_runtime(SCENE, out)
     client.call("wait_ready", timeout=90)
     return client

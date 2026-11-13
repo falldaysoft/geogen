@@ -8,11 +8,12 @@ schema declares it (``declared_keys``); keys the generator keeps for itself
 ``exported_meta`` raises ``ExtrasError`` naming the key and the node, so a new
 meta key can't reach a runtime until someone has said what it is.
 
-To add a key: declare it in the schema (with its properties) when a runtime is
-meant to read it, and list the script that reads it in the table in
-``runtime/godot/README.md``; otherwise add it to ``BUILD_ONLY``.
-``tests/test_extras_contract.py`` keeps the schema, this table and the Godot
-scene builder's ``KNOWN_KEYS`` in step.
+To add a key: declare it in the schema (with its properties, and an ``x-godot``
+note naming the script that reads it) when a runtime is meant to read it, then
+run ``python docs/schema/make_extras_docs.py``, which writes the Godot scene
+builder's ``KNOWN_KEYS`` and the table in ``runtime/godot/README.md`` from the
+schema; otherwise add it to ``BUILD_ONLY``. ``tests/test_extras_contract.py``
+fails when either is stale.
 """
 
 from __future__ import annotations

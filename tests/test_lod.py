@@ -1,19 +1,12 @@
 """LODs: decimation, MSFT_lod export and parametric detail."""
 
-import json
-import struct
 
 import pytest
 
 from geogen.core import meshops
 from geogen.export import export_scene
 from geogen.layout import LayoutLoader
-
-
-def _gltf(path):
-    data = path.read_bytes()
-    length = struct.unpack("<I", data[12:16])[0]
-    return json.loads(data[20:20 + length])
+from helpers import gltf_json
 
 
 @pytest.mark.parametrize("ratio", [0.5, 0.25])
@@ -31,7 +24,7 @@ def test_decimate_leaves_open_or_tiny_meshes():
 
 
 def test_msft_lod_export(tmp_path):
-    gltf = _gltf(export_scene(LayoutLoader().load("assets/table_lamp.yaml"), tmp_path / "l.glb", lods=[0.5, 0.25]))
+    gltf = gltf_json(export_scene(LayoutLoader().load("assets/table_lamp.yaml"), tmp_path / "l.glb", lods=[0.5, 0.25]))
     assert "MSFT_lod" in gltf["extensionsUsed"]
     nodes = gltf["nodes"]
     base = next(n for n in nodes if n["name"] == "base")

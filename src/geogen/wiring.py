@@ -47,6 +47,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .compiler import Compiler, ContentError, Context
 from .core.node import SceneNode
 
 META = "wiring"                   # node.meta key the loaders record wiring under
@@ -90,10 +91,8 @@ def sources(root: SceneNode) -> list[Source]:
             for node in root.iter_nodes() for entry in [node.meta.get(META)] if entry]
 
 
-def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """(rules, bindings) for ``entries``; problems go to ``compiler`` (a ``quests._Compiler``)."""
-    from .quests import Context, QuestError
-
+def compile_wiring(compiler: Compiler, entries: list[Source]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(rules, bindings) for ``entries``; problems go to ``compiler`` (the run's ``compiler.Compiler``)."""
     rules: list[dict[str, Any]] = []
     bindings: list[dict[str, Any]] = []
     for entry in entries:
@@ -104,7 +103,7 @@ def compile_wiring(compiler: Any, entries: list[Source]) -> tuple[list[dict[str,
         def attempt(where: str, build: Any) -> Any:
             try:
                 return build()
-            except QuestError as exc:
+            except ContentError as exc:
                 compiler.bad(where, str(exc))
                 return None
 
@@ -218,33 +217,28 @@ def built(entry: dict[str, Any]) -> bool:
 
 def _after(value: Any) -> float | dict[str, float]:
     """An authored rule or wire ``after`` (seconds, or {minutes | hours | days: n}) as the program's."""
-    from .quests import QuestError
     from .rules import duration
     try:
         return duration(value)
     except ValueError as exc:
-        raise QuestError(str(exc)) from None
+        raise ContentError(str(exc)) from None
 
 
-def _event(compiler: Any, src: Any, spec: Any) -> dict[str, Any]:
-    from .quests import QuestError
-
+def _event(compiler: Compiler, src: Any, spec: Any) -> dict[str, Any]:
     if not isinstance(spec, dict):
-        raise QuestError(f"an event is a mapping ({{signal: lever.pulled}}), got {spec!r}")
+        raise ContentError(f"an event is a mapping ({{signal: lever.pulled}}), got {spec!r}")
     return compiler.event(src, spec, RULE_EVENTS, EVENT_KEYS)
 
 
-def _signal(compiler: Any, src: Any, text: Any) -> dict[str, Any]:
+def _signal(compiler: Compiler, src: Any, text: Any) -> dict[str, Any]:
     """The ``on`` of a wire's ``from``: a signal the thing declares or one of its interactions emits."""
     from . import refs
-    from .quests import QuestError
-
     on = compiler.event(src, {"signal": text}, RULE_EVENTS, EVENT_KEYS)
     thing, name, decls = on["subject"], on["name"], compiler.decls
     offered = {s["name"] for s in decls.signals.values() if s["subject"] == thing}
     offered |= {state["emit"] for key, machine in decls.interactions.items() if key.rpartition("#")[0] == thing
                 for state in machine["states"].values() if state.get("emit")}
     if name not in offered:
-        raise QuestError(f"'{thing}' has no signal '{name}'.{refs._near(name, offered)} "
+        raise ContentError(f"'{thing}' has no signal '{name}'.{refs._near(name, offered)} "
                          + (f"Its signals: {refs._listed(offered)}" if offered else "It declares none"))
     return on

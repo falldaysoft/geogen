@@ -405,8 +405,7 @@ def front_of(node: SceneNode) -> np.ndarray:
     pts = []
     for n in node.iter_nodes():
         if n.mesh is not None and "wall" in n.tags:
-            v = n.mesh.vertices
-            pts.append((to_local @ n.world_transform() @ np.c_[v, np.ones(len(v))].T).T[:, [0, 2]])
+            pts.append(n.world_vertices(to_local)[:, [0, 2]])
     centre = (np.vstack(pts).min(axis=0) + np.vstack(pts).max(axis=0)) / 2 if pts else np.zeros(2)
     d = (to_local @ spawn.world_transform())[[0, 2], 3] - centre
     axis = int(np.argmax(np.abs(d)))

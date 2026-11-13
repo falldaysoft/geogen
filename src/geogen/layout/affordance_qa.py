@@ -32,7 +32,7 @@ import numpy as np
 from .. import roots
 from ..core.node import SceneNode
 from ..core.transform import Transform
-from .qa import Issue
+from .qa import Issue, _solid
 
 CELL = 0.05              # occupancy grid resolution (m)
 SNAP = 0.3               # an approach point may snap this far to standable floor
@@ -229,8 +229,7 @@ def _obstacle_meshes(scene: SceneNode):
             continue
         if node.meta.get("collider") == "none" or node.meta.get("type") == "collider":
             continue
-        m = to_scene @ node.world_transform()
-        v = (m @ np.c_[node.mesh.vertices, np.ones(len(node.mesh.vertices))].T).T[:, :3]
+        v = node.world_vertices(to_scene)
         out.append((node, v, node.mesh.faces))
     return out
 
@@ -437,7 +436,7 @@ def _clash_one(spot: Spot, body_node: SceneNode, meshes, floors) -> list[Issue]:
         return []
     mesh = skin.world_mesh()          # posed, in the actor's (scene) frame
     v = mesh.vertices
-    body_man = _manifold(v, mesh.faces)
+    body_man = _solid(v, mesh.faces)
     if body_man is None:
         return []
     floor = floors.y(spot.approach[0], spot.approach[2], spot.approach[1] + 1.0)
@@ -448,7 +447,7 @@ def _clash_one(spot: Spot, body_node: SceneNode, meshes, floors) -> list[Issue]:
     for node, ov, of in meshes:
         if np.any(ov.max(axis=0) < lo) or np.any(ov.min(axis=0) > hi):
             continue
-        solid = _manifold(ov, of)
+        solid = _solid(ov, of)
         if solid is None:
             continue
         if id(node) in own_nodes:
@@ -466,13 +465,3 @@ def _clash_one(spot: Spot, body_node: SceneNode, meshes, floors) -> list[Issue]:
                             f"{spot.name}: the posed body is {other * 1000:.1f} L inside other geometry"
                             f" (most in {worst[0]}: {worst[1] * 1000:.1f} L)"))
     return issues
-
-
-def _manifold(v: np.ndarray, f: np.ndarray):
-    import manifold3d
-
-    mm = manifold3d.Mesh(vert_properties=np.ascontiguousarray(v, dtype=np.float32),
-                         tri_verts=np.ascontiguousarray(f, dtype=np.uint32))
-    mm.merge()     # stitch seams (vertices split for normals/UVs)
-    man = manifold3d.Manifold(mm)
-    return man if man.status() == manifold3d.Error.NoError and not man.is_empty() else None

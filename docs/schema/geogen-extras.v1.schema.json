@@ -11,41 +11,54 @@
       "required": ["version"],
       "additionalProperties": false,
       "properties": {
-        "version": { "const": 1 },
+        "version": {
+          "x-godot": {"by": "`addons/geogen/scene_builder.gd`", "for": "warns once when it isn't the supported version"},
+          "description": "The version of this contract the node was written to.",
+          "const": 1
+        },
         "uid": {
+          "x-godot": {"by": "`scripts/world_loader.gd`, `scene_builder.gd`, `scripts/api.gd`", "for": "the stable ID: `node_by_uid`, event subjects, saved state"},
           "description": "Stable ID: '<package>:<authored path>' (cottage:house/door), from the names things were authored with, never the exported node name. Present on placed assets and scenes, tagged or typed nodes and anything with interactions. Content and saved state refer to nodes by it, so it survives a re-export; <name>.refs.json beside the manifest lists every one.",
           "type": "string", "pattern": "^[A-Za-z0-9_\\-]+:"
         },
         "tags": {
+          "x-godot": {"by": "`scene_builder.gd`, `scripts/api.gd`", "for": "node groups (`furniture.bed` and `furniture`)"},
           "description": "Semantic tags, dotted from general to specific (room, room.hotel_bedroom, furniture.bed, door.interior).",
           "type": "array",
           "items": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" }
         },
         "type": {
+          "x-godot": {"by": "`scene_builder.gd`, `scripts/world_loader.gd`", "for": "what kind of node it is: `room_volume`, `place`, `spawn`, `npc`, `traffic`, `train`, `light`, `lod`, `collider`"},
           "description": "Special node kinds. room_volume: axis-aligned box (in the node's frame) of size 'size' centred on the node. spawn: player start, facing the node's +Z. collider: collision-only geometry (Godot suffix -colonly = trimesh, -convcolonly = convex); do not render. material_group: helper node whose primitives were folded into its parent's mesh (left unreferenced). npc: a character placed here (see 'npc'); its body asset is the child named by npc.body.node. vehicle: a vehicle asset root (see 'vehicle'). place: a named trigger volume (see 'place'). light: the <node>_light child carrying a fixture's KHR_lights_punctual light. lod: a <node>_LOD<n> level of its parent's mesh (see 'level', 'ratio'). traffic: the root of a moving fleet (see 'fleet'); its children are the starting vehicles. train: a train (see 'train'); its children are the consist.",
           "enum": ["room_volume", "spawn", "collider", "light", "lod", "material_group", "npc", "vehicle", "place", "traffic", "train"]
         },
         "shape": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "collider nodes: convex (`box`, `hull`) or trimesh"},
           "description": "Collider nodes only: how the collision geometry was made.",
           "enum": ["box", "hull", "mesh"]
         },
         "collider": {
+          "x-godot": {"by": "`scripts/api.gd`", "for": "only to tell mesh parts from things in `world.node`"},
           "description": "Mesh nodes: the collider chosen for this mesh (none = no collision). The collider itself is a child node.",
           "enum": ["none", "box", "hull", "mesh"]
         },
         "level": {
+          "x-godot": {"for": "`<node>_LOD<n>` nodes; the runtime drops them and uses Godot's own LODs"},
           "description": "type lod only: the LOD level, 1 = the first reduction (the node is named <node>_LOD<level>).",
           "type": "integer", "minimum": 1
         },
         "ratio": {
+          "x-godot": {"for": "`<node>_LOD<n>` nodes; the runtime drops them and uses Godot's own LODs"},
           "description": "type lod only: the share of the full mesh's triangles this level was decimated to.",
           "type": "number", "exclusiveMinimum": 0, "maximum": 1
         },
         "walkable": {
+          "x-godot": {"by": "`scripts/api.gd`", "for": "as `collider`; the navmesh is baked from colliders"},
           "description": "Surface meant to be walked on (navmesh input).",
           "type": "boolean"
         },
         "room": {
+          "x-godot": {"by": "`scene_builder.gd`, `scripts/world_loader.gd`"},
           "description": "Room identity, on room nodes and their room_volume.",
           "type": "object",
           "required": ["id", "type"],
@@ -69,6 +82,7 @@
           }
         },
         "joint": {
+          "x-godot": {"for": "a floor-plan door's hinge (the door's interaction is what moves it)"},
           "description": "Articulation pivot (e.g. a door leaf's hinge): children rotate about 'axis' (node frame) between min_deg and max_deg.",
           "type": "object",
           "required": ["type", "axis"],
@@ -81,6 +95,7 @@
           }
         },
         "clips": {
+          "x-godot": {"by": "`scripts/npc.gd`", "for": "body animations and transition clips"},
           "description": "Skeletal animation clips over the joints below this node. Each is a glTF animation named 'animation' (<node>_<clip>; engines may mangle '/') targeting the joint nodes (Skeleton3D bones in Godot); 'loop' clips repeat.",
           "type": "array",
           "items": {
@@ -112,6 +127,7 @@
           }
         },
         "interactions": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "a `GeogenInteraction` (`scripts/interaction.gd`) each"},
           "description": "Asset nodes: state machines that move descendant nodes (by exported node name). Exported transforms show the 'initial' state; a part's rest pose is M(initial value)^-1 * its exported transform, and its pose for value v is asset * M(v) * rest, where M rotates by v degrees about 'axis' through 'pivot' (asset frame) or translates v metres along 'axis'. use() goes to states[target].next; 'then' auto-advances on arrival; 'emit' names an event raised on arrival.",
           "type": "object",
           "additionalProperties": {
@@ -189,6 +205,7 @@
           "additionalProperties": false
         },
         "light": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "tunes the fixture's imported light; `auto: night`"},
           "description": "Light fixtures: an omni light at 'offset' (node frame). Exported as a KHR_lights_punctual point light on a <node>_light child (intensity = energy * 12 cd).",
           "type": "object",
           "additionalProperties": false,
@@ -201,6 +218,7 @@
           }
         },
         "affordances": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "sit / lie / use points for the player and NPCs"},
           "description": "Things an actor can do at an asset (asset frame): sit/lie/use/stand/look at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest. The player takes sit/lie; NPCs run 'action' (assets/npcs/actions.yaml), starting from 'approach' (floor level), for 'duration' seconds, adding 'advertises' to their needs (after 'takes' and 'gives': what it does to what the actor carries, offered only when 'requires' holds); 'slots' actors at once; 'interaction' is the asset interaction a use step drives.",
           "type": "array",
           "items": {
@@ -229,6 +247,7 @@
           }
         },
         "portal": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "doorways NPC paths open (`scripts/npc.gd`)"},
           "description": "A doorway NPC paths may cross (asset frame): width x height opening centred on 'center', 'depth' thick along 'normal'. A path through it while 'interaction' isn't in state 'open' runs the NPC 'pass' action (stop 'clearance' beyond the near face, open, walk through, maybe close).",
           "type": "object",
           "required": ["interaction", "open", "closed", "center", "normal", "width", "height", "depth", "clearance"],
@@ -247,6 +266,7 @@
           }
         },
         "place": {
+          "x-godot": {"by": "`scene_builder.gd`", "for": "`PlaceArea` trigger volumes"},
           "description": "type place only: a named trigger volume (geogen/places.py). The node is the middle of the volume's bottom and the volume rises along its +Y: a box of 'size' [x, y, z], or the footprint 'polygon' ([x, z] points in the node's frame) extruded 'height'. Actors (the player, NPCs) entering and leaving it are events whose subject is the node's uid.",
           "type": "object",
           "required": ["id"],
@@ -266,6 +286,7 @@
           }
         },
         "physics": {
+          "x-godot": {"by": "`scripts/props.gd`", "for": "rigid-body props, carrying, spawn / stow"},
           "description": "A physics prop (geogen/physics.py): the node and everything under it are one rigid body, a box of 'size' centred at 'center' (the node's frame), or with 'shape' a sphere of 'radius' or an upright capsule of 'radius' and 'height' (end to end) centred there. 'damping' slows it (linear, angular: per second). The parts' own colliders are not used. 'carry': the player can pick it up. 'spawn_at' (the node's frame): where its 'spawn' interaction puts it on going live; stowed, it is hidden and out of the simulation, and a live prop that falls out of the world is stowed.",
           "type": "object",
           "required": ["mass", "friction", "bounce", "carry", "size", "center"],
@@ -290,6 +311,7 @@
           }
         },
         "mechanism": {
+          "x-godot": {"by": "`scripts/mechanisms.gd`", "for": "jointed rigid bodies with motors (rides); `drive` motions in `interaction.gd` run the motors"},
           "description": "A mechanism (geogen/mechanism.py): the asset's parts in 'nodes' (exported names) form rigid bodies, one per entry, each held by its 'joint' to body 'to' (absent: the world) at 'pivot' (the asset's frame): a 'hinge' turns about 'axis', a 'slide' moves along it, within 'limits' (degrees or metres from the exported pose) when given; a 'pin' is a ball joint; a 'swing' turns about 'axis' (level) and about the level line across it, never about the vertical (a chair on chains). 'damping' (per second) is a damper in the joint, on its own motion (a swing dies down). 'motor' is a motor on a hinge or slide the node's interactions run with 'drive' motions: 'speed' deg/s or m/s, 'force' the most it pushes with (N·m or N). Bodies collide as the convex hulls of their parts' colliders; the two bodies a joint holds don't collide with each other; the asset's other parts are static.",
           "type": "object",
           "required": ["bodies"],
@@ -337,6 +359,7 @@
           }
         },
         "flows": {
+          "x-godot": {"by": "`scripts/flows.gd`", "for": "spawned items: a source's rate, limits and spawn point"},
           "description": "Spawned items (geogen/flows.py). 'track': see below. 'source': this asset makes copies of the item templates among its descendants (nodes with 'item') while it runs: 'rate' a second, and at once for each one its 'queued' state asks for, while it has fewer than 'max_alive' in the world and has made fewer than 'count' (0: no limit). They appear at 'at' (this node's frame), up to 'spread' m off it across x and z, physics items moving at 'velocity' (this node's frame). Its state: running, queued (rules set them), emitted and alive (the runtime drives them); signal emitted {item}.",
           "type": "object",
           "additionalProperties": false,
@@ -474,6 +497,7 @@
           }
         },
         "item_icon": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "an item's body under the hidden `item_icons` node: taken out of the world on load and rendered into the HUD hotbar's icon for that item (`item_icons()`)"},
           "description": "An item's body for a runtime's inventory to draw (geogen/inventory.py attach_icons): a child of the hidden 'item_icons' node, not part of the world (the runtime takes it out on load). 'item' is the item's id (items/<id>.yaml).",
           "type": "object",
           "required": ["item"],
@@ -483,6 +507,7 @@
             "properties": { "bone": { "type": "string" }, "offset": { "$ref": "#/$defs/vec3" }, "rotation": { "$ref": "#/$defs/vec3" } } } }
         },
         "item": {
+          "x-godot": {"by": "`scripts/flows.gd`", "for": "an item template: taken out of the world on load and copied by its source"},
           "description": "An item template (geogen/flows.py): not part of the world (the runtime takes it out on load) but what its source copies. 'mode': physics (a rigid body, from this node's 'physics'), belt or walk (along a track). 'data' is what each copy carries; 'lifetime' and 'stuck' (s) take a copy away (0: never). 'gait' is how a walk item's body steps: it bobs 'bob' m twice a 'stride' (m), rocks 'sway' degrees side to side and swings its heading 'waddle' degrees.",
           "type": "object",
           "required": ["name", "mode", "body", "data", "lifetime", "stuck", "radius"],
@@ -513,6 +538,7 @@
           }
         },
         "travel": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "travel points"},
           "description": "A travel point (geogen/travel.py): 'use' it (its 'travel' interaction emits 'travel') or walk into 'volume' (asset frame, on: enter) to go to spawn 'spawn' (default: the first) of catalogue scene 'scene' (absent: this scene). 'target' names the part aimed at for on: use.",
           "type": "object",
           "required": ["on", "prompt"],
@@ -531,11 +557,13 @@
           }
         },
         "poses": {
+          "x-godot": {"for": "on body assets; NPCs read the copy in `npc.body.poses`"},
           "description": "Character body assets: named poses as root transforms relative to an anchor (offset m, rotation deg XYZ, scale).",
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/pose" }
         },
         "npc": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition"},
           "description": "A placed NPC, fully resolved from assets/npcs/<definition>.yaml: everything the runtime interpreter needs. Distances in metres, rates per second. 'home.polygon' is [x, z] in this node's frame.",
           "type": "object",
           "required": ["definition", "body", "speed", "needs", "activities", "scoring", "actions", "home", "radius", "height"],
@@ -685,10 +713,12 @@
           "properties": { "capacity": { "type": "integer", "minimum": 0 }, "part": { "type": "string" } }
         },
         "nav": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "rooms the playtest shouldn't expect to reach"},
           "description": "false on rooms/room volumes that aren't meant to be walked (lift shafts); playtests skip them.",
           "type": "boolean"
         },
         "size": {
+          "x-godot": {"by": "`scene_builder.gd`, `scripts/world_loader.gd`"},
           "description": "room_volume only: box size in metres [x, y, z].",
           "type": "array",
           "items": { "type": "number", "minimum": 0 },
@@ -731,16 +761,19 @@
         },
         "street_furniture": { "description": "Kind of street furniture: lamp, tree, bench, hydrant, ...", "type": "string" },
         "lod": {
+          "x-godot": {"for": "root of a chunk's LOD stand-in (the streamer works from the chunk index)"},
           "description": "Root of a chunk's exterior LOD stand-in: decimated to 'ratio' of its triangles, parts smaller than 'min_size' metres dropped.",
           "type": "object", "required": ["ratio", "min_size"], "additionalProperties": false,
           "properties": { "ratio": { "type": "number" }, "min_size": { "type": "number" } }
         },
         "interior": {
+          "x-godot": {"for": "root of a chunk's interior (the streamer works from the chunk index)"},
           "description": "Root of a streamed building interior chunk: the building (by name) it belongs to.",
           "type": "object", "required": ["building"], "additionalProperties": false,
           "properties": { "building": { "type": "string" } }
         },
         "signal": {
+          "x-godot": {"by": "`scripts/world_loader.gd`, `scripts/traffic.gd`", "for": "signal heads lit from their intersection's cycle (with `crossing`: pedestrian heads, lit from that pedestrian signal)"},
           "description": "A traffic signal head: the intersection and phase it shows and the lane it faces (ids of the manifest's traffic section). The runtime lights its lamp_red | lamp_amber | lamp_green parts from that intersection's cycle. With 'crossing' it is a pedestrian head: the runtime lights lamp_walk or lamp_dont from that entry of the traffic section's pedestrian_signals.",
           "type": "object", "required": ["intersection", "phase"], "additionalProperties": false,
           "properties": {
@@ -756,6 +789,7 @@
           "properties": { "archetype": { "type": "string" }, "seed": { "type": "integer" } }
         },
         "stairs": {
+          "x-godot": {"by": "`scene_builder.gd`", "for": "the `NavigationLink3D` and walking path of a spiral stair"},
           "description": "A flight of stairs (geogen/generators/stairs.py). Spiral stairs add 'ends', where you step on at the bottom and off at the top (node frame): a runtime should link them on its navigation map, since a self-overlapping spiral's navmesh comes out in pieces; 'path' is the walking line between them, for bodies that follow the link.",
           "type": "object", "required": ["style", "rise", "steps"], "additionalProperties": false,
           "properties": {
@@ -768,6 +802,7 @@
           }
         },
         "water": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "parameters of `scripts/water.gdshader`"},
           "description": "A water sheet (geogen/generators/water.py): what a water shader needs; every key is optional and a runtime has its own defaults. Colours are linear RGB.",
           "type": "object", "additionalProperties": false,
           "properties": {
@@ -778,11 +813,13 @@
           }
         },
         "driving": {
+          "x-godot": {"by": "`scripts/traffic.gd`", "for": "where a fleet vehicle starts on the lane graph"},
           "description": "A vehicle of a moving fleet (a child of a type traffic node): where it starts on the lane graph. 'lane' is a lane id of the manifest's traffic section, 's' metres along it, 'factor' this driver's share of the lane speed.",
           "type": "object", "required": ["lane", "s"], "additionalProperties": false,
           "properties": { "lane": { "type": "string" }, "s": { "type": "number" }, "factor": { "type": "number" } }
         },
         "fleet": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "a `GeogenTraffic` (`scripts/traffic.gd`)"},
           "description": "type traffic only: how its vehicles drive (geogen/traffic.py, from a kind: traffic definition). 'count' vehicles, 'spacing' metres apart at the start; 'driving' is the IDM car-following model; 'turns' weights the choice at intersections; 'yield' lists who they stop for; 'schedule' is [[hour, share of the fleet on the road], ...] over the day.",
           "type": "object", "required": ["definition", "count", "driving", "turns"], "additionalProperties": false,
           "properties": {
@@ -809,6 +846,7 @@
           }
         },
         "train": {
+          "x-godot": {"by": "`scripts/world_loader.gd`", "for": "a `GeogenTrain` (`scripts/train.gd`)"},
           "description": "type train only: a train and its precomputed run (geogen/trains.py). 'railway' is a railway id of the manifest's traffic.railways. 'run' is the distance along the line of the train's middle every 'dt' seconds for one departure ('duration' seconds long); departures repeat every timetable.headway from timetable.offset. 'stops' are when it stands at each station and 'closures' the [from, to] times each level crossing is shut, all in seconds from departure. 'cars' are the consist (child node names), each 'offset' metres from the train's middle with its bogie pivots (z in the car's frame).",
           "type": "object",
           "required": ["railway", "length", "dt", "run", "duration", "stops", "closures", "cars", "timetable"],
@@ -837,6 +875,7 @@
           }
         },
         "vehicle": {
+          "x-godot": {"by": "`scripts/traffic.gd`, `scripts/train.gd`", "for": "wheels, lamps, clearance, sound"},
           "description": "A vehicle asset (geogen/vehicles.py), built along +Z with its origin on the ground midway between the axles. Parts named here are descendants of this node: wheels spin about their local X (radius in metres), steer parts turn, paint parts carry the tint, lamps glow by kind. clearance is [length, width, height]; front/rear are the bumper z positions.",
           "type": "object",
           "required": ["class", "wheels", "clearance", "max_speed", "turn_radius"],
