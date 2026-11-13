@@ -30,6 +30,49 @@ PICKUP_KEYS = {
 }
 
 
+def item_tags() -> dict[str, list[str]]:
+    """Every carriable item the content roots have (``items/<id>.yaml`` with a ``title``): id -> tags."""
+    from .flows import FlowError, carried
+
+    out: dict[str, list[str]] = {}
+    for path in roots.glob("items/*.yaml"):
+        try:
+            entry = carried(path)
+        except FlowError:
+            continue
+        if entry is not None:
+            out.setdefault(path.stem, list(entry.get("tags") or []))
+    return out
+
+
+def resolve_items(spec: Any, where: str) -> list[str]:
+    """Items an affordance names: an id, ``"[tag=<tag>]"`` (every item with that tag), or a list
+    of those (any of them). Returns item ids; ValueError for an item or tag nothing has."""
+    from .npc import ITEM_SELECTOR
+
+    listed = spec if isinstance(spec, list) else [spec]
+    known = item_tags()
+    out: list[str] = []
+    for one in listed:
+        if not isinstance(one, str) or not one:
+            raise ValueError(f"{where}: an item id or \"[tag=<tag>]\", got {one!r}")
+        tag = ITEM_SELECTOR.match(one)
+        if tag:
+            found = sorted(i for i, tags in known.items() if tag.group(1) in tags)
+            if not found:
+                raise ValueError(f"{where}: no item is tagged '{tag.group(1)}'")
+            out.extend(i for i in found if i not in out)
+        elif one in known:
+            if one not in out:
+                out.append(one)
+        else:
+            from . import refs
+
+            raise ValueError(f"{where}: no item '{one}'.{refs._near(one, list(known))} "
+                             f"Items: {', '.join(sorted(known)) or 'none'}")
+    return out
+
+
 def parse_pickup(spec: Any, root: SceneNode, name: str, assets_dir: str | Path | None = None,
                  source: Any = None) -> dict[str, Any]:
     """Make ``root`` a pickup: add its ``pickup`` interaction and the rule that gives the item.

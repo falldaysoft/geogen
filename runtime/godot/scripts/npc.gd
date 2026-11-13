@@ -361,6 +361,8 @@ func options(restricted := true) -> Array[Dictionary]:
         var gate = a.get("interaction")
         if gate is GeogenInteraction and not (gate as GeogenInteraction).allowed(WorldLoader.actor_id(self)):
             continue    # its `when` says no for this actor (a bin with nothing to throw away)
+        if a.has("requires") and not _meets(a):
+            continue    # it needs something carried, or a state, it hasn't got (geogen.101.1)
         if _poses_at_anchor(actions[a["action"]]) and _something_on(a["position"], uid):
             continue    # a seat or a bed with a thing lying on it: it sits somewhere else
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
@@ -625,6 +627,8 @@ func _finish_option(ok: bool, reason := "") -> void:
     var id: String = _option["id"]
     _recent[id] = clock
     if ok:
+        if _option.has("affordance"):
+            _carry_out(_option["affordance"])
         for need in _option["advertises"]:
             if needs.has(need):
                 needs[need] = clampf(needs[need] + float(_option["advertises"][need]), 0.0, 1.0)
@@ -2284,6 +2288,39 @@ func _cut_short() -> bool:
     stats["cut_short"] = int(stats.get("cut_short", 0)) + 1
     _trace({"event": "cut_short", "option": _option["id"], "for": _noticed.get("stimulus", "")})
     return true
+
+
+## Whether this NPC meets affordance ``a``'s `requires` now: carrying one of its `holding`
+## items, and its asset's interactions showing its `state`s.
+func _meets(a: Dictionary) -> bool:
+    var need: Dictionary = a.get("requires", {})
+    var actor := WorldLoader.actor_id(self)
+    var holding: Array = need.get("holding", [])
+    if not holding.is_empty() and (world.rules == null or not holding.any(func(id): return world.rules.held(str(id), actor) > 0)):
+        return false
+    var states: Dictionary = need.get("state", {})
+    for name in states:
+        var it = world.interactions_by_key.get("%s#%s" % [WorldLoader.uid_of(a["node"]), name])
+        if not it is GeogenInteraction or (it as GeogenInteraction).state != str(states[name]):
+            return false
+    return true
+
+
+## An affordance's action is done: what it `takes` and `gives` (to what this NPC carries).
+func _carry_out(a: Dictionary) -> void:
+    if world.rules == null:
+        return
+    var actor := WorldLoader.actor_id(self)
+    for id in a.get("takes", []):
+        if world.rules.held(str(id), actor) > 0:
+            world.rules.give(str(id), -1, actor)
+            break
+    var gives: Dictionary = a.get("gives", {})
+    for id in gives:
+        world.rules.give(str(id), int(gives[id]), actor)
+    if a.has("takes") or not gives.is_empty():
+        _trace({"event": "carry", "option": a["id"], "takes": a.get("takes", []), "gives": gives,
+            "carrying": world.rules.carried(actor).map(func(e): return e["id"])})
 
 
 ## The point a step's `look:` has the head turned to now (the action's subject or place), or null.

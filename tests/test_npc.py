@@ -510,3 +510,68 @@ def test_memory_is_validated():
             parse_memory(bad, True, actions, "t")
     with pytest.raises(ValueError, match="needs senses"):
         parse_memory(True, None, actions, "t")
+
+
+# ---- what affordances need and do (geogen.101.1) -----------------------------------------------
+
+CHAIN_ASSET = """
+name: market_crate
+size: [1, 1, 1]
+parts:
+  crate: {primitive: cube, size: [1.0, 1.0, 0.4], anchor: bottom_center, material: wood}
+interactions:
+  stock:
+    targets: [crate]
+    initial: full
+    states:
+      full: {next: empty}
+      empty: {next: full}
+affordances:
+  - {type: use, at: [0, 0, 0.3], action: look, interaction: stock, requires: {state: full}, gives: crisps}
+  - {type: use, at: [0.3, 0, 0.3], action: look, requires: {holding: "[tag=crop]"}, takes: "[tag=crop]",
+     gives: {chocolate_bar: 2}, advertises: {fun: 0.2}}
+"""
+
+
+def test_affordances_say_what_they_need_and_what_they_do_to_what_is_carried():
+    from geogen.layout.loader import LayoutLoader
+
+    root = LayoutLoader().load_string(CHAIN_ASSET)
+    fetch, swap = root.meta["affordances"]
+    assert fetch["requires"] == {"state": {"stock": "full"}} and fetch["gives"] == {"crisps": 1}
+    crops = swap["requires"]["holding"]
+    assert {"carrot", "pumpkin", "wheat"} <= set(crops) and swap["takes"] == crops      # a tag: every item it is on
+    assert swap["gives"] == {"chocolate_bar": 2} and swap["advertises"] == {"fun": 0.2}
+
+
+def test_affordance_chain_mistakes_are_reported():
+    from geogen.layout.loader import LayoutLoader
+
+    def load(old, new):
+        assert old in CHAIN_ASSET
+        return LayoutLoader().load_string(CHAIN_ASSET.replace(old, new))
+
+    with pytest.raises(ValueError, match="no item 'crips'"):
+        load("gives: crisps}", "gives: crips}")
+    with pytest.raises(ValueError, match="no item is tagged 'corp'"):
+        load('"[tag=crop]"}, takes', '"[tag=corp]"}, takes')
+    with pytest.raises(ValueError, match="has no state 'half'"):
+        load("requires: {state: full}", "requires: {state: half}")
+    with pytest.raises(ValueError, match="give the affordance an `interaction`"):
+        load("interaction: stock, requires: {state: full}", "requires: {state: full}")
+    with pytest.raises(ValueError, match="by id, not by tag"):
+        load("gives: crisps}", 'gives: "[tag=crop]"}')
+    with pytest.raises(ValueError, match="requires is"):
+        load("requires: {state: full}", "requires: {wearing: hat}")
+
+
+def test_items_affordances_name_are_declared_for_the_runtime():
+    from geogen.core.node import SceneNode
+    from geogen.layout.loader import LayoutLoader
+    from geogen.quests import collect
+
+    root = SceneNode("scene")
+    root.add_child(LayoutLoader().load_string(CHAIN_ASSET))
+    found = collect(root, "market")
+    assert {"crisps", "chocolate_bar", "carrot", "pumpkin"} <= set(found.items), found.items
+

@@ -201,7 +201,7 @@
           }
         },
         "affordances": {
-          "description": "Things an actor can do at an asset (asset frame): sit/lie/use/stand/look at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest. The player takes sit/lie; NPCs run 'action' (assets/npcs/actions.yaml), starting from 'approach' (floor level), for 'duration' seconds, adding 'advertises' to their needs; 'slots' actors at once; 'interaction' is the asset interaction a use step drives.",
+          "description": "Things an actor can do at an asset (asset frame): sit/lie/use/stand/look at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest. The player takes sit/lie; NPCs run 'action' (assets/npcs/actions.yaml), starting from 'approach' (floor level), for 'duration' seconds, adding 'advertises' to their needs (after 'takes' and 'gives': what it does to what the actor carries, offered only when 'requires' holds); 'slots' actors at once; 'interaction' is the asset interaction a use step drives.",
           "type": "array",
           "items": {
             "type": "object", "required": ["type", "position", "yaw"],
@@ -218,7 +218,13 @@
               "tags": { "type": "array", "items": { "type": "string" } },
               "slots": { "type": "integer", "minimum": 1 },
               "interaction": { "type": "string" },
-              "body": { "description": "A body of this node's 'mechanism' the seat is part of: a seated player rides with it.", "type": "string" }
+              "body": { "description": "A body of this node's 'mechanism' the seat is part of: a seated player rides with it.", "type": "string" },
+              "requires": { "description": "What doing it needs: 'holding' an item the actor carries (any of these ids), 'state' this node's interactions showing these states. Not offered otherwise; NPCs plan chains of affordances that meet it.",
+                "type": "object", "additionalProperties": false,
+                "properties": { "holding": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+                  "state": { "type": "object", "additionalProperties": { "type": "string" } } } },
+              "takes": { "description": "Done, it takes one of the first of these items the actor carries (item ids).", "type": "array", "items": { "type": "string" }, "minItems": 1 },
+              "gives": { "description": "Done, the actor carries these more: {item id: count}.", "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } }
             }
           }
         },

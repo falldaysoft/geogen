@@ -290,6 +290,10 @@ Naming an item with no `use:` in a `use_item` event is an export error; an item 
 usable anywhere its rules say nothing about place. Trace: none (it is an ordinary
 event); the survival example's berries, coconut and cooked fish are the worked case.
 
+Affordances can need and change what an actor carries (`requires: {holding}`, `takes`,
+`gives`, geogen.101.1): the items they name are declared like those a rule names, and a
+runtime applies them to the actor that finished the action (Godot: `npc.gd` `_carry_out`).
+
 Objects to take are pickups (`geogen/inventory.py`): an asset's or a placement's
 `pickup: <item>` (or `{item, count, prompt}`) adds a `pickup` interaction,
 `here | taken`, whose taken state hides the object, and an asset rule giving the

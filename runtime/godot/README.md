@@ -392,6 +392,10 @@ body reparented under it. The script is a generic interpreter; nothing in it kno
 windows or doors:
 
 - **Needs** fall at their declared rates. Finishing something adds its `advertises` to them.
+  An affordance with `requires` (`holding`: item ids, one of which the NPC carries; `state`:
+  its node's interactions showing those states) is offered only when that holds; finishing one
+  applies its `takes` (one of those items) and `gives` (`{item: count}`) to what the NPC
+  carries (`world.rules.give`).
 - **Held items**: an NPC with a skeleton shows the body of the first item it carries whose file says
   `held` (`item_icon.held`: bone, offset, rotation) on that bone, and drops it when the item is taken;
   the report gives `holding`. The player's view shows the hotbar's selected item (`hud.inventory.held`).

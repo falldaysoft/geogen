@@ -845,7 +845,14 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
-                   "advertises", "tags", "slots", "interaction", "depth", "body"}
+                   "advertises", "tags", "slots", "interaction", "depth", "body", "requires", "takes", "gives"}
+# What doing it needs and what it does to what the actor carries (geogen.101.1): the planner
+# chains affordances through these (a fridge gives raw food, a stove takes it and gives a meal).
+AFFORDANCE_REQUIRES = {
+    "holding": "an item the actor must carry: an id, \"[tag=<tag>]\", or a list (any of them)",
+    "state": "{<interaction>: <state>} (or just <state>, of the affordance's own `interaction`): this asset's "
+             "interaction must show that state",
+}
 
 
 def _apply_tints(parts: dict[str, Any], part_nodes: dict[str, SceneNode]) -> None:
@@ -1065,6 +1072,7 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
         if not any(i.name == name for i in root.interactions):
             raise ValueError(f"affordance interaction {name!r} not on this asset")
         out["interaction"] = name
+    _affordance_chain(spec, root, out)
     if "body" in spec:
         bodies = (root.meta.get("mechanism") or {}).get("bodies", {})
         if str(spec["body"]) not in bodies:
@@ -1072,6 +1080,55 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
                              f"bodies: {sorted(bodies)}")
         out["body"] = str(spec["body"])
     return out
+
+
+def _affordance_chain(spec: dict[str, Any], root: SceneNode, out: dict[str, Any]) -> None:
+    """``requires`` / ``takes`` / ``gives``: what doing it needs (an item carried, this asset's
+    interaction in a state) and what it does to what the actor carries. Item tags resolve to ids."""
+    from ..inventory import resolve_items
+
+    requires = spec.get("requires")
+    if requires is not None:
+        if not isinstance(requires, dict) or not requires or set(requires) - set(AFFORDANCE_REQUIRES):
+            raise ValueError(f"affordance requires is {{{', '.join(AFFORDANCE_REQUIRES)}}}, got {requires!r}")
+        need: dict[str, Any] = {}
+        if "holding" in requires:
+            need["holding"] = resolve_items(requires["holding"], "affordance requires.holding")
+        if "state" in requires:
+            state = requires["state"]
+            if isinstance(state, str):
+                if "interaction" not in out:
+                    raise ValueError("affordance requires.state names a state: give the affordance an `interaction` "
+                                     "(or write {<interaction>: <state>})")
+                state = {out["interaction"]: state}
+            if not isinstance(state, dict) or not state:
+                raise ValueError(f"affordance requires.state is {{<interaction>: <state>}}, got {state!r}")
+            for name, value in state.items():
+                it = next((i for i in root.interactions if i.name == str(name)), None)
+                if it is None:
+                    raise ValueError(f"affordance requires.state: no interaction '{name}' on this asset "
+                                     f"(interactions: {sorted(i.name for i in root.interactions)})")
+                if str(value) not in it.states:
+                    raise ValueError(f"affordance requires.state: '{name}' has no state '{value}' "
+                                     f"(states: {sorted(it.states)})")
+            need["state"] = {str(k): str(v) for k, v in state.items()}
+        out["requires"] = need
+    if spec.get("takes") is not None:
+        out["takes"] = resolve_items(spec["takes"], "affordance takes")
+    gives = spec.get("gives")
+    if gives is not None:
+        if isinstance(gives, dict):
+            if not all(isinstance(v, int) and v > 0 for v in gives.values()):
+                raise ValueError(f"affordance gives is an item, a list of items or {{item: count}}, got {gives!r}")
+            counts = {str(k): int(v) for k, v in gives.items()}
+        else:
+            counts = {}
+            for item in gives if isinstance(gives, list) else [gives]:
+                counts[str(item)] = counts.get(str(item), 0) + 1
+        for item in counts:
+            if resolve_items(item, "affordance gives") != [item]:
+                raise ValueError(f"affordance gives names items by id, not by tag: {item!r}")
+        out["gives"] = counts
 
 
 # Tessellation attributes scaled by LayoutLoader(detail=...) (minimums keep shapes valid).

@@ -947,6 +947,9 @@ func _collect_affordances(root: Node) -> void:
                 entry["duration"] = a["duration"]
             if a.has("depth"):
                 entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
+            for key in ["requires", "takes", "gives"]:     # what doing it needs and does (geogen.101.1)
+                if a.has(key):
+                    entry[key] = a[key]
             if a.has("interaction"):
                 for it in interactions_of(String(node.name)):
                     if it.interaction_name == a["interaction"] and it.asset == node:

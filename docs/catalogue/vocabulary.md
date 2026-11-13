@@ -23,7 +23,7 @@
 | `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
 | `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
-| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on) |
+| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`: what doing it needs and does to what the actor carries, the links NPCs plan chains through) |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes |
 | `clearance` | {front, back, left, right}: free space the furnishing solver keeps around it |
 | `container` | {capacity, part}: the asset holds items |
