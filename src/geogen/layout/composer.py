@@ -182,18 +182,7 @@ class SceneComposer:
         path = Path(path)
         logger.debug("Composing scene: %s", path)
         data = safe_load_path(path)
-
-        # Validate YAML structure
-        for warning in validate_scene_yaml(data):
-            warnings.warn(warning, stacklevel=2)
-
-        # Pre-validate references
-        # attach_to targets are resolved (with file:line) when composing: see geogen.refs.
-        ref_errors = pre_validate_scene_references(data, attach=False)
-        if ref_errors:
-            raise ValueError(
-                f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
-            )
+        self._validate(data, path.name)
 
         # A scene folder (scenes/<name>/scene.yaml): its own files come first while it is composed.
         folder = roots.scene_folder(path) if path.name == roots.SCENE_FILE else None
@@ -211,17 +200,21 @@ class SceneComposer:
             return data
         return resolve_document(data, overrides)[0]
 
-    def compose_string(self, yaml_string: str) -> SceneNode:
-        """Compose a scene from a YAML string.
-
-        Args:
-            yaml_string: YAML content as a string
-
-        Returns:
-            Root SceneNode of the composed scene
-        """
+    def compose_string(self, yaml_string: str, params: dict[str, float] | None = None) -> SceneNode:
+        """Compose a scene from a YAML string, validated as ``compose`` validates a file."""
         data = safe_load(yaml_string)
-        return self._build_scene(self._resolve_params(data, None))
+        self._validate(data, str(data.get("name", "scene")))
+        return self._build_scene(self._resolve_params(data, params))
+
+    @staticmethod
+    def _validate(data: dict[str, Any], name: str) -> None:
+        """Warn about unknown keys; refuse references to things the scene doesn't have
+        (attach_to targets are resolved, with file:line, when composing: see geogen.refs)."""
+        for warning in validate_scene_yaml(data):
+            warnings.warn(warning, stacklevel=3)
+        ref_errors = pre_validate_scene_references(data, attach=False)
+        if ref_errors:
+            raise ValueError(f"Invalid references in {name}:\n  " + "\n  ".join(ref_errors))
 
     def _build_scene(self, data: dict[str, Any], source: Path | None = None) -> SceneNode:
         """Build scene from parsed YAML data (``source``: its file, for diagnostics), then take

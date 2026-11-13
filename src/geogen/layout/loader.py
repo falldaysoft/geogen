@@ -133,22 +133,28 @@ class LayoutLoader:
 
     def _load(self, path: Path, params: dict[str, float] | None) -> SceneNode:
         logger.debug("Loading asset: %s", path)
-        data = safe_load_path(path)
+        return self._load_data(safe_load_path(path), params, path)
 
+    def _load_data(self, data: dict[str, Any], params: dict[str, float] | None,
+                   path: Path | None = None) -> SceneNode:
+        """Build an asset from its YAML document: validated, params resolved, and its state,
+        wiring, readable text and pickup declared, the same whether it came from a file
+        (``path``) or a string."""
+        name = path.name if path is not None else str(data.get("name", "asset"))
         # Validate YAML structure (pre-resolve; catches unknown keys)
         for warning in validate_asset_yaml(data):
-            warnings.warn(warning, stacklevel=2)
+            warnings.warn(warning, stacklevel=3)
 
         # Pre-validate references
         ref_errors = pre_validate_asset_references(data)
         if ref_errors:
             raise ValueError(
-                f"Invalid references in {path.name}:\n  " + "\n  ".join(ref_errors)
+                f"Invalid references in {name}:\n  " + "\n  ".join(ref_errors)
             )
 
         data = self._resolve_params(data, params)
         root = self._build_hierarchy(data)
-        _add_places(root, data, path.name)
+        _add_places(root, data, name)
         from ..state import declare_asset
 
         declare_asset(root, data, path)
@@ -158,14 +164,14 @@ class LayoutLoader:
         if data.get("readable"):
             from ..dialogue import parse_readable
 
-            parse_readable(data["readable"], root, path.name)
+            parse_readable(data["readable"], root, name)
         if data.get("pickup"):
             from ..inventory import parse_pickup
 
-
-            parse_pickup(data["pickup"], root, path.name, roots.root_of(path), path)
+            parse_pickup(data["pickup"], root, name, roots.root_of(path) if path is not None else None, path)
         # Where it came from, for --inspect (not exported).
-        root.meta["source"] = {"asset": _asset_ref(path), "params": dict(params or {})}
+        if path is not None:
+            root.meta["source"] = {"asset": _asset_ref(path), "params": dict(params or {})}
         return root
 
     def load_string(
@@ -180,11 +186,7 @@ class LayoutLoader:
         Returns:
             SceneNode hierarchy representing the composite object
         """
-        data = safe_load(yaml_string)
-        data = self._resolve_params(data, params)
-        root = self._build_hierarchy(data)
-        _add_places(root, data, str(data.get("name", "asset")))
-        return root
+        return self._load_data(safe_load(yaml_string), params)
 
     def _resolve_params(
         self, data: dict[str, Any], overrides: dict[str, float] | None
