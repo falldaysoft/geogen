@@ -33,16 +33,16 @@ GODOT = os.environ.get("GODOT", "/Applications/Godot.app/Contents/MacOS/Godot")
 RIDES = {
     "carousel": {"pos": [-16.5, 0.1, 1.5], "at": [-25.0, 2.2, 0.0], "asset": "carousel", "interaction": "run",
                  "seconds": 32, "what": "a carousel: a round platform with horses on poles under a canopy, "
-                 "turning about its centre (it ramps up over 6 s to 3 rpm)"},
+                 "turning about its centre (it eases up over 6 s to 3 rpm)"},
     "wheel": {"pos": [0.0, 0.1, 9.0], "at": [0.0, 9.0, 26.0], "asset": "wheel", "interaction": "run",
               "seconds": 28, "what": "a Ferris wheel: eight gondolas hanging from a wheel that turns on an axle "
-              "between two A-frames; the gondolas hang free on their own hinges (it ramps up over 8 s to 2 rpm)"},
+              "between two A-frames; the gondolas hang free on their own hinges (it eases up over 8 s to 2 rpm)"},
     "tower": {"pos": [16.0, 0.1, -7.0], "at": [25.0, 10.0, 0.0], "asset": "tower", "interaction": "ride",
               "seconds": 30, "what": "a drop tower: a ring of seats on a car that a motor lifts up a mast, "
-              "holds at the top, lets fall free under gravity, then brakes with the motor and lowers to the ground"},
+              "eases to a stop at the top, holds, lets fall free under gravity, brakes at about 3 g and lowers slowly to the ground"},
     "swings": {"pos": [11.0, 0.1, -13.0], "at": [19.0, 4.5, -19.0], "asset": "swings", "interaction": "run",
                "seconds": 32, "what": "a swing ride (chair-o-plane): chairs on chains hanging from a rotating top "
-               "on a mast; as it spins up (10 s to 7.5 rpm) the chairs should fly outward"},
+               "on a mast; as it spins up (12 s to 9 rpm) the chairs should fly outward about 35 degrees and trail a little"},
 }
 SKIP = 2.0          # s of loading frames trimmed from the front of every clip
 FREEZE_CHANGE = 0.03   # mean grey-level change (0-255) below which two frames half a second apart count as the same

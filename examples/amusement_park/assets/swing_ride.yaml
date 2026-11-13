@@ -1,7 +1,7 @@
 # A swing ride (chair-o-planes): a crown of eight arms under a pointed roof turning on a
 # motorised hinge at the top of a mast, with a chair hanging from each arm on two chains (a
-# mechanism: the crown is one body, every chair its own, on a hinge across its chain tops
-# that lets it swing out but not twist, so it keeps facing the way it goes). Sit in a chair
+# mechanism: the crown is one body, every chair its own, on a swing joint at its chain tops
+# that lets it fly out and trail behind but not twist, so it keeps facing the way it goes). Sit in a chair
 # (E) and wait: the ride runs itself, `pause` seconds stopped then `cycle` seconds spinning
 # up to `speed` degrees a second, when the chairs fly out on their own; the lever starts or
 # stops it early. Origin: the centre of the mast, on the ground; the lever stands east (+X),
@@ -17,8 +17,8 @@ params:
   radius: {default: 4.0}        # the arms' reach, where the chains hang
   height: {default: 7.5}        # the crown's top
   chain:  {default: 6.0}        # chain length (the seats hang 1.1 m up at rest)
-  speed:  {default: 45}         # degrees a second when running (7.5 rpm)
-  ramp:   {default: 10}         # seconds to reach full speed (and to stop)
+  speed:  {default: 55}         # degrees a second when running (9.2 rpm: the chairs fly out about 35 degrees)
+  ramp:   {default: 12}         # seconds to reach full speed (and to stop)
   cycle:  {default: 45}         # seconds a ride lasts
   pause:  {default: 30}         # seconds stopped between rides
 
@@ -32,9 +32,11 @@ mechanism:
       parts: [hook, chain_l, chain_r, seat, back]
       array: true                                # chair_0 .. chair_7
       mass: 90
-      damping: {linear: 0.05, angular: 0.4}
-      # Across the chain tops: tangential for the chair at +X, and turned with every copy.
-      joint: {type: hinge, to: top, axis: z, pivot: hook.top}
+      damping: {linear: 0.05, angular: 0.05}     # air
+      # At the chain tops: out about the tangent (z for the chair at +X, turned with every
+      # copy) and back about the radius; the chains' links take the swing out of it.
+      # (No further than 80 degrees: chains go slack, they don't push a chair over its hook.)
+      joint: {type: swing, to: top, axis: z, pivot: hook.top, damping: 0.3, limits: 80}
 
 parts:
   plinth:

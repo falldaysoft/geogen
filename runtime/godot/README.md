@@ -882,8 +882,13 @@ its swinging gondolas, a drop tower's car. `GeogenMechanisms` (`scripts/mechanis
 asset's frame, moves the body's parts under it and turns their exported collider meshes
 into convex shapes (a dynamic body can't be concave), then a joint per body at its pivot:
 `HingeJoint3D` (local Z the axis), `Generic6DOFJoint3D` locked to one linear axis (a
-slide; `SliderJoint3D` has no motor) or `PinJoint3D`, holding it to the body its `to`
-names or to the world. The two bodies a joint holds don't collide with each other, and
+slide; `SliderJoint3D` has no motor), `PinJoint3D`, or for a `swing` a `Generic6DOFJoint3D`
+whose X is the vertical (Jolt's twist axis, locked) and Y / Z the joint's axis and the level
+line across it (free, or within `limits` degrees either way), holding it to the body its `to`
+names or to the world. A joint's `damping` (per second) is a damper on the joint's own motion:
+each physics frame a torque (a force on a slide) against the relative speed, sized by what the
+body turns about the pivot (`_damp`), so a swing about a pivot halves in about 1.4 / damping s
+(a body's own angular damping hardly touches a pendulum's swing: that is mostly the pivot's). The two bodies a joint holds don't collide with each other, and
 once the colliders are built (`exclude_frames`) a body ignores its own asset's static
 parts: the frame it is mounted on, which its hull may enclose (a deck round a mast).
 Bodies collide with the world, props and NPCs on layer 1, but don't scan the player's
@@ -893,8 +898,15 @@ carried (platform velocity). Props, NPCs and place areas scan the player's layer
 
 Interactions run the motors with `drive` motions (`interaction.gd` `_apply` →
 `GeogenMechanisms.drive`): the motion's value is the motor's target speed (deg/s or m/s,
-ramped like any motion over the interaction's `duration`), 0 a brake, and in the motion's
-`free` states the motor is off. Godot's hinge motor and limits turn the other way from
+eased in and out over the interaction's `duration`: `interaction.gd` `_step_drive`), 0 a brake,
+and in the motion's `free` states the motor is off; after a free state the motor takes its
+target at once (its force sets how hard it brakes). States in the motion's `to` (`{at, speed}`
+each, and `accel`) run a servo instead (`GeogenMechanisms.servo`): every physics frame the
+joint's position (`_track`: metres along a slide, degrees round a hinge, turns counted, from
+the exported pose) sets the motor speed that gets it there no faster than `speed`, slowing at
+`accel`, starting from the speed it has; the state is reached when it is there and still
+(`servo_done`), so `then` without `after` moves on as it arrives. `world.bodies` reports a
+slide's or hinge's `joint` position. Godot's hinge motor and limits turn the other way from
 the right-hand rule about the joint's Z, so `HINGE_SIGN` keeps `drive` speeds and
 `limits` in the `rotate` motions' convention. An affordance with `body` rides that body:
 `ride` keeps its position, yaws and approach where the body is and sets `boardable` (still,

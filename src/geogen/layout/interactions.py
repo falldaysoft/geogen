@@ -26,6 +26,10 @@ YAML (asset level, ``{expr}`` params work as everywhere else)::
           - body: wheel            # a mechanism body (geogen.mechanism): its joint's motor
             drive: { running: 12 } # target speed per state (deg/s or m/s; absent: 0, a brake)
             free: [coasting]       # states in which the motor is off
+          - body: car              # or to a position (m along a slide, deg round a hinge from rest)
+            to: { up: 16, down: {at: 0, speed: 1} }   # per state ({at, speed}: its own speed); reached when there
+            speed: 2               # the fastest it goes there (default: the motor's speed), and
+            accel: 1               # how hard it speeds up and slows down (default: speed / duration)
 
 State keys: ``next`` (the state ``use`` heads to when this is the target
 state; absent = not usable, e.g. a latched button), ``then`` (auto-advance on
@@ -48,9 +52,13 @@ long as ``targets`` says what to aim at. ``use`` applies ``next`` of the *target
 moving door reverses mid-swing.
 
 A ``drive`` motion runs the motor of a mechanism body's joint (``geogen.mechanism``): its
-values are the motor's target speed per state, ramped like any motion (full speed after
-``duration`` seconds), a missing state is a brake (speed 0), and ``free`` names states in which
-the motor is off and the body moves as physics takes it. It poses nothing at build time.
+values are the motor's target speed per state, eased in and out (full speed after ``duration``
+seconds), a missing state is a brake (speed 0), and ``free`` names states in which the motor is
+off and the body moves as physics takes it. ``to`` names states that send the joint to a
+position instead (a servo: up to ``speed``, speeding up and slowing down at ``accel``), so a
+car stops at the top of its track rather than at the end of a timer; such a state is reached
+when the body gets there, so ``then`` without ``after`` moves on at once. A state is in
+``drive``, ``to`` or ``free``, at most one. It poses nothing at build time.
 
 A ``move`` motion takes parts to another placed thing: ``{<state>: "<reference>.<attachment>"}``
 (usually a text param the scene fills in, since an asset doesn't know its neighbours). Once a
@@ -109,6 +117,8 @@ class Motion:
     # A drive's body (geogen.mechanism) and the states its motor is off in.
     body: str | None = None
     free: list[str] = field(default_factory=list)
+    # A drive's position targets: {to: {state: position}, speed, accel} (None: speeds only).
+    servo: dict[str, Any] | None = None
 
     def matrix(self, value: float) -> np.ndarray:
         """Asset-frame transform for ``value``."""
@@ -168,6 +178,8 @@ class Interaction:
         out: dict[str, Any] = {"nodes": [name_of(n) for n in m.parts], "type": m.kind}
         if m.kind == "drive":
             out |= {"body": m.body, "free": list(m.free)}
+            if m.servo:
+                out |= {"to": {k: dict(v) for k, v in m.servo["to"].items()}, "accel": m.servo["accel"]}
         elif m.kind != "visible":
             out |= {"axis": [float(v) for v in m.axis], "pivot": [round(float(v), 6) for v in m.pivot]}
         out["values"] = {s: self.value(m, s) for s in self.states}
@@ -338,25 +350,45 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
         motions = []
         for mspec in spec.get("motions", []):
             given = [k for k in ("rotate", "translate", "show", "hide", "move", "drive") if k in mspec]
+            if not given and "to" in mspec and "body" in mspec:
+                given = ["drive"]                       # a drive by positions only
             if len(given) != 1:
                 raise ValueError(f"Interaction '{name}': each motion needs exactly one of "
                                  f"rotate/translate/show/hide/move/drive")
             if given[0] == "drive":
-                speeds = mspec["drive"]
+                speeds = mspec.get("drive", {})
+                to = mspec.get("to", {})
                 body = mspec.get("body")
-                if not isinstance(speeds, dict) or not isinstance(body, str) or not body:
+                if not isinstance(speeds, dict) or not isinstance(to, dict) or not isinstance(body, str) or not body:
                     raise ValueError(f"Interaction '{name}': a drive motion is {{body: <mechanism body>, "
-                                     f"drive: {{<state>: <speed>}}, free: [states]}}")
-                unknown = set(mspec) - {"body", "drive", "free"}
+                                     f"drive: {{<state>: <speed>}}, to: {{<state>: <position>}}, speed, accel, free: [states]}}")
+                unknown = set(mspec) - {"body", "drive", "free", "to", "speed", "accel"}
                 if unknown:
                     raise ValueError(f"Interaction '{name}': drive motion: unknown keys {sorted(unknown)}")
                 free = mspec.get("free", [])
                 free = [free] if isinstance(free, str) else list(free or [])
-                for sname in [*speeds, *free]:
+                listed = [*speeds, *to, *free]
+                for sname in listed:
                     if sname not in states:
                         raise ValueError(f"Interaction '{name}': drive names unknown state '{sname}'")
+                if len(set(listed)) != len(listed):
+                    raise ValueError(f"Interaction '{name}': a drive's state is in drive, to or free, not two of them")
+                servo = None
+                if to:
+                    targets = {}
+                    for k, v in to.items():
+                        v = v if isinstance(v, dict) else {"at": v}
+                        if set(v) - {"at", "speed"} or "at" not in v or float(v.get("speed", 0.0)) < 0:
+                            raise ValueError(f"Interaction '{name}': drive to.{k} is a position or {{at, speed}}, got {v!r}")
+                        targets[str(k)] = {"at": float(v["at"]), "speed": float(v.get("speed", 0.0))}
+                    servo = {"to": targets, "speed": float(mspec.get("speed", 0.0)), "accel": float(mspec.get("accel", 0.0))}
+                    if servo["speed"] < 0 or servo["accel"] < 0:
+                        raise ValueError(f"Interaction '{name}': a drive's speed and accel can't be negative")
+                elif set(mspec) & {"speed", "accel"}:
+                    raise ValueError(f"Interaction '{name}': a drive's speed and accel are for its `to` positions")
                 motions.append(Motion([], "drive", np.zeros(3), np.zeros(3),
-                                      {str(k): float(v) for k, v in speeds.items()}, body=body, free=[str(f) for f in free]))
+                                      {str(k): float(v) for k, v in speeds.items()}, body=body, free=[str(f) for f in free],
+                                      servo=servo))
                 continue
             if given[0] == "move":
                 goto = mspec["move"]

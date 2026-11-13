@@ -158,14 +158,17 @@
                   "properties": {
                     "nodes": { "type": "array", "items": { "type": "string" } },
                     "type": {
-                      "description": "rotate: values in degrees about axis through pivot; translate: metres along axis; visible: 1 shown, 0 hidden (with their colliders), no axis or pivot; drive: values are the target speed (deg/s or m/s) of the motor on mechanism body 'body' (this node's 'mechanism'), ramped like any motion, a missing state 0 (a brake), the motor off in the 'free' states; no nodes.",
+                      "description": "rotate: values in degrees about axis through pivot; translate: metres along axis; visible: 1 shown, 0 hidden (with their colliders), no axis or pivot; drive: values are the target speed (deg/s or m/s) of the motor on mechanism body 'body' (this node's 'mechanism'), eased in and out over the interaction's duration, a missing state 0 (a brake), the motor off in the 'free' states; states in 'to' send the joint to a position instead ('at': metres along a slide, degrees round a hinge, from the exported pose) at up to that state's 'speed', speeding up and slowing down at 'accel', and are reached when the body is there; no nodes.",
                       "enum": ["rotate", "translate", "visible", "drive"]
                     },
                     "axis": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
                     "pivot": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
                     "values": { "type": "object", "additionalProperties": { "type": "number" } },
                     "body": { "type": "string" },
-                    "free": { "type": "array", "items": { "type": "string" } }
+                    "free": { "type": "array", "items": { "type": "string" } },
+                    "to": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["at", "speed"],
+                      "properties": { "at": { "type": "number" }, "speed": { "type": "number", "exclusiveMinimum": 0 } } } },
+                    "accel": { "type": "number", "exclusiveMinimum": 0 }
                   }
                 }
               }
@@ -281,7 +284,7 @@
           }
         },
         "mechanism": {
-          "description": "A mechanism (geogen/mechanism.py): the asset's parts in 'nodes' (exported names) form rigid bodies, one per entry, each held by its 'joint' to body 'to' (absent: the world) at 'pivot' (the asset's frame): a 'hinge' turns about 'axis', a 'slide' moves along it, within 'limits' (degrees or metres from the exported pose) when given; a 'pin' is a ball joint. 'motor' is a motor on a hinge or slide the node's interactions run with 'drive' motions: 'speed' deg/s or m/s, 'force' the most it pushes with (N·m or N). Bodies collide as the convex hulls of their parts' colliders; the two bodies a joint holds don't collide with each other; the asset's other parts are static.",
+          "description": "A mechanism (geogen/mechanism.py): the asset's parts in 'nodes' (exported names) form rigid bodies, one per entry, each held by its 'joint' to body 'to' (absent: the world) at 'pivot' (the asset's frame): a 'hinge' turns about 'axis', a 'slide' moves along it, within 'limits' (degrees or metres from the exported pose) when given; a 'pin' is a ball joint; a 'swing' turns about 'axis' (level) and about the level line across it, never about the vertical (a chair on chains). 'damping' (per second) is a damper in the joint, on its own motion (a swing dies down). 'motor' is a motor on a hinge or slide the node's interactions run with 'drive' motions: 'speed' deg/s or m/s, 'force' the most it pushes with (N·m or N). Bodies collide as the convex hulls of their parts' colliders; the two bodies a joint holds don't collide with each other; the asset's other parts are static.",
           "type": "object",
           "required": ["bodies"],
           "additionalProperties": false,
@@ -307,11 +310,13 @@
                     "required": ["type", "pivot"],
                     "additionalProperties": false,
                     "properties": {
-                      "type": { "enum": ["hinge", "slide", "pin"] },
+                      "type": { "enum": ["hinge", "slide", "pin", "swing"] },
+                      "damping": { "type": "number", "minimum": 0 },
                       "to": { "type": "string" },
                       "axis": { "$ref": "#/$defs/vec3" },
                       "pivot": { "$ref": "#/$defs/vec3" },
-                      "limits": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+                      "limits": { "description": "[lo, hi] for a hinge (degrees) or slide (metres); for a swing, the furthest it swings either way (degrees).",
+                        "oneOf": [{ "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }, { "type": "number" }] },
                       "motor": {
                         "type": "object",
                         "required": ["speed", "force"],

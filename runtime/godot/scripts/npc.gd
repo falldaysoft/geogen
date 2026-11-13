@@ -314,7 +314,7 @@ func _reappear() -> void:
     global_position = at
     away = false
     visible = true
-    _shape.set_deferred("disabled", false)
+    _solid_after_move()
     add_to_group(CHARACTER_GROUP)
     stats["returns"] = int(stats.get("returns", 0)) + 1
     _trace({"event": "return", "pos": _v(global_position)})
@@ -648,11 +648,25 @@ func _finish_option(ok: bool, reason := "") -> void:
 ## the NPC's offset from its seat, kept every frame as the seat moves (mechanisms.gd).
 var _ride: Dictionary = {}
 var _ride_offset := Transform3D.IDENTITY
+var _solid_at := 0                   # physics frame its collider comes back on (_solid_after_move)
+
+
+## Moved in one go (off a seat, back from away): its collider comes back on only once it has
+## stood a couple of physics frames where it now is. Jolt gives a kinematic body moved in a step
+## the speed of that move, from where it was: a collider on at once is, for that step, a wall
+## going hundreds of metres a second through whatever is at the seat it left (a swing chair
+## was flung over its crown).
+func _solid_after_move() -> void:
+    _shape.set_deferred("disabled", true)
+    _solid_at = Engine.get_physics_frames() + 2
 
 
 func _physics_process(delta: float) -> void:
     var started := Time.get_ticks_usec()
     _frame_delta = delta
+    if _solid_at > 0 and Engine.get_physics_frames() >= _solid_at:
+        _solid_at = 0
+        _shape.set_deferred("disabled", false)
     if not _ride.is_empty():
         global_transform = GeogenMechanisms.seat_now(_ride) * _ride_offset
     # Out of sight (or far off), step every other frame over both frames' time: half the
@@ -1053,7 +1067,10 @@ func set_present(on: bool) -> void:
 func _show() -> void:
     var out := away or absent
     visible = not out
-    _shape.set_deferred("disabled", out)
+    if out:
+        _shape.set_deferred("disabled", true)
+    else:
+        _solid_after_move()          # (it may have been put somewhere: a load, back beside its seat)
     if out:
         remove_from_group(CHARACTER_GROUP)
     elif not is_in_group(CHARACTER_GROUP):
@@ -2084,7 +2101,10 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String, hold := "") -> vo
     rotation = Vector3(0, yaw - _parent_yaw(), 0)
     _pose_yaw = yaw
     velocity = Vector3.ZERO
-    _shape.set_deferred("disabled", pose_name != "stand")
+    if pose_name == "stand":
+        _solid_after_move()
+    else:
+        _shape.set_deferred("disabled", true)
     _pose = pose_name
     if at == "anchor" and pose.has("reach") and ctx.get("depth") != null:
         # Deep seats: sit forward until the shins clear the front edge.

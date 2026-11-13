@@ -59,6 +59,10 @@ def test_every_ride_is_a_mechanism_with_a_drive(built):
     # The drop tower's cycle lets the car fall free, then brakes with the motor.
     ride = next(i for i in rides["tower"].interactions if i.name == "ride")
     assert ride.motions[0].free == ["dropping"] and ride.states["dropping"].then == "braking"
+    # ...and its controller takes the car to the top and the bottom (positions), lowering slowly.
+    to = ride.motions[0].servo["to"]
+    assert to["lifting"]["at"] == to["holding"]["at"] == 16 and to["landing"] == {"at": 0, "speed": 1.0}
+    assert ride.states["lifting"].after is None and ride.states["landing"].then == "waiting"
     # Seats ride their bodies: the carousel's horses, the tower's bench, every swing chair.
     seats = {name: {a.get("body") for a in node.meta.get("affordances", []) if a["type"] == "sit"}
              for name, node in rides.items()}
@@ -69,8 +73,11 @@ def test_every_ride_is_a_mechanism_with_a_drive(built):
     for name, node in rides.items():
         kinds = {a["type"]: a for a in node.meta["affordances"]}
         assert "operator" in kinds["stand"]["tags"] and kinds["sit"]["advertises"] == {"fun": pytest.approx(kinds["sit"]["advertises"]["fun"])}
-    # The swing chairs' hinges turn with their copies: tangential all the way round.
+    # The swing chairs' joints turn with their copies: tangential all the way round. They swing
+    # out and trail; the gondolas' pins are damped.
     chairs = rides["swings"].meta["mechanism"]["bodies"]
+    assert chairs["chair_0"]["joint"]["type"] == "swing" and chairs["chair_0"]["joint"]["damping"] > 0
+    assert rides["wheel"].meta["mechanism"]["bodies"]["gondola_3"]["joint"]["damping"] > 0
     assert chairs["chair_0"]["joint"]["axis"] == pytest.approx([0, 0, 1])
     assert chairs["chair_2"]["joint"]["axis"] == pytest.approx([1, 0, 0], abs=1e-6)
 
@@ -153,11 +160,16 @@ def test_the_ferris_wheel_turns_with_its_gondolas_hanging_level_in_godot(park):
     bodies = _bodies(rt, "wheel")
     assert bodies["wheel"]["angular_speed"] == pytest.approx(12.0, abs=0.5)
     gondolas = [bodies[f"gondola_{i}"] for i in range(8)]
-    assert max(g["tilt_deg"] for g in gondolas) < 10, [g["tilt_deg"] for g in gondolas]
+    assert max(g["tilt_deg"] for g in gondolas) < 4, [g["tilt_deg"] for g in gondolas]   # hanging level
     # They are spread round the rim (6 m from the hub, 8.7 m up), not bunched or fallen.
     heights = sorted(g["position"][1] for g in gondolas)
     assert heights[0] < 4 and heights[-1] > 10
+    # Stopped, the rock the stop gave them dies down (their pins are damped).
     rt.call("interactions.set", asset="wheel", interaction="run", state="stopped")
+    _run(rt, 25.0)
+    bodies = _bodies(rt, "wheel")
+    assert bodies["wheel"]["angular_speed"] < 0.2
+    assert max(bodies[f"gondola_{i}"]["tilt_deg"] for i in range(8)) < 0.5
 
 
 @pytest.mark.exhaustive
@@ -194,9 +206,17 @@ def test_the_drop_tower_free_falls_and_brakes_with_a_seated_rider_in_godot(park)
     _run(rt, 2.0)
     assert rt.call("player.sit", asset="tower")["pose"] == "sit"
     rt.call("interactions.set", asset="tower", interaction="ride", state="lifting")
-    _run(rt, 11.0)
-    car = _bodies(rt, "tower")["car"]
-    assert car["position"][1] > 15.5 and car["tilt_deg"] < 1.0                 # lifted to the limit
+    # It slows to a stop at the top (its controller takes it there) rather than hitting the end.
+    top_speeds = []
+    for _ in range(60):
+        _run(rt, 0.25)
+        car = _bodies(rt, "tower")["car"]
+        if car["joint"] > 14.0:
+            top_speeds.append(car["speed"])
+        if rt.call("interactions.list", asset="tower")[0]["state"] == "holding":
+            break
+    assert car["joint"] == pytest.approx(16.0, abs=0.02) and car["tilt_deg"] < 1.0
+    assert top_speeds and max(top_speeds[-3:]) < 1.0, top_speeds                # slowing as it got there
     assert rt.call("player.status")["position"][1] > 15.5                       # and the rider with it
     # Wait for the fall, then sample it: free fall gains about 9.8 m/s a second.
     for _ in range(40):
@@ -209,9 +229,19 @@ def test_the_drop_tower_free_falls_and_brakes_with_a_seated_rider_in_godot(park)
     v1, y1 = _bodies(rt, "tower")["car"]["speed"], rt.call("player.status")["position"][1]
     assert 4.0 < v1 - v0 < 5.6, (v0, v1)
     assert y0 - y1 > 1.5                                                         # the rider falls with it
-    _run(rt, 4.0)
+    # Braked (about 3 g) into a slow lowering, and settled at the bottom.
+    for _ in range(8):
+        _run(rt, 0.25)
+        if rt.call("interactions.list", asset="tower")[0]["state"] in ("landing", "waiting"):
+            break
     car = _bodies(rt, "tower")["car"]
-    assert car["speed"] < 1.5 and 0 <= car["position"][1] < 3.5                 # braked near the bottom
+    assert car["speed"] < 1.1 and car["joint"] > 1.0, car                       # lowering, well clear of the end
+    for _ in range(40):
+        _run(rt, 0.25)
+        if rt.call("interactions.list", asset="tower")[0]["state"] == "waiting":
+            break
+    car = _bodies(rt, "tower")["car"]
+    assert car["joint"] == pytest.approx(0.0, abs=0.02) and car["speed"] < 0.05
     rt.call("player.stand")
 
 
@@ -220,22 +250,31 @@ def test_the_swing_chairs_fly_out_as_the_crown_spins_in_godot(park):
     rt, centre = park, (19.0, -19.0)
     rt.call("player.teleport", pos=[0, 0.1, -31])
     # The rides cycle on their own: bring the swings to a stop the way the ride does (the motor
-    # ramps down over 10 s; an instant stop at full speed leaves the chairs swinging for a
+    # eases down over 12 s; an instant stop at full speed leaves the chairs swinging for a
     # minute), restart the stopped dwell so it doesn't set off again, and let the chairs settle.
     rt.call("interactions.set", asset="swings", interaction="run", state="stopped")
-    _run(rt, 15.0)
+    _run(rt, 17.0)
     rt.call("interactions.set", asset="swings", interaction="run", state="stopped", instant=True)
     _run(rt, 20.0)
-    rest = _bodies(rt, "swings")["chair_0"]["position"]
-    assert math.hypot(rest[0] - centre[0], rest[2] - centre[1]) < 4.6             # hanging under the arm's end
+    swings = _bodies(rt, "swings")
+    rest = swings["chair_0"]["position"]
+    riders = [(r["actor"], r["doing"], r["position"]) for r in rt.call("npcs.list") if "swings" in str(r.get("doing", ""))]
+    assert math.hypot(rest[0] - centre[0], rest[2] - centre[1]) < 4.6, (swings, riders)   # hanging under the arm's end
     rt.call("interactions.set", asset="swings", interaction="run", state="running")
-    _run(rt, 16.0)
+    # Spinning up, the chairs trail the arms they hang from (they swing back as well as out).
+    _run(rt, 10.0)
     bodies = _bodies(rt, "swings")
-    assert bodies["top"]["angular_speed"] == pytest.approx(45.0, abs=1.0)
+    # (Round the mast: where each chair is, against where its arm points; the crown turns +Y.)
+    lag = [((_angle_about(bodies[f"chair_{i}"]["position"], centre) - bodies["top"]["yaw_deg"] - 45 * i + 180) % 360) - 180
+           for i in range(8)]
+    assert all(-20 < a < -2 for a in lag), lag                                  # (12 degrees: they move out as well)
+    _run(rt, 10.0)
+    bodies = _bodies(rt, "swings")
+    assert bodies["top"]["angular_speed"] == pytest.approx(55.0, abs=1.0)
     radii = [math.hypot(bodies[f"chair_{i}"]["position"][0] - centre[0], bodies[f"chair_{i}"]["position"][2] - centre[1])
              for i in range(8)]
-    assert min(radii) > 5.0, radii                                               # swung out past the arms
-    assert max(b["tilt_deg"] for b in bodies.values()) > 15                       # leaning out on their chains
+    assert 6.0 < min(radii) and max(radii) < 7.6, radii                          # swung well out, inside the fence
+    assert 25 < min(bodies[f"chair_{i}"]["tilt_deg"] for i in range(8))          # leaning out on their chains
     rt.call("interactions.set", asset="swings", interaction="run", state="stopped")
 
 

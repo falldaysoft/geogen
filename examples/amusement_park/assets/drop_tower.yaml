@@ -1,9 +1,10 @@
 # A drop tower: a drum round a square column with eight seats on brackets facing out, on a
 # slide joint with a motor (a mechanism). Sit in a seat (E) from the plinth and the car lifts
-# `lift` metres at `speed` m/s, holds, lets go (the motor off: free fall), brakes hard with
-# the motor near the bottom and lowers the rest of the way; the cycle is the `ride`
-# interaction's states, `dropping` the one the motor is off in, and it starts itself every
-# `pause` seconds (the lever starts it early). Origin: the centre of the column, on the
+# `lift` metres at up to `speed` m/s and eases to a stop at the top (a drive `to` a position),
+# holds, lets go (the motor off: free fall), brakes at about 3 g (the motor's force against the
+# fall, as magnetic brakes do) into a slow lowering, and settles at the bottom; the cycle is the
+# `ride` interaction's states, `dropping` the one the motor is off in, and it starts itself
+# every `pause` seconds (the lever starts it early). Origin: the centre of the column, on the
 # ground; the lever stands east (+X).
 
 name: drop_tower
@@ -15,17 +16,18 @@ bounds: geometry
 params:
   height: {default: 22}         # the column
   lift:   {default: 16}         # how far the car rises
-  speed:  {default: 2.0}        # m/s lifting
-  fall:   {default: 1.6}        # seconds of free fall before the brake (12.5 m from 16: 3.5 m up, 15.7 m/s)
+  speed:  {default: 2.0}        # m/s lifting, at most (it lowers at 1 m/s)
+  fall:   {default: 1.35}       # seconds of free fall (8.9 m from 16, at 13.2 m/s); braking takes 2.9 m more
   hold:   {default: 3}          # seconds at the top
-  pause:  {default: 35}         # seconds at the bottom between rides
+  pause:  {default: 25}         # seconds at the bottom between rides
 
 mechanism:
   bodies:
     car:
       parts: [drum, seat, bracket, back]
       mass: 2000
-      joint: {type: slide, axis: y, pivot: [0, 0, 0], limits: [0, "{lift}"], motor: {speed: "{speed}", force: 120000}}
+      # The motor's force is what brakes the fall: 80 kN on 2 t is 3 g of deceleration.
+      joint: {type: slide, axis: y, pivot: [0, 0, 0], limits: [0, "{lift + 0.3}"], motor: {speed: "{speed}", force: 80000}}
 
 parts:
   plinth:
@@ -115,16 +117,18 @@ interactions:
   ride:
     targets: [handle, knob]
     initial: waiting
-    duration: 1.5                                   # the motor ramps to speed in this
+    duration: 1.5                                   # the lever's swing
     states:
       waiting:  {prompt: Start the drop tower, next: lifting, then: lifting, after: "{pause}"}
-      lifting:  {then: holding, after: "{lift / speed + 2}"}
+      lifting:  {then: holding}                     # on to holding once it is at the top
       holding:  {then: dropping, after: "{hold}", emit: at_the_top}
       dropping: {then: braking, after: "{fall}", emit: dropped}
-      braking:  {then: landing, after: 2.5}
-      landing:  {then: waiting, after: "{lift / 8 + 3}"}
+      braking:  {then: landing, after: 0.8}         # 0.4 s down to 1 m/s, then lowering
+      landing:  {then: waiting}                     # until it is at the bottom
     motions:
-      - {body: car, drive: {lifting: "{speed}", holding: 0, braking: 0, landing: -1.0, waiting: 0}, free: [dropping]}
+      # Positions (m up the column) where the controller takes the car; the brake is a speed.
+      - {body: car, to: {waiting: 0, lifting: "{lift}", holding: "{lift}", landing: {at: 0, speed: 1.0}}, speed: "{speed}", accel: 0.8,
+         drive: {braking: -1.0}, free: [dropping]}
       - {parts: [handle], rotate: x, pivot: [3.8, 0.95, 0], values: {waiting: -30, lifting: 30, holding: 30, dropping: 30, braking: 30, landing: 30}}
 
 # A seat every 45 degrees, riding with the car, facing out, boarded from the plinth just

@@ -14,11 +14,13 @@ tower's carriage on a slide. Parts in no body stay static scenery. YAML (asset l
           mass: 800                      # kg (default 100); friction, bounce, damping as physics:
           joint:
             type: hinge                  # hinge (turns about axis) | slide (moves along axis) | pin (a ball joint)
+                                         # | swing (turns about axis and across it, never twists: a chair on chains)
             to: frame                    # another body (default: the asset's fixed parts, i.e. the world)
             axis: z                      # hinge / slide: x|y|z (signed) or [x, y, z], asset frame
             pivot: hub.center            # [x, y, z] in the asset frame, or <part>.<anchor>
             limits: [-30, 30]            # degrees (hinge) or metres (slide); absent: free
             motor: {speed: 12, force: 5000}   # a motor at speed deg/s or m/s (interactions set it; see below)
+            damping: 0.3                 # a damper in the joint: per second, as a body's (a swing dies down)
         gondola:
           parts: [hanger, cabin]         # arrayed parts (array: {count: 8, ...})
           array: true                    # one body per copy: gondola_0 .. gondola_7, of hanger_0, cabin_0, ...
@@ -33,10 +35,13 @@ An interaction drives a motor with a ``drive`` motion (geogen.layout.interaction
     motions:
       - {body: wheel, drive: {running: 12, stopped: 0}, free: [coasting]}
 
-whose values are the motor's target speed per state (ramped over the interaction's
-``duration``, like any motion), ``0`` a brake, and ``free`` lists states in which the motor
-is off (a drop tower's fall). A body's ``motor.speed`` is only a default for the drive's
-values. Affordances may name a ``body`` so a seated player rides with it.
+whose values are the motor's target speed per state (eased in and out over the interaction's
+``duration``), ``0`` a brake, and ``free`` lists states in which the motor is off (a drop
+tower's fall). ``to: {state: position}`` instead sends the joint to a position (metres along a
+slide, degrees round a hinge from the exported pose) at up to ``speed`` with ``accel``, the way
+a ride's controller stops a car at the top: the state is reached when the body is there. A
+body's ``motor.speed`` is only a default for the drive's values. Affordances may name a
+``body`` so a seated player rides with it.
 
 Build: ``meta.mechanism`` on the asset, exported in extras (bodies' parts by exported node
 name). Runtime (``runtime/godot/scripts/mechanisms.gd``): each body is a RigidBody3D with
@@ -62,20 +67,26 @@ BODY_KEYS = {
     "mass": "kg (default 100)",
     "friction": "0-1 (default 0.8)",
     "bounce": "0-1 (default 0)",
-    "damping": "{linear, angular}: how fast it slows, per second (default 0, 0)",
-    "joint": "{type: hinge | slide | pin, to, axis, pivot, limits, motor}: what holds it (absent: a free body)",
+    "damping": "{linear, angular}: how fast it slows, per second (default 0, 0): air, not the joint (a hanging "
+               "body's swing is damped by its joint's `damping`)",
+    "joint": "{type: hinge | slide | pin | swing, to, axis, pivot, limits, motor, damping}: what holds it (absent: a free body)",
 }
 JOINT_KEYS = {
-    "type": "hinge (turns about axis) | slide (moves along axis) | pin (a ball joint at pivot)",
+    "type": "hinge (turns about axis) | slide (moves along axis) | pin (a ball joint at pivot) | swing (turns about "
+            "axis and about the level line across it, never about the vertical: a chair hung on chains swings out "
+            "and trails, still facing the way it goes)",
     "to": "the body it is joined to (default: the asset's fixed parts); in an arrayed body, `previous`: the copy before "
           "(the first to the fixed parts), a chain",
     "axis": "hinge / slide: x|y|z (signed) or [x, y, z] in the asset frame (an arrayed body's turns with its copy)",
     "pivot": "[x, y, z] in the asset frame, or <part>.<point> (an attachment point of the part, top / front / ..., "
              "or an anchor, top_center; default: the asset origin)",
-    "limits": "[lo, hi]: degrees (hinge) or metres (slide) the joint may move from rest (absent: free)",
+    "limits": "[lo, hi]: degrees (hinge) or metres (slide) the joint may move from rest (absent: free); a swing: "
+              "the furthest it swings either way, degrees (a chair on chains can't go over its hook)",
     "motor": "{speed: deg/s | m/s, force: N·m | N}: a motor an interaction's drive motion runs",
+    "damping": "per second (default 0): a damper in the joint, as a body's damping but on the joint's own motion "
+               "(a bearing's friction): a swing loses about half its size in 1.4 / damping s",
 }
-JOINT_TYPES = ("hinge", "slide", "pin")
+JOINT_TYPES = ("hinge", "slide", "pin", "swing")
 DEFAULT_FORCE = 10000.0
 
 
@@ -172,10 +183,29 @@ def parse_mechanism(spec: Any, root: SceneNode, parts: dict[str, SceneNode], nam
                 raise ValueError(f"{name}: interaction '{interaction.name}' drives unknown body '{motion.body}'; "
                                  f"bodies: {sorted(bodies)}")
             joint = bodies[motion.body].get("joint")
-            if joint is None or joint["type"] == "pin":
+            if joint is None or joint["type"] in ("pin", "swing"):
                 raise ValueError(f"{name}: interaction '{interaction.name}' drives body '{motion.body}', which has "
                                  f"no hinge or slide joint to put a motor on")
             joint.setdefault("motor", {"speed": 0.0, "force": DEFAULT_FORCE})
+            if motion.servo:
+                # A drive to positions: the fastest it goes there defaults to the motor's speed, and
+                # it speeds up and slows down to that in the interaction's duration.
+                if not motion.servo["speed"]:
+                    motion.servo["speed"] = abs(float(joint["motor"]["speed"]))
+                if not motion.servo["speed"]:
+                    raise ValueError(f"{name}: interaction '{interaction.name}' drives body '{motion.body}' to "
+                                     f"positions without a speed (give the drive or the motor one)")
+                if not motion.servo["accel"]:
+                    motion.servo["accel"] = motion.servo["speed"] / max(float(interaction.duration or 1.0), 1e-3)
+                for target in motion.servo["to"].values():
+                    target["speed"] = target["speed"] or motion.servo["speed"]
+                if joint["type"] == "slide" and "limits" in joint:
+                    lo, hi = joint["limits"]
+                    for sname, target in motion.servo["to"].items():
+                        at = target["at"]
+                        if not lo <= at <= hi:
+                            raise ValueError(f"{name}: interaction '{interaction.name}' sends body '{motion.body}' "
+                                             f"to {at} in '{sname}', outside its limits [{lo}, {hi}]")
     return {"bodies": bodies}
 
 
@@ -232,7 +262,26 @@ def _parse_joint(jspec: Any, where: str, parts: dict[str, SceneNode], root_inv: 
         if pivot.shape != (3,):
             raise ValueError(f"{where}: joint pivot is [x, y, z] or <part>.<anchor>, got {pivot_spec!r}")
     out["pivot"] = [round(float(v), 6) for v in pivot]
-    if kind != "pin":
+    if jspec.get("damping") is not None:
+        out["damping"] = float(jspec["damping"])
+        if out["damping"] < 0:
+            raise ValueError(f"{where}: joint damping can't be negative")
+    if kind == "swing":
+        if jspec.get("motor") is not None:
+            raise ValueError(f"{where}: a swing joint has no motor")
+        limits = jspec.get("limits")
+        if limits is not None:
+            if not isinstance(limits, (int, float)) or not 0 < float(limits) < 180:
+                raise ValueError(f"{where}: a swing joint's limits is the furthest it swings, degrees (0-180), "
+                                 f"got {limits!r}")
+            out["limits"] = float(limits)
+        try:
+            out["axis"] = [round(float(v), 6) for v in _axis(jspec.get("axis", "z"))]
+        except ValueError as e:
+            raise ValueError(f"{where}: joint {e}") from None
+        if abs(out["axis"][1]) > 0.9:
+            raise ValueError(f"{where}: a swing joint's axis is level (it swings about it and across it)")
+    elif kind != "pin":
         try:
             out["axis"] = [round(float(v), 6) for v in _axis(jspec.get("axis", "y"))]
         except ValueError as e:

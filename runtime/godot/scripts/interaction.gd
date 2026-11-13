@@ -91,7 +91,8 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
             continue
         if m.get("type") == "drive":
             var drive := {"type": "drive", "body": str(m.get("body", "")), "free": m.get("free", []),
-                "values": m.get("values", {}), "parts": [], "rest": {}}
+                "values": m.get("values", {}), "parts": [], "rest": {}, "to": m.get("to", {}),
+                "servo_accel": float(m.get("accel", 1.0))}
             drive["value"] = float(drive["values"].get(it.state, 0.0))
             it._motions.append(drive)
             continue
@@ -123,8 +124,9 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
         if motion["type"] == "drive":
             # A motor reaches its fastest speed in `duration` seconds, whatever the parts do.
             var top := 0.0
-            for v in vals:
-                top = maxf(top, absf(float(v)))
+            for s in motion["values"]:
+                if not (motion["to"] as Dictionary).has(s):
+                    top = maxf(top, absf(float(motion["values"][s])))
             motion["speed"] = maxf(top, 1e-6) / it.duration
             continue
         motion["speed"] = maxf(widest, 1e-6) / it.duration if not vals.is_empty() else 0.0
@@ -313,6 +315,11 @@ func set_state(new_state: String, instant := false, by := "") -> void:
     if instant:
         for motion in _motions:
             motion["value"] = float(motion["values"].get(new_state, 0.0))
+            motion.erase("ease")
+            if motion["type"] == "drive" and (motion["to"] as Dictionary).has(new_state):
+                var there: Dictionary = motion["to"][new_state]
+                GeogenMechanisms.servo(asset, motion["body"], float(there["at"]), float(there["speed"]), motion["servo_accel"])
+                continue
             _apply(motion)
         state = new_state
         _apply_emission()
@@ -325,14 +332,16 @@ func _physics_process(delta: float) -> void:
     # reached (a rule sent it back before it arrived elsewhere), or they would stay ajar.
     var arrived := true
     for motion in _motions:
+        if motion["type"] == "drive":
+            if not _step_drive(motion, delta):
+                arrived = false
+            continue
         var goal := float(motion["values"].get(target, 0.0))
         var value: float = motion["value"]
         if not is_equal_approx(value, goal):
             value = move_toward(value, goal, motion["speed"] * delta)
             motion["value"] = value
             _apply(motion)
-        elif motion["type"] == "drive":
-            _apply(motion)       # the motor follows the state (free or braked) even at a steady speed
         if not is_equal_approx(value, goal):
             arrived = false
     if state == target:
@@ -356,6 +365,43 @@ func _physics_process(delta: float) -> void:
             raised.emit(str(s["emit"]), actor)
         if s.has("then") and not s.has("after"):
             _head_to(str(s["then"]), actor)
+
+
+## A drive motion's step; true when it has arrived. A state in its `to` sends the joint there
+## (GeogenMechanisms.servo: it is reached when the body is); otherwise the motor's speed eases from
+## where it was to the target state's (a smoothstep over the time the interaction's ramp gives it),
+## so a ride starts and stops without a jolt.
+func _step_drive(motion: Dictionary, delta: float) -> bool:
+    var to: Dictionary = motion["to"]
+    if to.has(target):
+        GeogenMechanisms.servo(asset, motion["body"], float(to[target]["at"]), float(to[target]["speed"]), motion["servo_accel"])
+        motion["ease"] = {}
+        motion["mode"] = "servo"
+        return GeogenMechanisms.servo_done(asset, motion["body"])
+    var goal := float(motion["values"].get(target, 0.0))
+    var free: Array = motion["free"]
+    if free.has(target):
+        motion["mode"] = "free"
+    var ease: Dictionary = motion.get("ease", {})
+    if ease.is_empty() or not is_equal_approx(float(ease["goal"]), goal):
+        # From the motor's last target; after running free the motor takes its target at once
+        # (its force decides how hard it brakes); after a servo, from the speed the joint has.
+        var from := float(motion["value"])
+        match str(motion.get("mode", "")):
+            "free":
+                from = goal
+            "servo":
+                from = GeogenMechanisms.joint_speed(asset, motion["body"])
+        var span := absf(goal - from) / maxf(float(motion["speed"]), 1e-6)
+        ease = {"from": from, "goal": goal, "t": 0.0, "span": span}
+        motion["ease"] = ease
+        if not free.has(target):
+            motion["mode"] = "speed"
+    ease["t"] = float(ease["t"]) + delta
+    var k := clampf(float(ease["t"]) / maxf(float(ease["span"]), 1e-6), 0.0, 1.0)
+    motion["value"] = lerpf(float(ease["from"]), goal, k * k * (3.0 - 2.0 * k))
+    _apply(motion)                  # the motor follows the state (free or braked) even at a steady speed
+    return k >= 1.0
 
 
 ## States named on/off light up or dim the targets' emissive materials (TV screens).

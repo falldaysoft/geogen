@@ -1,7 +1,8 @@
 # A goods lift: a platform that rides up a mast. A mechanism: a body on a slide joint with a
 # motor. The lever at the mast's foot calls it: `ride` goes `down` → `rising` → `up` → `lowering` →
-# `down`, the drive motion running the motor up or down and braking at each end; the
-# lever can be used from the platform (`reach`). Step on and ride it `rise` metres up.
+# `down`, the drive motion taking the platform to the top or the bottom (`to` positions: it
+# speeds up and slows to a stop there, and the state moves on when it arrives); the lever can
+# be used from the platform (`reach`). Step on and ride it `rise` metres up.
 # Origin: the mast's foot; the platform reaches out along +X, its deck 0.15 m up.
 
 name: lift_platform
@@ -89,11 +90,11 @@ interactions:
     duration: 1.0
     states:
       down:     {prompt: Call the lift up, next: rising}
-      rising:   {then: up, after: "{rise / speed}"}        # the dwell starts once the motor is at speed
+      rising:   {then: up}                                 # once it is at the top
       up:       {prompt: Send the lift down, next: lowering}
-      lowering: {then: down, after: "{rise / speed}"}
+      lowering: {then: down}
     motions:
-      - {body: platform, drive: {rising: "{speed}", lowering: "{-speed}", up: 0, down: 0}}
+      - {body: platform, to: {down: 0, rising: "{rise}", up: "{rise}", lowering: 0}}
       - {parts: [handle], rotate: x, pivot: [-0.2, 0.9, 0.6], values: {down: -30, rising: 30, up: 30, lowering: -30}}
 
 attachments:

@@ -6,8 +6,9 @@
 
 A goods lift: a platform that rides up a mast. A mechanism: a body on a slide joint with a
 motor. The lever at the mast's foot calls it: `ride` goes `down` → `rising` → `up` → `lowering` →
-`down`, the drive motion running the motor up or down and braking at each end; the
-lever can be used from the platform (`reach`). Step on and ride it `rise` metres up.
+`down`, the drive motion taking the platform to the top or the bottom (`to` positions: it
+speeds up and slows to a stop there, and the state moves on when it arrives); the lever can
+be used from the platform (`reach`). Step on and ride it `rise` metres up.
 Origin: the mast's foot; the platform reaches out along +X, its deck 0.15 m up.
 
 ```yaml
@@ -39,4 +40,4 @@ place:
 
 ## Interactions
 
-ride: down* -> rising, rising (then up after 4 s), up -> lowering, lowering (then down after 4 s) (* initial; drive ; rotates handle)
+ride: down* -> rising, rising (then up), up -> lowering, lowering (then down) (* initial; drive ; rotates handle)

@@ -42,6 +42,13 @@ var _by_body := {}               ## RigidBody3D -> [uid, body name]
 var _riding: Array[Dictionary] = []
 ## Static copies of the bodies' shapes at their exported pose, for the navmesh bake.
 var _shadows: Array[StaticBody3D] = []
+## Every joint: {joint, spec, a (its body), b (the body it holds to, or null: the world),
+## axis_b / pivot_b (axis and pivot in b's frame, or the world's), rel0 (a in b's frame at rest),
+## position (m along a slide, deg round a hinge, from rest), speed (its rate), servo {to, speed,
+## accel, cmd} while a drive sends it to a position}.
+var _joints: Array[Dictionary] = []
+const SERVO_NEAR := 0.005        ## m or deg: a servo this close to its position is there
+const SERVO_GAIN := 2.0          ## 1/s: the speed a servo asks for close in is this times the way left
 
 
 func _init(owner_world: WorldLoader) -> void:
@@ -146,6 +153,8 @@ func _setup_one(asset: Node3D) -> void:
         parent.add_child(joint)
         var axis := _vec(j.get("axis", [0, 1, 0])).normalized()
         var basis := _hinge_basis(axis) if j["type"] == "hinge" else _slide_basis(axis)
+        if j["type"] == "swing":
+            basis = Basis(Vector3.UP, axis, Vector3.UP.cross(axis).normalized())
         joint.global_transform = frame * Transform3D(basis, _vec(j.get("pivot", [0, 0, 0])))
         joint.node_a = bodies[bname].get_path()
         if j.has("to") and bodies.has(j["to"]):
@@ -155,6 +164,15 @@ func _setup_one(asset: Node3D) -> void:
         if not motor.is_empty():
             set_motor(joint, 0.0, true)        # braked until an interaction drives it
         joints[bname] = joint
+        var held_to: RigidBody3D = bodies.get(j.get("to", ""))
+        var b_xform := held_to.global_transform if held_to != null else Transform3D.IDENTITY
+        var info := {"joint": joint, "spec": j, "a": bodies[bname], "b": held_to,
+            "axis_b": (b_xform.basis.inverse() * (frame.basis * axis)).normalized(),
+            "pivot_b": b_xform.affine_inverse() * (frame * _vec(j.get("pivot", [0, 0, 0]))),
+            "rel0": b_xform.affine_inverse() * (bodies[bname] as RigidBody3D).global_transform,
+            "position": 0.0, "speed": 0.0, "raw": 0.0}
+        joint.set_meta("geogen_joint_info", info)
+        _joints.append(info)
     # Copies of one arrayed body (chair_0 .. chair_7, hung from the same body) don't collide
     # with each other: swing chairs stopped abruptly hooked their chains together.
     var names: Array = bodies.keys()
@@ -190,10 +208,34 @@ static func _make_joint(j: Dictionary) -> Joint3D:
             return slide
         "pin":
             return PinJoint3D.new()
+        "swing":
+            # Its X is the vertical (Jolt's twist axis: locked), Y the joint's axis and Z the
+            # level line across it (both free): it swings out and trails, never spins round.
+            var swing := Generic6DOFJoint3D.new()
+            for setter in [swing.set_flag_x, swing.set_flag_y, swing.set_flag_z]:
+                setter.call(Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_LIMIT, true)
+            for setter in [swing.set_param_x, swing.set_param_y, swing.set_param_z]:
+                setter.call(Generic6DOFJoint3D.PARAM_LINEAR_LOWER_LIMIT, 0.0)
+                setter.call(Generic6DOFJoint3D.PARAM_LINEAR_UPPER_LIMIT, 0.0)
+            swing.set_flag_x(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, true)
+            swing.set_param_x(Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, 0.0)
+            swing.set_param_x(Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, 0.0)
+            swing.set_flag_y(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, false)
+            swing.set_flag_z(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, false)
+            return swing
     return HingeJoint3D.new()
 
 
 static func _set_limits(joint: Joint3D, j: Dictionary) -> void:
+    if j.get("type") == "swing" and j.get("limits") != null:
+        # The furthest it swings, out and across (a chair on chains never goes over its hook).
+        var most := deg_to_rad(float(j["limits"]))
+        var swing := joint as Generic6DOFJoint3D
+        for axis in [[swing.set_flag_y, swing.set_param_y], [swing.set_flag_z, swing.set_param_z]]:
+            axis[0].call(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, true)
+            axis[1].call(Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, -most)
+            axis[1].call(Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, most)
+        return
     if not j.get("limits") is Array:
         return
     var lo := float(j["limits"][0])
@@ -246,10 +288,48 @@ static func set_motor(joint: Joint3D, speed: float, on: bool) -> void:
 
 ## A `drive` motion's effect (interaction.gd): the motor of ``asset``'s body ``body_name``.
 static func drive(asset: Node3D, body_name: String, speed: float, on: bool) -> void:
-    var joints: Dictionary = asset.get_meta("geogen_joints", {})
-    var joint: Joint3D = joints.get(body_name)
+    var joint := _joint_of(asset, body_name)
     if joint != null:
+        (joint.get_meta("geogen_joint_info", {}) as Dictionary).erase("servo")
         set_motor(joint, speed, on)
+
+
+static func _joint_of(asset: Node3D, body_name: String) -> Joint3D:
+    return (asset.get_meta("geogen_joints", {}) as Dictionary).get(body_name)
+
+
+## A drive `to` a position (interaction.gd): send ``asset``'s body ``body_name`` to ``to`` (m or
+## deg from rest) at up to ``speed``, speeding up and slowing down at ``accel``. It starts from
+## the speed the joint has now (a car braking from a fall goes on into its lowering).
+static func servo(asset: Node3D, body_name: String, to: float, speed: float, accel: float) -> void:
+    var joint := _joint_of(asset, body_name)
+    if joint == null:
+        return
+    var info: Dictionary = joint.get_meta("geogen_joint_info", {})
+    var now: Dictionary = info.get("servo", {})
+    if not now.is_empty() and is_equal_approx(float(now["to"]), to):
+        return
+    info["servo"] = {"to": to, "speed": speed, "accel": accel, "cmd": float(info.get("speed", 0.0))}
+
+
+## How fast ``asset``'s body ``body_name`` moves on its joint now (m/s or deg/s).
+static func joint_speed(asset: Node3D, body_name: String) -> float:
+    var joint := _joint_of(asset, body_name)
+    return float((joint.get_meta("geogen_joint_info", {}) as Dictionary).get("speed", 0.0)) if joint != null else 0.0
+
+
+## Whether a servo has its body at its position (and next to still): an interaction's state is
+## reached then. True for a body with no servo.
+static func servo_done(asset: Node3D, body_name: String) -> bool:
+    var joint := _joint_of(asset, body_name)
+    if joint == null:
+        return true
+    var info: Dictionary = joint.get_meta("geogen_joint_info", {})
+    var s: Dictionary = info.get("servo", {})
+    if s.is_empty():
+        return true
+    return absf(float(s["to"]) - float(info["position"])) < SERVO_NEAR * (1.0 if info["spec"]["type"] == "slide" else 20.0) \
+        and absf(float(info["speed"])) < 0.05 * float(s["speed"])
 
 
 ## An affordance ``entry`` (WorldLoader._collect_affordances) on body ``body_name`` of
@@ -278,7 +358,16 @@ static func seat_now(entry: Dictionary) -> Transform3D:
     return body.global_transform * (entry["local"] as Transform3D)
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
+    for info in _joints:
+        var a: RigidBody3D = info["a"]
+        if not is_instance_valid(a) or (info["b"] != null and not is_instance_valid(info["b"])):
+            continue
+        _track(info, delta)
+        if float(info["spec"].get("damping", 0.0)) > 0.0:
+            _damp(info)
+        if info.has("servo"):
+            _run_servo(info, delta)
     for r in _riding:
         var body: RigidBody3D = r["body"]
         if not is_instance_valid(body):
@@ -298,6 +387,84 @@ func _physics_process(_delta: float) -> void:
         r["low_y"] = minf(float(r["low_y"]), seat.origin.y)
         entry["boardable"] = body.linear_velocity.length() < 0.05 and body.angular_velocity.length() < 0.02 \
             and seat.origin.y - float(r["low_y"]) < 0.5
+
+
+## The joint's frame now: b's transform (identity for the world).
+static func _b_xform(info: Dictionary) -> Transform3D:
+    var b: RigidBody3D = info["b"]
+    return b.global_transform if b != null else Transform3D.IDENTITY
+
+
+## Where a slide or hinge joint is now (m or deg from rest, a hinge's turns counted) and how fast it moves.
+static func _track(info: Dictionary, delta: float) -> void:
+    var kind: String = info["spec"]["type"]
+    if kind != "slide" and kind != "hinge":
+        return
+    var rel: Transform3D = _b_xform(info).affine_inverse() * (info["a"] as RigidBody3D).global_transform
+    var rel0: Transform3D = info["rel0"]
+    var axis: Vector3 = info["axis_b"]
+    var was := float(info["position"])
+    if kind == "slide":
+        info["position"] = (rel.origin - rel0.origin).dot(axis)
+    else:
+        var q := (rel.basis * rel0.basis.inverse()).get_rotation_quaternion()
+        var raw := rad_to_deg(2.0 * atan2(Vector3(q.x, q.y, q.z).dot(axis), q.w))
+        info["position"] = was + wrapf(raw - float(info["raw"]), -180.0, 180.0)
+        info["raw"] = raw
+    info["speed"] = (float(info["position"]) - was) / maxf(delta, 1e-6)
+
+
+## A joint's damper: a torque (or force, on a slide) against the joint's own motion, sized by
+## what the body has to turn about the pivot, so `damping` is per second like a body's: a swing
+## about a pivot loses about half its size in 1.4 / damping s.
+static func _damp(info: Dictionary) -> void:
+    var a: RigidBody3D = info["a"]
+    var b: RigidBody3D = info["b"]
+    var c := float(info["spec"]["damping"])
+    var bx := _b_xform(info)
+    var kind: String = info["spec"]["type"]
+    if kind == "slide":
+        var axis_s: Vector3 = (bx.basis * (info["axis_b"] as Vector3)).normalized()
+        var v := a.linear_velocity - (b.linear_velocity if b != null else Vector3.ZERO)
+        var force := -c * a.mass * v.dot(axis_s) * axis_s
+        a.apply_central_force(force)
+        if b != null:
+            b.apply_central_force(-force)
+        return
+    var w := a.angular_velocity - (b.angular_velocity if b != null else Vector3.ZERO)
+    var pivot: Vector3 = bx * (info["pivot_b"] as Vector3)
+    var axes: Array[Vector3] = []
+    if kind == "hinge" or kind == "swing":
+        var axis_h: Vector3 = (bx.basis * (info["axis_b"] as Vector3)).normalized()
+        axes.append(axis_h)
+        if kind == "swing":
+            axes.append(Vector3.UP.cross(axis_h).normalized())
+    else:
+        axes.append_array([Vector3.RIGHT, Vector3.UP, Vector3.BACK])     # a pin: every way it turns
+    var state := PhysicsServer3D.body_get_direct_state(a.get_rid())
+    if state == null:
+        return
+    var inertia := state.inverse_inertia_tensor.inverse()
+    var com := a.global_position + state.center_of_mass
+    var torque := Vector3.ZERO
+    for axis in axes:
+        var off := com - pivot
+        var d := off - off.dot(axis) * axis
+        var turning := axis.dot(inertia * axis) + a.mass * d.length_squared()   # about the pivot
+        torque -= c * turning * w.dot(axis) * axis
+    a.apply_torque(torque)
+    if b != null:
+        b.apply_torque(-torque)
+
+
+## A servo's step: the speed that gets the joint to its position, no faster than `speed`, slowing
+## at `accel` to stop there, and changing by no more than `accel` a second.
+func _run_servo(info: Dictionary, delta: float) -> void:
+    var s: Dictionary = info["servo"]
+    var left := float(s["to"]) - float(info["position"])
+    var want := signf(left) * minf(float(s["speed"]), minf(sqrt(2.0 * float(s["accel"]) * absf(left)), SERVO_GAIN * absf(left)))
+    s["cmd"] = move_toward(float(s["cmd"]), want, float(s["accel"]) * delta)
+    set_motor(info["joint"], float(s["cmd"]), true)
 
 
 ## The bodies' static shadows (their shapes at the exported pose) for the navmesh bake.
@@ -329,10 +496,12 @@ func forget(root: Node) -> void:
                 _by_body.erase(body)
             mechanisms.erase(uid)
     _riding = _riding.filter(func(r): return is_instance_valid(r["body"]) and not root.is_ancestor_of(r["body"]))
+    _joints = _joints.filter(func(i): return is_instance_valid(i["a"]) and not root.is_ancestor_of(i["a"]))
 
 
 func clear() -> void:
     mechanisms.clear()
+    _joints.clear()
     _by_body.clear()
     _riding.clear()
     _shadows.clear()
@@ -363,6 +532,8 @@ func report() -> Array:
                 "speed": body.linear_velocity.length(), "angular_speed": rad_to_deg(body.angular_velocity.length()),
             }
             var joint: Joint3D = m["joints"].get(bname)
+            if joint != null and joint.has_meta("geogen_joint_info") and joint.get_meta("geogen_joint_info")["spec"]["type"] in ["slide", "hinge"]:
+                row["joint"] = snappedf(float(joint.get_meta("geogen_joint_info")["position"]), 0.001)
             if joint != null and joint.has_meta("geogen_joint") and joint.get_meta("geogen_joint").has("motor"):
                 if joint is HingeJoint3D:
                     row["motor"] = {"on": (joint as HingeJoint3D).get_flag(HingeJoint3D.FLAG_ENABLE_MOTOR),

@@ -32,8 +32,8 @@ mechanism:
       parts: [hanger, top_bar, arm_l, arm_r, floor, bench, back, front, side_l, side_r]
       array: true                                # gondola_0 .. gondola_7
       mass: 250
-      damping: {linear: 0.0, angular: 0.6}       # a swing dies down
-      joint: {type: hinge, to: wheel, axis: z, pivot: hanger.top}
+      # The pin's friction: a rock as the wheel starts or stops dies down over a few swings.
+      joint: {type: hinge, to: wheel, axis: z, pivot: hanger.top, damping: 0.15}
 
 parts:
   # The A-frames: a pair of legs each side of the wheel, on feet, carrying the axle.

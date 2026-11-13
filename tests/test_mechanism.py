@@ -114,6 +114,41 @@ def test_extras_carry_the_mechanism_and_drive_by_exported_name():
     jsonschema.validate({"geogen": extras}, schema())
 
 
+def test_a_drive_can_send_a_joint_to_positions_and_joints_can_damp_and_swing():
+    pytest.importorskip("jsonschema")
+    import jsonschema
+
+    # The cabs on swing joints with a damper; the table driven to positions in two states.
+    text = (TURNTABLE.replace("{type: pin, to: table, pivot: cab_box.top}",
+                              "{type: swing, to: table, axis: z, pivot: cab_box.top, damping: 0.4}")
+            .replace("{body: table, drive: {running: \"{speed}\"}, free: [coasting]}",
+                     "{body: table, drive: {running: \"{speed}\"}, to: {stopped: 0, parked: {at: 45, speed: 5}}, "
+                     "free: [coasting]}")
+            .replace("      coasting: {then: stopped, after: 5}",
+                     "      coasting: {then: stopped, after: 5}\n      parked: {then: stopped}"))
+    root = _load(text)
+    bodies = root.meta["mechanism"]["bodies"]
+    assert bodies["cab_0"]["joint"]["type"] == "swing" and bodies["cab_0"]["joint"]["damping"] == 0.4
+    assert bodies["cab_1"]["joint"]["axis"] == pytest.approx([1, 0, 0], abs=1e-6)      # turned with its copy
+    drive = next(i for i in root.interactions if i.name == "run").motions[0]
+    # Speeds default to the motor's; the accel to that over the interaction's duration (4 s).
+    assert drive.servo == {"to": {"stopped": {"at": 0.0, "speed": 20.0}, "parked": {"at": 45.0, "speed": 5.0}},
+                           "speed": 20.0, "accel": 5.0}
+    extras = exported_extras(root, name_of=lambda n: n.name)["geogen"]
+    motion = extras["interactions"]["run"]["motions"][0]
+    assert motion["to"]["parked"] == {"at": 45.0, "speed": 5.0} and motion["accel"] == 5.0
+    jsonschema.validate({"geogen": extras}, schema())
+    with pytest.raises(ValueError, match="not two of them"):
+        _load(text.replace("to: {stopped: 0,", "to: {running: 0,"))
+    with pytest.raises(ValueError, match="swing joint's axis is level"):
+        _load(text.replace("{type: swing, to: table, axis: z,", "{type: swing, to: table, axis: y,"))
+    with pytest.raises(ValueError, match="damping can't be negative"):
+        _load(text.replace("damping: 0.4", "damping: -1"))
+    with pytest.raises(ValueError, match="outside its limits"):
+        _load(text.replace("[0, 0, 0], limits: [-90, 90], motor", "[0, 0, 0], motor").replace(
+            "{type: hinge, axis: y,", "{type: slide, axis: y, limits: [0, 1],"))
+
+
 def test_mechanism_mistakes_are_reported():
     with pytest.raises(ValueError, match="unknown keys"):
         _load(TURNTABLE.replace("mass: 500", "weight: 500"))
