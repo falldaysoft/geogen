@@ -1,0 +1,209 @@
+{
+ "name": "one_stove",
+ "about": "Two hungry people and one stove: a plan claims every thing in it, so the second plans with what is left (the fruit bowl), and takes the kitchen when the first lets go. With a microwave as well, both cook.",
+ "world": {
+  "affordances": [
+   {
+    "id": "kitchen/fridge#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 4,
+    "gives": {
+     "raw_food": 1
+    }
+   },
+   {
+    "id": "kitchen/stove#0",
+    "at": [
+     2,
+     0,
+     0
+    ],
+    "duration": 30,
+    "takes": [
+     "raw_food"
+    ],
+    "gives": {
+     "meal": 1
+    }
+   },
+   {
+    "id": "kitchen/table/chair#0",
+    "at": [
+     2,
+     0,
+     3
+    ],
+    "duration": 60,
+    "takes": [
+     "meal"
+    ],
+    "gives": {
+     "dirty_dish": 1
+    },
+    "advertises": {
+     "hunger": 0.7
+    }
+   },
+   {
+    "id": "kitchen/fruit_bowl#0",
+    "at": [
+     2,
+     0,
+     4
+    ],
+    "duration": 5,
+    "advertises": {
+     "hunger": 0.15
+    }
+   },
+   {
+    "id": "kitchen/table/chair2#0",
+    "at": [
+     2,
+     0,
+     5
+    ],
+    "duration": 60,
+    "takes": [
+     "meal"
+    ],
+    "gives": {
+     "dirty_dish": 1
+    },
+    "advertises": {
+     "hunger": 0.7
+    }
+   },
+   {
+    "id": "kitchen/fridge#1",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 4,
+    "gives": {
+     "raw_food": 1
+    }
+   }
+  ]
+ },
+ "actors": {
+  "ana": {
+   "at": [
+    4,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "hunger": 0.2,
+    "rest": 0.9
+   }
+  },
+  "ben": {
+   "at": [
+    5,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "hunger": 0.2,
+    "rest": 0.9
+   }
+  }
+ },
+ "steps": [
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ]
+   }
+  },
+  {
+   "plan": "ben",
+   "expect": {
+    "steps": [
+     "kitchen/fruit_bowl#0"
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ]
+   }
+  },
+  {
+   "release": "ana"
+  },
+  {
+   "release": "ben"
+  },
+  {
+   "plan": "ben",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ],
+    "cost": 104.0
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/fruit_bowl#0"
+    ]
+   }
+  },
+  {
+   "set": {
+    "add": [
+     {
+      "id": "kitchen/microwave#0",
+      "at": [
+       1,
+       0,
+       0
+      ],
+      "duration": 8,
+      "takes": [
+       "raw_food"
+      ],
+      "gives": {
+       "meal": 1
+      }
+     }
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#1",
+     "kitchen/microwave#0",
+     "kitchen/table/chair2#0"
+    ]
+   }
+  }
+ ]
+}

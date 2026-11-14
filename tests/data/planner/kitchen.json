@@ -1,0 +1,184 @@
+{
+ "name": "kitchen",
+ "about": "A hungry person and a kitchen: nothing says cook, the chain fridge > stove > table is found from what each gives and takes. A microwave added to the room is quicker, so the plan changes; taken away again, the plan is the stove's.",
+ "world": {
+  "affordances": [
+   {
+    "id": "kitchen/fridge#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 4,
+    "gives": {
+     "raw_food": 1
+    }
+   },
+   {
+    "id": "kitchen/stove#0",
+    "at": [
+     2,
+     0,
+     0
+    ],
+    "duration": 30,
+    "takes": [
+     "raw_food"
+    ],
+    "gives": {
+     "meal": 1
+    }
+   },
+   {
+    "id": "kitchen/table/chair#0",
+    "at": [
+     2,
+     0,
+     3
+    ],
+    "duration": 60,
+    "takes": [
+     "meal"
+    ],
+    "gives": {
+     "dirty_dish": 1
+    },
+    "advertises": {
+     "hunger": 0.7
+    }
+   },
+   {
+    "id": "lounge/sofa#0",
+    "at": [
+     8,
+     0,
+     3
+    ],
+    "duration": 40,
+    "advertises": {
+     "rest": 0.3
+    }
+   }
+  ]
+ },
+ "actors": {
+  "ana": {
+   "at": [
+    4,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "hunger": 0.2,
+    "rest": 0.9
+   }
+  }
+ },
+ "steps": [
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "kitchen/table/chair#0",
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ],
+    "cost": 103.0,
+    "fills": {
+     "hunger": 0.7
+    }
+   }
+  },
+  {
+   "set": {
+    "add": [
+     {
+      "id": "kitchen/microwave#0",
+      "at": [
+       1,
+       0,
+       0
+      ],
+      "duration": 8,
+      "takes": [
+       "raw_food"
+      ],
+      "gives": {
+       "meal": 1
+      }
+     }
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/microwave#0",
+     "kitchen/table/chair#0"
+    ],
+    "cost": 80.162
+   }
+  },
+  {
+   "set": {
+    "remove": [
+     "kitchen/microwave#0"
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ]
+   }
+  },
+  {
+   "set": {
+    "needs": {
+     "ana": {
+      "hunger": 1.0,
+      "rest": 0.6
+     }
+    }
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "lounge/sofa#0",
+    "steps": [
+     "lounge/sofa#0"
+    ],
+    "fills": {
+     "rest": 0.3
+    }
+   }
+  },
+  {
+   "set": {
+    "needs": {
+     "ana": {
+      "hunger": 1.0,
+      "rest": 1.0
+     }
+    }
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": []
+   }
+  }
+ ]
+}

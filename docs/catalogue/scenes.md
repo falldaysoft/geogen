@@ -23,6 +23,8 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [hotel_room_auto](#hotel_room_auto) | The hotel suite furnished automatically from its rooms' archetypes (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand). | test |
 | [hotel_showcase](#hotel_showcase) | The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors, stairs and a working lift, a receptionist at the desk) on a short street: a paved forecourt with lamps, benches and planters, taxis waiting at the kerb, guests upstairs, people strolling past, and a travel door back to the hub. | showcase |
 | [house_plot](#house_plot) | House plot - a yard with a house. |  |
+| [household_microwave](#household_microwave) | scenes/household_test.yaml with a counter and a microwave on it: the same hungry person plans fridge > microwave > table here, because it is quicker than the range. |  |
+| [household_test](#household_test) | One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101). |  |
 | [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
@@ -348,6 +350,33 @@ Contains a yard (ground) and a house
 **Places**: `house: {scene: scenes/cottage.yaml}`
 
 **Slots**: house
+
+## household_microwave
+
+`scene: scenes/household_microwave.yaml` · [source](../../assets/scenes/household_microwave.yaml)
+
+scenes/household_test.yaml with a counter and a microwave on it: the same hungry person
+plans fridge > microwave > table here, because it is quicker than the range. Nothing else
+differs (geogen.101.5).
+
+**Places**: `kitchen: {scene: scenes/household_test.yaml}`; `counter: {asset: kitchen_counter.yaml}`; `microwave: {asset: microwave.yaml}`
+
+**Spawns**: start
+
+## household_test
+
+`scene: scenes/household_test.yaml` · [source](../../assets/scenes/household_test.yaml)
+
+One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101).
+
+Nobody is told to cook. The fridge gives raw food, the range takes it and gives a meal, a
+chair at the table takes the meal (and leaves a dirty plate, which the sink takes): Ana
+finds the chain. scenes/household_microwave.yaml is this room with a microwave on the
+counter, which is quicker than the range, so there she plans through that instead.
+
+**Places**: `room: {asset: kitchen.yaml}`; `fridge: {asset: fridge.yaml}`; `range: {asset: kitchen_range.yaml}`; `sink: {asset: kitchen_sink.yaml}`; `table: {asset: table.yaml}`; `chair: {asset: chair.yaml}`; `ana: {npc: npcs/householder.yaml}`
+
+**Spawns**: start
 
 ## hub
 

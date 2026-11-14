@@ -87,3 +87,7 @@ parts:
 
 surfaces:
   counter: { from: counter.top }
+
+affordances:
+  - { type: stand, action: attend, at: [0, 0, "{depth / 2 + 0.45}"], approach: [0, 0, 0], facing: 180,
+      duration: [5, 8], advertises: { hygiene: 0.25 }, tags: [household, wash] }

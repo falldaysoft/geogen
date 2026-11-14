@@ -37,6 +37,7 @@ OVERRIDES = {   # (command, arg): type, where an argument means different things
     ("interactions.set", "state"): STR, ("state.load", "state"): {"$ref": "geogen-save.v1.schema.json"},
     ("hud.quests", "track"): STR, ("hud.log", "track"): BOOL,
     ("npcs.places", "want"): STR, ("npcs.do", "action"): STR, ("npcs.do", "subject"): STR, ("npcs.do", "place"): VEC,
+    ("npcs.needs", "needs"): {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
     ("input.mouse", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},   # viewport pixels
 }
 EXTRA = {   # arguments the code reads that the one-line descriptions leave out

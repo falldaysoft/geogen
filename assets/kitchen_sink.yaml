@@ -1,0 +1,126 @@
+# A kitchen sink unit: a base unit under a worktop with an inset steel bowl and a mixer
+# tap. Against a wall (back at -Z), worked from the front; matches kitchen_counter.yaml.
+# Washing up here takes a dirty plate (the link after a meal in a household's chain).
+
+name: kitchen_sink
+tags: [kitchen.sink, kitchen.counter, furniture.counter]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 0.95 }
+
+derived:
+  door_w: "{(width - 0.04) / 2}"
+
+clearance: { front: 0.9 }
+
+parts:
+  plinth:
+    primitive: cube
+    size: ["{width - 0.04}", 0.1, 0.5]
+    anchor: bottom_center
+    offset: [0, 0, -0.03]
+    bevel: 0
+    material: plastic_black
+  carcass:
+    primitive: cube
+    size: ["{width}", 0.76, 0.58]
+    anchor: bottom_center
+    offset: [0, 0.1, -0.02]
+    bevel: 0.003
+    subtract: [bowl_void]
+    material: paint_sage
+  door:
+    primitive: cube
+    size: ["{door_w - 0.008}", 0.72, 0.018]
+    anchor: bottom_center
+    offset: ["{-door_w / 2}", 0.12, 0.279]
+    bevel: 0.003
+    material: paint_sage
+    collider: none
+    array: { count: 2, step: ["{door_w}", 0, 0] }
+  handle:
+    primitive: cube
+    size: [0.14, 0.014, 0.022]
+    anchor: bottom_center
+    offset: ["{-door_w / 2}", 0.79, 0.293]
+    bevel: 0.004
+    material: chrome
+    collider: none
+    array: { count: 2, step: ["{door_w}", 0, 0] }
+  worktop:
+    primitive: cube
+    size: ["{width + 0.02}", 0.04, 0.64]
+    anchor: bottom_center
+    offset: [0, 0.86, 0]
+    bevel: 0.006
+    subtract: [bowl_void]
+    material: wood
+  upstand:
+    primitive: cube
+    size: ["{width + 0.02}", 0.08, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.9, -0.31]
+    bevel: 0.003
+    material: wood
+  bowl_void:                      # the hole the bowl drops into (worktop and carcass)
+    primitive: cube
+    size: [0.5, 0.2, 0.4]
+    anchor: bottom_center
+    offset: [0, 0.72, 0.02]
+    bevel: 0
+    cutter: true
+  bowl:
+    primitive: extrude
+    shape: { rect: [0.5, 0.4], radius: 0.03 }
+    fit: none
+    axis: y
+    size: [1, 0.183, 1]
+    anchor: bottom_center
+    offset: [0, 0.72, 0.02]
+    subtract: [bowl_cavity]
+    material: chrome
+    collider: none
+  bowl_cavity:
+    primitive: extrude
+    shape: { rect: [0.44, 0.34], radius: 0.05 }
+    fit: none
+    axis: y
+    bevel: 0.03
+    size: [1, 0.2, 1]
+    anchor: bottom_center
+    offset: [0, 0.74, 0.02]
+    cutter: true
+  tap_body:
+    primitive: cylinder
+    size: [0.035, 0.24, 0.035]
+    anchor: bottom_center
+    offset: [0, 0.9, -0.235]
+    material: chrome
+    collider: none
+  tap_spout:
+    primitive: cube
+    size: [0.024, 0.024, 0.18]
+    anchor: bottom_center
+    offset: [0, 1.115, -0.15]
+    bevel: 0.01
+    material: chrome
+    collider: none
+  tap_lever:
+    primitive: cube
+    size: [0.012, 0.012, 0.08]
+    anchor: bottom_center
+    offset: [0.05, 0.94, -0.235]
+    bevel: 0.005
+    material: chrome
+    collider: none
+
+surfaces:
+  top: { from: worktop.top }
+
+affordances:
+  # Wash up: the dirty plate a meal leaves is used up (geogen.101.5).
+  - { type: stand, action: wipe, at: [0, 0, 0.7], approach: [0, 0, 0], facing: 180, duration: [6, 10],
+      requires: { holding: dirty_plate }, takes: dirty_plate, advertises: { order: 0.5 }, tags: [household] }

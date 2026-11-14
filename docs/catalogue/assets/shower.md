@@ -29,6 +29,10 @@ place:
 
 `tray` (extrude), `drain` (cylinder), `screen` (cube), `screen_profile` (cube), `riser` (cylinder), `arm` (cube), `head` (cylinder), `mixer` (cube)
 
+## Affordances
+
+stand at (0, 0, 0.9) [household, wash]
+
 ## Clearance
 
 front 0.6

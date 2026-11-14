@@ -34,6 +34,10 @@ place:
 | --- | --- | --- |
 | `counter` | 0.82 x 0.51 | +Y |
 
+## Affordances
+
+stand at (0, 0, 0.7) [household, wash]
+
 ## Clearance
 
 front 0.7

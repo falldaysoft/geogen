@@ -97,7 +97,7 @@ reloads the model within half a second (the player keeps their position).
 
 Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
-(Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F6 scene list,
+(Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F9 cutaway, F6 scene list,
 F7 / F8 previous / next scene, E use, L lock, Q track the next active quest,
 J quest log, I / F select and use a carried item, ? this list of keys.
 
@@ -163,6 +163,7 @@ User args (after `--`):
 | `--spawn=X,Y,Z`, `--yaw=DEG` | Player start (default: 3 m in front (+Z) of the model, facing it) |
 | `--camera=overview` | Start on the overview camera |
 | `--colliders` | Show collider wireframes |
+| `--cutaway` | Hide ceilings and roofs (their meshes; lights and colliders stay) and frame the overview camera from above, to watch people indoors: `--camera=overview --cutaway` (F9 toggles) |
 | `--script=FILE`, `--run=JSON` | Run control API commands once the world is loaded: a script (`{start?, steps: [{cmd, args, retry?, id?}], stop_on_error?}`, [docs/schema/geogen-control.v1.schema.json](../../docs/schema/geogen-control.v1.schema.json)); each step prints `script: {...}`, then `script done: {...}` and the runtime quits (exit 1 if a step failed). See [Scripts](#scripts) |
 | `--walk=SECONDS` | `player.move` forward (the action flags below are shorthand for script steps) |
 | `--use=ASSET`, `--use=@aim` | `interactions.use` on an asset's interactions (e.g. `door`), or `player.use` on whatever the player looks at |
@@ -852,6 +853,13 @@ box would rest on its friction. Props aren't static colliders, so the navmesh is
   x loudness x strength, muffled through walls) or sees (sight range and cone, clear line),
   never its own doing. Its head turns there, and `interrupt` cuts an `interruptible` action
   short so it decides again. Report: `noticed`, `notice`, `cut_short`.
+- **Plans** (`planner:` on the definition; `scripts/npc_planner.gd`, the port of `geogen/planner.py`): the NPC
+  decides by chains of affordances found through what they `requires`, `takes` and `gives` (fridge, range, table),
+  scored by what they add to its needs over their time. Every affordance of a plan is reserved; a step that is no
+  longer possible drops the plan and the next decision plans again. Its needs fill over an option's duration, and a
+  need with `at_zero` runs its action when it runs out. Report: `plan`, `plans`, `plans_done`, `replans`,
+  `ran_out`, `mood`; trace: `plan`, `replan`. `--trace=FILE` replays a planner trace (`tests/data/planner/`)
+  as it does a rules trace.
   With `memory: {forget, every, search}` it knows of the props it has seen (where, and what
   they rested on) or heard land (where the noise was), for `forget` s after it last perceived
   them, looking round every `every` s (`GeogenMemory`, `npc_memory.gd`); a spot it can see

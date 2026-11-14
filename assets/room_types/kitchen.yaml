@@ -1,9 +1,21 @@
-# Kitchen-diner: a table with chairs round it (no fitted kitchen units yet).
+# Kitchen-diner: fridge, range and sink along the walls, and a table with chairs round it.
 
 name: kitchen
 finishes: { walls: tile_subway, floor: tile_floor_grey }
 
 items:
+  range:
+    asset: kitchen_range.yaml
+    against: wall
+    prefer: [no_door_wall, no_window_wall]
+  fridge:
+    asset: fridge.yaml
+    against: wall
+    prefer: [corner, {near: range}]
+  sink:
+    asset: kitchen_sink.yaml
+    against: wall
+    prefer: [window_wall, {near: range}]
   table:
     asset: table.yaml
     against: none

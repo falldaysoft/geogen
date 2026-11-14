@@ -1,0 +1,15 @@
+# Max Lindqvist, one of three students sharing number 4: up late, up late the next morning, and
+# fed from the microwave.
+kind: character
+version: 1
+name: Max Lindqvist
+npc: npcs/householder.yaml
+seed: 43
+body:
+  archetype: characters/archetypes/young_man.yaml
+needs:
+  hunger:  { initial: 0.8, decay: 0.0016, urgent: 0.3 }
+  hygiene: { initial: 0.7, decay: 0.0006, urgent: 0.2 }
+  order:   { initial: 0.9, decay: 0.0002 }
+routine:
+  - { name: night, from: "02:00", to: "10:00", only: [bed], hold: true }

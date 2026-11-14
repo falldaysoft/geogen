@@ -1,0 +1,12 @@
+# Dan Kowalski at number 3, Priya's partner.
+kind: character
+version: 1
+name: Dan Kowalski
+npc: npcs/householder.yaml
+seed: 32
+body:
+  archetype: characters/archetypes/young_man.yaml
+needs:
+  hunger: { initial: 0.6, decay: 0.0015, urgent: 0.35 }
+routine:
+  - { name: night, from: "23:30", to: "07:00", only: [bed], hold: true }

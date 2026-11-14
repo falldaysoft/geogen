@@ -123,13 +123,16 @@ place:
 <td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
 <td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
 <td align="center"><a href="assets/hanging_chain.md"><img src="img/hanging_chain.png" width="150" alt="hanging_chain"><br>hanging_chain</a></td>
-<td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
+<td align="center"><a href="assets/meal_plate.md"><img src="img/meal_plate.png" width="150" alt="meal_plate"><br>meal_plate</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 <td align="center"><a href="assets/plate.md"><img src="img/plate.png" width="150" alt="plate"><br>plate</a></td>
 <td align="center"><a href="assets/swing_gate.md"><img src="img/swing_gate.png" width="150" alt="swing_gate"><br>swing_gate</a></td>
 <td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
 </tr>
 </table>
@@ -140,6 +143,7 @@ place:
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
 | [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
 | [hanging_chain](assets/hanging_chain.md) | A chain with a lantern, hanging from a bracket on a post. | `height`, `links`, `link` |
+| [meal_plate](assets/meal_plate.md) | A cooked meal on a plate: what a range or a microwave makes of raw food (items/meal.yaml), eaten at a table. |  |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
 | [plate](assets/plate.md) | A white dinner plate. |  |
@@ -160,11 +164,13 @@ place:
 <tr>
 <td align="center"><a href="assets/kitchen_counter.md"><img src="img/kitchen_counter.png" width="150" alt="kitchen_counter"><br>kitchen_counter</a></td>
 <td align="center"><a href="assets/kitchen_range.md"><img src="img/kitchen_range.png" width="150" alt="kitchen_range"><br>kitchen_range</a></td>
+<td align="center"><a href="assets/kitchen_sink.md"><img src="img/kitchen_sink.png" width="150" alt="kitchen_sink"><br>kitchen_sink</a></td>
+<td align="center"><a href="assets/microwave.md"><img src="img/microwave.png" width="150" alt="microwave"><br>microwave</a></td>
 <td align="center"><a href="assets/pass.md"><img src="img/pass.png" width="150" alt="pass"><br>pass</a></td>
-<td align="center"><a href="assets/prep_counter.md"><img src="img/prep_counter.png" width="150" alt="prep_counter"><br>prep_counter</a></td>
-<td align="center"><a href="assets/till_counter.md"><img src="img/till_counter.png" width="150" alt="till_counter"><br>till_counter</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/prep_counter.md"><img src="img/prep_counter.png" width="150" alt="prep_counter"><br>prep_counter</a></td>
+<td align="center"><a href="assets/till_counter.md"><img src="img/till_counter.png" width="150" alt="till_counter"><br>till_counter</a></td>
 <td align="center"><a href="assets/wall_shelving.md"><img src="img/wall_shelving.png" width="150" alt="wall_shelving"><br>wall_shelving</a></td>
 </tr>
 </table>
@@ -178,6 +184,8 @@ place:
 | [gondola](assets/gondola.md) | A gondola: a free-standing double-sided shop shelf with stock on both faces and an end cap. | `length` |
 | [kitchen_counter](assets/kitchen_counter.md) | A fitted kitchen counter: base units under a worktop. | `width` |
 | [kitchen_range](assets/kitchen_range.md) | A commercial range: a stainless six-burner cooker with oven doors, a splashback and an extractor hood above. | `width` |
+| [kitchen_sink](assets/kitchen_sink.md) | A kitchen sink unit: a base unit under a worktop with an inset steel bowl and a mixer tap. | `width` |
+| [microwave](assets/microwave.md) | A countertop microwave oven: a white case, a dark glass door with a handle and a control panel with a knob. |  |
 | [pass](assets/pass.md) | The pass: a stainless counter where plates wait to go out, under a gantry of heat lamps. | `width` |
 | [prep_counter](assets/prep_counter.md) | A stainless prep table with an undershelf, a chopping board and a few tubs. | `width` |
 | [till_counter](assets/till_counter.md) | A shop counter with a till: a wooden counter, a till screen and card reader on top. | `width` |
@@ -391,33 +399,34 @@ place:
 </tr>
 <tr>
 <td align="center"><a href="assets/farm_shed.md"><img src="img/farm_shed.png" width="150" alt="farm_shed"><br>farm_shed</a></td>
+<td align="center"><a href="assets/grocery_bag.md"><img src="img/grocery_bag.png" width="150" alt="grocery_bag"><br>grocery_bag</a></td>
 <td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 <td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
 <td align="center"><a href="assets/lift_platform.md"><img src="img/lift_platform.png" width="150" alt="lift_platform"><br>lift_platform</a></td>
-<td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
 <td align="center"><a href="assets/produce_counter.md"><img src="img/produce_counter.png" width="150" alt="produce_counter"><br>produce_counter</a></td>
 <td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
-<td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 <td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
 <td align="center"><a href="assets/seesaw.md"><img src="img/seesaw.png" width="150" alt="seesaw"><br>seesaw</a></td>
 <td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
-<td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
 <td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 <td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
 <td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
-<td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 <td align="center"><a href="assets/wrapper.md"><img src="img/wrapper.png" width="150" alt="wrapper"><br>wrapper</a></td>
 </tr>
 </table>
@@ -430,6 +439,7 @@ place:
 | [farm_field](assets/farm_field.md) | A farm's field: a fenced rectangle of grass for plots, with a gate gap in the east side and a gravel track from it. | `width`, `depth` |
 | [farm_plot](assets/farm_plot.md) | A tilled plot to grow a crop in: a raised bed of soil. | `stage_hours`, `seed` |
 | [farm_shed](assets/farm_shed.md) | A farm's lean-to shed to sleep in: a plank floor, three board walls and a sloping roof, open at the front, with a cot inside. |  |
+| [grocery_bag](assets/grocery_bag.md) | A paper bag of groceries with greens showing at the top: raw food out of the fridge (items/raw_food.yaml), before a range or a microwave makes a meal of it. |  |
 | [jar](assets/jar.md) | A glass jar of peanut butter or jam. | `spread`, `contents`, `lid_color`, `label_color` |
 | [lever](assets/lever.md) | A floor lever: a cast base with a handle that throws forward and back. | `height` |
 | [lift_platform](assets/lift_platform.md) | A goods lift: a platform that rides up a mast. | `rise`, `speed`, `width` |

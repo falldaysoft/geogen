@@ -129,6 +129,9 @@ var _option := {}
 var _recent := {}                    # option id -> clock when last finished
 var _retry_at := {}                  # failed option id -> clock when it may be tried again
 var _forced := ""                    # option id the next decision takes (force_option)
+var _chain := {}                      # the chain it is on (`planner:`): {goal, steps: [options], index, cost, score}
+var _fill := 0.0                     # how much of the option's `advertises` its duration has given so far (0..1)
+var _fill_total := 0.0               # the duration (s) that fills it; 0: all of it when the option is done
 var _shape: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _pose := "stand"
@@ -322,7 +325,9 @@ func _reappear() -> void:
 
 ## A routine block's `only` keeps them to affordances with one of its tags (`owns`: the NPC's
 ## own things) and none of its activities; with nothing to take, they are as without it.
-func options(restricted := true) -> Array[Dictionary]:
+## ``chains``: for the planner, affordances whose `requires` don't hold now are options too
+## (a chain's earlier step may see to that).
+func options(restricted := true, chains := false) -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     var actions: Dictionary = definition.get("actions", {})
     var margin := float(definition.get("home_margin", 1.0))
@@ -334,7 +339,7 @@ func options(restricted := true) -> Array[Dictionary]:
     # A routine block `at: work`: the affordances under the NPC's work, wherever that is.
     var work := str(definition.get("work", ""))
     var at_work := work != "" and routine_blocks().any(func(b): return b.get("at", "") == "work")
-    for a in world.affordances:
+    for a in world.affordances + world.affordance_uses:
         if not actions.has(a.get("action", "")) or not is_instance_valid(a.get("node")):
             continue
         if a.has("follow") and not a.get("boardable", true):
@@ -361,14 +366,16 @@ func options(restricted := true) -> Array[Dictionary]:
         var gate = a.get("interaction")
         if gate is GeogenInteraction and not (gate as GeogenInteraction).allowed(WorldLoader.actor_id(self)):
             continue    # its `when` says no for this actor (a bin with nothing to throw away)
-        if a.has("requires") and not _meets(a):
+        if a.has("requires") and not chains and not _meets(a):
             continue    # it needs something carried, or a state, it hasn't got (geogen.101.1)
+        if not _for_me(a, chains):
+            continue    # a link in a chain, to one who doesn't plan; or for needs it hasn't got
         if _poses_at_anchor(actions[a["action"]]) and _something_on(a["position"], uid):
             continue    # a seat or a bed with a thing lying on it: it sits somewhere else
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
             "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "at": a["approach"]})
     if not block_only.is_empty() and result.is_empty():
-        return options(false)
+        return options(false, chains)
     var activities: Dictionary = definition.get("activities", {}) if block_only.is_empty() else {}
     for n in activities:
         var act: Dictionary = activities[n]
@@ -394,8 +401,12 @@ func options(restricted := true) -> Array[Dictionary]:
     var lead_at: Vector3 = _heading_for(lead) if lead != null else Vector3.ZERO
     for o in result:
         var utility := float(o.get("base", 0.0))
+        var plain := 0.0
         for need in o["advertises"]:
-            utility += (1.0 - float(needs.get(need, 1.0))) * float(o["advertises"][need])
+            if needs.has(need):
+                plain += GeogenPlanner.urgency(needs[need], definition["needs"][need]) * float(o["advertises"][need])
+        utility += plain
+        var before := utility
         for tag in o["tags"]:
             utility *= float(prefs.get(tag, 1.0))
         if o.has("affordance"):
@@ -413,13 +424,29 @@ func options(restricted := true) -> Array[Dictionary]:
         var recency := 0.0
         if _recent.has(o["id"]) and not o.has("want"):     # a want is about now: what fell again is a new problem
             recency = exp(-(clock - float(_recent[o["id"]])) / maxf(float(w.get("memory", 120.0)), 1.0))
+        # For the planner: how much it likes this option (every multiplier above), less for what it has just done.
+        o["liking"] = (utility / before if before > 0.0 else 1.0) * maxf(0.1, 1.0 - float(w.get("recency", 0.4)) * recency)
         o["score"] = utility - float(w.get("distance", 0.02)) * distance \
             - float(w.get("recency", 0.4)) * recency + float(w.get("noise", 0.05)) * rng.randf()
     result.sort_custom(func(x, y): return x["score"] > y["score"])
     return result
 
 
-## Whether a thing (stable ID) is one of `ids` or inside one of them.
+## Whether an affordance is anything to this NPC. One that only `gives` (advertises nothing)
+## is a link in a chain: for those who plan (``chains``). One that advertises only needs the NPC
+## hasn't got does nothing for it (a shower, to someone with no `hygiene`).
+func _for_me(a: Dictionary, chains: bool) -> bool:
+    var advertises: Dictionary = a.get("advertises", {})
+    if advertises.is_empty():
+        return chains or not a.has("gives")
+    if chains:
+        return true
+    for need in advertises:
+        if needs.has(need):
+            return true
+    return false
+
+
 ## Whether an action puts the body on its anchor (a `pose` step other than standing: sit, lie).
 static func _poses_at_anchor(action: Dictionary) -> bool:
     return (action["steps"] as Array).any(func(s): return s.has("pose") and s["pose"] != "stand" \
@@ -456,8 +483,11 @@ static func _under(uid: String, ids: Array) -> bool:
     return false
 
 
-## Whether another NPC owns a thing (definition `owns`: only its owner uses it).
+## Whether another NPC owns a thing and this one doesn't (definition `owns`: only its owners
+## use it; a couple both own their bed).
 func _owned_by_another(uid: String) -> bool:
+    if _under(uid, definition.get("owns", [])):
+        return false
     for other in world.npcs:
         if other != self and is_instance_valid(other) and _under(uid, other.definition.get("owns", [])):
             return true
@@ -568,6 +598,8 @@ func _decide() -> void:
         _trace({"event": "decide", "chosen": _option["id"]})
         _push(_option["action"], asked)
         return
+    if _run_out():
+        return
     var goal := quest_option() if _forced == "" else {}
     if not goal.is_empty():
         stats["decisions"] += 1
@@ -576,13 +608,20 @@ func _decide() -> void:
         _trace({"event": "decide", "chosen": goal["id"], "quest": goal["quest"]})
         _push(goal["action"], goal["ctx"])
         return
-    var ranked := options()
+    var planned := definition.has("planner") and _forced == ""
+    var ranked := options(true, planned)
     stats["decisions"] += 1
     _wants_seen = ranked.filter(func(o): return o.has("want")).map(
         func(o): return {"id": o["id"], "score": snappedf(o["score"], 0.001)})
     if ranked.is_empty():
+        _drop_plan("nothing to do")
         return
-    _option = ranked[0]
+    if planned:
+        _option = _next_planned(ranked)
+        if _option.is_empty():
+            return                  # nothing worth doing now: look again next frame
+    else:
+        _option = ranked[0]
     if _forced != "":
         for o in ranked:
             if o["id"] == _forced:
@@ -611,6 +650,140 @@ func _decide() -> void:
     _push(_option["action"], ctx)
 
 
+## A need that has run out (its `at_zero`: {action, recover}): what happens then is run where the
+## NPC stands, before anything else, and gives `recover` of the need back (geogen.101.2).
+func _run_out() -> bool:
+    for need in needs:
+        var zero: Dictionary = definition["needs"][need].get("at_zero", {})
+        if zero.is_empty() or needs[need] > 0.0 or not definition["actions"].has(zero["action"]):
+            continue
+        _drop_plan("%s ran out" % need)
+        _option = {"id": "need/%s" % need, "action": str(zero["action"]), "advertises": {need: float(zero["recover"])}}
+        stats["decisions"] += 1
+        stats["ran_out"] = int(stats.get("ran_out", 0)) + 1
+        _trace({"event": "decide", "chosen": _option["id"], "reason": "ran out"})
+        _push(_option["action"], {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position})
+        return true
+    return false
+
+
+## The next step of the plan it is on, or of a new one (`planner:`, geogen.101.4): the option
+## among ``ranked`` to take now, {} when there is no plan to be had. A plan is a chain of
+## options found by GeogenPlanner over what they require, take and give; every affordance in
+## it is reserved while the plan lasts, and a step that is no longer possible drops the plan.
+func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
+    var by_id := {}
+    for o in ranked:
+        by_id[o["id"]] = o
+    if not _chain.is_empty():
+        var step: Dictionary = _chain["steps"][_chain["index"]]
+        var now: Dictionary = by_id.get(step["id"], {})
+        if not now.is_empty() and (not now.has("affordance") or _meets(now["affordance"])):
+            return now
+        _drop_plan("%s isn't possible any more" % step["id"])
+    var found := GeogenPlanner.plan(_snapshot(ranked))
+    if found.is_empty():
+        for o in ranked:            # nothing fills a need: the best of what can be done as things are
+            if not o.has("affordance"):
+                return o
+            var a: Dictionary = o["affordance"]
+            if (a.get("advertises", {}) as Dictionary).is_empty() and a.has("gives"):
+                continue            # a link in a chain, with no chain to be part of
+            if not a.has("requires") or _meets(a):
+                return o
+        return {}
+    var steps: Array = (found["steps"] as Array).map(func(id): return by_id[id])
+    for o in steps:
+        if o.has("affordance"):
+            world.npc_reserve(o["id"], self)
+    _chain = {"goal": found["goal"], "steps": steps, "index": 0, "cost": found["cost"], "score": found["score"]}
+    stats["plans"] = int(stats.get("plans", 0)) + 1
+    _trace({"event": "plan", "goal": found["goal"], "steps": found["steps"], "cost": found["cost"],
+        "score": found["score"], "fills": found["fills"], "goals": found["goals"]})
+    return steps[0]
+
+
+## What the planner is asked: the options as its affordances, the states they name, and this NPC.
+func _snapshot(ranked: Array[Dictionary]) -> Dictionary:
+    var actor := WorldLoader.actor_id(self)
+    var listed := []
+    var states := {}
+    for o in ranked:
+        var span = null
+        var entry := {"id": o["id"], "advertises": o["advertises"], "weight": float(o.get("liking", 1.0)),
+            "worth": float(o.get("base", 0.0))}
+        if o.has("affordance"):
+            var a: Dictionary = o["affordance"]
+            var at: Vector3 = a["approach"]
+            var uid := WorldLoader.uid_of(a["node"])
+            entry["at"] = [at.x, at.y, at.z]
+            span = a.get("duration")
+            for key in ["takes", "gives"]:
+                if a.has(key):
+                    entry[key] = a[key]
+            var requires := {}
+            if a.get("requires", {}).has("holding"):
+                requires["holding"] = a["requires"]["holding"]
+            for part in ["requires", "sets"]:
+                var named: Dictionary = a.get(part, {}).get("state", {}) if part == "requires" else a.get("sets", {})
+                var keyed := {}
+                for name in named:
+                    var key := "%s#%s" % [uid, name]
+                    keyed[key] = str(named[name])
+                    var it = world.interactions_by_key.get(key)
+                    if it is GeogenInteraction:
+                        states[key] = (it as GeogenInteraction).state
+                if keyed.is_empty():
+                    continue
+                if part == "requires":
+                    requires["state"] = keyed
+                else:
+                    entry["sets"] = keyed
+            if not requires.is_empty():
+                entry["requires"] = requires
+        elif o.has("want"):
+            var at: Vector3 = o["at"]
+            entry["at"] = [at.x, at.y, at.z]
+        else:
+            span = o["activity"].get("duration")
+        if span == null:
+            span = definition["actions"][o["action"]].get("duration", [3.0, 6.0])
+        entry["duration"] = (float(span[0]) + float(span[1])) / 2.0
+        listed.append(entry)
+    var holding := {}
+    if world.rules != null:
+        for e in world.rules.carried(actor):
+            holding[str(e["id"])] = int(e["count"])
+    var urgency := {}
+    for need in needs:
+        urgency[need] = GeogenPlanner.urgency(needs[need], definition["needs"][need])
+    var p := global_position
+    return {"affordances": listed, "states": states, "limits": definition["planner"],
+        "actor": {"at": [p.x, p.y, p.z], "speed": float(definition.get("speed", 1.2)), "holding": holding,
+            "needs": needs, "urgency": urgency}}
+
+
+## Give the plan up: its things are free again, and the next decision plans afresh.
+func _drop_plan(reason: String) -> void:
+    if _chain.is_empty():
+        return
+    for o in _chain["steps"]:
+        world.npc_release(o["id"], self)
+    stats["replans"] = int(stats.get("replans", 0)) + 1
+    _trace({"event": "replan", "goal": _chain["goal"], "at": int(_chain["index"]), "reason": reason})
+    _chain = {}
+
+
+## How it is, in one number: the mean of its needs (1 content .. 0 wretched).
+func mood() -> float:
+    if needs.is_empty():
+        return 1.0
+    var total := 0.0
+    for need in needs:
+        total += needs[need]
+    return total / needs.size()
+
+
 func _push(action_name: String, ctx: Dictionary) -> void:
     var action: Dictionary = definition["actions"][action_name]
     if ctx.get("duration") == null:
@@ -626,12 +799,13 @@ func _finish_option(ok: bool, reason := "") -> void:
         return
     var id: String = _option["id"]
     _recent[id] = clock
+    if ok and not _has_what_it_takes():
+        ok = false                      # what it was to use up went missing on the way (taken, dropped)
+        reason = "nothing left of what it takes"
     if ok:
         if _option.has("affordance"):
             _carry_out(_option["affordance"])
-        for need in _option["advertises"]:
-            if needs.has(need):
-                needs[need] = clampf(needs[need] + float(_option["advertises"][need]), 0.0, 1.0)
+        _give(1.0 - _fill)              # what its duration hasn't given already (cut short, it still counts as done)
         stats["used"][id] = int(stats["used"].get(id, 0)) + 1
         if _option.has("activity") and _option["activity"].has("cooldown"):
             _retry_at[id] = clock + float(_option["activity"]["cooldown"])
@@ -640,10 +814,51 @@ func _finish_option(ok: bool, reason := "") -> void:
         stats["failures"].append("%s: %s" % [id, reason])
         _retry_at[id] = clock + float(definition.get("scoring", {}).get("retry", 30.0))
         _trace({"event": "fail", "option": id, "reason": reason})
+    _fill = 0.0
+    _fill_total = 0.0
     world.npc_release(id, self)
     if _option.has("want"):
         GeogenWants.finish(self, _option, ok)
+    if not _chain.is_empty() and _chain["steps"][_chain["index"]]["id"] == id:
+        if not ok:
+            _drop_plan(reason)
+        else:
+            _chain["index"] += 1
+            if _chain["index"] >= (_chain["steps"] as Array).size():
+                stats["plans_done"] = int(stats.get("plans_done", 0)) + 1
+                _chain = {}
     _option = {}
+
+
+## Whether the NPC still carries one of the things the option in hand `takes` (true when it takes nothing).
+func _has_what_it_takes() -> bool:
+    var takes: Array = _option.get("affordance", {}).get("takes", [])
+    if takes.is_empty() or world.rules == null:
+        return true
+    var actor := WorldLoader.actor_id(self)
+    return takes.any(func(id): return world.rules.held(str(id), actor) > 0)
+
+
+## A share (0..1) of what the option in hand `advertises`, added to the needs.
+func _give(share: float) -> void:
+    if share <= 0.0 or _option.is_empty():
+        return
+    for need in _option["advertises"]:
+        if needs.has(need):
+            needs[need] = clampf(needs[need] + float(_option["advertises"][need]) * share, 0.0, 1.0)
+
+
+## Needs fill over the option's duration (its action's `wait: duration` / `loop: duration`), so
+## one cut short or failed has still given what it had time to (geogen.101.2).
+func _fill_over(delta: float) -> void:
+    # Only for those who plan: the others' needs are tuned to getting it all when the option is done
+    # (a diner's rest falls faster than a seat fills it: filled as it sat, it would never recover).
+    if not definition.has("planner") or _stack.size() != 1 or _fill_total <= 0.0 or _fill >= 1.0 \
+            or not _has_what_it_takes():
+        return
+    var share := minf(delta / _fill_total, 1.0 - _fill)
+    _fill += share
+    _give(share)
 
 
 # --- running --------------------------------------------------------------
@@ -842,6 +1057,8 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
     if step.has("wait"):
         var r = ctx["duration"] if str(step["wait"]) == "duration" else step["wait"]
         _timer = rng.randf_range(float(r[0]), float(r[1]))
+        if str(step["wait"]) == "duration" and _stack.size() == 1 and not ctx.get("held", false):
+            _fill_total = _timer        # (held until a routine block ends, it all comes at the end, as it did)
         return ""
     if step.has("vanish"):
         return ""
@@ -854,6 +1071,8 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if step.has("loop"):
             var r = ctx["duration"] if str(step["loop"]) == "duration" else step["loop"]
             _timer = rng.randf_range(float(r[0]), float(r[1]))
+            if str(step["loop"]) == "duration" and _stack.size() == 1 and not ctx.get("held", false):
+                _fill_total = _timer
         if animator != null and animator.has(clip) and _pose == "stand":
             if step.has("loop"):
                 animator.play_loop(clip)
@@ -936,6 +1155,8 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         return "done" if _timer >= POSE_SECONDS else "running"
     if step.has("wait"):
         _timer -= delta
+        if str(step["wait"]) == "duration":
+            _fill_over(delta)
         if ctx.get("held", false) and str(step["wait"]) == "duration":
             return "running" if _hold_block() else "done"     # until the block ends (morning)
         if _timer <= 0.0 and not _ride.is_empty() and not _ride.get("boardable", true):
@@ -943,6 +1164,8 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         return "done" if _timer <= 0.0 else "running"
     if step.has("play"):
         _timer -= delta
+        if str(step.get("loop", "")) == "duration":
+            _fill_over(delta)
         if ctx.get("held", false) and str(step.get("loop", "")) == "duration" and _hold_block():
             return "running"
         if _timer > 0.0:
@@ -1045,7 +1268,7 @@ func restore_state(data: Dictionary) -> void:
     rotation = Vector3(0, deg_to_rad(float(data.get("yaw", rad_to_deg(_yaw())))) - _parent_yaw(), 0)
     var seat := str(data.get("seat", ""))
     if seat != "":
-        for a in world.affordances:
+        for a in world.affordances + world.affordance_uses:
             if a["id"] == seat:
                 global_position = a["approach"]
         force_option(seat)
@@ -1091,6 +1314,9 @@ func _drop_everything() -> void:
     _looping = false
     _path = PackedVector3Array()
     velocity = Vector3.ZERO
+    _drop_plan("dropped everything")
+    _fill = 0.0
+    _fill_total = 0.0
     if not _option.is_empty():
         world.npc_release(str(_option.get("id", "")), self)
         if _option.has("want"):
@@ -2608,6 +2834,13 @@ func _quests() -> Dictionary:
     return out
 
 
+func _plan_report() -> Dictionary:
+    if _chain.is_empty():
+        return {}
+    return {"goal": _chain["goal"], "steps": (_chain["steps"] as Array).map(func(o): return o["id"]),
+        "index": _chain["index"], "cost": _chain["cost"], "score": _chain["score"]}
+
+
 func report() -> Dictionary:
     var p := global_position
     return {"npc": String(name), "uid": WorldLoader.npc_uid(self), "actor": WorldLoader.actor_id(self), "name": person_name(),
@@ -2630,6 +2863,10 @@ func report() -> Dictionary:
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         "holding": holding(),
+        # Planning (`planner:`): the chain it is on ({goal, steps, index, cost, score}; {} for none), how many it
+        # has made, finished and given up; needs that ran out (`at_zero`); its mood (the mean of its needs).
+        "plan": _plan_report(), "plans": int(stats.get("plans", 0)), "plans_done": int(stats.get("plans_done", 0)),
+        "replans": int(stats.get("replans", 0)), "ran_out": int(stats.get("ran_out", 0)), "mood": snappedf(mood(), 0.01),
         # The physics prop in its hands (stable ID, "" for none), and how many it has picked up and put down.
         "wants": int(stats.get("wants", 0)),
         # Its wants in detail (GeogenWants.report: seen, left, doing, handled), where a step's `look:` has the

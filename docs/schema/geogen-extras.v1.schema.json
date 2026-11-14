@@ -242,7 +242,17 @@
                 "properties": { "holding": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
                   "state": { "type": "object", "additionalProperties": { "type": "string" } } } },
               "takes": { "description": "Done, it takes one of the first of these items the actor carries (item ids).", "type": "array", "items": { "type": "string" }, "minItems": 1 },
-              "gives": { "description": "Done, the actor carries these more: {item id: count}.", "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } }
+              "gives": { "description": "Done, the actor carries these more: {item id: count}.", "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+              "uses": { "description": "Other things done at the same place, by name: each is an affordance of its own to NPCs (id '<node>#<index>.<name>') with these in place of the affordance's, sharing where it is, its action and its slots (a chair is a seat, and with a meal in hand somewhere to eat it).",
+                "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false,
+                  "properties": { "duration": { "$ref": "#/$defs/range" },
+                    "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "requires": { "type": "object", "additionalProperties": false,
+                      "properties": { "holding": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+                        "state": { "type": "object", "additionalProperties": { "type": "string" } } } },
+                    "takes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+                    "gives": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } } } } }
             }
           }
         },
@@ -586,7 +596,15 @@
             "radius": { "type": "number" }, "height": { "type": "number" },
             "needs": { "type": "object", "additionalProperties": {
               "type": "object", "required": ["initial", "decay"], "additionalProperties": false,
-              "properties": { "initial": { "type": "number", "minimum": 0, "maximum": 1 }, "decay": { "type": "number" } } } },
+              "properties": { "initial": { "type": "number", "minimum": 0, "maximum": 1 }, "decay": { "type": "number" },
+                "urgent": { "description": "Below this level the need's shortfall counts 'boost' times more when choosing what to do.", "type": "number" },
+                "boost": { "type": "number", "minimum": 1 },
+                "at_zero": { "description": "When the need runs out: 'action' is run where the NPC stands, and gives 'recover' of the need back.", "type": "object",
+                  "required": ["action", "recover"], "additionalProperties": false,
+                  "properties": { "action": { "type": "string" }, "recover": { "type": "number" } } } } } },
+            "planner": { "description": "The NPC decides by plans: chains of affordances found through what they require, take and give (geogen/planner.py; scripts/npc_planner.gd). 'depth': the longest chain; 'patience': seconds added to a chain's time when scoring it; 'nodes': the search's limit.",
+              "type": "object", "required": ["depth", "patience", "nodes"], "additionalProperties": false,
+              "properties": { "depth": { "type": "integer", "minimum": 1 }, "patience": { "type": "number", "minimum": 0 }, "nodes": { "type": "integer", "minimum": 1 } } },
             "preferences": { "type": "object", "additionalProperties": { "type": "number" } },
             "activities": { "type": "object", "additionalProperties": {
               "type": "object", "required": ["action", "advertises"], "additionalProperties": false,

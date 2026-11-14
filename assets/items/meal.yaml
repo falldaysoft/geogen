@@ -1,0 +1,6 @@
+# A cooked meal: made from raw food at a range or a microwave, eaten sitting at a table
+# (chair.yaml), which leaves a dirty plate.
+kind: item
+title: Meal
+tags: [meal]
+body: meal_plate.yaml

@@ -1,0 +1,112 @@
+{
+ "name": "depth",
+ "about": "The depth limit is the longest chain: four steps are found at the default depth and not at depth 3.",
+ "world": {
+  "affordances": [
+   {
+    "id": "kitchen/fridge#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 4,
+    "gives": {
+     "raw_food": 1
+    }
+   },
+   {
+    "id": "kitchen/stove#0",
+    "at": [
+     2,
+     0,
+     0
+    ],
+    "duration": 30,
+    "takes": [
+     "raw_food"
+    ],
+    "gives": {
+     "meal": 1
+    }
+   },
+   {
+    "id": "kitchen/table/chair#0",
+    "at": [
+     2,
+     0,
+     3
+    ],
+    "duration": 60,
+    "takes": [
+     "meal"
+    ],
+    "gives": {
+     "dirty_dish": 1
+    },
+    "advertises": {
+     "hunger": 0.7
+    }
+   },
+   {
+    "id": "kitchen/sink#0",
+    "at": [
+     3,
+     0,
+     0
+    ],
+    "duration": 10,
+    "takes": [
+     "dirty_dish"
+    ],
+    "advertises": {
+     "order": 0.3
+    }
+   }
+  ]
+ },
+ "actors": {
+  "ana": {
+   "at": [
+    4,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "order": 0.5
+   }
+  }
+ },
+ "limits": {
+  "depth": 3
+ },
+ "steps": [
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": []
+   }
+  },
+  {
+   "set": {
+    "holding": {
+     "ana": {
+      "raw_food": 1
+     }
+    }
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "kitchen/stove#0",
+     "kitchen/table/chair#0",
+     "kitchen/sink#0"
+    ]
+   }
+  }
+ ]
+}

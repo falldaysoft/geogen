@@ -846,7 +846,11 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
-                   "advertises", "tags", "slots", "interaction", "depth", "body", "requires", "takes", "gives"}
+                   "advertises", "tags", "slots", "interaction", "depth", "body", "requires", "takes", "gives", "uses"}
+# Other things done at the same place (`uses: {name: {...}}`): each with its own of these, the rest
+# (where, the action, its slots) shared with the affordance. A chair is a seat, and with a meal in
+# hand somewhere to eat it.
+AFFORDANCE_USE_KEYS = {"duration", "advertises", "tags", "requires", "takes", "gives"}
 # What doing it needs and what it does to what the actor carries (geogen.101.1): the planner
 # chains affordances through these (a fridge gives raw food, a stove takes it and gives a meal).
 AFFORDANCE_REQUIRES = {
@@ -1073,6 +1077,26 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
             raise ValueError(f"affordance interaction {name!r} not on this asset")
         out["interaction"] = name
     _affordance_chain(spec, root, out)
+    if spec.get("uses") is not None:
+        uses = spec["uses"]
+        if not isinstance(uses, dict) or not uses:
+            raise ValueError(f"affordance uses is {{name: {{{', '.join(sorted(AFFORDANCE_USE_KEYS))}}}}}, got {uses!r}")
+        out["uses"] = {}
+        for name, use in uses.items():
+            if not isinstance(use, dict) or set(use) - AFFORDANCE_USE_KEYS:
+                raise ValueError(f"affordance use '{name}': keys are {sorted(AFFORDANCE_USE_KEYS)}, got {use!r}")
+            entry: dict[str, Any] = {}
+            if "interaction" in out:
+                entry["interaction"] = out["interaction"]
+            if "duration" in use:
+                entry["duration"] = _range(use["duration"], f"affordance use '{name}' duration")
+            if use.get("advertises"):
+                entry["advertises"] = {str(k): float(v) for k, v in use["advertises"].items()}
+            if use.get("tags"):
+                entry["tags"] = [str(t) for t in use["tags"]]
+            _affordance_chain(use, root, entry)
+            entry.pop("interaction", None)
+            out["uses"][str(name)] = entry
     if "body" in spec:
         bodies = (root.meta.get("mechanism") or {}).get("bodies", {})
         if str(spec["body"]) not in bodies:

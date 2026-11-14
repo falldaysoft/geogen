@@ -1,0 +1,19 @@
+# One furnished bungalow and the person who lives in it: the smallest dollhouse.
+
+name: one_house
+tags: [test.npc]
+
+spawns:
+  start: { position: [-2.8, 0.05, -3.5], facing: north }
+
+place:
+  house:
+    asset: bungalow.yaml
+    furnish: true
+
+  ana:
+    npc: npcs/householder.yaml
+    on: house.living.floor
+    at: { u: 0.45, v: 0.2 }
+    home: { rect: [-4.7, -4.0, 4.7, 4.0] }
+    seed: 1

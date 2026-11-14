@@ -1,0 +1,15 @@
+# Jo Marsh, one of three students sharing number 4: up late, up late the next morning, and
+# fed from the microwave.
+kind: character
+version: 1
+name: Jo Marsh
+npc: npcs/householder.yaml
+seed: 41
+body:
+  archetype: characters/archetypes/young_woman.yaml
+needs:
+  hunger:  { initial: 0.3, decay: 0.0016, urgent: 0.3 }
+  hygiene: { initial: 0.7, decay: 0.0006, urgent: 0.2 }
+  order:   { initial: 0.9, decay: 0.0002 }
+routine:
+  - { name: night, from: "01:00", to: "09:00", only: [bed], hold: true }

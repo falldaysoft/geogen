@@ -150,6 +150,7 @@
             "npcs.force",
             "npcs.greet",
             "npcs.list",
+            "npcs.needs",
             "npcs.options",
             "npcs.pause",
             "npcs.places",
@@ -761,6 +762,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/npcs.list"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.needs"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.needs"
               }
             }
           }
@@ -1682,6 +1699,7 @@
         "npcs.list": "every NPC's report (doing, needs, position, ...)",
         "npcs.options": "{npc} the NPC's scored options now",
         "npcs.force": "{npc, option} make its next decision take that option",
+        "npcs.needs": "{npc, needs?: {need: 0..1}} set some of its needs (the ones it has), and return them all",
         "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: [{position, approach, uid, tags, height, score, qualities: {high, enclosed, hidden, warm, soft, ...}}]; and what the prop rests on",
         "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
         "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
@@ -2360,6 +2378,23 @@
           },
           "option": {
             "type": "string"
+          }
+        }
+      },
+      "npcs.needs": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "needs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
           }
         }
       },

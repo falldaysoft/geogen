@@ -31,3 +31,9 @@ parts:
     offset: [0.3, 0.85, 0.46]
     material: plastic_black
     collider: none
+
+affordances:
+  # A household's larder: taking something out gives raw food, the start of a meal's chain
+  # (a range or a microwave takes it; geogen.101.5). Only those who plan chains come for it.
+  - { type: stand, action: attend, at: [0, 0, 0.95], approach: [0, 0, 0], facing: 180, duration: [3, 5],
+      gives: raw_food, tags: [household] }

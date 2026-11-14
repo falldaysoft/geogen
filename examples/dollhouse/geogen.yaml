@@ -1,0 +1,9 @@
+# A project built on geogen: a street of four houses whose people live their lives. Nobody
+# is scripted: each person has needs (hunger, rest, hygiene, ...) and a planner that finds
+# chains through what the house offers (fridge -> range -> a chair at the table).
+#   python -m geogen.main --project examples/dollhouse --export-catalogue
+# Watch from above with the ceilings off (F4 overview, F9 cutaway, F5 names):
+#   godot --path runtime/godot -- --generated=$PWD/examples/dollhouse/generated --camera=overview --cutaway --npc-labels
+kind: project
+name: dollhouse
+description: A street of four houses whose people cook, eat, wash and sleep by plans nobody wrote

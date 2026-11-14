@@ -1,0 +1,10 @@
+# The dollhouse's runtime catalogue (python -m geogen.main --project examples/dollhouse --export-catalogue).
+kind: scene_catalogue
+default: lark_lane
+scenes:
+  lark_lane:
+    group: showcase
+    description: Four houses and the nine people who live in them, by needs and plans nobody wrote
+  one_house:
+    group: test
+    description: One furnished bungalow and the person who lives in it

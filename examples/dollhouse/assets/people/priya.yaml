@@ -1,0 +1,13 @@
+# Priya Nair at number 3: she and Dan cook properly, on the range.
+kind: character
+version: 1
+name: Priya Nair
+npc: npcs/householder.yaml
+seed: 31
+body:
+  archetype: characters/archetypes/young_woman.yaml
+  params: { hair_color: black }
+needs:
+  hunger: { initial: 0.35, decay: 0.0016, urgent: 0.35 }
+routine:
+  - { name: night, from: "23:00", to: "06:30", only: [bed], hold: true }

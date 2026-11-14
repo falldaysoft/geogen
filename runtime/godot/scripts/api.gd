@@ -108,6 +108,7 @@ const COMMANDS := {
     "npcs.list": "every NPC's report (doing, needs, position, ...)",
     "npcs.options": "{npc} the NPC's scored options now",
     "npcs.force": "{npc, option} make its next decision take that option",
+    "npcs.needs": "{npc, needs?: {need: 0..1}} set some of its needs (the ones it has), and return them all",
     "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: "
         + "[{position, approach, uid, tags, height, score, qualities: {high, enclosed, hidden, warm, soft, ...}}]; and what the prop rests on",
     "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a "
@@ -669,7 +670,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return world.saves.save()
         "npcs.list":
             return world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return n.report())
-        "npcs.options", "npcs.force", "npcs.greet", "npcs.do", "npcs.places":
+        "npcs.options", "npcs.force", "npcs.greet", "npcs.do", "npcs.places", "npcs.needs":
             var npc := _npc(str(args.get("npc", "")))
             if npc == null:
                 return _err("no NPC named '%s'" % args.get("npc", ""))
@@ -686,6 +687,10 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     "places": GeogenWants.places(npc, str(args["want"]), which, true).map(func(p): return {
                         "position": _v(p["position"]), "approach": _v(p["approach"]), "uid": p["uid"], "tags": p["tags"],
                         "height": snappedf(p["height"], 0.001), "score": snappedf(p["score"], 0.001), "qualities": p["qualities"]})}
+            if cmd == "npcs.needs":
+                if args.get("needs") is Dictionary:
+                    npc.take_needs(args["needs"])
+                return {"npc": String(npc.name), "needs": npc.needs}
             if cmd == "npcs.do":
                 var extra := {}
                 if args.has("subject"):

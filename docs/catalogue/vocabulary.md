@@ -23,7 +23,7 @@
 | `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
 | `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
-| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`: what doing it needs and does to what the actor carries, the links NPCs plan chains through) |
+| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`: what doing it needs and does to what the actor carries, the links NPCs plan chains through; `uses: {name: {requires, takes, gives, advertises, duration, tags}}`: other things done at the same place, sharing its slots: a chair's `eat`) |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes |
 | `clearance` | {front, back, left, right}: free space the furnishing solver keeps around it |
 | `container` | {capacity, part}: the asset holds items |
@@ -174,7 +174,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `memory`, `name`, `needs`, `npc`, `owns`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `memory`, `name`, `needs`, `npc`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -235,12 +235,15 @@ Keys: `body`, `data`, `gait`, `held`, `lifetime`, `mode`, `name`, `opens`, `radi
 | [items/chocolate_bar.yaml](../../assets/items/chocolate_bar.yaml) | Chocolate bar from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/cola.yaml](../../assets/items/cola.yaml) | Cola from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/crisps.yaml](../../assets/items/crisps.yaml) | Crisps from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
+| [items/dirty_plate.yaml](../../assets/items/dirty_plate.yaml) | The plate a meal leaves: washed up at a kitchen sink (kitchen_sink.yaml). |
 | [items/key_room_207.yaml](../../assets/items/key_room_207.yaml) | The key to hotel room 207: its id is the room door's lock key (hotel guest doors lock with key_room_<n>), so carrying it lets L unlock that door. |
 | [items/lemonade.yaml](../../assets/items/lemonade.yaml) | Lemonade from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
+| [items/meal.yaml](../../assets/items/meal.yaml) | A cooked meal: made from raw food at a range or a microwave, eaten sitting at a table (chair.yaml), which leaves a dirty plate. |
 | [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
 | [items/pumpkin.yaml](../../assets/items/pumpkin.yaml) | Pumpkin from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold at the farm's counter. |
 | [items/pumpkin_seeds.yaml](../../assets/items/pumpkin_seeds.yaml) | Pumpkin seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |
 | [items/raider.yaml](../../assets/items/raider.yaml) | A raiding rover: walks a track at its own pace, takes 6 damage to stop, is worth 2 when it is and does 1 harm if it gets through. |
+| [items/raw_food.yaml](../../assets/items/raw_food.yaml) | Raw food: what a household's fridge gives (fridge.yaml), and a range or a microwave takes to make a meal (geogen.101.5). |
 | [items/room_key.yaml](../../assets/items/room_key.yaml) | A hotel room key: carried (give / take, has("room_key")), and what room_key.yaml gives whoever picks it up. |
 | [items/rover.yaml](../../assets/items/rover.yaml) | A delivery rover that drives along walk tracks at its own pace. |
 | [items/wheat.yaml](../../assets/items/wheat.yaml) | Wheat from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold at the farm's counter. |
@@ -253,7 +256,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `memory`, `needs`, `preferences`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `memory`, `needs`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |
@@ -262,6 +265,7 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `h
 | [npcs/diner.yaml](../../assets/npcs/diner.yaml) | Out for a meal or a drink: sits at a table or in a booth, or at the bar, and moves between them now and then. |
 | [npcs/hotel_guest.yaml](../../assets/npcs/hotel_guest.yaml) | A hotel guest in their room: sleeps the night through in its bed, sits, looks out of the window, wanders the room. |
 | [npcs/hotel_staff.yaml](../../assets/npcs/hotel_staff.yaml) | Hotel front-of-house staff: works the reception desk (its staff-side `stand` affordance, tagged `staff`), takes breaks on the lobby seating and walks the lobby now and then. |
+| [npcs/householder.yaml](../../assets/npcs/householder.yaml) | Someone who lives in a home and keeps themselves going: gets hungry, tired and grubby, and sees to it with whatever the home has. |
 | [npcs/park_visitor.yaml](../../assets/npcs/park_visitor.yaml) | Someone spending time in the park: walks the gravel paths, sits on benches and at the picnic tables, stops on the bandstand to look around. |
 | [npcs/pedestrian.yaml](../../assets/npcs/pedestrian.yaml) | Somebody out and about: strolls the sidewalks, stops to look around, rests on benches. |
 | [npcs/resident.yaml](../../assets/npcs/resident.yaml) | A person who lives in a house: rests in chairs, looks out of the windows, browses the shelves and steps out of the front door now and then. |
@@ -415,7 +419,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `grocer` | A grocer: shelving round the walls, gondola shelves down the middle and the till by the door. | gondola, till_counter, wall_shelving |
 | `hotel_bathroom` | Hotel ensuite bathroom archetype. | shower, toilet, towel_rail, vanity, wall_mirror |
 | `hotel_bedroom` | Hotel bedroom archetype: items in priority order, placed by the furnishing solver (geogen/layout/furnish.py) inside any floor-plan room of this type. | armchair, bed, curtains, desk, desk_chair, floor_lamp, nightstand, rug, table_lamp, tv, tv_console, wall_art, wardrobe |
-| `kitchen` | Kitchen-diner: a table with chairs round it (no fitted kitchen units yet). | chair, planter, table |
+| `kitchen` | Kitchen-diner: fridge, range and sink along the walls, and a table with chairs round it. | chair, fridge, kitchen_range, kitchen_sink, planter, table |
 | `lift_lobby` | Lift lobby on guest floors: plants and a seat while waiting. | armchair, planter |
 | `living_room` | Living room: sofa facing the TV across a coffee table, an armchair and a lamp. | armchair, bookshelf, coffee_table, curtains, floor_lamp, sofa, tv, tv_console |
 | `lobby` | Hotel entrance lobby: a seating group and plants, keeping the route from the street door to reception clear (door approach zones are kept free). | coffee_table, planter, sofa |

@@ -1,0 +1,6 @@
+# Raw food: what a household's fridge gives (fridge.yaml), and a range or a microwave
+# takes to make a meal (geogen.101.5).
+kind: item
+title: Groceries
+tags: [raw_food]
+body: grocery_bag.yaml

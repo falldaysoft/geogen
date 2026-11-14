@@ -1,0 +1,14 @@
+# Ada Okafor at number 2: the daughter, with the small bedroom; sleeps in.
+kind: character
+version: 1
+name: Ada Okafor
+npc: npcs/householder.yaml
+seed: 23
+body:
+  archetype: characters/archetypes/young_woman.yaml
+  params: { preset: [feminine, petite] }
+needs:
+  hunger:    { initial: 0.55, decay: 0.0014, urgent: 0.35 }
+  curiosity: { initial: 0.4, decay: 0.006 }
+routine:
+  - { name: night, from: "23:30", to: "08:00", only: [bed], hold: true }

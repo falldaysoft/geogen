@@ -1,0 +1,5 @@
+# The plate a meal leaves: washed up at a kitchen sink (kitchen_sink.yaml).
+kind: item
+title: Dirty plate
+tags: [dirty_dish]
+body: plate.yaml

@@ -860,9 +860,10 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     # Items affordances need, take or give (geogen.101.1): declared like any item a rule names.
     for node in root.iter_nodes():
         for a in node.meta.get("affordances") or []:
-            for item in [*(a.get("requires") or {}).get("holding", []), *a.get("takes", []), *a.get("gives", {})]:
-                if item not in keys:
-                    keys.append(item)
+            for use in (a, *(a.get("uses") or {}).values()):
+                for item in [*(use.get("requires") or {}).get("holding", []), *use.get("takes", []), *use.get("gives", {})]:
+                    if item not in keys:
+                        keys.append(item)
     from .dialogue import sources as dialogue_sources
 
     dialogues = dialogue_sources(root)

@@ -106,7 +106,9 @@ def test_switching_scenes_leaves_nothing_behind(godot_script, catalogue_dir):
         for key in ("nodes", "bodies", "nav_regions", "world_children"):
             assert first[key] == second[key], (scene, key, first, second)
         assert abs(first["objects"] - second["objects"]) <= 5, (scene, first, second)
-        assert second["orphans"] == 0
+        # Nothing is left outside the tree but what is kept there on purpose: the bodies of the items a
+        # scene's affordances name (a chair's meal and dirty plate; world_loader.gd item_bodies).
+        assert second["orphans"] == first["orphans"] <= 8
     assert "leaked" not in out
 
 

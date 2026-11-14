@@ -1,0 +1,17 @@
+# Walter Finch, a widower in his seventies at number 1: slow on his feet, early to bed and
+# up at dawn, and fond of the bench and the flower beds in his front garden.
+kind: character
+version: 1
+name: Walter Finch
+npc: npcs/householder.yaml
+seed: 11
+body:
+  archetype: characters/archetypes/older_man.yaml
+speed: 0.85
+needs:
+  hunger:    { initial: 0.5, decay: 0.0012, urgent: 0.35 }
+  rest:      { initial: 0.7, decay: 0.0014, urgent: 0.3, at_zero: { action: collapse, recover: 0.3 } }
+  curiosity: { initial: 0.5, decay: 0.003 }
+preferences: { outside: 2.0, garden: 2.0, window: 1.4 }
+routine:
+  - { name: night, from: "21:30", to: "05:30", only: [bed], hold: true }

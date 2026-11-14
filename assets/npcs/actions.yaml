@@ -243,6 +243,25 @@ actions:
       - go_to: place
       - put_down: place
 
+  attend:                        # stand at a thing while it does its work (a microwave, a fridge, a shower)
+    approach: [0, 0, 0]
+    duration: [5, 10]
+    steps:
+      - go_to: approach
+        close: true
+      - face: anchor
+      - wait: duration
+        look: anchor
+
+  collapse:                      # a need ran out (a need's `at_zero`): asleep on the floor, where it stood
+    duration: [40, 80]
+    steps:
+      - pose: lie
+        at: approach
+      - wait: duration
+      - pose: stand
+        at: approach
+
   wander:
     duration: [2, 5]
     interruptible: true

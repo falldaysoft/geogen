@@ -1,0 +1,197 @@
+{
+ "name": "urgency",
+ "about": "Choosing the goal: what a chain adds to the needs, weighted by their urgency, over its time plus the patience. Peckish and tired, the sofa (near, quick) wins; given an urgency for hunger (a curve the runtime works out) the meal does; a liking (`weight`) for the other sofa beats that; and a need that is nearly full is only filled to 1.",
+ "world": {
+  "affordances": [
+   {
+    "id": "kitchen/fridge#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 4,
+    "gives": {
+     "raw_food": 1
+    }
+   },
+   {
+    "id": "kitchen/microwave#0",
+    "at": [
+     1,
+     0,
+     0
+    ],
+    "duration": 8,
+    "takes": [
+     "raw_food"
+    ],
+    "gives": {
+     "meal": 1
+    }
+   },
+   {
+    "id": "kitchen/table/chair#0",
+    "at": [
+     2,
+     0,
+     3
+    ],
+    "duration": 60,
+    "takes": [
+     "meal"
+    ],
+    "gives": {
+     "dirty_dish": 1
+    },
+    "advertises": {
+     "hunger": 0.7
+    }
+   },
+   {
+    "id": "lounge/sofa#0",
+    "at": [
+     8,
+     0,
+     3
+    ],
+    "duration": 40,
+    "advertises": {
+     "rest": 0.3
+    }
+   },
+   {
+    "id": "kitchen/fruit_bowl#0",
+    "at": [
+     2,
+     0,
+     4
+    ],
+    "duration": 5,
+    "advertises": {
+     "hunger": 0.15
+    }
+   }
+  ]
+ },
+ "actors": {
+  "ana": {
+   "at": [
+    8,
+    0,
+    2
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "hunger": 0.5,
+    "rest": 0.3
+   }
+  }
+ },
+ "limits": {
+  "patience": 60.0
+ },
+ "steps": [
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "lounge/sofa#0",
+    "score": 0.002079
+   }
+  },
+  {
+   "set": {
+    "urgency": {
+     "ana": {
+      "hunger": 2.0,
+      "rest": 0.7
+     }
+    }
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "kitchen/table/chair#0",
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/microwave#0",
+     "kitchen/table/chair#0"
+    ]
+   }
+  },
+  {
+   "set": {
+    "add": [
+     {
+      "id": "lounge/sofa2#0",
+      "at": [
+       8,
+       0,
+       3
+      ],
+      "duration": 40,
+      "advertises": {
+       "rest": 0.3
+      },
+      "weight": 4.0
+     }
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "lounge/sofa2#0",
+    "score": 0.008317
+   }
+  },
+  {
+   "set": {
+    "needs": {
+     "ana": {
+      "hunger": 0.9,
+      "rest": 1.0
+     }
+    },
+    "urgency": {
+     "ana": {}
+    }
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "kitchen/fruit_bowl#0",
+    "fills": {
+     "hunger": 0.1
+    }
+   }
+  },
+  {
+   "set": {
+    "add": [
+     {
+      "id": "want/tidy/can",
+      "at": [
+       7,
+       0,
+       2
+      ],
+      "duration": 15,
+      "worth": 0.5
+     }
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "want/tidy/can",
+    "fills": {},
+    "score": 0.006579
+   }
+  }
+ ]
+}

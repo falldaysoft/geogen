@@ -1,0 +1,12 @@
+# Ben Okafor at number 2: father of the family.
+kind: character
+version: 1
+name: Ben Okafor
+npc: npcs/householder.yaml
+seed: 22
+body:
+  archetype: characters/archetypes/office_worker.yaml
+needs:
+  hunger: { initial: 0.7, decay: 0.0017, urgent: 0.35 }
+routine:
+  - { name: night, from: "23:00", to: "06:30", only: [bed], hold: true }

@@ -1,0 +1,39 @@
+# Someone who lives in a home and keeps themselves going: gets hungry, tired and grubby,
+# and sees to it with whatever the home has. Nothing here says how: the fridge gives raw
+# food, a range or a microwave takes it and gives a meal, a chair at a table takes the
+# meal, and `planner:` finds the chain (geogen/planner.py; the dollhouse, geogen.101).
+#
+#   ana: { npc: npcs/householder.yaml, on: house.floor, home: house.floor, seed: 1 }
+
+kind: npc
+version: 1
+
+body: { archetype: characters/archetypes/young_woman.yaml }
+speed: 1.2
+turn_speed: 360
+
+# 0 (desperate) .. 1 (satisfied). Below `urgent` a need's shortfall counts four times, so
+# what has got low wins over what is merely not full. `at_zero`: what running out does.
+needs:
+  hunger:    { initial: 0.3, decay: 0.0015, urgent: 0.35 }
+  rest:      { initial: 0.8, decay: 0.001, urgent: 0.25, at_zero: { action: collapse, recover: 0.3 } }
+  hygiene:   { initial: 0.8, decay: 0.0008, urgent: 0.3 }
+  curiosity: { initial: 0.6, decay: 0.004 }
+  order:     { initial: 0.9, decay: 0.0005 }
+
+preferences:
+  window: 1.2
+
+activities:
+  wander: { action: wander, advertises: { curiosity: 0.15 } }
+  idle:   { action: idle, advertises: { rest: 0.02 } }
+
+# Decides by plans: chains of up to `depth` affordances; `patience` s is added to a chain's
+# time when it is scored, so a quick errand doesn't always beat a meal.
+planner: { depth: 5, patience: 60 }
+
+scoring: { distance: 0.02, recency: 0.4, memory: 120, noise: 0.05, retry: 30 }
+home_margin: 2.0
+
+flags:
+  closes_doors: true

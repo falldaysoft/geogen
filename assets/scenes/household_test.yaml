@@ -1,0 +1,53 @@
+# One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101).
+#
+# Nobody is told to cook. The fridge gives raw food, the range takes it and gives a meal, a
+# chair at the table takes the meal (and leaves a dirty plate, which the sink takes): Ana
+# finds the chain. scenes/household_microwave.yaml is this room with a microwave on the
+# counter, which is quicker than the range, so there she plans through that instead.
+
+name: household_test
+tags: [test.npc]
+
+spawns:
+  start: { position: [1.5, 0.05, 1.5], facing: west }
+
+place:
+  room:
+    asset: kitchen.yaml
+
+  fridge:
+    asset: fridge.yaml
+    on: room.kitchen.floor
+    at: { u: { abs: 3.38 }, v: { abs: 0.5 } }
+    facing: west
+
+  range:
+    asset: kitchen_range.yaml
+    on: room.kitchen.floor
+    at: { u: { abs: 3.38 }, v: { abs: 2.1 } }
+    facing: west
+
+  sink:
+    asset: kitchen_sink.yaml
+    on: room.kitchen.floor
+    at: { u: { abs: 1.9 }, v: { abs: 2.86 } }
+    facing: south
+
+  table:
+    asset: table.yaml
+    params: { width: 0.8 }
+    on: room.kitchen.floor
+    at: { u: { abs: 1.0 }, v: { abs: 1.25 } }
+
+  chair:
+    asset: chair.yaml
+    on: room.kitchen.floor
+    at: { u: { abs: 1.75 }, v: { abs: 1.25 } }
+    facing: west
+
+  ana:
+    npc: npcs/householder.yaml
+    on: room.kitchen.floor
+    at: { u: { abs: 2.4 }, v: { abs: 0.6 } }
+    home: room.kitchen.floor
+    seed: 1

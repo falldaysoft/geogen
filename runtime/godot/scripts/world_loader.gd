@@ -108,6 +108,8 @@ var night := false
 var portals: Array[Dictionary] = []
 var _npcs_scene := ""            # the scene the NPCs spawned for (their states go in saves.trips on unload)
 var _reservations := {}   # affordance id -> [GeogenNpc]
+var affordance_uses: Array[Dictionary] = []   # affordances' `uses`, as affordances of their own (NPCs only)
+var _shares := {}         # a use's id -> the affordance whose slots it shares
 ## Interactions from asset extras (GeogenInteraction nodes, children of this loader).
 var interactions: Array[GeogenInteraction] = []
 ## Physics props (extras.geogen.physics): rigid bodies, carrying, spawn and stow.
@@ -405,6 +407,8 @@ func unload() -> void:
     traffic_graph = {}
     portals.clear()
     _reservations.clear()
+    affordance_uses.clear()
+    _shares.clear()
     _moving.clear()
     _target_of.clear()
     travel_points.clear()
@@ -502,6 +506,7 @@ func load_all_async() -> AABB:
 func _exit_tree() -> void:
     if _parse_task >= 0:
         WorkerThreadPool.wait_for_task_completion(_parse_task)
+    _clear_item_icons()      # the items' bodies are kept outside the tree: nothing else frees them
 
 
 ## The ``item_icons`` node of an export (geogen/inventory.py attach_icons): each child is an
@@ -834,6 +839,7 @@ func forget(root: Node) -> void:
     rooms = rooms.filter(func(r): return not inside.call(r.get("node")))
     place_tracking.forget(inside)
     affordances = affordances.filter(func(a): return not inside.call(a.get("node")))
+    affordance_uses = affordance_uses.filter(func(a): return not inside.call(a.get("node")))
     portals = portals.filter(func(p): return not inside.call(p.get("node")))
     travel_points = travel_points.filter(func(t): return not inside.call(t.get("node")))
     npcs = npcs.filter(func(n): return not inside.call(n))
@@ -957,6 +963,20 @@ func _collect_affordances(root: Node) -> void:
             if a.has("body") and not mechanisms.ride(entry, node, str(a["body"])):
                 push_warning("geogen: affordance on %s names body '%s', which its mechanism hasn't" % [node.name, a["body"]])
             affordances.append(entry)
+            # Its `uses`: other things done at the same place, each an affordance of its own to NPCs
+            # that shares the place's slots (reservations go by `shares`).
+            var uses: Dictionary = a.get("uses", {})
+            for use_name in uses:
+                var other: Dictionary = entry.duplicate()
+                for key in ["duration", "requires", "takes", "gives"]:
+                    other.erase(key)
+                other["advertises"] = {}
+                other["tags"] = []
+                other.merge(uses[use_name], true)
+                other["id"] = "%s.%s" % [entry["id"], use_name]
+                other["use"] = str(use_name)
+                _shares[other["id"]] = entry["id"]
+                affordance_uses.append(other)
 
 
 ## Doors' extras.geogen.portal, in world space, with their interaction.
@@ -1165,11 +1185,13 @@ func _sync_trains() -> void:
 
 ## How many NPCs other than ``npc`` hold affordance ``id``.
 func npc_reserved(id: String, npc: Node) -> int:
+    id = _shares.get(id, id)
     var holders: Array = _reservations.get(id, []).filter(func(n): return is_instance_valid(n) and n != npc)
     return holders.size()
 
 
 func npc_reserve(id: String, npc: Node) -> void:
+    id = _shares.get(id, id)
     var holders: Array = _reservations.get(id, [])
     if not npc in holders:
         holders.append(npc)
@@ -1177,6 +1199,7 @@ func npc_reserve(id: String, npc: Node) -> void:
 
 
 func npc_release(id: String, npc: Node) -> void:
+    id = _shares.get(id, id)
     if _reservations.has(id):
         _reservations[id].erase(npc)
 

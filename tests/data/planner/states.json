@@ -1,0 +1,148 @@
+{
+ "name": "states",
+ "about": "States of things: watching from the sofa requires the TV on, and the TV's switch sets it, so the plan is switch > watch; with the TV on already it is the sofa alone. A step isn't put before one whose state it would undo.",
+ "world": {
+  "affordances": [
+   {
+    "id": "lounge/tv#0",
+    "at": [
+     8,
+     0,
+     0
+    ],
+    "duration": 2,
+    "sets": {
+     "lounge/tv#power": "on"
+    }
+   },
+   {
+    "id": "lounge/tv#1",
+    "at": [
+     8,
+     0,
+     0
+    ],
+    "duration": 2,
+    "sets": {
+     "lounge/tv#power": "off"
+    },
+    "advertises": {
+     "quiet": 0.2
+    }
+   },
+   {
+    "id": "lounge/sofa#watch",
+    "at": [
+     8,
+     0,
+     3
+    ],
+    "duration": 100,
+    "requires": {
+     "state": {
+      "lounge/tv#power": "on"
+     }
+    },
+    "advertises": {
+     "fun": 0.5
+    }
+   },
+   {
+    "id": "lounge/armchair#read",
+    "at": [
+     6,
+     0,
+     3
+    ],
+    "duration": 100,
+    "requires": {
+     "state": {
+      "lounge/tv#power": "off"
+     },
+     "holding": [
+      "book"
+     ]
+    },
+    "advertises": {
+     "fun": 0.4
+    }
+   },
+   {
+    "id": "lounge/bookcase#0",
+    "at": [
+     6,
+     0,
+     0
+    ],
+    "duration": 3,
+    "gives": {
+     "book": 1
+    }
+   }
+  ],
+  "states": {
+   "lounge/tv#power": "off"
+  }
+ },
+ "actors": {
+  "ana": {
+   "at": [
+    4,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "fun": 0.2,
+    "quiet": 1.0
+   }
+  }
+ },
+ "steps": [
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "lounge/tv#0",
+     "lounge/sofa#watch"
+    ],
+    "cost": 109.0
+   }
+  },
+  {
+   "set": {
+    "states": {
+     "lounge/tv#power": "on"
+    }
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": [
+     "lounge/sofa#watch"
+    ],
+    "cost": 105.0
+   }
+  },
+  {
+   "set": {
+    "remove": [
+     "lounge/sofa#watch"
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "expect": {
+    "goal": "lounge/armchair#read",
+    "steps": [
+     "lounge/bookcase#0",
+     "lounge/tv#1",
+     "lounge/armchair#read"
+    ]
+   }
+  }
+ ]
+}

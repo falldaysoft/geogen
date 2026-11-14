@@ -1,0 +1,63 @@
+# Lark Lane: four houses and the nine people who live in them. Nobody is scripted. Each has
+# needs and a planner (npcs/householder.yaml), and each house is furnished by the solver, so
+# what its people do all day comes from what happens to be in it.
+#
+#   1  Walter Finch, a widower: a bungalow, a bench and flower beds out front
+#   2  the Okafors: Grace, Ben and their daughter Ada
+#   3  Priya and Dan, who cook on the range
+#   4  Jo, Sam and Max, students with a microwave and one bathroom between them
+
+name: lark_lane
+tags: [level.street]
+
+slots:
+  ground: { position: [1, -0.07, -4] }
+  road:   { position: [1, -0.07, -15], facing: east }
+  walk:   { position: [1, -0.07, -10.5], facing: east }
+  no1:    { position: [-18.0, 0, 0] }
+  no2:    { position: [-5.5, 0, 0] }
+  no3:    { position: [7.0, 0, 0] }
+  no4:    { position: [19.6, 0, 0] }
+  path1:  { position: [-21.7, -0.07, -6.9] }
+  path2:  { position: [-9.3, -0.07, -6.9] }
+  path3:  { position: [3.3, -0.07, -6.9] }
+  path4:  { position: [15.34, -0.07, -6.9] }
+  # Walter's front garden (the houses' fronts face -z, toward the street).
+  bench:  { position: [-17.6, -0.02, -5.2], facing: north }
+  bed_w:  { position: [-19.4, -0.02, -7.6], facing: south }
+  bed_e:  { position: [-15.6, -0.02, -7.6], facing: south }
+
+spawns:
+  start: { position: [1, 0.05, -9], facing: south }
+
+place:
+  ground: { asset: ground.yaml, params: { width: 56, depth: 30 }, slot: ground }
+  road:   { asset: road.yaml, params: { length: 56 }, slot: road }
+  walk:   { asset: sidewalk.yaml, params: { length: 56 }, slot: walk }
+
+  path1: { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path1 }
+  path2: { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path2 }
+  path3: { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path3 }
+  path4: { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path4 }
+
+  bench:        { asset: bench.yaml, slot: bench }
+  flowers_west: { asset: flower_bed.yaml, slot: bed_w }
+  flowers_east: { asset: flower_bed.yaml, slot: bed_e }
+
+  no1: { asset: bungalow.yaml, furnish: 1, slot: no1 }
+  no2: { asset: family_house.yaml, furnish: 2, slot: no2 }
+  no3: { asset: bungalow.yaml, furnish: 3, slot: no3 }
+  no4: { asset: share_house.yaml, furnish: 4, slot: no4 }
+
+  walter: { character: people/walter.yaml, on: no1.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-22.7, -8.6, -13.3, 4.0] }, owns: [no1/bedroom/bed] }
+
+  grace: { character: people/grace.yaml, on: no2.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom/bed] }
+  ben:   { character: people/ben.yaml, on: no2.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom/bed] }
+  ada:   { character: people/ada.yaml, on: no2.bedroom2.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom2/bed] }
+
+  priya: { character: people/priya.yaml, on: no3.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [2.3, -4.0, 11.7, 4.0] }, owns: [no3/bedroom/bed] }
+  dan:   { character: people/dan.yaml, on: no3.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [2.3, -4.0, 11.7, 4.0] }, owns: [no3/bedroom/bed] }
+
+  jo:  { character: people/jo.yaml, on: no4.living.floor, at: { u: 0.5, v: 0.15 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_a/bed] }
+  sam: { character: people/sam.yaml, on: no4.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_b/bed] }
+  max: { character: people/max.yaml, on: no4.bed_c.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_c/bed] }

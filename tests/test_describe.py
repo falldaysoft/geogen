@@ -46,10 +46,11 @@ def test_listing_names_everything():
     assert "state " in text and "wood" in text
     # The core's part stays pasteable into a prompt; a project's assets add to it, not to this budget
     # (raised from 54k when the mechanism assets and their review scene joined the core, geogen.86;
-    # from 56k with wants, perception and the cat: a kind, an asset and four test scenes, geogen.97-100).
+    # from 56k with wants, perception and the cat: a kind, an asset and four test scenes, geogen.97-100;
+    # from 57k with the household: four assets, a kind's keys and two test scenes, geogen.101).
     core = {name for name, (_, path) in d.asset_files().items() if roots.root_of(path) == roots.CORE}
     only_core = {**CATALOGUE, **{k: {n: e for n, e in CATALOGUE[k].items() if n in core} for k in ("assets", "scenes")}}
-    assert len(d.list_text(only_core)) < 57_000
+    assert len(d.list_text(only_core)) < 58_000
     data = json.loads(d.describe(as_json=True))
     assert data["format"] == "geogen-describe" and set(data["assets"]) == set(CATALOGUE["assets"])
 

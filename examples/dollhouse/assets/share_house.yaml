@@ -1,0 +1,33 @@
+# A shared house: three single bedrooms along the back, a living room, a kitchen with a
+# microwave instead of a range (room_types/shared_kitchen.yaml) and one bathroom between
+# three. Unfurnished: scenes place it with `furnish:`.
+
+name: share_house
+tags: [building.house]
+
+floorplan:
+  wall_height: 2.9
+  exterior_wall: 0.2
+  interior_wall: 0.12
+  materials: { exterior: stone, walls: wall_plaster, floor: hardwood_floor, ceiling: ceiling_white }
+  rooms:
+    living:   { rect: [0, 0, 3.8, 4.6], type: living_room }
+    kitchen:  { rect: [3.8, 0, 5.0, 4.6], type: shared_kitchen }
+    bathroom: { rect: [8.8, 0, 2.0, 4.6], type: bathroom }
+    bed_a:    { rect: [0, 4.6, 3.6, 3.6], type: bedroom_single }
+    bed_b:    { rect: [3.6, 4.6, 3.6, 3.6], type: bedroom_single }
+    bed_c:    { rect: [7.2, 4.6, 3.6, 3.6], type: bedroom_single }
+  doors:
+    - { name: front_door, room: living, side: south, at: 0.3, width: 1.0, height: 2.0 }
+    - { between: [living, kitchen], at: 0.5, width: 1.6, style: archway }
+    - { between: [kitchen, bathroom], at: 0.3, width: 0.9 }
+    - { between: [living, bed_a], at: 0.7, width: 0.9 }
+    - { between: [kitchen, bed_b], at: 0.5, width: 0.9 }
+    - { between: [kitchen, bed_c], at: 0.5, width: 0.9 }
+  windows:
+    - { room: living, side: south, at: 0.75, width: 1.2, height: 1.1, sill: 0.9 }
+    - { room: kitchen, side: south, at: 0.6, width: 1.3, height: 0.9, sill: 1.25 }
+    - { room: bed_a, side: north, at: 0.5, width: 1.1, height: 1.1, sill: 0.9 }
+    - { room: bed_b, side: north, at: 0.5, width: 1.1, height: 1.1, sill: 0.9 }
+    - { room: bed_c, side: north, at: 0.5, width: 1.1, height: 1.1, sill: 0.9 }
+    - { room: bathroom, side: east, at: 0.5, width: 0.7, height: 0.6, sill: 1.5 }

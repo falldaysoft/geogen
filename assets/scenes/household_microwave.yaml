@@ -1,0 +1,25 @@
+# scenes/household_test.yaml with a counter and a microwave on it: the same hungry person
+# plans fridge > microwave > table here, because it is quicker than the range. Nothing else
+# differs (geogen.101.5).
+
+name: household_microwave
+tags: [test.npc]
+
+spawns:
+  start: { position: [1.5, 0.05, 1.5], facing: west }
+
+place:
+  kitchen:
+    scene: scenes/household_test.yaml
+
+  counter:
+    asset: kitchen_counter.yaml
+    params: { width: 0.9 }
+    on: kitchen/room.kitchen.floor
+    at: { u: { abs: 0.75 }, v: { abs: 2.86 } }
+    facing: south
+
+  microwave:
+    asset: microwave.yaml
+    on: counter.top
+    at: { u: 0.5, v: 0.5 }

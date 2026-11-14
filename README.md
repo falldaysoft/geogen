@@ -25,8 +25,9 @@ More in [the gallery](docs/gallery.md).
   [Test chamber](https://falldaysoft.github.io/geogen/play/test_chamber/),
   [Marble run](https://falldaysoft.github.io/geogen/play/marble_run/),
   [Tower defense](https://falldaysoft.github.io/geogen/play/tower_defense/),
-  [Survival](https://falldaysoft.github.io/geogen/play/survival/) and
-  [Amusement park](https://falldaysoft.github.io/geogen/play/amusement_park/).
+  [Survival](https://falldaysoft.github.io/geogen/play/survival/),
+  [Amusement park](https://falldaysoft.github.io/geogen/play/amusement_park/) and
+  [Dollhouse](https://falldaysoft.github.io/geogen/play/dollhouse/) (a street of people living by needs and plans).
 
 ## Quick start
 

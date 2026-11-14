@@ -1,0 +1,33 @@
+# A shared house's kitchen: a fridge, a microwave on the counter (nobody here cooks on a
+# range), a sink, and a table with chairs.
+
+name: shared_kitchen
+finishes: { walls: tile_subway, floor: tile_floor_grey }
+
+items:
+  counter:
+    asset: kitchen_counter.yaml
+    params: { width: 0.9 }
+    against: wall
+    prefer: [no_door_wall]
+  microwave:
+    asset: microwave.yaml
+    on: counter
+  fridge:
+    asset: fridge.yaml
+    against: wall
+    prefer: [corner, {near: counter}]
+  sink:
+    asset: kitchen_sink.yaml
+    against: wall
+    prefer: [{near: counter}]
+  table:
+    asset: table.yaml
+    against: none
+    facing: north
+    clearance: { front: 0.8, back: 0.8, left: 0.8, right: 0.8 }
+    prefer: [centered]
+  chair:
+    asset: chair.yaml
+    around: table
+    min: 3

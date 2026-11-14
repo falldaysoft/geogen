@@ -1,0 +1,29 @@
+# A family house: living room, a big kitchen-diner, a double and a single bedroom and a
+# bathroom off the kitchen. Unfurnished: scenes place it with `furnish:`.
+
+name: family_house
+tags: [building.house]
+
+floorplan:
+  wall_height: 2.9
+  exterior_wall: 0.2
+  interior_wall: 0.12
+  materials: { exterior: wall_plaster, walls: wall_plaster, floor: hardwood_floor, ceiling: ceiling_white }
+  rooms:
+    living:   { rect: [0, 0, 4.4, 4.6], type: living_room }
+    kitchen:  { rect: [4.4, 0, 5.4, 4.6], type: kitchen }
+    bedroom:  { rect: [0, 4.6, 4.2, 3.6], type: bedroom }
+    bathroom: { rect: [4.2, 4.6, 2.2, 3.6], type: bathroom }
+    bedroom2: { rect: [6.4, 4.6, 3.4, 3.6], type: bedroom_single }
+  doors:
+    - { name: front_door, room: living, side: south, at: 0.25, width: 1.0, height: 2.0 }
+    - { between: [living, kitchen], at: 0.5, width: 1.6, style: archway }
+    - { between: [living, bedroom], at: 0.8, width: 0.9 }
+    - { between: [kitchen, bathroom], at: 0.5, width: 0.9 }
+    - { between: [kitchen, bedroom2], at: 0.6, width: 0.9 }
+  windows:
+    - { room: living, side: west, at: 0.5, width: 1.4, height: 1.1, sill: 0.9 }
+    - { room: kitchen, side: east, at: 0.5, width: 1.3, height: 0.9, sill: 1.25 }
+    - { room: bedroom, side: north, at: 0.5, width: 1.3, height: 1.1, sill: 0.9 }
+    - { room: bathroom, side: north, at: 0.5, width: 0.7, height: 0.6, sill: 1.5 }
+    - { room: bedroom2, side: north, at: 0.5, width: 1.1, height: 1.1, sill: 0.9 }

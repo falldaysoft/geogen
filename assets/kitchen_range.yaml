@@ -95,4 +95,7 @@ parts:
 
 affordances:
   - { type: stand, action: cook, at: [0, 0, 0.66], approach: [0, 0, 0], facing: 180, duration: [40, 100],
-      advertises: { work: 1.0 }, tags: [staff, cook] }
+      advertises: { work: 1.0 }, tags: [staff, cook],
+      # At home: raw food from the fridge becomes a meal (a link in a chain, geogen.101.5).
+      uses: { meal: { duration: [12, 18], requires: { holding: raw_food }, takes: raw_food, gives: meal,
+                      tags: [household] } } }

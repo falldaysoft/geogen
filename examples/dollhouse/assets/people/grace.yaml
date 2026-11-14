@@ -1,0 +1,14 @@
+# Grace Okafor at number 2: mother of the family, up first.
+kind: character
+version: 1
+name: Grace Okafor
+npc: npcs/householder.yaml
+seed: 21
+body:
+  archetype: characters/archetypes/adult.yaml
+  params: { preset: [feminine] }
+needs:
+  hunger: { initial: 0.4, decay: 0.0015, urgent: 0.35 }
+  order:  { initial: 0.7, decay: 0.001 }
+routine:
+  - { name: night, from: "22:30", to: "06:00", only: [bed], hold: true }

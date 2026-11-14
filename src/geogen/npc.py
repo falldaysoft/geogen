@@ -81,7 +81,20 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants", "senses", "reacts", "memory"}
+            "reach", "carry", "wants", "senses", "reacts", "memory", "planner"}
+# A need (geogen.101.2): 0 (desperate) .. 1 (satisfied).
+NEED_KEYS = {
+    "initial": "where it starts, 0..1 (default 0.5)",
+    "decay": "how much it falls per second",
+    "urgent": "below this level its shortfall counts `boost` times more (planner.urgency): a need that has "
+              "got low wins over ones that are merely not full",
+    "boost": "how much more (default 4)",
+    "at_zero": "{action, recover}: what happens when it runs out: the action is run where the NPC stands "
+               "(collapse: it sleeps on the floor) and then gives `recover` (default 0.3) of the need back",
+}
+# `planner:` (geogen.101.4; true for these): the NPC decides by plans, chains of affordances found
+# through what they require, take and give (geogen/planner.py), instead of one affordance at a time.
+PLANNER_DEFAULTS = {"depth": 5.0, "patience": 60.0, "nodes": 2000.0}
 # A want (geogen.97): a condition on the world the NPC puts right with whatever is there.
 WANT_KEYS = {
     "of": "what it is about: prop (a physics prop with `carry`), or a reference to things with an interaction "
@@ -477,9 +490,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
     actions = load_actions()
     needs = {}
     for need, spec in (data.get("needs") or {}).items():
-        needs[need] = {"initial": float(spec.get("initial", 0.5)), "decay": float(spec.get("decay", 0.0))}
-        if not 0.0 <= needs[need]["initial"] <= 1.0:
-            raise ValueError(f"{path}: need {need}: initial must be 0..1")
+        needs[need] = _need(spec or {}, actions, f"{path}: need {need}")
     activities = {}
     for name, spec in (data.get("activities") or {}).items():
         action = spec.get("action", name)
@@ -532,7 +543,46 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
         **parse_senses(data.get("senses"), data.get("reacts"), str(path)),
         **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),
+        **_planner(data.get("planner"), f"{path}: planner"),
     }
+
+
+def _need(spec: dict[str, Any], actions: dict, where: str) -> dict[str, Any]:
+    if not isinstance(spec, dict) or set(spec) - set(NEED_KEYS):
+        raise ValueError(f"{where}: keys are {sorted(NEED_KEYS)}, got {spec!r}")
+    need: dict[str, Any] = {"initial": float(spec.get("initial", 0.5)), "decay": float(spec.get("decay", 0.0))}
+    if not 0.0 <= need["initial"] <= 1.0:
+        raise ValueError(f"{where}: initial must be 0..1")
+    if "urgent" in spec:
+        need["urgent"] = float(spec["urgent"])
+        need["boost"] = float(spec.get("boost", 4.0))
+        if not 0.0 < need["urgent"] <= 1.0 or need["boost"] < 1.0:
+            raise ValueError(f"{where}: urgent is a level in 0..1 and boost at least 1")
+    elif "boost" in spec:
+        raise ValueError(f"{where}: boost goes with urgent (the level below which it applies)")
+    if "at_zero" in spec:
+        zero = spec["at_zero"]
+        zero = {"action": zero} if isinstance(zero, str) else zero
+        if not isinstance(zero, dict) or "action" not in zero or set(zero) - {"action", "recover"}:
+            raise ValueError(f"{where}: at_zero is an action or {{action, recover}}, got {zero!r}")
+        if zero["action"] not in actions:
+            raise ValueError(f"{where}: at_zero: unknown action {zero['action']!r}")
+        need["at_zero"] = {"action": str(zero["action"]), "recover": float(zero.get("recover", 0.3))}
+        if not 0.0 < need["at_zero"]["recover"] <= 1.0:
+            raise ValueError(f"{where}: at_zero.recover is in 0..1 (and more than 0, or it never ends)")
+    return need
+
+
+def _planner(spec: Any, where: str) -> dict[str, Any]:
+    if spec is None or spec is False:
+        return {}
+    spec = {} if spec is True else spec
+    if not isinstance(spec, dict) or set(spec) - set(PLANNER_DEFAULTS):
+        raise ValueError(f"{where}: true or keys {sorted(PLANNER_DEFAULTS)}, got {spec!r}")
+    out = {k: float(spec.get(k, v)) for k, v in PLANNER_DEFAULTS.items()}
+    if out["depth"] < 1 or out["nodes"] < 1 or out["patience"] < 0:
+        raise ValueError(f"{where}: depth and nodes are at least 1, patience isn't negative")
+    return {"planner": {"depth": int(out["depth"]), "patience": out["patience"], "nodes": int(out["nodes"])}}
 
 
 def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:
@@ -810,7 +860,8 @@ def population_placements(spec: Any, refs: Any, scene: str, keys: list) -> dict[
 
 
 OWNERSHIP = {
-    "owns": "references: the things only this NPC uses (its armchair, its bed); it also likes them best",
+    "owns": "references: the things only this NPC uses (its armchair, its bed); it also likes them best. "
+            "Several NPCs may own one thing (a couple their bed): only they use it",
     "prefers": "references: things it likes best, still free for others",
     "work": "a reference: where its routine's `at: work` blocks happen (an office, a shop, a room)",
 }

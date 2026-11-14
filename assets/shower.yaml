@@ -79,3 +79,7 @@ parts:
     bevel: 0.015
     material: chrome
     collider: none
+
+affordances:
+  - { type: stand, action: attend, at: [0, 0, "{depth / 2 + 0.45}"], approach: [0, 0, 0], facing: 180,
+      duration: [15, 22], advertises: { hygiene: 0.9 }, tags: [household, wash] }

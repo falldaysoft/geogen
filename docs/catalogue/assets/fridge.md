@@ -24,6 +24,10 @@ place:
 
 door: closed* -> open, open -> closed (* initial; rotates door, handle)
 
+## Affordances
+
+stand at (0, 0, 0.95) [household]
+
 ## Clearance
 
 front 0.9

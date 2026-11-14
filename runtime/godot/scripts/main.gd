@@ -22,6 +22,7 @@ extends Node3D
 ## --simulate, --quit-after, --screenshot, --save, --status, --lights, --skeletons.
 ##   --camera=overview             start from the overview camera (F4 toggles)
 ##   --colliders                   show collision shapes (F2 toggles)
+##   --cutaway                     hide ceilings and roofs, to look into buildings from above (F9 toggles)
 ##   --walk=SECONDS                walk forward (player.move)
 ##   --greet=NAME[@S]              greet the NPC named NAME... after S s (default 2): it waves back (npcs.greet)
 ##   --use=ASSET                   use ASSET's interactions (interactions.use; e.g. open "door");
@@ -92,6 +93,8 @@ var _spawn_override = null
 var _yaw_override = null
 var _manifest_arg := false
 var _start_overview := false
+var _cutaway := false     # ceilings and roofs hidden (--cutaway, F9)
+var _overview_aabb := AABB()
 var keys: Array = []         # --keys; held_keys() adds what the player carries
 var _pitch := 0.0
 var _load_path := ""
@@ -145,6 +148,7 @@ const GAME_KEYS := [
         ["F3", "fly: Space and Ctrl for up and down"],
         ["F4", "overview camera"],
         ["F5", "NPC labels"],
+        ["F9", "cutaway: hide ceilings and roofs"],
         ["F6", "the scene list"],
         ["F7 / F8", "previous / next scene"]]},
 ]
@@ -187,6 +191,8 @@ func _ready() -> void:
             _yaw_override = float(value)
         elif arg == "--colliders":
             world.show_colliders = true
+        elif arg == "--cutaway":
+            _cutaway = true
         elif arg == "--camera=overview":
             _start_overview = true
         elif arg.begins_with("--walk="):
@@ -419,6 +425,7 @@ func _ready() -> void:
     move_child(hud, $Overlay.get_index())     # under the overlay, so its fade covers the HUD
     hud.overlay_shown = overlay.visible
     _place_player(world.world_aabb())
+    _apply_cutaway()
     _frame_overview(world.world_aabb())
     # The viewport auto-selects the first camera to enter the tree (the
     # overview), so always pick one explicitly.
@@ -513,6 +520,7 @@ static func _flag_steps(act: Dictionary) -> Array:
 
 
 func _on_world_loaded(aabb: AABB) -> void:
+    _apply_cutaway()
     _frame_overview(aabb)
     $ScaleReference.visible = aabb.size == Vector3.ZERO
 
@@ -710,10 +718,38 @@ func _settings_key() -> String:
     return "dir_" + ProjectSettings.globalize_path(world.generated_dir).md5_text()
 
 
+## What a cutaway hides, by node name (render.py CUTAWAY_NAMES; exports number repeats: ceiling_2).
+const CUTAWAY_NAMES := ["ceiling", "roof", "gables", "chimney", "chimney_cap", "cornice"]
+
+
+## Show or hide every ceiling and roof (their meshes only: lights under them stay lit), so the
+## overview camera sees into rooms. Colliders are untouched.
+func _apply_cutaway() -> void:
+    var todo: Array[Node] = [world]
+    while not todo.is_empty():
+        var node: Node = todo.pop_back()
+        var stem := str(node.name)
+        var cut := stem.rfind("_")
+        if cut > 0 and stem.substr(cut + 1).is_valid_int():
+            stem = stem.substr(0, cut)
+        if stem in CUTAWAY_NAMES:
+            for mesh in node.find_children("*", "MeshInstance3D", true, false):
+                mesh.visible = not _cutaway
+            if node is MeshInstance3D:
+                node.visible = not _cutaway
+        else:
+            todo.append_array(node.get_children())
+
+
 func _frame_overview(aabb: AABB) -> void:
     if aabb.size == Vector3.ZERO:
         return
+    _overview_aabb = aabb
     var center := aabb.get_center()
+    if _cutaway:        # from higher and closer: down into the rooms
+        var span := maxf(aabb.size.x, aabb.size.z)
+        overview.look_at_from_position(center + Vector3(0.0, 1.0, 0.75).normalized() * span * 0.62, center)
+        return
     var dist := aabb.size.length() * 1.1
     overview.look_at_from_position(center + Vector3(0.7, 0.55, 1.0).normalized() * dist, center)
 
@@ -738,6 +774,10 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
         _npc_labels = not _npc_labels
         _show_npc_labels()
+    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
+        _cutaway = not _cutaway
+        _apply_cutaway()
+        _frame_overview(_overview_aabb)
     elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_F4:
         if overview.current:
             player.camera.make_current()
