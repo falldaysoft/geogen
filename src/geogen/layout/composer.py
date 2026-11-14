@@ -452,6 +452,8 @@ class SceneComposer:
                     resolve_wants(node, b.refs, ["place", obj_name])
                     if "seed" in obj_def:
                         node.meta["npc"]["seed"] = int(obj_def["seed"])  # type: ignore[index]
+                    if obj_def.get("household"):    # (a copy: placed copies of one NPC may share the definition)
+                        node.meta["npc"] = {**node.meta["npc"], "household": str(obj_def["household"])}  # type: ignore[dict-item]
                     if obj_def.get("present") is not None:   # there only while it holds (a binding: quests.collect)
                         node.meta["npc_present"] = str(obj_def["present"])
                     from ..npc import declare_quests   # it holds from the start, or in its routine (quests.collect)

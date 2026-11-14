@@ -113,6 +113,7 @@
 | `readable` | <prompt> or true: something to read (as the asset key) |
 | `quests` | an NPC's quests (files or {file, if}): it holds and works on them |
 | `group` | {size: n \| [lo, hi], radius, spread}: on an NPC scatter, each copy is a group of people who stay loosely together (the leader counts in size; radius: how near is together, spread: how far apart they start) |
+| `household` | an NPC's household (a name): NPCs with the same one know each other from the start (`relations`) |
 | `owns` | an NPC's things (references): only it uses them, and it likes them best |
 | `prefers` | things an NPC likes best (references), still free for others |
 | `work` | an NPC's work (a reference): where its routine's `at: work` blocks keep it |
@@ -174,7 +175,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `memory`, `name`, `needs`, `npc`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `household`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -256,7 +257,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `memory`, `needs`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |

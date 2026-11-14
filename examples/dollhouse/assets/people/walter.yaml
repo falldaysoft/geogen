@@ -12,6 +12,7 @@ needs:
   hunger:    { initial: 0.5, decay: 0.0012, urgent: 0.35 }
   rest:      { initial: 0.7, decay: 0.0014, urgent: 0.3, at_zero: { action: collapse, recover: 0.3 } }
   curiosity: { initial: 0.5, decay: 0.003 }
+  social:    { initial: 0.7, decay: 0 }       # used to his own company: there is nobody to miss
 preferences: { outside: 2.0, garden: 2.0, window: 1.4 }
 routine:
   - { name: night, from: "21:30", to: "05:30", only: [bed], hold: true }

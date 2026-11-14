@@ -24,6 +24,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [hotel_showcase](#hotel_showcase) | The showcase hotel (assets/hotel.yaml: lobby, three furnished guest floors, stairs and a working lift, a receptionist at the desk) on a short street: a paved forecourt with lamps, benches and planters, taxis waiting at the kerb, guests upstairs, people strolling past, and a travel door back to the hub. | showcase |
 | [house_plot](#house_plot) | House plot - a yard with a house. |  |
 | [household_microwave](#household_microwave) | scenes/household_test.yaml with a counter and a microwave on it: the same hungry person plans fridge > microwave > table here, because it is quicker than the range. |  |
+| [household_pair](#household_pair) | Two people who live together and a sofa: the test scene for company (geogen.101.6). |  |
 | [household_test](#household_test) | One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101). |  |
 | [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
@@ -360,6 +361,20 @@ plans fridge > microwave > table here, because it is quicker than the range. Not
 differs (geogen.101.5).
 
 **Places**: `kitchen: {scene: scenes/household_test.yaml}`; `counter: {asset: kitchen_counter.yaml}`; `microwave: {asset: microwave.yaml}`
+
+**Spawns**: start
+
+## household_pair
+
+`scene: scenes/household_pair.yaml` · [source](../../assets/scenes/household_pair.yaml)
+
+Two people who live together and a sofa: the test scene for company (geogen.101.6).
+
+Nobody is told to talk. Each has a `social` need and offers a chat (npcs/householder.yaml
+`offers:`); whoever wants company walks over to the other, who turns to them, or stays on
+the sofa and looks up. Both get it, and they know each other a little better for it.
+
+**Places**: `room: {asset: kitchen.yaml}`; `sofa: {asset: sofa.yaml}`; `ana: {npc: npcs/householder.yaml}`; `ben: {npc: npcs/householder.yaml}`
 
 **Spawns**: start
 

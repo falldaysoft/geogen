@@ -49,15 +49,15 @@ place:
   no3: { asset: bungalow.yaml, furnish: 3, slot: no3 }
   no4: { asset: share_house.yaml, furnish: 4, slot: no4 }
 
-  walter: { character: people/walter.yaml, on: no1.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-22.7, -8.6, -13.3, 4.0] }, owns: [no1/bedroom/bed] }
+  walter: { character: people/walter.yaml, household: no1, on: no1.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-22.7, -8.6, -13.3, 4.0] }, owns: [no1/bedroom/bed] }
 
-  grace: { character: people/grace.yaml, on: no2.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom/bed] }
-  ben:   { character: people/ben.yaml, on: no2.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom/bed] }
-  ada:   { character: people/ada.yaml, on: no2.bedroom2.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom2/bed] }
+  grace: { character: people/grace.yaml, household: no2, on: no2.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom/bed] }
+  ben:   { character: people/ben.yaml, household: no2, on: no2.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom/bed] }
+  ada:   { character: people/ada.yaml, household: no2, on: no2.bedroom2.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom2/bed] }
 
-  priya: { character: people/priya.yaml, on: no3.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [2.3, -4.0, 11.7, 4.0] }, owns: [no3/bedroom/bed] }
-  dan:   { character: people/dan.yaml, on: no3.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [2.3, -4.0, 11.7, 4.0] }, owns: [no3/bedroom/bed] }
+  priya: { character: people/priya.yaml, household: no3, on: no3.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [2.3, -4.0, 11.7, 4.0] }, owns: [no3/bedroom/bed] }
+  dan:   { character: people/dan.yaml, household: no3, on: no3.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [2.3, -4.0, 11.7, 4.0] }, owns: [no3/bedroom/bed] }
 
-  jo:  { character: people/jo.yaml, on: no4.living.floor, at: { u: 0.5, v: 0.15 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_a/bed] }
-  sam: { character: people/sam.yaml, on: no4.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_b/bed] }
-  max: { character: people/max.yaml, on: no4.bed_c.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_c/bed] }
+  jo:  { character: people/jo.yaml, household: no4, on: no4.living.floor, at: { u: 0.5, v: 0.15 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_a/bed] }
+  sam: { character: people/sam.yaml, household: no4, on: no4.kitchen.floor, at: { u: 0.15, v: 0.45 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_b/bed] }
+  max: { character: people/max.yaml, household: no4, on: no4.bed_c.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [14.3, -4.0, 24.9, 4.0] }, owns: [no4/bed_c/bed] }

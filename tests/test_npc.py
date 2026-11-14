@@ -575,3 +575,31 @@ def test_items_affordances_name_are_declared_for_the_runtime():
     found = collect(root, "market")
     assert {"crisps", "chocolate_bar", "carrot", "pumpkin"} <= set(found.items), found.items
 
+
+
+def test_offers_and_relations_resolve(tmp_path):
+    """geogen.101.6: what others may do with an NPC, and how well it knows them."""
+    npc = load_definition(ASSETS_DIR / "npcs" / "householder.yaml")
+    assert npc["offers"] == {"chat": {"action": "chat", "answer": "chat_reply", "weight": 1.0,
+                                      "advertises": {"social": 0.35}, "duration": [8.0, 16.0]}}
+    assert npc["relations"] == {"household": 0.5, "stranger": 0.1, "grow": 0.02, "friend": 0.3}
+    assert "offers" not in load_definition(ASSETS_DIR / "npcs" / "resident.yaml")      # nothing for those without
+    base = "kind: npc\nversion: 1\nneeds: { social: { decay: 0.001 } }\n"
+    for text, message in [("offers: { chat: { advertises: { fun: 1 } } }", "unknown needs"),
+                          ("offers: { chat: { action: sit } }", "go_to: partner"),
+                          ("offers: { chat: { answer: idle } }", "wait: partner"),
+                          ("offers: { natter: {} }", "unknown action"),
+                          ("relations: { enemy: 0.2 }", "unknown keys"),
+                          ("relations: { household: 2 }", "0..1")]:
+        path = tmp_path / "n.yaml"
+        path.write_text(base + text + "\n")
+        with pytest.raises(ValueError, match=message):
+            load_definition(path)
+
+
+def test_a_household_is_people_who_know_each_other():
+    scene = SceneComposer(assets_dir=ASSETS_DIR).compose(ASSETS_DIR / "scenes" / "household_pair.yaml")
+    people = {n.name: n.meta["npc"] for n in scene.iter_nodes() if n.meta.get("type") == "npc"}
+    assert {name: npc["household"] for name, npc in people.items()} == {"ana": "home", "ben": "home"}
+    alone = SceneComposer(assets_dir=ASSETS_DIR).compose(ASSETS_DIR / "scenes" / "household_test.yaml")
+    assert "household" not in _npc(alone).meta["npc"]

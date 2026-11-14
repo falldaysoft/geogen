@@ -67,21 +67,21 @@ STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item
 STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look"}
 # `look:` on any step: where the head turns from that step on, until a later step says otherwise
 # or the action ends (the action's subject, place or anchor; none: nowhere in particular).
-LOOK_TARGETS = {"subject", "place", "anchor", "none"}
+LOOK_TARGETS = {"subject", "place", "anchor", "partner", "none"}
 GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group",
-                 "subject", "place"}
+                 "subject", "place", "partner"}
 # What a body's hands get to and what it can carry (physics props: pick_up / put_down). A prop
 # over `two_hands` m on its longest side is carried in front of the body in both hands; a
 # smaller one in one hand, at the side.
 REACH_DEFAULTS = {"distance": 1.0, "heights": [0.0, 1.5], "stand": 0.5}
 CARRY_DEFAULTS = {"mass": 10.0, "size": 0.6, "two_hands": 0.2}
 ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
-FACE_TARGETS = {"anchor", "portal", "player"}
+FACE_TARGETS = {"anchor", "portal", "player", "partner"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants", "senses", "reacts", "memory", "planner"}
+            "reach", "carry", "wants", "senses", "reacts", "memory", "planner", "offers", "relations"}
 # A need (geogen.101.2): 0 (desperate) .. 1 (satisfied).
 NEED_KEYS = {
     "initial": "where it starts, 0..1 (default 0.5)",
@@ -95,6 +95,23 @@ NEED_KEYS = {
 # `planner:` (geogen.101.4; true for these): the NPC decides by plans, chains of affordances found
 # through what they require, take and give (geogen/planner.py), instead of one affordance at a time.
 PLANNER_DEFAULTS = {"depth": 5.0, "patience": 60.0, "nodes": 2000.0}
+# What others may do with this NPC (geogen.101.6): an affordance a person offers. Another NPC near
+# enough (this one within its home) takes it as an option `with/<this NPC>/<name>`: both are held
+# for each other while it lasts, the one who chose it walks up, and both get what it advertises.
+OFFER_KEYS = {
+    "action": "the action the one who takes it up runs (default: the offer's name): its `go_to: partner` walks "
+              "up to this NPC, `wait: duration` is the time together",
+    "answer": "the action this NPC runs meanwhile when it is on its feet (it waits for the other, turned to "
+              "them: `wait: partner`); seated, it stays seated and looks at them",
+    "advertises": "{need: amount}: what doing it adds to the needs, of both",
+    "duration": "[lo, hi] s together",
+    "weight": "multiplies its score (default 1)",
+}
+# How well an NPC knows the others, 0..1 each: `household` for those of its placement's `household`,
+# `stranger` for anyone else; doing something together adds `grow`. An offer's score is multiplied by
+# 0.5 + how well it knows the one who offers, and a seat beside someone it knows `friend` or better
+# is liked as one beside a groupmate is.
+RELATION_DEFAULTS = {"household": 0.5, "stranger": 0.1, "grow": 0.02, "friend": 0.3}
 # A want (geogen.97): a condition on the world the NPC puts right with whatever is there.
 WANT_KEYS = {
     "of": "what it is about: prop (a physics prop with `carry`), or a reference to things with an interaction "
@@ -134,7 +151,7 @@ QUALITY_TAG = "quality."            # a thing's tag `quality.<name>` gives every
 PLACE_DEFAULTS = {"height": 0.9, "distance": 0.1, "off_height": 0.3, "noise": 0.1, "tried": 1.0, "radius": 6.0}
 CHARACTER_KIND = "character"
 # Placement keys a character file may give defaults for (the scene's placement wins).
-CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "visits", "quests", "seed")
+CHARACTER_PLACEMENT_KEYS = ("home", "work", "owns", "prefers", "visits", "quests", "seed", "household")
 CHARACTER_KEYS = {"name", "npc", "body", *CHARACTER_PLACEMENT_KEYS,
                   *(NPC_KEYS - {"kind", "version", "body", "seed"})}
 # An NPC's own activities (things it can always do, besides the affordances around it).
@@ -225,7 +242,7 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
     if verb == "use_item" and not (isinstance(arg, str) and (arg.isidentifier() or ITEM_SELECTOR.match(arg))):
         raise ValueError(f"{where}: use_item names an item (items/<id>.yaml) or \"[tag=<tag>]\" (the first such "
                          f"item carried), got {arg!r}")
-    if verb == "wait" and arg != "duration":
+    if verb == "wait" and arg not in ("duration", "partner"):
         out["wait"] = _range(arg, f"{where}: wait")
     if "loop" in step and step["loop"] != "duration":
         out["loop"] = _range(step["loop"], f"{where}: loop")
@@ -544,6 +561,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         **parse_senses(data.get("senses"), data.get("reacts"), str(path)),
         **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),
         **_planner(data.get("planner"), f"{path}: planner"),
+        **_social(data.get("offers"), data.get("relations"), actions, needs, str(path)),
     }
 
 
@@ -583,6 +601,42 @@ def _planner(spec: Any, where: str) -> dict[str, Any]:
     if out["depth"] < 1 or out["nodes"] < 1 or out["patience"] < 0:
         raise ValueError(f"{where}: depth and nodes are at least 1, patience isn't negative")
     return {"planner": {"depth": int(out["depth"]), "patience": out["patience"], "nodes": int(out["nodes"])}}
+
+
+def _social(offers: Any, relations: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:
+    """``offers:`` and ``relations:`` (geogen.101.6) -> {offers: {name: {action, answer, advertises, duration,
+    weight}}, relations: {household, stranger, grow, friend}}; {} for an NPC with neither."""
+    if not offers and relations is None:
+        return {}
+    if not isinstance(offers or {}, dict) or not isinstance(relations or {}, dict):
+        raise ValueError(f"{where}: offers is {{name: {{{', '.join(OFFER_KEYS)}}}}}, relations {{{', '.join(RELATION_DEFAULTS)}}}")
+    unknown = set(relations or {}) - set(RELATION_DEFAULTS)
+    if unknown:
+        raise ValueError(f"{where}: relations: unknown keys {sorted(unknown)} (keys: {sorted(RELATION_DEFAULTS)})")
+    known = {**RELATION_DEFAULTS, **{k: float(v) for k, v in (relations or {}).items()}}
+    if any(not 0.0 <= known[k] <= 1.0 for k in known):
+        raise ValueError(f"{where}: relations are 0..1, got {relations!r}")
+    out = {}
+    for name, spec in (offers or {}).items():
+        spec = spec or {}
+        at = f"{where}: offer {name}"
+        if not isinstance(spec, dict) or set(spec) - set(OFFER_KEYS):
+            raise ValueError(f"{at}: keys are {sorted(OFFER_KEYS)}, got {spec!r}")
+        action, answer = str(spec.get("action", name)), str(spec.get("answer", ""))
+        if action not in actions or (answer and answer not in actions):
+            raise ValueError(f"{at}: unknown action {action if action not in actions else answer!r}")
+        verbs = [(k, v) for step in actions[action]["steps"] for k, v in step.items()]
+        if ("go_to", "partner") not in verbs:
+            raise ValueError(f"{at}: action {action!r} has no `go_to: partner` step")
+        if answer and ("wait", "partner") not in [(k, v) for step in actions[answer]["steps"] for k, v in step.items()]:
+            raise ValueError(f"{at}: answer {answer!r} has no `wait: partner` step")
+        weight = float(spec.get("weight", 1.0))
+        if weight < 0:
+            raise ValueError(f"{at}: weight can't be negative")
+        out[str(name)] = {"action": action, "answer": answer, "weight": weight,
+                          "advertises": _advertises(spec.get("advertises"), needs, at),
+                          "duration": _range(spec.get("duration", actions[action].get("duration", [8, 16])), f"{at}: duration")}
+    return {"offers": out, "relations": known}
 
 
 def parse_wants(spec: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:

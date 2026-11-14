@@ -6,7 +6,7 @@
 # `action:` (default: its `type`). NPC activities (wander, idle) name one too.
 #
 # Step vocabulary:
-#   go_to: approach | anchor | random | nearby | near | far | exit | aside
+#   go_to: approach | anchor | random | nearby | near | far | exit | aside | partner
 #       walk (navmesh) to the affordance's approach point, the anchor itself,
 #       a random point in the NPC's home, one a few metres from where it stands,
 #       a portal's near/far side, or the nearest way out of the scene (a building
@@ -14,9 +14,10 @@
 #       close: true              ...and past the navmesh (which keeps a player's width off
 #                                everything) step straight up to it, if it is near and clear:
 #                                a worktop is worked at from closer than that
+#       (partner: up to the NPC whose offer this action takes up, a pace short of them)
 #   vanish: true                 leave the world (routines bring the NPC back later)
-#   face: anchor | portal | player  turn toward the anchor's heading / through the portal /
-#                                toward the player
+#   face: anchor | portal | player | partner  turn toward the anchor's heading / through the
+#                                portal / toward the player / toward the partner
 #   play: <clip>                 play one of the body's clips once (a skeletal body; others wait
 #                                a moment) and return to standing
 #       loop: duration | S | [lo, hi]  ...over and over for that long instead (work at a counter:
@@ -27,6 +28,7 @@
 #       hold: <pose>             ...holding that skeletal pose (pose_<name> clip) instead of the
 #                                pose's own once there: sit, but with the forearms on the table
 #   wait: duration | S | [lo, hi]  seconds (duration = the affordance's range)
+#   wait: partner                until the NPC that took up this one's offer is done (or gives up)
 #   use: <state>                 drive the affordance's/portal's interaction to <state>
 #                                (presses it like the player does, waits for arrival);
 #                                `use: goal` drives it to the state a quest goal wants
@@ -42,9 +44,9 @@
 #                                settles is up to the physics
 #   (go_to also takes `subject`: beside the prop, and `place`: where to stand to put it down)
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
-#   look: subject | place | anchor | none
+#   look: subject | place | anchor | partner | none
 #                                on any step: from here on the head turns to the action's subject,
-#                                place or anchor (as far as the neck goes), until a later step
+#                                place, anchor or partner (as far as the neck goes), until a later step
 #                                says otherwise or the action ends
 #
 # `interruptible: true` on an action: something the NPC notices (its `reacts:` with
@@ -287,6 +289,22 @@ actions:
       - go_to: visit
       - wait: duration
       - go_to: random              # and back home
+
+  # Two people (geogen.101.6): an NPC's `offers:` name these. The one who takes the offer up
+  # walks over; the other, on its feet, turns and waits for them (seated, it stays seated).
+  chat:
+    duration: [8, 16]
+    steps:
+      - go_to: partner
+        look: partner
+      - face: partner
+      - wait: duration
+
+  chat_reply:
+    steps:
+      - face: partner
+        look: partner
+      - wait: partner
 
   leave:                         # routines' `away` blocks: go off (into a building) until later
     steps:

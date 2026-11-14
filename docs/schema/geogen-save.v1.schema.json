@@ -67,6 +67,7 @@
           "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
           "yaw": {"type": "number"},
           "recent": {"type": "object", "additionalProperties": {"type": "number"}},
+          "relations": {"description": "How well it knows the NPCs it has done things with (their offers): stable ID -> 0..1.", "type": "object", "additionalProperties": {"type": "number"}},
           "seat": {"type": "string"}
         }
       }

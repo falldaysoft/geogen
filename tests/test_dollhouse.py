@@ -2,7 +2,8 @@
 and the nine people who live in them. Nobody is scripted: each has needs and a planner, and
 what they do comes from what the furnishing solver happened to put in their house. The night
 is checked in the default tier, a whole simulated day in the exhaustive tier. Meals and washing
-are planned from needs; going to bed is each person's night routine (`only: [bed], hold: true`)."""
+are planned from needs, and so is company (those who live together talk: geogen.101.6); going to bed
+is each person's night routine (`only: [bed], hold: true`)."""
 
 import subprocess
 import sys
@@ -127,6 +128,20 @@ def test_over_a_day_everyone_cooks_eats_and_washes_by_plans_and_sleeps_at_night(
         assert did("vanity") + did("shower") >= 1, (who, used)
         assert n["plans_done"] >= 10 and n["ran_out"] == 0, (who, n["plans_done"], n["ran_out"])
         assert n["plans_done"] >= 0.8 * n["plans"], (who, n["plans"], n["plans_done"], n["failures"][-5:])
+    # Company (geogen.101.6): those who live with someone talk with them, and only with them, and know
+    # them better for it; Walter, alone, has nobody to (and no need of it: his `social` doesn't fall).
+    uid = {who: n["uid"] for who, n in people.items()}
+    for house, residents in HOUSEHOLDS.items():
+        for who in residents:
+            n = people[who]
+            talked = {id.split("/")[1] for id in n["used"] if id.startswith("with/")}
+            assert talked <= {uid[other] for other in residents if other != who}, (who, talked)
+            assert set(n["relations"]) <= {uid[other] for other in residents}, (who, n["relations"])
+            if len(residents) > 1:
+                assert len(talked) + n["joined"] >= 2, (who, n["used"], n["joined"])
+                assert max(n["relations"].values()) > 0.52 and n["needs"]["social"] > 0.3, (who, n["relations"], n["needs"])
+            else:
+                assert not talked and n["joined"] == 0 and n["relations"] == {}, who
     # What is in the house decides how: the students never see a range.
     for who in HOUSEHOLDS["no4"]:
         assert not any("range" in id for id in people[who]["used"]), who

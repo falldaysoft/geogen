@@ -76,6 +76,10 @@ const GROUP_REJOIN_GAP := 1.4     # m from the groupmate a rejoin walks to (near
 const GROUP_FAR := 0.35           # a member's utility of things beyond the group's radius from its leader (or where it's going)
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
 const GROUP_REFRESH := 2.0
+const COMPANY_ROOM := 0.5        # an offer is an option once a need has room for this share of what it gives
+const PARTNER_GAP := 0.9          # m from the one it goes to talk to (`go_to: partner`)
+const PARTNER_FAR := 3.0          # m: further off than this when it gets there, they have gone
+const PARTNER_WAIT := 90.0        # s the one who offers waits for the other at most (`wait: partner`)
 const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
 const CUT_PATIENCE := 3.0         # s an interrupt waits for the body to be ready (mid sit-down), then lapses
 const SEEN_NEAR := 0.4            # m: a ray toward a thing may stop this short of it (it hits the thing itself)
@@ -129,6 +133,9 @@ var _option := {}
 var _recent := {}                    # option id -> clock when last finished
 var _retry_at := {}                  # failed option id -> clock when it may be tried again
 var _forced := ""                    # option id the next decision takes (force_option)
+var relations := {}                  # how well it knows the NPCs it has done things with: stable ID -> 0..1 (`relations:`)
+var _partner: GeogenNpc = null       # who it is doing something with (an offer taken up: either side)
+var _answering := ""                 # ...as the one who offers: the action it runs meanwhile on its feet
 var _chain := {}                      # the chain it is on (`planner:`): {goal, steps: [options], index, cost, score}
 var _fill := 0.0                     # how much of the option's `advertises` its duration has given so far (0..1)
 var _fill_total := 0.0               # the duration (s) that fills it; 0: all of it when the option is done
@@ -295,6 +302,20 @@ func routine_blocks() -> Array:
     return out
 
 
+## Whether an affordance is one a `hold` block keeps the NPC on: one of the block's `only`
+## (its bed), not what it fell back to when it couldn't get there (it tries again after that).
+func _held_on(a: Dictionary) -> bool:
+    var uid := WorldLoader.uid_of(a["node"])
+    for b in routine_blocks():
+        if not b.get("hold", false):
+            continue
+        var only: Array = b.get("only", [])
+        if only.is_empty() or only.any(func(t): return t in a.get("tags", []) \
+                or (t == "owns" and _under(uid, definition.get("owns", [])))):
+            return true
+    return false
+
+
 func _away_block() -> bool:
     return routine_blocks().any(func(b): return b.get("away", false))
 
@@ -389,6 +410,7 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
             "advertises": act.get("advertises", {}), "tags": [], "at": global_position})
     if block_only.is_empty():
         result.append_array(GeogenWants.options(self))      # what its wants are unhappy about
+        result.append_array(_people_options(actions, margin))   # what the people around offer
     var w: Dictionary = definition.get("scoring", {})
     var prefs: Dictionary = definition.get("preferences", {}).duplicate()
     var act_mult := {}
@@ -409,13 +431,15 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
         var before := utility
         for tag in o["tags"]:
             utility *= float(prefs.get(tag, 1.0))
+        if o.has("person"):
+            utility *= (0.5 + knows(o["person"])) * float(o["offer"].get("weight", 1.0))
         if o.has("affordance"):
             var uid := WorldLoader.uid_of(o["affordance"]["node"])
             if _under(uid, definition.get("owns", [])):
                 utility *= OWN_BONUS
             elif _under(uid, definition.get("prefers", [])):
                 utility *= PREFER_BONUS
-            if _beside_groupmate(o["affordance"]):
+            if _beside_groupmate(o["affordance"]) or _beside_friend(o["affordance"]):
                 utility *= GROUP_BONUS    # the seat next to a friend's, the same gondola
             if lead != null and NpcGeometry.flat(o["at"] - lead_at).length() > _group_radius():
                 utility *= GROUP_FAR      # a member keeps near its leader; the leader goes where it likes
@@ -430,6 +454,117 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
             - float(w.get("recency", 0.4)) * recency + float(w.get("noise", 0.05)) * rng.randf()
     result.sort_custom(func(x, y): return x["score"] > y["score"])
     return result
+
+
+## What the people around offer (`offers:`, geogen.101.6): an option `with/<their stable ID>/<offer>`
+## for each offer of every NPC within this one's home that is free for it now, and that fills a
+## need this one has room in.
+func _people_options(actions: Dictionary, margin: float) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    if _partner != null:
+        return result
+    for other in world.npcs:
+        if other == self or not is_instance_valid(other) or not other.definition.has("offers"):
+            continue
+        if not other.free_for_company() or home_distance(other.global_position) > margin \
+                or absf(other.global_position.y - home_y) > FLOOR_TOLERANCE:
+            continue
+        var offers: Dictionary = other.definition["offers"]
+        for n in offers:
+            var offer: Dictionary = offers[n]
+            var id := "with/%s/%s" % [WorldLoader.npc_uid(other), n]
+            if not actions.has(offer["action"]) or clock < float(_retry_at.get(id, -1.0)):
+                continue
+            # Only for a need with room for half of what it gives: nobody is bothered for a top-up.
+            if not (offer["advertises"] as Dictionary).keys().any(func(need): return needs.has(need) \
+                    and needs[need] <= 1.0 - COMPANY_ROOM * float(offer["advertises"][need])):
+                continue
+            result.append({"id": id, "action": offer["action"], "person": other, "offer": offer,
+                "advertises": offer["advertises"], "tags": ["social"], "at": other.global_position})
+    return result
+
+
+## Whether another NPC may take up one of this one's offers now: here, awake, with nobody
+## already, and either seated (it stays seated) or on its feet with nothing in hand to finish
+## (wandering, idling: not halfway through a plan).
+func free_for_company() -> bool:
+    if away or absent or _partner != null or _hold_block() or _moving_pose() or _stack.size() > 1 or not _ride.is_empty():
+        return false
+    if _pose == "sit":
+        return true
+    return _pose == "stand" and _chain.is_empty() and (_option.is_empty() or _option.has("activity"))
+
+
+## How well this NPC knows another, 0..1 (`relations:`): what doing things together has made it,
+## or to start with `household` for one of its household and `stranger` for anyone else.
+func knows(other: Node) -> float:
+    var spec: Dictionary = definition.get("relations", {})
+    if spec.is_empty() or not other is GeogenNpc:
+        return 0.0
+    var uid := WorldLoader.npc_uid(other)
+    if relations.has(uid):
+        return float(relations[uid])
+    var mine := str(definition.get("household", ""))
+    return float(spec["household"] if mine != "" and mine == str((other as GeogenNpc).definition.get("household", "")) else spec["stranger"])
+
+
+## Hold each other for an offer this NPC takes up; the other, on its feet, turns to wait.
+func _take_up(other: GeogenNpc, offer: Dictionary) -> void:
+    _partner = other
+    other._partner = self
+    other._answering = str(offer.get("answer", ""))
+    _trace({"event": "take_up", "with": WorldLoader.npc_uid(other), "pose": other._pose})
+    other._answer()
+
+
+## As the one whose offer was taken up: on its feet, run the offer's `answer` on top of what it
+## was doing (seated, it stays as it is; it answers when it gets up, if the other is still at it).
+func _answer() -> void:
+    if _pose == "stand" and definition["actions"].has(_answering):
+        _react(_answering, {"partner": _partner})
+
+
+## Let go of the one it is with (either side); they are free too.
+func _part() -> void:
+    var other := _partner
+    _partner = null
+    _answering = ""
+    if is_instance_valid(other) and other._partner == self:
+        other._partner = null
+        other._answering = ""
+
+
+## From the one who took up this NPC's offer: its share of what the offer gives, as theirs fills.
+func _share(advertises: Dictionary, share: float, from: GeogenNpc) -> void:
+    for need in advertises:
+        if needs.has(need):
+            needs[need] = clampf(needs[need] + float(advertises[need]) * share, 0.0, 1.0)
+    _know_better(from, share)
+    if _pose == "sit":                  # seated, the head turns to them (standing, its answer's `look:` does)
+        _notice_point = from.head_point()
+        _notice_until = clock + 1.0
+
+
+func _know_better(other: GeogenNpc, share: float) -> void:
+    var spec: Dictionary = definition.get("relations", {})
+    if not spec.is_empty():
+        relations[WorldLoader.npc_uid(other)] = clampf(knows(other) + float(spec["grow"]) * share, 0.0, 1.0)
+
+
+## Whether someone it knows well (`relations.friend`) holds this affordance's thing or one beside it.
+func _beside_friend(a: Dictionary) -> bool:
+    var spec: Dictionary = definition.get("relations", {})
+    if spec.is_empty():
+        return false
+    for o in world.npcs:
+        if o == self or not is_instance_valid(o) or knows(o) < float(spec["friend"]):
+            continue
+        var theirs: Dictionary = o._option.get("affordance", {})
+        if theirs.is_empty() or not is_instance_valid(theirs.get("node")):
+            continue
+        if theirs["node"] == a["node"] or (theirs["position"] as Vector3).distance_to(a["position"]) < GROUP_BESIDE:
+            return true
+    return false
 
 
 ## Whether an affordance is anything to this NPC. One that only `gives` (advertises nothing)
@@ -600,6 +735,9 @@ func _decide() -> void:
         return
     if _run_out():
         return
+    if _partner != null and _answering != "":
+        _answer()                   # got up while the one who came to talk is still at it
+        return
     var goal := quest_option() if _forced == "" else {}
     if not goal.is_empty():
         stats["decisions"] += 1
@@ -637,10 +775,19 @@ func _decide() -> void:
             _trace({"event": "decide", "chosen": _option["id"]})
             _finish_option(false, "nowhere to put it")
             return
+    elif _option.has("person"):
+        var other: GeogenNpc = _option["person"]
+        if not is_instance_valid(other) or not other.free_for_company():
+            _trace({"event": "decide", "chosen": _option["id"]})
+            _finish_option(false, "they are busy")
+            return
+        _take_up(other, _option["offer"])
+        ctx = {"anchor": other.global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": other.global_position,
+            "duration": _option["offer"]["duration"], "partner": other}
     elif not a.is_empty():
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
-            "held": _hold_block(), "ride": a if a.has("follow") else {}}
+            "held": _held_on(a), "ride": a if a.has("follow") else {}}
     else:
         ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
             "duration": _option["activity"].get("duration"), "visit": _option["activity"].get("visit", "")}
@@ -741,9 +888,11 @@ func _snapshot(ranked: Array[Dictionary]) -> Dictionary:
                     entry["sets"] = keyed
             if not requires.is_empty():
                 entry["requires"] = requires
-        elif o.has("want"):
+        elif o.has("want") or o.has("person"):
             var at: Vector3 = o["at"]
             entry["at"] = [at.x, at.y, at.z]
+            if o.has("person"):
+                span = o["offer"]["duration"]
         else:
             span = o["activity"].get("duration")
         if span == null:
@@ -819,6 +968,10 @@ func _finish_option(ok: bool, reason := "") -> void:
     world.npc_release(id, self)
     if _option.has("want"):
         GeogenWants.finish(self, _option, ok)
+    if _option.has("person"):
+        if ok and is_instance_valid(_partner):
+            _partner.stats["joined"] = int(_partner.stats.get("joined", 0)) + 1
+        _part()
     if not _chain.is_empty() and _chain["steps"][_chain["index"]]["id"] == id:
         if not ok:
             _drop_plan(reason)
@@ -846,6 +999,9 @@ func _give(share: float) -> void:
     for need in _option["advertises"]:
         if needs.has(need):
             needs[need] = clampf(needs[need] + float(_option["advertises"][need]) * share, 0.0, 1.0)
+    if _option.has("person") and is_instance_valid(_partner):      # the one it is with gets as much
+        _partner._share(_option["advertises"], share, self)
+        _know_better(_partner, share)
 
 
 ## Needs fill over the option's duration (its action's `wait: duration` / `loop: duration`), so
@@ -1035,6 +1191,15 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         var dir: Vector3
         if step["face"] == "portal" and ctx.has("portal"):
             dir = -ctx["portal"]["normal"] * float(ctx["side"])
+        elif step["face"] == "partner":
+            var other = ctx.get("partner")
+            if not is_instance_valid(other) or (other as GeogenNpc).away:
+                return "nobody there"
+            dir = NpcGeometry.flat((other as GeogenNpc).global_position - global_position)
+            if dir.length() > PARTNER_FAR and _option.has("person"):
+                return "they have gone"
+            if dir.length() < 1e-3:
+                return ""
         elif step["face"] == "player":
             var who := _player()
             if who == null:
@@ -1053,6 +1218,8 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if step["pose"] != "stand" and not ride.is_empty() and not ride.get("boardable", true):
             return "the ride has started"          # it moved off while the NPC walked up: try later
         _set_pose(step["pose"], ctx, str(step.get("at", "anchor")), str(step.get("hold", "")))
+        return ""
+    if step.has("wait") and str(step["wait"]) == "partner":
         return ""
     if step.has("wait"):
         var r = ctx["duration"] if str(step["wait"]) == "duration" else step["wait"]
@@ -1153,6 +1320,17 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             return "running"              # the transition clip sets the pace
         _timer += delta
         return "done" if _timer >= POSE_SECONDS else "running"
+    if step.has("wait") and str(step["wait"]) == "partner":
+        _timer += delta
+        if _timer > PARTNER_WAIT:
+            _part()                       # they never came
+        if not is_instance_valid(_partner):
+            return "done"
+        _face_point(_partner.global_position)       # turned to them as they come up
+        var off := wrapf(_yaw_goal - _yaw(), -PI, PI)
+        var most := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
+        rotation.y += clampf(off, -most, most)
+        return "running"
     if step.has("wait"):
         _timer -= delta
         if str(step["wait"]) == "duration":
@@ -1244,6 +1422,8 @@ func save_state() -> Dictionary:
     var out := {"needs": _rounded_needs(), "away": away,
         "position": [snappedf(global_position.x, 0.001), snappedf(global_position.y, 0.001), snappedf(global_position.z, 0.001)],
         "yaw": snappedf(rad_to_deg(_yaw()), 0.1)}
+    if not relations.is_empty():
+        out["relations"] = _rounded_relations()
     var recent := {}
     for id in _recent:
         recent[id] = snappedf(clock - float(_recent[id]), 0.1)
@@ -1259,6 +1439,7 @@ func save_state() -> Dictionary:
 func restore_state(data: Dictionary) -> void:
     _drop_everything()
     take_needs(data.get("needs", {}))
+    relations = (data.get("relations", {}) as Dictionary).duplicate()
     _recent = {}
     var recent: Dictionary = data.get("recent", {})
     for id in recent:
@@ -1315,6 +1496,7 @@ func _drop_everything() -> void:
     _path = PackedVector3Array()
     velocity = Vector3.ZERO
     _drop_plan("dropped everything")
+    _part()
     _fill = 0.0
     _fill_total = 0.0
     if not _option.is_empty():
@@ -1372,6 +1554,15 @@ func _target(kind: String, ctx: Dictionary):
     match kind:
         "aside":
             return ctx.get("aside")
+        "partner":                  # a pace short of them, on the side it comes from
+            var other = ctx.get("partner")
+            if not is_instance_valid(other):
+                return null
+            var from := NpcGeometry.flat(global_position - (other as GeogenNpc).global_position)
+            if from.length() <= PARTNER_GAP:
+                return global_position
+            var spot: Vector3 = (other as GeogenNpc).global_position + from.normalized() * PARTNER_GAP
+            return NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, Vector3(spot.x, global_position.y, spot.z))
         "subject":
             return _stand_by_prop(str(ctx.get("subject", "")))
         "place":
@@ -2553,6 +2744,9 @@ func _carry_out(a: Dictionary) -> void:
 func _intent_point():
     if _intent == "" or _pose != "stand":
         return null
+    if _intent == "partner":
+        var other = _intent_ctx.get("partner")
+        return (other as GeogenNpc).head_point() if is_instance_valid(other) else null
     if _intent == "anchor":
         return _intent_ctx.get("anchor")
     if _intent == "subject":
@@ -2834,6 +3028,13 @@ func _quests() -> Dictionary:
     return out
 
 
+func _rounded_relations() -> Dictionary:
+    var out := {}
+    for uid in relations:
+        out[uid] = snappedf(float(relations[uid]), 0.001)
+    return out
+
+
 func _plan_report() -> Dictionary:
     if _chain.is_empty():
         return {}
@@ -2863,6 +3064,10 @@ func report() -> Dictionary:
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         "holding": holding(),
+        # Company (`offers:`): who it is with now (stable ID, "" for nobody), how often its offers were taken
+        # up and seen through, and how well it knows those it has been with ({stable ID: 0..1}).
+        "with": WorldLoader.npc_uid(_partner) if is_instance_valid(_partner) else "", "joined": int(stats.get("joined", 0)),
+        "relations": _rounded_relations(),
         # Planning (`planner:`): the chain it is on ({goal, steps, index, cost, score}; {} for none), how many it
         # has made, finished and given up; needs that ran out (`at_zero`); its mood (the mean of its needs).
         "plan": _plan_report(), "plans": int(stats.get("plans", 0)), "plans_done": int(stats.get("plans_done", 0)),
