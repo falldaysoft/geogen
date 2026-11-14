@@ -77,6 +77,8 @@ const GROUP_FAR := 0.35           # a member's utility of things beyond the grou
 const GROUP_GAP := 1.0           # m: a member's wander doesn't end nearer another character than this
 const GROUP_REFRESH := 2.0
 const COMPANY_ROOM := 0.5        # an offer is an option once a need has room for this share of what it gives
+const PLANNER_LIMITS := {"depth": 5, "patience": 60.0, "nodes": 2000}    # for one told to, with no `planner:` of its own
+const ORDER_WAIT := 30.0          # s an order to join someone waits for them to be free
 const PARTNER_GAP := 0.9          # m from the one it goes to talk to (`go_to: partner`)
 const PARTNER_FAR := 3.0          # m: further off than this when it gets there, they have gone
 const PARTNER_WAIT := 90.0        # s the one who offers waits for the other at most (`wait: partner`)
@@ -136,6 +138,10 @@ var _forced := ""                    # option id the next decision takes (force_
 var relations := {}                  # how well it knows the NPCs it has done things with: stable ID -> 0..1 (`relations:`)
 var _partner: GeogenNpc = null       # who it is doing something with (an offer taken up: either side)
 var _answering := ""                 # ...as the one who offers: the action it runs meanwhile on its feet
+var _orders: Array = []              # what it was told to do, in order: option ids (direct())
+var _order_since := -1.0             # clock when the first of them began to wait for someone busy
+var _ordered := false                # what it is doing now is the first of them
+var _order_last := {}                # how the last one ended: {option, ok, reason}
 var _chain := {}                      # the chain it is on (`planner:`): {goal, steps: [options], index, cost, score}
 var _fill := 0.0                     # how much of the option's `advertises` its duration has given so far (0..1)
 var _fill_total := 0.0               # the duration (s) that fills it; 0: all of it when the option is done
@@ -348,7 +354,7 @@ func _reappear() -> void:
 ## own things) and none of its activities; with nothing to take, they are as without it.
 ## ``chains``: for the planner, affordances whose `requires` don't hold now are options too
 ## (a chain's earlier step may see to that).
-func options(restricted := true, chains := false) -> Array[Dictionary]:
+func options(restricted := true, chains := false, told := false) -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     var actions: Dictionary = definition.get("actions", {})
     var margin := float(definition.get("home_margin", 1.0))
@@ -367,8 +373,8 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
             continue    # a ride's seat, away from the ground or moving
         if not only.is_empty() and not only.any(func(t): return t in a.get("tags", [])):
             continue
-        if clock < float(_retry_at.get(a["id"], -1.0)):
-            continue
+        if not told and clock < float(_retry_at.get(a["id"], -1.0)):
+            continue                # (told to: whoever said so may insist)
         var uid := WorldLoader.uid_of(a["node"])
         if _owned_by_another(uid):
             continue    # someone's armchair
@@ -396,7 +402,7 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
         result.append({"id": a["id"], "action": a["action"], "affordance": a,
             "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "at": a["approach"]})
     if not block_only.is_empty() and result.is_empty():
-        return options(false, chains)
+        return options(false, chains, told)
     var activities: Dictionary = definition.get("activities", {}) if block_only.is_empty() else {}
     for n in activities:
         var act: Dictionary = activities[n]
@@ -410,7 +416,7 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
             "advertises": act.get("advertises", {}), "tags": [], "at": global_position})
     if block_only.is_empty():
         result.append_array(GeogenWants.options(self))      # what its wants are unhappy about
-        result.append_array(_people_options(actions, margin))   # what the people around offer
+        result.append_array(_people_options(actions, margin, told))   # what the people around offer
     var w: Dictionary = definition.get("scoring", {})
     var prefs: Dictionary = definition.get("preferences", {}).duplicate()
     var act_mult := {}
@@ -459,7 +465,7 @@ func options(restricted := true, chains := false) -> Array[Dictionary]:
 ## What the people around offer (`offers:`, geogen.101.6): an option `with/<their stable ID>/<offer>`
 ## for each offer of every NPC within this one's home that is free for it now, and that fills a
 ## need this one has room in.
-func _people_options(actions: Dictionary, margin: float) -> Array[Dictionary]:
+func _people_options(actions: Dictionary, margin: float, told := false) -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     if _partner != null:
         return result
@@ -473,10 +479,11 @@ func _people_options(actions: Dictionary, margin: float) -> Array[Dictionary]:
         for n in offers:
             var offer: Dictionary = offers[n]
             var id := "with/%s/%s" % [WorldLoader.npc_uid(other), n]
-            if not actions.has(offer["action"]) or clock < float(_retry_at.get(id, -1.0)):
+            if not actions.has(offer["action"]) or (not told and clock < float(_retry_at.get(id, -1.0))):
                 continue
-            # Only for a need with room for half of what it gives: nobody is bothered for a top-up.
-            if not (offer["advertises"] as Dictionary).keys().any(func(need): return needs.has(need) \
+            # Only for a need with room for half of what it gives: nobody is bothered for a top-up
+            # (unless it was told to).
+            if not told and not (offer["advertises"] as Dictionary).keys().any(func(need): return needs.has(need) \
                     and needs[need] <= 1.0 - COMPANY_ROOM * float(offer["advertises"][need])):
                 continue
             result.append({"id": id, "action": offer["action"], "person": other, "offer": offer,
@@ -488,7 +495,7 @@ func _people_options(actions: Dictionary, margin: float) -> Array[Dictionary]:
 ## already, and either seated (it stays seated) or on its feet with nothing in hand to finish
 ## (wandering, idling: not halfway through a plan).
 func free_for_company() -> bool:
-    if away or absent or _partner != null or _hold_block() or _moving_pose() or _stack.size() > 1 or not _ride.is_empty():
+    if away or absent or _partner != null or not _orders.is_empty() or _hold_block() or _moving_pose() or _stack.size() > 1 or not _ride.is_empty():
         return false
     if _pose == "sit":
         return true
@@ -738,6 +745,9 @@ func _decide() -> void:
     if _partner != null and _answering != "":
         _answer()                   # got up while the one who came to talk is still at it
         return
+    while not _orders.is_empty():       # (one that can't be done leaves the queue: on to the next)
+        if _take_order():
+            return
     var goal := quest_option() if _forced == "" else {}
     if not goal.is_empty():
         stats["decisions"] += 1
@@ -765,6 +775,11 @@ func _decide() -> void:
             if o["id"] == _forced:
                 _option = o
         _forced = ""
+    _start(ranked)
+
+
+## Set off on the option chosen (`_option`): it is this NPC's, and its action runs.
+func _start(ranked: Array[Dictionary]) -> void:
     if _option.has("affordance"):
         world.npc_reserve(_option["id"], self)
     var ctx := {}
@@ -907,7 +922,7 @@ func _snapshot(ranked: Array[Dictionary]) -> Dictionary:
     for need in needs:
         urgency[need] = GeogenPlanner.urgency(needs[need], definition["needs"][need])
     var p := global_position
-    return {"affordances": listed, "states": states, "limits": definition["planner"],
+    return {"affordances": listed, "states": states, "limits": definition.get("planner", PLANNER_LIMITS),
         "actor": {"at": [p.x, p.y, p.z], "speed": float(definition.get("speed", 1.2)), "holding": holding,
             "needs": needs, "urgency": urgency}}
 
@@ -981,6 +996,207 @@ func _finish_option(ok: bool, reason := "") -> void:
                 stats["plans_done"] = int(stats.get("plans_done", 0)) + 1
                 _chain = {}
     _option = {}
+    if _ordered:                        # the order it was on: over when it failed, or its last step is done
+        _ordered = false
+        if not ok:
+            _order_done(false, reason)
+        elif _chain.is_empty():
+            _order_done(true, "")
+
+
+# --- told what to do (geogen.101.8) ---------------------------------------------
+
+## What this NPC could be told to do with a thing (stable ID; a person's: their offers): every
+## affordance under it this NPC has an action for, as {option, label, available, why, plan,
+## cost}. `plan` is the chain it would take (the option last: a meal means the fridge and the
+## range first), `why` the reason when it can't be done now.
+func choices(thing: String) -> Array:
+    var result := []
+    var ranked := options(false, true, true)
+    var by_id := {}
+    for o in ranked:
+        by_id[o["id"]] = o
+    var actions: Dictionary = definition.get("actions", {})
+    for other in world.npcs:
+        if is_instance_valid(other) and other != self and WorldLoader.npc_uid(other) == thing:
+            var offers: Dictionary = other.definition.get("offers", {})
+            for n in offers:
+                if actions.has(offers[n]["action"]):
+                    var id := "with/%s/%s" % [thing, n]
+                    result.append(_choice(id, option_label(id), by_id, ranked, "" if by_id.has(id) else "they are busy"))
+            return result
+    for a in world.affordances + world.affordance_uses:
+        if not is_instance_valid(a.get("node")) or not actions.has(a.get("action", "")):
+            continue
+        var uid := WorldLoader.uid_of(a["node"])
+        if not _under(uid, [thing]):
+            continue
+        var why := ""
+        if not by_id.has(a["id"]):
+            if _owned_by_another(uid):
+                why = "someone else's"
+            elif world.npc_reserved(a["id"], self) >= int(a.get("slots", 1)):
+                why = "in use"
+            elif home_distance(a["approach"]) > float(definition.get("home_margin", 1.0)):
+                why = "too far from home"
+            else:
+                why = "not now"
+        var entry := _choice(a["id"], _choice_label(a), by_id, ranked, why)
+        # One line for the same thing to do at several places of it (a sofa's seats): the first that can be.
+        var same := result.filter(func(e): return e["label"] == entry["label"])
+        if same.is_empty():
+            result.append(entry)
+        elif entry["available"] and not same[0]["available"]:
+            result[result.find(same[0])] = entry
+    return result
+
+
+## What a menu calls an affordance: what it is for. A link in a chain is named by what it gives
+## ("Get raw food"; "Make meal" when it takes something for it), anything else by its use or action.
+static func _choice_label(a: Dictionary) -> String:
+    var gives: Dictionary = a.get("gives", {})
+    if not gives.is_empty() and (a.get("advertises", {}) as Dictionary).is_empty():
+        return "%s %s" % ["Make" if a.has("takes") else "Get", str(gives.keys()[0]).replace("_", " ")]
+    return _sentence(str(a.get("use", a["action"])))
+
+
+## "sit_at_table" -> "Sit at table".
+static func _sentence(text: String) -> String:
+    text = text.replace("_", " ")
+    return text.left(1).to_upper() + text.substr(1)
+
+
+## What a menu calls one of this NPC's options (an option id): an affordance by what it is for,
+## someone's offer as "Chat with <them>", something of its own by its name.
+func option_label(id: String) -> String:
+    if id.begins_with("with/"):
+        var who := id.get_slice("/", 1)
+        for other in world.npcs:
+            if is_instance_valid(other) and WorldLoader.npc_uid(other) == who:
+                who = other.person_name() if other.person_name() != "" else String(other.name).trim_suffix("_npc").capitalize()
+        return "%s with %s" % [_sentence(id.get_slice("/", 2)), who]
+    for a in world.affordances + world.affordance_uses:
+        if a["id"] == id:
+            return _choice_label(a)
+    return _sentence(id.get_slice("/", id.get_slice_count("/") - 1))
+
+
+func _choice(id: String, label: String, by_id: Dictionary, ranked: Array[Dictionary], why: String) -> Dictionary:
+    var plan := []
+    var cost := 0.0
+    if why == "":
+        var found := _order_plan(by_id[id], ranked)
+        if found.is_empty():
+            why = "what it takes is missing or in use"
+        else:
+            plan = found["steps"]
+            cost = float(found["cost"])
+    return {"option": id, "label": label, "available": why == "", "why": why, "plan": plan, "cost": snappedf(cost, 0.1)}
+
+
+## The chain an order for option ``o`` takes (GeogenPlanner.plan_to: {goal, steps, cost, ...}); {} for none.
+func _order_plan(o: Dictionary, ranked: Array[Dictionary]) -> Dictionary:
+    return GeogenPlanner.plan_to(_snapshot(ranked), str(o["id"]))
+
+
+## Tell this NPC to do something (an option id from choices()): it joins the queue of what it
+## was told, done in order before anything of its own; what it was doing of its own accord is cut
+## short. "" or why not.
+func direct(id: String) -> String:
+    if away or absent:
+        return "not here"
+    if not options(false, true, true).any(func(o): return o["id"] == id):
+        return "'%s' is not something it can do now" % id
+    _orders.append(id)
+    _trace({"event": "order", "option": id, "queue": _orders.size()})
+    if _orders.size() == 1 and not _ordered and str(_chain.get("goal", _option.get("id", ""))) == id:
+        _ordered = true                 # at it already, of its own accord: now it is the order
+        if not _chain.is_empty():
+            _chain["ordered"] = true
+    elif not _ordered and not (_chain.get("ordered", false)):
+        _drop_plan("told to do something else")
+        if not _stack.is_empty() and _stack[0]["ctx"].get("held", false):
+            _stack[0]["ctx"]["held"] = false        # out of bed
+        _cut_short()
+    return ""
+
+
+## Take back what it was told: order ``index`` of the queue, or all of them (-1). Cancelling
+## the one it is on stops it there.
+func cancel_orders(index := -1) -> int:
+    var n := _orders.size()
+    if index >= n:
+        return 0
+    var current: bool = index <= 0 and (_ordered or _chain.get("ordered", false))
+    if index <= 0:
+        _order_since = -1.0
+    if index < 0:
+        _orders.clear()
+    else:
+        _orders.remove_at(index)
+    if current:
+        _ordered = false
+        _drop_plan("order taken back")
+        _cut_short()
+    return n - _orders.size()
+
+
+## At a decision with orders waiting: set off on the first (the next step of its chain, or a
+## new chain to it). False when it can't be done: that order is over, and the NPC decides for itself.
+func _take_order() -> bool:
+    var ranked := options(false, true, true)
+    var by_id := {}
+    for o in ranked:
+        by_id[o["id"]] = o
+    if _chain.get("ordered", false):
+        var step: Dictionary = _chain["steps"][_chain["index"]]
+        var now: Dictionary = by_id.get(step["id"], {})
+        if now.is_empty() or (now.has("affordance") and not _meets(now["affordance"])):
+            _drop_plan("%s isn't possible any more" % step["id"])
+            _order_done(false, "%s isn't possible any more" % step["id"])
+            return false
+        _option = now
+    else:
+        _drop_plan("told to do something else")
+        var id := str(_orders[0])
+        if not by_id.has(id):
+            # Someone who is busy just now (an offer of theirs): wait for them a while, where it stands.
+            if id.begins_with("with/") and definition["actions"].has("idle"):
+                if _order_since < 0.0:
+                    _order_since = clock
+                if clock - _order_since < ORDER_WAIT:
+                    _option = {}
+                    _push("idle", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()),
+                        "approach": global_position, "duration": [0.5, 0.5]})
+                    return true
+            _order_done(false, "can't be done now")
+            return false
+        var found := _order_plan(by_id[id], ranked)
+        if found.is_empty():
+            _order_done(false, "what it takes is missing or in use")
+            return false
+        var steps: Array = (found["steps"] as Array).map(func(step_id): return by_id[step_id])
+        if steps.size() > 1:
+            for o in steps:
+                if o.has("affordance"):
+                    world.npc_reserve(o["id"], self)
+            _chain = {"goal": id, "steps": steps, "index": 0, "cost": found["cost"], "score": 0.0, "ordered": true}
+            stats["plans"] = int(stats.get("plans", 0)) + 1
+            _trace({"event": "plan", "goal": id, "steps": found["steps"], "cost": found["cost"], "ordered": true})
+        _option = steps[0]
+    _ordered = true
+    stats["decisions"] += 1
+    _start(ranked)
+    return true
+
+
+func _order_done(ok: bool, reason: String) -> void:
+    if _orders.is_empty():
+        return
+    _order_since = -1.0
+    _order_last = {"option": str(_orders.pop_front()), "ok": ok, "reason": reason}
+    stats["orders_done" if ok else "orders_failed"] = int(stats.get("orders_done" if ok else "orders_failed", 0)) + 1
+    _trace({"event": "order_done", "option": _order_last["option"], "ok": ok, "reason": reason})
 
 
 ## Whether the NPC still carries one of the things the option in hand `takes` (true when it takes nothing).
@@ -1497,6 +1713,8 @@ func _drop_everything() -> void:
     velocity = Vector3.ZERO
     _drop_plan("dropped everything")
     _part()
+    _orders.clear()
+    _ordered = false
     _fill = 0.0
     _fill_total = 0.0
     if not _option.is_empty():
@@ -3068,6 +3286,10 @@ func report() -> Dictionary:
         # up and seen through, and how well it knows those it has been with ({stable ID: 0..1}).
         "with": WorldLoader.npc_uid(_partner) if is_instance_valid(_partner) else "", "joined": int(stats.get("joined", 0)),
         "relations": _rounded_relations(),
+        # Told what to do (direct()): the queue (option ids, the first being done or next), how the last one
+        # ended ({option, ok, reason}; {} for none yet), and how many were seen through and given up.
+        "orders": _orders.duplicate(), "order": _order_last, "orders_done": int(stats.get("orders_done", 0)),
+        "orders_failed": int(stats.get("orders_failed", 0)),
         # Planning (`planner:`): the chain it is on ({goal, steps, index, cost, score}; {} for none), how many it
         # has made, finished and given up; needs that ran out (`at_zero`); its mood (the mean of its needs).
         "plan": _plan_report(), "plans": int(stats.get("plans", 0)), "plans_done": int(stats.get("plans_done", 0)),

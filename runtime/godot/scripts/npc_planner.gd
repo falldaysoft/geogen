@@ -251,6 +251,30 @@ static func plan(snapshot: Dictionary) -> Dictionary:
         "score": _round6(float(best["score"])), "fills": fills, "goals": goals}
 
 
+## The chain that ends with affordance ``goal``, whether or not it is worth doing (someone was
+## told to): as plan() gives it (score 0, goals 1), or {} when there is no such affordance,
+## someone else has it, or nothing leads to it.
+static func plan_to(snapshot: Dictionary, goal: String) -> Dictionary:
+    var limits := LIMITS.duplicate()
+    if snapshot.get("limits") is Dictionary:
+        limits.merge(snapshot["limits"], true)
+    for a in snapshot["affordances"]:
+        if str(a.get("id", "")) != goal:
+            continue
+        if a.get("reserved", false):
+            return {}
+        var found := _chain(a, snapshot, limits)
+        if found.is_empty():
+            return {}
+        var fills := {}
+        var w := _worth(found["steps"], snapshot)
+        for k in w[1]:
+            fills[k] = _round6(float(w[1][k]))
+        return {"goal": goal, "steps": found["steps"], "cost": int(found["cost_ms"]) / 1000.0,
+            "score": 0.0, "fills": fills, "goals": 1}
+    return {}
+
+
 ## Six decimal places, halves to even, as Python's round() gives.
 static func _round6(value: float) -> float:
     return float("%.6f" % value)
@@ -279,8 +303,9 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                 var copy: Dictionary = (a as Dictionary).duplicate()
                 copy["reserved"] = taken.has(str(a["id"]))
                 listed.append(copy)
-            var found := plan({"affordances": listed, "states": states, "actor": actors[who],
-                "limits": trace.get("limits", {})})
+            var asked := {"affordances": listed, "states": states, "actor": actors[who],
+                "limits": trace.get("limits", {})}
+            var found := plan_to(asked, str(step["to"])) if step.has("to") else plan(asked)
             claims[who] = found.get("steps", [])
             var expect: Dictionary = step.get("expect", {})
             for key in expect:

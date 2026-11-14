@@ -1204,6 +1204,26 @@ func npc_release(id: String, npc: Node) -> void:
         _reservations[id].erase(npc)
 
 
+## The stable ID of a thing NPCs can do something with, by its ID or the end of one ("fridge",
+## "no2/kitchen/fridge"), or of an NPC by its name; "" for none.
+func thing_named(text: String) -> String:
+    if text == "":
+        return ""
+    var found := ""
+    for a in affordances:
+        if not is_instance_valid(a.get("node")):
+            continue
+        var uid := uid_of(a["node"])
+        if uid == text:
+            return uid
+        if found == "" and (uid.ends_with("/" + text) or uid.ends_with(":" + text)):
+            found = uid
+    for npc in npcs:
+        if is_instance_valid(npc) and (npc_uid(npc) == text or String(npc.name) == text or String(npc.name) == text + "_npc"):
+            return npc_uid(npc)
+    return found
+
+
 ## Nearest affordance within ``radius`` of a world point, or {}.
 ## Only poses the player can take (sit, lie); NPC-only actions (look, stand) are skipped.
 func affordance_near(point: Vector3, radius := 0.9) -> Dictionary:

@@ -17,13 +17,13 @@ TYPES = {
     "linger": NUM, "hold": NUM, "gap": NUM, "zoom": NUM, "fov": NUM, "day_length": NUM,
     "minutes": NUM, "hours": NUM, "days": NUM, "day": {"type": "integer", "minimum": 0},
     "until": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
-    "frames": INT, "limit": INT, "index": INT, "since": INT, "count": INT,
+    "frames": INT, "limit": INT, "index": INT, "choose": INT, "cancel": INT, "since": INT, "count": INT,
     "instant": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
     "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL, "visible": BOOL,
     "button": {"enum": ["left", "right", "middle"]},
     "asset": STR, "interaction": STR, "scene": STR, "spawn": STR, "name": STR, "uid": STR, "node_path": STR,
     "node": STR, "tag": STR, "type": STR, "room": STR, "key": STR, "item": STR, "actor": STR, "npc": STR,
-    "option": STR, "path": STR, "prop": STR, "time": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
+    "option": STR, "thing": STR, "path": STR, "prop": STR, "time": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
     "view": STR, "mode": {"enum": ["player", "overview", "follow"]}, "choice": STR, "select": STR,
     "value": {}, "keys": STRS, "types": STRS, "subjects": STRS,
     "streams": {"type": "array", "items": {"enum": ["events", "quest", "interaction", "npc", "room", "place", "travel",
@@ -39,6 +39,7 @@ OVERRIDES = {   # (command, arg): type, where an argument means different things
     ("npcs.places", "want"): STR, ("npcs.do", "action"): STR, ("npcs.do", "subject"): STR, ("npcs.do", "place"): VEC,
     ("npcs.needs", "needs"): {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
     ("input.mouse", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},   # viewport pixels
+    ("hud.direct", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},
 }
 EXTRA = {   # arguments the code reads that the one-line descriptions leave out
     "interactions.set": ["actor"], "interactions.use": ["actor"], "interactions.lock": ["actor"],

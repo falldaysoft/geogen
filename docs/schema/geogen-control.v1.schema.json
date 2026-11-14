@@ -128,6 +128,7 @@
             "help",
             "hud.aim",
             "hud.crossing",
+            "hud.direct",
             "hud.inventory",
             "hud.keys",
             "hud.log",
@@ -146,6 +147,9 @@
             "inventory.give",
             "inventory.list",
             "inventory.use",
+            "npcs.cancel",
+            "npcs.choices",
+            "npcs.direct",
             "npcs.do",
             "npcs.force",
             "npcs.greet",
@@ -410,6 +414,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/hud.crossing"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "hud.direct"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/hud.direct"
               }
             }
           }
@@ -698,6 +718,54 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/inventory.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.cancel"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.cancel"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.choices"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.choices"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "npcs.direct"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/npcs.direct"
               }
             }
           }
@@ -1689,6 +1757,7 @@
         "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
         "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
         "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
+        "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n} the HUD's panel for telling people what to do (G): open turns directing on or off, select picks who, thing (or a click at a point of the screen) lists what they could do with it, choose tells them to do line n of that list (from 0), cancel takes back order n of their queue (-1: the last) -> {active, selected, name, doing, needs, orders: [{option, label}], thing, menu: [{option, label, available, why, plan, cost}], message, camera: overview | player}",
         "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): {visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
         "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how long a finished quest stays up",
         "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: {open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; track makes the tracker follow the selected quest",
@@ -1703,6 +1772,9 @@
         "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: [{position, approach, uid, tags, height, score, qualities: {high, enclosed, hidden, warm, soft, ...}}]; and what the prop rests on",
         "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
         "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
+        "npcs.choices": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}",
+        "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, ahead of anything of its own -> {npc, orders}",
+        "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
         "npcs.pause": "{npc?} freeze one NPC (or all)",
         "npcs.resume": "{npc?}",
         "time.pause": "freeze the world (the API keeps serving)",
@@ -2275,6 +2347,35 @@
           }
         }
       },
+      "hud.direct": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "open": {
+            "type": "boolean"
+          },
+          "select": {
+            "type": "string"
+          },
+          "thing": {
+            "type": "string"
+          },
+          "at": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "choose": {
+            "type": "integer"
+          },
+          "cancel": {
+            "type": "integer"
+          }
+        }
+      },
       "hud.crossing": {
         "type": "object",
         "additionalProperties": false,
@@ -2440,6 +2541,42 @@
           },
           "wait": {
             "type": "number"
+          }
+        }
+      },
+      "npcs.choices": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "thing": {
+            "type": "string"
+          }
+        }
+      },
+      "npcs.direct": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "option": {
+            "type": "string"
+          }
+        }
+      },
+      "npcs.cancel": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "npc": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer"
           }
         }
       },

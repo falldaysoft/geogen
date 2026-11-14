@@ -1,6 +1,8 @@
 """Plans in the Godot runtime (the dollhouse, geogen.101): a hungry person and a kitchen.
 Nothing tells Ana to cook: the chain is found from what the things give and take."""
 
+import time
+
 import pytest
 
 pytestmark = [pytest.mark.godot, pytest.mark.xdist_group("test_household_runtime")]
@@ -160,3 +162,113 @@ def test_someone_seated_stays_seated_for_a_chat(godot_runtime, scene_export):
     assert len(seen) >= 4, (ana["doing"], ana["failures"], ben["pose"], ben["doing"])
     assert all(n["doing"].startswith("sofa") for n in seen)         # still at what it was doing
     assert seen[-1]["needs"]["social"] > 0.62 and max(n["head_turn"] for n in seen) > 5
+
+
+# --- told what to do (geogen.101.8): orders, and the HUD's direct panel ---
+
+def test_someone_told_to_eat_cooks_first_and_then_sees_to_herself_again(godot_runtime, scene_export):
+    rt = launch(godot_runtime, scene_export, "household_test")
+    full = {"hunger": 1.0, "rest": 1.0, "hygiene": 1.0, "order": 1.0, "social": 1.0}
+    rt.call("npcs.needs", npc="ana", needs=full)
+    rt.call("time.advance", seconds=40, scale=4)            # (what she set off on before she was full)
+    rt.call("npcs.needs", npc="ana", needs=full)
+    meals = sum(c for id, c in ana(rt)["used"].items() if id.endswith(".eat"))
+
+    # What she could do with the chair: sit, or eat, which means the fridge and the range first.
+    found = rt.call("npcs.choices", npc="ana", thing="chair")
+    assert found["thing"] == "household_test:chair"
+    by_label = {c["label"]: c for c in found["choices"]}
+    assert set(by_label) == {"Sit at table", "Eat"} and all(c["available"] for c in by_label.values())
+    assert by_label["Eat"]["plan"] == ["fridge#0", "range#0.meal", "chair#0.eat"]
+    assert [c["label"] for c in rt.call("npcs.choices", npc="ana", thing="range")["choices"]] == ["Cook", "Make meal"]
+    with pytest.raises(Exception, match="named 'piano'"):
+        rt.call("npcs.choices", npc="ana", thing="piano")
+    with pytest.raises(Exception, match="not something it can do"):
+        rt.call("npcs.direct", npc="ana", option="piano#0")
+
+    # Told to eat, then to wash up, then to sit: three orders, done in turn. The last is taken back.
+    assert rt.call("npcs.direct", npc="ana", option="chair#0.eat")["orders"] == ["chair#0.eat"]
+    rt.call("npcs.direct", npc="ana", option="sink#0")
+    assert rt.call("npcs.direct", npc="ana", option="chair#0")["orders"] == ["chair#0.eat", "sink#0", "chair#0"]
+    assert rt.call("npcs.cancel", npc="ana", index=2) == {"npc": "ana_npc", "cancelled": 1, "orders": ["chair#0.eat", "sink#0"]}
+    seen = []
+    for _ in range(60):
+        rt.call("time.advance", seconds=3, scale=4)
+        n = ana(rt)
+        seen.append(n["doing"].split(":")[0])
+        if not n["orders"]:
+            break
+    else:
+        raise AssertionError((n["doing"], n["orders"], n["order"], n["failures"]))
+    order = [id for i, id in enumerate(seen) if i == 0 or seen[i - 1] != id]
+    assert [id for id in order if id in ("fridge#0", "range#0.meal", "chair#0.eat", "sink#0")] == \
+        ["fridge#0", "range#0.meal", "chair#0.eat", "sink#0"], order
+    assert not any(id.startswith("self/") for id in seen[:-1])      # nothing of her own in between
+    assert sum(c for id, c in n["used"].items() if id.endswith(".eat")) == meals + 1
+    assert n["orders_done"] == 2 and n["orders_failed"] == 0 and n["order"] == {"option": "sink#0", "ok": True, "reason": ""}
+    decided = n["decisions"]
+    rt.call("time.advance", seconds=30, scale=4)            # and with nothing left to do, she decides for herself
+    assert ana(rt)["decisions"] > decided and ana(rt)["orders"] == [] and ana(rt)["orders_done"] == 2
+
+
+def test_the_direct_panel_lists_what_a_thing_offers_and_queues_the_choice(godot_runtime, scene_export):
+    rt = launch(godot_runtime, scene_export, "household_pair")
+    for who in ("ana", "ben"):
+        rt.call("npcs.needs", npc=who, needs={"social": 1.0, "rest": 1.0})
+    rt.call("time.advance", seconds=30, scale=4)
+    for who in ("ana", "ben"):
+        rt.call("npcs.needs", npc=who, needs={"social": 1.0, "rest": 1.0})
+    idle = rt.call("hud.direct")
+    assert idle["active"] is False and idle["camera"] == "player"
+    shown = rt.call("hud.direct", open=True, select="ana")
+    assert shown["active"] and shown["selected"] == "ana_npc" and shown["name"] == "Ana" and shown["menu"] == []
+    assert set(shown["needs"]) >= {"hunger", "social"}
+    assert shown["camera"] == "overview"                    # looking down into the room, while directing
+
+    sofa = rt.call("hud.direct", thing="sofa")              # three seats, one line
+    assert sofa["thing"] == "household_pair:sofa" and [m["label"] for m in sofa["menu"]] == ["Sit"]
+    # The other person: what they offer. Content as they both are, nobody would go over unasked.
+    for _ in range(60):                                     # (on his way to a seat he is busy: "they are busy")
+        chat = rt.call("hud.direct", thing="ben")
+        assert [m["label"] for m in chat["menu"]] == ["Chat with Ben"]
+        if chat["menu"][0]["available"]:
+            break
+        assert chat["menu"][0]["why"] == "they are busy"
+        rt.call("time.advance", seconds=1, scale=4)
+    assert chat["menu"][0]["available"] and chat["menu"][0]["plan"] == ["with/household_pair:ben/chat"]
+    told = rt.call("hud.direct", choose=0)
+    assert told["menu"] == [] and told["orders"] == [{"option": "with/household_pair:ben/chat", "label": "Chat with Ben"}]
+    for _ in range(60):
+        rt.call("time.advance", seconds=1, scale=4)
+        people = both(rt)
+        if not people[0]["orders"]:
+            break
+    assert people[0]["order"] == {"option": "with/household_pair:ben/chat", "ok": True, "reason": ""}
+    assert people[1]["joined"] >= 1
+
+    rt.call("hud.direct", thing="sofa", choose=0)
+    assert len(rt.call("hud.direct")["orders"]) == 1
+    assert rt.call("hud.direct", cancel=-1)["orders"] == []
+    assert rt.call("hud.direct", select="ben")["name"] == "Ben"
+
+    # The keys, as a person would use them (the world running: a paused tree hears no input). A click on a
+    # line of the list does the same as its digit; the headless viewport is too small to hold the panel, so
+    # that was checked in a window.
+    rt.call("time.resume")
+    rt.call("hud.direct", select="ana", thing="sofa")
+    time.sleep(0.6)                                         # (past a timed redraw: the list is still there)
+    assert len(rt.call("hud.direct")["lines"]) == 1
+    rt.call("input.key", key="1")
+    chosen = rt.call("hud.direct")
+    assert [o["label"] for o in chosen["orders"]] == ["Sit"] and chosen["menu"] == []
+    rt.call("input.key", key="Backspace")
+    assert rt.call("hud.direct")["orders"] == []
+    rt.call("input.key", key="Tab")
+    assert rt.call("hud.direct")["selected"] == "ben_npc"
+    rt.call("input.key", key="G")
+    assert rt.call("hud.direct")["active"] is False
+    rt.call("input.key", key="G")
+    assert rt.call("hud.direct")["active"] is True
+    rt.call("time.pause")
+    closed = rt.call("hud.direct", open=False)
+    assert closed["active"] is False and closed["camera"] == "player"

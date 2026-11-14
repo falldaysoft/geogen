@@ -57,6 +57,27 @@ traces["kitchen"] = {
     ],
 }
 
+traces["directed"] = {
+    "about": "Told what to do (plan_to): the chain to a named affordance, wanted or not. Full and rested, "
+             "nothing is worth doing, but told to eat she still fetches and cooks first; told to wash up with "
+             "no dish, she makes one. What someone else has, or what isn't there, gives no chain.",
+    "world": {"affordances": [FRIDGE, STOVE, TABLE, SINK, SOFA]},
+    "actors": {"ana": person([4, 0, 0], hunger=1.0, rest=1.0), "ben": person([4, 0, 0])},
+    "steps": [
+        {"plan": "ana", "expect": {"steps": []}},
+        {"plan": "ana", "to": TABLE["id"], "expect": {"goal": TABLE["id"], "steps": [FRIDGE["id"], STOVE["id"], TABLE["id"]],
+                                                     "cost": 103.0, "score": 0.0, "fills": {"hunger": 0.0}}},     # full: eating adds nothing
+        {"release": "ana"},
+        {"plan": "ana", "to": SOFA["id"], "expect": {"steps": [SOFA["id"]]}},
+        {"plan": "ana", "to": SINK["id"], "expect": {"steps": [FRIDGE["id"], STOVE["id"], TABLE["id"], SINK["id"]]}},
+        {"plan": "ana", "to": "kitchen/kettle#0", "expect": {"steps": []}},
+        # Ben is hungry and plans the meal: the stove is his, so Ana, told to eat, can't.
+        {"release": "ana"},
+        {"plan": "ben", "expect": {"steps": [FRIDGE["id"], STOVE["id"], TABLE["id"]]}},
+        {"plan": "ana", "to": TABLE["id"], "expect": {"steps": []}},
+    ],
+}
+
 traces["missing_ingredient"] = {
     "about": "What is carried shortens the chain, and a chain that can't start isn't a plan: with no fridge "
              "nothing gives raw food, so the meal is out of reach and the fruit bowl is what there is; "

@@ -83,6 +83,12 @@ const COMMANDS := {
     "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
     "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
     "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
+    "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n} "
+        + "the HUD's panel for telling people what to do (G): open turns directing on or off, select picks who, thing "
+        + "(or a click at a point of the screen) lists what they could do with it, choose tells them to do line n of that "
+        + "list (from 0), cancel takes back order n of their queue (-1: the last) -> {active, selected, name, doing, "
+        + "needs, orders: [{option, label}], thing, menu: [{option, label, available, why, plan, cost}], message, "
+        + "camera: overview | player}",
     "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): "
         + "{visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
     "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
@@ -114,6 +120,11 @@ const COMMANDS := {
     "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a "
         + "physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
     "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
+    "npcs.choices": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's "
+        + "name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}",
+    "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, "
+        + "ahead of anything of its own -> {npc, orders}",
+    "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
     "npcs.pause": "{npc?} freeze one NPC (or all)",
     "npcs.resume": "{npc?}",
     "time.pause": "freeze the world (the API keeps serving)",
@@ -532,6 +543,32 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                             ", ".join(shown["choices"].map(func(c): return c["id"]))])
                 main.hud.refresh()
             return panel.hud_report()
+        "hud.direct":
+            var panel: GeogenHudDirect = main.direct
+            if args.has("open"):
+                panel.set_active(bool(args["open"]))
+            if args.has("select"):
+                var who := _npc(str(args["select"]))
+                if who == null:
+                    return _err("no NPC named '%s'" % args["select"])
+                panel.select(who)
+            if args.has("thing"):
+                var uid: String = world.thing_named(str(args["thing"]))
+                if uid == "":
+                    return _err("nothing with an affordance (and no NPC) is named '%s'" % args["thing"])
+                panel.pick(uid)
+            if args.has("at"):
+                panel.click(Vector2(float(args["at"][0]), float(args["at"][1])), main.overview)
+            if args.has("choose"):
+                var why: String = panel.choose(int(args["choose"]))
+                if why != "":
+                    return _err(why)
+            if args.has("cancel"):
+                panel.cancel(int(args["cancel"]))
+            main.hud.refresh()
+            var shown: Dictionary = panel.hud_report()
+            shown["camera"] = "overview" if main.overview.current else "player"
+            return shown
         "hud.inventory":
             main.hud.refresh()
             return main.hud.panel("inventory").hud_report()
@@ -670,7 +707,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return world.saves.save()
         "npcs.list":
             return world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return n.report())
-        "npcs.options", "npcs.force", "npcs.greet", "npcs.do", "npcs.places", "npcs.needs":
+        "npcs.options", "npcs.force", "npcs.greet", "npcs.do", "npcs.places", "npcs.needs", "npcs.choices", "npcs.direct", "npcs.cancel":
             var npc := _npc(str(args.get("npc", "")))
             if npc == null:
                 return _err("no NPC named '%s'" % args.get("npc", ""))
@@ -687,6 +724,17 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     "places": GeogenWants.places(npc, str(args["want"]), which, true).map(func(p): return {
                         "position": _v(p["position"]), "approach": _v(p["approach"]), "uid": p["uid"], "tags": p["tags"],
                         "height": snappedf(p["height"], 0.001), "score": snappedf(p["score"], 0.001), "qualities": p["qualities"]})}
+            if cmd == "npcs.choices":
+                var thing: String = world.thing_named(str(args.get("thing", "")))
+                if thing == "":
+                    return _err("nothing with an affordance (and no NPC) is named '%s'" % args.get("thing", ""))
+                return {"thing": thing, "choices": npc.choices(thing)}
+            if cmd == "npcs.direct":
+                var refused: String = npc.direct(str(args.get("option", "")))
+                return _err(refused) if refused != "" else {"npc": String(npc.name), "orders": npc._orders.duplicate()}
+            if cmd == "npcs.cancel":
+                var gone: int = npc.cancel_orders(int(args.get("index", -1)))
+                return {"npc": String(npc.name), "cancelled": gone, "orders": npc._orders.duplicate()}
             if cmd == "npcs.needs":
                 if args.get("needs") is Dictionary:
                     npc.take_needs(args["needs"])

@@ -97,7 +97,7 @@ reloads the model within half a second (the player keeps their position).
 
 Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
-(Space/Ctrl up/down), F4 overview camera, F5 NPC labels, F9 cutaway, F6 scene list,
+(Space/Ctrl up/down), F4 overview camera, G direct people (below), F5 NPC labels, F9 cutaway, F6 scene list,
 F7 / F8 previous / next scene, E use, L lock, Q track the next active quest,
 J quest log, I / F select and use a carried item, ? this list of keys.
 
@@ -1242,6 +1242,33 @@ on any other layout reads as `KEY_QUESTION` (`GeogenHud._key_of`), which is
 also what `input.key {key: Question}` sends. Control API `hud.keys {open?}`
 returns `{open, groups, columns, hint, rect, viewport}`. Tests:
 `tests/test_hud_runtime.py`.
+
+**Directing people** (`scripts/hud_direct.gd`, panel `direct`, bottom left, geogen.101.8).
+`G` turns it on and off. While it is on the view is the overview camera looking down into the
+rooms (ceilings hidden), the mouse is free and the player stands still; one person is selected,
+with a ring at their feet, and the view comes over to them. The panel shows their name, what
+they are doing, their needs, and what they have been told to do. Click a thing (or another
+person) and it lists what the selected person could do with it: each affordance of the thing
+they have an action for, with the chain it means ("Eat: Get raw food > Make meal > Eat") or
+why it can't be done now (someone else's, in use, too far from home, what it takes is missing
+or in use). Click a line, or press its digit, to tell them: orders queue, are done in turn
+ahead of anything of their own, and with none left they see to themselves again. Click an
+order (or Backspace) to take it back. Right click or Tab selects someone else; W A S D and the
+wheel move and zoom the view; Esc closes the list, then leaves. A click picks whatever is
+drawn nearest it (a person within 45 px, else a thing's affordance within 70 px): nothing is
+ray-cast, since seated people have no collider and hidden ceilings keep theirs.
+
+Behind it, on any NPC (`npc.gd`): `choices(thing)`, `direct(option)`, `cancel_orders(index)`.
+An order is an option id; at each decision with orders waiting the NPC takes the first, by the
+chain `GeogenPlanner.plan_to` finds to it (so it works for NPCs with no `planner:` too), ignoring
+its routine's `only:` and the retry delay of a failure. What it was doing of its own accord is
+cut short (out of bed, too); told to do what it is already at, that becomes the order. An order
+that can't be done, or fails, leaves the queue with its reason (the report's `order`), and
+someone with orders waiting isn't free for company. Menu labels come from what an affordance
+does: "Get <item>" / "Make <item>" for a link in a chain, else its use or action. API
+`npcs.choices`, `npcs.direct`, `npcs.cancel`; `hud.direct {open, select, thing, at, choose,
+cancel}` works the panel and returns what it shows. The NPC report has `orders`, `order`,
+`orders_done`, `orders_failed`.
 
 **Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom centre, geogen.18,
 geogen.84.14): a hotbar of what the player carries, one square slot an item in the

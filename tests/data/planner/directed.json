@@ -1,0 +1,184 @@
+{
+ "name": "directed",
+ "about": "Told what to do (plan_to): the chain to a named affordance, wanted or not. Full and rested, nothing is worth doing, but told to eat she still fetches and cooks first; told to wash up with no dish, she makes one. What someone else has, or what isn't there, gives no chain.",
+ "world": {
+  "affordances": [
+   {
+    "id": "kitchen/fridge#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 4,
+    "gives": {
+     "raw_food": 1
+    }
+   },
+   {
+    "id": "kitchen/stove#0",
+    "at": [
+     2,
+     0,
+     0
+    ],
+    "duration": 30,
+    "takes": [
+     "raw_food"
+    ],
+    "gives": {
+     "meal": 1
+    }
+   },
+   {
+    "id": "kitchen/table/chair#0",
+    "at": [
+     2,
+     0,
+     3
+    ],
+    "duration": 60,
+    "takes": [
+     "meal"
+    ],
+    "gives": {
+     "dirty_dish": 1
+    },
+    "advertises": {
+     "hunger": 0.7
+    }
+   },
+   {
+    "id": "kitchen/sink#0",
+    "at": [
+     3,
+     0,
+     0
+    ],
+    "duration": 10,
+    "takes": [
+     "dirty_dish"
+    ],
+    "advertises": {
+     "order": 0.3
+    }
+   },
+   {
+    "id": "lounge/sofa#0",
+    "at": [
+     8,
+     0,
+     3
+    ],
+    "duration": 40,
+    "advertises": {
+     "rest": 0.3
+    }
+   }
+  ]
+ },
+ "actors": {
+  "ana": {
+   "at": [
+    4,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "hunger": 1.0,
+    "rest": 1.0
+   }
+  },
+  "ben": {
+   "at": [
+    4,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "hunger": 0.2,
+    "rest": 0.9
+   }
+  }
+ },
+ "steps": [
+  {
+   "plan": "ana",
+   "expect": {
+    "steps": []
+   }
+  },
+  {
+   "plan": "ana",
+   "to": "kitchen/table/chair#0",
+   "expect": {
+    "goal": "kitchen/table/chair#0",
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ],
+    "cost": 103.0,
+    "score": 0.0,
+    "fills": {
+     "hunger": 0.0
+    }
+   }
+  },
+  {
+   "release": "ana"
+  },
+  {
+   "plan": "ana",
+   "to": "lounge/sofa#0",
+   "expect": {
+    "steps": [
+     "lounge/sofa#0"
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "to": "kitchen/sink#0",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0",
+     "kitchen/sink#0"
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "to": "kitchen/kettle#0",
+   "expect": {
+    "steps": []
+   }
+  },
+  {
+   "release": "ana"
+  },
+  {
+   "plan": "ben",
+   "expect": {
+    "steps": [
+     "kitchen/fridge#0",
+     "kitchen/stove#0",
+     "kitchen/table/chair#0"
+    ]
+   }
+  },
+  {
+   "plan": "ana",
+   "to": "kitchen/table/chair#0",
+   "expect": {
+    "steps": []
+   }
+  }
+ ]
+}

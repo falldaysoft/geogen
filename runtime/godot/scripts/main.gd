@@ -93,6 +93,9 @@ var _spawn_override = null
 var _yaw_override = null
 var _manifest_arg := false
 var _start_overview := false
+var direct: GeogenHudDirect = null     # the HUD's panel for telling people what to do (G)
+const DIRECT_DISTANCE := 16.0          # m from the selected person the view starts at
+var _direct_before := {}  # the camera and cutaway as they were before directing
 var _cutaway := false     # ceilings and roofs hidden (--cutaway, F9)
 var _overview_aabb := AABB()
 var keys: Array = []         # --keys; held_keys() adds what the player carries
@@ -366,6 +369,10 @@ func _ready() -> void:
     hud.input_blocked = func(): return _menu.visible
     hud.add_panel(GeogenHudStats.new(), "top_left")
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
+    direct = GeogenHudDirect.new()                  # (before the inventory: while directing, the digits are its menu's)
+    direct.mode_changed.connect(_direct_mode)
+    direct.selected_changed.connect(_direct_look_at)
+    hud.add_panel(direct, "bottom_left")
     hud.add_panel(GeogenHudNotifications.new(), "bottom_left")
     hud.add_panel(GeogenHudInventory.new(), "bottom")
     hud.add_panel(GeogenHudMarkers.new(), "screen")
@@ -675,9 +682,91 @@ func _hud_modal(open: bool) -> void:
 
 
 func _menu_closed() -> void:
+    if direct != null and direct.active:        # still directing: the player stays parked, the mouse free
+        return
     player.process_mode = Node.PROCESS_MODE_INHERIT
     if DisplayServer.get_name() != "headless" and _steps.is_empty():
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Directing people (the HUD's direct panel, G) turned on or off: look down into the rooms from the
+## overview camera with the mouse free and the player parked; back as it was afterwards.
+func _direct_mode(on: bool) -> void:
+    if player == null:
+        return
+    if on:
+        _direct_before = {"overview": overview.current, "cutaway": _cutaway}
+        if not _cutaway:
+            _cutaway = true
+            _apply_cutaway()
+            _frame_overview(_overview_aabb)
+        overview.make_current()
+        player.process_mode = Node.PROCESS_MODE_DISABLED
+        Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+        return
+    if _cutaway != bool(_direct_before.get("cutaway", false)):
+        _cutaway = not _cutaway
+        _apply_cutaway()
+        _frame_overview(_overview_aabb)
+    if not _direct_before.get("overview", false):
+        player.camera.make_current()
+    _menu_closed()
+
+
+## While directing: bring the view over the person selected, near enough to see their rooms
+## (kept as far off as the view already was, if that is nearer).
+func _direct_look_at(npc: GeogenNpc) -> void:
+    if npc == null or not is_instance_valid(npc) or direct == null or not direct.active:
+        return
+    var at := Vector3(npc.global_position.x, 0.0, npc.global_position.z)
+    var away := minf((overview.global_position - _overview_focus()).length(), DIRECT_DISTANCE)
+    at -= Vector3.RIGHT * away * 0.15          # a little right of centre: the panel is on the left
+    overview.look_at_from_position(at + Vector3(0.0, 1.0, 0.6).normalized() * away, at)
+
+
+## While directing: the mouse picks and selects, the wheel zooms.
+func _direct_input(event: InputEvent) -> bool:
+    if not (event is InputEventMouseButton and event.pressed):
+        return false
+    var button: int = event.button_index
+    if button == MOUSE_BUTTON_LEFT or button == MOUSE_BUTTON_RIGHT:
+        direct.click(event.position, overview, button == MOUSE_BUTTON_LEFT)
+    elif button == MOUSE_BUTTON_WHEEL_UP or button == MOUSE_BUTTON_WHEEL_DOWN:
+        _direct_zoom(0.88 if button == MOUSE_BUTTON_WHEEL_UP else 1.0 / 0.88)
+    else:
+        return false
+    return true
+
+
+## Where the overview camera looks at the ground (y = 0).
+func _overview_focus() -> Vector3:
+    var forward := -overview.global_transform.basis.z
+    var down := maxf(-forward.y, 0.05)
+    return overview.global_position + forward * (overview.global_position.y / down)
+
+
+func _direct_zoom(factor: float) -> void:
+    var focus_point := _overview_focus()
+    var offset := overview.global_position - focus_point
+    var length := clampf(offset.length() * factor, 3.0, maxf(_overview_aabb.size.length() * 1.5, 6.0))
+    overview.global_position = focus_point + offset.normalized() * length
+
+
+## While directing: W A S D (and the arrows) slide the view over the ground.
+func _direct_pan(delta: float) -> void:
+    var move := Vector2.ZERO
+    for entry in [[KEY_W, 0, -1], [KEY_UP, 0, -1], [KEY_S, 0, 1], [KEY_DOWN, 0, 1], [KEY_A, -1, 0], [KEY_LEFT, -1, 0],
+            [KEY_D, 1, 0], [KEY_RIGHT, 1, 0]]:
+        if Input.is_physical_key_pressed(entry[0]):
+            move += Vector2(entry[1], entry[2])
+    if move == Vector2.ZERO:
+        return
+    var right := overview.global_transform.basis.x
+    var ahead := Vector3(-overview.global_transform.basis.z.x, 0, -overview.global_transform.basis.z.z)
+    if ahead.length() < 0.05:           # looking straight down: the top of the picture is ahead
+        ahead = Vector3(overview.global_transform.basis.y.x, 0, overview.global_transform.basis.y.z)
+    var speed := maxf((overview.global_position - _overview_focus()).length(), 3.0) * 0.8
+    overview.global_position += (right * move.x - ahead.normalized() * move.y) * speed * delta
 
 
 func _show_npc_labels() -> void:
@@ -757,6 +846,9 @@ func _frame_overview(aabb: AABB) -> void:
 func _unhandled_input(event: InputEvent) -> void:
     if (_menu != null and _menu.visible) or (hud != null and hud.modal != null):
         return
+    if direct != null and direct.active and _direct_input(event):
+        get_viewport().set_input_as_handled()
+        return
     if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F6:
         _open_menu()
     elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_F7, KEY_F8]:
@@ -791,8 +883,10 @@ func _physics_process(_delta: float) -> void:
     focus.update()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
     _follow_npc()
+    if direct != null and direct.active and not (_menu != null and _menu.visible):
+        _direct_pan(delta)
     if overlay.visible:
         var p := player.global_position
         var room := world.room_at(p + Vector3(0, 0.5, 0))
@@ -800,7 +894,7 @@ func _process(_delta: float) -> void:
         var chunk_info := "" if stream.is_empty() else "   chunks %d full / %d lod / %d interiors%s" % [
             stream["full"].size(), stream["lod"].size(), stream["interiors"].size(),
             " (+%d loading)" % stream["pending"] if stream["pending"] > 0 else ""]
-        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  Q quest  F6 scenes  F7/F8 prev/next  Esc mouse  ? keys" % [
+        overlay.text = "%d fps   %s   %s%s\npos %.2f, %.2f, %.2f   room: %s%s%s\nWASD move  Shift sprint  Space jump  F1 overlay  F2 colliders  F3 fly  F4 overview  G direct  Q quest  F6 scenes  F7/F8 prev/next  Esc mouse  ? keys" % [
             Engine.get_frames_per_second(), clock.label(),
             world.scene_name if world.scene_name != "" else "all exports", chunk_info,
             p.x, p.y, p.z, room if room != "" else "-",

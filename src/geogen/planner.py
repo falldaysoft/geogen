@@ -227,6 +227,22 @@ def plan(snapshot: dict[str, Any]) -> dict[str, Any]:
             "goals": goals}
 
 
+def plan_to(snapshot: dict[str, Any], goal: str) -> dict[str, Any]:
+    """The chain that ends with affordance ``goal``, whether or not it is worth doing (someone was
+    told to: geogen.101.8): as :func:`plan` gives it (``score`` 0, ``goals`` 1), or ``{}`` when
+    there is no such affordance, someone else has it, or nothing leads to it."""
+    limits = {**LIMITS, **(snapshot.get("limits") or {})}
+    wanted = next((a for a in snapshot["affordances"] if a.get("id") == goal), None)
+    if wanted is None or wanted.get("reserved"):
+        return {}
+    found = _chain(wanted, snapshot, limits)
+    if found is None:
+        return {}
+    _, fills = _worth(found["steps"], snapshot)
+    return {"goal": goal, "steps": found["steps"], "cost": found["cost_ms"] / 1000.0, "score": 0.0,
+            "fills": {k: round(v, 6) for k, v in fills.items()}, "goals": 1}
+
+
 def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
     """Replay a planner trace; the mismatches ([] when it conforms).
 
@@ -234,7 +250,8 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
     step is ``{"plan": actor, "expect": {...}}`` (any of ``goal``, ``steps``, ``cost``,
     ``score``, ``fills``; ``{"steps": []}`` for no plan): a plan found claims its affordances
     for that actor, in place of what the actor claimed before, and the others then plan
-    without them. ``{"release": actor}`` gives its claims up. ``{"set": {...}}`` changes
+    without them; with ``"to": <affordance id>`` it is the chain to that one (:func:`plan_to`).
+    ``{"release": actor}`` gives its claims up. ``{"set": {...}}`` changes
     what there is: ``holding`` / ``needs`` / ``urgency`` / ``at`` ({actor: value}),
     ``states`` ({key: state}), ``remove`` ([affordance ids]) and ``add`` ([affordances]).
     """
@@ -251,8 +268,9 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
         if "plan" in step:
             who = step["plan"]
             taken = {i for other, ids in claims.items() if other != who for i in ids}
-            found = plan({"affordances": [{**a, "reserved": a["id"] in taken} for a in affordances],
-                          "states": states, "actor": actors[who], "limits": trace.get("limits", {})})
+            asked = {"affordances": [{**a, "reserved": a["id"] in taken} for a in affordances],
+                     "states": states, "actor": actors[who], "limits": trace.get("limits", {})}
+            found = plan_to(asked, step["to"]) if "to" in step else plan(asked)
             claims[who] = list(found.get("steps", []))
             for key, want in step.get("expect", {}).items():
                 got = found.get(key, [] if key == "steps" else None)
