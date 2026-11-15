@@ -236,7 +236,7 @@ def test_ownership_is_exported_as_stable_ids(tmp_path):
 name: two
 size: [14, 6, 14]
 place:
-  cottage: { scene: scenes/cottage.yaml, params: { quest: 0 } }
+  cottage: { scene: scenes/cottage.yaml, params: { quest: 0, lived_in: 0 } }
   guest:
     npc: npcs/resident.yaml
     on: cottage/house.floor

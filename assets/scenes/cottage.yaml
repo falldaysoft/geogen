@@ -8,15 +8,25 @@ params:
   gallery: { default: 1 }      # the people gallery on the front lawn (0 for a plain cottage)
   resident_quest: { default: 0 } # the resident holds "lights out" from the start and does it (an NPC quest)
   quest: { default: 1 }        # the resident's "lights out" quest (0 where the cottage is part of something bigger)
+  lived_in: { default: 1 }     # a bathroom, a kitchen and two people who live by needs and plans (0: one room and the
+                               # plain resident of npcs/resident.yaml, as the NPC tests know it)
 
-# The resident asks whoever greets them to switch off the lights (docs/quests.md).
+# Whoever lives here asks whoever greets them to switch off the lights (docs/quests.md).
 quests:
   - { file: quests/lights_out.yaml, if: "{quest}" }
 
 rules:
   - id: give_lights_out
-    if: "{quest}"
+    if: "{quest * (1 - lived_in)}"
     on: { signal: resident.greeted, actor: player }
+    do: [{ start_quest: lights_out }]
+  - id: give_lights_out_at_home
+    if: "{quest * lived_in}"
+    on: { signal: ana.greeted, actor: player }
+    do: [{ start_quest: lights_out }]
+  - id: give_lights_out_from_bea       # either of them asks
+    if: "{quest * lived_in}"
+    on: { signal: bea.greeted, actor: player }
     do: [{ start_quest: lights_out }]
 
 slots:
@@ -88,6 +98,69 @@ place:
     facing: center
     yaw: 15
 
+  # A bathroom partitioned off the back east corner (3.0 x 2.0 m, the back window in it), its
+  # door on the side by the bookshelf; and a kitchen along the west wall by the table. With
+  # these the two who live here keep themselves going by plans nobody wrote (the fridge gives
+  # raw food, the range makes a meal of it, a chair at the table is where it is eaten, the sink
+  # takes the plate; the shower and the basin are for washing: npcs/householder.yaml,
+  # docs/dev/gameplay.md "Plans").
+  bath_wall_west:
+    when: "{lived_in}"
+    asset: partition_wall.yaml
+    params: { length: 2.05 }
+    on: house.floor
+    at: { u: { abs: 4.4 }, v: { abs: 1.025 } }
+    facing: west
+  bath_wall_south:
+    when: "{lived_in}"
+    asset: partition_wall.yaml
+    params: { length: 2.95 }
+    on: house.floor
+    at: { u: { abs: 5.925 }, v: { abs: 2.0 } }
+    facing: north
+  bath_door:
+    when: "{lived_in}"
+    asset: door.yaml
+    on: bath_wall_west.front
+    at: { u: 0.42, v: { abs: 0 } }
+  shower:
+    when: "{lived_in}"
+    asset: shower.yaml
+    on: house.floor
+    at: { u: { abs: 6.9 }, v: { abs: 0.5 } }
+    facing: north
+  toilet:
+    when: "{lived_in}"
+    asset: toilet.yaml
+    on: house.floor
+    at: { u: { abs: 5.6 }, v: { abs: 0.38 } }
+    facing: north
+  washstand:
+    when: "{lived_in}"
+    asset: vanity.yaml
+    on: house.floor
+    at: { u: { abs: 7.08 }, v: { abs: 1.5 } }
+    facing: west
+  fridge:
+    when: "{lived_in}"
+    asset: fridge.yaml
+    on: house.floor
+    at: { u: { abs: 0.55 }, v: { abs: 0.46 } }   # the back west corner
+    facing: north
+  sink:
+    when: "{lived_in}"
+    asset: kitchen_sink.yaml
+    on: house.floor
+    at: { u: { abs: 1.62 }, v: { abs: 0.4 } }    # beside it, by the back window
+    facing: north
+  range:
+    when: "{lived_in}"
+    asset: kitchen_range.yaml
+    params: { width: 0.9 }                        # a cooker for two (the default is a restaurant's)
+    on: house.floor
+    at: { u: { abs: 0.5 }, v: { abs: 4.7 } }     # on the west wall, by the front window
+    facing: east
+
   # Two ceiling lights with their switches inside the front door, and a
   # reading lamp by the armchair with its switch on the wall beside it. Inside
   # walls run left to right as you face them, v from the foundation top (the
@@ -120,9 +193,32 @@ place:
     on: house.right_inside
     at: { u: { abs: 1.685 }, v: { abs: 1.08 } }
 
-  # Someone lives here (assets/npcs/resident.yaml). They stay within the
-  # floor (plus a margin that reaches the doorstep).
+  # Two people live here (assets/npcs/householder.yaml): they get hungry, tired and grubby and
+  # see to it with what the cottage has, and when one wants company she walks over to the other
+  # (`household:`: they know each other). They stay within the floor (plus a margin that reaches
+  # the doorstep). In the runtime G directs them: click a thing for what they can do with it.
+  ana:
+    when: "{lived_in}"
+    npc: npcs/householder.yaml
+    on: house.floor
+    at: { u: { abs: 4.6 }, v: { abs: 3.2 } }
+    facing: south
+    home: house.floor
+    household: cottage
+    quests: [{ file: quests/lights_out.yaml, if: "{resident_quest}" }]
+  bea:
+    when: "{lived_in}"
+    npc: npcs/householder.yaml
+    on: house.floor
+    at: { u: { abs: 3.6 }, v: { abs: 4.3 } }
+    facing: north
+    home: house.floor
+    household: cottage
+    seed: 5
+
+  # Not lived in: one room and someone who potters about it (assets/npcs/resident.yaml).
   resident:
+    when: "{1 - lived_in}"
     npc: npcs/resident.yaml
     on: house.floor
     at: { u: { abs: 4.6 }, v: { abs: 3.2 } }

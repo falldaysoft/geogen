@@ -454,7 +454,7 @@ clock and the pending timers (schema `docs/schema/geogen-save.v1.schema.json`;
   Loading takes the world's items away and brings these back. `Machine.load`
   ignores it.
 - A runtime that runs NPCs writes `npcs`, by stable ID: needs, `away`, how long
-  ago each option was last used (`recent`), how well each knows the others it has kept company with (`relations`), and where each is: on an affordance
+  ago each option was last used (`recent`), how well each knows the others it has kept company with (`relations`), what each has been told to do and not yet done (`orders`) and whether it does only that (`free_will: false`), and where each is: on an affordance
   (`seat`: loading puts it back on that seat) or at `position` / `yaw`. What it
   was otherwise doing isn't kept; it decides again. The Godot runtime also keeps
   them over a trip to another scene. `Machine.load` ignores it.

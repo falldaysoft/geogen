@@ -11,7 +11,7 @@ from geogen import quest_bot
     # How each quest got going: already active (start: auto), given by an NPC the bot greeted,
     # or started by the bot when no one it asked gave it (the dash is given by a place).
     ("quest_yard", {"yard_round": "active", "yard_lamps": "by greeting quest_yard:steward", "yard_dash": "by the bot"}),
-    ("cottage", {"lights_out": "by greeting cottage:resident"}),
+    ("cottage", {"lights_out": "by greeting cottage:ana"}),
     ("state_test", {"two_levers": "active"}),          # levers at the marked puzzles, then a place
     ("level_crossing", {"catch_train": "active"}),     # wait on the (polygon) platform for the train
 ])
@@ -20,7 +20,10 @@ def test_the_bot_finishes_every_quest(godot_runtime, scene_export, scene, starte
     rt.call("wait_ready")
     report = quest_bot.play(rt)
     assert report["ok"], report
-    assert {k: v["started"] for k, v in report["quests"].items()} == started
+    got = {k: v["started"] for k, v in report["quests"].items()}
+    if scene == "cottage":                              # two live there, and either gives it
+        got = {k: v.replace("cottage:bea", "cottage:ana") for k, v in got.items()}
+    assert got == started
 
 
 @pytest.mark.exhaustive

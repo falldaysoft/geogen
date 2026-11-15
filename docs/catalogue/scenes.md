@@ -25,6 +25,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [house_plot](#house_plot) | House plot - a yard with a house. |  |
 | [household_microwave](#household_microwave) | scenes/household_test.yaml with a counter and a microwave on it: the same hungry person plans fridge > microwave > table here, because it is quicker than the range. |  |
 | [household_pair](#household_pair) | Two people who live together and a sofa: the test scene for company (geogen.101.6). |  |
+| [household_play](#household_play) | scenes/household_pair.yaml played by directing its people (geogen.101.10): `play:` says there is no walking player. |  |
 | [household_test](#household_test) | One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101). |  |
 | [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
@@ -199,8 +200,9 @@ Each window/door cuts its own opening into the wall it is placed on.
 | `gallery` | `1` | the people gallery on the front lawn (0 for a plain cottage) |
 | `resident_quest` | `0` | the resident holds "lights out" from the start and does it (an NPC quest) |
 | `quest` | `1` | the resident's "lights out" quest (0 where the cottage is part of something bigger) |
+| `lived_in` | `1` | a bathroom, a kitchen and two people who live by needs and plans (0: one room and the |
 
-**Places**: `house: {asset: house_peaked.yaml}`; `door: {asset: door.yaml}`; `window_front_left: {asset: window.yaml}`; `window_front_right: {asset: window.yaml}`; `window_left: {asset: window.yaml}`; `window_right: {asset: window.yaml}`; `window_back_left: {asset: window.yaml}`; `window_back_right: {asset: window.yaml}`; `dining: {scene: scenes/dining_set.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `armchair: {asset: armchair.yaml}`; `dining_light: {asset: ceiling_light.yaml}`; `sitting_light: {asset: ceiling_light.yaml}`; `reading_lamp: {asset: floor_lamp.yaml}`; `dining_switch: {asset: light_switch.yaml}`; `sitting_switch: {asset: light_switch.yaml}`; `lamp_switch: {asset: light_switch.yaml}`; `resident: {npc: npcs/resident.yaml}`; `gallery: {scene: scenes/people_gallery.yaml}`; `hub_portal: {asset: portal.yaml}`
+**Places**: `house: {asset: house_peaked.yaml}`; `door: {asset: door.yaml}`; `window_front_left: {asset: window.yaml}`; `window_front_right: {asset: window.yaml}`; `window_left: {asset: window.yaml}`; `window_right: {asset: window.yaml}`; `window_back_left: {asset: window.yaml}`; `window_back_right: {asset: window.yaml}`; `dining: {scene: scenes/dining_set.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `armchair: {asset: armchair.yaml}`; `bath_wall_west: {asset: partition_wall.yaml}`; `bath_wall_south: {asset: partition_wall.yaml}`; `bath_door: {asset: door.yaml}`; `shower: {asset: shower.yaml}`; `toilet: {asset: toilet.yaml}`; `washstand: {asset: vanity.yaml}`; `fridge: {asset: fridge.yaml}`; `sink: {asset: kitchen_sink.yaml}`; `range: {asset: kitchen_range.yaml}`; `dining_light: {asset: ceiling_light.yaml}`; `sitting_light: {asset: ceiling_light.yaml}`; `reading_lamp: {asset: floor_lamp.yaml}`; `dining_switch: {asset: light_switch.yaml}`; `sitting_switch: {asset: light_switch.yaml}`; `lamp_switch: {asset: light_switch.yaml}`; `ana: {npc: npcs/householder.yaml}`; `bea: {npc: npcs/householder.yaml}`; `resident: {npc: npcs/resident.yaml}`; `gallery: {scene: scenes/people_gallery.yaml}`; `hub_portal: {asset: portal.yaml}`
 
 **Slots**: lawn, west_lawn
 
@@ -377,6 +379,15 @@ the sofa and looks up. Both get it, and they know each other a little better for
 **Places**: `room: {asset: kitchen.yaml}`; `sofa: {asset: sofa.yaml}`; `ana: {npc: npcs/householder.yaml}`; `ben: {npc: npcs/householder.yaml}`
 
 **Spawns**: start
+
+## household_play
+
+`scene: scenes/household_play.yaml` · [source](../../assets/scenes/household_play.yaml)
+
+scenes/household_pair.yaml played by directing its people (geogen.101.10): `play:` says there is
+no walking player. Only the household named can be told what to do; the guest sees to herself.
+
+**Places**: `home: {scene: scenes/household_pair.yaml}`; `fridge: {asset: fridge.yaml}`; `guest: {npc: npcs/householder.yaml}`
 
 ## household_test
 

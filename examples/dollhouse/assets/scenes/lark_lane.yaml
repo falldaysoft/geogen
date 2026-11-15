@@ -10,6 +10,9 @@
 name: lark_lane
 tags: [level.street]
 
+# Played by directing the people (click a thing: what they can do with it), not by walking about.
+play: { as: people }
+
 slots:
   ground: { position: [1, -0.07, -4] }
   road:   { position: [1, -0.07, -15], facing: east }

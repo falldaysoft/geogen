@@ -12,7 +12,7 @@ floorplan:
   rooms:
     living:   { rect: [0, 0, 4.4, 4.6], type: living_room }
     kitchen:  { rect: [4.4, 0, 5.4, 4.6], type: kitchen }
-    bedroom:  { rect: [0, 4.6, 4.2, 3.6], type: bedroom }
+    bedroom:  { rect: [0, 4.6, 4.2, 3.6], type: bedroom_double }
     bathroom: { rect: [4.2, 4.6, 2.2, 3.6], type: bathroom }
     bedroom2: { rect: [6.4, 4.6, 3.4, 3.6], type: bedroom_single }
   doors:

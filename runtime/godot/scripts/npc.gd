@@ -138,6 +138,7 @@ var _forced := ""                    # option id the next decision takes (force_
 var relations := {}                  # how well it knows the NPCs it has done things with: stable ID -> 0..1 (`relations:`)
 var _partner: GeogenNpc = null       # who it is doing something with (an offer taken up: either side)
 var _answering := ""                 # ...as the one who offers: the action it runs meanwhile on its feet
+var free_will := true                # false: with nothing it was told to do, it waits (it still sleeps by its routine)
 var _orders: Array = []              # what it was told to do, in order: option ids (direct())
 var _order_since := -1.0             # clock when the first of them began to wait for someone busy
 var _ordered := false                # what it is doing now is the first of them
@@ -748,6 +749,11 @@ func _decide() -> void:
     while not _orders.is_empty():       # (one that can't be done leaves the queue: on to the next)
         if _take_order():
             return
+    if not free_will and not _hold_block() and definition["actions"].has("idle"):
+        _option = {}                    # nothing of its own: stand by until told
+        _push("idle", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
+            "duration": [1.0, 1.0]})
+        return
     var goal := quest_option() if _forced == "" else {}
     if not goal.is_empty():
         stats["decisions"] += 1
@@ -1640,6 +1646,10 @@ func save_state() -> Dictionary:
         "yaw": snappedf(rad_to_deg(_yaw()), 0.1)}
     if not relations.is_empty():
         out["relations"] = _rounded_relations()
+    if not _orders.is_empty():
+        out["orders"] = _orders.duplicate()
+    if not free_will:
+        out["free_will"] = false
     var recent := {}
     for id in _recent:
         recent[id] = snappedf(clock - float(_recent[id]), 0.1)
@@ -1656,6 +1666,8 @@ func restore_state(data: Dictionary) -> void:
     _drop_everything()
     take_needs(data.get("needs", {}))
     relations = (data.get("relations", {}) as Dictionary).duplicate()
+    _orders = (data.get("orders", []) as Array).duplicate()
+    free_will = bool(data.get("free_will", true))
     _recent = {}
     var recent: Dictionary = data.get("recent", {})
     for id in recent:
@@ -3288,7 +3300,7 @@ func report() -> Dictionary:
         "relations": _rounded_relations(),
         # Told what to do (direct()): the queue (option ids, the first being done or next), how the last one
         # ended ({option, ok, reason}; {} for none yet), and how many were seen through and given up.
-        "orders": _orders.duplicate(), "order": _order_last, "orders_done": int(stats.get("orders_done", 0)),
+        "orders": _orders.duplicate(), "order": _order_last, "free_will": free_will, "orders_done": int(stats.get("orders_done", 0)),
         "orders_failed": int(stats.get("orders_failed", 0)),
         # Planning (`planner:`): the chain it is on ({goal, steps, index, cost, score}; {} for none), how many it
         # has made, finished and given up; needs that ran out (`at_zero`); its mood (the mean of its needs).

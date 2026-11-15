@@ -233,6 +233,25 @@ def scene_export(built_scene):
     return get
 
 
+@pytest.fixture(scope="session")
+def plain_cottage():
+    """A directory holding ``cottage.glb`` built with ``lived_in: 0``: one room and the one resident of
+    npcs/resident.yaml, which the NPC, quest and save tests are written around (the showcase's
+    cottage has a bathroom, a kitchen and two people who plan). Shared like ``scene_export``."""
+    from geogen.export import export_scene
+    from geogen.layout import SceneComposer
+
+    assets = Path(__file__).parent.parent / "assets"
+    lock, path = _shared("export", "cottage_plain")
+    with lock:
+        if not (path / "cottage.manifest.json").exists():
+            shutil.rmtree(path, ignore_errors=True)
+            path.mkdir(parents=True)
+            scene = SceneComposer(assets_dir=assets).compose(assets / "scenes" / "cottage.yaml", params={"lived_in": 0})
+            export_scene(scene, path / "cottage.glb")
+    return path
+
+
 def _project_key(project: Path, scene: str) -> str:
     """A shared build's name for a project's scene: it changes with any of the project's files."""
     import hashlib

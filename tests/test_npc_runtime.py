@@ -15,8 +15,8 @@ FAST = ("--fixed-fps", "60")   # unthrottled: frames run back to back
 
 
 @pytest.fixture(scope="module")
-def cottage_dir(scene_export):
-    return scene_export("cottage")
+def cottage_dir(plain_cottage):
+    return plain_cottage
 
 
 def simulate(godot_script, generated, seconds, scene="cottage", before=(), **start) -> dict:
@@ -195,7 +195,7 @@ def test_the_resident_switches_off_every_light_for_its_own_quest(godot_script, t
     from geogen.layout.composer import SceneComposer
 
     assets = Path(__file__).parent.parent / "assets"
-    root = SceneComposer(assets_dir=assets).compose(assets / "scenes" / "cottage.yaml", params={"resident_quest": 1})
+    root = SceneComposer(assets_dir=assets).compose(assets / "scenes" / "cottage.yaml", params={"resident_quest": 1, "lived_in": 0})
     export_scene(root, tmp_path / "cottage.glb")
     manifest = json.loads((tmp_path / "cottage.manifest.json").read_text())
     goals = manifest["quests"]["quests"]["lights_out"]["objectives"][0]["goals"]
@@ -218,7 +218,7 @@ def test_a_routine_quest_waits_for_its_block(godot_script, tmp_path):
     role.write_text((assets / "npcs" / "resident.yaml").read_text() + "\nroutine:\n  - { name: shift, from: '09:00', "
                     "to: '17:00', quests: [{ file: quests/lights_out.yaml, repeat: daily }] }\n")
     scene = tmp_path / "shift.yaml"
-    scene.write_text(f"name: shift\nplace:\n  cottage: {{ scene: scenes/cottage.yaml, params: {{ quest: 0 }} }}\n"
+    scene.write_text(f"name: shift\nplace:\n  cottage: {{ scene: scenes/cottage.yaml, params: {{ quest: 0, lived_in: 0 }} }}\n"
                      f"  worker: {{ npc: {role}, on: cottage/house.floor, at: {{ u: {{ abs: 4.4 }}, v: {{ abs: 1.6 }} }}, "
                      f"home: cottage/house.floor }}\n")
     out = tmp_path / "generated"
@@ -304,7 +304,7 @@ TWO_RESIDENTS = """
 name: two_residents
 size: [14, 6, 14]
 place:
-  cottage: { scene: scenes/cottage.yaml, params: { quest: 0 } }
+  cottage: { scene: scenes/cottage.yaml, params: { quest: 0, lived_in: 0 } }
   guest:
     npc: npcs/resident.yaml
     on: cottage/house.floor
@@ -350,7 +350,7 @@ MARCO_AT_THE_COTTAGE = """
 name: marco_visits
 size: [14, 6, 14]
 place:
-  cottage: { scene: scenes/cottage.yaml, params: { quest: 0 } }
+  cottage: { scene: scenes/cottage.yaml, params: { quest: 0, lived_in: 0 } }
   marco:
     character: people/marco.yaml
     on: cottage/house.floor

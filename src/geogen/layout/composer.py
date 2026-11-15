@@ -291,6 +291,13 @@ class SceneComposer:
                 raise ValueError(f"{source}: ground is true or false, got {data['ground']!r}")
             if not data["ground"]:
                 root.meta["ground"] = False     # the manifest's ground: the runtime drops its ground plane
+        if data.get("play") is not None:
+            play = data["play"]
+            houses = play.get("households", []) if isinstance(play, dict) else None
+            if not isinstance(play, dict) or set(play) - {"as", "households"} or play.get("as") != "people" \
+                    or not isinstance(houses, list) or not all(isinstance(h, str) and h for h in houses):
+                raise ValueError(f"{source}: play is {{as: people, households: [names]}}, got {play!r}")
+            root.meta["play"] = {"as": "people", "households": list(houses)}
         if data.get("physics") is not None:
             physics = data["physics"]
             ticks = physics.get("ticks") if isinstance(physics, dict) else None

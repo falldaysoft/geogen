@@ -1,0 +1,25 @@
+# scenes/household_pair.yaml played by directing its people (geogen.101.10): `play:` says there is
+# no walking player. Only the household named can be told what to do; the guest sees to herself.
+
+name: household_play
+tags: [test.npc]
+
+play: { as: people, households: [home] }
+
+place:
+  home:
+    scene: scenes/household_pair.yaml
+
+  fridge:
+    asset: fridge.yaml
+    on: home/room.kitchen.floor
+    at: { u: { abs: 3.38 }, v: { abs: 0.5 } }
+    facing: west
+
+  guest:
+    npc: npcs/householder.yaml
+    on: home/room.kitchen.floor
+    at: { u: { abs: 2.9 }, v: { abs: 1.8 } }
+    home: home/room.kitchen.floor
+    household: visitors
+    seed: 3

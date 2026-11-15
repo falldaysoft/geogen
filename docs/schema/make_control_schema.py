@@ -18,7 +18,7 @@ TYPES = {
     "minutes": NUM, "hours": NUM, "days": NUM, "day": {"type": "integer", "minimum": 0},
     "until": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
     "frames": INT, "limit": INT, "index": INT, "choose": INT, "cancel": INT, "since": INT, "count": INT,
-    "instant": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
+    "instant": BOOL, "free_will": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
     "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL, "visible": BOOL,
     "button": {"enum": ["left", "right", "middle"]},
     "asset": STR, "interaction": STR, "scene": STR, "spawn": STR, "name": STR, "uid": STR, "node_path": STR,

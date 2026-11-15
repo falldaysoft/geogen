@@ -41,6 +41,8 @@ var ground_margin := 6.0
 ## The loaded scene said ``ground: false`` (its manifest): the ground plane is no floor while
 ## it is loaded, so the scene's own floors are all there is and a pit goes below them.
 var ground_off := false
+## The (first) scene's ``play`` ({as: people, households: [names]}; {} for a scene walked through as the player).
+var play := {}
 ## Open every openable interaction before baking, with the open parts as
 ## obstacles (headless playtests: doors must not block routes, leaves must).
 var open_before_bake := false
@@ -384,6 +386,7 @@ func unload() -> void:
     physics_rate = int(ProjectSettings.get_setting("physics/common/physics_ticks_per_second", 60))
     apply_physics_rate()
     _use_ground({})
+    play = {}
     _use_atmosphere({})
     interactions_by_key.clear()
     streamer = null
@@ -716,6 +719,8 @@ func _attach_model(manifest_path: String, manifest: Dictionary, root: Node3D) ->
     root.name = manifest.get("name", model_path.get_file().get_basename())
     _use_physics(manifest)
     _use_ground(manifest)
+    if model_aabbs.is_empty():
+        play = manifest["play"] if manifest.get("play") is Dictionary else {}
     _use_atmosphere(manifest)
     events.package = scene_name if scene_name != "" else String(root.name)
     rules.load_package(events.package, manifest)

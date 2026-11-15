@@ -23,6 +23,7 @@ extends Node3D
 ##   --camera=overview             start from the overview camera (F4 toggles)
 ##   --colliders                   show collision shapes (F2 toggles)
 ##   --cutaway                     hide ceilings and roofs, to look into buildings from above (F9 toggles)
+##   --walk-through                walk a scene that is played by directing its people (`play: {as: people}`) as the player
 ##   --walk=SECONDS                walk forward (player.move)
 ##   --greet=NAME[@S]              greet the NPC named NAME... after S s (default 2): it waves back (npcs.greet)
 ##   --use=ASSET                   use ASSET's interactions (interactions.use; e.g. open "door");
@@ -95,6 +96,7 @@ var _manifest_arg := false
 var _start_overview := false
 var direct: GeogenHudDirect = null     # the HUD's panel for telling people what to do (G)
 const DIRECT_DISTANCE := 16.0          # m from the selected person the view starts at
+var _walk_through := false             # --walk-through: walk a `play: {as: people}` scene as the player all the same
 var _direct_before := {}  # the camera and cutaway as they were before directing
 var _cutaway := false     # ceilings and roofs hidden (--cutaway, F9)
 var _overview_aabb := AABB()
@@ -196,6 +198,8 @@ func _ready() -> void:
             world.show_colliders = true
         elif arg == "--cutaway":
             _cutaway = true
+        elif arg == "--walk-through":
+            _walk_through = true
         elif arg == "--camera=overview":
             _start_overview = true
         elif arg.begins_with("--walk="):
@@ -529,6 +533,7 @@ static func _flag_steps(act: Dictionary) -> Array:
 func _on_world_loaded(aabb: AABB) -> void:
     _apply_cutaway()
     _frame_overview(aabb)
+    _play_as.call_deferred()            # (after the player is placed)
     $ScaleReference.visible = aabb.size == Vector3.ZERO
 
 
@@ -713,6 +718,27 @@ func _direct_mode(on: bool) -> void:
     _menu_closed()
 
 
+## A scene's `play: {as: people}` (the manifest's play): there is no walking player. The player's
+## body is put away, directing is on and can't be left, and the HUD is the selected person's.
+## Any other scene: the player is back.
+func _play_as() -> void:
+    if player == null or direct == null:
+        return
+    var people: bool = str(world.play.get("as", "")) == "people" and not _walk_through
+    if not people and not direct.playing:
+        return
+    player.visible = not people
+    player.set_collision_layer_value(3, not people)     # Player.LAYER (4)
+    if people:
+        player.global_position = Vector3(0, -200, 0)    # out of everyone's sight and way
+        direct.set_playing(true, world.play.get("households", []))
+        hud.panel("crosshair").visible = false
+    else:
+        direct.set_playing(false)
+        hud.panel("crosshair").visible = true
+        _place_player(world.world_aabb())
+
+
 ## While directing: bring the view over the person selected, near enough to see their rooms
 ## (kept as far off as the view already was, if that is nearer).
 func _direct_look_at(npc: GeogenNpc) -> void:
@@ -879,7 +905,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(_delta: float) -> void:
     if player != null:
-        world.stream_focus = player.global_position
+        world.stream_focus = _overview_focus() if direct != null and direct.playing else player.global_position
     focus.update()
 
 

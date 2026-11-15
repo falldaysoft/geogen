@@ -211,11 +211,12 @@ place:
 <tr>
 <td align="center"><a href="assets/kitchen.md"><img src="img/kitchen.png" width="150" alt="kitchen"><br>kitchen</a></td>
 <td align="center"><a href="assets/lighthouse.md"><img src="img/lighthouse.png" width="150" alt="lighthouse"><br>lighthouse</a></td>
+<td align="center"><a href="assets/partition_wall.md"><img src="img/partition_wall.png" width="150" alt="partition_wall"><br>partition_wall</a></td>
 <td align="center"><a href="assets/restaurant_building.md"><img src="img/restaurant_building.png" width="150" alt="restaurant_building"><br>restaurant_building</a></td>
 <td align="center"><a href="assets/room.md"><img src="img/room.png" width="150" alt="room"><br>room</a></td>
-<td align="center"><a href="assets/shop.md"><img src="img/shop.png" width="150" alt="shop"><br>shop</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/shop.md"><img src="img/shop.png" width="150" alt="shop"><br>shop</a></td>
 <td align="center"><a href="assets/staircase.md"><img src="img/staircase.png" width="150" alt="staircase"><br>staircase</a></td>
 <td align="center"><a href="assets/windmill.md"><img src="img/windmill.png" width="150" alt="windmill"><br>windmill</a></td>
 <td align="center"><a href="assets/window.md"><img src="img/window.png" width="150" alt="window"><br>window</a></td>
@@ -236,6 +237,7 @@ place:
 | [house_simple](assets/house_simple.md) | Simple house — parametric rectangular house with flat roof. | `width`, `depth`, `height` |
 | [kitchen](assets/kitchen.md) | A small domestic kitchen: one tiled room. |  |
 | [lighthouse](assets/lighthouse.md) | A lighthouse you can climb: a tapering white tower with red bands, a doorway on +Z into the ground floor, a spiral stair round a central column up to the gallery deck, a glazed lantern room (with a doorway out onto the gallery, which has a railing), a red cap, and the lamp on top of the stair column. | `height`, `base_r`, `top_r`, `wall` |
+| [partition_wall](assets/partition_wall.md) | An interior partition: a plastered stud wall that divides a room (a bathroom in the corner of a one-room cottage). | `length`, `height`, `thickness` |
 | [restaurant_building](assets/restaurant_building.md) | A corner restaurant: a dining room and a bar at the front (street door on the south side), the kitchen and two restrooms behind, and a back door out of the kitchen. |  |
 | [room](assets/room.md) | Single room with a door and windows, built as a one-room floor plan (clean wall corners, finishes, a hinged door). |  |
 | [shop](assets/shop.md) | Corner shop: a double-height storefront on the ground floor with a stock room behind, and a flat above. |  |

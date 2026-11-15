@@ -182,8 +182,8 @@ def test_the_island_quest_is_walked_from_the_jetty(scene_export, built_scene, go
 
 
 @pytest.fixture(scope="module")
-def cottage(scene_export, godot_runtime):
-    client = godot_runtime("cottage", scene_export("cottage"))
+def cottage(scene_export, godot_runtime, plain_cottage):
+    client = godot_runtime("cottage", plain_cottage)
     client.call("wait_ready")
     return client
 

@@ -17,8 +17,8 @@ INSIDE = [0.0, 0.32, 0.5]
 
 
 @pytest.fixture(scope="module")
-def rt(scene_export, godot_runtime):
-    client = godot_runtime("cottage", scene_export("cottage"))
+def rt(scene_export, godot_runtime, plain_cottage):
+    client = godot_runtime("cottage", plain_cottage)
     client.call("wait_ready")
     return client
 

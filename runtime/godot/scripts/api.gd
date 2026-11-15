@@ -83,7 +83,7 @@ const COMMANDS := {
     "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
     "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
     "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
-    "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n} "
+    "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n, free_will?: bool} "
         + "the HUD's panel for telling people what to do (G): open turns directing on or off, select picks who, thing "
         + "(or a click at a point of the screen) lists what they could do with it, choose tells them to do line n of that "
         + "list (from 0), cancel takes back order n of their queue (-1: the last) -> {active, selected, name, doing, "
@@ -565,6 +565,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     return _err(why)
             if args.has("cancel"):
                 panel.cancel(int(args["cancel"]))
+            if args.has("free_will"):
+                panel.set_free_will(bool(args["free_will"]))
             main.hud.refresh()
             var shown: Dictionary = panel.hud_report()
             shown["camera"] = "overview" if main.overview.current else "player"

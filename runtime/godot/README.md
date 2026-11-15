@@ -1270,6 +1270,20 @@ does: "Get <item>" / "Make <item>" for a link in a chain, else its use or action
 cancel}` works the panel and returns what it shows. The NPC report has `orders`, `order`,
 `orders_done`, `orders_failed`.
 
+**A scene played as its people** (geogen.101.10): a scene's `play: {as: people, households:
+[names]}` (the manifest's `play`, `WorldLoader.play`) says there is no walking player. The
+runtime then starts with directing on and no way out of it (`GeogenHudDirect.set_playing`,
+`main.gd` `_play_as`): the player's body is put away (hidden, out of collision, far below), the
+crosshair is hidden, and the HUD's actor (`hud.actor`) is the selected person, so the hotbar,
+the quest tracker and the stats are theirs and change with Tab. With `households`, only people
+placed with one of those `household:` names can be selected and told anything; the rest live
+their lives. `V` (or the panel's line) turns the selected person's free will off and on: off,
+they do only what they are told and otherwise stand by (they still go to bed by their
+routine). Saves keep each person's waiting orders and the switch. `--walk-through` walks such
+a scene as the player all the same. `hud.direct` reports `playing`, `households`, `people`,
+`actor` and `free_will`, and takes `free_will`. Scene `-s household_play`; `examples/dollhouse`
+is played this way.
+
 **Inventory** (`scripts/hud_inventory.gd`, panel `inventory`, bottom centre, geogen.18,
 geogen.84.14): a hotbar of what the player carries, one square slot an item in the
 manifest's `items` order (`GeogenRules.carried`), hidden while empty. A slot shows the

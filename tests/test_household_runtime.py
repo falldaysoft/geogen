@@ -238,7 +238,7 @@ def test_the_direct_panel_lists_what_a_thing_offers_and_queues_the_choice(godot_
     assert chat["menu"][0]["available"] and chat["menu"][0]["plan"] == ["with/household_pair:ben/chat"]
     told = rt.call("hud.direct", choose=0)
     assert told["menu"] == [] and told["orders"] == [{"option": "with/household_pair:ben/chat", "label": "Chat with Ben"}]
-    for _ in range(60):
+    for _ in range(120):                                    # (she waits for him if he has just got busy)
         rt.call("time.advance", seconds=1, scale=4)
         people = both(rt)
         if not people[0]["orders"]:
@@ -255,12 +255,16 @@ def test_the_direct_panel_lists_what_a_thing_offers_and_queues_the_choice(godot_
     # line of the list does the same as its digit; the headless viewport is too small to hold the panel, so
     # that was checked in a window.
     rt.call("time.resume")
-    rt.call("hud.direct", select="ana", thing="sofa")
-    time.sleep(0.6)                                         # (past a timed redraw: the list is still there)
-    assert len(rt.call("hud.direct")["lines"]) == 1
-    rt.call("input.key", key="1")
-    chosen = rt.call("hud.direct")
-    assert [o["label"] for o in chosen["orders"]] == ["Sit"] and chosen["menu"] == []
+    for _ in range(8):                                      # (the world is running: a seat may be taken just then)
+        rt.call("hud.direct", select="ana", thing="sofa")
+        time.sleep(0.6)                                     # (past a timed redraw: the list is still there)
+        assert len(rt.call("hud.direct")["lines"]) == 1
+        rt.call("input.key", key="1")
+        chosen = rt.call("hud.direct")
+        if chosen["orders"]:
+            break
+        assert chosen["message"] or not chosen["menu"][0]["available"], chosen
+    assert [o["label"] for o in chosen["orders"]] == ["Sit"] and chosen["menu"] == [], chosen
     rt.call("input.key", key="Backspace")
     assert rt.call("hud.direct")["orders"] == []
     rt.call("input.key", key="Tab")
@@ -272,3 +276,55 @@ def test_the_direct_panel_lists_what_a_thing_offers_and_queues_the_choice(godot_
     rt.call("time.pause")
     closed = rt.call("hud.direct", open=False)
     assert closed["active"] is False and closed["camera"] == "player"
+
+
+def test_a_scene_played_as_its_people_has_no_player_and_the_hud_is_the_selected_persons(godot_runtime, scene_export):
+    """geogen.101.10: scenes/household_play.yaml (`play: {as: people, households: [home]}`)."""
+    rt = godot_runtime("household_play", scene_export("household_play"))
+    rt.call("wait_ready")
+    shown = rt.call("hud.direct")
+    assert shown["active"] and shown["playing"] and shown["camera"] == "overview"
+    assert shown["people"] == ["ana_npc", "ben_npc"] and shown["households"] == ["home"]    # not the guest
+    assert shown["selected"] == "ana_npc" and shown["actor"] == "household_play:home/ana"
+    assert rt.call("player.status")["position"][1] < -100       # put away: nobody walks here
+    assert rt.call("hud.aim")["visible"] is False
+    rt.call("input.key", key="G")                               # there is nothing to go back to
+    rt.call("input.key", key="Escape")
+    assert rt.call("hud.direct")["active"]
+    rt.call("input.key", key="Tab")
+    ben = rt.call("hud.direct")
+    assert ben["selected"] == "ben_npc" and ben["actor"] == "household_play:home/ben"
+    rt.call("input.key", key="Tab")
+    assert rt.call("hud.direct")["selected"] == "ana_npc"       # round the household, never the guest
+
+    # What the HUD shows is the selected person's: give Ana something, and it is in the hotbar.
+    rt.call("inventory.give", item="raw_food", actor="household_play:home/ana")
+    assert [i["id"] for i in rt.call("hud.inventory")["items"]] == ["raw_food"]
+    rt.call("hud.direct", select="ben")
+    assert rt.call("hud.inventory")["items"] == []
+
+    # Free will off: Ben does only what he is told; the others carry on. Orders and the switch are saved.
+    rt.call("time.pause")
+    assert rt.call("hud.direct", free_will=False)["free_will"] is False
+    rt.call("time.advance", seconds=20, scale=4)
+    people = {n["npc"]: n for n in rt.call("npcs.list")}
+    used = dict(people["ben_npc"]["used"])
+    rt.call("time.advance", seconds=40, scale=4)
+    people = {n["npc"]: n for n in rt.call("npcs.list")}
+    assert people["ben_npc"]["used"] == used and people["ben_npc"]["doing"].split(":")[0] in ("idle", "deciding")
+    assert sum(people["guest_npc"]["used"].values()) + sum(people["ana_npc"]["used"].values()) > 0
+    rt.call("hud.direct", thing="sofa", choose=0)
+    saved = rt.call("state.save")
+    kept = saved["npcs"]["household_play:home/ben"]
+    assert kept["free_will"] is False and len(kept["orders"]) == 1
+    rt.call("npcs.cancel", npc="ben")
+    rt.call("hud.direct", free_will=True)
+    rt.call("state.load", state=saved)
+    ben = next(n for n in rt.call("npcs.list") if n["npc"] == "ben_npc")
+    assert ben["free_will"] is False and ben["orders"] == kept["orders"]
+    for _ in range(40):
+        rt.call("time.advance", seconds=2, scale=4)
+        ben = next(n for n in rt.call("npcs.list") if n["npc"] == "ben_npc")
+        if not ben["orders"]:
+            break
+    assert ben["order"]["ok"] and ben["order"]["option"].startswith("sofa#")

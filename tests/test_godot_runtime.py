@@ -20,8 +20,8 @@ RADIUS = load_player_spec().radius
 
 
 @pytest.fixture(scope="module")
-def cottage_dir(scene_export):
-    return scene_export("cottage")
+def cottage_dir(plain_cottage):
+    return plain_cottage      # the building, with nobody opening its door from inside
 
 
 def walk(godot_script, generated, spawn, seconds=4.0, before=()) -> dict:

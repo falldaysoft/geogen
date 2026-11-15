@@ -1757,7 +1757,7 @@
         "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
         "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
         "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
-        "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n} the HUD's panel for telling people what to do (G): open turns directing on or off, select picks who, thing (or a click at a point of the screen) lists what they could do with it, choose tells them to do line n of that list (from 0), cancel takes back order n of their queue (-1: the last) -> {active, selected, name, doing, needs, orders: [{option, label}], thing, menu: [{option, label, available, why, plan, cost}], message, camera: overview | player}",
+        "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n, free_will?: bool} the HUD's panel for telling people what to do (G): open turns directing on or off, select picks who, thing (or a click at a point of the screen) lists what they could do with it, choose tells them to do line n of that list (from 0), cancel takes back order n of their queue (-1: the last) -> {active, selected, name, doing, needs, orders: [{option, label}], thing, menu: [{option, label, available, why, plan, cost}], message, camera: overview | player}",
         "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): {visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
         "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how long a finished quest stays up",
         "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: {open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; track makes the tracker follow the selected quest",
@@ -2373,6 +2373,9 @@
           },
           "cancel": {
             "type": "integer"
+          },
+          "free_will": {
+            "type": "boolean"
           }
         }
       },

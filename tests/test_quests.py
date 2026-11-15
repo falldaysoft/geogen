@@ -444,30 +444,30 @@ def test_island_has_the_go_there_quest(built_scene):
 
 
 def test_cottage_has_the_change_the_world_quest(built_scene):
-    """Given by greeting the resident, done when every light switch is off, counted on the way."""
+    """Given by greeting Ana, who lives there, done when every light switch is off, counted on the way."""
     quests = collect(built_scene("cottage"), "cottage")
     switches = [f"cottage:{name}_switch" for name in ("dining", "sitting", "lamp")]
     lights = quests.quests["lights_out"]["objectives"][0]
     assert sorted(lights["subjects"]) == sorted(switches) and lights["progress"]["of"] == 3
     # the resident's greeting is a signal the export knows about
-    assert quests.declarations.signals["cottage:resident#greeted"] == {"subject": "cottage:resident", "name": "greeted"}
-    give = next(r for r in quests.wiring if r["id"] == "give_lights_out")
-    assert give["on"] == {"type": "signal", "subject": "cottage:resident", "name": "greeted", "actor": "player"}
+    assert quests.declarations.signals["cottage:ana#greeted"] == {"subject": "cottage:ana", "name": "greeted"}
+    give = next(r for r in quests.wiring if r["id"] == "give_lights_out_at_home")
+    assert give["on"] == {"type": "signal", "subject": "cottage:ana", "name": "greeted", "actor": "player"}
 
-    machine = Machine(quests.program(), {"player": {"kind": "player"}, "cottage:resident": {"kind": "npc"}})
+    machine = Machine(quests.program(), {"player": {"kind": "player"}, "cottage:ana": {"kind": "npc"}})
 
     def progress():
         (objective,) = quests.report(machine, "player")["lights_out"]["objectives"]
         return objective["state"], objective["progress"]
 
     def greet(actor):
-        machine.post({"type": "signal", "subject": "cottage:resident", "name": "greeted", "actor": actor})
+        machine.post({"type": "signal", "subject": "cottage:ana", "name": "greeted", "actor": actor})
 
     assert quests.status(machine, "lights_out", "player") == "available" and progress() == ("waiting", [0, 3])
     machine.use(f"{switches[0]}#switch", "player")              # before the quest: the count moves anyway
     assert progress() == ("waiting", [1, 3])
     machine.use(f"{switches[0]}#switch", "player")
-    greet("cottage:resident")                                   # not the player's greeting
+    greet("cottage:ana")                                   # not the player's greeting
     assert quests.status(machine, "lights_out", "player") == "available"
     greet("player")
     assert quests.status(machine, "lights_out", "player") == "active" and progress() == ("open", [0, 3])
@@ -479,7 +479,7 @@ def test_cottage_has_the_change_the_world_quest(built_scene):
     machine.use(f"{switches[1]}#switch", "player")              # back on: done stays done
     greet("player")
     assert quests.status(machine, "lights_out", "player") == "complete" and progress() == ("done", [2, 3])
-    assert quests.status(machine, "lights_out", "cottage:resident") == "available" and machine.errors == []
+    assert quests.status(machine, "lights_out", "cottage:ana") == "available" and machine.errors == []
 
 
 def test_a_nested_cottage_contributes_no_quest(built_scene):

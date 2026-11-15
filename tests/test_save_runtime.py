@@ -274,10 +274,10 @@ def test_a_save_keeps_a_move_and_a_dwell_part_way(door_rt):
     rt.call("time.resume")
 
 
-def test_npcs_are_saved_and_come_back_to_their_seats(godot_runtime, scene_export):
+def test_npcs_are_saved_and_come_back_to_their_seats(godot_runtime, scene_export, plain_cottage):
     # A save holds each NPC (geogen.11.17): the resident, saved while she sits at the dining
     # table, is back on that chair after a load a minute later, with the needs she had.
-    rt = godot_runtime("cottage", scene_export("cottage"))
+    rt = godot_runtime("cottage", plain_cottage)
     rt.call("wait_ready")
     rt.call("time.advance", seconds=140, scale=8)
     (before,) = rt.call("npcs.list")

@@ -22,6 +22,7 @@ signal mode_changed(on: bool)
 signal selected_changed(npc: GeogenNpc)
 
 const TOGGLE_KEY := KEY_G
+const WILL_KEY := KEY_V
 const NEXT_KEY := KEY_TAB
 const UNDO_KEY := KEY_BACKSPACE
 const PICK_PIXELS := 70.0       # a click picks the nearest thing within this many pixels
@@ -33,6 +34,11 @@ const COLORS := {"back": Color(0.05, 0.06, 0.08, 0.72), "name": Color(1.0, 0.82,
     "trough": Color(0.16, 0.17, 0.2, 0.9), "ring": Color(1.0, 0.82, 0.3)}
 
 var active := false
+## The scene is played this way (its `play: {as: people}`): directing can't be left, the HUD is
+## the selected person's (`hud.actor`), and only these households' people can be told anything
+## (everyone, if empty).
+var playing := false
+var households: Array = []
 var selected: GeogenNpc = null
 var thing := ""                 # the picked thing's stable ID ("" for none)
 var menu: Array = []            # its choices for the selected person (GeogenNpc.choices)
@@ -90,7 +96,8 @@ func _process(delta: float) -> void:
 func _signature() -> String:
     if not _here(selected):
         return "nobody"
-    return JSON.stringify([selected.get_instance_id(), selected._orders, thing, menu, message, selected.needs.keys()])
+    return JSON.stringify([selected.get_instance_id(), selected._orders, thing, menu, message, selected.needs.keys(),
+        selected.free_will])
 
 
 func _show_need(bar: ProgressBar, level: float) -> void:
@@ -104,7 +111,29 @@ func _show_need(bar: ProgressBar, level: float) -> void:
 
 ## Everyone who is here to be told anything.
 func people() -> Array:
-    return _hud.world.npcs.filter(func(n): return is_instance_valid(n) and not n.away and not n.absent)
+    return _hud.world.npcs.filter(func(n): return is_instance_valid(n) and not n.away and not n.absent \
+        and (households.is_empty() or str(n.definition.get("household", "")) in households))
+
+
+## Play the scene by directing its people (main.gd, from the scene's `play:`), or stop.
+func set_playing(on: bool, of_households: Array = []) -> void:
+    playing = on
+    households = of_households if on else []
+    if on:
+        if _here(selected) and not selected in people():
+            selected = null
+        active = false                  # (anew: the people are another scene's)
+        set_active(true)
+    else:
+        _hud.actor = "player"
+        set_active(false)
+
+
+## Whether the selected person does things of their own accord, or only what they are told.
+func set_free_will(on: bool) -> void:
+    if _here(selected):
+        selected.free_will = on
+        _hud.queue_refresh()
 
 
 func set_active(on: bool) -> void:
@@ -133,6 +162,8 @@ func select(npc: GeogenNpc) -> void:
     if npc != selected or not active:
         selected_changed.emit.call_deferred(npc)
     selected = npc
+    if playing:                         # the HUD is theirs: what they carry, their quests, their numbers
+        _hud.actor = WorldLoader.actor_id(npc) if _here(npc) else "player"
     thing = ""
     menu = []
     message = ""
@@ -233,7 +264,8 @@ func cancel(index := -1) -> int:
 
 func hud_key(keycode: int) -> bool:
     if keycode == TOGGLE_KEY:
-        set_active(not active)
+        if not playing:
+            set_active(not active)
         return true
     if not active:
         return false
@@ -241,8 +273,13 @@ func hud_key(keycode: int) -> bool:
         select_next()
     elif keycode == UNDO_KEY:
         cancel()
+    elif keycode == WILL_KEY:
+        if _here(selected):
+            set_free_will(not selected.free_will)
     elif keycode == KEY_ESCAPE:
         if menu.is_empty():
+            if playing:
+                return false
             set_active(false)
         else:
             thing = ""
@@ -262,6 +299,7 @@ func hud_keys() -> Dictionary:
         ["1-9", "choose from that list (or click the line)"],
         ["Right click / Tab", "select the person there / the next person"],
         ["Backspace", "take back the last order (or click it)"],
+        ["V", "free will: whether they do things of their own accord"],
         ["W A S D, wheel", "move the view, zoom"],
         ["Esc", "close the list; leave"]]}
 
@@ -306,6 +344,9 @@ func hud_refresh() -> void:
         _bars[need] = bar
         grid.add_child(bar)
     _rows.add_child(grid)
+    var will := _button("Free will: %s   (V)" % ("on" if selected.free_will else "off: does only what it is told"))
+    will.pressed.connect(func(): set_free_will(not selected.free_will))
+    _rows.add_child(will)
     if not selected._orders.is_empty():
         _rows.add_child(_label("Told to", 13, COLORS["dim"]))
         for i in selected._orders.size():
@@ -334,6 +375,7 @@ func hud_refresh() -> void:
 
 ## What is on screen: {active, selected (NPC node name, "" for nobody), name, doing, needs,
 ## orders: [{option, label}], thing, menu: [{option, label, available, why, plan, cost}], message,
+## playing, households, people (who can be directed), free_will (the selected person's), actor (whose HUD it is),
 ## lines: the menu lines' rectangles on screen ([x, y, w, h] each, once laid out)}.
 func hud_report() -> Dictionary:
     var who := selected if _here(selected) else null
@@ -341,7 +383,9 @@ func hud_report() -> Dictionary:
         "name": _name(who) if who != null else "", "doing": _doing(who) if who != null else "",
         "needs": who._rounded_needs() if who != null else {},
         "orders": who._orders.map(func(id): return {"option": id, "label": who.option_label(str(id))}) if who != null else [],
-        "thing": thing, "menu": menu.duplicate(true), "message": message,
+        "thing": thing, "menu": menu.duplicate(true), "message": message, "playing": playing,
+        "households": households.duplicate(), "free_will": who.free_will if who != null else true, "actor": _hud.actor,
+        "people": people().map(func(n): return String(n.name)),
         "lines": _lines.filter(func(b): return is_instance_valid(b)).map(func(b): return [b.global_position.x,
             b.global_position.y, b.size.x, b.size.y])}
 
@@ -353,7 +397,7 @@ func _name(npc: GeogenNpc) -> String:
 ## What they are at, in a few words: the option in hand by its label, and whose idea it was.
 func _doing(npc: GeogenNpc) -> String:
     if npc._option.is_empty():
-        return "Deciding what to do"
+        return "Deciding what to do" if npc.free_will or not npc._orders.is_empty() else "Waiting to be told"
     return "%s%s" % [npc.option_label(str(npc._option["id"])), "  (told to)" if npc._ordered else ""]
 
 

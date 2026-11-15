@@ -68,7 +68,9 @@
           "yaw": {"type": "number"},
           "recent": {"type": "object", "additionalProperties": {"type": "number"}},
           "relations": {"description": "How well it knows the NPCs it has done things with (their offers): stable ID -> 0..1.", "type": "object", "additionalProperties": {"type": "number"}},
-          "seat": {"type": "string"}
+          "seat": {"type": "string"},
+          "orders": {"description": "What it has been told to do and hasn't yet done (option ids, in order).", "type": "array", "items": {"type": "string"}},
+          "free_will": {"description": "False: it does only what it is told (default true).", "type": "boolean"}
         }
       }
     },

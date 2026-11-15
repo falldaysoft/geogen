@@ -377,6 +377,8 @@ def gameplay_summary(root: SceneNode, compiled: Any = None) -> dict[str, list[di
         out["physics"] = {"ticks": max(ticks)}     # the runtime steps at least this often while it is loaded
     if root.meta.get("ground") is False:
         out["ground"] = False                      # the runtime keeps no ground plane while it is loaded
+    if root.meta.get("play"):
+        out["play"] = root.meta["play"]            # who the user plays: the people, directed from above
     if root.meta.get("atmosphere"):
         out["atmosphere"] = root.meta["atmosphere"]    # the lighting mood, resolved (geogen.atmosphere)
     from .travel import travel_summary

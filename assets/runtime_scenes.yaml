@@ -21,7 +21,7 @@ scenes:
     description: A plaza with a portal to every showcase scene (each has a way back)
   cottage:
     group: showcase
-    description: Brick cottage with a furnished interior, a resident and the people gallery on the lawn
+    description: Brick cottage where two people live by needs and plans (cook, eat, wash up, chat; G directs them), and the people gallery on the lawn
   hotel_showcase:
     group: showcase
     description: Four-storey hotel on a street - lobby with a receptionist, guests upstairs, a working lift, taxis outside

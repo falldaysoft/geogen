@@ -39,6 +39,7 @@ BUILD_ONLY: dict[str, str] = {
     "hud": "HUD stats and banners as authored: compiled into the manifest's hud (geogen.hud)",
     "physics_ticks": "a scene's physics: {ticks}: exported as the manifest's physics",
     "ground": "a scene's ground: false: exported as the manifest's ground",
+    "play": "a scene's play: {as: people, households}: exported as the manifest's play",
     "atmosphere": "a scene's atmosphere, resolved: exported as the manifest's atmosphere (geogen.atmosphere)",
     "travel_spec": "the travel block as authored; the resolved one is exported as 'travel'",
     "travel_source": "the file a travel block came from, for error messages",

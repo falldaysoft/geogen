@@ -1,0 +1,30 @@
+# An interior partition: a plastered stud wall that divides a room (a bathroom in the corner of
+# a one-room cottage). A door placed on `front` or `back` cuts its own opening through it:
+#
+#   bath_wall: { asset: partition_wall.yaml, params: { length: 2.0 }, on: house.floor, at: {...}, facing: west }
+#   bath_door: { asset: door.yaml, on: bath_wall.front, at: { u: 0.5, v: { abs: 0 } } }
+#
+# Origin is the bottom centre; the wall runs along X and `front` faces +Z.
+
+name: partition_wall
+tags: [building.wall]
+origin: bottom_center
+
+params:
+  length:    { default: 2.4 }
+  height:    { default: 2.75 }
+  thickness: { default: 0.1 }
+
+size: ["{length}", "{height}", "{thickness}"]
+
+parts:
+  wall:
+    primitive: cube
+    size: [1, 1, 1]
+    anchor: bottom_center
+    bevel: 0
+    material: wall_plaster
+
+surfaces:
+  front: { from: wall.front, reveal: &reveal { material: wall_plaster, thickness: 0.015 } }
+  back:  { from: wall.back, reveal: *reveal }
