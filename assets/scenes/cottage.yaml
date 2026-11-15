@@ -8,8 +8,9 @@ params:
   gallery: { default: 1 }      # the people gallery on the front lawn (0 for a plain cottage)
   resident_quest: { default: 0 } # the resident holds "lights out" from the start and does it (an NPC quest)
   quest: { default: 1 }        # the resident's "lights out" quest (0 where the cottage is part of something bigger)
-  lived_in: { default: 1 }     # a bathroom, a kitchen and two people who live by needs and plans (0: one room and the
-                               # plain resident of npcs/resident.yaml, as the NPC tests know it)
+  lived_in: { default: 1 }     # a bathroom, a kitchen, two bedrooms in 4 m more of house on the east side, and two
+                               # people who live by needs and plans (0: one room and the plain resident of
+                               # npcs/resident.yaml, as the NPC tests know it)
 
 # Whoever lives here asks whoever greets them to switch off the lights (docs/quests.md).
 quests:
@@ -30,6 +31,7 @@ rules:
     do: [{ start_quest: lights_out }]
 
 slots:
+  house: { position: ["{2 * lived_in}", 0, 0] }     # lived in, it grows 4 m to the east: the west wall stays put
   lawn: { position: [0, 0, 8.0], facing: north }
   west_lawn: { position: [-7.5, 0, 3.5], facing: east }
 
@@ -40,43 +42,59 @@ spawns:
   from_hub: { position: [-5.4, 0, 3.5], facing: east }   # in front of the hub portal
 
 place:
+  # Lived in, the house is 4 m wider, to the east (the west wall and everything placed from it
+  # stay where they are): the bedrooms. Places along the walls are given in metres for that.
   house:
     asset: house_peaked.yaml
+    params: { width: "{8 + 4 * lived_in}" }
+    slot: house
 
   door:
     asset: door.yaml
     on: house.front_wall
-    at: { u: 0.5, v: { abs: 0 } }
+    at: { u: "{4 / (8 + 4 * lived_in)}", v: { abs: 0 } }
 
   window_front_left:
     asset: window.yaml
     on: house.front_wall
-    at: { u: 0.2, v: { abs: 0.85 } }
+    at: { u: "{1.6 / (8 + 4 * lived_in)}", v: { abs: 0.85 } }
   window_front_right:
     asset: window.yaml
     on: house.front_wall
-    at: { u: 0.8, v: { abs: 0.85 } }
+    at: { u: "{6.4 / (8 + 4 * lived_in)}", v: { abs: 0.85 } }
+  window_front_bedroom:
+    when: "{lived_in}"
+    asset: window.yaml
+    on: house.front_wall
+    at: { u: "{9.8 / 12}", v: { abs: 0.85 } }
 
   window_left:
     asset: window.yaml
     on: house.left_wall
     at: { u: 0.5, v: { abs: 0.85 } }
+  # The east wall: one window in the middle, or one to each bedroom.
   window_right:
     asset: window.yaml
     on: house.right_wall
-    at: { u: 0.5, v: { abs: 0.85 } }
+    at: { u: "{0.5 - 0.26 * lived_in}", v: { abs: 0.85 } }
+  window_right_back:
+    when: "{lived_in}"
+    asset: window.yaml
+    on: house.right_wall
+    at: { u: 0.74, v: { abs: 0.85 } }
 
-  # Wider windows at the back (per-placement params override asset defaults).
+  # Wider windows at the back (per-placement params override asset defaults). The back wall
+  # runs from the east as you face it from outside.
   window_back_left:
     asset: window.yaml
     params: { width: 1.3 }
     on: house.back_wall
-    at: { u: 0.3, v: { abs: 0.85 } }
+    at: { u: "{(5.6 + 4 * lived_in) / (8 + 4 * lived_in)}", v: { abs: 0.85 } }
   window_back_right:
     asset: window.yaml
     params: { width: 1.3 }
     on: house.back_wall
-    at: { u: 0.7, v: { abs: 0.85 } }
+    at: { u: "{(2.4 + 4 * lived_in) / (8 + 4 * lived_in)}", v: { abs: 0.85 } }
 
   # Furniture on the interior floor (u: west -> east, v: back -> front).
   # The floor is 7.4 x 5.4 m; keep >= 1.2 m paths between the front door,
@@ -89,7 +107,7 @@ place:
   bookshelf:
     asset: bookshelf.yaml
     on: house.floor
-    at: { u: 0.5, v: { abs: 0.19 } }     # against the back wall, between its windows
+    at: { u: { abs: 3.7 }, v: { abs: 0.19 } }     # against the back wall, between its windows
 
   armchair:
     asset: armchair.yaml
@@ -161,6 +179,63 @@ place:
     at: { u: { abs: 0.5 }, v: { abs: 4.7 } }     # on the west wall, by the front window
     facing: east
 
+  # Two bedrooms in the east 4 m: a wall along the old east side with a door to each, a wall
+  # between them, and a bed apiece (Ana's at the back, Bea's at the front: `owns:`).
+  bed_wall:
+    when: "{lived_in}"
+    asset: partition_wall.yaml
+    params: { length: 5.36 }
+    on: house.floor
+    at: { u: { abs: 7.45 }, v: { abs: 2.7 } }
+    facing: east
+  bed_divider:
+    when: "{lived_in}"
+    asset: partition_wall.yaml
+    params: { length: 3.9 }
+    on: house.floor
+    at: { u: { abs: 9.45 }, v: { abs: 3.05 } }
+    facing: north
+  bedroom_door_a:
+    when: "{lived_in}"
+    asset: door.yaml
+    on: bed_wall.back
+    at: { u: { abs: 2.52 }, v: { abs: 0 } }
+  bedroom_door_b:
+    when: "{lived_in}"
+    asset: door.yaml
+    on: bed_wall.back
+    at: { u: { abs: 4.3 }, v: { abs: 0 } }
+  bed_a:
+    when: "{lived_in}"
+    asset: bed.yaml
+    params: { width: 0.95 }
+    on: house.floor
+    at: { u: { abs: 10.3 }, v: { abs: 1.5 } }
+    facing: west
+  bed_b:
+    when: "{lived_in}"
+    asset: bed.yaml
+    params: { width: 0.95 }
+    on: house.floor
+    at: { u: { abs: 10.3 }, v: { abs: 4.2 } }
+    facing: west
+  nightstand_a:
+    when: "{lived_in}"
+    asset: nightstand.yaml
+    on: house.floor
+    at: { u: { abs: 11.12 }, v: { abs: 0.6 } }
+    facing: west
+  bedroom_light_a:
+    when: "{lived_in}"
+    asset: ceiling_light.yaml
+    on: house.ceiling
+    at: { u: { abs: 9.3 }, v: { abs: 1.5 } }
+  bedroom_light_b:
+    when: "{lived_in}"
+    asset: ceiling_light.yaml
+    on: house.ceiling
+    at: { u: { abs: 9.3 }, v: { abs: 4.25 } }
+
   # Two ceiling lights with their switches inside the front door, and a
   # reading lamp by the armchair with its switch on the wall beside it. Inside
   # walls run left to right as you face them, v from the foundation top (the
@@ -176,45 +251,46 @@ place:
   reading_lamp:
     asset: floor_lamp.yaml
     on: house.floor
-    at: { u: { abs: 7.05 }, v: { abs: 4.9 } }
+    at: { u: { abs: "{7.05 + 4.02 * lived_in}" }, v: { abs: 4.9 } }   # lived in: by the bed in the front bedroom
   dining_switch:
     asset: light_switch.yaml
     params: { light: dining_light }
     on: house.front_inside
-    at: { u: { abs: 2.835 }, v: { abs: 1.08 } }
+    at: { u: { abs: "{2.835 + 4 * lived_in}" }, v: { abs: 1.08 } }   # beside the front door (u from the east end)
   sitting_switch:
     asset: light_switch.yaml
     params: { light: sitting_light }
     on: house.front_inside
-    at: { u: { abs: 2.685 }, v: { abs: 1.08 } }
-  lamp_switch:
+    at: { u: { abs: "{2.685 + 4 * lived_in}" }, v: { abs: 1.08 } }
+  lamp_switch:                      # lived in: inside the front bedroom's door (the lamp is by the bed)
     asset: light_switch.yaml
     params: { light: reading_lamp }
-    on: house.right_inside
-    at: { u: { abs: 1.685 }, v: { abs: 1.08 } }
+    on: "{'house.front_inside' if lived_in else 'house.right_inside'}"
+    at: { u: { abs: "{2.6 if lived_in else 1.685}" }, v: { abs: 1.08 } }
 
-  # Two people live here (assets/npcs/householder.yaml): they get hungry, tired and grubby and
+  # Two people live here (people/ana.yaml, people/bea.yaml on npcs/householder.yaml): they get hungry, tired and grubby and
   # see to it with what the cottage has, and when one wants company she walks over to the other
   # (`household:`: they know each other). They stay within the floor (plus a margin that reaches
   # the doorstep). In the runtime G directs them: click a thing for what they can do with it.
   ana:
     when: "{lived_in}"
-    npc: npcs/householder.yaml
+    character: people/ana.yaml
     on: house.floor
     at: { u: { abs: 4.6 }, v: { abs: 3.2 } }
     facing: south
     home: house.floor
     household: cottage
+    owns: [bed_a]
     quests: [{ file: quests/lights_out.yaml, if: "{resident_quest}" }]
   bea:
     when: "{lived_in}"
-    npc: npcs/householder.yaml
+    character: people/bea.yaml
     on: house.floor
     at: { u: { abs: 3.6 }, v: { abs: 4.3 } }
     facing: north
     home: house.floor
     household: cottage
-    seed: 5
+    owns: [bed_b]
 
   # Not lived in: one room and someone who potters about it (assets/npcs/resident.yaml).
   resident:

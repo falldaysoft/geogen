@@ -1,0 +1,14 @@
+# Bea, who lives at the cottage (scenes/cottage.yaml): early to bed. A named person on top of
+# the householder role (npcs/householder.yaml): hungry, tired and grubby by turns, and seeing to it
+# with what the cottage has. At night she is in her own bed (the placement's `owns:`).
+
+kind: character
+version: 1
+
+name: Bea
+npc: npcs/householder.yaml
+seed: 5
+body:
+  params: { top_color: teal }
+routine:
+  - { name: night, from: "22:15", to: "06:30", only: [bed], hold: true }
