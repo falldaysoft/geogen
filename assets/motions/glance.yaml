@@ -1,0 +1,15 @@
+# Look at something for a while, then look back (geogen.103.4). It only wants the gaze, so it
+# runs alongside whatever the body and hands are doing: sitting, carrying, pressing.
+kind: motion
+name: glance
+roles:
+  target: {}
+holds:
+  claim: [gaze]
+initial: look
+beats:
+  look:
+    look: target
+    after: duration
+    interrupt: yield
+    then: done

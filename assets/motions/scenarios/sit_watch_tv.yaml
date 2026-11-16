@@ -1,0 +1,16 @@
+# Two motions at once: sitting holds the body, a glance at the TV holds only the gaze.
+kind: motion_scenario
+description: Sit down, then look at the TV for two seconds while seated (two motions, separate channels).
+scene:
+  slots:
+    chair: { position: [0, 0, 0], facing: north }
+    console: { position: [0.9, 0, 2.0], facing: south }
+  place:
+    chair: { asset: chair.yaml, slot: chair }
+    console: { asset: tv_console.yaml, slot: console }
+    tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.35], facing: away }
+script:
+  - { at: 0, start: sit, seat: chair, duration: 3.5 }
+  - { at: 1.6, start: glance, target: tv.screen, duration: 2 }
+camera: { view: iso_back, frame: [chair, tv], margin: 0.2 }

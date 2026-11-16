@@ -153,6 +153,10 @@ class Interaction:
     refused: str | None = None
     # Metres from the eye it can be used from, when further than the player's reach.
     reach: float | None = None
+    # The attachment a body touches to work it (geogen.103): a motion bound to the interaction
+    # (``press`` on ``tv.power``) reaches there, and the state changes when the hand arrives.
+    # Build only for now: the runtime gets it with the motion port (geogen.103.7, 103.8).
+    touch: str | None = None
 
     def value(self, motion: Motion, state: str) -> float:
         return float(motion.values.get(state, 0.0))
@@ -459,6 +463,10 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
             if reach <= 0:
                 raise ValueError(f"Interaction '{name}': reach is metres from the eye (a positive number), "
                                  f"got {spec.get('reach')!r}")
+        touch = spec.get("touch")
+        if touch is not None and touch not in root.attachments:
+            raise ValueError(f"Interaction '{name}': touch '{touch}' is not one of the asset's attachments "
+                             f"({sorted(root.attachments)})")
         result.append(Interaction(name, states, motions, targets, initial, float(spec.get("duration", 0.9)),
-                                  lock=lock, when=when, refused=refused, reach=reach))
+                                  lock=lock, when=when, refused=refused, reach=reach, touch=touch))
     return result

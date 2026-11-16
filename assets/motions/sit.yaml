@@ -1,0 +1,48 @@
+# Sit on a seat and get up again (geogen.103; the design's worked example 1).
+# The seat is the affordance's anchor (or an attachment with grip: sit). Only the body is held:
+# the hands are preferred, so someone carrying a plate or holding a remote sits with it.
+kind: motion
+name: sit
+roles:
+  seat: { grip: sit }
+  arms: { grip: rest, optional: true }     # an armchair's armrests, when it has them
+params:
+  lean_down: { default: 32 }
+  lean_up:   { default: 38 }
+holds:
+  require: [root, legs, hips]
+  claim: [spine]
+  prefer: [left_hand, right_hand]
+posture: { from: stand, to: sit }
+initial: arrive
+beats:
+  arrive:                                  # in front of the seat, back to it
+    root: { at: seat, offset: [0, 0, 0.35], facing: away }
+    interrupt: drop                        # nothing to undo yet
+    then: lower
+  lower:
+    pose: sit
+    root: { at: seat, posture: sit }
+    lean: { by: "{lean_down}", at: 0.4 }
+    plant: feet
+    ik:
+      LeftHand: { target: arms.left, rest: true }   # no armrests: the pose's own lap
+      mirror: true
+    over: 1.4
+    interrupt: finish                      # land first, then get up
+    then: seated
+  seated:
+    pose: sit
+    plant: feet                            # where they landed
+    after: duration
+    interrupt: yield
+    exit: rise
+    then: rise
+  rise:
+    pose: stand
+    root: { at: seat, offset: [0, 0, 0.35], facing: away }
+    lean: { by: "{lean_up}", at: 0.5 }
+    plant: feet
+    over: 1.3
+    interrupt: finish
+    then: done

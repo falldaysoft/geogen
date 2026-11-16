@@ -71,3 +71,101 @@ landmarks:
   heel: ["{hip_x}", 0, "{heel_z}"]
   toe_tip: ["{hip_x}", 0, "{foot_length + heel_z}"]
   crotch: [0, "{hips_y - 0.08}", 0]
+
+# Channels (geogen.103, geogen/motion.py): the groups of bones a motion claims. Several motions
+# run at once, each holding the channels it needs (walk the legs, eat a hand, watch the gaze).
+# `bones` are names or fnmatch patterns; `end` is the channel's IK end (core/ik.LIMBS).
+# `root` has no bones: it is where the body stands and which way it faces.
+channels:
+  root:       { bones: [] }
+  hips:       { bones: [Hips] }
+  spine:      { bones: [Spine, Chest, UpperChest] }
+  legs:       { bones: ["*UpperLeg", "*LowerLeg", "*Foot", "*Toes"] }
+  left_hand:  { bones: [LeftShoulder, LeftUpperArm, LeftLowerArm, LeftHand, "Left*Metacarpal", "Left*Proximal", "Left*Intermediate", "Left*Distal"], end: LeftHand }
+  right_hand: { bones: [RightShoulder, RightUpperArm, RightLowerArm, RightHand, "Right*Metacarpal", "Right*Proximal", "Right*Intermediate", "Right*Distal"], end: RightHand }
+  gaze:       { bones: [Neck, Head, "*Eye"], shared: true }
+
+# Hand shapes (geogen.103, geogen/motion.py): the finger poses a grip names. A motion's hand takes
+# the shape its IK target's grip names (an attachment's `grip: press`), or the one its `ik` entry
+# names with `grip:`. Left-hand bones in body-frame degrees, as a pose's `bones:` (z curls a finger
+# toward the palm, y folds the thumb across it); the right hand mirrors them.
+hand_shapes:
+  relaxed:                                  # the poses' resting hand (humanoid.yaml &hand_rest)
+    bones:
+      LeftThumbMetacarpal: [0, 28, 0]
+      LeftIndexProximal: [0, 0, -6]
+      LeftIndexIntermediate: [0, 0, -10]
+      LeftIndexDistal: [0, 0, -6]
+      LeftMiddleProximal: [0, 0, -6]
+      LeftMiddleIntermediate: [0, 0, -10]
+      LeftMiddleDistal: [0, 0, -6]
+      LeftRingProximal: [0, 0, -6]
+      LeftRingIntermediate: [0, 0, -10]
+      LeftRingDistal: [0, 0, -6]
+      LeftLittleProximal: [0, 0, -6]
+      LeftLittleIntermediate: [0, 0, -10]
+      LeftLittleDistal: [0, 0, -6]
+  open:                                     # reaching for something: fingers out, thumb apart
+    bones:
+      LeftThumbMetacarpal: [0, 8, 0]
+      LeftIndexProximal: [0, 0, -4]
+      LeftIndexIntermediate: [0, 0, -4]
+      LeftMiddleProximal: [0, 0, -4]
+      LeftMiddleIntermediate: [0, 0, -4]
+      LeftRingProximal: [0, 0, -4]
+      LeftRingIntermediate: [0, 0, -4]
+      LeftLittleProximal: [0, 0, -4]
+      LeftLittleIntermediate: [0, 0, -4]
+  flat:                                     # a palm on a surface: fingers straight
+    bones:
+      LeftThumbMetacarpal: [0, 14, 0]
+  press:                                    # index out, the rest curled, the thumb on them
+    bones: &press
+      LeftThumbMetacarpal: [0, 45, 0]
+      LeftThumbProximal: [0, 60, 0]                # wrapped over the curled fingers
+      LeftThumbDistal: [0, 40, 0]
+      LeftIndexProximal: [0, 0, -4]
+      LeftIndexIntermediate: [0, 0, -4]
+      LeftMiddleProximal: [0, 0, -75]
+      LeftMiddleIntermediate: [0, 0, -95]
+      LeftMiddleDistal: [0, 0, -55]
+      LeftRingProximal: [0, 0, -78]
+      LeftRingIntermediate: [0, 0, -95]
+      LeftRingDistal: [0, 0, -55]
+      LeftLittleProximal: [0, 0, -80]
+      LeftLittleIntermediate: [0, 0, -95]
+      LeftLittleDistal: [0, 0, -55]
+  power:                                    # round a handle or a bar: every finger curled
+    bones:
+      <<: *press
+      LeftIndexProximal: [0, 0, -70]
+      LeftIndexIntermediate: [0, 0, -90]
+      LeftIndexDistal: [0, 0, -50]
+  pinch:                                    # a small thing or a rim between index and thumb
+    bones:
+      LeftThumbMetacarpal: [0, 40, 0]
+      LeftThumbProximal: [0, 35, 0]
+      LeftThumbDistal: [0, 25, 0]
+      LeftIndexProximal: [0, 0, -35]
+      LeftIndexIntermediate: [0, 0, -40]
+      LeftIndexDistal: [0, 0, -20]
+      LeftMiddleProximal: [0, 0, -40]
+      LeftMiddleIntermediate: [0, 0, -50]
+      LeftMiddleDistal: [0, 0, -25]
+      LeftRingProximal: [0, 0, -50]
+      LeftRingIntermediate: [0, 0, -60]
+      LeftRingDistal: [0, 0, -30]
+      LeftLittleProximal: [0, 0, -55]
+      LeftLittleIntermediate: [0, 0, -65]
+      LeftLittleDistal: [0, 0, -30]
+  hook:                                     # a bag's handles: knuckles straight, fingers bent
+    bones:
+      LeftThumbMetacarpal: [0, 20, 0]
+      LeftIndexIntermediate: [0, 0, -85]
+      LeftIndexDistal: [0, 0, -55]
+      LeftMiddleIntermediate: [0, 0, -85]
+      LeftMiddleDistal: [0, 0, -55]
+      LeftRingIntermediate: [0, 0, -85]
+      LeftRingDistal: [0, 0, -55]
+      LeftLittleIntermediate: [0, 0, -85]
+      LeftLittleDistal: [0, 0, -55]

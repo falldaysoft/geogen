@@ -36,9 +36,16 @@ parts:
     material: screen
     collider: none
 
+# Where a body touches it (motions, geogen/motion.py): the power button low on the bezel's
+# right as you face it, and the middle of the screen to look at.
+attachments:
+  power_button: { anchor: bottom_center, offset: [-0.48, 0.008, "{depth}"], grip: press }
+  screen:       { anchor: center, offset: [0, 0, "{depth / 2}"], grip: look }
+
 # Power toggle (no moving parts; runtimes react to the emitted events).
 interactions:
   power:
+    touch: power_button            # where a body works it (motions: press on tv.power)
     targets: [screen, body]
     initial: "off"
     states:

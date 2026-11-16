@@ -28,6 +28,13 @@ place:
 
 `body` (cube), `bracket` (cube), `screen` (cube)
 
+## Attachments
+
+| Attachment | Position | Facing |
+| --- | --- | --- |
+| `power_button` | (-0.48, 0.008, 0.06) | center |
+| `screen` | (0, 0.325, 0.03) | center |
+
 ## Interactions
 
 power: off* -> on, on -> off (* initial)

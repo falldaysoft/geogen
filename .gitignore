@@ -9,3 +9,6 @@ _site/
 # Local leftovers: the retired Beads tracker data, setuptools metadata
 .beads/
 *.egg-info/
+
+# Test build cache (tests/conftest.py)
+.pytest_cache/

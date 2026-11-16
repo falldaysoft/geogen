@@ -1,0 +1,36 @@
+# Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4).
+# The button is an attachment with grip: press (a TV's power button, a light switch, a lift call).
+# The hand takes the press shape (skeleton hand_shapes) from the button's grip; bind the role to an
+# interaction (`tv.power`) and its `touch:` attachment is the button.
+# Only the hand is claimed: someone sitting or walking presses from where they are.
+kind: motion
+name: press
+roles:
+  button: { grip: press }
+params:
+  push: { default: 0.012 }                 # m the finger goes past the surface
+holds:
+  claim: [right_hand]
+  prefer: [spine, gaze]                    # bends to reach a low button when nothing else holds the spine
+initial: reach
+beats:
+  reach:
+    ik:
+      RightHand: { target: button, offset: [0, 0, 0.09] }   # the palm stops short; the fingers reach
+    look: button
+    interrupt: yield                       # nothing pressed yet: the hand just goes back
+    exit: back
+    then: push
+  push:
+    ik:
+      RightHand: { target: button, offset: [0, 0, "{0.09 - push}"] }
+    look: button
+    over: 0.18
+    emit: pressed
+    interrupt: finish                      # a press is a press
+    then: back
+  back:
+    look: button
+    over: 0.5
+    interrupt: drop
+    then: done
