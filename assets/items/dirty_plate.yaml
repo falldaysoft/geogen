@@ -3,3 +3,4 @@ kind: item
 title: Dirty plate
 tags: [dirty_dish]
 body: plate.yaml
+held: {offset: [0, 0.2, 0.01], rotation: [90, 0, 0]}                               # on edge by its rim, at the side

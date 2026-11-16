@@ -5,11 +5,12 @@
 <img src="../img/meal_plate.png" width="256" alt="meal_plate"> <img src="../img/meal_plate_views.png" width="512" alt="meal_plate: front and side">
 
 A cooked meal on a plate: what a range or a microwave makes of raw food (items/meal.yaml),
-eaten at a table.
+eaten at a table. Its `food` interaction is how much is left (full, half, empty): an NPC eating
+it steps it along (npcs/actions.yaml `eat`, `show: {meal: half}`; geogen.105).
 
 ```yaml
 place:
-  meal_plate: {asset: meal_plate.yaml}
+  meal_plate: {asset: meal_plate.yaml, state: half}
 ```
 
 ## Size
@@ -18,4 +19,8 @@ place:
 
 ## Parts
 
-`plate` (lathe), `stew` (ellipsoid), `greens` (ellipsoid)
+`plate` (lathe), `stew` (ellipsoid), `greens` (ellipsoid), `stew_left` (ellipsoid), `smear` (cylinder)
+
+## Interactions
+
+food: full* -> half, half -> empty, empty (* initial; shows/hides stew, greens; shows/hides stew_left; shows/hides smear)

@@ -88,6 +88,6 @@ def test_household_things_declare_the_links_of_a_meal():
     assert links("kitchen_range") == [{}, {**cook, "duration": [12.0, 18.0], "tags": ["household"]}]      # the chef's, and the `meal` use
     assert links("chair") == [{}, {"duration": [10.0, 15.0], "requires": {"holding": ["meal"]}, "takes": ["meal"],
                                    "gives": {"dirty_plate": 1}, "advertises": {"hunger": 0.7},
-                                   "tags": ["seat", "table", "household"]}]
+                                   "tags": ["seat", "table", "household"], "action": "eat"}]      # eaten at the table (geogen.105)
     assert links("kitchen_sink") == [{"requires": {"holding": ["dirty_plate"]}, "takes": ["dirty_plate"]}]
     assert links("shower") == [{}]

@@ -63,7 +63,12 @@ NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
-STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down", "find"}
+STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down", "find",
+             "set_out", "show"}
+# What is carried shows (geogen.105): `set_out: <item>` puts the carried item's body on what is in
+# front of the NPC (a table) until the action ends or the item is used up; `show: {<item>: <state>}`
+# gives that body (in the hand or set out) a state of its own interaction: a meal eaten from full
+# to half to empty.
 # `find: [sit, lie]`: the nearest free affordance of those types this NPC may use (in its home, not
 # another's, not reserved, nothing lying on it) becomes the action's anchor, approach and heading,
 # and `pose: found` takes its pose; finding none, the action goes on where it is (pose: found does
@@ -71,7 +76,7 @@ STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item
 # far); its own things count half as far and each distance gets a seeded +-40%. Reading a book in
 # the armchair or in bed (geogen.104).
 FIND_TYPES = ("sit", "lie")
-STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look", "prefer"}
+STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look", "prefer", "part"}
 # `look:` on any step: where the head turns from that step on, until a later step says otherwise
 # or the action ends (the action's subject, place or anchor; none: nowhere in particular).
 LOOK_TARGETS = {"subject", "place", "anchor", "partner", "none"}
@@ -231,10 +236,19 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
         raise ValueError(f"{where}: pick_up takes the action's subject (pick_up: subject), got {arg!r}")
     if verb == "find" and not (isinstance(arg, list) and arg and set(arg) <= set(FIND_TYPES)):
         raise ValueError(f"{where}: find takes a list of affordance types to look for, of {list(FIND_TYPES)}, got {arg!r}")
+    if "part" in step and (verb != "wait" or step["wait"] != "duration" or not isinstance(step["part"], (int, float))
+                           or not 0 < step["part"] <= 1):
+        raise ValueError(f"{where}: part is a `wait: duration` step's share (0..1] of the duration, drawn once for "
+                         f"the action (eating in stages), got {step!r}")
     if "prefer" in step and (verb != "find" or not isinstance(step["prefer"], dict)
                              or not all(isinstance(v, (int, float)) and v > 0 for v in step["prefer"].values())):
         raise ValueError(f"{where}: prefer is a find step's {{tag: factor}} on how far a thing with that tag counts "
                          f"(below 1: preferred), got {step.get('prefer')!r}")
+    if verb == "set_out" and not (isinstance(arg, str) and arg.isidentifier()):
+        raise ValueError(f"{where}: set_out names an item the NPC carries (items/<id>.yaml), got {arg!r}")
+    if verb == "show" and not (isinstance(arg, dict) and arg and all(isinstance(k, str) and isinstance(v, str)
+                                                                       for k, v in arg.items())):
+        raise ValueError(f"{where}: show is {{<item>: <state of its body's interaction>}}, got {arg!r}")
     if verb == "put_down" and arg != "place":
         raise ValueError(f"{where}: put_down sets it at the action's place (put_down: place), got {arg!r}")
     if verb == "face" and arg not in FACE_TARGETS:

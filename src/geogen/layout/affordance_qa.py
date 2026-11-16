@@ -88,11 +88,12 @@ def _inside_npc(node: SceneNode) -> bool:
 
 
 def _pose_step(action: str) -> tuple[str, str] | None:
-    """The (pose, at) an action puts the body in, if any (its first non-stand pose step)."""
+    """The (pose, at) an action puts the body in, if any (its first non-stand pose step; `found`
+    is a pose at whatever a `find` step found, checked as that thing's own affordance)."""
     from ..npc import load_actions
 
     for step in load_actions().get(action, {}).get("steps", []):
-        if "pose" in step and step["pose"] != "stand":
+        if "pose" in step and step["pose"] not in ("stand", "found"):
             return str(step["pose"]), str(step.get("at", "anchor"))
     return None
 

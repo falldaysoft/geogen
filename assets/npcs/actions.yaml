@@ -28,6 +28,7 @@
 #       hold: <pose>             ...holding that skeletal pose (pose_<name> clip) instead of the
 #                                pose's own once there: sit, but with the forearms on the table
 #   wait: duration | S | [lo, hi]  seconds (duration = the affordance's range)
+#       part: 0..1               ...that share of the duration, drawn once for the action (stages)
 #   wait: partner                until the NPC that took up this one's offer is done (or gives up)
 #   use: <state>                 drive the affordance's/portal's interaction to <state>
 #                                (presses it like the player does, waits for arrival);
@@ -42,6 +43,10 @@
 #                                in both hands; a smaller one in one hand)
 #   put_down: place              let the prop in hand go just above the action's place; where it
 #                                settles is up to the physics
+#   set_out: <item>              put the carried item's body on what is in front (a table) until
+#                                the action ends or the item is used up (a meal served at a table)
+#   show: {<item>: <state>}      that item's body, in the hand or set out, shows a state of its own
+#                                interaction (a meal: full, half, empty)
 #   find: [sit, lie]             the nearest free seat or bed this NPC may use (in its home, not
 #                                another's, not reserved, nothing on it) becomes the anchor and
 #                                approach from here on; `pose: found` takes its pose (sit, lie).
@@ -274,6 +279,30 @@ actions:
       - go_to: place
         look: place
       - put_down: place
+
+  # A meal at a table (a chair's `eat` use, geogen.105): sit with it, set the plate out on the
+  # table, and eat it up, the food going as it is eaten. When it is done the chair's use takes
+  # the meal and gives the dirty plate, which is then what the hand carries.
+  eat:
+    duration: [10, 15]
+    interruptible: true
+    steps:
+      - go_to: approach
+      - face: anchor
+      - pose: sit
+        at: anchor
+        hold: sit_at_table
+      - set_out: meal
+      - wait: duration             # the meal's duration in shares: the food goes as hunger fills
+        part: 0.4
+      - show: { meal: half }
+      - wait: duration
+        part: 0.4
+      - show: { meal: empty }
+      - wait: duration
+        part: 0.2
+      - pose: stand
+        at: approach
 
   attend:                        # stand at a thing while it does its work (a microwave, a fridge, a shower)
     approach: [0, 0, 0]

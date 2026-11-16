@@ -88,6 +88,9 @@ const SEEN_NEAR := 0.4            # m: a ray toward a thing may stop this short 
 const ON_SEAT := 0.35             # m (flat) from a seat's anchor a loose prop is on the seat
 const CARRY_HEIGHT := 0.6         # of the body's height: where the middle of a thing carried in both hands is
 const CARRY_BODY := 0.14          # m from the body's middle to the near side of such a thing
+const SET_OUT_NEAR := 0.3        # m ahead of the seat a set-out item's top is first looked for
+const SET_OUT_FAR := 0.7         # and the furthest
+const SET_OUT_ABOVE := 0.7       # m above the seat the look down starts
 const FIND_OWN := 0.5             # a `find` step's own things (its bed) count as this much as far
 const CARRY_PALM := 0.02          # m off its side the hand bone is (the palm is on it)
 const STAND_SLACK := 0.2          # m short of its reach a spot must be from where it will stand (walks end a little off)
@@ -133,7 +136,9 @@ var _wedged := false     # the step failing now made no progress at all (_walk),
 
 var _stack: Array[Dictionary] = []   # frames: {action, steps, index, started, ctx}
 var _find_seen := []            # the last `find` step's candidates [id, scored distance] (for the trace)
-var _carry_on := {}              # {uid, local}: a thing in both hands, held where it was against the chest when picked up
+var _carry_on := {}
+var _set_out := {}               # {item, node}: a carried item's body set out on the table in front (set_out)
+var _item_state := {}            # item id -> the state its body shows (show), while it is carried              # {uid, local}: a thing in both hands, held where it was against the chest when picked up
 var _option := {}
 var _recent := {}                    # option id -> clock when last finished
 var _retry_at := {}                  # failed option id -> clock when it may be tried again
@@ -599,7 +604,7 @@ func _for_me(a: Dictionary, chains: bool) -> bool:
 
 ## Whether an action puts the body on its anchor (a `pose` step other than standing: sit, lie).
 static func _poses_at_anchor(action: Dictionary) -> bool:
-    return (action["steps"] as Array).any(func(s): return s.has("pose") and s["pose"] != "stand" \
+    return (action["steps"] as Array).any(func(s): return s.has("pose") and not s["pose"] in ["stand", "found"] \
         and str(s.get("at", "anchor")) == "anchor")
 
 
@@ -998,6 +1003,7 @@ func _finish_option(ok: bool, reason := "") -> void:
         _trace({"event": "fail", "option": id, "reason": reason})
     _fill = 0.0
     _fill_total = 0.0
+    _clear_set_out()
     world.npc_release(id, self)
     if _option.has("found"):
         world.npc_release(str(_option["found"]), self)
@@ -1449,6 +1455,18 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
             dir = Basis(Vector3.UP, deg_to_rad(float(ctx["yaw_deg"]))) * Vector3.BACK
         _yaw_goal = atan2(dir.x, dir.z)
         return ""
+    if step.has("set_out"):
+        return _set_out_item(str(step["set_out"]), ctx)
+    if step.has("show"):
+        for id in step["show"]:
+            _item_state[str(id)] = str(step["show"][id])
+            if _held != null and is_instance_valid(_held) and str(_held.get_meta("held_item", "")) == str(id):
+                for body_ in _held.get_children():
+                    show_state(body_, _item_state[str(id)])
+            if str(_set_out.get("item", "")) == str(id) and is_instance_valid(_set_out.get("node")):
+                show_state(_set_out["node"], _item_state[str(id)])
+        _trace({"event": "show", "show": step["show"]})
+        return ""
     if step.has("find"):
         var found := _find_rest(step["find"], step.get("prefer", {}))
         if found.is_empty():
@@ -1482,8 +1500,13 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
     if step.has("wait"):
         var r = ctx["duration"] if str(step["wait"]) == "duration" else step["wait"]
         _timer = rng.randf_range(float(r[0]), float(r[1]))
+        if str(step["wait"]) == "duration" and step.has("part"):
+            # A share of the duration, drawn once for the action: eating in stages over one meal.
+            if not ctx.has("drawn"):
+                ctx["drawn"] = _timer
+            _timer = float(ctx["drawn"]) * float(step["part"])
         if str(step["wait"]) == "duration" and _stack.size() == 1 and not ctx.get("held", false):
-            _fill_total = _timer        # (held until a routine block ends, it all comes at the end, as it did)
+            _fill_total = float(ctx.get("drawn", _timer))   # (held until a routine block ends, it all comes at the end, as it did)
         return ""
     if step.has("vanish"):
         return ""
@@ -1625,7 +1648,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         stats["aways"] = int(stats.get("aways", 0)) + 1
         _trace({"event": "away", "pos": _v(global_position)})
         return "done"
-    if step.has("find"):
+    if step.has("find") or step.has("set_out") or step.has("show"):
         return "done"
     if step.has("pick_up") or step.has("put_down"):
         var diff := wrapf(_yaw_goal - _yaw(), -PI, PI)
@@ -1755,6 +1778,7 @@ func _show() -> void:
 ## Stop whatever it is doing and stand: off its seat, its option given up.
 func _drop_everything() -> void:
     _let_go()
+    _clear_set_out()
     _intent = ""
     _stack.clear()
     _stair = null
@@ -1941,6 +1965,79 @@ func _prop_point(uid: String) -> Transform3D:
         if bone >= 0:
             at = (_skeleton.global_transform * _skeleton.get_bone_global_pose(bone)).origin + basis * Vector3(0, -0.04, 0.08)
     return Transform3D(basis, at - basis * (world.props.box_of(uid)["center"] as Vector3))
+
+
+## Put carried item ``id``'s body on what is in front of the NPC (a table under its hands): a
+## copy of the item's body standing on the first surface below a point ahead of the chest. Shown
+## until the option ends or the item is used up, and not in the hand meanwhile; "" or why not.
+func _set_out_item(id: String, ctx: Dictionary) -> String:
+    if world.rules == null or world.rules.held(id, WorldLoader.actor_id(self)) <= 0:
+        return "nothing left of what it takes (no %s to set out)" % id
+    _clear_set_out()
+    var template: Node3D = world.item_bodies.get(id)
+    if template == null or not is_instance_valid(template):
+        return ""                    # an item with no body: nothing to show
+    # The top in front of where it sits: going out from the seat a step at a time, the first
+    # thing above the seat looking down (a table). None within reach: it stays in the hand.
+    var forward := Basis(Vector3.UP, _yaw()) * Vector3.BACK
+    var seat: Vector3 = ctx.get("anchor", global_position)
+    var hit := {}
+    var ahead := SET_OUT_NEAR
+    while ahead <= SET_OUT_FAR and hit.is_empty():
+        var from := seat + forward * ahead + Vector3.UP * SET_OUT_ABOVE
+        var query := PhysicsRayQueryParameters3D.create(from, Vector3(from.x, seat.y + 0.1, from.z))
+        query.exclude = [get_rid()]
+        hit = get_world_3d().direct_space_state.intersect_ray(query)
+        ahead += 0.05
+    if hit.is_empty():
+        return ""
+    var copy := template.duplicate() as Node3D
+    for node in copy.find_children("*", "CollisionObject3D", true, false):
+        node.get_parent().remove_child(node)
+        node.free()
+    copy.name = "set_out_%s" % id
+    world.add_child(copy)
+    copy.global_transform = Transform3D(Basis(Vector3.UP, _yaw()), hit["position"])
+    copy.visible = true
+    _set_out = {"item": id, "node": copy}
+    if _item_state.has(id):
+        show_state(copy, str(_item_state[id]))
+    _trace({"event": "set_out", "item": id, "at": _v(hit["position"])})
+    return ""
+
+
+## Take what is set out away (the option is over); an item still carried goes back to the hand.
+## The shown states of items no longer carried are forgotten (the next meal starts full).
+func _clear_set_out() -> void:
+    if _set_out.has("node") and is_instance_valid(_set_out["node"]):
+        (_set_out["node"] as Node).queue_free()
+    _set_out = {}
+    if world == null or world.rules == null:
+        return
+    var actor := WorldLoader.actor_id(self)
+    for id in _item_state.keys():
+        if world.rules.held(str(id), actor) <= 0:
+            _item_state.erase(id)
+
+
+## Give ``node`` (an item's body, or any exported asset) a state of its own interactions: its
+## `visible` motions show or hide their parts as the state says (extras.geogen.interactions).
+static func show_state(node: Node, state: String) -> void:
+    var found: Variant = WorldLoader.geogen_extras(node).get("interactions")
+    if not found is Dictionary:
+        return
+    for name in found:
+        var it: Dictionary = found[name]
+        if not (it.get("states", {}) as Dictionary).has(state):
+            continue
+        for motion in it.get("motions", []):
+            if str(motion.get("type", "")) != "visible":
+                continue
+            var on := float((motion.get("values", {}) as Dictionary).get(state, 1.0)) >= 0.5
+            for part in motion.get("nodes", []):
+                var target := node.find_child(str(part), true, false) as Node3D
+                if target != null:
+                    target.visible = on
 
 
 ## The chest bone's world transform as animated (null for a body without one).
@@ -2173,7 +2270,7 @@ func _held_item() -> String:
     if world.rules == null:
         return ""
     for entry in world.rules.carried(WorldLoader.actor_id(self)):
-        if world.item_held.has(str(entry["id"])):
+        if world.item_held.has(str(entry["id"])) and str(entry["id"]) != str(_set_out.get("item", "")):
             return str(entry["id"])
     return ""
 
@@ -2198,6 +2295,8 @@ func _hold(id: String) -> void:
     _skeleton.add_child(attach)
     attach.add_child(body)
     _held = attach
+    if _item_state.has(id):
+        show_state(body, str(_item_state[id]))
 
 
 ## The item in the NPC's hand now ("" for none), for the report.

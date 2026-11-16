@@ -850,7 +850,7 @@ AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approa
 # Other things done at the same place (`uses: {name: {...}}`): each with its own of these, the rest
 # (where, the action, its slots) shared with the affordance. A chair is a seat, and with a meal in
 # hand somewhere to eat it.
-AFFORDANCE_USE_KEYS = {"duration", "advertises", "tags", "requires", "takes", "gives"}
+AFFORDANCE_USE_KEYS = {"duration", "advertises", "tags", "requires", "takes", "gives", "action"}
 # What doing it needs and what it does to what the actor carries (geogen.101.1): the planner
 # chains affordances through these (a fridge gives raw food, a stove takes it and gives a meal).
 AFFORDANCE_REQUIRES = {
@@ -1094,6 +1094,10 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
                 entry["advertises"] = {str(k): float(v) for k, v in use["advertises"].items()}
             if use.get("tags"):
                 entry["tags"] = [str(t) for t in use["tags"]]
+            if "action" in use:          # its own action at the same place (a chair's eat: sit and eat, geogen.105)
+                if str(use["action"]) not in load_actions():
+                    raise ValueError(f"affordance use '{name}' action {use['action']!r} is not in assets/npcs/actions.yaml")
+                entry["action"] = str(use["action"])
             _affordance_chain(use, root, entry)
             entry.pop("interaction", None)
             out["uses"][str(name)] = entry

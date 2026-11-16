@@ -1,5 +1,6 @@
 # A cooked meal on a plate: what a range or a microwave makes of raw food (items/meal.yaml),
-# eaten at a table.
+# eaten at a table. Its `food` interaction is how much is left (full, half, empty): an NPC eating
+# it steps it along (npcs/actions.yaml `eat`, `show: {meal: half}`; geogen.105).
 
 name: meal_plate
 tags: [decor.plate, food.meal]
@@ -31,3 +32,30 @@ parts:
     offset: [0.05, 0.006, -0.04]
     material: crop_leaf
     collider: none
+  stew_left:                          # what is left of the stew halfway through
+    primitive: ellipsoid
+    size: [0.09, 0.03, 0.08]
+    anchor: bottom_center
+    offset: [-0.03, 0.004, 0.02]
+    material: bread_crust
+    collider: none
+  smear:                              # the sauce left on the plate
+    primitive: cylinder
+    size: [0.08, 0.002, 0.065]
+    anchor: bottom_center
+    offset: [-0.02, 0.0065, 0.02]
+    material: bread_crust
+    collider: none
+
+interactions:
+  food:
+    initial: full
+    duration: 0.2
+    states:
+      full: { next: half }
+      half: { next: empty }
+      empty: {}
+    motions:
+      - { parts: [stew, greens], show: [full] }
+      - { parts: [stew_left], show: [half] }
+      - { parts: [smear], show: [half, empty] }

@@ -4,3 +4,4 @@ kind: item
 title: Groceries
 tags: [raw_food]
 body: grocery_bag.yaml
+held: {offset: [0, 0.3, 0.03], rotation: [0, 0, 180]}                              # by its handles, hanging from the fist
