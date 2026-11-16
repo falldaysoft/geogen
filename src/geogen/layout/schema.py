@@ -264,7 +264,8 @@ ASSET_KEYS: dict[str, str] = {
     "preset": "the default preset",
     "derived": "{name: expr}: values computed from params, in order",
     "parts": "{name: part}: the primitives the asset is built from",
-    "attachments": "{name: {anchor, offset, facing}}: named points other assets attach to (`attach_to` + `at`)",
+    "attachments": ("{name: {anchor, offset, facing, grip, hands}}: named points other assets attach to (`attach_to` + `at`); "
+                    "`grip` says how a body touches it (press, power, pinch, sit, look: motions, geogen/motion.py)"),
     "surfaces": "{name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` "
                 "(`flip: true` faces the other way, e.g. a cutter's face seen from inside the room)",
     "tags": "dotted gameplay tags (furniture.chair, door.exterior)",

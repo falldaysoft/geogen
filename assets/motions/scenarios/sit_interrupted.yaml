@@ -1,0 +1,16 @@
+# Sit down; get interrupted while seated (the seated beat yields: she rises through `rise`).
+kind: motion_scenario
+description: Sit on a chair facing the TV, interrupted after one second of sitting.
+scene:
+  slots:
+    chair: { position: [0, 0, 0], facing: north }
+    console: { position: [0, 0, 2.4], facing: south }
+  place:
+    chair: { asset: chair.yaml, slot: chair }
+    console: { asset: tv_console.yaml, slot: console }
+    tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.35], facing: away }
+script:
+  - { at: 0, start: sit, seat: chair, duration: 10 }
+  - { at: 3.6, interrupt: sit, how: yield }
+camera: { view: side, frame: [chair], margin: 0.25 }

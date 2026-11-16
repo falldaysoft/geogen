@@ -13,7 +13,7 @@
 | `preset` | the default preset |
 | `derived` | {name: expr}: values computed from params, in order |
 | `parts` | {name: part}: the primitives the asset is built from |
-| `attachments` | {name: {anchor, offset, facing}}: named points other assets attach to (`attach_to` + `at`) |
+| `attachments` | {name: {anchor, offset, facing, grip, hands}}: named points other assets attach to (`attach_to` + `at`); `grip` says how a body touches it (press, power, pinch, sit, look: motions, geogen/motion.py) |
 | `surfaces` | {name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` (`flip: true` faces the other way, e.g. a cutter's face seen from inside the room) |
 | `tags` | dotted gameplay tags (furniture.chair, door.exterior) |
 | `interactions` | {name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers) or drive a mechanism body's motor (a `drive` motion) |
@@ -254,6 +254,35 @@ Keys: `body`, `data`, `gait`, `held`, `lifetime`, `mode`, `name`, `opens`, `radi
 | [items/wheat_seeds.yaml](../../assets/items/wheat_seeds.yaml) | Wheat seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |
 | [items/wrapper.yaml](../../assets/items/wrapper.yaml) | A screwed-up wrapper: what eating something from a stall leaves in the hand (a scene's rule on use_item gives one); trashcan.yaml's `bin` interaction takes it. |
 
+### motion
+
+An NPC interaction animation: beats (poses, IK onto object contacts, gaze, root) that hold body channels by strength and say what an interruption does.
+
+Use: `MotionRig(actor, scene).start('sit', seat='chair'); review: python -m geogen.motion_review`
+
+Keys: `beats`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `posture`, `priority`, `roles`, `while`
+
+| File | What it is |
+| --- | --- |
+| [motions/glance.yaml](../../assets/motions/glance.yaml) | Look at something for a while, then look back (geogen.103.4). |
+| [motions/press.yaml](../../assets/motions/press.yaml) | Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4). |
+| [motions/sit.yaml](../../assets/motions/sit.yaml) | Sit on a seat and get up again (geogen.103; the design's worked example 1). |
+
+### motion_scenario
+
+A scripted motion run (stage, person, timed starts and interruptions, camera) rendered to video, filmstrip and timeline for review.
+
+Use: `python -m geogen.motion_review sit_on_chair -o /tmp/review`
+
+Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `script`, `until`
+
+| File | What it is |
+| --- | --- |
+| [motions/scenarios/press_tv.yaml](../../assets/motions/scenarios/press_tv.yaml) | Stand in front of a TV on a table and press its power button (bending a little to reach it). |
+| [motions/scenarios/sit_interrupted.yaml](../../assets/motions/scenarios/sit_interrupted.yaml) | Sit down; get interrupted while seated (the seated beat yields: she rises through `rise`). |
+| [motions/scenarios/sit_on_chair.yaml](../../assets/motions/scenarios/sit_on_chair.yaml) | Walk up to a chair (the actor starts at its approach point), sit for two seconds, stand up. |
+| [motions/scenarios/sit_watch_tv.yaml](../../assets/motions/scenarios/sit_watch_tv.yaml) | Two motions at once: sitting holds the body, a glance at the TV holds only the gaze. |
+
 ### npc
 
 An NPC: body, needs, preferences, activities and daily routine; the runtime interprets it.
@@ -357,11 +386,11 @@ Keys: `default`, `packages`, `scenes`
 
 ### skeleton
 
-The humanoid skeleton: params, bone heads and landmarks.
+The humanoid skeleton: params, bone heads, landmarks and body channels.
 
 Use: `body: {skeleton: skeletons/humanoid.yaml}`
 
-Keys: `bones`, `derived`, `group_scale`, `landmarks`, `name`, `params`, `profile`
+Keys: `bones`, `channels`, `derived`, `group_scale`, `landmarks`, `name`, `params`, `profile`
 
 | File | What it is |
 | --- | --- |

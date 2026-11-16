@@ -19,6 +19,7 @@ python -m geogen.main -s chair -r out.png --view side --zoom 1.5 --no-ground
 python -m geogen.main -s portraits -r out.png --frame Head --view front --fov 10   # close-up on what a joint/node moves
 python -m geogen.main -s hotel_room_auto -r out.png --views iso,top --cutaway   # hide ceilings/roofs
 python -m geogen.main -s skin_test -r out.png --clip sway@1.0          # also --pose NAME, --filmstrip N, --affordances, --lanes
+python -m geogen.motion_review sit_on_chair -o /tmp/review            # motion scenarios -> video, filmstrip, timeline, index.html
 python -m geogen.main -s street --viewer-screenshot shot.png --display uv     # the Qt viewer (lit|clay|normals|uv)
 
 # Check from numbers: the resolved tree (world bounds, assets, meta) and every QA check

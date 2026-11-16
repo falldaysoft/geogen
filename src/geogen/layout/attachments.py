@@ -63,6 +63,10 @@ class AttachmentPoint:
     facing: FacingDirection = "center"
     rotation: float | None = None  # degrees, Y-axis rotation
     offset_mode: OffsetMode = "absolute"
+    # How a body touches it (geogen.103, geogen/motion.py): a hand shape or contact kind such as
+    # press, power, pinch, flat, sit, look; `hands` one | both (a pair of grips: `pair`).
+    grip: str | None = None
+    hands: str | None = None
 
     def __post_init__(self) -> None:
         if self.offset is None:
@@ -136,4 +140,6 @@ def parse_attachment(name: str, data: dict) -> AttachmentPoint:
         offset=offset,
         facing=facing,
         rotation=rotation,
+        grip=data.get("grip"),
+        hands=data.get("hands"),
     )

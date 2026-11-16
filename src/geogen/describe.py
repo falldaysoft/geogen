@@ -110,7 +110,15 @@ KINDS: dict[str, dict[str, str]] = {
     "package": {"doc": "A content package: state, rules and quests that span the scenes it names.",
                 "use": "packages: [name]   (in runtime_scenes.yaml; see docs/rules.md, Content packages)",
                 "keys": "geogen.content:PACKAGE_KEYS"},
-    "skeleton": {"doc": "The humanoid skeleton: params, bone heads and landmarks.",
+    "motion": {"doc": "An NPC interaction animation: beats (poses, IK onto object contacts, gaze, root) that hold "
+                      "body channels by strength and say what an interruption does.",
+               "use": "MotionRig(actor, scene).start('sit', seat='chair'); review: python -m geogen.motion_review",
+               "keys": "geogen.motion:MOTION_KEYS"},
+    "motion_scenario": {"doc": "A scripted motion run (stage, person, timed starts and interruptions, camera) "
+                               "rendered to video, filmstrip and timeline for review.",
+                        "use": "python -m geogen.motion_review sit_on_chair -o /tmp/review",
+                        "keys": "geogen.motion_review:SCENARIO_KEYS"},
+    "skeleton": {"doc": "The humanoid skeleton: params, bone heads, landmarks and body channels.",
                  "use": "body: {skeleton: skeletons/humanoid.yaml}", "keys": ""},
     "player_spec": {"doc": "Player-scale constraints (capsule, eye and step height, door and corridor widths).",
                     "use": "read by layout QA, the furnishing solver and the Godot runtime", "keys": ""},

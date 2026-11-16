@@ -141,6 +141,9 @@ class Skeleton:
     bones: dict[str, Bone]
     landmarks: dict[str, NDArray[np.float64]] = field(default_factory=dict)
     params: dict[str, float] = field(default_factory=dict)
+    # Channels (geogen.103): name -> {bones: [names], end?: IK end, shared?: bool}, the groups of
+    # bones motions claim (geogen/motion.py). Patterns are expanded to this skeleton's bones.
+    channels: dict[str, dict] = field(default_factory=dict)
     # The rest as arrays (see ``_rig``): FK reads it thousands of times a body. Bones are fixed
     # once the skeleton is built.
     _rig_cache: _Rig | None = field(default=None, init=False, repr=False, compare=False)
@@ -436,4 +439,29 @@ def load_skeleton(path: str | Path = DEFAULT_SKELETON, params: dict[str, float] 
         bones[pb.name] = Bone(pb.name, pb.parent, head, rotation, pb.group)
 
     landmarks = {name: _point(v, values) for name, v in (spec.get("landmarks") or {}).items()}
-    return Skeleton(spec.get("name", path.stem), bones, landmarks, declared)
+    return Skeleton(spec.get("name", path.stem), bones, landmarks, declared,
+                    _channels(spec.get("channels") or {}, list(bones), path))
+
+
+def _channels(spec: dict, names: list[str], path: Path) -> dict[str, dict]:
+    """A skeleton's ``channels:`` with bone patterns expanded; a bone belongs to one channel."""
+    from fnmatch import fnmatchcase
+
+    out, owner = {}, {}
+    for channel, entry in spec.items():
+        bones = []
+        for pattern in entry.get("bones") or []:
+            hits = [n for n in names if fnmatchcase(n, pattern)]
+            if not hits:
+                raise ValueError(f"{path}: channel '{channel}': no bone matches {pattern!r}")
+            for n in hits:
+                if n in owner and owner[n] != channel:
+                    raise ValueError(f"{path}: bone '{n}' is in channels '{owner[n]}' and '{channel}'")
+                owner[n] = channel
+                if n not in bones:
+                    bones.append(n)
+        end = entry.get("end")
+        if end is not None and end not in bones:
+            raise ValueError(f"{path}: channel '{channel}': its end '{end}' is not one of its bones")
+        out[channel] = {"bones": bones, "end": end, "shared": bool(entry.get("shared", False))}
+    return out

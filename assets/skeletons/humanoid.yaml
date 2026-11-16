@@ -71,3 +71,16 @@ landmarks:
   heel: ["{hip_x}", 0, "{heel_z}"]
   toe_tip: ["{hip_x}", 0, "{foot_length + heel_z}"]
   crotch: [0, "{hips_y - 0.08}", 0]
+
+# Channels (geogen.103, geogen/motion.py): the groups of bones a motion claims. Several motions
+# run at once, each holding the channels it needs (walk the legs, eat a hand, watch the gaze).
+# `bones` are names or fnmatch patterns; `end` is the channel's IK end (core/ik.LIMBS).
+# `root` has no bones: it is where the body stands and which way it faces.
+channels:
+  root:       { bones: [] }
+  hips:       { bones: [Hips] }
+  spine:      { bones: [Spine, Chest, UpperChest] }
+  legs:       { bones: ["*UpperLeg", "*LowerLeg", "*Foot", "*Toes"] }
+  left_hand:  { bones: [LeftShoulder, LeftUpperArm, LeftLowerArm, LeftHand, "Left*Metacarpal", "Left*Proximal", "Left*Intermediate", "Left*Distal"], end: LeftHand }
+  right_hand: { bones: [RightShoulder, RightUpperArm, RightLowerArm, RightHand, "Right*Metacarpal", "Right*Proximal", "Right*Intermediate", "Right*Distal"], end: RightHand }
+  gaze:       { bones: [Neck, Head, "*Eye"], shared: true }

@@ -1157,6 +1157,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if drop is not None and drop.any():
         root.meta["humanoid"]["hidden_faces"] = int(drop.sum())
     root.meta["humanoid"]["seats"] = seats
+    root.meta["humanoid"]["rig"] = skeleton             # the built skeleton, for motions (geogen/motion.py)
     root.meta["humanoid"]["shells"] = draped            # for drape.Draper (review, tests)
     if drape_report:
         root.meta["humanoid"]["drape"] = drape_report
