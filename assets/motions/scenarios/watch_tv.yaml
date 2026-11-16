@@ -1,0 +1,20 @@
+# Sit and watch the TV; a glance at the lamp takes the gaze for a moment and gives it back
+# (watch only prefers the gaze; glance claims it).
+kind: motion_scenario
+description: Sit and watch the TV, glance at the lamp for a second, back to the TV.
+scene:
+  slots:
+    chair: { position: [0, 0, 0], facing: north }
+    console: { position: [0, 0, 2.2], facing: south }
+    lamp: { position: [-1.3, 0, 0.2], facing: east }
+  place:
+    chair: { asset: chair.yaml, slot: chair }
+    console: { asset: tv_console.yaml, slot: console }
+    tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
+    lamp:    { asset: floor_lamp.yaml, slot: lamp }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.35], facing: away }
+script:
+  - { at: 0, start: sit, seat: chair, duration: 4.4 }
+  - { at: 1.6, start: watch, target: tv.screen, duration: 4.5 }
+  - { at: 2.8, start: glance, target: lamp, duration: 1.0 }
+camera: { view: iso_back, frame: [chair, tv, lamp], margin: 0.2 }

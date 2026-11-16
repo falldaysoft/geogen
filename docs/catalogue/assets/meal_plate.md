@@ -21,6 +21,12 @@ place:
 
 `plate` (lathe), `stew` (ellipsoid), `greens` (ellipsoid), `stew_left` (ellipsoid), `smear` (cylinder)
 
+## Attachments
+
+| Attachment | Position | Facing |
+| --- | --- | --- |
+| `rim` | (0, 0.016, 0.13) | center |
+
 ## Interactions
 
 food: full* -> half, half -> empty, empty (* initial; shows/hides stew, greens; shows/hides stew_left; shows/hides smear)

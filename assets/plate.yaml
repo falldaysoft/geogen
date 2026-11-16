@@ -22,3 +22,8 @@ attachments:
   center:
     anchor: bottom_center
     offset: [0, 0.006, 0]
+  # Where a hand takes it (motion take, grip: any): the near rim between thumb and fingers.
+  rim:
+    anchor: bottom_center
+    offset: [0, 0.016, 0.13]
+    grip: pinch

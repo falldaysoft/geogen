@@ -36,6 +36,7 @@ place:
 
 | Attachment | Position | Facing |
 | --- | --- | --- |
+| `top` | (0, 0.75, 0) | center |
 | `seat_front` | (0, 0, 0.8) | center |
 | `seat_back` | (0, 0, -0.8) | center |
 | `seat_left` | (-1, 0, 0) | center |

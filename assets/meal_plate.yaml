@@ -47,6 +47,13 @@ parts:
     material: bread_crust
     collider: none
 
+attachments:
+  # Where a hand takes it (motion take, grip: any): the near rim between thumb and fingers.
+  rim:
+    anchor: bottom_center
+    offset: [0, 0.016, 0.13]
+    grip: pinch
+
 interactions:
   food:
     initial: full

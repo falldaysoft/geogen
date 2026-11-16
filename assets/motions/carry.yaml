@@ -1,0 +1,27 @@
+# Hold a taken thing where it is carried (geogen.103.4): the hand stays put in front of the hip,
+# shaped by the thing's grip, whenever nothing else uses the hand (it only prefers it: start it
+# with take and it holds on from the lift). It ends when the thing is let
+# go (set_down's `release`), so whatever comes after has the hand back. Carrying outliving the
+# action that started it (`layer: true`) and walking with it come with interruption (103.5).
+kind: motion
+name: carry
+roles:
+  item: { grip: any }
+params:
+  duration: { default: 600 }      # s it holds on for when nothing lets go of the thing
+  carry_x: { default: -0.45 }     # as take's: in front of the right hip, waist high
+  carry_y: { default: 0.58 }
+  carry_z: { default: 0.6 }
+holds:
+  prefer: [right_hand]            # under whatever uses the hand (take, set_down), back when they end
+initial: held
+beats:
+  held:
+    ik:
+      RightHand:
+        target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        pole: [-0.4, -1, 0]
+        grip: item
+    after: duration
+    interrupt: hold                        # a noise doesn't make anyone drop dinner
+    then: done

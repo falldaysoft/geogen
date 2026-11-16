@@ -39,7 +39,8 @@ def test_unknown_beat_key_is_an_error():
 
 def test_scenarios_load():
     names = scenario_names(roots.CORE)
-    assert {"sit_on_chair", "sit_interrupted", "press_tv", "sit_watch_tv"} <= set(names)
+    assert {"sit_on_chair", "sit_interrupted", "press_tv", "sit_watch_tv", "take_carry_set_down",
+            "watch_tv"} <= set(names)
     for name in names:
         load_scenario(name, roots.CORE)
 
@@ -154,6 +155,94 @@ interactions:
         LayoutLoader().load_string(text)
 
 
+# --- take, carry, set down; watch (geogen.103.4) ---
+
+def _node(r, name):
+    return next(n for n in r.rig.scene.iter_nodes() if n.name == name and n.parent is r.rig.scene
+                or n.name == name and n.parent.name == "stage")
+
+
+def test_take_carry_set_down_moves_the_plate_onto_the_place(runs):
+    r = _run(runs, "take_carry_set_down")
+    m = r.metrics
+    assert m["beats"] == ["take.reach", "carry.held", "take.grasp", "take.lift", "set_down.over",
+                          "set_down.lower", "set_down.let_go", "set_down.back"]
+    events = [(e["event"], e["motion"]) for e in r.rig.trace if e["event"] in ("attach", "release", "emit", "end")]
+    assert events == [("attach", "take"), ("emit", "take"), ("end", "take"), ("release", "set_down"),
+                      ("end", "carry"), ("emit", "set_down"), ("end", "set_down")], \
+        "the release ends the carry; nothing is left running"
+    assert m["contact_error_mm"] < 5 and m["pops"] == 0
+    assert m["peak_joint_accel"]["deg_s2"] < 4000, m["peak_joint_accel"]
+    assert m["cloth_mm"]["mm"] < 2, m["cloth_mm"]
+    plate, table = _node(r, "plate"), _node(r, "table")
+    top = table.get_attachment("top").to_matrix()[:3, 3]
+    world = plate.world_transform()
+    assert np.linalg.norm(world[:3, 3] - top) < 0.005, "set down on the table's top (2 mm above it)"
+    assert world[1, 3] > top[1], "not into the table"
+    assert abs(world[1, 1] - 1.0) < 1e-6, "level, as it was carried"
+    assert r.rig.attached == {}
+
+
+def test_a_carried_plate_goes_with_the_hand_and_stays_level(runs):
+    r = _run(runs, "take_carry_set_down")
+    held = [s for s in r.rig.samples if s["beats"].get("carry") == "held" and "take" not in s["beats"]
+            and "set_down" not in s["beats"]]
+    assert held and all(s["owners"]["right_hand"] == "carry" for s in held), "carry has the hand between"
+    # The pinch the plate's rim grip names, held through the carry.
+    skeleton = r.rig.skeleton
+    from geogen.core.transform import Transform
+
+    want = skeleton.body_quat("RightIndexProximal", Transform(rotation=np.radians(
+        skeleton.hand_shapes["pinch"]["RightIndexProximal"])).to_matrix()[:3, :3])
+    assert abs(float(np.dot(held[-1]["rotations"]["RightIndexProximal"], want))) > 0.999
+    # Lifted: the hand at waist height, well above the table.
+    assert held[-1]["ends"]["RightHand"][1] > 0.85
+
+
+def test_set_down_needs_something_in_hand():
+    from geogen.motion import MotionError, MotionRig
+    from geogen.motion_review import _actor, _scene
+
+    spec = load_scenario("take_carry_set_down")
+    scene = _scene(spec["scene"], roots.CORE)
+    rig = MotionRig(_actor(spec["actor"], scene, roots.CORE), scene)
+    with pytest.raises(MotionError, match="no hand holds"):
+        rig.start("set_down", item="plate", place="table.top")
+
+
+def test_grip_any_takes_the_first_grip_a_hand_holds():
+    from geogen.layout.loader import LayoutLoader
+    from geogen.motion import contact
+
+    plate = LayoutLoader().load(roots.find("plate.yaml", roots.CORE))
+    assert contact(plate, "any").name.endswith(".rim") and contact(plate, "any").grip == "pinch"
+    tv = LayoutLoader().load(roots.find("tv.yaml", roots.CORE))
+    assert not contact(tv, "any").name.endswith((".power_button", ".screen")), "press and look aren't held"
+
+
+def test_watch_gives_the_gaze_to_a_glance_and_takes_it_back(runs):
+    r = _run(runs, "watch_tv")
+    owners = [s["owners"]["gaze"] for s in r.rig.samples]
+    runs_of = [o for i, o in enumerate(owners) if i == 0 or o != owners[i - 1]]
+    assert runs_of == [None, "watch", "glance", "watch", None]
+    m = r.metrics
+    assert m["pops"] == 0 and m["peak_joint_accel"]["deg_s2"] < 4000, m["peak_joint_accel"]
+
+
+def test_a_look_that_ends_eases_off_instead_of_snapping(runs):
+    # take's gaze on the plate ends with take; inertialized at the gaze's 0.08 s half-life the head
+    # sprang back at 690 deg/s.
+    r = _run(runs, "take_carry_set_down")
+    end = next(e["t"] for e in r.rig.trace if e["event"] == "end" and e["motion"] == "take")
+    s = r.rig.samples
+    fastest = 0.0
+    for a, b in zip(s, s[1:]):
+        if end - 0.1 < b["t"] < end + 0.5:
+            q, p = b["rotations"]["Head"], a["rotations"]["Head"]
+            fastest = max(fastest, np.degrees(2 * np.arccos(min(1.0, abs(float(np.dot(p, q)))))) / (b["t"] - a["t"]))
+    assert fastest < 150, fastest
+
+
 # --- exercises and the runtime contract (geogen.103.12) ---
 
 def test_exercises_repeat_and_stay_smooth(runs):
@@ -203,7 +292,8 @@ def test_motions_json_holds_every_motion(tmp_path):
 
     data = json.loads(write_motions(tmp_path).read_text())
     assert data["format"] == "geogen-motions" and data["version"] == 1
-    assert set(data["motions"]) == set(motion_names()) >= {"sit", "press", "glance", "squat", "jumping_jack"}
+    assert set(data["motions"]) == set(motion_names()) >= {"sit", "press", "glance", "squat", "jumping_jack",
+                                                                "take", "carry", "set_down", "watch"}
     assert data["motions"]["squat"]["beats"]["up"]["loop"] == {"to": "down", "times": "{reps}"}, "{expr} left for the runtime"
 
 
