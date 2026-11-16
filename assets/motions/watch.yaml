@@ -1,0 +1,16 @@
+# Watch something for a while (geogen.103.4): the gaze on it and nothing else. Unlike `glance` it
+# only prefers the gaze, so anything that wants to look elsewhere (a glance at a noise, a reach that
+# looks at what it takes) has it while it runs, and the eyes go back to the TV after.
+kind: motion
+name: watch
+roles:
+  target: { grip: look }
+holds:
+  prefer: [gaze]
+initial: watching
+beats:
+  watching:
+    look: target
+    after: duration
+    interrupt: yield
+    then: done

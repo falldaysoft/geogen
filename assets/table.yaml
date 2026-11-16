@@ -95,6 +95,11 @@ surfaces:
 
 # Attachment points for chairs around the table
 attachments:
+  # Where a body sets a thing down on it (motion set_down's `place`: grip put).
+  top:
+    anchor: top_center
+    grip: put
+
   seat_front:
     anchor: bottom_front_center
     offset: [0, 0, 0.4]

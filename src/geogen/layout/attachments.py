@@ -64,7 +64,7 @@ class AttachmentPoint:
     rotation: float | None = None  # degrees, Y-axis rotation
     offset_mode: OffsetMode = "absolute"
     # How a body touches it (geogen.103, geogen/motion.py): a hand shape or contact kind such as
-    # press, power, pinch, flat, sit, look; `hands` one | both (a pair of grips: `pair`).
+    # press, power, pinch, flat, sit, look, put (where a thing is set down); `hands` one | both.
     grip: str | None = None
     hands: str | None = None
 

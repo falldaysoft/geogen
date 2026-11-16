@@ -21,6 +21,7 @@ const REACH_SLACK := 0.96
 const BEND_BONES := ["Spine", "Chest"]
 const MAX_BEND := 75.0
 const LOOK_IN := 0.3
+const LOOK_OUT := 0.4            # s: a look that ends eases off in this long
 const LOOK_FOLLOW := 0.1
 const YAW_LIMIT := deg_to_rad(70.0)
 const PITCH_LIMIT := deg_to_rad(35.0)
@@ -116,6 +117,8 @@ var _prelook := {}               # bone index -> Quaternion (the head before the
 var _look_key: Run = null
 var _look_t := 0.0
 var _look_point := Vector3.ZERO
+var _look_weight := 0.0          # how far the current look has turned the head
+var _look_fade = null            # [point, weight, t]: a look that ended, easing off
 
 
 ## A rig for the body whose `extras.geogen.rig` is `data`, stepping `fps` times a second.
@@ -369,7 +372,11 @@ func _arbitrate() -> void:
                 best = run
         var was: Run = owners.get(c)
         if best != was:
-            _changed[c] = true
+            if c == "gaze" and _look_key != null:
+                _fade_look()             # the head eases off the old look rather than springing
+                _changed.erase(c)        # (an ended owner asked for it to be inertialized)
+            else:
+                _changed[c] = true
             _event("owner", best, {"channel": c, "was": was.name if was != null else null})
             if was != null and not was.done and was.strength(c) == STRENGTHS["require"]:
                 interrupt(was.name, "yield")
@@ -456,14 +463,18 @@ func _compose() -> Pose:
     var point = null
     if look != null:
         point = _point(look.get("at") if look is Dictionary else look)
+    # A look that ended eases off over LOOK_OUT, under whatever look comes next.
+    if _look_key != null and (point == null or _look_key != gaze):
+        _fade_look()
+    if _look_fade != null:
+        _look_fade[2] += dt
+        if _look_fade[2] >= LOOK_OUT:
+            _look_fade = null
+        else:
+            _turn_head(pose, _look_fade[0], _look_fade[1] * (1.0 - ease_("smooth", _look_fade[2] / LOOK_OUT)))
     if point == null:
-        if _look_key != null:
-            _changed["gaze"] = true
-        _look_key = null
         return pose
-    if _look_key != gaze:
-        if _look_key != null:
-            _changed["gaze"] = true
+    if _look_key == null:
         _look_key = gaze
         _look_t = 0.0
         _look_point = point
@@ -472,8 +483,16 @@ func _compose() -> Pose:
         var k := 1.0 - pow(0.5, dt / LOOK_FOLLOW)
         _look_point = _look_point + (point - _look_point) * k
     var weight := float(look.get("weight", 1.0)) if look is Dictionary else 1.0
-    _turn_head(pose, _look_point, weight * ease_("smooth", _look_t / LOOK_IN))
+    _look_weight = weight * ease_("smooth", _look_t / LOOK_IN)
+    _turn_head(pose, _look_point, _look_weight)
     return pose
+
+
+## The current look ends: its turn eases off from where it is (an inertialized gaze snaps back).
+func _fade_look() -> void:
+    if _look_key != null:
+        _look_fade = [_look_point, _look_weight, 0.0]
+    _look_key = null
 
 
 func _beat_pose(run: Run) -> Pose:

@@ -13,7 +13,7 @@
 | `preset` | the default preset |
 | `derived` | {name: expr}: values computed from params, in order |
 | `parts` | {name: part}: the primitives the asset is built from |
-| `attachments` | {name: {anchor, offset, facing, grip, hands}}: named points other assets attach to (`attach_to` + `at`); `grip` says how a body touches it (press, power, pinch, sit, look: motions, geogen/motion.py) |
+| `attachments` | {name: {anchor, offset, facing, grip, hands}}: named points other assets attach to (`attach_to` + `at`); `grip` says how a body touches it (press, power, pinch, sit, look, put: motions, geogen/motion.py) |
 | `surfaces` | {name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` (`flip: true` faces the other way, e.g. a cutter's face seen from inside the room) |
 | `tags` | dotted gameplay tags (furniture.chair, door.exterior) |
 | `interactions` | {name: {targets, initial, states, motions, touch}}: state machines that move parts (doors, drawers) or drive a mechanism body's motor (a `drive` motion); `touch` names the attachment a body touches to work it (motions, geogen/motion.py) |
@@ -264,11 +264,15 @@ Keys: `beats`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `postur
 
 | File | What it is |
 | --- | --- |
+| [motions/carry.yaml](../../assets/motions/carry.yaml) | Hold a taken thing where it is carried (geogen.103.4): the hand stays put in front of the hip, shaped by the thing's grip, whenever nothing else uses the hand (it only prefers it: start it with take and it holds on from the lift). |
 | [motions/glance.yaml](../../assets/motions/glance.yaml) | Look at something for a while, then look back (geogen.103.4). |
 | [motions/jumping_jack.yaml](../../assets/motions/jumping_jack.yaml) | Jumping jacks (geogen.103.12): hop out to a star, arms overhead, and back, `reps` times. |
 | [motions/press.yaml](../../assets/motions/press.yaml) | Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4). |
+| [motions/set_down.yaml](../../assets/motions/set_down.yaml) | Put a carried thing down (geogen.103.4): take's mirror. |
 | [motions/sit.yaml](../../assets/motions/sit.yaml) | Sit on a seat and get up again (geogen.103; the design's worked example 1). |
 | [motions/squat.yaml](../../assets/motions/squat.yaml) | A squat (geogen.103.12): sit back and down over planted feet with the arms reaching forward, then stand, `reps` times. |
+| [motions/take.yaml](../../assets/motions/take.yaml) | Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the hand open, close the hand on the grip the thing offers (a plate's rim: pinch), lift it to where it is carried. |
+| [motions/watch.yaml](../../assets/motions/watch.yaml) | Watch something for a while (geogen.103.4): the gaze on it and nothing else. |
 
 ### motion_scenario
 
@@ -286,6 +290,8 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `scr
 | [motions/scenarios/sit_on_chair.yaml](../../assets/motions/scenarios/sit_on_chair.yaml) | Walk up to a chair (the actor starts at its approach point), sit for two seconds, stand up. |
 | [motions/scenarios/sit_watch_tv.yaml](../../assets/motions/scenarios/sit_watch_tv.yaml) | Two motions at once: sitting holds the body, a glance at the TV holds only the gaze. |
 | [motions/scenarios/squat.yaml](../../assets/motions/scenarios/squat.yaml) | Squats on a rug (geogen.103.12): a body-only motion, three repetitions. |
+| [motions/scenarios/take_carry_set_down.yaml](../../assets/motions/scenarios/take_carry_set_down.yaml) | Take a plate from the near edge of a table, carry it for a moment, set it down in the middle (geogen.103.4): three motions in turn on the right hand, the plate going with it from the grasp to the release. |
+| [motions/scenarios/watch_tv.yaml](../../assets/motions/scenarios/watch_tv.yaml) | Sit and watch the TV; a glance at the lamp takes the gaze for a moment and gives it back (watch only prefers the gaze; glance claims it). |
 
 ### npc
 

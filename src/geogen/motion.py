@@ -40,6 +40,8 @@ from .core.skeleton import Pose, Skeleton
 from .core.transform import Transform, matrix_from_quat, quat_from_matrix, slerp
 
 MOTION_KIND = "motion"
+# Grips that are not a hand holding the thing: `grip: any` on a role takes the first other one.
+NOT_HELD = ("sit", "lie", "stand", "use", "look", "press", "put", "rest")
 MOTIONS_DIR = "motions"
 
 MOTION_KEYS = {
@@ -60,15 +62,17 @@ MOTION_KEYS = {
 BEAT_KEYS = {
     "pose": "a pose of the body (body.poses) laid over the channels the motion holds",
     "bones": "{Bone: [x, y, z] degrees}: body-frame rotations on top of the pose",
-    "ik": "{End: {target: <ref> | [x, y, z], offset, pole, rest, grip}, mirror}: hands and feet onto points; "
+    "ik": "{End: {target: <ref> | [x, y, z], offset, pole, rest, grip, holding}, mirror}: hands and feet onto points; "
           "a hand takes the shape `grip` names (a hand shape, or a role: its contact's grip), else its "
-          "target's grip when that is a hand shape (skeleton hand_shapes: press, power, pinch, ...)",
+          "target's grip when that is a hand shape (skeleton hand_shapes: press, power, pinch, ...); "
+          "`holding: <role>` puts the thing that hand holds on the target instead of the hand (set it down there)",
     "root": "{at: <ref>, offset: [x, y, z], facing: away | toward | <deg>, posture: <pose>}: where the body stands",
     "look": "<ref> | {at: <ref>, weight}: where the head turns",
     "plant": "feet: the feet stay where they are on the floor (legs by IK)",
     "lean": "{by: deg, at: 0..1}: a forward lean of the spine that peaks at `at` of the beat and is gone by its end",
-    "attach": "{role: hand}: the thing goes with that hand from here",
-    "release": "<role>: let go of it where it is",
+    "attach": "{role: hand | {hand, level: true}}: the thing goes with that hand from here; `level` keeps it "
+              "as it was against the body's heading (a plate stays flat, whatever the wrist does)",
+    "release": "<role>: let go of it where it is; other motions holding it (carry) end",
     "over": "seconds the beat takes to arrive (default: from the distance its targets travel)",
     "ease": "smooth (default) | settle | linear",
     "emit": "an event fired on arrival (the world changes in step with the body)",
@@ -100,6 +104,7 @@ REACH_SLACK = 0.96         # of the arm's length: a hand reaches no further with
 BEND_BONES = ("Spine", "Chest")
 MAX_BEND = 75              # degrees, shared by BEND_BONES
 LOOK_IN = 0.3              # s: a gaze turns fully onto a new look in this long
+LOOK_OUT = 0.4             # s: a look that ends (nothing to look at any more) eases off in this long
 LOOK_FOLLOW = 0.1          # s: half-life of the look point following a change of what is looked at
 MORPH_HALF_LIFE = 0.12     # s: drape correctives settle onto a new owner's pose
 ROOT_LEAD = 0.7            # over planted feet the root arrives by this fraction of the beat
@@ -215,10 +220,21 @@ class Target:
         return self.local if self.node is None else self.node.world_transform() @ self.local
 
 
+@dataclass
+class Held:
+    """A thing going with a hand (``attach``): ``rel`` is its transform in the hand's frame, or, when
+    ``level``, in the body's heading with its translation the offset from the hand."""
+
+    node: SceneNode
+    end: str
+    rel: NDArray[np.float64]
+    level: bool = False
+
+
 def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -> Target:
     """Where a body touches ``node``: the attachment ``name`` (or, when ``name`` is one of its
     interactions, the attachment that interaction's ``touch:`` names), else the first attachment
-    with ``grip``, else (for sit / lie / stand / use) the anchor of its first affordance of that
+    with ``grip`` (``any``: the first a hand holds it by), else (for sit / lie / stand / use) the anchor of its first affordance of that
     type, else the node's own origin."""
     def attached(key: str) -> Target:
         point = node.attachments[key]
@@ -238,7 +254,7 @@ def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -
         return attached(name)
     if grip is not None:
         for key, point in node.attachments.items():
-            if point.grip == grip:
+            if point.grip == grip or (grip == "any" and point.grip and point.grip not in NOT_HELD):
                 return attached(key)
         for a in node.meta.get("affordances") or []:
             if a.get("type") == grip:
@@ -348,7 +364,8 @@ def _quat_inv(q: NDArray[np.float64]) -> NDArray[np.float64]:
 
 
 IDENTITY = np.array([0.0, 0.0, 0.0, 1.0])
-HANDS = {"hand": "RightHand", "right_hand": "RightHand", "left_hand": "LeftHand"}
+HANDS = {"hand": "RightHand", "right": "RightHand", "left": "LeftHand",
+         "right_hand": "RightHand", "left_hand": "LeftHand"}
 FINGERS = ("Thumb", "Index", "Middle", "Ring", "Little")
 LOOK_BONES = ("Neck", "Head")
 
@@ -422,7 +439,7 @@ class MotionRig:
         self.owners: dict[str, Run | None] = {c: None for c in rig.channels}
         self.offsets: dict[str, tuple[NDArray[np.float64], float, float]] = {}   # bone -> (quat, age, half-life)
         self.root_offset: tuple[NDArray[np.float64], float, float] | None = None
-        self.attached: dict[str, tuple[SceneNode, str, NDArray[np.float64]]] = {}
+        self.attached: dict[str, Held] = {}
         self.trace: list[dict] = []
         self.samples: list[dict] = []
         self._order = 0
@@ -433,6 +450,8 @@ class MotionRig:
         self.look_key = None                # (run, what) the gaze is on
         self.look_t = 0.0
         self.look_point: NDArray[np.float64] | None = None
+        self.look_weight = 0.0              # how far the current look has turned the head (0..1)
+        self.look_fade: tuple | None = None   # (point, weight, t): a look that ended, easing off
         self._apply()
 
     # The pose library: each pose_<name> clip (as the build left it: arms cleared, seats fitted).
@@ -571,18 +590,35 @@ class MotionRig:
             return
         run.start["arrived"] = True
         spec = run.spec
-        for role, hand in (spec.get("attach") or {}).items():
+        for role, how in (spec.get("attach") or {}).items():
             target = run.bindings.get(role)
             if target is None or target.node is None:
                 raise MotionError(f"motion '{run.name}': attach: '{role}' is not a bound thing")
-            end = HANDS.get(hand, hand)
+            how = how if isinstance(how, dict) else {"hand": how}
+            end = HANDS.get(how.get("hand", "hand"), how.get("hand"))
+            if end not in self.joints:
+                raise MotionError(f"motion '{run.name}': attach: '{role}' to '{how.get('hand')}', which is not a hand")
             hand_world = self.root @ self.skeleton.fk(self.out)[end]
-            self.attached[role] = (target.node, end, np.linalg.inv(hand_world) @ target.node.world_transform())
+            thing = target.node.world_transform()
+            if how.get("level"):
+                # Kept as it is against the body's heading, carried along by the hand's position.
+                heading = _placement(np.zeros(3), _yaw_of(self.root))
+                rel = np.linalg.inv(heading) @ thing
+                rel[:3, 3] = heading[:3, :3].T @ (thing[:3, 3] - hand_world[:3, 3])
+            else:
+                rel = np.linalg.inv(hand_world) @ thing
+            self.attached[role] = Held(target.node, end, rel, bool(how.get("level")))
             self._event("attach", run, role=role, hand=end)
         release = spec.get("release")
         for role in ([release] if isinstance(release, str) else release or []):
-            if self.attached.pop(role, None) is not None:
-                self._event("release", run, role=role)
+            held = self.attached.pop(role, None)
+            if held is None:
+                continue
+            self._event("release", run, role=role)
+            # Whatever else holds it (a carry) has nothing left to do.
+            for other in self.running():
+                if other is not run and any(b.node is held.node for b in other.bindings.values()):
+                    self._end(other)
         if spec.get("emit"):
             self._event("emit", run, emit=spec["emit"])
         if spec.get("pose") and "hips" in self._owned(run) and self.posture != spec["pose"]:
@@ -597,9 +633,14 @@ class MotionRig:
         start = self.out.copy()
         # The head turn is laid on afresh every frame, so a beat starts from the head before it.
         start.rotations.update({b: q for b, q in self.prelook.items()})
-        run.start = {"pose": start, "root": self.root.copy(), "ends": self._ends_world(),
+        ends = self._ends_world()
+        held = [(h.node, ends[h.end] - h.node.world_transform()[:3, 3]) for h in self.attached.values()]
+        run.start = {"pose": start, "root": self.root.copy(), "ends": ends, "held": held,
                      "feet": self._ends_world(("LeftFoot", "RightFoot")), "morphs": dict(self.morphs),
                      "posture": self.posture}
+        for end, entry in self._ik_entries(run).items():
+            if entry.get("holding") is not None:
+                self._held_gap(run, end, entry["holding"])      # (raises when nothing holds it)
         run.over = self._over(run)
         after = spec.get("after", 0.0)
         run.dwell = float(run.params.get("duration", 3.0) if after == "duration" else after or 0.0)
@@ -681,7 +722,12 @@ class MotionRig:
                     best = run
             was = self.owners.get(channel)
             if best is not was:
-                self._changed.add(channel)
+                if channel == "gaze" and self.look_key is not None:
+                    # The head eases off the old look (and onto the new one) rather than springing.
+                    self._fade_look()
+                    self._changed.discard(channel)  # (an ended owner asked for it to be inertialized)
+                else:
+                    self._changed.add(channel)
                 self._event("owner", best, channel=channel, was=was.name if was else None)
                 # A motion that loses a channel it requires is asked to yield.
                 if was is not None and not was.done and was.strength(channel) == STRENGTHS["require"]:
@@ -827,26 +873,40 @@ class MotionRig:
         target = None
         if look is not None:
             target = self._ref(gaze, look.get("at") if isinstance(look, dict) else look)
+        # A look that ended eases off over LOOK_OUT, under whatever look comes next.
+        if self.look_key is not None and (target is None or self.look_key is not gaze):
+            self._fade_look()
+        if self.look_fade is not None:
+            faded, w0, t = self.look_fade
+            t += self.dt
+            if t >= LOOK_OUT:
+                self.look_fade = None
+            else:
+                self.look_fade = (faded, w0, t)
+                self._turn_head(pose, root, faded, w0 * (1.0 - ease("smooth", t / LOOK_OUT)))
         if target is None:
-            if self.look_key is not None:
-                self._changed.add("gaze")            # the turn goes: inertialized, not dropped
-            self.look_key, self.look_point = None, None
             return pose, root, aims
         point = target.world()[:3, 3] if isinstance(target, Target) else np.asarray(target, dtype=float)
         aims["gaze"] = point
         # One look runs on across beats: the turn eases in once, and a new point to look at is
         # followed (the head travels to it) instead of the turn starting again from straight ahead.
-        if self.look_key is None or self.look_key is not gaze:
-            if self.look_key is not None:
-                self._changed.add("gaze")
+        if self.look_key is None:
             self.look_key, self.look_t, self.look_point = gaze, 0.0, point.copy()
         else:
             self.look_t += self.dt
             k = 1.0 - 0.5 ** (self.dt / LOOK_FOLLOW)
             self.look_point = self.look_point + (point - self.look_point) * k
         weight = float(look.get("weight", 1.0)) if isinstance(look, dict) else 1.0
-        self._turn_head(pose, root, self.look_point, weight * ease("smooth", self.look_t / LOOK_IN))
+        self.look_weight = weight * ease("smooth", self.look_t / LOOK_IN)
+        self._turn_head(pose, root, self.look_point, self.look_weight)
         return pose, root, aims
+
+    def _fade_look(self) -> None:
+        """The current look ends: its turn eases off from where it is instead of the head springing
+        back (an inertialized gaze snaps back at its short half-life)."""
+        if self.look_key is not None and self.look_point is not None:
+            self.look_fade = (self.look_point.copy(), self.look_weight, 0.0)
+        self.look_key, self.look_point = None, None
 
     def _bend_to_reach(self, pose: Pose, beat: Pose, root: NDArray[np.float64], end: str,
                        point: NDArray[np.float64], start: dict, u: float) -> None:
@@ -957,8 +1017,20 @@ class MotionRig:
         if isinstance(target, Target):
             m = target.world()
             offset = np.asarray(entry.get("offset", [0, 0, 0]), dtype=float)
-            return (m @ np.r_[offset, 1.0])[:3]
+            target = (m @ np.r_[offset, 1.0])[:3]
+        if entry.get("holding") is not None:
+            # The thing in that hand goes onto the target: the hand goes where that puts it, by the
+            # hand-to-thing offset as the beat found it.
+            target = target + self._held_gap(run, end, entry["holding"])
         return target
+
+    def _held_gap(self, run: Run, end: str, role: str) -> NDArray[np.float64]:
+        """From the thing bound to ``role`` to the hand holding it, as the beat found them."""
+        bound = run.bindings.get(role)
+        for node, gap in run.start.get("held") or []:
+            if bound is not None and node is bound.node:
+                return gap
+        raise MotionError(f"motion '{run.name}' beat '{run.beat}': {end} holding '{role}', which no hand holds")
 
     def _root_target(self, run: Run) -> NDArray[np.float64]:
         spec = run.spec["root"]
@@ -1049,9 +1121,16 @@ class MotionRig:
         self.actor.transform = Transform.from_matrix(np.linalg.inv(parent) @ self.root)
         if self.attached:
             fk = s.fk(self.out)
-            for node, end, rel in self.attached.values():
+            for held in self.attached.values():
+                node, hand = held.node, self.root @ fk[held.end]
+                if held.level:
+                    heading = _placement(np.zeros(3), _yaw_of(self.root))
+                    world = heading @ held.rel
+                    world[:3, 3] = hand[:3, 3] + heading[:3, :3] @ held.rel[:3, 3]
+                else:
+                    world = hand @ held.rel
                 up = node.parent.world_transform() if node.parent is not None else np.eye(4)
-                node.transform = Transform.from_matrix(np.linalg.inv(up) @ self.root @ fk[end] @ rel)
+                node.transform = Transform.from_matrix(np.linalg.inv(up) @ world)
 
     def _ends_world(self, ends=("LeftHand", "RightHand", "LeftFoot", "RightFoot")) -> dict[str, NDArray[np.float64]]:
         fk = self.skeleton.fk(self.out)

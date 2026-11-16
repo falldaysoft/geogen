@@ -1,0 +1,47 @@
+# Put a carried thing down (geogen.103.4): take's mirror. The hand brings the thing over the place
+# (an attachment with grip: put, such as a table's `top`), lowers it onto it (`holding:` aims the
+# thing, not the hand), lets go there (which ends its `carry`), opens the hand off the thing's grip
+# and goes back to rest.
+kind: motion
+name: set_down
+roles:
+  item: { grip: any }
+  place: { grip: put }
+holds:
+  claim: [right_hand, gaze]
+  prefer: [spine]
+initial: over
+beats:
+  over:                                    # the thing just above the place
+    ik:
+      RightHand: { target: place, offset: [0, 0.06, 0], holding: item, grip: item, pole: [-0.4, -1, 0] }
+    look: place
+    over: 0.9
+    interrupt: yield
+    exit: hold_on
+    then: lower
+  lower:                                   # onto it, and let go
+    ik:
+      RightHand: { target: place, offset: [0, 0.002, 0], holding: item, grip: item, pole: [-0.4, -1, 0] }
+    look: place
+    over: 0.4
+    release: item                          # on arrival: it rests on the place
+    emit: put
+    interrupt: finish                      # down first: nothing is dropped from a height
+    then: let_go
+  let_go:                                  # the hand opens and comes up off its grip
+    ik:
+      RightHand: { target: item, offset: [0, 0.07, 0.09], grip: open, pole: [-0.4, -1, 0] }
+    look: item
+    over: 0.3
+    interrupt: finish
+    then: back
+  back:
+    look: item
+    over: 0.8
+    interrupt: drop
+    then: done
+  hold_on:                                 # asked to stop before it is down: keep carrying it
+    over: 0.5
+    interrupt: drop
+    then: done

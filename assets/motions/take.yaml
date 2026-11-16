@@ -1,0 +1,50 @@
+# Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the
+# hand open, close the hand on the grip the thing offers (a plate's rim: pinch), lift it to where
+# it is carried. The thing decides how it is held: the role binds its first held grip (`any`) and
+# the hand takes that grip's shape. From here `carry` holds it and `set_down` puts it somewhere.
+# Only the hand, the spine (to bend for a low thing) and the gaze are held: someone sitting takes
+# the remote beside them.
+kind: motion
+name: take
+roles:
+  item: { grip: any }
+params:
+  # Where it is carried, in the body frame (x to the left, y up, z ahead), a share of this body.
+  carry_x: { default: -0.45 }     # of the shoulder width: in front of the right hip
+  carry_y: { default: 0.58 }      # of the height: waist high
+  carry_z: { default: 0.6 }       # of the arm's length ahead
+holds:
+  claim: [right_hand, gaze]
+  prefer: [spine]
+initial: reach
+beats:
+  reach:                                   # over the grip, the hand open
+    ik:
+      RightHand: { target: item, offset: [0, 0.07, 0.09], grip: open }
+    look: item
+    interrupt: yield                       # nothing taken yet: the hand just goes back
+    exit: back
+    then: grasp
+  grasp:                                   # down onto the grip, the hand closing on it
+    ik:
+      RightHand: { target: item, offset: [0, 0.02, 0.075], grip: item }
+    look: item
+    over: 0.35
+    attach: { item: { hand: right, level: true } }   # a plate stays flat however the wrist turns
+    emit: taken
+    interrupt: finish                      # once it is in the hand, it is lifted
+    then: lift
+  lift:                                    # up to where it is carried
+    ik:
+      RightHand:
+        target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        pole: [-0.4, -1, 0]                # the elbow down and a little out
+        grip: item
+    look: item
+    over: 0.8
+    interrupt: finish
+    then: done
+  back:                                    # the hand back to rest, empty
+    over: 0.5
+    interrupt: drop
+    then: done

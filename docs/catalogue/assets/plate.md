@@ -25,3 +25,4 @@ place:
 | Attachment | Position | Facing |
 | --- | --- | --- |
 | `center` | (0, 0.006, 0) | center |
+| `rim` | (0, 0.016, 0.13) | center |

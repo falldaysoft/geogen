@@ -44,7 +44,7 @@ import numpy as np
 from . import roots
 from .core.node import SceneNode
 from .core.transform import Transform
-from .motion import MotionError, MotionRig, _placement, _yaw_of, contact
+from .motion import MotionError, MotionRig, _placement, _yaw_of, contact, load_motion
 
 SCENARIO_KIND = "motion_scenario"
 SCENARIOS_DIR = "motions/scenarios"
@@ -129,7 +129,8 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
     script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
     limit = float(spec.get("duration", 20.0))
     until = spec.get("until", "idle")
-    recorder = _Recorder(scene, actor, spec.get("camera") or {}, resolution) if record else None
+    recorder = _Recorder(scene, actor, spec.get("camera") or {}, resolution,
+                         _carried(scene, script, assets_dir)) if record else None
     cloth = _ClothProbe.of(actor)
     frames = []
     if recorder:
@@ -145,6 +146,25 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
         if until == "idle" and not script and not rig.running():
             break
     return Result(spec["name"], rig, metrics(rig), frames, spec)
+
+
+def _carried(scene: SceneNode, script: list[dict], assets_dir: Path) -> list[SceneNode]:
+    """The things the script's motions take in hand (a role some beat ``attach``es): they move, so
+    a recording draws them every frame instead of with the static scene."""
+    from . import refs
+
+    found = []
+    for entry in script:
+        if "start" not in entry:
+            continue
+        motion = load_motion(entry["start"], assets_dir)
+        roles = {r for beat in motion["beats"].values() for r in ((beat or {}).get("attach") or {})}
+        for role in roles:
+            if isinstance(entry.get(role), str):
+                node = refs.resolve(scene, entry[role])
+                if node not in found:
+                    found.append(node)
+    return found
 
 
 class _ClothProbe:
@@ -301,18 +321,23 @@ def metrics(rig: MotionRig) -> dict:
 # --- recording -----------------------------------------------------------------------------------
 
 class _Recorder:
-    """Renders the static scene once and the person (and markers) per frame, from a fixed camera."""
+    """Renders the static scene once and the person, what they carry (and markers) per frame, from a
+    fixed camera."""
 
-    def __init__(self, scene: SceneNode, actor: SceneNode, camera: dict, resolution: tuple[int, int]) -> None:
+    def __init__(self, scene: SceneNode, actor: SceneNode, camera: dict, resolution: tuple[int, int],
+                 carried: list[SceneNode] = ()) -> None:
         from .render import RenderOptions, SceneRenderer, _MaterialCache, frame_bounds, scene_bounds
 
         self.actor = actor
-        parent = actor.parent
-        parent.remove_child(actor)
+        self.moving = [actor, *carried]
+        parents = [(node, node.parent) for node in self.moving]
+        for node, parent in parents:
+            parent.remove_child(node)
         options = RenderOptions(width=resolution[0], height=resolution[1], zoom=float(camera.get("zoom", 1.0)),
                                 fov=float(camera.get("fov", 35.0)))
         self.renderer = SceneRenderer(scene, options)
-        parent.add_child(actor)
+        for node, parent in parents:
+            parent.add_child(node)
         # Frame what the camera names (things and the person where they start), else the whole scene.
         boxes = [scene_bounds(actor)]
         for ref in camera.get("frame") or []:
@@ -336,7 +361,7 @@ class _Recorder:
 
         scene = self.renderer.scene
         added = []
-        for node in self.actor.iter_visible():
+        for node in (n for moving in self.moving for n in moving.iter_visible()):
             if node.mesh is None or not len(node.mesh.faces):
                 continue
             mesh = node.world_mesh()
