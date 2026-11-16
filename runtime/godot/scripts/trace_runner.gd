@@ -113,6 +113,8 @@ static func run_file(path: String) -> Dictionary:
     if not FileAccess.file_exists(path):
         return {"name": name, "problems": ["no such file: %s" % path]}
     var trace: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+    if trace is Dictionary and trace.get("kind") == "motion_trace":
+        return {"name": str(trace.get("name", name)), "problems": GeogenMotionRig.run_trace(trace)}    # a motion trace (tests/data/motion)
     if trace is Dictionary and trace.has("world") and trace.has("actors") and trace.has("steps"):
         return {"name": str(trace.get("name", name)), "problems": GeogenPlanner.run_trace(trace)}    # a planner trace (tests/data/planner)
     if not trace is Dictionary or not trace.has("program") or not trace.has("steps"):

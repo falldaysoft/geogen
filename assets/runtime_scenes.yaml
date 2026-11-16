@@ -58,6 +58,9 @@ scenes:
   plot_test:
     group: test
     description: A farm plot at every stage, an empty one to plant and a free seed machine
+  motion_test:
+    group: test
+    description: Motion files run by the runtime's motion rig - two people on rugs (motion.start squat, jumping_jack)
   crop_test:
     group: test
     description: The crop generator - wheat, carrots and pumpkins at four growth stages

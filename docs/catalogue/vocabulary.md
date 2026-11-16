@@ -265,8 +265,10 @@ Keys: `beats`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `postur
 | File | What it is |
 | --- | --- |
 | [motions/glance.yaml](../../assets/motions/glance.yaml) | Look at something for a while, then look back (geogen.103.4). |
+| [motions/jumping_jack.yaml](../../assets/motions/jumping_jack.yaml) | Jumping jacks (geogen.103.12): hop out to a star, arms overhead, and back, `reps` times. |
 | [motions/press.yaml](../../assets/motions/press.yaml) | Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4). |
 | [motions/sit.yaml](../../assets/motions/sit.yaml) | Sit on a seat and get up again (geogen.103; the design's worked example 1). |
+| [motions/squat.yaml](../../assets/motions/squat.yaml) | A squat (geogen.103.12): sit back and down over planted feet with the arms reaching forward, then stand, `reps` times. |
 
 ### motion_scenario
 
@@ -278,10 +280,12 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `scr
 
 | File | What it is |
 | --- | --- |
-| [motions/scenarios/press_tv.yaml](../../assets/motions/scenarios/press_tv.yaml) | Stand in front of a TV on a table and press its power button (bending a little to reach it). |
+| [motions/scenarios/jumping_jacks.yaml](../../assets/motions/scenarios/jumping_jacks.yaml) | Jumping jacks on a rug (geogen.103.12): a body-only motion, four repetitions. |
+| [motions/scenarios/press_tv.yaml](../../assets/motions/scenarios/press_tv.yaml) | Stand beside a TV on a table and press its power button (bending to reach it, the head clear of the screen). |
 | [motions/scenarios/sit_interrupted.yaml](../../assets/motions/scenarios/sit_interrupted.yaml) | Sit down; get interrupted while seated (the seated beat yields: she rises through `rise`). |
 | [motions/scenarios/sit_on_chair.yaml](../../assets/motions/scenarios/sit_on_chair.yaml) | Walk up to a chair (the actor starts at its approach point), sit for two seconds, stand up. |
 | [motions/scenarios/sit_watch_tv.yaml](../../assets/motions/scenarios/sit_watch_tv.yaml) | Two motions at once: sitting holds the body, a glance at the TV holds only the gaze. |
+| [motions/scenarios/squat.yaml](../../assets/motions/scenarios/squat.yaml) | Squats on a rug (geogen.103.12): a body-only motion, three repetitions. |
 
 ### npc
 

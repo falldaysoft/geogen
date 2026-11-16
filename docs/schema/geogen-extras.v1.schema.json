@@ -572,6 +572,61 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/pose" }
         },
+        "rig": {
+          "x-godot": {"by": "`scripts/motion_player.gd`", "for": "running motions (motions.json) on this body"},
+          "description": "Character bodies: what a motion rig (geogen/motion.py, scripts/motion_rig.gd) poses the skeleton with. Bones in hierarchy order with their rest in the parent's frame ([tx, ty, tz, qx, qy, qz, qw]; a rig poses relative to these, not to an engine's import rest), the skeleton's params (the values `{expr}` in motions read), its channels and hand shapes (left-hand bones in body-frame degrees, mirrored), and the pose library (each pose's rotations relative to rest, [x, y, z, w], and offsets, m).",
+          "type": "object",
+          "required": ["bones", "params", "channels", "hand_shapes", "poses"],
+          "additionalProperties": false,
+          "properties": {
+            "bones": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "parent", "rest"],
+                "additionalProperties": false,
+                "properties": {
+                  "name": { "type": "string" },
+                  "parent": { "type": "string", "description": "'' for the root bone" },
+                  "rest": { "type": "array", "items": { "type": "number" }, "minItems": 7, "maxItems": 7 }
+                }
+              }
+            },
+            "params": { "type": "object", "additionalProperties": { "type": "number" } },
+            "channels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["bones"],
+                "additionalProperties": false,
+                "properties": {
+                  "bones": { "type": "array", "items": { "type": "string" } },
+                  "end": { "type": "string" },
+                  "shared": { "type": "boolean" }
+                }
+              }
+            },
+            "hand_shapes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+              }
+            },
+            "poses": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["rotations", "offsets"],
+                "additionalProperties": false,
+                "properties": {
+                  "rotations": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 } },
+                  "offsets": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } }
+                }
+              }
+            }
+          }
+        },
         "npc": {
           "x-godot": {"by": "`scripts/world_loader.gd`", "for": "a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition"},
           "description": "A placed NPC, fully resolved from assets/npcs/<definition>.yaml: everything the runtime interpreter needs. Distances in metres, rates per second. 'home.polygon' is [x, z] in this node's frame.",

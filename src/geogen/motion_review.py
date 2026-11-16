@@ -18,7 +18,9 @@ run of the same scenario beside the new one (moved to ``<out>/_previous/`` befor
 Metrics (``metrics``): ``contact_error_mm`` (hands and feet from their targets once a beat has
 arrived), ``foot_slide_mm`` (planted feet), ``peak_joint_speed`` (deg/s, with bone and time: a pop
 from a bad blend is a spike), ``pops`` (frames over ``POP_SPEED``), ``settle_s`` (after each
-interruption, until no joint turns faster than ``SETTLE_SPEED``).
+interruption, until no joint turns faster than ``SETTLE_SPEED``), ``peak_joint_accel`` (deg/s²:
+a joint whose speed swings frame to frame reads as jerky), ``cloth_mm`` (how deep the forearms
+and hands go inside a draped skirt; negative is clear).
 
     python -m geogen.motion_review sit_on_chair sit_interrupted -o /tmp/motion_review
     python -m geogen.motion_review all --no-video        # numbers only (tests use run_scenario)
@@ -128,6 +130,7 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
     limit = float(spec.get("duration", 20.0))
     until = spec.get("until", "idle")
     recorder = _Recorder(scene, actor, spec.get("camera") or {}, resolution) if record else None
+    cloth = _ClothProbe.of(actor)
     frames = []
     if recorder:
         frames.append(recorder.frame(rig))
@@ -135,11 +138,89 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
         while script and float(script[0].get("at", 0)) <= rig.time + 1e-9:
             _do(rig, script.pop(0))
         rig.step()
+        if cloth is not None:
+            rig.samples[-1]["cloth"] = cloth.depth()
         if recorder:
             frames.append(recorder.frame(rig))
         if until == "idle" and not script and not rig.running():
             break
     return Result(spec["name"], rig, metrics(rig), frames, spec)
+
+
+class _ClothProbe:
+    """How deep the forearms and hands are inside the clothes' draped shells (a skirt), per frame,
+    as the build's arm clearance (``arms.clear_arms``) and clipping QA's ``hands`` measure it."""
+
+    def __init__(self, body: SceneNode, cloth: SceneNode, shells: list[dict]) -> None:
+        from .generators.arms import KEPT_CLEAR
+        from .generators.drape import solid_rings
+
+        self.body, self.cloth = body, cloth
+        self.rings = [r for r in (solid_rings(cloth.mesh, s["vertices"], s["s_range"]) for s in shells) if len(r) >= 3]
+        names = np.array([j.name.removeprefix("Left").removeprefix("Right").startswith(KEPT_CLEAR)
+                          for j in body.skin.joints])
+        m = body.mesh
+        self.rows = np.flatnonzero(np.where(names[m.joints], m.weights, 0.0).sum(axis=1) >= 0.5)
+
+    @classmethod
+    def of(cls, actor: SceneNode) -> "_ClothProbe | None":
+        nodes = {n.name: n for n in actor.iter_nodes()}
+        body, cloth = nodes.get("body"), nodes.get("clothes")
+        shells = (actor.meta.get("humanoid") or {}).get("shells") or []
+        if body is None or body.skin is None or cloth is None or cloth.skin is None or not shells:
+            return None
+        probe = cls(body, cloth, shells)
+        return probe if probe.rings and len(probe.rows) else None
+
+    def depth(self) -> float:
+        from .generators.arms import _Tube
+
+        points = self.body.world_mesh().vertices[self.rows]
+        x = self.cloth.world_mesh().vertices
+        return float(max(_Tube(rings, x).probe(points)[0].max() for rings in self.rings))
+
+
+TRACE_EVERY = 5          # frames between the positions a conformance trace holds
+TRACE_TOLERANCE = 0.002  # m a runtime rig's bones may be off the reference's in a trace
+
+
+def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
+    """A conformance trace (tests/data/motion/, ``kind: motion_trace``) from a body-only scenario:
+    the body's ``rig`` extras, the motions its script starts, the script, and what the reference
+    rig did with them: every bone's position in the body's frame every ``TRACE_EVERY`` frames and
+    the event sequence. A runtime rig replays the script on the same data and must match
+    (runtime/godot/scripts/motion_rig.gd ``run_trace``)."""
+    from .motion import load_motion, rig_extras
+
+    assets_dir = Path(assets_dir or roots.CORE)
+    spec = load_scenario(name, assets_dir)
+    script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
+    motions = {}
+    for entry in script:
+        if "start" in entry:
+            motion = load_motion(entry["start"], assets_dir)
+            motions[motion["name"]] = motion
+    scene = _scene(spec["scene"], assets_dir)
+    actor = _actor(spec.get("actor") or {}, scene, assets_dir)
+    fps = int(spec.get("fps", 30))
+    rig = MotionRig(actor, scene, fps=fps, assets_dir=assets_dir)
+    limit, pending, frames = float(spec.get("duration", 20.0)), list(script), []
+    s = rig.skeleton
+    while rig.time < limit - 1e-9:
+        while pending and float(pending[0].get("at", 0)) <= rig.time + 1e-9:
+            _do(rig, pending.pop(0))
+        rig.step()
+        if len(rig.samples) % TRACE_EVERY == 0:
+            fk = s.fk(rig.out)
+            frames.append({"frame": len(rig.samples), "positions": {b: [round(float(v), 5) for v in fk[b][:3, 3]]
+                                                                     for b in s.names}})
+        if not pending and not rig.running():
+            break
+    return {"kind": "motion_trace", "name": name, "fps": fps, "frames": len(rig.samples),
+            "tolerance": TRACE_TOLERANCE, "rig": rig_extras(actor), "motions": motions, "script": script,
+            "expect": {"positions": frames,
+                       "events": [[e["event"], e["motion"], e.get("beat")] for e in rig.trace
+                                  if e["event"] in ("start", "beat", "loop", "emit", "interrupt", "end")]}}
 
 
 def _do(rig: MotionRig, entry: dict) -> None:
@@ -176,6 +257,7 @@ def metrics(rig: MotionRig) -> dict:
                 anchor.pop(foot, None)
     out["foot_slide_mm"] = round(slide * 1000, 1)
     peak, pops, speeds = (0.0, None, 0.0), 0, []
+    accel, last = (0.0, None, 0.0), {}
     for a, b in zip(samples, samples[1:]):
         dt = b["t"] - a["t"]
         fastest, bone = 0.0, None
@@ -186,6 +268,9 @@ def metrics(rig: MotionRig) -> dict:
             ang = math.degrees(2 * math.acos(min(1.0, abs(float(np.dot(p, q)))))) / dt
             if ang > fastest:
                 fastest, bone = ang, name
+            if name in last and abs(ang - last[name]) / dt > accel[0]:
+                accel = (abs(ang - last[name]) / dt, name, b["t"])
+            last[name] = ang
         speeds.append((b["t"], fastest))
         if fastest > peak[0]:
             peak = (fastest, bone, b["t"])
@@ -193,6 +278,12 @@ def metrics(rig: MotionRig) -> dict:
             pops += 1
     out["peak_joint_speed"] = {"deg_s": round(peak[0], 1), "bone": peak[1], "t": peak[2]}
     out["pops"] = pops
+    # A joint whose speed swings from frame to frame reads as jerky even when it is never fast.
+    out["peak_joint_accel"] = {"deg_s2": round(accel[0]), "bone": accel[1], "t": accel[2]}
+    depths = [(s["cloth"], s["t"]) for s in samples if "cloth" in s]
+    if depths:
+        deepest = max(depths)
+        out["cloth_mm"] = {"mm": round(deepest[0] * 1000, 1), "t": deepest[1]}
     settle = []
     for e in rig.trace:
         if e["event"] != "interrupt":
@@ -514,8 +605,10 @@ def main(argv: list[str] | None = None) -> int:
         result.metrics = {"title": spec.get("name"), "description": spec.get("description", ""), **result.metrics}
         folder = write_run(result, out, video=not args.no_video)
         m = result.metrics
+        cloth = f", cloth {m['cloth_mm']['mm']} mm" if "cloth_mm" in m else ""
         print(f"{name}: {m['duration_s']} s, contact {m['contact_error_mm']} mm, slide {m['foot_slide_mm']} mm, "
-              f"peak {m['peak_joint_speed']['deg_s']} deg/s ({m['peak_joint_speed']['bone']}), pops {m['pops']}"
+              f"peak {m['peak_joint_speed']['deg_s']} deg/s ({m['peak_joint_speed']['bone']}), "
+              f"accel {m['peak_joint_accel']['deg_s2']} deg/s2, pops {m['pops']}{cloth}"
               f" -> {folder} ({time.time() - t0:.1f} s)")
     print(write_index(out))
     return 0

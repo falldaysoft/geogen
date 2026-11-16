@@ -34,7 +34,11 @@ def _build_registry() -> SceneRegistry:
 
 
 def _refresh_catalogue_index() -> None:
-    """Keep the runtime's catalogue.json in step with what's been exported."""
+    """Keep the runtime's catalogue.json in step with what's been exported, and its motions.json
+    (every motion the content roots define, for runtimes to run on bodies)."""
+    from .motion import write_motions
+
+    write_motions(_generated())
     from .catalogue import active, load_catalogue, write_index
     from .content import export_packages
     from .travel import check_travel

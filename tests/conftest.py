@@ -228,6 +228,9 @@ def scene_export(built_scene):
                 shutil.rmtree(path, ignore_errors=True)
                 path.mkdir(parents=True)
                 export_scene(built_scene(name), path / f"{name}.glb")
+                from geogen.motion import write_motions
+
+                write_motions(path)          # as --export-godot writes it beside every export
         return path
 
     return get

@@ -348,25 +348,84 @@ class Pose:
         (feet flat on the floor); ``mirror`` also solves the Right* twin of each Left* entry.
         ``floor`` marks a floor-relative target, which seat fitting moves (humanoid.fit_seats);
         ``rest`` a hand resting on a support (a table top, a sill) that a runtime may move onto
-        the real one (``rest_ends``)."""
+        the real one (``rest_ends``). ``on: <bone>`` gives the target on that bone as this pose
+        has it, solved after every target that isn't: ``[out, up, along]`` m from the bone's head,
+        ``along`` toward its child, ``up`` square to that in the body's sagittal plane, ``out`` the
+        body's x (a hand resting on the thigh, wherever seat fitting swung the thigh to); with
+        ``flat`` a hand lies along that bone, palm on it. ``contact`` (build: humanoid.fit_contacts)
+        lowers the end along that ``up`` until it touches the body or clothes as posed, so ``up``
+        is only where the fit starts."""
         from .ik import LIMBS, solve_limb
 
-        entries = {k: v for k, v in spec.items() if k != "mirror"}
-        if spec.get("mirror"):
+        entries = self.ik_entries(spec)
+        for end, entry in sorted(entries.items(), key=lambda item: "on" in item[1]):
+            if end not in LIMBS:
+                raise ValueError(f"pose ik: '{end}' is not an IK end (one of {sorted(LIMBS)})")
+            unknown = set(entry) - {"target", "pole", "flat", "floor", "rest", "on", "contact"}
+            if unknown:
+                raise ValueError(f"pose ik '{end}': unknown keys {sorted(unknown)}")
+            target, turn = entry["target"], np.eye(3)
+            if "on" in entry:
+                target, turn = self._on_bone(skeleton, entry["on"], np.asarray(target, dtype=float), end)
+            solve_limb(skeleton, self, end, target, entry.get("pole"), turn if entry.get("flat") else None)
+
+    @staticmethod
+    def ik_entries(spec: dict) -> dict[str, dict]:
+        """A pose's ``ik`` block as {end: entry}, with ``mirror`` expanded into the Right* twins."""
+        entries = {k: dict(v) for k, v in (spec or {}).items() if k != "mirror"}
+        if (spec or {}).get("mirror"):
             for name, entry in list(entries.items()):
                 twin = mirror_name(name)
                 if twin and twin not in entries:
                     entries[twin] = {**entry, "target": list(np.asarray(entry["target"], dtype=float) * [-1, 1, 1])}
+                    if "on" in entry:
+                        entries[twin]["on"] = mirror_name(entry["on"]) or entry["on"]
                     if "pole" in entry:
                         entries[twin]["pole"] = list(np.asarray(entry["pole"], dtype=float) * [-1, 1, 1])
-        for end, entry in entries.items():
-            if end not in LIMBS:
-                raise ValueError(f"pose ik: '{end}' is not an IK end (one of {sorted(LIMBS)})")
-            unknown = set(entry) - {"target", "pole", "flat", "floor", "rest"}
-            if unknown:
-                raise ValueError(f"pose ik '{end}': unknown keys {sorted(unknown)}")
-            solve_limb(skeleton, self, end, entry["target"], entry.get("pole"),
-                       np.eye(3) if entry.get("flat") else None)
+        return entries
+
+    def on_bone(self, skeleton: Skeleton, end: str, entry: dict) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Where an ``on: <bone>`` ik entry puts ``end`` in this pose, and the turn ``flat`` lays it with."""
+        return self._on_bone(skeleton, entry["on"], np.asarray(entry["target"], dtype=float), end)
+
+    def _on_bone(self, skeleton: Skeleton, bone: str, local: NDArray[np.float64],
+                 end: str) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """The point ``local`` on ``bone`` in this pose, and the body-frame turn that lays the hand
+        ``end`` along the bone, palm on it (its rest frame read from its own finger bones)."""
+        if bone not in skeleton.bones:
+            raise ValueError(f"pose ik '{end}': on: '{bone}' is not a bone of this skeleton")
+        child = next((b for b in skeleton.names if skeleton[b].parent == bone), None)
+        if child is None:
+            raise ValueError(f"pose ik '{end}': on: '{bone}' has no child bone to run along")
+        head = skeleton.world(bone, self)[:3, 3]
+        along = skeleton.world(child, self)[:3, 3] - head
+        along /= np.linalg.norm(along)
+        up = np.cross(along, [1.0, 0.0, 0.0])
+        up /= np.linalg.norm(up)
+        out = np.cross(up, along)
+        return head + local[0] * out + local[1] * up + local[2] * along, self._lay(skeleton, end, along, up)
+
+    @staticmethod
+    def _lay(skeleton: Skeleton, end: str, along: NDArray[np.float64], up: NDArray[np.float64]) -> NDArray[np.float64]:
+        """The turn (body frame, on the rest) that points hand ``end``'s fingers ``along`` with the
+        back of the hand ``up``. The hand's rest frame comes from its bones: the middle finger's
+        base gives where it points, index to little finger runs across the palm, and the back of the
+        hand is the side square to both that faces up (a T-pose rests palms down)."""
+        side = end[: -len("Hand")] if end.endswith("Hand") else None
+        names = [f"{side}{b}" for b in ("MiddleProximal", "IndexProximal", "LittleProximal")] if side else []
+        if not names or not all(n in skeleton.bones for n in names):
+            return np.eye(3)
+        rest = {n: skeleton.world(n)[:3, 3] for n in [end, *names]}
+        point = rest[names[0]] - rest[end]
+        point /= np.linalg.norm(point)
+        across = rest[names[2]] - rest[names[1]]
+        back = np.cross(point, across)
+        back /= np.linalg.norm(back)
+        if back[1] < 0:
+            back = -back
+        frame = np.column_stack([point, back, np.cross(point, back)])
+        lay = np.column_stack([along, up, np.cross(along, up)])
+        return lay @ frame.T
 
     @staticmethod
     def rest_ends(spec: dict | None) -> list[str]:

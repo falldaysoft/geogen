@@ -1107,6 +1107,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     poses = dict(spec.get("poses") or {})
     root.clips.extend(pose_clips(skeleton, poses))
     seats = fit_seats(root, skeleton, poses)
+    contacts = fit_contacts(root, skeleton, poses, draped)
     pose_name = spec.get("pose")
     if spec.get("clips"):
         from .clips import generate_clip
@@ -1157,6 +1158,8 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if drop is not None and drop.any():
         root.meta["humanoid"]["hidden_faces"] = int(drop.sum())
     root.meta["humanoid"]["seats"] = seats
+    if contacts:
+        root.meta["humanoid"]["contacts"] = contacts    # {pose: [m a resting hand slid along its bone, last fit m]}
     root.meta["humanoid"]["rig"] = skeleton             # the built skeleton, for motions (geogen/motion.py)
     root.meta["humanoid"]["shells"] = draped            # for drape.Draper (review, tests)
     if drape_report:
@@ -1165,6 +1168,9 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
         root.meta["humanoid"]["arms"] = arms_report     # {clip: degrees its arms swing out to clear this body}
     if waist_overlap is not None:
         root.meta["humanoid"]["waist_overlap"] = round(float(waist_overlap), 4)
+    from ..motion import rig_extras
+
+    root.meta["rig"] = rig_extras(root)                 # what a runtime's motion rig poses this body with
     # What is worn, for clipping QA: each garment's vertices of `body` (tight) and of `clothes` (loose).
     # (The face's vertices are copies appended after the split: bare skin.)
     root.meta["humanoid"]["garments"] = [
@@ -1254,6 +1260,111 @@ def fit_seats(root, skeleton: Skeleton, poses: dict) -> dict[str, float]:
         poses[name] = spec
         seats[name] = round(float(spec["seat"]), 4)
     return seats
+
+
+CONTACT_TOLERANCE = 0.0005    # m: a contact fit stops once the hand is this close to where it should be
+CONTACT_SEARCH = 0.15         # m up or down a contact is looked for
+CONTACT_STEP = 0.01           # m the search comes down by before it narrows (thinner than anything a hand rests on)
+CONTACT_SLIDE = 0.02          # m a resting hand slides along its bone at a time to take its forearm out of the body
+
+
+def fit_contacts(root, skeleton: Skeleton, poses: dict, shells: list[dict]) -> dict[str, float]:
+    """Pose IK entries marked ``contact: true`` (with ``on: <bone>``) are moved along the bone's
+    ``up`` until the hand rests on what is under it: the body's skin other than the arms and its
+    loose clothes draped for the pose (a palm on a skirted lap), measured as ``arms.clear_arms``
+    measures them, so the hand ends ``arms.CLEARANCE`` off them and clear_arms leaves it there.
+    If the forearm is then in the body (a belly in front of the hips), the hand slides along the
+    bone, ``CONTACT_SLIDE`` at a time, until the arm is clear or the palm reaches the bone's end
+    (the knee), and is laid down again. Iterated like ``fit_seats``, since the arm re-solves round
+    the moved target. Returns {pose: [how far it slid, the last height correction] in m}."""
+    from .arms import CLEARANCE, ArmSpace, depth
+
+    fitted = {name: spec for name, spec in poses.items()
+              if any(isinstance(e, dict) and e.get("contact") for e in (spec.get("ik") or {}).values())}
+    if not fitted:
+        return {}
+    space = ArmSpace(root, shells)
+    if not space.ok:
+        return {}
+    draper = None
+    if shells and space.cm is not None:
+        from .drape import Draper
+
+        draper = Draper(root, shells)
+    fingers = ("Hand", "Thumb", "Index", "Middle", "Ring", "Little")
+    report = {}
+    for name, spec in fitted.items():
+        ends = [e for e, entry in spec["ik"].items() if isinstance(entry, dict) and entry.get("contact")]
+        for end in ends:
+            if not spec["ik"][end].get("on") or not end.endswith("Hand"):
+                raise ValueError(f"pose '{name}' ik '{end}': contact is for a hand on: <bone> (the way down is that bone's)")
+        spec = copy.deepcopy(spec)
+
+        def lay() -> tuple[float, float]:
+            """Lower the hands onto what is under them; (the last correction, the forearms' depth)."""
+            move, forearm = 0.0, -np.inf
+            for _ in range(8):
+                clip = pose_clips(skeleton, {name: spec})[0]
+                clip.apply(space.actor, 0.0)          # (the actor has its own list of the root's clips)
+                cloth = draper.positions(space.actor, seat=spec.get("seat") is not None)[1] if draper else None
+                posed, obstacles = space.posed(cloth)
+                moves, forearm = [], -np.inf
+                for end in ends:
+                    side = end[: -len("Hand")]
+                    kept = space.kept[side]
+                    on_hand = space.on(side, fingers)[kept] >= 0.5
+                    hand = posed[kept[on_hand]]
+                    forearm = max(forearm, float(depth(obstacles, posed[kept[~on_hand]]).max()))
+                    bone = spec["ik"][end]["on"]
+                    child = next(b for b in skeleton.names if skeleton[b].parent == bone)
+                    head = space.nodes[bone].world_transform()[:3, 3]
+                    along = space.nodes[child].world_transform()[:3, 3] - head
+                    up = np.cross(along / np.linalg.norm(along), [1.0, 0.0, 0.0])
+                    up /= np.linalg.norm(up)
+                    # Coming down from above, the first place the hand is CLEARANCE off what is under
+                    # it (the first touch, not where it comes out under a thigh it started inside):
+                    # step down until it touches, then halve that step.
+                    touching = lambda t: depth(obstacles, hand + up * t).max() > -CLEARANCE  # noqa: E731
+                    hi = CONTACT_SEARCH
+                    if touching(hi):
+                        raise ValueError(f"pose '{name}' ik '{end}': the hand is still in something {hi} m up {bone}")
+                    lo = hi - CONTACT_STEP
+                    while not touching(lo):
+                        hi, lo = lo, lo - CONTACT_STEP
+                        if lo < -CONTACT_SEARCH:
+                            raise ValueError(f"pose '{name}' ik '{end}': nothing within {CONTACT_SEARCH} m under the hand on {bone}")
+                    for _ in range(16):
+                        mid = 0.5 * (lo + hi)
+                        lo, hi = (mid, hi) if touching(mid) else (lo, mid)
+                    moves.append(hi)
+                move = float(np.mean(moves))
+                if abs(move) < CONTACT_TOLERANCE:
+                    break
+                for end in ends:
+                    entry = spec["ik"][end]
+                    entry["target"] = [entry["target"][0], float(entry["target"][1]) + move, entry["target"][2]]
+            return move, forearm
+
+        # How far along its bone a hand can go: until its palm reaches the bone's end (the
+        # knuckles at the knee; the fingers may go over it).
+        room = []
+        for end in ends:
+            bone, side = spec["ik"][end]["on"], end[: -len("Hand")]
+            child = next(b for b in skeleton.names if skeleton[b].parent == bone)
+            rest = {b: skeleton.world(b)[:3, 3] for b in (bone, child, end, f"{side}MiddleProximal")}
+            room.append(float(np.linalg.norm(rest[child] - rest[bone]) - np.linalg.norm(rest[f"{side}MiddleProximal"] - rest[end])))
+        slid = 0.0
+        move, forearm = lay()
+        while forearm > -CLEARANCE and all(float(spec["ik"][e]["target"][2]) + CONTACT_SLIDE <= r for e, r in zip(ends, room)):
+            for end in ends:
+                entry = spec["ik"][end]
+                entry["target"] = [entry["target"][0], entry["target"][1], float(entry["target"][2]) + CONTACT_SLIDE]
+            slid += CONTACT_SLIDE
+            move, forearm = lay()
+        poses[name] = spec
+        report[name] = [round(slid, 3), round(move, 4)]
+        _replace_clip(root, pose_clips(skeleton, {name: spec})[0])
+    return report
 
 
 def _replace_clip(root, clip: Clip) -> None:

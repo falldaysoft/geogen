@@ -1506,6 +1506,7 @@ description.
 | `item` | `scripts/flows.gd` | an item template: taken out of the world on load and copied by its source |
 | `travel` | `scripts/world_loader.gd` | travel points |
 | `poses` | - | on body assets; NPCs read the copy in `npc.body.poses` |
+| `rig` | `scripts/motion_player.gd` | running motions (motions.json) on this body |
 | `npc` | `scripts/world_loader.gd` | a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition |
 | `container` | - | Storage: how many items it holds, and which part is the storage volume |
 | `nav` | `scripts/world_loader.gd` | rooms the playtest shouldn't expect to reach |

@@ -125,6 +125,12 @@ const COMMANDS := {
     "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, "
         + "ahead of anything of its own -> {npc, orders}",
     "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
+    "motion.start": "{node | uid, motion, params?: {name: value}} run a motion file (motions.json: assets/motions/) on a "
+        + "character body with the runtime motion rig -> {node, motion, running}; body-only motions so far (squat, jumping_jack)",
+    "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) "
+        + "-> {node, motion, result}",
+    "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, events: [{t, event, motion, beat}], "
+        + "bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}}",
     "npcs.pause": "{npc?} freeze one NPC (or all)",
     "npcs.resume": "{npc?}",
     "time.pause": "freeze the world (the API keeps serving)",
@@ -767,6 +773,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if not npc.force_option(option):
                 return _err("'%s' is not one of %s's options now" % [option, npc.name])
             return {"npc": String(npc.name), "forced": option}
+        "motion.start", "motion.stop", "motion.status":
+            return _motion(cmd, args)
         "npcs.pause", "npcs.resume":
             var names := []
             for npc in world.npcs:
@@ -1377,6 +1385,31 @@ func _camera(args: Dictionary):
         _:
             return _err("mode: player, overview or follow")
     return {"mode": mode}
+
+
+# --- motions ------------------------------------------------------------------
+
+func _motion(cmd: String, args: Dictionary) -> Variant:
+    var node := _find_node(args)
+    if node == null:
+        return _err("no node %s" % JSON.stringify(args.get("node", args.get("uid", ""))))
+    var player := GeogenMotionPlayer.on(node)
+    if player == null:
+        return _err("'%s' is not a body a motion can run on (no extras.geogen.rig or no skeleton)" % node.name)
+    if cmd == "motion.status":
+        var report := player.report()
+        report["node"] = String(node.name)
+        return report
+    var name := str(args.get("motion", ""))
+    if cmd == "motion.stop":
+        return {"node": String(node.name), "motion": name, "result": player.stop(name, str(args.get("how", "yield")))}
+    var motions := GeogenMotionPlayer.motions(main.world.generated_dir)
+    if not motions.has(name):
+        return _err("no motion '%s' in motions.json (it has %s)" % [name, motions.keys()])
+    var why := player.play(motions[name], args.get("params", {}))
+    if why != "":
+        return _err(why)
+    return {"node": String(node.name), "motion": name, "running": player.rig.running()}
 
 
 # --- nodes --------------------------------------------------------------------

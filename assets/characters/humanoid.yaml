@@ -188,9 +188,6 @@ derived:
   ankle_h: "{height * 0.045}"
   thigh: "{height * leg_ratio * (1 - 0.285 / 0.53) - 0.03}"
   seat_drop: "{0.09 * k}"                          # hip joint above the seat
-  # Seated, the wrist rests on the thigh: its top (the leg ring's front half-depth, which
-  # faces up once the thigh is level) plus cloth and half a palm, above the hip joint.
-  lap: "{0.071 * lf + 0.02 + 0.018 * k + 0.02 * belly}"
   sit_floor: "{hips_h - seat_drop - seat_height}"  # the floor's height in a seated body's frame
   # Head landmarks (skeleton: head top = height, chin one head unit below).
   hu: "{height / head_units}"
@@ -458,7 +455,11 @@ body:
         Spine: [-4, 0, 0]
       ik: &sit_ik
         LeftFoot: { target: ["{hip_j + 0.02}", "{sit_floor + ankle_h}", "{thigh + 0.07 * k}"], flat: true, floor: true }
-        LeftHand: { target: ["{0.12 * k}", "{hips_h + lap}", "{0.25 * k}"], pole: ["{0.3 + 0.7 * build}", -0.3, "{-1 + 0.3 * build}"] }   # heavier: elbows out, clear of the waist
+        # The palm on the thigh, a little short of halfway to the knee: placed on the thigh as seat
+        # fitting leaves it ([out, up, along] from the hip joint), laid along it, and lowered until
+        # it touches the leg or the skirt over it (humanoid.fit_contacts). The elbow goes out to
+        # the side and a little back, clear of the hips (a pole straight back tucks it into them).
+        LeftHand: { on: LeftUpperLeg, flat: true, contact: true, target: [0, 0, "{thigh * 0.45}"], pole: [1, -0.4, -0.4] }
         mirror: true
     sit_at_table:
       seat: "{hips_h - seat_drop}"

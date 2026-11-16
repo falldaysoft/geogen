@@ -36,6 +36,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [lighthouse_keepers](#lighthouse_keepers) | NPCs on a spiral stair (test). |  |
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
 | [mechanism_test](#mechanism_test) | Mechanisms on a lawn: a gate to push through, a seesaw with a pumpkin on one end, a chain with a lantern, a lift to ride and a windmill turning. | test |
+| [motion_test](#motion_test) | Motions in the runtime (geogen.103.12): two people on rugs for motion files (assets/motions/) run by the runtime's motion rig: `motion.start` through the control API, or `--motion` at launch. | test |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
 | [plot_test](#plot_test) | Review scene for the farm plot: in front, an empty plot to plant by dropping a packet of seeds on it, and a seed machine (free) to get one from; behind, plots showing every stage (wheat, carrots and pumpkins by row; planted, sprouting and grown by column). | test |
@@ -538,6 +539,18 @@ geogen.mechanism: every moving thing is a rigid body on a joint the runtime simu
 **Slots**: chain, gate, lift, pumpkin, seesaw, windmill
 
 **Spawns**: start
+
+## motion_test
+
+`scene: scenes/motion_test.yaml` · [source](../../assets/scenes/motion_test.yaml)
+
+Motions in the runtime (geogen.103.12): two people on rugs for motion files (assets/motions/) run
+by the runtime's motion rig: `motion.start` through the control API, or `--motion` at launch.
+Facing +Z, toward the default camera.
+
+**Places**: `left_rug: {asset: rug.yaml}`; `right_rug: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`
+
+**Slots**: left, right
 
 ## park
 

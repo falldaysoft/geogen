@@ -1,0 +1,52 @@
+# Jumping jacks (geogen.103.12): hop out to a star, arms overhead, and back, `reps` times.
+# Body only: no roles. Beats lay T-pose-relative bones (pose t_pose: arms out level), so the
+# angles read directly: an arm at z 75 is near overhead, a leg at z 10 is out to the side.
+# The hop is the pelvis rising and settling (hips), heights a share of this body's leg.
+kind: motion
+name: jumping_jack
+params:
+  reps:  { default: 6 }
+  hop:   { default: 0.06 }    # share of the leg's length the body leaves the floor
+  arms:  { default: 75 }      # degrees above level the arms reach at the top
+  legs:  { default: 10 }      # degrees each leg swings out
+  pace:  { default: 0.22 }    # s per beat (four beats a jack)
+holds:
+  require: [root, hips, legs, spine, left_hand, right_hand]
+initial: jump_out
+beats:
+  jump_out:
+    pose: t_pose
+    hips: [0, "{hop * height * leg_ratio}", 0]
+    bones: &half_open
+      LeftUpperArm: [0, 0, "{arms / 2 - 41}"]
+      RightUpperArm: [0, 0, "{41 - arms / 2}"]
+      LeftUpperLeg: [0, 0, "{legs * 0.7}"]
+      RightUpperLeg: [0, 0, "{-legs * 0.7}"]
+    over: "{pace}"
+    ease: linear
+    interrupt: finish
+    then: land_out
+  land_out:
+    pose: t_pose
+    bones:
+      LeftUpperArm: [0, 0, "{arms}"]
+      RightUpperArm: [0, 0, "{-arms}"]
+      LeftUpperLeg: [0, 0, "{legs}"]
+      RightUpperLeg: [0, 0, "{-legs}"]
+    over: "{pace}"
+    interrupt: finish
+    then: jump_in
+  jump_in:
+    pose: t_pose
+    hips: [0, "{hop * height * leg_ratio}", 0]
+    bones: *half_open
+    over: "{pace}"
+    ease: linear
+    interrupt: finish
+    then: land_in
+  land_in:
+    pose: stand
+    over: "{pace}"
+    interrupt: yield
+    loop: { to: jump_out, times: "{reps}" }
+    then: done

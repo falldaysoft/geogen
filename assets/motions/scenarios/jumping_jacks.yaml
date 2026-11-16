@@ -1,0 +1,10 @@
+# Jumping jacks on a rug (geogen.103.12): a body-only motion, four repetitions.
+kind: motion_scenario
+description: Four jumping jacks, arms overhead, hopping out and in.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_man.yaml, seed: 2, facing: 0 }
+script:
+  - { at: 0.2, start: jumping_jack, reps: 4 }
+camera: { view: front, frame: [actor], margin: 0.4 }

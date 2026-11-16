@@ -34,7 +34,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from . import roots
-from .core.ik import solve_limb
+from .core.ik import LIMBS, solve_limb
 from .core.node import SceneNode
 from .core.skeleton import Pose, Skeleton
 from .core.transform import Transform, matrix_from_quat, quat_from_matrix, slerp
@@ -81,9 +81,12 @@ BEAT_KEYS = {
     "until": "dwell until this holds (not yet)",
     "do": "a whole motion as one beat (not yet)",
     "bend": "auto: low targets blend toward reach_low (not yet)",
-    "hips": "<ref>: the hips onto a point (not yet: use root.posture)",
+    "hips": "[x, y, z]: m the pelvis moves in the body frame on top of the pose (a squat drops it; "
+            "planted feet bend the knees to keep up)",
+    "loop": "{to: <beat>, times: n}: once this beat is done, go back to `to` until the stretch from "
+            "there to here has run `times` times, then on to `then` (repetitions of an exercise)",
 }
-NOT_YET = {"when", "until", "do", "bend", "hips", "resume"}
+NOT_YET = {"when", "until", "do", "bend", "resume"}
 INTERRUPTS = ("yield", "finish", "hold", "drop")
 STRENGTHS = {"prefer": 1, "claim": 2, "require": 3}
 EASES = ("smooth", "settle", "linear", "spring")
@@ -96,6 +99,9 @@ DEFAULT_HALF_LIFE = 0.18
 REACH_SLACK = 0.96         # of the arm's length: a hand reaches no further without bending
 BEND_BONES = ("Spine", "Chest")
 MAX_BEND = 75              # degrees, shared by BEND_BONES
+LOOK_IN = 0.3              # s: a gaze turns fully onto a new look in this long
+LOOK_FOLLOW = 0.1          # s: half-life of the look point following a change of what is looked at
+MORPH_HALF_LIFE = 0.12     # s: drape correctives settle onto a new owner's pose
 ROOT_LEAD = 0.7            # over planted feet the root arrives by this fraction of the beat
 YAW_LIMIT, PITCH_LIMIT, NECK_SHARE = math.radians(70), math.radians(35), 0.4
 
@@ -127,6 +133,36 @@ def load_motion(name: str | Path, assets_dir: Path | None = None) -> dict:
     return spec
 
 
+MOTIONS_FILE = "motions.json"
+MOTIONS_FORMAT = "geogen-motions"
+MOTIONS_VERSION = 1
+
+
+def motion_names(assets_dir: Path | None = None) -> list[str]:
+    """Every motion the content roots define (``motions/*.yaml``), by name."""
+    return [path.stem for path in roots.glob(f"{MOTIONS_DIR}/*.yaml", assets_dir or roots.CORE)]
+
+
+def write_motions(generated: Path, assets_dir: Path | None = None) -> Path:
+    """``motions.json`` in a runtime's generated directory: every motion by name, validated and
+    with ``extends`` merged, ``{expr}`` left for the runtime to resolve when it starts one (from
+    its params and the body's ``extras.geogen.rig.params``), as ``MotionRig.start`` does."""
+    import json
+
+    generated = Path(generated)
+    generated.mkdir(parents=True, exist_ok=True)
+    motions = {}
+    for name in motion_names(assets_dir):
+        spec = load_motion(name, assets_dir)
+        motions[spec.get("name", name)] = spec
+    path = generated / MOTIONS_FILE
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps({"format": MOTIONS_FORMAT, "version": MOTIONS_VERSION, "motions": motions},
+                              indent=1, sort_keys=True) + "\n")
+    tmp.replace(path)
+    return path
+
+
 def validate_motion(spec: dict, where: str = "motion") -> None:
     """Raise ``MotionError`` for unknown keys, unknown beats, and holds or interrupts that aren't
     one of the vocabulary."""
@@ -150,6 +186,12 @@ def validate_motion(spec: dict, where: str = "motion") -> None:
             target = (beat or {}).get(key)
             if target is not None and target != "done" and target not in beats:
                 raise MotionError(f"{where}: beat '{name}': {key} '{target}' is not a beat")
+        loop = (beat or {}).get("loop")
+        if loop is not None:
+            if not isinstance(loop, dict) or set(loop) - {"to", "times"} or "to" not in loop:
+                raise MotionError(f"{where}: beat '{name}': loop is {{to: <beat>, times: n}}")
+            if loop["to"] not in beats:
+                raise MotionError(f"{where}: beat '{name}': loop to '{loop['to']}' is not a beat")
         policy = (beat or {}).get("interrupt", "yield")
         if policy not in INTERRUPTS:
             raise MotionError(f"{where}: beat '{name}': interrupt '{policy}' is not one of {INTERRUPTS}")
@@ -206,6 +248,62 @@ def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -
     return Target(node, np.eye(4), node.name)
 
 
+# --- the body as a runtime sees it -----------------------------------------------------------------
+
+def clip_pose(skeleton: Skeleton, clip, t: float) -> Pose:
+    """A clip's joints at ``t`` as a ``Pose`` (rotations relative to each bone's rest, offsets)."""
+    pose = Pose()
+    for joint, track in clip.tracks.items():
+        if joint not in skeleton.bones:
+            continue
+        rotation, translation = track.sample(t)
+        rest = skeleton.rest_local(joint)
+        if rotation is not None:
+            pose.rotations[joint] = quat_from_matrix(rest[:3, :3].T @ matrix_from_quat(rotation))
+        if translation is not None and skeleton[joint].parent is not None:
+            delta = np.asarray(translation) - rest[:3, 3]
+            if np.abs(delta).max() > 1e-6:
+                pose.offsets[joint] = delta
+    return pose
+
+
+def pose_library(actor: SceneNode, skeleton: Skeleton) -> dict[str, Pose]:
+    """The body's poses as its build left them (each ``pose_<name>`` clip: arms cleared, seats fitted)."""
+    out = {clip.name[5:]: clip_pose(skeleton, clip, 0.0) for clip in actor.clips if clip.name.startswith("pose_")}
+    out.setdefault("stand", Pose())
+    return out
+
+
+def rig_extras(actor: SceneNode) -> dict | None:
+    """What a runtime's motion rig needs of a built humanoid (``extras.geogen.rig``): the bones
+    with their rests (the rig poses relative to these, not to the engine's import), the
+    skeleton's params (for ``{expr}`` in motions), channels, hand shapes and the pose library.
+    Quaternions are [x, y, z, w]; rests are [tx, ty, tz, qx, qy, qz, qw] in the parent's frame."""
+    s = (actor.meta.get("humanoid") or {}).get("rig")
+    if not isinstance(s, Skeleton):
+        return None
+
+    def r(v, n=6):
+        return [round(float(x), n) for x in v]
+
+    bones = []
+    for name in s.names:
+        rest = s.rest_local(name)
+        bones.append({"name": name, "parent": s[name].parent or "",
+                      "rest": r([*rest[:3, 3], *quat_from_matrix(rest[:3, :3])])})
+    poses = {}
+    for name, pose in pose_library(actor, s).items():
+        poses[name] = {"rotations": {b: r(q) for b, q in pose.rotations.items()
+                                     if abs(float(q[3])) < 1 - 1e-9 or abs(q[:3]).max() > 1e-9},
+                       "offsets": {b: r(o) for b, o in pose.offsets.items()}}
+    return {"bones": bones,
+            "params": {k: round(float(v), 6) for k, v in s.params.items()},
+            "channels": {c: {"bones": list(e["bones"]), **({"end": e["end"]} if e.get("end") else {}),
+                             **({"shared": True} if e.get("shared") else {})} for c, e in s.channels.items()},
+            "hand_shapes": {n: {b: r(v, 4) for b, v in shape.items()} for n, shape in s.hand_shapes.items()},
+            "poses": poses}
+
+
 # --- easing --------------------------------------------------------------------------------------
 
 def ease(kind: str, u: float) -> float:
@@ -252,6 +350,7 @@ def _quat_inv(q: NDArray[np.float64]) -> NDArray[np.float64]:
 IDENTITY = np.array([0.0, 0.0, 0.0, 1.0])
 HANDS = {"hand": "RightHand", "right_hand": "RightHand", "left_hand": "LeftHand"}
 FINGERS = ("Thumb", "Index", "Middle", "Ring", "Little")
+LOOK_BONES = ("Neck", "Head")
 
 
 # --- running motions -----------------------------------------------------------------------------
@@ -271,6 +370,7 @@ class Run:
     pending_exit: bool = False           # interrupted with `finish`: exit when this beat ends
     done: bool = False
     start: dict = field(default_factory=dict)    # the body as the beat found it
+    loops: dict = field(default_factory=dict)    # beat -> times its loop has gone round
 
     @property
     def name(self) -> str:
@@ -307,7 +407,10 @@ class MotionRig:
         self.channel_of = {b: c for c, entry in rig.channels.items() for b in entry["bones"]}
         self.fingers = {side: [b for b in rig.names if b.startswith(side) and any(f in b for f in FINGERS)]
                         for side in ("Left", "Right")}
+        # Pose correctives (a skirt's drape) per pose: {pose: {node: {target: weight}}}.
+        self.pose_morphs: dict[str, dict[str, dict[str, float]]] = {}
         self.poses = self._pose_library()
+        self.morph_nodes = {n.name: n for n in actor.iter_nodes() if n.mesh is not None and n.mesh.morphs}
         self.root_poses = actor.meta.get("poses") or {}
         self.posture = "stand"
         self.root = actor.transform.to_matrix()
@@ -324,30 +427,39 @@ class MotionRig:
         self.samples: list[dict] = []
         self._order = 0
         self._changed: set[str] = set()     # channels whose source changed this step (inertialized)
+        self.morphs = self._pose_morph_vector("stand")
+        self.morph_offset: tuple[dict, float] | None = None
+        self.prelook = {b: self.out.rotations.get(b, IDENTITY) for b in LOOK_BONES}
+        self.look_key = None                # (run, what) the gaze is on
+        self.look_t = 0.0
+        self.look_point: NDArray[np.float64] | None = None
         self._apply()
 
     # The pose library: each pose_<name> clip (as the build left it: arms cleared, seats fitted).
+    # Transitions: the body's baked clips between two postures (sit_down: stand -> sit), whose arms
+    # the build cleared of the body and its clothes and whose drape correctives it keyed.
     def _pose_library(self) -> dict[str, Pose]:
-        s = self.skeleton
-        out = {}
+        self.transitions = {(c.meta["from"], c.meta["to"]): c for c in self.actor.clips
+                            if c.meta.get("from") and c.meta.get("to") and not c.loop}
         for clip in self.actor.clips:
-            if not clip.name.startswith("pose_"):
-                continue
-            pose = Pose()
-            for joint, track in clip.tracks.items():
-                if joint not in s.bones:
-                    continue
-                rotation, translation = track.sample(0.0)
-                rest = s.rest_local(joint)
-                if rotation is not None:
-                    pose.rotations[joint] = quat_from_matrix(rest[:3, :3].T @ matrix_from_quat(rotation))
-                if translation is not None and s[joint].parent is not None:
-                    delta = np.asarray(translation) - rest[:3, 3]
-                    if np.abs(delta).max() > 1e-6:
-                        pose.offsets[joint] = delta
-            out[clip.name[5:]] = pose
-        out.setdefault("stand", Pose())
-        return out
+            if clip.name.startswith("pose_"):
+                morphs = getattr(clip, "morphs", None) or {}
+                self.pose_morphs[clip.name[5:]] = {node: track.sample(0.0) for node, track in morphs.items()}
+        return pose_library(self.actor, self.skeleton)
+
+    def _clip_pose(self, clip, t: float) -> Pose:
+        return clip_pose(self.skeleton, clip, t)
+
+    def _transition(self, run: Run):
+        """The body's baked transition clip this beat's posture change follows, if it has one."""
+        to = run.spec.get("pose")
+        return self.transitions.get((run.start.get("posture"), to)) if to and run.start.get("posture") != to else None
+
+    def _pose_morph_vector(self, pose: str) -> dict[tuple[str, str], float]:
+        """The drape correctives ``pose`` was baked with, for every morph target of the body."""
+        known = self.pose_morphs.get(pose) or self.pose_morphs.get("stand") or {}
+        return {(node, k): float((known.get(node) or {}).get(k, 0.0))
+                for node, n in self.morph_nodes.items() for k in n.mesh.morphs}
 
     # --- requests ---
 
@@ -421,7 +533,6 @@ class MotionRig:
         self.runs = [r for r in self.runs if not r.done]
         self._arbitrate()
         pose, root, aims = self._compose()
-        self._inertialize(pose, root)
         self.out, self.root = pose, root
         self._apply()
         self._sample(aims)
@@ -433,14 +544,26 @@ class MotionRig:
         while not run.done and run.t >= run.over + run.dwell and guard < 16:
             guard += 1
             spill = run.t - (run.over + run.dwell)
-            nxt = run.spec.get("exit") if run.pending_exit else run.spec.get("then", "done")
+            nxt = run.spec.get("exit") if run.pending_exit else self._next(run)
             run.pending_exit = False
             if nxt in (None, "done"):
-                self._end(run)
+                self._end(run, arrived=True)
                 return
             self._enter(run, nxt)
             run.t = spill
             self._arrive(run)
+
+    def _next(self, run: Run) -> str:
+        """The beat after this one: back round its ``loop`` while repetitions are left, else ``then``."""
+        loop = run.spec.get("loop")
+        if loop:
+            done = run.loops.get(run.beat, 0) + 1
+            if done < int(loop.get("times", 1)):
+                run.loops[run.beat] = done
+                self._event("loop", run, to=loop["to"], round=done + 1)
+                return loop["to"]
+            run.loops[run.beat] = 0
+        return run.spec.get("then", "done")
 
     def _arrive(self, run: Run) -> None:
         """A beat that has arrived fires its emit and takes or lets go of what it names, once."""
@@ -471,8 +594,12 @@ class MotionRig:
         spec = run.spec
         if spec.get(k := next((k for k in NOT_YET if k in spec), "")):
             raise MotionError(f"motion '{run.name}' beat '{beat}': '{k}' is not supported by the rig yet")
-        run.start = {"pose": self.out.copy(), "root": self.root.copy(), "ends": self._ends_world(),
-                     "feet": self._ends_world(("LeftFoot", "RightFoot"))}
+        start = self.out.copy()
+        # The head turn is laid on afresh every frame, so a beat starts from the head before it.
+        start.rotations.update({b: q for b, q in self.prelook.items()})
+        run.start = {"pose": start, "root": self.root.copy(), "ends": self._ends_world(),
+                     "feet": self._ends_world(("LeftFoot", "RightFoot")), "morphs": dict(self.morphs),
+                     "posture": self.posture}
         run.over = self._over(run)
         after = spec.get("after", 0.0)
         run.dwell = float(run.params.get("duration", 3.0) if after == "duration" else after or 0.0)
@@ -491,8 +618,12 @@ class MotionRig:
             travel = max(travel, float(np.linalg.norm(self._root_target(run)[:3, 3] - self.root[:3, 3])))
         return max(MIN_OVER, travel / REACH_SPEED + 0.15) if travel else (MIN_OVER if spec.get("pose") else 0.0)
 
-    def _end(self, run: Run) -> None:
+    def _end(self, run: Run, arrived: bool = False) -> None:
+        """Stop ``run``. One whose last beat ``arrived`` leaves the body where that beat put it
+        (its last composed frame was a step short of arriving), not where it was a step before."""
         if not run.done:
+            if arrived and run.spec.get("root") and self.owners.get("root") is run:
+                self.root = self._root_target(run)
             self._changed |= self._owned(run)
             run.done = True
             self._event("end", run)
@@ -574,8 +705,31 @@ class MotionRig:
                 continue
             spec, u = run.spec, ease(run.spec.get("ease", "smooth"), run.t / run.over if run.over else 1.0)
             target = self._beat_pose(run)
+            # A posture change plays the body's transition clip (sit_down) on the channels it
+            # holds, other than a hand it reaches with and the gaze: the build cleared its arms of
+            # the body and clothes and keyed its drape against that whole movement, so it is taken
+            # whole, not mixed with a blend of the rig's. What the body started with fades out
+            # over the beat.
+            clip, carried = self._transition(run), set()
+            if clip is not None:
+                reaching = {self.channel_of.get(e) for e, entry in self._ik_entries(run).items()
+                            if self._ik_target(run, e, entry) is not None}
+                at = min(run.t / run.over if run.over else 1.0, 1.0) * clip.duration
+                now, first = self._clip_pose(clip, at), self._clip_pose(clip, 0.0)
+                for channel in channels - reaching - {"gaze", "root"}:
+                    for bone in s.channels[channel]["bones"]:
+                        start = run.start["pose"].rotations.get(bone, IDENTITY)
+                        offset = _quat_mul(start, _quat_inv(first.rotations.get(bone, IDENTITY)))
+                        pose.rotations[bone] = _quat_mul(slerp(IDENTITY, offset, 1.0 - u),
+                                                         now.rotations.get(bone, IDENTITY))
+                        oa, o0, o1 = (p.offsets.get(bone) for p in (run.start["pose"], first, now))
+                        if oa is not None or o1 is not None:
+                            z = np.zeros(3)
+                            pose.offsets[bone] = (z if o1 is None else o1) + \
+                                ((z if oa is None else oa) - (z if o0 is None else o0)) * (1.0 - u)
+                        carried.add(bone)
             for bone in s.names:
-                if self.channel_of.get(bone) not in channels:
+                if self.channel_of.get(bone) not in channels or bone in carried:
                     continue
                 a = run.start["pose"].rotations.get(bone, IDENTITY)
                 b = target.rotations.get(bone, IDENTITY)
@@ -585,7 +739,19 @@ class MotionRig:
                     oa = np.zeros(3) if oa is None else oa
                     ob = np.zeros(3) if ob is None else ob
                     pose.offsets[bone] = oa + (ob - oa) * u
-            if "root" in channels and spec.get("root"):
+            if "root" in channels and spec.get("root") and clip is not None and clip.meta.get("root"):
+                # The clip's own root path, ending where the beat puts the body.
+                from .generators.clips import root_at
+
+                path = clip.meta["root"]
+                goal = self._root_target(run) @ np.linalg.inv(root_at(path, clip.duration))
+                now_root, first_root = goal @ root_at(path, at), goal @ root_at(path, 0.0)
+                start = run.start["root"]
+                turn = quat_from_matrix(start[:3, :3] @ first_root[:3, :3].T)
+                root = np.eye(4)
+                root[:3, :3] = matrix_from_quat(slerp(IDENTITY, turn, 1.0 - u)) @ now_root[:3, :3]
+                root[:3, 3] = now_root[:3, 3] + (start[:3, 3] - first_root[:3, 3]) * (1.0 - u)
+            elif "root" in channels and spec.get("root"):
                 goal = self._root_target(run)
                 start = run.start["root"]
                 if spec.get("plant") == "feet":
@@ -594,6 +760,27 @@ class MotionRig:
                     u = ease("smooth", (run.t / run.over if run.over else 1.0) / ROOT_LEAD)
                 yaw = _yaw_of(start) + _wrap(_yaw_of(goal) - _yaw_of(start)) * u
                 root = _placement(start[:3, 3] + (goal[:3, 3] - start[:3, 3]) * u, yaw)
+        # Drape correctives follow the body pose the hips owner is laying (a skirt seated or standing).
+        morphs = self._pose_morph_vector(self.posture)
+        hips = self.owners.get("hips")
+        if hips is not None and "morphs" in hips.start:
+            goal = self._pose_morph_vector(hips.spec.get("pose") or self.posture)
+            u = ease(hips.spec.get("ease", "smooth"), hips.t / hips.over if hips.over else 1.0)
+            clip = self._transition(hips)
+            if clip is not None and clip.morphs:
+                # Keyed through the transition by the build; the difference it started from fades.
+                at = min(hips.t / hips.over if hips.over else 1.0, 1.0) * clip.duration
+                now, first = ({(n, k): w for n, track in clip.morphs.items() for k, w in track.sample(x).items()}
+                              for x in (at, 0.0))
+                morphs = {k: now.get(k, w) + (hips.start["morphs"].get(k, 0.0) - first.get(k, 0.0)) * (1.0 - u)
+                          for k, w in goal.items()}
+            else:
+                morphs = {k: hips.start["morphs"].get(k, 0.0) + (w - hips.start["morphs"].get(k, 0.0)) * u
+                          for k, w in goal.items()}
+        self._morph_goal = morphs
+        # Owner changes are inertialized on the laid pose, before the solve: IK then lands on its
+        # targets exactly while the rest of the body blends from where it was.
+        self._inertialize(pose, root)
         # Then the solve, outside in: lean, planted feet, hands, gaze.
         inv_root = np.linalg.inv(root)
         for run in self.runs:
@@ -602,7 +789,7 @@ class MotionRig:
             u_raw = run.t / run.over if run.over else 1.0
             u = ease(spec.get("ease", "smooth"), u_raw)
             lean = spec.get("lean")
-            if lean and "spine" in channels:
+            if lean and "spine" in channels and self._transition(run) is None:   # (a transition clip leans itself)
                 by = float(lean.get("by", 0)) * _bump(u_raw, float(lean.get("at", 0.5)))
                 extra = quat_from_matrix(Transform(rotation=np.radians([by, 0, 0])).to_matrix()[:3, :3])
                 rest = s["Spine"].rotation
@@ -625,41 +812,78 @@ class MotionRig:
                 if run.t >= run.over - self.dt - 1e-9:      # the beat's last composed frame
                     aims[f"{end}@arrived"] = goal
                 if "spine" in channels and end in ("LeftHand", "RightHand"):
-                    self._bend_to_reach(pose, self._beat_pose(run), root, end, point)
+                    self._bend_to_reach(pose, self._beat_pose(run), root, end, point, run.start, u)
                 local = (inv_root @ np.r_[point, 1.0])[:3]
-                solve_limb(s, pose, end, local, entry.get("pole"))
+                # Solved, then blended in from the arm as the beat found it by the beat's progress:
+                # it starts with its own elbow and ends exactly on the goal, rather than snapping to
+                # the solver's elbow on the beat's first frame.
+                solved = pose.copy()
+                solve_limb(s, solved, end, local, entry.get("pole"))
+                for bone in (*LIMBS[end][:2], end):
+                    pose.rotations[bone] = slerp(run.start["pose"].rotations.get(bone, IDENTITY), solved.rotations[bone], u)
+        self.prelook = {b: pose.rotations.get(b, IDENTITY).copy() for b in LOOK_BONES}
         gaze = self.owners.get("gaze")
-        if gaze is not None and gaze.spec.get("look") is not None:
-            look = gaze.spec["look"]
-            ref = look.get("at") if isinstance(look, dict) else look
-            target = self._ref(gaze, ref)
-            if target is not None:
-                point = target.world()[:3, 3] if isinstance(target, Target) else target
-                aims["gaze"] = point
-                u = ease("smooth", gaze.t / max(gaze.over, 0.25))
-                self._turn_head(pose, root, point, u)
+        look = gaze.spec.get("look") if gaze is not None else None
+        target = None
+        if look is not None:
+            target = self._ref(gaze, look.get("at") if isinstance(look, dict) else look)
+        if target is None:
+            if self.look_key is not None:
+                self._changed.add("gaze")            # the turn goes: inertialized, not dropped
+            self.look_key, self.look_point = None, None
+            return pose, root, aims
+        point = target.world()[:3, 3] if isinstance(target, Target) else np.asarray(target, dtype=float)
+        aims["gaze"] = point
+        # One look runs on across beats: the turn eases in once, and a new point to look at is
+        # followed (the head travels to it) instead of the turn starting again from straight ahead.
+        if self.look_key is None or self.look_key is not gaze:
+            if self.look_key is not None:
+                self._changed.add("gaze")
+            self.look_key, self.look_t, self.look_point = gaze, 0.0, point.copy()
+        else:
+            self.look_t += self.dt
+            k = 1.0 - 0.5 ** (self.dt / LOOK_FOLLOW)
+            self.look_point = self.look_point + (point - self.look_point) * k
+        weight = float(look.get("weight", 1.0)) if isinstance(look, dict) else 1.0
+        self._turn_head(pose, root, self.look_point, weight * ease("smooth", self.look_t / LOOK_IN))
         return pose, root, aims
 
     def _bend_to_reach(self, pose: Pose, beat: Pose, root: NDArray[np.float64], end: str,
-                       point: NDArray[np.float64]) -> None:
+                       point: NDArray[np.float64], start: dict, u: float) -> None:
         """Bend forward at the spine, as little as will do, when the hand can't reach ``point``
         from where the shoulder is (a button low on a TV, a cup at the back of a table). The bend
         is measured from the beat's own pose, so beats that keep reaching bend continuously
-        rather than adding up; one that stops reaching eases it out with its pose."""
+        rather than adding up; one that stops reaching eases it out with its pose. What the arm
+        already spanned when the beat began counts as in reach at its start (a hanging arm is nearly
+        straight) and eases to REACH_SLACK by its end (``u``), so a reach starts without a bend and
+        arrives with the elbow a little bent."""
         s = self.skeleton
         shoulder = end.replace("Hand", "UpperArm")
         rest = s.fk()
         reach = REACH_SLACK * sum(float(np.linalg.norm(rest[a][:3, 3] - rest[b][:3, 3])) for a, b in
                                   ((shoulder, end.replace("Hand", "LowerArm")), (end.replace("Hand", "LowerArm"), end)))
+        full = reach / REACH_SLACK
+        spanned = float(np.linalg.norm(start["ends"][end] - (start["root"] @ s.world(shoulder, start["pose"]))[:3, 3]))
+        reach = max(reach, reach + (min(spanned, full) - reach) * (1.0 - u))
         base = {b: beat.rotations.get(b, IDENTITY) for b in BEND_BONES}
         trial = pose.copy()
-        for degrees in range(0, MAX_BEND + 1, 3):
+
+        def bend(degrees: float) -> bool:
             for bone in BEND_BONES:
                 r = s[bone].rotation
                 extra = Transform(rotation=np.radians([degrees / len(BEND_BONES), 0, 0])).to_matrix()[:3, :3]
                 trial.rotations[bone] = _quat_mul(base[bone], quat_from_matrix(r.T @ extra @ r))
-            if np.linalg.norm(point - (root @ s.world(shoulder, trial))[:3, 3]) <= reach:
-                break
+            return np.linalg.norm(point - (root @ s.world(shoulder, trial))[:3, 3]) <= reach
+
+        # The least bend that reaches, found continuously (a stepped search makes the spine and arm
+        # jitter as the hand travels).
+        if not bend(0.0):
+            lo, hi = 0.0, float(MAX_BEND)
+            if bend(hi):
+                for _ in range(14):
+                    mid = 0.5 * (lo + hi)
+                    lo, hi = (lo, mid) if bend(mid) else (mid, hi)
+            bend(hi)
         for bone in BEND_BONES:
             pose.rotations[bone] = trial.rotations[bone]
 
@@ -670,6 +894,8 @@ class MotionRig:
         if name and base is None:
             raise MotionError(f"motion '{run.name}': this body has no pose '{name}' (it has {sorted(self.poses)})")
         pose = (base or self.poses.get(self.posture, self.poses["stand"])).copy()
+        if spec.get("hips") is not None:
+            pose.offsets["Hips"] = pose.offsets.get("Hips", np.zeros(3)) + np.asarray(spec["hips"], dtype=float)
         for bone, degrees in (spec.get("bones") or {}).items():
             extra = Transform(rotation=np.radians(np.asarray(degrees, dtype=float))).to_matrix()[:3, :3]
             rest = self.skeleton[bone].rotation
@@ -714,8 +940,11 @@ class MotionRig:
                 twin = mirror_name(name)
                 if twin and twin not in entries:
                     twin_entry = dict(entry)
-                    if isinstance(entry.get("target"), str) and entry["target"].endswith(".left"):
-                        twin_entry["target"] = entry["target"][:-5] + ".right"
+                    target = entry.get("target")
+                    if isinstance(target, str) and target.endswith(".left"):
+                        twin_entry["target"] = target[:-5] + ".right"
+                    elif isinstance(target, (list, tuple)):           # a body-frame point: across the body
+                        twin_entry["target"] = [-float(target[0]), *target[1:]]
                     if "pole" in entry:
                         twin_entry["pole"] = list(np.asarray(entry["pole"], dtype=float) * [-1, 1, 1])
                     entries[twin] = twin_entry
@@ -752,8 +981,9 @@ class MotionRig:
         fk = s.fk(pose)
         head = (root @ fk["Head"])[:3, 3]
         local = np.linalg.inv(root)[:3, :3] @ (point - head)
-        yaw = max(-YAW_LIMIT, min(YAW_LIMIT, math.atan2(local[0], local[2])))
-        pitch = max(-PITCH_LIMIT, min(PITCH_LIMIT, -math.atan2(local[1], math.hypot(local[0], local[2]))))
+        # Soft limits: the turn slows into them instead of stopping dead at a clamp.
+        yaw = YAW_LIMIT * math.tanh(math.atan2(local[0], local[2]) / YAW_LIMIT)
+        pitch = PITCH_LIMIT * math.tanh(-math.atan2(local[1], math.hypot(local[0], local[2])) / PITCH_LIMIT)
         # What the pose already does to the head's facing is kept; the turn is split neck / head.
         for bone, share in (("Neck", NECK_SHARE), ("Head", 1.0 - NECK_SHARE)):
             r = Transform(rotation=np.array([pitch * share * weight, yaw * share * weight, 0.0])).to_matrix()[:3, :3]
@@ -764,8 +994,9 @@ class MotionRig:
     # --- blending ---
 
     def _inertialize(self, pose: Pose, root: NDArray[np.float64]) -> None:
-        """Channels whose owner changed this step start from where the body was: the difference
-        decays over the channel's half-life instead of the pose jumping."""
+        """Channels whose owner changed this step start from where the body was (as shown, solved):
+        the difference to the newly laid pose decays over the channel's half-life instead of the
+        pose jumping. Runs between laying and solving, so IK ends and planted feet stay exact."""
         for channel in self._changed:
             life = HALF_LIFE.get(channel, DEFAULT_HALF_LIFE)
             for bone in self.skeleton.channels[channel]["bones"]:
@@ -774,7 +1005,19 @@ class MotionRig:
                 self.offsets[bone] = (_quat_mul(old, _quat_inv(new)), 0.0, life)
             if channel == "root":
                 self.root_offset = (self.root @ np.linalg.inv(root), 0.0, life)
+            if channel == "hips":
+                self.morph_offset = ({k: self.morphs.get(k, 0.0) - w for k, w in self._morph_goal.items()}, 0.0)
         self._changed = set()
+        morphs = dict(self._morph_goal)
+        if self.morph_offset is not None:
+            delta, age = self.morph_offset
+            w = 0.5 ** (age / MORPH_HALF_LIFE)
+            if w < 0.01:
+                self.morph_offset = None
+            else:
+                morphs = {k: v + delta.get(k, 0.0) * w for k, v in morphs.items()}
+                self.morph_offset = (delta, age + self.dt)
+        self.morphs = morphs
         for bone, (offset, age, life) in list(self.offsets.items()):
             w = 0.5 ** (age / life)
             if w < 0.01:
@@ -800,6 +1043,8 @@ class MotionRig:
         for name, node in self.joints.items():
             node.transform = Transform.from_matrix(s.posed_local(name, self.out))
             node.transform.scale = np.ones(3)
+        for (node, k), w in self.morphs.items():
+            self.morph_nodes[node].morph_weights[k] = w
         parent = self.actor.parent.world_transform() if self.actor.parent is not None else np.eye(4)
         self.actor.transform = Transform.from_matrix(np.linalg.inv(parent) @ self.root)
         if self.attached:

@@ -40,6 +40,8 @@ OVERRIDES = {   # (command, arg): type, where an argument means different things
     ("npcs.needs", "needs"): {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
     ("input.mouse", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},   # viewport pixels
     ("hud.direct", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},
+    ("motion.start", "motion"): STR, ("motion.stop", "motion"): STR, ("motion.stop", "how"): {"enum": ["yield", "drop"]},
+    ("motion.start", "params"): {"type": "object", "additionalProperties": {}},
 }
 EXTRA = {   # arguments the code reads that the one-line descriptions leave out
     "interactions.set": ["actor"], "interactions.use": ["actor"], "interactions.lock": ["actor"],

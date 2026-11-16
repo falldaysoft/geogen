@@ -147,6 +147,9 @@
             "inventory.give",
             "inventory.list",
             "inventory.use",
+            "motion.start",
+            "motion.status",
+            "motion.stop",
             "npcs.cancel",
             "npcs.choices",
             "npcs.direct",
@@ -718,6 +721,54 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/inventory.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "motion.start"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/motion.start"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "motion.status"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/motion.status"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "motion.stop"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/motion.stop"
               }
             }
           }
@@ -1775,6 +1826,9 @@
         "npcs.choices": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}",
         "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, ahead of anything of its own -> {npc, orders}",
         "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
+        "motion.start": "{node | uid, motion, params?: {name: value}} run a motion file (motions.json: assets/motions/) on a character body with the runtime motion rig -> {node, motion, running}; body-only motions so far (squat, jumping_jack)",
+        "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) -> {node, motion, result}",
+        "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, events: [{t, event, motion, beat}], bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}}",
         "npcs.pause": "{npc?} freeze one NPC (or all)",
         "npcs.resume": "{npc?}",
         "time.pause": "freeze the world (the API keeps serving)",
@@ -2580,6 +2634,58 @@
           },
           "index": {
             "type": "integer"
+          }
+        }
+      },
+      "motion.start": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "motion": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "motion.stop": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "motion": {
+            "type": "string"
+          },
+          "how": {
+            "enum": [
+              "yield",
+              "drop"
+            ]
+          }
+        }
+      },
+      "motion.status": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
           }
         }
       },

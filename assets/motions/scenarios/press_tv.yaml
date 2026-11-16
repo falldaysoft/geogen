@@ -1,4 +1,4 @@
-# Stand in front of a TV on a table and press its power button (bending a little to reach it).
+# Stand beside a TV on a table and press its power button (bending to reach it, the head clear of the screen).
 kind: motion_scenario
 description: Stand at the TV, press its power button, take the hand back.
 scene:
@@ -7,7 +7,7 @@ scene:
   place:
     console: { asset: table.yaml, slot: console }   # a table: the button sits at hand height less a bend
     tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
-actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: tv, grip: press, offset: [-0.15, 0, 0.36], facing: toward }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: tv, grip: press, offset: [-0.35, 0, 0.36], facing: toward }   # beside the TV: the bend to a low button keeps the head off the screen
 script:
   - { at: 0.3, start: press, button: tv.power }    # the interaction: its touch: is the power button
 camera: { view: iso_back, frame: [tv, actor], margin: 0.15 }

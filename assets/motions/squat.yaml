@@ -1,0 +1,38 @@
+# A squat (geogen.103.12): sit back and down over planted feet with the arms reaching forward,
+# then stand, `reps` times. Body only: no roles. Every distance is a share of this body (the
+# skeleton's height, leg_ratio, shoulder_width, arm_ratio), so one file fits every build.
+kind: motion
+name: squat
+params:
+  reps:  { default: 5 }
+  depth: { default: 0.4 }     # share of the leg's length the hips drop
+  back:  { default: 0.2 }     # share of the leg's length they go back
+  lean:  { default: 24 }      # degrees the torso tips forward at the bottom
+holds:
+  require: [root, hips, legs, spine, left_hand, right_hand]
+initial: down
+beats:
+  down:
+    hips: [0, "{-depth * height * leg_ratio}", "{-back * height * leg_ratio}"]
+    plant: feet                              # the knees bend to keep them where they stand
+    bones:
+      Spine: ["{lean / 2}", 0, 0]
+      Chest: ["{lean / 2}", 0, 0]
+    ik:
+      # Arms out in front at shoulder height (0.79 of the height, standing), the hands most of an
+      # arm's length (height * arm_ratio) ahead of where the shoulders go as the hips drop and go back.
+      LeftHand:
+        target: ["{shoulder_width * 0.4}", "{height * 0.79 - depth * height * leg_ratio}",
+                 "{height * arm_ratio * 0.85 - back * height * leg_ratio}"]
+        pole: [0.4, -1, 0]                   # elbows down and a little out (the rest pole, back, is along a forward reach)
+        grip: flat
+      mirror: true
+    over: 1.1
+    interrupt: finish                        # come up before stopping
+    then: up
+  up:
+    plant: feet
+    over: 0.9
+    interrupt: finish
+    loop: { to: down, times: "{reps}" }
+    then: done

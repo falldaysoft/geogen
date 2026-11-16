@@ -1,0 +1,10 @@
+# Squats on a rug (geogen.103.12): a body-only motion, three repetitions.
+kind: motion_scenario
+description: Three squats, arms forward, feet planted.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_man.yaml, seed: 2, facing: 0 }   # (trousers: a skirt has no drape for a squat)
+script:
+  - { at: 0.2, start: squat, reps: 3 }
+camera: { view: side, frame: [actor], margin: 0.35 }

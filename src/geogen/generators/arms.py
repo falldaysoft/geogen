@@ -334,6 +334,29 @@ def _spread(angles: np.ndarray, loop: bool) -> np.ndarray:
     return out
 
 
+def _smooth_interp(t: float, at: np.ndarray, values: np.ndarray, loop: bool) -> float:
+    """``values`` at the samples ``at``, read at ``t`` along a monotone cubic (Fritsch-Carlson):
+    smooth through every sample, never past one between two (a swing never drops below what both
+    neighbours need), and level at a one-shot clip's ends, so an arm settles onto its static pose
+    rather than arriving moving. (A looping clip's samples include its first again at the end.)"""
+    n = len(at)
+    if n < 2:
+        return float(values[0])
+    h = np.diff(at)
+    d = np.diff(values) / h
+    m = np.zeros(n)
+    for i in range(1, n - 1):
+        if d[i - 1] * d[i] > 0:
+            w1, w2 = 2 * h[i] + h[i - 1], h[i] + 2 * h[i - 1]
+            m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i])
+    if loop and d[0] * d[-1] > 0:
+        m[0] = m[-1] = 2.0 / (1.0 / d[0] + 1.0 / d[-1])
+    i = int(np.clip(np.searchsorted(at, t, side="right") - 1, 0, n - 2))
+    x = (t - at[i]) / h[i]
+    h00, h10, h01, h11 = 2 * x**3 - 3 * x**2 + 1, x**3 - 2 * x**2 + x, -2 * x**3 + 3 * x**2, x**3 - x**2
+    return float(h00 * values[i] + h10 * h[i] * m[i] + h01 * values[i + 1] + h11 * h[i] * m[i + 1])
+
+
 def _reversed(clip, other) -> bool:
     """Whether ``clip`` is ``other`` played backwards (getting up, after lying down)."""
     for bone in CHECKED:
@@ -345,75 +368,78 @@ def _reversed(clip, other) -> bool:
     return True
 
 
-def clear_arms(root: SceneNode, shells: list[dict] | None = None) -> dict:
-    """Swing the arms of a built humanoid ``root`` clear of its body and clothes in every clip
-    (see the module docstring). ``shells``: its draped shells, as ``drape.fit`` takes them
-    (default: ``meta.humanoid.shells``). Rewrites the upper arms' rotation keys; returns
-    {clip: the largest swing in degrees} for the clips it changed."""
-    from .humanoid import dominant_bones, lining_faces
+class ArmSpace:
+    """What a built humanoid's forearms and hands keep out of, probed in whatever pose its
+    ``actor`` (an instance sharing the root's clips) is put in: the body's surface other than
+    the arms, and its loose shell (draped ones as the solids their rings bound, ``_Tube``). Built
+    once; ``ok`` is False for a body it can't work on (no skinned body, no clips, no arms)."""
 
-    body = next((n for n in root.children if n.name == "body" and n.skin is not None), None)
-    if body is None or not root.clips:
-        return {}
-    names = [j.name for j in body.skin.joints]
-    mesh = body.mesh
-    actor = root.instance(share_clips=True)
-    nodes = {n.name: n for n in actor.iter_nodes()}
-    if not all(f"{side}{bone}" in nodes for side in SIDES for bone in ("UpperArm", "Shoulder", "Hand")):
-        return {}
+    def __init__(self, root: SceneNode, shells: list[dict] | None = None) -> None:
+        from .humanoid import dominant_bones
 
-    def on(side: str, bones: tuple[str, ...]) -> np.ndarray:
-        """Each vertex's weight on ``side``'s bones whose names start with one of ``bones``."""
-        hit = np.array([n.startswith(side) and n.removeprefix(side).startswith(bones) for n in names])
-        return np.where(hit[mesh.joints], mesh.weights, 0.0).sum(axis=1)
+        self.ok = False
+        body = next((n for n in root.children if n.name == "body" and n.skin is not None), None)
+        if body is None or not root.clips:
+            return
+        self.names = names = [j.name for j in body.skin.joints]
+        self.mesh = mesh = body.mesh
+        self.actor = root.instance(share_clips=True)
+        self.nodes = nodes = {n.name: n for n in self.actor.iter_nodes()}
+        if not all(f"{side}{bone}" in nodes for side in SIDES for bone in ("UpperArm", "Shoulder", "Hand")):
+            return
+        # What is kept clear: the forearm and hand, each by the vertices on its hull.
+        self.kept = {}
+        for side in SIDES:
+            forearm, whole = self.on(side, ("LowerArm",)) >= 0.5, self.on(side, KEPT_CLEAR) >= 0.5
+            if not whole.any():
+                return
+            self.kept[side] = _outline(mesh.vertices, [g for g in (np.flatnonzero(forearm), np.flatnonzero(whole & ~forearm)) if len(g)])
+        # What it is kept clear of: the body without the arms (and the head and feet, out of their
+        # way). The faces round the holes that leaves hold nothing back: a forearm is always next to
+        # its own elbow.
+        dominant = dominant_bones(mesh, names)
+        far = np.array([d.removeprefix("Left").removeprefix("Right").startswith(OUT_OF_REACH) for d in dominant])
+        away = (sum(self.on(side, ARM) for side in SIDES) > 0.2) | far
+        left_out = away[mesh.faces].any(axis=1)
+        if left_out.all():
+            return
+        on_hole = np.zeros(len(mesh.vertices), bool)
+        on_hole[mesh.faces[left_out]] = True
+        solid = mesh.faces[~left_out]
+        self.surface = _Surface(solid, mesh.vertices, on_hole[solid].any(axis=1))
+        self.wanted = np.unique(np.concatenate([solid.ravel(), *self.kept.values()]))
+        self.shell, self.tubes, self.cm = None, [], None
+        cloth = nodes.get("clothes")
+        if cloth is not None and cloth.mesh is not None:
+            from .drape import solid_rings
+            from .humanoid import lining_faces
 
-    # What is kept clear: the forearm and hand, each by the vertices on its hull.
-    kept = {}
-    for side in SIDES:
-        forearm, whole = on(side, ("LowerArm",)) >= 0.5, on(side, KEPT_CLEAR) >= 0.5
-        if not whole.any():
-            return {}
-        kept[side] = _outline(mesh.vertices, [g for g in (np.flatnonzero(forearm), np.flatnonzero(whole & ~forearm)) if len(g)])
-    # What it is kept clear of: the body without the arms (and the head and feet, out of their
-    # way). The faces round the holes that leaves hold nothing back: a forearm is always next to
-    # its own elbow.
-    dominant = dominant_bones(mesh, names)
-    far = np.array([d.removeprefix("Left").removeprefix("Right").startswith(OUT_OF_REACH) for d in dominant])
-    away = (sum(on(side, ARM) for side in SIDES) > 0.2) | far
-    left_out = away[mesh.faces].any(axis=1)
-    if left_out.all():
-        return {}
-    on_hole = np.zeros(len(mesh.vertices), bool)
-    on_hole[mesh.faces[left_out]] = True
-    solid = mesh.faces[~left_out]
-    surface = _Surface(solid, mesh.vertices, on_hole[solid].any(axis=1))
-    wanted = np.unique(np.concatenate([solid.ravel(), *kept.values()]))
-    shell, tubes = None, []
-    cloth = nodes.get("clothes")
-    if cloth is not None and cloth.mesh is not None:
-        from .drape import solid_rings
+            self.cm = cm = cloth.mesh
+            if shells is None:
+                shells = root.meta.get("humanoid", {}).get("shells", [])
+            # A draped shell is a tube of rings; anything else loose is its outer wall, with each
+            # opening (hem) capped as clipping QA's solid is.
+            tubed = np.zeros(len(cm.vertices), bool)
+            for sh in shells:
+                rings = solid_rings(cm, sh["vertices"], sh["s_range"])
+                if len(rings) >= 3:
+                    self.tubes.append(rings)
+                    tubed[sh["vertices"]] = True
+            wall = cm.faces[~lining_faces(cm)]
+            wall = wall[~tubed[wall].all(axis=1)]
+            if len(wall):
+                self.shell = _Surface(wall, cm.vertices, fans=_fans(wall, cm.vertices))
+            self.ring_rows = np.unique(np.concatenate([r for rings in self.tubes for r in rings])) if self.tubes else np.zeros(0, int)
+        self.ok = True
 
-        cm = cloth.mesh
-        if shells is None:
-            shells = root.meta.get("humanoid", {}).get("shells", [])
-        # A draped shell is a tube of rings; anything else loose is its outer wall, with each
-        # opening (hem) capped as clipping QA's solid is.
-        tubed = np.zeros(len(cm.vertices), bool)
-        for s in shells:
-            rings = solid_rings(cm, s["vertices"], s["s_range"])
-            if len(rings) >= 3:
-                tubes.append(rings)
-                tubed[s["vertices"]] = True
-        wall = cm.faces[~lining_faces(cm)]
-        wall = wall[~tubed[wall].all(axis=1)]
-        if len(wall):
-            shell = _Surface(wall, cm.vertices, fans=_fans(wall, cm.vertices))
-        ring_rows = np.unique(np.concatenate([r for rings in tubes for r in rings])) if tubes else np.zeros(0, int)
-    to_world = nodes["body"].world_transform()
+    def on(self, side: str, bones: tuple[str, ...]) -> np.ndarray:
+        """Each body vertex's weight on ``side``'s bones whose names start with one of ``bones``."""
+        hit = np.array([n.startswith(side) and n.removeprefix(side).startswith(bones) for n in self.names])
+        return np.where(hit[self.mesh.joints], self.mesh.weights, 0.0).sum(axis=1)
 
-    def cloth_at(rows: np.ndarray | slice) -> np.ndarray:
+    def cloth_at(self, rows: np.ndarray | slice) -> np.ndarray:
         """World positions of ``rows`` of the clothes' vertices as posed (drape morphs included)."""
-        node = nodes["clothes"]
+        node, cm = self.nodes["clothes"], self.cm
         rest = cm.vertices[rows].copy()
         for name, delta in (cm.morphs or {}).items():
             if node.morph_weights.get(name, 0.0):
@@ -422,20 +448,48 @@ def clear_arms(root: SceneNode, shells: list[dict] | None = None) -> dict:
         world = node.world_transform()
         return (np.einsum("vij,vj->vi", m[:, :3, :3], rest) + m[:, :3, 3]) @ world[:3, :3].T + world[:3, 3]
 
-    def needed(clip, t: float) -> dict[str, np.ndarray]:
-        """Per side, the swing this frame needs as a rotation vector in the shoulder's frame."""
-        clip.apply(actor, t)
+    def posed(self, cloth: np.ndarray | None = None) -> tuple[np.ndarray, list]:
+        """The body's vertices as the actor is posed now (rows ``wanted``; the rest zero) and the
+        obstacles. ``cloth``: the clothes' world positions to use instead of their skinned and
+        morphed ones (a drape not baked yet)."""
+        mesh, nodes, wanted = self.mesh, self.nodes, self.wanted
+        to_world = nodes["body"].world_transform()
         blended = np.einsum("vk,vkij->vij", mesh.weights[wanted], nodes["body"].skin.matrices(nodes["body"])[mesh.joints[wanted]])
         posed = np.zeros_like(mesh.vertices)
         posed[wanted] = (np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.vertices[wanted]) + blended[:, :3, 3]) \
             @ to_world[:3, :3].T + to_world[:3, 3]
-        obstacles = [surface.at(posed)]
-        if shell is not None:
-            obstacles.append(shell.at(cloth_at(slice(None))))
-        if tubes:
-            x = np.zeros((len(cm.vertices), 3))
-            x[ring_rows] = cloth_at(ring_rows)
-            obstacles += [_Tube(rings, x) for rings in tubes]
+        obstacles = [self.surface.at(posed)]
+        if self.cm is not None:
+            x = cloth
+            if self.shell is not None:
+                obstacles.append(self.shell.at(x if x is not None else self.cloth_at(slice(None))))
+            if self.tubes:
+                if x is None:
+                    x = np.zeros((len(self.cm.vertices), 3))
+                    x[self.ring_rows] = self.cloth_at(self.ring_rows)
+                obstacles += [_Tube(rings, x) for rings in self.tubes]
+        return posed, obstacles
+
+
+def depth(obstacles: list, points: np.ndarray) -> np.ndarray:
+    """Each point's depth inside the deepest of ``obstacles`` (negative: that far clear)."""
+    return np.max([o.probe(points)[0] for o in obstacles], axis=0)
+
+
+def clear_arms(root: SceneNode, shells: list[dict] | None = None) -> dict:
+    """Swing the arms of a built humanoid ``root`` clear of its body and clothes in every clip
+    (see the module docstring). ``shells``: its draped shells, as ``drape.fit`` takes them
+    (default: ``meta.humanoid.shells``). Rewrites the upper arms' rotation keys; returns
+    {clip: the largest swing in degrees} for the clips it changed."""
+    space = ArmSpace(root, shells)
+    if not space.ok:
+        return {}
+    actor, nodes, kept = space.actor, space.nodes, space.kept
+
+    def needed(clip, t: float) -> dict[str, np.ndarray]:
+        """Per side, the swing this frame needs as a rotation vector in the shoulder's frame."""
+        clip.apply(actor, t)
+        posed, obstacles = space.posed()
         centre = nodes["Chest" if "Chest" in nodes else "Hips"].world_transform()[:3, :3]
         out = {}
         for side, sign in SIDES.items():
@@ -485,7 +539,7 @@ def clear_arms(root: SceneNode, shells: list[dict] | None = None) -> dict:
                 at = times
             rotations = track.rotations.copy()
             for k, t in enumerate(track.times):
-                v = vectors[0] if static else np.array([np.interp(t, at, vectors[:, d]) for d in range(3)])
+                v = vectors[0] if static else np.array([_smooth_interp(t, at, vectors[:, d], clip.loop) for d in range(3)])
                 angle = float(np.linalg.norm(v))
                 if angle < 1e-6:
                     continue

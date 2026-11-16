@@ -1,0 +1,15 @@
+# Motions in the runtime (geogen.103.12): two people on rugs for motion files (assets/motions/) run
+# by the runtime's motion rig: `motion.start` through the control API, or `--motion` at launch.
+# Facing +Z, toward the default camera.
+name: motion_test
+size: [5, 2, 4]
+
+slots:
+  left:  { position: [-1.0, 0, 0] }
+  right: { position: [1.0, 0, 0] }
+
+place:
+  left_rug:  { asset: rug.yaml, slot: left }
+  right_rug: { asset: rug.yaml, slot: right }
+  ines:  { archetype: characters/archetypes/young_woman.yaml, seed: 1, slot: left }
+  tomas: { archetype: characters/archetypes/young_man.yaml, seed: 2, slot: right }

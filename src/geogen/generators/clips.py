@@ -33,6 +33,7 @@ from ..core.skeleton import Pose, Skeleton
 from ..core.skin import Clip, Track
 from ..core.transform import Transform, matrix_from_quat, quat_from_matrix, quats_from_matrices, slerp
 
+_IDENTITY = np.array([0.0, 0.0, 0.0, 1.0])
 WALK_DEFAULTS = {"speed": 1.2, "duty": 0.6, "knee_drop": 0.03, "bob": 0.026, "hip_sway": 0.02,
                  "pelvis_yaw": 6.0, "pelvis_list": 3.0, "chest_yaw": 8.0, "arm_swing": 16.0,
                  "lift": 0.07, "heel_raise": 34.0, "stance_width": 0.0, "fps": 30}
@@ -282,7 +283,9 @@ def transition_clip(skeleton: Skeleton, base: Pose, name: str = "transition", *,
     the clip) while the body turns about them (``turn``), the skeleton blends from one pose to
     the other (through ``via`` at ``via_at``, if given) and the torso leans ``lean`` degrees
     forward mid-way. ``plant`` keeps both feet where they stand, by leg IK, sliding only as
-    far as the two poses' foot positions differ; it also sets ``anchor_height`` from them.
+    far as the two poses' foot positions differ; it also sets ``anchor_height`` from them. A hand
+    that rests ``on:`` a bone in either pose (a palm on the thigh) is held to that bone as the
+    blend nears that pose, so it lands on the thigh as it moves rather than dipping through it.
 
     ``meta`` records ``from``, ``to`` and ``root`` (``times``, ``positions``, ``rotations``
     xyzw): the root's path in the frame of where the character ends up, which a runtime
@@ -323,6 +326,9 @@ def transition_clip(skeleton: Skeleton, base: Pose, name: str = "transition", *,
     hips = [(m @ fk["Hips"])[:3, 3] for m, fk in zip(places, fks)]
     ankles = {f: [(m @ fk[f])[:3, 3] for m, fk in zip(places, fks)] for f in feet}
     legs = {f: _Legs(s, f.removesuffix("Foot")) for f in feet}
+    # Hands resting on a bone in the pose at either end: (end, entry, which end).
+    resting = [(end, entry, i) for i, key in enumerate(("from", "to"))
+               for end, entry in Pose.ik_entries(poses[p[key]].get("ik")).items() if entry.get("on")]
 
     duration = float(p["duration"])
     frames = max(8, int(round(duration * p["fps"])))
@@ -336,7 +342,7 @@ def transition_clip(skeleton: Skeleton, base: Pose, name: str = "transition", *,
             pose = _blend(ends[0], via, _smooth(u / p["via_at"]))
         else:
             pose = _blend(via, ends[1], _smooth((u - p["via_at"]) / (1 - p["via_at"])))
-        lean = np.radians(p["lean"]) * np.sin(np.pi * u) / 2
+        lean = np.radians(p["lean"]) * np.sin(np.pi * u) ** 2 / 2       # at rest at both ends
         for bone in ("Spine", "Chest"):
             # A body-frame rotation on top of the blended one.
             q = pose.rotations.get(bone, np.array([0.0, 0.0, 0.0, 1.0]))
@@ -348,6 +354,21 @@ def transition_clip(skeleton: Skeleton, base: Pose, name: str = "transition", *,
         for foot, (a, b) in ankles.items():
             e = _smooth(u)
             legs[foot].solve(pose, turn.T @ ((1 - e) * a + e * b - position), turn.T, 0.0)
+        for end, entry, i in resting:
+            # Held to the bone as the blend nears that pose (all of the way there, none far off):
+            # the arm is solved toward a point that far from the hand to the bone's target (always
+            # in reach, so the elbow bends smoothly rather than snapping at full stretch) and
+            # blended in by rotation as far, so the elbow turns over to the pose's, not flips.
+            w = _smooth(u if i else 1.0 - u)
+            if w <= 0.0:
+                continue
+            target, turn = pose.on_bone(s, end, entry)
+            here = s.fk(pose)[end][:3, 3]
+            solved = pose.copy()
+            ik.solve_limb(s, solved, end, here + (target - here) * w, entry.get("pole"),
+                          turn if entry.get("flat") else None)
+            for bone in (*ik.LIMBS[end][:2], end):
+                pose.rotations[bone] = slerp(pose.rotations.get(bone, _IDENTITY), solved.rotations[bone], w)
         keyed.append(pose)
         positions.append(position)
         rotations.append(q if not rotations or np.dot(q, rotations[-1]) >= 0 else -q)
