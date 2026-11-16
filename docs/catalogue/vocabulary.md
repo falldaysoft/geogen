@@ -16,7 +16,7 @@
 | `attachments` | {name: {anchor, offset, facing, grip, hands}}: named points other assets attach to (`attach_to` + `at`); `grip` says how a body touches it (press, power, pinch, sit, look: motions, geogen/motion.py) |
 | `surfaces` | {name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` (`flip: true` faces the other way, e.g. a cutter's face seen from inside the room) |
 | `tags` | dotted gameplay tags (furniture.chair, door.exterior) |
-| `interactions` | {name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers) or drive a mechanism body's motor (a `drive` motion) |
+| `interactions` | {name: {targets, initial, states, motions, touch}}: state machines that move parts (doors, drawers) or drive a mechanism body's motor (a `drive` motion); `touch` names the attachment a body touches to work it (motions, geogen/motion.py) |
 | `state` | {name: {type: bool \| number \| text \| choice, default, choices}}: variables each placed instance holds (read as `thing.name` in conditions) |
 | `signals` | {name: {emit \| changed \| enter \| leave: <name>, of, to}}: named outputs wiring can listen to |
 | `inputs` | {name: {set: <state or interaction>, to, of}}: named things wiring can drive |
@@ -390,7 +390,7 @@ The humanoid skeleton: params, bone heads, landmarks and body channels.
 
 Use: `body: {skeleton: skeletons/humanoid.yaml}`
 
-Keys: `bones`, `channels`, `derived`, `group_scale`, `landmarks`, `name`, `params`, `profile`
+Keys: `bones`, `channels`, `derived`, `group_scale`, `hand_shapes`, `landmarks`, `name`, `params`, `profile`
 
 | File | What it is |
 | --- | --- |

@@ -1,5 +1,7 @@
 # Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4).
 # The button is an attachment with grip: press (a TV's power button, a light switch, a lift call).
+# The hand takes the press shape (skeleton hand_shapes) from the button's grip; bind the role to an
+# interaction (`tv.power`) and its `touch:` attachment is the button.
 # Only the hand is claimed: someone sitting or walking presses from where they are.
 kind: motion
 name: press

@@ -9,5 +9,5 @@ scene:
     tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
 actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: tv, grip: press, offset: [-0.15, 0, 0.36], facing: toward }
 script:
-  - { at: 0.3, start: press, button: tv }
+  - { at: 0.3, start: press, button: tv.power }    # the interaction: its touch: is the power button
 camera: { view: iso_back, frame: [tv, actor], margin: 0.15 }

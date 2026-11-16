@@ -19,7 +19,7 @@ transform and followed, so a moved chair or a swinging door is tracked. ``trace`
 beats, owners, emits and interruptions; ``samples`` the per-frame numbers review metrics use.
 
 Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``hips``/``while``/``layer``
-and shared-gaze time slicing (103.6), ``resume`` after an overlay (103.5), hand shapes,
+and shared-gaze time slicing (103.6), ``resume`` after an overlay (103.5),
 locomotion between places (the body slides onto ``root`` targets), and the Godot port (103.7).
 """
 
@@ -60,7 +60,9 @@ MOTION_KEYS = {
 BEAT_KEYS = {
     "pose": "a pose of the body (body.poses) laid over the channels the motion holds",
     "bones": "{Bone: [x, y, z] degrees}: body-frame rotations on top of the pose",
-    "ik": "{End: {target: <ref> | [x, y, z], offset, pole, rest}, mirror}: hands and feet onto points",
+    "ik": "{End: {target: <ref> | [x, y, z], offset, pole, rest, grip}, mirror}: hands and feet onto points; "
+          "a hand takes the shape `grip` names (a hand shape, or a role: its contact's grip), else its "
+          "target's grip when that is a hand shape (skeleton hand_shapes: press, power, pinch, ...)",
     "root": "{at: <ref>, offset: [x, y, z], facing: away | toward | <deg>, posture: <pose>}: where the body stands",
     "look": "<ref> | {at: <ref>, weight}: where the head turns",
     "plant": "feet: the feet stay where they are on the floor (legs by IK)",
@@ -165,15 +167,17 @@ class Target:
     node: SceneNode | None
     local: NDArray[np.float64]
     name: str = ""
+    grip: str | None = None              # how a body touches it (the attachment's or affordance's)
 
     def world(self) -> NDArray[np.float64]:
         return self.local if self.node is None else self.node.world_transform() @ self.local
 
 
 def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -> Target:
-    """Where a body touches ``node``: the attachment ``name``, else the first attachment with
-    ``grip``, else (for sit / lie / stand / use) the anchor of its first affordance of that type,
-    else the node's own origin."""
+    """Where a body touches ``node``: the attachment ``name`` (or, when ``name`` is one of its
+    interactions, the attachment that interaction's ``touch:`` names), else the first attachment
+    with ``grip``, else (for sit / lie / stand / use) the anchor of its first affordance of that
+    type, else the node's own origin."""
     def attached(key: str) -> Target:
         point = node.attachments[key]
         local = np.linalg.inv(node.world_transform()) @ node.get_attachment(key).to_matrix()
@@ -181,9 +185,12 @@ def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -
             # An attachment's default facing turns it toward the object's middle, which suits
             # something hung there but not a contact: a contact faces the way the object does.
             local[:3, :3] = np.eye(3)
-        return Target(node, local, f"{node.name}.{key}")
+        return Target(node, local, f"{node.name}.{key}", point.grip)
 
     if name is not None:
+        touch = next((i.touch for i in node.interactions if i.name == name and i.touch), None)
+        if name not in node.attachments and touch is not None:
+            return attached(touch)
         if name not in node.attachments:
             raise MotionError(f"'{node.name}' has no attachment '{name}' (it has {sorted(node.attachments)})")
         return attached(name)
@@ -195,7 +202,7 @@ def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -
             if a.get("type") == grip:
                 local = Transform(translation=np.asarray(a["position"], dtype=float),
                                   rotation=np.array([0.0, math.radians(a["yaw"]), 0.0])).to_matrix()
-                return Target(node, local, f"{node.name}[{grip}]")
+                return Target(node, local, f"{node.name}[{grip}]", grip)
     return Target(node, np.eye(4), node.name)
 
 
@@ -244,6 +251,7 @@ def _quat_inv(q: NDArray[np.float64]) -> NDArray[np.float64]:
 
 IDENTITY = np.array([0.0, 0.0, 0.0, 1.0])
 HANDS = {"hand": "RightHand", "right_hand": "RightHand", "left_hand": "LeftHand"}
+FINGERS = ("Thumb", "Index", "Middle", "Ring", "Little")
 
 
 # --- running motions -----------------------------------------------------------------------------
@@ -297,6 +305,8 @@ class MotionRig:
         self.time = 0.0
         self.joints = {n.name: n for n in actor.iter_nodes() if n.name in rig.bones}
         self.channel_of = {b: c for c, entry in rig.channels.items() for b in entry["bones"]}
+        self.fingers = {side: [b for b in rig.names if b.startswith(side) and any(f in b for f in FINGERS)]
+                        for side in ("Left", "Right")}
         self.poses = self._pose_library()
         self.root_poses = actor.meta.get("poses") or {}
         self.posture = "stand"
@@ -665,7 +675,34 @@ class MotionRig:
             rest = self.skeleton[bone].rotation
             pose.rotations[bone] = _quat_mul(pose.rotations.get(bone, IDENTITY),
                                              quat_from_matrix(rest.T @ extra @ rest))
+        for end, entry in self._ik_entries(run).items():
+            shape = self._hand_shape(run, end, entry)
+            if shape is None:
+                continue
+            side = end[: -len("Hand")]
+            for bone in self.fingers.get(side, ()):
+                # A shape poses every finger: one it doesn't name is straight.
+                pose.rotations[bone] = self.skeleton.body_quat(
+                    bone, Transform(rotation=np.radians(shape.get(bone, [0.0, 0.0, 0.0]))).to_matrix()[:3, :3])
         return pose
+
+    def _hand_shape(self, run: Run, end: str, entry: dict) -> dict[str, list[float]] | None:
+        """The hand shape a hand's ``ik`` entry takes (``grip:``, else its target's grip), or None
+        for an end that isn't a hand or a grip that isn't a shape (sit, look)."""
+        if end not in ("LeftHand", "RightHand"):
+            return None
+        shapes = self.skeleton.hand_shapes
+        grip = entry.get("grip")
+        if grip is None:
+            target = self._ref(run, entry.get("target"))
+            grip = target.grip if isinstance(target, Target) else None
+            return shapes.get(grip) if grip else None
+        if grip in shapes:
+            return shapes[grip]
+        if grip in run.bindings:
+            return shapes.get(run.bindings[grip].grip or "")
+        raise MotionError(f"motion '{run.name}' beat '{run.beat}': {end} grip '{grip}' is neither a hand shape "
+                          f"({sorted(shapes)}) nor one of its roles")
 
     def _ik_entries(self, run: Run) -> dict[str, dict]:
         from .core.skeleton import mirror_name

@@ -45,6 +45,7 @@ attachments:
 # Power toggle (no moving parts; runtimes react to the emitted events).
 interactions:
   power:
+    touch: power_button            # where a body works it (motions: press on tv.power)
     targets: [screen, body]
     initial: "off"
     states:

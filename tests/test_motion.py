@@ -87,3 +87,48 @@ def test_glance_shares_the_body_with_sitting(runs):
         assert s["owners"]["legs"] == "sit"
     assert all("gaze" in s["aims"] for s in during)
     assert r.metrics["foot_slide_mm"] < 10
+
+
+def test_hand_shapes_are_declared_for_the_left_hand_and_mirrored():
+    s = load_skeleton(roots.find("skeletons/humanoid.yaml", roots.CORE))
+    assert {"relaxed", "open", "flat", "press", "power", "pinch", "hook"} <= set(s.hand_shapes)
+    press = s.hand_shapes["press"]
+    assert press["RightMiddleProximal"] == [0.0, 0.0, -press["LeftMiddleProximal"][2]]
+    assert abs(press["LeftIndexProximal"][2]) < abs(press["LeftMiddleProximal"][2]), "the index points"
+
+
+def test_press_takes_the_button_grips_hand_shape_through_the_interactions_touch(runs):
+    import numpy as np
+
+    from geogen.core.transform import Transform
+
+    r = _run(runs, "press_tv")
+    assert r.rig.trace[0]["event"] == "start"
+    skeleton = r.rig.skeleton
+    want = skeleton.body_quat("RightMiddleProximal", Transform(rotation=np.radians(
+        skeleton.hand_shapes["press"]["RightMiddleProximal"])).to_matrix()[:3, :3])
+    pushing = [s for s in r.rig.samples if s["beats"].get("press") == "push"]
+    assert pushing
+    got = pushing[-1]["rotations"]["RightMiddleProximal"]
+    assert abs(float(np.dot(got, want))) > 0.999, "the middle finger is curled as press says"
+    assert r.metrics["contact_error_mm"] < 40, "tv.power reached the power button (its touch:)"
+
+
+def test_interaction_touch_must_name_an_attachment():
+    from geogen.layout.loader import LayoutLoader
+
+    text = """
+name: box
+size: [1, 1, 1]
+parts:
+  body: { primitive: cube, size: [1, 1, 1] }
+attachments:
+  knob: { anchor: top_center }
+interactions:
+  toggle:
+    touch: handle
+    targets: [body]
+    states: { a: { next: b }, b: { next: a } }
+"""
+    with pytest.raises(ValueError, match="touch 'handle'"):
+        LayoutLoader().load_string(text)

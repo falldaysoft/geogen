@@ -269,8 +269,9 @@ ASSET_KEYS: dict[str, str] = {
     "surfaces": "{name: {from: part.surface, cut, reveal, flip}}: 2D regions other assets are placed `on` "
                 "(`flip: true` faces the other way, e.g. a cutter's face seen from inside the room)",
     "tags": "dotted gameplay tags (furniture.chair, door.exterior)",
-    "interactions": "{name: {targets, initial, states, motions}}: state machines that move parts (doors, drawers) "
-                    "or drive a mechanism body's motor (a `drive` motion)",
+    "interactions": "{name: {targets, initial, states, motions, touch}}: state machines that move parts (doors, drawers) "
+                    "or drive a mechanism body's motor (a `drive` motion); `touch` names the attachment a body "
+                    "touches to work it (motions, geogen/motion.py)",
     "state": "{name: {type: bool | number | text | choice, default, choices}}: variables each placed instance "
              "holds (read as `thing.name` in conditions)",
     "signals": "{name: {emit | changed | enter | leave: <name>, of, to}}: named outputs wiring can listen to",

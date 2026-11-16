@@ -144,6 +144,9 @@ class Skeleton:
     # Channels (geogen.103): name -> {bones: [names], end?: IK end, shared?: bool}, the groups of
     # bones motions claim (geogen/motion.py). Patterns are expanded to this skeleton's bones.
     channels: dict[str, dict] = field(default_factory=dict)
+    # Hand shapes (geogen.103): name -> {bone: [x, y, z] body-frame degrees} for both hands, the
+    # finger poses a grip names (press, power, pinch, ...). Declared for the left hand, mirrored.
+    hand_shapes: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     # The rest as arrays (see ``_rig``): FK reads it thousands of times a body. Bones are fixed
     # once the skeleton is built.
     _rig_cache: _Rig | None = field(default=None, init=False, repr=False, compare=False)
@@ -440,7 +443,26 @@ def load_skeleton(path: str | Path = DEFAULT_SKELETON, params: dict[str, float] 
 
     landmarks = {name: _point(v, values) for name, v in (spec.get("landmarks") or {}).items()}
     return Skeleton(spec.get("name", path.stem), bones, landmarks, declared,
-                    _channels(spec.get("channels") or {}, list(bones), path))
+                    _channels(spec.get("channels") or {}, list(bones), path),
+                    _hand_shapes(spec.get("hand_shapes") or {}, bones, path))
+
+
+def _hand_shapes(spec: dict, bones: dict, path: Path) -> dict[str, dict[str, list[float]]]:
+    """A skeleton's ``hand_shapes:``: each names left-hand bones in body-frame degrees (as a
+    pose's ``bones:``); the right hand mirrors them (``[x, y, z]`` -> ``[x, -y, -z]``)."""
+    out = {}
+    for shape, entry in spec.items():
+        rotations: dict[str, list[float]] = {}
+        for bone, degrees in ((entry or {}).get("bones") or {}).items():
+            if bone not in bones or not bone.startswith("Left"):
+                raise ValueError(f"{path}: hand shape '{shape}': '{bone}' is not a left-hand bone of this skeleton")
+            x, y, z = (float(v) for v in degrees)
+            rotations[bone] = [x, y, z]
+            twin = mirror_name(bone)
+            if twin in bones:
+                rotations[twin] = [x, -y, -z]
+        out[shape] = rotations
+    return out
 
 
 def _channels(spec: dict, names: list[str], path: Path) -> dict[str, dict]:
