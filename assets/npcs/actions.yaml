@@ -42,6 +42,10 @@
 #                                in both hands; a smaller one in one hand)
 #   put_down: place              let the prop in hand go just above the action's place; where it
 #                                settles is up to the physics
+#   find: [sit, lie]             the nearest free seat or bed this NPC may use (in its home, not
+#                                another's, not reserved, nothing on it) becomes the anchor and
+#                                approach from here on; `pose: found` takes its pose (sit, lie).
+#                                Nothing free: the action carries on where it is
 #   (go_to also takes `subject`: beside the prop, and `place`: where to stand to put it down)
 #   if: <flag>                   on any step: skip it unless the NPC's flag is true
 #   look: subject | place | anchor | partner | none
@@ -243,6 +247,32 @@ actions:
       - wait: [0.4, 0.7]           # a glance at where it will go, before setting off
         look: place
       - go_to: place
+      - put_down: place
+
+  # A prop's own affordance (a book's): the subject is the prop and the place is where it lay
+  # when the NPC chose it, so it ends up back there (geogen.104).
+  read:                          # take the book to a seat or a bed, read it there, put it back
+    duration: [20, 45]
+    interruptible: true
+    steps:
+      - go_to: approach            # where it stands to reach the book (worked out when it chose it)
+        look: subject              # eyes on the one it is going for
+      - pick_up: subject
+      - find: [sit, lie]           # the nearest free seat or bed; none: it reads where it stands
+        prefer: { quality.soft: 0.25 }   # the armchair, the sofa or a bed over a kitchen chair
+        look: none
+      - go_to: approach
+      - face: anchor
+      - pose: found                # sit or lie, as what it found is for
+        at: anchor
+      - use: open                  # the book's own interaction: it opens in the hands
+      - wait: duration
+        look: subject              # held in front, reading
+      - use: closed
+      - pose: stand
+        at: approach
+      - go_to: place
+        look: place
       - put_down: place
 
   attend:                        # stand at a thing while it does its work (a microwave, a fridge, a shower)

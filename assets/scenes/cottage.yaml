@@ -109,6 +109,16 @@ place:
     on: house.floor
     at: { u: { abs: 3.7 }, v: { abs: 0.19 } }     # against the back wall, between its windows
 
+  # Loose books beside the fixed rows (geogen.104): physics props Ana and Bea take down, read
+  # and put back (book.yaml's `read`). Lived in only: the plain cottage's lone resident (the NPC
+  # tests' and nested cottages') keeps the one room as it was.
+  book_1: { asset: book.yaml, when: "{lived_in}", on: bookshelf.shelf_2, at: { u: { abs: 0.71 }, v: { abs: 0.15 } }, params: { colour: paint_terracotta } }
+  book_2: { asset: book.yaml, when: "{lived_in}", on: bookshelf.shelf_2, at: { u: { abs: 0.75 }, v: { abs: 0.15 } }, params: { colour: paint_sage, thickness: 0.026, height: 0.21 } }
+  book_3: { asset: book.yaml, when: "{lived_in}", on: bookshelf.shelf_2, at: { u: { abs: 0.79 }, v: { abs: 0.15 } }, params: { colour: paint_navy, thickness: 0.04 } }
+  book_4: { asset: book.yaml, when: "{lived_in}", on: bookshelf.shelf_2, at: { u: { abs: 0.835 }, v: { abs: 0.15 } }, params: { colour: paint_greige, height: 0.25 } }
+  book_5: { asset: book.yaml, when: "{lived_in}", on: bookshelf.shelf_1, at: { u: { abs: 0.06 }, v: { abs: 0.15 } }, params: { colour: paint_sage, thickness: 0.036 } }
+  book_6: { asset: book.yaml, when: "{lived_in}", on: bookshelf.shelf_1, at: { u: { abs: 0.105 }, v: { abs: 0.15 } }, params: { colour: paint_terracotta, height: 0.22 } }
+
   armchair:
     asset: armchair.yaml
     on: house.floor

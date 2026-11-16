@@ -67,7 +67,7 @@ place:
 | [bar_counter](assets/bar_counter.md) | A bar counter: a panelled front with a marble top, beer taps and a brass foot rail. | `width` |
 | [bar_stool](assets/bar_stool.md) | A bar stool: a turned chrome base and post, a footring, and a padded round seat 76 cm up. |  |
 | [bed](assets/bed.md) | Hotel double bed: upholstered headboard, base on short legs, mattress, duvet folded back at the head, and two pillows. | `width`, `length`, `headboard`, `leg`, `base`, `mattress`, `duvet_lift`, `hb_depth` |
-| [bookshelf](assets/bookshelf.md) | Open bookshelf: wooden carcass with back panel, four shelves and rows of books. | `width`, `height`, `depth`, `board`, `plinth` |
+| [bookshelf](assets/bookshelf.md) | Open bookshelf: wooden carcass with back panel, four shelves and rows of books (fixed: one extrusion a row; loose books are book.yaml placed on the shelf_N surfaces, room left beside the rows). | `width`, `height`, `depth`, `board`, `plinth` |
 | [booth](assets/booth.md) | A restaurant booth: a table between two high-backed upholstered benches. |  |
 | [chair](assets/chair.md) | Dining chair: filleted seat, turned front legs, back posts with rails and spindles, and side stretchers. | `width`, `height`, `depth`, `seat_height`, `seat_thickness`, `leg_width`, `leg_inset`, `at_table` |
 | [coffee_table](assets/coffee_table.md) | Low coffee table: rounded top on four square legs with a lower shelf. | `width`, `depth`, `height` |
@@ -393,41 +393,42 @@ place:
 
 <table>
 <tr>
+<td align="center"><a href="assets/book.md"><img src="img/book.png" width="150" alt="book"><br>book</a></td>
 <td align="center"><a href="assets/carrot_bunch.md"><img src="img/carrot_bunch.png" width="150" alt="carrot_bunch"><br>carrot_bunch</a></td>
 <td align="center"><a href="assets/conveyor.md"><img src="img/conveyor.png" width="150" alt="conveyor"><br>conveyor</a></td>
 <td align="center"><a href="assets/crisps_bag.md"><img src="img/crisps_bag.png" width="150" alt="crisps_bag"><br>crisps_bag</a></td>
 <td align="center"><a href="assets/farm_field.md"><img src="img/farm_field.png" width="150" alt="farm_field"><br>farm_field</a></td>
-<td align="center"><a href="assets/farm_plot.md"><img src="img/farm_plot.png" width="150" alt="farm_plot"><br>farm_plot</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/farm_plot.md"><img src="img/farm_plot.png" width="150" alt="farm_plot"><br>farm_plot</a></td>
 <td align="center"><a href="assets/farm_shed.md"><img src="img/farm_shed.png" width="150" alt="farm_shed"><br>farm_shed</a></td>
 <td align="center"><a href="assets/grocery_bag.md"><img src="img/grocery_bag.png" width="150" alt="grocery_bag"><br>grocery_bag</a></td>
 <td align="center"><a href="assets/jar.md"><img src="img/jar.png" width="150" alt="jar"><br>jar</a></td>
 <td align="center"><a href="assets/lever.md"><img src="img/lever.png" width="150" alt="lever"><br>lever</a></td>
-<td align="center"><a href="assets/lift_platform.md"><img src="img/lift_platform.png" width="150" alt="lift_platform"><br>lift_platform</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/lift_platform.md"><img src="img/lift_platform.png" width="150" alt="lift_platform"><br>lift_platform</a></td>
 <td align="center"><a href="assets/light_switch.md"><img src="img/light_switch.png" width="150" alt="light_switch"><br>light_switch</a></td>
 <td align="center"><a href="assets/loaf.md"><img src="img/loaf.png" width="150" alt="loaf"><br>loaf</a></td>
 <td align="center"><a href="assets/parcel.md"><img src="img/parcel.png" width="150" alt="parcel"><br>parcel</a></td>
 <td align="center"><a href="assets/produce_counter.md"><img src="img/produce_counter.png" width="150" alt="produce_counter"><br>produce_counter</a></td>
-<td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/pumpkin.md"><img src="img/pumpkin.png" width="150" alt="pumpkin"><br>pumpkin</a></td>
 <td align="center"><a href="assets/room_key.md"><img src="img/room_key.png" width="150" alt="room_key"><br>room_key</a></td>
 <td align="center"><a href="assets/rover.md"><img src="img/rover.png" width="150" alt="rover"><br>rover</a></td>
 <td align="center"><a href="assets/seed_packet.md"><img src="img/seed_packet.png" width="150" alt="seed_packet"><br>seed_packet</a></td>
 <td align="center"><a href="assets/seesaw.md"><img src="img/seesaw.png" width="150" alt="seesaw"><br>seesaw</a></td>
-<td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/snack_bar.md"><img src="img/snack_bar.png" width="150" alt="snack_bar"><br>snack_bar</a></td>
 <td align="center"><a href="assets/soda_can.md"><img src="img/soda_can.png" width="150" alt="soda_can"><br>soda_can</a></td>
 <td align="center"><a href="assets/spawner.md"><img src="img/spawner.png" width="150" alt="spawner"><br>spawner</a></td>
 <td align="center"><a href="assets/turret.md"><img src="img/turret.png" width="150" alt="turret"><br>turret</a></td>
 <td align="center"><a href="assets/vend_chute.md"><img src="img/vend_chute.png" width="150" alt="vend_chute"><br>vend_chute</a></td>
-<td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/vending_cabinet.md"><img src="img/vending_cabinet.png" width="150" alt="vending_cabinet"><br>vending_cabinet</a></td>
 <td align="center"><a href="assets/wheat_sheaf.md"><img src="img/wheat_sheaf.png" width="150" alt="wheat_sheaf"><br>wheat_sheaf</a></td>
 <td align="center"><a href="assets/wrapper.md"><img src="img/wrapper.png" width="150" alt="wrapper"><br>wrapper</a></td>
 </tr>
@@ -435,6 +436,7 @@ place:
 
 | Asset | What it is | Params |
 | --- | --- | --- |
+| [book](assets/book.md) | A book, standing upright as on a shelf: two boards and a spine round a block of pages. | `thickness`, `height`, `depth`, `colour`, `board` |
 | [carrot_bunch](assets/carrot_bunch.md) | A bunch of carrots: three orange roots side by side with their green tops. |  |
 | [conveyor](assets/conveyor.md) | A belt conveyor: a black rubber belt between steel rails on four legs. | `length`, `height`, `width`, `speed`, `end` |
 | [crisps_bag](assets/crisps_bag.md) | A bag of crisps. | `colour` |

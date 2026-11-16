@@ -956,6 +956,11 @@ func _collect_affordances(root: Node) -> void:
                 "advertises": a.get("advertises", {}), "tags": a.get("tags", []), "slots": int(a.get("slots", 1))}
             if a.has("duration"):
                 entry["duration"] = a["duration"]
+            var physics = geogen_extras(node).get("physics")
+            if physics is Dictionary and physics.get("carry", false):
+                # A carryable prop's own affordance (a book's `read`): it goes where the prop goes,
+                # NPCs offer it while the prop can be taken, and its action has the prop as subject.
+                entry["prop"] = uid_of(node)
             if a.has("depth"):
                 entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
             for key in ["requires", "takes", "gives"]:     # what doing it needs and does (geogen.101.1)

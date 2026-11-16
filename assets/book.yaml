@@ -1,0 +1,78 @@
+# A book, standing upright as on a shelf: two boards and a spine round a block of pages. A
+# carryable physics prop that NPCs read (geogen.104): its `read` affordance follows the book
+# wherever it lies; the action takes it, reads it and puts it back where it was
+# (npcs/actions.yaml `read`). Origin: bottom centre; the spine faces +Z (out of a shelf).
+
+name: book
+tags: [prop.book]
+origin: bottom_center
+size: ["{thickness}", "{height}", "{depth}"]
+bounds: geometry
+
+params:
+  thickness: { default: 0.032 }      # m across the spine
+  height:    { default: 0.235 }
+  depth:     { default: 0.16 }       # spine to fore-edge
+  colour:    { default: paint_navy, type: text }
+  board:     { default: 0.003 }      # m the boards are thick
+
+physics: { mass: 0.45, friction: 0.9, bounce: 0.02, carry: true }
+
+parts:
+  back_board: &board
+    primitive: cube
+    size: ["{board / thickness}", 1, 1]
+    anchor: bottom_center
+    offset: ["{(board / 2 - thickness / 2) / thickness}", 0, 0]
+    bevel: 0.001
+    material: "{colour}"
+  front_board:
+    <<: *board
+    offset: ["{(thickness / 2 - board / 2) / thickness}", 0, 0]
+  spine:
+    primitive: cube
+    size: ["{(thickness - 2 * board) / thickness}", 1, "{board / depth}"]
+    anchor: bottom_center
+    offset: [0, 0, "{(depth / 2 - board / 2) / depth}"]
+    bevel: 0
+    material: "{colour}"
+  # The pages in two halves (each goes with its board when the book opens), set in from the boards'
+  # edges at the top, bottom and fore-edge.
+  pages_back: &pages
+    primitive: cube
+    size: ["{(thickness / 2 - board) / thickness}", "{(height - 2 * board) / height}", "{(depth - 2 * board) / depth}"]
+    anchor: bottom_center
+    offset: ["{-(thickness / 2 - board) / 2 / thickness}", "{board / height}", "{-board / 2 / depth}"]
+    bevel: 0
+    material: paint_white
+    collider: none
+  pages_front:
+    <<: *pages
+    offset: ["{(thickness / 2 - board) / 2 / thickness}", "{board / height}", "{-board / 2 / depth}"]
+
+# Open and shut: each half (its board and its pages) swings a quarter turn about the spine, so open
+# it is a spread across the spine's plane, facing whoever holds it spine-out (npc read: use: open).
+interactions:
+  book:
+    targets: [spine]
+    initial: closed
+    duration: 0.8
+    states:
+      closed: { next: open }
+      open: { next: closed }
+    motions:
+      - parts: [back_board, pages_back]
+        rotate: y
+        pivot: [0, 0, "{depth / 2}"]
+        values: { closed: 0, open: 88 }
+      - parts: [front_board, pages_front]
+        rotate: y
+        pivot: [0, 0, "{depth / 2}"]
+        values: { closed: 0, open: -88 }
+
+# Reading: an NPC takes it to a seat or a bed, opens it, reads, shuts it and puts it back.
+affordances:
+  # (approach: in front of the spine as it stands on a shelf; the runtime works out where to stand
+  # from wherever the book is, `npc.gd` _prop_affordance.)
+  - { type: look, action: read, interaction: book, at: [0, "{height / 2}", "{depth / 2}"], facing: 180, approach: 0.5,
+      duration: [20, 45], advertises: { curiosity: 0.5 }, tags: [book] }

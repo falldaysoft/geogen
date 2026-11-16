@@ -5,7 +5,8 @@
 <img src="../img/bookshelf.png" width="256" alt="bookshelf"> <img src="../img/bookshelf_views.png" width="512" alt="bookshelf: front and side">
 
 Open bookshelf: wooden carcass with back panel, four shelves and rows of
-books. Origin bottom_center, open front faces +Z (stand it against a wall).
+books (fixed: one extrusion a row; loose books are book.yaml placed on the shelf_N surfaces,
+room left beside the rows). Origin bottom_center, open front faces +Z (stand it against a wall).
 
 ```yaml
 place:
@@ -35,6 +36,10 @@ place:
 | Surface | Size (u x v, m) | Facing |
 | --- | --- | --- |
 | `top` | 0.956 x 0.34 | +Y |
+| `shelf_0` | 0.956 x 0.33 | +Y |
+| `shelf_1` | 0.956 x 0.328 | +Y |
+| `shelf_2` | 0.956 x 0.328 | +Y |
+| `shelf_3` | 0.956 x 0.328 | +Y |
 
 ## Affordances
 

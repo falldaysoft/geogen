@@ -63,8 +63,15 @@ NPC_KIND = "npc"
 ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
-STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down"}
-STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look"}
+STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down", "find"}
+# `find: [sit, lie]`: the nearest free affordance of those types this NPC may use (in its home, not
+# another's, not reserved, nothing lying on it) becomes the action's anchor, approach and heading,
+# and `pose: found` takes its pose; finding none, the action goes on where it is (pose: found does
+# nothing). `prefer: {tag: factor}` scales how far a thing with that tag counts (0.4: as if 40% as
+# far); its own things count half as far and each distance gets a seeded +-40%. Reading a book in
+# the armchair or in bed (geogen.104).
+FIND_TYPES = ("sit", "lie")
+STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look", "prefer"}
 # `look:` on any step: where the head turns from that step on, until a later step says otherwise
 # or the action ends (the action's subject, place or anchor; none: nowhere in particular).
 LOOK_TARGETS = {"subject", "place", "anchor", "partner", "none"}
@@ -222,6 +229,12 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
         raise ValueError(f"{where}: go_to must be one of {sorted(GO_TO_TARGETS)}, got {arg!r}")
     if verb == "pick_up" and arg != "subject":
         raise ValueError(f"{where}: pick_up takes the action's subject (pick_up: subject), got {arg!r}")
+    if verb == "find" and not (isinstance(arg, list) and arg and set(arg) <= set(FIND_TYPES)):
+        raise ValueError(f"{where}: find takes a list of affordance types to look for, of {list(FIND_TYPES)}, got {arg!r}")
+    if "prefer" in step and (verb != "find" or not isinstance(step["prefer"], dict)
+                             or not all(isinstance(v, (int, float)) and v > 0 for v in step["prefer"].values())):
+        raise ValueError(f"{where}: prefer is a find step's {{tag: factor}} on how far a thing with that tag counts "
+                         f"(below 1: preferred), got {step.get('prefer')!r}")
     if verb == "put_down" and arg != "place":
         raise ValueError(f"{where}: put_down sets it at the action's place (put_down: place), got {arg!r}")
     if verb == "face" and arg not in FACE_TARGETS:

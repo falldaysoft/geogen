@@ -88,6 +88,7 @@ const SEEN_NEAR := 0.4            # m: a ray toward a thing may stop this short 
 const ON_SEAT := 0.35             # m (flat) from a seat's anchor a loose prop is on the seat
 const CARRY_HEIGHT := 0.6         # of the body's height: where the middle of a thing carried in both hands is
 const CARRY_BODY := 0.14          # m from the body's middle to the near side of such a thing
+const FIND_OWN := 0.5             # a `find` step's own things (its bed) count as this much as far
 const CARRY_PALM := 0.02          # m off its side the hand bone is (the palm is on it)
 const STAND_SLACK := 0.2          # m short of its reach a spot must be from where it will stand (walks end a little off)
 const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor it is baked from
@@ -131,6 +132,8 @@ var _stuck_at = null     # where the last wedged failure happened (see _unstick)
 var _wedged := false     # the step failing now made no progress at all (_walk), not e.g. a busy stair
 
 var _stack: Array[Dictionary] = []   # frames: {action, steps, index, started, ctx}
+var _find_seen := []            # the last `find` step's candidates [id, scored distance] (for the trace)
+var _carry_on := {}              # {uid, local}: a thing in both hands, held where it was against the chest when picked up
 var _option := {}
 var _recent := {}                    # option id -> clock when last finished
 var _retry_at := {}                  # failed option id -> clock when it may be tried again
@@ -372,6 +375,10 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
             continue
         if a.has("follow") and not a.get("boardable", true):
             continue    # a ride's seat, away from the ground or moving
+        if a.has("prop"):
+            a = _prop_affordance(a)
+            if a.is_empty():
+                continue    # someone has it, or it is nowhere this body reaches
         if not only.is_empty() and not only.any(func(t): return t in a.get("tags", [])):
             continue
         if not told and clock < float(_retry_at.get(a["id"], -1.0)):
@@ -809,6 +816,11 @@ func _start(ranked: Array[Dictionary]) -> void:
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
             "held": _held_on(a), "ride": a if a.has("follow") else {}}
+        if a.has("prop"):
+            # The prop's own affordance: it is what the action takes, and where it lies is where
+            # `put_down: place` puts it back.
+            ctx["subject"] = a["prop"]
+            ctx["place"] = _where_it_lies(a["prop"])
     else:
         ctx = {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position,
             "duration": _option["activity"].get("duration"), "visit": _option["activity"].get("visit", "")}
@@ -987,6 +999,8 @@ func _finish_option(ok: bool, reason := "") -> void:
     _fill = 0.0
     _fill_total = 0.0
     world.npc_release(id, self)
+    if _option.has("found"):
+        world.npc_release(str(_option["found"]), self)
     if _option.has("want"):
         GeogenWants.finish(self, _option, ok)
     if _option.has("person"):
@@ -1372,7 +1386,9 @@ func _fail(reason: String) -> void:
     _playing = false
     _looping = false
     if _pose != "stand":
-        _set_pose("stand", {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw())}, "approach")
+        # (Up from the seat where it is: the stand pose finds the floor beside it. It needs the
+        # `approach` it stands at; without one the failure left the body seated, walking on.)
+        _set_pose("stand", {"anchor": global_position, "approach": global_position, "yaw_deg": rad_to_deg(_yaw())}, "approach")
     velocity = Vector3.ZERO
     _unstick(_wedged)
     _wedged = false
@@ -1432,6 +1448,26 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         else:
             dir = Basis(Vector3.UP, deg_to_rad(float(ctx["yaw_deg"]))) * Vector3.BACK
         _yaw_goal = atan2(dir.x, dir.z)
+        return ""
+    if step.has("find"):
+        var found := _find_rest(step["find"], step.get("prefer", {}))
+        if found.is_empty():
+            ctx["found"] = ""             # nowhere free: it carries on where it is
+            return ""
+        world.npc_reserve(found["id"], self)
+        _option["found"] = found["id"]
+        ctx["found"] = found["type"]
+        ctx["anchor"] = found["position"]
+        ctx["approach"] = found["approach"]
+        ctx["yaw_deg"] = found["npc_yaw_deg"]
+        ctx["depth"] = found.get("depth")
+        _trace({"event": "found", "found": found["id"], "pose": found["type"], "among": _find_seen})
+        return ""
+    if step.has("pose") and step["pose"] == "found":
+        if str(ctx.get("found", "")) == "":
+            _timer = POSE_SECONDS         # nothing found: nothing to sit or lie on
+            return ""
+        _set_pose(str(ctx["found"]), ctx, str(step.get("at", "anchor")))
         return ""
     if step.has("pose"):
         if not definition.get("body", {}).get("poses", {}).has(step["pose"]):
@@ -1589,6 +1625,8 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         stats["aways"] = int(stats.get("aways", 0)) + 1
         _trace({"event": "away", "pos": _v(global_position)})
         return "done"
+    if step.has("find"):
+        return "done"
     if step.has("pick_up") or step.has("put_down"):
         var diff := wrapf(_yaw_goal - _yaw(), -PI, PI)
         rotation.y += clampf(diff, -TAU * delta, TAU * delta)
@@ -1613,6 +1651,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         var size: Vector3 = world.props.box_of(held_uid)["size"]
         var origin: Vector3 = place["position"] + Vector3.UP * (size.y / 2.0 + PUT_GAP) - basis * centre
         world.props.release(held_uid, Transform3D(basis, origin))
+        _carry_on = {}
         stats["put_down"] = int(stats.get("put_down", 0)) + 1
         _trace({"event": "put_down", "prop": held_uid, "at": _v(place["position"])})
         return "done"
@@ -1731,6 +1770,8 @@ func _drop_everything() -> void:
     _fill_total = 0.0
     if not _option.is_empty():
         world.npc_release(str(_option.get("id", "")), self)
+        if _option.has("found"):
+            world.npc_release(str(_option["found"]), self)
         if _option.has("want"):
             GeogenWants.finish(self, _option, false)
         _option = {}
@@ -1796,7 +1837,12 @@ func _target(kind: String, ctx: Dictionary):
         "subject":
             return _stand_by_prop(str(ctx.get("subject", "")))
         "place":
-            return (ctx.get("place", {}) as Dictionary).get("approach")
+            var place: Dictionary = ctx.get("place", {})
+            if place.get("approach") != null:
+                return place["approach"]
+            # (A prop's own place, where it lay: where to stand to reach it is worked out on the way
+            # back, from wherever the NPC is then.)
+            return stand_for(place["position"]) if place.has("position") else null
         "approach":
             return ctx["approach"]
         "anchor":
@@ -1836,6 +1882,7 @@ func _target(kind: String, ctx: Dictionary):
 
 ## Drop the prop in hand, if any, where it is.
 func _let_go() -> void:
+    _carry_on = {}
     if world != null and world.props != null:
         world.props.release(world.props.taken_by(self))
 
@@ -1881,6 +1928,14 @@ func _prop_point(uid: String) -> Transform3D:
         var depth: float = (world.props.box_of(uid)["size"] as Vector3).z
         at = global_position + Vector3.UP * (float(definition.get("height", 1.7)) * CARRY_HEIGHT) \
             + basis * Vector3(0, 0, CARRY_BODY + depth / 2.0)
+        # Held against the body, not a height over the feet: recorded in the chest's frame when it
+        # was taken (standing), it goes with the chest onto a lap or over a chest lying down.
+        var chest = _chest()
+        if chest != null:
+            if _carry_on.get("uid", "") != uid:
+                _carry_on = {"uid": uid, "local": (chest as Transform3D).affine_inverse() * Transform3D(basis, at)}
+            var held: Transform3D = (chest as Transform3D) * (_carry_on["local"] as Transform3D)
+            return Transform3D(held.basis, held.origin - held.basis * (world.props.box_of(uid)["center"] as Vector3))
     elif _skeleton != null:
         var bone := _skeleton.find_bone("RightHand")
         if bone >= 0:
@@ -1888,9 +1943,91 @@ func _prop_point(uid: String) -> Transform3D:
     return Transform3D(basis, at - basis * (world.props.box_of(uid)["center"] as Vector3))
 
 
+## The chest bone's world transform as animated (null for a body without one).
+func _chest():
+    if _skeleton == null:
+        return null
+    var bone := _skeleton.find_bone("Chest")
+    if bone < 0:
+        return null
+    var t := _skeleton.global_transform * _skeleton.get_bone_global_pose(bone)
+    return Transform3D(t.basis.orthonormalized(), t.origin)
+
+
+## A free affordance of these `types` (sit, lie) this NPC may use for a `find` step: one whose
+## action poses the body at it, in its home, on its floor, not another's, not reserved past its
+## slots, with nothing lying on it; {} when there is none. The nearest, with what it owns (its bed)
+## counting as half as far, a thing with a `prefer` tag that share as far, and a seeded +-40% on
+## each distance.
+func _find_rest(types: Array, prefer: Dictionary = {}) -> Dictionary:
+    var actions: Dictionary = definition.get("actions", {})
+    var margin := float(definition.get("home_margin", 1.0))
+    var best := {}
+    var best_d := INF
+    var seen := []
+    for a in world.affordances:
+        if not str(a.get("type", "")) in types or a.has("prop") or a.has("follow"):
+            continue
+        if not is_instance_valid(a.get("node")) or not actions.has(a.get("action", "")):
+            continue
+        if not _poses_at_anchor(actions[a["action"]]):
+            continue
+        var uid := WorldLoader.uid_of(a["node"])
+        if _owned_by_another(uid) or world.npc_reserved(a["id"], self) >= int(a.get("slots", 1)):
+            continue
+        if home_distance(a["approach"]) > margin or absf((a["approach"] as Vector3).y - home_y) > FLOOR_TOLERANCE:
+            continue
+        if _something_on(a["position"], uid):
+            continue
+        var d := global_position.distance_to(a["approach"]) * rng.randf_range(0.6, 1.4)
+        if _under(uid, definition.get("owns", [])):
+            d *= FIND_OWN
+        var tags: Array = WorldLoader.geogen_extras(a["node"]).get("tags", [])
+        for tag in prefer:
+            if tag in tags:
+                d *= float(prefer[tag])
+        seen.append([a["id"], snappedf(d, 0.01)])
+        if d < best_d:
+            best_d = d
+            best = a
+    _find_seen = seen
+    return best
+
+
 func _prop_centre(uid: String) -> Vector3:
     var body: Node3D = world.props.props[uid]["body"]
     return body.global_transform * (world.props.box_of(uid)["center"] as Vector3)
+
+
+## A carryable prop's affordance as it is now (`a` is where the prop started): at the prop, with
+## the approach where this body stands to reach it; {} while the prop can't be taken (in someone's
+## hands, gone) or is out of this body's reach.
+func _prop_affordance(a: Dictionary) -> Dictionary:
+    var uid: String = a["prop"]
+    if not world.props.can_take(uid):
+        return {}
+    var at := _prop_centre(uid)
+    var stand = stand_for(at)
+    if stand == null:
+        return {}
+    var now := a.duplicate()
+    now["position"] = at
+    now["approach"] = stand
+    var toward := NpcGeometry.flat(at - (stand as Vector3))
+    if toward.length() > 1e-3:
+        now["npc_yaw_deg"] = rad_to_deg(atan2(toward.x, toward.z))
+    return now
+
+
+## Where prop ``uid`` lies, as a `place` for `put_down`: the middle of its box's underside and its
+## heading, so putting it down there puts it back as it was (a book upright in its gap on the shelf).
+func _where_it_lies(uid: String) -> Dictionary:
+    var body: Node3D = world.props.props[uid]["body"]
+    var box := world.props.box_of(uid)
+    var xform := body.global_transform
+    var under: Vector3 = xform * ((box["center"] as Vector3) - Vector3.UP * (box["size"] as Vector3).y / 2.0)
+    var forward := xform.basis * Vector3.BACK
+    return {"position": under, "yaw": atan2(forward.x, forward.z)}
 
 
 ## Where to stand to pick prop ``uid`` up: on the navmesh, `reach.stand` m short of it on this
