@@ -51,6 +51,9 @@ scenes:
   farm:
     group: showcase
     description: A small farm - buy seeds, plant them, sleep while they grow, harvest and sell the crop
+  motion_gallery:
+    group: showcase
+    description: Every motion file on five people - pick one in the gallery (M) and they play it, all at once or one by one
 
   hotel:
     group: test
@@ -58,9 +61,6 @@ scenes:
   plot_test:
     group: test
     description: A farm plot at every stage, an empty one to plant and a free seed machine
-  motion_gallery:
-    group: test
-    description: Every motion file on five people - pick one in the gallery (M) and they play it
   motion_test:
     group: test
     description: Motion files run by the runtime's motion rig - two people on rugs (motion.start squat, jumping_jack)
