@@ -260,23 +260,59 @@ An NPC interaction animation: beats (poses, IK onto object contacts, gaze, root)
 
 Use: `MotionRig(actor, scene).start('sit', seat='chair'); review: python -m geogen.motion_review`
 
-Keys: `beats`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `posture`, `priority`, `roles`, `while`
+Keys: `beats`, `category`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `posture`, `priority`, `props`, `roles`, `summary`, `while`
 
 | File | What it is |
 | --- | --- |
+| [motions/angry.yaml](../../assets/motions/angry.yaml) | Angry (geogen.103.17): fists clenched at the sides, leaning in, then the right fist raised and shaken `shakes` times. |
+| [motions/arms_crossed.yaml](../../assets/motions/arms_crossed.yaml) | Arms crossed (geogen.103.17): an idle. |
+| [motions/beckon.yaml](../../assets/motions/beckon.yaml) | Beckon (geogen.103.17): "come here". |
 | [motions/bow.yaml](../../assets/motions/bow.yaml) | A bow with the right hand on the chest (geogen.103.5). |
 | [motions/carry.yaml](../../assets/motions/carry.yaml) | Hold a taken thing where it is carried (geogen.103.4): the hand stays put in front of the hip, shaped by the thing's grip, whenever nothing else uses the hand (it only prefers it: start it with take and it holds on from the lift). |
+| [motions/celebrate_jump.yaml](../../assets/motions/celebrate_jump.yaml) | Celebrate (geogen.103.17): a crouch, then a jump with both fists flung up, and a landing that bends the knees. |
+| [motions/check_watch.yaml](../../assets/motions/check_watch.yaml) | Check the time (geogen.103.17): an idle. |
+| [motions/cheer.yaml](../../assets/motions/cheer.yaml) | Cheer (geogen.103.17): both fists punched up overhead, pumped `pumps` times, with a bounce at the knees. |
+| [motions/clap.yaml](../../assets/motions/clap.yaml) | Clap (geogen.103.17): both hands up in front of the chest, palms facing, meeting `claps` times, then down. |
+| [motions/cry.yaml](../../assets/motions/cry.yaml) | Cry (geogen.103.17): the head drops into both hands, the shoulders heaving, `sobs` times; then the hands come down. |
+| [motions/dance_arms_up.yaml](../../assets/motions/dance_arms_up.yaml) | Dance: hands up (geogen.103.17): a loop. |
+| [motions/dance_bounce.yaml](../../assets/motions/dance_bounce.yaml) | Dance: bounce (geogen.103.17): a loop. |
+| [motions/dance_sway.yaml](../../assets/motions/dance_sway.yaml) | Dance: sway (geogen.103.17): a loop. |
+| [motions/drink.yaml](../../assets/motions/drink.yaml) | Drink (geogen.103.17): take a mug from the table in front by its handle, bring it to the mouth, tip it for a sip or two, and put it back where it stood. |
 | [motions/eat.yaml](../../assets/motions/eat.yaml) | Eat from a plate, seated (geogen.103.5; the design's interruption example): bring food from the plate to the mouth (the hand pinched round an unseen fork), `bites` times. |
+| [motions/facepalm.yaml](../../assets/motions/facepalm.yaml) | Facepalm (geogen.103.17): the head drops into the right palm, which covers the eyes; a slow shake of the head in it, then the hand goes down. |
+| [motions/fist_pump.yaml](../../assets/motions/fist_pump.yaml) | Fist pump (geogen.103.17): "yes!" The right fist comes up beside the shoulder and is pulled down hard to the hip, with a dip at the knees. |
 | [motions/glance.yaml](../../assets/motions/glance.yaml) | Look at something for a while, then look back (geogen.103.4). |
+| [motions/hands_behind_back.yaml](../../assets/motions/hands_behind_back.yaml) | Hands behind the back (geogen.103.17): an idle, standing at ease. |
+| [motions/hands_on_hips.yaml](../../assets/motions/hands_on_hips.yaml) | Hands on the hips (geogen.103.17): an idle. |
+| [motions/inspect.yaml](../../assets/motions/inspect.yaml) | Inspect (geogen.103.17): take a thing from the table in front, hold it up and turn it over in the hand, looking at it, then put it back where it stood. |
 | [motions/jumping_jack.yaml](../../assets/motions/jumping_jack.yaml) | Jumping jacks (geogen.103.12): hop out to a star, arms overhead, and back, `reps` times. |
+| [motions/laugh.yaml](../../assets/motions/laugh.yaml) | Laugh (geogen.103.17): the head goes back and the chest shakes with it, a hand on the belly,. |
+| [motions/look_around.yaml](../../assets/motions/look_around.yaml) | Look around (geogen.103.17): an idle. |
+| [motions/nod.yaml](../../assets/motions/nod.yaml) | Nod yes (geogen.103.17): the head dips and comes back up `nods` times. |
+| [motions/point.yaml](../../assets/motions/point.yaml) | Point (geogen.103.17): the right arm out ahead, index finger pointing, the head turned along it; hold, then down. |
 | [motions/press.yaml](../../assets/motions/press.yaml) | Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4). |
+| [motions/rub_hands.yaml](../../assets/motions/rub_hands.yaml) | Rub the hands (geogen.103.17): an idle fidget. |
+| [motions/salute.yaml](../../assets/motions/salute.yaml) | Salute (geogen.103.17): the right hand comes up flat, fingertips to the brow; hold, then it snaps down. |
+| [motions/scratch_head.yaml](../../assets/motions/scratch_head.yaml) | Scratch the head (geogen.103.17): an idle, a puzzled moment. |
 | [motions/set_down.yaml](../../assets/motions/set_down.yaml) | Put a carried thing down (geogen.103.4): take's mirror. |
+| [motions/shake_head.yaml](../../assets/motions/shake_head.yaml) | Shake the head no (geogen.103.17): side to side `shakes` times. |
+| [motions/shift_weight.yaml](../../assets/motions/shift_weight.yaml) | Shift the weight from foot to foot (geogen.103.17): an idle. |
+| [motions/shiver.yaml](../../assets/motions/shiver.yaml) | Shiver (geogen.103.17): cold. |
+| [motions/shrug.yaml](../../assets/motions/shrug.yaml) | Shrug (geogen.103.17): shoulders up, forearms out to the sides with the palms up, the head tipped; hold a moment, then let it all drop. |
+| [motions/sigh.yaml](../../assets/motions/sigh.yaml) | Sigh (geogen.103.17): an idle. |
 | [motions/sit.yaml](../../assets/motions/sit.yaml) | Sit on a seat and get up again (geogen.103; the design's worked example 1). |
+| [motions/sit_ground.yaml](../../assets/motions/sit_ground.yaml) | Sit on the ground (geogen.103.17): down onto the floor with the knees up and the arms round them, a while there, and back up. |
 | [motions/squat.yaml](../../assets/motions/squat.yaml) | A squat (geogen.103.12): sit back and down over planted feet with the arms reaching forward, then stand, `reps` times. |
 | [motions/stagger.yaml](../../assets/motions/stagger.yaml) | A stagger (geogen.103.5): the reaction a break inertializes into (a shove, a near fall). |
+| [motions/stretch.yaml](../../assets/motions/stretch.yaml) | Stretch (geogen.103.17): an idle. |
+| [motions/surprised.yaml](../../assets/motions/surprised.yaml) | Surprised (geogen.103.17): a start: the hands fly up in front of the chest, palms out, the body rocking back; then it relaxes. |
 | [motions/take.yaml](../../assets/motions/take.yaml) | Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the hand open, close the hand on the grip the thing offers (a plate's rim: pinch), lift it to where it is carried. |
+| [motions/tap_foot.yaml](../../assets/motions/tap_foot.yaml) | Tap the foot (geogen.103.17): an idle, impatient. |
+| [motions/think.yaml](../../assets/motions/think.yaml) | Think (geogen.103.17): the right hand to the chin, the left forearm across the waist under the right elbow, the head tipped and the eyes up; hold, then both arms down. |
+| [motions/thumbs_up.yaml](../../assets/motions/thumbs_up.yaml) | Thumbs up (geogen.103.17): the right fist comes out in front of the chest, thumb up, with a little nod; hold, then down. |
 | [motions/watch.yaml](../../assets/motions/watch.yaml) | Watch something for a while (geogen.103.4): the gaze on it and nothing else. |
 | [motions/wave.yaml](../../assets/motions/wave.yaml) | Wave hello with the right hand (geogen.103.5): an overlay. |
+| [motions/yawn.yaml](../../assets/motions/yawn.yaml) | Yawn (geogen.103.17): an idle. |
 
 ### motion_scenario
 
@@ -289,9 +325,13 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `scr
 | File | What it is |
 | --- | --- |
 | [motions/scenarios/bow_wave.yaml](../../assets/motions/scenarios/bow_wave.yaml) | A bow; a wave borrows the right hand from it (geogen.103.5): the bow pauses, and picks up from. |
+| [motions/scenarios/drink.yaml](../../assets/motions/scenarios/drink.yaml) | Take a mug from the table in front, drink, put it back (geogen.103.17): the cup sits near the table's edge at the right hand, its handle turned to it. |
 | [motions/scenarios/eat_glance.yaml](../../assets/motions/scenarios/eat_glance.yaml) | Eating at the table when something falls in the hall, look only (the design's `thud: {look: 2}`). |
 | [motions/scenarios/eat_interrupted.yaml](../../assets/motions/scenarios/eat_interrupted.yaml) | Eating at the table when something falls in the hall, with an interrupt (the design's. |
 | [motions/scenarios/eat_wave.yaml](../../assets/motions/scenarios/eat_wave.yaml) | A wave mid-meal (geogen.103.5): the wave borrows the right hand, eat waits where it was, and picks up when the hand comes back (chewing: chew on, its `resume`), not from the first bite. |
+| [motions/scenarios/emotes.yaml](../../assets/motions/scenarios/emotes.yaml) | Emotes in a row (geogen.103.17): a clap with a nod over it (the nod only takes the gaze), a cheer, a shrug, a thumbs up, and down onto the floor and back up. |
+| [motions/scenarios/idles.yaml](../../assets/motions/scenarios/idles.yaml) | Idles together (geogen.103.17): arms crossed while looking around (the look only takes the gaze), then a foot tapping with the hands on the hips, then the weight shifting. |
+| [motions/scenarios/inspect.yaml](../../assets/motions/scenarios/inspect.yaml) | Pick up a mug from the table in front, look it over, put it back (geogen.103.17). |
 | [motions/scenarios/jumping_jacks.yaml](../../assets/motions/scenarios/jumping_jacks.yaml) | Jumping jacks on a rug (geogen.103.12): a body-only motion, four repetitions. |
 | [motions/scenarios/press_tv.yaml](../../assets/motions/scenarios/press_tv.yaml) | Stand beside a TV on a table and press its power button (bending to reach it, the head clear of the screen). |
 | [motions/scenarios/sit_interrupted.yaml](../../assets/motions/scenarios/sit_interrupted.yaml) | Sit down; get interrupted while seated (the seated beat yields: she rises through `rise`). |

@@ -1364,7 +1364,10 @@ plays it on every person in the scene with a motion rig, or on the one picked al
 (Left / Right); L loops it. Motions that name things in the world (drink, sit, take: `body_only`
 false) are listed greyed until the runtime rig binds roles (geogen.103.7). The scene
 `motion_gallery` (five people of different builds on a stage) opens it by itself. Modal like the
-quest log. `hud.gallery {open?, select?, performer?, loop?, play?}` returns `{open, selected,
+quest log.
+
+![The motion gallery: everyone cheering](../../docs/images/motion_gallery.jpg)
+ `hud.gallery {open?, select?, performer?, loop?, play?}` returns `{open, selected,
 playing, loop, performer, performers, motions: [{name, category, plays}], rect}`. Tests:
 `tests/test_motion_godot.py`.
 

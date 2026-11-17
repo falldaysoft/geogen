@@ -19,8 +19,7 @@ beats:
       LeftHand: { target: ["{shoulder_width * 0.85}", "{height * 0.6}", "{height * 0.1}"], pole: [0.2, -1, -0.3], grip: open,
                   fingers: [0.6, 0.1, 1], palm: [0, 1, 0] }
       mirror: true
-    over: 0.45
-    ease: settle
+    over: 0.6
     after: "{hold}"
     interrupt: yield
     exit: down

@@ -117,7 +117,8 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
     return {"kind": "motion_scenario", "name": f"{spec['name']}__{archetype}" if archetype != DEMO_ARCHETYPE else spec["name"],
             "description": spec.get("summary", ""), "scene": {"place": place}, "actor": actor,
             "script": [start], "duration": 40.0,
-            "camera": {"view": "iso", "frame": ["table", "actor"] if props else ["actor"], "margin": 0.25}}
+            "camera": {"view": "iso_back" if props else "iso", "frame": ["table", "actor"] if props else ["actor"],
+                       "margin": 0.25}}
 
 
 def _scene(spec, assets_dir: Path) -> SceneNode:

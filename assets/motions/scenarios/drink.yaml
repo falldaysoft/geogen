@@ -9,4 +9,4 @@ scene:
 actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: table, offset: [0, 0, 0.55], facing: toward }
 script:
   - { at: 0.2, start: drink, cup: cup }
-camera: { view: iso, frame: [table, actor], margin: 0.15 }
+camera: { view: iso_back, frame: [table, actor], margin: 0.15 }

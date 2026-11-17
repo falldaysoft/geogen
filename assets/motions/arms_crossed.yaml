@@ -12,9 +12,9 @@ initial: fold
 beats:
   fold:
     ik:
-      LeftHand: { target: [-0.1, "{height * 0.665}", "{height * 0.1}"], pole: [0.3, -1, 0.3], grip: relaxed,
+      LeftHand: { target: [-0.1, "{height * 0.665}", "{height * 0.12}"], pole: [1, -0.6, -0.2], grip: relaxed,
                   fingers: [-0.4, 0, -1], palm: [-1, 0, 0] }
-      RightHand: { target: [0.1, "{height * 0.64}", "{height * 0.08}"], pole: [-0.3, -1, 0.3], grip: relaxed,
+      RightHand: { target: [0.1, "{height * 0.64}", "{height * 0.1}"], pole: [-1, -0.6, -0.2], grip: relaxed,
                    fingers: [0.4, 0, -1], palm: [1, 0, 0] }
     over: 0.9
     after: duration
