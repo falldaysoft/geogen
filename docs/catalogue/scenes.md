@@ -553,9 +553,9 @@ right half of a wide stage centred on the origin, so the camera's middle leaves 
 list on the left of the screen. A showcase: the hub's Motions portal lands in front of the row
 (`from_hub`, looking at them); M or Esc closes the list to walk to the portal back.
 
-**Places**: `stage: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ruth: {archetype: characters/archetypes/older_woman.yaml}`; `walter: {archetype: characters/archetypes/older_man.yaml}`; `priya: {archetype: characters/archetypes/office_worker.yaml}`; `hub_portal: {asset: portal.yaml}`
+**Places**: `stage: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ruth: {archetype: characters/archetypes/older_woman.yaml}`; `walter: {archetype: characters/archetypes/older_man.yaml}`; `priya: {archetype: characters/archetypes/office_worker.yaml}`; `ines_table: {asset: table.yaml}`; `ines_mug: {asset: mug.yaml}`; `ines_plate: {asset: plate.yaml}`; `tomas_table: {asset: table.yaml}`; `tomas_mug: {asset: mug.yaml}`; `tomas_plate: {asset: plate.yaml}`; `ruth_table: {asset: table.yaml}`; `ruth_mug: {asset: mug.yaml}`; `ruth_plate: {asset: plate.yaml}`; `walter_table: {asset: table.yaml}`; `walter_mug: {asset: mug.yaml}`; `walter_plate: {asset: plate.yaml}`; `priya_table: {asset: table.yaml}`; `priya_mug: {asset: mug.yaml}`; `priya_plate: {asset: plate.yaml}`; `hub_portal: {asset: portal.yaml}`
 
-**Slots**: a, b, c, d, e, hub_portal, stage
+**Slots**: a, a_table, b, b_table, c, c_table, d, d_table, e, e_table, hub_portal, stage
 
 **Spawns**: from_hub
 

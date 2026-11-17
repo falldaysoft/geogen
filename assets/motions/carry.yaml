@@ -9,6 +9,12 @@ category: action
 summary: Hold a taken thing in front of the hip.
 roles:
   item: { grip: any }
+props:
+  item: { asset: plate.yaml, at: { u: 0.83, v: 0.7 } }   # what a demonstration puts on the table in front
+demo:                                     # how it is shown: taken, carried a moment, put back where it stood
+  - { at: 0, start: take, item: item }
+  - { at: 0, start: carry, item: item }
+  - { at: 3.0, start: set_down, item: item, place: item@start }
 params:
   duration: { default: 600 }      # s it holds on for when nothing lets go of the thing
   carry_x: { default: -0.45 }     # as take's: in front of the right hip, waist high

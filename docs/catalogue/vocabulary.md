@@ -260,7 +260,7 @@ An NPC interaction animation: beats (poses, IK onto object contacts, gaze, root)
 
 Use: `MotionRig(actor, scene).start('sit', seat='chair'); review: python -m geogen.motion_review`
 
-Keys: `beats`, `category`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `posture`, `priority`, `props`, `roles`, `summary`, `while`
+Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `posture`, `priority`, `props`, `roles`, `summary`, `while`
 
 | File | What it is |
 | --- | --- |

@@ -18,6 +18,13 @@ slots:
   c: { position: [2.2, 0, 0] }
   d: { position: [3.2, 0, 0] }
   e: { position: [4.2, 0, 0] }
+  # A small table in front of each person, for motions that take things (geogen.103.7): shown
+  # only while one plays (hud_motion_gallery.gd), with what those motions stage on it.
+  a_table: { position: [0.2, 0, 0.55], facing: south }
+  b_table: { position: [1.2, 0, 0.55], facing: south }
+  c_table: { position: [2.2, 0, 0.55], facing: south }
+  d_table: { position: [3.2, 0, 0.55], facing: south }
+  e_table: { position: [4.2, 0, 0.55], facing: south }
   hub_portal: { position: [-2.8, 0.05, 3.2], facing: east }
 
 place:
@@ -27,6 +34,23 @@ place:
   ruth:   { archetype: characters/archetypes/older_woman.yaml, seed: 3, slot: c }
   walter: { archetype: characters/archetypes/older_man.yaml, seed: 4, slot: d }
   priya:  { archetype: characters/archetypes/office_worker.yaml, seed: 5, slot: e }
+  # Each person's table and the things on it, named <person>_table and <person>_<asset> (a
+  # motion's `props` say which asset each of its roles is; drink and inspect: mug, take: plate).
+  ines_table: { asset: table.yaml, slot: a_table, params: { width: 0.9, depth: 0.5 } }
+  ines_mug:   { asset: mug.yaml, on: ines_table.top, at: { u: 0.4, v: 0.75 } }
+  ines_plate: { asset: plate.yaml, on: ines_table.top, at: { u: 0.83, v: 0.7 } }
+  tomas_table: { asset: table.yaml, slot: b_table, params: { width: 0.9, depth: 0.5 } }
+  tomas_mug:   { asset: mug.yaml, on: tomas_table.top, at: { u: 0.4, v: 0.75 } }
+  tomas_plate: { asset: plate.yaml, on: tomas_table.top, at: { u: 0.83, v: 0.7 } }
+  ruth_table: { asset: table.yaml, slot: c_table, params: { width: 0.9, depth: 0.5 } }
+  ruth_mug:   { asset: mug.yaml, on: ruth_table.top, at: { u: 0.4, v: 0.75 } }
+  ruth_plate: { asset: plate.yaml, on: ruth_table.top, at: { u: 0.83, v: 0.7 } }
+  walter_table: { asset: table.yaml, slot: d_table, params: { width: 0.9, depth: 0.5 } }
+  walter_mug:   { asset: mug.yaml, on: walter_table.top, at: { u: 0.4, v: 0.75 } }
+  walter_plate: { asset: plate.yaml, on: walter_table.top, at: { u: 0.83, v: 0.7 } }
+  priya_table: { asset: table.yaml, slot: e_table, params: { width: 0.9, depth: 0.5 } }
+  priya_mug:   { asset: mug.yaml, on: priya_table.top, at: { u: 0.4, v: 0.75 } }
+  priya_plate: { asset: plate.yaml, on: priya_table.top, at: { u: 0.83, v: 0.7 } }
   hub_portal:
     asset: portal.yaml
     slot: hub_portal
