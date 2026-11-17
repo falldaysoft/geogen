@@ -127,12 +127,13 @@ place:
 </tr>
 <tr>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
+<td align="center"><a href="assets/mug.md"><img src="img/mug.png" width="150" alt="mug"><br>mug</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 <td align="center"><a href="assets/plate.md"><img src="img/plate.png" width="150" alt="plate"><br>plate</a></td>
 <td align="center"><a href="assets/swing_gate.md"><img src="img/swing_gate.png" width="150" alt="swing_gate"><br>swing_gate</a></td>
-<td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
 </tr>
 </table>
@@ -145,6 +146,7 @@ place:
 | [hanging_chain](assets/hanging_chain.md) | A chain with a lantern, hanging from a bracket on a post. | `height`, `links`, `link` |
 | [meal_plate](assets/meal_plate.md) | A cooked meal on a plate: what a range or a microwave makes of raw food (items/meal.yaml), eaten at a table. |  |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
+| [mug](assets/mug.md) | A coffee mug: a glazed body with a loop handle on its +X side. | `colour` |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
 | [plate](assets/plate.md) | A white dinner plate. |  |
 | [swing_gate](assets/swing_gate.md) | A field gate on a free hinge: walk into it and it swings open. | `width`, `height`, `swing` |

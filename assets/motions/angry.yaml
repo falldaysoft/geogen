@@ -1,0 +1,55 @@
+# Angry (geogen.103.17): fists clenched at the sides, leaning in, then the right fist raised and
+# shaken `shakes` times. Body only.
+kind: motion
+name: angry
+category: emote
+summary: Fists clenched, leaning in, a fist shaken in the air.
+params:
+  shakes: { default: 3 }
+holds:
+  claim: [left_hand, right_hand, spine, gaze]
+initial: clench
+beats:
+  clench:
+    bones: &lean { Spine: [5, 0, 0], Chest: [4, 0, 0], Neck: [-4, 0, 0], Head: [-4, 0, 0], LeftShoulder: [0, 0, 6], RightShoulder: [0, 0, -6] }
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.53}", "{height * 0.05}"], pole: [0.3, -0.2, -1], grip: fist }
+      mirror: true
+    over: 0.4
+    ease: settle
+    after: 0.4
+    interrupt: yield
+    exit: down
+    then: raise
+  raise:
+    bones: *lean
+    ik: &fist_up
+      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.53}", "{height * 0.05}"], pole: [0.3, -0.2, -1], grip: fist }
+      RightHand: { target: [-0.2, "{height * 0.9}", "{height * 0.18}"], pole: [-1, -0.8, 0], grip: fist,
+                   fingers: [0.2, 0.7, 0.6], palm: [1, 0, -0.3] }
+    over: 0.35
+    interrupt: yield
+    exit: down
+    then: shake
+  shake:
+    bones: *lean
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.53}", "{height * 0.05}"], pole: [0.3, -0.2, -1], grip: fist }
+      RightHand: { target: [-0.2, "{height * 0.87}", "{height * 0.21}"], pole: [-1, -0.8, 0], grip: fist,
+                   fingers: [0.2, 0.4, 0.9], palm: [1, 0, -0.3] }
+    over: 0.14
+    interrupt: yield
+    exit: down
+    then: shake_up
+  shake_up:
+    bones: *lean
+    ik: *fist_up
+    over: 0.14
+    interrupt: yield
+    exit: down
+    loop: { to: shake, times: "{shakes}" }
+    then: down
+  down:
+    over: 0.7
+    interrupt: drop
+    then: done

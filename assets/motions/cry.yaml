@@ -1,0 +1,41 @@
+# Cry (geogen.103.17): the head drops into both hands, the shoulders heaving, `sobs` times;
+# then the hands come down. Body only.
+kind: motion
+name: cry
+category: emote
+summary: Face in both hands, head bowed, shoulders heaving.
+params:
+  sobs: { default: 4 }
+holds:
+  claim: [left_hand, right_hand, spine, gaze]
+initial: hide
+beats:
+  hide:
+    bones: &bowed { Spine: [4, 0, 0], Chest: [6, 0, 0], Neck: [12, 0, 0], Head: [14, 0, 0] }
+    ik: &hands_on_face
+      LeftHand: { target: [0.045, "{height * 0.815}", "{height * 0.12}"], pole: [0.5, -1, -0.2], grip: relaxed,
+                  fingers: [-0.15, 1, 0.3], palm: [0, 0.1, -1] }
+      mirror: true
+    over: 0.8
+    interrupt: yield
+    exit: down
+    then: heave
+  heave:
+    bones: { Spine: [3, 0, 0], Chest: [3, 0, 0], Neck: [12, 0, 0], Head: [14, 0, 0], LeftShoulder: [0, 0, 6], RightShoulder: [0, 0, -6] }
+    ik: *hands_on_face
+    over: 0.3
+    interrupt: yield
+    exit: down
+    then: sink
+  sink:
+    bones: *bowed
+    ik: *hands_on_face
+    over: 0.45
+    interrupt: yield
+    exit: down
+    loop: { to: heave, times: "{sobs}" }
+    then: down
+  down:
+    over: 0.9
+    interrupt: drop
+    then: done

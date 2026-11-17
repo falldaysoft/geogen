@@ -1,0 +1,30 @@
+# Nod yes (geogen.103.17): the head dips and comes back up `nods` times. Only the gaze, so it
+# goes over anything the body and hands are doing.
+kind: motion
+name: nod
+category: emote
+summary: A nod yes.
+params:
+  nods:  { default: 2 }
+  depth: { default: 14 }      # degrees the head dips
+holds:
+  claim: [gaze]
+initial: down
+beats:
+  down:
+    bones: { Neck: ["{depth * 0.4}", 0, 0], Head: ["{depth * 0.6}", 0, 0] }
+    over: 0.22
+    interrupt: yield
+    exit: level
+    then: up
+  up:
+    bones: { Neck: [-1, 0, 0], Head: [-3, 0, 0] }
+    over: 0.22
+    interrupt: yield
+    exit: level
+    loop: { to: down, times: "{nods}" }
+    then: level
+  level:
+    over: 0.3
+    interrupt: drop
+    then: done

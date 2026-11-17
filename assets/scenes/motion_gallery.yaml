@@ -1,0 +1,24 @@
+# The motion gallery (geogen.103.18): a row of people of different builds and ages on a stage,
+# facing +Z toward the default camera, for the runtime's motion gallery panel (hud_motion_gallery.gd,
+# M; this scene opens it by itself): pick a motion from the catalogue (every file in
+# assets/motions/) and everyone plays it at once, or one of them does. The row stands on the
+# right half of a wide stage centred on the origin, so the camera's middle leaves it clear of the
+# list on the left of the screen.
+name: motion_gallery
+size: [7, 2, 4]
+
+slots:
+  stage: { position: [0, 0, 0] }
+  a: { position: [0.2, 0, 0] }
+  b: { position: [1.2, 0, 0] }
+  c: { position: [2.2, 0, 0] }
+  d: { position: [3.2, 0, 0] }
+  e: { position: [4.2, 0, 0] }
+
+place:
+  stage: { asset: rug.yaml, slot: stage, params: { width: 9.0, depth: 1.8 } }
+  ines:   { archetype: characters/archetypes/young_woman.yaml, seed: 1, slot: a }
+  tomas:  { archetype: characters/archetypes/young_man.yaml, seed: 2, slot: b }
+  ruth:   { archetype: characters/archetypes/older_woman.yaml, seed: 3, slot: c }
+  walter: { archetype: characters/archetypes/older_man.yaml, seed: 4, slot: d }
+  priya:  { archetype: characters/archetypes/office_worker.yaml, seed: 5, slot: e }

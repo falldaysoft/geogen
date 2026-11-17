@@ -4,6 +4,8 @@
 # and goes back to rest.
 kind: motion
 name: set_down
+category: action
+summary: Put a carried thing down on a surface and let go.
 roles:
   item: { grip: any }
   place: { grip: put }

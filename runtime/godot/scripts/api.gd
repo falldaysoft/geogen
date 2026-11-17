@@ -100,6 +100,9 @@ const COMMANDS := {
         + "track makes the tracker follow the selected quest",
     "hud.keys": "{open?: bool} the HUD's keys panel (? opens it): {open, groups: [{title, keys: [[key, does]]}], "
         + "columns, hint, rect, viewport}; the groups are the game's keys and every panel's hud_keys()",
+    "hud.gallery": "{open?: bool, select?: motion | 'next' | 'previous', performer?: name | 'all', loop?: bool, play?: bool} "
+        + "the HUD's motion gallery (M; motion_gallery opens it): {open, selected, playing, loop, performer, performers, "
+        + "motions: [{name, category, plays}], rect}",
     "hud.overlay": "{visible?: bool} show or hide the F1 debug overlay (frame rate, clock, position, keys): {visible}; "
         + "hide it to record clean footage (--write-movie)",
     "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: "
@@ -624,6 +627,28 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 await get_tree().process_frame      # laid out before its rect is read
                 await get_tree().process_frame
             return quest_log.hud_report()
+        "hud.gallery":
+            var gallery: GeogenHudMotionGallery = main.hud.panel("motion_gallery")
+            if args.has("open"):
+                gallery.set_open(bool(args["open"]))
+            var pick := str(args.get("select", ""))
+            if pick in ["next", "previous"]:
+                gallery.step(1 if pick == "next" else -1)
+            elif pick != "" and not gallery.select(pick):
+                return _err("no motion '%s' in the gallery" % pick)
+            if args.has("performer") and not gallery.set_performer(str(args["performer"])):
+                return _err("nobody called '%s' performs here" % args["performer"])
+            if args.has("loop"):
+                gallery.set_loop(bool(args["loop"]))
+            if bool(args.get("play", false)):
+                var why := gallery.play(gallery.hud_report()["selected"])
+                if why != "":
+                    return _err(why)
+            if not args.is_empty():
+                main.hud.refresh()
+                await get_tree().process_frame      # laid out before its rect is read
+                await get_tree().process_frame
+            return gallery.hud_report()
         "hud.overlay":
             if args.has("visible"):
                 main.overlay.visible = bool(args["visible"])

@@ -1,0 +1,43 @@
+# Shiver (geogen.103.17): cold. The arms wrap round the body, hands rubbing the upper arms, the
+# shoulders hunched and trembling `shivers` times. Body only.
+kind: motion
+name: shiver
+category: emote
+summary: Arms wrapped round the body, hunched and trembling.
+params:
+  shivers: { default: 6 }
+holds:
+  claim: [left_hand, right_hand, spine, gaze]
+initial: hug
+beats:
+  hug:
+    bones: &hunch { Spine: [5, 0, 0], Chest: [5, 0, 0], Neck: [4, 0, 0], LeftShoulder: [0, 0, 10], RightShoulder: [0, 0, -10] }
+    ik: &hug
+      LeftHand: { target: [-0.12, "{height * 0.69}", "{height * 0.07}"], pole: [0.3, -1, 0.3], grip: flat,
+                  fingers: [-0.4, 0.5, -0.6], palm: [-1, 0, 0] }
+      mirror: true
+    over: 0.6
+    interrupt: yield
+    exit: down
+    then: tremble
+  tremble:
+    bones: { Spine: [5, 0, 1.5], Chest: [5, 0, 1.5], Neck: [4, 0, -1], LeftShoulder: [0, 0, 12], RightShoulder: [0, 0, -8] }
+    ik: *hug
+    over: 0.07
+    ease: linear
+    interrupt: yield
+    exit: down
+    then: tremble_back
+  tremble_back:
+    bones: { Spine: [5, 0, -1.5], Chest: [5, 0, -1.5], Neck: [4, 0, 1], LeftShoulder: [0, 0, 8], RightShoulder: [0, 0, -12] }
+    ik: *hug
+    over: 0.07
+    ease: linear
+    interrupt: yield
+    exit: down
+    loop: { to: tremble, times: "{shivers}" }
+    then: down
+  down:
+    over: 0.8
+    interrupt: drop
+    then: done

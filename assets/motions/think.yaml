@@ -1,0 +1,28 @@
+# Think (geogen.103.17): the right hand to the chin, the left forearm across the waist under the
+# right elbow, the head tipped and the eyes up; hold, then both arms down. Body only.
+kind: motion
+name: think
+category: emote
+summary: Hand on chin, the other arm across the waist, head tipped in thought.
+params:
+  hold: { default: 2.0 }
+holds:
+  claim: [left_hand, right_hand, gaze]
+initial: ponder
+beats:
+  ponder:
+    bones: { Neck: [-2, 6, 4], Head: [-4, 8, 6] }
+    ik:
+      RightHand: { target: [-0.03, "{height * 0.8}", "{height * 0.1}"], pole: [-0.4, -1, 0], grip: fist,
+                   fingers: [0.4, 0.8, 0.3], palm: [0.5, 0, -1] }
+      LeftHand: { target: [-0.1, "{height * 0.6}", "{height * 0.09}"], pole: [0.4, -1, 0.3], grip: relaxed,
+                  fingers: [-1, 0, -0.3], palm: [0, 0, -1] }
+    over: 0.8
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.7
+    interrupt: drop
+    then: done

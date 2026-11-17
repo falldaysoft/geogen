@@ -3,6 +3,8 @@
 # right hand mid-bow: the bow waits, then goes back down from `lower` (its resume).
 kind: motion
 name: bow
+category: emote
+summary: A bow, the right hand on the chest.
 params:
   depth: { default: 30 }       # degrees the upper body tips forward
 holds:

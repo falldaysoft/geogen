@@ -1,0 +1,15 @@
+# Idles together (geogen.103.17): arms crossed while looking around (the look only takes the
+# gaze), then a foot tapping with the hands on the hips, then the weight shifting. Body only:
+# a conformance trace for the runtime rig.
+kind: motion_scenario
+description: Arms crossed while looking around, a tapping foot, the weight shifting.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, facing: 0 }
+script:
+  - { at: 0.2, start: arms_crossed, duration: 1.5 }
+  - { at: 0.4, start: look_around, dwell: 0.3 }
+  - { at: 3.6, start: tap_foot, taps: 2 }
+  - { at: 5.6, start: shift_weight, shifts: 1, dwell: 0.3 }
+camera: { view: iso, frame: [actor], margin: 0.35 }

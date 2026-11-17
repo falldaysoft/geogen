@@ -1,0 +1,30 @@
+# Surprised (geogen.103.17): a start: the hands fly up in front of the chest, palms out, the body
+# rocking back; then it relaxes. Body only.
+kind: motion
+name: surprised
+category: reaction
+summary: A start, hands up palms out, rocking back.
+holds:
+  require: [hips, legs]
+  claim: [left_hand, right_hand, spine, gaze]
+initial: start
+beats:
+  start:
+    hips: [0, 0, "{-0.02 * height}"]
+    bones: { Spine: [-5, 0, 0], Chest: [-4, 0, 0], Neck: [-4, 0, 0], Head: [-6, 0, 0], LeftShoulder: [0, 0, 8], RightShoulder: [0, 0, -8] }
+    ik:
+      LeftHand: { target: [0.14, "{height * 0.78}", "{height * 0.13}"], pole: [1, -1, -0.2], grip: open,
+                  fingers: [0.1, 1, 0.2], palm: [0, 0, 1] }
+      mirror: true
+    plant: feet
+    over: 0.3
+    ease: settle
+    after: 0.6
+    interrupt: finish
+    then: relax
+  relax:
+    pose: stand
+    plant: feet
+    over: 0.9
+    interrupt: drop
+    then: done

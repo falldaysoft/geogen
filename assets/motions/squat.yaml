@@ -3,6 +3,8 @@
 # skeleton's height, leg_ratio, shoulder_width, arm_ratio), so one file fits every build.
 kind: motion
 name: squat
+category: exercise
+summary: Squats, arms forward, feet planted.
 params:
   reps:  { default: 5 }
   depth: { default: 0.4 }     # share of the leg's length the hips drop

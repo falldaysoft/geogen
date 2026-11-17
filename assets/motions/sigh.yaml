@@ -1,0 +1,28 @@
+# Sigh (geogen.103.17): an idle. The shoulders rise with a breath and fall with the head dropping
+# a little, then it straightens. Body only.
+kind: motion
+name: sigh
+category: idle
+summary: A deep breath in, shoulders up, then a slump and the head dropping.
+holds:
+  claim: [left_hand, right_hand, spine, gaze]
+initial: breathe
+beats:
+  breathe:
+    bones: { Chest: [-3, 0, 0], Head: [-5, 0, 0], LeftShoulder: [0, 0, 9], RightShoulder: [0, 0, -9] }
+    over: 0.9
+    interrupt: yield
+    exit: straighten
+    then: slump
+  slump:
+    bones: { Spine: [3, 0, 0], Chest: [5, 0, 0], Neck: [8, 0, 0], Head: [10, 0, 0], LeftShoulder: [0, 0, -4], RightShoulder: [0, 0, 4] }
+    over: 1.1
+    ease: settle
+    after: 0.6
+    interrupt: yield
+    exit: straighten
+    then: straighten
+  straighten:
+    over: 0.9
+    interrupt: drop
+    then: done

@@ -1,0 +1,12 @@
+# Take a mug from the table in front, drink, put it back (geogen.103.17): the cup sits near the
+# table's edge at the right hand, its handle turned to it.
+kind: motion_scenario
+description: Take a mug by the handle, two sips, put it back where it stood.
+scene:
+  place:
+    table: { asset: table.yaml, params: { width: 0.9, depth: 0.5 } }
+    cup: { asset: mug.yaml, on: table.top, at: { u: 0.4, v: 0.75 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: table, offset: [0, 0, 0.55], facing: toward }
+script:
+  - { at: 0.2, start: drink, cup: cup }
+camera: { view: iso_back, frame: [table, actor], margin: 0.15 }

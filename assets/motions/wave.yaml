@@ -3,6 +3,8 @@
 # the hand waits and picks up from its `resume` beat when the wave is done.
 kind: motion
 name: wave
+category: emote
+summary: A wave hello with the right hand.
 params:
   waves: { default: 2 }
   reach: { default: 0.18 }     # share of the height the hand is ahead of the body (in front of the face,

@@ -1,0 +1,27 @@
+# Arms crossed (geogen.103.17): an idle. The forearms fold across the chest, each hand on the
+# other arm, and stay folded for `duration` (the runner's; a few seconds by default). Body only.
+kind: motion
+name: arms_crossed
+category: idle
+summary: Arms folded across the chest, waiting.
+params:
+  duration: { default: 3 }
+holds:
+  claim: [left_hand, right_hand]
+initial: fold
+beats:
+  fold:
+    ik:
+      LeftHand: { target: [-0.1, "{height * 0.665}", "{height * 0.12}"], pole: [1, -0.6, -0.2], grip: relaxed,
+                  fingers: [-0.4, 0, -1], palm: [-1, 0, 0] }
+      RightHand: { target: [0.1, "{height * 0.64}", "{height * 0.1}"], pole: [-1, -0.6, -0.2], grip: relaxed,
+                   fingers: [0.4, 0, -1], palm: [1, 0, 0] }
+    over: 0.9
+    after: duration
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.8
+    interrupt: drop
+    then: done

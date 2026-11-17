@@ -1,0 +1,43 @@
+# Clap (geogen.103.17): both hands up in front of the chest, palms facing, meeting `claps` times,
+# then down. Body only; it holds both hands and nothing else, so someone sitting claps too.
+kind: motion
+name: clap
+category: emote
+summary: Applause, palms meeting in front of the chest.
+params:
+  claps: { default: 5 }
+  pace:  { default: 0.15 }    # s per half-clap
+holds:
+  claim: [left_hand, right_hand]
+initial: ready
+beats:
+  ready:                                   # hands apart in front of the chest, palms in
+    ik: &apart
+      LeftHand: { target: [0.13, "{height * 0.67}", "{height * 0.15}"], pole: [0.6, -1, -0.2], grip: flat,
+                  fingers: [0, 0.6, 1], palm: [-1, 0, 0.2] }
+      mirror: true
+    over: 0.45
+    interrupt: yield
+    exit: down
+    then: meet
+  meet:
+    ik:
+      LeftHand: { target: [0.04, "{height * 0.665}", "{height * 0.15}"], pole: [0.6, -1, -0.2], grip: flat,
+                  fingers: [-0.2, 0.6, 1], palm: [-1, 0, 0] }
+      mirror: true
+    over: "{pace}"
+    ease: linear
+    interrupt: yield
+    exit: down
+    then: part
+  part:
+    ik: *apart
+    over: "{pace}"
+    interrupt: yield
+    exit: down
+    loop: { to: meet, times: "{claps}" }
+    then: down
+  down:
+    over: 0.5
+    interrupt: drop
+    then: done

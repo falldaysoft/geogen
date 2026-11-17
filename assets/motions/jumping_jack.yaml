@@ -4,6 +4,8 @@
 # The hop is the pelvis rising and settling (hips), heights a share of this body's leg.
 kind: motion
 name: jumping_jack
+category: exercise
+summary: Jumping jacks, hopping out to a star and back.
 params:
   reps:  { default: 6 }
   hop:   { default: 0.06 }    # share of the leg's length the body leaves the floor

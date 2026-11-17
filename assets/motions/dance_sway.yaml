@@ -1,0 +1,48 @@
+# Dance: sway (geogen.103.17): a loop. The hips swing side to side over planted feet, the arms
+# swinging loosely across with them, the head bobbing on the beat; `bars` times.
+kind: motion
+name: dance_sway
+category: dance
+summary: An easy side-to-side sway, arms swinging across with the hips.
+params:
+  bars:  { default: 4 }
+  beat:  { default: 0.45 }    # s per step
+  sway:  { default: 0.07 }    # share of the leg's length the hips swing out
+holds:
+  require: [hips, legs, spine, left_hand, right_hand]
+  claim: [gaze]
+initial: left
+beats:
+  left:
+    hips: ["{sway * height * leg_ratio}", "{-0.012 * height}", 0]
+    bones: { Spine: [2, 0, -4], Chest: [0, 6, -3], Head: [4, 0, 5] }
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.6}", "{height * 0.6}", "{height * 0.08}"], pole: [0.5, -1, -0.5], grip: relaxed,
+                  fingers: [0.3, -0.3, 1], palm: [-1, 0, 0] }
+      RightHand: { target: [0.02, "{height * 0.62}", "{height * 0.16}"], pole: [-0.5, -1, -0.3], grip: relaxed,
+                   fingers: [0.8, 0, 0.6], palm: [0, -1, 0] }
+    plant: feet
+    over: "{beat}"
+    interrupt: yield
+    exit: still
+    then: right
+  right:
+    hips: ["{-sway * height * leg_ratio}", "{-0.012 * height}", 0]
+    bones: { Spine: [2, 0, 4], Chest: [0, -6, 3], Head: [4, 0, -5] }
+    ik:
+      LeftHand: { target: [-0.02, "{height * 0.62}", "{height * 0.16}"], pole: [0.5, -1, -0.3], grip: relaxed,
+                  fingers: [-0.8, 0, 0.6], palm: [0, -1, 0] }
+      RightHand: { target: ["{-shoulder_width * 0.6}", "{height * 0.6}", "{height * 0.08}"], pole: [-0.5, -1, -0.5], grip: relaxed,
+                   fingers: [-0.3, -0.3, 1], palm: [1, 0, 0] }
+    plant: feet
+    over: "{beat}"
+    interrupt: yield
+    exit: still
+    loop: { to: left, times: "{bars}" }
+    then: still
+  still:
+    pose: stand
+    plant: feet
+    over: 0.6
+    interrupt: drop
+    then: done

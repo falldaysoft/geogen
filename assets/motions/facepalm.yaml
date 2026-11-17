@@ -1,0 +1,43 @@
+# Facepalm (geogen.103.17): the head drops into the right palm, which covers the eyes; a slow
+# shake of the head in it, then the hand goes down. Body only.
+kind: motion
+name: facepalm
+category: emote
+summary: Head dropped into the palm, a slow shake.
+params:
+  hold: { default: 1.4 }
+holds:
+  claim: [right_hand, gaze, spine]
+initial: drop
+beats:
+  drop:
+    bones: { Chest: [4, 0, 0], Neck: [10, 0, 0], Head: [12, 0, 0] }
+    ik:
+      RightHand: { target: [0.0, "{height * 0.84}", "{height * 0.105}"], pole: [-0.6, -1, -0.2], grip: relaxed,
+                   fingers: [0.1, 1, 0.25], palm: [0, 0.2, -1] }
+    over: 0.6
+    interrupt: yield
+    exit: down
+    then: shake
+  shake:
+    bones: { Chest: [4, 0, 0], Neck: [10, 4, 0], Head: [12, 6, 0] }
+    ik:
+      RightHand: { target: [0.0, "{height * 0.84}", "{height * 0.105}"], pole: [-0.6, -1, -0.2], grip: relaxed,
+                   fingers: [0.1, 1, 0.25], palm: [0, 0.2, -1] }
+    over: "{hold * 0.5}"
+    interrupt: yield
+    exit: down
+    then: back
+  back:
+    bones: { Chest: [4, 0, 0], Neck: [10, -3, 0], Head: [12, -5, 0] }
+    ik:
+      RightHand: { target: [0.0, "{height * 0.84}", "{height * 0.105}"], pole: [-0.6, -1, -0.2], grip: relaxed,
+                   fingers: [0.1, 1, 0.25], palm: [0, 0.2, -1] }
+    over: "{hold * 0.5}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.7
+    interrupt: drop
+    then: done

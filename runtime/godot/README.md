@@ -99,7 +99,7 @@ Controls: WASD/arrows move, Shift sprint, Space jump, mouse look (click to
 capture, Esc to release), F1 overlay, F2 collider wireframes, F3 fly/noclip
 (Space/Ctrl up/down), F4 overview camera, G direct people (below), F5 NPC labels, F9 cutaway, F6 scene list,
 F7 / F8 previous / next scene, E use, L lock, Q track the next active quest,
-J quest log, I / F select and use a carried item, ? this list of keys.
+J quest log, M motion gallery (scenes with people), I / F select and use a carried item, ? this list of keys.
 
 ## Layout
 
@@ -357,6 +357,7 @@ metres, angles degrees. `help` lists every command; the groups are:
   `--headless`.
 - `hud.quests`: what the HUD's quest tracker displays (see "HUD"); `track` and `linger` change it first.
 - `hud.log`: the HUD's quest log (see "HUD"); `open`, `select` and `track` change it first.
+- `hud.gallery`: the HUD's motion gallery (see "HUD"); `open`, `select` (a motion, `next`, `previous`), `performer` (a person's name or `all`), `loop` and `play` change it first.
 - `hud.keys`: the HUD's keys panel (see "HUD"): the groups it lists; `open` opens or closes it first.
 - `hud.overlay`: the F1 debug overlay; `visible` shows or hides it first (hide it to record clean footage with Godot's `--write-movie`).
 - `hud.markers`: the HUD's world markers (see "HUD"): each one's kind, world and screen position, distance and whether it is clamped to the edge.
@@ -1353,6 +1354,22 @@ lists what `play` feedback played); `showing` and
 too, where nothing is played). Tests set `hold` (0 dismisses
 what is up; a large value keeps it), `gap` and `limit` to make the queue
 deterministic, and `clear: true` drops everything.
+
+**Motion gallery** (`scripts/hud_motion_gallery.gd`, panel `motion_gallery`, slot `screen`,
+geogen.103.18): **M** opens a list of every motion file down the left of the screen, by
+category (idles, emotes, dances, exercise, things, reactions), read from the catalogue in
+`motions.json` (`geogen.motion.motion_catalogue`, written with every export), so a new file in
+`assets/motions/` is listed after the next export. Choosing one (Up / Down and Enter, or a click)
+plays it on every person in the scene with a motion rig, or on the one picked along the top
+(Left / Right); L loops it. Motions that name things in the world (drink, sit, take: `body_only`
+false) are listed greyed until the runtime rig binds roles (geogen.103.7). The scene
+`motion_gallery` (five people of different builds on a stage) opens it by itself. Modal like the
+quest log.
+
+![The motion gallery: everyone cheering](../../docs/images/motion_gallery.jpg)
+ `hud.gallery {open?, select?, performer?, loop?, play?}` returns `{open, selected,
+playing, loop, performer, performers, motions: [{name, category, plays}], rect}`. Tests:
+`tests/test_motion_godot.py`.
 
 **Quest log** (`scripts/hud_quest_log.gd`, panel `log`, slot `screen`): **J**
 opens a screen over the game listing the player's quests in three sections,

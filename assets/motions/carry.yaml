@@ -5,6 +5,8 @@
 # action that started it (`layer: true`) and walking with it come with interruption (103.5).
 kind: motion
 name: carry
+category: action
+summary: Hold a taken thing in front of the hip.
 roles:
   item: { grip: any }
 params:

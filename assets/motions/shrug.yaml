@@ -1,0 +1,30 @@
+# Shrug (geogen.103.17): shoulders up, forearms out to the sides with the palms up, the head
+# tipped; hold a moment, then let it all drop. Body only.
+kind: motion
+name: shrug
+category: emote
+summary: Shoulders up, open palms out to the sides, the head tipped.
+params:
+  hold: { default: 0.7 }
+holds:
+  claim: [left_hand, right_hand, gaze]
+initial: up
+beats:
+  up:
+    bones:
+      LeftShoulder: [0, 0, 14]
+      RightShoulder: [0, 0, -14]
+      Head: [-4, 0, 9]
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.85}", "{height * 0.6}", "{height * 0.1}"], pole: [0.2, -1, -0.3], grip: open,
+                  fingers: [0.6, 0.1, 1], palm: [0, 1, 0] }
+      mirror: true
+    over: 0.6
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.55
+    interrupt: drop
+    then: done

@@ -1,0 +1,51 @@
+# Scratch the head (geogen.103.17): an idle, a puzzled moment. The right hand goes to the side of
+# the head and scratches, `scratches` times, the head tipping into it. Body only.
+kind: motion
+name: scratch_head
+category: idle
+summary: A hand to the side of the head, scratching.
+params:
+  scratches: { default: 3 }
+holds:
+  claim: [right_hand, gaze]
+initial: lift
+beats:
+  lift:                                    # the hand up in front first: the arc up to the head in two
+    ik:
+      RightHand: { target: [-0.1, "{height * 0.78}", "{height * 0.2}"], pole: [-1, -1, -0.3], grip: relaxed }
+    over: 0.3
+    interrupt: yield
+    exit: down
+    then: up
+  up:
+    bones: &tip { Neck: [2, 0, -4], Head: [2, 0, -8] }
+    ik:
+      RightHand: { target: [-0.14, "{height * 0.935}", "{height * 0.0}"], pole: [-1, -0.4, 0.2], grip: relaxed,
+                   fingers: [0.7, 0.6, -0.1], palm: [0.6, -0.6, 0] }
+    over: 0.7
+    interrupt: yield
+    exit: down
+    then: rub
+  rub:
+    bones: *tip
+    ik:
+      RightHand: { target: [-0.14, "{height * 0.95}", "{height * -0.015}"], pole: [-1, -0.4, 0.2], grip: relaxed,
+                   fingers: [0.7, 0.6, -0.1], palm: [0.6, -0.6, 0] }
+    over: 0.18
+    interrupt: yield
+    exit: down
+    then: back
+  back:
+    bones: *tip
+    ik:
+      RightHand: { target: [-0.14, "{height * 0.935}", "{height * 0.01}"], pole: [-1, -0.4, 0.2], grip: relaxed,
+                   fingers: [0.7, 0.6, -0.1], palm: [0.6, -0.6, 0] }
+    over: 0.18
+    interrupt: yield
+    exit: down
+    loop: { to: rub, times: "{scratches}" }
+    then: down
+  down:
+    over: 0.7
+    interrupt: drop
+    then: done

@@ -85,6 +85,42 @@ def load_scenario(name: str | Path, assets_dir: Path | None = None) -> dict:
     return spec
 
 
+DEMO_ARCHETYPE = "young_woman"
+
+
+def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path | None = None,
+                  seed: int = 1) -> dict:
+    """A scenario that shows ``motion`` on its own: a body-only one on a rug, one with ``props``
+    at a table in front of the person with its props on it at their right hand, each role bound
+    to its prop (the gallery's stage; ``python -m geogen.motion_review --motion NAME``)."""
+    spec = load_motion(motion, assets_dir)
+    props = spec.get("props") or {}
+    roles = spec.get("roles") or {}
+    missing = [r for r, e in roles.items() if r not in props and not (e or {}).get("optional")]
+    if missing:
+        raise MotionError(f"motion '{spec['name']}': no props to stage for its roles {missing}")
+    actor = {"archetype": f"characters/archetypes/{archetype}.yaml", "seed": seed, "facing": 0}
+    place: dict = {"rug": {"asset": "rug.yaml"}} if not props else {
+        "table": {"asset": "table.yaml", "params": {"width": 0.9, "depth": 0.5}}}
+    start: dict = {"at": 0.2, "start": spec["name"]}
+    for i, (role, prop) in enumerate(props.items()):
+        name = f"prop_{role}"
+        place[name] = {"asset": prop["asset"], "on": prop.get("on", "table.top"),
+                       "at": prop.get("at", {"u": 0.4 - 0.15 * i, "v": 0.75})}
+        if "params" in prop:
+            place[name]["params"] = prop["params"]
+        start[role] = name
+    if props:
+        actor.update({"at": "table", "offset": [0, 0, 0.55], "facing": "toward"})
+    if "duration" in (spec.get("params") or {}) or any((b or {}).get("after") == "duration" for b in spec["beats"].values()):
+        start.setdefault("duration", 2.5)
+    return {"kind": "motion_scenario", "name": f"{spec['name']}__{archetype}" if archetype != DEMO_ARCHETYPE else spec["name"],
+            "description": spec.get("summary", ""), "scene": {"place": place}, "actor": actor,
+            "script": [start], "duration": 40.0,
+            "camera": {"view": "iso_back" if props else "iso", "frame": ["table", "actor"] if props else ["actor"],
+                       "margin": 0.25}}
+
+
 def _scene(spec, assets_dir: Path) -> SceneNode:
     from .layout.composer import SceneComposer
     import yaml
@@ -633,8 +669,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-o", "--out", default="motion_review", help="output folder (default: ./motion_review)")
     parser.add_argument("--resolution", default="800x600")
     parser.add_argument("--no-video", action="store_true", help="numbers, trace and timeline only")
+    parser.add_argument("--list", action="store_true", help="list every motion (the catalogue) and quit")
+    parser.add_argument("--json", action="store_true", help="with --list: as JSON")
+    parser.add_argument("--motion", action="append", default=[],
+                        help="review a motion on its demonstration stage (demo_scenario); repeatable, or all")
+    parser.add_argument("--archetype", default=DEMO_ARCHETYPE, help="with --motion: who performs it")
     args = parser.parse_args(argv)
-    names = scenario_names() if args.scenarios in (["all"], []) else args.scenarios
+    if args.list:
+        from .motion import motion_catalogue
+
+        entries = motion_catalogue()
+        if args.json:
+            print(json.dumps(entries, indent=1))
+        else:
+            for e in entries:
+                need = f" (with {', '.join(e['roles'])})" if e["roles"] else ""
+                print(f"{e['category']:9} {e['name']:18} {e['summary']}{need}")
+        return 0
+    if args.motion:
+        from .motion import motion_names
+
+        motions = motion_names() if args.motion == ["all"] else args.motion
+        names = [demo_scenario(m, args.archetype) for m in motions]
+    else:
+        names = scenario_names() if args.scenarios in (["all"], []) else args.scenarios
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     w, h = (int(v) for v in args.resolution.lower().split("x"))

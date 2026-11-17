@@ -3,6 +3,8 @@
 # looks at what it takes) has it while it runs, and the eyes go back to the TV after.
 kind: motion
 name: watch
+category: action
+summary: Watch something for a while.
 roles:
   target: { grip: look }
 holds:

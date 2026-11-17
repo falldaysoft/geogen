@@ -2,6 +2,8 @@
 # runs alongside whatever the body and hands are doing: sitting, carrying, pressing.
 kind: motion
 name: glance
+category: action
+summary: Look at something, then look back.
 roles:
   target: {}
 holds:

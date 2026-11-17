@@ -1,0 +1,29 @@
+# Point (geogen.103.17): the right arm out ahead, index finger pointing, the head turned along it;
+# hold, then down. Body only (it points ahead of the body: turn the body first to point elsewhere).
+kind: motion
+name: point
+category: emote
+summary: Pointing ahead with the right index finger, looking where it points.
+params:
+  hold: { default: 1.2 }
+  across: { default: 0.25 }   # how far to the right of straight ahead it points (0 ahead, 1 to the side)
+holds:
+  claim: [right_hand, gaze]
+initial: point
+beats:
+  point:
+    ik:
+      RightHand: { target: ["{-shoulder_width * 0.5 - height * arm_ratio * 0.9 * across}", "{height * 0.83}",
+                            "{height * arm_ratio * 0.9 * sqrt(1 - across * across)}"],
+                   pole: [-0.3, -1, 0], grip: press, fingers: ["{-across}", 0.1, "{sqrt(1 - across * across)}"], palm: [0.6, -1, 0] }
+    look: ["{-6 * across}", 1.4, "{6 * sqrt(1 - across * across)}"]
+    over: 0.5
+    ease: settle
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.6
+    interrupt: drop
+    then: done

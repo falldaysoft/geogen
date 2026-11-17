@@ -1,0 +1,95 @@
+# Inspect (geogen.103.17): take a thing from the table in front, hold it up and turn it over in
+# the hand, looking at it, then put it back where it stood. Works with anything a hand holds by
+# its first held grip (`grip: any`); the hand's turn (`fingers`, `palm`) turns the thing.
+kind: motion
+name: inspect
+category: action
+summary: Pick something up from the table, turn it over to look at it, put it back.
+roles:
+  thing: { grip: any }
+props:
+  thing: { asset: mug.yaml }
+params:
+  turns: { default: 2 }
+holds:
+  claim: [right_hand, gaze]
+  prefer: [spine]
+initial: reach
+beats:
+  reach:
+    ik:
+      RightHand: { target: thing, offset: [-0.01, 0.0, 0.11], grip: open, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: thing
+    interrupt: yield
+    exit: back
+    then: grasp
+  grasp:
+    ik:
+      RightHand: { target: thing, offset: [0.0, -0.005, 0.085], grip: thing, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: thing
+    over: 0.35
+    attach: { thing: right }
+    emit: taken
+    interrupt: finish
+    then: up
+  up:                                      # held up in front of the face
+    ik: &up
+      RightHand: { target: [-0.12, "{height * 0.8}", "{height * 0.2}"], grip: thing, pole: [-0.6, -1, 0],
+                   fingers: [0.3, 0.2, 1], palm: [1, 0, 0] }
+    look: [0.0, "{height * 0.82}", "{height * 0.24}"]
+    over: 0.8
+    after: 0.4
+    interrupt: finish
+    exit: lower
+    then: turn
+  turn:                                    # rolled over toward the face
+    ik:
+      RightHand: { target: [-0.12, "{height * 0.8}", "{height * 0.2}"], grip: thing, pole: [-0.6, -1, 0],
+                   fingers: [0.3, 0.2, 1], palm: [0.3, 1, 0] }
+    look: [0.0, "{height * 0.8}", "{height * 0.24}"]
+    over: 0.6
+    after: 0.4
+    interrupt: finish
+    exit: lower
+    then: turn_back
+  turn_back:
+    ik: *up
+    look: [0.0, "{height * 0.82}", "{height * 0.24}"]
+    over: 0.6
+    after: 0.3
+    interrupt: finish
+    exit: lower
+    loop: { to: turn, times: "{turns}" }
+    then: lower
+  lower:
+    ik:
+      RightHand: { target: thing@start, offset: [0.062, 0.1, 0.085], grip: thing, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: thing@start
+    over: 0.8
+    interrupt: finish
+    then: put
+  put:
+    ik:
+      RightHand: { target: thing@start, offset: [0, 0.002, 0], holding: thing, grip: thing, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: thing@start
+    over: 0.4
+    release: thing
+    emit: put
+    interrupt: finish
+    then: let_go
+  let_go:
+    ik:
+      RightHand: { target: thing, offset: [-0.01, 0.0, 0.12], grip: open, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: thing
+    over: 0.35
+    interrupt: finish
+    then: back
+  back:
+    over: 0.7
+    interrupt: drop
+    then: done
