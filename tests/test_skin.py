@@ -12,6 +12,7 @@ from geogen.core.transform import quat_axis_angle, slerp
 from geogen.export import export_scene, read_gltf
 from geogen.scenes.skin_test import JOINTS, build_skinned_tube, create_skin_test_scene
 from geogen.runtime_client import step
+from helpers import schema_validate
 
 
 def test_bind_pose_leaves_mesh_unchanged():
@@ -127,9 +128,9 @@ def test_glb_clips_are_animations_on_joints(skin_glb):
     assert names == {"tube_sway", "tube_b_sway"}
     extras = next(n for n in gltf["nodes"] if n["name"] == "tube")["extras"]["geogen"]
     assert extras["clips"] == [{"name": "sway", "animation": "tube_sway", "duration": 2.0, "loop": True}]
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
-    jsonschema.validate({"geogen": extras}, schema)
+    schema_validate({"geogen": extras}, schema)
 
 
 def test_godot_skins_match_python_pose(godot_script, skin_glb):

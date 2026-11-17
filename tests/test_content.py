@@ -13,6 +13,7 @@ from geogen.layout.composer import SceneComposer
 from geogen.rules import Machine, check_program
 from test_state import GATE, LAMP, LEVER
 from test_wiring import PLATE
+from helpers import schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-content.v1.schema.json"
 
@@ -123,8 +124,8 @@ def program_of(out, scene):
 def test_a_package_is_exported_with_ids_and_compiled_conditions(deployed):
     _, out, _ = deployed
     errand = json.loads((out / "errand.content.json").read_text())
-    jsonschema = pytest.importorskip("jsonschema")
-    jsonschema.validate(errand, json.loads(SCHEMA.read_text()))
+    pytest.importorskip("jsonschema")
+    schema_validate(errand, json.loads(SCHEMA.read_text()))
     assert errand["format"] == "geogen-content" and errand["package"] == "errand"
     assert errand["scenes"] == ["camp", "annex"] and errand["title"] == "The errand"
     assert errand["variables"]["world:errand.lever_pulled"] == {"type": "bool", "default": False}

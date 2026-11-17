@@ -154,14 +154,14 @@ def test_asset_places_have_no_scene_anchor():
 
 
 def test_export_writes_extras_and_manifest(tmp_path):
-    jsonschema = pytest.importorskip("jsonschema")
-    from helpers import gltf_json
+    pytest.importorskip("jsonschema")
+    from helpers import gltf_json, schema_validate
 
     model = export_scene(compose(), tmp_path / "yard.glb")
     schema = json.loads(SCHEMA.read_text())
     extras = {n["name"]: n["extras"] for n in gltf_json(model)["nodes"] if "extras" in n}
     for e in extras.values():
-        jsonschema.validate(e, schema)
+        schema_validate(e, schema)
     strip = extras["strip"]["geogen"]
     assert strip["type"] == "place" and strip["uid"] == "yard:strip" and strip["place"]["size"] == [16.0, 2.2, 1.5]
     manifest = json.loads(manifest_path(model).read_text())

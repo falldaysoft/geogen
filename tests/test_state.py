@@ -11,6 +11,7 @@ from geogen.export import export_scene, manifest_path
 from geogen.layout.composer import SceneComposer
 from geogen.rules import Machine
 from geogen.state import Declarations, StateError, collect
+from helpers import schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-state.v1.schema.json"
 
@@ -166,11 +167,11 @@ def test_signals_and_inputs_resolve_to_ids(assets):
 
 
 def test_manifest_lists_declarations_and_matches_schema(assets, tmp_path):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     out = tmp_path / "out"
     path = export_scene(compose(assets), out / "wiring.glb")
     state = json.loads(manifest_path(path).read_text())["state"]
-    jsonschema.validate(state, json.loads(SCHEMA.read_text()))
+    schema_validate(state, json.loads(SCHEMA.read_text()))
     assert state["format"] == "geogen-state" and state["package"] == "wiring"
     assert {"world:wiring.power", "actor:wiring.visits", "wiring:lamp#lit"} <= set(state["variables"])
     assert set(state["interactions"]) == {"wiring:lever#pull", "wiring:gate#gate"}

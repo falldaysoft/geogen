@@ -179,8 +179,9 @@ def _xz(status) -> tuple[float, float]:
 
 
 def test_use_a_travel_point_to_reach_another_scene(godot_script, travel_dir):
+    # In real time: unthrottled, the run quits while the next scene is still loading and Godot hangs on exit.
     run = godot_script([TRAVEL, step("player.use", retry=2), step("wait", seconds=2), step("player.status")],
-                       "--scene=travel_a", f"--generated={travel_dir}")
+                       "--scene=travel_a", f"--generated={travel_dir}", engine_args=())
     assert run["player.use"]["asset"] == "shelf" and run["player.use"]["interaction"] == "travel"
     travelled = _travels(run)
     assert len(travelled) == 1 and travelled[0]["on"] == "use"
@@ -250,7 +251,8 @@ def test_travel_door_and_portal_assets(scenes):
 
 def test_use_the_travel_door_in_godot(godot_script, gates_dir):
     run = godot_script([step("player.use", retry=2), step("wait", seconds=2), step("player.status")],
-                       "--scene=gates", f"--generated={gates_dir}", start={"spawn": [-2, 0, 1.2]})
+                       "--scene=gates", f"--generated={gates_dir}", start={"spawn": [-2, 0, 1.2]},
+                       engine_args=())     # in real time, as above
     assert (run["player.use"]["asset"], run["player.use"]["interaction"]) == ("door", "travel")
     status = run["player.status"]
     assert status["scene"] == "travel_b" and _xz(status) == pytest.approx((-3, 4), abs=0.05)

@@ -7,6 +7,7 @@ import pytest
 
 from geogen import conditions, refs
 from geogen.conditions import ConditionError, compile_condition, evaluate, holds, resolve, validate
+from helpers import schema_validate
 
 SCHEMA = Path(__file__).parent.parent / conditions.SCHEMA
 
@@ -165,8 +166,8 @@ def test_compiled_trees_match_the_schema(built_scene):
                  '"a" if clock.hour < 12 else "b"', "true", "-world.n"):
         tree = json.loads(json.dumps(resolve(compile_condition(text), room, "hotel_room_auto")))
         validate(tree)
-        jsonschema.validate(tree, schema)
+        schema_validate(tree, schema)
     for bad in (compile_condition("door.swing"), {"op": "xor", "args": [1]}, {"get": "clock", "name": "month"},
                 {"op": "all", "select": "[tag=x]", "where": True}):
         with pytest.raises(jsonschema.ValidationError):
-            jsonschema.validate(bad, schema)
+            schema_validate(bad, schema)
