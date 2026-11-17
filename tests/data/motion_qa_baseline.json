@@ -16214,7 +16214,7 @@
  },
  "take_carry_set_down/office_worker/heavy": {
   "clipping_frames": 21,
-  "contact_error_mm": 1.4,
+  "contact_error_mm": 4.4,
   "feet_skin": {
    "count": 0,
    "max_mm": 0.0,
@@ -16364,7 +16364,7 @@
  },
  "take_carry_set_down/older_man/heavy": {
   "clipping_frames": 21,
-  "contact_error_mm": 1.4,
+  "contact_error_mm": 4.4,
   "feet_skin": {
    "count": 0,
    "max_mm": 0.0,
@@ -16514,7 +16514,7 @@
  },
  "take_carry_set_down/older_woman/heavy": {
   "clipping_frames": 21,
-  "cloth_mm": 12.6,
+  "cloth_mm": 11.4,
   "contact_error_mm": 1.4,
   "feet_skin": {
    "count": 0,
@@ -16523,9 +16523,9 @@
   },
   "foot_slide_mm": 0.0,
   "hands": {
-   "count": 5,
-   "max_mm": 13.3,
-   "t": 2.1667
+   "count": 3,
+   "max_mm": 7.0,
+   "t": 1.0
   },
   "hem": {
    "count": 0,
@@ -16670,7 +16670,7 @@
  },
  "take_carry_set_down/townsfolk/heavy": {
   "clipping_frames": 21,
-  "contact_error_mm": 1.4,
+  "contact_error_mm": 4.4,
   "feet_skin": {
    "count": 0,
    "max_mm": 0.0,

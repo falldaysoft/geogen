@@ -20,7 +20,7 @@ params:
   # Where it is carried, in the body frame (x to the left, y up, z ahead), a share of this body.
   carry_x: { default: -0.45 }     # of the shoulder width: in front of the right hip
   carry_y: { default: 0.58 }      # of the height: waist high
-  carry_z: { default: 0.6 }       # of the arm's length ahead
+  carry_z: { default: 0.68 }      # of the arm's length ahead (the hand clear of a heavy body's front)
 holds:
   claim: [right_hand, gaze]
   prefer: [spine]

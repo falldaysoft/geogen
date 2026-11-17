@@ -19,7 +19,7 @@ params:
   duration: { default: 600 }      # s it holds on for when nothing lets go of the thing
   carry_x: { default: -0.45 }     # as take's: in front of the right hip, waist high
   carry_y: { default: 0.58 }
-  carry_z: { default: 0.6 }
+  carry_z: { default: 0.68 }
 holds:
   prefer: [right_hand]            # under whatever uses the hand (take, set_down), back when they end
 initial: held
