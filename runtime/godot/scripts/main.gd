@@ -983,9 +983,12 @@ func _follow_npc() -> void:
             return
 
 
-## The lock keys the player holds: --keys, plus every item it carries and what each `opens` (geogen.18.3).
+## The lock keys the player holds: --keys, the scene's catalogue entry's `keys` (runtime_scenes.yaml),
+## plus every item it carries and what each `opens` (geogen.18.3).
 func held_keys() -> Array:
     var out := keys.duplicate()
+    if world != null and world.scene_name != "":
+        out.append_array(world.catalogue_entry(world.scene_name).get("keys", []))
     if world != null and world.rules != null:
         out.append_array(world.rules.carried_keys("player"))
     return out

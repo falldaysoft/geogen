@@ -7,6 +7,7 @@
 #   description: one line for the runtime's scene list
 #   stream: true              export chunked (--stream) and stream it in the runtime
 #   lods: [0.5, 0.25]         extra LOD levels (single-file exports only)
+#   keys: [key_suite]         lock keys the player holds from the start (doors' `lock`)
 #
 # `packages: [name, ...]` deploys content packages (packages/<name>.yaml, kind: package):
 # state, rules and quests that span scenes. Each is compiled against the exported scenes it
@@ -87,13 +88,16 @@ scenes:
     description: Road crossing a railway with barriers and a commuter train
   hotel_room:
     group: test
-    description: Hotel suite furnished by hand
+    description: Hotel suite furnished by hand (you arrive outside holding its key; a spare is by the bed)
+    keys: [key_suite]
   hotel_room_auto:
     group: test
-    description: Hotel suite furnished by the solver
+    description: Hotel suite furnished by the solver (you arrive outside holding its key; a spare is by the bed)
+    keys: [key_suite]
   hotel_suite:
     group: test
-    description: Unfurnished hotel suite floor plan
+    description: Unfurnished hotel suite floor plan (you hold its key; E on the door unlocks and opens it)
+    keys: [key_suite]
   dining_set:
     group: test
     description: Table with four chairs

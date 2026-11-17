@@ -158,9 +158,10 @@ func prompt(keys: Array = [], by := "player") -> String:
     var t: Dictionary = states.get(target, {})
     if not t.has("next") or not allowed(by):
         return ""
-    if locked:
-        return "Unlock (L)" if opens(keys) else "Locked"
     var text := str(t.get("prompt", "Use"))
+    if locked:
+        # E unlocks and uses it in one go (player_focus.gd); L only unlocks.
+        return "Unlock and %s" % text.to_lower() if opens(keys) else "Locked"
     if opens(keys):
         text += "   L: Lock"
     return text

@@ -71,7 +71,7 @@ def test_the_parcel_for_room_207_is_fetched_and_delivered(godot_runtime, hotel_d
     walked = rt.call("player.walk_to", pos=[7.3, 6.45, 0.4], timeout=240)  # the corridor outside 207
     assert walked["reached"] and walked["doors"], walked
     rt.call("player.look", at=[7.3, 7.4, -0.9])
-    assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock (L)"
+    assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock and open"
     rt.call("input.key", key="L")
     rt.call("input.key", key="E")
     rt.call("time.advance", seconds=1.5)

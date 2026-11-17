@@ -92,6 +92,14 @@ place:
     on: suite.bathroom.west_wall
     at: { u: { abs: 0.6 }, v: { abs: 1.1 } }
 
+  # A spare room key, by the bed: the suite's door is locked (lock: key_suite); carried, it opens it.
+  # The entry spawn is outside that door, so the runtime catalogue (runtime_scenes.yaml `keys`)
+  # also hands the player the key on arrival.
+  room_key:
+    asset: room_key.yaml
+    on: nightstand_north.top
+    at: { u: 0.8, v: 0.25 }
+
 spawns:
   entry:
     position: [4.2, 0, 1.3]

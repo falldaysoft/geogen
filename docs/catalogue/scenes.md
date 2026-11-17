@@ -312,7 +312,7 @@ will do this from room archetypes). Positions are metres on each room's
 floor surface: u runs west -> east, v south -> north. Furniture keeps
 clear of the door swing arcs recorded in the rooms' door_swings.
 
-**Places**: `suite: {asset: hotel_suite.yaml}`; `bed: {asset: bed.yaml}`; `nightstand_south: {asset: nightstand.yaml}`; `nightstand_north: {asset: nightstand.yaml}`; `lamp_south: {asset: table_lamp.yaml}`; `lamp_north: {asset: table_lamp.yaml}`; `art: {asset: wall_art.yaml}`; `rug: {asset: rug.yaml}`; `tv_console: {asset: tv_console.yaml}`; `tv: {asset: tv.yaml}`; `wardrobe: {asset: wardrobe.yaml}`; `floor_lamp: {asset: floor_lamp.yaml}`; `curtains: {asset: curtains.yaml}`; `shower: {asset: shower.yaml}`; `toilet: {asset: toilet.yaml}`; `vanity: {asset: vanity.yaml}`; `mirror: {asset: wall_mirror.yaml}`; `towel_rail: {asset: towel_rail.yaml}`
+**Places**: `suite: {asset: hotel_suite.yaml}`; `bed: {asset: bed.yaml}`; `nightstand_south: {asset: nightstand.yaml}`; `nightstand_north: {asset: nightstand.yaml}`; `lamp_south: {asset: table_lamp.yaml}`; `lamp_north: {asset: table_lamp.yaml}`; `art: {asset: wall_art.yaml}`; `rug: {asset: rug.yaml}`; `tv_console: {asset: tv_console.yaml}`; `tv: {asset: tv.yaml}`; `wardrobe: {asset: wardrobe.yaml}`; `floor_lamp: {asset: floor_lamp.yaml}`; `curtains: {asset: curtains.yaml}`; `shower: {asset: shower.yaml}`; `toilet: {asset: toilet.yaml}`; `vanity: {asset: vanity.yaml}`; `mirror: {asset: wall_mirror.yaml}`; `towel_rail: {asset: towel_rail.yaml}`; `room_key: {asset: room_key.yaml}`
 
 **Spawns**: entry
 
@@ -323,7 +323,7 @@ clear of the door swing arcs recorded in the rooms' door_swings.
 The hotel suite furnished automatically from its rooms' archetypes
 (assets/room_types/*.yaml); compare scenes/hotel_room.yaml (by hand).
 
-**Places**: `suite: {asset: hotel_suite.yaml}`
+**Places**: `suite: {asset: hotel_suite.yaml}`; `room_key: {asset: room_key.yaml}`
 
 **Spawns**: entry
 

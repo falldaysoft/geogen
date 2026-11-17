@@ -4,3 +4,4 @@ kind: item
 body: room_key.yaml
 title: Room key
 tags: [key]
+opens: [key_suite]                                     # the hotel suite's door (hotel_suite.yaml `lock`)

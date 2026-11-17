@@ -2,7 +2,8 @@
 
 A ``kind: scene_catalogue`` file lists the scenes the Godot runtime offers,
 each a registered scene name with a ``group`` (``showcase`` or ``test``), a
-one-line ``description`` and export options (``stream``, ``lods``), plus the
+one-line ``description``, export options (``stream``, ``lods``) and the lock
+``keys`` the player starts with, plus the
 ``default`` scene the runtime loads when it isn't given ``--scene``. Its
 ``packages: [name, ...]`` are the content packages deployed with them
 (``geogen.content``: ``packages/<name>.yaml`` beside the catalogue).
@@ -36,6 +37,8 @@ class CatalogueEntry:
     description: str = ""
     stream: bool = False
     lods: list[float] | None = None
+    keys: list[str] = field(default_factory=list)    # lock keys the player holds from the start
+
 
 
 @dataclass
@@ -88,15 +91,18 @@ def load_catalogue(path: str | Path | None = None) -> Catalogue:
     entries = {}
     for name, spec in (data.get("scenes") or {}).items():
         spec = spec or {}
-        unknown = set(spec) - {"group", "description", "stream", "lods"}
+        unknown = set(spec) - {"group", "description", "stream", "lods", "keys"}
         if unknown:
             raise ValueError(f"{path}: scene '{name}': unknown keys {sorted(unknown)}")
         group = spec.get("group", "test")
         if group not in GROUPS:
             raise ValueError(f"{path}: scene '{name}': group must be one of {GROUPS}, got {group!r}")
         lods = spec.get("lods")
+        keys = spec.get("keys") or []
+        if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+            raise ValueError(f"{path}: scene '{name}': keys is a list of lock key names")
         entries[name] = CatalogueEntry(name, group, str(spec.get("description", "")), bool(spec.get("stream", False)),
-                                       [float(v) for v in lods] if lods else None)
+                                       [float(v) for v in lods] if lods else None, list(keys))
     default = data.get("default")
     if default not in entries:
         raise ValueError(f"{path}: default {default!r} is not one of its scenes")
@@ -138,6 +144,7 @@ def write_index(catalogue: Catalogue, out_dir: str | Path) -> Path:
                 "group": e.group,
                 "description": e.description,
                 "stream": e.stream,
+                "keys": e.keys,
                 "manifest": entry_manifest(e),
                 "exported": (out_dir / entry_manifest(e)).exists(),
             }
