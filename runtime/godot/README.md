@@ -169,7 +169,7 @@ User args (after `--`):
 | `--use=ASSET`, `--use=@aim` | `interactions.use` on an asset's interactions (e.g. `door`), or `player.use` on whatever the player looks at |
 | `--nav=AX,AZ:BX,BZ` | `wait_ready` then `world.nav_path` between two floor points; `X,Y,Z` points snap from that height (terrain) |
 | `--open-doors=GLOB` | Open the doors whose name matches before the navmesh bake and hold them (their leaves are obstacles; the rest stay out of the bake as usual): a route a test walks, e.g. `door_*stair*` |
-| `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one. Carried items count too: an item whose id is the lock's key, or whose `opens` (globs) matches it (manifest `items`, `GeogenRules.carried_keys`, `main.held_keys`) |
+| `--keys=K1,K2` | Keys the player holds; L locks/unlocks a focused door that takes one, and E on a locked one unlocks it on the way. So do the scene's catalogue entry's `keys` (`runtime_scenes.yaml`). Carried items count too: an item whose id is the lock's key, or whose `opens` (globs) matches it (manifest `items`, `GeogenRules.carried_keys`, `main.held_keys`) |
 | `--lock=@aim` | `player.lock`: press L on whatever the player looks at |
 | `--pitch=DEG` | Look up (+) / down (-) at spawn |
 | `--save=PATH`, `--load=PATH` | `state.save` at the end / restore a save at start (before `--set`): a `geogen-save` (see "Saving" below) of every package visited. Keyed by stable ID (`cottage:door#swing`), so a save survives a re-export; entries for chunks that aren't loaded apply when they load |

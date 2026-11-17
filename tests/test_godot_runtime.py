@@ -480,6 +480,18 @@ def test_save_and_restore_interaction_state(godot_script, auto_room_dir, tmp_pat
     assert run["world.lights"]["fixtures"]["bedroom_light"]["visible"] is False
 
 
+def test_the_room_key_by_the_bed_opens_the_suite_door(godot_script, auto_room_dir):
+    """The suite's door is locked (lock: key_suite) and the room key on a nightstand opens it
+    (items/room_key.yaml opens key_suite): picked up, E on the door unlocks and opens it in one go."""
+    base = ("--scene=hotel_room_auto", f"--generated={auto_room_dir}")
+    run = godot_script([INTERACTIONS, step("interactions.use", asset="room_key", actor="player"), step("wait", frames=5),
+                        step("player.status"), step("player.use", retry=2), step("wait", seconds=1.0),
+                        step("interactions.states")], *base)
+    assert "key_suite" in run["player.status"]["keys"], "carrying the room key opens the suite"
+    door = run["interactions.states"]["hotel_room_auto:suite/entry#swing"]
+    assert door["locked"] is False and door["state"] != "closed", door
+
+
 def test_m4_interactive_hotel_room(godot_script, built_scene, auto_room_dir):
     """Milestone M4: in the furnished suite, lock/unlock and open the room door,
     open the wardrobe and a nightstand drawer, switch the lights, sit on the

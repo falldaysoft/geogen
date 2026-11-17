@@ -117,7 +117,7 @@ def test_a_carried_key_opens_its_lock_in_godot(godot_runtime, tmp_path):
     rt.call("player.use", asset="key", interaction="pickup")
     rt.call("time.advance", seconds=0.5)
     assert "room_key" in rt.call("player.status")["keys"]
-    assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock (L)"
+    assert rt.call("hud.aim")["focus"]["prompt"] == "Unlock and open"
     rt.call("input.key", key="L")
     assert rt.call("hud.aim")["focus"]["prompt"].startswith("Open")
 

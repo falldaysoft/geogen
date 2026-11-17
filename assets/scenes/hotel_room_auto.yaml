@@ -9,6 +9,14 @@ place:
     asset: hotel_suite.yaml
     furnish: true        # or a seed number for a different arrangement
 
+  # A spare room key, by the bed: the suite's door is locked (lock: key_suite); carried, it opens it.
+  # The entry spawn is outside that door, so the runtime catalogue (runtime_scenes.yaml `keys`)
+  # also hands the player the key on arrival.
+  room_key:
+    asset: room_key.yaml
+    on: suite/bedroom/nightstand_2.top
+    at: { u: 0.8, v: 0.25 }
+
 spawns:
   entry:
     position: [4.2, 0, 1.3]

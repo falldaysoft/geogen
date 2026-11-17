@@ -234,6 +234,9 @@ func _press() -> void:
     elif npc != null:
         npc.greet()
     elif interaction != null:
+        # Locked, with its key in hand: unlock it on the way (L locks and unlocks without opening).
+        if interaction.locked and interaction.opens(main.held_keys()):
+            interaction.toggle_lock(main.held_keys(), "player")
         interaction.use("player")
     elif refused != null:
         refused.use("player")        # refused: it says why (WorldLoader -> GeogenRules.tell)
