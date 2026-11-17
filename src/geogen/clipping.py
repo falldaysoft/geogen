@@ -301,7 +301,38 @@ def _waist(character: SceneNode, actor: SceneNode, rest: dict, now: dict) -> dic
 def measure(character: SceneNode, pose: str | None = "stand", clip: str | None = None, t: float = 0.0,
             seat=None) -> dict[str, Any]:
     rest = _meshes(posed(character))
-    actor = posed(character, pose, clip, t)
+    out = measure_actor(posed(character, pose, clip, t), rest, character)
+    # Posed on a seat.
+    if seat is not None:
+        from .layout.affordance_qa import pose_actor
+
+        seat_node, spot = seat
+        sitter = pose_actor(character, spot)
+        mine = _meshes(sitter)
+        pts = np.concatenate([m.vertices for m in mine.values() if m is not None])
+        tris = []
+        for n in seat_node.iter_nodes():
+            if n.mesh is not None and len(n.mesh.faces):
+                tris.append(n.world_mesh().vertices[n.mesh.faces])
+        tris = np.concatenate(tris)
+        inside = winding(pts, tris) > 0.5
+        depth = np.zeros(len(pts))
+        if inside.any():
+            depth[inside] = distance(pts[inside], tris)
+        out["seat"] = _metric(depth)
+    return out
+
+
+def rest_meshes(character: SceneNode) -> dict[str, Any]:
+    """The character's meshes standing at rest, which ``measure_actor`` compares a pose with."""
+    return _meshes(posed(character))
+
+
+def measure_actor(actor: SceneNode, rest: dict[str, Any], character: SceneNode | None = None) -> dict[str, Any]:
+    """The metrics of ``measure`` (not ``seat``) for an actor already posed however it is: by a
+    clip, or by a motion rig frame by frame (``motion_qa``). ``rest`` is ``rest_meshes`` of the
+    character; ``character`` (default the actor) carries ``meta.humanoid``."""
+    character = actor if character is None else character
     now = _meshes(actor)
     body = now["body"]
     out: dict[str, Any] = {}
@@ -354,24 +385,6 @@ def measure(character: SceneNode, pose: str | None = "stand", clip: str | None =
         out["feet_skin"] = {"count": int((skin_feet & heel).sum()), "max_mm": 0.0}
     # Top over bottom round the waist.
     out.update(_waist(character, actor, rest, now))
-    # Posed on a seat.
-    if seat is not None:
-        from .layout.affordance_qa import pose_actor
-
-        seat_node, spot = seat
-        sitter = pose_actor(character, spot)
-        mine = _meshes(sitter)
-        pts = np.concatenate([m.vertices for m in mine.values() if m is not None])
-        tris = []
-        for n in seat_node.iter_nodes():
-            if n.mesh is not None and len(n.mesh.faces):
-                tris.append(n.world_mesh().vertices[n.mesh.faces])
-        tris = np.concatenate(tris)
-        inside = winding(pts, tris) > 0.5
-        depth = np.zeros(len(pts))
-        if inside.any():
-            depth[inside] = distance(pts[inside], tris)
-        out["seat"] = _metric(depth)
     return out
 
 

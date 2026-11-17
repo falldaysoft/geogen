@@ -119,12 +119,18 @@ def _actor(spec: dict, scene: SceneNode, assets_dir: Path) -> SceneNode:
 
 
 def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record: bool = False,
-                 resolution: tuple[int, int] = (800, 600)) -> Result:
-    """Run a scenario to its end; with ``record`` render every frame."""
+                 resolution: tuple[int, int] = (800, 600), actor: dict | None = None,
+                 probe=None) -> Result:
+    """Run a scenario to its end; with ``record`` render every frame. ``actor`` replaces keys of
+    the scenario's actor (another archetype or seed: ``motion_qa``); ``probe(rig)`` is called
+    before the first step and after every step (``rig.samples`` is empty the first time)."""
     assets_dir = Path(assets_dir or roots.CORE)
     spec = name if isinstance(name, dict) else load_scenario(name, assets_dir)
+    actor_spec = {**(spec.get("actor") or {}), **(actor or {})}
+    if actor and "archetype" in actor and "params" not in actor:
+        actor_spec.pop("params", None)       # the scenario's params were for its own person
     scene = _scene(spec["scene"], assets_dir)
-    actor = _actor(spec.get("actor") or {}, scene, assets_dir)
+    actor = _actor(actor_spec, scene, assets_dir)
     rig = MotionRig(actor, scene, fps=int(spec.get("fps", 30)), assets_dir=assets_dir)
     script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
     limit = float(spec.get("duration", 20.0))
@@ -135,12 +141,16 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
     frames = []
     if recorder:
         frames.append(recorder.frame(rig))
+    if probe is not None:
+        probe(rig)
     while rig.time < limit - 1e-9:
         while script and float(script[0].get("at", 0)) <= rig.time + 1e-9:
             _do(rig, script.pop(0))
         rig.step()
         if cloth is not None:
             rig.samples[-1]["cloth"] = cloth.depth()
+        if probe is not None:
+            probe(rig)
         if recorder:
             frames.append(recorder.frame(rig))
         if until == "idle" and not script and not rig.running():
