@@ -385,6 +385,7 @@ func _ready() -> void:
     hud.add_panel(GeogenHudCrossing.new(), "screen")
     hud.add_panel(GeogenHudQuestLog.new(), "screen")
     hud.add_panel(GeogenHudDialogue.new(), "screen")
+    hud.add_panel(GeogenHudMotionGallery.new(), "screen")
     var keys := GeogenHudKeys.new()                 # ? lists these and every panel's hud_keys()
     keys.groups = GAME_KEYS
     hud.add_panel(keys, "screen")

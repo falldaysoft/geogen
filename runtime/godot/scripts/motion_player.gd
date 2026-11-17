@@ -11,6 +11,7 @@ extends SkeletonModifier3D
 const FPS := 30
 
 static var _motions := {}        # generated dir -> {name: spec}
+static var _catalogues := {}     # generated dir -> [catalogue entry] (motion.motion_catalogue)
 
 var rig: GeogenMotionRig
 var body: Node3D
@@ -53,6 +54,21 @@ static func motions(generated: String) -> Dictionary:
                 found = data["motions"]
         _motions[generated] = found
     return _motions[generated]
+
+
+## The motion catalogue in `generated`/motions.json ([] when there is none): every motion's
+## name, category, summary, params, roles and whether it needs only the body
+## (geogen.motion.motion_catalogue), by category then name.
+static func catalogue(generated: String) -> Array:
+    if not _catalogues.has(generated):
+        var found := []
+        var path := "%s/motions.json" % generated
+        if FileAccess.file_exists(path):
+            var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+            if data is Dictionary and data.get("catalogue") is Array:
+                found = data["catalogue"]
+        _catalogues[generated] = found
+    return _catalogues[generated]
 
 
 ## Start `motion` with `values` for its params; "" or why it didn't.
