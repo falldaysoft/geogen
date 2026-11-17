@@ -17,7 +17,7 @@ beats:
                   fingers: [0.1, 1, 0.2], palm: [0, 0, 1] }
       mirror: true
     plant: feet
-    over: 0.2
+    over: 0.3
     ease: settle
     after: 0.6
     interrupt: finish

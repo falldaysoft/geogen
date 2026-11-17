@@ -11,8 +11,18 @@ params:
 holds:
   require: [hips, legs, spine, left_hand, right_hand]
   claim: [gaze]
-initial: push
+initial: lift
 beats:
+  lift:                                    # the hands up in front first: the arc to overhead in two
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.6}", "{height * 0.82}", "{height * 0.12}"], pole: [1, -1, -0.3], grip: flat,
+                  fingers: [0.1, 0.3, 1], palm: [0, 1, 0] }
+      mirror: true
+    plant: feet
+    over: 0.5
+    interrupt: yield
+    exit: still
+    then: push
   push:
     bones: { Spine: [-2, 0, 0], Head: [-10, 0, 0] }
     ik:

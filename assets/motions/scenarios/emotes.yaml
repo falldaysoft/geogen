@@ -1,0 +1,17 @@
+# Emotes in a row (geogen.103.17): a clap with a nod over it (the nod only takes the gaze), a
+# cheer, a shrug, a thumbs up, and down onto the floor and back up. Body only: a conformance
+# trace for the runtime rig (hand turns, fists, legs posed by bones).
+kind: motion_scenario
+description: Clap with a nod, cheer, shrug, thumbs up, sit on the ground and get up.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_man.yaml, seed: 2, facing: 0 }
+script:
+  - { at: 0.2, start: clap, claps: 2 }
+  - { at: 0.5, start: nod, nods: 1 }
+  - { at: 1.8, start: cheer, pumps: 1 }
+  - { at: 3.6, start: shrug, hold: 0.3 }
+  - { at: 5.0, start: thumbs_up, hold: 0.3 }
+  - { at: 6.4, start: sit_ground, duration: 0.5 }
+camera: { view: iso, frame: [actor], margin: 0.35 }

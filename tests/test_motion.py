@@ -426,7 +426,7 @@ def test_motions_json_holds_every_motion(tmp_path):
     assert data["motions"]["squat"]["beats"]["up"]["loop"] == {"to": "down", "times": "{reps}"}, "{expr} left for the runtime"
 
 
-@pytest.mark.parametrize("name", ["squat", "jumping_jacks", "squat_shoved", "bow_wave"])
+@pytest.mark.parametrize("name", ["squat", "jumping_jacks", "squat_shoved", "bow_wave", "emotes", "idles"])
 def test_motion_traces_are_what_the_reference_rig_does(name):
     """The stored conformance traces (tests/data/motion, the runtime rig replays them) still
     match the reference rig: after a change to it, run tests/data/motion/make_traces.py."""
@@ -440,3 +440,126 @@ def test_motion_traces_are_what_the_reference_rig_does(name):
     worst = max(abs(a - b) for f, g in zip(now["expect"]["positions"], stored["expect"]["positions"])
                 for bone in f["positions"] for a, b in zip(f["positions"][bone], g["positions"][bone]))
     assert worst < 1e-4, f"the trace is stale by {worst * 1000:.2f} mm: run tests/data/motion/make_traces.py"
+
+
+# --- idles, emotes, dances and things on the table (geogen.103.17) -----------------------------------
+
+def test_every_motion_is_in_the_catalogue():
+    """motion_catalogue lists every motion file with a category and a one-line summary (what the
+    runtime's gallery lists); the body-only ones are what the runtime rig plays today."""
+    from geogen.motion import CATEGORIES, motion_catalogue, motion_names
+
+    entries = motion_catalogue()
+    assert sorted(e["name"] for e in entries) == sorted(motion_names())
+    for e in entries:
+        assert e["category"] in CATEGORIES and e["summary"], e["name"]
+    by_name = {e["name"]: e for e in entries}
+    assert by_name["clap"]["body_only"] and by_name["clap"]["category"] == "emote"
+    assert not by_name["drink"]["body_only"] and by_name["drink"]["props"] == {"cup": {"asset": "mug.yaml"}}
+    assert len([e for e in entries if e["category"] == "idle"]) >= 10
+    assert len([e for e in entries if e["category"] in ("emote", "dance")]) >= 20
+    order = [CATEGORIES.index(e["category"]) for e in entries]
+    assert order == sorted(order), "listed by category"
+
+
+def test_motions_json_carries_the_catalogue(tmp_path):
+    import json
+
+    from geogen.motion import motion_catalogue, write_motions
+
+    data = json.loads(write_motions(tmp_path).read_text())
+    assert data["catalogue"] == json.loads(json.dumps(motion_catalogue()))
+
+
+def test_props_name_roles_and_category_is_known():
+    base = {"kind": "motion", "name": "bad", "beats": {"a": {"after": 1}}}
+    with pytest.raises(MotionError, match="category"):
+        validate_motion({**base, "category": "party"})
+    with pytest.raises(MotionError, match="props.cup"):
+        validate_motion({**base, "props": {"cup": {"asset": "mug.yaml"}}})
+
+
+GALLERY = [n for n in MOTIONS if load_motion(n).get("category") in ("idle", "emote", "dance", "reaction")]
+
+
+@pytest.fixture(scope="module")
+def demos():
+    """Every idle, emote, dance and reaction on its demonstration stage (demo_scenario), on the
+    young woman (a skirt: the arms' clearance is measured) and the older man (a heavier build)."""
+    from geogen.motion_review import demo_scenario
+
+    return {(name, who): run_scenario(demo_scenario(name, who))
+            for name in GALLERY for who in ("young_woman", "older_man")}
+
+
+@pytest.mark.parametrize("name", GALLERY)
+def test_gallery_motions_play_through_cleanly(demos, name):
+    """Each runs to its end and leaves the body standing, with its feet where they were and its
+    hands where its beats put them; no joint snaps (`pops`) except a start's deliberate jerk."""
+    for who in ("young_woman", "older_man"):
+        r = demos[(name, who)]
+        m = r.metrics
+        assert r.rig.running() == [] and r.rig.posture == "stand", (name, who)
+        assert m["foot_slide_mm"] < 2, (name, who, m["foot_slide_mm"])
+        # A fast beat (a clap's quarter-second meet) stops a frame short of its goal.
+        assert m["contact_error_mm"] < 40, (name, who, m["contact_error_mm"])
+        assert m["pops"] <= (2 if name in ("surprised", "fist_pump", "celebrate_jump", "stagger") else 1), (name, who, m["peak_joint_speed"])
+
+
+def test_hand_turn_points_the_fingers_and_faces_the_palm():
+    """`fingers` / `palm` on an ik entry turn the hand: the clap's meet has the palms facing each
+    other and the fingers up and ahead, mirrored on the right."""
+    from geogen.motion import MotionRig
+    from geogen.motion_review import _actor, _scene
+
+    scene = _scene({"place": {}}, roots.CORE)
+    actor = _actor({"archetype": "characters/archetypes/young_man.yaml", "seed": 2}, scene, roots.CORE)
+    rig = MotionRig(actor, scene)
+    rig.start("clap", claps=1)
+    while rig.running() and rig.running()[0].beat != "part":
+        rig.step()
+    fk = rig.skeleton.fk(rig.out)
+    for side, sign in (("Left", 1), ("Right", -1)):
+        hand, middle = fk[f"{side}Hand"][:3, 3], fk[f"{side}MiddleProximal"][:3, 3]
+        fingers = (middle - hand) / np.linalg.norm(middle - hand)
+        want = np.array([-0.2 * sign, 0.6, 1.0])
+        assert fingers @ (want / np.linalg.norm(want)) > 0.97, (side, fingers)
+        # The palm faces across the body: the thumb side of the hand is up, the hand's flat across.
+        assert abs(fingers[0]) < 0.3
+    assert abs(fk["LeftHand"][0, 3] + fk["RightHand"][0, 3]) < 0.01, "mirrored"
+
+
+@pytest.mark.parametrize("name", ["drink", "inspect"])
+def test_a_thing_taken_from_the_table_goes_back_where_it_stood(runs, name):
+    """drink and inspect take the mug from the table in front, use it (it tips and turns with the
+    hand) and put it back where it stood (`cup@start`), upright and let go of."""
+    from geogen import refs
+    from geogen.motion_review import _scene
+
+    r = _run(runs, name)
+    m = r.metrics
+    assert r.rig.running() == [] and not r.rig.attached
+    assert m["pops"] == 0 and m["foot_slide_mm"] < 1 and m["contact_error_mm"] < 5
+    assert [e["emit"] for e in r.rig.trace if e["event"] == "emit"] == ["taken", "put"]
+    before = refs.resolve(_scene(r.scenario["scene"], roots.CORE), "cup").world_transform()
+    after = refs.resolve(r.rig.scene, "cup").world_transform()
+    assert np.linalg.norm(after[:3, 3] - before[:3, 3]) < 0.004, "back where it stood"
+    assert after[:3, 1] @ [0, 1, 0] > 0.999, "upright"
+
+
+def test_every_motion_has_a_stage():
+    """demo_scenario stages every motion: body-only ones on a rug, ones with things at a table
+    with their props on it in front of the person (a motion with roles and no props can't be shown)."""
+    from geogen.motion import motion_catalogue
+    from geogen.motion_review import demo_scenario
+
+    for e in motion_catalogue():
+        if e["roles"] and not e["props"]:
+            with pytest.raises(MotionError, match="no props"):
+                demo_scenario(e["name"])
+            continue
+        spec = demo_scenario(e["name"])
+        place = spec["scene"]["place"]
+        assert ("table" in place) == bool(e["props"]), e["name"]
+        for role in e["props"]:
+            assert spec["script"][0][role] in place and place[spec["script"][0][role]]["on"] == "table.top"

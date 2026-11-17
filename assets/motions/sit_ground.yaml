@@ -1,6 +1,6 @@
 # Sit on the ground (geogen.103.17): down onto the floor with the knees up and the arms round
-# them, a while there, and back up. Body only: the hips go down to the floor over the feet,
-# which then slide out in front.
+# them, a while there, and back up. Body only: the hips go down and back to the floor behind
+# the feet, which stay planted where they stood; the knees come up.
 kind: motion
 name: sit_ground
 category: emote
@@ -23,17 +23,12 @@ beats:
     interrupt: finish
     then: down
   down:                                    # on the floor, knees up, arms round them
-    hips: [0, "{-height * leg_ratio + 0.12}", "{-0.24 * height}"]
+    hips: [0, "{-height * leg_ratio + 0.12}", "{-0.21 * height}"]
+    plant: feet                            # where they stood: the knees come up
     bones:
       Spine: [14, 0, 0]
       Chest: [8, 0, 0]
       Head: [-10, 0, 0]
-      LeftUpperLeg: [-135, 0, 8]
-      RightUpperLeg: [-135, 0, -8]
-      LeftLowerLeg: [112, 0, 0]
-      RightLowerLeg: [112, 0, 0]
-      LeftFoot: [25, 0, 0]
-      RightFoot: [25, 0, 0]
     ik:
       LeftHand: { target: [-0.03, "{height * 0.22}", "{height * 0.04}"], pole: [1, -0.3, -0.3], grip: relaxed,
                   fingers: [-1, 0, 0], palm: [0, 0, -1] }

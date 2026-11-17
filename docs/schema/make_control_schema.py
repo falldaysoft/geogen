@@ -36,6 +36,7 @@ OVERRIDES = {   # (command, arg): type, where an argument means different things
     ("npcs.greet", "wait"): NUM, ("interactions.set", "wait"): BOOL, ("interactions.use", "wait"): BOOL,
     ("interactions.set", "state"): STR, ("state.load", "state"): {"$ref": "geogen-save.v1.schema.json"},
     ("hud.quests", "track"): STR, ("hud.log", "track"): BOOL,
+    ("hud.gallery", "performer"): STR, ("hud.gallery", "loop"): BOOL, ("hud.gallery", "play"): BOOL,
     ("npcs.places", "want"): STR, ("npcs.do", "action"): STR, ("npcs.do", "subject"): STR, ("npcs.do", "place"): VEC,
     ("npcs.needs", "needs"): {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
     ("input.mouse", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},   # viewport pixels

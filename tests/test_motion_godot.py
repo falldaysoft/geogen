@@ -92,3 +92,33 @@ def test_a_break_through_the_control_api_drops_into_a_stagger(godot_script, scen
     assert events == [("start", "squat"), ("break", None), ("end", "squat"), ("start", "stagger"), ("end", "stagger")]
     assert status["running"] == []
     assert not run.steps[-1]["ok"] and "no motion 'no_such_motion'" in run.steps[-1]["error"]
+
+
+def test_the_motion_gallery_lists_the_catalogue_and_plays_on_everyone(godot_script, scene_export):
+    """The motion_gallery scene opens the HUD's gallery (geogen.103.18) on its own: it lists every
+    motion file from the catalogue, plays a body-only one on all five people or on one, and
+    refuses one that needs things in the world until the runtime rig binds roles."""
+    from geogen.motion import motion_names
+
+    run = godot_script([
+        step("hud.gallery"),
+        step("hud.gallery", select="clap", play=True),
+        step("wait", seconds=0.5),
+        step("motion.status", node="walter"),
+        step("hud.gallery", select="nod", performer="ines", play=True),
+        step("wait", seconds=0.2),
+        step("motion.status", node="ines"),
+        step("motion.status", node="priya"),
+        step("hud.gallery", select="drink", play=True),
+    ], "--scene=motion_gallery", f"--generated={scene_export('motion_gallery')}", check=False)
+    opened = run.steps[0]["result"]
+    assert opened["open"] and opened["performers"] == ["ines", "tomas", "ruth", "walter", "priya"]
+    assert sorted(m["name"] for m in opened["motions"]) == sorted(motion_names())
+    plays = {m["name"]: m["plays"] for m in opened["motions"]}
+    assert plays["clap"] and plays["sit_ground"] and not plays["drink"]
+    assert run.steps[1]["result"]["playing"] == "clap"
+    walter, ines, priya = (e["result"] for e in run.steps if e["cmd"] == "motion.status")
+    assert walter["running"] == ["clap"], "everyone claps"
+    assert ines["running"] == ["nod"] and priya["running"] == ["clap"], "only ines nods; the others clap on"
+    refused = run.steps[-1]
+    assert not refused["ok"] and "needs things in the world" in refused["error"]

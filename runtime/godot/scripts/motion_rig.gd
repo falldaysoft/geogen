@@ -78,6 +78,7 @@ class Run:
     var start_pose: Pose
     var start_ends := {}
     var start_feet := {}
+    var start_hands := {}            # hand -> its body-frame rotation as the beat found it
 
     func spec() -> Dictionary:
         var b = motion["beats"].get(beat)
@@ -345,6 +346,11 @@ func _enter(run: Run, beat: String) -> void:
     for i in _prelook:
         start.rot[i] = _prelook[i]
     run.start_pose = start
+    var fks := _fk(start)
+    run.start_hands = {}
+    for e in ["LeftHand", "RightHand"]:
+        if index.has(e):
+            run.start_hands[e] = Quaternion((fks[index[e]] as Transform3D).basis.orthonormalized())
     var fk := _fk(out)
     for e in ["LeftHand", "RightHand", "LeftFoot", "RightFoot"]:
         if index.has(e):
@@ -495,12 +501,22 @@ func _compose() -> Pose:
             var point: Vector3 = start + (goal - start) * u
             if "spine" in held and e in ["LeftHand", "RightHand"]:
                 _bend_to_reach(pose, laid, e, point, run, u)
+            # A hand turned by `fingers` / `palm` turns in the body's frame from how the beat found
+            # it (motion.py: the same arc every frame, whatever the arm does).
+            var turn = _hand_turn(e, entries[e])
+            if turn != null:
+                var rest_b: Basis = rest_world[index[e]].basis
+                var goal_q := Quaternion(((turn as Basis) * rest_b).orthonormalized())
+                turn = Basis((run.start_hands[e] as Quaternion).slerp(goal_q, u)) * rest_b.inverse()
             var solved := pose.copy()
-            _solve_limb(solved, e, point, entries[e].get("pole"), _hand_turn(e, entries[e]))
+            _solve_limb(solved, e, point, entries[e].get("pole"), turn)
             var limb: Array = LIMBS[e]
             for bone in [limb[0], limb[1], e]:
                 var i: int = index[bone]
                 pose.rot[i] = run.start_pose.rot[i].slerp(solved.rot[i], u)
+            if turn != null:                # under the arm as blended, not as solved
+                var j: int = index[e]
+                pose.rot[j] = _pose_quat(j, _world_of(index[limb[1]], pose), (turn as Basis) * rest_world[j].basis)
     _hang_free_arms(pose)
     for b in LOOK_BONES:
         if index.has(b):

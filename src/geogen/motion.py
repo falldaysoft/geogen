@@ -709,7 +709,10 @@ class MotionRig:
         start.rotations.update({b: q for b, q in self.prelook.items()})
         ends = self._ends_world()
         held = [(h.node, ends[h.end] - h.node.world_transform()[:3, 3]) for h in self.attached.values()]
-        run.start = {"pose": start, "root": self.root.copy(), "ends": ends, "held": held,
+        fk = self.skeleton.fk(start)
+        hands = {e: quat_from_matrix(fk[e][:3, :3] / np.linalg.norm(fk[e][:3, :3], axis=0))   # (hands are scaled)
+                 for e in ("LeftHand", "RightHand") if e in fk}
+        run.start = {"pose": start, "root": self.root.copy(), "ends": ends, "held": held, "hands": hands,
                      "feet": self._ends_world(("LeftFoot", "RightFoot")), "morphs": dict(self.morphs),
                      "posture": self.posture}
         for end, entry in self._ik_entries(run).items():
@@ -972,10 +975,19 @@ class MotionRig:
                 # Solved, then blended in from the arm as the beat found it by the beat's progress:
                 # it starts with its own elbow and ends exactly on the goal, rather than snapping to
                 # the solver's elbow on the beat's first frame.
+                # A hand turned by `fingers` / `palm` turns in the body's frame, from how the beat
+                # found it to the turn it asks for: the same arc every frame, whatever the arm does
+                # (blending its rotation under the forearm flipped where the arc nears half a turn).
+                turn = _hand_turn(end, entry)
+                if turn is not None:
+                    rest = s[end].rotation
+                    turn = matrix_from_quat(slerp(run.start["hands"][end], quat_from_matrix(turn @ rest), u)) @ rest.T
                 solved = pose.copy()
-                solve_limb(s, solved, end, local, entry.get("pole"), _hand_turn(end, entry))
+                solve_limb(s, solved, end, local, entry.get("pole"), turn)
                 for bone in (*LIMBS[end][:2], end):
                     pose.rotations[bone] = slerp(run.start["pose"].rotations.get(bone, IDENTITY), solved.rotations[bone], u)
+                if turn is not None:            # under the arm as blended, not as solved
+                    pose.rotations[end] = s.pose_quat(end, s.world(LIMBS[end][1], pose), turn @ s[end].rotation)
         self._hang_free_arms(pose)
         self.prelook = {b: pose.rotations.get(b, IDENTITY).copy() for b in LOOK_BONES}
         gaze = self.owners.get("gaze")

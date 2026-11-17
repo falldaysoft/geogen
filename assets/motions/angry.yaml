@@ -13,7 +13,7 @@ beats:
   clench:
     bones: &lean { Spine: [5, 0, 0], Chest: [4, 0, 0], Neck: [-4, 0, 0], Head: [-4, 0, 0], LeftShoulder: [0, 0, 6], RightShoulder: [0, 0, -6] }
     ik:
-      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.5}", "{height * 0.04}"], pole: [0.3, -0.2, -1], grip: fist }
+      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.53}", "{height * 0.05}"], pole: [0.3, -0.2, -1], grip: fist }
       mirror: true
     over: 0.4
     ease: settle
@@ -24,7 +24,7 @@ beats:
   raise:
     bones: *lean
     ik: &fist_up
-      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.5}", "{height * 0.04}"], pole: [0.3, -0.2, -1], grip: fist }
+      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.53}", "{height * 0.05}"], pole: [0.3, -0.2, -1], grip: fist }
       RightHand: { target: [-0.2, "{height * 0.9}", "{height * 0.18}"], pole: [-1, -0.8, 0], grip: fist,
                    fingers: [0.2, 0.7, 0.6], palm: [1, 0, -0.3] }
     over: 0.35
@@ -34,7 +34,7 @@ beats:
   shake:
     bones: *lean
     ik:
-      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.5}", "{height * 0.04}"], pole: [0.3, -0.2, -1], grip: fist }
+      LeftHand: { target: ["{shoulder_width * 0.55 + 0.05}", "{height * 0.53}", "{height * 0.05}"], pole: [0.3, -0.2, -1], grip: fist }
       RightHand: { target: [-0.2, "{height * 0.87}", "{height * 0.21}"], pole: [-1, -0.8, 0], grip: fist,
                    fingers: [0.2, 0.4, 0.9], palm: [1, 0, -0.3] }
     over: 0.14

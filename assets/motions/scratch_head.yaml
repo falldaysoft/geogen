@@ -8,8 +8,15 @@ params:
   scratches: { default: 3 }
 holds:
   claim: [right_hand, gaze]
-initial: up
+initial: lift
 beats:
+  lift:                                    # the hand up in front first: the arc up to the head in two
+    ik:
+      RightHand: { target: [-0.1, "{height * 0.78}", "{height * 0.2}"], pole: [-1, -1, -0.3], grip: relaxed }
+    over: 0.3
+    interrupt: yield
+    exit: down
+    then: up
   up:
     bones: &tip { Neck: [2, 0, -4], Head: [2, 0, -8] }
     ik:
