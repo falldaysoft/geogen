@@ -20,9 +20,10 @@ holds:
   prefer: [spine]
 initial: over
 beats:
-  over:                                    # the thing just above the place
+  over:                                    # the thing just above the place (the hand palm down as take holds it:
+                                           # its fingers stay above the place's surface)
     ik:
-      RightHand: { target: place, offset: [0, 0.06, 0], holding: item, grip: item, pole: [-0.4, -1, 0] }
+      RightHand: { target: place, offset: [0, 0.06, 0], holding: item, grip: item, pole: [-0.4, -1, 0], fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
     look: place
     over: 0.9
     interrupt: yield
@@ -30,7 +31,7 @@ beats:
     then: lower
   lower:                                   # onto it, and let go
     ik:
-      RightHand: { target: place, offset: [0, 0.002, 0], holding: item, grip: item, pole: [-0.4, -1, 0] }
+      RightHand: { target: place, offset: [0, 0.002, 0], holding: item, grip: item, pole: [-0.4, -1, 0], fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
     look: place
     over: 0.4
     release: item                          # on arrival: it rests on the place
@@ -39,7 +40,7 @@ beats:
     then: let_go
   let_go:                                  # the hand opens and comes up off its grip
     ik:
-      RightHand: { target: item, offset: [0, 0.07, 0.09], grip: open, pole: [-0.4, -1, 0] }
+      RightHand: { target: item, tip: index, offset: [0, 0.06, 0.03], grip: open, pole: [-0.4, -1, 0], fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
     look: item
     over: 0.3
     interrupt: finish

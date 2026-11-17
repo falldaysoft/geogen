@@ -54,7 +54,7 @@ LIMITS = {
     "shell_poke": 6.0,
     "hands": 12.0,
     "props": 5.0,
-    "props_hands": 10.0,
+    "props_hands": 8.0,
 }
 
 

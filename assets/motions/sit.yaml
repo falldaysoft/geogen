@@ -16,7 +16,7 @@ params:
   # Where the body stands before sitting and after getting up, from the seat (m: x to the seat's
   # left, z ahead of it). Less far ahead for a chair at a table, which has the table there.
   approach_x: { default: 0 }
-  approach_z: { default: 0.35 }
+  approach_z: { default: "{0.35 - 0.4 * max(0, 1.72 - height)}" }   # closer for a body under 1.72 m: its feet reach the floor seated
 holds:
   require: [root, legs, hips]
   claim: [spine]

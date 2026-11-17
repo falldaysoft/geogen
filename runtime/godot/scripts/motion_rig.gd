@@ -24,6 +24,8 @@ const DEFAULT_HALF_LIFE := 0.18
 const REACH_SLACK := 0.96
 const BEND_BONES := ["Spine", "Chest"]
 const MAX_BEND := 75.0
+const HANG_SHARE := 0.7          # of the way a free arm swings back to hanging plumb (motion.HANG_SHARE)
+const TIP_LENGTH := {"Index": 0.02, "Middle": 0.021, "Ring": 0.02, "Little": 0.016}   # generators/hand.py
 const LOOK_IN := 0.3
 const LOOK_OUT := 0.4            # s: a look that ends eases off in this long
 const LOOK_FOLLOW := 0.1
@@ -293,6 +295,10 @@ func start(motion: Dictionary, values := {}) -> Run:
     for k in given:
         if given[k] is float or given[k] is int:
             env[k] = float(given[k])
+    for k in given:                      # a param of the body's size ("{0.2 * height}")
+        if given[k] is String and given[k].begins_with("{"):
+            given[k] = resolve(given[k], env)
+            env[k] = given[k]
     var beats = resolve(motion["beats"], env)
     for beat in beats:
         for key in NOT_PORTED:
@@ -655,19 +661,31 @@ func _compose() -> Pose:
             var goal = _ik_target(run, e, entries[e])
             if goal == null:
                 continue
+            var entry: Dictionary = _turn_entry(run, entries[e])
+            if entry.get("tip"):
+                # The fingertip goes on the target, the hand turned as asked (motion.py).
+                var full = _hand_turn(e, entry)
+                if full == null:
+                    push_error("motion '%s': %s tip: needs fingers / palm to turn the hand" % [run.name, e])
+                else:
+                    goal -= (full as Basis) * _tip(e, str(entry["tip"]), pose)
             var start: Vector3 = run.start_ends[e]
             var point: Vector3 = start + (goal - start) * u
+            if entry.get("arc"):
+                # Up and over on the way: asked for 6.75 (1 - u)^2 arc, the arm as blended in by
+                # `u` rises by about 6.75 u (1 - u)^2 arc, a third of the way along (motion.py).
+                point += Vector3(0, float(entry["arc"]) * minf(6.75 * (1.0 - u) * (1.0 - u), 2.0), 0)
             if "spine" in held and e in ["LeftHand", "RightHand"]:
-                _bend_to_reach(pose, laid, e, point, run, u)
+                _bend_to_reach(pose, laid, e, point, run, u, goal if entry.get("arc") else null)
             # A hand turned by `fingers` / `palm` turns in the body's frame from how the beat found
             # it (motion.py: the same arc every frame, whatever the arm does).
-            var turn = _hand_turn(e, entries[e])
+            var turn = _hand_turn(e, entry)
             if turn != null:
                 var rest_b: Basis = rest_world[index[e]].basis
                 var goal_q := Quaternion(((turn as Basis) * rest_b).orthonormalized())
                 turn = Basis((run.start_hands[e] as Quaternion).slerp(goal_q, u)) * rest_b.inverse()
             var solved := pose.copy()
-            _solve_limb(solved, e, point, entries[e].get("pole"), turn)
+            _solve_limb(solved, e, point, entry.get("pole"), turn)
             var limb: Array = LIMBS[e]
             for bone in [limb[0], limb[1], e]:
                 var i: int = index[bone]
@@ -739,7 +757,7 @@ func _hang_free_arms(pose: Pose) -> void:
         var end: int = index[side + "Hand"]
         var a: Vector3 = (now[end].origin - now[upper].origin).normalized()
         var b: Vector3 = (was[end].origin - was[upper].origin).normalized()
-        var swing := Basis(Quaternion(a, b))
+        var swing := Basis(Quaternion.IDENTITY.slerp(Quaternion(a, b), HANG_SHARE))
         pose.rot[upper] = _pose_quat(upper, _world_of(parent[upper], pose), swing * now[upper].basis)
 
 
@@ -840,6 +858,43 @@ static func _hand_turn(e: String, entry: Dictionary):
     var target := Basis(f, p, f.cross(p))
     var rest := Basis(rest_f, rest_p, rest_f.cross(rest_p))
     return target * rest.transposed()
+
+
+## `entry` with its `fingers` / `palm` in the body's frame: `frame: target` gives them in the
+## target's frame (motion._turn_entry).
+func _turn_entry(run: Run, entry: Dictionary) -> Dictionary:
+    if str(entry.get("frame", "body")) == "body" or not (entry.has("fingers") or entry.has("palm")):
+        return entry
+    var target = _ref(run, entry.get("target"))
+    if not target is Target:
+        return entry
+    var turn: Basis = _body(target.world()).basis
+    var out_ := entry.duplicate()
+    for k in ["fingers", "palm"]:
+        if entry.has(k):
+            var a: Array = entry[k]
+            var v: Vector3 = turn * Vector3(float(a[0]), float(a[1]), float(a[2]))
+            out_[k] = [v.x, v.y, v.z]
+    return out_
+
+
+## From the wrist to `finger`'s tip (index, ...) in the body's frame, the hand at its rest
+## orientation with the fingers as `pose` shapes them (motion._tip).
+func _tip(e: String, finger: String, pose: Pose) -> Vector3:
+    var side := e.substr(0, e.length() - 4)
+    var n := finger.capitalize()
+    if not TIP_LENGTH.has(n):
+        push_error("%s tip '%s': not a finger" % [e, finger])
+        return Vector3.ZERO
+    var shaped := Pose.new(names.size())
+    for i in names.size():
+        if str(names[i]).begins_with(side + n):
+            shaped.rot[i] = pose.rot[i]
+    var w := _fk(shaped)
+    var distal: Vector3 = w[index[side + n + "Distal"]].origin
+    var along: Vector3 = (distal - w[index[side + n + "Intermediate"]].origin).normalized()
+    var scale := float(params.get("height", 1.7)) / 1.7 * float(params.get("hand_size", 1.0))
+    return distal + along * TIP_LENGTH[n] * scale - w[index[e]].origin
 
 
 static func _mirror_name(n: String) -> String:
@@ -961,7 +1016,7 @@ func _body(t: Transform3D) -> Transform3D:
     return body_world.affine_inverse() * t
 
 
-func _bend_to_reach(pose: Pose, beat: Pose, e: String, point: Vector3, run: Run, u: float) -> void:
+func _bend_to_reach(pose: Pose, beat: Pose, e: String, point: Vector3, run: Run, u: float, lead = null) -> void:
     var shoulder := e.replace("Hand", "UpperArm")
     var elbow := e.replace("Hand", "LowerArm")
     var reach: float = REACH_SLACK * ((rest_world[index[shoulder]].origin - rest_world[index[elbow]].origin).length()
@@ -970,22 +1025,28 @@ func _bend_to_reach(pose: Pose, beat: Pose, e: String, point: Vector3, run: Run,
     var spanned: float = (run.start_ends[e] - _fk(run.start_pose)[index[shoulder]].origin).length()
     reach = maxf(reach, reach + (minf(spanned, full) - reach) * (1.0 - u))
     var trial := pose.copy()
-    var bend := func(degrees: float) -> bool:
+    var bend := func(degrees: float, at: Vector3, within: float) -> bool:
         for b in BEND_BONES:
             var i: int = index[b]
             trial.rot[i] = beat.rot[i] * _body_quat(i, _euler(Vector3(degrees / BEND_BONES.size(), 0, 0)))
-        return point.distance_to(_world_of(index[shoulder], trial).origin) <= reach
-    if not bend.call(0.0):
+        return at.distance_to(_world_of(index[shoulder], trial).origin) <= within
+    var least := func(at: Vector3, within: float) -> float:
+        if bend.call(0.0, at, within):
+            return 0.0
         var lo := 0.0
         var hi := MAX_BEND
-        if bend.call(hi):
+        if bend.call(hi, at, within):
             for _k in 14:
                 var mid := 0.5 * (lo + hi)
-                if bend.call(mid):
+                if bend.call(mid, at, within):
                     hi = mid
                 else:
                     lo = mid
-        bend.call(hi)
+        return hi
+    var degrees: float = least.call(point, reach)
+    if lead != null:     # an arcing reach: the goal's bend eases in with the beat (motion.py)
+        degrees = maxf(degrees, float(least.call(lead, full * REACH_SLACK)) * u)
+    bend.call(degrees, point, reach)
     for b in BEND_BONES:
         pose.rot[index[b]] = trial.rot[index[b]]
 

@@ -158,6 +158,23 @@ hand_shapes:
       LeftLittleProximal: [0, 0, -55]
       LeftLittleIntermediate: [0, 0, -65]
       LeftLittleDistal: [0, 0, -30]
+  rim:                                      # a plate's rim, the hand over it: the fingers barely curled over its
+    bones:                                  # edge (they stay above the table it is set down on), the thumb under
+      LeftThumbMetacarpal: [0, 30, 0]
+      LeftThumbProximal: [0, 25, 0]
+      LeftThumbDistal: [0, 15, 0]
+      LeftIndexProximal: [0, 0, -12]
+      LeftIndexIntermediate: [0, 0, -18]
+      LeftIndexDistal: [0, 0, -10]
+      LeftMiddleProximal: [0, 0, -14]
+      LeftMiddleIntermediate: [0, 0, -20]
+      LeftMiddleDistal: [0, 0, -10]
+      LeftRingProximal: [0, 0, -14]
+      LeftRingIntermediate: [0, 0, -20]
+      LeftRingDistal: [0, 0, -10]
+      LeftLittleProximal: [0, 0, -16]
+      LeftLittleIntermediate: [0, 0, -22]
+      LeftLittleDistal: [0, 0, -12]
   fist:                                     # a closed fist: power with the thumb across the fingers
     bones:
       <<: *press

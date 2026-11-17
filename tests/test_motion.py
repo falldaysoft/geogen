@@ -90,7 +90,7 @@ def test_interrupted_sit_gets_up_through_its_exit(runs):
 
 def test_press_reaches_the_button_and_emits(runs):
     m = _run(runs, "press_tv").metrics
-    assert m["beats"] == ["press.reach", "press.push", "press.back"]
+    assert m["beats"] == ["press.reach", "press.push", "press.withdraw", "press.back"]
     assert any(e.get("emit") == "pressed" for e in m["events"])
     assert m["contact_error_mm"] < 5, "IK lands on the button (inertialization is laid before the solve)"
     assert m["pops"] == 0
@@ -188,12 +188,12 @@ def test_a_carried_plate_goes_with_the_hand_and_stays_level(runs):
     held = [s for s in r.rig.samples if s["beats"].get("carry") == "held" and "take" not in s["beats"]
             and "set_down" not in s["beats"]]
     assert held and all(s["owners"]["right_hand"] == "carry" for s in held), "carry has the hand between"
-    # The pinch the plate's rim grip names, held through the carry.
+    # The rim shape the plate's rim grip names, held through the carry.
     skeleton = r.rig.skeleton
     from geogen.core.transform import Transform
 
     want = skeleton.body_quat("RightIndexProximal", Transform(rotation=np.radians(
-        skeleton.hand_shapes["pinch"]["RightIndexProximal"])).to_matrix()[:3, :3])
+        skeleton.hand_shapes["rim"]["RightIndexProximal"])).to_matrix()[:3, :3])
     assert abs(float(np.dot(held[-1]["rotations"]["RightIndexProximal"], want))) > 0.999
     # Lifted: the hand at waist height, well above the table.
     assert held[-1]["ends"]["RightHand"][1] > 0.85
@@ -215,7 +215,7 @@ def test_grip_any_takes_the_first_grip_a_hand_holds():
     from geogen.motion import contact
 
     plate = LayoutLoader().load(roots.find("plate.yaml", roots.CORE))
-    assert contact(plate, "any").name.endswith(".rim") and contact(plate, "any").grip == "pinch"
+    assert contact(plate, "any").name.endswith(".rim") and contact(plate, "any").grip == "rim"
     tv = LayoutLoader().load(roots.find("tv.yaml", roots.CORE))
     assert not contact(tv, "any").name.endswith((".power_button", ".screen")), "press and look aren't held"
 
@@ -356,8 +356,19 @@ def test_a_free_arm_hangs_when_the_spine_bends(runs):
     pose.rotations.update(bowed[-1]["rotations"])
     fk = s.fk(pose)
     arm = fk["LeftHand"][:3, 3] - fk["LeftUpperArm"][:3, 3]
-    cos = float(np.dot(arm, hang) / np.linalg.norm(arm) / np.linalg.norm(hang))
-    assert cos > np.cos(np.radians(2)), "the left arm hangs as from an upright spine, not swung back"
+    # HANG_SHARE of the way from swinging with the chest back to hanging plumb.
+    from geogen.motion import HANG_SHARE
+
+    pose.rotations["LeftUpperArm"] = standing.rotations.get("LeftUpperArm", np.array([0, 0, 0, 1.0]))
+    fk = s.fk(pose)
+    swung = fk["LeftHand"][:3, 3] - fk["LeftUpperArm"][:3, 3]
+
+    def angle(a, b):
+        return np.degrees(np.arccos(np.clip(np.dot(a, b) / np.linalg.norm(a) / np.linalg.norm(b), -1, 1)))
+
+    assert angle(swung, hang) > 10, "the bow bends the spine"
+    assert abs(angle(arm, hang) - (1 - HANG_SHARE) * angle(swung, hang)) < 2, \
+        "the left arm hangs most of the way back to plumb, not swung back with the chest"
     _smooth(r.metrics, accel=5000)
 
 

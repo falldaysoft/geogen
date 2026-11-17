@@ -10,7 +10,7 @@ summary: Reach a fingertip to a button and push it.
 roles:
   button: { grip: press }
 params:
-  push: { default: 0.012 }                 # m the finger goes past the surface
+  push: { default: 0.004 }                 # m the finger's pad goes past the surface (the tip is ~9 mm in from the pad)
 holds:
   claim: [right_hand]
   prefer: [spine, gaze]                    # bends to reach a low button when nothing else holds the spine
@@ -18,21 +18,31 @@ initial: reach
 beats:
   reach:
     ik:
-      RightHand: { target: button, offset: [0, 0, 0.09] }   # the palm stops short; the fingers reach
+      # The index fingertip just short of the button, the finger pointing down into it: a button
+      # low on a TV standing on a table is pressed from above, the hand clear of the table.
+      RightHand: { target: button, tip: index, arc: 0.18, offset: [0, 0.015, 0.04], fingers: [0, -1, -1.2], palm: [0, -1, 0], frame: target }
     look: button
+    over: 0.8                              # up and over: longer than the straight way
     interrupt: yield                       # nothing pressed yet: the hand just goes back
     exit: back
     then: push
   push:
     ik:
-      RightHand: { target: button, offset: [0, 0, "{0.09 - push}"] }
+      RightHand: { target: button, tip: index, offset: [0, 0.006, "{0.012 - push}"], fingers: [0, -1, -1.2], palm: [0, -1, 0], frame: target }
     look: button
     over: 0.18
     emit: pressed
     interrupt: finish                      # a press is a press
+    then: withdraw
+  withdraw:                                # up and back off the button, clear of what it stands on
+    ik:
+      RightHand: { target: button, tip: index, arc: 0.04, offset: [0, 0.12, 0.36], fingers: [0, -1, -1.2], palm: [0, -1, 0], frame: target }
+    look: button
+    over: 0.45
+    interrupt: drop
     then: back
   back:
     look: button
-    over: 0.5
+    over: 0.6
     interrupt: drop
     then: done

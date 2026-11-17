@@ -26,4 +26,4 @@ attachments:
   rim:
     anchor: bottom_center
     offset: [0, 0.016, 0.13]
-    grip: pinch
+    grip: rim                         # held from above, the fingers over its edge

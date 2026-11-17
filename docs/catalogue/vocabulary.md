@@ -306,7 +306,7 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name
 | [motions/stagger.yaml](../../assets/motions/stagger.yaml) | A stagger (geogen.103.5): the reaction a break inertializes into (a shove, a near fall). |
 | [motions/stretch.yaml](../../assets/motions/stretch.yaml) | Stretch (geogen.103.17): an idle. |
 | [motions/surprised.yaml](../../assets/motions/surprised.yaml) | Surprised (geogen.103.17): a start: the hands fly up in front of the chest, palms out, the body rocking back; then it relaxes. |
-| [motions/take.yaml](../../assets/motions/take.yaml) | Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the hand open, close the hand on the grip the thing offers (a plate's rim: pinch), lift it to where it is carried. |
+| [motions/take.yaml](../../assets/motions/take.yaml) | Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the hand open, close the hand on the grip the thing offers (a plate's rim: rim), lift it to where it is carried. |
 | [motions/tap_foot.yaml](../../assets/motions/tap_foot.yaml) | Tap the foot (geogen.103.17): an idle, impatient. |
 | [motions/think.yaml](../../assets/motions/think.yaml) | Think (geogen.103.17): the right hand to the chin, the left forearm across the waist under the right elbow, the head tipped and the eyes up; hold, then both arms down. |
 | [motions/thumbs_up.yaml](../../assets/motions/thumbs_up.yaml) | Thumbs up (geogen.103.17): the right fist comes out in front of the chest, thumb up, with a little nod; hold, then down. |

@@ -30,6 +30,8 @@ beats:
         target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
         pole: [-0.4, -1, 0]
         grip: item
+        fingers: [0.35, -0.1, 1]             # as take holds it: palm down, the fingers ahead
+        palm: [0, -1, 0]
     after: duration
     interrupt: hold                        # a noise doesn't make anyone drop dinner
     then: done

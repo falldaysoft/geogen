@@ -9,7 +9,7 @@ scene:
     chair: { asset: chair.yaml, slot: chair }
     console: { asset: tv_console.yaml, slot: console }
     tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
-actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.35], facing: away }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.326], facing: away }   # sit's approach point for this 1.66 m body
 script:
   - { at: 0, start: sit, seat: chair, duration: 10 }
   - { at: 3.6, interrupt: sit, how: yield }

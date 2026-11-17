@@ -7,7 +7,7 @@ scene:
   place:
     table: { asset: table.yaml, params: { width: 1.0, depth: 0.5 } }   # a narrow side table
     plate: { asset: plate.yaml, on: table.top, at: { u: 0.75, v: 0.8 } }
-actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: plate, grip: pinch, offset: [-0.2, 0, 0.36], facing: toward }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: plate, grip: rim, offset: [-0.2, 0, 0.36], facing: toward }
 script:
   - { at: 0.2, start: take, item: plate }
   - { at: 0.2, start: carry, item: plate }          # holds it from the lift (it only prefers the hand)

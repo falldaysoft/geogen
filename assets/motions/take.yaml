@@ -1,5 +1,5 @@
 # Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the
-# hand open, close the hand on the grip the thing offers (a plate's rim: pinch), lift it to where
+# hand open, close the hand on the grip the thing offers (a plate's rim: rim), lift it to where
 # it is carried. The thing decides how it is held: the role binds its first held grip (`any`) and
 # the hand takes that grip's shape. From here `carry` holds it and `set_down` puts it somewhere.
 # Only the hand, the spine (to bend for a low thing) and the gaze are held: someone sitting takes
@@ -28,14 +28,16 @@ initial: reach
 beats:
   reach:                                   # over the grip, the hand open
     ik:
-      RightHand: { target: item, offset: [0, 0.07, 0.09], grip: open }
+      RightHand: { target: item, tip: index, arc: 0.08, offset: [0, 0.06, 0.03], grip: open, fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
     look: item
+    over: 0.8                              # up and over: longer than the straight way
     interrupt: yield                       # nothing taken yet: the hand just goes back
     exit: back
     then: grasp
-  grasp:                                   # down onto the grip, the hand closing on it
+  grasp:                                   # down onto the grip, the hand closing on it (the fingertip on it,
+                                           # wherever this hand's size puts the wrist)
     ik:
-      RightHand: { target: item, offset: [0, 0.02, 0.075], grip: item }
+      RightHand: { target: item, tip: index, offset: [0, 0.008, -0.004], grip: item, fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
     look: item
     over: 0.35
     attach: { item: { hand: right, level: true } }   # a plate stays flat however the wrist turns
@@ -48,6 +50,8 @@ beats:
         target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
         pole: [-0.4, -1, 0]                # the elbow down and a little out
         grip: item
+        fingers: [0.35, -0.1, 1]             # palm down, the fingers ahead: what it holds stays above the hand's
+        palm: [0, -1, 0]                   # lowest point (a plate set down on a table, not the fingers in it)
     look: item
     over: 0.8
     interrupt: finish

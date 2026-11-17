@@ -75,7 +75,9 @@ BEAT_KEYS = {
           "a hand takes the shape `grip` names (a hand shape, or a role: its contact's grip), else its "
           "target's grip when that is a hand shape (skeleton hand_shapes: press, power, pinch, ...); "
           "`holding: <role>` puts the held thing on the target; `fingers: [x, y, z]` and `palm: [x, y, z]` "
-          "turn the hand (body-frame directions the fingers point and the palm faces; mirrored with the target)",
+          "turn the hand (body-frame directions the fingers point and the palm faces; mirrored with the target; "
+          "`frame: target` gives them in the target's frame instead: into a button's face; `tip: index` puts "
+          "that fingertip on the target rather than the wrist; `arc: m` lifts the way there by m, a third of the way along)",
     "root": "{at: <ref>, offset: [x, y, z], facing: away | toward | <deg>, posture: <pose>}: where the body stands",
     "look": "<ref> | {at: <ref>, weight}: where the head turns",
     "plant": "feet: the feet stay where they are on the floor (legs by IK)",
@@ -114,6 +116,7 @@ DEFAULT_HALF_LIFE = 0.18
 REACH_SLACK = 0.96         # of the arm's length: a hand reaches no further without bending
 BEND_BONES = ("Spine", "Chest")
 MAX_BEND = 75              # degrees, shared by BEND_BONES
+HANG_SHARE = 0.7           # of the way a free arm swings back to hanging plumb when the spine bends
 LOOK_IN = 0.3              # s: a gaze turns fully onto a new look in this long
 LOOK_OUT = 0.4             # s: a look that ends (nothing to look at any more) eases off in this long
 LOOK_FOLLOW = 0.1          # s: half-life of the look point following a change of what is looked at
@@ -594,6 +597,9 @@ class MotionRig:
         from .layout.expressions import resolve_value
 
         values = {**self.skeleton.params, **{k: v for k, v in params.items() if isinstance(v, (int, float))}}
+        for k, v in params.items():            # a param of the body's size ("{0.2 * height}")
+            if isinstance(v, str) and v.startswith("{"):
+                values[k] = params[k] = resolve_value(v, values)
         spec = {**spec, "beats": resolve_value(spec["beats"], values)}
         self._order += 1
         run = Run(spec, resolved, self._order, params)
@@ -997,13 +1003,31 @@ class MotionRig:
                 goal = self._ik_target(run, end, entry)
                 if goal is None:
                     continue
+                entry = self._turn_entry(run, entry, root)
+                if entry.get("tip"):
+                    # The fingertip goes on the target, the hand turned as asked: the wrist stops short
+                    # by the finger as this hand and its shape make it (a big hand stops further off).
+                    full = _hand_turn(end, entry)
+                    if full is None:
+                        raise MotionError(f"motion '{run.name}': {end} tip: needs fingers / palm to turn the hand")
+                    goal = goal - root[:3, :3] @ full @ self._tip(end, entry["tip"], pose)
                 start = run.start["ends"][end]
                 point = start + (goal - start) * u
+                if entry.get("arc"):
+                    # Up and over on the way (a hand coming from beside a table onto something on
+                    # it): the path rises by `arc` a third of the way along, up before it goes over
+                    # the edge, rather than sweeping through it. The arm is blended in from where it
+                    # was by `u`, which scales what the solve asks for: asked for 6.75 (1 - u)^2 arc,
+                    # the hand rises by about 6.75 u (1 - u)^2 arc (asked for no more than twice
+                    # the arc: at the start the solve would be sent far out of reach).
+                    lift = float(entry["arc"]) * min(6.75 * (1.0 - u) ** 2, 2.0)
+                    point = point + np.array([0.0, lift, 0.0])
                 aims[end] = goal
                 if run.t >= run.over - self.dt - 1e-9:      # the beat's last composed frame
                     aims[f"{end}@arrived"] = goal
                 if "spine" in channels and end in ("LeftHand", "RightHand"):
-                    self._bend_to_reach(pose, laid, root, end, point, run.start, u)
+                    self._bend_to_reach(pose, laid, root, end, point, run.start, u,
+                                        goal if entry.get("arc") else None)
                 local = (inv_root @ np.r_[point, 1.0])[:3]
                 # Solved, then blended in from the arm as the beat found it by the beat's progress:
                 # it starts with its own elbow and ends exactly on the goal, rather than snapping to
@@ -1065,9 +1089,10 @@ class MotionRig:
 
     def _hang_free_arms(self, pose: Pose) -> None:
         """An arm nothing holds hangs as it would from an upright spine when the spine bends or
-        leans (a reach, a lean): the upper arm swings so the shoulder-to-hand line is what it is
-        with the posture's spine, rather than the arm swinging out behind with the chest. A swing,
-        not a solve, so with no bend it is no change at all."""
+        leans (a reach, a lean): the upper arm swings HANG_SHARE of the way to the shoulder-to-hand
+        line it has with the posture's spine, rather than swinging out behind with the chest (and
+        not all the way: hanging plumb from a shoulder bent over a table puts the hand in its edge).
+        A swing, not a solve, so with no bend it is no change at all."""
         if self.posture != "stand":
             return
         s, base = self.skeleton, self.poses.get(self.posture, self.poses["stand"])
@@ -1084,18 +1109,22 @@ class MotionRig:
         for side in free:
             upper, end = f"{side}UpperArm", f"{side}Hand"
             swing = _swing(now[end][:3, 3] - now[upper][:3, 3], was[end][:3, 3] - was[upper][:3, 3])
+            swing = matrix_from_quat(slerp(IDENTITY, quat_from_matrix(swing), HANG_SHARE))
             parent = s.world(s[upper].parent, pose)
             pose.rotations[upper] = s.pose_quat(upper, parent, swing @ now[upper][:3, :3])
 
     def _bend_to_reach(self, pose: Pose, beat: Pose, root: NDArray[np.float64], end: str,
-                       point: NDArray[np.float64], start: dict, u: float) -> None:
+                       point: NDArray[np.float64], start: dict, u: float,
+                       lead: NDArray[np.float64] | None = None) -> None:
         """Bend forward at the spine, as little as will do, when the hand can't reach ``point``
         from where the shoulder is (a button low on a TV, a cup at the back of a table). The bend
         is measured from the spine as laid this frame (the beat's own bones eased in, before any
         reach), so beats that keep reaching bend continuously rather than adding up; one that stops reaching eases it out with its pose. What the arm
         already spanned when the beat began counts as in reach at its start (a hanging arm is nearly
         straight) and eases to REACH_SLACK by its end (``u``), so a reach starts without a bend and
-        arrives with the elbow a little bent."""
+        arrives with the elbow a little bent. With ``lead`` (the goal of a reach that arcs up and
+        over) the bend the goal needs eases in with the beat as well: an arc's last stretch drops
+        fast, and a bend that only starts when it leaves reach starts with a jolt."""
         s = self.skeleton
         shoulder = end.replace("Hand", "UpperArm")
         rest = s.fk()
@@ -1107,22 +1136,29 @@ class MotionRig:
         base = {b: beat.rotations.get(b, IDENTITY) for b in BEND_BONES}
         trial = pose.copy()
 
-        def bend(degrees: float) -> bool:
+        def bend(degrees: float, at: NDArray[np.float64], within: float) -> bool:
             for bone in BEND_BONES:
                 r = s[bone].rotation
                 extra = Transform(rotation=np.radians([degrees / len(BEND_BONES), 0, 0])).to_matrix()[:3, :3]
                 trial.rotations[bone] = _quat_mul(base[bone], quat_from_matrix(r.T @ extra @ r))
-            return np.linalg.norm(point - (root @ s.world(shoulder, trial))[:3, 3]) <= reach
+            return np.linalg.norm(at - (root @ s.world(shoulder, trial))[:3, 3]) <= within
 
-        # The least bend that reaches, found continuously (a stepped search makes the spine and arm
-        # jitter as the hand travels).
-        if not bend(0.0):
+        def least(at: NDArray[np.float64], within: float) -> float:
+            # The least bend that reaches, found continuously (a stepped search makes the spine and
+            # arm jitter as the hand travels).
+            if bend(0.0, at, within):
+                return 0.0
             lo, hi = 0.0, float(MAX_BEND)
-            if bend(hi):
+            if bend(hi, at, within):
                 for _ in range(14):
                     mid = 0.5 * (lo + hi)
-                    lo, hi = (lo, mid) if bend(mid) else (mid, hi)
-            bend(hi)
+                    lo, hi = (lo, mid) if bend(mid, at, within) else (mid, hi)
+            return hi
+
+        degrees = least(point, reach)
+        if lead is not None:
+            degrees = max(degrees, least(lead, full * REACH_SLACK) * u)
+        bend(degrees, point, reach)
         for bone in BEND_BONES:
             pose.rotations[bone] = trial.rotations[bone]
 
@@ -1203,6 +1239,38 @@ class MotionRig:
             # hand-to-thing offset as the beat found it.
             target = target + self._held_gap(run, end, entry["holding"])
         return target
+
+    def _turn_entry(self, run: Run, entry: dict, root: NDArray[np.float64]) -> dict:
+        """``entry`` with its ``fingers`` / ``palm`` in the body's frame: with ``frame: target``
+        they are given in the target's frame (into a button's face, down onto a table's top), so a
+        hand meets the thing the same way wherever the body stands."""
+        if entry.get("frame", "body") == "body" or not ("fingers" in entry or "palm" in entry):
+            return entry
+        if entry["frame"] != "target":
+            raise MotionError(f"motion '{run.name}': ik frame '{entry['frame']}': expected body or target")
+        target = self._ref(run, entry.get("target"))
+        if not isinstance(target, Target):
+            return entry
+        turn = root[:3, :3].T @ target.world()[:3, :3]
+        return {**entry, **{k: list(turn @ np.asarray(entry[k], dtype=float)) for k in ("fingers", "palm") if k in entry}}
+
+    def _tip(self, end: str, finger: str, pose: Pose) -> NDArray[np.float64]:
+        """From the wrist to ``finger``'s tip (index, middle, ...) in the body's frame, the hand at
+        its rest orientation with the fingers as ``pose`` shapes them."""
+        from .generators.hand import TIP_LENGTH
+
+        side = end[: -len("Hand")]
+        name = finger.capitalize()
+        if name not in TIP_LENGTH:
+            raise MotionError(f"{end} tip '{finger}': expected one of {sorted(k.lower() for k in TIP_LENGTH)}")
+        s = self.skeleton
+        shaped = Pose({b: q for b, q in pose.rotations.items() if b.startswith(side + name)})
+        fk = s.fk(shaped)
+        distal = fk[f"{side}{name}Distal"][:3, 3]
+        along = distal - fk[f"{side}{name}Intermediate"][:3, 3]
+        along /= np.linalg.norm(along)
+        scale = float(s.params.get("height", 1.7)) / 1.7 * float(s.params.get("hand_size", 1.0))
+        return distal + along * TIP_LENGTH[name] * scale - fk[end][:3, 3]
 
     def _held_gap(self, run: Run, end: str, role: str) -> NDArray[np.float64]:
         """From the thing bound to ``role`` to the hand holding it, as the beat found them."""
