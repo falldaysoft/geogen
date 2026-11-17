@@ -1,0 +1,20 @@
+# Eating at the table when something falls in the hall, look only (the design's `thud: {look: 2}`):
+# the glance takes the shared gaze for two seconds and the meal never notices.
+kind: motion_scenario
+description: Eat seated; a glance at the doorway for two seconds; the meal carries on.
+scene: &table_for_one
+  slots:
+    table: { position: [0, 0, 0], facing: north }
+    chair: { position: [0, 0, 0.7], facing: south }
+    door:  { position: [-1.8, 0, 1.4], facing: east }
+  place:
+    table: { asset: table.yaml, slot: table, params: { width: 0.9, depth: 0.7 } }
+    chair: { asset: chair.yaml, slot: chair }
+    plate: { asset: meal_plate.yaml, on: table.top, at: { u: 0.5, v: 0.9 } }
+    lamp:  { asset: floor_lamp.yaml, slot: door }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.2], facing: away }   # between the chair and the table
+script:
+  - { at: 0, start: sit, seat: chair, approach_z: 0.2, duration: 9 }
+  - { at: 1.5, start: eat, food: plate, bites: 3 }
+  - { at: 3.6, start: glance, target: lamp, duration: 2 }
+camera: { view: iso_back, frame: [table, chair], margin: 0.2 }

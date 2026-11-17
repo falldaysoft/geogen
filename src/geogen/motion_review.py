@@ -217,8 +217,9 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
     motions = {}
     for entry in script:
-        if "start" in entry:
-            motion = load_motion(entry["start"], assets_dir)
+        name_ = entry.get("start") or (entry["break"] if isinstance(entry.get("break"), str) else None)
+        if name_:
+            motion = load_motion(name_, assets_dir)
             motions[motion["name"]] = motion
     scene = _scene(spec["scene"], assets_dir)
     actor = _actor(spec.get("actor") or {}, scene, assets_dir)
@@ -240,7 +241,8 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
             "tolerance": TRACE_TOLERANCE, "rig": rig_extras(actor), "motions": motions, "script": script,
             "expect": {"positions": frames,
                        "events": [[e["event"], e["motion"], e.get("beat")] for e in rig.trace
-                                  if e["event"] in ("start", "beat", "loop", "emit", "interrupt", "end")]}}
+                                  if e["event"] in ("start", "beat", "loop", "emit", "interrupt", "end",
+                                                                 "break", "pause", "resume")]}}
 
 
 def _do(rig: MotionRig, entry: dict) -> None:
@@ -251,6 +253,9 @@ def _do(rig: MotionRig, entry: dict) -> None:
         rig.start(motion, **entry)
     elif "interrupt" in entry:
         rig.interrupt(entry["interrupt"], entry.get("how", "yield"))
+    elif "break" in entry:
+        reaction = entry.pop("break")
+        rig.break_(reaction if isinstance(reaction, str) else None, **entry)
     else:
         raise MotionError(f"script entry {entry!r}: expected start: or interrupt:")
 

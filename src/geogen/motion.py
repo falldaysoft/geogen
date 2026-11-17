@@ -18,9 +18,12 @@ authored between any pair of motions). Targets are resolved once to a node plus 
 transform and followed, so a moved chair or a swinging door is tracked. ``trace`` records
 beats, owners, emits and interruptions; ``samples`` the per-frame numbers review metrics use.
 
-Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``hips``/``while``/``layer``
-and shared-gaze time slicing (103.6), ``resume`` after an overlay (103.5),
-locomotion between places (the body slides onto ``root`` targets), and the Godot port (103.7).
+A run that loses a claimed channel to an overlay pauses and picks up from its beat's ``resume``;
+``break_`` drops everything into a reaction (geogen.103.5).
+
+Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``while``/``layer`` and
+shared-gaze time slicing (103.6), locomotion between places (the body slides onto ``root``
+targets), and the rest of the Godot port (103.7).
 """
 
 from __future__ import annotations
@@ -65,14 +68,13 @@ BEAT_KEYS = {
     "ik": "{End: {target: <ref> | [x, y, z], offset, pole, rest, grip, holding}, mirror}: hands and feet onto points; "
           "a hand takes the shape `grip` names (a hand shape, or a role: its contact's grip), else its "
           "target's grip when that is a hand shape (skeleton hand_shapes: press, power, pinch, ...); "
-          "`holding: <role>` puts the thing that hand holds on the target instead of the hand (set it down there)",
+          "`holding: <role>` puts the held thing on the target",
     "root": "{at: <ref>, offset: [x, y, z], facing: away | toward | <deg>, posture: <pose>}: where the body stands",
     "look": "<ref> | {at: <ref>, weight}: where the head turns",
     "plant": "feet: the feet stay where they are on the floor (legs by IK)",
     "lean": "{by: deg, at: 0..1}: a forward lean of the spine that peaks at `at` of the beat and is gone by its end",
-    "attach": "{role: hand | {hand, level: true}}: the thing goes with that hand from here; `level` keeps it "
-              "as it was against the body's heading (a plate stays flat, whatever the wrist does)",
-    "release": "<role>: let go of it where it is; other motions holding it (carry) end",
+    "attach": "{role: hand | {hand, level: true}}: the thing goes with that hand (`level`: kept flat)",
+    "release": "<role>: let go of it; motions holding it (carry) end",
     "over": "seconds the beat takes to arrive (default: from the distance its targets travel)",
     "ease": "smooth (default) | settle | linear",
     "emit": "an event fired on arrival (the world changes in step with the body)",
@@ -80,7 +82,7 @@ BEAT_KEYS = {
     "after": "seconds to dwell once arrived, or `duration` (the runner's duration)",
     "interrupt": "yield (default: go to `exit`) | finish (this beat first) | hold (refuse) | drop (stop here)",
     "exit": "the beat to go to when asked to yield",
-    "resume": "where to pick up after a passing interruption (not yet)",
+    "resume": "the beat to pick up from after an overlay borrowed a channel (default: this one)",
     "when": "skip the beat unless this holds (not yet)",
     "until": "dwell until this holds (not yet)",
     "do": "a whole motion as one beat (not yet)",
@@ -90,12 +92,14 @@ BEAT_KEYS = {
     "loop": "{to: <beat>, times: n}: once this beat is done, go back to `to` until the stretch from "
             "there to here has run `times` times, then on to `then` (repetitions of an exercise)",
 }
-NOT_YET = {"when", "until", "do", "bend", "resume"}
+NOT_YET = {"when", "until", "do", "bend"}
 INTERRUPTS = ("yield", "finish", "hold", "drop")
 STRENGTHS = {"prefer": 1, "claim": 2, "require": 3}
 EASES = ("smooth", "settle", "linear", "spring")
 
 FPS = 30
+FALL = 9.81                # m/s2: what a broken hold lets go of falls to the floor (the runtime's physics
+                           # does this properly; the reference rig only drops it straight down)
 REACH_SPEED = 0.9          # m/s an effector or the body travels when a beat gives no `over`
 MIN_OVER = 0.35            # s: the shortest arrival
 HALF_LIFE = {"gaze": 0.08, "left_hand": 0.12, "right_hand": 0.12}   # s, inertialization per channel
@@ -388,6 +392,8 @@ class Run:
     done: bool = False
     start: dict = field(default_factory=dict)    # the body as the beat found it
     loops: dict = field(default_factory=dict)    # beat -> times its loop has gone round
+    paused: str | None = None            # the beat an overlay took a channel in (time stands still)
+    resume_to: str | None = None         # asked to yield while paused: its exit, not its resume
 
     @property
     def name(self) -> str:
@@ -440,6 +446,7 @@ class MotionRig:
         self.offsets: dict[str, tuple[NDArray[np.float64], float, float]] = {}   # bone -> (quat, age, half-life)
         self.root_offset: tuple[NDArray[np.float64], float, float] | None = None
         self.attached: dict[str, Held] = {}
+        self.falling: list[list] = []        # [node, speed]: let go of by a break
         self.trace: list[dict] = []
         self.samples: list[dict] = []
         self._order = 0
@@ -536,8 +543,25 @@ class MotionRig:
         if exit_beat in (None, "done"):
             self._end(run)
             return "ended"
+        if run.paused is not None:
+            run.paused = exit_beat               # out through its exit once the overlay gives the channel back
+            run.resume_to = exit_beat
+            return "exiting"
         self._enter(run, exit_beat)
         return "exiting"
+
+    def break_(self, reaction: str | dict | None = None, **bindings) -> Run | None:
+        """Everything stops at once (a shove, a fall): every motion drops with no exits, what the
+        hands hold is let go of (to physics: here it drops to the floor), and the body inertializes
+        into ``reaction`` (a motion: a stagger) if one is given."""
+        self._event("break", None, reaction=reaction if isinstance(reaction, str) else None)
+        for run in self.running():
+            self._end(run)
+        for role, held in list(self.attached.items()):
+            del self.attached[role]
+            self.falling.append([held.node, 0.0])
+            self._event("release", None, role=role, to="physics")
+        return self.start(reaction, **bindings) if reaction is not None else None
 
     def running(self, name: str | None = None) -> list[Run]:
         return [r for r in self.runs if not r.done and (name is None or r.name == name)]
@@ -557,6 +581,8 @@ class MotionRig:
         self._sample(aims)
 
     def _advance(self, run: Run) -> None:
+        if run.paused is not None:
+            return
         run.t += self.dt
         guard = 0
         self._arrive(run)
@@ -700,6 +726,15 @@ class MotionRig:
             return (self.root @ np.r_[np.asarray(ref, dtype=float), 1.0])[:3]
         if not isinstance(ref, str):
             raise MotionError(f"motion '{run.name}': can't aim at {ref!r}")
+        if ref.startswith("self."):
+            # A point on the body as it is now (the mouth is ``self.Head`` and an offset), in the
+            # body's frame: an entry's offset is ahead / up / to the left of the body, not the bone.
+            bone = ref[5:]
+            if bone not in self.skeleton.bones:
+                raise MotionError(f"motion '{run.name}': this body has no bone '{bone}'")
+            m = _placement(np.zeros(3), _yaw_of(self.root))
+            m[:3, 3] = (self.root @ self.skeleton.fk(self.out)[bone])[:3, 3]
+            return Target(None, m, ref)
         if ref in run.bindings:
             return run.bindings[ref]
         head, _, tail = ref.partition(".")
@@ -733,6 +768,24 @@ class MotionRig:
                 if was is not None and not was.done and was.strength(channel) == STRENGTHS["require"]:
                     self.interrupt(was, "yield")
             self.owners[channel] = best
+        self._pause_and_resume()
+
+    def _pause_and_resume(self) -> None:
+        """A run that loses a channel it claims (not a shared one: the gaze) to another run waits
+        where it is, its beat's clock stopped; when it has them all back it picks up from the
+        beat's ``resume`` (else that beat again, from where the body is now)."""
+        for run in self.running():
+            lost = {c for c, owner in self.owners.items()
+                    if owner is not None and owner is not run and run.strength(c) >= STRENGTHS["claim"]
+                    and not self.skeleton.channels[c].get("shared")}
+            if lost and run.paused is None:
+                run.paused = run.beat
+                self._event("pause", run, channels=sorted(lost))
+            elif not lost and run.paused is not None:
+                beat = run.resume_to or run.spec.get("resume") or run.paused
+                run.paused, run.resume_to = None, None
+                self._event("resume", run, to=beat)
+                self._enter(run, beat)
 
     def _owned(self, run: Run) -> set[str]:
         return {c for c, r in self.owners.items() if r is run}
@@ -845,6 +898,7 @@ class MotionRig:
                 for foot, world in run.start["feet"].items():
                     local = (inv_root @ np.r_[world, 1.0])[:3]
                     solve_limb(s, pose, foot, local, None, np.eye(3))
+            laid = pose.copy()          # the spine as laid, before any reach bends it
             for end, entry in self._ik_entries(run).items():
                 channel = self.channel_of.get(end)
                 if channel not in channels:
@@ -858,7 +912,7 @@ class MotionRig:
                 if run.t >= run.over - self.dt - 1e-9:      # the beat's last composed frame
                     aims[f"{end}@arrived"] = goal
                 if "spine" in channels and end in ("LeftHand", "RightHand"):
-                    self._bend_to_reach(pose, self._beat_pose(run), root, end, point, run.start, u)
+                    self._bend_to_reach(pose, laid, root, end, point, run.start, u)
                 local = (inv_root @ np.r_[point, 1.0])[:3]
                 # Solved, then blended in from the arm as the beat found it by the beat's progress:
                 # it starts with its own elbow and ends exactly on the goal, rather than snapping to
@@ -867,6 +921,7 @@ class MotionRig:
                 solve_limb(s, solved, end, local, entry.get("pole"))
                 for bone in (*LIMBS[end][:2], end):
                     pose.rotations[bone] = slerp(run.start["pose"].rotations.get(bone, IDENTITY), solved.rotations[bone], u)
+        self._hang_free_arms(pose)
         self.prelook = {b: pose.rotations.get(b, IDENTITY).copy() for b in LOOK_BONES}
         gaze = self.owners.get("gaze")
         look = gaze.spec.get("look") if gaze is not None else None
@@ -908,12 +963,36 @@ class MotionRig:
             self.look_fade = (self.look_point.copy(), self.look_weight, 0.0)
         self.look_key, self.look_point = None, None
 
+    def _hang_free_arms(self, pose: Pose) -> None:
+        """An arm nothing holds hangs as it would from an upright spine when the spine bends or
+        leans (a reach, a lean): the upper arm swings so the shoulder-to-hand line is what it is
+        with the posture's spine, rather than the arm swinging out behind with the chest. A swing,
+        not a solve, so with no bend it is no change at all."""
+        if self.posture != "stand":
+            return
+        s, base = self.skeleton, self.poses.get(self.posture, self.poses["stand"])
+        spine = s.channels["spine"]["bones"]
+        if all(_angle(pose.rotations.get(b, IDENTITY), base.rotations.get(b, IDENTITY)) < 1e-4 for b in spine):
+            return
+        free = [side for side in ("Left", "Right") if self.owners.get(f"{side.lower()}_hand") is None]
+        if not free:
+            return
+        upright = pose.copy()
+        for b in spine:
+            upright.rotations[b] = base.rotations.get(b, IDENTITY)
+        was, now = s.fk(upright), s.fk(pose)
+        for side in free:
+            upper, end = f"{side}UpperArm", f"{side}Hand"
+            swing = _swing(now[end][:3, 3] - now[upper][:3, 3], was[end][:3, 3] - was[upper][:3, 3])
+            parent = s.world(s[upper].parent, pose)
+            pose.rotations[upper] = s.pose_quat(upper, parent, swing @ now[upper][:3, :3])
+
     def _bend_to_reach(self, pose: Pose, beat: Pose, root: NDArray[np.float64], end: str,
                        point: NDArray[np.float64], start: dict, u: float) -> None:
         """Bend forward at the spine, as little as will do, when the hand can't reach ``point``
         from where the shoulder is (a button low on a TV, a cup at the back of a table). The bend
-        is measured from the beat's own pose, so beats that keep reaching bend continuously
-        rather than adding up; one that stops reaching eases it out with its pose. What the arm
+        is measured from the spine as laid this frame (the beat's own bones eased in, before any
+        reach), so beats that keep reaching bend continuously rather than adding up; one that stops reaching eases it out with its pose. What the arm
         already spanned when the beat began counts as in reach at its start (a hanging arm is nearly
         straight) and eases to REACH_SLACK by its end (``u``), so a reach starts without a bend and
         arrives with the elbow a little bent."""
@@ -1119,6 +1198,16 @@ class MotionRig:
             self.morph_nodes[node].morph_weights[k] = w
         parent = self.actor.parent.world_transform() if self.actor.parent is not None else np.eye(4)
         self.actor.transform = Transform.from_matrix(np.linalg.inv(parent) @ self.root)
+        for entry in list(self.falling):
+            node, speed = entry
+            speed += FALL * self.dt
+            world = node.world_transform()
+            world[1, 3] = max(self.floor, world[1, 3] - speed * self.dt)
+            up = node.parent.world_transform() if node.parent is not None else np.eye(4)
+            node.transform = Transform.from_matrix(np.linalg.inv(up) @ world)
+            entry[1] = speed
+            if world[1, 3] <= self.floor:
+                self.falling.remove(entry)
         if self.attached:
             fk = s.fk(self.out)
             for held in self.attached.values():
@@ -1156,6 +1245,14 @@ class MotionRig:
             entry["beat"] = run.beat or None
         entry.update(data)
         self.trace.append(entry)
+
+
+def _swing(a: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[np.float64]:
+    """The shortest rotation (3x3) turning direction ``a`` onto ``b``."""
+    a, b = a / np.linalg.norm(a), b / np.linalg.norm(b)
+    axis, c = np.cross(a, b), float(np.dot(a, b))
+    k = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
+    return np.eye(3) + k + k @ k / (1.0 + c) if c > -0.9999 else -np.eye(3)
 
 
 def _wrap(a: float) -> float:

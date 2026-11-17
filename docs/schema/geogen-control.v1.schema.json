@@ -147,6 +147,7 @@
             "inventory.give",
             "inventory.list",
             "inventory.use",
+            "motion.break",
             "motion.start",
             "motion.status",
             "motion.stop",
@@ -721,6 +722,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/inventory.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "motion.break"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/motion.break"
               }
             }
           }
@@ -1828,6 +1845,7 @@
         "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
         "motion.start": "{node | uid, motion, params?: {name: value}} run a motion file (motions.json: assets/motions/) on a character body with the runtime motion rig -> {node, motion, running}; body-only motions so far (squat, jumping_jack)",
         "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) -> {node, motion, result}",
+        "motion.break": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> {node, running}",
         "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, events: [{t, event, motion, beat}], bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}}",
         "npcs.pause": "{npc?} freeze one NPC (or all)",
         "npcs.resume": "{npc?}",
@@ -2674,6 +2692,25 @@
               "yield",
               "drop"
             ]
+          }
+        }
+      },
+      "motion.break": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "reaction": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {}
           }
         }
       },

@@ -1,0 +1,48 @@
+# Wave hello with the right hand (geogen.103.5): an overlay. It claims only the right hand, so
+# someone sitting, eating or carrying in the other hand waves without stopping; a motion that had
+# the hand waits and picks up from its `resume` beat when the wave is done.
+kind: motion
+name: wave
+params:
+  waves: { default: 2 }
+  reach: { default: 0.18 }     # share of the height the hand is ahead of the body (in front of the face,
+                               # so the reach up from a lap or a chest passes in front of the shoulder)
+holds:
+  claim: [right_hand]
+initial: up
+beats:
+  up:                                      # the hand up beside the head, palm out
+    ik:
+      RightHand:
+        target: ["{-shoulder_width * 0.9}", "{height * 0.82}", "{height * reach}"]
+        pole: [-1, -0.6, -0.3]   # the elbow out and down
+        grip: flat
+    over: 0.6
+    interrupt: yield
+    exit: down
+    then: out
+  out:
+    ik:
+      RightHand:
+        target: ["{-shoulder_width * 1.15}", "{height * 0.83}", "{height * reach}"]
+        pole: [-1, -0.6, -0.3]
+        grip: flat
+    over: 0.3
+    interrupt: yield
+    exit: down
+    then: in
+  in:
+    ik:
+      RightHand:
+        target: ["{-shoulder_width * 0.75}", "{height * 0.83}", "{height * reach}"]
+        pole: [-1, -0.6, -0.3]
+        grip: flat
+    over: 0.3
+    interrupt: yield
+    exit: down
+    loop: { to: out, times: "{waves}" }
+    then: down
+  down:
+    over: 0.5
+    interrupt: drop
+    then: done

@@ -1,0 +1,12 @@
+# A shove mid-squat (geogen.103.5): a break drops the squat with no exit and the body
+# inertializes into a stagger, then stands. Body only: a conformance trace for the runtime rig.
+kind: motion_scenario
+description: Squats, shoved on the way down; a stagger and back to standing.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_man.yaml, seed: 2, facing: 0 }
+script:
+  - { at: 0.2, start: squat, reps: 3 }
+  - { at: 1.7, break: stagger }
+camera: { view: side, frame: [actor], margin: 0.35 }

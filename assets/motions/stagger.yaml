@@ -1,0 +1,43 @@
+# A stagger (geogen.103.5): the reaction a break inertializes into (a shove, a near fall). The
+# hips go back and the arms out for balance, then the body stands again. Body only, so it runs
+# whatever the body was doing: `rig.break_("stagger")` drops every motion first.
+kind: motion
+name: stagger
+params:
+  back: { default: 0.08 }      # share of the leg's length the hips go back
+  arms: { default: 35 }        # degrees the arms come up and out
+holds:
+  require: [root, hips, legs, spine, left_hand, right_hand]
+priority: 10                   # a reaction outranks anything started with it
+initial: jolt
+beats:
+  jolt:
+    hips: [0, "{-0.03 * height * leg_ratio}", "{-back * height * leg_ratio}"]
+    plant: feet
+    bones:
+      Spine: [-8, 0, 0]
+      Chest: [-6, 0, 0]
+      LeftUpperArm: [0, 0, "{arms}"]
+      RightUpperArm: [0, 0, "{-arms}"]
+      LeftLowerArm: [0, -20, 0]
+      RightLowerArm: [0, 20, 0]
+    over: 0.25
+    ease: settle
+    interrupt: finish
+    then: catch
+  catch:
+    hips: [0, "{-0.05 * height * leg_ratio}", "{-back * 0.5 * height * leg_ratio}"]
+    plant: feet
+    bones:
+      Spine: [6, 0, 0]
+      LeftUpperArm: [0, 0, "{arms * 0.6}"]
+      RightUpperArm: [0, 0, "{-arms * 0.6}"]
+    over: 0.4
+    interrupt: finish
+    then: recover
+  recover:
+    pose: stand
+    plant: feet
+    over: 0.7
+    interrupt: yield
+    then: done

@@ -40,7 +40,7 @@ def test_unknown_beat_key_is_an_error():
 def test_scenarios_load():
     names = scenario_names(roots.CORE)
     assert {"sit_on_chair", "sit_interrupted", "press_tv", "sit_watch_tv", "take_carry_set_down",
-            "watch_tv"} <= set(names)
+            "watch_tv", "eat_glance", "eat_interrupted", "eat_wave", "squat_shoved", "bow_wave"} <= set(names)
     for name in names:
         load_scenario(name, roots.CORE)
 
@@ -243,6 +243,134 @@ def test_a_look_that_ends_eases_off_instead_of_snapping(runs):
     assert fastest < 150, fastest
 
 
+# --- interruption: overlays and resume, yield and finish, break (geogen.103.5) ---
+
+def _events(r, *kinds):
+    return [(e["event"], e["motion"], e.get("beat")) for e in r.rig.trace if e["event"] in kinds]
+
+
+def _smooth(m, accel=4000):
+    assert m["pops"] == 0, m["peak_joint_speed"]
+    assert m["peak_joint_accel"]["deg_s2"] < accel, m["peak_joint_accel"]
+
+
+def test_a_glance_while_eating_leaves_the_meal_alone(runs):
+    r = _run(runs, "eat_glance")
+    assert not _events(r, "pause", "resume", "interrupt"), "the gaze is shared: nothing waits for it"
+    assert [e[1] for e in _events(r, "emit")] == ["eat"] * 3, "every bite taken"
+    during = [s for s in r.rig.samples if "glance" in s["beats"]]
+    assert during and all(s["owners"]["gaze"] == "glance" and s["owners"]["right_hand"] == "eat" for s in during)
+    m = r.metrics
+    _smooth(m)
+    assert m["contact_error_mm"] < 5 and m["cloth_mm"]["mm"] < 2
+
+
+def test_an_interrupted_meal_finishes_the_bite_and_puts_the_hand_down(runs):
+    r = _run(runs, "eat_interrupted")
+    m = r.metrics
+    eat = [b for b in m["beats"] if b.startswith("eat.")]
+    assert eat[-2:] == ["eat.bite", "eat.rest"], "bite says finish: it lands, then its exit"
+    assert ("interrupt", "eat", "bite") in _events(r, "interrupt")
+    assert ("emit", "eat", "bite") in _events(r, "emit"), "the bite in progress was taken"
+    rest_end = next(e["t"] for e in r.rig.trace if e["event"] == "end" and e["motion"] == "eat")
+    rise = next(e["t"] for e in r.rig.trace if e["event"] == "beat" and e["beat"] == "rise")
+    assert rise > rest_end, "she gets up once the hand is down"
+    assert r.rig.posture == "stand" and abs(r.rig.root[1, 3]) < 1e-6
+    _smooth(m)
+    assert m["cloth_mm"]["mm"] < 2
+
+
+def test_a_wave_pauses_the_meal_and_it_resumes_where_it_was(runs):
+    r = _run(runs, "eat_wave")
+    pauses = [e for e in r.rig.trace if e["event"] in ("pause", "resume")]
+    assert [(e["event"], e["motion"]) for e in pauses] == [("pause", "eat"), ("resume", "eat")]
+    assert pauses[0]["channels"] == ["right_hand"] and pauses[0]["beat"] == "chew"
+    assert pauses[1]["to"] == "chew", "chew's resume: the bite was eaten, chew on"
+    stopped = [s for s in r.rig.samples if "wave" in s["beats"] and pauses[0]["t"] < s["t"] < pauses[1]["t"]]
+    assert stopped and len({s["beats"]["eat"] for s in stopped}) == 1, "eat's clock stands still under the wave"
+    assert [e[1] for e in _events(r, "emit")] == ["eat"] * 2, "both bites, none lost or repeated"
+    _smooth(r.metrics)
+
+
+def test_a_paused_motion_asked_to_yield_leaves_through_its_exit(runs):
+    from geogen.motion import MotionRig
+    from geogen.motion_review import _actor, _scene
+
+    spec = load_scenario("bow_wave")
+    scene = _scene(spec["scene"], roots.CORE)
+    rig = MotionRig(_actor(spec["actor"], scene, roots.CORE), scene)
+    bow = rig.start("bow")
+    for _ in range(10):
+        rig.step()
+    wave = rig.start("wave")
+    rig.step()
+    assert bow.paused == "lower"
+    assert rig.interrupt(bow) == "exiting" and bow.beat == "lower", "it waits for the hand"
+    while wave in rig.running():
+        rig.step()
+    rig.step()
+    assert bow.beat == "up", "back through its exit, not its resume"
+
+
+def test_a_break_drops_everything_into_a_stagger(runs):
+    r = _run(runs, "squat_shoved")
+    events = _events(r, "break", "end", "start")
+    assert events[:4] == [("start", "squat", None), ("break", None, None), ("end", "squat", "up"),
+                          ("start", "stagger", None)]
+    assert r.metrics["beats"][-3:] == ["stagger.jolt", "stagger.catch", "stagger.recover"]
+    assert "squat.down" not in r.metrics["beats"][2:], "no exits: the squat just stops"
+    assert r.metrics["pops"] == 0 and r.metrics["foot_slide_mm"] < 1
+    assert r.rig.running() == []
+
+
+def test_a_break_lets_go_of_what_is_carried():
+    from geogen.motion import MotionRig
+    from geogen.motion_review import _actor, _scene
+
+    spec = load_scenario("take_carry_set_down")
+    scene = _scene(spec["scene"], roots.CORE)
+    rig = MotionRig(_actor(spec["actor"], scene, roots.CORE), scene)
+    rig.start("take", item="plate")
+    rig.start("carry", item="plate")
+    for _ in range(75):
+        rig.step()
+    plate = next(n for n in scene.iter_nodes() if n.name == "plate" and n.parent is scene)
+    assert rig.attached and plate.world_transform()[1, 3] > 0.8
+    rig.break_("stagger")
+    assert rig.attached == {} and [r.name for r in rig.running()] == ["stagger"]
+    assert ("release", None) in [(e["event"], e["motion"]) for e in rig.trace]
+    for _ in range(40):
+        rig.step()
+    assert abs(plate.world_transform()[1, 3] - rig.floor) < 1e-9, "dropped to the floor"
+
+
+def test_a_free_arm_hangs_when_the_spine_bends(runs):
+    r = _run(runs, "bow_wave")
+    s = r.rig.skeleton
+    standing = r.rig.poses["stand"]
+    fk = s.fk(standing)
+    hang = fk["LeftHand"][:3, 3] - fk["LeftUpperArm"][:3, 3]
+    bowed = [x for x in r.rig.samples if x["beats"].get("bow") == "held" and "wave" not in x["beats"]]
+    assert bowed
+    pose = standing.copy()
+    pose.rotations.update(bowed[-1]["rotations"])
+    fk = s.fk(pose)
+    arm = fk["LeftHand"][:3, 3] - fk["LeftUpperArm"][:3, 3]
+    cos = float(np.dot(arm, hang) / np.linalg.norm(arm) / np.linalg.norm(hang))
+    assert cos > np.cos(np.radians(2)), "the left arm hangs as from an upright spine, not swung back"
+    _smooth(r.metrics, accel=5000)
+
+
+def test_a_beats_spine_eases_in_under_a_reach(runs):
+    # A beat that reaches and poses the spine (the bow, the squat's lean) laid the spine whole on its
+    # first frame: the reach bend started from the beat's pose, not the spine as laid.
+    r = _run(runs, "bow_wave")
+    s = r.rig.samples
+    fastest = max(np.degrees(2 * np.arccos(min(1.0, abs(float(np.dot(a["rotations"]["Spine"], b["rotations"]["Spine"]))))))
+                  / (b["t"] - a["t"]) for a, b in zip(s, s[1:]))
+    assert fastest < 60, fastest
+
+
 # --- exercises and the runtime contract (geogen.103.12) ---
 
 def test_exercises_repeat_and_stay_smooth(runs):
@@ -293,11 +421,12 @@ def test_motions_json_holds_every_motion(tmp_path):
     data = json.loads(write_motions(tmp_path).read_text())
     assert data["format"] == "geogen-motions" and data["version"] == 1
     assert set(data["motions"]) == set(motion_names()) >= {"sit", "press", "glance", "squat", "jumping_jack",
-                                                                "take", "carry", "set_down", "watch"}
+                                                                "take", "carry", "set_down", "watch",
+                                                                "eat", "wave", "stagger", "bow"}
     assert data["motions"]["squat"]["beats"]["up"]["loop"] == {"to": "down", "times": "{reps}"}, "{expr} left for the runtime"
 
 
-@pytest.mark.parametrize("name", ["squat", "jumping_jacks"])
+@pytest.mark.parametrize("name", ["squat", "jumping_jacks", "squat_shoved", "bow_wave"])
 def test_motion_traces_are_what_the_reference_rig_does(name):
     """The stored conformance traces (tests/data/motion, the runtime rig replays them) still
     match the reference rig: after a change to it, run tests/data/motion/make_traces.py."""

@@ -1,0 +1,18 @@
+# A wave mid-meal (geogen.103.5): the wave borrows the right hand, eat waits where it was, and
+# picks up when the hand comes back (chewing: chew on, its `resume`), not from the first bite.
+kind: motion_scenario
+description: Eat seated; wave with the fork hand mid-meal; the meal picks up where it left off.
+scene:
+  slots:
+    table: { position: [0, 0, 0], facing: north }
+    chair: { position: [0, 0, 0.7], facing: south }
+  place:
+    table: { asset: table.yaml, slot: table, params: { width: 0.9, depth: 0.7 } }
+    chair: { asset: chair.yaml, slot: chair }
+    plate: { asset: meal_plate.yaml, on: table.top, at: { u: 0.5, v: 0.9 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.2], facing: away }   # between the chair and the table
+script:
+  - { at: 0, start: sit, seat: chair, approach_z: 0.2, duration: 10.5 }
+  - { at: 1.5, start: eat, food: plate, bites: 2 }
+  - { at: 3.4, start: wave, waves: 2 }
+camera: { view: iso_back, frame: [table, chair], margin: 0.2 }

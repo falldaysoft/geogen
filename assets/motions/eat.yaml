@@ -1,0 +1,58 @@
+# Eat from a plate, seated (geogen.103.5; the design's interruption example): bring food from the
+# plate to the mouth (the hand pinched round an unseen fork), `bites` times. Only the right hand is
+# claimed and the gaze shared, so it runs over `sit`. Every beat says what an interruption does:
+# a bite on its way up finishes; anywhere else the hand goes back to the lap (`exit: rest`);
+# an overlay that borrows the hand (a wave) has it pick up from `ready` (or, chewing, chew on),
+# not from the start.
+kind: motion
+name: eat
+roles:
+  food: {}                                 # the plate: its `center` is where the food is
+params:
+  bites: { default: 3 }
+holds:
+  claim: [right_hand, gaze]
+initial: ready
+beats:
+  ready:                                   # the hand over the plate, near side
+    ik:
+      RightHand: { target: food.center, offset: [-0.04, 0.09, 0.14], grip: pinch, pole: [-0.4, -1, 0] }
+    look: food.center
+    interrupt: yield
+    exit: rest
+    resume: ready
+    then: scoop
+  scoop:                                   # down to the food
+    ik:
+      RightHand: { target: food.center, offset: [-0.02, 0.05, 0.1], grip: pinch, pole: [-0.4, -1, 0] }
+    look: food.center
+    over: 0.5
+    interrupt: yield
+    exit: rest
+    resume: ready
+    then: bite
+  bite:                                    # up to the mouth
+    ik:
+      RightHand: { target: self.Head, offset: [-0.02, -0.07, 0.13], grip: pinch, pole: [-0.4, -1, 0] }
+    over: 0.7
+    emit: bite
+    interrupt: finish                      # the bite is taken, then the hand goes down
+    exit: rest
+    resume: ready
+    then: chew
+  chew:                                    # the hand back down over the plate while chewing
+    ik:
+      RightHand: { target: food.center, offset: [-0.04, 0.09, 0.14], grip: pinch, pole: [-0.4, -1, 0] }
+    look: food.center
+    over: 0.6
+    after: 0.5
+    interrupt: yield
+    exit: rest
+    resume: chew                           # the bite is eaten: chew on, so the count of bites holds
+    loop: { to: scoop, times: "{bites}" }
+    then: rest
+  rest:                                    # the hand back to the lap (the seated pose's own rest)
+    pose: sit
+    over: 0.8
+    interrupt: drop
+    then: done

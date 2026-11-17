@@ -9,7 +9,8 @@ extends RefCounted
 ##
 ## Ported so far: beats (pose, bones, hips, ik onto body-frame points with hand shapes and pole,
 ## look at a body-frame point, lean, plant: feet, over, ease, after, emit, then, loop, interrupt
-## and exit), channel arbitration, inertialization, the reach bend and the trace. A motion that
+## and exit), channel arbitration, pausing under an overlay and `resume`, a break into a reaction,
+## inertialization, the reach bend, free arms hanging under a bent spine and the trace. A motion that
 ## names things in the world (roles, root targets, attach/release) or a posture change with a
 ## transition clip is not ported yet: `start` refuses it.
 
@@ -29,7 +30,7 @@ const NECK_SHARE := 0.4
 const STRENGTHS := {"prefer": 1, "claim": 2, "require": 3}
 const FINGERS := ["Thumb", "Index", "Middle", "Ring", "Little"]
 const LOOK_BONES := ["Neck", "Head"]
-const NOT_PORTED := ["root", "attach", "release", "when", "until", "do", "bend", "resume"]
+const NOT_PORTED := ["root", "attach", "release", "when", "until", "do", "bend"]
 ## Two-bone limbs by end bone: upper, lower, rest direction, rest pole (core/ik.py LIMBS).
 const LIMBS := {
     "LeftFoot": ["LeftUpperLeg", "LeftLowerLeg", Vector3(0, -1, 0), Vector3(0, 0, 1)],
@@ -72,6 +73,8 @@ class Run:
     var done := false
     var arrived := false
     var loops := {}
+    var paused = null                # the beat an overlay took a channel in (its clock stopped)
+    var resume_to = null             # asked to yield while paused: its exit, not its resume
     var start_pose: Pose
     var start_ends := {}
     var start_feet := {}
@@ -99,6 +102,7 @@ var rest_world: Array = []       # Transform3D per bone, in the body's frame
 var params := {}
 var channels := {}               # channel -> Array of bone names
 var channel_of := {}             # bone name -> channel
+var shared := {}                 # channel -> true for a shared one (the gaze): losing it pauses nothing
 var hand_shapes := {}
 var poses := {}                  # pose name -> Pose
 var fingers := {"Left": [], "Right": []}
@@ -138,6 +142,7 @@ static func from_extras(data: Dictionary, fps := 30) -> GeogenMotionRig:
         r.params[k] = float(data["params"][k])
     for c in data.get("channels", {}):
         r.channels[c] = Array(data["channels"][c]["bones"])
+        r.shared[c] = bool(data["channels"][c].get("shared", false))
         for bone in r.channels[c]:
             r.channel_of[bone] = c
     r.hand_shapes = data.get("hand_shapes", {})
@@ -240,8 +245,22 @@ func interrupt(name: String, how := "yield") -> String:
     if exit_beat == null or exit_beat == "done":
         _end(run)
         return "ended"
+    if run.paused != null:
+        run.paused = exit_beat           # out through its exit once the overlay gives the channel back
+        run.resume_to = exit_beat
+        return "exiting"
     _enter(run, exit_beat)
     return "exiting"
+
+
+## Everything stops at once (a shove, a fall): every motion drops with no exits and the body
+## inertializes into `reaction` (a motion: a stagger) when one is given.
+func break_(reaction = null, values := {}) -> Run:
+    _event("break", null, {"reaction": reaction.get("name") if reaction is Dictionary else null})
+    for run in runs:
+        if not run.done:
+            _end(run)
+    return start(reaction, values) if reaction is Dictionary else null
 
 
 func running() -> Array:
@@ -271,6 +290,8 @@ func world() -> Array:
 
 
 func _advance(run: Run) -> void:
+    if run.paused != null:
+        return
     run.t += dt
     _arrive(run)
     var guard := 0
@@ -381,6 +402,30 @@ func _arbitrate() -> void:
             if was != null and not was.done and was.strength(c) == STRENGTHS["require"]:
                 interrupt(was.name, "yield")
         owners[c] = best
+    _pause_and_resume()
+
+
+## A run that loses a channel it claims (not a shared one) to another waits, its beat's clock
+## stopped; with them all back it picks up from the beat's `resume` (else that beat again).
+func _pause_and_resume() -> void:
+    for run in runs:
+        if run.done:
+            continue
+        var lost := []
+        for c in owners:
+            var o: Run = owners[c]
+            if o != null and o != run and run.strength(c) >= STRENGTHS["claim"] and not shared.get(c, false):
+                lost.append(c)
+        if not lost.is_empty() and run.paused == null:
+            run.paused = run.beat
+            lost.sort()
+            _event("pause", run, {"channels": lost})
+        elif lost.is_empty() and run.paused != null:
+            var beat = run.resume_to if run.resume_to != null else run.spec().get("resume", run.paused)
+            run.paused = null
+            run.resume_to = null
+            _event("resume", run, {"to": beat})
+            _enter(run, str(beat))
 
 
 ## Strength, then priority, then the later started.
@@ -439,6 +484,7 @@ func _compose() -> Pose:
             for foot in run.start_feet:
                 _solve_limb(pose, foot, run.start_feet[foot], null, Basis.IDENTITY)   # flat on the floor
         var entries := _ik_entries(run)
+        var laid := pose.copy()          # the spine as laid, before any reach bends it
         for e in entries:
             if not (channel_of.get(e, "") in held):
                 continue
@@ -448,13 +494,14 @@ func _compose() -> Pose:
             var start: Vector3 = run.start_ends[e]
             var point: Vector3 = start + (goal - start) * u
             if "spine" in held and e in ["LeftHand", "RightHand"]:
-                _bend_to_reach(pose, _beat_pose(run), e, point, run, u)
+                _bend_to_reach(pose, laid, e, point, run, u)
             var solved := pose.copy()
             _solve_limb(solved, e, point, entries[e].get("pole"), null)
             var limb: Array = LIMBS[e]
             for bone in [limb[0], limb[1], e]:
                 var i: int = index[bone]
                 pose.rot[i] = run.start_pose.rot[i].slerp(solved.rot[i], u)
+    _hang_free_arms(pose)
     for b in LOOK_BONES:
         if index.has(b):
             _prelook[index[b]] = pose.rot[index[b]]
@@ -486,6 +533,40 @@ func _compose() -> Pose:
     _look_weight = weight * ease_("smooth", _look_t / LOOK_IN)
     _turn_head(pose, _look_point, _look_weight)
     return pose
+
+
+## An arm nothing holds hangs as from an upright spine when the spine bends or leans: the upper
+## arm swings so the shoulder-to-hand line is what it is with the posture's spine.
+func _hang_free_arms(pose: Pose) -> void:
+    if posture != "stand":
+        return
+    var base: Pose = poses.get(posture, poses["stand"])
+    var spine: Array = channels.get("spine", [])
+    var bent := false
+    for b in spine:
+        var i: int = index[b]
+        if absf(pose.rot[i].dot(base.rot[i])) < cos(5e-5):
+            bent = true
+    if not bent:
+        return
+    var free := []
+    for side in ["Left", "Right"]:
+        if owners.get(side.to_lower() + "_hand") == null:
+            free.append(side)
+    if free.is_empty():
+        return
+    var upright := pose.copy()
+    for b in spine:
+        upright.rot[index[b]] = base.rot[index[b]]
+    var was := _fk(upright)
+    var now := _fk(pose)
+    for side in free:
+        var upper: int = index[side + "UpperArm"]
+        var end: int = index[side + "Hand"]
+        var a: Vector3 = (now[end].origin - now[upper].origin).normalized()
+        var b: Vector3 = (was[end].origin - was[upper].origin).normalized()
+        var swing := Basis(Quaternion(a, b))
+        pose.rot[upper] = _pose_quat(upper, _world_of(parent[upper], pose), swing * now[upper].basis)
 
 
 ## The current look ends: its turn eases off from where it is (an inertialized gaze snaps back).
@@ -809,6 +890,11 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                     problems.append("frame %d: %s didn't start" % [frame, entry["start"]])
             elif entry.has("interrupt"):
                 rig.interrupt(entry["interrupt"], str(entry.get("how", "yield")))
+            elif entry.has("break"):
+                var values := entry.duplicate()
+                for k in ["at", "break"]:
+                    values.erase(k)
+                rig.break_(motions.get(entry["break"]) if entry["break"] is String else null, values)
         rig.step()
         if expected.has(frame):
             var w := rig.world()
@@ -821,7 +907,8 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                     where = "%s at frame %d" % [bone, frame]
     if worst > tolerance:
         problems.append("bones off the reference by up to %.1f mm (%s; tolerance %.1f mm)" % [worst * 1000.0, where, tolerance * 1000.0])
-    var events := rig.trace.filter(func(e): return e["event"] in ["start", "beat", "loop", "emit", "interrupt", "end"]) \
+    var events := rig.trace.filter(func(e): return e["event"] in ["start", "beat", "loop", "emit", "interrupt", "end",
+                                               "break", "pause", "resume"]) \
         .map(func(e): return [e["event"], e["motion"], e.get("beat")])
     var want_events: Array = trace["expect"]["events"]
     if JSON.stringify(events) != JSON.stringify(want_events):

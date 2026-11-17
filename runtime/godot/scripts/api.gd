@@ -129,6 +129,8 @@ const COMMANDS := {
         + "character body with the runtime motion rig -> {node, motion, running}; body-only motions so far (squat, jumping_jack)",
     "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) "
         + "-> {node, motion, result}",
+    "motion.break": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion "
+        + "drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> {node, running}",
     "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, events: [{t, event, motion, beat}], "
         + "bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}}",
     "npcs.pause": "{npc?} freeze one NPC (or all)",
@@ -773,7 +775,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if not npc.force_option(option):
                 return _err("'%s' is not one of %s's options now" % [option, npc.name])
             return {"npc": String(npc.name), "forced": option}
-        "motion.start", "motion.stop", "motion.status":
+        "motion.start", "motion.stop", "motion.break", "motion.status":
             return _motion(cmd, args)
         "npcs.pause", "npcs.resume":
             var names := []
@@ -1400,10 +1402,20 @@ func _motion(cmd: String, args: Dictionary) -> Variant:
         var report := player.report()
         report["node"] = String(node.name)
         return report
+    var motions := GeogenMotionPlayer.motions(main.world.generated_dir)
+    if cmd == "motion.break":
+        var reaction = null
+        if args.has("reaction"):
+            if not motions.has(str(args["reaction"])):
+                return _err("no motion '%s' in motions.json (it has %s)" % [args["reaction"], motions.keys()])
+            reaction = motions[str(args["reaction"])]
+        var broke := player.break_(reaction, args.get("params", {}))
+        if broke != "":
+            return _err(broke)
+        return {"node": String(node.name), "running": player.rig.running()}
     var name := str(args.get("motion", ""))
     if cmd == "motion.stop":
         return {"node": String(node.name), "motion": name, "result": player.stop(name, str(args.get("how", "yield")))}
-    var motions := GeogenMotionPlayer.motions(main.world.generated_dir)
     if not motions.has(name):
         return _err("no motion '%s' in motions.json (it has %s)" % [name, motions.keys()])
     var why := player.play(motions[name], args.get("params", {}))
