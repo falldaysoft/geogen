@@ -72,3 +72,23 @@ def test_motion_files_run_on_bodies_in_the_runtime(godot_script, scene_export):
     assert ines["running"] == [] and [b for b in beats(ines) if b[0] == "loop"] == [("loop", "land_in")] * 2
     missing = run.steps[-1]
     assert not missing["ok"] and "no motion 'no_such_motion'" in missing["error"]
+
+
+def test_a_break_through_the_control_api_drops_into_a_stagger(godot_script, scene_export):
+    """motion.break (geogen.103.5) drops the running squat with no exit and starts the stagger,
+    which stands the body up again and ends."""
+    run = godot_script([
+        step("motion.start", node="tomas", motion="squat", params={"reps": 3}),
+        step("wait", seconds=0.8),
+        step("motion.break", node="tomas", reaction="stagger"),
+        step("wait", seconds=2.0),
+        step("motion.status", node="tomas"),
+        step("motion.break", node="tomas", reaction="no_such_motion"),
+    ], "--scene=motion_test", f"--generated={scene_export('motion_test')}", check=False)
+    broke = next(e for e in run.steps if e["cmd"] == "motion.break")
+    assert broke["ok"] and broke["result"]["running"] == ["stagger"]
+    status = next(e["result"] for e in run.steps if e["cmd"] == "motion.status")
+    events = [(e["event"], e["motion"]) for e in status["events"] if e["event"] in ("break", "start", "end")]
+    assert events == [("start", "squat"), ("break", None), ("end", "squat"), ("start", "stagger"), ("end", "stagger")]
+    assert status["running"] == []
+    assert not run.steps[-1]["ok"] and "no motion 'no_such_motion'" in run.steps[-1]["error"]

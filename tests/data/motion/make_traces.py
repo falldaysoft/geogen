@@ -10,7 +10,7 @@ from pathlib import Path
 
 from geogen.motion_review import motion_trace
 
-SCENARIOS = ["squat", "jumping_jacks"]
+SCENARIOS = ["squat", "jumping_jacks", "squat_shoved", "bow_wave"]
 
 if __name__ == "__main__":
     here = Path(__file__).parent

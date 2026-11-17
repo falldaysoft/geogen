@@ -1,0 +1,13 @@
+# A bow; a wave borrows the right hand from it (geogen.103.5): the bow pauses, and picks up from
+# `lower` once the wave is done. The left arm hangs under the bent spine. Body only: a
+# conformance trace for the runtime rig.
+kind: motion_scenario
+description: Bow with a hand on the chest; wave mid-bow; the bow picks up again.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_man.yaml, seed: 2, facing: 0 }
+script:
+  - { at: 0.2, start: bow, depth: 20 }
+  - { at: 1.3, start: wave, waves: 1 }
+camera: { view: iso, frame: [actor], margin: 0.35 }

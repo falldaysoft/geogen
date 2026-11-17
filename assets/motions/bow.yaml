@@ -1,0 +1,44 @@
+# A bow with the right hand on the chest (geogen.103.5). Body only. It holds the spine and the
+# right hand; the left arm hangs as it would (free arms hang under a bent spine). A wave borrows the
+# right hand mid-bow: the bow waits, then goes back down from `lower` (its resume).
+kind: motion
+name: bow
+params:
+  depth: { default: 30 }       # degrees the upper body tips forward
+holds:
+  claim: [spine, right_hand]
+initial: lower
+beats:
+  lower:
+    bones:
+      Spine: ["{depth * 0.5}", 0, 0]
+      Chest: ["{depth * 0.5}", 0, 0]
+    ik:
+      RightHand:
+        target: ["{shoulder_width * 0.15}", "{height * 0.66}", "{height * 0.1}"]
+        pole: [-0.8, -1, 0]
+        grip: flat
+    over: 0.8
+    interrupt: yield
+    exit: up
+    resume: lower
+    then: held
+  held:
+    bones:
+      Spine: ["{depth * 0.5}", 0, 0]
+      Chest: ["{depth * 0.5}", 0, 0]
+    ik:
+      RightHand:
+        target: ["{shoulder_width * 0.15}", "{height * 0.66}", "{height * 0.1}"]
+        pole: [-0.8, -1, 0]
+        grip: flat
+    over: 0.1
+    after: 1.0
+    interrupt: yield
+    exit: up
+    resume: lower
+    then: up
+  up:
+    over: 0.8
+    interrupt: finish
+    then: done

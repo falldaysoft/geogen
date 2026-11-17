@@ -68,6 +68,15 @@ func stop(name: String, how := "yield") -> String:
     return rig.interrupt(name, how)
 
 
+## A break: every motion drops at once and the body inertializes into `reaction` (a motion, or
+## null to just stop); "" or why the reaction didn't start.
+func break_(reaction = null, values := {}) -> String:
+    if rig.break_(reaction, values) == null and reaction is Dictionary:
+        return "motion '%s' can't run on this body (see the log)" % reaction.get("name", "?")
+    _active = true
+    return ""
+
+
 ## What the rig is doing; `bones` are where it puts them (world), which is what the modifier
 ## writes (a skeleton's own poses don't show a modifier's work outside its update).
 func report() -> Dictionary:
