@@ -8,6 +8,7 @@ import pytest
 
 from geogen import rules
 from geogen.rules import Machine, RuleError
+from helpers import schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-save.v1.schema.json"
 TRACES = sorted((Path(__file__).parent / "data" / "rules").glob("*.json"))
@@ -43,8 +44,8 @@ def played():
 
 
 def validate(save):
-    jsonschema = pytest.importorskip("jsonschema")
-    jsonschema.validate(save, json.loads(SCHEMA.read_text()))
+    pytest.importorskip("jsonschema")
+    schema_validate(save, json.loads(SCHEMA.read_text()))
 
 
 def test_sections_are_flat_and_keys_name_their_owner():
@@ -122,4 +123,4 @@ def test_the_schema_rejects_what_isnt_a_save():
                 {k: v for k, v in good.items() if k != "world"},
                 {DOOR: {"state": "open"}}):
         with pytest.raises(jsonschema.ValidationError):
-            jsonschema.validate(bad, schema)
+            schema_validate(bad, schema)

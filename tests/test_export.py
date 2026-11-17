@@ -9,7 +9,7 @@ import trimesh
 from geogen.export import export_scene, manifest_path, read_gltf
 from geogen.player import PlayerSpec, load_player_spec
 from geogen.render import scene_bounds
-from helpers import gltf_json
+from helpers import gltf_json, schema_validate
 
 
 def _visual(geometry: dict) -> dict:
@@ -74,7 +74,7 @@ def test_obj_export_has_no_manifest(built_scene, tmp_path):
 
 
 def test_node_extras_match_schema(scene_export):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     from pathlib import Path
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
     for scene in ("hotel_suite", "cottage", "dining_set", "vehicle_lineup", "level_crossing", "lighthouse"):
@@ -82,7 +82,7 @@ def test_node_extras_match_schema(scene_export):
         extras = [n["extras"] for n in gltf["nodes"] if "extras" in n]
         assert extras, scene
         for e in extras:
-            jsonschema.validate(e, schema)
+            schema_validate(e, schema)
 
 
 def test_colliders_are_godot_suffixed_children(built_scene, tmp_path):

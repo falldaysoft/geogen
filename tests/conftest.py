@@ -17,6 +17,11 @@ os.environ.pop("GEOGEN_PROJECT", None)         # the tests are of the core: no p
 
 GODOT_PROJECT = Path(__file__).parent.parent / "runtime" / "godot"
 
+# Engine flags for a test launch unless it passes its own: unthrottled, so frames run back to
+# back with a fixed 1/60 s step instead of waiting for the wall clock. A walk or a wait of game
+# time then costs what its frames cost, not its length in real seconds.
+UNTHROTTLED = ("--fixed-fps", "60")
+
 # Keep test processes out of the macOS Dock (one bouncing icon per xdist
 # worker otherwise): Qt tests never show a window, and pyglet (pyrender's
 # offscreen GL context) makes its app "regular"; an accessory app can still
@@ -48,8 +53,9 @@ def run_godot():
         subprocess.run([godot, "--headless", "--path", str(GODOT_PROJECT), "--import"],
                        capture_output=True, timeout=180)
 
-    def run(*user_args: str, engine_args: tuple[str, ...] = ()) -> str:
-        """``engine_args`` go before ``--`` (e.g. ("--fixed-fps", "60") to run unthrottled)."""
+    def run(*user_args: str, engine_args: tuple[str, ...] | None = None) -> str:
+        """``engine_args`` go before ``--`` (default ``UNTHROTTLED``; ``()`` for real time)."""
+        engine_args = UNTHROTTLED if engine_args is None else engine_args
         result = subprocess.run(
             [godot, "--headless", *engine_args, "--path", str(GODOT_PROJECT), "--", *user_args],
             capture_output=True, text=True, timeout=240,   # generous: parallel test runs share the CPU
@@ -83,14 +89,16 @@ def control_validator():
 
 @pytest.fixture(scope="session")
 def godot_script(run_godot, control_validator):
-    """``godot_script(steps, *user_args, start=None, engine_args=())``: a headless launch that runs
+    """``godot_script(steps, *user_args, start=None, engine_args=None)``: a headless launch that runs
     control API ``steps`` from the ``start`` conditions (and any flags in ``user_args``), checked:
     every step succeeded, no script errors. Returns the ``ScriptRun`` (``run["player.status"]``)."""
     from geogen.runtime_client import run_script
 
-    def run(steps=(), *user_args: str, start: dict | None = None, engine_args: tuple[str, ...] = (),
+    def run(steps=(), *user_args: str, start: dict | None = None, engine_args: tuple[str, ...] | None = None,
             check: bool = True):
-        """``check=False``: a step may fail (the run goes on); look at ``run.entry(...)["ok"]``."""
+        """``check=False``: a step may fail (the run goes on); look at ``run.entry(...)["ok"]``.
+        ``engine_args`` default to ``UNTHROTTLED``; pass ``()`` to run in real time."""
+        engine_args = UNTHROTTLED if engine_args is None else engine_args
         control_validator({"start": start or {}, "steps": list(steps)})   # what any runtime could run
         result = run_script(steps, start=start, args=user_args, engine_args=("--headless", *engine_args),
                             godot=_godot_binary(), project=GODOT_PROJECT, stop_on_error=check)
@@ -100,18 +108,22 @@ def godot_script(run_godot, control_validator):
     return run
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def godot_runtime(run_godot):
     """``godot_runtime(scene, generated, *args)``: a long-lived headless runtime driven over its
-    control API (geogen.runtime_client.RuntimeClient); closed at the end of the session.
-    Tests typically hold one per module and ask it many questions."""
+    control API (geogen.runtime_client.RuntimeClient); closed when the module's tests are done.
+    Tests typically hold one per module and ask it many questions.
+
+    Module scope, not session: an unthrottled runtime (``--fixed-fps``) keeps stepping its
+    world between calls, so one kept to the end of the session burns a core for nothing while
+    every later test on that worker runs."""
     from geogen.runtime_client import RuntimeClient
 
     clients = []
 
     def launch(scene: str, generated, *args: str):
         client = RuntimeClient.launch(scene, generated=generated, args=args,
-                                      engine_args=("--headless", "--fixed-fps", "60"))
+                                      engine_args=("--headless", *UNTHROTTLED))
         clients.append(client)
         return client
 

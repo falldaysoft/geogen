@@ -5,6 +5,7 @@ import pytest
 from geogen import refs
 from geogen.core.node import SceneNode
 from geogen.refs import RefError
+from helpers import schema_validate
 
 
 def _asset(name, asset, *children, tags=()):
@@ -352,13 +353,13 @@ def test_extras_with_uids_match_the_schema(scene_dir, tmp_path):
     import json
     from pathlib import Path
 
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     from geogen.export import export_scene
 
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json").read_text())
     for extras in _extras(export_scene(_compose(scene_dir, SCENE % ("east", "west")), tmp_path / "demo.glb")).values():
         if extras:
-            jsonschema.validate({"geogen": extras}, schema)
+            schema_validate({"geogen": extras}, schema)
 
 
 def test_chunk_exports_index_the_whole_scene(tmp_path):

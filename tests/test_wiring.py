@@ -9,6 +9,7 @@ from geogen.layout.composer import SceneComposer
 from geogen.quests import QuestError, collect
 from geogen.rules import Machine, check_program
 from test_state import GATE, LAMP, LEVER
+from helpers import schema_validate
 
 # A pressure plate that counts who stands on it: its own rules, relative to itself.
 PLATE = """
@@ -428,14 +429,14 @@ def test_bad_scene_declarations_fail(puzzles, old, new, message):
 
 
 def test_exported_puzzles_validate(puzzles, tmp_path):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     from pathlib import Path
 
     schema = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-state.v1.schema.json").read_text())
     for name in ("puzzles", "puzzle"):
         root = SceneComposer(assets_dir=puzzles).compose(puzzles / f"{name}.yaml")
         manifest = json.loads(manifest_path(export_scene(root, tmp_path / name / f"{name}.glb")).read_text())
-        jsonschema.validate(manifest["state"], schema)
+        schema_validate(manifest["state"], schema)
     assert "puzzle:#solved" in manifest["state"]["variables"]
 
 

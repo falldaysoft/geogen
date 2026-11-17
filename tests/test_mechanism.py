@@ -7,6 +7,7 @@ import pytest
 from geogen.export import exported_extras
 from geogen.extras import schema
 from geogen.layout.loader import LayoutLoader
+from helpers import schema_validate
 
 # A turntable: a deck on a motorised hinge round a post, four arms, and a cab hung from
 # each arm's end on a pin (one body per copy).
@@ -102,7 +103,6 @@ def test_a_drive_motion_sets_a_motor_speed_per_state():
 
 def test_extras_carry_the_mechanism_and_drive_by_exported_name():
     pytest.importorskip("jsonschema")
-    import jsonschema
 
     root = _load(TURNTABLE)
     extras = exported_extras(root, name_of=lambda n: f"x_{n.name}")["geogen"]
@@ -111,12 +111,11 @@ def test_extras_carry_the_mechanism_and_drive_by_exported_name():
     assert motion == {"nodes": [], "type": "drive", "body": "table", "free": ["coasting"],
                       "values": {"stopped": 0.0, "running": 20.0, "coasting": 0.0}}
     assert extras["affordances"][0]["body"] == "table"
-    jsonschema.validate({"geogen": extras}, schema())
+    schema_validate({"geogen": extras}, schema())
 
 
 def test_a_drive_can_send_a_joint_to_positions_and_joints_can_damp_and_swing():
     pytest.importorskip("jsonschema")
-    import jsonschema
 
     # The cabs on swing joints with a damper; the table driven to positions in two states.
     text = (TURNTABLE.replace("{type: pin, to: table, pivot: cab_box.top}",
@@ -137,7 +136,7 @@ def test_a_drive_can_send_a_joint_to_positions_and_joints_can_damp_and_swing():
     extras = exported_extras(root, name_of=lambda n: n.name)["geogen"]
     motion = extras["interactions"]["run"]["motions"][0]
     assert motion["to"]["parked"] == {"at": 45.0, "speed": 5.0} and motion["accel"] == 5.0
-    jsonschema.validate({"geogen": extras}, schema())
+    schema_validate({"geogen": extras}, schema())
     with pytest.raises(ValueError, match="not two of them"):
         _load(text.replace("to: {stopped: 0,", "to: {running: 0,"))
     with pytest.raises(ValueError, match="swing joint's axis is level"):

@@ -12,6 +12,7 @@ from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from test_state import GATE, LAMP, LEVER
 from test_wiring import PLATE, QUEST, SCENE
+from helpers import schema_validate
 
 pytestmark = pytest.mark.xdist_group("test_save_runtime")
 
@@ -23,8 +24,8 @@ SECTIONS = {"format", "version", "package", "now", "clock", "world", "actors", "
 
 
 def validate(save):
-    jsonschema = pytest.importorskip("jsonschema")
-    jsonschema.validate(save, json.loads(SCHEMA.read_text()))
+    pytest.importorskip("jsonschema")
+    schema_validate(save, json.loads(SCHEMA.read_text()))
     return save
 
 

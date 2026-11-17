@@ -9,6 +9,7 @@ import pytest
 from geogen.layout.composer import SceneComposer
 from geogen.traffic import (PEDESTRIAN_SPEED, build_traffic, check_clearance, check_graph, pedestrian_state,
                             route_lanes, signal_state)
+from helpers import schema_validate
 
 ASSETS = Path(__file__).parent.parent / "assets"
 SCHEMA = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-traffic.v1.schema.json").read_text())
@@ -42,8 +43,8 @@ def _heading(lane):
 
 
 def test_graph_is_connected_and_valid(graph):
-    jsonschema = pytest.importorskip("jsonschema")
-    jsonschema.validate(graph, SCHEMA)
+    pytest.importorskip("jsonschema")
+    schema_validate(graph, SCHEMA)
     assert check_graph(graph) == []
     kinds = {ln["kind"] for ln in graph["lanes"]}
     assert kinds == {"lane", "connector"}
@@ -142,7 +143,7 @@ def test_scene_routes_export_to_manifest(tmp_path):
     path = export_scene(root, tmp_path / "road.glb")
     manifest = json.loads(manifest_path(path).read_text())
     traffic = manifest["traffic"]
-    pytest.importorskip("jsonschema").validate(traffic, SCHEMA)
+    schema_validate(traffic, SCHEMA)
     assert {ln["id"] for ln in traffic["lanes"]} == {"road_p0", "road_n0"}
     assert check_graph(traffic) == []
 
@@ -167,9 +168,9 @@ def _signalled(cycle="{ green: 16 }"):
 
 
 def test_pedestrian_signals_walk_while_the_traffic_across_is_stopped():
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     root, graph = _signalled()
-    jsonschema.validate(graph, SCHEMA)
+    schema_validate(graph, SCHEMA)
     assert check_graph(graph) == []
     crossings = {p["id"]: p for p in graph["pedestrian_signals"]}
     xs = {x["id"]: x for x in graph["intersections"]}
