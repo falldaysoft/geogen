@@ -3,9 +3,13 @@
 # M; this scene opens it by itself): pick a motion from the catalogue (every file in
 # assets/motions/) and everyone plays it at once, or one of them does. The row stands on the
 # right half of a wide stage centred on the origin, so the camera's middle leaves it clear of the
-# list on the left of the screen.
+# list on the left of the screen. A showcase: the hub's Motions portal lands in front of the row
+# (`from_hub`, looking at them); M or Esc closes the list to walk to the portal back.
 name: motion_gallery
 size: [7, 2, 4]
+
+spawns:
+  from_hub: { position: [1.6, 0.1, 4.6], facing: south }   # in front of the row, looking at it
 
 slots:
   stage: { position: [0, 0, 0] }
@@ -14,6 +18,7 @@ slots:
   c: { position: [2.2, 0, 0] }
   d: { position: [3.2, 0, 0] }
   e: { position: [4.2, 0, 0] }
+  hub_portal: { position: [-2.8, 0.05, 3.2], facing: east }
 
 place:
   stage: { asset: rug.yaml, slot: stage, params: { width: 9.0, depth: 1.8 } }
@@ -22,3 +27,8 @@ place:
   ruth:   { archetype: characters/archetypes/older_woman.yaml, seed: 3, slot: c }
   walter: { archetype: characters/archetypes/older_man.yaml, seed: 4, slot: d }
   priya:  { archetype: characters/archetypes/office_worker.yaml, seed: 5, slot: e }
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_motions }

@@ -293,8 +293,9 @@ func hud_refresh() -> void:
         return
     var rect := get_viewport().get_visible_rect()
     var width := clampf(rect.size.x * 0.3, 240.0, 360.0)
-    _frame.position = Vector2(GeogenHud.MARGIN, GeogenHud.MARGIN)
-    _frame.size = Vector2(width, rect.size.y - 2 * GeogenHud.MARGIN)
+    var top := float(GeogenHud.TOP_INSET if _hud.overlay_shown else GeogenHud.MARGIN)   # under the F1 overlay's lines
+    _frame.position = Vector2(GeogenHud.MARGIN, top)
+    _frame.size = Vector2(width, rect.size.y - top - GeogenHud.MARGIN)
     _draw_performers()
     _draw_list()
     var entry := _entry(_selected)
