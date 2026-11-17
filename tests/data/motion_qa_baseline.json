@@ -1,0 +1,8539 @@
+{
+ "jumping_jacks/adult/short+tall+heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 158,
+   "max_mm": 6.0,
+   "t": 2.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/hotel_staff/heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 206,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/hotel_staff/short": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 90,
+   "max_mm": 6.0,
+   "t": 0.6667,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/hotel_staff/tall": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 206,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/office_worker/heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 739.9,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 206,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/office_worker/short": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 90,
+   "max_mm": 6.0,
+   "t": 0.6667,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/office_worker/tall": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 745.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 190,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/older_man/heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 740.8,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 206,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/older_man/short": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.6,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 60,
+   "max_mm": 6.0,
+   "t": 1.1,
+   "where": "LeftToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/older_man/tall": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 62,
+   "max_mm": 6.0,
+   "t": 1.1,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/older_woman/heavy": {
+  "clipping_frames": 19,
+  "cloth_mm": -4.5,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 729.7,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 90,
+   "max_mm": 6.0,
+   "t": 0.6667,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/older_woman/short": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 172,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/older_woman/tall": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 746.7,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 160,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/townsfolk/heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 744.3,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 62,
+   "max_mm": 6.0,
+   "t": 1.1,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/townsfolk/short": {
+  "clipping_frames": 19,
+  "cloth_mm": -4.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 741.9,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 172,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/townsfolk/tall": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 745.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 190,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/young_man/short+heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 60,
+   "max_mm": 6.0,
+   "t": 1.1,
+   "where": "LeftToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/young_man/tall": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 200,
+   "max_mm": 6.0,
+   "t": 2.0,
+   "where": "RightToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/young_woman/heavy": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 742.8,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 160,
+   "max_mm": 6.0,
+   "t": 1.0,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/young_woman/short": {
+  "clipping_frames": 19,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 749.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 90,
+   "max_mm": 6.0,
+   "t": 0.6667,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "jumping_jacks/young_woman/tall": {
+  "clipping_frames": 19,
+  "cloth_mm": -6.0,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightUpperArm",
+   "deg_s": 743.7,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 206,
+   "max_mm": 5.8,
+   "t": 1.1,
+   "where": "LeftToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/adult/short+tall+heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.5,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 358.3,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 7,
+   "max_mm": 10.7,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 109,
+   "max_mm": 17.5,
+   "t": 0.6667,
+   "where": "RightHand in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/hotel_staff/heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.7,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 355.0,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 8,
+   "max_mm": 14.7,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 76,
+   "max_mm": 17.2,
+   "t": 0.3333,
+   "where": "RightRingIntermediate in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/hotel_staff/short": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.5,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 357.4,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 5,
+   "max_mm": 11.6,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 93,
+   "max_mm": 17.5,
+   "t": 0.6667,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/hotel_staff/tall": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.7,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 355.0,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 7,
+   "max_mm": 14.6,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 74,
+   "max_mm": 17.5,
+   "t": 0.3333,
+   "where": "RightRingIntermediate in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/office_worker/heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 346.4,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 10.1,
+   "t": 0.9667,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 41,
+   "max_mm": 17.5,
+   "t": 0.9667,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/office_worker/short": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.5,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 357.4,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 5,
+   "max_mm": 11.6,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 93,
+   "max_mm": 17.5,
+   "t": 0.6667,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/office_worker/tall": {
+  "clipping_frames": 6,
+  "contact_error_mm": 21.1,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightUpperArm",
+   "deg_s": 399.1,
+   "t": 0.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 202,
+   "max_mm": 17.4,
+   "t": 0.6667,
+   "where": "RightLittleDistal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/older_man/heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 346.8,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 10.0,
+   "t": 0.9667,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 78,
+   "max_mm": 17.4,
+   "t": 0.3333,
+   "where": "RightRingDistal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/older_man/short": {
+  "clipping_frames": 7,
+  "contact_error_mm": 1.8,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.6667
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 371.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 9,
+   "max_mm": 12.9,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 143,
+   "max_mm": 17.4,
+   "t": 1.4333,
+   "where": "RightThumbProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/older_man/tall": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.7,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 355.0,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 7,
+   "max_mm": 14.6,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 74,
+   "max_mm": 17.5,
+   "t": 0.3333,
+   "where": "RightRingIntermediate in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/older_woman/heavy": {
+  "clipping_frames": 7,
+  "cloth_mm": -4.3,
+  "contact_error_mm": 1.7,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 371.9,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 3,
+   "max_mm": 4.9,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 55,
+   "max_mm": 17.5,
+   "t": 0.6667,
+   "where": "RightThumbMetacarpal in top"
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/older_woman/short": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.5,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 358.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 49,
+   "max_mm": 15.1,
+   "t": 0.6667,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 96,
+   "max_mm": 17.4,
+   "t": 0.6667,
+   "where": "RightThumbMetacarpal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/older_woman/tall": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 363.6,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 1,
+   "max_mm": 8.7,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 59,
+   "max_mm": 17.5,
+   "t": 0.6667,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/townsfolk/heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 346.7,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 10.1,
+   "t": 0.9667,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 41,
+   "max_mm": 17.5,
+   "t": 0.9667,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/townsfolk/short": {
+  "clipping_frames": 7,
+  "cloth_mm": -3.3,
+  "contact_error_mm": 0.8,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 376.6,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 11,
+   "max_mm": 11.8,
+   "t": 0.6667,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 237,
+   "max_mm": 18.2,
+   "t": 1.3333,
+   "where": "RightThumbDistal in leg_front_left"
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/townsfolk/tall": {
+  "clipping_frames": 6,
+  "contact_error_mm": 21.1,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightUpperArm",
+   "deg_s": 399.1,
+   "t": 0.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 202,
+   "max_mm": 17.4,
+   "t": 0.6667,
+   "where": "RightLittleDistal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/young_man/short+heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 1.8,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 371.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 9,
+   "max_mm": 12.9,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 143,
+   "max_mm": 17.4,
+   "t": 1.4333,
+   "where": "RightThumbProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/young_man/tall": {
+  "clipping_frames": 7,
+  "contact_error_mm": 3.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLowerArm",
+   "deg_s": 432.2,
+   "t": 0.7333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 163,
+   "max_mm": 17.3,
+   "t": 0.6667,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/young_woman/heavy": {
+  "clipping_frames": 7,
+  "contact_error_mm": 1.9,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 371.2,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 5,
+   "max_mm": 10.9,
+   "t": 0.9333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 117,
+   "max_mm": 17.4,
+   "t": 1.0,
+   "where": "RightIndexProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/young_woman/short": {
+  "clipping_frames": 7,
+  "contact_error_mm": 0.5,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightMiddleIntermediate",
+   "deg_s": 358.1,
+   "t": 0.5333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 35,
+   "max_mm": 15.1,
+   "t": 0.6667,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 96,
+   "max_mm": 17.4,
+   "t": 0.6667,
+   "where": "RightThumbMetacarpal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "press_tv/young_woman/tall": {
+  "clipping_frames": 6,
+  "cloth_mm": 26.4,
+  "contact_error_mm": 21.1,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLowerArm",
+   "deg_s": 423.3,
+   "t": 0.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 192,
+   "max_mm": 17.5,
+   "t": 0.6667,
+   "where": "RightLittleDistal in top"
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/adult/short+tall+heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 209.3,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 4.4,
+   "t": 1.4,
+   "where": "LeftUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/hotel_staff/heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 216.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 3.5,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/hotel_staff/short": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 206.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/hotel_staff/tall": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/office_worker/heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/office_worker/short": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 206.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/office_worker/tall": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/older_man/heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/older_man/short": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.8,
+   "t": 0.6667
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 214.5,
+   "t": 1.2
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 14,
+   "max_mm": 13.2,
+   "t": 3.6667,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/older_man/tall": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/older_woman/heavy": {
+  "clipping_frames": 17,
+  "cloth_mm": -0.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 173.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 77,
+   "max_mm": 17.4,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/older_woman/short": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 19.8,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 210.1,
+   "t": 3.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 16,
+   "max_mm": 15.6,
+   "t": 3.6667,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/older_woman/tall": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 198.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/townsfolk/heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/townsfolk/short": {
+  "clipping_frames": 17,
+  "cloth_mm": -3.3,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 36.5,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 304.9,
+   "t": 0.9667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 144,
+   "max_mm": 17.5,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/townsfolk/tall": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/young_man/short+heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 214.5,
+   "t": 1.2
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 14,
+   "max_mm": 13.2,
+   "t": 3.6667,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/young_man/tall": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 237.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/young_woman/heavy": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 195.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 5.9,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/young_woman/short": {
+  "clipping_frames": 17,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 16.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 3.0,
+   "t": 1.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 217.5,
+   "t": 1.1333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 15.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_interrupted/young_woman/tall": {
+  "clipping_frames": 17,
+  "cloth_mm": -2.4,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 20,
+   "max_mm": 3.4,
+   "t": 1.4
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 238.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 34,
+   "max_mm": 17.4,
+   "t": 1.3333,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 2,
+   "max_mm": 4.9,
+   "t": 2.0
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/adult/short+tall+heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 209.3,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 4.4,
+   "t": 1.4,
+   "where": "LeftUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/hotel_staff/heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 216.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 3.5,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/hotel_staff/short": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 206.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/hotel_staff/tall": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/office_worker/heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/office_worker/short": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 206.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/office_worker/tall": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/older_man/heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/older_man/short": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.8,
+   "t": 0.6667
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 214.5,
+   "t": 1.2
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 16,
+   "max_mm": 10.2,
+   "t": 1.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/older_man/tall": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/older_woman/heavy": {
+  "clipping_frames": 18,
+  "cloth_mm": -0.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 173.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 10,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/older_woman/short": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 19.8,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 204.1,
+   "t": 1.1
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 10,
+   "max_mm": 15.1,
+   "t": 4.0,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/older_woman/tall": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 198.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/townsfolk/heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/townsfolk/short": {
+  "clipping_frames": 18,
+  "cloth_mm": -2.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 36.5,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 304.9,
+   "t": 0.9667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 144,
+   "max_mm": 17.5,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/townsfolk/tall": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/young_man/short+heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 214.5,
+   "t": 1.2
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 16,
+   "max_mm": 10.2,
+   "t": 1.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/young_man/tall": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 237.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/young_woman/heavy": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 195.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 5.9,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/young_woman/short": {
+  "clipping_frames": 18,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 16.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 3.0,
+   "t": 1.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 217.5,
+   "t": 1.1333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 12,
+   "max_mm": 16.7,
+   "t": 4.0,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_on_chair/young_woman/tall": {
+  "clipping_frames": 18,
+  "cloth_mm": -2.4,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 20,
+   "max_mm": 3.4,
+   "t": 1.4
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 238.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 34,
+   "max_mm": 17.4,
+   "t": 1.3333,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 2,
+   "max_mm": 4.9,
+   "t": 2.0
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/adult/short+tall+heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 209.3,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 4.4,
+   "t": 1.4,
+   "where": "LeftUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/hotel_staff/heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 216.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 3.5,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/hotel_staff/short": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 206.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/hotel_staff/tall": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/office_worker/heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/office_worker/short": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 206.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/office_worker/tall": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/older_man/heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/older_man/short": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.8,
+   "t": 0.6667
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 214.5,
+   "t": 1.2
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 16,
+   "max_mm": 10.2,
+   "t": 1.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/older_man/tall": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/older_woman/heavy": {
+  "clipping_frames": 23,
+  "cloth_mm": -0.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 173.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 77,
+   "max_mm": 17.4,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/older_woman/short": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 19.8,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 204.1,
+   "t": 1.1
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 20,
+   "max_mm": 13.7,
+   "t": 5.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/older_woman/tall": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 198.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/townsfolk/heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 190.2,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/townsfolk/short": {
+  "clipping_frames": 23,
+  "cloth_mm": -2.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 36.5,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 304.9,
+   "t": 0.9667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 144,
+   "max_mm": 17.5,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/townsfolk/tall": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/young_man/short+heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 214.5,
+   "t": 1.2
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 16,
+   "max_mm": 10.2,
+   "t": 1.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/young_man/tall": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 237.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/young_woman/heavy": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 195.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 5.9,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/young_woman/short": {
+  "clipping_frames": 23,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 16.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 3.0,
+   "t": 1.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 217.5,
+   "t": 1.1333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 20,
+   "max_mm": 16.9,
+   "t": 5.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "sit_watch_tv/young_woman/tall": {
+  "clipping_frames": 23,
+  "cloth_mm": -2.4,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 20,
+   "max_mm": 3.4,
+   "t": 1.4
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 238.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 34,
+   "max_mm": 17.4,
+   "t": 1.3333,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 2,
+   "max_mm": 4.9,
+   "t": 2.0
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/adult/short+tall+heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/hotel_staff/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/hotel_staff/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/hotel_staff/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/office_worker/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/office_worker/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/office_worker/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 4.1,
+   "t": 0.3333,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/older_man/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/older_man/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.8,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/older_man/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/older_woman/heavy": {
+  "clipping_frames": 20,
+  "cloth_mm": 46.5,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftUpperArm",
+   "deg_s": 584.8,
+   "t": 2.5667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 8,
+   "max_mm": 13.8,
+   "t": 1.3333
+  },
+  "waist_gap": {
+   "count": 48,
+   "max_mm": 13.8,
+   "t": 1.3333
+  }
+ },
+ "squat/older_woman/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/older_woman/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/townsfolk/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/townsfolk/short": {
+  "clipping_frames": 20,
+  "cloth_mm": -4.7,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 2,
+   "max_mm": 7.3,
+   "t": 1.3333
+  },
+  "waist_gap": {
+   "count": 18,
+   "max_mm": 7.3,
+   "t": 1.3333
+  }
+ },
+ "squat/townsfolk/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 4.1,
+   "t": 0.3333,
+   "where": "LeftFoot in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/young_man/short+heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/young_man/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/young_woman/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/young_woman/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "squat/young_woman/tall": {
+  "clipping_frames": 20,
+  "cloth_mm": -5.9,
+  "contact_error_mm": 0.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Spine",
+   "deg_s": 360.4,
+   "t": 2.2333
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 306,
+   "max_mm": 5.2,
+   "t": 0.3333,
+   "where": "LeftToes in rug"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 9,
+   "max_mm": 14.7,
+   "t": 1.3333
+  },
+  "waist_gap": {
+   "count": 53,
+   "max_mm": 14.7,
+   "t": 1.3333
+  }
+ },
+ "take_carry_set_down/adult/short+tall+heavy": {
+  "clipping_frames": 21,
+  "contact_error_mm": 0.9,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 267,
+   "max_mm": 17.4,
+   "t": 4.3333,
+   "where": "RightIndexDistal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/hotel_staff/heavy": {
+  "clipping_frames": 21,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 3,
+   "max_mm": 5.9,
+   "t": 4.5333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 184,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/hotel_staff/short": {
+  "clipping_frames": 21,
+  "contact_error_mm": 2.4,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 319,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/hotel_staff/tall": {
+  "clipping_frames": 21,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 5.8,
+   "t": 4.5333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 192,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/office_worker/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 1,
+   "max_mm": 3.6,
+   "t": 4.5333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 212,
+   "max_mm": 17.5,
+   "t": 4.6667,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/office_worker/short": {
+  "clipping_frames": 21,
+  "contact_error_mm": 2.4,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 319,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/office_worker/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 3.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 200,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/older_man/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 1,
+   "max_mm": 3.7,
+   "t": 4.5333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 212,
+   "max_mm": 17.4,
+   "t": 4.6667,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/older_man/short": {
+  "clipping_frames": 21,
+  "contact_error_mm": 0.8,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 3.0,
+   "t": 4.5333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 191,
+   "max_mm": 17.4,
+   "t": 4.5333,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/older_man/tall": {
+  "clipping_frames": 21,
+  "contact_error_mm": 1.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 5.8,
+   "t": 4.5333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 192,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/older_woman/heavy": {
+  "clipping_frames": 20,
+  "cloth_mm": 22.6,
+  "contact_error_mm": 0.9,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 5,
+   "max_mm": 13.3,
+   "t": 1.8
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 244,
+   "max_mm": 17.5,
+   "t": 4.5333,
+   "where": "RightMiddleProximal in top"
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/older_woman/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.7,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 2,
+   "max_mm": 4.6,
+   "t": 5.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 368,
+   "max_mm": 17.4,
+   "t": 4.5333,
+   "where": "RightThumbDistal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/older_woman/tall": {
+  "clipping_frames": 21,
+  "contact_error_mm": 0.9,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 303,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/townsfolk/heavy": {
+  "clipping_frames": 20,
+  "contact_error_mm": 2.1,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 1,
+   "max_mm": 3.9,
+   "t": 4.5333,
+   "where": "RightLowerArm in top"
+  },
+  "props_hands": {
+   "count": 212,
+   "max_mm": 17.5,
+   "t": 4.6667,
+   "where": "RightRingProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/townsfolk/short": {
+  "clipping_frames": 20,
+  "cloth_mm": -3.3,
+  "contact_error_mm": 1.2,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 145,
+   "max_mm": 17.5,
+   "t": 5.0,
+   "where": "RightMiddleDistal in top"
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/townsfolk/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 3.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 200,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/young_man/short+heavy": {
+  "clipping_frames": 21,
+  "contact_error_mm": 0.8,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 191,
+   "max_mm": 17.4,
+   "t": 4.5333,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/young_man/tall": {
+  "clipping_frames": 20,
+  "contact_error_mm": 14.8,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 206,
+   "max_mm": 17.5,
+   "t": 4.3333,
+   "where": "RightLittleProximal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/young_woman/heavy": {
+  "clipping_frames": 21,
+  "contact_error_mm": 0.9,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 138,
+   "max_mm": 17.4,
+   "t": 4.6667,
+   "where": "RightRingIntermediate in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/young_woman/short": {
+  "clipping_frames": 20,
+  "contact_error_mm": 0.7,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 368,
+   "max_mm": 17.4,
+   "t": 4.5333,
+   "where": "RightThumbDistal in top"
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "take_carry_set_down/young_woman/tall": {
+  "clipping_frames": 20,
+  "cloth_mm": 12.1,
+  "contact_error_mm": 2.9,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "RightLittleIntermediate",
+   "deg_s": 377.4,
+   "t": 4.6667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 164,
+   "max_mm": 17.5,
+   "t": 4.0,
+   "where": "RightLittleProximal in top"
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/adult/short+tall+heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.1,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/adult.yaml",
+   "build": 0.5,
+   "height": 1.72,
+   "preset": "default",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 4.4,
+   "t": 1.4,
+   "where": "LeftUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/hotel_staff/heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 224.7,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.55,
+   "height": 1.79,
+   "preset": "masculine",
+   "seed": 14
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 3.5,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/hotel_staff/short": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.6,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/hotel_staff/tall": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/hotel_staff.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/office_worker/heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 223.7,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 26
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/office_worker/short": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.6,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.1,
+   "height": 1.66,
+   "preset": "feminine+slim",
+   "seed": 1
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/office_worker/tall": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/office_worker.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 57
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/older_man/heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 223.7,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 4
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/older_man/short": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.8,
+   "t": 0.6667
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 224.0,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 13.0,
+   "t": 6.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/older_man/tall": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 225.7,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_man.yaml",
+   "build": 0.1,
+   "height": 1.79,
+   "preset": "masculine+slim",
+   "seed": 7
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 2.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/older_woman/heavy": {
+  "clipping_frames": 27,
+  "cloth_mm": -0.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.1,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 224.6,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 1.3,
+   "height": 1.66,
+   "preset": "feminine+heavy",
+   "seed": 3
+  },
+  "pops": 0,
+  "props": {
+   "count": 77,
+   "max_mm": 17.4,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/older_woman/short": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 19.8,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.3,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 8,
+   "max_mm": 12.8,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/older_woman/tall": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.3,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/older_woman.yaml",
+   "build": 0.42,
+   "height": 1.66,
+   "preset": "feminine",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 6.0,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/townsfolk/heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.9,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 223.7,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 1.3,
+   "height": 1.79,
+   "preset": "masculine+heavy",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 4,
+   "max_mm": 7.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/townsfolk/short": {
+  "clipping_frames": 27,
+  "cloth_mm": -2.7,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 36.5,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.3,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 304.9,
+   "t": 0.9667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 5
+  },
+  "pops": 0,
+  "props": {
+   "count": 144,
+   "max_mm": 17.5,
+   "t": 1.4,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/townsfolk/tall": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 241.0,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/townsfolk.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 121
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/young_man/short+heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 11.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 2.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 224.0,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.75,
+   "height": 1.64,
+   "preset": "masculine+stocky",
+   "seed": 15
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 13.0,
+   "t": 6.3333,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/young_man/tall": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 1.4,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 237.1,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_man.yaml",
+   "build": 0.55,
+   "height": 1.9,
+   "preset": "masculine+tall",
+   "seed": 0
+  },
+  "pops": 0,
+  "props": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/young_woman/heavy": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.5,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.2,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.6,
+   "height": 1.66,
+   "preset": "feminine+curvy",
+   "seed": 2
+  },
+  "pops": 0,
+  "props": {
+   "count": 2,
+   "max_mm": 5.9,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/young_woman/short": {
+  "clipping_frames": 27,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 16.7,
+  "hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 3.0,
+   "t": 1.3333
+  },
+  "peak_joint_speed": {
+   "bone": "Head",
+   "deg_s": 225.3,
+   "t": 3.0
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.53,
+   "preset": "feminine+petite",
+   "seed": 38
+  },
+  "pops": 0,
+  "props": {
+   "count": 6,
+   "max_mm": 15.4,
+   "t": 1.4,
+   "where": "RightUpperLeg in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ },
+ "watch_tv/young_woman/tall": {
+  "clipping_frames": 27,
+  "cloth_mm": -2.4,
+  "contact_error_mm": 0.0,
+  "feet_skin": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "foot_slide_mm": 0.0,
+  "hands": {
+   "count": 20,
+   "max_mm": 3.4,
+   "t": 1.4
+  },
+  "hem": {
+   "count": 0,
+   "ends": 0,
+   "max_mm": 0.7,
+   "t": 0.3333
+  },
+  "peak_joint_speed": {
+   "bone": "LeftLowerLeg",
+   "deg_s": 238.9,
+   "t": 0.0667
+  },
+  "person": {
+   "archetype": "characters/archetypes/young_woman.yaml",
+   "build": 0.42,
+   "height": 1.9,
+   "preset": "feminine+tall",
+   "seed": 24
+  },
+  "pops": 0,
+  "props": {
+   "count": 34,
+   "max_mm": 17.4,
+   "t": 1.3333,
+   "where": "clothes in seat"
+  },
+  "props_hands": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  },
+  "shell_poke": {
+   "count": 2,
+   "max_mm": 4.9,
+   "t": 2.0
+  },
+  "waist_gap": {
+   "count": 0,
+   "max_mm": 0.0,
+   "t": 0.3333
+  }
+ }
+}
