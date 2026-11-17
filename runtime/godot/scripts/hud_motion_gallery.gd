@@ -11,11 +11,16 @@ extends Control
 ## Left / Right choose who performs it (everyone, or one person), L loops it.
 ##
 ## Motions come from the catalogue, so a new file in assets/motions/ is listed after the next
-## export with no change here. Ones that name things in the world (`body_only` false: drink,
-## sit, take, ...) are listed greyed: the runtime rig does not bind roles yet (geogen.103.7);
-## `python -m geogen.motion_review --motion NAME` shows them on the reference rig, at a table.
+## export with no change here. Ones that take things (drink, inspect, take, carry, set_down: a
+## motion's `props` say which asset each role is) play at a table in front of each person: the
+## scene has `<person>_table` with `<person>_<asset>` on it (motion_gallery: a mug and a plate),
+## shown while such a motion plays and hidden otherwise, and the things are put back where they
+## stood before each play. A motion's `demo` is played in its place when it has one (take,
+## carry and set_down: take the plate, carry it, put it back where it stood; `<role>@start`).
+## Ones that move the body (`moves_body`: sit) or need things no table holds (press: a TV) are
+## listed greyed; `python -m geogen.motion_review --motion NAME` shows them on the reference rig.
 ##
-## Presentation state only: open, the chosen motion and performer, looping.
+## Presentation state only: open, the chosen motion and performer, looping, the demo's clock.
 
 const OPEN_KEY := KEY_M
 const GALLERY_SCENE := "motion_gallery"
@@ -44,6 +49,9 @@ var _performers: Array[Node3D] = []
 var _playing := ""
 var _loop := false
 var _idle_for := 0.0
+var _demo: Array = []              # [{at, body, entry, starts}] still to start, by time
+var _demo_clock := 0.0
+var _homes := {}                   # a staged thing that isn't a physics prop -> where it started
 var _frame: PanelContainer
 var _who: HBoxContainer
 var _loop_button: CheckButton
@@ -201,29 +209,136 @@ func set_loop(on: bool) -> void:
 
 
 ## Play `motion` on whoever performs (everyone stops what they are doing first); "" or why not.
+## One that takes things plays at each person's table, with the things put back first.
 func play(motion: String) -> String:
     var entry := _entry(motion)
     if entry.is_empty():
         return "no motion '%s' in the catalogue" % motion
-    if not entry.get("body_only", false):
-        return "'%s' needs things in the world (%s): the runtime rig doesn't bind them yet" % [
-            motion, ", ".join((entry.get("roles", {}) as Dictionary).keys())]
-    var spec: Dictionary = GeogenMotionPlayer.motions(_hud.world.generated_dir).get(motion, {})
-    if spec.is_empty():
+    var why_not := _why_not(entry)
+    if why_not != "":
+        return why_not
+    var motions := GeogenMotionPlayer.motions(_hud.world.generated_dir)
+    if not motions.has(motion):
         return "no motion '%s' in motions.json" % motion
     _selected = motion
-    for body in _chosen():
+    var props: Dictionary = entry.get("props", {})
+    for body in _performers:
         var player := GeogenMotionPlayer.on(body)
-        if player == null:
-            continue
-        player.break_(null)
-        var why := player.play(spec, {})
-        if why != "":
-            return why
+        if player != null and (_performer == "all" or String(body.name) == _performer):
+            player.break_(null)
+    _stage(not props.is_empty())
+    var script: Array = entry.get("demo", [])
+    if script.is_empty():
+        var only := {"at": 0.0, "start": motion}
+        for role in props:
+            only[role] = role
+        script = [only]
+    _demo = []
+    _demo_clock = 0.0
+    for body in _chosen():
+        # Where each staged thing stands now (put back): a demo's `<role>@start`.
+        var starts := {}
+        for role in props:
+            var node := _staged(body, props[role])
+            if node != null:
+                starts[role] = GeogenMotionRig.Thing.fixed("%s@start" % node.name, node.global_transform)
+        for e in script:
+            _demo.append({"at": float(e.get("at", 0.0)), "body": body, "entry": e, "starts": starts, "props": props})
+    _demo.sort_custom(func(a, b): return a["at"] < b["at"])
+    var why := _run_demo()
+    if why != "":
+        _demo = []
+        return why
     _playing = motion
     _idle_for = 0.0
     _hud.queue_refresh()
     return ""
+
+
+## Start the demo's entries that are due; "" or why one didn't start.
+func _run_demo() -> String:
+    var motions := GeogenMotionPlayer.motions(_hud.world.generated_dir)
+    while not _demo.is_empty() and _demo[0]["at"] <= _demo_clock + 1e-6:
+        var item: Dictionary = _demo.pop_front()
+        var e: Dictionary = item["entry"]
+        var body: Node3D = item["body"]
+        var player := GeogenMotionPlayer.on(body)
+        var spec: Dictionary = motions.get(str(e.get("start", "")), {})
+        if player == null or spec.is_empty():
+            continue
+        var props: Dictionary = item["props"]
+        var values := {}
+        for k in e:
+            if k in ["at", "start"]:
+                continue
+            var v = e[k]
+            if v is String and v.ends_with("@start") and item["starts"].has(v.trim_suffix("@start")):
+                v = item["starts"][v.trim_suffix("@start")]
+            elif v is String and props.has(v):
+                v = _staged(body, props[v])
+                if v == null:
+                    return "%s has no %s on a table in front" % [body.name, props[e[k]].get("asset", "?")]
+            values[k] = v
+        var why := player.play(spec, values)
+        if why != "":
+            return why
+    return ""
+
+
+## Why the gallery can't play a catalogue entry here ("" when it can).
+func _why_not(entry: Dictionary) -> String:
+    if entry.get("moves_body", false):
+        return "'%s' moves the body (root): the runtime rig doesn't do that yet" % entry["name"]
+    if entry.get("body_only", false):
+        return ""
+    var props: Dictionary = entry.get("props", {})
+    var roles: Dictionary = entry.get("roles", {})
+    var needed := roles.keys().filter(func(r): return not props.has(r) and not (roles[r] is Dictionary and roles[r].get("optional", false)))
+    if not needed.is_empty() and (entry.get("demo", []) as Array).is_empty():
+        return "'%s' needs %s, which the gallery doesn't stage" % [entry["name"], ", ".join(needed)]
+    for body in _chosen():
+        for role in props:
+            if _staged(body, props[role]) == null:
+                return "'%s' needs %s on a table in front of %s" % [entry["name"], props[role].get("asset", "?"), body.name]
+    return ""
+
+
+## The thing staged for `prop` ({asset}) in front of `body`: the node `<body>_<asset stem>`.
+func _staged(body: Node3D, prop: Dictionary) -> Node3D:
+    var stem := str(prop.get("asset", "")).get_file().get_basename()
+    return _hud.world.find_child("%s_%s" % [body.name, stem], true, false) as Node3D
+
+
+## Show (or hide) each person's table and the things on it, the things put back where they
+## stood. Hidden ones are out of the physics too (disabled), so nothing walks into them.
+func _stage(show: bool) -> void:
+    var stems := {}
+    for e in _catalogue:
+        for role in e.get("props", {}):
+            stems[str(e["props"][role].get("asset", "")).get_file().get_basename()] = true
+    var props: GeogenProps = _hud.world.props
+    for body in _performers:
+        var nodes: Array[Node3D] = []
+        var table := _hud.world.find_child("%s_table" % body.name, true, false) as Node3D
+        if table != null:
+            nodes.append(table)
+        for stem in stems:
+            var node := _hud.world.find_child("%s_%s" % [body.name, stem], true, false) as Node3D
+            if node == null:
+                continue
+            var uid := WorldLoader.uid_of(node)
+            if props != null and props.props.has(uid):
+                if show:
+                    props.put_back(uid)
+                node = props.props[uid]["body"]
+            elif show:                   # not a physics prop: back where the scene put it
+                if not _homes.has(node):
+                    _homes[node] = node.global_transform
+                node.global_transform = _homes[node]
+            nodes.append(node)
+        for node in nodes:
+            node.visible = show
+            node.process_mode = Node.PROCESS_MODE_INHERIT if show else Node.PROCESS_MODE_DISABLED
 
 
 func _chosen() -> Array[Node3D]:
@@ -234,6 +349,14 @@ func _chosen() -> Array[Node3D]:
 
 func _process(delta: float) -> void:
     if not _open or _playing == "":
+        return
+    if not _demo.is_empty():
+        _demo_clock += delta
+        var why := _run_demo()
+        if why != "":
+            push_warning("motion gallery: " + why)
+            _demo = []
+        _idle_for = 0.0
         return
     var busy := false
     for body in _chosen():
@@ -261,6 +384,8 @@ func _read() -> void:
     if _selected == "" and not _catalogue.is_empty():
         var first = _catalogue.filter(func(e): return e.get("body_only", false))
         _selected = (first[0] if not first.is_empty() else _catalogue[0])["name"]
+    if _playing == "":
+        _stage(false)                # the tables come out when a motion with things plays
 
 
 func _find_performers() -> Array[Node3D]:
@@ -302,8 +427,12 @@ func hud_refresh() -> void:
     var params: Dictionary = entry.get("params", {})
     if not params.is_empty():
         text += "\n" + ", ".join(params.keys().map(func(k): return "%s %s" % [k, _number(params[k])]))
-    if not entry.is_empty() and not entry.get("body_only", false):
-        text += "\nNeeds %s: plays in motion_review for now." % ", ".join((entry.get("roles", {}) as Dictionary).keys())
+    var why_not := _why_not(entry) if not entry.is_empty() else ""
+    if why_not != "":
+        text += "\nNot here yet: %s. python -m geogen.motion_review --motion %s shows it." % [why_not, entry["name"]]
+    elif not (entry.get("props", {}) as Dictionary).is_empty():
+        text += "\nAt a table: %s." % ", ".join((entry["props"] as Dictionary).values().map(
+            func(p): return str(p.get("asset", "")).get_file().get_basename()))
     _about.text = text
 
 
@@ -334,7 +463,7 @@ func _draw_list() -> void:
             var head := _label(CATEGORY_TITLES.get(category, category.capitalize()), HEAD_SIZE, COLORS["head"])
             _list.add_child(head)
         var b := Button.new()
-        var playable: bool = e.get("body_only", false)
+        var playable := _why_not(e) == ""
         b.text = ("> " if e["name"] == _playing else "  ") + String(e["name"]).replace("_", " ")
         b.alignment = HORIZONTAL_ALIGNMENT_LEFT
         b.flat = e["name"] != _selected
@@ -379,5 +508,5 @@ func hud_report() -> Dictionary:
     return {"open": _open, "selected": _selected, "playing": _playing, "loop": _loop,
         "performer": _performer, "performers": _performers.map(func(p): return String(p.name)),
         "motions": _catalogue.map(func(e): return {"name": e["name"], "category": e["category"],
-            "plays": e.get("body_only", false)}),
+            "plays": _why_not(e) == ""}),
         "rect": [_frame.position.x, _frame.position.y, _frame.size.x, _frame.size.y] if _open else []}

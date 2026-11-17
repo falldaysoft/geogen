@@ -97,7 +97,7 @@ def test_a_break_through_the_control_api_drops_into_a_stagger(godot_script, scen
 def test_the_motion_gallery_lists_the_catalogue_and_plays_on_everyone(godot_script, scene_export):
     """The motion_gallery scene opens the HUD's gallery (geogen.103.18) on its own: it lists every
     motion file from the catalogue, plays a body-only one on all five people or on one, and
-    refuses one that needs things in the world until the runtime rig binds roles."""
+    refuses one that moves the body (sit: the runtime rig doesn't place the body yet)."""
     from geogen.motion import motion_names
 
     run = godot_script([
@@ -109,16 +109,61 @@ def test_the_motion_gallery_lists_the_catalogue_and_plays_on_everyone(godot_scri
         step("wait", seconds=0.2),
         step("motion.status", node="ines"),
         step("motion.status", node="priya"),
-        step("hud.gallery", select="drink", play=True),
+        step("hud.gallery", select="sit", play=True),
     ], "--scene=motion_gallery", f"--generated={scene_export('motion_gallery')}", check=False)
     opened = run.steps[0]["result"]
     assert opened["open"] and opened["performers"] == ["ines", "tomas", "ruth", "walter", "priya"]
     assert sorted(m["name"] for m in opened["motions"]) == sorted(motion_names())
     plays = {m["name"]: m["plays"] for m in opened["motions"]}
-    assert plays["clap"] and plays["sit_ground"] and not plays["drink"]
+    assert plays["clap"] and plays["sit_ground"] and plays["drink"] and plays["take"] and not plays["sit"]
     assert run.steps[1]["result"]["playing"] == "clap"
     walter, ines, priya = (e["result"] for e in run.steps if e["cmd"] == "motion.status")
     assert walter["running"] == ["clap"], "everyone claps"
     assert ines["running"] == ["nod"] and priya["running"] == ["clap"], "only ines nods; the others clap on"
     refused = run.steps[-1]
-    assert not refused["ok"] and "needs things in the world" in refused["error"]
+    assert not refused["ok"] and "moves the body" in refused["error"]
+
+
+def test_people_take_things_from_the_table_use_them_and_put_them_back(godot_script, scene_export):
+    """In the gallery (geogen.103.7) a motion with things plays at the table in front of each
+    person: drink takes the mug (a physics prop: out of the physics while held) by its handle up
+    to the face and puts it back where it stood; take's demo takes the plate, carries it and sets
+    it down where it stood (take, carry, set_down)."""
+    run = godot_script([
+        step("hud.gallery", open=True),
+        step("world.node", name="tomas_plate"),
+        step("world.bodies"),
+        step("hud.gallery", select="drink", play=True),
+        step("wait", seconds=3.0),
+        step("motion.status", node="ines"),
+        step("world.bodies"),
+        step("wait", seconds=7.0),
+        step("motion.status", node="ines"),
+        step("world.bodies"),
+        step("hud.gallery", select="take", performer="tomas", play=True),
+        step("wait", seconds=2.5),
+        step("motion.status", node="tomas"),
+        step("wait", seconds=5.0),
+        step("motion.status", node="tomas"),
+        step("world.node", name="tomas_plate"),
+        step("hud.gallery", select="clap", play=True),
+        step("world.node", name="tomas_table"),
+    ], "--scene=motion_gallery", f"--generated={scene_export('motion_gallery')}")
+    mug = lambda bodies: next(b for b in bodies if b["node"] == "ines_mug")
+    before, sipping, after = (mug(r) for r in run.all("world.bodies"))
+    drinking, drunk, taking, put = run.all("motion.status")
+    assert drinking["running"] == ["drink"] and drinking["things"]["ines_mug"]["held"]
+    assert sipping["holder"] != "" and sipping["position"][1] > 1.2, "up at the face"
+    head = drinking["bones"]["Head"]
+    assert abs(sipping["position"][0] - head[0]) < 0.25 and abs(sipping["position"][2] - head[2]) < 0.25
+    assert drunk["running"] == [] and not drunk["things"]["ines_mug"]["held"]
+    assert after["holder"] == "" and all(abs(a - b) < 0.01 for a, b in zip(after["position"], before["position"])), \
+        "back where it stood"
+    assert taking["running"] == ["carry"] and taking["things"]["tomas_plate"]["held"]
+    assert put["running"] == [] and not put["things"]["tomas_plate"]["held"]
+    assert [e["motion"] for e in put["events"] if e["event"] == "start"][-3:] == ["take", "carry", "set_down"]
+    plate_before, plate_after, table = run.all("world.node")
+    assert not plate_before["visible"] and plate_after["visible"], "the tables come out for motions with things"
+    assert all(abs(a - b) < 0.005 for a, b in zip(plate_after["position"], plate_before["position"])), \
+        "the plate is back where it stood"
+    assert not table["visible"], "and go away for one without"

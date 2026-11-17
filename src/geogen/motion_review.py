@@ -97,7 +97,7 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
     props = spec.get("props") or {}
     roles = spec.get("roles") or {}
     missing = [r for r, e in roles.items() if r not in props and not (e or {}).get("optional")]
-    if missing:
+    if missing and not spec.get("demo"):
         raise MotionError(f"motion '{spec['name']}': no props to stage for its roles {missing}")
     actor = {"archetype": f"characters/archetypes/{archetype}.yaml", "seed": seed, "facing": 0}
     place: dict = {"rug": {"asset": "rug.yaml"}} if not props else {
@@ -110,13 +110,21 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
         if "params" in prop:
             place[name]["params"] = prop["params"]
         start[role] = name
+    script = [start]
+    if spec.get("demo"):
+        # Its demonstration's script, roles naming the props staged for them.
+        def staged(value):
+            base = value.removesuffix("@start") if isinstance(value, str) else None
+            return f"prop_{base}{value[len(base):]}" if base in props else value
+        script = [{**{k: staged(v) for k, v in e.items() if k != "at"}, "at": 0.2 + float(e.get("at", 0))}
+                  for e in spec["demo"]]
     if props:
         actor.update({"at": "table", "offset": [0, 0, 0.55], "facing": "toward"})
     if "duration" in (spec.get("params") or {}) or any((b or {}).get("after") == "duration" for b in spec["beats"].values()):
         start.setdefault("duration", 2.5)
     return {"kind": "motion_scenario", "name": f"{spec['name']}__{archetype}" if archetype != DEMO_ARCHETYPE else spec["name"],
             "description": spec.get("summary", ""), "scene": {"place": place}, "actor": actor,
-            "script": [start], "duration": 40.0,
+            "script": script, "duration": 40.0,
             "camera": {"view": "iso_back" if props else "iso", "frame": ["table", "actor"] if props else ["actor"],
                        "margin": 0.25}}
 
@@ -174,6 +182,7 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
     recorder = _Recorder(scene, actor, spec.get("camera") or {}, resolution,
                          _carried(scene, script, assets_dir)) if record else None
     cloth = _ClothProbe.of(actor)
+    origins = _origins(scene, script)
     frames = []
     if recorder:
         frames.append(recorder.frame(rig))
@@ -181,7 +190,7 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
         probe(rig)
     while rig.time < limit - 1e-9:
         while script and float(script[0].get("at", 0)) <= rig.time + 1e-9:
-            _do(rig, script.pop(0))
+            _do(rig, script.pop(0), origins)
         rig.step()
         if cloth is not None:
             rig.samples[-1]["cloth"] = cloth.depth()
@@ -206,7 +215,7 @@ def _carried(scene: SceneNode, script: list[dict], assets_dir: Path) -> list[Sce
         motion = load_motion(entry["start"], assets_dir)
         roles = {r for beat in motion["beats"].values() for r in ((beat or {}).get("attach") or {})}
         for role in roles:
-            if isinstance(entry.get(role), str):
+            if isinstance(entry.get(role), str) and not entry[role].endswith("@start"):
                 node = refs.resolve(scene, entry[role])
                 if node not in found:
                     found.append(node)
@@ -251,12 +260,14 @@ TRACE_TOLERANCE = 0.002  # m a runtime rig's bones may be off the reference's in
 
 
 def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
-    """A conformance trace (tests/data/motion/, ``kind: motion_trace``) from a body-only scenario:
-    the body's ``rig`` extras, the motions its script starts, the script, and what the reference
-    rig did with them: every bone's position in the body's frame every ``TRACE_EVERY`` frames and
-    the event sequence. A runtime rig replays the script on the same data and must match
-    (runtime/godot/scripts/motion_rig.gd ``run_trace``)."""
-    from .motion import load_motion, rig_extras
+    """A conformance trace (tests/data/motion/, ``kind: motion_trace``) from a scenario: the body's
+    ``rig`` extras, the motions its script starts, the script, the things its roles bind
+    (``things``: each one's transform in the body's frame and its ``grips``, as the export writes
+    them) and what the reference rig did with them: every bone's position in the body's frame
+    every ``TRACE_EVERY`` frames, where the things are then, and the event sequence. A runtime rig
+    replays the script on the same data and must match (runtime/godot/scripts/motion_rig.gd
+    ``run_trace``)."""
+    from .motion import grip_points, load_motion, rig_extras
 
     assets_dir = Path(assets_dir or roots.CORE)
     spec = load_scenario(name, assets_dir)
@@ -271,28 +282,79 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     actor = _actor(spec.get("actor") or {}, scene, assets_dir)
     fps = int(spec.get("fps", 30))
     rig = MotionRig(actor, scene, fps=fps, assets_dir=assets_dir)
+    things = _trace_things(scene, script, motions)
+    body = np.linalg.inv(rig.root)
+
+    def frame_of(node: SceneNode) -> list[float]:
+        m = body @ node.world_transform()
+        return [round(float(v), 6) for v in m[:3, :].ravel()]
+
+    initial = {key: {"world": frame_of(node), "grips": grip_points(node)} for key, node in things.items()}
+    origins = _origins(scene, script)
     limit, pending, frames = float(spec.get("duration", 20.0)), list(script), []
     s = rig.skeleton
     while rig.time < limit - 1e-9:
         while pending and float(pending[0].get("at", 0)) <= rig.time + 1e-9:
-            _do(rig, pending.pop(0))
+            _do(rig, pending.pop(0), origins)
         rig.step()
         if len(rig.samples) % TRACE_EVERY == 0:
             fk = s.fk(rig.out)
-            frames.append({"frame": len(rig.samples), "positions": {b: [round(float(v), 5) for v in fk[b][:3, 3]]
-                                                                     for b in s.names}})
+            frame = {"frame": len(rig.samples), "positions": {b: [round(float(v), 5) for v in fk[b][:3, 3]]
+                                                              for b in s.names}}
+            if things:
+                frame["things"] = {key: frame_of(node) for key, node in things.items()}
+            frames.append(frame)
         if not pending and not rig.running():
             break
     return {"kind": "motion_trace", "name": name, "fps": fps, "frames": len(rig.samples),
             "tolerance": TRACE_TOLERANCE, "rig": rig_extras(actor), "motions": motions, "script": script,
+            **({"things": initial} if things else {}),
             "expect": {"positions": frames,
                        "events": [[e["event"], e["motion"], e.get("beat")] for e in rig.trace
-                                  if e["event"] in ("start", "beat", "loop", "emit", "interrupt", "end",
-                                                                 "break", "pause", "resume")]}}
+                                  if e["event"] in TRACE_EVENTS]}}
 
 
-def _do(rig: MotionRig, entry: dict) -> None:
-    entry = dict(entry)
+# The events a conformance trace holds a runtime rig to, in order.
+TRACE_EVENTS = ("start", "beat", "loop", "emit", "interrupt", "end", "break", "pause", "resume", "attach", "release")
+
+
+def _trace_things(scene: SceneNode, script: list[dict], motions: dict) -> dict[str, SceneNode]:
+    """The scene things a script's role bindings name, by the name a runtime looks them up by: the
+    whole value when it is a thing (``cup``), else its head (``table`` of ``table.top``)."""
+    from . import refs
+
+    found: dict[str, SceneNode] = {}
+    for entry in script:
+        motion = motions.get(entry.get("start") or entry.get("break") or "")
+        for role in ((motion or {}).get("roles") or {}):
+            value = entry.get(role)
+            if not isinstance(value, str):
+                continue
+            value = value.removesuffix("@start")
+            try:
+                found.setdefault(value, refs.resolve(scene, value))
+            except Exception:
+                head = value.rpartition(".")[0]
+                found.setdefault(head, refs.resolve(scene, head))
+    return found
+
+
+def _origins(scene: SceneNode, script: list[dict]) -> dict:
+    """What a script's ``<thing>@start`` values name: where that thing stood when the script
+    began (put a mug back where it stood after another motion carried it), as fixed targets."""
+    from . import refs
+    from .motion import Target
+
+    out = {}
+    for entry in script:
+        for value in entry.values():
+            if isinstance(value, str) and value.endswith("@start") and value not in out:
+                out[value] = Target(None, refs.resolve(scene, value[: -len("@start")]).world_transform().copy(), value)
+    return out
+
+
+def _do(rig: MotionRig, entry: dict, origins: dict | None = None) -> None:
+    entry = {k: (origins or {}).get(v, v) if isinstance(v, str) else v for k, v in entry.items()}
     entry.pop("at", None)
     if "start" in entry:
         motion = entry.pop("start")

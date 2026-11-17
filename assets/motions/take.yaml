@@ -10,6 +10,12 @@ category: action
 summary: Reach for a thing, close the hand on its grip, lift it to carry.
 roles:
   item: { grip: any }
+props:
+  item: { asset: plate.yaml, at: { u: 0.83, v: 0.7 } }   # what a demonstration puts on the table in front
+demo:                                     # how it is shown: taken, carried a moment, put back where it stood
+  - { at: 0, start: take, item: item }
+  - { at: 0, start: carry, item: item }
+  - { at: 3.0, start: set_down, item: item, place: item@start }
 params:
   # Where it is carried, in the body frame (x to the left, y up, z ahead), a share of this body.
   carry_x: { default: -0.45 }     # of the shoulder width: in front of the right hip

@@ -9,6 +9,12 @@ summary: Put a carried thing down on a surface and let go.
 roles:
   item: { grip: any }
   place: { grip: put }
+props:
+  item: { asset: plate.yaml, at: { u: 0.83, v: 0.7 } }   # what a demonstration puts on the table in front
+demo:                                     # how it is shown: taken, carried a moment, put back where it stood
+  - { at: 0, start: take, item: item }
+  - { at: 0, start: carry, item: item }
+  - { at: 3.0, start: set_down, item: item, place: item@start }
 holds:
   claim: [right_hand, gaze]
   prefer: [spine]

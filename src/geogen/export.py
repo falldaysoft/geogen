@@ -142,6 +142,12 @@ def node_extras(node: SceneNode, collider: str | None = None) -> dict:
     if node.tags:
         data["tags"] = list(node.tags)
     data.update(exported_meta(node))
+    if node.attachments:
+        from .motion import grip_points
+
+        grips = grip_points(node)
+        if grips:
+            data["grips"] = grips
     data.pop("collider", None)
     if collider is not None:
         data["collider"] = collider

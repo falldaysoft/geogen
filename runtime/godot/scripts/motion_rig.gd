@@ -7,12 +7,15 @@ extends RefCounted
 ## GeogenMotionPlayer writes to the Skeleton3D. Conformance traces (tests/data/motion/) hold the
 ## two rigs to the same bone positions.
 ##
-## Ported so far: beats (pose, bones, hips, ik onto body-frame points with hand shapes and pole,
-## look at a body-frame point, lean, plant: feet, over, ease, after, emit, then, loop, interrupt
-## and exit), channel arbitration, pausing under an overlay and `resume`, a break into a reaction,
-## inertialization, the reach bend, free arms hanging under a bent spine and the trace. A motion that
-## names things in the world (roles, root targets, attach/release) or a posture change with a
-## transition clip is not ported yet: `start` refuses it.
+## Ported so far: beats (pose, bones, hips, ik onto body-frame points or points on things with
+## hand shapes and pole, look, lean, plant: feet, over, ease, after, emit, then, loop, interrupt
+## and exit), roles bound to things (`Thing`: a node with `extras.geogen.grips`, or a fixed
+## transform) and their contacts, `<role>@start`, `self.<Bone>`, attach / release and `holding`,
+## channel arbitration, pausing under an overlay and `resume`, a break into a reaction (what the
+## hands hold goes to physics), inertialization, the reach bend, free arms hanging under a bent
+## spine and the trace. The rig works in the body's frame (`body_world` is where the body is);
+## things are read and moved in the world. Root targets (moving the body: sit) and a posture
+## change with a transition clip are not ported yet: `start` refuses them.
 
 const REACH_SPEED := 0.9
 const MIN_OVER := 0.35
@@ -30,7 +33,15 @@ const NECK_SHARE := 0.4
 const STRENGTHS := {"prefer": 1, "claim": 2, "require": 3}
 const FINGERS := ["Thumb", "Index", "Middle", "Ring", "Little"]
 const LOOK_BONES := ["Neck", "Head"]
-const NOT_PORTED := ["root", "attach", "release", "when", "until", "do", "bend"]
+const NOT_PORTED := ["root", "when", "until", "do", "bend"]
+## Grips that are not a hand holding the thing: `grip: any` on a role takes the first other one.
+const NOT_HELD := ["sit", "lie", "stand", "use", "look", "press", "put", "rest"]
+const HANDS := {"hand": "RightHand", "right": "RightHand", "left": "LeftHand",
+    "right_hand": "RightHand", "left_hand": "LeftHand"}
+
+## A thing took hold of / let go of by a hand (`to_physics`: let go of by a break, to fall).
+signal attached(thing: Thing, end: String)
+signal released(thing: Thing, to_physics: bool)
 ## Two-bone limbs by end bone: upper, lower, rest direction, rest pole (core/ik.py LIMBS).
 const LIMBS := {
     "LeftFoot": ["LeftUpperLeg", "LeftLowerLeg", Vector3(0, -1, 0), Vector3(0, 0, 1)],
@@ -59,6 +70,64 @@ class Pose:
         return p
 
 
+## A thing motions act on: a node whose extras carry its `grips` (motion.grip_points: a mug's
+## handle, a table's top), or a fixed world transform (a trace's things; a spot to put a thing).
+## While a hand holds it, the rig moves it (`xform`); whoever owns the node follows that.
+class Thing:
+    var name := ""
+    var node: Node3D = null
+    var xform := Transform3D.IDENTITY    # where it is when it has no node, or while it is held
+    var grips := {}                      # attachment -> {"grip": String, "local": Transform3D}
+    var held := false
+
+    func world() -> Transform3D:
+        return node.global_transform if node != null and not held and is_instance_valid(node) else xform
+
+    ## The thing `node` is, with the grips its extras give ([tx, ty, tz, qx, qy, qz, qw] each).
+    static func of(node_: Node3D, grips_: Dictionary) -> Thing:
+        var t := Thing.new()
+        t.name = String(node_.name)
+        t.node = node_
+        t.xform = node_.global_transform
+        t.set_grips(grips_)
+        return t
+
+    ## A thing that stays at `at` (world).
+    static func fixed(name_: String, at: Transform3D, grips_ := {}) -> Thing:
+        var t := Thing.new()
+        t.name = name_
+        t.xform = at
+        t.set_grips(grips_)
+        return t
+
+    func set_grips(grips_: Dictionary) -> void:
+        grips = {}
+        for k in grips_:
+            var v: Array = grips_[k].get("at", [0, 0, 0, 0, 0, 0, 1])
+            grips[k] = {"grip": str(grips_[k].get("grip", "")),
+                "local": Transform3D(Basis(Quaternion(v[3], v[4], v[5], v[6])), Vector3(v[0], v[1], v[2]))}
+
+
+## A point a beat aims at: `thing`'s world transform times `local` (followed as it moves), or
+## `local` as a fixed world transform when there is no thing.
+class Target:
+    var thing: Thing = null
+    var local := Transform3D.IDENTITY
+    var name := ""
+    var grip = null                      # how a body touches it (the attachment's grip)
+
+    func world() -> Transform3D:
+        return local if thing == null else thing.world() * local
+
+    static func make(thing_: Thing, local_: Transform3D, name_: String, grip_ = null) -> Target:
+        var t := Target.new()
+        t.thing = thing_
+        t.local = local_
+        t.name = name_
+        t.grip = grip_
+        return t
+
+
 ## One motion running: its resolved spec, where it is, and the body as its beat found it.
 class Run:
     var motion: Dictionary
@@ -79,6 +148,9 @@ class Run:
     var start_ends := {}
     var start_feet := {}
     var start_hands := {}            # hand -> its body-frame rotation as the beat found it
+    var start_held := []             # [Thing, Vector3 from it to the hand holding it] as the beat found them
+    var bindings := {}               # role -> Target
+    var origins := {}                # role -> its thing's world transform when the run started
 
     func spec() -> Dictionary:
         var b = motion["beats"].get(beat)
@@ -124,6 +196,10 @@ var _look_t := 0.0
 var _look_point := Vector3.ZERO
 var _look_weight := 0.0          # how far the current look has turned the head
 var _look_fade = null            # [point, weight, t]: a look that ended, easing off
+var body_world := Transform3D.IDENTITY   # where the body is in the world (its node's transform)
+var attached_ := {}              # role -> {thing, end, rel: Transform3D, level}: what the hands hold
+## (name) -> Thing or null: a scene reference a motion or a binding names ("cup", "table").
+var resolver := Callable()
 
 
 ## A rig for the body whose `extras.geogen.rig` is `data`, stepping `fps` times a second.
@@ -176,18 +252,33 @@ static func from_extras(data: Dictionary, fps := 30) -> GeogenMotionRig:
 
 # --- requests ---
 
-## Start `motion` (a spec from motions.json) with `values` for its params (`reps`, ...).
+## Start `motion` (a spec from motions.json) with `values` for its params (`reps`, ...) and its
+## roles (a Thing, a Target, or a name `resolver` finds: "cup", "table.top").
 ## Returns the run, or null with the reason pushed as an error.
 func start(motion: Dictionary, values := {}) -> Run:
     var name := str(motion.get("name", "motion"))
-    if not (motion.get("roles", {}) as Dictionary).is_empty():
-        push_error("motion '%s': roles (things in the world) are not ported to the runtime rig yet" % name)
-        return null
+    var roles: Dictionary = motion.get("roles", {})
+    var bound := {}
+    for role in roles:
+        var entry = roles[role] if roles[role] is Dictionary else {}
+        var value = values.get(role)
+        if value == null:
+            if not entry.get("optional", false):
+                push_error("motion '%s': role '%s' is not bound" % [name, role])
+                return null
+            continue
+        var target := _bind(value, entry.get("grip"))
+        if target == null:
+            push_error("motion '%s': role '%s': can't find %s" % [name, role, value])
+            return null
+        bound[role] = target
     var given := {}
     for k in motion.get("params", {}):
         var d = motion["params"][k]
         given[k] = d.get("default") if d is Dictionary else d
     for k in values:
+        if roles.has(k):
+            continue
         if not given.has(k) and k != "duration":
             push_error("motion '%s': no param '%s'" % [name, k])
             return null
@@ -216,6 +307,10 @@ func start(motion: Dictionary, values := {}) -> Run:
     run.name = name
     run.params = given
     run.order = _order
+    run.bindings = bound
+    for role in bound:
+        if (bound[role] as Target).thing != null:
+            run.origins[role] = (bound[role] as Target).thing.world()
     runs.append(run)
     _event("start", run, {})
     _enter(run, str(spec.get("initial", beats.keys()[0])))
@@ -261,6 +356,12 @@ func break_(reaction = null, values := {}) -> Run:
     for run in runs:
         if not run.done:
             _end(run)
+    for role in attached_.keys():
+        var held: Dictionary = attached_[role]
+        attached_.erase(role)
+        (held["thing"] as Thing).held = false
+        _event("release", null, {"role": role, "to": "physics"})
+        released.emit(held["thing"], true)
     return start(reaction, values) if reaction is Dictionary else null
 
 
@@ -278,6 +379,20 @@ func step() -> void:
     runs = runs.filter(func(r): return not r.done)
     _arbitrate()
     out = _compose()
+    _carry()
+
+
+## What the hands hold goes with them: each held thing's world transform from the hand's.
+func _carry() -> void:
+    if attached_.is_empty():
+        return
+    var fk := _fk(out)
+    for role in attached_:
+        var h: Dictionary = attached_[role]
+        var hand: Transform3D = fk[index[h["end"]]]
+        var rel: Transform3D = h["rel"]
+        var at := Transform3D(rel.basis, hand.origin + rel.origin) if h["level"] else hand * rel
+        (h["thing"] as Thing).xform = body_world * at
 
 
 ## Every bone's local transform (in its parent's frame) as the body is now.
@@ -326,6 +441,41 @@ func _arrive(run: Run) -> void:
         return
     run.arrived = true
     var spec := run.spec()
+    var attach: Dictionary = spec.get("attach", {}) if spec.get("attach") is Dictionary else {}
+    for role in attach:
+        var target: Target = run.bindings.get(role)
+        if target == null or target.thing == null:
+            push_error("motion '%s': attach: '%s' is not a bound thing" % [run.name, role])
+            continue
+        var how = attach[role] if attach[role] is Dictionary else {"hand": attach[role]}
+        var end: String = HANDS.get(str(how.get("hand", "hand")), str(how.get("hand", "")))
+        if not index.has(end):
+            push_error("motion '%s': attach: '%s' to '%s', which is not a hand" % [run.name, role, how.get("hand")])
+            continue
+        var hand: Transform3D = _fk(out)[index[end]]
+        var thing := _body(target.thing.world())
+        var level := bool(how.get("level", false))
+        # Level: kept as it is against the body's heading, carried along by the hand's position.
+        var rel := Transform3D(thing.basis, thing.origin - hand.origin) if level else hand.affine_inverse() * thing
+        target.thing.xform = target.thing.world()
+        target.thing.held = true
+        attached_[role] = {"thing": target.thing, "end": end, "rel": rel, "level": level}
+        _event("attach", run, {"role": role, "hand": end})
+        attached.emit(target.thing, end)
+    var release = spec.get("release")
+    for role in ([release] if release is String else (release if release is Array else [])):
+        if not attached_.has(role):
+            continue
+        var held: Dictionary = attached_[role]
+        attached_.erase(role)
+        (held["thing"] as Thing).held = false
+        _event("release", run, {"role": role})
+        released.emit(held["thing"], false)
+        # Whatever else holds it (a carry) has nothing left to do.
+        for other in runs:
+            if not other.done and other != run and other.bindings.values().any(
+                    func(b): return (b as Target).thing == held["thing"]):
+                _end(other)
     if spec.get("emit"):
         _event("emit", run, {"emit": spec["emit"]})
     if spec.get("pose") and "hips" in _owned(run) and posture != spec["pose"]:
@@ -359,6 +509,14 @@ func _enter(run: Run, beat: String) -> void:
     for f in ["LeftFoot", "RightFoot"]:
         if index.has(f):
             run.start_feet[f] = fk[index[f]].origin
+    run.start_held = []
+    for role in attached_:
+        var h: Dictionary = attached_[role]
+        run.start_held.append([h["thing"], run.start_ends[h["end"]] - _body((h["thing"] as Thing).world()).origin])
+    var entries := _ik_entries(run)
+    for e in entries:
+        if entries[e].get("holding") != null:
+            _held_gap(run, e, str(entries[e]["holding"]))    # (an error when nothing holds it)
     run.over = _over(run)
     var after = run.spec().get("after", 0.0)
     if after is String and after == "duration":
@@ -375,7 +533,7 @@ func _over(run: Run) -> float:
     var travel := 0.0
     var entries := _ik_entries(run)
     for e in entries:
-        var target = _ik_target(entries[e])
+        var target = _ik_target(run, e, entries[e])
         if target != null and run.start_ends.has(e):
             travel = maxf(travel, (target - run.start_ends[e]).length())
     if travel > 0.0:
@@ -494,7 +652,7 @@ func _compose() -> Pose:
         for e in entries:
             if not (channel_of.get(e, "") in held):
                 continue
-            var goal = _ik_target(entries[e])
+            var goal = _ik_target(run, e, entries[e])
             if goal == null:
                 continue
             var start: Vector3 = run.start_ends[e]
@@ -525,7 +683,7 @@ func _compose() -> Pose:
     var look = gaze.spec().get("look") if gaze != null else null
     var point = null
     if look != null:
-        point = _point(look.get("at") if look is Dictionary else look)
+        point = _point(gaze, look.get("at") if look is Dictionary else look)
     # A look that ended eases off over LOOK_OUT, under whatever look comes next.
     if _look_key != null and (point == null or _look_key != gaze):
         _fade_look()
@@ -609,7 +767,7 @@ func _beat_pose(run: Run) -> Pose:
             pose.rot[i] = pose.rot[i] * _body_quat(i, _euler(Vector3(d[0], d[1], d[2])))
     var entries := _ik_entries(run)
     for e in entries:
-        var shape = _hand_shape(e, entries[e])
+        var shape = _hand_shape(run, e, entries[e])
         if shape == null:
             continue
         var side: String = e.substr(0, e.length() - 4)
@@ -620,14 +778,21 @@ func _beat_pose(run: Run) -> Pose:
     return pose
 
 
-func _hand_shape(e: String, entry: Dictionary):
+## The hand shape a hand's `ik` entry takes (`grip:`, a shape or a role whose contact's grip names
+## one; else its target's grip when that is a shape), or null.
+func _hand_shape(run: Run, e: String, entry: Dictionary):
     if not e in ["LeftHand", "RightHand"]:
         return null
     var grip = entry.get("grip")
     if grip == null:
-        return null
+        var target = _ref(run, entry.get("target"))
+        grip = target.grip if target is Target else null
+        return hand_shapes.get(grip) if grip != null else null
     if hand_shapes.has(grip):
         return hand_shapes[grip]
+    if run.bindings.has(grip):
+        return hand_shapes.get((run.bindings[grip] as Target).grip)
+    push_error("motion '%s' beat '%s': %s grip '%s' is neither a hand shape nor one of its roles" % [run.name, run.beat, e, grip])
     return null
 
 
@@ -643,7 +808,9 @@ func _ik_entries(run: Run) -> Dictionary:
             if twin != "" and not entries.has(twin):
                 var e: Dictionary = entries[k].duplicate()
                 var t = e.get("target")
-                if t is Array:
+                if t is String and t.ends_with(".left"):
+                    e["target"] = t.substr(0, t.length() - 5) + ".right"
+                elif t is Array:
                     e["target"] = [-float(t[0]), t[1], t[2]]
                 for key in ["pole", "fingers", "palm"]:
                     if e.has(key):
@@ -683,15 +850,115 @@ static func _mirror_name(n: String) -> String:
     return ""
 
 
-func _ik_target(entry: Dictionary):
-    return _point(entry.get("target"))
+## Where an `ik` entry puts its end (body frame), or null: its target with `offset` in the target's
+## frame; `holding: <role>` puts that thing there (the hand by the hand-to-thing gap as the beat
+## found it).
+func _ik_target(run: Run, e: String, entry: Dictionary):
+    var target = _ref(run, entry.get("target"))
+    if target == null:
+        return null
+    var point := Vector3.ZERO
+    if target is Target:
+        var o: Array = entry.get("offset", [0, 0, 0])
+        point = _body(target.world()) * Vector3(float(o[0]), float(o[1]), float(o[2]))
+    else:
+        point = target
+    if entry.get("holding") != null:
+        point += _held_gap(run, e, str(entry["holding"]))
+    return point
 
 
-## A beat's point: [x, y, z] in the body's frame (what the runtime rig supports so far).
-func _point(ref):
+## From the thing bound to `role` to the hand holding it, as the beat found them.
+func _held_gap(run: Run, e: String, role: String) -> Vector3:
+    var bound: Target = run.bindings.get(role)
+    for pair in run.start_held:
+        if bound != null and pair[0] == bound.thing:
+            return pair[1]
+    push_error("motion '%s' beat '%s': %s holding '%s', which no hand holds" % [run.name, run.beat, e, role])
+    return Vector3.ZERO
+
+
+## A beat's point (body frame) for a look: [x, y, z] in the body's frame, or a reference's origin.
+func _point(run: Run, ref):
+    var target = _ref(run, ref)
+    if target is Target:
+        return _body(target.world()).origin
+    return target
+
+
+## A beat's reference: [x, y, z] in the body frame (a Vector3), a role, `role.attachment`,
+## `role@start` (where the role's thing stood when the run started), `self.<Bone>` (that bone as
+## the body is now, turned with the body), or a thing `resolver` finds; a Target, or null for an
+## optional role left unbound.
+func _ref(run: Run, ref):
     if ref is Array and ref.size() == 3:
         return Vector3(float(ref[0]), float(ref[1]), float(ref[2]))
-    return null
+    if not ref is String:
+        return null
+    if ref.ends_with("@start"):
+        var role: String = ref.substr(0, ref.length() - 6)
+        if not run.origins.has(role):
+            push_error("motion '%s': '%s': '%s' is not a bound thing" % [run.name, ref, role])
+            return null
+        return Target.make(null, run.origins[role], ref)
+    if ref.begins_with("self."):
+        var bone: String = ref.substr(5)
+        if not index.has(bone):
+            push_error("motion '%s': this body has no bone '%s'" % [run.name, bone])
+            return null
+        return Target.make(null, body_world * Transform3D(Basis.IDENTITY, _fk(out)[index[bone]].origin), ref)
+    if run.bindings.has(ref):
+        return run.bindings[ref]
+    var dot: int = ref.find(".")
+    var head: String = ref if dot < 0 else ref.substr(0, dot)
+    if run.bindings.has(head):
+        var bound: Target = run.bindings[head]
+        return contact(bound.thing, null, ref.substr(dot + 1)) if bound.thing != null else null
+    if (run.motion.get("roles", {}) as Dictionary).has(head):
+        return null                                    # an optional role left unbound
+    return _bind(ref, null)
+
+
+## A role's binding: a Thing (its contact for `grip`), a Target, or a name `resolver` finds
+## ("cup"; "table.top": the attachment `top` of `table`).
+func _bind(value, grip) -> Target:
+    if value is Target:
+        return value
+    if value is Thing:
+        return contact(value, grip)
+    if not value is String or not resolver.is_valid():
+        return null
+    var thing = resolver.call(value)
+    if thing is Thing:
+        return contact(thing, grip)
+    var dot: int = value.rfind(".")
+    if dot < 0:
+        return null
+    thing = resolver.call(value.substr(0, dot))
+    return contact(thing, null, value.substr(dot + 1)) if thing is Thing else null
+
+
+## Where a body touches `thing` (motion.contact): its grip point `name`, else the first with
+## `grip` (`any`: the first a hand holds it by), else its origin.
+static func contact(thing: Thing, grip, name = null) -> Target:
+    if thing == null:
+        return null
+    if name != null:
+        if not thing.grips.has(name):
+            push_error("'%s' has no grip point '%s' (it has %s)" % [thing.name, name, thing.grips.keys()])
+            return null
+        return Target.make(thing, thing.grips[name]["local"], "%s.%s" % [thing.name, name], thing.grips[name]["grip"])
+    if grip != null:
+        for k in thing.grips:
+            var g: String = thing.grips[k]["grip"]
+            if g == grip or (grip == "any" and g != "" and not g in NOT_HELD):
+                return Target.make(thing, thing.grips[k]["local"], "%s.%s" % [thing.name, k], g)
+    return Target.make(thing, Transform3D.IDENTITY, thing.name)
+
+
+## A world transform in the body's frame.
+func _body(t: Transform3D) -> Transform3D:
+    return body_world.affine_inverse() * t
 
 
 func _bend_to_reach(pose: Pose, beat: Pose, e: String, point: Vector3, run: Run, u: float) -> void:
@@ -905,15 +1172,25 @@ func _event(event: String, run: Run, data: Dictionary) -> void:
 
 # --- conformance (tests/data/motion, geogen/motion_review.py motion_trace) ---
 
-## Replay a motion trace; the mismatches ([] when this rig conforms to the reference).
+## Replay a motion trace; the mismatches ([] when this rig conforms to the reference). Its
+## `things` are fixed Things in the body's frame (the trace's body stands at the origin); a
+## script's `<thing>@start` is a fixed Thing where that one stood.
 static func run_trace(trace: Dictionary) -> Array[String]:
     var problems: Array[String] = []
     var rig := GeogenMotionRig.from_extras(trace["rig"], int(trace.get("fps", 30)))
+    var things := {}
+    for k in trace.get("things", {}):
+        var spec: Dictionary = trace["things"][k]
+        things[k] = Thing.fixed(k, _xform12(spec["world"]), spec.get("grips", {}))
+    rig.resolver = func(name: String): return things.get(name)
     var motions: Dictionary = trace.get("motions", {})
     var pending: Array = (trace.get("script", []) as Array).duplicate()
     var expected := {}
+    var expected_things := {}
     for f in trace["expect"]["positions"]:
         expected[int(f["frame"])] = f["positions"]
+        if f.has("things"):
+            expected_things[int(f["frame"])] = f["things"]
     var tolerance := float(trace.get("tolerance", 0.002))
     var worst := 0.0
     var where := ""
@@ -921,18 +1198,21 @@ static func run_trace(trace: Dictionary) -> Array[String]:
     for frame in range(1, frames + 1):
         while not pending.is_empty() and float(pending[0].get("at", 0.0)) <= rig.time + 1e-9:
             var entry: Dictionary = pending.pop_front()
+            var values := {}
+            for k in entry:
+                var v = entry[k]
+                if v is String and v.ends_with("@start") and things.has(v.substr(0, v.length() - 6)):
+                    var base: String = v.substr(0, v.length() - 6)
+                    v = Thing.fixed(v, _xform12(trace["things"][base]["world"]))
+                values[k] = v
+            for k in ["at", "start", "break", "interrupt", "how"]:
+                values.erase(k)
             if entry.has("start"):
-                var values := entry.duplicate()
-                for k in ["at", "start"]:
-                    values.erase(k)
                 if rig.start(motions[entry["start"]], values) == null:
                     problems.append("frame %d: %s didn't start" % [frame, entry["start"]])
             elif entry.has("interrupt"):
                 rig.interrupt(entry["interrupt"], str(entry.get("how", "yield")))
             elif entry.has("break"):
-                var values := entry.duplicate()
-                for k in ["at", "break"]:
-                    values.erase(k)
                 rig.break_(motions.get(entry["break"]) if entry["break"] is String else null, values)
         rig.step()
         if expected.has(frame):
@@ -944,10 +1224,19 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                 if d > worst:
                     worst = d
                     where = "%s at frame %d" % [bone, frame]
+        if expected_things.has(frame):
+            for k in expected_things[frame]:
+                var want: Transform3D = _xform12(expected_things[frame][k])
+                var have: Transform3D = (things[k] as Thing).world()
+                # Its origin, and points 0.1 m along each of its axes.
+                for probe in [Vector3.ZERO, Vector3(0.1, 0, 0), Vector3(0, 0.1, 0), Vector3(0, 0, 0.1)]:
+                    var d: float = (have * probe).distance_to(want * probe)
+                    if d > worst:
+                        worst = d
+                        where = "%s at frame %d" % [k, frame]
     if worst > tolerance:
         problems.append("bones off the reference by up to %.1f mm (%s; tolerance %.1f mm)" % [worst * 1000.0, where, tolerance * 1000.0])
-    var events := rig.trace.filter(func(e): return e["event"] in ["start", "beat", "loop", "emit", "interrupt", "end",
-                                               "break", "pause", "resume"]) \
+    var events := rig.trace.filter(func(e): return e["event"] in TRACE_EVENTS) \
         .map(func(e): return [e["event"], e["motion"], e.get("beat")])
     var want_events: Array = trace["expect"]["events"]
     if JSON.stringify(events) != JSON.stringify(want_events):
@@ -955,3 +1244,13 @@ static func run_trace(trace: Dictionary) -> Array[String]:
     if not rig.running().is_empty():
         problems.append("still running after %d frames: %s" % [frames, rig.running()])
     return problems
+
+
+## The events a trace holds the rig to (motion_review.TRACE_EVENTS).
+const TRACE_EVENTS := ["start", "beat", "loop", "emit", "interrupt", "end", "break", "pause", "resume", "attach", "release"]
+
+
+## A transform from 12 numbers: a 3x4 matrix, row by row (motion_review.motion_trace).
+static func _xform12(m: Array) -> Transform3D:
+    return Transform3D(Basis(Vector3(m[0], m[4], m[8]), Vector3(m[1], m[5], m[9]), Vector3(m[2], m[6], m[10])),
+        Vector3(m[3], m[7], m[11]))

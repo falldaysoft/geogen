@@ -573,6 +573,19 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/pose" }
         },
+        "grips": {
+          "x-godot": {"by": "`scripts/motion_player.gd`", "for": "binding a motion's roles to points on this thing (a mug's handle, a table's top)"},
+          "description": "Things a body touches: the asset's attachments that say how (`grip:` hook, pinch, press, put, sit, ...), in order, each in the node's own frame ([tx, ty, tz, qx, qy, qz, qw]; geogen/motion.py grip_points). A motion role with `grip: any` binds the first a hand holds it by.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["grip", "at"], "additionalProperties": false,
+            "properties": {
+              "grip": { "type": "string" },
+              "at": { "type": "array", "items": { "type": "number" }, "minItems": 7, "maxItems": 7 }
+            }
+          }
+        },
         "rig": {
           "x-godot": {"by": "`scripts/motion_player.gd`", "for": "running motions (motions.json) on this body"},
           "description": "Character bodies: what a motion rig (geogen/motion.py, scripts/motion_rig.gd) poses the skeleton with. Bones in hierarchy order with their rest in the parent's frame ([tx, ty, tz, qx, qy, qz, qw]; a rig poses relative to these, not to an engine's import rest), the skeleton's params (the values `{expr}` in motions read), its channels and hand shapes (left-hand bones in body-frame degrees, mirrored), and the pose library (each pose's rotations relative to rest, [x, y, z, w], and offsets, m).",

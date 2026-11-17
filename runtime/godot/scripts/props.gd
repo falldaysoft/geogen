@@ -229,6 +229,18 @@ func release(uid: String, at = null) -> void:
         (body.get_child(0) as CollisionShape3D).set_deferred("disabled", false)
 
 
+## Put prop ``uid`` back where it started (its home), at rest: out of anyone's hands, and a free
+## body again there when it is live (the motion gallery resets the things on its tables).
+func put_back(uid: String) -> void:
+    var entry: Dictionary = props.get(uid, {})
+    if entry.is_empty() or not is_instance_valid(entry["body"]):
+        return
+    if held == uid:
+        drop()
+    release(uid)
+    _place(entry, entry["home"])
+
+
 ## The prop ``holder`` has taken ("" for none).
 func taken_by(holder: Node3D) -> String:
     for uid in taken:

@@ -552,9 +552,9 @@ assets/motions/) and everyone plays it at once, or one of them does. The row sta
 right half of a wide stage centred on the origin, so the camera's middle leaves it clear of the
 list on the left of the screen.
 
-**Places**: `stage: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ruth: {archetype: characters/archetypes/older_woman.yaml}`; `walter: {archetype: characters/archetypes/older_man.yaml}`; `priya: {archetype: characters/archetypes/office_worker.yaml}`
+**Places**: `stage: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ruth: {archetype: characters/archetypes/older_woman.yaml}`; `walter: {archetype: characters/archetypes/older_man.yaml}`; `priya: {archetype: characters/archetypes/office_worker.yaml}`; `ines_table: {asset: table.yaml}`; `ines_mug: {asset: mug.yaml}`; `ines_plate: {asset: plate.yaml}`; `tomas_table: {asset: table.yaml}`; `tomas_mug: {asset: mug.yaml}`; `tomas_plate: {asset: plate.yaml}`; `ruth_table: {asset: table.yaml}`; `ruth_mug: {asset: mug.yaml}`; `ruth_plate: {asset: plate.yaml}`; `walter_table: {asset: table.yaml}`; `walter_mug: {asset: mug.yaml}`; `walter_plate: {asset: plate.yaml}`; `priya_table: {asset: table.yaml}`; `priya_mug: {asset: mug.yaml}`; `priya_plate: {asset: plate.yaml}`
 
-**Slots**: a, b, c, d, e, stage
+**Slots**: a, a_table, b, b_table, c, c_table, d, d_table, e, e_table, stage
 
 ## motion_test
 

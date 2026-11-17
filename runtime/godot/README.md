@@ -1361,10 +1361,13 @@ category (idles, emotes, dances, exercise, things, reactions), read from the cat
 `motions.json` (`geogen.motion.motion_catalogue`, written with every export), so a new file in
 `assets/motions/` is listed after the next export. Choosing one (Up / Down and Enter, or a click)
 plays it on every person in the scene with a motion rig, or on the one picked along the top
-(Left / Right); L loops it. Motions that name things in the world (drink, sit, take: `body_only`
-false) are listed greyed until the runtime rig binds roles (geogen.103.7). The scene
-`motion_gallery` (five people of different builds on a stage) opens it by itself. Modal like the
-quest log.
+(Left / Right); L loops it. Motions that take things (drink, inspect, take, carry, set_down: a
+motion's `props` say which asset each role is) play at a table in front of each person: the scene
+has `<person>_table` with `<person>_<asset>` on it, shown only while such a motion plays and put
+back before each play; a motion's `demo` plays in its place (take, carry and set_down: take the
+plate, carry it, set it down where it stood). Ones that move the body (sit) or need things no
+table holds (press: a TV) are listed greyed. The scene `motion_gallery` (five people of different
+builds on a stage, each with a table) opens it by itself. Modal like the quest log.
 
 ![The motion gallery: everyone cheering](../../docs/images/motion_gallery.jpg)
  `hud.gallery {open?, select?, performer?, loop?, play?}` returns `{open, selected,
@@ -1523,6 +1526,7 @@ description.
 | `item` | `scripts/flows.gd` | an item template: taken out of the world on load and copied by its source |
 | `travel` | `scripts/world_loader.gd` | travel points |
 | `poses` | - | on body assets; NPCs read the copy in `npc.body.poses` |
+| `grips` | `scripts/motion_player.gd` | binding a motion's roles to points on this thing (a mug's handle, a table's top) |
 | `rig` | `scripts/motion_player.gd` | running motions (motions.json) on this body |
 | `npc` | `scripts/world_loader.gd` | a `GeogenNpc` (`scripts/npc.gd`) from the resolved definition |
 | `container` | - | Storage: how many items it holds, and which part is the storage volume |

@@ -53,6 +53,9 @@ MOTION_KEYS = {
     "category": "where a catalogue lists it: idle | emote | dance | exercise | action | reaction (motion_catalogue)",
     "summary": "one line on what it looks like, for catalogues and galleries",
     "props": "{role: {asset, on, at}}: what a demonstration stages for its roles (a cup on a table in front)",
+    "demo": "[{at, start: <motion>, <role>: <role> | <role>@start, ...}]: how a demonstration shows it when it needs "
+            "others around it (take, carry and set_down: take it, carry it, put it back where it stood); roles name "
+            "this motion's staged props, `@start` where one stood when the demonstration began",
     "roles": "{role: {grip, optional}}: the things it acts on, bound by whoever runs it",
     "params": "{name: {default}}: build-time values for {expr} in its beats",
     "holds": "{require: [channels], claim: [...], prefer: [...], share: {channel: weight}}",
@@ -172,7 +175,9 @@ def motion_catalogue(assets_dir: Path | None = None) -> list[dict]:
     """Every motion as a catalogue entry, by category then name: what a gallery or a tool lists
     (``python -m geogen.motion_review --list``). ``params`` are the defaults, ``roles`` what it
     must be given, ``props`` what a demonstration stages for them (on a table in front),
-    ``body_only`` whether it needs nothing but the body (the runtime rig plays it today)."""
+    ``demo`` the script it plays when it needs other motions around it, ``body_only`` whether it
+    needs nothing but the body, ``moves_body`` whether it places the body (``root``: sit; the
+    runtime rig doesn't yet)."""
     entries = []
     for name in motion_names(assets_dir):
         spec = load_motion(name, assets_dir)
@@ -186,6 +191,8 @@ def motion_catalogue(assets_dir: Path | None = None) -> list[dict]:
             "props": spec.get("props") or {},
             "holds": spec.get("holds") or {},
             "body_only": body_only(spec),
+            "moves_body": any("root" in (beat or {}) for beat in spec["beats"].values()),
+            "demo": spec.get("demo") or [],
             "beats": list(spec["beats"]),
         })
     order = {c: i for i, c in enumerate(CATEGORIES)}
@@ -221,6 +228,9 @@ def validate_motion(spec: dict, where: str = "motion") -> None:
         raise MotionError(f"{where}: unknown keys {sorted(unknown)} (known: {sorted(MOTION_KEYS)})")
     if spec.get("category", "action") not in CATEGORIES:
         raise MotionError(f"{where}: category '{spec['category']}' is not one of {CATEGORIES}")
+    for i, entry in enumerate(spec.get("demo") or []):
+        if not isinstance(entry, dict) or not isinstance(entry.get("start"), str):
+            raise MotionError(f"{where}: demo[{i}]: expected {{at, start: <motion>, <role>: ...}}")
     for role in (spec.get("props") or {}):
         if role not in (spec.get("roles") or {}):
             raise MotionError(f"{where}: props.{role} is not one of its roles")
@@ -279,6 +289,29 @@ class Held:
     end: str
     rel: NDArray[np.float64]
     level: bool = False
+
+
+def _attachment_local(node: SceneNode, key: str) -> NDArray[np.float64]:
+    """Attachment ``key`` in ``node``'s frame, as a contact: one with the default facing (toward
+    the object's middle, which suits something hung there) faces the way the object does."""
+    point = node.attachments[key]
+    local = point.resolve(node.size).to_matrix() if node.size is not None else np.eye(4)
+    if point.rotation is None and point.facing == "center":
+        local[:3, :3] = np.eye(3)
+    return local
+
+
+def grip_points(node: SceneNode) -> dict:
+    """``node``'s attachments that say how a body touches it (``grip:``), in order, as a runtime's
+    motion rig binds roles to them (``extras.geogen.grips``): {name: {grip, at: [tx, ty, tz, qx,
+    qy, qz, qw]}} in the node's own frame."""
+    out = {}
+    for key, point in node.attachments.items():
+        if point.grip and node.size is not None:
+            local = _attachment_local(node, key)
+            out[key] = {"grip": point.grip,
+                        "at": [round(float(v), 6) for v in (*local[:3, 3], *quat_from_matrix(local[:3, :3]))]}
+    return out
 
 
 def contact(node: SceneNode, grip: str | None = None, name: str | None = None) -> Target:

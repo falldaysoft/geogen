@@ -24,9 +24,9 @@ const NAV_MARGIN := 0.05  # extra agent radius (keep radius + margin a multiple 
 const KNOWN_KEYS := [
     "version", "uid", "tags", "type", "shape", "collider", "level", "ratio", "walkable", "room", "door",
     "joint", "clips", "interactions", "footprint", "clearance", "light", "affordances", "portal", "place",
-    "physics", "mechanism", "flows", "item_icon", "item", "travel", "poses", "rig", "npc", "container", "nav",
-    "size", "city", "block", "lot", "building", "street_furniture", "lod", "interior", "signal", "character",
-    "stairs", "water", "driving", "fleet", "train", "vehicle",
+    "physics", "mechanism", "flows", "item_icon", "item", "travel", "poses", "grips", "rig", "npc", "container",
+    "nav", "size", "city", "block", "lot", "building", "street_furniture", "lod", "interior", "signal",
+    "character", "stairs", "water", "driving", "fleet", "train", "vehicle",
 ]
 
 
