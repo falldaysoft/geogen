@@ -31,7 +31,7 @@ import tempfile
 from pathlib import Path
 
 RUNTIME = Path(__file__).resolve().parents[1]
-DEFAULT_SCENES = "hub,cottage,farm,island,quest_yard"
+DEFAULT_SCENES = "hub,cottage,farm,island,quest_yard,motion_gallery"
 DEFAULT_GODOT = "/Applications/Godot.app/Contents/MacOS/Godot"
 # What the exported page resolves off the engine's base path (godot.js ``locateFile`` and
 # ``getModuleConfig``), so what a shared engine directory holds; the pack is named separately.
@@ -54,6 +54,9 @@ def stage(scenes: list[str] | None, into: Path) -> tuple[list[str], dict]:
     registry = _build_registry()
     entries = catalogue.select(",".join(scenes) if scenes else "all")
     export_catalogue(catalogue, lambda name: registry[name](), generated, entries)
+    from geogen.motion import write_motions
+
+    write_motions(generated)          # the motion files, as --export-godot writes them (the gallery reads them)
     # Packed as they are: the runtime parses the GLBs itself (no .gdignore here, or the export
     # would leave generated/ out, and "keep" so the editor doesn't import them as scenes).
     for glb in generated.rglob("*.glb"):

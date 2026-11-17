@@ -27,7 +27,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [household_pair](#household_pair) | Two people who live together and a sofa: the test scene for company (geogen.101.6). |  |
 | [household_play](#household_play) | scenes/household_pair.yaml played by directing its people (geogen.101.10): `play:` says there is no walking player. |  |
 | [household_test](#household_test) | One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101). |  |
-| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals; re-space them when a showcase is added). | showcase |
+| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 16.8 degrees apart, for eleven portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
 | [island](#island) | The island showcase: a small island in the sea. | showcase |
@@ -36,7 +36,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [lighthouse_keepers](#lighthouse_keepers) | NPCs on a spiral stair (test). |  |
 | [main_street](#main_street) | The main street showcase: one lively high street (the east-west avenue of a small 3 x 2 grid). | showcase |
 | [mechanism_test](#mechanism_test) | Mechanisms on a lawn: a gate to push through, a seesaw with a pumpkin on one end, a chain with a lantern, a lift to ride and a windmill turning. | test |
-| [motion_gallery](#motion_gallery) | The motion gallery (geogen.103.18): a row of people of different builds and ages on a stage, facing +Z toward the default camera, for the runtime's motion gallery panel (hud_motion_gallery.gd,. | test |
+| [motion_gallery](#motion_gallery) | The motion gallery (geogen.103.18): a row of people of different builds and ages on a stage, facing +Z toward the default camera, for the runtime's motion gallery panel (hud_motion_gallery.gd,. | showcase |
 | [motion_test](#motion_test) | Motions in the runtime (geogen.103.12): two people on rugs for motion files (assets/motions/) run by the runtime's motion rig: `motion.start` through the control API, or `--motion` at launch. | test |
 | [park](#park) | The park showcase: a railed park entered by a gate at the south end. | showcase |
 | [people_gallery](#people_gallery) | A row of humanoid variants for review: body types stacked on the gender presets (params: {preset: [feminine, curvy]}), proportions, hair styles and colours, skin tones and outfits. |  |
@@ -411,17 +411,17 @@ counter, which is quicker than the range, so there she plans through that instea
 `scene: scenes/hub.yaml` · [source](../../assets/scenes/hub.yaml)
 
 The hub: a round plaza with one labelled portal per showcase scene, spread
-evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 18.7 degrees apart, for ten portals;
+evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 16.8 degrees apart, for eleven portals;
 re-space them when a showcase is added). Each portal lands at its scene's
 `from_hub` spawn, and every showcase has a portal or travel door back here
 that lands in front of its own portal (`from_<name>`). It's the runtime
 catalogue's default scene; tests/test_hub.py checks the round trips.
 
-**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `portal_farm: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
+**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `portal_farm: {asset: portal.yaml}`; `portal_motions: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
 
-**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_farm, portal_hotel, portal_island, portal_main_street, portal_park, portal_quests, portal_restaurant, portal_town, sign
+**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_farm, portal_hotel, portal_island, portal_main_street, portal_motions, portal_park, portal_quests, portal_restaurant, portal_town, sign
 
-**Spawns**: from_city, from_cottage, from_farm, from_hotel, from_island, from_main_street, from_park, from_quests, from_restaurant, from_town, start
+**Spawns**: from_city, from_cottage, from_farm, from_hotel, from_island, from_main_street, from_motions, from_park, from_quests, from_restaurant, from_town, start
 
 ## humanoid_lineup
 
@@ -550,11 +550,14 @@ facing +Z toward the default camera, for the runtime's motion gallery panel (hud
 M; this scene opens it by itself): pick a motion from the catalogue (every file in
 assets/motions/) and everyone plays it at once, or one of them does. The row stands on the
 right half of a wide stage centred on the origin, so the camera's middle leaves it clear of the
-list on the left of the screen.
+list on the left of the screen. A showcase: the hub's Motions portal lands in front of the row
+(`from_hub`, looking at them); M or Esc closes the list to walk to the portal back.
 
-**Places**: `stage: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ruth: {archetype: characters/archetypes/older_woman.yaml}`; `walter: {archetype: characters/archetypes/older_man.yaml}`; `priya: {archetype: characters/archetypes/office_worker.yaml}`; `ines_table: {asset: table.yaml}`; `ines_mug: {asset: mug.yaml}`; `ines_plate: {asset: plate.yaml}`; `tomas_table: {asset: table.yaml}`; `tomas_mug: {asset: mug.yaml}`; `tomas_plate: {asset: plate.yaml}`; `ruth_table: {asset: table.yaml}`; `ruth_mug: {asset: mug.yaml}`; `ruth_plate: {asset: plate.yaml}`; `walter_table: {asset: table.yaml}`; `walter_mug: {asset: mug.yaml}`; `walter_plate: {asset: plate.yaml}`; `priya_table: {asset: table.yaml}`; `priya_mug: {asset: mug.yaml}`; `priya_plate: {asset: plate.yaml}`
+**Places**: `stage: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ruth: {archetype: characters/archetypes/older_woman.yaml}`; `walter: {archetype: characters/archetypes/older_man.yaml}`; `priya: {archetype: characters/archetypes/office_worker.yaml}`; `ines_table: {asset: table.yaml}`; `ines_mug: {asset: mug.yaml}`; `ines_plate: {asset: plate.yaml}`; `tomas_table: {asset: table.yaml}`; `tomas_mug: {asset: mug.yaml}`; `tomas_plate: {asset: plate.yaml}`; `ruth_table: {asset: table.yaml}`; `ruth_mug: {asset: mug.yaml}`; `ruth_plate: {asset: plate.yaml}`; `walter_table: {asset: table.yaml}`; `walter_mug: {asset: mug.yaml}`; `walter_plate: {asset: plate.yaml}`; `priya_table: {asset: table.yaml}`; `priya_mug: {asset: mug.yaml}`; `priya_plate: {asset: plate.yaml}`; `hub_portal: {asset: portal.yaml}`
 
-**Slots**: a, a_table, b, b_table, c, c_table, d, d_table, e, e_table, stage
+**Slots**: a, a_table, b, b_table, c, c_table, d, d_table, e, e_table, hub_portal, stage
+
+**Spawns**: from_hub
 
 ## motion_test
 
