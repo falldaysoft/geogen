@@ -9,7 +9,7 @@ import pytest
 from geogen.export import export_scene
 from geogen.layout import LayoutLoader
 from geogen.layout.interactions import apply_state
-from helpers import gltf_json
+from helpers import gltf_json, schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json"
 
@@ -81,7 +81,7 @@ def test_a_state_can_wait_clock_time():
 
 
 def test_interactions_exported_with_node_names(scene_export):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     gltf = gltf_json(scene_export("cottage") / "cottage.glb")
     names = {n["name"] for n in gltf["nodes"]}
     door = next(n for n in gltf["nodes"] if n["name"] == "door")
@@ -90,7 +90,7 @@ def test_interactions_exported_with_node_names(scene_export):
     assert swing["states"]["closed"] == {"next": "open", "prompt": "Open"}
     assert set(swing["motions"][0]["nodes"]) <= names
     assert swing["motions"][0]["values"] == {"closed": 0.0, "open": 100.0}
-    jsonschema.validate(door["extras"], json.loads(SCHEMA.read_text()))
+    schema_validate(door["extras"], json.loads(SCHEMA.read_text()))
 
 
 def test_floorplan_doors_get_swing_interactions(tmp_path):
@@ -188,7 +188,7 @@ def test_generated_guest_doors_lock_and_close_themselves():
 
 
 def test_affordances_and_containers_export(tmp_path):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     from geogen.core.node import SceneNode
     root = SceneNode("r")
     for name in ("bed", "armchair", "nightstand", "tv"):
@@ -202,7 +202,7 @@ def test_affordances_and_containers_export(tmp_path):
     schema = json.loads(SCHEMA.read_text())
     for n in gltf["nodes"]:
         if "extras" in n:
-            jsonschema.validate(n["extras"], schema)
+            schema_validate(n["extras"], schema)
 
 
 SHOW_HIDE = """
@@ -224,7 +224,7 @@ interactions:
 
 
 def test_show_and_hide_motions_set_part_visibility_per_state(tmp_path):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     root = LayoutLoader().load_string(SHOW_HIDE)
     (it,) = root.interactions
     note, lid = root.find("note"), root.find("lid")
@@ -247,7 +247,7 @@ def test_show_and_hide_motions_set_part_visibility_per_state(tmp_path):
     extras = next(n["extras"]["geogen"] for n in gltf["nodes"] if "interactions" in n.get("extras", {}).get("geogen", {}))
     motions = extras["interactions"]["open"]["motions"]
     assert motions[0] == {"nodes": ["note"], "type": "visible", "values": {"shut": 0.0, "ajar": 1.0}}
-    jsonschema.validate({"geogen": extras}, json.loads(SCHEMA.read_text()))
+    schema_validate({"geogen": extras}, json.loads(SCHEMA.read_text()))
     assert not any("open/" in a["name"] for a in gltf.get("animations", []))   # nothing to animate
 
 

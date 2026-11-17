@@ -16,7 +16,12 @@ from typing import Any
 import yaml
 
 
-class GeogenSafeLoader(yaml.SafeLoader):
+# libyaml's parser when PyYAML was built with it: the same documents (the resolvers below are
+# Python either way), parsed about six times faster than the pure-Python SafeLoader.
+_BaseLoader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
+class GeogenSafeLoader(_BaseLoader):
     """SafeLoader that only treats `true`/`false` as booleans."""
 
 

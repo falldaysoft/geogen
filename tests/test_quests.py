@@ -12,6 +12,7 @@ from geogen.quests import STATES, QuestError, collect, compile_quests, load_ques
 from geogen.rules import Machine, check_program
 from geogen.state import Declarations
 from test_state import GATE, LAMP, LEVER
+from helpers import schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-quests.v1.schema.json"
 ASSETS = Path(__file__).parent.parent / "assets"
@@ -374,15 +375,15 @@ def test_a_scene_quest_resolves_and_runs(assets):
 
 
 def test_manifest_lists_quests_and_matches_schema(assets, tmp_path):
-    jsonschema = pytest.importorskip("jsonschema")
+    pytest.importorskip("jsonschema")
     out = tmp_path / "out"
     path = export_scene(compose(assets), out / "yard.glb")
     manifest = json.loads(manifest_path(path).read_text())
-    jsonschema.validate(manifest["quests"], json.loads(SCHEMA.read_text()))
-    jsonschema.validate(manifest["state"], json.loads(STATE_SCHEMA.read_text()))
+    schema_validate(manifest["quests"], json.loads(SCHEMA.read_text()))
+    schema_validate(manifest["state"], json.loads(STATE_SCHEMA.read_text()))
     assert manifest["quests"]["package"] == "yard" and list(manifest["quests"]["quests"]) == ["open_up"]
     quest_rules = [r for r in manifest["rules"]["rules"] if r["id"].startswith("quest:")]
-    jsonschema.validate(quest_rules[0]["when"],
+    schema_validate(quest_rules[0]["when"],
                         json.loads(SCHEMA.with_name("geogen-condition.v1.schema.json").read_text()))
     assert manifest["rules"]["format"] == "geogen-rules" and manifest["rules"]["bindings"] == []
     assert [r["id"] for r in quest_rules] == [

@@ -543,8 +543,9 @@ def strip_dir(tmp_path_factory):
 
 
 def _stream_walk(godot_script, generated, seconds, *extra):
+    # In real time: unthrottled, a long walk quits with chunks still loading and Godot hangs on exit.
     run = godot_script([step("player.move", seconds=seconds)], "--scene=strip", f"--generated={generated}",
-                       "--stream-radius=20,1000,6", *extra)
+                       "--stream-radius=20,1000,6", *extra, engine_args=())
     assert "geogen: streaming strip.chunks.json (6 chunks)" in run.output
     return run["player.move"]
 
