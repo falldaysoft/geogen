@@ -1,0 +1,46 @@
+# Rub the hands (geogen.103.17): an idle fidget. The palms come together in front of the waist
+# and rub, one up as the other goes down, `rubs` times. Body only.
+kind: motion
+name: rub_hands
+category: idle
+summary: Palms together at the waist, rubbing.
+params:
+  rubs: { default: 4 }
+holds:
+  claim: [left_hand, right_hand]
+initial: together
+beats:
+  together:
+    ik: &together
+      LeftHand: { target: [0.035, "{height * 0.6}", "{height * 0.12}"], pole: [0.6, -1, -0.3], grip: flat,
+                  fingers: [-0.3, 0.3, 1], palm: [-1, 0, 0] }
+      mirror: true
+    over: 0.6
+    interrupt: yield
+    exit: down
+    then: one
+  one:
+    ik:
+      LeftHand: { target: [0.035, "{height * 0.615}", "{height * 0.12}"], pole: [0.6, -1, -0.3], grip: flat,
+                  fingers: [-0.3, 0.3, 1], palm: [-1, 0, 0] }
+      RightHand: { target: [-0.035, "{height * 0.585}", "{height * 0.12}"], pole: [-0.6, -1, -0.3], grip: flat,
+                   fingers: [0.3, 0.3, 1], palm: [1, 0, 0] }
+    over: 0.22
+    interrupt: yield
+    exit: down
+    then: other
+  other:
+    ik:
+      LeftHand: { target: [0.035, "{height * 0.585}", "{height * 0.12}"], pole: [0.6, -1, -0.3], grip: flat,
+                  fingers: [-0.3, 0.3, 1], palm: [-1, 0, 0] }
+      RightHand: { target: [-0.035, "{height * 0.615}", "{height * 0.12}"], pole: [-0.6, -1, -0.3], grip: flat,
+                   fingers: [0.3, 0.3, 1], palm: [1, 0, 0] }
+    over: 0.22
+    interrupt: yield
+    exit: down
+    loop: { to: one, times: "{rubs}" }
+    then: down
+  down:
+    over: 0.6
+    interrupt: drop
+    then: done

@@ -6,6 +6,8 @@
 # the remote beside them.
 kind: motion
 name: take
+category: action
+summary: Reach for a thing, close the hand on its grip, lift it to carry.
 roles:
   item: { grip: any }
 params:

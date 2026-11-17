@@ -6,6 +6,8 @@
 # not from the start.
 kind: motion
 name: eat
+category: action
+summary: Eat from a plate at the table, bite by bite.
 roles:
   food: {}                                 # the plate: its `center` is where the food is
 params:

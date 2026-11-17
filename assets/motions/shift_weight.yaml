@@ -1,0 +1,39 @@
+# Shift the weight from foot to foot (geogen.103.17): an idle. The hips drift over one foot,
+# settle, drift over the other, the shoulders tipping a little against them; feet planted.
+kind: motion
+name: shift_weight
+category: idle
+summary: Standing at ease, the weight drifting from one foot to the other.
+params:
+  shifts: { default: 2 }
+  sway:   { default: 0.045 }  # share of the leg's length the hips drift sideways
+  dwell:  { default: 1.2 }    # s settled over each foot
+holds:
+  require: [hips, legs]
+  claim: [spine]
+initial: left
+beats:
+  left:
+    hips: ["{sway * height * leg_ratio}", "{-0.008 * height}", 0]
+    bones: { Spine: [0, 0, -2.5], Chest: [0, 0, -1.5] }
+    plant: feet
+    over: 1.1
+    after: "{dwell}"
+    interrupt: yield
+    exit: centre
+    then: right
+  right:
+    hips: ["{-sway * height * leg_ratio}", "{-0.008 * height}", 0]
+    bones: { Spine: [0, 0, 2.5], Chest: [0, 0, 1.5] }
+    plant: feet
+    over: 1.4
+    after: "{dwell}"
+    interrupt: yield
+    exit: centre
+    loop: { to: left, times: "{shifts}" }
+    then: centre
+  centre:
+    plant: feet
+    over: 1.0
+    interrupt: drop
+    then: done

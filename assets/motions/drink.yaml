@@ -1,0 +1,95 @@
+# Drink (geogen.103.17): take a mug from the table in front by its handle, bring it to the mouth,
+# tip it for a sip or two, and put it back where it stood. One motion from reach to let go: the
+# mug goes with the hand from the grasp (`attach`, not level: it tips as the wrist turns) to the
+# release. The hand's turn (`fingers`, `palm`) is what tips it.
+kind: motion
+name: drink
+category: action
+summary: Take a mug from the table, sip from it, put it back.
+roles:
+  cup: { grip: any }                        # its handle (mug.yaml: grip hook)
+props:
+  cup: { asset: mug.yaml }                  # what a demonstration puts on the table in front
+params:
+  sips: { default: 2 }
+holds:
+  claim: [right_hand, gaze]
+  prefer: [spine]
+initial: reach
+beats:
+  reach:                                   # behind the handle, the hand open, fingers to it
+    ik:
+      RightHand: { target: cup, offset: [-0.01, 0.0, 0.11], grip: open, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: cup
+    interrupt: yield
+    exit: back
+    then: grasp
+  grasp:                                   # fingers through the handle
+    ik:
+      RightHand: { target: cup, offset: [0.0, -0.005, 0.085], grip: cup, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: cup
+    over: 0.35
+    attach: { cup: right }
+    emit: taken
+    interrupt: finish
+    then: raise
+  raise:                                   # up to the mouth, the mug level
+    ik:
+      RightHand: { target: self.Head, offset: [-0.1, -0.13, 0.13], grip: cup, pole: [-0.8, -1, 0],
+                   fingers: [0.2, 0.15, 1], palm: [1, 0, 0] }
+    over: 0.8
+    interrupt: finish
+    exit: lower
+    then: sip
+  sip:                                     # tipped to the lips
+    bones: { Head: [-6, 0, 0] }
+    ik:
+      RightHand: { target: self.Head, offset: [-0.09, -0.1, 0.1], grip: cup, pole: [-0.8, -1, 0],
+                   fingers: [0.2, 0.75, 1], palm: [1, 0, 0] }
+    over: 0.5
+    after: 0.6
+    interrupt: finish
+    exit: lower
+    then: level
+  level:                                   # down a little between sips
+    ik:
+      RightHand: { target: self.Head, offset: [-0.1, -0.15, 0.14], grip: cup, pole: [-0.8, -1, 0],
+                   fingers: [0.2, 0.1, 1], palm: [1, 0, 0] }
+    over: 0.5
+    after: 0.3
+    interrupt: yield
+    exit: lower
+    loop: { to: sip, times: "{sips}" }
+    then: lower
+  lower:                                   # above where it stood, upright
+    ik:
+      RightHand: { target: cup@start, offset: [0.062, 0.1, 0.085], grip: cup, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: cup@start
+    over: 0.8
+    interrupt: finish
+    then: put
+  put:                                     # down onto the table, and let go
+    ik:
+      RightHand: { target: cup@start, offset: [0, 0.002, 0], holding: cup, grip: cup, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: cup@start
+    over: 0.4
+    release: cup
+    emit: put
+    interrupt: finish
+    then: let_go
+  let_go:                                  # the fingers back out of the handle
+    ik:
+      RightHand: { target: cup, offset: [-0.01, 0.0, 0.12], grip: open, pole: [-0.5, -1, 0],
+                   fingers: [0.1, 0, 1], palm: [1, 0, 0] }
+    look: cup
+    over: 0.35
+    interrupt: finish
+    then: back
+  back:
+    over: 0.7
+    interrupt: drop
+    then: done

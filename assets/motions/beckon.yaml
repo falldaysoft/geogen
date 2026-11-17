@@ -1,0 +1,39 @@
+# Beckon (geogen.103.17): "come here". The right hand out in front, palm up, fingers curling in
+# and opening again `curls` times. Body only.
+kind: motion
+name: beckon
+category: emote
+summary: Palm up, fingers curling in, come here.
+params:
+  curls: { default: 3 }
+holds:
+  claim: [right_hand]
+initial: out
+beats:
+  out:
+    ik: &palm_up
+      RightHand: { target: [-0.16, "{height * 0.66}", "{height * 0.22}"], pole: [-0.4, -1, 0], grip: open,
+                   fingers: [0.1, 0.25, 1], palm: [0, 1, 0] }
+    over: 0.5
+    interrupt: yield
+    exit: down
+    then: curl
+  curl:
+    ik:
+      RightHand: { target: [-0.16, "{height * 0.665}", "{height * 0.2}"], pole: [-0.4, -1, 0], grip: hook,
+                   fingers: [0.1, 0.4, 1], palm: [0, 1, 0] }
+    over: 0.25
+    interrupt: yield
+    exit: down
+    then: open
+  open:
+    ik: *palm_up
+    over: 0.25
+    interrupt: yield
+    exit: down
+    loop: { to: curl, times: "{curls}" }
+    then: down
+  down:
+    over: 0.5
+    interrupt: drop
+    then: done

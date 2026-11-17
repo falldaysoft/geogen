@@ -1,0 +1,43 @@
+# Tap the foot (geogen.103.17): an idle, impatient. The right toes
+# lift and tap the floor `taps` times, the heel staying down; the hands on the hips.
+kind: motion
+name: tap_foot
+category: idle
+summary: Impatient, hands on hips, one foot tapping.
+params:
+  taps: { default: 5 }
+holds:
+  require: [hips, legs]
+  claim: [left_hand, right_hand]
+initial: settle
+beats:
+  settle:
+    ik: &on_hips
+      LeftHand: { target: ["{hip_width * 0.5 + 0.1}", "{height * 0.565}", "{height * 0.01}"], pole: [1, 0, -0.4], grip: flat,
+                  fingers: [-0.1, -0.5, 1], palm: [-1, 0, 0] }
+      mirror: true
+    plant: feet
+    over: 0.6
+    interrupt: yield
+    exit: still
+    then: lift
+  lift:
+    bones: { RightFoot: [-22, 0, 0] }
+    ik: *on_hips
+    over: 0.16
+    interrupt: yield
+    exit: still
+    then: tap
+  tap:
+    ik: *on_hips
+    over: 0.14
+    ease: linear
+    interrupt: yield
+    exit: still
+    loop: { to: lift, times: "{taps}" }
+    then: still
+  still:
+    pose: stand
+    over: 0.6
+    interrupt: drop
+    then: done

@@ -1,0 +1,27 @@
+# Yawn (geogen.103.17): an idle. The head tips back and the right hand comes up to cover the
+# mouth; hold, then the hand goes down as the head comes level. Body only.
+kind: motion
+name: yawn
+category: idle
+summary: Head back, a hand over the mouth.
+params:
+  hold: { default: 1.4 }
+holds:
+  claim: [right_hand, spine, gaze]
+initial: open
+beats:
+  open:
+    bones: { Chest: [-4, 0, 0], Neck: [-8, 0, 0], Head: [-14, 0, 0] }
+    ik:
+      RightHand: { target: [0.045, "{height * 0.84}", "{height * 0.06}"], pole: [-1, -1, 0], grip: relaxed,
+                   fingers: [0.25, 1, 0.1], palm: [0, 0.2, -1] }
+    over: 0.9
+    ease: settle
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.8
+    interrupt: drop
+    then: done

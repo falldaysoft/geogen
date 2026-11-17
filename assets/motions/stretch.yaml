@@ -1,0 +1,39 @@
+# Stretch (geogen.103.17): an idle. The hands meet overhead, palms up, the back arching a
+# little; then the arms open out to the sides and come down. Body only.
+kind: motion
+name: stretch
+category: idle
+summary: Arms up overhead, palms to the sky, a little arch, then out and down.
+params:
+  hold: { default: 1.0 }
+holds:
+  require: [left_hand, right_hand]
+  claim: [spine, gaze]
+initial: up
+beats:
+  up:
+    bones: { Spine: [-4, 0, 0], Chest: [-5, 0, 0], Neck: [-6, 0, 0], Head: [-10, 0, 0] }
+    ik:
+      LeftHand: { target: [0.06, "{height * 1.04}", "{height * 0.03}"], pole: [1, 0, -0.2], grip: flat,
+                  fingers: [-1, 0.1, 0], palm: [0, 1, 0] }
+      mirror: true
+    over: 1.0
+    ease: settle
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: open
+  open:
+    bones: { Spine: [-2, 0, 0], Chest: [-2, 0, 0], Head: [-4, 0, 0] }
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.5 + height * arm_ratio * 0.9}", "{height * 0.86}", "{height * 0.03}"],
+                  pole: [0, -1, -0.5], grip: open, fingers: [1, 0.2, 0], palm: [0, 0.3, 1] }
+      mirror: true
+    over: 0.8
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.8
+    interrupt: drop
+    then: done

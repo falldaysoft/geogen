@@ -3,6 +3,8 @@
 # whatever the body was doing: `rig.break_("stagger")` drops every motion first.
 kind: motion
 name: stagger
+category: reaction
+summary: Knocked off balance, hips back and arms out, then recovering.
 params:
   back: { default: 0.08 }      # share of the leg's length the hips go back
   arms: { default: 35 }        # degrees the arms come up and out

@@ -158,6 +158,22 @@ hand_shapes:
       LeftLittleProximal: [0, 0, -55]
       LeftLittleIntermediate: [0, 0, -65]
       LeftLittleDistal: [0, 0, -30]
+  fist:                                     # a closed fist: power with the thumb across the fingers
+    bones:
+      <<: *press
+      LeftThumbProximal: [0, 75, 0]
+      LeftIndexProximal: [0, 0, -85]
+      LeftIndexIntermediate: [0, 0, -100]
+      LeftIndexDistal: [0, 0, -60]
+  thumb_up:                                 # a fist with the thumb straight up
+    bones:
+      <<: *press
+      LeftThumbMetacarpal: [0, -10, 25]
+      LeftThumbProximal: [0, 0, 0]
+      LeftThumbDistal: [0, 0, 0]
+      LeftIndexProximal: [0, 0, -85]
+      LeftIndexIntermediate: [0, 0, -100]
+      LeftIndexDistal: [0, 0, -60]
   hook:                                     # a bag's handles: knuckles straight, fingers bent
     bones:
       LeftThumbMetacarpal: [0, 20, 0]

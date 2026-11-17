@@ -1,0 +1,26 @@
+# Hands on the hips (geogen.103.17): an idle. The hands go to the waist, elbows out, and stay for
+# `duration`. Body only.
+kind: motion
+name: hands_on_hips
+category: idle
+summary: Hands on the hips, elbows out.
+params:
+  duration: { default: 3 }
+holds:
+  claim: [left_hand, right_hand]
+initial: on
+beats:
+  on:
+    ik:
+      LeftHand: { target: ["{hip_width * 0.5 + 0.1}", "{height * 0.565}", "{height * 0.01}"], pole: [1, 0, -0.4], grip: flat,
+                  fingers: [-0.1, -0.5, 1], palm: [-1, 0, 0] }
+      mirror: true
+    over: 0.8
+    after: duration
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.7
+    interrupt: drop
+    then: done

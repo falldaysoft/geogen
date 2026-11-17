@@ -3,6 +3,8 @@
 # the hands are preferred, so someone carrying a plate or holding a remote sits with it.
 kind: motion
 name: sit
+category: action
+summary: Sit down on a seat, stay a while, get up.
 roles:
   seat: { grip: sit }
   arms: { grip: rest, optional: true }     # an armchair's armrests, when it has them

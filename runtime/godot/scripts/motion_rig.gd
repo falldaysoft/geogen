@@ -496,7 +496,7 @@ func _compose() -> Pose:
             if "spine" in held and e in ["LeftHand", "RightHand"]:
                 _bend_to_reach(pose, laid, e, point, run, u)
             var solved := pose.copy()
-            _solve_limb(solved, e, point, entries[e].get("pole"), null)
+            _solve_limb(solved, e, point, entries[e].get("pole"), _hand_turn(e, entries[e]))
             var limb: Array = LIMBS[e]
             for bone in [limb[0], limb[1], e]:
                 var i: int = index[bone]
@@ -629,11 +629,34 @@ func _ik_entries(run: Run) -> Dictionary:
                 var t = e.get("target")
                 if t is Array:
                     e["target"] = [-float(t[0]), t[1], t[2]]
-                if e.has("pole"):
-                    var p: Array = e["pole"]
-                    e["pole"] = [-float(p[0]), p[1], p[2]]
+                for key in ["pole", "fingers", "palm"]:
+                    if e.has(key):
+                        var p: Array = e[key]
+                        e[key] = [-float(p[0]), p[1], p[2]]
                 entries[twin] = e
     return entries
+
+
+## The body-frame turn from a hand's T-pose orientation to the one its `ik` entry asks for
+## (`fingers`, `palm`: motion._hand_turn), or null.
+static func _hand_turn(e: String, entry: Dictionary):
+    if not (e in ["LeftHand", "RightHand"]) or not (entry.has("fingers") or entry.has("palm")):
+        return null
+    var side := 1.0 if e == "LeftHand" else -1.0
+    var rest_f := Vector3(side, 0, 0)
+    var rest_p := Vector3(0, -1, 0)
+    var f := rest_f
+    if entry.has("fingers"):
+        var a: Array = entry["fingers"]
+        f = Vector3(a[0], a[1], a[2]).normalized()
+    var p := rest_p
+    if entry.has("palm"):
+        var a: Array = entry["palm"]
+        p = Vector3(a[0], a[1], a[2])
+    p = (p - p.dot(f) * f).normalized()
+    var target := Basis(f, p, f.cross(p))
+    var rest := Basis(rest_f, rest_p, rest_f.cross(rest_p))
+    return target * rest.transposed()
 
 
 static func _mirror_name(n: String) -> String:

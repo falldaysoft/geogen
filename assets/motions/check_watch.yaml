@@ -1,0 +1,26 @@
+# Check the time (geogen.103.17): an idle. The left forearm comes up across the body, the wrist
+# turned to the face, and the head bows to look at it; then the arm goes down. Body only.
+kind: motion
+name: check_watch
+category: idle
+summary: The left wrist raised and turned to read a watch.
+params:
+  read: { default: 1.2 }      # s looking at it
+holds:
+  claim: [left_hand, gaze]
+initial: raise
+beats:
+  raise:
+    ik:
+      LeftHand: { target: [0.02, "{height * 0.73}", "{height * 0.17}"], pole: [0.6, -1, 0], grip: relaxed,
+                  fingers: [-1, 0.1, 0.2], palm: [0, -0.4, -1] }
+    look: [0.02, "{height * 0.73}", "{height * 0.17}"]
+    over: 0.6
+    after: "{read}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.6
+    interrupt: drop
+    then: done

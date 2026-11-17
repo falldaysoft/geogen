@@ -1,0 +1,52 @@
+# Cheer (geogen.103.17): both fists punched up overhead, pumped `pumps` times, with a bounce at
+# the knees. Body only.
+kind: motion
+name: cheer
+category: emote
+summary: Both fists up overhead, pumping, bouncing at the knees.
+params:
+  pumps: { default: 3 }
+  bounce: { default: 0.05 }   # share of the leg's length the hips dip
+holds:
+  require: [hips, legs, spine, left_hand, right_hand]
+  claim: [gaze]
+initial: up
+beats:
+  up:
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.85}", "{height * 1.03}", "{height * 0.05}"], pole: [1, 0, -0.3], grip: fist }
+      mirror: true
+    bones: { Head: [-10, 0, 0], Spine: [-3, 0, 0] }
+    plant: feet
+    over: 0.4
+    interrupt: yield
+    exit: down
+    then: dip
+  dip:
+    hips: [0, "{-bounce * height * leg_ratio}", 0]
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.95}", "{height * 0.95}", "{height * 0.06}"], pole: [1, 0, -0.3], grip: fist }
+      mirror: true
+    bones: { Head: [-6, 0, 0] }
+    plant: feet
+    over: 0.2
+    interrupt: yield
+    exit: down
+    then: pump
+  pump:
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.85}", "{height * 1.03}", "{height * 0.05}"], pole: [1, 0, -0.3], grip: fist }
+      mirror: true
+    bones: { Head: [-10, 0, 0], Spine: [-3, 0, 0] }
+    plant: feet
+    over: 0.2
+    interrupt: yield
+    exit: down
+    loop: { to: dip, times: "{pumps}" }
+    then: down
+  down:
+    pose: stand
+    plant: feet
+    over: 0.6
+    interrupt: drop
+    then: done

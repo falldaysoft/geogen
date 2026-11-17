@@ -50,6 +50,9 @@ MOTIONS_DIR = "motions"
 MOTION_KEYS = {
     "kind": "motion",
     "name": "the motion's name (defaults to the file's)",
+    "category": "where a catalogue lists it: idle | emote | dance | exercise | action | reaction (motion_catalogue)",
+    "summary": "one line on what it looks like, for catalogues and galleries",
+    "props": "{role: {asset, on, at}}: what a demonstration stages for its roles (a cup on a table in front)",
     "roles": "{role: {grip, optional}}: the things it acts on, bound by whoever runs it",
     "params": "{name: {default}}: build-time values for {expr} in its beats",
     "holds": "{require: [channels], claim: [...], prefer: [...], share: {channel: weight}}",
@@ -68,7 +71,8 @@ BEAT_KEYS = {
     "ik": "{End: {target: <ref> | [x, y, z], offset, pole, rest, grip, holding}, mirror}: hands and feet onto points; "
           "a hand takes the shape `grip` names (a hand shape, or a role: its contact's grip), else its "
           "target's grip when that is a hand shape (skeleton hand_shapes: press, power, pinch, ...); "
-          "`holding: <role>` puts the held thing on the target",
+          "`holding: <role>` puts the held thing on the target; `fingers: [x, y, z]` and `palm: [x, y, z]` "
+          "turn the hand (body-frame directions the fingers point and the palm faces; mirrored with the target)",
     "root": "{at: <ref>, offset: [x, y, z], facing: away | toward | <deg>, posture: <pose>}: where the body stands",
     "look": "<ref> | {at: <ref>, weight}: where the head turns",
     "plant": "feet: the feet stay where they are on the floor (legs by IK)",
@@ -152,6 +156,42 @@ def motion_names(assets_dir: Path | None = None) -> list[str]:
     return [path.stem for path in roots.glob(f"{MOTIONS_DIR}/*.yaml", assets_dir or roots.CORE)]
 
 
+CATEGORIES = ("idle", "emote", "dance", "exercise", "action", "reaction")
+# Beat keys that name things in the world or move the body through it: a motion using one runs
+# only where the world is (the reference rig; the runtime rig refuses them until it is ported).
+WORLD_KEYS = ("root", "attach", "release")
+
+
+def body_only(spec: dict) -> bool:
+    """Whether ``spec`` needs nothing but the body: no roles, no beat placing the body or taking
+    things. The runtime rig (runtime/godot/scripts/motion_rig.gd) runs these."""
+    return not spec.get("roles") and not any(k in (beat or {}) for beat in spec["beats"].values() for k in WORLD_KEYS)
+
+
+def motion_catalogue(assets_dir: Path | None = None) -> list[dict]:
+    """Every motion as a catalogue entry, by category then name: what a gallery or a tool lists
+    (``python -m geogen.motion_review --list``). ``params`` are the defaults, ``roles`` what it
+    must be given, ``props`` what a demonstration stages for them (on a table in front),
+    ``body_only`` whether it needs nothing but the body (the runtime rig plays it today)."""
+    entries = []
+    for name in motion_names(assets_dir):
+        spec = load_motion(name, assets_dir)
+        params = {k: (v.get("default") if isinstance(v, dict) else v) for k, v in (spec.get("params") or {}).items()}
+        entries.append({
+            "name": spec["name"],
+            "category": spec.get("category", "action"),
+            "summary": spec.get("summary", ""),
+            "params": params,
+            "roles": {r: dict(e or {}) for r, e in (spec.get("roles") or {}).items()},
+            "props": spec.get("props") or {},
+            "holds": spec.get("holds") or {},
+            "body_only": body_only(spec),
+            "beats": list(spec["beats"]),
+        })
+    order = {c: i for i, c in enumerate(CATEGORIES)}
+    return sorted(entries, key=lambda e: (order.get(e["category"], len(order)), e["name"]))
+
+
 def write_motions(generated: Path, assets_dir: Path | None = None) -> Path:
     """``motions.json`` in a runtime's generated directory: every motion by name, validated and
     with ``extends`` merged, ``{expr}`` left for the runtime to resolve when it starts one (from
@@ -166,7 +206,8 @@ def write_motions(generated: Path, assets_dir: Path | None = None) -> Path:
         motions[spec.get("name", name)] = spec
     path = generated / MOTIONS_FILE
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps({"format": MOTIONS_FORMAT, "version": MOTIONS_VERSION, "motions": motions},
+    tmp.write_text(json.dumps({"format": MOTIONS_FORMAT, "version": MOTIONS_VERSION, "motions": motions,
+                               "catalogue": motion_catalogue(assets_dir)},
                               indent=1, sort_keys=True) + "\n")
     tmp.replace(path)
     return path
@@ -178,6 +219,11 @@ def validate_motion(spec: dict, where: str = "motion") -> None:
     unknown = set(spec) - set(MOTION_KEYS)
     if unknown:
         raise MotionError(f"{where}: unknown keys {sorted(unknown)} (known: {sorted(MOTION_KEYS)})")
+    if spec.get("category", "action") not in CATEGORIES:
+        raise MotionError(f"{where}: category '{spec['category']}' is not one of {CATEGORIES}")
+    for role in (spec.get("props") or {}):
+        if role not in (spec.get("roles") or {}):
+            raise MotionError(f"{where}: props.{role} is not one of its roles")
     beats = spec.get("beats") or {}
     if not beats:
         raise MotionError(f"{where}: no beats")
@@ -394,6 +440,7 @@ class Run:
     loops: dict = field(default_factory=dict)    # beat -> times its loop has gone round
     paused: str | None = None            # the beat an overlay took a channel in (time stands still)
     resume_to: str | None = None         # asked to yield while paused: its exit, not its resume
+    origins: dict = field(default_factory=dict)  # role -> its thing's world transform at the start
 
     @property
     def name(self) -> str:
@@ -517,6 +564,7 @@ class MotionRig:
         spec = {**spec, "beats": resolve_value(spec["beats"], values)}
         self._order += 1
         run = Run(spec, resolved, self._order, params)
+        run.origins = {role: t.node.world_transform().copy() for role, t in resolved.items() if t.node is not None}
         self.runs.append(run)
         self._event("start", run)
         self._enter(run, spec.get("initial", next(iter(spec["beats"]))))
@@ -720,12 +768,19 @@ class MotionRig:
             return contact(refs.resolve(self.scene, head), name=tail)
 
     def _ref(self, run: Run, ref) -> Target | NDArray[np.float64] | None:
-        """A beat's reference: a role, ``role.attachment``, a scene reference, or [x, y, z] in the
-        body frame (a world point is returned as an array)."""
+        """A beat's reference: a role, ``role.attachment``, ``role@start`` (where the role's thing
+        stood when the run started), a scene reference, or [x, y, z] in the body frame (a world
+        point is returned as an array)."""
         if isinstance(ref, (list, tuple)):
             return (self.root @ np.r_[np.asarray(ref, dtype=float), 1.0])[:3]
         if not isinstance(ref, str):
             raise MotionError(f"motion '{run.name}': can't aim at {ref!r}")
+        if ref.endswith("@start"):
+            # Where a role's thing was when the run started (put a cup back where it stood).
+            role = ref[: -len("@start")]
+            if role not in run.origins:
+                raise MotionError(f"motion '{run.name}': '{ref}': '{role}' is not a bound thing")
+            return Target(None, run.origins[role].copy(), ref)
         if ref.startswith("self."):
             # A point on the body as it is now (the mouth is ``self.Head`` and an offset), in the
             # body's frame: an entry's offset is ahead / up / to the left of the body, not the bone.
@@ -918,7 +973,7 @@ class MotionRig:
                 # it starts with its own elbow and ends exactly on the goal, rather than snapping to
                 # the solver's elbow on the beat's first frame.
                 solved = pose.copy()
-                solve_limb(s, solved, end, local, entry.get("pole"))
+                solve_limb(s, solved, end, local, entry.get("pole"), _hand_turn(end, entry))
                 for bone in (*LIMBS[end][:2], end):
                     pose.rotations[bone] = slerp(run.start["pose"].rotations.get(bone, IDENTITY), solved.rotations[bone], u)
         self._hang_free_arms(pose)
@@ -1084,8 +1139,9 @@ class MotionRig:
                         twin_entry["target"] = target[:-5] + ".right"
                     elif isinstance(target, (list, tuple)):           # a body-frame point: across the body
                         twin_entry["target"] = [-float(target[0]), *target[1:]]
-                    if "pole" in entry:
-                        twin_entry["pole"] = list(np.asarray(entry["pole"], dtype=float) * [-1, 1, 1])
+                    for key in ("pole", "fingers", "palm"):
+                        if key in entry:
+                            twin_entry[key] = list(np.asarray(entry[key], dtype=float) * [-1, 1, 1])
                     entries[twin] = twin_entry
         return entries
 
@@ -1245,6 +1301,26 @@ class MotionRig:
             entry["beat"] = run.beat or None
         entry.update(data)
         self.trace.append(entry)
+
+
+def _hand_turn(end: str, entry: dict) -> NDArray[np.float64] | None:
+    """The body-frame turn from a hand's T-pose orientation (fingers out along the arm, palm down)
+    to the one its ``ik`` entry asks for: ``fingers`` the way the fingers point, ``palm`` the way
+    the palm faces (made square to the fingers). None when the entry names neither."""
+    if end not in ("LeftHand", "RightHand") or ("fingers" not in entry and "palm" not in entry):
+        return None
+    side = 1.0 if end == "LeftHand" else -1.0
+    rest_f, rest_p = np.array([side, 0.0, 0.0]), np.array([0.0, -1.0, 0.0])
+    f = np.asarray(entry.get("fingers", rest_f), dtype=float)
+    f = f / np.linalg.norm(f)
+    p = np.asarray(entry.get("palm", rest_p), dtype=float)
+    p = p - np.dot(p, f) * f
+    if np.linalg.norm(p) < 1e-6:
+        raise MotionError(f"{end}: palm {entry.get('palm')} lies along the fingers {entry.get('fingers')}")
+    p = p / np.linalg.norm(p)
+    target = np.column_stack([f, p, np.cross(f, p)])
+    rest = np.column_stack([rest_f, rest_p, np.cross(rest_f, rest_p)])
+    return target @ rest.T
 
 
 def _swing(a: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[np.float64]:

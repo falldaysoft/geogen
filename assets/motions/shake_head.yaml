@@ -1,0 +1,29 @@
+# Shake the head no (geogen.103.17): side to side `shakes` times. Only the gaze.
+kind: motion
+name: shake_head
+category: emote
+summary: A shake of the head, no.
+params:
+  shakes: { default: 2 }
+  turn:   { default: 22 }     # degrees each way
+holds:
+  claim: [gaze]
+initial: left
+beats:
+  left:
+    bones: { Neck: [2, "{turn * 0.4}", 0], Head: [2, "{turn * 0.6}", 0] }
+    over: 0.25
+    interrupt: yield
+    exit: level
+    then: right
+  right:
+    bones: { Neck: [2, "{-turn * 0.4}", 0], Head: [2, "{-turn * 0.6}", 0] }
+    over: 0.3
+    interrupt: yield
+    exit: level
+    loop: { to: left, times: "{shakes}" }
+    then: level
+  level:
+    over: 0.3
+    interrupt: drop
+    then: done

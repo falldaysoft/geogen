@@ -1,0 +1,38 @@
+# Fist pump (geogen.103.17): "yes!" The right fist comes up beside the shoulder and is pulled down
+# hard to the hip, with a dip at the knees. Body only.
+kind: motion
+name: fist_pump
+category: emote
+summary: A fist pulled down hard to the hip, yes.
+holds:
+  require: [hips, legs]
+  claim: [right_hand, spine, gaze]
+initial: wind
+beats:
+  wind:
+    ik:
+      RightHand: { target: [-0.2, "{height * 0.82}", "{height * 0.08}"], pole: [-1, -0.6, 0], grip: fist,
+                   fingers: [0.1, 1, 0.2], palm: [1, 0, -0.2] }
+    plant: feet
+    over: 0.35
+    interrupt: yield
+    exit: down
+    then: pump
+  pump:
+    hips: [0, "{-0.06 * height * leg_ratio}", "{-0.02 * height}"]
+    bones: { Spine: [8, 0, 0], Chest: [6, 0, 0], Head: [-6, 0, 0] }
+    ik:
+      RightHand: { target: [-0.17, "{height * 0.57}", "{height * 0.06}"], pole: [-1, 0.2, -0.6], grip: fist,
+                   fingers: [0.2, 0.3, 1], palm: [1, 0, -0.2] }
+    plant: feet
+    over: 0.22
+    ease: settle
+    after: 0.4
+    interrupt: finish
+    then: down
+  down:
+    pose: stand
+    plant: feet
+    over: 0.6
+    interrupt: drop
+    then: done

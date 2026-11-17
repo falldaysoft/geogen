@@ -1,0 +1,27 @@
+# Salute (geogen.103.17): the right hand comes up flat, fingertips to the brow; hold, then it
+# snaps down. Body only.
+kind: motion
+name: salute
+category: emote
+summary: A crisp salute, fingertips to the brow.
+params:
+  hold: { default: 1.0 }
+holds:
+  claim: [right_hand, gaze]
+initial: up
+beats:
+  up:
+    bones: { Neck: [-2, 0, 0], Head: [-2, 0, 0] }
+    ik:
+      RightHand: { target: [-0.16, "{height * 0.9}", "{height * 0.05}"], pole: [-1, 0, -0.3], grip: flat,
+                   fingers: [0.6, 0.25, 0.7], palm: [0.2, -1, 0.3] }
+    over: 0.45
+    ease: settle
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.4
+    interrupt: drop
+    then: done

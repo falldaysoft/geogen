@@ -5,6 +5,8 @@
 # Only the hand is claimed: someone sitting or walking presses from where they are.
 kind: motion
 name: press
+category: action
+summary: Reach a fingertip to a button and push it.
 roles:
   button: { grip: press }
 params:

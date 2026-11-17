@@ -1,0 +1,26 @@
+# Hands behind the back (geogen.103.17): an idle, standing at ease. The hands meet behind the
+# small of the back and stay there for `duration`. Body only.
+kind: motion
+name: hands_behind_back
+category: idle
+summary: Standing at ease, hands clasped behind the back.
+params:
+  duration: { default: 3 }
+holds:
+  claim: [left_hand, right_hand]
+initial: clasp
+beats:
+  clasp:
+    ik:
+      LeftHand: { target: [0.035, "{height * 0.55}", "{-height * 0.09}"], pole: [0.5, -0.3, -1], grip: relaxed,
+                  fingers: [-0.5, -0.5, -0.4], palm: [-0.6, 0, 0.4] }
+      mirror: true
+    over: 0.9
+    after: duration
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.8
+    interrupt: drop
+    then: done

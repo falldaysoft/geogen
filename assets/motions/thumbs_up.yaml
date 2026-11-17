@@ -1,0 +1,27 @@
+# Thumbs up (geogen.103.17): the right fist comes out in front of the chest, thumb up, with a
+# little nod; hold, then down. Body only.
+kind: motion
+name: thumbs_up
+category: emote
+summary: A thumbs up in front of the chest, with a nod.
+params:
+  hold: { default: 1.0 }
+holds:
+  claim: [right_hand, gaze]
+initial: up
+beats:
+  up:
+    bones: { Neck: [3, 0, 0], Head: [6, 0, 0] }
+    ik:
+      RightHand: { target: [-0.14, "{height * 0.69}", "{height * 0.2}"], pole: [-0.6, -1, 0], grip: thumb_up,
+                   fingers: [0.15, 0, 1], palm: [1, 0, 0] }
+    over: 0.5
+    ease: settle
+    after: "{hold}"
+    interrupt: yield
+    exit: down
+    then: down
+  down:
+    over: 0.5
+    interrupt: drop
+    then: done

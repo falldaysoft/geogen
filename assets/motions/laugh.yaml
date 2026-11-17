@@ -1,0 +1,40 @@
+# Laugh (geogen.103.17): the head goes back and the chest shakes with it, a hand on the belly,
+# `laughs` times; then it settles. Body only.
+kind: motion
+name: laugh
+category: emote
+summary: A belly laugh, head back, shoulders shaking, a hand on the stomach.
+params:
+  laughs: { default: 5 }
+holds:
+  claim: [left_hand, spine, gaze]
+initial: back
+beats:
+  back:
+    bones: { Spine: [-3, 0, 0], Chest: [-4, 0, 0], Neck: [-6, 0, 0], Head: [-12, 0, 0] }
+    ik: &belly
+      LeftHand: { target: [-0.02, "{height * 0.58}", "{height * 0.09}"], pole: [0.6, -1, -0.2], grip: relaxed,
+                  fingers: [-1, -0.1, 0.2], palm: [0, 0, -1] }
+    over: 0.4
+    interrupt: yield
+    exit: settle
+    then: shake
+  shake:
+    bones: { Spine: [1, 0, 0], Chest: [3, 0, 0], Neck: [-3, 0, 0], Head: [-7, 0, 0] }
+    ik: *belly
+    over: 0.13
+    interrupt: yield
+    exit: settle
+    then: shake_back
+  shake_back:
+    bones: { Spine: [-3, 0, 0], Chest: [-3, 0, 0], Neck: [-6, 0, 0], Head: [-12, 0, 0] }
+    ik: *belly
+    over: 0.15
+    interrupt: yield
+    exit: settle
+    loop: { to: shake, times: "{laughs}" }
+    then: settle
+  settle:
+    over: 0.7
+    interrupt: drop
+    then: done

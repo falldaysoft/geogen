@@ -1,0 +1,46 @@
+# Dance: hands up (geogen.103.17): a loop. Palms pushed up overhead on the beat and brought back
+# to the shoulders, with a dip at the knees each time; `bars` times.
+kind: motion
+name: dance_arms_up
+category: dance
+summary: Palms pushed up overhead on the beat, dipping at the knees.
+params:
+  bars:   { default: 4 }
+  beat:   { default: 0.35 }
+  bounce: { default: 0.06 }
+holds:
+  require: [hips, legs, spine, left_hand, right_hand]
+  claim: [gaze]
+initial: push
+beats:
+  push:
+    bones: { Spine: [-2, 0, 0], Head: [-10, 0, 0] }
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.6}", "{height * 1.02}", "{height * 0.05}"], pole: [1, -0.3, -0.3], grip: flat,
+                  fingers: [0.1, 0.2, 1], palm: [0, 1, 0] }
+      mirror: true
+    plant: feet
+    over: "{beat}"
+    ease: settle
+    interrupt: yield
+    exit: still
+    then: dip
+  dip:
+    hips: [0, "{-bounce * height * leg_ratio}", "{-0.01 * height}"]
+    bones: { Spine: [4, 0, 0], Head: [4, 0, 0] }
+    ik:
+      LeftHand: { target: ["{shoulder_width * 0.7}", "{height * 0.84}", "{height * 0.06}"], pole: [1, -1, -0.3], grip: flat,
+                  fingers: [0.1, 0.3, 1], palm: [0, 1, 0] }
+      mirror: true
+    plant: feet
+    over: "{beat}"
+    interrupt: yield
+    exit: still
+    loop: { to: push, times: "{bars * 2}" }
+    then: still
+  still:
+    pose: stand
+    plant: feet
+    over: 0.7
+    interrupt: drop
+    then: done
