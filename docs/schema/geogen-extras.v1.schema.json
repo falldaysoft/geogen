@@ -1048,8 +1048,12 @@
       "oneOf": [{ "required": ["go_to"] }, { "required": ["face"] }, { "required": ["pose"] }, { "required": ["wait"] },
                 { "required": ["use"] }, { "required": ["vanish"] }, { "required": ["play"] }, { "required": ["use_item"] },
                 { "required": ["pick_up"] }, { "required": ["put_down"] }, { "required": ["find"] },
-                { "required": ["set_out"] }, { "required": ["show"] }],
+                { "required": ["set_out"] }, { "required": ["show"] }, { "required": ["do"] }],
       "properties": {
+        "do": { "description": "Run this motion (motions.json) on the body and wait for it to end; a body with no rig, or an export without the motion, goes straight on.", "type": "string" },
+        "roles": { "description": "A do step: what the motion's roles are bound to.", "type": "object", "additionalProperties": { "enum": ["subject", "place", "anchor", "interaction"] } },
+        "params": { "description": "A do step: the motion's params ('duration': drawn from the action's range).", "type": "object", "additionalProperties": { "type": ["number", "string", "boolean"] } },
+        "keep": { "description": "A do step: start the motion and go on; it runs until the option ends.", "type": "boolean" },
         "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group", "subject", "place", "partner"] },
         "pick_up": { "description": "Take the action's subject (a physics prop with carry) in hand: the NPC must stand within its reach, and the prop be within its carry limits.", "const": "subject" },
         "put_down": { "description": "Let the prop in hand go just above the action's place; where it settles is the physics' business.", "const": "place" },
