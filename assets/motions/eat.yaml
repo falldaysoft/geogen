@@ -13,7 +13,8 @@ roles:
 params:
   bites: { default: 3 }
 holds:
-  claim: [right_hand, gaze]
+  claim: [right_hand]
+  share: { gaze: 1 }                       # the plate by turns with anything else that shares it (watch: the TV)
 initial: ready
 beats:
   ready:                                   # the hand over the plate, near side

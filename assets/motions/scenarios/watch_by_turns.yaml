@@ -1,0 +1,21 @@
+# Two things to watch at once (geogen.103.6): two `watch` runs share the gaze and take turns at it,
+# three seconds each (SHARE_TURN x watch's weight), and a glance (a claim) still takes it outright.
+kind: motion_scenario
+description: Seated, watching the TV and the lamp by turns; a glance at the TV in between.
+scene:
+  slots:
+    chair: { position: [0, 0, 0], facing: north }
+    console: { position: [0, 0, 2.2], facing: south }
+    lamp: { position: [-1.3, 0, 0.2], facing: east }
+  place:
+    chair: { asset: chair.yaml, slot: chair }
+    console: { asset: tv_console.yaml, slot: console }
+    tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
+    lamp:    { asset: floor_lamp.yaml, slot: lamp }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.326], facing: away }   # sit's approach point for this 1.66 m body
+script:
+  - { at: 0, start: sit, seat: chair, duration: 8.5 }
+  - { at: 1.6, start: watch, target: tv.screen, duration: 8 }
+  - { at: 1.6, start: watch, target: lamp, duration: 8 }
+  - { at: 7.0, start: glance, target: tv.screen, duration: 0.8 }
+camera: { view: iso_back, frame: [chair, tv, lamp], margin: 0.2 }

@@ -1,6 +1,7 @@
 # Watch something for a while (geogen.103.4): the gaze on it and nothing else. Unlike `glance` it
-# only prefers the gaze, so anything that wants to look elsewhere (a glance at a noise, a reach that
-# looks at what it takes) has it while it runs, and the eyes go back to the TV after.
+# only shares the gaze: anything that claims it (a glance at a noise, a reach that looks at what it
+# takes) has it while it runs, and the eyes go back to the TV after; another sharer (eating) takes
+# turns with it, the TV for longer (geogen.103.6).
 kind: motion
 name: watch
 category: action
@@ -8,7 +9,7 @@ summary: Watch something for a while.
 roles:
   target: { grip: look }
 holds:
-  prefer: [gaze]
+  share: { gaze: 1.5 }
 initial: watching
 beats:
   watching:

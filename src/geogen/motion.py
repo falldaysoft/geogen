@@ -19,11 +19,13 @@ transform and followed, so a moved chair or a swinging door is tracked. ``trace`
 beats, owners, emits and interruptions; ``samples`` the per-frame numbers review metrics use.
 
 A run that loses a claimed channel to an overlay pauses and picks up from its beat's ``resume``;
-``break_`` drops everything into a reaction (geogen.103.5).
+``break_`` drops everything into a reaction (geogen.103.5). Runs that ``share`` a channel (the
+gaze) take turns at it by weight (geogen.103.6). runtime/godot/scripts/motion_rig.gd is the
+runtime's port (geogen.103.7).
 
-Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``while``/``layer`` and
-shared-gaze time slicing (103.6), locomotion between places (the body slides onto ``root``
-targets), and the rest of the Godot port (103.7).
+Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``while``/``layer``,
+borrowing the hand that holds a role's thing, and locomotion between places (the body slides
+onto ``root`` targets).
 """
 
 from __future__ import annotations
@@ -123,6 +125,7 @@ LOOK_OUT = 0.4             # s: a look that ends (nothing to look at any more) e
 LOOK_FOLLOW = 0.1          # s: half-life of the look point following a change of what is looked at
 MORPH_HALF_LIFE = 0.12     # s: drape correctives settle onto a new owner's pose
 ROOT_LEAD = 0.7            # over planted feet the root arrives by this fraction of the beat
+SHARE_TURN = 2.0           # s a sharer of weight 1 keeps a shared channel before passing it on
 YAW_LIMIT, PITCH_LIMIT, NECK_SHARE = math.radians(70), math.radians(35), 0.4
 
 
@@ -550,6 +553,10 @@ class Run:
             best = max(best, STRENGTHS["claim"])
         return best
 
+    def share(self, channel: str) -> float:
+        """This run's weight in time-slicing ``channel`` (``holds.share``), 0 when it doesn't share it."""
+        return float(((self.motion.get("holds") or {}).get("share") or {}).get(channel) or 0.0)
+
 
 class MotionRig:
     """Runs motions on one skeletal body (an instance of a humanoid asset placed in a scene)."""
@@ -596,6 +603,8 @@ class MotionRig:
         self.look_point: NDArray[np.float64] | None = None
         self.look_weight = 0.0              # how far the current look has turned the head (0..1)
         self.look_fade: tuple | None = None   # (point, weight, t): a look that ended, easing off
+        self.share_t: dict[str, float] = {}           # channel -> how long its sharer has had this turn
+        self.share_looked: dict[tuple[str, int], float] = {}   # (channel, run order) -> its time with it
         self._apply()
 
     # The pose library: each pose_<name> clip (as the build left it: arms cleared, seats fitted).
@@ -899,16 +908,20 @@ class MotionRig:
 
     # --- arbitration ---
 
+    def _rank(self, run: Run, channel: str) -> tuple:
+        """Who gets a channel: strength, then priority, then a claim over a share, then the later started."""
+        return (run.strength(channel), run.motion.get("priority", 0), 0 if run.share(channel) else 1, run.order)
+
     def _arbitrate(self) -> None:
         for channel in self.skeleton.channels:
             best = None
             for run in self.runs:
-                s = run.strength(channel)
-                if s and (best is None or (s, run.motion.get("priority", 0), run.order)
-                          > (best.strength(channel), best.motion.get("priority", 0), best.order)):
+                if run.strength(channel) and (best is None or self._rank(run, channel) > self._rank(best, channel)):
                     best = run
+            best = self._share_turn(channel, best)
             was = self.owners.get(channel)
             if best is not was:
+                self.share_t[channel] = 0.0
                 if channel == "gaze" and self.look_key is not None:
                     # The head eases off the old look (and onto the new one) rather than springing.
                     self._fade_look()
@@ -920,7 +933,28 @@ class MotionRig:
                 if was is not None and not was.done and was.strength(channel) == STRENGTHS["require"]:
                     self.interrupt(was, "yield")
             self.owners[channel] = best
+            if best is not None and best.share(channel):
+                self.share_t[channel] = self.share_t.get(channel, 0.0) + self.dt
+                key = (channel, best.order)
+                self.share_looked[key] = self.share_looked.get(key, 0.0) + self.dt
         self._pause_and_resume()
+
+    def _share_turn(self, channel: str, best: Run | None) -> Run | None:
+        """Runs that share a channel (``holds.share: {gaze: weight}``) and rank equal take turns at
+        it: the one that has it keeps it for ``SHARE_TURN`` x its weight, then it passes to the one
+        that has had it least for its weight (eating and watching TV look at the plate and the
+        screen by turns). A claim at the same strength outranks every share (a glance)."""
+        if best is None or not best.share(channel):
+            return best
+        rank = self._rank(best, channel)[:2]
+        sharers = [r for r in self.runs if not r.done and r.share(channel) and self._rank(r, channel)[:2] == rank]
+        if len(sharers) < 2:
+            return best
+        was = self.owners.get(channel)
+        if was in sharers and self.share_t.get(channel, 0.0) < SHARE_TURN * was.share(channel) - 1e-9:
+            return was
+        others = [r for r in sharers if r is not was]
+        return min(others, key=lambda r: (self.share_looked.get((channel, r.order), 0.0) / r.share(channel), -r.order))
 
     def _pause_and_resume(self) -> None:
         """A run that loses a channel it claims (not a shared one: the gaze) to another run waits

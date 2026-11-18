@@ -40,7 +40,8 @@ def test_unknown_beat_key_is_an_error():
 def test_scenarios_load():
     names = scenario_names(roots.CORE)
     assert {"sit_on_chair", "sit_interrupted", "press_tv", "sit_watch_tv", "take_carry_set_down",
-            "watch_tv", "eat_glance", "eat_interrupted", "eat_wave", "squat_shoved", "bow_wave"} <= set(names)
+            "watch_tv", "eat_glance", "eat_interrupted", "eat_wave", "squat_shoved", "bow_wave",
+            "eat_watch_tv", "watch_by_turns"} <= set(names)
     for name in names:
         load_scenario(name, roots.CORE)
 
@@ -227,6 +228,44 @@ def test_watch_gives_the_gaze_to_a_glance_and_takes_it_back(runs):
     assert runs_of == [None, "watch", "glance", "watch", None]
     m = r.metrics
     assert m["pops"] == 0 and m["peak_joint_accel"]["deg_s2"] < 4000, m["peak_joint_accel"]
+
+
+# --- multitasking: a shared gaze taken by turns (geogen.103.6) ---
+
+def _gaze_turns(r):
+    """[(motion, t)] each time the gaze changed hands (None: nobody has it)."""
+    out = []
+    for e in r.rig.trace:
+        if e["event"] == "owner" and e.get("channel") == "gaze":
+            out.append((e["motion"], e["t"]))
+    return out
+
+
+def test_eating_and_watching_take_turns_at_the_gaze(runs):
+    """eat (share 1) and watch (share 1.5) both share the gaze: the TV gets 3 s turns, the plate
+    2 s, by turns, while the hand eats on and every bite is taken."""
+    r = _run(runs, "eat_watch_tv")
+    turns = _gaze_turns(r)
+    who = [m for m, _ in turns]
+    assert who[:4] == ["watch", "eat", "watch", "eat"], turns
+    lengths = [round(b - a, 2) for (_, a), (_, b) in zip(turns, turns[1:4])]
+    assert lengths == [3.0, 2.0, 3.0], lengths
+    assert [e[1] for e in _events(r, "emit")] == ["eat"] * 4, "every bite taken"
+    assert all(s["owners"]["right_hand"] == "eat" for s in r.rig.samples if "eat" in s["beats"])
+    assert not _events(r, "pause", "resume", "interrupt")
+    m = r.metrics
+    assert m["pops"] == 0 and m["contact_error_mm"] < 5 and m["cloth_mm"]["mm"] < 2
+
+
+def test_a_glance_takes_a_shared_gaze_outright(runs):
+    """Two watches share the gaze by turns (3 s each); a glance claims it, which outranks a share,
+    and gives it back to a watch when it ends."""
+    r = _run(runs, "watch_by_turns")
+    turns = _gaze_turns(r)
+    assert [m for m, _ in turns] == ["watch", "watch", "glance", "watch", None], turns
+    assert round(turns[1][1] - turns[0][1], 2) == 3.0
+    assert all(s["owners"]["gaze"] == "glance" for s in r.rig.samples if "glance" in s["beats"])
+    assert r.metrics["pops"] == 0
 
 
 def test_a_look_that_ends_eases_off_instead_of_snapping(runs):

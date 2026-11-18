@@ -1,0 +1,22 @@
+# Eat at the table with the TV on beside it (geogen.103.6): eat and watch both share the gaze, so
+# the eyes go between the plate and the screen by turns (the screen for longer: watch's weight is
+# 1.5, eat's 1) while the hand keeps eating.
+kind: motion_scenario
+description: Eat seated with the TV on to the side; the eyes take turns between the plate and the screen.
+scene:
+  slots:
+    table: { position: [0, 0, 0], facing: north }
+    chair: { position: [0, 0, 0.7], facing: south }
+    console: { position: [1.7, 0, 0.5], facing: west }
+  place:
+    table: { asset: table.yaml, slot: table, params: { width: 0.9, depth: 0.7 } }
+    chair: { asset: chair.yaml, slot: chair }
+    plate: { asset: meal_plate.yaml, on: table.top, at: { u: 0.5, v: 0.9 } }
+    console: { asset: tv_console.yaml, slot: console }
+    tv:      { asset: tv.yaml, on: console.top, at: { u: 0.5, v: 0.5 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, offset: [0, 0, 0.2], facing: away }   # between the chair and the table
+script:
+  - { at: 0, start: sit, seat: chair, approach_z: 0.2, duration: 12 }
+  - { at: 1.5, start: eat, food: plate, bites: 4 }
+  - { at: 1.5, start: watch, target: tv.screen, duration: 10 }
+camera: { view: iso_back, frame: [table, chair, tv], margin: 0.2 }

@@ -41,6 +41,7 @@ const LOOK_BONES := ["Neck", "Head"]
 const NOT_PORTED := ["when", "until", "do", "bend"]
 const MORPH_HALF_LIFE := 0.12    # s: drape correctives settle onto a new owner's pose
 const ROOT_LEAD := 0.7           # over planted feet the root arrives by this fraction of the beat
+const SHARE_TURN := 2.0          # s a sharer of weight 1 keeps a shared channel before passing it on
 ## Grips that are not a hand holding the thing: `grip: any` on a role takes the first other one.
 const NOT_HELD := ["sit", "lie", "stand", "use", "look", "press", "put", "rest"]
 const HANDS := {"hand": "RightHand", "right": "RightHand", "left": "LeftHand",
@@ -179,6 +180,11 @@ class Run:
             best = maxi(best, STRENGTHS["claim"])
         return best
 
+    ## Its weight in time-slicing `channel` (holds.share), 0 when it doesn't share it.
+    func share(channel: String) -> float:
+        var shares = motion.get("holds", {}).get("share", {})
+        return float(shares.get(channel, 0.0)) if shares is Dictionary and shares.get(channel) != null else 0.0
+
 
 var names := PackedStringArray()
 var index := {}                  # bone -> its index in names
@@ -220,6 +226,8 @@ var morphs := {}                 # "node:target" -> weight, as the body is now
 var _morph_goal := {}
 var _morph_offset = null         # [delta {key: w}, age]
 var _root_offset = null          # [Transform3D, age, half-life]
+var _share_t := {}               # channel -> how long its sharer has had this turn
+var _share_looked := {}          # "channel/order" -> that run's time with the channel
 var attached_ := {}              # role -> {thing, end, rel: Transform3D, level}: what the hands hold
 ## (name) -> Thing or null: a scene reference a motion or a binding names ("cup", "table").
 var resolver := Callable()
@@ -777,8 +785,10 @@ func _arbitrate() -> void:
             var s: int = run.strength(c)
             if s > 0 and (best == null or _outranks(run, best, c)):
                 best = run
+        best = _share_turn(c, best)
         var was: Run = owners.get(c)
         if best != was:
+            _share_t[c] = 0.0
             if c == "gaze" and _look_key != null:
                 _fade_look()             # the head eases off the old look rather than springing
                 _changed.erase(c)        # (an ended owner asked for it to be inertialized)
@@ -788,7 +798,39 @@ func _arbitrate() -> void:
             if was != null and not was.done and was.strength(c) == STRENGTHS["require"]:
                 interrupt(was.name, "yield")
         owners[c] = best
+        if best != null and best.share(c) > 0.0:
+            _share_t[c] = float(_share_t.get(c, 0.0)) + dt
+            var key := "%s/%d" % [c, best.order]
+            _share_looked[key] = float(_share_looked.get(key, 0.0)) + dt
     _pause_and_resume()
+
+
+## Runs that share a channel (holds.share: {gaze: weight}) and rank equal take turns at it: the
+## one that has it keeps it for SHARE_TURN x its weight, then it passes to the one that has had it
+## least for its weight. A claim at the same strength outranks every share (motion._share_turn).
+func _share_turn(c: String, best: Run) -> Run:
+    if best == null or best.share(c) <= 0.0:
+        return best
+    var sharers := []
+    for r in runs:
+        if not r.done and r.share(c) > 0.0 and r.strength(c) == best.strength(c) \
+                and int(r.motion.get("priority", 0)) == int(best.motion.get("priority", 0)):
+            sharers.append(r)
+    if sharers.size() < 2:
+        return best
+    var was: Run = owners.get(c)
+    if was in sharers and float(_share_t.get(c, 0.0)) < SHARE_TURN * was.share(c) - 1e-9:
+        return was
+    var pick: Run = null
+    var pick_key := []
+    for r in sharers:
+        if r == was:
+            continue
+        var key := [float(_share_looked.get("%s/%d" % [c, r.order], 0.0)) / r.share(c), -r.order]
+        if pick == null or key[0] < pick_key[0] or (key[0] == pick_key[0] and key[1] < pick_key[1]):
+            pick = r
+            pick_key = key
+    return pick
 
 
 ## A run that loses a channel it claims (not a shared one) to another waits, its beat's clock
@@ -814,11 +856,11 @@ func _pause_and_resume() -> void:
             _enter(run, str(beat))
 
 
-## Strength, then priority, then the later started.
+## Strength, then priority, then a claim over a share, then the later started.
 func _outranks(a: Run, b: Run, c: String) -> bool:
-    var ka := [a.strength(c), int(a.motion.get("priority", 0)), a.order]
-    var kb := [b.strength(c), int(b.motion.get("priority", 0)), b.order]
-    for i in 3:
+    var ka := [a.strength(c), int(a.motion.get("priority", 0)), 0 if a.share(c) > 0.0 else 1, a.order]
+    var kb := [b.strength(c), int(b.motion.get("priority", 0)), 0 if b.share(c) > 0.0 else 1, b.order]
+    for i in 4:
         if ka[i] != kb[i]:
             return ka[i] > kb[i]
     return false

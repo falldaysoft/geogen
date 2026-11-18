@@ -11,7 +11,7 @@ from pathlib import Path
 from geogen.motion_review import motion_trace
 
 SCENARIOS = ["squat", "jumping_jacks", "squat_shoved", "bow_wave", "emotes", "idles", "sit_on_chair", "sit_watch_tv",
-             "drink", "inspect", "take_carry_set_down"]
+             "watch_tv", "watch_by_turns", "drink", "inspect", "take_carry_set_down"]
 
 if __name__ == "__main__":
     here = Path(__file__).parent
