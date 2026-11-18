@@ -50,6 +50,8 @@ var guard := Callable()
 var refused := ""
 ## Metres from the eye it can be used from (0: the player's reach).
 var reach := 0.0
+## The grip point of the asset a body touches to work it ("": none).
+var touch := ""
 
 ## [{parts: [Node3D], type, axis: Vector3, pivot: Vector3, values: {state: float},
 ##   value: float, rest: {Node3D: Transform3D}, speed: float}]
@@ -70,6 +72,7 @@ static func from_extras(asset_node: Node3D, name_: String, data: Dictionary) -> 
     it.initial = it.state
     it.refused = str(data.get("refused", ""))
     it.reach = float(data.get("reach", 0.0))
+    it.touch = str(data.get("touch", ""))
     var lock = data.get("lock")
     if lock is Dictionary:
         it.lock_key = str(lock.get("key", ""))

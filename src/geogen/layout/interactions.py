@@ -176,6 +176,8 @@ class Interaction:
             out["refused"] = self.refused
         if self.reach:
             out["reach"] = self.reach
+        if self.touch:
+            out["touch"] = self.touch
         return out
 
     def _motion_extras(self, m: Motion, name_of: Callable[[SceneNode], str]) -> dict[str, Any]:

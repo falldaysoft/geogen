@@ -35,6 +35,7 @@ const PREFER_BONUS := 1.3         # ...and of what it prefers
 const HANDLE_STAND := 0.45        # m from a door's face to stand and open it by its handle (the leaf swings away)
 const HANDLE_LEAD := 0.35         # s from reaching for a handle to pressing it
 const HANDLE_HOLD := 0.6          # s the hand stays on the handle once the door moves
+const PRESS_REACH := 1.6          # of the arm bones' length from the shoulders (the hand and a bent spine add the rest)
 const HANDLE_RANGE := 0.8         # m from the shoulders: a handle further away isn't reached for
 const SHOULDER_DROP := 0.25       # m from the head point down to the shoulders
 const STAIR_HOLD := 2.0           # m before a stair to wait while someone is coming along it
@@ -198,6 +199,11 @@ var absent := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
 var _hands: GeogenHands = null     # hands onto what is really there: tables, door handles (hands.gd)
 var _press_in := 0.0               # s until a reaching hand presses what it reaches for (a use step)
+var _motions: GeogenMotionPlayer = null   # the body's motion rig, made when first needed (_motion_player)
+var _run: GeogenMotionRig.Run = null      # the motion the step in hand waits for (`do:`, a press)
+var _kept: Array[GeogenMotionRig.Run] = []   # motions started with `keep: true`: until the option ends
+var _pressing := false             # a `use:` step's finger is on its way to the interaction's touch point
+var _emitted := {}                 # what the body's motions have emitted since the press began
 var _feet: GeogenFeet = null       # standing feet onto the ground that is really there (feet.gd)
 var _playing := false             # a `play:` step holds the body's animation
 var _close := false               # the walk's last bit goes off the navmesh, up to the target (`close`)
@@ -1011,6 +1017,7 @@ func _push(action_name: String, ctx: Dictionary) -> void:
 
 
 func _finish_option(ok: bool, reason := "") -> void:
+    _stop_motions()
     if _pose == "stand":
         _ride = {}
     _intent = ""
@@ -1418,6 +1425,7 @@ func _step(delta: float) -> void:
 
 
 func _fail(reason: String) -> void:
+    _stop_motions()
     _let_go()
     _stack.clear()
     _stair = null
@@ -1542,6 +1550,8 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         return ""
     if step.has("vanish"):
         return ""
+    if step.has("do"):
+        return _begin_do(step, ctx)
     if step.has("play"):
         # A skeletal body plays the clip once (then back to standing), or over and over for the
         # step's `loop` time (work at a counter); others just pause, or stand there that long.
@@ -1606,6 +1616,9 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if not it.states.has(state):
             return ""
         _press_in = 0.0
+        _pressing = false
+        if it.target != state and _press(it):
+            return ""
         if it.target != state:
             # A door with a handle on this side: reach for it, press once the hand is there, and
             # keep hold of it while the leaf starts to move.
@@ -1628,6 +1641,10 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
         rotation.y += clampf(diff, -turn, turn)
         return "done" if absf(diff) <= turn else "running"
+    if step.has("do"):
+        if str((step.get("params", {}) as Dictionary).get("duration", "")) == "duration":
+            _fill_over(delta)
+        return "running" if _run != null and not _run.done else "done"
     if step.has("pose"):
         if _moving_pose():
             return "running"              # the transition clip sets the pace
@@ -1717,6 +1734,13 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         var state := _state_name(str(step["use"]), ctx)
         if it == null or not it.states.has(state) or (it.state == state and it.target == state):
             return "done"
+        if _pressing:
+            if not _emitted.has("pressed") and _run != null and not _run.done:
+                return "running"                  # the finger is on its way
+            _pressing = false
+            _note_press(it)
+            if it.target != state and not it.use(WorldLoader.actor_id(self)):
+                return "can't use %s (locked?)" % it.name
         if _press_in > 0.0:
             _press_in -= delta
             if _press_in > 0.0:
@@ -1728,6 +1752,132 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             it.use(WorldLoader.actor_id(self))   # someone turned it back: press again
         return "running" if _timer < USE_TIMEOUT else "%s never reached '%s'" % [it.name, state]
     return "unknown step"
+
+
+# --- motions (assets/motions/, motion_player.gd) ---------------------------------
+
+## The body's motion player, layered over its clips; null for a body with no rig (a capsule, a cat).
+func _motion_player() -> GeogenMotionPlayer:
+    if _motions == null and body != null:
+        _motions = GeogenMotionPlayer.on(body)
+        if _motions != null:
+            _motions.layered = true
+            _motions.rig.emitted.connect(func(_motion: String, what: String): _emitted[what] = true)
+    return _motions
+
+
+## Start a `do:` step's motion; "" or why it can't run. A body with no rig just goes on.
+func _begin_do(step: Dictionary, ctx: Dictionary) -> String:
+    velocity = Vector3.ZERO
+    _run = null
+    var player := _motion_player()
+    if player == null:
+        return ""
+    var name := str(step["do"])
+    var spec: Dictionary = GeogenMotionPlayer.motions(world.generated_dir).get(name, {})
+    if spec.is_empty():
+        return "no motion '%s' in this export" % name
+    var values := {}
+    var params: Dictionary = step.get("params", {})
+    for key in params:
+        values[key] = params[key]
+        if str(params[key]) == "duration":
+            var r: Array = ctx["duration"]
+            values[key] = rng.randf_range(float(r[0]), float(r[1]))
+            if _stack.size() == 1 and not ctx.get("held", false):
+                _fill_total = float(values[key])
+    var roles: Dictionary = step.get("roles", {})
+    for role in roles:
+        var bound = _motion_role(str(roles[role]), ctx)
+        if bound == null:
+            return "motion '%s': nothing to be its %s (%s)" % [name, role, roles[role]]
+        values[role] = bound
+    var run := player.start(spec, values)
+    if run == null:
+        return "motion '%s' can't run on this body" % name
+    if step.get("keep", false):
+        _kept.append(run)
+    else:
+        _run = run
+    return ""
+
+
+## What a `do:` step's role names, as the rig binds it: a node, a Thing or a Target; null if none.
+func _motion_role(source: String, ctx: Dictionary) -> Variant:
+    match source:
+        "subject":
+            var uid := str(ctx.get("subject", ""))
+            return world.props.props[uid]["node"] if world.props != null and world.props.props.has(uid) else null
+        "interaction":
+            var it: GeogenInteraction = ctx.get("interaction")
+            return _touch_of(it) if it != null else null
+        "anchor":
+            if not ctx.has("anchor"):
+                return null
+            var at := Transform3D(Basis(Vector3.UP, deg_to_rad(float(ctx.get("yaw_deg", 0.0)))), ctx["anchor"])
+            return GeogenMotionRig.Thing.fixed("anchor", at)
+        "place":
+            var place: Dictionary = ctx.get("place", {})
+            if not place.has("position"):
+                return null
+            var at := Transform3D(Basis(Vector3.UP, float(place.get("yaw", _yaw()))), place["position"])
+            return GeogenMotionRig.Thing.fixed("place", at)
+    return null
+
+
+## Where a body touches interaction ``it`` (its `touch:` grip point), or null.
+func _touch_of(it: GeogenInteraction) -> GeogenMotionRig.Target:
+    var player := _motion_player()
+    if player == null or it.touch == "" or not is_instance_valid(it.asset):
+        return null
+    var thing := player.thing_of(it.asset)
+    return GeogenMotionRig.contact(thing, null, it.touch) if thing.grips.has(it.touch) else null
+
+
+## Work ``it`` with a finger: the `press` motion to its touch point, the state changing when the
+## finger arrives (its `pressed`). False when this body can't: no rig, no touch point, out of reach,
+## or not on its feet; the step then uses it from where it stands.
+func _press(it: GeogenInteraction) -> bool:
+    var button := _touch_of(it)
+    if button == null or _pose != "stand":
+        return false
+    var spec: Dictionary = GeogenMotionPlayer.motions(world.generated_dir).get("press", {})
+    var rig := _motions.rig
+    var arm: float = float(rig.params.get("height", 1.7)) * float(rig.params.get("arm_ratio", 0.44))
+    if spec.is_empty() or button.world().origin.distance_to(head_point() + Vector3.DOWN * SHOULDER_DROP) > arm * PRESS_REACH:
+        return false
+    _emitted.erase("pressed")
+    _run = _motions.start(spec, {"button": button})
+    _pressing = _run != null
+    if _pressing:
+        stats["presses"] = int(stats.get("presses", 0)) + 1
+    return _pressing
+
+
+## How far the index fingertip is from the touch point as the press lands (m, for the report).
+func _note_press(it: GeogenInteraction) -> void:
+    var button := _touch_of(it)
+    var rig := _motions.rig if _motions != null else null
+    if button == null or rig == null or not _emitted.has("pressed"):
+        return
+    var tip := -1
+    for i in rig.names.size():
+        if String(rig.names[i]).begins_with("RightIndex"):
+            tip = i                        # the last of the finger's bones
+    if tip >= 0:
+        var at: Vector3 = rig.body_world * (rig.world()[tip] as Transform3D).origin
+        stats["press_gap"] = snappedf(at.distance_to(button.world().origin), 0.001)
+
+
+## The motions it is in the middle of stop as their beats allow (`how`: yield, or drop).
+func _stop_motions(how := "yield") -> void:
+    _pressing = false
+    if _motions != null:
+        for run in _kept + ([_run] if _run != null else []):
+            if not run.done:
+                _motions.stop(run.name, how)
+    _run = null
+    _kept = []
 
 
 ## What a save keeps of this NPC (the save's `npcs`, by stable ID; docs/rules.md "Saving"): its
@@ -1809,6 +1959,7 @@ func _show() -> void:
 
 ## Stop whatever it is doing and stand: off its seat, its option given up.
 func _drop_everything() -> void:
+    _stop_motions("drop")
     _let_go()
     _clear_set_out()
     _intent = ""
@@ -3198,6 +3349,7 @@ func _cut_short() -> bool:
     _path = PackedVector3Array()
     _playing = false
     _looping = false
+    _stop_motions()
     frame["index"] = to
     frame["started"] = false
     stats["cut_short"] = int(stats.get("cut_short", 0)) + 1
@@ -3457,6 +3609,7 @@ func _react(action_name: String, extra: Dictionary) -> void:
         _stack.back()["from"] = global_position
     _playing = false                       # the reaction's own steps animate the body
     _looping = false
+    _stop_motions()
     velocity = Vector3.ZERO
     _path = PackedVector3Array()
     _stairs = []
@@ -3563,7 +3716,7 @@ func report() -> Dictionary:
         "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),
         "signal_crossings": int(stats.get("signal_crossings", 0)),
         "signal_violations": int(stats.get("signal_violations", 0)),
-        "waves": int(stats.get("waves", 0)),
+        "waves": int(stats.get("waves", 0)), "presses": int(stats.get("presses", 0)), "press_gap": float(stats.get("press_gap", -1.0)),
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         "holding": holding(),

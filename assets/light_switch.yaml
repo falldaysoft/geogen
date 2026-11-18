@@ -31,9 +31,14 @@ parts:
     material: paint_white
     collider: none
 
+# Where a finger works it (motion press).
+attachments:
+  rocker: { anchor: bottom_center, offset: [0, 0.0425, 0.02], grip: press }
+
 # Runtimes show or hide the light when the switch arrives at a state.
 interactions:
   switch:
+    touch: rocker
     targets: [rocker, plate]
     initial: "on"
     duration: 0.15

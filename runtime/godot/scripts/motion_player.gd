@@ -14,9 +14,15 @@ extends SkeletonModifier3D
 ## (props.gd) is taken out of the physics while held (`GeogenProps.take`) and let go of where the
 ## hand leaves it (a break lets it fall); any other node is moved with the hand.
 ##
+## Layered (an NPC's body): only the channels a motion holds are written, eased in and out over
+## whatever the body's clips and other modifiers put there, so a hand presses a button or carries a
+## plate while the legs go on walking.
+##
 ## Control API: motion.start / motion.stop / motion.status (api.gd).
 
 const FPS := 30
+const LAYER_EASE := 0.15          # s for a channel to come onto, or go off, what the clips are doing
+const TRACE_KEEP := 256           # events a long-lived body keeps of its rig's trace
 
 static var _motions := {}        # generated dir -> {name: spec}
 static var _catalogues := {}     # generated dir -> [catalogue entry] (motion.motion_catalogue)
@@ -28,6 +34,8 @@ var _clock := 0.0
 var _active := false              # writing bones (a motion runs, or one just ended and is easing out)
 var _things := {}                 # node -> its GeogenMotionRig.Thing
 var _shapes := {}                 # "node:target" -> [MeshInstance3D, blend shape index]
+var layered := false              # write only what motions hold, over the body's animation
+var _weights := PackedFloat32Array()   # layered: how much of each rig bone is the rig's, 0..1
 
 
 ## The player on `body` (a node whose extras carry `rig`), made and attached on first use;
@@ -53,6 +61,7 @@ static func on(body_: Node3D) -> GeogenMotionPlayer:
     player.rig.released.connect(player._let_go)
     for name in player.rig.names:
         player._bones.append(skeleton.find_bone(name))
+    player._weights.resize(player.rig.names.size())
     player.rig.add_transitions(transitions_of(body_))
     for key in player.rig.morph_keys:
         var at := String(key).rfind(":")
@@ -173,15 +182,21 @@ func thing_named(name: String):
 ## Start `motion` with `values` for its params and roles (a role's value: a node, a Thing, or a
 ## name `thing_named` finds); "" or why it didn't.
 func play(motion: Dictionary, values := {}) -> String:
+    if start(motion, values) == null:
+        return "motion '%s' can't run on this body (see the log)" % motion.get("name", "?")
+    return ""
+
+
+## `play`, handing back the run (null when it can't start).
+func start(motion: Dictionary, values := {}) -> GeogenMotionRig.Run:
     var given := {}
     for k in values:
         given[k] = thing_of(values[k]) if values[k] is Node3D else values[k]
     rig.body_world = body.global_transform
     var run := rig.start(motion, given)
-    if run == null:
-        return "motion '%s' can't run on this body (see the log)" % motion.get("name", "?")
-    _active = true
-    return ""
+    if run != null:
+        _active = true
+    return run
 
 
 func stop(name: String, how := "yield") -> String:
@@ -242,13 +257,29 @@ func _physics_process(delta: float) -> void:
         steps += 1
     if steps > 0:
         _move_held()
-        for key in _shapes:
-            var shape: Array = _shapes[key]
-            if is_instance_valid(shape[0]):
-                (shape[0] as MeshInstance3D).set_blend_shape_value(shape[1], float(rig.morphs.get(key, 0.0)))
+        # (Layered, the drape follows the clips unless a motion has the hips.)
+        if not layered or rig.owners.get("hips") != null:
+            for key in _shapes:
+                var shape: Array = _shapes[key]
+                if is_instance_valid(shape[0]):
+                    (shape[0] as MeshInstance3D).set_blend_shape_value(shape[1], float(rig.morphs.get(key, 0.0)))
+        if rig.trace.size() > TRACE_KEEP * 2:
+            rig.trace = rig.trace.slice(-TRACE_KEEP)
+    var eased := not layered or _ease_layers(delta)
     # Keep writing for a moment after the last motion ends: the rig eases its channels back.
-    if rig.running().is_empty() and rig._offsets.is_empty():
+    if rig.running().is_empty() and rig._offsets.is_empty() and eased:
         _active = false
+
+
+## Each bone's share toward 1 while a motion holds its channel, else toward 0; whether all are off.
+func _ease_layers(delta: float) -> bool:
+    var off := true
+    for i in _weights.size():
+        var channel = rig.channel_of.get(rig.names[i])
+        var held: bool = channel != null and rig.owners.get(channel) != null
+        _weights[i] = move_toward(_weights[i], 1.0 if held else 0.0, delta / LAYER_EASE)
+        off = off and _weights[i] <= 0.0
+    return off
 
 
 # -- what the hands hold ------------------------------------------------------------------------
@@ -315,6 +346,14 @@ func _process_modification() -> void:
         var bone := _bones[i]
         if bone < 0:
             continue
+        var weight := _weights[i] if layered else 1.0
+        if weight <= 0.0:
+            continue
         var local := rig.local(i)
-        skeleton.set_bone_pose_position(bone, local.origin)
-        skeleton.set_bone_pose_rotation(bone, local.basis.get_rotation_quaternion())
+        var at := local.origin
+        var turn := local.basis.get_rotation_quaternion()
+        if weight < 1.0:
+            at = skeleton.get_bone_pose_position(bone).lerp(at, weight)
+            turn = skeleton.get_bone_pose_rotation(bone).slerp(turn, weight)
+        skeleton.set_bone_pose_position(bone, at)
+        skeleton.set_bone_pose_rotation(bone, turn)

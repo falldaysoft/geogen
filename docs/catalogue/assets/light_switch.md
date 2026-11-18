@@ -27,6 +27,12 @@ place:
 
 `plate` (cube), `rocker` (cube)
 
+## Attachments
+
+| Attachment | Position | Facing |
+| --- | --- | --- |
+| `rocker` | (0, 0.043, 0.02) | center |
+
 ## Interactions
 
 switch: on* -> off, off -> on (* initial; rotates rocker)

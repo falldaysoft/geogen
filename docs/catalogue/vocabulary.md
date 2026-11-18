@@ -375,7 +375,7 @@ The actions NPCs run at affordances, as steps (go_to, face, pose, wait, use, pla
 
 Use: `referenced by affordances: {type: sit, action: sit}`
 
-Keys: `face`, `find`, `go_to`, `pick_up`, `play`, `pose`, `put_down`, `set_out`, `show`, `use`, `use_item`, `vanish`, `wait`
+Keys: `do`, `face`, `find`, `go_to`, `pick_up`, `play`, `pose`, `put_down`, `set_out`, `show`, `use`, `use_item`, `vanish`, `wait`
 
 | File | What it is |
 | --- | --- |

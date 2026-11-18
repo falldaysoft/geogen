@@ -22,6 +22,11 @@
 #                                a moment) and return to standing
 #       loop: duration | S | [lo, hi]  ...over and over for that long instead (work at a counter:
 #                                a body without the clip just stands there that long)
+#   do: <motion>                 run a motion (assets/motions/) on the body and wait for it to end;
+#                                a body with no rig goes straight on
+#       roles: {<role>: subject | place | anchor | interaction}  what the motion's roles are
+#       params: {<param>: value} the motion's params (duration: drawn from the action's range)
+#       keep: true               ...start it and go on: it runs until the option ends
 #   pose: <name>                 put the body in a pose from its body asset's `poses:` (a skeletal
 #                                body plays its transition clip for the change: sit_down, ...)
 #       at: anchor | approach    ...placed at the anchor (a seat) or where it stands
@@ -31,7 +36,8 @@
 #       part: 0..1               ...that share of the duration, drawn once for the action (stages)
 #   wait: partner                until the NPC that took up this one's offer is done (or gives up)
 #   use: <state>                 drive the affordance's/portal's interaction to <state>
-#                                (presses it like the player does, waits for arrival);
+#                                (a body with a rig presses the interaction's `touch:` point with the
+#                                `press` motion when it can reach it; waits for arrival);
 #                                `use: goal` drives it to the state a quest goal wants
 #   use_item: <id> | "[tag=<tag>]"  use an item the NPC carries, as the player's F does (the
 #                                rules' use_item event with the NPC as the actor; what happens is

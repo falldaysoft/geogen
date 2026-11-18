@@ -64,7 +64,12 @@ ACTIONS_KIND = "npc_actions"
 VERSION = 1
 
 STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item", "pick_up", "put_down", "find",
-             "set_out", "show"}
+             "set_out", "show", "do"}
+# `do: <motion>` runs a motion file (assets/motions/) on the body and waits for it to end.
+# `roles: {<motion role>: subject | place | anchor | interaction}` binds its roles to what the action
+# is about, `params: {<param>: value}` sets its params (`duration`: drawn from the action's range), and
+# `keep: true` starts it and goes on: it runs until the option ends. A body with no rig skips the step.
+DO_ROLES = {"subject", "place", "anchor", "interaction"}
 # What is carried shows (geogen.105): `set_out: <item>` puts the carried item's body on what is in
 # front of the NPC (a table) until the action ends or the item is used up; `show: {<item>: <state>}`
 # gives that body (in the hand or set out) a state of its own interaction: a meal eaten from full
@@ -76,7 +81,7 @@ STEP_KEYS = {"go_to", "face", "pose", "wait", "use", "vanish", "play", "use_item
 # far); its own things count half as far and each distance gets a seeded +-40%. Reading a book in
 # the armchair or in bed (geogen.104).
 FIND_TYPES = ("sit", "lie")
-STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look", "prefer", "part"}
+STEP_OPTIONS = {"at", "if", "hold", "loop", "close", "look", "prefer", "part", "roles", "params", "keep"}
 # `look:` on any step: where the head turns from that step on, until a later step says otherwise
 # or the action ends (the action's subject, place or anchor; none: nowhere in particular).
 LOOK_TARGETS = {"subject", "place", "anchor", "partner", "none"}
@@ -220,6 +225,31 @@ def _vec3(value: Any, what: str) -> list[float]:
     return [float(v) for v in value]
 
 
+def _check_do(step: dict[str, Any], where: str) -> None:
+    """A ``do:`` step names a motion there is, binds every role it needs and only params it has."""
+    from .motion import load_motion, motion_names
+
+    name = step["do"]
+    if name not in motion_names():
+        raise ValueError(f"{where}: do: no motion {name!r} in assets/motions/")
+    motion = load_motion(name)
+    roles = step.get("roles") or {}
+    if not isinstance(roles, dict) or set(roles.values()) - DO_ROLES:
+        raise ValueError(f"{where}: roles is {{<motion role>: one of {sorted(DO_ROLES)}}}, got {roles!r}")
+    declared = motion.get("roles") or {}
+    if set(roles) - set(declared):
+        raise ValueError(f"{where}: motion {name!r} has no role {sorted(set(roles) - set(declared))} "
+                         f"(it has {sorted(declared)})")
+    missing = [r for r, spec in declared.items() if r not in roles and not (spec or {}).get("optional")]
+    if missing:
+        raise ValueError(f"{where}: motion {name!r} needs its roles {missing} bound")
+    params = step.get("params") or {}
+    if not isinstance(params, dict) or set(params) - set(motion.get("params") or {}) - {"duration"}:
+        raise ValueError(f"{where}: motion {name!r} has no params {sorted(set(params) - set(motion.get('params') or {}))}")
+    if step.get("keep", False) not in (True, False):
+        raise ValueError(f"{where}: keep is true or false")
+
+
 def _check_step(step: Any, where: str) -> dict[str, Any]:
     if not isinstance(step, dict):
         raise ValueError(f"{where}: a step must be a mapping, got {step!r}")
@@ -230,6 +260,10 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
                          f"(options {sorted(STEP_OPTIONS)}), got {sorted(step)}")
     verb = next(iter(verbs))
     arg = step[verb]
+    if verb == "do":
+        _check_do(step, where)
+    elif {"roles", "params", "keep"} & set(step):
+        raise ValueError(f"{where}: roles, params and keep are a do step's options, got {sorted(step)}")
     if verb == "go_to" and arg not in GO_TO_TARGETS:
         raise ValueError(f"{where}: go_to must be one of {sorted(GO_TO_TARGETS)}, got {arg!r}")
     if verb == "pick_up" and arg != "subject":

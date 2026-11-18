@@ -121,3 +121,11 @@ def test_a_light_put_on_again_and_again_is_left_on(rt):
     rt.call("npcs.resume", npc="hana")
     rt.call("time.advance", seconds=20, scale=4)
     assert state(rt, BEDROOM_SWITCH) == "on" and not want_failures(rt)  # she has had enough: nothing failed
+
+
+def test_her_finger_is_on_the_switch_when_the_light_goes_out(rt):
+    # `use:` works a thing with a `touch:` point through the press motion: the state changes when
+    # the finger gets there, not when she arrives in front of it (geogen.103.8).
+    report = hana(rt)
+    assert report["presses"] >= 1
+    assert 0.0 <= report["press_gap"] < 0.05

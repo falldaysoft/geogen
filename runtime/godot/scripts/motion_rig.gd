@@ -50,6 +50,7 @@ const HANDS := {"hand": "RightHand", "right": "RightHand", "left": "LeftHand",
 ## A thing took hold of / let go of by a hand (`to_physics`: let go of by a break, to fall).
 signal attached(thing: Thing, end: String)
 signal released(thing: Thing, to_physics: bool)
+signal emitted(motion: String, what: String)
 ## Two-bone limbs by end bone: upper, lower, rest direction, rest pole (core/ik.py LIMBS).
 const LIMBS := {
     "LeftFoot": ["LeftUpperLeg", "LeftLowerLeg", Vector3(0, -1, 0), Vector3(0, 0, 1)],
@@ -700,6 +701,7 @@ func _arrive(run: Run) -> void:
                 _end(other)
     if spec.get("emit"):
         _event("emit", run, {"emit": spec["emit"]})
+        emitted.emit(run.name, str(spec["emit"]))
     if spec.get("pose") and "hips" in _owned(run) and posture != spec["pose"]:
         posture = spec["pose"]
         var free := []
