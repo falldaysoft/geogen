@@ -85,6 +85,19 @@ parts:
     offset: [0.04, 0.17, 0.42]
     material: fire_glow
     collider: none
+    emitter:                          # the flames licking up, kept inside the opening
+      at: [0, -0.26, 0]                # from the logs, not the middle of the flame
+      rate: 70
+      lifetime: 0.6
+      speed: [0.25, 0.55]
+      spread: 16
+      gravity: -0.3
+      area: [0.5, 0.02, 0.14]
+      size: [0.11, 0.02]
+      color: [1.0, 0.5, 0.14]
+      opacity: 0.8
+      material: glow
+    sound: { band: [180, 2400], crackle: 0.7, flutter: 0.4, volume_db: -14, range: 9 }
   flame_2:
     primitive: cone
     size: [0.18, 0.34, 0.12]
