@@ -63,73 +63,73 @@ place:
   portal_cottage:
     asset: portal.yaml
     slot: portal_cottage
-    params: { label: Cottage }
+    params: { label: Cottage, width: 1.3, plaque: 2.4 }
     travel: { scene: cottage, spawn: from_hub }
 
   portal_hotel:
     asset: portal.yaml
     slot: portal_hotel
-    params: { label: Hotel }
+    params: { label: Hotel, width: 1.3, plaque: 2.4 }
     travel: { scene: hotel_showcase, spawn: from_hub }
 
   portal_restaurant:
     asset: portal.yaml
     slot: portal_restaurant
-    params: { label: Restaurant, plaque: 3.2 }
+    params: { label: Restaurant, plaque: 3.2, width: 1.3, plaque: 2.4 }
     travel: { scene: restaurant, spawn: from_hub }
 
   portal_main_street:
     asset: portal.yaml
     slot: portal_main_street
-    params: { label: Main Street, plaque: 3.2 }
+    params: { label: Main Street, plaque: 3.2, width: 1.3, plaque: 2.4 }
     travel: { scene: main_street, spawn: from_hub }
 
   portal_quests:
     asset: portal.yaml
     slot: portal_quests
-    params: { label: Quests }
+    params: { label: Quests, width: 1.3, plaque: 2.4 }
     travel: { scene: quest_yard, spawn: from_hub }
 
   portal_city:
     asset: portal.yaml
     slot: portal_city
-    params: { label: City }
+    params: { label: City, width: 1.3, plaque: 2.4 }
     travel: { scene: city, spawn: from_hub }
 
   portal_town:
     asset: portal.yaml
     slot: portal_town
-    params: { label: Town }
+    params: { label: Town, width: 1.3, plaque: 2.4 }
     travel: { scene: town, spawn: from_hub }
 
   portal_park:
     asset: portal.yaml
     slot: portal_park
-    params: { label: Park }
+    params: { label: Park, width: 1.3, plaque: 2.4 }
     travel: { scene: park, spawn: from_hub }
 
   portal_island:
     asset: portal.yaml
     slot: portal_island
-    params: { label: Island }
+    params: { label: Island, width: 1.3, plaque: 2.4 }
     travel: { scene: island, spawn: from_hub }
 
   portal_farm:
     asset: portal.yaml
     slot: portal_farm
-    params: { label: Farm }
+    params: { label: Farm, width: 1.3, plaque: 2.4 }
     travel: { scene: farm, spawn: from_hub }
 
   portal_motions:
     asset: portal.yaml
     slot: portal_motions
-    params: { label: Motions }
+    params: { label: Motions, width: 1.3, plaque: 2.4 }
     travel: { scene: motion_gallery, spawn: from_hub }
 
   portal_christmas:
     asset: portal.yaml
     slot: portal_christmas
-    params: { label: Christmas Eve }
+    params: { label: Christmas Eve, width: 1.3, plaque: 2.4 }
     travel: { scene: christmas_eve, spawn: from_hub }
 
   signpost:
