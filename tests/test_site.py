@@ -87,6 +87,16 @@ def test_models_give_asset_pages_a_3d_view(make_site, tmp_path):
     assert "view3d" not in (tmp_path / "assets" / "sofa.html").read_text()
 
 
+def test_exported_scenes_are_listed_for_walking(make_site, tmp_path):
+    """Scenes in models/index.json get a link on the scenes page that opens the viewer walking."""
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "index.json").write_text('{"assets": ["door"], "scenes": ["cottage"]}')
+    make_site.Site(DOCS / "catalogue", "https://github.com/example/geogen", "main").build(tmp_path)
+    assert 'href="view/?s=cottage&amp;walk=1"' in (tmp_path / "scenes.html").read_text()
+    for module in ("viewer.js", "rules.js", "interactions.js", "lights.js", "walker.js"):
+        assert (tmp_path / "view" / module).exists()
+
+
 def test_web_builds_are_listed_on_the_index(make_site, tmp_path):
     """Builds at play/ and play/<project>/ (each with a build.json and a page) get a line on the index."""
     out = tmp_path / "site"
