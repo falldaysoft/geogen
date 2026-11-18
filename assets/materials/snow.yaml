@@ -1,0 +1,14 @@
+# Fresh snow: soft, bright and matte.
+name: snow
+texture:
+  type: painted_wall
+  params:
+    base_color: [234, 239, 245]
+    seed: 77
+size: [128, 128]
+tile_size: 2.0  # metres per texture repeat
+pbr:
+  roughness: 0.95
+  metallic: 0.0
+  normal_strength: 0.2
+  ao_strength: 0.0

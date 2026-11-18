@@ -1,0 +1,16 @@
+# The cleared driveway and path up to the front door.
+
+name: driveway
+tags: [ground.drive]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  slab:
+    primitive: cube
+    size: [3.4, 0.02, 14]
+    anchor: bottom_center
+    bevel: 0
+    material: concrete
+    collider: none

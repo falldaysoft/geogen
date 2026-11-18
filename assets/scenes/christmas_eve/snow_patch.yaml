@@ -1,0 +1,20 @@
+# A flat stretch of snow on the ground.
+
+name: snow_patch
+tags: [ground.snow]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  width: { default: 10 }
+  depth: { default: 10 }
+
+parts:
+  snow:
+    primitive: cube
+    size: ["{width}", 0.01, "{depth}"]
+    anchor: bottom_center
+    bevel: 0
+    material: snow
+    collider: none

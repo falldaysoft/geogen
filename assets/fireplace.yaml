@@ -1,0 +1,94 @@
+# A brick fireplace with a chimney breast up to the ceiling, a wooden mantel and a low fire of logs
+# that gives the room its warm light. Stands against a wall. Origin: on the floor at the middle
+# of its back; it faces +Z.
+
+name: fireplace
+tags: [furniture.fireplace, quality.warm]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: { default: 2.5 }
+
+light: { energy: 2.2, range: 6.5, color: [1.0, 0.62, 0.3], offset: [0, 0.45, 0.62] }
+
+parts:
+  breast:
+    primitive: cube
+    size: [1.9, "{height}", 0.55]
+    anchor: bottom_center
+    offset: [0, 0, 0.275]
+    bevel: 0
+    subtract: [opening]
+    material: brick
+    collider: box
+  opening:
+    primitive: cube
+    cutter: true
+    size: [1.05, 0.85, 0.5]
+    anchor: bottom_center
+    offset: [0, 0.04, 0.42]
+  firebox:
+    primitive: cube
+    size: [1.07, 0.87, 0.04]
+    anchor: bottom_center
+    offset: [0, 0.03, 0.15]
+    bevel: 0
+    material: lamp_iron
+    collider: none
+  hearth:
+    primitive: cube
+    size: [2.2, 0.05, 0.6]
+    anchor: bottom_center
+    offset: [0, 0, 0.8]
+    bevel: 0.01
+    bevel_segments: 1
+    material: stone
+    collider: none
+  mantel:
+    primitive: cube
+    size: [2.15, 0.09, 0.3]
+    anchor: bottom_center
+    offset: [0, 1.15, 0.65]
+    bevel: 0.015
+    bevel_segments: 1
+    material: wood_dark
+    collider: none
+  log_0:
+    primitive: cylinder
+    size: [0.11, 0.7, 0.11]
+    anchor: center
+    offset: [0.02, -0.39, 0.42]
+    rotation: [0, 12, 90]
+    material: bark
+    collider: none
+  log_1:
+    primitive: cylinder
+    size: [0.1, 0.62, 0.1]
+    anchor: center
+    offset: [-0.04, -0.3, 0.46]
+    rotation: [0, -18, 90]
+    material: bark
+    collider: none
+  flame_0:
+    primitive: cone
+    size: [0.22, 0.42, 0.14]
+    anchor: bottom_center
+    offset: [-0.14, 0.17, 0.44]
+    material: fire_glow
+    collider: none
+  flame_1:
+    primitive: cone
+    size: [0.28, 0.56, 0.16]
+    anchor: bottom_center
+    offset: [0.04, 0.17, 0.42]
+    material: fire_glow
+    collider: none
+  flame_2:
+    primitive: cone
+    size: [0.18, 0.34, 0.12]
+    anchor: bottom_center
+    offset: [0.2, 0.17, 0.46]
+    material: fire_glow
+    collider: none

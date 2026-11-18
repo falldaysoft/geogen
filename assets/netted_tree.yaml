@@ -7,12 +7,15 @@ origin: bottom_center
 size: [1, 1, 1]
 bounds: geometry
 
+params:
+  above_floor: { default: 0 }     # how high it lies above the ground it is placed on (a truck's bed)
+
 parts:
   trunk:
     primitive: cylinder
     size: [0.07, 0.3, 0.07]
     anchor: center
-    offset: [0, -0.29, -0.85]
+    offset: [0, "{above_floor - 0.29}", -0.85]
     rotation: [90, 0, 0]
     material: bark
     collider: none
@@ -20,7 +23,7 @@ parts:
     primitive: cone
     size: [0.42, 1.65, 0.42]
     anchor: center
-    offset: [0, -0.29, 0.1]
+    offset: [0, "{above_floor - 0.29}", 0.1]
     rotation: [90, 0, 0]
     material: foliage_pine
     collider: none
@@ -34,5 +37,5 @@ interactions:
       - { parts: [trunk, boughs], show: [here] }
 
 affordances:
-  - { type: stand, action: attend, at: [0, 0, -1.4], facing: 0, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
+  - { type: stand, action: attend, at: [0, 0, -1.6], facing: 0, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
       gives: fir_tree, requires: { state: { stock: here } }, sets: { stock: taken } }

@@ -1,0 +1,20 @@
+# A small house for christmas_eve: a living room and an entrance hall, the front door on the south
+# side. Origin at the centre of the floor.
+
+name: cozy_house
+tags: [building.house]
+
+floorplan:
+  wall_height: 2.5
+  exterior_wall: 0.2
+  interior_wall: 0.12
+  materials: { walls: wall_plaster, floor: hardwood_floor, ceiling: ceiling_white }
+  rooms:
+    living: { rect: [0, 0, 6, 5], type: living_room }
+    hall:   { rect: [6, 0, 2.4, 5], type: hallway }
+  doors:
+    - { name: front_door, room: hall, side: south, at: 0.5, width: 1.1, height: 2.05, swing: out }
+    - { between: [living, hall], at: 0.3, width: 1.6, style: archway }
+  windows:
+    - { room: living, side: south, at: 0.55, width: 1.6, height: 1.1, sill: 0.9 }
+    - { room: living, side: west, at: 0.5, width: 1.4, height: 1.1, sill: 0.9 }

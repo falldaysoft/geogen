@@ -1,0 +1,241 @@
+# A pickup truck: long bonnet, a cab for two, and an open bed with the tailgate let down. Built
+# along +Z (front), origin on the ground midway between the axles, left = +X, parts in metres
+# (unit container, `bounds: geometry`). Things go in the bed on the `bed` surface.
+
+name: pickup_truck
+tags: [vehicle.pickup]
+origin: bottom_center
+bounds: geometry
+size: [1, 1, 1]
+
+params:
+  length:    { default: 5.3 }
+  width:     { default: 1.95 }
+  height:    { default: 1.85 }
+  wheelbase: { default: 3.2 }
+  wheel_r:   { default: 0.38 }
+  tyre_w:    { default: 0.26 }
+  belt:      { default: 1.12 }
+  hood:      { default: 1.05 }
+  cab_len:   { default: 1.6 }      # from the windscreen base to the back of the cab
+  bed:       { default: 0.82 }     # height of the bed's floor
+  paint:     { default: car_red, choices: [car_white, silver, graphite, car_black, car_red, car_blue, car_navy, british_green, beige, orange] }
+
+derived:
+  lh: "{length / 2}"
+  wz: "{wheelbase / 2}"
+  wx: "{width / 2 - tyre_w / 2 - 0.03}"
+  screen_z: "{lh - 1.25}"          # windscreen base
+  roof_f: "{screen_z - 0.45}"      # windscreen top
+  b_z: "{screen_z - cab_len}"      # back of the cab, where the bed begins
+  bed_len: "{b_z + lh}"
+  bed_z: "{(b_z - lh) / 2}"
+
+parts:
+  body:
+    primitive: extrude
+    axis: x
+    fit: none
+    shape:
+      - ["{-(lh - 0.03)}", 0.3]
+      - ["{-lh}", 0.55]
+      - ["{-(lh - 0.06)}", "{hood - 0.05}"]
+      - ["{-(lh - 0.25)}", "{hood}"]
+      - ["{-screen_z}", "{belt}"]
+      - ["{-b_z}", "{belt}"]
+      - ["{-b_z}", "{bed}"]
+      - ["{lh - 0.04}", "{bed}"]
+      - ["{lh}", "{bed - 0.06}"]
+      - ["{lh}", 0.3]
+      - ["{lh - 0.3}", 0.22]
+      - ["{-(lh - 0.3)}", 0.22]
+    size: ["{width}", "{belt - 0.22}", "{length}"]
+    anchor: bottom_center
+    offset: [0, 0.22, 0]
+    bevel: 0.05
+    crease_angle: 35
+    subtract: [arch_front, arch_rear]
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+
+  arch_front: &arch
+    primitive: cylinder
+    cutter: true
+    size: ["{2 * wheel_r + 0.12}", "{width + 0.4}", "{2 * wheel_r + 0.12}"]
+    rotation: [0, 0, 90]
+    anchor: bottom_center
+    offset: [0, "{wheel_r - (width + 0.4) / 2}", "{wz}"]
+  arch_rear:
+    <<: *arch
+    offset: [0, "{wheel_r - (width + 0.4) / 2}", "{-wz}"]
+
+  cab_glass:
+    primitive: extrude
+    axis: x
+    fit: none
+    shape:
+      - ["{-screen_z}", "{belt - 0.02}"]
+      - ["{-roof_f}", "{height - 0.08}"]
+      - ["{-(b_z + 0.08)}", "{height - 0.08}"]
+      - ["{-(b_z + 0.03)}", "{belt - 0.02}"]
+    size: ["{width - 0.14}", "{height - 0.06 - belt}", "{screen_z - b_z - 0.03}"]
+    anchor: bottom_center
+    offset: [0, "{belt - 0.02}", "{(screen_z + b_z + 0.03) / 2}"]
+    bevel: 0.03
+    material: car_glass
+    collider: none
+  cab_roof:
+    primitive: cube
+    size: ["{width - 0.1}", 0.08, "{roof_f - b_z + 0.02}"]
+    anchor: bottom_center
+    offset: [0, "{height - 0.09}", "{(roof_f + b_z) / 2}"]
+    bevel: 0.03
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+  pillar_left: &pillar
+    primitive: cube
+    size: [0.04, "{height - belt - 0.08}", 0.12]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.08}", "{belt}", "{b_z + 0.75}"]
+    bevel: 0
+    material: car_paint
+    tint: "{paint}"
+    collider: none
+  pillar_right:
+    <<: *pillar
+    offset: ["{-(width / 2 - 0.08)}", "{belt}", "{b_z + 0.75}"]
+
+  bed_liner:
+    primitive: cube
+    size: ["{width - 0.16}", 0.012, "{bed_len - 0.02}"]
+    anchor: bottom_center
+    offset: [0, "{bed}", "{bed_z}"]
+    bevel: 0
+    material: car_trim
+    collider: none
+  bed_side_left: &bed_side
+    primitive: cube
+    size: [0.07, "{belt - bed}", "{bed_len}"]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.04}", "{bed}", "{bed_z}"]
+    bevel: 0.015
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+  bed_side_right:
+    <<: *bed_side
+    offset: ["{-(width / 2 - 0.04)}", "{bed}", "{bed_z}"]
+  tailgate:                         # let down, level with the bed
+    primitive: cube
+    size: ["{width - 0.16}", 0.05, 0.5]
+    anchor: bottom_center
+    offset: [0, "{bed - 0.056}", "{-(lh + 0.25)}"]
+    bevel: 0.01
+    material: car_paint
+    tint: "{paint}"
+    collider: box
+
+  bumper_front:
+    primitive: cube
+    size: ["{width - 0.02}", 0.22, 0.14]
+    anchor: bottom_center
+    offset: [0, 0.28, "{lh - 0.03}"]
+    bevel: 0.05
+    material: car_trim
+    collider: none
+  bumper_rear:
+    primitive: cube
+    size: ["{width - 0.02}", 0.16, 0.12]
+    anchor: bottom_center
+    offset: [0, 0.34, "{-(lh - 0.02)}"]
+    bevel: 0.03
+    material: car_trim
+    collider: none
+  grille:
+    primitive: cube
+    size: ["{width * 0.56}", 0.26, 0.04]
+    anchor: bottom_center
+    offset: [0, "{hood - 0.42}", "{lh - 0.015}"]
+    bevel: 0.01
+    material: car_trim
+    collider: none
+  headlight_left: &headlight
+    primitive: cube
+    size: [0.28, 0.16, 0.06]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.25}", "{hood - 0.34}", "{lh - 0.03}"]
+    bevel: 0.02
+    material: headlight
+    collider: none
+  headlight_right:
+    <<: *headlight
+    offset: ["{-(width / 2 - 0.25)}", "{hood - 0.34}", "{lh - 0.03}"]
+  taillight_left: &taillight
+    primitive: cube
+    size: [0.1, 0.26, 0.05]
+    anchor: bottom_center
+    offset: ["{width / 2 - 0.06}", "{bed}", "{-(lh + 0.0)}"]
+    bevel: 0.01
+    material: taillight
+    collider: none
+  taillight_right:
+    <<: *taillight
+    offset: ["{-(width / 2 - 0.06)}", "{bed}", "{-(lh + 0.0)}"]
+  mirror_left: &mirror
+    primitive: cube
+    size: [0.2, 0.2, 0.07]
+    anchor: bottom_center
+    offset: ["{width / 2 + 0.06}", "{belt + 0.05}", "{screen_z - 0.2}"]
+    bevel: 0.02
+    material: car_trim
+    collider: none
+  mirror_right:
+    <<: *mirror
+    offset: ["{-(width / 2 + 0.06)}", "{belt + 0.05}", "{screen_z - 0.2}"]
+
+  wheel_fl: &wheel
+    primitive: cylinder
+    size: ["{2 * wheel_r}", "{tyre_w}", "{2 * wheel_r}"]
+    bevel: 0.05
+    rotation: [0, 0, -90]
+    anchor: bottom_center
+    offset: ["{wx}", "{wheel_r - tyre_w / 2}", "{wz}"]
+    material: tyre
+    collider: none
+  wheel_fr:
+    <<: *wheel
+    rotation: [0, 0, 90]
+    offset: ["{-wx}", "{wheel_r - tyre_w / 2}", "{wz}"]
+  wheel_rl:
+    <<: *wheel
+    offset: ["{wx}", "{wheel_r - tyre_w / 2}", "{-wz}"]
+  wheel_rr:
+    <<: *wheel
+    rotation: [0, 0, 90]
+    offset: ["{-wx}", "{wheel_r - tyre_w / 2}", "{-wz}"]
+  hub_fl: &hub
+    primitive: cylinder
+    size: ["{1.2 * wheel_r}", 0.02, "{1.2 * wheel_r}"]
+    bevel: 0.008
+    attach_to: wheel_fl
+    at: top
+    from: center
+    material: metal
+    collider: none
+  hub_fr: { <<: *hub, attach_to: wheel_fr }
+  hub_rl: { <<: *hub, attach_to: wheel_rl }
+  hub_rr: { <<: *hub, attach_to: wheel_rr }
+
+surfaces:
+  bed: { from: bed_liner.top }
+
+vehicle:
+  class: car
+  wheels: [wheel_fl, wheel_fr, wheel_rl, wheel_rr]
+  steer: [wheel_fl, wheel_fr]
+  paint: [body, cab_roof, bed_side_left, bed_side_right, tailgate, pillar_left, pillar_right]
+  lamps: { head: [headlight_left, headlight_right], tail: [taillight_left, taillight_right],
+           brake: [taillight_left, taillight_right] }
+  sound: { engine: { base: 34, per_speed: 3.6, volume_db: -10, roughness: 0.5 } }

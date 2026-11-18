@@ -1,0 +1,83 @@
+# Christmas Eve at a small house (geogen.110). The truck is in the driveway with a tree in its bed.
+# Nobody is told what to do: Nell and Tom both want the tree decorated, and everything they do
+# comes from what the tree, the box and the ornaments need.
+
+name: christmas_eve
+tags: [showcase]
+atmosphere: { preset: clear, time: "17:20", sun: 0.5, sun_color: [1.0, 0.7, 0.5], sun_height: 22, moon: 0.3, night: 0.45 }
+
+spawns:
+  start: { position: [-1.5, 0.05, -5.5], facing: north }
+
+slots:
+  truck: { position: [3.0, 0, -8.6], facing: south }
+  snow_south: { position: [0, 0, -14.71] }
+  snow_north: { position: [0, 0, 12.7] }
+  snow_west: { position: [-14.4, 0, 0] }
+  snow_east: { position: [14.4, 0, 0] }
+  fir: { position: [3.0, 0, -6.81], facing: south }
+  drive: { position: [3.0, 0, -9.7] }
+  roof: { position: [0, 2.5, 0] }
+
+place:
+  house: { asset: cozy_house.yaml }
+  roof: { asset: cozy_roof.yaml, slot: roof }
+  snow_south: { asset: snow_patch.yaml, slot: snow_south, params: { width: 48.8, depth: 24 } }
+  snow_north: { asset: snow_patch.yaml, slot: snow_north, params: { width: 48.8, depth: 20 } }
+  snow_west:  { asset: snow_patch.yaml, slot: snow_west, params: { width: 20, depth: 5.4 } }
+  snow_east:  { asset: snow_patch.yaml, slot: snow_east, params: { width: 20, depth: 5.4 } }
+  driveway:   { asset: driveway.yaml, slot: drive }
+
+  truck: { asset: vehicles/pickup_truck.yaml, slot: truck }
+  fir:
+    asset: netted_tree.yaml
+    slot: fir
+    params: { above_floor: 0.832 }
+
+  fireplace:
+    asset: fireplace.yaml
+    on: house.living.floor
+    at: { u: { abs: 3.9 }, v: { abs: 4.78 } }
+    facing: south
+    params: { height: 2.2 }
+  rug:
+    asset: rug.yaml
+    on: house.living.floor
+    at: { u: { abs: 3.9 }, v: { abs: 3.0 } }
+  sofa:
+    asset: sofa.yaml
+    on: house.living.floor
+    at: { u: { abs: 3.9 }, v: { abs: 2.0 } }
+    facing: north
+  armchair:
+    asset: armchair.yaml
+    on: house.living.floor
+    at: { u: { abs: 5.3 }, v: { abs: 2.9 } }
+    facing: west
+  lamp:
+    asset: floor_lamp.yaml
+    on: house.living.floor
+    at: { u: { abs: 0.5 }, v: { abs: 4.4 } }
+  tree:
+    asset: christmas_tree.yaml
+    on: house.living.floor
+    at: { u: { abs: 1.2 }, v: { abs: 3.2 } }
+    facing: east
+  cupboard:
+    asset: ornament_cupboard.yaml
+    on: house.hall.floor
+    at: { u: { abs: 1.2 }, v: { abs: 4.78 } }
+    facing: south
+
+  nell:
+    character: people/nell.yaml
+    on: house.hall.floor
+    at: { u: { abs: 1.2 }, v: { abs: 2.0 } }
+    home: { rect: [-4.3, -6.2, 4.3, 2.6] }
+    household: home
+  tom:
+    character: people/tom.yaml
+    on: house.living.floor
+    at: { u: { abs: 2.6 }, v: { abs: 3.4 } }
+    home: { rect: [-4.3, -6.2, 4.3, 2.6] }
+    household: home

@@ -1,0 +1,16 @@
+# The glowing body of a low fire.
+name: fire_glow
+texture:
+  type: painted_wall
+  params:
+    base_color: [255, 150, 50]
+    seed: 91
+size: [64, 64]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.6
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [1.0, 0.45, 0.1]
+  emissive_strength: 2.5

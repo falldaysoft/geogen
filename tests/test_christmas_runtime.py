@@ -12,12 +12,13 @@ def person(rt, name):
     return next(n for n in rt.call("npcs.list") if n["npc"].split(":")[-1].startswith(name))
 
 
-def test_two_people_decorate_the_tree(godot_runtime, scene_export):
-    rt = godot_runtime("christmas_test", scene_export("christmas_test"))
+@pytest.mark.parametrize("scene", ["christmas_test", "christmas_eve"])
+def test_two_people_decorate_the_tree(godot_runtime, scene_export, scene):
+    rt = godot_runtime(scene, scene_export(scene))
     rt.call("wait_ready")
     rt.call("time.pause")
     most_carried = 0
-    for _ in range(100):
+    for _ in range(150):
         rt.call("time.advance", seconds=5, scale=4)
         nell, tom = person(rt, "nell"), person(rt, "tom")
         most_carried = max(most_carried, len(nell["carrying"]), len(tom["carrying"]))
