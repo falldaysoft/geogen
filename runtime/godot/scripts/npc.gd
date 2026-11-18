@@ -35,6 +35,10 @@ const PREFER_BONUS := 1.3         # ...and of what it prefers
 const HANDLE_STAND := 0.45        # m from a door's face to stand and open it by its handle (the leaf swings away)
 const HANDLE_LEAD := 0.35         # s from reaching for a handle to pressing it
 const HANDLE_HOLD := 0.6          # s the hand stays on the handle once the door moves
+const LOW_STAND := 0.05           # m left between the body and something low it takes
+const LOW_HAND := 0.72            # m over the feet: a thing lower than this is taken with the knees bent
+const MAX_CROUCH := 0.6           # of the leg's length: as far as the hips go down for it
+const HANDS_OFF := 0.07           # m the open hands come off the sides of a bulky thing
 const PRESS_REACH := 1.6          # of the arm bones' length from the shoulders (the hand and a bent spine add the rest)
 const HANDLE_RANGE := 0.8         # m from the shoulders: a handle further away isn't reached for
 const SHOULDER_DROP := 0.25       # m from the head point down to the shoulders
@@ -121,7 +125,6 @@ var _noticed := {}                # report: the last stimulus it noticed {stimul
 var _notice_point := Vector3.ZERO # ...where the head turns
 var _notice_until := -INF         # ...until then
 var _cut_until := -INF            # an interrupt is wanted until then (it waits for a pose to settle)
-var _held_bulky := ""             # the prop both hands are on now (_carry_hands)
 var _handled := {}                # prop uid -> the clock times it picked it up (reluctance, npc_wants.gd)
 var _wants_seen := []             # report: the want options at its last decision [{id, score}]
 var _wants_left := []             # report: want options it has had enough of (reluctance), at the last look
@@ -1361,8 +1364,6 @@ func _step(delta: float) -> void:
         GeogenMemory.step(self)
     if clock < _cut_until and _cut_short():
         _cut_until = -INF
-    if _hands != null and world.props != null:
-        _carry_hands()
     for need in needs:
         needs[need] = maxf(0.0, needs[need] - float(definition["needs"][need].get("decay", 0.0)) * delta)
     if needs.has("together") and group_leader() != "":
@@ -1716,9 +1717,11 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             if step.has("pick_up"):
                 var taken := str(ctx.get("subject", ""))
                 if prop_in_hand() != taken:
+                    var had := _emitted.has("taken")
                     _let_go()
-                    return "can't take it (gone, or in someone's hands)"
+                    return "holding nothing (taken out of its hand)" if had else "can't take it (gone, or in someone's hands)"
                 stats["picked_up"] = int(stats.get("picked_up", 0)) + 1
+                stats["take_gap"] = _take_gap()
                 GeogenWants.note_handled(self, taken)
                 _trace({"event": "pick_up", "prop": taken, "pos": _v(global_position)})
                 return "done"
@@ -1897,30 +1900,101 @@ func _note_press(it: GeogenInteraction) -> void:
         stats["press_gap"] = snappedf(at.distance_to(button.world().origin), 0.001)
 
 
-## The thing a prop is to a hand: where to take hold of it is the top of its box, palm down.
+## The thing a prop is to the hands. One hand takes the top of its box, palm down; two take its
+## sides as this body faces it now, whichever way the prop happens to lie.
 func _prop_thing(uid: String) -> GeogenMotionRig.Thing:
     var thing := _motions.thing_of(world.props.props[uid]["node"])
-    if thing.grips.is_empty():
-        var box: Dictionary = world.props.box_of(uid)
-        var top: Vector3 = (box["center"] as Vector3) + Vector3.UP * (box["size"] as Vector3).y / 2.0
-        thing.set_grips({"top": {"grip": "rim", "at": [top.x, top.y, top.z, 0, 0, 0, 1]}})
+    var box: Dictionary = world.props.box_of(uid)
+    var centre: Vector3 = box["center"]
+    var size: Vector3 = box["size"]
+    if not _two_handed(uid):
+        if thing.grips.is_empty():
+            var top := centre + Vector3.UP * size.y / 2.0
+            thing.set_grips({"top": {"grip": "rim", "at": [top.x, top.y, top.z, 0, 0, 0, 1]}})
+        return thing
+    var left: Vector3 = thing.world().basis.inverse() * (Basis(Vector3.UP, _yaw()) * Vector3.RIGHT)
+    var half := _carry_half(uid) - CARRY_PALM
+    var point := func(side: float, out: float) -> Array:
+        var p: Vector3 = centre + left * side * (half + out)
+        return [p.x, p.y, p.z, 0, 0, 0, 1]
+    thing.set_grips({"left": {"grip": "flat", "at": point.call(1.0, CARRY_PALM)},
+        "right": {"grip": "flat", "at": point.call(-1.0, CARRY_PALM)},
+        "left_off": {"grip": "open", "at": point.call(1.0, CARRY_PALM + HANDS_OFF)},
+        "right_off": {"grip": "open", "at": point.call(-1.0, CARRY_PALM + HANDS_OFF)}})
     return thing
 
 
-## Take prop ``uid`` in the hand and keep hold of it (motions take and carry). False when this body
-## has no such motions, is not on its feet, or the thing is for both hands.
+## How far from the middle of bulky prop ``uid`` each hand is held (m).
+func _carry_half(uid: String) -> float:
+    var size: Vector3 = world.props.box_of(uid)["size"]
+    return maxf(size.x, size.z) / 2.0 + CARRY_PALM
+
+
+## How far the hand that took it is from where it took hold (m): the wrist from a side grip, the
+## index fingertip from the top of a thing taken in one hand; -1 for nothing held.
+func _take_gap() -> float:
+    if _motions == null or not _motions.rig.attached_.has("item"):
+        return -1.0
+    var gaps := _hand_gaps()
+    if not gaps.is_empty():
+        return gaps.values().max()
+    var rig := _motions.rig
+    var thing: GeogenMotionRig.Thing = rig.attached_["item"]["thing"]
+    if not thing.grips.has("top"):
+        return -1.0
+    var tip := -1
+    for i in rig.names.size():
+        if String(rig.names[i]).begins_with("RightIndex"):
+            tip = i
+    var at: Vector3 = rig.body_world * (rig.world()[tip] as Transform3D).origin
+    return snappedf(at.distance_to(thing.world() * (thing.grips["top"]["local"] as Transform3D).origin), 0.001)
+
+
+## How far each hand is from where it holds what both hands carry ({hand: m}; {} for none).
+func _hand_gaps() -> Dictionary:
+    if _motions == null or not _motions.rig.attached_.has("item"):
+        return {}
+    var thing: GeogenMotionRig.Thing = _motions.rig.attached_["item"]["thing"]
+    if not thing.grips.has("left"):
+        return {}
+    var bones := _motions.rig.world()
+    var gaps := {}
+    for hand in [["LeftHand", "left"], ["RightHand", "right"]]:
+        var at: Vector3 = _motions.rig.body_world * (bones[_motions.rig.index[hand[0]]] as Transform3D).origin
+        gaps[hand[0]] = snappedf(at.distance_to(thing.world() * (thing.grips[hand[1]]["local"] as Transform3D).origin), 0.001)
+    return gaps
+
+
+## Take prop ``uid`` and keep hold of it (motions take and carry, or take_both and carry_both for
+## a bulky one). False when this body has no such motions or is not on its feet.
 func _take(uid: String) -> bool:
     var player := _motion_player()
     var motions := GeogenMotionPlayer.motions(world.generated_dir)
-    if player == null or _pose != "stand" or _two_handed(uid) or not (motions.has("take") and motions.has("carry")):
+    if player == null or _pose != "stand":
+        return false
+    var both := _two_handed(uid)
+    # Low down, the knees bend to get the hands to it.
+    var legs: float = float(player.rig.params.get("height", 1.7)) * float(player.rig.params.get("leg_ratio", 0.47))
+    var crouch := clampf(LOW_HAND - (_prop_centre(uid).y - global_position.y), 0.0, legs * MAX_CROUCH)
+    var take := "take_both" if both else ("take_low" if crouch > 0.02 else "take")
+    var carry := "carry_both" if both else "carry"
+    if not (motions.has(take) and motions.has(carry)):
         return false
     var thing := _prop_thing(uid)
+    var taking := {"item": thing}
+    var holding := {"item": thing}
+    if both:
+        taking["half"] = _carry_half(uid)
+        holding["half"] = taking["half"]
+    if both or crouch > 0.02:
+        taking["crouch"] = crouch
+    velocity = Vector3.ZERO
     player.holder = self
     _emitted.erase("taken")
-    _run = player.start(motions["take"], {"item": thing})
+    _run = player.start(motions[take], taking)
     if _run == null:
         return false
-    _carry_run = player.start(motions["carry"], {"item": thing})
+    _carry_run = player.start(motions[carry], holding)
     return true
 
 
@@ -1928,13 +2002,14 @@ func _take(uid: String) -> bool:
 ## spot. False when no motion holds it (it was taken some other way).
 func _set_down(uid: String, place: Dictionary) -> bool:
     var motions := GeogenMotionPlayer.motions(world.generated_dir)
-    if _motions == null or not _motions.rig.attached_.has("item") or not motions.has("set_down"):
+    var motion := "set_down_both" if _two_handed(uid) else "set_down"
+    if _motions == null or not _motions.rig.attached_.has("item") or not motions.has(motion):
         return false
     var box: Dictionary = world.props.box_of(uid)
     var basis := Basis(Vector3.UP, float(place.get("yaw", _yaw())))
     var at: Vector3 = place["position"] + Vector3.UP * ((box["size"] as Vector3).y / 2.0 + PUT_GAP) - basis * (box["center"] as Vector3)
     _emitted.erase("put")
-    _run = _motions.start(motions["set_down"], {"item": _motions.rig.attached_["item"]["thing"],
+    _run = _motions.start(motions[motion], {"item": _motions.rig.attached_["item"]["thing"],
         "place": GeogenMotionRig.Thing.fixed("place", Transform3D(basis, at))})
     return _run != null
 
@@ -2182,23 +2257,6 @@ func _two_handed(uid: String) -> bool:
     return maxf(size.x, maxf(size.y, size.z)) > float(definition.get("carry", {}).get("two_hands", 0.2))
 
 
-## Hands on the sides of a bulky prop while it is carried, and off it once it is let go
-## (put down, dropped, taken by the player): the body's left hand on its +X side.
-func _carry_hands() -> void:
-    var uid := prop_in_hand()
-    var bulky := uid if _two_handed(uid) else ""
-    if bulky == _held_bulky:
-        return
-    _held_bulky = bulky
-    if bulky == "":
-        _hands.let_go()
-        return
-    var box: Dictionary = world.props.box_of(bulky)
-    var side := Vector3((box["size"] as Vector3).x / 2.0 + CARRY_PALM, 0, 0)
-    _hands.hold(world.props.props[bulky]["body"], {"LeftHand": (box["center"] as Vector3) + side,
-        "RightHand": (box["center"] as Vector3) - side})
-
-
 ## Where a taken prop is held: a bulky one (`_two_handed`) in front of the body below the
 ## chest, a small one with its box's centre at the right hand (a skeletal body; else in front
 ## of the chest too); upright, turned with the NPC.
@@ -2389,7 +2447,17 @@ func _where_it_lies(uid: String) -> Dictionary:
 func _stand_by_prop(uid: String):
     if not world.props.props.has(uid):
         return null
-    return stand_for(_prop_centre(uid))
+    var centre := _prop_centre(uid)
+    var stand = stand_for(centre)
+    if stand == null or centre.y - global_position.y >= LOW_HAND:
+        return stand
+    # Low down: right up to it (a `close` step goes the last bit), for the hands to get down to it.
+    var from := NpcGeometry.flat(global_position - centre)
+    if from.length() < 0.01:
+        return stand
+    var size: Vector3 = world.props.box_of(uid)["size"]
+    var gap := float(definition.get("radius", 0.25)) + maxf(size.x, size.z) / 2.0 + LOW_STAND
+    return Vector3(centre.x, (stand as Vector3).y, centre.z) + from.normalized() * gap
 
 
 ## Where to stand to get the hands to ``point``: the nearest place on the navmesh of the floor
@@ -3790,7 +3858,7 @@ func report() -> Dictionary:
         "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),
         "signal_crossings": int(stats.get("signal_crossings", 0)),
         "signal_violations": int(stats.get("signal_violations", 0)),
-        "waves": int(stats.get("waves", 0)), "presses": int(stats.get("presses", 0)), "press_gap": float(stats.get("press_gap", -1.0)),
+        "waves": int(stats.get("waves", 0)), "hand_gaps": _hand_gaps(), "take_gap": float(stats.get("take_gap", -1.0)), "presses": int(stats.get("presses", 0)), "press_gap": float(stats.get("press_gap", -1.0)),
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         "holding": holding(),

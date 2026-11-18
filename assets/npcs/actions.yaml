@@ -253,6 +253,7 @@ actions:
   put_away:                      # carry the subject to the place (a want's, or the control API's npcs.do)
     steps:
       - go_to: subject
+        close: true                # right up to something low: the hands have to get down to it
         look: subject              # eyes on what it is going for
       - pick_up: subject
       - wait: [0.4, 0.7]           # a glance at where it will go, before setting off

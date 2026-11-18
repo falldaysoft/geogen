@@ -1,0 +1,73 @@
+# Take a bulky thing in both hands (geogen.103.8): a hand on each side of it, lifted to in front of
+# the body. The thing says where the hands go with its `left` and `right` grips. From here
+# `carry_both` holds it and `set_down_both` puts it somewhere.
+kind: motion
+name: take_both
+category: action
+summary: Take a bulky thing in both hands and lift it in front of the body.
+roles:
+  item: { grip: any }
+props:
+  item: { asset: pumpkin.yaml, at: { u: 0.5, v: 0.7 } }
+demo:
+  - { at: 0, start: take_both, item: item }
+  - { at: 0, start: carry_both, item: item }
+  - { at: 3.5, start: set_down_both, item: item, place: item@start }
+params:
+  half: { default: 0.17 }         # m from the middle of the thing to each hand
+  crouch: { default: 0 }          # m the hips go down to get the hands to it
+  carry_y: { default: 0.58 }      # of the height: below the chest
+  carry_z: { default: 0.72 }      # of the arm's length ahead
+holds:
+  claim: [left_hand, right_hand, gaze, hips, legs]
+  prefer: [spine]
+initial: reach
+beats:
+  reach:                                   # the open hands to its sides
+    hips: [0, "{-crouch}", "{-0.15 * crouch}"]
+    bones:                                 # bent over it, as far as it is low
+      Spine: ["{crouch * 75}", 0, 0]
+      Chest: ["{crouch * 75}", 0, 0]
+    plant: feet
+    ik:
+      LeftHand: { target: item.left_off, grip: open, fingers: [0, 0, 1], palm: [-1, 0, 0], pole: [1, -1, 0] }
+      RightHand: { target: item.right_off, grip: open, fingers: [0, 0, 1], palm: [1, 0, 0], pole: [-1, -1, 0] }
+    look: item
+    over: 0.9
+    interrupt: yield
+    exit: back
+    then: grasp
+  grasp:                                   # in onto it
+    hips: [0, "{-crouch}", "{-0.15 * crouch}"]
+    bones:                                 # bent over it, as far as it is low
+      Spine: ["{crouch * 75}", 0, 0]
+      Chest: ["{crouch * 75}", 0, 0]
+    plant: feet
+    ik:
+      LeftHand: { target: item.left, grip: flat, fingers: [0, 0, 1], palm: [-1, 0, 0], pole: [1, -1, 0] }
+      RightHand: { target: item.right, grip: flat, fingers: [0, 0, 1], palm: [1, 0, 0], pole: [-1, -1, 0] }
+    look: item
+    over: 0.3
+    attach: { item: { hand: right, level: true } }
+    emit: taken
+    interrupt: finish
+    then: lift
+  lift:
+    plant: feet
+    ik:
+      LeftHand:
+        target: ["{half}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        grip: flat
+        fingers: [0, 0, 1]
+        palm: [-1, 0, 0]
+        pole: [1, -1, 0]
+      mirror: true
+    look: item
+    over: 0.8
+    interrupt: finish
+    then: done
+  back:
+    plant: feet
+    over: 0.5
+    interrupt: drop
+    then: done

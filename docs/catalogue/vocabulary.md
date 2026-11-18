@@ -274,6 +274,7 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name
 | [motions/beckon.yaml](../../assets/motions/beckon.yaml) | Beckon (geogen.103.17): "come here". |
 | [motions/bow.yaml](../../assets/motions/bow.yaml) | A bow with the right hand on the chest (geogen.103.5). |
 | [motions/carry.yaml](../../assets/motions/carry.yaml) | Hold a taken thing where it is carried (geogen.103.4): the hand stays put in front of the hip, shaped by the thing's grip, whenever nothing else uses the hand (it only prefers it: start it with take and it holds on from the lift). |
+| [motions/carry_both.yaml](../../assets/motions/carry_both.yaml) | Hold a bulky thing in both hands in front of the body (geogen.103.8). |
 | [motions/celebrate_jump.yaml](../../assets/motions/celebrate_jump.yaml) | Celebrate (geogen.103.17): a crouch, then a jump with both fists flung up, and a landing that bends the knees. |
 | [motions/check_watch.yaml](../../assets/motions/check_watch.yaml) | Check the time (geogen.103.17): an idle. |
 | [motions/cheer.yaml](../../assets/motions/cheer.yaml) | Cheer (geogen.103.17): both fists punched up overhead, pumped `pumps` times, with a bounce at the knees. |
@@ -300,6 +301,7 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name
 | [motions/salute.yaml](../../assets/motions/salute.yaml) | Salute (geogen.103.17): the right hand comes up flat, fingertips to the brow; hold, then it snaps down. |
 | [motions/scratch_head.yaml](../../assets/motions/scratch_head.yaml) | Scratch the head (geogen.103.17): an idle, a puzzled moment. |
 | [motions/set_down.yaml](../../assets/motions/set_down.yaml) | Put a carried thing down (geogen.103.4): take's mirror. |
+| [motions/set_down_both.yaml](../../assets/motions/set_down_both.yaml) | Put a thing carried in both hands down (geogen.103.8): take_both's mirror. |
 | [motions/shake_head.yaml](../../assets/motions/shake_head.yaml) | Shake the head no (geogen.103.17): side to side `shakes` times. |
 | [motions/shift_weight.yaml](../../assets/motions/shift_weight.yaml) | Shift the weight from foot to foot (geogen.103.17): an idle. |
 | [motions/shiver.yaml](../../assets/motions/shiver.yaml) | Shiver (geogen.103.17): cold. |
@@ -312,6 +314,8 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name
 | [motions/stretch.yaml](../../assets/motions/stretch.yaml) | Stretch (geogen.103.17): an idle. |
 | [motions/surprised.yaml](../../assets/motions/surprised.yaml) | Surprised (geogen.103.17): a start: the hands fly up in front of the chest, palms out, the body rocking back; then it relaxes. |
 | [motions/take.yaml](../../assets/motions/take.yaml) | Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the hand open, close the hand on the grip the thing offers (a plate's rim: rim), lift it to where it is carried. |
+| [motions/take_both.yaml](../../assets/motions/take_both.yaml) | Take a bulky thing in both hands (geogen.103.8): a hand on each side of it, lifted to in front of the body. |
+| [motions/take_low.yaml](../../assets/motions/take_low.yaml) | Take a thing from low down (geogen.103.8): `take`, with the knees bent to get the hand to it. |
 | [motions/tap_foot.yaml](../../assets/motions/tap_foot.yaml) | Tap the foot (geogen.103.17): an idle, impatient. |
 | [motions/think.yaml](../../assets/motions/think.yaml) | Think (geogen.103.17): the right hand to the chin, the left forearm across the waist under the right elbow, the head tipped and the eyes up; hold, then both arms down. |
 | [motions/thumbs_up.yaml](../../assets/motions/thumbs_up.yaml) | Thumbs up (geogen.103.17): the right fist comes out in front of the chest, thumb up, with a little nod; hold, then down. |

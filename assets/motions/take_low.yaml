@@ -1,0 +1,62 @@
+# Take a thing from low down (geogen.103.8): `take`, with the knees bent to get the hand to it.
+# `crouch` is how far the hips go down; whoever starts it works that out from how low the thing is.
+kind: motion
+name: take_low
+extends: take
+category: action
+summary: Bend the knees, take a thing from low down and lift it to carry.
+params:
+  crouch: { default: 0.3 }        # m the hips go down
+  carry_x: { default: -0.45 }
+  carry_y: { default: 0.58 }
+  carry_z: { default: 0.68 }
+holds:
+  claim: [right_hand, gaze, hips, legs]
+  prefer: [spine]
+initial: reach
+beats:
+  reach:
+    hips: [0, "{-crouch}", "{-0.15 * crouch}"]
+    bones:                                 # bent over it, as far as it is low
+      Spine: ["{crouch * 75}", 0, 0]
+      Chest: ["{crouch * 75}", 0, 0]
+    plant: feet
+    ik:
+      RightHand: { target: item, tip: index, arc: 0.08, offset: [0, 0.06, 0.03], grip: open, fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
+    look: item
+    over: 0.9
+    interrupt: yield
+    exit: back
+    then: grasp
+  grasp:
+    hips: [0, "{-crouch}", "{-0.15 * crouch}"]
+    bones:                                 # bent over it, as far as it is low
+      Spine: ["{crouch * 75}", 0, 0]
+      Chest: ["{crouch * 75}", 0, 0]
+    plant: feet
+    ik:
+      RightHand: { target: item, tip: index, offset: [0, 0.008, -0.004], grip: item, fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
+    look: item
+    over: 0.35
+    attach: { item: { hand: right, level: true } }
+    emit: taken
+    interrupt: finish
+    then: lift
+  lift:
+    plant: feet
+    ik:
+      RightHand:
+        target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        pole: [-0.4, -1, 0]
+        grip: item
+        fingers: [0.35, -0.1, 1]
+        palm: [0, -1, 0]
+    look: item
+    over: 0.9
+    interrupt: finish
+    then: done
+  back:
+    plant: feet
+    over: 0.6
+    interrupt: drop
+    then: done

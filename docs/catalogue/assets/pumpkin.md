@@ -19,3 +19,12 @@ place:
 ## Parts
 
 `fruit` (ellipsoid), `stalk` (cylinder)
+
+## Attachments
+
+| Attachment | Position | Facing |
+| --- | --- | --- |
+| `left` | (0.17, 0.11, 0) | center |
+| `right` | (-0.17, 0.11, 0) | center |
+| `left_off` | (0.24, 0.13, 0) | center |
+| `right_off` | (-0.24, 0.13, 0) | center |

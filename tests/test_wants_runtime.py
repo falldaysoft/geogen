@@ -101,7 +101,7 @@ def test_an_npc_carries_a_prop_from_the_floor_to_the_table(rt):
     before = resident(rt)["put_down"]
     rt.call("npcs.do", npc="resident", action="put_away", subject="pumpkin", place=[-0.6, 0.75, 1.3])
     npc = run_until(rt, lambda: resident(rt)["prop"] and resident(rt), step=0.25)
-    rt.call("time.advance", seconds=0.1, scale=1)                          # (taken on that frame, it is at the hands by the next)
+    rt.call("time.advance", seconds=1.0, scale=1)                          # (taken low down, then lifted to where it is carried)
     held = body(rt, "pumpkin")
     assert held["holder"] == npc["uid"] and held["center"][1] > 0.6        # in its hand, off the floor
     run_until(rt, lambda: resident(rt)["put_down"] == before + 1)
@@ -228,19 +228,19 @@ def ahead_and_aside(npc, prop):
 
 def test_a_bulky_prop_is_carried_in_front_in_both_hands(rt):
     both = {"LeftHand", "RightHand"}
-    # (Walking, the hands are a frame behind what they hold: 2 cm, and 8 cm at this 4x time scale.)
-    npc, prop = carried(rt, "pumpkin", lambda r: set(r["hands"]["holding"]) == both and max(r["hands"]["holding"].values()) < 0.1)
+    # Both hands are on its sides (motions take_both and carry_both) once it is lifted.
+    npc, prop = carried(rt, "pumpkin", lambda r: set(r["hand_gaps"]) == both and max(r["hand_gaps"].values()) < 0.1)
     ahead, aside = ahead_and_aside(npc, prop)
     assert ahead > 0.2 and abs(aside) < 0.1, (ahead, aside)                # in front of the body, not at the thigh
     assert prop["center"][1] == pytest.approx(1.0, abs=0.15)
     run_until(rt, lambda: resident(rt)["prop"] == "")
     rt.call("time.advance", seconds=1, scale=1)
-    assert resident(rt)["hands"]["holding"] == {}                          # hands off it once it is down
+    assert resident(rt)["hand_gaps"] == {}                                 # hands off it once it is down
     # The can (12 cm) is a one-hand thing: taken and carried by the motions, in front of the right hip.
     carried(rt, "can")
     rt.call("time.advance", seconds=0.8, scale=1)                          # lifted to where it is carried
     npc, prop = resident(rt), body(rt, "can")
-    assert npc["prop"] != "" and npc["hands"]["holding"] == {} and abs(ahead_and_aside(npc, prop)[1]) > 0.05
+    assert npc["prop"] != "" and npc["hand_gaps"] == {} and abs(ahead_and_aside(npc, prop)[1]) > 0.05
     run_until(rt, lambda: resident(rt)["prop"] == "")
 
 

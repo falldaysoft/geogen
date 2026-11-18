@@ -9,6 +9,13 @@ bounds: geometry
 
 physics: {mass: 3.0, friction: 0.8, bounce: 0.05, carry: true}
 
+# Where two hands take it (motions take_both, carry_both, set_down_both).
+attachments:
+  left:      { anchor: bottom_center, offset: [0.17, 0.11, 0], grip: flat }
+  right:     { anchor: bottom_center, offset: [-0.17, 0.11, 0], grip: flat }
+  left_off:  { anchor: bottom_center, offset: [0.24, 0.13, 0], grip: open }
+  right_off: { anchor: bottom_center, offset: [-0.24, 0.13, 0], grip: open }
+
 parts:
   fruit:
     primitive: ellipsoid

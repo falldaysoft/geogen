@@ -1,0 +1,35 @@
+# Hold a bulky thing in both hands in front of the body (geogen.103.8). It only prefers the hands,
+# so it is started with take_both and holds on from the lift. It ends when the thing is let go.
+kind: motion
+name: carry_both
+category: action
+summary: Hold a bulky thing in both hands in front of the body.
+roles:
+  item: { grip: any }
+props:
+  item: { asset: pumpkin.yaml, at: { u: 0.5, v: 0.7 } }
+demo:
+  - { at: 0, start: take_both, item: item }
+  - { at: 0, start: carry_both, item: item }
+  - { at: 3.5, start: set_down_both, item: item, place: item@start }
+params:
+  duration: { default: 600 }
+  half: { default: 0.17 }
+  carry_y: { default: 0.58 }
+  carry_z: { default: 0.72 }
+holds:
+  prefer: [left_hand, right_hand]
+initial: held
+beats:
+  held:
+    ik:
+      LeftHand:
+        target: ["{half}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        grip: flat
+        fingers: [0, 0, 1]
+        palm: [-1, 0, 0]
+        pole: [1, -1, 0]
+      mirror: true
+    after: duration
+    interrupt: hold
+    then: done
