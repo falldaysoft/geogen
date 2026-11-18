@@ -4,7 +4,7 @@
 
 <img src="../img/rain_cloud.png" width="256" alt="rain_cloud"> <img src="../img/rain_cloud_views.png" width="512" alt="rain_cloud: front and side">
 
-A low cloud with its own shower: rain falls from a box under it to the ground.
+A low cloud with its own rain shower.
 Bind or set `belly.running` to stop it. Origin: on the ground under the cloud.
 
 ```yaml

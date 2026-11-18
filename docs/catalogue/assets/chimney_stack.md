@@ -4,7 +4,7 @@
 
 <img src="../img/chimney_stack.png" width="256" alt="chimney_stack"> <img src="../img/chimney_stack_views.png" width="512" alt="chimney_stack: front and side">
 
-A free-standing brick chimney stack with a clay pot, giving off a slow drift of smoke.
+A brick chimney stack with a clay pot and a slow drift of smoke.
 Bind or set `pot.running` to put it out. Origin: bottom centre.
 
 ```yaml

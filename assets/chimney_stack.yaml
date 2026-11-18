@@ -1,4 +1,4 @@
-# A free-standing brick chimney stack with a clay pot, giving off a slow drift of smoke.
+# A brick chimney stack with a clay pot and a slow drift of smoke.
 # Bind or set `pot.running` to put it out. Origin: bottom centre.
 
 name: chimney_stack

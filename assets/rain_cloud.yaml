@@ -1,4 +1,4 @@
-# A low cloud with its own shower: rain falls from a box under it to the ground.
+# A low cloud with its own rain shower.
 # Bind or set `belly.running` to stop it. Origin: on the ground under the cloud.
 
 name: rain_cloud

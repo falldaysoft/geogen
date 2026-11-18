@@ -1,5 +1,5 @@
-# Review scene for emitters (geogen/emitters.py): a part's `emitter:` and `sound:` blocks, one
-# of each kind round a small yard. The fountain's water, the chimney's smoke, the steam vent
+# Review scene for emitters (geogen/emitters.py), one of each kind round a small yard.
+# The fountain's water, the chimney's smoke, the steam vent
 # (E on its wheel shuts it off: `bind` on the part's `running`) and a rain shower.
 # In the runtime catalogue's test group.
 
