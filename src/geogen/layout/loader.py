@@ -825,7 +825,7 @@ AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approa
 # Other things done at the same place (`uses: {name: {...}}`): each with its own of these, the rest
 # (where, the action, its slots) shared with the affordance. A chair is a seat, and with a meal in
 # hand somewhere to eat it.
-AFFORDANCE_USE_KEYS = {"duration", "advertises", "tags", "requires", "takes", "gives", "sets", "action"}
+AFFORDANCE_USE_KEYS = {"duration", "advertises", "tags", "requires", "takes", "gives", "sets", "action", "interaction"}
 # What doing it needs and what it does to what the actor carries (geogen.101.1): the planner
 # chains affordances through these (a fridge gives raw food, a stove takes it and gives a meal).
 AFFORDANCE_REQUIRES = {
@@ -1072,6 +1072,10 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
                 entry["action"] = str(use["action"])
             _affordance_chain(use, root, entry)
             entry.pop("interaction", None)
+            if "interaction" in use:     # its own interaction at the same place (one of the spots within reach)
+                if not any(i.name == str(use["interaction"]) for i in root.interactions):
+                    raise ValueError(f"affordance use '{name}': interaction {use['interaction']!r} not on this asset")
+                entry["interaction"] = str(use["interaction"])
             out["uses"][str(name)] = entry
     if "body" in spec:
         bodies = (root.meta.get("mechanism") or {}).get("bodies", {})

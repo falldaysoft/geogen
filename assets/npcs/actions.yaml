@@ -323,6 +323,16 @@ actions:
       - pose: stand
         at: approach
 
+  hang_ornament:                 # reach up and put what is in hand on the spot in front (its interaction's touch point)
+    approach: [0, 0, 0]
+    duration: [1, 2]
+    steps:
+      - go_to: approach
+        close: true
+      - face: anchor
+      - do: place_ornament
+        roles: { spot: interaction }
+
   attend:                        # stand at a thing while it does its work (a microwave, a fridge, a shower)
     approach: [0, 0, 0]
     duration: [5, 10]

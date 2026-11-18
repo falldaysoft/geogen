@@ -277,6 +277,7 @@
                 "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false,
                   "properties": { "duration": { "$ref": "#/$defs/range" },
                     "action": { "description": "Its own action (assets/npcs/actions.yaml) in place of the affordance's: a chair's eat.", "type": "string" },
+                    "interaction": { "description": "Its own interaction of this node, in place of the affordance's.", "type": "string" },
                     "advertises": { "type": "object", "additionalProperties": { "type": "number" } },
                     "tags": { "type": "array", "items": { "type": "string" } },
                     "requires": { "type": "object", "additionalProperties": false,

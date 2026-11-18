@@ -255,7 +255,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.423, 0.610, -0.154]
+    offset: [-0.348, 0.900, -0.127]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
@@ -263,7 +263,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.370, 0.900, -0.006]
+    offset: [-0.290, 1.174, -0.005]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
@@ -271,7 +271,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.283, 1.174, -0.065]
+    offset: [-0.205, 1.430, -0.047]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
@@ -279,7 +279,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.438, 0.610, 0.101]
+    offset: [-0.361, 0.900, 0.083]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
@@ -303,7 +303,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.307, 0.610, 0.329]
+    offset: [-0.252, 0.900, 0.271]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
@@ -311,7 +311,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.150, 0.900, 0.338]
+    offset: [-0.118, 1.174, 0.265]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
@@ -319,7 +319,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.170, 1.174, 0.235]
+    offset: [-0.123, 1.430, 0.170]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
@@ -335,7 +335,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.033, 1.430, 0.207]
+    offset: [0.045, 1.174, 0.286]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
@@ -343,7 +343,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.176, 0.610, 0.414]
+    offset: [0.145, 0.900, 0.341]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
@@ -351,7 +351,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.248, 0.900, 0.275]
+    offset: [0.194, 1.174, 0.216]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
@@ -359,7 +359,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.145, 1.174, 0.251]
+    offset: [0.105, 1.430, 0.182]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
@@ -367,7 +367,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.377, 0.610, 0.245]
+    offset: [0.310, 0.900, 0.202]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
@@ -391,7 +391,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.450, 0.610, 0.000]
+    offset: [0.370, 0.900, 0.000]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
@@ -399,7 +399,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.350, 0.900, -0.120]
+    offset: [0.274, 1.174, -0.094]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
@@ -407,7 +407,7 @@ parts:
     primitive: sphere
     size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.288, 1.174, -0.035]
+    offset: [0.208, 1.430, -0.026]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
@@ -538,6 +538,29 @@ parts:
     material: lamp_glass
     collider: none
 
+# Where a hand puts each ornament (motion press, through each hook's `touch`).
+attachments:
+  spot_0: { anchor: bottom_center, offset: [-0.348, 0.943, -0.127], grip: press }
+  spot_1: { anchor: bottom_center, offset: [-0.290, 1.216, -0.005], grip: press }
+  spot_2: { anchor: bottom_center, offset: [-0.205, 1.472, -0.047], grip: press }
+  spot_3: { anchor: bottom_center, offset: [-0.361, 0.943, 0.083], grip: press }
+  spot_4: { anchor: bottom_center, offset: [-0.246, 1.216, 0.154], grip: press }
+  spot_5: { anchor: bottom_center, offset: [-0.197, 1.472, 0.072], grip: press }
+  spot_6: { anchor: bottom_center, offset: [-0.252, 0.943, 0.271], grip: press }
+  spot_7: { anchor: bottom_center, offset: [-0.118, 1.216, 0.265], grip: press }
+  spot_8: { anchor: bottom_center, offset: [-0.123, 1.472, 0.170], grip: press }
+  spot_9: { anchor: bottom_center, offset: [-0.064, 0.943, 0.364], grip: press }
+  spot_10: { anchor: bottom_center, offset: [0.045, 1.216, 0.286], grip: press }
+  spot_11: { anchor: bottom_center, offset: [0.145, 0.943, 0.341], grip: press }
+  spot_12: { anchor: bottom_center, offset: [0.194, 1.216, 0.216], grip: press }
+  spot_13: { anchor: bottom_center, offset: [0.105, 1.472, 0.182], grip: press }
+  spot_14: { anchor: bottom_center, offset: [0.310, 0.943, 0.202], grip: press }
+  spot_15: { anchor: bottom_center, offset: [0.281, 1.216, 0.070], grip: press }
+  spot_16: { anchor: bottom_center, offset: [0.189, 1.472, 0.092], grip: press }
+  spot_17: { anchor: bottom_center, offset: [0.370, 0.943, 0.000], grip: press }
+  spot_18: { anchor: bottom_center, offset: [0.274, 1.216, -0.094], grip: press }
+  spot_19: { anchor: bottom_center, offset: [0.208, 1.472, -0.026], grip: press }
+
 interactions:
   tree:
     initial: absent
@@ -558,142 +581,162 @@ interactions:
     motions:
       - { parts: [bulb_0, bulb_1, bulb_2, bulb_3, bulb_4, bulb_5, bulb_6, bulb_7, bulb_8, bulb_9, bulb_10, bulb_11, bulb_12, bulb_13, bulb_14, bulb_15, bulb_16, bulb_17], show: [glowing] }
   hook_0:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_0
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_0], show: [boxed] }
       - { parts: [ornament_0], show: [hung] }
   hook_1:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_1
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_1], show: [boxed] }
       - { parts: [ornament_1], show: [hung] }
   hook_2:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_2
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_2], show: [boxed] }
       - { parts: [ornament_2], show: [hung] }
   hook_3:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_3
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_3], show: [boxed] }
       - { parts: [ornament_3], show: [hung] }
   hook_4:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_4
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_4], show: [boxed] }
       - { parts: [ornament_4], show: [hung] }
   hook_5:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_5
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_5], show: [boxed] }
       - { parts: [ornament_5], show: [hung] }
   hook_6:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_6
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_6], show: [boxed] }
       - { parts: [ornament_6], show: [hung] }
   hook_7:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_7
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_7], show: [boxed] }
       - { parts: [ornament_7], show: [hung] }
   hook_8:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_8
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_8], show: [boxed] }
       - { parts: [ornament_8], show: [hung] }
   hook_9:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_9
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_9], show: [boxed] }
       - { parts: [ornament_9], show: [hung] }
   hook_10:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_10
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_10], show: [boxed] }
       - { parts: [ornament_10], show: [hung] }
   hook_11:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_11
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_11], show: [boxed] }
       - { parts: [ornament_11], show: [hung] }
   hook_12:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_12
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_12], show: [boxed] }
       - { parts: [ornament_12], show: [hung] }
   hook_13:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_13
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_13], show: [boxed] }
       - { parts: [ornament_13], show: [hung] }
   hook_14:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_14
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_14], show: [boxed] }
       - { parts: [ornament_14], show: [hung] }
   hook_15:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_15
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_15], show: [boxed] }
       - { parts: [ornament_15], show: [hung] }
   hook_16:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_16
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_16], show: [boxed] }
       - { parts: [ornament_16], show: [hung] }
   hook_17:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_17
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_17], show: [boxed] }
       - { parts: [ornament_17], show: [hung] }
   hook_18:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_18
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_18], show: [boxed] }
       - { parts: [ornament_18], show: [hung] }
   hook_19:                         # its ornament: not out yet, in the box, or on the tree
+    touch: spot_19
     initial: waiting
     duration: 0.2
-    states: { waiting: {}, boxed: {}, hung: {} }
+    states: { waiting: {}, boxed: { next: hung }, hung: {} }
     motions:
       - { parts: [boxed_19], show: [boxed] }
       - { parts: [ornament_19], show: [hung] }
@@ -711,99 +754,99 @@ affordances:
   # Seven places round the tree, each within reach of the spots in front of it.
   - type: stand
     action: attend
-    at: [-0.886, 0, -0.156]
+    at: [-0.788, 0, -0.139]
     facing: 80
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_0: { takes: ornament, requires: { state: { tree: up, hook_0: boxed } }, sets: { hook_0: hung },
+      hang_0: { action: hang_ornament, interaction: hook_0, takes: ornament, requires: { state: { tree: up, hook_0: boxed } }, sets: { hook_0: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_1: { takes: ornament, requires: { state: { tree: up, hook_1: boxed } }, sets: { hook_1: hung },
+      hang_1: { action: hang_ornament, interaction: hook_1, takes: ornament, requires: { state: { tree: up, hook_1: boxed } }, sets: { hook_1: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_2: { takes: ornament, requires: { state: { tree: up, hook_2: boxed } }, sets: { hook_2: hung },
+      hang_2: { action: hang_ornament, interaction: hook_2, takes: ornament, requires: { state: { tree: up, hook_2: boxed } }, sets: { hook_2: hung },
                 advertises: { tree_decorated: 0.05 } }
   - type: stand
     action: attend
-    at: [-0.828, 0, 0.352]
+    at: [-0.736, 0, 0.313]
     facing: 113
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_3: { takes: ornament, requires: { state: { tree: up, hook_3: boxed } }, sets: { hook_3: hung },
+      hang_3: { action: hang_ornament, interaction: hook_3, takes: ornament, requires: { state: { tree: up, hook_3: boxed } }, sets: { hook_3: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_4: { takes: ornament, requires: { state: { tree: up, hook_4: boxed } }, sets: { hook_4: hung },
+      hang_4: { action: hang_ornament, interaction: hook_4, takes: ornament, requires: { state: { tree: up, hook_4: boxed } }, sets: { hook_4: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_5: { takes: ornament, requires: { state: { tree: up, hook_5: boxed } }, sets: { hook_5: hung },
+      hang_5: { action: hang_ornament, interaction: hook_5, takes: ornament, requires: { state: { tree: up, hook_5: boxed } }, sets: { hook_5: hung },
                 advertises: { tree_decorated: 0.05 } }
   - type: stand
     action: attend
-    at: [-0.490, 0, 0.755]
+    at: [-0.436, 0, 0.671]
     facing: 147
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_6: { takes: ornament, requires: { state: { tree: up, hook_6: boxed } }, sets: { hook_6: hung },
+      hang_6: { action: hang_ornament, interaction: hook_6, takes: ornament, requires: { state: { tree: up, hook_6: boxed } }, sets: { hook_6: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_7: { takes: ornament, requires: { state: { tree: up, hook_7: boxed } }, sets: { hook_7: hung },
+      hang_7: { action: hang_ornament, interaction: hook_7, takes: ornament, requires: { state: { tree: up, hook_7: boxed } }, sets: { hook_7: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_8: { takes: ornament, requires: { state: { tree: up, hook_8: boxed } }, sets: { hook_8: hung },
+      hang_8: { action: hang_ornament, interaction: hook_8, takes: ornament, requires: { state: { tree: up, hook_8: boxed } }, sets: { hook_8: hung },
                 advertises: { tree_decorated: 0.05 } }
   - type: stand
     action: attend
-    at: [0.000, 0, 0.900]
+    at: [0.000, 0, 0.800]
     facing: 180
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_9: { takes: ornament, requires: { state: { tree: up, hook_9: boxed } }, sets: { hook_9: hung },
+      hang_9: { action: hang_ornament, interaction: hook_9, takes: ornament, requires: { state: { tree: up, hook_9: boxed } }, sets: { hook_9: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_10: { takes: ornament, requires: { state: { tree: up, hook_10: boxed } }, sets: { hook_10: hung },
+      hang_10: { action: hang_ornament, interaction: hook_10, takes: ornament, requires: { state: { tree: up, hook_10: boxed } }, sets: { hook_10: hung },
                 advertises: { tree_decorated: 0.05 } }
   - type: stand
     action: attend
-    at: [0.490, 0, 0.755]
+    at: [0.436, 0, 0.671]
     facing: 213
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_11: { takes: ornament, requires: { state: { tree: up, hook_11: boxed } }, sets: { hook_11: hung },
+      hang_11: { action: hang_ornament, interaction: hook_11, takes: ornament, requires: { state: { tree: up, hook_11: boxed } }, sets: { hook_11: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_12: { takes: ornament, requires: { state: { tree: up, hook_12: boxed } }, sets: { hook_12: hung },
+      hang_12: { action: hang_ornament, interaction: hook_12, takes: ornament, requires: { state: { tree: up, hook_12: boxed } }, sets: { hook_12: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_13: { takes: ornament, requires: { state: { tree: up, hook_13: boxed } }, sets: { hook_13: hung },
+      hang_13: { action: hang_ornament, interaction: hook_13, takes: ornament, requires: { state: { tree: up, hook_13: boxed } }, sets: { hook_13: hung },
                 advertises: { tree_decorated: 0.05 } }
   - type: stand
     action: attend
-    at: [0.828, 0, 0.352]
+    at: [0.736, 0, 0.313]
     facing: 247
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_14: { takes: ornament, requires: { state: { tree: up, hook_14: boxed } }, sets: { hook_14: hung },
+      hang_14: { action: hang_ornament, interaction: hook_14, takes: ornament, requires: { state: { tree: up, hook_14: boxed } }, sets: { hook_14: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_15: { takes: ornament, requires: { state: { tree: up, hook_15: boxed } }, sets: { hook_15: hung },
+      hang_15: { action: hang_ornament, interaction: hook_15, takes: ornament, requires: { state: { tree: up, hook_15: boxed } }, sets: { hook_15: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_16: { takes: ornament, requires: { state: { tree: up, hook_16: boxed } }, sets: { hook_16: hung },
+      hang_16: { action: hang_ornament, interaction: hook_16, takes: ornament, requires: { state: { tree: up, hook_16: boxed } }, sets: { hook_16: hung },
                 advertises: { tree_decorated: 0.05 } }
   - type: stand
     action: attend
-    at: [0.886, 0, -0.156]
+    at: [0.788, 0, -0.139]
     facing: 280
     approach: [0, 0, 0]
     duration: [2, 3]
     requires: { state: { tree: absent, box: out } }
     uses:
-      hang_17: { takes: ornament, requires: { state: { tree: up, hook_17: boxed } }, sets: { hook_17: hung },
+      hang_17: { action: hang_ornament, interaction: hook_17, takes: ornament, requires: { state: { tree: up, hook_17: boxed } }, sets: { hook_17: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_18: { takes: ornament, requires: { state: { tree: up, hook_18: boxed } }, sets: { hook_18: hung },
+      hang_18: { action: hang_ornament, interaction: hook_18, takes: ornament, requires: { state: { tree: up, hook_18: boxed } }, sets: { hook_18: hung },
                 advertises: { tree_decorated: 0.05 } }
-      hang_19: { takes: ornament, requires: { state: { tree: up, hook_19: boxed } }, sets: { hook_19: hung },
+      hang_19: { action: hang_ornament, interaction: hook_19, takes: ornament, requires: { state: { tree: up, hook_19: boxed } }, sets: { hook_19: hung },
                 advertises: { tree_decorated: 0.05 } }
   # With every ornament on, someone plugs the lights in, and then they both stand back to look.
   - { type: stand, action: attend, at: [-1.05, 0, 0.2], facing: 90, approach: [0, 0, 0], duration: [2, 3], tags: [errand],

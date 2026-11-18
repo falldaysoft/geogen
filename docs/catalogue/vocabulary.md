@@ -297,6 +297,7 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `mirr
 | [motions/laugh.yaml](../../assets/motions/laugh.yaml) | Laugh (geogen.103.17): the head goes back and the chest shakes with it, a hand on the belly,. |
 | [motions/look_around.yaml](../../assets/motions/look_around.yaml) | Look around (geogen.103.17): an idle. |
 | [motions/nod.yaml](../../assets/motions/nod.yaml) | Nod yes (geogen.103.17): the head dips and comes back up `nods` times. |
+| [motions/place_ornament.yaml](../../assets/motions/place_ornament.yaml) | Put what is in the hand on a spot in front (geogen.110): the arm goes out to it and stays there until the thing is on. |
 | [motions/point.yaml](../../assets/motions/point.yaml) | Point (geogen.103.17): the right arm out ahead, index finger pointing, the head turned along it; hold, then down. |
 | [motions/press.yaml](../../assets/motions/press.yaml) | Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4). |
 | [motions/rub_hands.yaml](../../assets/motions/rub_hands.yaml) | Rub the hands (geogen.103.17): an idle fidget. |

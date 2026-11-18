@@ -992,6 +992,12 @@ func _collect_affordances(root: Node) -> void:
                 other["advertises"] = {}
                 other["tags"] = []
                 other.merge(uses[use_name], true)
+                if other.get("interaction") is String:     # a use with an interaction of its own
+                    var own := str(other["interaction"])
+                    other.erase("interaction")
+                    for it in interactions_of(String(node.name)):
+                        if it.interaction_name == own and it.asset == node:
+                            other["interaction"] = it
                 other["id"] = "%s.%s" % [entry["id"], use_name]
                 other["use"] = str(use_name)
                 _shares[other["id"]] = entry["id"]
