@@ -203,6 +203,8 @@ var _motions: GeogenMotionPlayer = null   # the body's motion rig, made when fir
 var _run: GeogenMotionRig.Run = null      # the motion the step in hand waits for (`do:`, a press)
 var _kept: Array[GeogenMotionRig.Run] = []   # motions started with `keep: true`: until the option ends
 var _pressing := false             # a `use:` step's finger is on its way to the interaction's touch point
+var _taking := false               # a `pick_up:` / `put_down:` step's hand is at work (motions take, set_down)
+var _carry_run: GeogenMotionRig.Run = null   # the hand holding what it took (motion carry)
 var _emitted := {}                 # what the body's motions have emitted since the press began
 var _feet: GeogenFeet = null       # standing feet onto the ground that is really there (feet.gd)
 var _playing := false             # a `play:` step holds the body's animation
@@ -1583,6 +1585,9 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if not _within_reach(at):
             return "out of reach (%.2f m away, %.2f m up)" % [NpcGeometry.flat(at - global_position).length(), at.y - global_position.y]
         _face_point(at)
+        _taking = _take(uid)
+        if _taking:
+            return ""
         if _hands != null:
             _hands.reach("", world.props.props[uid]["body"], world.props.box_of(uid)["center"], PICK_SECONDS + 0.3)
         _timer = PICK_SECONDS
@@ -1596,6 +1601,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if not _within_reach(place["position"]):
             return "the place is out of reach"
         _face_point(place["position"])
+        _taking = _set_down(world.props.taken_by(self), place)
         _timer = PICK_SECONDS
         return ""
     if step.has("use_item"):
@@ -1702,6 +1708,28 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
     if step.has("pick_up") or step.has("put_down"):
         var diff := wrapf(_yaw_goal - _yaw(), -PI, PI)
         rotation.y += clampf(diff, -TAU * delta, TAU * delta)
+        if _taking:
+            var heard := "taken" if step.has("pick_up") else "put"
+            if not _emitted.has(heard) and _run != null and not _run.done:
+                return "running"                  # the hand is on its way
+            _taking = false
+            if step.has("pick_up"):
+                var taken := str(ctx.get("subject", ""))
+                if prop_in_hand() != taken:
+                    _let_go()
+                    return "can't take it (gone, or in someone's hands)"
+                stats["picked_up"] = int(stats.get("picked_up", 0)) + 1
+                GeogenWants.note_handled(self, taken)
+                _trace({"event": "pick_up", "prop": taken, "pos": _v(global_position)})
+                return "done"
+            var was: String = world.props.taken_by(self)
+            if was != "":
+                _let_go()                         # the motion was cut off: it lets go where it is
+            _carry_run = null
+            _carry_on = {}
+            stats["put_down"] = int(stats.get("put_down", 0)) + 1
+            _trace({"event": "put_down", "prop": was, "at": _v(ctx["place"]["position"])})
+            return "done"
         _timer -= delta
         if _timer > 0.0:
             return "running"
@@ -1867,6 +1895,48 @@ func _note_press(it: GeogenInteraction) -> void:
     if tip >= 0:
         var at: Vector3 = rig.body_world * (rig.world()[tip] as Transform3D).origin
         stats["press_gap"] = snappedf(at.distance_to(button.world().origin), 0.001)
+
+
+## The thing a prop is to a hand: where to take hold of it is the top of its box, palm down.
+func _prop_thing(uid: String) -> GeogenMotionRig.Thing:
+    var thing := _motions.thing_of(world.props.props[uid]["node"])
+    if thing.grips.is_empty():
+        var box: Dictionary = world.props.box_of(uid)
+        var top: Vector3 = (box["center"] as Vector3) + Vector3.UP * (box["size"] as Vector3).y / 2.0
+        thing.set_grips({"top": {"grip": "rim", "at": [top.x, top.y, top.z, 0, 0, 0, 1]}})
+    return thing
+
+
+## Take prop ``uid`` in the hand and keep hold of it (motions take and carry). False when this body
+## has no such motions, is not on its feet, or the thing is for both hands.
+func _take(uid: String) -> bool:
+    var player := _motion_player()
+    var motions := GeogenMotionPlayer.motions(world.generated_dir)
+    if player == null or _pose != "stand" or _two_handed(uid) or not (motions.has("take") and motions.has("carry")):
+        return false
+    var thing := _prop_thing(uid)
+    player.holder = self
+    _emitted.erase("taken")
+    _run = player.start(motions["take"], {"item": thing})
+    if _run == null:
+        return false
+    _carry_run = player.start(motions["carry"], {"item": thing})
+    return true
+
+
+## Put what the hand holds at ``place`` (motion set_down): the box's underside just above the
+## spot. False when no motion holds it (it was taken some other way).
+func _set_down(uid: String, place: Dictionary) -> bool:
+    var motions := GeogenMotionPlayer.motions(world.generated_dir)
+    if _motions == null or not _motions.rig.attached_.has("item") or not motions.has("set_down"):
+        return false
+    var box: Dictionary = world.props.box_of(uid)
+    var basis := Basis(Vector3.UP, float(place.get("yaw", _yaw())))
+    var at: Vector3 = place["position"] + Vector3.UP * ((box["size"] as Vector3).y / 2.0 + PUT_GAP) - basis * (box["center"] as Vector3)
+    _emitted.erase("put")
+    _run = _motions.start(motions["set_down"], {"item": _motions.rig.attached_["item"]["thing"],
+        "place": GeogenMotionRig.Thing.fixed("place", Transform3D(basis, at))})
+    return _run != null
 
 
 ## The motions it is in the middle of stop as their beats allow (`how`: yield, or drop).
@@ -2090,6 +2160,10 @@ func _target(kind: String, ctx: Dictionary):
 ## Drop the prop in hand, if any, where it is.
 func _let_go() -> void:
     _carry_on = {}
+    _carry_run = null
+    _taking = false
+    if _motions != null and not _motions.rig.attached_.is_empty():
+        _motions.break_()                  # the hand opens: it falls from where the hand had it
     if world != null and world.props != null:
         world.props.release(world.props.taken_by(self))
 

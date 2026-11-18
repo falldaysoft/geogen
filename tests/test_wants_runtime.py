@@ -236,9 +236,11 @@ def test_a_bulky_prop_is_carried_in_front_in_both_hands(rt):
     run_until(rt, lambda: resident(rt)["prop"] == "")
     rt.call("time.advance", seconds=1, scale=1)
     assert resident(rt)["hands"]["holding"] == {}                          # hands off it once it is down
-    # The can (12 cm) is a one-hand thing: at the side, as before.
-    npc, prop = carried(rt, "can")
-    assert npc["hands"]["holding"] == {} and abs(ahead_and_aside(npc, prop)[1]) > 0.1
+    # The can (12 cm) is a one-hand thing: taken and carried by the motions, in front of the right hip.
+    carried(rt, "can")
+    rt.call("time.advance", seconds=0.8, scale=1)                          # lifted to where it is carried
+    npc, prop = resident(rt), body(rt, "can")
+    assert npc["prop"] != "" and npc["hands"]["holding"] == {} and abs(ahead_and_aside(npc, prop)[1]) > 0.05
     run_until(rt, lambda: resident(rt)["prop"] == "")
 
 

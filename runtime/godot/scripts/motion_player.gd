@@ -35,6 +35,7 @@ var _active := false              # writing bones (a motion runs, or one just en
 var _things := {}                 # node -> its GeogenMotionRig.Thing
 var _shapes := {}                 # "node:target" -> [MeshInstance3D, blend shape index]
 var layered := false              # write only what motions hold, over the body's animation
+var holder: Node3D = null         # who holds what the hands take (GeogenProps.take); null: the body
 var _weights := PackedFloat32Array()   # layered: how much of each rig bone is the rig's, 0..1
 
 
@@ -312,27 +313,36 @@ func _body_at(thing: GeogenMotionRig.Thing) -> Transform3D:
 func _taken(thing: GeogenMotionRig.Thing, _end: String) -> void:
     var prop := _prop(thing)
     if not prop.is_empty():
-        (prop["props"] as GeogenProps).take(prop["uid"], body, _body_at.bind(thing))
+        (prop["props"] as GeogenProps).take(prop["uid"], _holder(), _body_at.bind(thing))
 
 
 func _let_go(thing: GeogenMotionRig.Thing, to_physics: bool) -> void:
     var prop := _prop(thing)
     if not prop.is_empty():
         # Let go where the hand left it (put down: it settles; a break: it falls from there).
-        (prop["props"] as GeogenProps).release(prop["uid"], _body_at(thing))
+        if (prop["props"] as GeogenProps).holder_of(prop["uid"]) == _holder():
+            (prop["props"] as GeogenProps).release(prop["uid"], _body_at(thing))
     elif thing.node != null and is_instance_valid(thing.node) and not to_physics:
         thing.node.global_transform = thing.xform
 
 
-## Held things where the hands have them now.
+func _holder() -> Node3D:
+    return holder if holder != null else body
+
+
+## Held things where the hands have them now. One someone else has taken from the hand (the
+## player) is gone: the motions holding it stop.
 func _move_held() -> void:
-    for role in rig.attached_:
+    for role in rig.attached_.keys():
         var thing: GeogenMotionRig.Thing = rig.attached_[role]["thing"]
         if thing.node == null or not is_instance_valid(thing.node):
             continue
         var prop := _prop(thing)
         if prop.is_empty():
             thing.node.global_transform = thing.xform
+        elif (prop["props"] as GeogenProps).holder_of(prop["uid"]) != _holder():
+            rig.break_(null)
+            return
         else:
             var b: RigidBody3D = (prop["props"] as GeogenProps).props[prop["uid"]]["body"]
             b.global_transform = _body_at(thing)
