@@ -560,6 +560,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `door_paint` | painted_wall |
 | `fabric_linen` | fabric |
 | `fabric_velvet` | fabric |
+| `fire_glow` | painted_wall |
 | `floor` | concrete |
 | `foliage_green` | painted_wall |
 | `foliage_palm` | painted_wall |
@@ -606,6 +607,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `signal_green` | painted_wall |
 | `signal_red` | painted_wall |
 | `skin` | skin |
+| `snow` | painted_wall |
 | `stone` | concrete |
 | `taillight` | painted_wall |
 | `tile_floor_grey` | tile |

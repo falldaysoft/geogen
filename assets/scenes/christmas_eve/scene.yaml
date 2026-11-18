@@ -8,6 +8,7 @@ atmosphere: { preset: clear, time: "17:20", sun: 0.5, sun_color: [1.0, 0.7, 0.5]
 
 spawns:
   start: { position: [-1.5, 0.05, -5.5], facing: north }
+  from_hub: { position: [-1.5, 0.05, -6.5], facing: north }
 
 slots:
   truck: { position: [3.0, 0, -8.6], facing: south }
@@ -16,6 +17,7 @@ slots:
   snow_west: { position: [-14.4, 0, 0] }
   snow_east: { position: [14.4, 0, 0] }
   fir: { position: [3.0, 0, -6.81], facing: south }
+  hub_portal: { position: [-4.0, 0, -7.0], facing: east }
   drive: { position: [3.0, 0, -9.7] }
   roof: { position: [0, 2.5, 0] }
 
@@ -27,6 +29,11 @@ place:
   snow_west:  { asset: snow_patch.yaml, slot: snow_west, params: { width: 20, depth: 5.4 } }
   snow_east:  { asset: snow_patch.yaml, slot: snow_east, params: { width: 20, depth: 5.4 } }
   driveway:   { asset: driveway.yaml, slot: drive }
+  hub_portal:
+    asset: portal.yaml
+    slot: hub_portal
+    params: { label: Hub }
+    travel: { scene: hub, spawn: from_christmas }
 
   truck: { asset: vehicles/pickup_truck.yaml, slot: truck }
   fir:

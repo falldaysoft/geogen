@@ -27,7 +27,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [household_pair](#household_pair) | Two people who live together and a sofa: the test scene for company (geogen.101.6). |  |
 | [household_play](#household_play) | scenes/household_pair.yaml played by directing its people (geogen.101.10): `play:` says there is no walking player. |  |
 | [household_test](#household_test) | One hungry person and a kitchen: the test scene for plans (the dollhouse, geogen.101). |  |
-| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 16.8 degrees apart, for eleven portals; re-space them when a showcase is added). | showcase |
+| [hub](#hub) | The hub: a round plaza with one labelled portal per showcase scene, spread evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 15.3 degrees apart, for twelve portals; re-space them when a showcase is added). | showcase |
 | [humanoid_lineup](#humanoid_lineup) | Humanoid bodies for review: feminine, neutral and masculine presets next to a chair and a door for scale. | test |
 | [humanoid_walk](#humanoid_walk) | One feminine humanoid for clip review. |  |
 | [island](#island) | The island showcase: a small island in the sea. | showcase |
@@ -56,7 +56,8 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
 | [wants_places](#wants_places) | A room of places with different qualities, for what wants weigh in a place. |  |
 | [wants_test](#wants_test) | A resident in one room with things to carry: the test scene for wants (geogen.97). |  |
-| [christmas_test](#christmas_test) | Two people, a tree to bring in and a box of ornaments: the test scene for working together (geogen.110). |  |
+| [christmas_eve](#christmas_eve) | Christmas Eve at a small house (geogen.110). | showcase |
+| [christmas_test](#christmas_test) | Two people, a tree to bring in and a box of ornaments: the test scene for working together (geogen.110). | test |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
 | [wants_house](#wants_house) | A house-proud person in a two-room flat: wants about the state of things. |  |
@@ -412,17 +413,17 @@ counter, which is quicker than the range, so there she plans through that instea
 `scene: scenes/hub.yaml` · [source](../../assets/scenes/hub.yaml)
 
 The hub: a round plaza with one labelled portal per showcase scene, spread
-evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 16.8 degrees apart, for eleven portals;
+evenly round the far (-Z) side, 11 m out (angles from -Z: +-84, 15.3 degrees apart, for twelve portals;
 re-space them when a showcase is added). Each portal lands at its scene's
 `from_hub` spawn, and every showcase has a portal or travel door back here
 that lands in front of its own portal (`from_<name>`). It's the runtime
 catalogue's default scene; tests/test_hub.py checks the round trips.
 
-**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `portal_farm: {asset: portal.yaml}`; `portal_motions: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
+**Places**: `plaza: {asset: plaza.yaml}`; `name_plinth: {asset: info_plinth.yaml}`; `portal_cottage: {asset: portal.yaml}`; `portal_hotel: {asset: portal.yaml}`; `portal_restaurant: {asset: portal.yaml}`; `portal_main_street: {asset: portal.yaml}`; `portal_quests: {asset: portal.yaml}`; `portal_city: {asset: portal.yaml}`; `portal_town: {asset: portal.yaml}`; `portal_park: {asset: portal.yaml}`; `portal_island: {asset: portal.yaml}`; `portal_farm: {asset: portal.yaml}`; `portal_motions: {asset: portal.yaml}`; `portal_christmas: {asset: portal.yaml}`; `signpost: {asset: signpost.yaml}`; `lamp_e: {asset: street_lamp.yaml}`; `lamp_w: {asset: street_lamp.yaml}`; `lamp_ne: {asset: street_lamp.yaml}`; `lamp_nw: {asset: street_lamp.yaml}`; `bench_e: {asset: bench.yaml}`; `bench_w: {asset: bench.yaml}`; `planter_e: {asset: planter.yaml}`; `planter_w: {asset: planter.yaml}`; `planter_se: {asset: planter.yaml}`; `planter_ne: {asset: planter.yaml}`; `planter_nw: {asset: planter.yaml}`
 
-**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_city, portal_cottage, portal_farm, portal_hotel, portal_island, portal_main_street, portal_motions, portal_park, portal_quests, portal_restaurant, portal_town, sign
+**Slots**: bench_e, bench_w, centre, lamp_e, lamp_ne, lamp_nw, lamp_w, planter_e, planter_ne, planter_nw, planter_se, planter_w, portal_christmas, portal_city, portal_cottage, portal_farm, portal_hotel, portal_island, portal_main_street, portal_motions, portal_park, portal_quests, portal_restaurant, portal_town, sign
 
-**Spawns**: from_city, from_cottage, from_farm, from_hotel, from_island, from_main_street, from_motions, from_park, from_quests, from_restaurant, from_town, start
+**Spawns**: from_christmas, from_city, from_cottage, from_farm, from_hotel, from_island, from_main_street, from_motions, from_park, from_quests, from_restaurant, from_town, start
 
 ## humanoid_lineup
 
@@ -836,6 +837,20 @@ floor and the resident picks it up and puts it on whatever will hold it.
 **Places**: `room: {asset: room.yaml}`; `table: {asset: table.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `chair: {asset: chair.yaml}`; `can: {asset: soda_can.yaml}`; `pumpkin: {asset: pumpkin.yaml}`; `resident: {npc: npcs/resident.yaml}`
 
 **Spawns**: start
+
+## christmas_eve
+
+`scene: scenes/christmas_eve/scene.yaml` · [source](../../assets/scenes/christmas_eve/scene.yaml)
+
+Christmas Eve at a small house (geogen.110). The truck is in the driveway with a tree in its bed.
+Nobody is told what to do: Nell and Tom both want the tree decorated, and everything they do
+comes from what the tree, the box and the ornaments need.
+
+**Places**: `house: {asset: cozy_house.yaml}`; `roof: {asset: cozy_roof.yaml}`; `snow_south: {asset: snow_patch.yaml}`; `snow_north: {asset: snow_patch.yaml}`; `snow_west: {asset: snow_patch.yaml}`; `snow_east: {asset: snow_patch.yaml}`; `driveway: {asset: driveway.yaml}`; `hub_portal: {asset: portal.yaml}`; `truck: {asset: vehicles/pickup_truck.yaml}`; `fir: {asset: netted_tree.yaml}`; `fireplace: {asset: fireplace.yaml}`; `rug: {asset: rug.yaml}`; `sofa: {asset: sofa.yaml}`; `armchair: {asset: armchair.yaml}`; `lamp: {asset: floor_lamp.yaml}`; `tree: {asset: christmas_tree.yaml}`; `cupboard: {asset: ornament_cupboard.yaml}`; `nell: {character: people/nell.yaml}`; `tom: {character: people/tom.yaml}`
+
+**Slots**: drive, fir, hub_portal, roof, snow_east, snow_north, snow_south, snow_west, truck
+
+**Spawns**: from_hub, start
 
 ## christmas_test
 

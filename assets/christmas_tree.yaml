@@ -12,6 +12,11 @@ origin: bottom_center
 size: [1, 1, 1]
 bounds: geometry
 
+light: { energy: 1.1, range: 4.0, color: [1.0, 0.78, 0.45], offset: [0, 1.15, 0.6] }
+
+bind:
+  self.lit: "self.fairy == 'glowing'"
+
 parts:
   stand:
     primitive: cylinder
@@ -204,6 +209,133 @@ parts:
     tint: [0.12, 0.25, 0.65]
     collider: none
 
+  bulb_0:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.000, -0.134, 0.562]
+    material: lamp_glass
+    collider: none
+  bulb_1:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.285, 0.210, -0.311]
+    material: lamp_glass
+    collider: none
+  bulb_2:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.300, 0.544, 0.026]
+    material: lamp_glass
+    collider: none
+  bulb_3:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.236, 0.730, 0.181]
+    material: lamp_glass
+    collider: none
+  bulb_4:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.033, 1.027, -0.185]
+    material: lamp_glass
+    collider: none
+  bulb_5:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.162, 0.544, 0.254]
+    material: lamp_glass
+    collider: none
+  bulb_6:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.543, -0.134, -0.145]
+    material: lamp_glass
+    collider: none
+  bulb_7:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.374, 0.210, -0.195]
+    material: lamp_glass
+    collider: none
+  bulb_8:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.103, 0.544, 0.283]
+    material: lamp_glass
+    collider: none
+  bulb_9:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.114, 0.730, -0.275]
+    material: lamp_glass
+    collider: none
+  bulb_10:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.170, 1.027, 0.079]
+    material: lamp_glass
+    collider: none
+  bulb_11:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.287, 0.544, 0.091]
+    material: lamp_glass
+    collider: none
+  bulb_12:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.281, -0.134, -0.487]
+    material: lamp_glass
+    collider: none
+  bulb_13:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.091, 0.210, 0.412]
+    material: lamp_glass
+    collider: none
+  bulb_14:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.247, 0.544, -0.173]
+    material: lamp_glass
+    collider: none
+  bulb_15:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [-0.295, 0.730, -0.039]
+    material: lamp_glass
+    collider: none
+  bulb_16:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.121, 1.027, 0.144]
+    material: lamp_glass
+    collider: none
+  bulb_17:
+    primitive: sphere
+    size: [0.035, 0.035, 0.035]
+    anchor: center
+    offset: [0.013, 0.544, -0.301]
+    material: lamp_glass
+    collider: none
+
 interactions:
   tree:
     initial: absent
@@ -217,6 +349,12 @@ interactions:
     states: { away: {}, out: {} }
     motions:
       - { parts: [box, box_ornament_0, box_ornament_1, box_ornament_2], show: [out] }
+  fairy:
+    initial: dark
+    duration: 0.3
+    states: { dark: {}, glowing: {} }
+    motions:
+      - { parts: [bulb_0, bulb_1, bulb_2, bulb_3, bulb_4, bulb_5, bulb_6, bulb_7, bulb_8, bulb_9, bulb_10, bulb_11, bulb_12, bulb_13, bulb_14, bulb_15, bulb_16, bulb_17], show: [glowing] }
   hook_0:
     initial: empty
     duration: 0.2
@@ -335,3 +473,11 @@ affordances:
   - { type: stand, action: attend, at: [0.38, 0, 0.816], facing: 205, approach: [0, 0, 0], duration: [2, 3],
       takes: ornament, requires: { state: { tree: up, hook_11: empty } }, sets: { hook_11: hung },
       advertises: { tree_decorated: 0.09 } }
+  # With every ornament on, someone plugs the lights in, and then they both stand back to look.
+  - { type: stand, action: attend, at: [-1.05, 0, 0.2], facing: 90, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
+      requires: { state: { fairy: dark, hook_0: hung, hook_1: hung, hook_2: hung, hook_3: hung, hook_4: hung, hook_5: hung, hook_6: hung, hook_7: hung, hook_8: hung, hook_9: hung, hook_10: hung, hook_11: hung } }, sets: { fairy: glowing },
+      advertises: { tree_decorated: 0.2 } }
+  - { type: stand, action: look, at: [0.55, 0, 2.3], facing: 180, approach: [0, 0, 0], duration: [14, 20],
+      requires: { state: { fairy: glowing } }, advertises: { tree_decorated: 0.3 } }
+  - { type: stand, action: look, at: [-0.55, 0, 2.3], facing: 180, approach: [0, 0, 0], duration: [14, 20],
+      requires: { state: { fairy: glowing } }, advertises: { tree_decorated: 0.3 } }

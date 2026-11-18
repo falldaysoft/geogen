@@ -9,8 +9,14 @@ the cut end toward -Z, which is where someone stands to take it.
 
 ```yaml
 place:
-  netted_tree: {asset: netted_tree.yaml, state: taken}
+  netted_tree: {asset: netted_tree.yaml, params: {above_floor: 0}, state: taken}
 ```
+
+## Params
+
+| Param | Default | Choices | Notes |
+| --- | --- | --- | --- |
+| `above_floor` | `0` |  | how high it lies above the ground it is placed on (a truck's bed) |
 
 ## Size
 
@@ -26,4 +32,4 @@ stock: here*, taken (* initial; shows/hides trunk, boughs)
 
 ## Affordances
 
-stand at (0, 0, -1.4) [errand]
+stand at (0, 0, -1.6) [errand]

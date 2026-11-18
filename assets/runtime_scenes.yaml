@@ -20,6 +20,12 @@ scenes:
   hub:
     group: showcase
     description: A plaza with a portal to every showcase scene (each has a way back)
+  christmas_eve:
+    group: showcase
+    description: Two people decorate a Christmas tree by a fire, all from one shared goal, with the tree in a pickup in the driveway
+  christmas_test:
+    group: test
+    description: Two people, a tree and a box of ornaments in a bare room (working together, geogen.110)
   cottage:
     group: showcase
     description: Brick cottage where two people live by needs and plans (cook, eat, wash up, chat; G directs them), and the people gallery on the lawn

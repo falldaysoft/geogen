@@ -7,13 +7,13 @@ npc: npcs/householder.yaml
 seed: 11
 body:
   archetype: characters/archetypes/young_woman.yaml
-  params: { hair_color: auburn, top_color: burgundy, bottom_color: charcoal }
+  params: { outfit: jeans_tee, hair_color: auburn, top_color: burgundy, bottom_color: charcoal }
 planner: { depth: 6, patience: 60, hands: 1 }
 needs:
   tree_decorated: { initial: 0, decay: 0, urgent: 1.0, boost: 12 }
   hunger:    { initial: 0.95, decay: 0.0002 }
-  rest:      { initial: 0.9, decay: 0.0002 }
+  rest:      { initial: 0.5, decay: 0.0002 }
   hygiene:   { initial: 0.95, decay: 0.0001 }
-  curiosity: { initial: 0.9, decay: 0.0005 }
+  curiosity: { initial: 1.0, decay: 0 }
   order:     { initial: 0.95, decay: 0.0001 }
   social:    { initial: 0.9, decay: 0.0002 }

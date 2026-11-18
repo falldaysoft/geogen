@@ -37,25 +37,26 @@ place:
 <tr>
 <td align="center"><a href="assets/desk.md"><img src="img/desk.png" width="150" alt="desk"><br>desk</a></td>
 <td align="center"><a href="assets/desk_chair.md"><img src="img/desk_chair.png" width="150" alt="desk_chair"><br>desk_chair</a></td>
+<td align="center"><a href="assets/fireplace.md"><img src="img/fireplace.png" width="150" alt="fireplace"><br>fireplace</a></td>
 <td align="center"><a href="assets/floor_lamp.md"><img src="img/floor_lamp.png" width="150" alt="floor_lamp"><br>floor_lamp</a></td>
 <td align="center"><a href="assets/host_stand.md"><img src="img/host_stand.png" width="150" alt="host_stand"><br>host_stand</a></td>
-<td align="center"><a href="assets/luggage_rack.md"><img src="img/luggage_rack.png" width="150" alt="luggage_rack"><br>luggage_rack</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/luggage_rack.md"><img src="img/luggage_rack.png" width="150" alt="luggage_rack"><br>luggage_rack</a></td>
 <td align="center"><a href="assets/nightstand.md"><img src="img/nightstand.png" width="150" alt="nightstand"><br>nightstand</a></td>
 <td align="center"><a href="assets/ornament_cupboard.md"><img src="img/ornament_cupboard.png" width="150" alt="ornament_cupboard"><br>ornament_cupboard</a></td>
 <td align="center"><a href="assets/reception_desk.md"><img src="img/reception_desk.png" width="150" alt="reception_desk"><br>reception_desk</a></td>
 <td align="center"><a href="assets/rug.md"><img src="img/rug.png" width="150" alt="rug"><br>rug</a></td>
-<td align="center"><a href="assets/sofa.md"><img src="img/sofa.png" width="150" alt="sofa"><br>sofa</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/sofa.md"><img src="img/sofa.png" width="150" alt="sofa"><br>sofa</a></td>
 <td align="center"><a href="assets/table.md"><img src="img/table.png" width="150" alt="table"><br>table</a></td>
 <td align="center"><a href="assets/table_lamp.md"><img src="img/table_lamp.png" width="150" alt="table_lamp"><br>table_lamp</a></td>
 <td align="center"><a href="assets/table_setting.md"><img src="img/table_setting.png" width="150" alt="table_setting"><br>table_setting</a></td>
 <td align="center"><a href="assets/tv.md"><img src="img/tv.png" width="150" alt="tv"><br>tv</a></td>
-<td align="center"><a href="assets/tv_console.md"><img src="img/tv_console.png" width="150" alt="tv_console"><br>tv_console</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/tv_console.md"><img src="img/tv_console.png" width="150" alt="tv_console"><br>tv_console</a></td>
 <td align="center"><a href="assets/wall_mirror.md"><img src="img/wall_mirror.png" width="150" alt="wall_mirror"><br>wall_mirror</a></td>
 <td align="center"><a href="assets/wardrobe.md"><img src="img/wardrobe.png" width="150" alt="wardrobe"><br>wardrobe</a></td>
 </tr>
@@ -75,6 +76,7 @@ place:
 | [curtains](assets/curtains.md) | Pair of pleated curtains on a chrome rod, drawn open to the sides. | `width`, `height`, `panel` |
 | [desk](assets/desk.md) | Writing desk: top on two panel ends with a modesty panel and a shallow drawer. | `width`, `height`, `depth`, `board` |
 | [desk_chair](assets/desk_chair.md) | Upholstered desk chair on four slim metal legs. | `width`, `depth`, `height`, `seat` |
+| [fireplace](assets/fireplace.md) | A brick fireplace with a chimney breast up to the ceiling, a wooden mantel and a low fire of logs that gives the room its warm light. | `height` |
 | [floor_lamp](assets/floor_lamp.md) | Floor lamp: weighted round base, slim pole, drum shade. | `height`, `shade` |
 | [host_stand](assets/host_stand.md) | A host stand by a restaurant's door: a slim podium with a sloped top. |  |
 | [luggage_rack](assets/luggage_rack.md) | Folding luggage rack: two X-braced wooden frames with webbing straps. | `width`, `depth`, `height` |
@@ -158,7 +160,7 @@ place:
 | [meal_plate](assets/meal_plate.md) | A cooked meal on a plate: what a range or a microwave makes of raw food (items/meal.yaml), eaten at a table. |  |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [mug](assets/mug.md) | A coffee mug: a glazed body with a loop handle on its +X side. | `colour` |
-| [netted_tree](assets/netted_tree.md) | A netted fir lying where it was left, waiting to be brought in (geogen.110). |  |
+| [netted_tree](assets/netted_tree.md) | A netted fir lying where it was left, waiting to be brought in (geogen.110). | `above_floor` |
 | [ornament](assets/ornament.md) | One glass Christmas ornament, as it is carried from the box to the tree (items/ornament.yaml). |  |
 | [ornament_box](assets/ornament_box.md) | A cardboard box of Christmas ornaments with a string handle (items/ornament_box.yaml). |  |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
@@ -269,6 +271,9 @@ place:
 <td align="center"><a href="assets/car.md"><img src="img/car.png" width="150" alt="car"><br>car</a></td>
 <td align="center"><a href="assets/carriage.md"><img src="img/carriage.png" width="150" alt="carriage"><br>carriage</a></td>
 <td align="center"><a href="assets/loco.md"><img src="img/loco.png" width="150" alt="loco"><br>loco</a></td>
+<td align="center"><a href="assets/pickup_truck.md"><img src="img/pickup_truck.png" width="150" alt="pickup_truck"><br>pickup_truck</a></td>
+</tr>
+<tr>
 <td align="center"><a href="assets/van.md"><img src="img/van.png" width="150" alt="van"><br>van</a></td>
 </tr>
 </table>
@@ -279,6 +284,7 @@ place:
 | [car](assets/car.md) | A parametric car: sedan, hatchback, estate or taxi (presets). | `length`, `width`, `wheelbase`, `wheel_r`, `tyre_w`, `belt`, `hood`, `deck`, `roof`, `screen_z`, `roof_f`, `roof_r`, `back_z`, `taxi`, `paint` |
 | [carriage](assets/carriage.md) | A passenger carriage: a long body with a rounded roof, a window band, two doors a side and two bogies. | `length`, `width`, `bogie_gap`, `wheel_r`, `gauge`, `floor`, `paint`, `stripe` |
 | [loco](assets/loco.md) | A diesel locomotive: cabs with windscreens at both ends, louvred engine sides, head and tail lamps, two bogies. | `length`, `width`, `bogie_gap`, `wheel_r`, `gauge`, `floor`, `paint`, `stripe` |
+| [pickup_truck](assets/pickup_truck.md) | A pickup truck: long bonnet, a cab for two, and an open bed with the tailgate let down. | `length`, `width`, `height`, `wheelbase`, `wheel_r`, `tyre_w`, `belt`, `hood`, `cab_len`, `bed`, `paint` |
 | [van](assets/van.md) | A panel van: short bonnet, glazed cab, windowless cargo box. | `length`, `width`, `height`, `wheelbase`, `wheel_r`, `tyre_w`, `belt`, `hood`, `cab_len`, `paint` |
 
 ## Nature

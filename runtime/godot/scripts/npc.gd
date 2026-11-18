@@ -878,6 +878,8 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
             var a: Dictionary = o["affordance"]
             if (a.get("advertises", {}) as Dictionary).is_empty() and (a.has("gives") or a.has("sets")):
                 continue            # a link in a chain, with no chain to be part of
+            if a.has("takes") and not _carries_one_of(a["takes"]):
+                continue            # it would get there with nothing to use
             if not a.has("requires") or _meets(a):
                 return o
         return {}
@@ -891,6 +893,12 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
     _trace({"event": "plan", "goal": found["goal"], "steps": found["steps"], "cost": found["cost"],
         "score": found["score"], "fills": found["fills"], "goals": found["goals"]})
     return steps[0]
+
+
+## Whether it carries one of these items.
+func _carries_one_of(items: Array) -> bool:
+    var actor := WorldLoader.actor_id(self)
+    return world.rules != null and items.any(func(id): return world.rules.held(str(id), actor) > 0)
 
 
 ## The states the steps of its plan still to finish will set: {"<uid>#<interaction>": state}.

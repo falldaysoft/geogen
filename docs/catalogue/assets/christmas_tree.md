@@ -23,12 +23,13 @@ place:
 
 ## Parts
 
-`stand` (cylinder), `trunk` (cylinder), `boughs_0` (cone), `boughs_1` (cone), `boughs_2` (cone), `boughs_3` (cone), `boughs_4` (cone), `boughs_5` (cone), `star` (ellipsoid), `box` (cube), `box_ornament_0` (sphere), `box_ornament_1` (sphere), `box_ornament_2` (sphere), `ornament_0` (sphere), `ornament_1` (sphere), `ornament_2` (sphere), `ornament_3` (sphere), `ornament_4` (sphere), `ornament_5` (sphere), `ornament_6` (sphere), `ornament_7` (sphere), `ornament_8` (sphere), `ornament_9` (sphere), `ornament_10` (sphere), `ornament_11` (sphere)
+`stand` (cylinder), `trunk` (cylinder), `boughs_0` (cone), `boughs_1` (cone), `boughs_2` (cone), `boughs_3` (cone), `boughs_4` (cone), `boughs_5` (cone), `star` (ellipsoid), `box` (cube), `box_ornament_0` (sphere), `box_ornament_1` (sphere), `box_ornament_2` (sphere), `ornament_0` (sphere), `ornament_1` (sphere), `ornament_2` (sphere), `ornament_3` (sphere), `ornament_4` (sphere), `ornament_5` (sphere), `ornament_6` (sphere), `ornament_7` (sphere), `ornament_8` (sphere), `ornament_9` (sphere), `ornament_10` (sphere), `ornament_11` (sphere), `bulb_0` (sphere), `bulb_1` (sphere), `bulb_2` (sphere), `bulb_3` (sphere), `bulb_4` (sphere), `bulb_5` (sphere), `bulb_6` (sphere), `bulb_7` (sphere), `bulb_8` (sphere), `bulb_9` (sphere), `bulb_10` (sphere), `bulb_11` (sphere), `bulb_12` (sphere), `bulb_13` (sphere), `bulb_14` (sphere), `bulb_15` (sphere), `bulb_16` (sphere), `bulb_17` (sphere)
 
 ## Interactions
 
 - tree: absent*, up (* initial; shows/hides trunk, boughs_0, boughs_1, boughs_2, boughs_3, boughs_4, boughs_5, star)
 - box: away*, out (* initial; shows/hides box, box_ornament_0, box_ornament_1, box_ornament_2)
+- fairy: dark*, glowing (* initial; shows/hides bulb_0, bulb_1, bulb_2, bulb_3, bulb_4, bulb_5, bulb_6, bulb_7, bulb_8, bulb_9, bulb_10, bulb_11, bulb_12, bulb_13, bulb_14, bulb_15, bulb_16, bulb_17)
 - hook_0: empty*, hung (* initial; shows/hides ornament_0)
 - hook_1: empty*, hung (* initial; shows/hides ornament_1)
 - hook_2: empty*, hung (* initial; shows/hides ornament_2)
@@ -60,3 +61,10 @@ place:
 - stand at (0.579, 0, 0.689)
 - stand at (-0.45, 0, 0.779)
 - stand at (0.38, 0, 0.816)
+- stand at (-1.05, 0, 0.2) [errand]
+- stand at (0.55, 0, 2.3)
+- stand at (-0.55, 0, 2.3)
+
+## Light
+
+type omni, color [1,0.78,0.45], energy 1.1, range 4, offset [0,1.15,0.6]
