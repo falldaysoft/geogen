@@ -125,25 +125,28 @@ place:
 <tr>
 <td align="center"><a href="assets/butter_knife.md"><img src="img/butter_knife.png" width="150" alt="butter_knife"><br>butter_knife</a></td>
 <td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
+<td align="center"><a href="assets/chimney_stack.md"><img src="img/chimney_stack.png" width="150" alt="chimney_stack"><br>chimney_stack</a></td>
 <td align="center"><a href="assets/christmas_tree.md"><img src="img/christmas_tree.png" width="150" alt="christmas_tree"><br>christmas_tree</a></td>
 <td align="center"><a href="assets/fir_bundle.md"><img src="img/fir_bundle.png" width="150" alt="fir_bundle"><br>fir_bundle</a></td>
-<td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
 <td align="center"><a href="assets/hanging_chain.md"><img src="img/hanging_chain.png" width="150" alt="hanging_chain"><br>hanging_chain</a></td>
 <td align="center"><a href="assets/meal_plate.md"><img src="img/meal_plate.png" width="150" alt="meal_plate"><br>meal_plate</a></td>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
 <td align="center"><a href="assets/mug.md"><img src="img/mug.png" width="150" alt="mug"><br>mug</a></td>
-<td align="center"><a href="assets/netted_tree.md"><img src="img/netted_tree.png" width="150" alt="netted_tree"><br>netted_tree</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/netted_tree.md"><img src="img/netted_tree.png" width="150" alt="netted_tree"><br>netted_tree</a></td>
 <td align="center"><a href="assets/ornament.md"><img src="img/ornament.png" width="150" alt="ornament"><br>ornament</a></td>
 <td align="center"><a href="assets/ornament_box.md"><img src="img/ornament_box.png" width="150" alt="ornament_box"><br>ornament_box</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 <td align="center"><a href="assets/plate.md"><img src="img/plate.png" width="150" alt="plate"><br>plate</a></td>
-<td align="center"><a href="assets/swing_gate.md"><img src="img/swing_gate.png" width="150" alt="swing_gate"><br>swing_gate</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/rain_cloud.md"><img src="img/rain_cloud.png" width="150" alt="rain_cloud"><br>rain_cloud</a></td>
+<td align="center"><a href="assets/steam_vent.md"><img src="img/steam_vent.png" width="150" alt="steam_vent"><br>steam_vent</a></td>
+<td align="center"><a href="assets/swing_gate.md"><img src="img/swing_gate.png" width="150" alt="swing_gate"><br>swing_gate</a></td>
 <td align="center"><a href="assets/switch_board.md"><img src="img/switch_board.png" width="150" alt="switch_board"><br>switch_board</a></td>
 <td align="center"><a href="assets/wall_art.md"><img src="img/wall_art.png" width="150" alt="wall_art"><br>wall_art</a></td>
 </tr>
@@ -153,6 +156,7 @@ place:
 | --- | --- | --- |
 | [butter_knife](assets/butter_knife.md) | A butter knife lying flat, handle toward +Z. |  |
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
+| [chimney_stack](assets/chimney_stack.md) | A brick chimney stack with a clay pot and a slow drift of smoke. | `height` |
 | [christmas_tree](assets/christmas_tree.md) | A Christmas tree and everything that goes with decorating it (geogen.110): a stand that is always there, the tree once it has been set up, the box of ornaments put down beside it, and twelve hooks that each show their ornament when one is hung. |  |
 | [fir_bundle](assets/fir_bundle.md) | A fir tree wrapped in netting for the journey home: what is carried in (items/fir_tree.yaml). |  |
 | [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
@@ -165,6 +169,8 @@ place:
 | [ornament_box](assets/ornament_box.md) | A cardboard box of Christmas ornaments with a string handle (items/ornament_box.yaml). |  |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
 | [plate](assets/plate.md) | A white dinner plate. |  |
+| [rain_cloud](assets/rain_cloud.md) | A low cloud with its own rain shower. | `height` |
+| [steam_vent](assets/steam_vent.md) | A steam pipe with a handwheel: turn it (E) to shut off the hissing nozzle. |  |
 | [swing_gate](assets/swing_gate.md) | A field gate on a free hinge: walk into it and it swings open. | `width`, `height`, `swing` |
 | [switch_board](assets/switch_board.md) | A board on two posts for wall switches. | `width`, `height`, `panel`, `depth` |
 | [wall_art](assets/wall_art.md) | Framed print for a wall. | `width`, `height`, `frame`, `mat` |
