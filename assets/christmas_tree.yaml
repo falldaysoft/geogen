@@ -1,9 +1,12 @@
 # A Christmas tree and everything that goes with decorating it (geogen.110): a stand that is
-# always there, the tree once it has been set up, the box of ornaments put down beside it, and
-# twelve hooks that each show their ornament when one is hung.
+# always there, the tree once it has been set up, a box of 20 ornaments put down beside it, and
+# 20 spots on the boughs, each showing its ornament once one is hung there. The tree is decorated
+# when all 20 are on it: only then can its fairy lights be plugged in.
 #
 # Nothing here says what order to do this in. Each affordance says what it needs and what it
 # leaves behind, and people who want the tree decorated (a `tree_decorated` need) plan the rest.
+# Each spot's ornament starts in the box, so the box empties as the tree fills. They are hung from
+# seven places round the tree: the `uses` of one place share it, so two people never stand together.
 # Origin: the middle of the stand, on the floor. The front is +Z.
 
 name: christmas_tree
@@ -82,133 +85,332 @@ parts:
     collider: none
   box:
     primitive: cube
-    size: [0.36, 0.18, 0.28]
+    size: [0.42, 0.14, 0.34]
     anchor: bottom_center
     offset: [1.35, 0, -0.1]
     bevel: 0.006
     material: cardboard
     collider: none
-  box_ornament_0:
+  boxed_0:
     primitive: sphere
-    size: [0.08, 0.08, 0.08]
+    size: [0.062, 0.062, 0.062]
     anchor: bottom_center
-    offset: [1.27, 0.15, -0.1]
+    offset: [1.200, 0.125, -0.212]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
-  box_ornament_1:
+  boxed_1:
     primitive: sphere
-    size: [0.08, 0.08, 0.08]
+    size: [0.062, 0.062, 0.062]
     anchor: bottom_center
-    offset: [1.35, 0.15, -0.1]
+    offset: [1.275, 0.125, -0.212]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
-  box_ornament_2:
+  boxed_2:
     primitive: sphere
-    size: [0.08, 0.08, 0.08]
+    size: [0.062, 0.062, 0.062]
     anchor: bottom_center
-    offset: [1.43, 0.15, -0.1]
+    offset: [1.350, 0.125, -0.212]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
+  boxed_3:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.425, 0.125, -0.212]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  boxed_4:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.500, 0.125, -0.212]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  boxed_5:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.200, 0.125, -0.138]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  boxed_6:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.275, 0.125, -0.138]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  boxed_7:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.350, 0.125, -0.138]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  boxed_8:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.425, 0.125, -0.138]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  boxed_9:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.500, 0.125, -0.138]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  boxed_10:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.200, 0.125, -0.062]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  boxed_11:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.275, 0.125, -0.062]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  boxed_12:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.350, 0.125, -0.062]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  boxed_13:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.425, 0.125, -0.062]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  boxed_14:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.500, 0.125, -0.062]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  boxed_15:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.200, 0.125, 0.012]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  boxed_16:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.275, 0.125, 0.012]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  boxed_17:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.350, 0.125, 0.012]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  boxed_18:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.425, 0.125, 0.012]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  boxed_19:
+    primitive: sphere
+    size: [0.062, 0.062, 0.062]
+    anchor: bottom_center
+    offset: [1.500, 0.125, 0.012]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
   ornament_0:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.423, 0.61, 0.154]
+    offset: [-0.423, 0.610, -0.154]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
   ornament_1:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.154, 0.61, 0.423]
+    offset: [-0.370, 0.900, -0.006]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
   ornament_2:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.225, 0.61, 0.39]
+    offset: [-0.283, 1.174, -0.065]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
   ornament_3:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.435, 0.61, 0.116]
+    offset: [-0.438, 0.610, 0.101]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
   ornament_4:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.262, 0.9, 0.262]
+    offset: [-0.246, 1.174, 0.154]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
   ornament_5:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.032, 0.9, 0.369]
+    offset: [-0.197, 1.430, 0.072]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
   ornament_6:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.303, 0.9, 0.212]
+    offset: [-0.307, 0.610, 0.329]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
   ornament_7:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.28, 1.174, 0.075]
+    offset: [-0.150, 0.900, 0.338]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
   ornament_8:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.075, 1.174, 0.28]
+    offset: [-0.170, 1.174, 0.235]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
   ornament_9:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.186, 1.174, 0.222]
+    offset: [-0.064, 0.900, 0.364]
     material: ceramic_white
     tint: [0.75, 0.08, 0.08]
     collider: none
   ornament_10:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [-0.105, 1.43, 0.182]
+    offset: [0.033, 1.430, 0.207]
     material: ceramic_white
     tint: [0.85, 0.65, 0.15]
     collider: none
   ornament_11:
     primitive: sphere
-    size: [0.09, 0.09, 0.09]
+    size: [0.085, 0.085, 0.085]
     anchor: bottom_center
-    offset: [0.089, 1.43, 0.19]
+    offset: [0.176, 0.610, 0.414]
     material: ceramic_white
     tint: [0.12, 0.25, 0.65]
     collider: none
-
+  ornament_12:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.248, 0.900, 0.275]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  ornament_13:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.145, 1.174, 0.251]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  ornament_14:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.377, 0.610, 0.245]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  ornament_15:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.281, 1.174, 0.070]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  ornament_16:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.189, 1.430, 0.092]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
+  ornament_17:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.450, 0.610, 0.000]
+    material: ceramic_white
+    tint: [0.12, 0.25, 0.65]
+    collider: none
+  ornament_18:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.350, 0.900, -0.120]
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none
+  ornament_19:
+    primitive: sphere
+    size: [0.085, 0.085, 0.085]
+    anchor: bottom_center
+    offset: [0.288, 1.174, -0.035]
+    material: ceramic_white
+    tint: [0.85, 0.65, 0.15]
+    collider: none
   bulb_0:
     primitive: sphere
     size: [0.035, 0.035, 0.035]
@@ -348,134 +550,264 @@ interactions:
     duration: 0.2
     states: { away: {}, out: {} }
     motions:
-      - { parts: [box, box_ornament_0, box_ornament_1, box_ornament_2], show: [out] }
+      - { parts: [box], show: [out] }
   fairy:
     initial: dark
     duration: 0.3
     states: { dark: {}, glowing: {} }
     motions:
       - { parts: [bulb_0, bulb_1, bulb_2, bulb_3, bulb_4, bulb_5, bulb_6, bulb_7, bulb_8, bulb_9, bulb_10, bulb_11, bulb_12, bulb_13, bulb_14, bulb_15, bulb_16, bulb_17], show: [glowing] }
-  hook_0:
-    initial: empty
+  hook_0:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_0], show: [boxed] }
       - { parts: [ornament_0], show: [hung] }
-  hook_1:
-    initial: empty
+  hook_1:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_1], show: [boxed] }
       - { parts: [ornament_1], show: [hung] }
-  hook_2:
-    initial: empty
+  hook_2:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_2], show: [boxed] }
       - { parts: [ornament_2], show: [hung] }
-  hook_3:
-    initial: empty
+  hook_3:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_3], show: [boxed] }
       - { parts: [ornament_3], show: [hung] }
-  hook_4:
-    initial: empty
+  hook_4:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_4], show: [boxed] }
       - { parts: [ornament_4], show: [hung] }
-  hook_5:
-    initial: empty
+  hook_5:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_5], show: [boxed] }
       - { parts: [ornament_5], show: [hung] }
-  hook_6:
-    initial: empty
+  hook_6:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_6], show: [boxed] }
       - { parts: [ornament_6], show: [hung] }
-  hook_7:
-    initial: empty
+  hook_7:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_7], show: [boxed] }
       - { parts: [ornament_7], show: [hung] }
-  hook_8:
-    initial: empty
+  hook_8:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_8], show: [boxed] }
       - { parts: [ornament_8], show: [hung] }
-  hook_9:
-    initial: empty
+  hook_9:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_9], show: [boxed] }
       - { parts: [ornament_9], show: [hung] }
-  hook_10:
-    initial: empty
+  hook_10:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_10], show: [boxed] }
       - { parts: [ornament_10], show: [hung] }
-  hook_11:
-    initial: empty
+  hook_11:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
     duration: 0.2
-    states: { empty: {}, hung: {} }
+    states: { waiting: {}, boxed: {}, hung: {} }
     motions:
+      - { parts: [boxed_11], show: [boxed] }
       - { parts: [ornament_11], show: [hung] }
+  hook_12:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_12], show: [boxed] }
+      - { parts: [ornament_12], show: [hung] }
+  hook_13:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_13], show: [boxed] }
+      - { parts: [ornament_13], show: [hung] }
+  hook_14:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_14], show: [boxed] }
+      - { parts: [ornament_14], show: [hung] }
+  hook_15:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_15], show: [boxed] }
+      - { parts: [ornament_15], show: [hung] }
+  hook_16:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_16], show: [boxed] }
+      - { parts: [ornament_16], show: [hung] }
+  hook_17:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_17], show: [boxed] }
+      - { parts: [ornament_17], show: [hung] }
+  hook_18:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_18], show: [boxed] }
+      - { parts: [ornament_18], show: [hung] }
+  hook_19:                         # its ornament: not out yet, in the box, or on the tree
+    initial: waiting
+    duration: 0.2
+    states: { waiting: {}, boxed: {}, hung: {} }
+    motions:
+      - { parts: [boxed_19], show: [boxed] }
+      - { parts: [ornament_19], show: [hung] }
 
 affordances:
   - { type: stand, action: attend, at: [0, 0, 0.9], facing: 180, approach: [0, 0, 0], duration: [6, 8], tags: [errand],
       takes: fir_tree, requires: { state: { tree: absent } }, sets: { tree: up } }
-  - { type: stand, action: attend, at: [1.8, 0, -0.1], facing: 270, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
-      takes: ornament_box, requires: { state: { tree: up, box: away } }, sets: { box: out } }
-  - { type: stand, action: attend, at: [1.35, 0, 0.45], facing: 180, approach: [0, 0, 0], duration: [1.5, 2.5],
+  - { type: stand, action: attend, at: [1.9, 0, -0.1], facing: 270, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
+      takes: ornament_box, requires: { state: { tree: up, box: away } }, sets: { box: out, hook_0: boxed, hook_1: boxed, hook_2: boxed, hook_3: boxed, hook_4: boxed, hook_5: boxed, hook_6: boxed, hook_7: boxed, hook_8: boxed, hook_9: boxed, hook_10: boxed, hook_11: boxed, hook_12: boxed, hook_13: boxed, hook_14: boxed, hook_15: boxed, hook_16: boxed, hook_17: boxed, hook_18: boxed, hook_19: boxed } }
+  # Either side of the box.
+  - { type: stand, action: attend, at: [1.35, 0, 0.55], facing: 180, approach: [0, 0, 0], duration: [1.5, 2.5],
       gives: ornament, requires: { state: { box: out } } }
-  - { type: stand, action: attend, at: [1.35, 0, -0.65], facing: 0, approach: [0, 0, 0], duration: [1.5, 2.5],
+  - { type: stand, action: attend, at: [1.35, 0, -0.75], facing: 0, approach: [0, 0, 0], duration: [1.5, 2.5],
       gives: ornament, requires: { state: { box: out } } }
-  - { type: stand, action: attend, at: [-0.846, 0, 0.308], facing: 110, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_0: empty } }, sets: { hook_0: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [-0.308, 0, 0.846], facing: 160, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_1: empty } }, sets: { hook_1: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [0.45, 0, 0.779], facing: 210, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_2: empty } }, sets: { hook_2: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [0.869, 0, 0.233], facing: 255, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_3: empty } }, sets: { hook_3: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [-0.636, 0, 0.636], facing: 135, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_4: empty } }, sets: { hook_4: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [0.078, 0, 0.897], facing: 185, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_5: empty } }, sets: { hook_5: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [0.737, 0, 0.516], facing: 235, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_6: empty } }, sets: { hook_6: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [-0.869, 0, 0.233], facing: 105, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_7: empty } }, sets: { hook_7: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [-0.233, 0, 0.869], facing: 165, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_8: empty } }, sets: { hook_8: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [0.579, 0, 0.689], facing: 220, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_9: empty } }, sets: { hook_9: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [-0.45, 0, 0.779], facing: 150, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_10: empty } }, sets: { hook_10: hung },
-      advertises: { tree_decorated: 0.09 } }
-  - { type: stand, action: attend, at: [0.38, 0, 0.816], facing: 205, approach: [0, 0, 0], duration: [2, 3],
-      takes: ornament, requires: { state: { tree: up, hook_11: empty } }, sets: { hook_11: hung },
-      advertises: { tree_decorated: 0.09 } }
+  # Seven places round the tree, each within reach of the spots in front of it.
+  - type: stand
+    action: attend
+    at: [-0.886, 0, -0.156]
+    facing: 80
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_0: { takes: ornament, requires: { state: { tree: up, hook_0: boxed } }, sets: { hook_0: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_1: { takes: ornament, requires: { state: { tree: up, hook_1: boxed } }, sets: { hook_1: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_2: { takes: ornament, requires: { state: { tree: up, hook_2: boxed } }, sets: { hook_2: hung },
+                advertises: { tree_decorated: 0.05 } }
+  - type: stand
+    action: attend
+    at: [-0.828, 0, 0.352]
+    facing: 113
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_3: { takes: ornament, requires: { state: { tree: up, hook_3: boxed } }, sets: { hook_3: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_4: { takes: ornament, requires: { state: { tree: up, hook_4: boxed } }, sets: { hook_4: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_5: { takes: ornament, requires: { state: { tree: up, hook_5: boxed } }, sets: { hook_5: hung },
+                advertises: { tree_decorated: 0.05 } }
+  - type: stand
+    action: attend
+    at: [-0.490, 0, 0.755]
+    facing: 147
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_6: { takes: ornament, requires: { state: { tree: up, hook_6: boxed } }, sets: { hook_6: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_7: { takes: ornament, requires: { state: { tree: up, hook_7: boxed } }, sets: { hook_7: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_8: { takes: ornament, requires: { state: { tree: up, hook_8: boxed } }, sets: { hook_8: hung },
+                advertises: { tree_decorated: 0.05 } }
+  - type: stand
+    action: attend
+    at: [0.000, 0, 0.900]
+    facing: 180
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_9: { takes: ornament, requires: { state: { tree: up, hook_9: boxed } }, sets: { hook_9: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_10: { takes: ornament, requires: { state: { tree: up, hook_10: boxed } }, sets: { hook_10: hung },
+                advertises: { tree_decorated: 0.05 } }
+  - type: stand
+    action: attend
+    at: [0.490, 0, 0.755]
+    facing: 213
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_11: { takes: ornament, requires: { state: { tree: up, hook_11: boxed } }, sets: { hook_11: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_12: { takes: ornament, requires: { state: { tree: up, hook_12: boxed } }, sets: { hook_12: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_13: { takes: ornament, requires: { state: { tree: up, hook_13: boxed } }, sets: { hook_13: hung },
+                advertises: { tree_decorated: 0.05 } }
+  - type: stand
+    action: attend
+    at: [0.828, 0, 0.352]
+    facing: 247
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_14: { takes: ornament, requires: { state: { tree: up, hook_14: boxed } }, sets: { hook_14: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_15: { takes: ornament, requires: { state: { tree: up, hook_15: boxed } }, sets: { hook_15: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_16: { takes: ornament, requires: { state: { tree: up, hook_16: boxed } }, sets: { hook_16: hung },
+                advertises: { tree_decorated: 0.05 } }
+  - type: stand
+    action: attend
+    at: [0.886, 0, -0.156]
+    facing: 280
+    approach: [0, 0, 0]
+    duration: [2, 3]
+    requires: { state: { tree: absent, box: out } }
+    uses:
+      hang_17: { takes: ornament, requires: { state: { tree: up, hook_17: boxed } }, sets: { hook_17: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_18: { takes: ornament, requires: { state: { tree: up, hook_18: boxed } }, sets: { hook_18: hung },
+                advertises: { tree_decorated: 0.05 } }
+      hang_19: { takes: ornament, requires: { state: { tree: up, hook_19: boxed } }, sets: { hook_19: hung },
+                advertises: { tree_decorated: 0.05 } }
   # With every ornament on, someone plugs the lights in, and then they both stand back to look.
   - { type: stand, action: attend, at: [-1.05, 0, 0.2], facing: 90, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
-      requires: { state: { fairy: dark, hook_0: hung, hook_1: hung, hook_2: hung, hook_3: hung, hook_4: hung, hook_5: hung, hook_6: hung, hook_7: hung, hook_8: hung, hook_9: hung, hook_10: hung, hook_11: hung } }, sets: { fairy: glowing },
+      requires: { state: { fairy: dark, hook_0: hung, hook_1: hung, hook_2: hung, hook_3: hung, hook_4: hung, hook_5: hung, hook_6: hung, hook_7: hung, hook_8: hung, hook_9: hung, hook_10: hung, hook_11: hung, hook_12: hung, hook_13: hung, hook_14: hung, hook_15: hung, hook_16: hung, hook_17: hung, hook_18: hung, hook_19: hung } }, sets: { fairy: glowing },
       advertises: { tree_decorated: 0.2 } }
   - { type: stand, action: look, at: [0.55, 0, 2.3], facing: 180, approach: [0, 0, 0], duration: [14, 20],
       requires: { state: { fairy: glowing } }, advertises: { tree_decorated: 0.3 } }

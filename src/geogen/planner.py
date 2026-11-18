@@ -132,6 +132,17 @@ def _fits_hands(steps: tuple[str, ...], by_id: dict[str, Any], actor: dict[str, 
     return True
 
 
+def _within_reach(wanted: dict[str, str], states: dict[str, Any], promised: dict[str, Any], usable: list[dict[str, Any]],
+                  left: int) -> bool:
+    """Whether the states still wanted could be brought about in ``left`` more steps: a goal that
+    needs twenty things done, one step each, is out of reach of a chain of six, however it is searched."""
+    unmet = [k for k, v in wanted.items() if states.get(k) != v and promised.get(k) != v]
+    if not unmet:
+        return True
+    most = max((sum(1 for k in unmet if (a.get("sets") or {}).get(k) == wanted[k]) for a in usable), default=0)
+    return most > 0 and math.ceil(len(unmet) / most) <= left
+
+
 def _commit(found: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
     """A plan of an actor with ``hands``, with what to commit to now: ``run`` and ``waits``."""
     actor = snapshot["actor"]
@@ -187,6 +198,8 @@ def _chain(goal: dict[str, Any], snapshot: dict[str, Any], limits: dict[str, Any
             return {"steps": list(steps), "cost_ms": total}
         expanded += 1
         if len(steps) >= int(limits["depth"]):
+            continue
+        if not _within_reach(wanted, states, promised, usable, int(limits["depth"]) - len(steps)):
             continue
         first = by_id[steps[0]]
         for a in usable:

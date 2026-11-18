@@ -238,6 +238,24 @@ traces["shared_job"] = {
     ],
 }
 
+traces["out_of_reach"] = {
+    "about": "A goal that needs three things done, one step each, is out of reach of a chain of two: the "
+             "planner goes for what it can finish instead.",
+    "world": {"affordances": [aff("a", [0, 0, 0], 1, sets={"t#a": "on"}), aff("b", [1, 0, 0], 1, sets={"t#b": "on"}),
+                              aff("c", [2, 0, 0], 1, sets={"t#c": "on"}),
+                              aff("finish", [3, 0, 0], 1, advertises={"festive": 0.9},
+                                  requires={"state": {"t#a": "on", "t#b": "on", "t#c": "on"}}),
+                              aff("small", [1, 0, 1], 1, advertises={"festive": 0.1})],
+              "states": {"t#a": "off", "t#b": "off", "t#c": "off"}},
+    "actors": {"nell": helper([0, 0, 0])},
+    "limits": {"depth": 2},
+    "steps": [
+        {"plan": "nell", "expect": {"goal": "small", "steps": ["small"]}},
+        {"set": {"states": {"t#a": "on", "t#b": "on"}}},
+        {"plan": "nell", "expect": {"goal": "finish", "steps": ["c", "finish"]}},
+    ],
+}
+
 out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent
 for name, trace in traces.items():
     (out / f"{name}.json").write_text(json.dumps({"name": name, **trace}, indent=1) + "\n")

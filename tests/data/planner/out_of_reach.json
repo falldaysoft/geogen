@@ -1,0 +1,127 @@
+{
+ "name": "out_of_reach",
+ "about": "A goal that needs three things done, one step each, is out of reach of a chain of two: the planner goes for what it can finish instead.",
+ "world": {
+  "affordances": [
+   {
+    "id": "a",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 1,
+    "sets": {
+     "t#a": "on"
+    }
+   },
+   {
+    "id": "b",
+    "at": [
+     1,
+     0,
+     0
+    ],
+    "duration": 1,
+    "sets": {
+     "t#b": "on"
+    }
+   },
+   {
+    "id": "c",
+    "at": [
+     2,
+     0,
+     0
+    ],
+    "duration": 1,
+    "sets": {
+     "t#c": "on"
+    }
+   },
+   {
+    "id": "finish",
+    "at": [
+     3,
+     0,
+     0
+    ],
+    "duration": 1,
+    "advertises": {
+     "festive": 0.9
+    },
+    "requires": {
+     "state": {
+      "t#a": "on",
+      "t#b": "on",
+      "t#c": "on"
+     }
+    }
+   },
+   {
+    "id": "small",
+    "at": [
+     1,
+     0,
+     1
+    ],
+    "duration": 1,
+    "advertises": {
+     "festive": 0.1
+    }
+   }
+  ],
+  "states": {
+   "t#a": "off",
+   "t#b": "off",
+   "t#c": "off"
+  }
+ },
+ "actors": {
+  "nell": {
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "festive": 0.0
+   },
+   "hands": 1
+  }
+ },
+ "limits": {
+  "depth": 2
+ },
+ "steps": [
+  {
+   "plan": "nell",
+   "expect": {
+    "goal": "small",
+    "steps": [
+     "small"
+    ]
+   }
+  },
+  {
+   "set": {
+    "states": {
+     "t#a": "on",
+     "t#b": "on"
+    }
+   }
+  },
+  {
+   "plan": "nell",
+   "expect": {
+    "goal": "finish",
+    "steps": [
+     "c",
+     "finish"
+    ]
+   }
+  }
+ ]
+}

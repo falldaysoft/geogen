@@ -114,6 +114,26 @@ static func _hands_change(a: Dictionary) -> int:
     return change
 
 
+## Whether the states still wanted could be brought about in ``left`` more steps.
+static func _within_reach(wanted: Dictionary, states: Dictionary, promised: Dictionary, usable: Array, left: int) -> bool:
+    var unmet := []
+    for k in wanted:
+        var holds: bool = states.has(k) and str(states[k]) == wanted[k]
+        if not holds and not (promised.has(k) and str(promised[k]) == wanted[k]):
+            unmet.append(k)
+    if unmet.is_empty():
+        return true
+    var most := 0
+    for a in usable:
+        if a.get("sets") is Dictionary:
+            var count := 0
+            for k in unmet:
+                if a["sets"].has(k) and str(a["sets"][k]) == wanted[k]:
+                    count += 1
+            most = maxi(most, count)
+    return most > 0 and ceili(float(unmet.size()) / most) <= left
+
+
 ## A plan of an actor with `hands`, with what to commit to now: `run`, the steps up to the one
 ## that leaves the hands empty, and `waits`, the states it needs that aren't so yet.
 static func _commit(found: Dictionary, snapshot: Dictionary) -> Dictionary:
@@ -203,6 +223,8 @@ static func _chain(goal: Dictionary, snapshot: Dictionary, limits: Dictionary) -
             return {"steps": steps, "cost_ms": node["f"]}
         expanded += 1
         if steps.size() >= int(limits["depth"]):
+            continue
+        if not _within_reach(wanted, states, promised, usable, int(limits["depth"]) - steps.size()):
             continue
         var first: Dictionary = by_id[steps[0]]
         for a in usable:

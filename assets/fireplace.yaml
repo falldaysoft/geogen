@@ -33,7 +33,7 @@ parts:
     primitive: cube
     size: [1.07, 0.87, 0.04]
     anchor: bottom_center
-    offset: [0, 0.03, 0.15]
+    offset: [0, 0.03, 0.18]             # its face stands 3 cm proud of the back of the opening
     bevel: 0
     material: lamp_iron
     collider: none

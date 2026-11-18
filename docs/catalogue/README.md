@@ -157,7 +157,7 @@ place:
 | [butter_knife](assets/butter_knife.md) | A butter knife lying flat, handle toward +Z. |  |
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
 | [chimney_stack](assets/chimney_stack.md) | A brick chimney stack with a clay pot and a slow drift of smoke. | `height` |
-| [christmas_tree](assets/christmas_tree.md) | A Christmas tree and everything that goes with decorating it (geogen.110): a stand that is always there, the tree once it has been set up, the box of ornaments put down beside it, and twelve hooks that each show their ornament when one is hung. |  |
+| [christmas_tree](assets/christmas_tree.md) | A Christmas tree and everything that goes with decorating it (geogen.110): a stand that is always there, the tree once it has been set up, a box of 20 ornaments put down beside it, and 20 spots on the boughs, each showing its ornament once one is hung there. |  |
 | [fir_bundle](assets/fir_bundle.md) | A fir tree wrapped in netting for the journey home: what is carried in (items/fir_tree.yaml). |  |
 | [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
 | [hanging_chain](assets/hanging_chain.md) | A chain with a lantern, hanging from a bracket on a post. | `height`, `links`, `link` |
