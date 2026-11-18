@@ -264,6 +264,9 @@ def plain_cottage():
             path.mkdir(parents=True)
             scene = SceneComposer(assets_dir=assets).compose(assets / "scenes" / "cottage.yaml", params={"lived_in": 0})
             export_scene(scene, path / "cottage.glb")
+            from geogen.motion import write_motions
+
+            write_motions(path)
     return path
 
 
@@ -332,6 +335,9 @@ def project_export(project_scene):
                 try:
                     roots.use(project)
                     export_scene(scene, path / f"{name}.glb")
+                    from geogen.motion import write_motions
+
+                    write_motions(path)
                 finally:
                     roots.use()
         return path

@@ -383,7 +383,7 @@ actions:
     duration: [0.4, 0.8]
     steps:
       - face: player
-      - play: wave
+      - do: wave
       - wait: duration
 
   step_aside:                    # standing in the player's way

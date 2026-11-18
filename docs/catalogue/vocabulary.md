@@ -319,6 +319,8 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name
 | [motions/tap_foot.yaml](../../assets/motions/tap_foot.yaml) | Tap the foot (geogen.103.17): an idle, impatient. |
 | [motions/think.yaml](../../assets/motions/think.yaml) | Think (geogen.103.17): the right hand to the chin, the left forearm across the waist under the right elbow, the head tipped and the eyes up; hold, then both arms down. |
 | [motions/thumbs_up.yaml](../../assets/motions/thumbs_up.yaml) | Thumbs up (geogen.103.17): the right fist comes out in front of the chest, thumb up, with a little nod; hold, then down. |
+| [motions/turn_handle.yaml](../../assets/motions/turn_handle.yaml) | Open a door by its handle with the right hand (geogen.103.8): reach for it, close the hand on it, turn it (`pressed`: the door starts to move) and keep hold a moment as the leaf swings. |
+| [motions/turn_handle_left.yaml](../../assets/motions/turn_handle_left.yaml) | Open a door by its handle with the left hand (geogen.103.8): reach for it, close the hand on it, turn it (`pressed`: the door starts to move) and keep hold a moment as the leaf swings. |
 | [motions/watch.yaml](../../assets/motions/watch.yaml) | Watch something for a while (geogen.103.4): the gaze on it and nothing else. |
 | [motions/wave.yaml](../../assets/motions/wave.yaml) | Wave hello with the right hand (geogen.103.5): an overlay. |
 | [motions/yawn.yaml](../../assets/motions/yawn.yaml) | Yawn (geogen.103.17): an idle. |

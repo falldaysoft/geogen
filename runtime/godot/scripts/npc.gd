@@ -33,8 +33,7 @@ const MAX_REPLANS := 2            # ... this often per go_to
 const OWN_BONUS := 1.6            # score multiplier of what an NPC owns (geogen/npc.py OWN_BONUS)
 const PREFER_BONUS := 1.3         # ...and of what it prefers
 const HANDLE_STAND := 0.45        # m from a door's face to stand and open it by its handle (the leaf swings away)
-const HANDLE_LEAD := 0.35         # s from reaching for a handle to pressing it
-const HANDLE_HOLD := 0.6          # s the hand stays on the handle once the door moves
+const HANDLE_GRIP := 0.07         # m short of a door's handle the wrist stops (the fingers are round it)
 const LOW_STAND := 0.05           # m left between the body and something low it takes
 const LOW_HAND := 0.72            # m over the feet: a thing lower than this is taken with the knees bent
 const MAX_CROUCH := 0.6           # of the leg's length: as far as the hips go down for it
@@ -201,7 +200,8 @@ var away := false
 var absent := false
 var _look: GeogenHeadLook = null   # turns the head toward the player (attention.look)
 var _hands: GeogenHands = null     # hands onto what is really there: tables, door handles (hands.gd)
-var _press_in := 0.0               # s until a reaching hand presses what it reaches for (a use step)
+var _wave_run: GeogenMotionRig.Run = null   # a wave from a seat (greet)
+var _handle_at: GeogenMotionRig.Target = null   # the door handle the hand is going for
 var _motions: GeogenMotionPlayer = null   # the body's motion rig, made when first needed (_motion_player)
 var _run: GeogenMotionRig.Run = null      # the motion the step in hand waits for (`do:`, a press)
 var _kept: Array[GeogenMotionRig.Run] = []   # motions started with `keep: true`: until the option ends
@@ -218,7 +218,6 @@ var _glance_until := -INF         # clock the glance up ends
 var _greeted_at := -INF           # clock of the last greeting taken (attention.greet debounce)
 var _waved_at := -INF             # clock of the last wave back (attention.greet cooldown)
 var _attend_until := -INF         # keep looking at whoever greeted us until then (acknowledge)
-const GESTURE_BONES := ["RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand"]
 const BOB_HEIGHT := 0.06            # m a body without a skeleton hops to acknowledge a greeting
 var _yielded_at := -INF
 const YIELD_COOLDOWN := 3.0       # s between stepping aside
@@ -248,8 +247,6 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
         var skeletons := npc.body.find_children("*", "Skeleton3D", true, false)
         if not skeletons.is_empty():
             npc._skeleton = skeletons[0]
-            # Every skeletal body has one: it lays gestures (a wave from a chair) over the pose
-            # even when the NPC doesn't look at people (attention.look off).
             npc._look = GeogenHeadLook.new()
             npc._look.name = "HeadLook"
             if not look.is_empty():
@@ -1589,8 +1586,6 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         _taking = _take(uid)
         if _taking:
             return ""
-        if _hands != null:
-            _hands.reach("", world.props.props[uid]["body"], world.props.box_of(uid)["center"], PICK_SECONDS + 0.3)
         _timer = PICK_SECONDS
         return ""
     if step.has("put_down"):
@@ -1622,17 +1617,13 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         var state := _state_name(str(step["use"]), ctx)
         if not it.states.has(state):
             return ""
-        _press_in = 0.0
         _pressing = false
         if it.target != state and _press(it):
             return ""
         if it.target != state:
-            # A door with a handle on this side: reach for it, press once the hand is there, and
-            # keep hold of it while the leaf starts to move.
+            # A door with a handle on this side: the hand takes it, and the door moves when it turns.
             var handle: Dictionary = _handle(ctx)
-            if not handle.is_empty() and _hands.reach("", handle["node"], handle["local"], HANDLE_LEAD + HANDLE_HOLD) != "":
-                _press_in = HANDLE_LEAD
-                stats["handles"] = int(stats.get("handles", 0)) + 1
+            if not handle.is_empty() and _turn_handle(handle):
                 return ""
             if not it.use(WorldLoader.actor_id(self)):
                 return "can't use %s (locked?)" % it.name
@@ -1772,12 +1763,6 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             _note_press(it)
             if it.target != state and not it.use(WorldLoader.actor_id(self)):
                 return "can't use %s (locked?)" % it.name
-        if _press_in > 0.0:
-            _press_in -= delta
-            if _press_in > 0.0:
-                return "running"                  # the hand is on its way to the handle
-            if it.target != state and not it.use(WorldLoader.actor_id(self)):
-                return "can't use %s (locked?)" % it.name
         _timer += delta
         if it.target != state and it.can_use():
             it.use(WorldLoader.actor_id(self))   # someone turned it back: press again
@@ -1797,7 +1782,8 @@ func _motion_player() -> GeogenMotionPlayer:
     return _motions
 
 
-## Start a `do:` step's motion; "" or why it can't run. A body with no rig just goes on.
+## Start a `do:` step's motion; "" or why it can't run. A body with no rig, or an export without
+## the motion, just goes on.
 func _begin_do(step: Dictionary, ctx: Dictionary) -> String:
     velocity = Vector3.ZERO
     _run = null
@@ -1807,7 +1793,7 @@ func _begin_do(step: Dictionary, ctx: Dictionary) -> String:
     var name := str(step["do"])
     var spec: Dictionary = GeogenMotionPlayer.motions(world.generated_dir).get(name, {})
     if spec.is_empty():
-        return "no motion '%s' in this export" % name
+        return ""                          # an export without its motions.json: the body just goes on
     var values := {}
     var params: Dictionary = step.get("params", {})
     for key in params:
@@ -1889,6 +1875,12 @@ func _press(it: GeogenInteraction) -> bool:
 func _note_press(it: GeogenInteraction) -> void:
     var button := _touch_of(it)
     var rig := _motions.rig if _motions != null else null
+    if rig != null and _handle_at != null and _emitted.has("pressed"):
+        var fk := rig.world()                  # the wrist nearer the handle: the hand that took it
+        var at := _handle_at.world().origin
+        stats["handle_gap"] = snappedf(minf((rig.body_world * (fk[rig.index["LeftHand"]] as Transform3D).origin).distance_to(at),
+            (rig.body_world * (fk[rig.index["RightHand"]] as Transform3D).origin).distance_to(at)), 0.001)
+    _handle_at = null
     if button == null or rig == null or not _emitted.has("pressed"):
         return
     var tip := -1
@@ -2012,6 +2004,41 @@ func _set_down(uid: String, place: Dictionary) -> bool:
     _run = _motions.start(motions[motion], {"item": _motions.rig.attached_["item"]["thing"],
         "place": GeogenMotionRig.Thing.fixed("place", Transform3D(basis, at))})
     return _run != null
+
+
+## Open a door by ``handle`` ({node, local}) with the hand on its side (motions turn_handle and
+## turn_handle_left): the door moves when the hand turns it. False when this body can't.
+func _turn_handle(handle: Dictionary) -> bool:
+    var player := _motion_player()
+    if player == null or _pose != "stand":
+        return false
+    var node: Node3D = handle["node"]
+    var point: Vector3 = node.global_transform * (handle["local"] as Vector3)
+    var left: bool = (player.body.global_transform.affine_inverse() * point).x > 0.0      # bodies' +X is their left
+    var spec: Dictionary = GeogenMotionPlayer.motions(world.generated_dir).get("turn_handle_left" if left else "turn_handle", {})
+    if spec.is_empty():
+        return false
+    var near := point + NpcGeometry.flat(global_position - point).normalized() * HANDLE_GRIP
+    var local: Vector3 = node.global_transform.affine_inverse() * near
+    var thing := player.thing_of(node)
+    thing.set_grips({"knob": {"grip": "power", "at": [local.x, local.y, local.z, 0, 0, 0, 1]}})
+    _emitted.erase("pressed")
+    _handle_at = GeogenMotionRig.contact(thing, null, "knob")
+    _run = player.start(spec, {"handle": _handle_at})
+    _pressing = _run != null
+    if _pressing:
+        stats["handles"] = int(stats.get("handles", 0)) + 1
+    return _pressing
+
+
+## Wave from a seat (motion wave, on the arm alone): false when this body has no such motion.
+func _wave_seated() -> bool:
+    var player := _motion_player()
+    var spec: Dictionary = GeogenMotionPlayer.motions(world.generated_dir).get("wave", {})
+    if player == null or spec.is_empty():
+        return false
+    _wave_run = player.start(spec)
+    return _wave_run != null
 
 
 ## The motions it is in the middle of stop as their beats allow (`how`: yield, or drop).
@@ -2152,7 +2179,7 @@ func _feet_free() -> bool:
 
 ## The handle of a pass action's door on the side the NPC is standing ({node, local}), or {}.
 func _handle(ctx: Dictionary) -> Dictionary:
-    if _hands == null or not ctx.has("portal"):
+    if _motion_player() == null or not ctx.has("portal"):
         return {}
     var p: Dictionary = ctx["portal"]
     var side := 1 if (global_position - (p["center"] as Vector3)).dot(p["normal"]) >= 0.0 else -1
@@ -3604,8 +3631,9 @@ func _attend(delta: float) -> void:
                     and rad_to_deg(forward.angle_to(to)) < float(look["cone"]) / 2.0 and _glancing(look)):
                 want = 1.0
                 _look.target = eye
-        if _look.gesturing() and (_pose != "sit" or _moving_pose()):
-            _look.stop_gesture()               # they got up: the arm goes with the body's clip
+        if _wave_run != null and not _wave_run.done and (_pose != "sit" or _moving_pose()):
+            _motions.stop("wave", "drop")      # they got up: the arm goes with the body's clip
+            _wave_run = null
         _look.want = want
         if want > 0.0:
             stats["looking"] = float(stats.get("looking", 0.0)) + delta
@@ -3723,8 +3751,7 @@ func greet(by := "player") -> bool:
         if _pose == "stand":
             response = "action"
             _react(action, {})
-        elif _pose == "sit" and _look != null and animator != null and animator.has("wave") \
-                and _look.gesture(animator.clip("wave"), GESTURE_BONES):
+        elif _pose == "sit" and _wave_seated():
             response = "gesture"
         elif _pose == "lie" and _look != null and not definition.get("attention", {}).get("look", {}).is_empty():
             response = "look"                    # _attend turns the head while _attend_until lasts
@@ -3858,7 +3885,7 @@ func report() -> Dictionary:
         "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),
         "signal_crossings": int(stats.get("signal_crossings", 0)),
         "signal_violations": int(stats.get("signal_violations", 0)),
-        "waves": int(stats.get("waves", 0)), "hand_gaps": _hand_gaps(), "take_gap": float(stats.get("take_gap", -1.0)), "presses": int(stats.get("presses", 0)), "press_gap": float(stats.get("press_gap", -1.0)),
+        "waves": int(stats.get("waves", 0)), "handles": int(stats.get("handles", 0)), "handle_gap": float(stats.get("handle_gap", -1.0)), "hand_gaps": _hand_gaps(), "take_gap": float(stats.get("take_gap", -1.0)), "presses": int(stats.get("presses", 0)), "press_gap": float(stats.get("press_gap", -1.0)),
         # Its group's leader (stable ID, "" for none) and the seconds it spent apart from them all.
         "group": group_leader(), "apart": snappedf(float(stats.get("apart", 0.0)), 0.1),
         "holding": holding(),

@@ -1,0 +1,36 @@
+# Open a door by its handle with the left hand (geogen.103.8): reach for it, close the hand on it,
+# turn it (`pressed`: the door starts to move) and keep hold a moment as the leaf swings.
+kind: motion
+name: turn_handle_left
+category: action
+summary: Take a door's handle in the left hand, turn it and let go as the door moves.
+roles:
+  handle: { grip: any }
+props:
+  handle: { asset: mug.yaml, at: { u: 0.7, v: 0.7 } }   # something with a handle, for a demonstration
+holds:
+  claim: [left_hand]
+  prefer: [gaze]
+initial: reach
+beats:
+  reach:
+    ik:
+      LeftHand: { target: handle, grip: open, pole: [1, -1, -0.3] }
+    look: handle
+    over: 0.45
+    interrupt: yield
+    exit: back
+    then: turn
+  turn:
+    ik:
+      LeftHand: { target: handle, grip: power, pole: [1, -1, -0.3] }
+    look: handle
+    over: 0.15
+    emit: pressed
+    after: 0.45                            # the hand goes with the handle as the leaf starts to swing
+    interrupt: finish
+    then: back
+  back:
+    over: 0.5
+    interrupt: drop
+    then: done

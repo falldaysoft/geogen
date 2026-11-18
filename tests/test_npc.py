@@ -176,7 +176,7 @@ def test_attention_defaults_and_overrides(tmp_path):
     greet = d["attention"]["greet"]                       # the signal is only debounced; the wave has the cooldown
     assert 0 < greet["debounce"] < greet["acknowledge"] < greet["cooldown"]
     actions = load_actions()
-    assert [next(iter(s)) for s in actions["greet"]["steps"]] == ["face", "play", "wait"]
+    assert [next(iter(s)) for s in actions["greet"]["steps"]] == ["face", "do", "wait"]
     assert actions["step_aside"]["steps"][0] == {"go_to": "aside"}
     path = tmp_path / "shy.yaml"
     path.write_text("kind: npc\nversion: 1\nactivities: { idle: { action: idle } }\n"

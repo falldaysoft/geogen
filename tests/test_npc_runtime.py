@@ -66,10 +66,10 @@ def test_at_the_table_her_hands_rest_on_its_top(godot_script, cottage_dir):
 
 def test_she_opens_the_front_door_by_its_handle(godot_script, cottage_dir):
     # The door's portal names its knobs and that it swings into the house: coming in, she stands
-    # close, reaches for the outside knob (hands.gd), presses once her hand is there and holds
-    # it as the door opens; going on, she pushes it shut by the inside knob within her reach.
+    # close, takes the outside knob (motion turn_handle), the door moves when her hand turns it and
+    # she holds it as it opens; going on, she pushes it shut by the inside knob within her reach.
     report = simulate(godot_script, cottage_dir, 100)
-    assert report["hands"]["reaches"] >= 2
+    assert report["handles"] >= 2 and 0.0 <= report["handle_gap"] < 0.05
 
 
 def test_resident_sits_facing_the_seat_in_a_turned_cottage(godot_script, cottage_dir, scene_export):
