@@ -183,6 +183,61 @@ traces["urgency"] = {
     ],
 }
 
+# Two people and one job (geogen.110.1): a tree to fetch and set up, a box to fetch and put out,
+# ornaments to hang. Speed 1 m/s, everything in a line.
+FETCH_TREE = aff("yard/truck#0", [0, 0, 0], 2, gives={"tree": 1})
+SET_UP = aff("room/tree#0", [4, 0, 0], 2, takes=["tree"], sets={"room/tree#tree": "up"})
+FETCH_BOX = aff("hall/cupboard#0", [6, 0, 0], 2, gives={"box": 1})
+PUT_BOX = aff("room/tree#1", [5, 0, 0], 2, takes=["box"], sets={"room/tree#box": "out"})
+TAKE = aff("room/tree#2", [5, 0, 1], 1, gives={"ornament": 1}, requires={"state": {"room/tree#box": "out"}})
+HANG = aff("room/tree#3", [4, 0, 1], 1, takes=["ornament"], advertises={"festive": 0.5},
+           requires={"state": {"room/tree#tree": "up"}})
+TREE_STATES = {"room/tree#tree": "absent", "room/tree#box": "away"}
+
+
+def helper(at, **more):
+    return {"at": at, "speed": 1.0, "holding": {}, "needs": {"festive": 0.0}, "hands": 1, **more}
+
+
+CHAIN = [FETCH_TREE["id"], SET_UP["id"], FETCH_BOX["id"], PUT_BOX["id"], TAKE["id"], HANG["id"]]
+
+traces["hands"] = {
+    "about": "One pair of hands: the chain never has the tree and the box carried together, though carrying "
+             "both would be the shorter way round. The plan commits to its first run, up to the step that "
+             "leaves the hands empty.",
+    "world": {"affordances": [FETCH_TREE, SET_UP, FETCH_BOX, PUT_BOX, TAKE, HANG], "states": TREE_STATES},
+    "actors": {"nell": helper([0, 0, 0])},
+    "limits": {"depth": 6},
+    "steps": [
+        {"plan": "nell", "expect": {"goal": HANG["id"], "steps": CHAIN, "run": CHAIN[:2], "waits": []}},
+        {"set": {"holding": {"nell": {"tree": 1}}}},
+        {"plan": "nell", "expect": {"steps": CHAIN[1:], "run": [SET_UP["id"]], "waits": []}},
+    ],
+}
+
+traces["shared_job"] = {
+    "about": "Two people share the job. Nell claims the tree; Tom counts on it being up and sees to the box. "
+             "With the box out and the tree still promised, the run to hang an ornament has to wait for it. "
+             "Once it is up, both can hang.",
+    "world": {"affordances": [FETCH_TREE, SET_UP, FETCH_BOX, PUT_BOX, TAKE, HANG,
+                              {**TAKE, "id": "room/tree#4"}, {**HANG, "id": "room/tree#5"}],
+              "states": TREE_STATES},
+    "actors": {"nell": helper([0, 0, 0]), "tom": helper([6, 0, 0])},
+    "limits": {"depth": 6},
+    "steps": [
+        {"plan": "nell", "expect": {"run": CHAIN[:2], "waits": []}},
+        {"plan": "tom", "expect": {"steps": [FETCH_BOX["id"], PUT_BOX["id"], TAKE["id"], HANG["id"]],
+                                   "run": [FETCH_BOX["id"], PUT_BOX["id"]], "waits": []}},
+        {"set": {"states": {"room/tree#box": "out"}, "remove": [FETCH_BOX["id"], PUT_BOX["id"]]}},
+        {"plan": "tom", "expect": {"steps": [TAKE["id"], HANG["id"]], "run": [TAKE["id"], HANG["id"]],
+                                   "waits": ["room/tree#tree"]}},
+        {"set": {"states": {"room/tree#tree": "up"}, "remove": [FETCH_TREE["id"], SET_UP["id"]]}},
+        {"release": "nell"},
+        {"plan": "tom", "expect": {"steps": [TAKE["id"], HANG["id"]], "waits": []}},
+        {"plan": "nell", "expect": {"steps": ["room/tree#4", "room/tree#5"], "waits": []}},
+    ],
+}
+
 out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent
 for name, trace in traces.items():
     (out / f"{name}.json").write_text(json.dumps({"name": name, **trace}, indent=1) + "\n")

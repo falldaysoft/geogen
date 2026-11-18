@@ -1,0 +1,260 @@
+{
+ "name": "shared_job",
+ "about": "Two people share the job. Nell claims the tree; Tom counts on it being up and sees to the box. With the box out and the tree still promised, the run to hang an ornament has to wait for it. Once it is up, both can hang.",
+ "world": {
+  "affordances": [
+   {
+    "id": "yard/truck#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 2,
+    "gives": {
+     "tree": 1
+    }
+   },
+   {
+    "id": "room/tree#0",
+    "at": [
+     4,
+     0,
+     0
+    ],
+    "duration": 2,
+    "takes": [
+     "tree"
+    ],
+    "sets": {
+     "room/tree#tree": "up"
+    }
+   },
+   {
+    "id": "hall/cupboard#0",
+    "at": [
+     6,
+     0,
+     0
+    ],
+    "duration": 2,
+    "gives": {
+     "box": 1
+    }
+   },
+   {
+    "id": "room/tree#1",
+    "at": [
+     5,
+     0,
+     0
+    ],
+    "duration": 2,
+    "takes": [
+     "box"
+    ],
+    "sets": {
+     "room/tree#box": "out"
+    }
+   },
+   {
+    "id": "room/tree#2",
+    "at": [
+     5,
+     0,
+     1
+    ],
+    "duration": 1,
+    "gives": {
+     "ornament": 1
+    },
+    "requires": {
+     "state": {
+      "room/tree#box": "out"
+     }
+    }
+   },
+   {
+    "id": "room/tree#3",
+    "at": [
+     4,
+     0,
+     1
+    ],
+    "duration": 1,
+    "takes": [
+     "ornament"
+    ],
+    "advertises": {
+     "festive": 0.5
+    },
+    "requires": {
+     "state": {
+      "room/tree#tree": "up"
+     }
+    }
+   },
+   {
+    "id": "room/tree#4",
+    "at": [
+     5,
+     0,
+     1
+    ],
+    "duration": 1,
+    "gives": {
+     "ornament": 1
+    },
+    "requires": {
+     "state": {
+      "room/tree#box": "out"
+     }
+    }
+   },
+   {
+    "id": "room/tree#5",
+    "at": [
+     4,
+     0,
+     1
+    ],
+    "duration": 1,
+    "takes": [
+     "ornament"
+    ],
+    "advertises": {
+     "festive": 0.5
+    },
+    "requires": {
+     "state": {
+      "room/tree#tree": "up"
+     }
+    }
+   }
+  ],
+  "states": {
+   "room/tree#tree": "absent",
+   "room/tree#box": "away"
+  }
+ },
+ "actors": {
+  "nell": {
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "festive": 0.0
+   },
+   "hands": 1
+  },
+  "tom": {
+   "at": [
+    6,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "festive": 0.0
+   },
+   "hands": 1
+  }
+ },
+ "limits": {
+  "depth": 6
+ },
+ "steps": [
+  {
+   "plan": "nell",
+   "expect": {
+    "run": [
+     "yard/truck#0",
+     "room/tree#0"
+    ],
+    "waits": []
+   }
+  },
+  {
+   "plan": "tom",
+   "expect": {
+    "steps": [
+     "hall/cupboard#0",
+     "room/tree#1",
+     "room/tree#2",
+     "room/tree#3"
+    ],
+    "run": [
+     "hall/cupboard#0",
+     "room/tree#1"
+    ],
+    "waits": []
+   }
+  },
+  {
+   "set": {
+    "states": {
+     "room/tree#box": "out"
+    },
+    "remove": [
+     "hall/cupboard#0",
+     "room/tree#1"
+    ]
+   }
+  },
+  {
+   "plan": "tom",
+   "expect": {
+    "steps": [
+     "room/tree#2",
+     "room/tree#3"
+    ],
+    "run": [
+     "room/tree#2",
+     "room/tree#3"
+    ],
+    "waits": [
+     "room/tree#tree"
+    ]
+   }
+  },
+  {
+   "set": {
+    "states": {
+     "room/tree#tree": "up"
+    },
+    "remove": [
+     "yard/truck#0",
+     "room/tree#0"
+    ]
+   }
+  },
+  {
+   "release": "nell"
+  },
+  {
+   "plan": "tom",
+   "expect": {
+    "steps": [
+     "room/tree#2",
+     "room/tree#3"
+    ],
+    "waits": []
+   }
+  },
+  {
+   "plan": "nell",
+   "expect": {
+    "steps": [
+     "room/tree#4",
+     "room/tree#5"
+    ],
+    "waits": []
+   }
+  }
+ ]
+}

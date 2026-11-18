@@ -963,7 +963,7 @@ func _collect_affordances(root: Node) -> void:
                 entry["prop"] = uid_of(node)
             if a.has("depth"):
                 entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
-            for key in ["requires", "takes", "gives"]:     # what doing it needs and does (geogen.101.1)
+            for key in ["requires", "takes", "gives", "sets"]:     # what doing it needs and does (geogen.101.1)
                 if a.has(key):
                     entry[key] = a[key]
             if a.has("interaction"):
@@ -978,7 +978,7 @@ func _collect_affordances(root: Node) -> void:
             var uses: Dictionary = a.get("uses", {})
             for use_name in uses:
                 var other: Dictionary = entry.duplicate()
-                for key in ["duration", "requires", "takes", "gives"]:
+                for key in ["duration", "requires", "takes", "gives", "sets"]:
                     other.erase(key)
                 other["advertises"] = {}
                 other["tags"] = []

@@ -1,0 +1,167 @@
+{
+ "name": "hands",
+ "about": "One pair of hands: the chain never has the tree and the box carried together, though carrying both would be the shorter way round. The plan commits to its first run, up to the step that leaves the hands empty.",
+ "world": {
+  "affordances": [
+   {
+    "id": "yard/truck#0",
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "duration": 2,
+    "gives": {
+     "tree": 1
+    }
+   },
+   {
+    "id": "room/tree#0",
+    "at": [
+     4,
+     0,
+     0
+    ],
+    "duration": 2,
+    "takes": [
+     "tree"
+    ],
+    "sets": {
+     "room/tree#tree": "up"
+    }
+   },
+   {
+    "id": "hall/cupboard#0",
+    "at": [
+     6,
+     0,
+     0
+    ],
+    "duration": 2,
+    "gives": {
+     "box": 1
+    }
+   },
+   {
+    "id": "room/tree#1",
+    "at": [
+     5,
+     0,
+     0
+    ],
+    "duration": 2,
+    "takes": [
+     "box"
+    ],
+    "sets": {
+     "room/tree#box": "out"
+    }
+   },
+   {
+    "id": "room/tree#2",
+    "at": [
+     5,
+     0,
+     1
+    ],
+    "duration": 1,
+    "gives": {
+     "ornament": 1
+    },
+    "requires": {
+     "state": {
+      "room/tree#box": "out"
+     }
+    }
+   },
+   {
+    "id": "room/tree#3",
+    "at": [
+     4,
+     0,
+     1
+    ],
+    "duration": 1,
+    "takes": [
+     "ornament"
+    ],
+    "advertises": {
+     "festive": 0.5
+    },
+    "requires": {
+     "state": {
+      "room/tree#tree": "up"
+     }
+    }
+   }
+  ],
+  "states": {
+   "room/tree#tree": "absent",
+   "room/tree#box": "away"
+  }
+ },
+ "actors": {
+  "nell": {
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "speed": 1.0,
+   "holding": {},
+   "needs": {
+    "festive": 0.0
+   },
+   "hands": 1
+  }
+ },
+ "limits": {
+  "depth": 6
+ },
+ "steps": [
+  {
+   "plan": "nell",
+   "expect": {
+    "goal": "room/tree#3",
+    "steps": [
+     "yard/truck#0",
+     "room/tree#0",
+     "hall/cupboard#0",
+     "room/tree#1",
+     "room/tree#2",
+     "room/tree#3"
+    ],
+    "run": [
+     "yard/truck#0",
+     "room/tree#0"
+    ],
+    "waits": []
+   }
+  },
+  {
+   "set": {
+    "holding": {
+     "nell": {
+      "tree": 1
+     }
+    }
+   }
+  },
+  {
+   "plan": "nell",
+   "expect": {
+    "steps": [
+     "room/tree#0",
+     "hall/cupboard#0",
+     "room/tree#1",
+     "room/tree#2",
+     "room/tree#3"
+    ],
+    "run": [
+     "room/tree#0"
+    ],
+    "waits": []
+   }
+  }
+ ]
+}

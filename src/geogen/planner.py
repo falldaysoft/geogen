@@ -24,8 +24,10 @@ The input is a plain snapshot, the same structure in every runtime::
                       "weight": 1.0,                   # the asker's liking for it
                       "reserved": false}],             # someone else has it
      "states": {key: state},                           # e.g. "kitchen/stove#burner": "off"
+     "promised": {key: state},                         # what someone else's step under way will set
      "actor": {"at": [x, y, z], "speed": 1.2, "holding": {id: count},
-               "needs": {need: 0..1}, "urgency": {need: weight}},   # urgency defaults to 1 - need
+               "needs": {need: 0..1}, "urgency": {need: weight},    # urgency defaults to 1 - need
+               "hands": 1},                            # carries at most this many things at once
      "limits": {"depth": 5, "patience": 60.0, "nodes": 2000}}
 
 Search, per affordance that would fill a need (a goal): backward from the goal, A* over
@@ -35,6 +37,12 @@ cost is the walking (straight lines between the places, at the actor's speed) pl
 durations. Then the goal is chosen: what the chain adds to the needs, each weighted by its
 urgency and the liking for the step, over the chain's time plus ``patience`` (so a short
 errand doesn't always beat a meal).
+
+People who work together (geogen.110.1): an actor with ``hands`` is never given a chain that
+has it carrying more than that, and its plan says which part to commit to: ``run``, the steps
+up to the one that leaves the hands empty, and ``waits``, the states that run needs which someone
+else has promised and hasn't brought about yet. A state in ``promised`` counts as coming, so
+two people can each take a different part of the same job.
 
 Deterministic by construction, so a port can match it exactly: costs are whole
 milliseconds, ties go to the chain whose step ids sort first, and nothing is random.
@@ -111,6 +119,43 @@ def _held_covers(conds: tuple[tuple[str, ...], ...], holding: dict[str, int]) ->
     return True
 
 
+def _fits_hands(steps: tuple[str, ...], by_id: dict[str, Any], actor: dict[str, Any]) -> bool:
+    """Whether the actor can do ``steps`` without carrying more than its ``hands``."""
+    if actor.get("hands") is None:
+        return True
+    held = sum(int(v) for v in (actor.get("holding") or {}).values())
+    for step in steps:
+        a = by_id[step]
+        held += sum(int(v) for v in (a.get("gives") or {}).values()) - (1 if a.get("takes") else 0)
+        if held > int(actor["hands"]):
+            return False
+    return True
+
+
+def _commit(found: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
+    """A plan of an actor with ``hands``, with what to commit to now: ``run`` and ``waits``."""
+    actor = snapshot["actor"]
+    if not found or actor.get("hands") is None:
+        return found
+    by_id = {a["id"]: a for a in snapshot["affordances"]}
+    states = snapshot.get("states") or {}
+    held = sum(int(v) for v in (actor.get("holding") or {}).values())
+    run: list[str] = []
+    made: dict[str, str] = {}
+    waits: set[str] = set()
+    for step in found["steps"]:
+        a = by_id[step]
+        run.append(step)
+        for key, state in ((a.get("requires") or {}).get("state") or {}).items():
+            if made.get(key, states.get(key)) != state:
+                waits.add(str(key))
+        made.update({str(k): str(v) for k, v in (a.get("sets") or {}).items()})
+        held += sum(int(v) for v in (a.get("gives") or {}).values()) - (1 if a.get("takes") else 0)
+        if held <= 0:
+            break
+    return {**found, "run": run, "waits": sorted(waits)}
+
+
 def _chain(goal: dict[str, Any], snapshot: dict[str, Any], limits: dict[str, Any]) -> dict[str, Any] | None:
     """The cheapest chain of affordances that ends with ``goal``; None when there is none."""
     actor = snapshot["actor"]
@@ -118,6 +163,7 @@ def _chain(goal: dict[str, Any], snapshot: dict[str, Any], limits: dict[str, Any
     start = actor.get("at")
     holding = actor.get("holding") or {}
     states = snapshot.get("states") or {}
+    promised = snapshot.get("promised") or {}
     usable = sorted((a for a in snapshot["affordances"] if not a.get("reserved")), key=lambda a: a["id"])
     by_id = {a["id"]: a for a in usable}
 
@@ -136,7 +182,8 @@ def _chain(goal: dict[str, Any], snapshot: dict[str, Any], limits: dict[str, Any
     while queue and expanded < int(limits["nodes"]):
         total, _key, steps, items, wanted_items, cost = heapq.heappop(queue)
         wanted = dict(wanted_items)
-        if _held_covers(items, holding) and all(states.get(k) == v for k, v in wanted.items()):
+        if _held_covers(items, holding) and all(states.get(k) == v or promised.get(k) == v for k, v in wanted.items()) \
+                and _fits_hands(steps, by_id, actor):
             return {"steps": list(steps), "cost_ms": total}
         expanded += 1
         if len(steps) >= int(limits["depth"]):
@@ -222,9 +269,9 @@ def plan(snapshot: dict[str, Any]) -> dict[str, Any]:
                     "score": score, "fills": fills}
     if not best:
         return {}
-    return {"goal": best["goal"], "steps": best["steps"], "cost": best.pop("cost_ms") / 1000.0,
-            "score": round(best["score"], 6), "fills": {k: round(v, 6) for k, v in best["fills"].items()},
-            "goals": goals}
+    return _commit({"goal": best["goal"], "steps": best["steps"], "cost": best.pop("cost_ms") / 1000.0,
+                    "score": round(best["score"], 6), "fills": {k: round(v, 6) for k, v in best["fills"].items()},
+                    "goals": goals}, snapshot)
 
 
 def plan_to(snapshot: dict[str, Any], goal: str) -> dict[str, Any]:
@@ -239,8 +286,8 @@ def plan_to(snapshot: dict[str, Any], goal: str) -> dict[str, Any]:
     if found is None:
         return {}
     _, fills = _worth(found["steps"], snapshot)
-    return {"goal": goal, "steps": found["steps"], "cost": found["cost_ms"] / 1000.0, "score": 0.0,
-            "fills": {k: round(v, 6) for k, v in fills.items()}, "goals": 1}
+    return _commit({"goal": goal, "steps": found["steps"], "cost": found["cost_ms"] / 1000.0, "score": 0.0,
+                    "fills": {k: round(v, 6) for k, v in fills.items()}, "goals": 1}, snapshot)
 
 
 def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
@@ -248,9 +295,9 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
 
     A trace is ``{world: {affordances, states}, actors: {name: actor}, limits, steps}``. A
     step is ``{"plan": actor, "expect": {...}}`` (any of ``goal``, ``steps``, ``cost``,
-    ``score``, ``fills``; ``{"steps": []}`` for no plan): a plan found claims its affordances
-    for that actor, in place of what the actor claimed before, and the others then plan
-    without them; with ``"to": <affordance id>`` it is the chain to that one (:func:`plan_to`).
+    ``score``, ``fills``, ``run``, ``waits``; ``{"steps": []}`` for no plan): a plan found claims
+    its affordances (of an actor with ``hands``, its ``run``) for that actor, in place of what the
+    actor claimed before, and the others then plan without them, counting on what they set; with ``"to": <affordance id>`` it is the chain to that one (:func:`plan_to`).
     ``{"release": actor}`` gives its claims up. ``{"set": {...}}`` changes
     what there is: ``holding`` / ``needs`` / ``urgency`` / ``at`` ({actor: value}),
     ``states`` ({key: state}), ``remove`` ([affordance ids]) and ``add`` ([affordances]).
@@ -268,10 +315,12 @@ def run_trace(trace: dict[str, Any] | str | Path) -> list[str]:
         if "plan" in step:
             who = step["plan"]
             taken = {i for other, ids in claims.items() if other != who for i in ids}
+            promised = {str(k): str(v) for a in affordances if a["id"] in taken
+                        for k, v in (a.get("sets") or {}).items()}
             asked = {"affordances": [{**a, "reserved": a["id"] in taken} for a in affordances],
-                     "states": states, "actor": actors[who], "limits": trace.get("limits", {})}
+                     "states": states, "promised": promised, "actor": actors[who], "limits": trace.get("limits", {})}
             found = plan_to(asked, step["to"]) if "to" in step else plan(asked)
-            claims[who] = list(found.get("steps", []))
+            claims[who] = list(found.get("run", found.get("steps", [])))
             for key, want in step.get("expect", {}).items():
                 got = found.get(key, [] if key == "steps" else None)
                 if got != want:

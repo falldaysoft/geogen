@@ -386,6 +386,8 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
                 continue    # someone has it, or it is nowhere this body reaches
         if not only.is_empty() and not only.any(func(t): return t in a.get("tags", [])):
             continue
+        if (definition.get("skips", []) as Array).any(func(t): return t in a.get("tags", [])):
+            continue                # left to someone else
         if not told and clock < float(_retry_at.get(a["id"], -1.0)):
             continue                # (told to: whoever said so may insist)
         var uid := WorldLoader.uid_of(a["node"])
@@ -867,17 +869,20 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
             return now
         _drop_plan("%s isn't possible any more" % step["id"])
     var found := GeogenPlanner.plan(_snapshot(ranked))
+    if not (found.get("waits", []) as Array).is_empty():
+        found = {}                  # someone else is about to make it possible: something else meanwhile
     if found.is_empty():
         for o in ranked:            # nothing fills a need: the best of what can be done as things are
             if not o.has("affordance"):
                 return o
             var a: Dictionary = o["affordance"]
-            if (a.get("advertises", {}) as Dictionary).is_empty() and a.has("gives"):
+            if (a.get("advertises", {}) as Dictionary).is_empty() and (a.has("gives") or a.has("sets")):
                 continue            # a link in a chain, with no chain to be part of
             if not a.has("requires") or _meets(a):
                 return o
         return {}
-    var steps: Array = (found["steps"] as Array).map(func(id): return by_id[id])
+    # Who works with others commits to one run at a time, and leaves the rest of the job open.
+    var steps: Array = (found.get("run", found["steps"]) as Array).map(func(id): return by_id[id])
     for o in steps:
         if o.has("affordance"):
             world.npc_reserve(o["id"], self)
@@ -886,6 +891,18 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
     _trace({"event": "plan", "goal": found["goal"], "steps": found["steps"], "cost": found["cost"],
         "score": found["score"], "fills": found["fills"], "goals": found["goals"]})
     return steps[0]
+
+
+## The states the steps of its plan still to finish will set: {"<uid>#<interaction>": state}.
+func promises() -> Dictionary:
+    var out := {}
+    if _chain.is_empty():
+        return out
+    for i in range(int(_chain["index"]), (_chain["steps"] as Array).size()):
+        var a: Dictionary = _chain["steps"][i].get("affordance", {})
+        for name in a.get("sets", {}):
+            out["%s#%s" % [WorldLoader.uid_of(a["node"]), name]] = str(a["sets"][name])
+    return out
 
 
 ## What the planner is asked: the options as its affordances, the states they name, and this NPC.
@@ -945,9 +962,16 @@ func _snapshot(ranked: Array[Dictionary]) -> Dictionary:
     for need in needs:
         urgency[need] = GeogenPlanner.urgency(needs[need], definition["needs"][need])
     var p := global_position
-    return {"affordances": listed, "states": states, "limits": definition.get("planner", PLANNER_LIMITS),
-        "actor": {"at": [p.x, p.y, p.z], "speed": float(definition.get("speed", 1.2)), "holding": holding,
-            "needs": needs, "urgency": urgency}}
+    var promised := {}
+    for other in world.npcs:
+        if other != self and is_instance_valid(other):
+            promised.merge(other.promises(), true)
+    var me := {"at": [p.x, p.y, p.z], "speed": float(definition.get("speed", 1.2)), "holding": holding,
+        "needs": needs, "urgency": urgency}
+    if definition.get("planner", {}).has("hands"):
+        me["hands"] = int(definition["planner"]["hands"])
+    return {"affordances": listed, "states": states, "promised": promised,
+        "limits": definition.get("planner", PLANNER_LIMITS), "actor": me}
 
 
 ## Give the plan up: its things are free again, and the next decision plans afresh.
@@ -3189,8 +3213,13 @@ func _meets(a: Dictionary) -> bool:
     return true
 
 
-## An affordance's action is done: what it `takes` and `gives` (to what this NPC carries).
+## An affordance's action is done: the states it `sets`, and what it `takes` and `gives` (to what
+## this NPC carries).
 func _carry_out(a: Dictionary) -> void:
+    for name in a.get("sets", {}):
+        var it = world.interactions_by_key.get("%s#%s" % [WorldLoader.uid_of(a["node"]), name])
+        if it is GeogenInteraction:
+            (it as GeogenInteraction).set_state(str(a["sets"][name]), false, WorldLoader.actor_id(self))
     if world.rules == null:
         return
     var actor := WorldLoader.actor_id(self)

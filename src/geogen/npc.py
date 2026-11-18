@@ -93,7 +93,7 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants", "senses", "reacts", "memory", "planner", "offers", "relations"}
+            "reach", "carry", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips"}
 # A need (geogen.101.2): 0 (desperate) .. 1 (satisfied).
 NEED_KEYS = {
     "initial": "where it starts, 0..1 (default 0.5)",
@@ -578,6 +578,8 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         # Only affordances carrying one of these tags (e.g. [outside]: a passer-by doesn't sit
         # in people's kitchens); empty = all of them.
         "affordance_tags": [str(t) for t in data.get("affordance_tags") or []],
+        # Affordances carrying one of these tags are left to someone else.
+        **({"skips": [str(t) for t in data["skips"]]} if data.get("skips") else {}),
         # Where `go_to: random` goes: the home region, or points on surfaces with these tags.
         "wander": {"tags": [str(t) for t in (data.get("wander") or {}).get("tags", [])]},
         "routine": parse_routine(data.get("routine") or [], activities, f"{path}: routine"),
@@ -622,12 +624,17 @@ def _planner(spec: Any, where: str) -> dict[str, Any]:
     if spec is None or spec is False:
         return {}
     spec = {} if spec is True else spec
-    if not isinstance(spec, dict) or set(spec) - set(PLANNER_DEFAULTS):
-        raise ValueError(f"{where}: true or keys {sorted(PLANNER_DEFAULTS)}, got {spec!r}")
+    if not isinstance(spec, dict) or set(spec) - set(PLANNER_DEFAULTS) - {"hands"}:
+        raise ValueError(f"{where}: true or keys {sorted({*PLANNER_DEFAULTS, 'hands'})}, got {spec!r}")
     out = {k: float(spec.get(k, v)) for k, v in PLANNER_DEFAULTS.items()}
     if out["depth"] < 1 or out["nodes"] < 1 or out["patience"] < 0:
         raise ValueError(f"{where}: depth and nodes are at least 1, patience isn't negative")
-    return {"planner": {"depth": int(out["depth"]), "patience": out["patience"], "nodes": int(out["nodes"])}}
+    planner = {"depth": int(out["depth"]), "patience": out["patience"], "nodes": int(out["nodes"])}
+    if "hands" in spec:             # carries this many things at most, and shares a job with others (geogen.110.1)
+        if not isinstance(spec["hands"], int) or spec["hands"] < 1:
+            raise ValueError(f"{where}: hands is a whole number of at least 1, got {spec['hands']!r}")
+        planner["hands"] = spec["hands"]
+    return {"planner": planner}
 
 
 def _social(offers: Any, relations: Any, actions: dict, needs: dict, where: str) -> dict[str, Any]:

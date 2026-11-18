@@ -83,6 +83,71 @@ static func _held_covers(conds: Array, holding: Dictionary) -> bool:
     return true
 
 
+## Whether the actor can do ``steps`` without carrying more than its `hands`.
+static func _fits_hands(steps: Array, by_id: Dictionary, actor: Dictionary) -> bool:
+    if actor.get("hands") == null:
+        return true
+    var held := _carried(actor)
+    for step in steps:
+        held += _hands_change(by_id[step])
+        if held > int(actor["hands"]):
+            return false
+    return true
+
+
+static func _carried(actor: Dictionary) -> int:
+    var held := 0
+    if actor.get("holding") is Dictionary:
+        for k in actor["holding"]:
+            held += int(actor["holding"][k])
+    return held
+
+
+## How many more things the hands hold after doing ``a``.
+static func _hands_change(a: Dictionary) -> int:
+    var change := 0
+    if a.get("gives") is Dictionary:
+        for k in a["gives"]:
+            change += int(a["gives"][k])
+    if a.get("takes") is Array and not (a["takes"] as Array).is_empty():
+        change -= 1
+    return change
+
+
+## A plan of an actor with `hands`, with what to commit to now: `run`, the steps up to the one
+## that leaves the hands empty, and `waits`, the states it needs that aren't so yet.
+static func _commit(found: Dictionary, snapshot: Dictionary) -> Dictionary:
+    var actor: Dictionary = snapshot["actor"]
+    if found.is_empty() or actor.get("hands") == null:
+        return found
+    var by_id := {}
+    for a in snapshot["affordances"]:
+        by_id[str(a["id"])] = a
+    var states: Dictionary = snapshot["states"] if snapshot.get("states") is Dictionary else {}
+    var held := _carried(actor)
+    var run := []
+    var made := {}
+    var waits := {}
+    for step in found["steps"]:
+        var a: Dictionary = by_id[step]
+        run.append(step)
+        var requires: Dictionary = a["requires"] if a.get("requires") is Dictionary else {}
+        if requires.get("state") is Dictionary:
+            for key in requires["state"]:
+                if str(made.get(key, states.get(key, ""))) != str(requires["state"][key]) or not (made.has(key) or states.has(key)):
+                    waits[str(key)] = true
+        if a.get("sets") is Dictionary:
+            for key in a["sets"]:
+                made[str(key)] = str(a["sets"][key])
+        held += _hands_change(a)
+        if held <= 0:
+            break
+    var out := found.duplicate()
+    out["run"] = run
+    out["waits"] = _sorted_strings(waits.keys())
+    return out
+
+
 ## Item conditions in a fixed order (as the reference sorts tuples of strings).
 static func _sort_conditions(conds: Array) -> Array:
     var out := conds.duplicate()
@@ -107,6 +172,7 @@ static func _chain(goal: Dictionary, snapshot: Dictionary, limits: Dictionary) -
     var start = actor.get("at")
     var holding: Dictionary = actor["holding"] if actor.get("holding") is Dictionary else {}
     var states: Dictionary = snapshot["states"] if snapshot.get("states") is Dictionary else {}
+    var promised: Dictionary = snapshot["promised"] if snapshot.get("promised") is Dictionary else {}
     var usable: Array = (snapshot["affordances"] as Array).filter(func(a): return not a.get("reserved", false))
     usable.sort_custom(func(x, y): return _less(str(x["id"]), str(y["id"])))
     var by_id := {}
@@ -130,9 +196,10 @@ static func _chain(goal: Dictionary, snapshot: Dictionary, limits: Dictionary) -
         var wanted: Dictionary = node["wanted"]
         var met := _held_covers(items, holding)
         for k in wanted:
-            if str(states.get(k, "")) != wanted[k] or not states.has(k):
+            var holds: bool = states.has(k) and str(states[k]) == wanted[k]
+            if not holds and not (promised.has(k) and str(promised[k]) == wanted[k]):
                 met = false
-        if met:
+        if met and _fits_hands(steps, by_id, actor):
             return {"steps": steps, "cost_ms": node["f"]}
         expanded += 1
         if steps.size() >= int(limits["depth"]):
@@ -247,8 +314,8 @@ static func plan(snapshot: Dictionary) -> Dictionary:
     var fills := {}
     for k in best["fills"]:
         fills[k] = _round6(float(best["fills"][k]))
-    return {"goal": best["goal"], "steps": best["steps"], "cost": int(best["cost_ms"]) / 1000.0,
-        "score": _round6(float(best["score"])), "fills": fills, "goals": goals}
+    return _commit({"goal": best["goal"], "steps": best["steps"], "cost": int(best["cost_ms"]) / 1000.0,
+        "score": _round6(float(best["score"])), "fills": fills, "goals": goals}, snapshot)
 
 
 ## The chain that ends with affordance ``goal``, whether or not it is worth doing (someone was
@@ -270,8 +337,8 @@ static func plan_to(snapshot: Dictionary, goal: String) -> Dictionary:
         var w := _worth(found["steps"], snapshot)
         for k in w[1]:
             fills[k] = _round6(float(w[1][k]))
-        return {"goal": goal, "steps": found["steps"], "cost": int(found["cost_ms"]) / 1000.0,
-            "score": 0.0, "fills": fills, "goals": 1}
+        return _commit({"goal": goal, "steps": found["steps"], "cost": int(found["cost_ms"]) / 1000.0,
+            "score": 0.0, "fills": fills, "goals": 1}, snapshot)
     return {}
 
 
@@ -299,14 +366,18 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                     for id in claims[other]:
                         taken[id] = true
             var listed := []
+            var promised := {}
             for a in affordances:
                 var copy: Dictionary = (a as Dictionary).duplicate()
                 copy["reserved"] = taken.has(str(a["id"]))
                 listed.append(copy)
-            var asked := {"affordances": listed, "states": states, "actor": actors[who],
+                if copy["reserved"] and a.get("sets") is Dictionary:
+                    for k in a["sets"]:
+                        promised[str(k)] = str(a["sets"][k])
+            var asked := {"affordances": listed, "states": states, "promised": promised, "actor": actors[who],
                 "limits": trace.get("limits", {})}
             var found := plan_to(asked, str(step["to"])) if step.has("to") else plan(asked)
-            claims[who] = found.get("steps", [])
+            claims[who] = found.get("run", found.get("steps", []))
             var expect: Dictionary = step.get("expect", {})
             for key in expect:
                 var got = found.get(key, [] if key == "steps" else null)
