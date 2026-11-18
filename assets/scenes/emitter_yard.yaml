@@ -1,0 +1,26 @@
+# Review scene for emitters (geogen/emitters.py): a part's `emitter:` and `sound:` blocks, one
+# of each kind round a small yard. The fountain's water, the chimney's smoke, the steam vent
+# (E on its wheel shuts it off: `bind` on the part's `running`) and a rain shower.
+# In the runtime catalogue's test group.
+
+name: emitter_yard
+size: [30, 8, 30]
+tags: [test.emitters]
+
+spawns:
+  start: { position: [0, 0.1, 11], facing: north }
+
+slots:
+  fountain: { position: [0, 0.1, -3] }
+  chimney:  { position: [-9, 0.1, 2] }
+  vent:     { position: [4.5, 0.1, 6], facing: south }
+  rain:     { position: [9.5, 0.1, -1] }
+
+place:
+  ground:
+    asset: plaza.yaml
+    params: { radius: 15, border: 0.8, paving_material: brick_paving, border_material: concrete }
+  fountain: { asset: pond.yaml, slot: fountain, params: { rx: 3.5, rz: 3.0 } }
+  chimney:  { asset: chimney_stack.yaml, slot: chimney }
+  vent:     { asset: steam_vent.yaml, slot: vent }
+  rain:     { asset: rain_cloud.yaml, slot: rain }

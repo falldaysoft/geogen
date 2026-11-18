@@ -80,6 +80,8 @@ var nodes_by_uid: Dictionary = {}
 var saves := GeogenWorldSaves.new()
 ## Light fixtures: by name, switchable ones by stable ID, `auto: night` lamps (world_lights.gd).
 var lights := GeogenWorldLights.new()
+## What parts give off: particles and looping sound, switched by their `running` state (world_emitters.gd).
+var emitters := GeogenWorldEmitters.new()
 ## Navmesh baking and its cache (world_navigation.gd).
 var navigation := GeogenWorldNavigation.new()
 ## Actor poses from extras.geogen.affordances, world space:
@@ -173,6 +175,7 @@ var physics_rate := 60
 func _ready() -> void:
     saves.world = self
     lights.world = self
+    emitters.world = self
     navigation.world = self
     place_tracking.world = self
     events.name = "Events"
@@ -180,7 +183,9 @@ func _ready() -> void:
     rules.name = "Rules"
     rules.reset.connect(_sync_trains)
     rules.reset.connect(lights.sync_fixtures)
+    rules.reset.connect(emitters.sync)
     events.posted.connect(lights.on_lit)
+    events.posted.connect(emitters.on_running)
     events.posted.connect(_on_present)
     rules.reset.connect(func():
         for npc in npcs:
@@ -402,6 +407,7 @@ func unload() -> void:
     saves.pending.clear()
     interactions.clear()
     lights.clear()
+    emitters.clear()
     affordances.clear()
     npcs.clear()
     traffic.clear()
@@ -786,6 +792,8 @@ func setup_root(root: Node) -> Dictionary:
     mechanisms.setup(root)   # likewise: a mechanism's bodies take their parts' colliders as shapes
     lights.add(root)
     lights.sync_fixtures()
+    emitters.add(root)
+    emitters.sync()
     _collect_affordances(root)
     _collect_portals(root)
     _collect_travel(root)
@@ -849,6 +857,7 @@ func forget(root: Node) -> void:
     travel_points = travel_points.filter(func(t): return not inside.call(t.get("node")))
     npcs = npcs.filter(func(n): return not inside.call(n))
     lights.forget(inside)
+    emitters.forget(inside)
     for key in _moving.keys():
         if inside.call(key):
             _moving.erase(key)

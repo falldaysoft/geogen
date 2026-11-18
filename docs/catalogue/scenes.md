@@ -16,6 +16,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [crossroads](#crossroads) | A small street grid for traffic: 2 x 2 blocks (parks, no buildings) with an avenue, parked cars, moving traffic and a few pedestrians. | test |
 | [crowd_test](#crowd_test) | Crowd budget test (geogen.11.5.17): the crossroads grid with 50 pedestrians (npcs/pedestrian.yaml, townsfolk bodies) and its traffic. |  |
 | [dining_set](#dining_set) | Dining set: table with 4 chairs. | test |
+| [emitter_yard](#emitter_yard) | Review scene for emitters (geogen/emitters.py): a part's `emitter:` and `sound:` blocks, one of each kind round a small yard. | test |
 | [farm](#farm) | A small farm: a fenced field of eight plots, a seed machine and a produce counter on the yard, and a shed to sleep in. | showcase |
 | [flow_test](#flow_test) | Spawned items (geogen.flows) at their simplest: a spawner drops parcels on a belt, which hands them to a second belt at right angles, whose end takes them in; a second spawner sends rovers driving round a gravel lane to a sink of their own; a raid gate sends two waves of raiders (6 hp) down a lane past a turret. | test |
 | [hotel_floor_furnished](#hotel_floor_furnished) | A generated hotel guest floor with every room furnished from its archetype. |  |
@@ -262,6 +263,21 @@ Chairs are attached at the table's seat attachment points
 This scene can be placed into larger scenes (rooms, houses)
 
 **Places**: `table: {asset: table.yaml}`; `chairs: {asset: chair.yaml}`
+
+## emitter_yard
+
+`scene: scenes/emitter_yard.yaml` · [source](../../assets/scenes/emitter_yard.yaml)
+
+Review scene for emitters (geogen/emitters.py): a part's `emitter:` and `sound:` blocks, one
+of each kind round a small yard. The fountain's water, the chimney's smoke, the steam vent
+(E on its wheel shuts it off: `bind` on the part's `running`) and a rain shower.
+In the runtime catalogue's test group.
+
+**Places**: `ground: {asset: plaza.yaml}`; `fountain: {asset: pond.yaml}`; `chimney: {asset: chimney_stack.yaml}`; `vent: {asset: steam_vent.yaml}`; `rain: {asset: rain_cloud.yaml}`
+
+**Slots**: chimney, fountain, rain, vent
+
+**Spawns**: start
 
 ## farm
 

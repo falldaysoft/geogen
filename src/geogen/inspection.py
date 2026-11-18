@@ -30,7 +30,7 @@ PART_TAG_HEADS = {"floor", "ceiling", "wall", "trim", "threshold", "joint", "lin
 PART_TAGS = {"door.leaf"}
 PART_TYPES = {"collider", "room_volume"}
 # Meta that makes an untagged node worth a line of its own.
-SHOWN_META = {"source", "npc", "vehicle", "travel", "light", "switch", "room", "storey", "door",
+SHOWN_META = {"source", "npc", "vehicle", "travel", "light", "emitter", "sound", "switch", "room", "storey", "door",
               "spawn", "signal", "lift", "building", "lot"}
 SUMMARISED_META = {"source", "collider", "walkable", "placed_by", "footprint", "clearance",
                    "furnish_report", "openings", "door_swings", "wall_inset", "clear_height",
@@ -166,6 +166,11 @@ def _meta_summary(node: SceneNode) -> list[str]:
         light = m["light"]
         auto = f" auto {light['auto']}" if light.get("auto") else ""
         out.append(f"light {_num(float(light.get('energy', 0)))}e {_num(float(light.get('range', 0)))}m{auto}")
+    if isinstance(m.get("emitter"), dict):
+        e = m["emitter"]
+        out.append(f"emitter {e['material']} {_num(e['rate'])}/s for {_num(e['lifetime'])}s")
+    if isinstance(m.get("sound"), dict):
+        out.append(f"sound {_num(m['sound']['band'][0])}-{_num(m['sound']['band'][1])} Hz {_num(m['sound']['range'])}m")
     if isinstance(m.get("switch"), dict):
         out.append(f"switch → {m['switch'].get('light')}")
     if isinstance(m.get("npc"), dict):
@@ -194,7 +199,7 @@ def _meta_summary(node: SceneNode) -> list[str]:
         out.append("container")
     if m.get("furnish_report"):
         out.append(f"unmet furnishing rules: {len(m['furnish_report'])}")
-    handled = SUMMARISED_META | {"room", "light", "switch", "door", "npc", "vehicle", "travel", "affordances",
+    handled = SUMMARISED_META | {"room", "light", "emitter", "sound", "switch", "door", "npc", "vehicle", "travel", "affordances",
                                  "container", "interactions", "place"}
     rest = sorted(k for k in m if k not in handled)
     if rest:

@@ -87,14 +87,15 @@ parts:
     anchor: bottom_center
     offset: [0, 1.2, 0]
     material: stone
-  jet:
-    primitive: lathe
-    when: "{fountain}"
-    profile: [[0, 0], [0.05, 0], [0.035, 0.4], [0.02, 0.8], [0.008, 1.0], [0, 1.02]]
-    fit: none
-    segments: 16
-    size: [0.1, 1.02, 0.1]
-    anchor: bottom_center
-    offset: [0, 1.66, 0]
-    material: water
-    collider: none
+    emitter:                         # the jet: water thrown up, falling back into the bowl
+      at: top
+      rate: 420
+      lifetime: 1.1
+      speed: [4.6, 5.6]
+      spread: 5
+      gravity: 9.81
+      size: [0.05, 0.08]
+      color: [0.82, 0.92, 1.0]
+      opacity: 0.7
+      material: droplet
+    sound: { at: top, band: [500, 6000], flutter: 0.35, volume_db: -13, range: 20 }

@@ -36,6 +36,7 @@ const COMMANDS := {
     "world.reload": "{keep_player?} re-read the current scene's export (after a re-export)",
     "world.node": "{name | uid | node_path} one node: transform, world bounds, extras, colliders, children, interactions",
     "world.lights": "the light fixtures: {fixtures: {name: {visible, energy, range, y}}, total, light3d}",
+    "world.emitters": "parts giving off particles or sound, by stable ID: {emitting, amount, position, sounding, range}",
     "world.skeletons": "skeletons (bone positions, skinned mesh bounds in the current pose) and animations",
     "world.stats": "engine object counts: nodes, orphans, objects, resources, nav_regions, bodies, world_children",
     "player.status": "position, yaw, pitch, eye, room, scene, pose, focus, keys, on_floor, walking; stream (chunked worlds)",
@@ -482,6 +483,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             return world.props.report() + world.mechanisms.report()
         "world.lights":
             return _lights()
+        "world.emitters":
+            return world.emitters.report()
         "world.skeletons":
             return _skeleton_report()
         "world.stats":

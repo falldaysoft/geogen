@@ -1516,6 +1516,8 @@ description.
 | `footprint` | - | Furniture: floor footprint [x, z] in metres (asset frame, centred on the origin) |
 | `clearance` | - | Furniture: free space needed beyond the footprint on each side (front = +Z), metres |
 | `light` | `scripts/world_loader.gd` | tunes the fixture's imported light; `auto: night` |
+| `emitter` | `scripts/world_emitters.gd` | particles from the part, switched by its `running` state |
+| `sound` | `scripts/world_emitters.gd` | a synthesised loop at the part, switched by its `running` state |
 | `affordances` | `scripts/world_loader.gd` | sit / lie / use points for the player and NPCs |
 | `portal` | `scripts/world_loader.gd` | doorways NPC paths open (`scripts/npc.gd`) |
 | `place` | `scene_builder.gd` | `PlaceArea` trigger volumes |

@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from .. import roots
+from .. import emitters, roots
 from ..core.node import SceneNode
 from ..core.profile import Shape, polyline_from_spec, shape_from_spec
 from ..generators.crops import CropGenerator
@@ -358,6 +358,7 @@ class LayoutLoader:
         for surf_name, surf in auto_surfaces.items():
             surf.source = node
             node.surfaces[surf_name] = surf
+        emitters.apply_part(node, part_def, part_name)
         return node, actual_size
 
     def _place_part(self, part_name: str, part_def: dict[str, Any], part_nodes: dict[str, SceneNode],

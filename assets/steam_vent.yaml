@@ -1,0 +1,103 @@
+# A steam pipe with a handwheel: turn it (E) to shut off the hissing nozzle.
+# Origin: bottom centre.
+
+name: steam_vent
+tags: [decor.steam, switch.valve]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  flange:
+    primitive: cylinder
+    size: [0.36, 0.05, 0.36]
+    anchor: bottom_center
+    material: metal
+  pipe:
+    primitive: cylinder
+    size: [0.14, 1.3, 0.14]
+    anchor: bottom_center
+    offset: [0, 0.05, 0]
+    material: metal
+  valve_body:
+    primitive: cylinder
+    size: [0.22, 0.2, 0.22]
+    anchor: bottom_center
+    offset: [0, 0.75, 0]
+    material: red_metal
+  stem:
+    primitive: extrude
+    shape: { circle: 0.018, segments: 10 }
+    fit: none
+    axis: z
+    size: [0.036, 0.036, 0.2]
+    anchor: bottom_center
+    offset: [0, 0.832, 0.19]
+    material: metal
+    collider: none
+  wheel:
+    primitive: extrude
+    shape: { outer: { circle: 0.15, segments: 28 }, holes: [{ circle: 0.118, segments: 28 }] }
+    fit: none
+    axis: z
+    size: [0.3, 0.3, 0.03]
+    anchor: bottom_center
+    offset: [0, 0.7, 0.29]
+    material: red_metal
+  spoke_a:
+    primitive: cube
+    size: [0.25, 0.024, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.838, 0.29]
+    bevel: 0.004
+    bevel_segments: 1
+    material: red_metal
+    collider: none
+  spoke_b:
+    primitive: cube
+    size: [0.024, 0.25, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.725, 0.29]
+    bevel: 0.004
+    bevel_segments: 1
+    material: red_metal
+    collider: none
+  nozzle:
+    primitive: cylinder
+    size: [0.1, 0.16, 0.1]
+    anchor: bottom_center
+    offset: [0, 1.35, 0]
+    material: metal
+    collider: none
+    emitter:
+      at: top
+      rate: 70
+      lifetime: 1.4
+      speed: [1.4, 2.2]
+      spread: 11
+      gravity: -0.5
+      drag: 1.3
+      size: [0.05, 0.62]
+      color: [0.93, 0.95, 0.97]
+      opacity: 0.42
+      material: soft
+    sound: { at: top, band: [2600, 9500], flutter: 0.1, volume_db: -14, range: 14 }
+
+interactions:
+  valve:
+    targets: [wheel, spoke_a, spoke_b, stem, valve_body]
+    initial: open
+    duration: 0.7
+    states:
+      open:   { prompt: Close the valve, next: closed }
+      closed: { prompt: Open the valve, next: open }
+    motions:
+      - parts: [wheel, spoke_a, spoke_b]
+        rotate: z
+        pivot: [0, 0.85, 0.29]
+        values: { open: 0, closed: 270 }
+
+bind:
+  nozzle.running: "self.valve == 'open'"
+
+clearance: { front: 0.7 }

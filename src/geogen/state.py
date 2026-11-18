@@ -55,6 +55,7 @@ from typing import Any, Callable, Iterable
 
 from . import refs
 from .core.node import SceneNode
+from .emitters import initially_running
 from .flows import flow_inputs, flow_signals, flow_state, item_fields
 from .places import place_state
 
@@ -239,7 +240,8 @@ def state_names(node: SceneNode) -> list[str]:
     """Every state name a thing has: its interactions, their locks, its declared variables and
     what it has by being what it is (a train's stations, a light fixture's `lit`)."""
     return ([i.name for i in node.interactions] + [f"{i.name}{LOCKED}" for i in node.interactions]
-            + list(instance_state(node)) + list(light_state(node)) + list(presence_state(node)))
+            + list(instance_state(node)) + list(light_state(node)) + list(emitter_state(node))
+            + list(presence_state(node)))
 
 
 def set_values(node: SceneNode, values: dict[str, Any], where: str) -> None:
@@ -422,6 +424,13 @@ def light_state(node: SceneNode) -> dict[str, dict[str, Any]]:
     return {"lit": {"type": "bool", "default": True}}
 
 
+def emitter_state(node: SceneNode) -> dict[str, dict[str, Any]]:
+    """A part with an ``emitter:`` or ``sound:`` has ``running``, which the runtime starts and stops
+    them by: bind it or set it from a rule, as a light fixture's ``lit``."""
+    running = initially_running(node)
+    return {} if running is None else {"running": {"type": "bool", "default": running}}
+
+
 def switch_bindings(root: SceneNode, uid: Callable[[SceneNode], str]) -> list[dict[str, Any]]:
     """What ``switch: {light}`` means: the named fixture (``switched_light``: the nearest
     of that name) is lit while the switch is on. One binding per fixture; with several switches
@@ -494,7 +503,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
         declares = node.meta.get(META)
         greeting = npc_signal(node)
         timetable = {**train_state(node), **place_state(node), **flow_state(node)}
-        lit = {**light_state(node), **presence_state(node)}
+        lit = {**light_state(node), **emitter_state(node), **presence_state(node)}
         if not node.interactions and not declares and not greeting and not timetable and not lit:
             continue
         thing = uid(node)

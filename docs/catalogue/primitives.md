@@ -35,6 +35,8 @@ parts:
 | `tags` | [tag, ...] |  | dotted gameplay tags exported in extras.geogen |
 | `collider` | auto \| none \| box \| hull \| mesh | `auto` | collision shape exported for the part |
 | `walkable` | bool | `false` | the part is floor the player and NPCs walk on |
+| `emitter` | {rate, lifetime, speed, spread, gravity, size, material, ...} |  | particles (geogen.emitters), switched by the part's `running` state |
+| `sound` | {band, hum, flutter, crackle, range, ...} |  | a synthesised loop, switched by `running` |
 | `joint` | {type: hinge \| slide, pivot, axis, limits \| range, with, name, initial, duration, open_prompt, close_prompt, auto_close, lock} |  | shorthand for a closed/open interaction named after the part |
 
 Anchors: center, or any of top|bottom + front|back + left|right|center, e.g. bottom_center, top_front_left, left_center (x: left = -X, y: up, z: front = +Z).

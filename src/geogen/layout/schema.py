@@ -51,6 +51,9 @@ PART_KEYS: dict[str, Key] = {
     "tags": Key("[tag, ...]", "dotted gameplay tags exported in extras.geogen"),
     "collider": Key("auto | none | box | hull | mesh", "collision shape exported for the part", "auto"),
     "walkable": Key("bool", "the part is floor the player and NPCs walk on", False),
+    "emitter": Key("{rate, lifetime, speed, spread, gravity, size, material, ...}",
+                   "particles (geogen.emitters), switched by the part's `running` state"),
+    "sound": Key("{band, hum, flutter, crackle, range, ...}", "a synthesised loop, switched by `running`"),
     "joint": Key("{type: hinge | slide, pivot, axis, limits | range, with, name, initial, duration, "
                  "open_prompt, close_prompt, auto_close, lock}",
                  "shorthand for a closed/open interaction named after the part"),

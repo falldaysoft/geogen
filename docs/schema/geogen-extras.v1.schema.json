@@ -218,6 +218,32 @@
             "auto": { "description": "night: switched by the runtime's world clock (on after dark), not by a switch.", "const": "night" }
           }
         },
+        "emitter": {
+          "x-godot": {"by": "`scripts/world_emitters.gd`", "for": "particles from the part, switched by its `running` state"},
+          "description": "Particles the part gives off, described physically (geogen.emitters). offset: metres in the part's frame; rate: particles/s; lifetime: s; speed: [min, max] m/s; direction: unit vector in the part's frame; spread: degrees; gravity: m/s^2 downward (negative rises); wind: m/s^2 in the world frame; drag: m/s lost per second; size: [birth, death] m across; area: emission box in m; running: how the part's `running` state starts.",
+          "type": "object",
+          "required": ["offset", "rate", "lifetime", "speed", "direction", "spread", "gravity", "wind", "drag", "size", "color", "opacity", "material", "area", "running"],
+          "additionalProperties": false,
+          "properties": {
+            "offset": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "direction": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "wind": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "color": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "area": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+            "speed": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }, "size": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+            "rate": { "type": "number" }, "lifetime": { "type": "number" }, "spread": { "type": "number" }, "gravity": { "type": "number" }, "drag": { "type": "number" }, "opacity": { "type": "number" },
+            "material": { "enum": ["droplet", "soft", "streak", "glow"] },
+            "running": { "type": "boolean" }
+          }
+        },
+        "sound": {
+          "x-godot": {"by": "`scripts/world_emitters.gd`", "for": "a synthesised loop at the part, switched by its `running` state"},
+          "description": "A synthesised looping sound at the part (geogen.emitters): noise in band [low, high] Hz, a hum in Hz (0: none), flutter and crackle 0-1, heard out to range metres; offset in the part's frame; running: how the part's `running` state starts.",
+          "type": "object",
+          "required": ["offset", "band", "hum", "flutter", "crackle", "volume_db", "range", "running"],
+          "additionalProperties": false,
+          "properties": {
+            "offset": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "band": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+            "hum": { "type": "number" }, "flutter": { "type": "number" }, "crackle": { "type": "number" }, "volume_db": { "type": "number" }, "range": { "type": "number" },
+            "running": { "type": "boolean" }
+          }
+        },
         "affordances": {
           "x-godot": {"by": "`scripts/world_loader.gd`", "for": "sit / lie / use points for the player and NPCs"},
           "description": "Things an actor can do at an asset (asset frame): sit/lie/use/stand/look at 'position' facing 'yaw' degrees about +Y (0 = +Z); 'height' is where the hips rest. The player takes sit/lie; NPCs run 'action' (assets/npcs/actions.yaml), starting from 'approach' (floor level), for 'duration' seconds, adding 'advertises' to their needs (after 'takes' and 'gives': what it does to what the actor carries, offered only when 'requires' holds); 'slots' actors at once; 'interaction' is the asset interaction a use step drives.",

@@ -25,8 +25,8 @@ place:
 
 ## Size
 
-10.9 x 2.68 x 7.9 m (x, y, z); geometry (-5.45, 0, -3.95) to (5.45, 2.68, 3.95) from the origin; 4390 triangles
+10.9 x 1.66 x 7.9 m (x, y, z); geometry (-5.45, 0, -3.95) to (5.45, 1.66, 3.95) from the origin; 4312 triangles
 
 ## Parts
 
-`rim` (extrude), `bed` (extrude), `water` (water), `column` (lathe), `bowl` (lathe), `bowl_water` (lathe), `finial` (lathe), `jet` (lathe)
+`rim` (extrude), `bed` (extrude), `water` (water), `column` (lathe), `bowl` (lathe), `bowl_water` (lathe), `finial` (lathe)

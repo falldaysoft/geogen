@@ -1,0 +1,52 @@
+# A free-standing brick chimney stack with a clay pot, giving off a slow drift of smoke.
+# Bind or set `pot.running` to put it out. Origin: bottom centre.
+
+name: chimney_stack
+tags: [decor.chimney]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  height: { default: 3.2 }
+
+parts:
+  stack:
+    primitive: cube
+    size: [0.9, "{height}", 0.9]
+    anchor: bottom_center
+    bevel: 0.01
+    bevel_segments: 1
+    material: brick
+  cap:
+    primitive: cube
+    size: [1.05, 0.12, 1.05]
+    attach_to: stack
+    at: top
+    from: bottom
+    bevel: 0.015
+    bevel_segments: 1
+    material: concrete
+  pot:
+    primitive: lathe
+    profile: [[0, 0], [0.17, 0], [0.14, 0.3], [0.17, 0.46], [0.13, 0.46], [0.1, 0.3], [0.1, 0.06], [0, 0.06]]
+    fit: none
+    segments: 20
+    size: [0.34, 0.46, 0.34]
+    attach_to: cap
+    at: top
+    from: bottom
+    material: red_metal
+    collider: none
+    emitter:
+      rate: 14
+      lifetime: 8
+      speed: [0.6, 0.9]
+      spread: 9
+      gravity: -0.16
+      wind: [0.16, 0, 0.05]
+      drag: 0.04
+      size: [0.34, 1.9]
+      color: [0.4, 0.4, 0.41]
+      opacity: 0.34
+      material: soft
