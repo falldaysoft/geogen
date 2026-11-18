@@ -52,7 +52,7 @@ MOTION_KEYS = {
     "name": "the motion's name (defaults to the file's)",
     "category": "where a catalogue lists it: idle | emote | dance | exercise | action | reaction (motion_catalogue)",
     "summary": "one line on what it looks like, for catalogues and galleries",
-    "props": "{role: {asset, on, at}}: what a demonstration stages for its roles (a cup on a table in front)",
+    "props": "{role: {asset, on, at} | {asset, behind}}: what a demonstration stages for its roles (a cup on a table in front; a seat `behind` m behind the person, facing the way they do)",
     "demo": "[{at, start: <motion>, <role>: <role> | <role>@start, ...}]: how a demonstration shows it when it needs "
             "others around it (take, carry and set_down: take it, carry it, put it back where it stood); roles name "
             "this motion's staged props, `@start` where one stood when the demonstration began",
@@ -111,6 +111,7 @@ FALL = 9.81                # m/s2: what a broken hold lets go of falls to the fl
                            # does this properly; the reference rig only drops it straight down)
 REACH_SPEED = 0.9          # m/s an effector or the body travels when a beat gives no `over`
 MIN_OVER = 0.35            # s: the shortest arrival
+TRAVEL_EPS = 1e-4          # m: closer than this a beat's end or root is already there
 HALF_LIFE = {"gaze": 0.08, "left_hand": 0.12, "right_hand": 0.12}   # s, inertialization per channel
 DEFAULT_HALF_LIFE = 0.18
 REACH_SLACK = 0.96         # of the arm's length: a hand reaches no further without bending
@@ -403,7 +404,60 @@ def rig_extras(actor: SceneNode) -> dict | None:
             "channels": {c: {"bones": list(e["bones"]), **({"end": e["end"]} if e.get("end") else {}),
                              **({"shared": True} if e.get("shared") else {})} for c, e in s.channels.items()},
             "hand_shapes": {n: {b: r(v, 4) for b, v in shape.items()} for n, shape in s.hand_shapes.items()},
-            "poses": poses}
+            "poses": poses,
+            "root_poses": root_poses_extras(actor.meta.get("poses") or {})}
+
+
+def root_poses_extras(poses: dict) -> dict:
+    """Where each posture puts the body against what it is at (a beat's ``root: {at, posture}``):
+    the body asset's ``poses`` as ``extras.geogen.rig.root_poses`` (the loader sets them once
+    the seated pose is fitted)."""
+    return {n: {"offset": [round(float(v), 6) for v in p.get("offset", [0, 0, 0])],
+                "rotation": [round(float(v), 6) for v in p.get("rotation", [0, 0, 0])]} for n, p in poses.items()}
+
+
+def transition_data(actor: SceneNode, postures: set[str] | None = None) -> dict:
+    """The body's transition clips (sit_down: stand -> sit) and pose correctives as plain data,
+    what a conformance trace carries (a runtime reads the same from the body's exported
+    animations and ``extras.geogen.clips``): ``transitions`` [{from, to, duration, tracks: {bone:
+    {times, rotations?, translations?}}, root: the clip's root path, morphs: {"node:target":
+    {times, values}}}] and ``pose_morphs`` {pose: {"node:target": weight}}; with ``postures``,
+    only the transitions between those."""
+    s = (actor.meta.get("humanoid") or {}).get("rig")
+
+    def r(v, n=6):
+        return [round(float(x), n) for x in v]
+
+    transitions = []
+    for clip in actor.clips:
+        if not (clip.meta.get("from") and clip.meta.get("to")) or clip.loop:
+            continue
+        if postures is not None and not {clip.meta["from"], clip.meta["to"]} <= postures:
+            continue
+        tracks = {}
+        for bone, track in clip.tracks.items():
+            if bone not in s.bones:
+                continue
+            entry = {"times": r(track.times)}
+            if track.rotations is not None:
+                entry["rotations"] = [r(q, 7) for q in track.rotations]
+            if track.translations is not None:
+                entry["translations"] = [r(v) for v in track.translations]
+            tracks[bone] = entry
+        root = clip.meta.get("root") or {}
+        transitions.append({
+            "from": clip.meta["from"], "to": clip.meta["to"], "duration": round(float(clip.duration), 6),
+            "tracks": tracks,
+            **({"root": {"times": r(root["times"]), "positions": [r(v) for v in root["positions"]],
+                         "rotations": [r(q, 7) for q in root["rotations"]]}} if root else {}),
+            "morphs": {f"{node}:{k}": {"times": r(m.times), "values": r(v)}
+                       for node, m in (clip.morphs or {}).items() for k, v in m.weights.items()}})
+    pose_morphs = {}
+    for clip in actor.clips:
+        if clip.name.startswith("pose_"):
+            pose_morphs[clip.name[5:]] = {f"{node}:{k}": round(w, 6) for node, track in (clip.morphs or {}).items()
+                                          for k, w in track.sample(0.0).items()}
+    return {"transitions": transitions, "pose_morphs": pose_morphs}
 
 
 # --- easing --------------------------------------------------------------------------------------
@@ -773,7 +827,8 @@ class MotionRig:
                 travel = max(travel, float(np.linalg.norm(target - run.start["ends"][end])))
         if spec.get("root"):
             travel = max(travel, float(np.linalg.norm(self._root_target(run)[:3, 3] - self.root[:3, 3])))
-        return max(MIN_OVER, travel / REACH_SPEED + 0.15) if travel else (MIN_OVER if spec.get("pose") else 0.0)
+        # (under TRAVEL_EPS is no travel: a body already where it is asked to be arrives at once)
+        return max(MIN_OVER, travel / REACH_SPEED + 0.15) if travel > TRAVEL_EPS else (MIN_OVER if spec.get("pose") else 0.0)
 
     def _end(self, run: Run, arrived: bool = False) -> None:
         """Stop ``run``. One whose last beat ``arrived`` leaves the body where that beat put it

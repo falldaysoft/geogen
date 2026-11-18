@@ -221,6 +221,10 @@ class LayoutLoader:
             if root_poses:
                 root.meta["poses"] = root_poses
                 fit_seated_pose(root, root.meta["poses"])
+                if isinstance(root.meta.get("rig"), dict):
+                    from ..motion import root_poses_extras
+
+                    root.meta["rig"]["root_poses"] = root_poses_extras(root.meta["poses"])
             if data.get("affordances"):
                 root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
             return root

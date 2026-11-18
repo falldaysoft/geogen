@@ -4,7 +4,10 @@ extends SkeletonModifier3D
 ## character body: a GeogenMotionRig built from the body's `extras.geogen.rig`, stepped on the
 ## physics tick at the rig's fixed rate (it pauses with the world), its bones written over
 ## whatever animates the skeleton while a motion runs. The last modifier on the skeleton.
-## The body's node is the rig's body frame (the character stands at its origin).
+## The body's node is the rig's body frame (the character stands at its origin); a motion that
+## holds the root (sit) moves that node. A posture change plays the body's transition clip
+## (sit_down: its exported animation, with its root path from `extras.geogen.clips`) and its drape
+## correctives (blend shapes) follow the pose.
 ##
 ## Things: a motion's roles bind to nodes in the world by name ("cup", "table.top": the grip
 ## points their `extras.geogen.grips` give). What a hand takes goes with it: a physics prop
@@ -24,6 +27,7 @@ var _bones := PackedInt32Array()  # rig bone index -> skeleton bone index (-1: t
 var _clock := 0.0
 var _active := false              # writing bones (a motion runs, or one just ended and is easing out)
 var _things := {}                 # node -> its GeogenMotionRig.Thing
+var _shapes := {}                 # "node:target" -> [MeshInstance3D, blend shape index]
 
 
 ## The player on `body` (a node whose extras carry `rig`), made and attached on first use;
@@ -49,8 +53,68 @@ static func on(body_: Node3D) -> GeogenMotionPlayer:
     player.rig.released.connect(player._let_go)
     for name in player.rig.names:
         player._bones.append(skeleton.find_bone(name))
+    player.rig.add_transitions(transitions_of(body_))
+    for key in player.rig.morph_keys:
+        var at := String(key).rfind(":")
+        var mesh := body_.get_node_or_null(NodePath(String(key).substr(0, at))) as MeshInstance3D
+        if mesh != null:
+            var i := mesh.find_blend_shape_by_name(StringName(String(key).substr(at + 1)))
+            if i >= 0:
+                player._shapes[key] = [mesh, i]
     skeleton.add_child(player)        # last: over the animation and the other modifiers
     return player
+
+
+## The body's transition clips (`extras.geogen.clips` with `from` / `to` and a root path, their
+## keys from its exported animations) and pose correctives (each `pose_<name>` animation's blend
+## shapes), as GeogenMotionRig.add_transitions takes them (motion.transition_data). Morph keys are
+## "<mesh node path from the body>:<blend shape>".
+static func transitions_of(body_: Node3D) -> Dictionary:
+    var anims := GeogenNpcAnimator._body_clips(body_)
+    var transitions := []
+    var pose_morphs := {}
+    for clip in WorldLoader.geogen_extras(body_).get("clips", []):
+        var anim: Animation = anims.get(clip["name"])
+        if anim == null:
+            continue
+        var name := String(clip["name"])
+        if name.begins_with("pose_"):
+            var weights := {}
+            for t in anim.get_track_count():
+                if anim.track_get_type(t) == Animation.TYPE_BLEND_SHAPE and anim.track_get_key_count(t) > 0:
+                    weights[String(anim.track_get_path(t))] = float(anim.track_get_key_value(t, 0))
+            pose_morphs[name.substr(5)] = weights
+            continue
+        if not (clip.get("from") and clip.get("to")) or clip.get("loop", false):
+            continue
+        var tracks := {}
+        var morphs := {}
+        for t in anim.get_track_count():
+            var kind := anim.track_get_type(t)
+            var path := anim.track_get_path(t)
+            var times := []
+            var values := []
+            for k in anim.track_get_key_count(t):
+                times.append(anim.track_get_key_time(t, k))
+                values.append(anim.track_get_key_value(t, k))
+            if kind == Animation.TYPE_BLEND_SHAPE:
+                morphs[String(path)] = {"times": times, "values": values}
+                continue
+            if kind != Animation.TYPE_ROTATION_3D and kind != Animation.TYPE_POSITION_3D:
+                continue
+            var bone := String(path.get_concatenated_subnames())
+            var entry: Dictionary = tracks.get(bone, {})
+            if kind == Animation.TYPE_ROTATION_3D:
+                entry["times"] = times
+                entry["rotations"] = values.map(func(q: Quaternion): return [q.x, q.y, q.z, q.w])
+            else:
+                entry["translations"] = values.map(func(v: Vector3): return [v.x, v.y, v.z])
+                if not entry.has("times"):
+                    entry["times"] = times
+            tracks[bone] = entry
+        transitions.append({"from": clip["from"], "to": clip["to"], "duration": float(clip.get("duration", anim.length)),
+            "tracks": tracks, "root": clip.get("root"), "morphs": morphs})
+    return {"transitions": transitions, "pose_morphs": pose_morphs}
 
 
 ## Every motion in `generated`/motions.json by name ({} when there is none).
@@ -84,7 +148,8 @@ static func catalogue(generated: String) -> Array:
 ## The thing `node` is to a motion (its grip points from its extras), the same one each time.
 func thing_of(node: Node3D) -> GeogenMotionRig.Thing:
     if not _things.has(node) or not is_instance_valid(node):
-        _things[node] = GeogenMotionRig.Thing.of(node, WorldLoader.geogen_extras(node).get("grips", {}))
+        var extras := WorldLoader.geogen_extras(node)
+        _things[node] = GeogenMotionRig.Thing.of(node, extras.get("grips", {}), extras.get("affordances", []))
     return _things[node]
 
 
@@ -132,6 +197,14 @@ func break_(reaction = null, values := {}) -> String:
     return ""
 
 
+## Stop everything and stand the body at `at` at once (no easing): a gallery putting people back.
+func reset(at: Transform3D) -> void:
+    rig.break_(null)
+    rig.reset_standing(at)
+    body.global_transform = at
+    _active = true                    # write the standing pose once
+
+
 ## What the rig is doing; `bones` are where it puts them (world), which is what the modifier
 ## writes (a skeleton's own poses don't show a modifier's work outside its update).
 func report() -> Dictionary:
@@ -148,7 +221,9 @@ func report() -> Dictionary:
             var p := thing.world().origin
             things[String(node.name)] = {"position": [snappedf(p.x, 0.0001), snappedf(p.y, 0.0001), snappedf(p.z, 0.0001)],
                 "held": thing.held}
+    var at := body.global_position
     return {"running": rig.running(), "time": snappedf(rig.time, 0.001), "posture": rig.posture, "things": things,
+        "root": [snappedf(at.x, 0.0001), snappedf(at.y, 0.0001), snappedf(at.z, 0.0001)],
         "events": rig.trace.map(func(e): return {"t": e["t"], "event": e["event"], "motion": e["motion"], "beat": e.get("beat")}),
         "bones": bones}
 
@@ -162,9 +237,15 @@ func _physics_process(delta: float) -> void:
         _clock -= rig.dt
         rig.body_world = body.global_transform
         rig.step()
+        if rig.root_moved:
+            body.global_transform = rig.body_world
         steps += 1
     if steps > 0:
         _move_held()
+        for key in _shapes:
+            var shape: Array = _shapes[key]
+            if is_instance_valid(shape[0]):
+                (shape[0] as MeshInstance3D).set_blend_shape_value(shape[1], float(rig.morphs.get(key, 0.0)))
     # Keep writing for a moment after the last motion ends: the rig eases its channels back.
     if rig.running().is_empty() and rig._offsets.is_empty():
         _active = false

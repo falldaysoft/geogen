@@ -122,6 +122,7 @@ var hud: GeogenHud                # the game HUD (hud.gd): the quest tracker, no
 var _list_scenes := false
 var _traces: Array[String] = []         # --trace: rules traces to replay instead of loading a world
 var _travelling := false
+const QUIT_SETTLE_MS := 30000     # the longest quit_settled waits for loads and bakes to finish
 var _switching := false
 var _loading: Label
 var _open_menu_at_start := false
@@ -954,6 +955,30 @@ func _play_animations() -> void:
 
 func is_switching() -> bool:
     return _switching or _travelling
+
+
+## Quit once nothing is in flight: a scene being parsed on a worker (a switch or a travel),
+## streamed chunks loading, navigation tiles baking. Quitting with one of them running left
+## the engine waiting on a condition variable forever at exit (geogen.107). Waits at most
+## QUIT_SETTLE_MS, then quits anyway.
+func quit_settled(code := 0) -> void:
+    var until := Time.get_ticks_msec() + QUIT_SETTLE_MS
+    while _in_flight() and Time.get_ticks_msec() < until:
+        await get_tree().process_frame
+    if _in_flight():
+        push_warning("quitting with work still in flight (%s)" % _in_flight())
+    get_tree().quit(code)
+
+
+## What is still running off the main thread ("" when nothing).
+func _in_flight() -> String:
+    if _switching or _travelling:
+        return "a scene change"
+    if world != null and world.loading:
+        return "a scene load"
+    if world != null and world.streamer != null and world.streamer.navigation_busy():
+        return "streamed chunks or navigation tiles"
+    return ""
 
 
 ## Follow an NPC (name prefix) with the overview camera, or stop following (null).

@@ -560,7 +560,8 @@ def test_a_thing_taken_from_the_table_goes_back_where_it_stood(runs, name):
 
 def test_every_motion_has_a_stage():
     """demo_scenario stages every motion: body-only ones on a rug, ones with things at a table
-    with their props on it in front of the person (a motion with roles and no props can't be shown)."""
+    with their props on it in front of the person, a seat (`behind`) behind them (a motion with
+    roles and no props can't be shown)."""
     from geogen.motion import motion_catalogue
     from geogen.motion_review import demo_scenario
 
@@ -571,6 +572,11 @@ def test_every_motion_has_a_stage():
             continue
         spec = demo_scenario(e["name"])
         place = spec["scene"]["place"]
-        assert ("table" in place) == bool(e["props"]), e["name"]
-        for role in e["props"]:
-            assert spec["script"][0][role] in place and place[spec["script"][0][role]]["on"] == "table.top"
+        on_table = {r: p for r, p in e["props"].items() if "behind" not in p}
+        assert ("table" in place) == bool(on_table), e["name"]
+        for role, prop in e["props"].items():
+            staged = place[spec["script"][0][role]]
+            if "behind" in prop:
+                assert spec["actor"]["at"] == spec["script"][0][role] and spec["actor"]["offset"][2] == prop["behind"]
+            else:
+                assert staged["on"] == "table.top"

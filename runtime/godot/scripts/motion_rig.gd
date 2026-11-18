@@ -13,12 +13,15 @@ extends RefCounted
 ## transform) and their contacts, `<role>@start`, `self.<Bone>`, attach / release and `holding`,
 ## channel arbitration, pausing under an overlay and `resume`, a break into a reaction (what the
 ## hands hold goes to physics), inertialization, the reach bend, free arms hanging under a bent
-## spine and the trace. The rig works in the body's frame (`body_world` is where the body is);
-## things are read and moved in the world. Root targets (moving the body: sit) and a posture
-## change with a transition clip are not ported yet: `start` refuses them.
+## spine, root targets (moving the body: sit), a posture change playing the body's transition
+## clip (sit_down: `add_transitions`) with its root path and drape correctives (`morphs`), and the
+## trace. The rig works in the body's frame; `body_world` is where the body is, which a run that
+## holds the root moves (GeogenMotionPlayer puts the body's node there). Things are read and moved
+## in the world.
 
 const REACH_SPEED := 0.9
 const MIN_OVER := 0.35
+const TRAVEL_EPS := 1e-4         # m: closer than this a beat's end or root is already there
 const HALF_LIFE := {"gaze": 0.08, "left_hand": 0.12, "right_hand": 0.12}
 const DEFAULT_HALF_LIFE := 0.18
 const REACH_SLACK := 0.96
@@ -35,7 +38,9 @@ const NECK_SHARE := 0.4
 const STRENGTHS := {"prefer": 1, "claim": 2, "require": 3}
 const FINGERS := ["Thumb", "Index", "Middle", "Ring", "Little"]
 const LOOK_BONES := ["Neck", "Head"]
-const NOT_PORTED := ["root", "when", "until", "do", "bend"]
+const NOT_PORTED := ["when", "until", "do", "bend"]
+const MORPH_HALF_LIFE := 0.12    # s: drape correctives settle onto a new owner's pose
+const ROOT_LEAD := 0.7           # over planted feet the root arrives by this fraction of the beat
 ## Grips that are not a hand holding the thing: `grip: any` on a role takes the first other one.
 const NOT_HELD := ["sit", "lie", "stand", "use", "look", "press", "put", "rest"]
 const HANDS := {"hand": "RightHand", "right": "RightHand", "left": "LeftHand",
@@ -80,26 +85,29 @@ class Thing:
     var node: Node3D = null
     var xform := Transform3D.IDENTITY    # where it is when it has no node, or while it is held
     var grips := {}                      # attachment -> {"grip": String, "local": Transform3D}
+    var affordances := []                # its extras' affordances: [{type, position, yaw}] (a chair's sit)
     var held := false
 
     func world() -> Transform3D:
         return node.global_transform if node != null and not held and is_instance_valid(node) else xform
 
     ## The thing `node` is, with the grips its extras give ([tx, ty, tz, qx, qy, qz, qw] each).
-    static func of(node_: Node3D, grips_: Dictionary) -> Thing:
+    static func of(node_: Node3D, grips_: Dictionary, affordances_ := []) -> Thing:
         var t := Thing.new()
         t.name = String(node_.name)
         t.node = node_
         t.xform = node_.global_transform
         t.set_grips(grips_)
+        t.affordances = affordances_
         return t
 
     ## A thing that stays at `at` (world).
-    static func fixed(name_: String, at: Transform3D, grips_ := {}) -> Thing:
+    static func fixed(name_: String, at: Transform3D, grips_ := {}, affordances_ := []) -> Thing:
         var t := Thing.new()
         t.name = name_
         t.xform = at
         t.set_grips(grips_)
+        t.affordances = affordances_
         return t
 
     func set_grips(grips_: Dictionary) -> void:
@@ -151,6 +159,9 @@ class Run:
     var start_feet := {}
     var start_hands := {}            # hand -> its body-frame rotation as the beat found it
     var start_held := []             # [Thing, Vector3 from it to the hand holding it] as the beat found them
+    var start_root := Transform3D.IDENTITY   # where the body was (world) as the beat began
+    var start_posture := "stand"
+    var start_morphs := {}
     var bindings := {}               # role -> Target
     var origins := {}                # role -> its thing's world transform when the run started
 
@@ -199,6 +210,16 @@ var _look_point := Vector3.ZERO
 var _look_weight := 0.0          # how far the current look has turned the head
 var _look_fade = null            # [point, weight, t]: a look that ended, easing off
 var body_world := Transform3D.IDENTITY   # where the body is in the world (its node's transform)
+var root_moved := false          # the last step moved the body (its node goes there)
+var floor_y := 0.0               # standing root targets stand on this floor (where the body stood)
+var root_poses := {}             # posture -> Transform3D: where it puts the body against what it is at
+var transitions := {}            # "from>to" -> a transition clip (add_transitions)
+var pose_morphs := {}            # pose -> {"node:target": weight}: the drape correctives it was baked with
+var morph_keys := {}             # every "node:target" the body has
+var morphs := {}                 # "node:target" -> weight, as the body is now
+var _morph_goal := {}
+var _morph_offset = null         # [delta {key: w}, age]
+var _root_offset = null          # [Transform3D, age, half-life]
 var attached_ := {}              # role -> {thing, end, rel: Transform3D, level}: what the hands hold
 ## (name) -> Thing or null: a scene reference a motion or a binding names ("cup", "table").
 var resolver := Callable()
@@ -239,6 +260,11 @@ static func from_extras(data: Dictionary, fps := 30) -> GeogenMotionRig:
         r.poses[pose_name] = p
     if not r.poses.has("stand"):
         r.poses["stand"] = Pose.new(r.names.size())
+    for pose_name in data.get("root_poses", {}):
+        var rp: Dictionary = data["root_poses"][pose_name]
+        var o: Array = rp.get("offset", [0, 0, 0])
+        var d: Array = rp.get("rotation", [0, 0, 0])
+        r.root_poses[pose_name] = Transform3D(_euler(Vector3(d[0], d[1], d[2])), Vector3(o[0], o[1], o[2]))
     for side in ["Left", "Right"]:
         for bone in r.names:
             if bone.begins_with(side) and FINGERS.any(func(f): return bone.contains(f)):
@@ -250,6 +276,166 @@ static func from_extras(data: Dictionary, fps := 30) -> GeogenMotionRig:
         if r.index.has(b):
             r._prelook[r.index[b]] = r.out.rot[r.index[b]]
     return r
+
+
+## The body's transition clips and pose correctives (motion.transition_data: a trace carries them;
+## GeogenMotionPlayer reads the same from the body's animations): `transitions` [{from, to,
+## duration, tracks: {bone: {times, rotations?, translations?}}, root: {times, positions,
+## rotations}, morphs: {key: {times, values}}}], `pose_morphs` {pose: {key: weight}}.
+func add_transitions(data: Dictionary) -> void:
+    for tr in data.get("transitions", []):
+        var clip := {"duration": float(tr["duration"]), "tracks": {}, "root": null, "morphs": {}}
+        for bone in tr.get("tracks", {}):
+            if not index.has(bone):
+                continue
+            var i: int = index[bone]
+            var spec: Dictionary = tr["tracks"][bone]
+            var track := {"times": PackedFloat64Array(spec["times"]), "rot": [], "pos": []}
+            var rest_q: Quaternion = (rest[i] as Transform3D).basis.get_rotation_quaternion()
+            for q in spec.get("rotations", []):
+                track["rot"].append(rest_q.inverse() * Quaternion(q[0], q[1], q[2], q[3]))
+            if parent[i] >= 0:
+                for v in spec.get("translations", []):
+                    track["pos"].append(Vector3(v[0], v[1], v[2]) - rest[i].origin)
+            clip["tracks"][i] = track
+        var root = tr.get("root")
+        if root is Dictionary:
+            var path := {"times": PackedFloat64Array(root["times"]), "pos": [], "rot": []}
+            for v in root["positions"]:
+                path["pos"].append(Vector3(v[0], v[1], v[2]))
+            for q in root["rotations"]:
+                path["rot"].append(Quaternion(q[0], q[1], q[2], q[3]))
+            clip["root"] = path
+        for key in tr.get("morphs", {}):
+            var m: Dictionary = tr["morphs"][key]
+            clip["morphs"][key] = [PackedFloat64Array(m["times"]), PackedFloat64Array(m["values"])]
+            morph_keys[key] = true
+        transitions["%s>%s" % [tr["from"], tr["to"]]] = clip
+    for pose_name in data.get("pose_morphs", {}):
+        pose_morphs[pose_name] = data["pose_morphs"][pose_name]
+        for key in pose_morphs[pose_name]:
+            morph_keys[key] = true
+    morphs = _pose_morph_vector("stand")
+    _morph_goal = morphs.duplicate()
+
+
+## The drape correctives `pose` was baked with, for every morph target of the body.
+func _pose_morph_vector(pose: String) -> Dictionary:
+    var known: Dictionary = pose_morphs.get(pose, pose_morphs.get("stand", {}))
+    if known.is_empty():
+        known = pose_morphs.get("stand", {})
+    var out_ := {}
+    for k in morph_keys:
+        out_[k] = float(known.get(k, 0.0))
+    return out_
+
+
+## The transition clip this beat's posture change follows (sit_down), or null.
+func _transition(run: Run):
+    var to = run.spec().get("pose")
+    if to == null or to == "" or run.start_posture == str(to):
+        return null
+    return transitions.get("%s>%s" % [run.start_posture, to])
+
+
+## A span of sorted key `times` at `t` (clamped): [i, j, f] (core/skin.py Track._span).
+static func _span(times: PackedFloat64Array, t: float) -> Array:
+    var n := times.size()
+    if n == 1 or t <= times[0]:
+        return [0, 0, 0.0]
+    if t >= times[n - 1]:
+        return [n - 1, n - 1, 0.0]
+    var i := times.bsearch(t, false) - 1
+    return [i, i + 1, (t - times[i]) / (times[i + 1] - times[i])]
+
+
+## A transition clip's pose at `t` (motion.clip_pose); `has_off`: bones that have an offset.
+func _clip_pose(clip: Dictionary, t: float) -> Array:
+    var pose := Pose.new(names.size())
+    var has_off := {}
+    for i in clip["tracks"]:
+        var track: Dictionary = clip["tracks"][i]
+        var sp := _span(track["times"], t)
+        if not (track["rot"] as Array).is_empty():
+            pose.rot[i] = (track["rot"][sp[0]] as Quaternion).slerp(track["rot"][sp[1]], sp[2])
+        if not (track["pos"] as Array).is_empty():
+            var va: Vector3 = track["pos"][sp[0]]
+            var v := va + ((track["pos"][sp[1]] as Vector3) - va) * float(sp[2])
+            if maxf(absf(v.x), maxf(absf(v.y), absf(v.z))) > 1e-6:
+                pose.off[i] = v
+                has_off[i] = true
+    return [pose, has_off]
+
+
+## A transition clip's root path at `t`: the body's transform in the frame of where it ends up.
+static func _root_at(path: Dictionary, t: float) -> Transform3D:
+    var times: PackedFloat64Array = path["times"]
+    t = clampf(t, times[0], times[times.size() - 1])
+    var i := clampi(times.bsearch(t, false) - 1, 0, times.size() - 2)
+    var f := (t - times[i]) / maxf(times[i + 1] - times[i], 1e-9)
+    var q := (path["rot"][i] as Quaternion).slerp(path["rot"][i + 1], f)
+    return Transform3D(Basis(q), (path["pos"][i] as Vector3) * (1.0 - f) + (path["pos"][i + 1] as Vector3) * f)
+
+
+## The morph weights of a transition clip at `t`.
+static func _clip_morphs(clip: Dictionary, t: float) -> Dictionary:
+    var out_ := {}
+    for k in clip["morphs"]:
+        var m: Array = clip["morphs"][k]
+        out_[k] = _interp(m[0], m[1], t)
+    return out_
+
+
+## numpy.interp: linear, clamped at the ends.
+static func _interp(xs: PackedFloat64Array, ys: PackedFloat64Array, t: float) -> float:
+    var n := xs.size()
+    if t <= xs[0]:
+        return ys[0]
+    if t >= xs[n - 1]:
+        return ys[n - 1]
+    var i := xs.bsearch(t, false) - 1
+    return ys[i] + (ys[i + 1] - ys[i]) * (t - xs[i]) / (xs[i + 1] - xs[i])
+
+
+static func _yaw_of(m: Transform3D) -> float:
+    var z := m.basis.z
+    return atan2(z.x, z.z)
+
+
+static func _placement(pos: Vector3, yaw: float) -> Transform3D:
+    return Transform3D(Basis(Vector3.UP, yaw), pos)
+
+
+static func _wrap(a: float) -> float:
+    return fposmod(a + PI, TAU) - PI
+
+
+## Where a beat's `root` puts the body (world): `at` a reference with `offset` and `facing`,
+## standing on the floor the body stood on, or `at` + `posture` where that posture puts it.
+func _root_target(run: Run) -> Transform3D:
+    var spec: Dictionary = run.spec()["root"]
+    var target = _ref(run, spec.get("at"))
+    var m: Transform3D
+    if target is Target:
+        m = target.world()
+    elif target is Vector3:
+        m = _placement(body_world * target, _yaw_of(body_world))
+    else:
+        push_error("motion '%s' beat '%s': root at %s is not bound" % [run.name, run.beat, spec.get("at")])
+        return body_world
+    m = _placement(m.origin, _yaw_of(m))
+    var posture_ = spec.get("posture")
+    if posture_ != null:
+        return m * root_poses.get(str(posture_), Transform3D.IDENTITY)
+    var o: Array = spec.get("offset", [0, 0, 0])
+    m = m * Transform3D(Basis.IDENTITY, Vector3(float(o[0]), float(o[1]), float(o[2])))
+    var facing = spec.get("facing", "away")
+    var turn := 0.0
+    if facing is String:
+        turn = 0.0 if facing == "away" else PI if facing == "toward" else deg_to_rad(float(facing))
+    else:
+        turn = deg_to_rad(float(facing))
+    return _placement(Vector3(m.origin.x, floor_y, m.origin.z), _yaw_of(m) + turn)
 
 
 # --- requests ---
@@ -307,6 +493,8 @@ func start(motion: Dictionary, values := {}) -> Run:
                 return null
     var spec := motion.duplicate()
     spec["beats"] = beats
+    if posture == "stand" and owners.get("root") == null:
+        floor_y = body_world.origin.y
     _order += 1
     var run := Run.new()
     run.motion = spec
@@ -371,6 +559,24 @@ func break_(reaction = null, values := {}) -> Run:
     return start(reaction, values) if reaction is Dictionary else null
 
 
+## The body standing at `at` (world) at once, nothing easing: a gallery or a script putting it back.
+func reset_standing(at: Transform3D) -> void:
+    posture = "stand"
+    out = (poses["stand"] as Pose).copy()
+    for i in _prelook:
+        _prelook[i] = out.rot[i]
+    _offsets = {}
+    _changed = {}
+    _root_offset = null
+    _morph_offset = null
+    _look_key = null
+    _look_fade = null
+    body_world = at
+    floor_y = at.origin.y
+    morphs = _pose_morph_vector("stand")
+    _morph_goal = morphs.duplicate()
+
+
 func running() -> Array:
     return runs.filter(func(r): return not r.done).map(func(r): return r.name)
 
@@ -378,6 +584,7 @@ func running() -> Array:
 # --- the step ---
 
 func step() -> void:
+    var before := body_world
     time += dt
     for run in runs.duplicate():
         if not run.done:
@@ -385,6 +592,7 @@ func step() -> void:
     runs = runs.filter(func(r): return not r.done)
     _arbitrate()
     out = _compose()
+    root_moved = not body_world.is_equal_approx(before)
     _carry()
 
 
@@ -423,7 +631,7 @@ func _advance(run: Run) -> void:
         var nxt = run.spec().get("exit") if run.pending_exit else _next(run)
         run.pending_exit = false
         if nxt == null or nxt == "done":
-            _end(run)
+            _end(run, true)
             return
         _enter(run, nxt)
         run.t = spill
@@ -515,6 +723,9 @@ func _enter(run: Run, beat: String) -> void:
     for f in ["LeftFoot", "RightFoot"]:
         if index.has(f):
             run.start_feet[f] = fk[index[f]].origin
+    run.start_root = body_world
+    run.start_posture = posture
+    run.start_morphs = morphs.duplicate()
     run.start_held = []
     for role in attached_:
         var h: Dictionary = attached_[role]
@@ -542,13 +753,18 @@ func _over(run: Run) -> float:
         var target = _ik_target(run, e, entries[e])
         if target != null and run.start_ends.has(e):
             travel = maxf(travel, (target - run.start_ends[e]).length())
-    if travel > 0.0:
+    if spec.has("root"):
+        travel = maxf(travel, (_root_target(run).origin - body_world.origin).length())
+    if travel > TRAVEL_EPS:
         return maxf(MIN_OVER, travel / REACH_SPEED + 0.15)
     return MIN_OVER if spec.get("pose") else 0.0
 
 
-func _end(run: Run) -> void:
+## Stop `run`. One whose last beat arrived leaves the body where that beat put it.
+func _end(run: Run, arrived := false) -> void:
     if not run.done:
+        if arrived and run.spec().has("root") and owners.get("root") == run:
+            body_world = _root_target(run)
         _mark(_owned(run))
         run.done = true
         _event("end", run, {})
@@ -625,6 +841,7 @@ func _mark(cs: Array) -> void:
 
 func _compose() -> Pose:
     var pose: Pose = (poses.get(posture, poses["stand"]) as Pose).copy()
+    var root := body_world
     # Poses first, every owner over its own channels, eased from where its beat began.
     for run in runs:
         var held := _owned(run)
@@ -633,12 +850,81 @@ func _compose() -> Pose:
         var spec: Dictionary = run.spec()
         var u := ease_(str(spec.get("ease", "smooth")), run.t / run.over if run.over > 0.0 else 1.0)
         var target := _beat_pose(run)
+        # A posture change plays the body's transition clip (sit_down) on the channels it holds,
+        # other than a hand it reaches with and the gaze, taken whole (the build cleared its arms
+        # of the body and keyed its drape against it); what the body started with fades out.
+        var clip = _transition(run)
+        var carried := {}
+        var at := 0.0
+        if clip != null:
+            var reaching := {}
+            var entries := _ik_entries(run)
+            for e in entries:
+                if _ik_target(run, e, entries[e]) != null:
+                    reaching[channel_of.get(e, "")] = true
+            at = minf(run.t / run.over if run.over > 0.0 else 1.0, 1.0) * float(clip["duration"])
+            var now_ := _clip_pose(clip, at)
+            var first_ := _clip_pose(clip, 0.0)
+            var now: Pose = now_[0]
+            var first: Pose = first_[0]
+            for c in held:
+                if reaching.has(c) or c == "gaze" or c == "root":
+                    continue
+                for bone in channels[c]:
+                    var i: int = index[bone]
+                    var offset: Quaternion = run.start_pose.rot[i] * first.rot[i].inverse()
+                    pose.rot[i] = Quaternion.IDENTITY.slerp(offset, 1.0 - u) * now.rot[i]
+                    var oa: Vector3 = run.start_pose.off[i]
+                    if oa != Vector3.ZERO or now_[1].has(i):
+                        pose.off[i] = now.off[i] + (oa - first.off[i]) * (1.0 - u)
+                    carried[i] = true
         for i in names.size():
-            if not (channel_of.get(names[i], "") in held):
+            if not (channel_of.get(names[i], "") in held) or carried.has(i):
                 continue
             pose.rot[i] = run.start_pose.rot[i].slerp(target.rot[i], u)
             pose.off[i] = run.start_pose.off[i] + (target.off[i] - run.start_pose.off[i]) * u
-    _inertialize(pose)
+        if "root" in held and spec.has("root"):
+            if clip != null and clip["root"] != null:
+                # The clip's own root path, ending where the beat puts the body.
+                var path: Dictionary = clip["root"]
+                var goal := _root_target(run) * _root_at(path, float(clip["duration"])).affine_inverse()
+                var now_root := goal * _root_at(path, at)
+                var first_root := goal * _root_at(path, 0.0)
+                var start: Transform3D = run.start_root
+                var turn := Quaternion((start.basis * first_root.basis.transposed()).orthonormalized())
+                root = Transform3D(Basis(Quaternion.IDENTITY.slerp(turn, 1.0 - u)) * now_root.basis,
+                    now_root.origin + (start.origin - first_root.origin) * (1.0 - u))
+            else:
+                var goal := _root_target(run)
+                var start: Transform3D = run.start_root
+                var ur := u
+                if spec.get("plant") == "feet":
+                    # Over planted feet the body travels before it drops or rises: the root leads.
+                    ur = ease_("smooth", (run.t / run.over if run.over > 0.0 else 1.0) / ROOT_LEAD)
+                var yaw := _yaw_of(start) + _wrap(_yaw_of(goal) - _yaw_of(start)) * ur
+                root = _placement(start.origin + (goal.origin - start.origin) * ur, yaw)
+    # Drape correctives follow the body pose the hips owner is laying (a skirt seated or standing).
+    var mor := _pose_morph_vector(posture)
+    var hips: Run = owners.get("hips")
+    if hips != null and not morph_keys.is_empty():
+        var hp = hips.spec().get("pose")
+        var goal := _pose_morph_vector(str(hp) if hp else posture)
+        var uh := ease_(str(hips.spec().get("ease", "smooth")), hips.t / hips.over if hips.over > 0.0 else 1.0)
+        var clip = _transition(hips)
+        mor = {}
+        if clip != null and not (clip["morphs"] as Dictionary).is_empty():
+            var at := minf(hips.t / hips.over if hips.over > 0.0 else 1.0, 1.0) * float(clip["duration"])
+            var now := _clip_morphs(clip, at)
+            var first := _clip_morphs(clip, 0.0)
+            for k in goal:
+                mor[k] = float(now.get(k, goal[k])) + (float(hips.start_morphs.get(k, 0.0)) - float(first.get(k, 0.0))) * (1.0 - uh)
+        else:
+            for k in goal:
+                var a := float(hips.start_morphs.get(k, 0.0))
+                mor[k] = a + (float(goal[k]) - a) * uh
+    _morph_goal = mor
+    root = _inertialize(pose, root)
+    body_world = root
     # Then the solve, outside in: lean, planted feet, hands, gaze.
     for run in runs:
         var held := _owned(run)
@@ -646,13 +932,13 @@ func _compose() -> Pose:
         var u_raw: float = run.t / run.over if run.over > 0.0 else 1.0
         var u := ease_(str(spec.get("ease", "smooth")), u_raw)
         var lean = spec.get("lean")
-        if lean is Dictionary and "spine" in held and index.has("Spine"):
+        if lean is Dictionary and "spine" in held and index.has("Spine") and _transition(run) == null:   # (a clip leans itself)
             var by := float(lean.get("by", 0.0)) * _bump(u_raw, float(lean.get("at", 0.5)))
             var i: int = index["Spine"]
             pose.rot[i] = pose.rot[i] * _body_quat(i, _euler(Vector3(by, 0, 0)))
         if spec.get("plant") == "feet" and "legs" in held:
             for foot in run.start_feet:
-                _solve_limb(pose, foot, run.start_feet[foot], null, Basis.IDENTITY)   # flat on the floor
+                _solve_limb(pose, foot, _since(run, run.start_feet[foot]), null, Basis.IDENTITY)   # flat on the floor
         var entries := _ik_entries(run)
         var laid := pose.copy()          # the spine as laid, before any reach bends it
         for e in entries:
@@ -669,7 +955,7 @@ func _compose() -> Pose:
                     push_error("motion '%s': %s tip: needs fingers / palm to turn the hand" % [run.name, e])
                 else:
                     goal -= (full as Basis) * _tip(e, str(entry["tip"]), pose)
-            var start: Vector3 = run.start_ends[e]
+            var start: Vector3 = _since(run, run.start_ends[e])
             var point: Vector3 = start + (goal - start) * u
             if entry.get("arc"):
                 # Up and over on the way: asked for 6.75 (1 - u)^2 arc, the arm as blended in by
@@ -702,6 +988,8 @@ func _compose() -> Pose:
     var point = null
     if look != null:
         point = _point(gaze, look.get("at") if look is Dictionary else look)
+        if point != null:
+            point = body_world * (point as Vector3)      # followed in the world: the body may move
     # A look that ended eases off over LOOK_OUT, under whatever look comes next.
     if _look_key != null and (point == null or _look_key != gaze):
         _fade_look()
@@ -928,7 +1216,7 @@ func _held_gap(run: Run, e: String, role: String) -> Vector3:
     var bound: Target = run.bindings.get(role)
     for pair in run.start_held:
         if bound != null and pair[0] == bound.thing:
-            return pair[1]
+            return body_world.basis.inverse() * (run.start_root.basis * (pair[1] as Vector3))
     push_error("motion '%s' beat '%s': %s holding '%s', which no hand holds" % [run.name, run.beat, e, role])
     return Vector3.ZERO
 
@@ -1008,6 +1296,11 @@ static func contact(thing: Thing, grip, name = null) -> Target:
             var g: String = thing.grips[k]["grip"]
             if g == grip or (grip == "any" and g != "" and not g in NOT_HELD):
                 return Target.make(thing, thing.grips[k]["local"], "%s.%s" % [thing.name, k], g)
+        for a in thing.affordances:          # a seat's sit point: its first affordance of that type
+            if a is Dictionary and a.get("type") == grip:
+                var p: Array = a["position"]
+                return Target.make(thing, Transform3D(Basis(Vector3.UP, deg_to_rad(float(a["yaw"]))),
+                    Vector3(p[0], p[1], p[2])), "%s[%s]" % [thing.name, grip], grip)
     return Target.make(thing, Transform3D.IDENTITY, thing.name)
 
 
@@ -1051,9 +1344,10 @@ func _bend_to_reach(pose: Pose, beat: Pose, e: String, point: Vector3, run: Run,
         pose.rot[index[b]] = trial.rot[index[b]]
 
 
+## Turn the head toward `point` (world).
 func _turn_head(pose: Pose, point: Vector3, weight: float) -> void:
     var head: Vector3 = _fk(pose)[index["Head"]].origin
-    var local := point - head
+    var local := body_world.affine_inverse() * point - head
     var yaw := YAW_LIMIT * tanh(atan2(local.x, local.z) / YAW_LIMIT)
     var pitch := PITCH_LIMIT * tanh(-atan2(local.y, Vector2(local.x, local.z).length()) / PITCH_LIMIT)
     for pair in [["Neck", NECK_SHARE], ["Head", 1.0 - NECK_SHARE]]:
@@ -1062,13 +1356,32 @@ func _turn_head(pose: Pose, point: Vector3, weight: float) -> void:
         pose.rot[i] = pose.rot[i] * _body_quat(i, r)
 
 
-func _inertialize(pose: Pose) -> void:
+## Channels whose owner changed start from where the body was: the difference decays over the
+## channel's half-life (the root and the drape correctives too). Returns the root as shown.
+func _inertialize(pose: Pose, root: Transform3D) -> Transform3D:
     for c in _changed:
         var life: float = HALF_LIFE.get(c, DEFAULT_HALF_LIFE)
         for bone in channels.get(c, []):
             var i: int = index[bone]
             _offsets[i] = [out.rot[i] * pose.rot[i].inverse(), 0.0, life]
+        if c == "root":
+            _root_offset = [body_world * root.affine_inverse(), 0.0, life]
+        if c == "hips":
+            var delta := {}
+            for k in _morph_goal:
+                delta[k] = float(morphs.get(k, 0.0)) - float(_morph_goal[k])
+            _morph_offset = [delta, 0.0]
     _changed = {}
+    var mor := _morph_goal.duplicate()
+    if _morph_offset != null:
+        var wm := pow(0.5, _morph_offset[1] / MORPH_HALF_LIFE)
+        if wm < 0.01:
+            _morph_offset = null
+        else:
+            for k in mor:
+                mor[k] = float(mor[k]) + float(_morph_offset[0].get(k, 0.0)) * wm
+            _morph_offset[1] += dt
+    morphs = mor
     for i in _offsets.keys():
         var o: Array = _offsets[i]
         var w := pow(0.5, o[1] / o[2])
@@ -1077,6 +1390,21 @@ func _inertialize(pose: Pose) -> void:
             continue
         pose.rot[i] = Quaternion.IDENTITY.slerp(o[0], w) * pose.rot[i]
         o[1] += dt
+    if _root_offset != null:
+        var wr := pow(0.5, _root_offset[1] / _root_offset[2])
+        if wr < 0.01:
+            _root_offset = null
+        else:
+            var was: Transform3D = _root_offset[0] * root
+            var yaw := _yaw_of(root) + _wrap(_yaw_of(was) - _yaw_of(root)) * wr
+            root = _placement(root.origin + (was.origin - root.origin) * wr, yaw)
+            _root_offset[1] += dt
+    return root
+
+
+## A body-frame point as a beat found it, in the body's frame now (the body may have moved since).
+func _since(run: Run, p: Vector3) -> Vector3:
+    return body_world.affine_inverse() * (run.start_root * p)
 
 
 # --- the skeleton's maths (core/skeleton.py, core/ik.py) ---
@@ -1239,22 +1567,31 @@ func _event(event: String, run: Run, data: Dictionary) -> void:
 static func run_trace(trace: Dictionary) -> Array[String]:
     var problems: Array[String] = []
     var rig := GeogenMotionRig.from_extras(trace["rig"], int(trace.get("fps", 30)))
+    rig.add_transitions(trace)
     var things := {}
     for k in trace.get("things", {}):
         var spec: Dictionary = trace["things"][k]
-        things[k] = Thing.fixed(k, _xform12(spec["world"]), spec.get("grips", {}))
+        things[k] = Thing.fixed(k, _xform12(spec["world"]), spec.get("grips", {}), spec.get("affordances", []))
     rig.resolver = func(name: String): return things.get(name)
     var motions: Dictionary = trace.get("motions", {})
     var pending: Array = (trace.get("script", []) as Array).duplicate()
     var expected := {}
     var expected_things := {}
+    var expected_root := {}
+    var expected_morphs := {}
     for f in trace["expect"]["positions"]:
         expected[int(f["frame"])] = f["positions"]
         if f.has("things"):
             expected_things[int(f["frame"])] = f["things"]
+        if f.has("root"):
+            expected_root[int(f["frame"])] = f["root"]
+        if f.has("morphs"):
+            expected_morphs[int(f["frame"])] = f["morphs"]
     var tolerance := float(trace.get("tolerance", 0.002))
     var worst := 0.0
     var where := ""
+    var worst_morph := 0.0
+    var where_morph := ""
     var frames := int(trace["frames"])
     for frame in range(1, frames + 1):
         while not pending.is_empty() and float(pending[0].get("at", 0.0)) <= rig.time + 1e-9:
@@ -1285,6 +1622,19 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                 if d > worst:
                     worst = d
                     where = "%s at frame %d" % [bone, frame]
+        if expected_root.has(frame):
+            var want: Transform3D = _xform12(expected_root[frame])
+            for probe in [Vector3.ZERO, Vector3(0.1, 0, 0), Vector3(0, 0.1, 0), Vector3(0, 0, 0.1)]:
+                var d: float = (rig.body_world * probe).distance_to(want * probe)
+                if d > worst:
+                    worst = d
+                    where = "the body's root at frame %d" % frame
+        if expected_morphs.has(frame):
+            for k in expected_morphs[frame]:
+                var d := absf(float(rig.morphs.get(k, 0.0)) - float(expected_morphs[frame][k]))
+                if d > worst_morph:
+                    worst_morph = d
+                    where_morph = "%s at frame %d" % [k, frame]
         if expected_things.has(frame):
             for k in expected_things[frame]:
                 var want: Transform3D = _xform12(expected_things[frame][k])
@@ -1297,6 +1647,8 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                         where = "%s at frame %d" % [k, frame]
     if worst > tolerance:
         problems.append("bones off the reference by up to %.1f mm (%s; tolerance %.1f mm)" % [worst * 1000.0, where, tolerance * 1000.0])
+    if worst_morph > MORPH_TOLERANCE:
+        problems.append("drape correctives off the reference by up to %.4f (%s)" % [worst_morph, where_morph])
     var events := rig.trace.filter(func(e): return e["event"] in TRACE_EVENTS) \
         .map(func(e): return [e["event"], e["motion"], e.get("beat")])
     var want_events: Array = trace["expect"]["events"]
@@ -1306,6 +1658,8 @@ static func run_trace(trace: Dictionary) -> Array[String]:
         problems.append("still running after %d frames: %s" % [frames, rig.running()])
     return problems
 
+
+const MORPH_TOLERANCE := 0.002   # of a morph weight
 
 ## The events a trace holds the rig to (motion_review.TRACE_EVENTS).
 const TRACE_EVENTS := ["start", "beat", "loop", "emit", "interrupt", "end", "break", "pause", "resume", "attach", "release"]

@@ -1861,10 +1861,10 @@
         "npcs.choices": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}",
         "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, ahead of anything of its own -> {npc, orders}",
         "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
-        "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}) -> {node, motion, running}; not yet: ones that move the body (sit)",
+        "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; sit: {seat: chair}, which moves the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood) -> {node, motion, running}",
         "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) -> {node, motion, result}",
         "motion.break": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> {node, running}",
-        "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, events: [{t, event, motion, beat}], bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}, things: {node: {position: world [x, y, z], held}} (what its motions have bound)}",
+        "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, root: world [x, y, z], events: [{t, event, motion, beat}], bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}, things: {node: {position: world [x, y, z], held}} (what its motions have bound)}",
         "npcs.pause": "{npc?} freeze one NPC (or all)",
         "npcs.resume": "{npc?}",
         "time.pause": "freeze the world (the API keeps serving)",
@@ -1877,7 +1877,7 @@
         "time.skip": "{until? | minutes? | hours? | days?} move the world clock forward (until 'HH:MM': the next time it shows that); the rules' clock-time waits that come due on the way run in order",
         "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
         "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
-        "capture.camera": "{mode: player|overview|follow, npc?}",
+        "capture.camera": "{mode: player|overview|follow|fixed, npc?, from?, at?, fov?} which camera shows the world; fixed: the overview camera held at `from` looking at `at` (a recording's viewpoint)",
         "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: `events` is the whole bus (events.gd), narrowed to these types and subject IDs",
         "events.history": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; since: only those after that number)",
         "events.unsubscribe": "{streams?}"
@@ -2953,6 +2953,15 @@
           },
           "npc": {
             "type": "string"
+          },
+          "from": {
+            "$ref": "#/$defs/point"
+          },
+          "at": {
+            "$ref": "#/$defs/point"
+          },
+          "fov": {
+            "type": "number"
           }
         }
       },

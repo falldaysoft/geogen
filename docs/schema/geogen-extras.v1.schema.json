@@ -588,7 +588,7 @@
         },
         "rig": {
           "x-godot": {"by": "`scripts/motion_player.gd`", "for": "running motions (motions.json) on this body"},
-          "description": "Character bodies: what a motion rig (geogen/motion.py, scripts/motion_rig.gd) poses the skeleton with. Bones in hierarchy order with their rest in the parent's frame ([tx, ty, tz, qx, qy, qz, qw]; a rig poses relative to these, not to an engine's import rest), the skeleton's params (the values `{expr}` in motions read), its channels and hand shapes (left-hand bones in body-frame degrees, mirrored), and the pose library (each pose's rotations relative to rest, [x, y, z, w], and offsets, m).",
+          "description": "Character bodies: what a motion rig (geogen/motion.py, scripts/motion_rig.gd) poses the skeleton with. Bones in hierarchy order with their rest in the parent's frame ([tx, ty, tz, qx, qy, qz, qw]; a rig poses relative to these, not to an engine's import rest), the skeleton's params (the values `{expr}` in motions read), its channels and hand shapes (left-hand bones in body-frame degrees, mirrored), the pose library (each pose's rotations relative to rest, [x, y, z, w], and offsets, m) and where each posture puts the body (`root_poses`). Transition clips (sit_down) are the body's exported animations, listed with their root paths in `clips`.",
           "type": "object",
           "required": ["bones", "params", "channels", "hand_shapes", "poses"],
           "additionalProperties": false,
@@ -636,6 +636,19 @@
                 "properties": {
                   "rotations": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 } },
                   "offsets": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } }
+                }
+              }
+            },
+            "root_poses": {
+              "description": "Where each posture puts the body against what it is at (a beat's `root: {at, posture}`): offset (m) and rotation (deg XYZ), the body asset's `poses`.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["offset", "rotation"],
+                "additionalProperties": false,
+                "properties": {
+                  "offset": { "$ref": "#/$defs/vec3" },
+                  "rotation": { "$ref": "#/$defs/vec3" }
                 }
               }
             }

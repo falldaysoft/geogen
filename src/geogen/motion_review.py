@@ -22,8 +22,15 @@ interruption, until no joint turns faster than ``SETTLE_SPEED``), ``peak_joint_a
 a joint whose speed swings frame to frame reads as jerky), ``cloth_mm`` (how deep the forearms
 and hands go inside a draped skirt; negative is clear).
 
+``--runtime`` also records the scenario in the Godot runtime (``runtime.mp4``, beside the
+reference's video on the page): the scene and the person exported, the script played through
+the control API (``motion.start`` / ``motion.stop`` / ``motion.break``) from the same viewpoint,
+recorded with Godot's movie writer at a fixed 30 fps (``record_runtime``; needs Godot and ffmpeg
+and a display, not ``--headless``).
+
     python -m geogen.motion_review sit_on_chair sit_interrupted -o /tmp/motion_review
     python -m geogen.motion_review all --no-video        # numbers only (tests use run_scenario)
+    python -m geogen.motion_review sit_on_chair drink --runtime -o /tmp/motion_review
 """
 
 from __future__ import annotations
@@ -91,8 +98,8 @@ DEMO_ARCHETYPE = "young_woman"
 def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path | None = None,
                   seed: int = 1) -> dict:
     """A scenario that shows ``motion`` on its own: a body-only one on a rug, one with ``props``
-    at a table in front of the person with its props on it at their right hand, each role bound
-    to its prop (the gallery's stage; ``python -m geogen.motion_review --motion NAME``)."""
+    at a table in front of the person with its props on it at their right hand (a prop with
+    ``behind``, a seat, stands that far behind the person instead), each role bound to its prop (the gallery's stage; ``python -m geogen.motion_review --motion NAME``)."""
     spec = load_motion(motion, assets_dir)
     props = spec.get("props") or {}
     roles = spec.get("roles") or {}
@@ -100,10 +107,20 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
     if missing and not spec.get("demo"):
         raise MotionError(f"motion '{spec['name']}': no props to stage for its roles {missing}")
     actor = {"archetype": f"characters/archetypes/{archetype}.yaml", "seed": seed, "facing": 0}
-    place: dict = {"rug": {"asset": "rug.yaml"}} if not props else {
+    on_table = {r: p for r, p in props.items() if "behind" not in p}
+    behind = {r: p for r, p in props.items() if "behind" in p}
+    place: dict = {"rug": {"asset": "rug.yaml"}} if not on_table else {
         "table": {"asset": "table.yaml", "params": {"width": 0.9, "depth": 0.5}}}
+    slots: dict = {}
     start: dict = {"at": 0.2, "start": spec["name"]}
-    for i, (role, prop) in enumerate(props.items()):
+    for role, prop in behind.items():
+        # A seat behind the person, facing the way they do: the person stands in front of it.
+        name = f"prop_{role}"
+        slots[name] = {"position": [0, 0, 0], "facing": "north"}
+        place[name] = {"asset": prop["asset"], "slot": name, **({"params": prop["params"]} if "params" in prop else {})}
+        actor.update({"at": name, "offset": [0, 0, float(prop["behind"])], "facing": "away"})
+        start[role] = name
+    for i, (role, prop) in enumerate(on_table.items()):
         name = f"prop_{role}"
         place[name] = {"asset": prop["asset"], "on": prop.get("on", "table.top"),
                        "at": prop.get("at", {"u": 0.4 - 0.15 * i, "v": 0.75})}
@@ -118,14 +135,15 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
             return f"prop_{base}{value[len(base):]}" if base in props else value
         script = [{**{k: staged(v) for k, v in e.items() if k != "at"}, "at": 0.2 + float(e.get("at", 0))}
                   for e in spec["demo"]]
-    if props:
+    if on_table:
         actor.update({"at": "table", "offset": [0, 0, 0.55], "facing": "toward"})
     if "duration" in (spec.get("params") or {}) or any((b or {}).get("after") == "duration" for b in spec["beats"].values()):
         start.setdefault("duration", 2.5)
     return {"kind": "motion_scenario", "name": f"{spec['name']}__{archetype}" if archetype != DEMO_ARCHETYPE else spec["name"],
-            "description": spec.get("summary", ""), "scene": {"place": place}, "actor": actor,
-            "script": script, "duration": 40.0,
-            "camera": {"view": "iso_back" if props else "iso", "frame": ["table", "actor"] if props else ["actor"],
+            "description": spec.get("summary", ""), "scene": {**({"slots": slots} if slots else {}), "place": place},
+            "actor": actor, "script": script, "duration": 40.0,
+            "camera": {"view": "iso_back" if on_table else "side" if behind else "iso",
+                       "frame": ["table", "actor"] if on_table else [*(f"prop_{r}" for r in behind), "actor"],
                        "margin": 0.25}}
 
 
@@ -261,13 +279,15 @@ TRACE_TOLERANCE = 0.002  # m a runtime rig's bones may be off the reference's in
 
 def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     """A conformance trace (tests/data/motion/, ``kind: motion_trace``) from a scenario: the body's
-    ``rig`` extras, the motions its script starts, the script, the things its roles bind
-    (``things``: each one's transform in the body's frame and its ``grips``, as the export writes
-    them) and what the reference rig did with them: every bone's position in the body's frame
-    every ``TRACE_EVERY`` frames, where the things are then, and the event sequence. A runtime rig
+    ``rig`` extras, its transition clips and pose correctives (``motion.transition_data``, when a
+    motion changes posture), the motions its script starts, the script, the things its roles bind (``things``: each one's
+    transform in the body's frame and its ``grips``, as the export writes them) and what the
+    reference rig did with them: every ``TRACE_EVERY`` frames every bone's position in the body's
+    frame, where the body is (``root``, against where it started), its drape correctives
+    (``morphs``, with transitions) and where the things are, and the event sequence. A runtime rig
     replays the script on the same data and must match (runtime/godot/scripts/motion_rig.gd
     ``run_trace``)."""
-    from .motion import grip_points, load_motion, rig_extras
+    from .motion import grip_points, load_motion, rig_extras, transition_data
 
     assets_dir = Path(assets_dir or roots.CORE)
     spec = load_scenario(name, assets_dir)
@@ -289,7 +309,13 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
         m = body @ node.world_transform()
         return [round(float(v), 6) for v in m[:3, :].ravel()]
 
-    initial = {key: {"world": frame_of(node), "grips": grip_points(node)} for key, node in things.items()}
+    initial = {key: {"world": frame_of(node), "grips": grip_points(node),
+                     **({"affordances": [{"type": a["type"], "position": [round(float(v), 6) for v in a["position"]],
+                                          "yaw": round(float(a["yaw"]), 6)} for a in node.meta["affordances"]]}
+                        if node.meta.get("affordances") else {})}
+               for key, node in things.items()}
+    # A posture change plays the body's transition clips: only then does the trace carry them.
+    postures = {p for m in motions.values() for p in (m.get("posture") or {}).values()}
     origins = _origins(scene, script)
     limit, pending, frames = float(spec.get("duration", 20.0)), list(script), []
     s = rig.skeleton
@@ -301,13 +327,18 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
             fk = s.fk(rig.out)
             frame = {"frame": len(rig.samples), "positions": {b: [round(float(v), 5) for v in fk[b][:3, 3]]
                                                               for b in s.names}}
+            frame["root"] = [round(float(v), 6) for v in (body @ rig.root)[:3, :].ravel()]
+            if postures and rig.morphs:
+                frame["morphs"] = {f"{n}:{k}": round(float(w), 5) for (n, k), w in rig.morphs.items()}
             if things:
                 frame["things"] = {key: frame_of(node) for key, node in things.items()}
             frames.append(frame)
         if not pending and not rig.running():
             break
     return {"kind": "motion_trace", "name": name, "fps": fps, "frames": len(rig.samples),
-            "tolerance": TRACE_TOLERANCE, "rig": rig_extras(actor), "motions": motions, "script": script,
+            "tolerance": TRACE_TOLERANCE, "rig": rig_extras(actor),
+            **(transition_data(actor, postures) if postures else {}),
+            "motions": motions, "script": script,
             **({"things": initial} if things else {}),
             "expect": {"positions": frames,
                        "events": [[e["event"], e["motion"], e.get("beat")] for e in rig.trace
@@ -654,6 +685,99 @@ def timeline_svg(rig: MotionRig, width: int = 760) -> str:
     return "".join(parts)
 
 
+RUNTIME_LEAD = 0.5      # s the runtime recording shows the scene before the script starts
+
+
+def record_runtime(result: Result, folder: Path, assets_dir: Path | None = None,
+                   resolution: tuple[int, int] = (800, 600), godot: str | None = None) -> Path:
+    """Record ``result``'s scenario in the Godot runtime as ``folder/runtime.mp4``: the scene and
+    the person exported to a scratch directory (``export_scene`` and ``motions.json``), the
+    camera held where the reference's video looks from, the script played through the control
+    API at its times (``<thing>@start`` as a fixed place where the thing stood), recorded with
+    ``--write-movie`` at a fixed 30 fps and cut to the scenario's length with ffmpeg."""
+    from .export import export_scene
+    from .motion import write_motions
+    from .render import RenderOptions, SceneRenderer, scene_bounds
+    from .runtime_client import run_script, step
+
+    assets_dir = Path(assets_dir or roots.CORE)
+    spec = result.scenario
+    scene = _scene(spec["scene"], assets_dir)
+    actor = _actor(spec.get("actor") or {}, scene, assets_dir)
+    script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
+    origins = _origins(scene, script)
+    # The camera the reference's video looks from (its frame, view and field of view).
+    camera = spec.get("camera") or {}
+    actor.parent.remove_child(actor)
+    renderer = SceneRenderer(scene, RenderOptions(width=resolution[0], height=resolution[1],
+                                                  zoom=float(camera.get("zoom", 1.0)), fov=float(camera.get("fov", 35.0))))
+    scene.add_child(actor)
+    from . import refs
+
+    boxes = [scene_bounds(actor)] + [scene_bounds(refs.resolve(scene, r) if r != "actor" else actor)
+                                     for r in camera.get("frame") or []]
+    margin = float(camera.get("margin", 0.3))
+    renderer.framed = np.array([np.min([b[0] for b in boxes], axis=0) - margin,
+                                np.max([b[1] for b in boxes], axis=0) + margin])
+    pose = renderer.camera_pose(camera.get("view", "iso"))
+    eye, ahead = pose[:3, 3], -pose[:3, 2]
+    motions = {}
+
+    def roles_and_params(entry: dict, motion: dict) -> tuple[dict, dict]:
+        roles, params = {}, {}
+        for k, v in entry.items():
+            if k in ("at", "start", "break", "interrupt", "how"):
+                continue
+            if isinstance(v, str) and v in origins:
+                m = origins[v].world()
+                v = {"transform": [round(float(x), 6) for x in m[:3, :].ravel()]}
+            (roles if k in (motion.get("roles") or {}) else params)[k] = v
+        return roles, params
+
+    steps = [step("hud.overlay", visible=False), step("player.teleport", pos=[60.0, 0.1, 60.0]),
+             step("capture.camera", mode="fixed", **{"from": [round(float(v), 4) for v in eye],
+                                                      "at": [round(float(v), 4) for v in eye + ahead]},
+                  fov=float(camera.get("fov", 35.0))),
+             step("wait", seconds=RUNTIME_LEAD)]
+    clock = 0.0
+    for entry in script:
+        at = float(entry.get("at", 0.0))
+        if at > clock + 1e-6:
+            steps.append(step("wait", seconds=round(at - clock, 4)))
+            clock = at
+        if "start" in entry:
+            motion = motions.setdefault(entry["start"], load_motion(entry["start"], assets_dir))
+            roles, params = roles_and_params(entry, motion)
+            steps.append(step("motion.start", node=actor.name, motion=entry["start"], roles=roles, params=params))
+        elif "interrupt" in entry:
+            steps.append(step("motion.stop", node=actor.name, motion=entry["interrupt"], how=entry.get("how", "yield")))
+        elif "break" in entry:
+            reaction = entry["break"] if isinstance(entry["break"], str) else None
+            motion = load_motion(reaction, assets_dir) if reaction else {}
+            _, params = roles_and_params(entry, motion)
+            steps.append(step("motion.break", node=actor.name, params=params, **({"reaction": reaction} if reaction else {})))
+    length = float(result.metrics.get("duration_s") or spec.get("duration", 10.0))
+    steps.append(step("wait", seconds=round(max(length - clock, 0.0) + 0.5, 4)))
+    name = f"review_{spec['name']}".replace("-", "_")
+    with tempfile.TemporaryDirectory(prefix="geogen-review-") as tmp:
+        generated = Path(tmp)
+        scene.name = name
+        export_scene(scene, generated / f"{name}.glb")
+        write_motions(generated, assets_dir)
+        avi = generated / "runtime.avi"
+        run = run_script(steps, scene=name, generated=generated, godot=godot, timeout=600, stop_on_error=False,
+                         engine_args=("--write-movie", str(avi), "--fixed-fps", "30",
+                                      "--resolution", f"{resolution[0]}x{resolution[1]}"))
+        failed = [s for s in run.steps if not s.get("ok")]
+        if failed or not avi.exists():
+            raise MotionError(f"{spec['name']}: runtime recording failed: {failed or 'no movie written'}")
+        mp4 = folder / "runtime.mp4"
+        # The movie starts at launch: keep the script's stretch, the last `length` s and a bit.
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-sseof", f"-{length + 0.5:.3f}", "-i", str(avi),
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "23", "-an", str(mp4)], check=True)
+    return mp4
+
+
 def write_index(out: Path) -> Path:
     """The review page over every scenario folder under ``out``."""
     cards = []
@@ -666,6 +790,9 @@ def write_index(out: Path) -> Path:
             if (folder / "video.mp4").exists() else ""
         prev_video = f'<figure><figcaption>previous run</figcaption><video src="_previous/{folder.name}/video.mp4" ' \
                      f'controls muted loop playsinline></video></figure>' if (previous / "video.mp4").exists() else ""
+        if (folder / "runtime.mp4").exists():   # the Godot runtime's recording (--runtime)
+            prev_video = f'<figure><figcaption>Godot runtime</figcaption><video src="{folder.name}/runtime.mp4" ' \
+                         f'controls muted loop playsinline></video></figure>' + prev_video
         rows = "".join(f"<tr><th>{html.escape(k)}</th><td>{html.escape(_fmt(v))}</td>"
                        f"<td class='prev'>{html.escape(_fmt(prev_m.get(k))) if prev_m else ''}</td></tr>"
                        for k, v in m.items() if k not in ("events", "beats", "description", "title"))
@@ -736,6 +863,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--motion", action="append", default=[],
                         help="review a motion on its demonstration stage (demo_scenario); repeatable, or all")
     parser.add_argument("--archetype", default=DEMO_ARCHETYPE, help="with --motion: who performs it")
+    parser.add_argument("--runtime", action="store_true",
+                        help="also record each scenario in the Godot runtime (runtime.mp4; needs Godot and ffmpeg)")
     args = parser.parse_args(argv)
     if args.list:
         from .motion import motion_catalogue
@@ -764,6 +893,8 @@ def main(argv: list[str] | None = None) -> int:
         spec = result.scenario
         result.metrics = {"title": spec.get("name"), "description": spec.get("description", ""), **result.metrics}
         folder = write_run(result, out, video=not args.no_video)
+        if args.runtime:
+            print(f"{name}: runtime recording {record_runtime(result, folder, resolution=(w, h))}")
         m = result.metrics
         cloth = f", cloth {m['cloth_mm']['mm']} mm" if "cloth_mm" in m else ""
         print(f"{name}: {m['duration_s']} s, contact {m['contact_error_mm']} mm, slide {m['foot_slide_mm']} mm, "

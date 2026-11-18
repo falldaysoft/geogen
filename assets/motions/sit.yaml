@@ -8,6 +8,8 @@ summary: Sit down on a seat, stay a while, get up.
 roles:
   seat: { grip: sit }
   arms: { grip: rest, optional: true }     # an armchair's armrests, when it has them
+props:
+  seat: { asset: chair.yaml, behind: 0.33 }  # what a demonstration stands behind the person
 params:
   # The leans are for a body without transition clips: one with sit_down / stand_up plays those
   # (cleared of its clothes by the build), lean and all.

@@ -97,7 +97,7 @@ def test_a_break_through_the_control_api_drops_into_a_stagger(godot_script, scen
 def test_the_motion_gallery_lists_the_catalogue_and_plays_on_everyone(godot_script, scene_export):
     """The motion_gallery scene opens the HUD's gallery (geogen.103.18) on its own: it lists every
     motion file from the catalogue, plays a body-only one on all five people or on one, and
-    refuses one that moves the body (sit: the runtime rig doesn't place the body yet)."""
+    refuses one that needs things the stage doesn't have (press: a TV)."""
     from geogen.motion import motion_names
 
     run = godot_script([
@@ -109,19 +109,52 @@ def test_the_motion_gallery_lists_the_catalogue_and_plays_on_everyone(godot_scri
         step("wait", seconds=0.2),
         step("motion.status", node="ines"),
         step("motion.status", node="priya"),
-        step("hud.gallery", select="sit", play=True),
+        step("hud.gallery", select="press", play=True),
     ], "--scene=motion_gallery", f"--generated={scene_export('motion_gallery')}", check=False)
     opened = run.steps[0]["result"]
     assert opened["open"] and opened["performers"] == ["ines", "tomas", "ruth", "walter", "priya"]
     assert sorted(m["name"] for m in opened["motions"]) == sorted(motion_names())
     plays = {m["name"]: m["plays"] for m in opened["motions"]}
-    assert plays["clap"] and plays["sit_ground"] and plays["drink"] and plays["take"] and not plays["sit"]
+    assert plays["clap"] and plays["sit_ground"] and plays["drink"] and plays["take"] and plays["sit"]
+    assert not plays["press"]
     assert run.steps[1]["result"]["playing"] == "clap"
     walter, ines, priya = (e["result"] for e in run.steps if e["cmd"] == "motion.status")
     assert walter["running"] == ["clap"], "everyone claps"
     assert ines["running"] == ["nod"] and priya["running"] == ["clap"], "only ines nods; the others clap on"
     refused = run.steps[-1]
-    assert not refused["ok"] and "moves the body" in refused["error"]
+    assert not refused["ok"] and "needs" in refused["error"]
+
+
+def test_people_sit_on_a_chair_and_get_up_in_the_gallery(godot_script, scene_export):
+    """sit moves the body (geogen.103.7): in the gallery each person steps back to the chair
+    behind them, sits (the body's sit_down clip, the root on its path down to the seat), stays and
+    stands up again at the chair; the next motion puts them back where they stood."""
+    run = godot_script([
+        step("hud.gallery", open=True),
+        step("motion.status", node="walter"),
+        step("hud.gallery", select="sit", play=True),
+        step("wait", seconds=2.4),
+        step("motion.status", node="walter"),
+        step("world.node", name="walter_chair"),
+        step("world.node", name="walter_table"),
+        step("wait", seconds=4.6),
+        step("motion.status", node="walter"),
+        step("hud.gallery", select="clap", play=True),
+        step("wait", seconds=0.1),
+        step("motion.status", node="walter"),
+        step("world.node", name="walter_chair"),
+    ], "--scene=motion_gallery", f"--generated={scene_export('motion_gallery')}")
+    before, seated, stood, clapping = run.all("motion.status")
+    chair, table, chair_after = (e["result"] for e in run.steps if e["cmd"] == "world.node")
+    assert chair["visible"] and not table["visible"], "the chair comes out, the table doesn't"
+    assert seated["running"] == ["sit"] and seated["posture"] == "sit"
+    assert seated["root"][1] < before["root"][1] - 0.2, "the body went down onto the seat"
+    assert seated["root"][2] < before["root"][2] - 0.15, "and back over it"
+    beats = [(e["event"], e["beat"]) for e in stood["events"] if e["event"] in ("beat", "end")]
+    assert beats == [("beat", "arrive"), ("beat", "lower"), ("beat", "seated"), ("beat", "rise"), ("end", "rise")]
+    assert stood["posture"] == "stand" and abs(stood["root"][1] - before["root"][1]) < 0.01, "up on the floor again"
+    assert clapping["running"] == ["clap"] and all(abs(a - b) < 1e-3 for a, b in zip(clapping["root"], before["root"]))
+    assert not chair_after["visible"]
 
 
 def test_people_take_things_from_the_table_use_them_and_put_them_back(godot_script, scene_export):

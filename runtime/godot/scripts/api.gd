@@ -130,13 +130,15 @@ const COMMANDS := {
     "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
     "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion "
         + "file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things "
-        + "in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}) -> {node, motion, running}; "
-        + "not yet: ones that move the body (sit)",
+        + "in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; sit: {seat: chair}, which moves "
+        + "the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood) "
+        + "-> {node, motion, running}",
     "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) "
         + "-> {node, motion, result}",
     "motion.break": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion "
         + "drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> {node, running}",
-    "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, events: [{t, event, motion, beat}], "
+    "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, root: world [x, y, z], "
+        + "events: [{t, event, motion, beat}], "
         + "bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}, "
         + "things: {node: {position: world [x, y, z], held}} (what its motions have bound)}",
     "npcs.pause": "{npc?} freeze one NPC (or all)",
@@ -154,7 +156,8 @@ const COMMANDS := {
         + "shows that); the rules' clock-time waits that come due on the way run in order",
     "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
     "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
-    "capture.camera": "{mode: player|overview|follow, npc?}",
+    "capture.camera": "{mode: player|overview|follow|fixed, npc?, from?, at?, fov?} which camera shows the world; fixed: "
+        + "the overview camera held at `from` looking at `at` (a recording's viewpoint)",
     "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: "
         + "`events` is the whole bus (events.gd), narrowed to these types and subject IDs",
     "events.history": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; "
@@ -294,7 +297,7 @@ func _handle(entry: Dictionary, line: String) -> void:
     else:
         _send(entry, {"id": id, "ok": true, "result": result})
     if cmd == "quit":
-        get_tree().quit.call_deferred()
+        main.quit_settled.call_deferred()
 
 
 func _send(entry: Dictionary, data: Dictionary) -> void:
@@ -1412,8 +1415,18 @@ func _camera(args: Dictionary):
                 return _err("no NPC named '%s'" % args.get("npc", ""))
             main.set_follow(str(args.get("npc", "")))
             main.overview.make_current()
+        "fixed":
+            if not (args.get("from") is Array and args.get("at") is Array):
+                return _err("fixed: needs from and at, [x, y, z] each")
+            var a: Array = args["from"]
+            var b: Array = args["at"]
+            main.set_follow(null)
+            main.overview.look_at_from_position(Vector3(a[0], a[1], a[2]), Vector3(b[0], b[1], b[2]))
+            if args.has("fov"):
+                main.overview.fov = float(args["fov"])
+            main.overview.make_current()
         _:
-            return _err("mode: player, overview or follow")
+            return _err("mode: player, overview, follow or fixed")
     return {"mode": mode}
 
 
@@ -1447,7 +1460,12 @@ func _motion(cmd: String, args: Dictionary) -> Variant:
     if not motions.has(name):
         return _err("no motion '%s' in motions.json (it has %s)" % [name, motions.keys()])
     var values: Dictionary = (args.get("params", {}) as Dictionary).duplicate()
-    values.merge(args.get("roles", {}))
+    var roles: Dictionary = args.get("roles", {})
+    for role in roles:
+        var v = roles[role]
+        if v is Dictionary and v.get("transform") is Array:      # a fixed place (where a thing stood)
+            v = GeogenMotionRig.Thing.fixed(str(role), GeogenMotionRig._xform12(v["transform"]))
+        values[role] = v
     var why := player.play(motions[name], values)
     if why != "":
         return _err(why)
@@ -1595,7 +1613,7 @@ func _run_script() -> void:
             break
     print("script done: %s" % JSON.stringify({"steps": index, "ok": not failed}))
     if not listen or (script_steps.size() > 0 and str(script_steps[-1].get("cmd", "")) == "quit"):
-        get_tree().quit(1 if failed else 0)
+        main.quit_settled(1 if failed else 0)
 
 
 ## Steps from a script file or text: a JSON list, or {"steps": [...], "stop_on_error": bool}.

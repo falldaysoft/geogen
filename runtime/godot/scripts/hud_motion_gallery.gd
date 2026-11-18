@@ -17,8 +17,10 @@ extends Control
 ## shown while such a motion plays and hidden otherwise, and the things are put back where they
 ## stood before each play. A motion's `demo` is played in its place when it has one (take,
 ## carry and set_down: take the plate, carry it, put it back where it stood; `<role>@start`).
-## Ones that move the body (`moves_body`: sit) or need things no table holds (press: a TV) are
-## listed greyed; `python -m geogen.motion_review --motion NAME` shows them on the reference rig.
+## A prop with `behind` (sit's seat) is `<person>_<asset>` behind the person, shown the same way;
+## people a motion moved (sit) are put back where they stood before the next play. Ones that
+## need things the stage doesn't hold (press: a TV) are listed greyed; `python -m
+## geogen.motion_review --motion NAME` shows them on the reference rig.
 ##
 ## Presentation state only: open, the chosen motion and performer, looping, the demo's clock.
 
@@ -52,6 +54,7 @@ var _idle_for := 0.0
 var _demo: Array = []              # [{at, body, entry, starts}] still to start, by time
 var _demo_clock := 0.0
 var _homes := {}                   # a staged thing that isn't a physics prop -> where it started
+var _stands := {}                  # a performer -> where it stood when the gallery first played
 var _frame: PanelContainer
 var _who: HBoxContainer
 var _loop_button: CheckButton
@@ -225,8 +228,14 @@ func play(motion: String) -> String:
     for body in _performers:
         var player := GeogenMotionPlayer.on(body)
         if player != null and (_performer == "all" or String(body.name) == _performer):
-            player.break_(null)
-    _stage(not props.is_empty())
+            # Back where it stood, standing (sit leaves the body at the seat's approach point).
+            if not _stands.has(body):
+                _stands[body] = body.global_transform
+            if player.rig.posture != "stand" or not body.global_transform.is_equal_approx(_stands[body]):
+                player.reset(_stands[body])
+            else:
+                player.break_(null)
+    _stage(entry)
     var script: Array = entry.get("demo", [])
     if script.is_empty():
         var only := {"at": 0.0, "start": motion}
@@ -287,8 +296,6 @@ func _run_demo() -> String:
 
 ## Why the gallery can't play a catalogue entry here ("" when it can).
 func _why_not(entry: Dictionary) -> String:
-    if entry.get("moves_body", false):
-        return "'%s' moves the body (root): the runtime rig doesn't do that yet" % entry["name"]
     if entry.get("body_only", false):
         return ""
     var props: Dictionary = entry.get("props", {})
@@ -299,7 +306,8 @@ func _why_not(entry: Dictionary) -> String:
     for body in _chosen():
         for role in props:
             if _staged(body, props[role]) == null:
-                return "'%s' needs %s on a table in front of %s" % [entry["name"], props[role].get("asset", "?"), body.name]
+                return "'%s' needs %s %s %s" % [entry["name"], props[role].get("asset", "?"),
+                    "behind" if props[role].has("behind") else "on a table in front of", body.name]
     return ""
 
 
@@ -309,20 +317,29 @@ func _staged(body: Node3D, prop: Dictionary) -> Node3D:
     return _hud.world.find_child("%s_%s" % [body.name, stem], true, false) as Node3D
 
 
-## Show (or hide) each person's table and the things on it, the things put back where they
-## stood. Hidden ones are out of the physics too (disabled), so nothing walks into them.
-func _stage(show: bool) -> void:
+## Show what `entry`'s props need in front of (or behind) each person: their table and the
+## things on it, or a seat; hide the rest ({}: hide everything). Shown things are put back where
+## they stood. Hidden ones are out of the physics too (disabled), so nothing walks into them.
+func _stage(entry: Dictionary) -> void:
     var stems := {}
     for e in _catalogue:
         for role in e.get("props", {}):
-            stems[str(e["props"][role].get("asset", "")).get_file().get_basename()] = true
+            stems[str(e["props"][role].get("asset", "")).get_file().get_basename()] = false
+    var table_shown := false
+    for role in entry.get("props", {}):
+        var prop: Dictionary = entry["props"][role]
+        stems[str(prop.get("asset", "")).get_file().get_basename()] = true
+        if not prop.has("behind"):
+            table_shown = true
     var props: GeogenProps = _hud.world.props
     for body in _performers:
-        var nodes: Array[Node3D] = []
         var table := _hud.world.find_child("%s_table" % body.name, true, false) as Node3D
         if table != null:
-            nodes.append(table)
+            table.visible = table_shown
+            table.process_mode = Node.PROCESS_MODE_INHERIT if table_shown else Node.PROCESS_MODE_DISABLED
         for stem in stems:
+            # (what stands on the table shows with it: the mug stays while the plate is taken)
+            var show: bool = stems[stem] or (table_shown and _on_table(stem))
             var node := _hud.world.find_child("%s_%s" % [body.name, stem], true, false) as Node3D
             if node == null:
                 continue
@@ -335,10 +352,18 @@ func _stage(show: bool) -> void:
                 if not _homes.has(node):
                     _homes[node] = node.global_transform
                 node.global_transform = _homes[node]
-            nodes.append(node)
-        for node in nodes:
             node.visible = show
             node.process_mode = Node.PROCESS_MODE_INHERIT if show else Node.PROCESS_MODE_DISABLED
+
+
+## Whether a staged thing of asset `stem` stands on the table (not `behind` the person).
+func _on_table(stem: String) -> bool:
+    for e in _catalogue:
+        for role in e.get("props", {}):
+            var prop: Dictionary = e["props"][role]
+            if str(prop.get("asset", "")).get_file().get_basename() == stem and not prop.has("behind"):
+                return true
+    return false
 
 
 func _chosen() -> Array[Node3D]:
@@ -385,7 +410,7 @@ func _read() -> void:
         var first = _catalogue.filter(func(e): return e.get("body_only", false))
         _selected = (first[0] if not first.is_empty() else _catalogue[0])["name"]
     if _playing == "":
-        _stage(false)                # the tables come out when a motion with things plays
+        _stage({})                   # the tables come out when a motion with things plays
 
 
 func _find_performers() -> Array[Node3D]:

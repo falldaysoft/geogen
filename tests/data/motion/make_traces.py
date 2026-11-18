@@ -1,5 +1,5 @@
 """Write the motion conformance traces (tests/data/motion/*.json) from the review scenarios the
-runtime rig can run (body-only motions): python tests/data/motion/make_traces.py
+runtime rig can run: python tests/data/motion/make_traces.py
 
 Each is geogen.motion_review.motion_trace(scenario): the body's rig extras, the motions, the
 script, and the reference rig's bone positions and events. runtime/godot/scripts/motion_rig.gd
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from geogen.motion_review import motion_trace
 
-SCENARIOS = ["squat", "jumping_jacks", "squat_shoved", "bow_wave", "emotes", "idles",
+SCENARIOS = ["squat", "jumping_jacks", "squat_shoved", "bow_wave", "emotes", "idles", "sit_on_chair", "sit_watch_tv",
              "drink", "inspect", "take_carry_set_down"]
 
 if __name__ == "__main__":
