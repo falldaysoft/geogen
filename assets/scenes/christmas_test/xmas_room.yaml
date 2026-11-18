@@ -1,0 +1,13 @@
+# One plain room for christmas_test.
+name: christmas_test_room
+tags: [building.room]
+
+floorplan:
+  wall_height: 2.6
+  exterior_wall: 0.2
+  interior_wall: 0.12
+  materials: { walls: wall_plaster, floor: hardwood_floor, ceiling: ceiling_white }
+  rooms:
+    living: { rect: [0, 0, 9, 7], type: living_room }
+  doors:
+    - { name: front_door, room: living, side: south, at: 0.5, width: 1.0, height: 2.0 }

@@ -1,0 +1,19 @@
+# Nell, who has brought a tree home and means to see it decorated (geogen.110). `tree_decorated`
+# is the one goal: only hanging an ornament fills it, and the rest is found by planning.
+kind: character
+version: 1
+name: Nell
+npc: npcs/householder.yaml
+seed: 11
+body:
+  archetype: characters/archetypes/young_woman.yaml
+  params: { hair_color: auburn, top_color: burgundy, bottom_color: charcoal }
+planner: { depth: 6, patience: 60, hands: 1 }
+needs:
+  tree_decorated: { initial: 0, decay: 0, urgent: 1.0, boost: 12 }
+  hunger:    { initial: 0.95, decay: 0.0002 }
+  rest:      { initial: 0.9, decay: 0.0002 }
+  hygiene:   { initial: 0.95, decay: 0.0001 }
+  curiosity: { initial: 0.9, decay: 0.0005 }
+  order:     { initial: 0.95, decay: 0.0001 }
+  social:    { initial: 0.9, decay: 0.0002 }

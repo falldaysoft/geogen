@@ -56,6 +56,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [vehicle_lineup](#vehicle_lineup) | Vehicles for review: the car presets in a few paints, a van and a bus. |  |
 | [wants_places](#wants_places) | A room of places with different qualities, for what wants weigh in a place. |  |
 | [wants_test](#wants_test) | A resident in one room with things to carry: the test scene for wants (geogen.97). |  |
+| [christmas_test](#christmas_test) | Two people, a tree to bring in and a box of ornaments: the test scene for working together (geogen.110). |  |
 | [group_test](#group_test) | Groups (geogen.87.3) at their simplest: two groups of three park visitors on a paved square with benches round it and two picnic tables. |  |
 | [state_test](#state_test) | Review scene for state, events and conditions (docs/rules.md): every piece of the rules layer in one small yard. | test |
 | [wants_house](#wants_house) | A house-proud person in a two-room flat: wants about the state of things. |  |
@@ -833,6 +834,18 @@ A can stands on the table and a pumpkin on the floor. Knock something to the
 floor and the resident picks it up and puts it on whatever will hold it.
 
 **Places**: `room: {asset: room.yaml}`; `table: {asset: table.yaml}`; `bookshelf: {asset: bookshelf.yaml}`; `chair: {asset: chair.yaml}`; `can: {asset: soda_can.yaml}`; `pumpkin: {asset: pumpkin.yaml}`; `resident: {npc: npcs/resident.yaml}`
+
+**Spawns**: start
+
+## christmas_test
+
+`scene: scenes/christmas_test/scene.yaml` · [source](../../assets/scenes/christmas_test/scene.yaml)
+
+Two people, a tree to bring in and a box of ornaments: the test scene for working together
+(geogen.110). Nobody is told what to do. Both want the tree decorated; Nell fetches and sets up,
+because Tom `skips` those errands, and then both hang the ornaments.
+
+**Places**: `room: {asset: xmas_room.yaml}`; `tree: {asset: christmas_tree.yaml}`; `fir: {asset: netted_tree.yaml}`; `cupboard: {asset: ornament_cupboard.yaml}`; `sofa: {asset: sofa.yaml}`; `nell: {character: people/nell.yaml}`; `tom: {character: people/tom.yaml}`
 
 **Spawns**: start
 

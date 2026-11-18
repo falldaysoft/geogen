@@ -1,0 +1,16 @@
+# One glass Christmas ornament, as it is carried from the box to the tree (items/ornament.yaml).
+
+name: ornament
+tags: [decor.christmas]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  ball:
+    primitive: sphere
+    size: [0.09, 0.09, 0.09]
+    anchor: bottom_center
+    material: ceramic_white
+    tint: [0.75, 0.08, 0.08]
+    collider: none

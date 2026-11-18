@@ -1,0 +1,6 @@
+# The box of Christmas ornaments, out of the cupboard and on its way to the tree.
+kind: item
+title: Box of ornaments
+tags: [christmas]
+body: ornament_box.yaml
+held: {offset: [0, 0.3, 0.03], rotation: [0, 0, 180]}                              # by its string, hanging from the fist

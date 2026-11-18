@@ -1,0 +1,43 @@
+# Two people, a tree to bring in and a box of ornaments: the test scene for working together
+# (geogen.110). Nobody is told what to do. Both want the tree decorated; Nell fetches and sets up,
+# because Tom `skips` those errands, and then both hang the ornaments.
+
+name: christmas_test
+tags: [test.npc]
+
+spawns:
+  start: { position: [-3.5, 0.05, 2.5], facing: east }
+
+place:
+  room:
+    asset: xmas_room.yaml
+  tree:
+    asset: christmas_tree.yaml
+    on: room.living.floor
+    at: { u: { abs: 4.5 }, v: { abs: 2.0 } }
+  fir:
+    asset: netted_tree.yaml
+    on: room.living.floor
+    at: { u: { abs: 1.0 }, v: { abs: 5.0 } }
+  cupboard:
+    asset: ornament_cupboard.yaml
+    on: room.living.floor
+    at: { u: { abs: 8.0 }, v: { abs: 6.7 } }
+    facing: south
+  sofa:
+    asset: sofa.yaml
+    on: room.living.floor
+    at: { u: { abs: 4.5 }, v: { abs: 6.0 } }
+    facing: south
+  nell:
+    character: people/nell.yaml
+    on: room.living.floor
+    at: { u: { abs: 3.0 }, v: { abs: 4.5 } }
+    home: room.living.floor
+    household: home
+  tom:
+    character: people/tom.yaml
+    on: room.living.floor
+    at: { u: { abs: 6.0 }, v: { abs: 4.5 } }
+    home: room.living.floor
+    household: home

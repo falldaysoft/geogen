@@ -184,8 +184,10 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `h
 | [people/bea.yaml](../../assets/people/bea.yaml) | Bea, who lives at the cottage (scenes/cottage.yaml): early to bed. |
 | [people/hana.yaml](../../assets/people/hana.yaml) | Hana Mori, a house-proud resident: a named person on top of the resident role (npcs/resident.yaml). |
 | [people/marco.yaml](../../assets/people/marco.yaml) | Marco Bellini, the chef at the Corner Bistro: a named person on top of the chef role (npcs/chef.yaml: the range, the prep counter, a look into the dining room now and then, home at night). |
+| [people/nell.yaml](../../assets/people/nell.yaml) | Nell, who has brought a tree home and means to see it decorated (geogen.110). `tree_decorated` is the one goal: only hanging an ornament fills it, and the rest is found by planning. |
 | [people/rosa.yaml](../../assets/people/rosa.yaml) | Rosa Lind, a regular: lunch at the Corner Bistro, the rest of the day in the park. |
 | [people/smokey.yaml](../../assets/people/smokey.yaml) | Smokey, a small grey cat: a named animal on top of the cat role (npcs/cat.yaml), as named people are on theirs. |
+| [people/tom.yaml](../../assets/people/tom.yaml) | Tom, who leaves the fetching to Nell and joins in once there is something to hang (geogen.110). |
 | [people/tomas.yaml](../../assets/people/tomas.yaml) | Tomas Lind, a resident who puts things up out of the way: a named person on top of the resident role (npcs/resident.yaml). |
 
 ### dialogue
@@ -240,9 +242,12 @@ Keys: `body`, `data`, `gait`, `held`, `lifetime`, `mode`, `name`, `opens`, `radi
 | [items/cola.yaml](../../assets/items/cola.yaml) | Cola from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/crisps.yaml](../../assets/items/crisps.yaml) | Crisps from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/dirty_plate.yaml](../../assets/items/dirty_plate.yaml) | The plate a meal leaves: washed up at a kitchen sink (kitchen_sink.yaml). |
+| [items/fir_tree.yaml](../../assets/items/fir_tree.yaml) | A netted fir tree on its way indoors (christmas_tree.yaml's stand takes it). |
 | [items/key_room_207.yaml](../../assets/items/key_room_207.yaml) | The key to hotel room 207: its id is the room door's lock key (hotel guest doors lock with key_room_<n>), so carrying it lets L unlock that door. |
 | [items/lemonade.yaml](../../assets/items/lemonade.yaml) | Lemonade from the vending machine (vending_machine.yaml): a physics item the player can carry off and put down anywhere. |
 | [items/meal.yaml](../../assets/items/meal.yaml) | A cooked meal: made from raw food at a range or a microwave, eaten sitting at a table (chair.yaml), which leaves a dirty plate. |
+| [items/ornament.yaml](../../assets/items/ornament.yaml) | One ornament, from the box to a hook on the tree. |
+| [items/ornament_box.yaml](../../assets/items/ornament_box.yaml) | The box of Christmas ornaments, out of the cupboard and on its way to the tree. |
 | [items/parcel.yaml](../../assets/items/parcel.yaml) | A parcel that rides belts (conveyor.yaml) and is worth a point where it's taken in. |
 | [items/pumpkin.yaml](../../assets/items/pumpkin.yaml) | Pumpkin from a farm plot (farm_plot.yaml): what harvesting one gives; carried, and sold at the farm's counter. |
 | [items/pumpkin_seeds.yaml](../../assets/items/pumpkin_seeds.yaml) | Pumpkin seeds from the farm's seed machine: a packet (seed_packet.yaml) to carry to a plot and drop on it, which plants it. |

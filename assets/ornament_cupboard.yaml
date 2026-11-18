@@ -1,0 +1,36 @@
+# A tall open cupboard with the box of Christmas ornaments on its middle shelf (geogen.110).
+# Origin on the floor at the middle of its back; it faces +Z.
+
+name: ornament_cupboard
+tags: [furniture.storage]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  back:   { primitive: cube, size: [1.0, 1.87, 0.02], anchor: bottom_center, offset: [0, 0, 0.01], bevel: 0, material: wood }
+  left:   { primitive: cube, size: [0.03, 1.87, 0.42], anchor: bottom_center, offset: [-0.485, 0, 0.21], bevel: 0, material: wood }
+  right:  { primitive: cube, size: [0.03, 1.87, 0.42], anchor: bottom_center, offset: [0.485, 0, 0.21], bevel: 0, material: wood }
+  top:    { primitive: cube, size: [1.0, 0.03, 0.42], anchor: bottom_center, offset: [0, 1.87, 0.21], bevel: 0, material: wood }
+  base:   { primitive: cube, size: [0.94, 0.08, 0.40], anchor: bottom_center, offset: [0, 0, 0.21], bevel: 0, material: wood }
+  shelf:  { primitive: cube, size: [0.94, 0.025, 0.40], anchor: bottom_center, offset: [0, 0.95, 0.21], bevel: 0, material: wood }
+  box:
+    primitive: cube
+    size: [0.36, 0.18, 0.28]
+    anchor: bottom_center
+    offset: [0, 0.978, 0.21]
+    bevel: 0.006
+    material: cardboard
+    collider: none
+
+interactions:
+  stock:
+    initial: here
+    duration: 0.2
+    states: { here: {}, taken: {} }
+    motions:
+      - { parts: [box], show: [here] }
+
+affordances:
+  - { type: stand, action: attend, at: [0, 0, 0.8], facing: 180, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
+      gives: ornament_box, requires: { state: { stock: here } }, sets: { stock: taken } }

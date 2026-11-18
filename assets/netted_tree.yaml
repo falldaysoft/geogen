@@ -1,0 +1,38 @@
+# A netted fir lying where it was left, waiting to be brought in (geogen.110). Lies along Z with
+# the cut end toward -Z, which is where someone stands to take it.
+
+name: netted_tree
+tags: [decor.christmas]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  trunk:
+    primitive: cylinder
+    size: [0.07, 0.3, 0.07]
+    anchor: center
+    offset: [0, -0.29, -0.85]
+    rotation: [90, 0, 0]
+    material: bark
+    collider: none
+  boughs:
+    primitive: cone
+    size: [0.42, 1.65, 0.42]
+    anchor: center
+    offset: [0, -0.29, 0.1]
+    rotation: [90, 0, 0]
+    material: foliage_pine
+    collider: none
+
+interactions:
+  stock:
+    initial: here
+    duration: 0.2
+    states: { here: {}, taken: {} }
+    motions:
+      - { parts: [trunk, boughs], show: [here] }
+
+affordances:
+  - { type: stand, action: attend, at: [0, 0, -1.4], facing: 0, approach: [0, 0, 0], duration: [2, 3], tags: [errand],
+      gives: fir_tree, requires: { state: { stock: here } }, sets: { stock: taken } }

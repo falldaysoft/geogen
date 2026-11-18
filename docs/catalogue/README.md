@@ -43,19 +43,20 @@ place:
 </tr>
 <tr>
 <td align="center"><a href="assets/nightstand.md"><img src="img/nightstand.png" width="150" alt="nightstand"><br>nightstand</a></td>
+<td align="center"><a href="assets/ornament_cupboard.md"><img src="img/ornament_cupboard.png" width="150" alt="ornament_cupboard"><br>ornament_cupboard</a></td>
 <td align="center"><a href="assets/reception_desk.md"><img src="img/reception_desk.png" width="150" alt="reception_desk"><br>reception_desk</a></td>
 <td align="center"><a href="assets/rug.md"><img src="img/rug.png" width="150" alt="rug"><br>rug</a></td>
 <td align="center"><a href="assets/sofa.md"><img src="img/sofa.png" width="150" alt="sofa"><br>sofa</a></td>
-<td align="center"><a href="assets/table.md"><img src="img/table.png" width="150" alt="table"><br>table</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/table.md"><img src="img/table.png" width="150" alt="table"><br>table</a></td>
 <td align="center"><a href="assets/table_lamp.md"><img src="img/table_lamp.png" width="150" alt="table_lamp"><br>table_lamp</a></td>
 <td align="center"><a href="assets/table_setting.md"><img src="img/table_setting.png" width="150" alt="table_setting"><br>table_setting</a></td>
 <td align="center"><a href="assets/tv.md"><img src="img/tv.png" width="150" alt="tv"><br>tv</a></td>
 <td align="center"><a href="assets/tv_console.md"><img src="img/tv_console.png" width="150" alt="tv_console"><br>tv_console</a></td>
-<td align="center"><a href="assets/wall_mirror.md"><img src="img/wall_mirror.png" width="150" alt="wall_mirror"><br>wall_mirror</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/wall_mirror.md"><img src="img/wall_mirror.png" width="150" alt="wall_mirror"><br>wall_mirror</a></td>
 <td align="center"><a href="assets/wardrobe.md"><img src="img/wardrobe.png" width="150" alt="wardrobe"><br>wardrobe</a></td>
 </tr>
 </table>
@@ -78,6 +79,7 @@ place:
 | [host_stand](assets/host_stand.md) | A host stand by a restaurant's door: a slim podium with a sloped top. |  |
 | [luggage_rack](assets/luggage_rack.md) | Folding luggage rack: two X-braced wooden frames with webbing straps. | `width`, `depth`, `height` |
 | [nightstand](assets/nightstand.md) | Bedside table: carcass with an open shelf, one drawer that slides out (interaction 'drawer'), on a plinth. | `width`, `height`, `depth`, `board`, `drawer` |
+| [ornament_cupboard](assets/ornament_cupboard.md) | A tall open cupboard with the box of Christmas ornaments on its middle shelf (geogen.110). |  |
 | [reception_desk](assets/reception_desk.md) | Reception counter: a raised customer-side transaction ledge over a lower work desk, with a marble top and a modesty panel. | `width`, `depth` |
 | [rug](assets/rug.md) | Low-pile area rug with a bound edge. | `width`, `depth` |
 | [sofa](assets/sofa.md) | Three-seat sofa: upholstered base and arms, seat and back cushions on low wooden legs. | `width`, `depth`, `height`, `seats` |
@@ -121,13 +123,20 @@ place:
 <tr>
 <td align="center"><a href="assets/butter_knife.md"><img src="img/butter_knife.png" width="150" alt="butter_knife"><br>butter_knife</a></td>
 <td align="center"><a href="assets/ceiling_light.md"><img src="img/ceiling_light.png" width="150" alt="ceiling_light"><br>ceiling_light</a></td>
+<td align="center"><a href="assets/christmas_tree.md"><img src="img/christmas_tree.png" width="150" alt="christmas_tree"><br>christmas_tree</a></td>
+<td align="center"><a href="assets/fir_bundle.md"><img src="img/fir_bundle.png" width="150" alt="fir_bundle"><br>fir_bundle</a></td>
 <td align="center"><a href="assets/floor_pad.md"><img src="img/floor_pad.png" width="150" alt="floor_pad"><br>floor_pad</a></td>
-<td align="center"><a href="assets/hanging_chain.md"><img src="img/hanging_chain.png" width="150" alt="hanging_chain"><br>hanging_chain</a></td>
-<td align="center"><a href="assets/meal_plate.md"><img src="img/meal_plate.png" width="150" alt="meal_plate"><br>meal_plate</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/hanging_chain.md"><img src="img/hanging_chain.png" width="150" alt="hanging_chain"><br>hanging_chain</a></td>
+<td align="center"><a href="assets/meal_plate.md"><img src="img/meal_plate.png" width="150" alt="meal_plate"><br>meal_plate</a></td>
 <td align="center"><a href="assets/menu_board.md"><img src="img/menu_board.png" width="150" alt="menu_board"><br>menu_board</a></td>
 <td align="center"><a href="assets/mug.md"><img src="img/mug.png" width="150" alt="mug"><br>mug</a></td>
+<td align="center"><a href="assets/netted_tree.md"><img src="img/netted_tree.png" width="150" alt="netted_tree"><br>netted_tree</a></td>
+</tr>
+<tr>
+<td align="center"><a href="assets/ornament.md"><img src="img/ornament.png" width="150" alt="ornament"><br>ornament</a></td>
+<td align="center"><a href="assets/ornament_box.md"><img src="img/ornament_box.png" width="150" alt="ornament_box"><br>ornament_box</a></td>
 <td align="center"><a href="assets/planter.md"><img src="img/planter.png" width="150" alt="planter"><br>planter</a></td>
 <td align="center"><a href="assets/plate.md"><img src="img/plate.png" width="150" alt="plate"><br>plate</a></td>
 <td align="center"><a href="assets/swing_gate.md"><img src="img/swing_gate.png" width="150" alt="swing_gate"><br>swing_gate</a></td>
@@ -142,11 +151,16 @@ place:
 | --- | --- | --- |
 | [butter_knife](assets/butter_knife.md) | A butter knife lying flat, handle toward +Z. |  |
 | [ceiling_light](assets/ceiling_light.md) | Ceiling pendant: a canopy, a thin stem and a tapered shade. | `drop`, `shade` |
+| [christmas_tree](assets/christmas_tree.md) | A Christmas tree and everything that goes with decorating it (geogen.110): a stand that is always there, the tree once it has been set up, the box of ornaments put down beside it, and twelve hooks that each show their ornament when one is hung. |  |
+| [fir_bundle](assets/fir_bundle.md) | A fir tree wrapped in netting for the journey home: what is carried in (items/fir_tree.yaml). |  |
 | [floor_pad](assets/floor_pad.md) | A painted square on the ground to stand on. | `width`, `depth` |
 | [hanging_chain](assets/hanging_chain.md) | A chain with a lantern, hanging from a bracket on a post. | `height`, `links`, `link` |
 | [meal_plate](assets/meal_plate.md) | A cooked meal on a plate: what a range or a microwave makes of raw food (items/meal.yaml), eaten at a table. |  |
 | [menu_board](assets/menu_board.md) | A wall-mounted chalkboard menu in a wooden frame. | `title` |
 | [mug](assets/mug.md) | A coffee mug: a glazed body with a loop handle on its +X side. | `colour` |
+| [netted_tree](assets/netted_tree.md) | A netted fir lying where it was left, waiting to be brought in (geogen.110). |  |
+| [ornament](assets/ornament.md) | One glass Christmas ornament, as it is carried from the box to the tree (items/ornament.yaml). |  |
+| [ornament_box](assets/ornament_box.md) | A cardboard box of Christmas ornaments with a string handle (items/ornament_box.yaml). |  |
 | [planter](assets/planter.md) | Potted plant: turned ceramic pot with a leafy bush. | `height` |
 | [plate](assets/plate.md) | A white dinner plate. |  |
 | [swing_gate](assets/swing_gate.md) | A field gate on a free hinge: walk into it and it swings open. | `width`, `height`, `swing` |

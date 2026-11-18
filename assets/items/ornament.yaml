@@ -1,0 +1,6 @@
+# One ornament, from the box to a hook on the tree.
+kind: item
+title: Ornament
+tags: [christmas]
+body: ornament.yaml
+held: {offset: [0, 0.1, 0.04], rotation: [0, 0, 0]}                                # between the fingers

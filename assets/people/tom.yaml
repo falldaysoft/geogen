@@ -1,0 +1,19 @@
+# Tom, who leaves the fetching to Nell and joins in once there is something to hang (geogen.110).
+kind: character
+version: 1
+name: Tom
+npc: npcs/householder.yaml
+seed: 12
+body:
+  archetype: characters/archetypes/young_man.yaml
+  params: { hair_color: brown, top_color: green, bottom_color: navy }
+planner: { depth: 6, patience: 60, hands: 1 }
+skips: [errand]
+needs:
+  tree_decorated: { initial: 0, decay: 0, urgent: 1.0, boost: 12 }
+  hunger:    { initial: 0.95, decay: 0.0002 }
+  rest:      { initial: 0.55, decay: 0.0002 }
+  hygiene:   { initial: 0.95, decay: 0.0001 }
+  curiosity: { initial: 0.9, decay: 0.0005 }
+  order:     { initial: 0.95, decay: 0.0001 }
+  social:    { initial: 0.9, decay: 0.0002 }

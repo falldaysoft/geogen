@@ -1,0 +1,24 @@
+# A cardboard box of Christmas ornaments with a string handle (items/ornament_box.yaml).
+
+name: ornament_box
+tags: [decor.christmas]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  box:
+    primitive: cube
+    size: [0.36, 0.18, 0.28]
+    anchor: bottom_center
+    bevel: 0.006
+    material: cardboard
+    collider: none
+  handle:
+    primitive: cube
+    size: [0.02, 0.12, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.18, 0]
+    bevel: 0
+    material: cardboard
+    collider: none

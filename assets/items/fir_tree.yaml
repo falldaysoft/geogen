@@ -1,0 +1,6 @@
+# A netted fir tree on its way indoors (christmas_tree.yaml's stand takes it).
+kind: item
+title: Fir tree
+tags: [christmas]
+body: fir_bundle.yaml
+held: {offset: [0, 0.05, 0.02], rotation: [115, 0, 0]}                             # by the trunk, the tip trailing behind

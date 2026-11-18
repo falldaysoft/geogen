@@ -1,0 +1,23 @@
+# A fir tree wrapped in netting for the journey home: what is carried in (items/fir_tree.yaml).
+# Origin at the cut end of the trunk, the tip up.
+
+name: fir_bundle
+tags: [decor.christmas]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+parts:
+  trunk:
+    primitive: cylinder
+    size: [0.07, 0.3, 0.07]
+    anchor: bottom_center
+    material: bark
+    collider: none
+  boughs:
+    primitive: cone
+    size: [0.42, 1.65, 0.42]
+    anchor: bottom_center
+    offset: [0, 0.25, 0]
+    material: foliage_pine
+    collider: none
