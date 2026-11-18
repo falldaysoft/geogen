@@ -11,8 +11,8 @@ on a bare checkout. Links that leave the catalogue (an asset's YAML source)
 point at the repository on GitHub (``--repo``, ``--ref``).
 
 With ``OUT_DIR/models`` (``docs/make_models.py``), the Three.js viewer in
-runtime/web goes in at ``view/`` and each asset page's picture opens the
-model in it. With web builds of the runtime at ``OUT_DIR/play/`` and
+runtime/web goes in at ``view/``, each asset page's picture opens the model in
+it and the scenes page links the scenes exported for walking through. With web builds of the runtime at ``OUT_DIR/play/`` and
 ``OUT_DIR/play/<project>/`` (``runtime/godot/tools/export_web.py``, each with
 a ``build.json``), the index lists them under "Play in the browser".
 
@@ -165,6 +165,7 @@ class Site:
         self.play = False
         self.builds: list[tuple[str, dict]] = []     # (href, build.json) of the web builds at play/
         self.models: set[str] = set()
+        self.scenes: list[str] = []                  # exported for the viewer (models/index.json)
 
     # -- links -----------------------------------------------------------------------------
 
@@ -303,6 +304,10 @@ class Site:
                     + '<input class="filter" type="search" placeholder="Filter assets (press /)" '
                     'aria-label="Filter assets by name">\n<p class="empty" hidden>No asset matches.</p>\n' + body[first:])
             extra = f"<script>{FILTER_JS}</script>"
+        elif page == "scenes.md" and self.scenes:
+            first = body.find("<h2")
+            first = first if first >= 0 else len(body)
+            body = body[:first] + self.walk_section() + body[first:]
         elif page.startswith("assets/"):
             body = f'<p class="crumb"><a href="{root}index.html">Assets</a> /</p>\n' + body
             name = page[len("assets/"):-3]
@@ -331,6 +336,13 @@ class Site:
         return (f'<h2 id="play">Play in the browser</h2>\n<p>The Godot runtime, built for the web, with scenes packed in '
                 f'(WASD to walk, E to interact, F6 lists the scenes).</p>\n<ul class="play">\n{items}</ul>\n')
 
+    def walk_section(self) -> str:
+        """The scenes the 3D viewer can walk through, for the scenes page."""
+        items = "".join(f'<li><a href="{VIEW[0]}?s={html.escape(name)}&amp;walk=1">{html.escape(name)}</a></li>\n'
+                        for name in self.scenes)
+        return ('<h2 id="walk-through">Walk through in the browser</h2>\n<p>These scenes open in the 3D viewer: '
+                f'WASD to walk, E to use doors and switches, N for night.</p>\n<ul class="walk">\n{items}</ul>\n')
+
     @staticmethod
     def view_button(body: str, name: str, root: str) -> str:
         """The asset's picture as a button that swaps itself for the 3D viewer, and a link to the full viewer."""
@@ -352,7 +364,9 @@ class Site:
                        if (info.parent / "index.html").exists()]
         index = out / "models" / "index.json"
         if index.is_file():                                      # docs/make_models.py, also run first
-            self.models = set(json.loads(index.read_text())["assets"])
+            listed = json.loads(index.read_text())
+            self.models = set(listed["assets"])
+            self.scenes = listed.get("scenes", [])
             shutil.copytree(WEB_VIEWER, out / VIEW[0], dirs_exist_ok=True)
         count = 0
         for md in sorted(self.source.rglob("*.md")):

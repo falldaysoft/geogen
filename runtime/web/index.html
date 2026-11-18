@@ -17,16 +17,31 @@
 <div class="bar">
   <a class="back" href="../index.html">Catalogue</a>
   <select id="model" aria-label="Model"></select>
-  <span id="status" class="status"></span>
+  <span class="modes">
+    <button id="walk" type="button" aria-pressed="false" hidden>Walk</button>
+    <button id="night" type="button" aria-pressed="false" hidden>Night</button>
+    <button id="cutaway" type="button" aria-pressed="false" hidden>Cutaway</button>
+    <button id="explore-toggle" type="button" aria-pressed="false" hidden>Explore</button>
+  </span>
+  <span id="status" class="status" role="status"></span>
 </div>
+<aside id="explore" class="explore" aria-label="Explore the scene" hidden>
+  <section id="rooms-section" hidden><h2>Rooms</h2><ul id="rooms"></ul></section>
+  <section id="lights-section" hidden><h2>Lights</h2><ul id="lights"></ul></section>
+  <section id="tags-section" hidden><h2>Tags</h2><ul id="tags"></ul></section>
+</aside>
 <div id="actions" class="actions" hidden></div>
 <aside id="info" class="info" hidden>
-  <button class="close" aria-label="Close">×</button>
+  <button class="close" type="button" aria-label="Close">×</button>
   <h2 id="info-name"></h2>
   <p id="info-path" class="path"></p>
-  <pre id="info-extras"></pre>
+  <dl id="info-facts" class="facts"></dl>
+  <div id="info-uses" class="uses"></div>
+  <details id="info-raw"><summary>extras.geogen</summary><pre id="info-extras"></pre></details>
 </aside>
-<p class="hint">Drag to orbit · right-drag to pan · scroll to zoom · click a part to inspect it</p>
+<div id="reticle" class="reticle" hidden></div>
+<p id="prompt" class="prompt" hidden></p>
+<p id="hint" class="hint"></p>
 <script type="module" src="viewer.js"></script>
 </body>
 </html>
