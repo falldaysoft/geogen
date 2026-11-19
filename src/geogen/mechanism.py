@@ -58,6 +58,8 @@ import numpy as np
 
 from .core.node import SceneNode
 from .layout.interactions import _axis
+from .fields import known_keys, number
+from .physics import parse_damping
 
 KEYS = {"bodies": "{name: {parts, mass, friction, bounce, damping, joint}}: the rigid bodies"}
 BODY_KEYS = {
@@ -106,9 +108,7 @@ def parse_mechanism(spec: Any, root: SceneNode, parts: dict[str, SceneNode], nam
         where = f"{name}: mechanism body '{bname}'"
         if not isinstance(bspec, dict):
             raise ValueError(f"{where} is {{{', '.join(BODY_KEYS)}}}, got {bspec!r}")
-        unknown = set(bspec) - set(BODY_KEYS)
-        if unknown:
-            raise ValueError(f"{where}: unknown keys {sorted(unknown)}; known: {sorted(BODY_KEYS)}")
+        known_keys(bspec, BODY_KEYS, f"{where}")
         listed = bspec.get("parts")
         listed = [listed] if isinstance(listed, str) else [str(p) for p in (listed or [])]
         if not listed:
@@ -141,19 +141,15 @@ def parse_mechanism(spec: Any, root: SceneNode, parts: dict[str, SceneNode], nam
                 nodes.append(copy)
             body: dict[str, Any] = {
                 "nodes": nodes,
-                "mass": float(bspec.get("mass", 100.0)),
-                "friction": float(bspec.get("friction", 0.8)),
-                "bounce": float(bspec.get("bounce", 0.0)),
+                "mass": number(bspec, "mass", 100.0, where),
+                "friction": number(bspec, "friction", 0.8, where),
+                "bounce": number(bspec, "bounce", 0.0, where),
             }
             if body["mass"] <= 0:
                 raise ValueError(f"{where}: mass must be positive")
             damping = bspec.get("damping")
             if damping is not None:
-                if not isinstance(damping, dict) or set(damping) - {"linear", "angular"}:
-                    raise ValueError(f"{where}: damping is {{linear, angular}}, got {damping!r}")
-                body["damping"] = {k: float(damping.get(k, 0.0)) for k in ("linear", "angular")}
-                if min(body["damping"].values()) < 0:
-                    raise ValueError(f"{where}: damping can't be negative")
+                body["damping"] = parse_damping(damping, where)
             if bspec.get("joint") is not None:
                 body["joint"] = _parse_joint(bspec["joint"], where, parts, root_inv, resolve_anchor, suffix)
                 turn = parts[copies[0]].meta.get("array_turn") if suffix else None
@@ -226,9 +222,7 @@ def _parse_joint(jspec: Any, where: str, parts: dict[str, SceneNode], root_inv: 
     """``suffix``: an arrayed body's copy (``_3``): a ``<part>.<anchor>`` pivot names that copy's part."""
     if not isinstance(jspec, dict):
         raise ValueError(f"{where}: joint is {{{', '.join(JOINT_KEYS)}}}, got {jspec!r}")
-    unknown = set(jspec) - set(JOINT_KEYS)
-    if unknown:
-        raise ValueError(f"{where}: joint: unknown keys {sorted(unknown)}; known: {sorted(JOINT_KEYS)}")
+    known_keys(jspec, JOINT_KEYS, f"{where}: joint")
     kind = str(jspec.get("type", "hinge"))
     if kind not in JOINT_TYPES:
         raise ValueError(f"{where}: joint type is {', '.join(JOINT_TYPES)}, got {kind!r}")

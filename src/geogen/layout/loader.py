@@ -38,6 +38,7 @@ from .schema import JOINT_KEYS
 from .validation import suggest, validate_asset_yaml, pre_validate_asset_references
 from .yaml_utils import safe_load, safe_load_path
 from ..core.transform import transform_points
+from ..fields import known_keys
 
 logger = logging.getLogger("geogen.layout")
 
@@ -802,9 +803,7 @@ LIGHT_AUTO = {None, "night"}     # night: on after dark (runtimes' world clock),
 
 def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
     """Normalise an asset's ``light:`` block (omni light; ``offset`` metres from the asset origin)."""
-    unknown = set(spec) - set(LIGHT_DEFAULTS)
-    if unknown:
-        raise ValueError(f"light: unknown keys {sorted(unknown)}; known: {sorted(LIGHT_DEFAULTS)}")
+    known_keys(spec, LIGHT_DEFAULTS, "light")
     light = {**LIGHT_DEFAULTS, **spec}
     if light["type"] != "omni":
         raise ValueError("light: only type omni is supported")
@@ -911,10 +910,7 @@ def _expand_arrays(parts: dict[str, Any]) -> dict[str, Any]:
         if spec is None:
             out[name] = part
             continue
-        unknown = set(spec) - {"count", "step", "turn", "axis", "about", "upright"}
-        if unknown:
-            raise ValueError(f"Part '{name}' array: unknown keys {sorted(unknown)} "
-                             f"(count, step, turn, axis, about, upright)")
+        known_keys(spec, {"count", "step", "turn", "axis", "about", "upright"}, f"Part '{name}' array")
         if any(p.get("attach_to") == name for p in parts.values()):
             raise ValueError(f"Part '{name}' is arrayed: other parts can't attach_to it")
         count = int(round(float(spec.get("count", 1))))
@@ -1011,9 +1007,7 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
     """
     from ..npc import _range, approach_point, load_actions
 
-    unknown = set(spec) - AFFORDANCE_KEYS
-    if unknown:
-        raise ValueError(f"affordance: unknown keys {sorted(unknown)}; known: {sorted(AFFORDANCE_KEYS)}")
+    known_keys(spec, AFFORDANCE_KEYS, "affordance")
     kind = spec.get("type")
     if kind not in AFFORDANCE_TYPES:
         raise ValueError(f"affordance type must be one of {AFFORDANCE_TYPES}, got {kind!r}")
@@ -1216,9 +1210,7 @@ def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
     crease = None
     if sub is not None:
         spec = sub if isinstance(sub, dict) else {"levels": sub}
-        unknown = set(spec) - {"levels", "crease"}
-        if unknown:
-            raise ValueError(f"Part '{part_name}' subdivide: unknown keys {sorted(unknown)} (levels, crease)")
+        known_keys(spec, {"levels", "crease"}, f"Part '{part_name}' subdivide")
         crease = float(spec["crease"]) if spec.get("crease") is not None else None
         levels = int(spec.get("levels", 1))
         if detail != 1.0 and levels > 0:
@@ -1232,11 +1224,7 @@ def _smooth_part(mesh, part_def: dict, detail: float, part_name: str):
     disp = part_def.get("displace")
     directions = None
     if disp is not None:
-        unknown = set(disp) - {"amplitude", "scale", "octaves", "seed", "ridged"}
-        if unknown:
-            raise ValueError(
-                f"Part '{part_name}' displace: unknown keys {sorted(unknown)} (amplitude, scale, octaves, seed, ridged)"
-            )
+        known_keys(disp, {"amplitude", "scale", "octaves", "seed", "ridged"}, f"Part '{part_name}' displace")
         # Project UVs by the undisplaced shape's normals: clean seams, no noise islands.
         base = subdiv.subdivide(mesh, 0)   # position-welded, same faces as the displaced result
         directions = meshops.face_normals(base.vertices, base.faces)[0]

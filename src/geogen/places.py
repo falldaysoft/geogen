@@ -39,6 +39,7 @@ import numpy as np
 
 from .core.node import SceneNode
 from .core.transform import Transform
+from .fields import known_keys
 
 TYPE = "place"
 SHAPES = ("box", "polygon", "around")
@@ -90,9 +91,7 @@ def build_places(root: SceneNode, spec: Any, where: str,
         at = f"{where}: place '{name}'"
         if not isinstance(entry, dict):
             raise ValueError(f"{at} must be {{box | polygon | around, ...}}")
-        unknown = set(entry) - set(known or PLACE_KEYS)
-        if unknown:
-            raise ValueError(f"{at}: unknown keys {sorted(unknown)}; known: {sorted(known or PLACE_KEYS)}")
+        known_keys(entry, known or PLACE_KEYS, f"{at}")
         shapes = [k for k in SHAPES if k in entry]
         if len(shapes) != 1:
             raise ValueError(f"{at} needs exactly one of {', '.join(SHAPES)}" + (f", got {shapes}" if shapes else ""))

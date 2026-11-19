@@ -33,6 +33,7 @@ import numpy as np
 from . import roots
 from .core.node import SceneNode
 from .layout.yaml_utils import load_kind, safe_load_path
+from .fields import known_keys
 
 ASSETS_DIR = roots.CORE
 STIMULI_KIND = "npc_stimuli"
@@ -334,9 +335,7 @@ def parse_actions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         raise ValueError(f"npc actions: expected kind '{ACTIONS_KIND}' version {VERSION}")
     actions = {}
     for name, spec in (data.get("actions") or {}).items():
-        unknown = set(spec) - {"steps", "approach", "duration", "interruptible"}
-        if unknown:
-            raise ValueError(f"action '{name}': unknown keys {sorted(unknown)}")
+        known_keys(spec, {"steps", "approach", "duration", "interruptible"}, f"action '{name}'")
         if spec.get("interruptible", False) not in (True, False):
             raise ValueError(f"action '{name}': interruptible is true or false")
         steps = [_check_step(s, f"action '{name}' step {i}") for i, s in enumerate(spec.get("steps") or [])]
@@ -455,9 +454,7 @@ def parse_poses(spec: dict[str, Any]) -> dict[str, dict[str, list[float]]]:
     poses = {}
     for name, pose in (spec or {}).items():
         pose = pose or {}
-        unknown = set(pose) - POSE_KEYS
-        if unknown:
-            raise ValueError(f"pose '{name}': unknown keys {sorted(unknown)}; known: {sorted(POSE_KEYS)}")
+        known_keys(pose, POSE_KEYS, f"pose '{name}'")
         poses[name] = {
             "offset": _vec3(pose.get("offset", [0, 0, 0]), f"pose '{name}': offset"),
             "rotation": _vec3(pose.get("rotation", [0, 0, 0]), f"pose '{name}': rotation"),
@@ -481,9 +478,7 @@ def parse_portal(spec: dict[str, Any], interactions: list, parts: dict | None = 
     the handle on its side to open the door, and on the side the leaf swings away from stands
     close enough to hold it as it opens.
     """
-    unknown = set(spec) - PORTAL_KEYS
-    if unknown:
-        raise ValueError(f"portal: unknown keys {sorted(unknown)}; known: {sorted(PORTAL_KEYS)}")
+    known_keys(spec, PORTAL_KEYS, "portal")
     name = spec.get("interaction")
     found = next((i for i in interactions if i.name == name), None)
     if found is None:
@@ -601,9 +596,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         action = spec.get("action", name)
         if action not in actions:
             raise ValueError(f"{path}: activity {name}: unknown action {action!r}")
-        unknown = set(spec) - set(ACTIVITY_KEYS)
-        if unknown:
-            raise ValueError(f"{path}: activity {name}: unknown keys {sorted(unknown)} (keys: {sorted(ACTIVITY_KEYS)})")
+        known_keys(spec, ACTIVITY_KEYS, f"{path}: activity {name}")
         activity = {"action": action, "advertises": _advertises(spec.get("advertises"), needs, f"{path}: {name}")}
         if "duration" in spec:
             activity["duration"] = _range(spec["duration"], f"{path}: {name}: duration")
@@ -764,9 +757,7 @@ def _social(offers: Any, relations: Any, actions: dict, needs: dict, where: str)
         return {}
     if not isinstance(offers or {}, dict) or not isinstance(relations or {}, dict):
         raise ValueError(f"{where}: offers is {{name: {{{', '.join(OFFER_KEYS)}}}}}, relations {{{', '.join(RELATION_DEFAULTS)}}}")
-    unknown = set(relations or {}) - set(RELATION_DEFAULTS)
-    if unknown:
-        raise ValueError(f"{where}: relations: unknown keys {sorted(unknown)} (keys: {sorted(RELATION_DEFAULTS)})")
+    known_keys(relations or {}, RELATION_DEFAULTS, f"{where}: relations")
     known = {**RELATION_DEFAULTS, **{k: float(v) for k, v in (relations or {}).items()}}
     if any(not 0.0 <= known[k] <= 1.0 for k in known):
         raise ValueError(f"{where}: relations are 0..1, got {relations!r}")
@@ -928,9 +919,7 @@ def parse_attention(value: Any, actions: dict, where: str) -> dict[str, Any]:
         if spec is False:
             continue
         spec = {} if spec is True else spec
-        unknown = set(spec) - set(defaults)
-        if unknown:
-            raise ValueError(f"{where}: {part}: unknown keys {sorted(unknown)}")
+        known_keys(spec, defaults, f"{where}: {part}")
         merged = {**defaults, **spec}
         for k, v in merged.items():
             merged[k] = v if isinstance(defaults[k], str) else (_range(v, f"{where}: {part}.{k}")

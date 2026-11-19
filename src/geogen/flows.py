@@ -42,6 +42,7 @@ from typing import Any
 import numpy as np
 
 from .core.node import SceneNode
+from .fields import integer, known_keys, number
 
 META = "flows"
 ITEM_META = "item"
@@ -143,8 +144,8 @@ def load_item(path: str | Path) -> dict[str, Any]:
         "mode": mode,
         "body": {"asset": body["asset"], "params": dict(body.get("params") or {})},
         "data": {str(k): v for k, v in data.items()},
-        "lifetime": float(spec.get("lifetime", 0.0)),
-        "stuck": float(spec.get("stuck", 10.0)),
+        "lifetime": number(spec, "lifetime", 0.0, where, FlowError),
+        "stuck": number(spec, "stuck", 10.0, where, FlowError),
     }
     for key in ("speed", "radius"):
         if key in spec:
@@ -185,9 +186,7 @@ def parse_source(spec: Any, root: SceneNode, name: str) -> dict[str, Any]:
     attaches their templates, ``attach_templates``)."""
     if not isinstance(spec, dict):
         raise FlowError(f"{name}: source is {{{', '.join(SOURCE_KEYS)}}}, got {spec!r}")
-    unknown = set(spec) - set(SOURCE_KEYS)
-    if unknown:
-        raise FlowError(f"{name}: source: unknown keys {sorted(unknown)}; known: {sorted(SOURCE_KEYS)}")
+    known_keys(spec, SOURCE_KEYS, f"{name}: source", FlowError)
     items = spec.get("items")
     waves = spec.get("waves")
     if isinstance(items, str):
@@ -203,12 +202,12 @@ def parse_source(spec: Any, root: SceneNode, name: str) -> dict[str, Any]:
         raise FlowError(f"{name}: source items is an item file or [{{item, weight}}]")
     out: dict[str, Any] = {
         "items": [{"item": i["item"], "weight": float(i.get("weight", 1.0))} for i in items],
-        "rate": float(spec.get("rate", 1.0)),
-        "max_alive": int(spec.get("max_alive", 10)),
-        "count": int(spec.get("count", 0)),
+        "rate": number(spec, "rate", 1.0, f"{name}: source", FlowError),
+        "max_alive": integer(spec, "max_alive", 10, f"{name}: source", FlowError),
+        "count": integer(spec, "count", 0, f"{name}: source", FlowError),
         "initial": str(spec.get("initial", "running")),
-        "seed": int(spec.get("seed", 0)),
-        "spread": float(spec.get("spread", 0.0)),
+        "seed": integer(spec, "seed", 0, f"{name}: source", FlowError),
+        "spread": number(spec, "spread", 0.0, f"{name}: source", FlowError),
     }
     if out["initial"] not in ("running", "stopped"):
         raise FlowError(f"{name}: source initial is running or stopped, got {out['initial']!r}")
@@ -332,15 +331,13 @@ def parse_effector(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode],
     """Normalise an asset's ``effector:`` block."""
     if not isinstance(spec, dict):
         raise FlowError(f"{name}: effector is {{{', '.join(EFFECTOR_KEYS)}}}, got {spec!r}")
-    unknown = set(spec) - set(EFFECTOR_KEYS)
-    if unknown:
-        raise FlowError(f"{name}: effector: unknown keys {sorted(unknown)}; known: {sorted(EFFECTOR_KEYS)}")
+    known_keys(spec, EFFECTOR_KEYS, f"{name}: effector", FlowError)
     effect = spec.get("effect", {"damage": 1})
     if not isinstance(effect, dict) or len(effect) != 1 or not ({"damage", "take"} & set(effect)):
         raise FlowError(f"{name}: effector effect is {{damage: n}} or {{take: true}}, got {effect!r}")
     out: dict[str, Any] = {
-        "range": float(spec.get("range", 5.0)),
-        "rate": float(spec.get("rate", 1.0)),
+        "range": number(spec, "range", 5.0, f"{name}: effector", FlowError),
+        "rate": number(spec, "rate", 1.0, f"{name}: effector", FlowError),
         "targets": str(spec.get("targets", "first")),
         "accepts": [str(a) for a in spec.get("accepts", [])],
         "effect": {"damage": float(effect["damage"])} if "damage" in effect else {"take": True},
@@ -492,9 +489,7 @@ def parse_track(spec: Any, name: str, scene: bool = False) -> dict[str, Any]:
     keys = SCENE_TRACK_KEYS if scene else TRACK_KEYS
     if not isinstance(spec, dict):
         raise FlowError(f"{name}: a track is {{{', '.join(keys)}}}, got {spec!r}")
-    unknown = set(spec) - set(keys)
-    if unknown:
-        raise FlowError(f"{name}: track: unknown keys {sorted(unknown)}; known: {sorted(keys)}")
+    known_keys(spec, keys, f"{name}: track", FlowError)
     loop = bool(spec.get("loop", False))
     path = spec.get("path")
     if isinstance(path, dict) and "spline" in path:
@@ -515,11 +510,11 @@ def parse_track(spec: Any, name: str, scene: bool = False) -> dict[str, Any]:
     if end not in TRACK_ENDS:
         raise FlowError(f"{name}: track end is one of {', '.join(TRACK_ENDS)}, got {end!r}")
     out = {"points": [[round(float(v), 4) for v in p] for p in points], "length": round(length, 4),
-           "speed": float(spec.get("speed", 1.0)), "spacing": float(spec.get("spacing", 0.0)),
+           "speed": number(spec, "speed", 1.0, f"{name}: track", FlowError), "spacing": number(spec, "spacing", 0.0, f"{name}: track", FlowError),
            "mode": mode, "loop": loop, "end": "stop" if loop else end,
            "accepts": [str(a) for a in spec.get("accepts", [])]}
     if mode == "roll":
-        out["damping"] = float(spec.get("damping", 0.1))
+        out["damping"] = number(spec, "damping", 0.1, f"{name}: track", FlowError)
     if out["speed"] < 0 or (out["speed"] == 0 and mode != "roll"):
         raise FlowError(f"{name}: track speed must be positive")
     return out

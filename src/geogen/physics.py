@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 
 from .core.node import SceneNode
+from .fields import block, known_keys, number
 
 KEYS = {
     "mass": "kg (default 10)",
@@ -42,19 +43,26 @@ SPAWN = "spawn"
 STATES = ("stowed", "live")
 
 
+def parse_damping(spec: Any, where: str) -> dict[str, float]:
+    """A body's ``damping: {linear, angular}`` (per second, 0 when left out)."""
+    block(spec, ("linear", "angular"), f"{where} damping")
+    out = {k: number(spec, k, 0.0, f"{where} damping") for k in ("linear", "angular")}
+    if min(out.values()) < 0:
+        raise ValueError(f"{where} damping can't be negative")
+    return out
+
+
 def parse_physics(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode], name: str) -> dict[str, Any]:
     """Normalise an asset's ``physics:`` block; the box comes from the asset's geometry."""
     if spec is True:
         spec = {}
     if not isinstance(spec, dict):
         raise ValueError(f"{name}: physics is {{{', '.join(KEYS)}}}, got {spec!r}")
-    unknown = set(spec) - set(KEYS)
-    if unknown:
-        raise ValueError(f"{name}: physics: unknown keys {sorted(unknown)}; known: {sorted(KEYS)}")
+    known_keys(spec, KEYS, f"{name}: physics")
     out: dict[str, Any] = {
-        "mass": float(spec.get("mass", 10.0)),
-        "friction": float(spec.get("friction", 0.8)),
-        "bounce": float(spec.get("bounce", 0.0)),
+        "mass": number(spec, "mass", 10.0, f"{name}: physics"),
+        "friction": number(spec, "friction", 0.8, f"{name}: physics"),
+        "bounce": number(spec, "bounce", 0.0, f"{name}: physics"),
         "carry": bool(spec.get("carry", False)),
     }
     if out["mass"] <= 0:
@@ -76,11 +84,7 @@ def parse_physics(spec: Any, root: SceneNode, part_nodes: dict[str, SceneNode], 
         out.update(shape="capsule", radius=round(radius, 6), height=round(max(float(size[1]), 2 * radius), 6))
     damping = spec.get("damping")
     if damping is not None:
-        if not isinstance(damping, dict) or set(damping) - {"linear", "angular"}:
-            raise ValueError(f"{name}: physics damping is {{linear, angular}}, got {damping!r}")
-        out["damping"] = {k: float(damping.get(k, 0.0)) for k in ("linear", "angular")}
-        if min(out["damping"].values()) < 0:
-            raise ValueError(f"{name}: physics damping can't be negative")
+        out["damping"] = parse_damping(damping, f"{name}: physics")
     spawn = spec.get("spawn")
     if spawn is not None and str(spawn):
         initial = str(spec.get("initial", "stowed"))

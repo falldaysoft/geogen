@@ -27,6 +27,7 @@ from typing import Any
 import numpy as np
 
 from .core.node import SceneNode
+from .fields import choice, known_keys, number
 
 CLASSES = {"car", "van", "bus", "truck", "loco", "carriage"}
 KEYS = {"class", "wheels", "steer", "paint", "lamps", "bogies", "couplers", "max_speed", "turn_radius",
@@ -81,12 +82,8 @@ def parse_sound(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_vehicle(spec: dict[str, Any], root: SceneNode, parts: dict[str, SceneNode]) -> dict[str, Any]:
-    unknown = set(spec) - KEYS
-    if unknown:
-        raise ValueError(f"vehicle: unknown keys {sorted(unknown)}; known: {sorted(KEYS)}")
-    cls = spec.get("class", "car")
-    if cls not in CLASSES:
-        raise ValueError(f"vehicle: class must be one of {sorted(CLASSES)}, got {cls!r}")
+    known_keys(spec, KEYS, "vehicle")
+    cls = choice(spec, "class", "car", sorted(CLASSES), "vehicle")
     out: dict[str, Any] = {"class": cls}
 
     wheels = []
@@ -140,8 +137,8 @@ def parse_vehicle(spec: dict[str, Any], root: SceneNode, parts: dict[str, SceneN
     if "sound" in spec:
         out["sound"] = parse_sound(spec["sound"])
     max_speed, turn_radius = DEFAULTS[cls]
-    out["max_speed"] = float(spec.get("max_speed", max_speed))
-    out["turn_radius"] = float(spec.get("turn_radius", turn_radius))
+    out["max_speed"] = number(spec, "max_speed", max_speed, "vehicle")
+    out["turn_radius"] = number(spec, "turn_radius", turn_radius, "vehicle")
     for key, default in (("accel", 2.0), ("decel", 4.0)):
         out[key] = float(spec.get(key, default))
     return out

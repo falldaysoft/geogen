@@ -19,6 +19,7 @@ import re
 from typing import Any
 
 from .core.node import SceneNode
+from .fields import block, choice
 
 META = "atmosphere"
 
@@ -88,11 +89,8 @@ def _color(value: Any, where: str) -> list[float]:
 
 def resolve(spec: dict[str, Any], where: str = "atmosphere") -> dict[str, Any]:
     """The block's preset overlaid by its overrides, checked, as the manifest carries it."""
-    if not isinstance(spec, dict) or set(spec) - set(KEYS):
-        raise AtmosphereError(f"{where}: atmosphere is {{{', '.join(KEYS)}}}, got {spec!r}")
-    preset = spec.get("preset", "clear")
-    if preset not in PRESETS:
-        raise AtmosphereError(f"{where}: preset is one of {', '.join(PRESETS)}, got {preset!r}")
+    block(spec, KEYS, where, AtmosphereError)
+    preset = choice(spec, "preset", "clear", PRESETS, where, AtmosphereError)
     out: dict[str, Any] = {"preset": preset, **{k: (dict(v) if isinstance(v, dict) else v)
                                                 for k, v in PRESETS[preset].items()}}
     for key, value in spec.items():
@@ -105,8 +103,7 @@ def resolve(spec: dict[str, Any], where: str = "atmosphere") -> dict[str, Any]:
         elif key in COLOR_KEYS:
             out[key] = _color(value, f"{where}.{key}")
         elif key == "sky":
-            if not isinstance(value, dict) or set(value) - set(SKY_KEYS):
-                raise AtmosphereError(f"{where}.sky: {{{', '.join(SKY_KEYS)}}}, got {value!r}")
+            block(value, SKY_KEYS, f"{where}.sky", AtmosphereError)
             out["sky"] = {**out["sky"], **{k: _color(v, f"{where}.sky.{k}") for k, v in value.items()}}
         else:
             lo, hi = RANGES[key]

@@ -43,6 +43,7 @@ from .core.ik import LIMBS, solve_limb
 from .core.node import SceneNode
 from .core.skeleton import Pose, Skeleton
 from .core.transform import Transform, matrix_from_quat, quat_from_matrix, slerp
+from .fields import known_keys
 
 MOTION_KIND = "motion"
 # Grips that are not a hand holding the thing: `grip: any` on a role takes the first other one.
@@ -235,9 +236,7 @@ def write_motions(generated: Path, assets_dir: Path | None = None) -> Path:
 def validate_motion(spec: dict, where: str = "motion") -> None:
     """Raise ``MotionError`` for unknown keys, unknown beats, and holds or interrupts that aren't
     one of the vocabulary."""
-    unknown = set(spec) - set(MOTION_KEYS)
-    if unknown:
-        raise MotionError(f"{where}: unknown keys {sorted(unknown)} (known: {sorted(MOTION_KEYS)})")
+    known_keys(spec, MOTION_KEYS, f"{where}", MotionError)
     if spec.get("category", "action") not in CATEGORIES:
         raise MotionError(f"{where}: category '{spec['category']}' is not one of {CATEGORIES}")
     for i, entry in enumerate(spec.get("demo") or []):
@@ -261,9 +260,7 @@ def validate_motion(spec: dict, where: str = "motion") -> None:
         if strength not in (*STRENGTHS, "share"):
             raise MotionError(f"{where}: holds.{strength}: expected require, claim, prefer or share")
     for name, beat in beats.items():
-        unknown = set(beat or {}) - set(BEAT_KEYS)
-        if unknown:
-            raise MotionError(f"{where}: beat '{name}': unknown keys {sorted(unknown)} (known: {sorted(BEAT_KEYS)})")
+        known_keys(beat or {}, BEAT_KEYS, f"{where}: beat '{name}'", MotionError)
         for key in ("then", "exit", "resume"):
             target = (beat or {}).get(key)
             if target is not None and target != "done" and target not in beats:

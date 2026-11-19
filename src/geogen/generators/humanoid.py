@@ -58,6 +58,7 @@ from .hair import build_sculpted_hair
 from .hand import build_hand
 from .head import SHAPE_DEFAULTS, HeadShape, build_head, sdf_normals
 from .ringloft import Chain, Ring, Span, _signed_volume, loft_body, mirror_mesh
+from ..fields import known_keys
 
 CHAIN_KEYS = {"bones", "end", "mirror", "sides", "spacing", "blend", "front", "caps", "bind", "weight_shift",
               "rings", "cap_rings", "joint_rings", "joint_blend", "hem", "root", "samples"}
@@ -103,9 +104,7 @@ def _ring(spec, where: str) -> Ring:
 
 
 def parse_chain(name: str, spec: dict, skeleton: Skeleton) -> Chain:
-    unknown = set(spec) - CHAIN_KEYS
-    if unknown:
-        raise ValueError(f"chain '{name}': unknown keys {sorted(unknown)}")
+    known_keys(spec, CHAIN_KEYS, f"chain '{name}'")
     bones = [str(b) for b in spec["bones"]]
     missing = [b for b in bones if b not in skeleton.bones]
     if missing:
@@ -178,9 +177,7 @@ def face_material(spec: dict, skin):
     x0, y0, x1, y1 = (float(v) for v in spec["box"])
     # Paint in true proportions; to 0.05, so faces still share a texture across heights.
     params["aspect"] = round((y1 - y0) / (x1 - x0) * 20) / 20
-    unknown = set(spec) - FACE_KEYS
-    if unknown:
-        raise ValueError(f"face: unknown keys {sorted(unknown)}")
+    known_keys(spec, FACE_KEYS, "face")
     if "eye_color" in params:
         params["eye_color"] = _color(params["eye_color"], EYE_COLORS, "eye colour")
     for key in ("brow_color", "lip_color"):
@@ -255,9 +252,7 @@ def load_garment(assets_dir: Path, name: str, params: dict) -> dict:
     spec = safe_load_path(path)
     if spec.get("kind") != "garment":
         raise ValueError(f"{path}: expected kind 'garment'")
-    unknown = set(spec) - GARMENT_KEYS
-    if unknown:
-        raise ValueError(f"{path}: unknown keys {sorted(unknown)}")
+    known_keys(spec, GARMENT_KEYS, f"{path}")
     if spec.get("part") not in (None, *GARMENT_PARTS):
         raise ValueError(f"{path}: part '{spec['part']}' is not one of {list(GARMENT_PARTS)}")
     return resolve_value(spec, params)
@@ -962,9 +957,7 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
                     sculpted(sole, entry["sole"])
     hands = None
     if spec.get("hands"):
-        unknown = set(spec["hands"]) - HAND_KEYS
-        if unknown:
-            raise ValueError(f"'{name}': body.hands: unknown keys {sorted(unknown)} (known: {sorted(HAND_KEYS)})")
+        known_keys(spec["hands"], HAND_KEYS, f"'{name}': body.hands")
         wrist = tuple(float(r) for r in spec["hands"].get("wrist", (0.02, 0.028)))
         left, hands = build_hand(skeleton, float(spec["hands"].get("size", 1.0)), wrist)
         for hand_mesh in (left, mirror_mesh(left, skeleton)):

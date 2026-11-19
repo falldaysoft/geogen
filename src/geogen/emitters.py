@@ -33,6 +33,7 @@ import numpy as np
 
 from .core.node import SceneNode
 from .layout.anchors import resolve_anchor
+from .fields import known_keys
 
 MATERIALS = ("droplet", "soft", "streak", "glow")
 # More live particles than this from one emitter is a mistake (or wants a texture instead).
@@ -52,9 +53,7 @@ SOUND_DEFAULTS: dict[str, Any] = {
 def _known(spec: Any, defaults: dict[str, Any], key: str, part: str) -> dict[str, Any]:
     if not isinstance(spec, dict):
         raise ValueError(f"part '{part}': {key} is a mapping of {sorted(defaults)}, got {spec!r}")
-    unknown = set(spec) - set(defaults)
-    if unknown:
-        raise ValueError(f"part '{part}': {key}: unknown keys {sorted(unknown)}; known: {sorted(defaults)}")
+    known_keys(spec, defaults, f"part '{part}': {key}")
     return {**defaults, **spec}
 
 

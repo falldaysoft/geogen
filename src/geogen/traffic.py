@@ -36,6 +36,7 @@ import numpy as np
 from . import roots
 from .core.node import SceneNode
 from .core.transform import transform_points
+from .fields import known_keys
 
 VERSION = 1
 STEP = 0.5                  # resampling step (m)
@@ -189,9 +190,7 @@ def pedestrian_state(signal: dict[str, Any], intersection: dict[str, Any], time:
 
 def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
     """Lanes and connectors for a CityBuilder's street grid."""
-    unknown = set(spec) - TRAFFIC_KEYS
-    if unknown:
-        raise ValueError(f"city traffic: unknown keys {sorted(unknown)}. Known: {sorted(TRAFFIC_KEYS)}")
+    known_keys(spec, TRAFFIC_KEYS, "city traffic")
     hand = 1.0 if spec.get("drive", "right") == "right" else -1.0
     per_way = int(spec.get("lanes", 1))
     avenue_per_way = int(spec.get("avenue_lanes", per_way))
@@ -406,9 +405,7 @@ def route_lanes(name: str, spec: dict[str, Any]) -> list[Lane]:
     with ``lanes: 1`` a one-way lane on the path itself)."""
     from .core.profile import catmull_rom
 
-    unknown = set(spec) - ROUTE_KEYS
-    if unknown:
-        raise ValueError(f"route '{name}': unknown keys {sorted(unknown)}. Known: {sorted(ROUTE_KEYS)}")
+    known_keys(spec, ROUTE_KEYS, f"route '{name}'")
     loop = bool(spec.get("loop", False))
     path = spec["path"]
     if isinstance(path, dict):

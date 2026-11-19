@@ -26,6 +26,7 @@ from typing import Any
 from . import conditions
 from .compiler import Compiler, ContentError, Context
 from .core.node import SceneNode
+from .fields import block
 
 META = "hud"
 KEYS = {
@@ -47,8 +48,7 @@ def declare(root: SceneNode, data: dict[str, Any], source: Any) -> None:
     if not spec:
         return
     where = f"{source}: hud" if source is not None else "hud"
-    if not isinstance(spec, dict) or set(spec) - set(KEYS):
-        raise HudError(f"{where}: hud is {{{', '.join(KEYS)}}}, got {spec!r}")
+    block(spec, KEYS, where, HudError)
     for key, keys, required in (("stats", STAT_KEYS, ("label", "value")), ("banners", BANNER_KEYS, ("when", "text"))):
         entries = spec.get(key) or []
         if not isinstance(entries, list):

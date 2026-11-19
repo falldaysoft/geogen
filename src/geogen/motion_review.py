@@ -52,6 +52,7 @@ from . import roots
 from .core.node import SceneNode
 from .core.transform import Transform
 from .motion import MotionError, MotionRig, _placement, _yaw_of, contact, load_motion
+from .fields import known_keys
 
 SCENARIO_KIND = "motion_scenario"
 SCENARIOS_DIR = "motions/scenarios"
@@ -85,9 +86,7 @@ def load_scenario(name: str | Path, assets_dir: Path | None = None) -> dict:
     spec = safe_load_path(path)
     if not isinstance(spec, dict) or spec.get("kind") != SCENARIO_KIND:
         raise MotionError(f"{path}: expected kind: {SCENARIO_KIND}")
-    unknown = set(spec) - SCENARIO_KEYS
-    if unknown:
-        raise MotionError(f"{path}: unknown keys {sorted(unknown)} (known: {sorted(SCENARIO_KEYS)})")
+    known_keys(spec, SCENARIO_KEYS, f"{path}", MotionError)
     spec.setdefault("name", path.stem)
     return spec
 

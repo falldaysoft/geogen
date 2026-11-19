@@ -411,3 +411,7 @@ Reachability starts from the ways in, not from every door. `check_layout` floods
 - Placements take `state: open` (every interaction with that state) or `state: {swing: open}`: the object starts, and is exported, in that state.
 
 `LayoutLoader.load` records `meta.source = {asset, params}` on every asset root; it isn't exported. Erosion is by radius + half a cell, so a gap exactly one body wide counts as shut.
+
+## Reading authored blocks
+
+`geogen/fields.py` is the one way to check a YAML block: `known_keys` and `block` refuse unknown keys in a single format, and `number`, `integer` and `choice` read values, reporting bad ones with the block's `where`. The key sets of nested blocks (`JOINT_KEYS`, `SCATTER_KEYS`) live in `layout/schema.py` with their meanings. A primitive is declared once in `loader._PRIMITIVES` (generator class and builder) and in `schema.PRIMITIVES` (keys and docs).

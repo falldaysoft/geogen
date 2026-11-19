@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import roots
 from .layout.yaml_utils import safe_load_path
+from .fields import known_keys
 
 SPEC_KIND = "player_spec"
 SPEC_VERSION = 1
@@ -60,9 +61,7 @@ class PlayerSpec:
         if version != SPEC_VERSION:
             raise ValueError(f"player spec: unsupported version {version}")
         known = {f.name for f in fields(cls)}
-        unknown = sorted(set(data) - known)
-        if unknown:
-            raise ValueError(f"player spec: unknown keys {unknown}")
+        known_keys(data, known, "player spec")
         return cls(**{k: float(v) for k, v in data.items()})
 
     def to_dict(self) -> dict:

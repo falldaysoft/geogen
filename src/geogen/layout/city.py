@@ -65,6 +65,7 @@ from ..core.node import SceneNode
 from ..core.profile import Shape, rect
 from ..core.transform import Transform
 from .attachments import CARDINAL_YAW
+from ..fields import known_keys
 
 KNOWN = {"seed", "blocks", "block_size", "street_width", "avenues", "avenue_width", "sidewalk", "curb_height",
          "lot_width", "landmarks", "parks", "buildings", "furniture", "corner_radius", "parking", "traffic", "exits"}
@@ -137,9 +138,7 @@ def _ring(lo, hi, width: float, radius: float, height: float) -> Mesh:
 
 class CityBuilder:
     def __init__(self, spec: dict[str, Any], load: Callable[[dict[str, Any]], SceneNode], material_loader):
-        unknown = set(spec) - KNOWN
-        if unknown:
-            raise ValueError(f"city: unknown keys {sorted(unknown)}. Known: {sorted(KNOWN)}")
+        known_keys(spec, KNOWN, "city")
         self.spec = spec
         self.load = load
         self.materials = material_loader
@@ -715,9 +714,7 @@ class CityBuilder:
             return
         from ..characters import draw_params
 
-        unknown = set(spec) - PARKING_KEYS
-        if unknown:
-            raise ValueError(f"city parking: unknown keys {sorted(unknown)}. Known: {sorted(PARKING_KEYS)}")
+        known_keys(spec, PARKING_KEYS, "city parking")
         fleet = list(spec.get("fleet") or [])
         if not fleet:
             return

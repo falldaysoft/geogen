@@ -43,6 +43,7 @@ import numpy as np
 from ..core.node import SceneNode
 from ..core.transform import Transform
 from .schema import SCATTER_KEYS
+from ..fields import known_keys
 
 KNOWN = set(SCATTER_KEYS)
 FACINGS = ("along", "back", "left", "right", "center", "outward")
@@ -238,9 +239,7 @@ def scatter(root: SceneNode, name: str, obj_def: dict[str, Any], refs, load,
     """
     spec = obj_def["scatter"]
     keys = list(keys or ["place", name, "scatter"])
-    unknown = set(spec) - KNOWN
-    if unknown:
-        raise ValueError(f"scatter '{name}': unknown keys {sorted(unknown)}. Known: {sorted(KNOWN)}")
+    known_keys(spec, KNOWN, f"scatter '{name}'")
     rng = np.random.default_rng(int(spec.get("seed", 0)))
     spacing = float(spec.get("spacing", 2.0))
     count = int(spec.get("count", 1000))

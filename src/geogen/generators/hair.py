@@ -26,6 +26,7 @@ from numpy.typing import NDArray
 from ..core.geometry import smoothstep
 from ..core.mesh import Mesh
 from .head import HeadShape, _capsule, _ellipsoid, _smax, _smin, build_head, sdf_normals
+from ..fields import known_keys
 
 SCULPT_KEYS = {"cover", "shapes", "cuts", "blend", "cut_blend", "ridges", "weights", "reach"}
 COVER_KEYS = {"front", "temple", "ear", "back", "thickness", "taper", "dive"}
@@ -47,9 +48,7 @@ class HairShape:
     """The signed-distance hair for one style on one sculpted head (head frame, metres)."""
 
     def __init__(self, head: HeadShape, spec: dict) -> None:
-        unknown = set(spec) - SCULPT_KEYS
-        if unknown:
-            raise ValueError(f"hair sculpt: unknown keys {sorted(unknown)} (known: {sorted(SCULPT_KEYS)})")
+        known_keys(spec, SCULPT_KEYS, "hair sculpt")
         self.head, self.spec, self.s = head, spec, head.s
         cover = spec.get("cover")
         if cover is not None and set(cover) - COVER_KEYS:

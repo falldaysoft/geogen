@@ -57,6 +57,7 @@ from .core.node import SceneNode
 from .emitters import initially_running
 from .flows import flow_inputs, flow_signals, flow_state, item_fields
 from .places import place_state
+from .fields import known_keys
 
 FORMAT = "geogen-state"
 VERSION = 1
@@ -125,9 +126,7 @@ def _mapping(spec: Any, source: Any, key: str, form: str) -> dict[str, Any]:
 
 
 def _known(entry: dict[str, Any], known: Iterable[str], where: str) -> None:
-    for key in entry:
-        if key not in known:
-            raise StateError(f"{where}: unknown key '{key}'.{refs.near(str(key), known)} Keys: {', '.join(sorted(known))}")
+    known_keys(entry, known, where, StateError)
 
 
 def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict[str, dict[str, Any]]:

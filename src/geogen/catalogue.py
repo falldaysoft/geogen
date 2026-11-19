@@ -23,6 +23,7 @@ from typing import Callable, Iterable
 
 from . import roots
 from .layout.yaml_utils import safe_load_path
+from .fields import known_keys
 
 CATALOGUE_PATH = roots.CORE / "runtime_scenes.yaml"
 INDEX_NAME = "catalogue.json"
@@ -91,9 +92,7 @@ def load_catalogue(path: str | Path | None = None) -> Catalogue:
     entries = {}
     for name, spec in (data.get("scenes") or {}).items():
         spec = spec or {}
-        unknown = set(spec) - {"group", "description", "stream", "lods", "keys"}
-        if unknown:
-            raise ValueError(f"{path}: scene '{name}': unknown keys {sorted(unknown)}")
+        known_keys(spec, {"group", "description", "stream", "lods", "keys"}, f"{path}: scene '{name}'")
         group = spec.get("group", "test")
         if group not in GROUPS:
             raise ValueError(f"{path}: scene '{name}': group must be one of {GROUPS}, got {group!r}")

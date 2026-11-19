@@ -29,6 +29,7 @@ from numpy.typing import NDArray
 from .. import roots
 from .node import SceneNode
 from .transform import Transform, matrices_from_quats, matrix_from_quat, quat_from_matrix
+from ..fields import known_keys
 
 SKELETONS_DIR = roots.CORE / "skeletons"
 DEFAULT_SKELETON = SKELETONS_DIR / "humanoid.yaml"
@@ -361,9 +362,7 @@ class Pose:
         for end, entry in sorted(entries.items(), key=lambda item: "on" in item[1]):
             if end not in LIMBS:
                 raise ValueError(f"pose ik: '{end}' is not an IK end (one of {sorted(LIMBS)})")
-            unknown = set(entry) - {"target", "pole", "flat", "floor", "rest", "on", "contact"}
-            if unknown:
-                raise ValueError(f"pose ik '{end}': unknown keys {sorted(unknown)}")
+            known_keys(entry, {"target", "pole", "flat", "floor", "rest", "on", "contact"}, f"pose ik '{end}'")
             target, turn = entry["target"], np.eye(3)
             if "on" in entry:
                 target, turn = self._on_bone(skeleton, entry["on"], np.asarray(target, dtype=float), end)

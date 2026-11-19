@@ -62,3 +62,5 @@ Fixtures carry `meta.light` (`{type: omni, color, energy, range, offset: [x, y, 
 ## Actions and motions
 
 `assets/npcs/actions.yaml` steps can run motion files: `do: <motion>` with `roles`, `params` and `keep`, and `use:`, `pick_up:` and `put_down:` go through motions on a body with a rig (`docs/dev/characters.md`, "Actions run motions"). The state of an interaction changes when the motion's finger or hand arrives (`pressed`), not when the NPC arrives in front of it.
+
+NPC actions and stimuli are layered: every content root's `npcs/actions.yaml` and `npcs/stimuli.yaml` are read, the core's first, so a project adds its own and replaces the ones it names again.

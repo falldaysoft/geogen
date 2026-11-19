@@ -60,3 +60,7 @@ The core data model and the per-module notes for `src/geogen/core/`, `textures/`
 - **Light classes**: `DirectionalLight` (sun-like), `PointLight` (omni). Both have color and intensity.
 
 - **SceneLighting**: Container with ambient color and lights list. Provides `get_shader_data()` for shader uniforms. Preset: `outdoor_lighting()` (the Qt viewer's).
+
+## Shared mesh and skin helpers
+
+Use these rather than re-deriving them: `meshops.edges` (directed edges of faces), `meshops.position_ids` (weld by position), `meshops.boundary_loops` (open edges grouped into loops), `meshops.closest_on_triangles`, `skin.blended_matrices` / `apply_blended` (linear blend skinning), `skin.dominant_joints`, `skin.dense_weights`, `geometry.smoothstep` (clamps to 0..1) and `Mesh.take` (a subset of vertices with every per-vertex attribute, morphs included). Textures share `textures.base.mix`, `shifted` and `unit`; a noise texture's normal map comes from its `_height(layers)` and `normal_strength`, and every random source takes its seed from `_seed_for`.

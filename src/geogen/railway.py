@@ -32,6 +32,7 @@ from .core.node import SceneNode
 from .core.profile import Shape
 from .core.transform import Transform
 from .places import build_places
+from .fields import known_keys
 
 RAIL_TOP = 0.16            # rail head above the ground: a low bed, so road crossings are near flush
 BED = 0.03                 # ballast top
@@ -151,9 +152,7 @@ def _platform(points: np.ndarray, s: np.ndarray, s0: float, s1: float, side: flo
 
 def build_railway(name: str, spec: dict[str, Any], materials, load, assets_dir) -> SceneNode:
     """The railway's node: track meshes, station platforms (with furniture) and ``meta.railway``."""
-    unknown = set(spec) - RAILWAY_KEYS
-    if unknown:
-        raise ValueError(f"railway '{name}': unknown keys {sorted(unknown)}. Known: {sorted(RAILWAY_KEYS)}")
+    known_keys(spec, RAILWAY_KEYS, f"railway '{name}'")
     loop = bool(spec.get("loop", False))
     ground = _path(spec, loop)
     gauge = float(spec.get("gauge", 1.435))

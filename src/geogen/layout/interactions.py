@@ -79,6 +79,7 @@ from typing import Any, Callable
 import numpy as np
 
 from ..core.node import SceneNode
+from ..fields import known_keys
 
 _AXES = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
 
@@ -329,9 +330,7 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
         states = {}
         for sname, sdef in states_spec.items():
             sdef = sdef or {}
-            unknown = set(sdef) - {"next", "then", "emit", "prompt", "after"}
-            if unknown:
-                raise ValueError(f"Interaction '{name}' state '{sname}': unknown keys {sorted(unknown)}")
+            known_keys(sdef, {"next", "then", "emit", "prompt", "after"}, f"Interaction '{name}' state '{sname}'")
             fields = {k: (str(v) if v is not None else None) for k, v in sdef.items() if k != "after"}
             if "after" in sdef:
                 if "then" not in sdef:
@@ -368,9 +367,7 @@ def parse_interactions(data: dict[str, Any], root: SceneNode, parts: dict[str, S
                 if not isinstance(speeds, dict) or not isinstance(to, dict) or not isinstance(body, str) or not body:
                     raise ValueError(f"Interaction '{name}': a drive motion is {{body: <mechanism body>, "
                                      f"drive: {{<state>: <speed>}}, to: {{<state>: <position>}}, speed, accel, free: [states]}}")
-                unknown = set(mspec) - {"body", "drive", "free", "to", "speed", "accel"}
-                if unknown:
-                    raise ValueError(f"Interaction '{name}': drive motion: unknown keys {sorted(unknown)}")
+                known_keys(mspec, {"body", "drive", "free", "to", "speed", "accel"}, f"Interaction '{name}': drive motion")
                 free = mspec.get("free", [])
                 free = [free] if isinstance(free, str) else list(free or [])
                 listed = [*speeds, *to, *free]
