@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import NoiseLayer, NoiseTextureGenerator, shifted, unit
 from .noise import fractal_noise
 
 
@@ -53,10 +53,10 @@ class DirtTextureGenerator(NoiseTextureGenerator):
         ]
 
     def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
-        particle_value = (layers["particle"] + 1.0) / 2.0
-        pebble_value = (layers["pebble"] + 1.0) / 2.0
+        particle_value = unit(layers["particle"])
+        pebble_value = unit(layers["pebble"])
         pebble_value = np.power(pebble_value, 1.5)
-        moisture_value = (layers["moisture"] + 1.0) / 2.0
+        moisture_value = unit(layers["moisture"])
 
         pattern = particle_value * 0.5 + pebble_value * 0.3 + moisture_value * 0.2
         return np.clip(pattern, 0, 1)
@@ -70,22 +70,21 @@ class DirtTextureGenerator(NoiseTextureGenerator):
             seed=self._seed_for(300),
         )
         color_shift = color_shift * self.color_variation * 20
-        for i in range(3):
-            rgb[:, :, i] = np.clip(rgb[:, :, i] + color_shift, 0, 255)
-        return rgb
+        return shifted(rgb, color_shift)
 
-    def generate_normal_map(self) -> Image.Image | None:
-        """Generate a normal map for dirt (bumpy surface)."""
-        layers = self._generate_noise_layers()
-        particle_value = (layers["particle"] + 1.0) / 2.0
-        pebble_value = (layers["pebble"] + 1.0) / 2.0
+    normal_strength = 0.8
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+        """Height for the normal map: dirt (bumpy surface)."""
+        particle_value = unit(layers["particle"])
+        pebble_value = unit(layers["pebble"])
         pebble_value = np.power(pebble_value, 1.5)
         height = particle_value * 0.4 + pebble_value * 0.6
-        return self._height_to_normal(height, strength=0.8)
+        return height
 
     def generate_roughness_map(self) -> Image.Image | None:
         """Generate a roughness map for dirt (rough with some variation)."""
         layers = self._generate_noise_layers()
-        pebble_value = (layers["pebble"] + 1.0) / 2.0
+        pebble_value = unit(layers["pebble"])
         variation = 1.0 - pebble_value * 0.15
         return self._create_roughness_from_variation(0.75, variation, variation_strength=0.1)

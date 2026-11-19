@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 
-from .base import TextureGenerator, NoiseTextureGenerator, NoiseLayer
+from .base import mix, NoiseLayer, NoiseTextureGenerator, TextureGenerator
 from .noise import fractal_noise
 
 
@@ -237,10 +237,7 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
         light = light * (1.0 + (color_offset - 0.5) * 0.3)
         dark = dark * (1.0 + (color_offset - 0.5) * 0.3)
 
-        for i in range(3):
-            rgb[y_start:y_end, x_start:x_end, i] = (
-                dark[i] + (light[i] - dark[i]) * pattern
-            )
+        rgb[y_start:y_end, x_start:x_end] = mix(dark, light, pattern)
 
     def _draw_gaps(
         self,
@@ -257,8 +254,7 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
             x = px * plank_w_px
             x_start = max(0, x - half_gap)
             x_end = min(self.width, x + half_gap + 1)
-            for i in range(3):
-                rgb[:, x_start:x_end, i] = gap_color[i]
+            rgb[:, x_start:x_end] = gap_color
 
         # Horizontal gaps (between plank rows, with stagger)
         for px in range(n_planks_x):
@@ -271,8 +267,7 @@ class HardwoodFloorTextureGenerator(TextureGenerator):
                 if 0 <= y < self.height:
                     y_gap_start = max(0, y - half_gap)
                     y_gap_end = min(self.height, y + half_gap + 1)
-                    for i in range(3):
-                        rgb[y_gap_start:y_gap_end, x_start:x_end, i] = gap_color[i]
+                    rgb[y_gap_start:y_gap_end, x_start:x_end] = gap_color
 
 
 @dataclass
@@ -313,11 +308,7 @@ class CarpetTextureGenerator(NoiseTextureGenerator):
         combined = layers["fiber"] * 0.7 + layers["pattern"] * 0.3
 
         base = np.array(self.base_color, dtype=np.float64)
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-
-        brightness = combined * self.pattern_strength * 60
-        for i in range(3):
-            rgb[:, :, i] = base[i] + brightness
+        rgb = base + (combined * self.pattern_strength * 60)[..., None]
 
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode='RGB')

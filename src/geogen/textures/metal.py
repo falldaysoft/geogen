@@ -6,7 +6,7 @@ from enum import Enum
 import numpy as np
 from PIL import Image
 
-from .base import TextureGenerator
+from .base import mix, TextureGenerator
 from .noise import directional_noise, fractal_noise
 
 
@@ -95,7 +95,7 @@ class MetalTextureGenerator(TextureGenerator):
             self.width, self.height,
             octaves=2,
             scale=2.0,
-            seed=self.seed,
+            seed=self._seed_for(),
         ) * 0.3 + 0.5
 
         # Add multiple scratch layers at different angles
@@ -125,7 +125,7 @@ class MetalTextureGenerator(TextureGenerator):
             octaves=3,
             persistence=0.3,
             scale=4.0,
-            seed=self.seed,
+            seed=self._seed_for(),
         )
 
         # Normalize to small range
@@ -151,7 +151,7 @@ class MetalTextureGenerator(TextureGenerator):
     def _generate_scratches(self) -> np.ndarray:
         """Generate random scratch marks."""
         scratches = np.zeros((self.height, self.width), dtype=np.float64)
-        rng = np.random.default_rng(self.seed if self.seed else 42)
+        rng = np.random.default_rng(self._seed_for(default=42))
 
         n_scratches = int(20 * self.scratch_amount)
         for i in range(n_scratches):
@@ -212,9 +212,7 @@ class MetalTextureGenerator(TextureGenerator):
         base = np.array(self.base_color, dtype=np.float64)
         highlight = np.array(self.highlight_color, dtype=np.float64)
 
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            rgb[:, :, i] = base[i] + (highlight[i] - base[i]) * pattern
+        rgb = mix(base, highlight, pattern)
 
         # Add subtle color noise for realism
         color_noise = fractal_noise(

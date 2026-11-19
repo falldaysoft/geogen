@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 from numpy.typing import NDArray
@@ -11,6 +12,32 @@ from PIL import Image
 def unit_grid(width: int, height: int) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Pixel coordinates in [0, 1) (endpoint excluded) that wrap cleanly at the edges."""
     return np.meshgrid(np.arange(width, dtype=np.float64) / width, np.arange(height, dtype=np.float64) / height)
+
+
+def unit(noise: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Noise in [-1, 1] as [0, 1]."""
+    return (noise + 1.0) / 2.0
+
+
+def mix(a: NDArray[np.float64], b: NDArray[np.float64], t: NDArray[np.float64]) -> NDArray[np.float64]:
+    """An H x W x 3 image from colour ``a`` (where ``t`` is 0) to colour ``b`` (where it is 1)."""
+    return a + (b - a) * t[..., None]
+
+
+def shifted(rgb: NDArray[np.float64], shift: NDArray[np.float64]) -> NDArray[np.float64]:
+    """``rgb`` with ``shift`` added to every channel, kept in 0..255."""
+    return np.clip(rgb + shift[..., None], 0, 255)
+
+
+@lru_cache(maxsize=32)
+def _layer_noise(width: int, height: int, octaves: int, persistence: float, scale: float, seed: int) -> NDArray[np.float64]:
+    """One noise layer (read-only: an albedo and its maps share it). Bounded, so a scene's many
+    materials don't each hold on to theirs."""
+    from .noise import fractal_noise
+
+    noise = fractal_noise(width, height, octaves=octaves, persistence=persistence, scale=scale, seed=seed)
+    noise.setflags(write=False)
+    return noise
 
 
 @dataclass
@@ -27,15 +54,12 @@ class TextureGenerator(ABC):
     seed: int | None = None
 
     def __post_init__(self) -> None:
-        """Initialize random state if seed is provided."""
-        if self.seed is not None:
-            self._rng = np.random.default_rng(self.seed)
-        else:
-            self._rng = np.random.default_rng()
+        """For subclasses that derive fields."""
 
-    def _seed_for(self, offset: int) -> int:
-        """Seed for one noise source: the generator's seed (0 when unset) plus ``offset``."""
-        return (self.seed or 0) + offset
+    def _seed_for(self, offset: int = 0, default: int = 0) -> int:
+        """Seed for one noise source: the generator's seed (``default`` when unset) plus ``offset``.
+        Every random source goes through here, so a texture is the same on every build."""
+        return (self.seed if self.seed is not None else default) + offset
 
     def _unit_grid(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Pixel coordinates in [0, 1) (endpoint excluded) that wrap cleanly at the edges."""
@@ -202,7 +226,11 @@ class NoiseTextureGenerator(TextureGenerator):
         _get_noise_layers() -> list of NoiseLayer configs
         _compute_pattern(layers) -> 0-1 pattern array (optional)
         _apply_color_shift(rgb) -> rgb with color modifications (optional)
+        _height(layers) -> 0-1 height for the normal map, with ``normal_strength`` (optional:
+            without it the normal map comes from the albedo's luminance)
     """
+
+    normal_strength = 1.0       # (not a field: each texture's own constant)
 
     color_a: tuple[int, int, int] = (100, 100, 100)
     color_b: tuple[int, int, int] = (200, 200, 200)
@@ -217,25 +245,20 @@ class NoiseTextureGenerator(TextureGenerator):
         return [NoiseLayer(name="base", octaves=4, scale=4.0, weight=1.0)]
 
     def _generate_noise_layers(self) -> dict[str, NDArray[np.float64]]:
-        """Generate all noise layers (afresh on each call; each map that needs them regenerates them).
+        """All noise layers, by name (values in [-1, 1]; read-only, shared with the other maps)."""
+        return {cfg.name: _layer_noise(self.width, self.height, cfg.octaves, cfg.persistence, cfg.scale,
+                                       self._seed_for(cfg.seed_offset))
+                for cfg in self._get_noise_layers()}
 
-        Returns:
-            Dict mapping layer name to noise array (values in [-1, 1])
-        """
-        from .noise import fractal_noise
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64] | None:
+        """The surface's height for the normal map, or None to derive it from the albedo."""
+        return None
 
-        layers = {}
-        for layer_cfg in self._get_noise_layers():
-            seed = self._seed_for(layer_cfg.seed_offset)
-            noise = fractal_noise(
-                self.width, self.height,
-                octaves=layer_cfg.octaves,
-                persistence=layer_cfg.persistence,
-                scale=layer_cfg.scale,
-                seed=seed,
-            )
-            layers[layer_cfg.name] = noise
-        return layers
+    def generate_normal_map(self) -> Image.Image | None:
+        height = self._height(self._generate_noise_layers())
+        if height is None:
+            return super().generate_normal_map()
+        return self._height_to_normal(height, strength=self.normal_strength)
 
     def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
         """Combine noise layers into a 0-1 pattern.
@@ -247,8 +270,7 @@ class NoiseTextureGenerator(TextureGenerator):
         total_weight = sum(c.weight for c in configs)
         pattern = np.zeros((self.height, self.width), dtype=np.float64)
         for cfg in configs:
-            normalized = (layers[cfg.name] + 1.0) / 2.0  # [-1,1] -> [0,1]
-            pattern += normalized * (cfg.weight / total_weight)
+            pattern += unit(layers[cfg.name]) * (cfg.weight / total_weight)
         return np.clip(pattern, 0, 1)
 
     def _apply_color_shift(
@@ -268,10 +290,7 @@ class NoiseTextureGenerator(TextureGenerator):
             scale=self.color_shift_scale,
             seed=self._seed_for(900),
         )
-        shift = color_noise * self.color_shift_strength
-        for i in range(3):
-            rgb[:, :, i] = rgb[:, :, i] + shift
-        return rgb
+        return rgb + (color_noise * self.color_shift_strength)[..., None]
 
     def generate(self) -> Image.Image:
         """Generate texture using the noise pipeline."""
@@ -282,11 +301,7 @@ class NoiseTextureGenerator(TextureGenerator):
         pattern = self._compute_pattern(layers)
 
         # Map to colors
-        a = np.array(self.color_a, dtype=np.float64)
-        b = np.array(self.color_b, dtype=np.float64)
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            rgb[:, :, i] = a[i] + (b[i] - a[i]) * pattern
+        rgb = mix(np.array(self.color_a, dtype=np.float64), np.array(self.color_b, dtype=np.float64), pattern)
 
         # Apply color shift
         rgb = self._apply_color_shift(rgb, layers)

@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import mix, NoiseLayer, NoiseTextureGenerator, shifted, unit
 
 
 @dataclass
@@ -70,8 +70,8 @@ class BrickTextureGenerator(NoiseTextureGenerator):
         is_mortar = is_mortar_x | is_mortar_y
 
         # Brick surface: noise-based color variation
-        brick_noise = (layers["brick_color"] + 1.0) / 2.0
-        surface_detail = (layers["surface"] + 1.0) / 2.0
+        brick_noise = unit(layers["brick_color"])
+        surface_detail = unit(layers["surface"])
 
         pattern = brick_noise * 0.6 + surface_detail * 0.4
 
@@ -89,37 +89,30 @@ class BrickTextureGenerator(NoiseTextureGenerator):
         base = np.array(self.color_base, dtype=np.float64)
         mortar = np.array(self.mortar_color, dtype=np.float64)
 
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            brick_color = dark[i] + (base[i] - dark[i]) * pattern
-            rgb[:, :, i] = np.where(is_mortar, mortar[i], brick_color)
+        rgb = np.where(is_mortar[..., None], mortar, mix(dark, base, pattern))
 
         # Add slight surface noise to mortar too
-        surface = (layers["surface"] + 1.0) / 2.0
+        surface = unit(layers["surface"])
         mortar_noise = (surface - 0.5) * 10
-        for i in range(3):
-            rgb[:, :, i] = np.where(
-                is_mortar,
-                np.clip(rgb[:, :, i] + mortar_noise, 0, 255),
-                rgb[:, :, i]
-            )
+        rgb = np.where(is_mortar[..., None], shifted(rgb, mortar_noise), rgb)
 
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode='RGB')
 
-    def generate_normal_map(self) -> Image.Image | None:
-        layers = self._generate_noise_layers()
+    normal_strength = 1.5
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
         pattern, is_mortar = self._brick_pattern(layers)
         # Mortar is recessed, bricks are raised
         height = np.where(is_mortar, 0.2, 0.8)
-        surface = (layers["surface"] + 1.0) / 2.0
+        surface = unit(layers["surface"])
         height = height + surface * 0.1
-        return self._height_to_normal(height, strength=1.5)
+        return height
 
     def generate_roughness_map(self) -> Image.Image | None:
         layers = self._generate_noise_layers()
         _, is_mortar = self._brick_pattern(layers)
-        surface = (layers["surface"] + 1.0) / 2.0
+        surface = unit(layers["surface"])
         # Mortar is rougher than brick
         roughness = np.where(is_mortar, 0.9, 0.75)
         roughness = roughness + (surface - 0.5) * 0.1
@@ -133,7 +126,7 @@ class BrickTextureGenerator(NoiseTextureGenerator):
         # Mortar is recessed -> occluded (darker AO)
         ao = np.where(is_mortar, 0.6, 1.0)
         # Soften edges slightly with surface noise
-        surface = (layers["surface"] + 1.0) / 2.0
+        surface = unit(layers["surface"])
         ao = ao - (1.0 - surface) * 0.05
         ao = np.clip(ao, 0.0, 1.0)
         return Image.fromarray((ao * 255).astype(np.uint8), mode='L')

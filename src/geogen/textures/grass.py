@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import NoiseLayer, NoiseTextureGenerator, shifted, unit
 from .noise import fractal_noise
 
 
@@ -51,9 +51,9 @@ class GrassTextureGenerator(NoiseTextureGenerator):
         ]
 
     def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
-        clump_value = (layers["clump"] + 1.0) / 2.0
-        blade_value = (layers["blade"] + 1.0) / 2.0
-        streak_value = (layers["streak"] + 1.0) / 2.0
+        clump_value = unit(layers["clump"])
+        blade_value = unit(layers["blade"])
+        streak_value = unit(layers["streak"])
 
         pattern = clump_value * 0.5 + blade_value * 0.3 + streak_value * 0.2
         return np.clip(pattern, 0, 1)
@@ -66,9 +66,7 @@ class GrassTextureGenerator(NoiseTextureGenerator):
         base = np.array(self.color_base, dtype=np.float64)
         variation = np.array(self.color_variation, dtype=np.float64)
 
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            rgb[:, :, i] = base[i] + (variation[i] - base[i]) * pattern * self.variation_strength
+        rgb = base + (variation - base) * pattern[..., None] * self.variation_strength
 
         # Apply color shift
         rgb = self._apply_color_shift(rgb, layers)
@@ -84,15 +82,14 @@ class GrassTextureGenerator(NoiseTextureGenerator):
             octaves=2, scale=2.0,
             seed=self._seed_for(300),
         ) * 15
-        for i in range(3):
-            rgb[:, :, i] = np.clip(rgb[:, :, i] + color_shift, 0, 255)
-        return rgb
+        return shifted(rgb, color_shift)
 
-    def generate_normal_map(self) -> Image.Image | None:
-        """Generate a normal map for grass (subtle bumps)."""
-        layers = self._generate_noise_layers()
-        height = (layers["blade"] + 1.0) / 2.0
-        return self._height_to_normal(height, strength=0.3)
+    normal_strength = 0.3
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+        """Height for the normal map: grass (subtle bumps)."""
+        height = unit(layers["blade"])
+        return height
 
     def generate_roughness_map(self) -> Image.Image | None:
         """Generate a roughness map for grass (fairly rough surface)."""

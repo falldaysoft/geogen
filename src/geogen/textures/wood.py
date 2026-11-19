@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import mix, NoiseLayer, NoiseTextureGenerator, shifted
 
 
 @dataclass
@@ -88,9 +88,7 @@ class WoodTextureGenerator(NoiseTextureGenerator):
         # Interpolate between light and dark based on wood pattern
         light = np.array(self.color_light, dtype=np.float64)
         dark = np.array(self.color_dark, dtype=np.float64)
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            rgb[:, :, i] = light[i] + (dark[i] - light[i]) * (1 - wood_pattern)
+        rgb = mix(light, dark, 1 - wood_pattern)
 
         # Apply color shift
         rgb = self._apply_color_shift(rgb, layers)
@@ -123,6 +121,4 @@ class WoodTextureGenerator(NoiseTextureGenerator):
         self, rgb: NDArray[np.float64], layers: dict[str, NDArray[np.float64]]
     ) -> NDArray[np.float64]:
         color_var = layers["color"] * self.color_variation * 20
-        for i in range(3):
-            rgb[:, :, i] = np.clip(rgb[:, :, i] + color_var, 0, 255)
-        return rgb
+        return shifted(rgb, color_var)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,10 @@ TEXTURE_GENERATORS = {
     "face": FaceTextureGenerator,
     "hair": HairTextureGenerator,
 }
+
+# The parameters that are colours: [r, g, b] or a paint's name in YAML.
+COLOR_KEYS = frozenset(f.name for generator in TEXTURE_GENERATORS.values() for f in fields(generator)
+                       if "tuple[int" in str(f.type))
 
 # Named paint colours; any colour param may use one of these instead of [r, g, b].
 PAINT_PALETTE: dict[str, tuple[int, int, int]] = {
@@ -253,14 +258,7 @@ class MaterialLoader:
         converted = dict(params)
 
         # Convert color lists to tuples
-        color_keys = [
-            "color_light", "color_dark", "color_base", "color_variation",
-            "base_color", "highlight_color", "mortar_color",
-            "weft_color", "tile_color", "grout_color", "vein_color", "gap_color",
-            "eye_color", "brow_color", "lip_color",
-            "panel_color", "seam_color", "color_a", "color_b",
-        ]
-        for key in color_keys:
+        for key in COLOR_KEYS:
             value = converted.get(key)
             if isinstance(value, list):
                 converted[key] = tuple(value)

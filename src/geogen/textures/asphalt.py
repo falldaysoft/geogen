@@ -2,9 +2,11 @@
 
 from dataclasses import dataclass
 
+import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import NoiseLayer, NoiseTextureGenerator, unit
 
 
 @dataclass
@@ -42,14 +44,15 @@ class AsphaltTextureGenerator(NoiseTextureGenerator):
                        scale=40.0, seed_offset=200, weight=0.1),
         ]
 
-    def generate_normal_map(self) -> Image.Image | None:
-        layers = self._generate_noise_layers()
-        aggregate = (layers["aggregate"] + 1.0) / 2.0
-        fine = (layers["fine"] + 1.0) / 2.0
+    normal_strength = 0.6
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+        aggregate = unit(layers["aggregate"])
+        fine = unit(layers["fine"])
         height = aggregate * 0.6 + fine * 0.4
-        return self._height_to_normal(height, strength=0.6)
+        return height
 
     def generate_roughness_map(self) -> Image.Image | None:
         layers = self._generate_noise_layers()
-        aggregate = (layers["aggregate"] + 1.0) / 2.0
+        aggregate = unit(layers["aggregate"])
         return self._create_roughness_from_variation(0.9, aggregate, variation_strength=0.1)

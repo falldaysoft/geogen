@@ -35,7 +35,7 @@ class SkinTextureGenerator(TextureGenerator):
 
     def base(self) -> np.ndarray:
         noise = _norm(fractal_noise(self.width, self.height, octaves=3, scale=6.0,
-                                    seed=self.seed if self.seed is not None else 11)) - 0.5
+                                    seed=self._seed_for(default=11))) - 0.5
         rgb = np.asarray(self.base_color, dtype=np.float64)[None, None, :] / 255.0
         img = rgb * (1.0 + self.variation * noise[..., None] * np.array([1.0, 0.8, 0.8]))
         return np.clip(img, 0, 1)
@@ -160,7 +160,7 @@ class FaceTextureGenerator(SkinTextureGenerator):
     def generate(self) -> Image.Image:
         c = _Canvas(self.base(), self.aspect)
         skin = c.img.copy()
-        rng = np.random.default_rng(self.seed if self.seed is not None else 5)
+        rng = np.random.default_rng(self._seed_for(default=5))
         ey, my = self.eye_v * self.aspect, self.mouth_v * self.aspect
         nose_y = (ey + my) / 2 - 0.02
         if self.blush > 0:
@@ -322,7 +322,7 @@ class HairTextureGenerator(TextureGenerator):
     contrast: float = 0.18
 
     def generate(self) -> Image.Image:
-        rng = np.random.default_rng(self.seed if self.seed is not None else 3)
+        rng = np.random.default_rng(self._seed_for(default=3))
         cols = np.arange(self.width)
         strands = np.zeros(self.width)
         for freq, amp in ((3, 0.5), (11, 0.3), (37, 0.2), (97, 0.15)):
@@ -330,7 +330,7 @@ class HairTextureGenerator(TextureGenerator):
             for p in phase:
                 strands += amp * np.sin(2 * np.pi * freq * cols / self.width + p) / 3
         strands = _norm(strands)
-        along = _norm(fractal_noise(self.width, self.height, octaves=2, scale=3.0, seed=self.seed or 3))
+        along = _norm(fractal_noise(self.width, self.height, octaves=2, scale=3.0, seed=self._seed_for(default=3)))
         value = 1.0 - self.contrast * (0.7 * strands[None, :] + 0.3 * along)
         rgb = np.asarray(self.base_color, dtype=np.float64) / 255.0
         return Image.fromarray((np.clip(value[..., None] * rgb, 0, 1) * 255).astype(np.uint8))

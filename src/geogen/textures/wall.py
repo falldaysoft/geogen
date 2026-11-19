@@ -58,14 +58,10 @@ class PlasterTextureGenerator(NoiseTextureGenerator):
 
         # Start with base color
         base = np.array(self.base_color, dtype=np.float64)
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            rgb[:, :, i] = base[i]
 
         # Apply surface texture as brightness variation
         brightness = (pattern - 0.5) * 2 * self.texture_strength * 50
-        for i in range(3):
-            rgb[:, :, i] = rgb[:, :, i] + brightness
+        rgb = base + brightness[..., None]
 
         # Apply color shift
         rgb = self._apply_color_shift(rgb, layers)
@@ -73,11 +69,12 @@ class PlasterTextureGenerator(NoiseTextureGenerator):
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode='RGB')
 
-    def generate_normal_map(self) -> Image.Image:
-        """Generate normal map from plaster surface texture."""
-        layers = self._generate_noise_layers()
+    normal_strength = 0.3
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+        """Height for the normal map: plaster surface texture."""
         height = (layers["texture"] * 0.7 + layers["fine"] * 0.3) * 0.5 + 0.5
-        return self._height_to_normal(height, strength=0.3)
+        return height
 
 
 @dataclass
@@ -115,14 +112,10 @@ class PaintedWallTextureGenerator(NoiseTextureGenerator):
         layers = self._generate_noise_layers()
 
         base = np.array(self.base_color, dtype=np.float64)
-        rgb = np.zeros((self.height, self.width, 3), dtype=np.float64)
-        for i in range(3):
-            rgb[:, :, i] = base[i]
 
         # Very subtle texture
         brightness = (layers["roller"] * 0.6 + layers["streak"] * 0.4) * 8
-        for i in range(3):
-            rgb[:, :, i] = rgb[:, :, i] + brightness
+        rgb = base + brightness[..., None]
 
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode='RGB')

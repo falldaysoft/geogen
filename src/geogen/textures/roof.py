@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import NoiseLayer, NoiseTextureGenerator, unit
 
 
 @dataclass
@@ -71,22 +71,23 @@ class RoofTextureGenerator(NoiseTextureGenerator):
         edge_mask = np.where(edge_y < self.edge_width * 0.5, 0.4, edge_mask)
 
         # Per-shingle color variation using noise sampled at shingle centers
-        shingle_noise = (layers["variation"] + 1.0) / 2.0
-        surface_detail = (layers["surface"] + 1.0) / 2.0
+        shingle_noise = unit(layers["variation"])
+        surface_detail = unit(layers["surface"])
 
         # Combine: base pattern with edge darkening and surface detail
         pattern = edge_mask * 0.7 + surface_detail * 0.2 + shingle_noise * 0.1
 
         return np.clip(pattern, 0, 1)
 
-    def generate_normal_map(self) -> Image.Image | None:
-        layers = self._generate_noise_layers()
+    normal_strength = 1.5
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
         pattern = self._compute_pattern(layers)
-        return self._height_to_normal(pattern, strength=1.5)
+        return pattern
 
     def generate_roughness_map(self) -> Image.Image | None:
         layers = self._generate_noise_layers()
-        surface = (layers["surface"] + 1.0) / 2.0
+        surface = unit(layers["surface"])
         return self._create_roughness_from_variation(0.8, surface, variation_strength=0.15)
 
     def generate_ao_map(self) -> Image.Image | None:

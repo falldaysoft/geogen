@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from .base import NoiseTextureGenerator, NoiseLayer
+from .base import NoiseLayer, NoiseTextureGenerator, shifted, unit
 
 
 @dataclass
@@ -51,41 +51,40 @@ class RockTextureGenerator(NoiseTextureGenerator):
         ]
 
     def _compute_pattern(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
-        crack_value = (layers["crack"] + 1.0) / 2.0
+        crack_value = unit(layers["crack"])
         crack_value = np.power(crack_value, 0.6)  # Enhance contrast
-        roughness_value = (layers["roughness"] + 1.0) / 2.0
+        roughness_value = unit(layers["roughness"])
         pattern = crack_value * 0.6 + roughness_value * 0.4
         return np.clip(pattern, 0, 1)
 
     def _apply_color_shift(
         self, rgb: NDArray[np.float64], layers: dict[str, NDArray[np.float64]]
     ) -> NDArray[np.float64]:
-        color_shift = (layers["color"] + 1.0) / 2.0
+        color_shift = unit(layers["color"])
         color_shift = (color_shift - 0.5) * self.color_variation * 40
-        for i in range(3):
-            rgb[:, :, i] = np.clip(rgb[:, :, i] + color_shift, 0, 255)
-        return rgb
+        return shifted(rgb, color_shift)
 
-    def generate_normal_map(self) -> Image.Image | None:
-        """Generate a normal map for rock (pronounced bumps and cracks)."""
-        layers = self._generate_noise_layers()
-        crack_value = (layers["crack"] + 1.0) / 2.0
+    normal_strength = 1.2
+
+    def _height(self, layers: dict[str, NDArray[np.float64]]) -> NDArray[np.float64]:
+        """Height for the normal map: rock (pronounced bumps and cracks)."""
+        crack_value = unit(layers["crack"])
         crack_value = np.power(crack_value, 0.6)
-        roughness_value = (layers["roughness"] + 1.0) / 2.0
+        roughness_value = unit(layers["roughness"])
         height = crack_value * 0.7 + roughness_value * 0.3
-        return self._height_to_normal(height, strength=1.2)
+        return height
 
     def generate_roughness_map(self) -> Image.Image | None:
         """Generate a roughness map for rock (very rough with variation)."""
         layers = self._generate_noise_layers()
-        crack_value = (layers["crack"] + 1.0) / 2.0
+        crack_value = unit(layers["crack"])
         variation = 1.0 - crack_value * 0.3
         return self._create_roughness_from_variation(0.85, variation, variation_strength=0.2)
 
     def generate_ao_map(self) -> Image.Image | None:
         """Generate an ambient occlusion map (cracks are darker)."""
         layers = self._generate_noise_layers()
-        ao = (layers["crack"] + 1.0) / 2.0
+        ao = unit(layers["crack"])
         ao = np.power(ao, 0.5)
         ao = np.clip(ao * 255, 0, 255).astype(np.uint8)
         return Image.fromarray(ao, mode='L')
