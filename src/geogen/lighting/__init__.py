@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import IntEnum
 
+from ..views import SUN_DIRECTION
+
 
 class LightType(IntEnum):
     """Light type enum matching shader values."""
@@ -77,15 +79,15 @@ class SceneLighting:
         return cls(
             ambient_color=(0.35, 0.37, 0.42),  # Blue-tinted sky ambient
             lights=[
-                # Main sun light from above-right
+                # Main sun, the offscreen renderer's (front-right, so the iso view is lit)
                 DirectionalLight(
-                    direction=(0.4, -0.7, 0.3),
+                    direction=SUN_DIRECTION,
                     color=(1.0, 0.95, 0.85),
                     intensity=3.0,
                 ),
                 # Sky fill from opposite side
                 DirectionalLight(
-                    direction=(-0.5, -0.3, -0.6),
+                    direction=(0.5, -0.3, 0.6),
                     color=(0.6, 0.7, 1.0),
                     intensity=1.0,
                 ),
