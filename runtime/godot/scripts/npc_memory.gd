@@ -101,3 +101,27 @@ static func report(npc: GeogenNpc) -> Dictionary:
         out[uid] = {"at": GeogenUtil.cm(entry["at"]), "by": entry["by"], "resting": entry["resting"],
             "age": snappedf(npc.clock - float(entry["clock"]), 0.1)}
     return out
+
+
+## A save's `memory` (npc.gd save_state): {uid: {at: [x, y, z], by, resting, age}}, by the props'
+## stable IDs, so a loaded game knows what it knew. Ages count on from the loading NPC's clock.
+static func save(npc: GeogenNpc) -> Dictionary:
+    var out := {}
+    for uid in npc._memory:
+        var entry: Dictionary = npc._memory[uid]
+        var at: Vector3 = entry["at"]
+        out[uid] = {"at": [snappedf(at.x, 0.001), snappedf(at.y, 0.001), snappedf(at.z, 0.001)],
+            "by": entry["by"], "resting": entry["resting"], "age": snappedf(npc.clock - float(entry["clock"]), 0.1)}
+    return out
+
+
+## Take up a save's `memory`, in place of what it remembered (props the world no longer has are left out).
+static func load_save(npc: GeogenNpc, saved: Dictionary) -> void:
+    npc._memory = {}
+    for uid in saved:
+        if npc.world.props != null and not npc.world.props.props.has(uid):
+            continue
+        var entry: Dictionary = saved[uid]
+        var at: Array = entry.get("at", [0, 0, 0])
+        npc._memory[uid] = {"at": Vector3(at[0], at[1], at[2]), "clock": npc.clock - float(entry.get("age", 0.0)),
+            "by": str(entry.get("by", "seen")), "resting": str(entry.get("resting", ""))}

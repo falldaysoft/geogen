@@ -2121,7 +2121,8 @@ func _stop_motions(how := "yield") -> void:
 
 
 ## What a save keeps of this NPC (the save's `npcs`, by stable ID; docs/rules.md "Saving"): its
-## needs, whether it is away, how long ago it last used each thing, and where it is: a seated or
+## needs, whether it is away, how long ago it last used each thing, what it remembers of the props
+## round it (`memory`), and where it is: a seated or
 ## lying NPC by the affordance it is on (`seat`), so loading puts it back on it, else its
 ## position and heading. What it was doing otherwise isn't kept: it decides again.
 func save_state() -> Dictionary:
@@ -2141,6 +2142,8 @@ func save_state() -> Dictionary:
         recent[id] = snappedf(clock - float(_recent[id]), 0.1)
     if not recent.is_empty():
         out["recent"] = recent
+    if not _memory.is_empty():
+        out["memory"] = GeogenMemory.save(self)
     if _pose != "stand" and _option.has("affordance"):
         out["seat"] = _option["id"]
     return out
@@ -2159,6 +2162,7 @@ func restore_state(data: Dictionary) -> void:
     var recent: Dictionary = data.get("recent", {})
     for id in recent:
         _recent[id] = clock - float(recent[id])
+    GeogenMemory.load_save(self, data.get("memory", {}))
     var p: Array = data.get("position", [global_position.x, global_position.y, global_position.z])
     global_position = Vector3(p[0], p[1], p[2])
     rotation = Vector3(0, deg_to_rad(float(data.get("yaw", rad_to_deg(_yaw())))) - _parent_yaw(), 0)

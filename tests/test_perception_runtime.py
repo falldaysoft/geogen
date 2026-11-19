@@ -6,7 +6,12 @@ door is news to her when she sees it, one she only heard fall she goes to look f
 spot she can see where a remembered thing no longer is she forgets."""
 
 
+import json
+from pathlib import Path
+
 import pytest
+
+from helpers import schema_validate
 
 pytestmark = [pytest.mark.godot, pytest.mark.xdist_group("test_perception_runtime")]
 
@@ -193,3 +198,28 @@ def test_a_spot_she_can_see_with_the_thing_gone_she_forgets(rt):
     run_until(rt, lambda: hana(rt)["want"]["doing"] == {} and hana(rt)["decisions"] > was["decisions"] + 1, seconds=30)
     assert hana(rt)["searches"] == was["searches"]
     assert not [o for o in rt.call("npcs.options", npc="hana") if o["id"].endswith(":can")]
+
+
+def test_a_save_keeps_what_she_remembers(rt):
+    """(geogen.99.4) Memory is in the save, by the props' stable IDs, and loading takes it up."""
+    fetch_the_can(rt)
+    seated(rt)
+    rt.call("npcs.pause", npc="hana")                  # (she doesn't look round, so only the save changes her memory)
+    rt.call("player.teleport", pos=[0.1, 0.05, 1.0], yaw=90)
+    rt.call("time.advance", seconds=0.3, scale=1)
+    rt.call("player.drop")
+    rt.call("time.advance", seconds=1.5, scale=1)
+    knew = hana(rt)["memory"][can_id(rt)]
+    saved = rt.call("state.save")
+    schema_validate(saved, json.loads((Path(__file__).parent.parent / "docs/schema/geogen-save.v1.schema.json").read_text()))
+    entry = next(v for k, v in saved["npcs"].items() if k.endswith("hana"))["memory"][can_id(rt)]
+    assert entry["by"] == knew["by"] == "seen" and entry["resting"] == knew["resting"]
+    # Forgotten in the meantime (an empty memory), then the save loaded: she knows it again.
+    blank = {**saved, "npcs": {k: {**v, "memory": {}} for k, v in saved["npcs"].items()}}
+    rt.call("state.load", state=blank)
+    assert can_id(rt) not in hana(rt)["memory"]
+    rt.call("state.load", state=saved)
+    back = hana(rt)["memory"][can_id(rt)]
+    assert back["by"] == "seen" and back["resting"] == knew["resting"] and back["at"] == knew["at"], (back, knew)
+    assert back["age"] >= entry["age"]
+    rt.call("npcs.resume", npc="hana")
