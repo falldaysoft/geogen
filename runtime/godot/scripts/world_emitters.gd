@@ -74,7 +74,7 @@ func report() -> Dictionary:
         if particles != null:
             row["emitting"] = particles.emitting
             row["amount"] = particles.amount
-            row["position"] = _triple(particles.global_position)
+            row["position"] = GeogenUtil.mm(particles.global_position)
         var sound: AudioStreamPlayer3D = entry["sound"]
         if sound != null:
             row["sounding"] = sound.playing
@@ -99,21 +99,13 @@ func _set_running(entry: Dictionary, running: bool) -> void:
                 sound.stop()
 
 
-static func _vec(value: Variant) -> Vector3:
-    return Vector3(value[0], value[1], value[2])
-
-
-static func _triple(v: Vector3) -> Array:
-    return [snappedf(v.x, 0.001), snappedf(v.y, 0.001), snappedf(v.z, 0.001)]
-
-
 # --- particles ---------------------------------------------------------------------------------
 
 static func make_particles(spec: Dictionary) -> GPUParticles3D:
     var lifetime := float(spec["lifetime"])
     var particles := GPUParticles3D.new()
     particles.name = "Emitter"
-    particles.position = _vec(spec["offset"])
+    particles.position = GeogenUtil.vec(spec["offset"])
     particles.amount = maxi(int(ceil(float(spec["rate"]) * lifetime)), 1)
     particles.lifetime = lifetime
     particles.preprocess = lifetime             # already flowing when the player first sees it
@@ -132,9 +124,9 @@ static func make_particles(spec: Dictionary) -> GPUParticles3D:
 static func reach(spec: Dictionary) -> AABB:
     var t := float(spec["lifetime"])
     var speed := maxf(float(spec["speed"][0]), float(spec["speed"][1]))
-    var pull := Vector3(0, -float(spec["gravity"]), 0) + _vec(spec["wind"])
+    var pull := Vector3(0, -float(spec["gravity"]), 0) + GeogenUtil.vec(spec["wind"])
     var drift := pull * 0.5 * t * t
-    var half := _vec(spec["area"]) * 0.5
+    var half := GeogenUtil.vec(spec["area"]) * 0.5
     var size := maxf(float(spec["size"][0]), float(spec["size"][1]))
     var margin := Vector3.ONE * (speed * t + size)
     var box := AABB(-half - margin, (half + margin) * 2.0)
@@ -143,14 +135,14 @@ static func reach(spec: Dictionary) -> AABB:
 
 static func _process_material(spec: Dictionary) -> ParticleProcessMaterial:
     var m := ParticleProcessMaterial.new()
-    m.direction = _vec(spec["direction"])
+    m.direction = GeogenUtil.vec(spec["direction"])
     m.spread = float(spec["spread"])
     m.initial_velocity_min = float(spec["speed"][0])
     m.initial_velocity_max = float(spec["speed"][1])
-    m.gravity = Vector3(0, -float(spec["gravity"]), 0) + _vec(spec["wind"])
+    m.gravity = Vector3(0, -float(spec["gravity"]), 0) + GeogenUtil.vec(spec["wind"])
     m.damping_min = float(spec["drag"])
     m.damping_max = float(spec["drag"])
-    var area := _vec(spec["area"])
+    var area := GeogenUtil.vec(spec["area"])
     if area.length_squared() > 0.0:
         m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
         m.emission_box_extents = area * 0.5
@@ -234,7 +226,7 @@ static func _sprite(kind: String) -> Texture2D:
 static func make_sound(spec: Dictionary) -> AudioStreamPlayer3D:
     var player := AudioStreamPlayer3D.new()
     player.name = "Sound"
-    player.position = _vec(spec["offset"])
+    player.position = GeogenUtil.vec(spec["offset"])
     player.stream = ambient_stream(spec)
     player.volume_db = float(spec["volume_db"])
     player.max_distance = float(spec["range"])

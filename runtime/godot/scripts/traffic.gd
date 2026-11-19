@@ -111,10 +111,7 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary, graph: Di
 
 ## Head and tail lamps brighter after dark (the materials are shared by the fleet).
 func set_night(on: bool) -> void:
-    for mat in _lamp_materials:
-        var base: float = _lamp_materials[mat][0]
-        var boost := 5.0 if _lamp_materials[mat][1] == "head" else 3.0
-        (mat as BaseMaterial3D).emission_energy_multiplier = base * (boost if on else 1.0)
+    GeogenVehicles.light_lamps(_lamp_materials, on)
 
 
 func _exit_tree() -> void:
@@ -253,16 +250,7 @@ func _adopt(node: Node3D) -> Dictionary:
     node.set_meta("geogen_vehicle_box", {"half": float(clearance[0]) / 2.0, "half_w": float(clearance[1]) / 2.0,
         "offset": shape.position.z})
     node.set_meta("geogen_speed", 0.0)
-    for kind in info.get("lamps", {}):
-        for part_name in info["lamps"][kind]:
-            var part := node.find_child(str(part_name), true, false)
-            if part == null:
-                continue
-            for mi: MeshInstance3D in ([part] if part is MeshInstance3D else []) + part.find_children("*", "MeshInstance3D", true, false):
-                for i in mi.mesh.get_surface_count() if mi.mesh else 0:
-                    var mat := mi.get_active_material(i) as BaseMaterial3D
-                    if mat != null and mat.emission_enabled and not _lamp_materials.has(mat):
-                        _lamp_materials[mat] = [mat.emission_energy_multiplier, kind]
+    GeogenVehicles.collect_lamps(node, info, _lamp_materials)
     var engine := GeogenSound.add_engine(node, info)
     var wheels := []
     for w in info.get("wheels", []):
@@ -813,9 +801,7 @@ func _albedo(material: Material) -> Color:
 
 ## Seconds of world time (the clock's position in its day; time since load without a clock).
 func world_time() -> float:
-    if world != null and world.clock != null and world.clock.day_length > 0.0:
-        return world.clock.hours / 24.0 * world.clock.day_length
-    return clock
+    return GeogenVehicles.world_time(world, clock)
 
 
 ## "green" | "amber" | "red" for a phase of a signalled intersection ("" if not signalled).

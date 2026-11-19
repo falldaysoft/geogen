@@ -151,11 +151,11 @@ func _setup_one(asset: Node3D) -> void:
         joint.name = "%s_%s_joint" % [asset.name, bname]
         joint.set_meta("geogen_joint", j)
         parent.add_child(joint)
-        var axis := _vec(j.get("axis", [0, 1, 0])).normalized()
+        var axis := GeogenUtil.vec(j.get("axis", [0, 1, 0])).normalized()
         var basis := _hinge_basis(axis) if j["type"] == "hinge" else _slide_basis(axis)
         if j["type"] == "swing":
             basis = Basis(Vector3.UP, axis, Vector3.UP.cross(axis).normalized())
-        joint.global_transform = frame * Transform3D(basis, _vec(j.get("pivot", [0, 0, 0])))
+        joint.global_transform = frame * Transform3D(basis, GeogenUtil.vec(j.get("pivot", [0, 0, 0])))
         joint.node_a = bodies[bname].get_path()
         if j.has("to") and bodies.has(j["to"]):
             joint.node_b = bodies[j["to"]].get_path()
@@ -168,7 +168,7 @@ func _setup_one(asset: Node3D) -> void:
         var b_xform := held_to.global_transform if held_to != null else Transform3D.IDENTITY
         var info := {"joint": joint, "spec": j, "a": bodies[bname], "b": held_to,
             "axis_b": (b_xform.basis.inverse() * (frame.basis * axis)).normalized(),
-            "pivot_b": b_xform.affine_inverse() * (frame * _vec(j.get("pivot", [0, 0, 0]))),
+            "pivot_b": b_xform.affine_inverse() * (frame * GeogenUtil.vec(j.get("pivot", [0, 0, 0]))),
             "rel0": b_xform.affine_inverse() * (bodies[bname] as RigidBody3D).global_transform,
             "position": 0.0, "speed": 0.0, "raw": 0.0}
         joint.set_meta("geogen_joint_info", info)
@@ -527,7 +527,7 @@ func report() -> Array:
             var com := body.global_position + (state.center_of_mass if state != null else Vector3.ZERO)
             var row := {
                 "uid": "%s/%s" % [uid, bname], "node": String(m["node"].name), "body": bname,
-                "position": _arr(com), "yaw_deg": rad_to_deg(body.rotation.y),
+                "position": GeogenUtil.mm(com), "yaw_deg": rad_to_deg(body.rotation.y),
                 "tilt_deg": rad_to_deg(body.global_basis.y.normalized().angle_to(Vector3.UP)),
                 "speed": body.linear_velocity.length(), "angular_speed": rad_to_deg(body.angular_velocity.length()),
             }
@@ -546,9 +546,3 @@ func report() -> Array:
     return out
 
 
-static func _arr(v: Vector3) -> Array:
-    return [snappedf(v.x, 0.001), snappedf(v.y, 0.001), snappedf(v.z, 0.001)]
-
-
-static func _vec(a) -> Vector3:
-    return Vector3(float(a[0]), float(a[1]), float(a[2]))

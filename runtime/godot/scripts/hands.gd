@@ -85,13 +85,9 @@ func report() -> Dictionary:
     for hand in _resting():
         var at: Vector3 = _animated.get(hand, Vector3.ZERO)
         var on: Variant = _support.get(hand)
-        out[hand] = {"support": _v(on) if on != null else null, "shift": snappedf(float(_shift.get(hand, 0.0)), 0.001),
-            "at": _v(at)}
+        out[hand] = {"support": GeogenUtil.mm(on) if on != null else null, "shift": snappedf(float(_shift.get(hand, 0.0)), 0.001),
+            "at": GeogenUtil.mm(at)}
     return {"weight": snappedf(_want, 0.01), "hands": out}
-
-
-static func _v(p: Vector3) -> Array:
-    return [snappedf(p.x, 0.001), snappedf(p.y, 0.001), snappedf(p.z, 0.001)]
 
 
 func _resting() -> Array:

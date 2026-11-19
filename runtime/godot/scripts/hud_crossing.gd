@@ -82,7 +82,7 @@ func _process(delta: float) -> void:
 
 func _update() -> void:
     _shown = {}
-    var player = get_tree().root.find_child("Player", true, false) if _hud != null else null
+    var player = _hud.player() if _hud != null else null
     if player is Node3D:
         var at := crossing_at(Vector2(player.global_position.x, player.global_position.z))
         var state := "" if at.is_empty() else _state(at["crossing"])
