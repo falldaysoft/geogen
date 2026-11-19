@@ -37,4 +37,4 @@ lie, stand
 
 ## Clips
 
-idle, jump_down, jump_up, pose_lie, pose_stand, walk
+idle, jump_down, jump_up, pose_lie, pose_stand, take, walk

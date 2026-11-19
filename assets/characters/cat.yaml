@@ -32,6 +32,8 @@ body:
     ear_size: "{0.042 * k}"
   material: fur
   color: "{coat}"
+  # It carries a small thing (a toy) in its mouth: under the front of the head (geogen.100.8).
+  carry: { bone: Head, offset: [0, "{-0.03 * k}", "{0.06 * k}"] }
   colors: &colors
     ginger: [1.0, 0.42, 0.1]
     grey: [0.24, 0.24, 0.26]
@@ -207,6 +209,19 @@ body:
         Tail3:   { path: [[0, -16, 0], [0, 16, 0]] }
         Head:    { path: [[0, 0, 0], [0, 10, 0], [3, 0, 0], [0, -8, 0]] }
         LeftEar: { path: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, -18], [0, 0, 0], [0, 0, 0]] }
+    # Taking something off the floor in its mouth (or setting it down): head down and up again.
+    take:
+      generator: cycle
+      once: true
+      duration: 1.0
+      bones:
+        Neck:               { path: [[0, 0, 0], [44, 0, 0], [52, 0, 0], [44, 0, 0], [0, 0, 0]] }
+        Head:               { path: [[0, 0, 0], [30, 0, 0], [36, 0, 0], [30, 0, 0], [0, 0, 0]] }
+        Chest:              { path: [[0, 0, 0], [8, 0, 0], [10, 0, 0], [8, 0, 0], [0, 0, 0]] }
+        LeftFrontLowerLeg:  { path: [[0, 0, 0], [-10, 0, 0], [-12, 0, 0], [-10, 0, 0], [0, 0, 0]] }
+        RightFrontLowerLeg: { path: [[0, 0, 0], [-10, 0, 0], [-12, 0, 0], [-10, 0, 0], [0, 0, 0]] }
+        Tail1:              { path: [[0, 0, 0], [-10, 6, 0], [-12, 0, 0], [-10, -6, 0], [0, 0, 0]] }
+      hips: { path: [[0, 0, 0], [0, 0, 0.01], [0, 0, 0.012], [0, 0, 0.01], [0, 0, 0]] }
     # Jumps (one-shots, once: true): keys spread evenly from the start to the end. A jump's `leap`
     # is the body's way from where it takes off to where it lands (shares of the way across and
     # of the climb, and metres over that line); the runtime moves the body along it while the

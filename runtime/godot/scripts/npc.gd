@@ -102,7 +102,7 @@ const CARRY_PALM := 0.02          # m off its side the hand bone is (the palm is
 const STAND_SLACK := 0.2          # m short of its reach a spot must be from where it will stand (walks end a little off)
 const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor it is baked from
 const PUT_GAP := 0.01             # m above the spot a prop is let go at
-const LEAP_OFF := 0.25            # m: a spot this far above (or 0.3 m beside) the navmesh is off it: jumped to
+const LEAP_OFF := 0.25            # m above the navmesh: up on something (or in the air), jumped down from
 const LEAP_STEPS := [0.3, 0.55, 0.8, 1.05]   # m out from a perch where a jump down may land (up to `jump.across`)
 const LEAP_SECONDS := 0.6         # a jump with no clip of its own takes this long, on a plain arc
 const LEAP_ARC := 0.12            # ...this high over the line
@@ -217,6 +217,7 @@ var _run: GeogenMotionRig.Run = null      # the motion the step in hand waits fo
 var _kept: Array[GeogenMotionRig.Run] = []   # motions started with `keep: true`: until the option ends
 var _pressing := false             # a `use:` step's finger is on its way to the interaction's touch point
 var _taking := false               # a `pick_up:` / `put_down:` step's hand is at work (motions take, set_down)
+var _head_up := -1.0               # ...a mouth's: s of its `take` clip left once it has it (or let go); -1 none
 var _carry_run: GeogenMotionRig.Run = null   # the hand holding what it took (motion carry)
 var _emitted := {}                 # what the body's motions have emitted since the press began
 var _feet: GeogenFeet = null       # standing feet onto the ground that is really there (feet.gd)
@@ -1677,10 +1678,22 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         if _taking:
             return ""
         _timer = PICK_SECONDS
+        _head_up = -1.0
+        if _mouth() and animator != null and animator.has("take"):
+            # Head down to it and up again: it is in the mouth half-way through.
+            _timer = animator.play_once("take") * 0.5
+            _head_up = _timer
+            _playing = true
         return ""
     if step.has("put_down"):
         if world.props.taken_by(self) == "":
             return "holding nothing"
+        if str(step["put_down"]) == "here":
+            # On the ground just in front of where it stands.
+            var ahead := global_position + Basis(Vector3.UP, _yaw()) * Vector3(0, 0, float(definition.get("radius", 0.25)) + 0.08)
+            var down := PhysicsRayQueryParameters3D.create(ahead + Vector3.UP * 0.3, ahead + Vector3.DOWN * 0.5, 1)
+            var ground := get_world_3d().direct_space_state.intersect_ray(down)
+            ctx["place"] = {"position": ground["position"] if not ground.is_empty() else ahead, "yaw": _yaw()}
         var place: Dictionary = ctx.get("place", {})
         if not place.has("position"):
             return "no place to put it"
@@ -1689,6 +1702,11 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         _face_point(place["position"])
         _taking = _set_down(world.props.taken_by(self), place)
         _timer = PICK_SECONDS
+        _head_up = -1.0
+        if not _taking and _mouth() and animator != null and animator.has("take"):
+            _timer = animator.play_once("take") * 0.5     # head down: it lets go there
+            _head_up = _timer
+            _playing = true
         return ""
     if step.has("use_item"):
         var id := _carried_item(str(step["use_item"]))
@@ -1814,17 +1832,28 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             count_stat("put_down")
             _trace({"event": "put_down", "prop": was, "at": GeogenUtil.cm(ctx["place"]["position"])})
             return "done"
+        if _timer <= 0.0 and _head_up > 0.0:
+            # A mouth: the head comes up again with it (or without it) before the step is done.
+            _head_up -= delta
+            if _head_up > 0.0:
+                return "running"
+            _playing = false
+            return "done"
         _timer -= delta
         if _timer > 0.0:
             return "running"
+        if _head_up <= 0.0:
+            _playing = false
         if step.has("pick_up"):
             var uid := str(ctx.get("subject", ""))
             if not world.props.take(uid, self, _prop_point.bind(uid)):
+                _head_up = 0.0
+                _playing = false
                 return "can't take it (gone, or in someone's hands)"
             count_stat("picked_up")
             GeogenWants.note_handled(self, uid)
             _trace({"event": "pick_up", "prop": uid, "pos": GeogenUtil.cm(global_position)})
-            return "done"
+            return "running" if _head_up > 0.0 else "done"
         var held_uid: String = world.props.taken_by(self)
         if held_uid == "":
             return "holding nothing"          # taken out of its hand as it turned
@@ -1838,7 +1867,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         _carry_on = {}
         count_stat("put_down")
         _trace({"event": "put_down", "prop": held_uid, "at": GeogenUtil.cm(place["position"])})
-        return "done"
+        return "running" if _head_up > 0.0 else "done"
     if step.has("use_item"):
         return "done"
     if step.has("use"):
@@ -2053,7 +2082,14 @@ func _hand_gaps() -> Dictionary:
 
 ## Take prop ``uid`` and keep hold of it (motions take and carry, or take_both and carry_both for
 ## a bulky one). False when this body has no such motions or is not on its feet.
+## Whether this body carries in its mouth (`body.carry`), not its hands: no reaching motions then.
+func _mouth() -> bool:
+    return not (definition["body"].get("carry", {}) as Dictionary).is_empty()
+
+
 func _take(uid: String) -> bool:
+    if _mouth():
+        return false
     var player := _motion_player()
     var motions := GeogenMotionPlayer.motions(world.generated_dir)
     if player == null or _pose != "stand":
@@ -2405,9 +2441,15 @@ func _prop_point(uid: String) -> Transform3D:
             var held: Transform3D = (chest as Transform3D) * (_carry_on["local"] as Transform3D)
             return Transform3D(held.basis, held.origin - held.basis * (world.props.box_of(uid)["center"] as Vector3))
     elif _skeleton != null:
-        var bone := _skeleton.find_bone("RightHand")
+        var mouth: Dictionary = definition["body"].get("carry", {})
+        var bone := _skeleton.find_bone(str(mouth.get("bone", "RightHand")))
         if bone >= 0:
-            at = (_skeleton.global_transform * _skeleton.get_bone_global_pose(bone)).origin + basis * Vector3(0, -0.04, 0.08)
+            var offset := Vector3(0, -0.04, 0.08)
+            if not mouth.is_empty():
+                # The body's own carry point (a cat's mouth): the body's frame is +X its left, +Z forward.
+                var o: Array = mouth["offset"]
+                offset = Vector3(o[0], o[1], o[2])
+            at = (_skeleton.global_transform * _skeleton.get_bone_global_pose(bone)).origin + basis * offset
     return Transform3D(basis, at - basis * (world.props.box_of(uid)["center"] as Vector3))
 
 
@@ -2955,15 +2997,15 @@ func _plan(target: Vector3) -> String:
         _playing = false
         _solid_after_move()
     if definition.has("jump"):
-        # On a perch: jump down to the navmesh first. To a perch (or a spot off the navmesh):
-        # walk to where it can be jumped up to from, then jump.
-        if _perched or _off_mesh(global_position, from):
+        # On a perch (or in the air): jump down to the navmesh first. To a perch: walk to where
+        # it can be jumped up to from, then jump.
+        if _perched or global_position.y - from.y > LEAP_OFF:
             var down = _leap_ground(global_position, target, false)
             if down == null:
                 return "no way down from %s" % str(GeogenUtil.cm(global_position))
             _leap_out = {"from": global_position, "to": down}
             from = down
-        if _perch_goal or _off_mesh(target, to):
+        if _perch_goal:
             var up = _leap_ground(target, from, true)
             if up == null:
                 return "out of jumping reach (%s)" % str(GeogenUtil.cm(target))
@@ -3242,11 +3284,6 @@ func _walk(delta: float) -> String:
     return "running"
 
 
-## A spot off the navmesh: higher than the navmesh point nearest it, or well beside it.
-func _off_mesh(spot: Vector3, nearest: Vector3) -> bool:
-    return spot.y - nearest.y > LEAP_OFF or NpcGeometry.flat(spot - nearest).length() > 0.3
-
-
 ## Where to jump between ``perch`` (off the navmesh) and the navmesh: a navmesh point on the ground
 ## beside and below it within the body's `jump:` reach (`up` for a jump up to it, else `down`), with
 ## nothing solid in the way, the nearest ``toward``. null: there is none.
@@ -3325,7 +3362,7 @@ func _leaping(delta: float) -> String:
     if t < float(_leap["length"]):
         return "running"
     global_position = to
-    _perched = _off_mesh(to, NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, to))
+    _perched = to.y > from.y              # up onto a perch; down is onto the navmesh
     _leap = {}
     _playing = false
     _solid_after_move()

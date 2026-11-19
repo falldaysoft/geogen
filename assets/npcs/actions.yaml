@@ -51,6 +51,7 @@
 #                                in both hands; a smaller one in one hand)
 #   put_down: place              let the prop in hand go just above the action's place; where it
 #                                settles is up to the physics
+#   put_down: here               ...or on the ground just in front of where it stands
 #   set_out: <item>              put the carried item's body on what is in front (a table) until
 #                                the action ends or the item is used up (a meal served at a table)
 #   show: {<item>: <state>}      that item's body, in the hand or set out, shows a state of its own
@@ -300,6 +301,18 @@ actions:
 
   # A prop's own affordance (a book's): the subject is the prop and the place is where it lay
   # when the NPC chose it, so it ends up back there (geogen.104).
+  play_with:                     # an animal's toy: take it in the mouth, carry it off, drop it there
+    approach: [0, 0, 0.25]
+    duration: [3, 8]
+    steps:
+      - go_to: approach            # where it stands to reach the toy (worked out when it chose it)
+        look: subject
+      - pick_up: subject
+        look: none
+      - go_to: random              # somewhere else in its home
+      - put_down: here             # on the ground in front of it
+      - wait: duration
+
   read:                          # take the book to a seat or a bed, read it there, put it back
     duration: [20, 45]
     interruptible: true

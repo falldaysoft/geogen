@@ -63,6 +63,10 @@ def test_one_shot_clips_carry_the_way_a_jump_goes():
         cycle_clip(skeleton, Pose(), "bad", once=True, bones={"Hips": {"path": [[0, 0, 0]], "cycles": 2}})
 
 
+def body_root(root):
+    return next(n for n in root.iter_nodes() if "humanoid" in n.meta)
+
+
 def test_the_cat_is_one_closed_skinned_body_with_its_motions(built_scene):
     root = built_scene("cat")
     body = next(n for n in root.iter_nodes() if n.mesh is not None)
@@ -76,6 +80,8 @@ def test_the_cat_is_one_closed_skinned_body_with_its_motions(built_scene):
     assert {"walk", "idle", "jump_up", "jump_down", "pose_lie"} <= set(clips)
     assert clips["walk"].meta["speed"] == 0.45 and clips["walk"].loop
     assert not clips["jump_up"].loop and set(clips["jump_up"].meta["leap"]) == {"times", "run", "rise", "lift"}
+    # It carries in its mouth, under the front of its head.
+    assert body_root(root).meta["humanoid"]["carry"]["bone"] == "Head"
     # The walk moves all four legs.
     assert {"LeftHindUpperLeg", "LeftFrontUpperLeg", "RightHindUpperLeg", "RightFrontUpperLeg"} <= set(clips["walk"].tracks)
 
@@ -103,6 +109,8 @@ def test_cats_walk_about_as_npcs(scene_export, godot_runtime):
                 assert n["position"][1] == pytest.approx(0.5, abs=0.05) and n["position"][0] < -1.0, n
                 perched[n["npc"]] = True
     now = {n["npc"]: n for n in rt.call("npcs.list")}
+    # The toy mouse went about in a mouth, and was dropped again (geogen.100.8).
+    assert sum(n.get("picked_up", 0) for n in now.values()) >= 1, now
     for name, n in now.items():
         assert walked[name] > 1.0, (name, walked)                          # it got about
         assert {"walk", "idle", "pose_lie"} <= clips[name], clips          # on its own walk and idle; napped

@@ -836,6 +836,20 @@ def head_weights(mesh: Mesh, skeleton: Skeleton, blend: float, shift: float) -> 
     return normalize_weights(None, dense)
 
 
+def carry_point(spec, skeleton, name: str) -> dict:
+    """A body's ``carry: {bone, offset}``: where it holds a small thing it carries, when that is not
+    in a hand (a cat's mouth): ``offset`` m in the body's frame (x its left, y up, z forward) from the
+    bone's head, wherever the bone is. NPCs carry there (``npc.body.carry``, ``npc.gd`` _prop_point)."""
+    if not isinstance(spec, dict) or set(spec) - {"bone", "offset"} or "bone" not in spec:
+        raise ValueError(f"'{name}': body.carry is {{bone, offset: [x, y, z]}}, got {spec!r}")
+    if spec["bone"] not in skeleton.bones:
+        raise ValueError(f"'{name}': body.carry bone {spec['bone']!r} is not one of the skeleton's")
+    offset = [float(v) for v in spec.get("offset", [0.0, 0.0, 0.0])]
+    if len(offset) != 3:
+        raise ValueError(f"'{name}': body.carry offset is [x, y, z], got {spec.get('offset')!r}")
+    return {"bone": str(spec["bone"]), "offset": [round(v, 4) for v in offset]}
+
+
 def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, params: dict | None = None,
                    root_poses: dict | None = None) -> SceneNode:
     """``root_poses`` are the asset's top-level ``poses:`` (where the root goes per pose), which
@@ -1130,6 +1144,8 @@ def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, par
     if contacts:
         root.meta["humanoid"]["contacts"] = contacts    # {pose: [m a resting hand slid along its bone, last fit m]}
     root.meta["humanoid"]["rig"] = skeleton             # the built skeleton, for motions (geogen/motion.py)
+    if spec.get("carry") is not None:
+        root.meta["humanoid"]["carry"] = carry_point(spec["carry"], skeleton, name)
     root.meta["humanoid"]["shells"] = draped            # for drape.Draper (review, tests)
     if drape_report:
         root.meta["humanoid"]["drape"] = drape_report

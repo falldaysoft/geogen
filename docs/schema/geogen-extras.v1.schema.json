@@ -722,6 +722,9 @@
               "properties": { "asset": { "type": "string" }, "archetype": { "type": "string" },
                 "params": { "$ref": "#/$defs/params" }, "node": { "type": "string" },
                 "poses": { "type": "object", "additionalProperties": { "$ref": "#/$defs/pose" } },
+                "carry": { "description": "Where the body holds a small thing it carries when that is not a hand (a cat's mouth): 'offset' m in the body's frame (x left, y up, z forward) from the head of skeleton bone 'bone'.",
+                  "type": "object", "required": ["bone", "offset"], "additionalProperties": false,
+                  "properties": { "bone": { "type": "string" }, "offset": { "$ref": "#/$defs/vec3" } } },
                 "character": { "type": "object", "required": ["archetype", "seed"], "additionalProperties": false,
                   "properties": { "archetype": { "type": "string" }, "seed": { "type": "integer" } } } }
             },
@@ -1127,7 +1130,7 @@
         "keep": { "description": "A do step: start the motion and go on; it runs until the option ends.", "type": "boolean" },
         "go_to": { "enum": ["approach", "anchor", "random", "nearby", "near", "far", "exit", "aside", "visit", "group", "subject", "place", "partner"] },
         "pick_up": { "description": "Take the action's subject (a physics prop with carry) in hand: the NPC must stand within its reach, and the prop be within its carry limits.", "const": "subject" },
-        "put_down": { "description": "Let the prop in hand go just above the action's place; where it settles is the physics' business.", "const": "place" },
+        "put_down": { "description": "Let the prop in hand go just above the action's place ('place'), or on the ground just in front of where the NPC stands ('here'); where it settles is the physics' business.", "enum": ["place", "here"] },
         "find": { "description": "The nearest free affordance of these types the NPC may use (in its home, not another's, not reserved, nothing on it) becomes the action's anchor, approach and heading; pose 'found' takes its pose (sit, lie). Nothing free: the action goes on where it is.",
                   "type": "array", "items": { "enum": ["sit", "lie"] }, "minItems": 1 },
         "part": { "description": "A wait: duration step's share of the duration, drawn once for the action (eating in stages).", "type": "number", "exclusiveMinimum": 0, "maximum": 1 },

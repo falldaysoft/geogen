@@ -1,0 +1,66 @@
+# A cat's toy: a felt mouse, a small dome with round ears and a string tail.
+# A carryable physics prop: a cat carries it about in its mouth and drops it
+# somewhere else (npcs/actions.yaml `play_with`, geogen.100.8). Origin: the
+# middle of its base; the nose faces +Z.
+
+name: toy_mouse
+tags: [prop.toy, toy.cat]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: { default: graphite, type: text }
+
+physics: { mass: 0.03, friction: 0.8, bounce: 0.1, carry: true }
+
+parts:
+  body:
+    primitive: lathe
+    profile: [[0, 0], [0.022, 0], [0.025, 0.008], [0.022, 0.018], [0.014, 0.026], [0, 0.029]]
+    fit: none
+    segments: 14
+    size: [0.05, 0.029, 0.05]
+    anchor: bottom_center
+    material: fabric_linen
+    tint: "{colour}"
+  nose:
+    primitive: sphere
+    size: [0.012, 0.012, 0.012]
+    anchor: bottom_center
+    offset: [0, 0.006, 0.02]
+    material: fabric_linen
+    tint: blush
+    collider: none
+  ear_left: &ear
+    primitive: sphere
+    size: [0.014, 0.014, 0.014]
+    anchor: bottom_center
+    offset: [0.011, 0.018, 0.008]
+    material: fabric_linen
+    tint: blush
+    collider: none
+  ear_right:
+    <<: *ear
+    offset: [-0.011, 0.018, 0.008]
+  tail:
+    primitive: cube
+    size: [0.004, 0.004, 0.07]
+    anchor: bottom_center
+    offset: [0, 0.002, -0.058]
+    bevel: 0
+    material: fabric_linen
+    tint: charcoal
+    collider: none
+
+attachments:
+  top:
+    anchor: bottom_center
+    offset: [0, 0.029, 0]
+    grip: pinch
+
+# A cat (affordance_tags: [animal]) takes it in its mouth and drops it somewhere else. The approach
+# is worked out from wherever it lies (npc.gd _prop_affordance).
+affordances:
+  - { type: use, action: play_with, at: [0, 0.015, 0], approach: 0.25, duration: [3, 8],
+      advertises: { curiosity: 0.4 }, tags: [animal, toy] }

@@ -313,8 +313,9 @@ def _check_step(step: Any, where: str) -> dict[str, Any]:
     if verb == "show" and not (isinstance(arg, dict) and arg and all(isinstance(k, str) and isinstance(v, str)
                                                                        for k, v in arg.items())):
         raise ValueError(f"{where}: show is {{<item>: <state of its body's interaction>}}, got {arg!r}")
-    if verb == "put_down" and arg != "place":
-        raise ValueError(f"{where}: put_down sets it at the action's place (put_down: place), got {arg!r}")
+    if verb == "put_down" and arg not in ("place", "here"):
+        raise ValueError(f"{where}: put_down sets it at the action's place (put_down: place), or on the ground "
+                         f"in front of where the NPC stands (put_down: here), got {arg!r}")
     if verb == "face" and arg not in FACE_TARGETS:
         raise ValueError(f"{where}: face must be one of {sorted(FACE_TARGETS)}, got {arg!r}")
     if "hold" in step and (verb != "pose" or not isinstance(step["hold"], str) or not step["hold"]):
@@ -1225,6 +1226,8 @@ def build_npc(definition: dict[str, Any], loader, assets_dir: Path, seed: int | 
     poses = body.meta.get("poses") or {"stand": parse_poses({"stand": {}})["stand"]}
     npc = copy.deepcopy(definition)
     npc["body"] = {**body_spec, "node": "body", "poses": poses}
+    if (body.meta.get("humanoid") or {}).get("carry"):
+        npc["body"]["carry"] = body.meta["humanoid"]["carry"]      # a mouth, not a hand
     if seed is not None:
         npc["seed"] = int(seed)
     if "character" in body.meta:
