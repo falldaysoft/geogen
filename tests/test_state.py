@@ -170,7 +170,7 @@ def test_conditions_see_declared_state(assets):
      r"state.lit: type must be one of bool, number, text, choice, got 'string'. Did you mean 'text'\?"),
     ("lamp", "lit:    {type: bool, default: false}", "lit:    {type: bool, default: false, scope: instance}",
      r"state.lit: an asset's state belongs to each placed instance, or is world or actor state it uses"),
-    ("lamp", "light:  {set: lit}", "light:  {sets: lit}", r"inputs.light: unknown key 'sets'. Did you mean 'set'\?"),
+    ("lamp", "light:  {set: lit}", "light:  {sets: lit}", r"inputs.light: unknown keys \['sets'\] \(did you mean 'set'\?\)"),
     ("lamp", "switched_on: {changed: lit, to: true}", "switched_on: {changed: lit, emit: x}", "a signal has one of"),
     ("wiring", "power:      {scope: world, type: bool, default: true}", "power:      {type: bool, default: true}",
      r"wiring.yaml:5: state.power: a scene's state needs scope: world"),

@@ -27,12 +27,12 @@ def test_a_preset_is_overridden_by_what_the_block_says():
 
 @pytest.mark.parametrize("spec, says", [
     ({"preset": "noir"}, "preset is one of"),
-    ({"mist": 1}, "atmosphere is {"),
+    ({"mist": 1}, r"atmosphere: unknown keys \['mist'\]"),
     ({"time": "25:00"}, "HH:MM"),
     ({"fog": 5}, "0..0.2"),
     ({"saturation": True}, "a number"),
     ({"sun_color": [1, 2, 0]}, "a colour"),
-    ({"sky": {"zenith": [0, 0, 0]}}, "sky: {"),
+    ({"sky": {"zenith": [0, 0, 0]}}, r"atmosphere.sky: unknown keys \['zenith'\]"),
 ])
 def test_the_block_is_checked(spec, says):
     with pytest.raises(atmosphere.AtmosphereError, match=says):
