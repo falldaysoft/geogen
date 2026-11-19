@@ -13,14 +13,14 @@ floorplan:
   rooms:
     living:   { rect: [0, 0, 3.8, 4.6], type: living_room }
     kitchen:  { rect: [3.8, 0, 5.0, 4.6], type: shared_kitchen }
-    bathroom: { rect: [8.8, 0, 2.0, 4.6], type: bathroom }
+    bathroom: { rect: [8.8, 0, 2.0, 4.6], type: small_bathroom }
     bed_a:    { rect: [0, 4.6, 3.6, 3.6], type: bedroom_single }
     bed_b:    { rect: [3.6, 4.6, 3.6, 3.6], type: bedroom_single }
     bed_c:    { rect: [7.2, 4.6, 3.6, 3.6], type: bedroom_single }
   doors:
     - { name: front_door, room: living, side: south, at: 0.3, width: 1.0, height: 2.0 }
     - { between: [living, kitchen], at: 0.5, width: 1.6, style: archway }
-    - { between: [kitchen, bathroom], at: 0.3, width: 0.9 }
+    - { between: [kitchen, bathroom], at: 0.3, width: 0.9, hinge: right }   # opens toward the near end, clear of the basin
     - { between: [living, bed_a], at: 0.7, width: 0.9 }
     - { between: [kitchen, bed_b], at: 0.5, width: 0.9 }
     - { between: [kitchen, bed_c], at: 0.5, width: 0.9 }

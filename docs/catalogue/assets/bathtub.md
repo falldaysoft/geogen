@@ -29,6 +29,10 @@ place:
 
 `tub` (extrude), `cavity` (extrude), `filler` (cylinder), `spout` (cube)
 
+## Affordances
+
+lie at (0, 0.12, 0) height 0.12 [household, wash]
+
 ## Clearance
 
 front 0.6

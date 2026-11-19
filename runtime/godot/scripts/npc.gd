@@ -421,6 +421,10 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
             continue    # its `when` says no for this actor (a bin with nothing to throw away)
         if a.has("requires") and not chains and not _meets(a):
             continue    # it needs something carried, or a state, it hasn't got (geogen.101.1)
+        if a.get("requires", {}).has("near") and world.near_thing(a) == "":
+            continue    # a seat for watching with nothing to watch
+        if _undoes_for_another(a):
+            continue    # the TV someone is watching stays on
         if not _for_me(a, chains):
             continue    # a link in a chain, to one who doesn't plan; or for needs it hasn't got
         if _poses_at_anchor(actions[a["action"]]) and _something_on(a["position"], uid):
@@ -868,8 +872,9 @@ func _run_out() -> bool:
 
 ## The next step of the plan it is on, or of a new one (`planner:`, geogen.101.4): the option
 ## among ``ranked`` to take now, {} when there is no plan to be had. A plan is a chain of
-## options found by GeogenPlanner over what they require, take and give; every affordance in
-## it is reserved while the plan lasts, and a step that is no longer possible drops the plan.
+## options found by GeogenPlanner over what they require, take and give; a step is reserved when
+## it is reached (one that changes a thing, from the start), and a step that is no longer possible
+## drops the plan.
 func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
     var by_id := {}
     for o in ranked:
@@ -878,6 +883,8 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
         var step: Dictionary = _chain["steps"][_chain["index"]]
         var now: Dictionary = by_id.get(step["id"], {})
         if not now.is_empty() and (not now.has("affordance") or _meets(now["affordance"])):
+            if now.has("affordance"):
+                world.npc_reserve(now["id"], self)
             return now
         _drop_plan("%s isn't possible any more" % step["id"])
     var found := GeogenPlanner.plan(_snapshot(ranked))
@@ -897,8 +904,11 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
         return {}
     # Who works with others commits to one run at a time, and leaves the rest of the job open.
     var steps: Array = (found.get("run", found["steps"]) as Array).map(func(id): return by_id[id])
-    for o in steps:
-        if o.has("affordance"):
+    # The step in hand is claimed, and any that changes a thing (two people mustn't both do it);
+    # the rest stay free for others until it gets to them, and if one is taken by then it plans again.
+    for i in steps.size():
+        var o: Dictionary = steps[i]
+        if o.has("affordance") and (i == 0 or o["affordance"].has("sets")):
             world.npc_reserve(o["id"], self)
     _chain = {"goal": found["goal"], "steps": steps, "index": 0, "cost": found["cost"], "score": found["score"]}
     stats["plans"] = int(stats.get("plans", 0)) + 1
@@ -911,6 +921,37 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
 func _carries_one_of(items: Array) -> bool:
     var actor := WorldLoader.actor_id(self)
     return world.rules != null and items.any(func(id): return world.rules.held(str(id), actor) > 0)
+
+
+## The states the steps of its plan still to finish count on: {"<uid>#<interaction>": state}.
+func relies_on() -> Dictionary:
+    var out := {}
+    if _chain.is_empty():
+        return out
+    for i in range(int(_chain["index"]), (_chain["steps"] as Array).size()):
+        var a: Dictionary = _chain["steps"][i].get("affordance", {})
+        var need: Dictionary = a.get("requires", {})
+        for name in need.get("state", {}):
+            out["%s#%s" % [WorldLoader.uid_of(a["node"]), name]] = str(need["state"][name])
+        for name in need.get("near", {}).get("state", {}):
+            out["%s#%s" % [world.near_thing(a), name]] = str(need["near"]["state"][name])
+    return out
+
+
+## Whether doing ``a`` would change a state another's plan counts on.
+func _undoes_for_another(a: Dictionary) -> bool:
+    if not a.has("sets"):
+        return false
+    var uid := WorldLoader.uid_of(a["node"])
+    for other in world.npcs:
+        if other == self or not is_instance_valid(other):
+            continue
+        var counted: Dictionary = other.relies_on()
+        for name in a["sets"]:
+            var key := "%s#%s" % [uid, name]
+            if counted.has(key) and counted[key] != str(a["sets"][name]):
+                return true
+    return false
 
 
 ## The states the steps of its plan still to finish will set: {"<uid>#<interaction>": state}.
@@ -961,6 +1002,15 @@ func _snapshot(ranked: Array[Dictionary]) -> Dictionary:
                     requires["state"] = keyed
                 else:
                     entry["sets"] = keyed
+            var near: Dictionary = a.get("requires", {}).get("near", {})
+            for name in near.get("state", {}):      # the state of the thing it is near, as its own
+                var key := "%s#%s" % [world.near_thing(a), name]
+                if not requires.has("state"):
+                    requires["state"] = {}
+                requires["state"][key] = str(near["state"][name])
+                var it = world.interactions_by_key.get(key)
+                if it is GeogenInteraction:
+                    states[key] = (it as GeogenInteraction).state
             if not requires.is_empty():
                 entry["requires"] = requires
         elif o.has("want") or o.has("person"):
@@ -1103,6 +1153,8 @@ func choices(thing: String) -> Array:
         var uid := WorldLoader.uid_of(a["node"])
         if not _under(uid, [thing]):
             continue
+        if a.get("requires", {}).has("near") and world.near_thing(a) == "":
+            continue                    # a seat with no TV to watch has no watching to offer
         var why := ""
         if not by_id.has(a["id"]):
             if _owned_by_another(uid):
@@ -3546,6 +3598,11 @@ func _meets(a: Dictionary) -> bool:
     for name in states:
         var it = world.interactions_by_key.get("%s#%s" % [WorldLoader.uid_of(a["node"]), name])
         if not it is GeogenInteraction or (it as GeogenInteraction).state != str(states[name]):
+            return false
+    var near: Dictionary = need.get("near", {})
+    for name in near.get("state", {}):
+        var it = world.interactions_by_key.get("%s#%s" % [world.near_thing(a), name])
+        if not it is GeogenInteraction or (it as GeogenInteraction).state != str(near["state"][name]):
             return false
     return true
 

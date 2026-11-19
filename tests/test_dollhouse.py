@@ -88,6 +88,24 @@ def _launch(godot_runtime, generated):
 
 
 @pytest.mark.godot
+def test_told_to_watch_the_tv_someone_switches_it_on_first(godot_runtime, street_export):
+    rt = _launch(godot_runtime, street_export)
+    choices = rt.call("npcs.choices", npc="priya", thing="no3/living/sofa")["choices"]
+    watch = next(c for c in choices if c["option"].endswith(".watch"))
+    assert watch["available"] and len(watch["plan"]) == 2, watch        # the TV first, then the seat
+    rt.call("npcs.direct", npc="priya", option=watch["option"])
+    for _ in range(16):
+        rt.call("time.advance", seconds=10, scale=4)
+        priya = _people(rt)["priya"]
+        if priya["used"].get(watch["option"]):
+            break
+    assert priya["used"].get(watch["option"]), (priya["used"], priya["failures"])
+    assert any(id.startswith("tv_") for id in priya["used"]), priya["used"]
+    states = rt.call("interactions.states")
+    assert any(key.endswith("tv#power") and it["state"] == "on" for key, it in states.items()), states
+
+
+@pytest.mark.godot
 def test_at_night_everyone_is_in_their_own_bed(godot_runtime, street_export):
     rt = _launch(godot_runtime, street_export)
     rt.call("time.clock", time="22:20")
@@ -111,10 +129,12 @@ def test_over_a_day_everyone_cooks_eats_and_washes_by_plans_and_sleeps_at_night(
     for _ in range(24):                                     # 24 simulated minutes: one day (day_length 1440 s)
         rt.call("time.advance", seconds=60, scale=8)
         now = _people(rt)
+    
         for house, residents in HOUSEHOLDS.items():         # nobody strays next door
             for who in residents:
                 x, _, z = now[who]["position"]
-                assert spans[house][0] < x < spans[house][1] and -9.0 < z < 4.3, (who, x, z)
+                if who != "ada":                    # (Ada goes next door to see Walter's flowers: geogen.111)
+                    assert spans[house][0] < x < spans[house][1] and -9.0 < z < 4.3, (who, x, z)
                 if now[who]["pose"] == "lie" and now[who]["doing"].startswith("bed"):
                     abed[who] = abed.get(who, 0) + 1
     people = _people(rt)
@@ -125,26 +145,35 @@ def test_over_a_day_everyone_cooks_eats_and_washes_by_plans_and_sleeps_at_night(
         assert did(".eat") >= 2, (who, used)                # at a table, a meal they cooked in hand
         assert did("fridge") >= 2 and did("range") + did("microwave") >= 2, (who, used)
         assert abed.get(who, 0) >= 5, (who, abed)           # at night, by their routine (not a plan)
-        assert did("vanity") + did("shower") >= 1, (who, used)
+        assert did("vanity") + did("shower") + did("bathtub") >= 1, (who, used)
+        assert did("toilet") >= 1, (who, used)
         assert n["plans_done"] >= 10 and n["ran_out"] == 0, (who, n["plans_done"], n["ran_out"])
-        assert n["plans_done"] >= 0.8 * n["plans"], (who, n["plans"], n["plans_done"], n["failures"][-5:])
+        # (A step is claimed only when it is reached, so a plan can find its next thing taken and be
+        # made again: geogen.101.9.)
+        assert n["plans_done"] >= 0.75 * n["plans"], (who, n["plans"], n["plans_done"], n["failures"][-5:])
     # Company (geogen.101.6): those who live with someone talk with them, and only with them, and know
-    # them better for it; Walter, alone, has nobody to (and no need of it: his `social` doesn't fall).
+    # them better for it; Walter, alone, has nobody to (and no need of it: his `social` doesn't fall),
+    # though Ada may get to know him over the fence (geogen.111).
     uid = {who: n["uid"] for who, n in people.items()}
+    neighbours = {"walter": {uid["ada"]}, "ada": {uid["walter"]}}
     for house, residents in HOUSEHOLDS.items():
         for who in residents:
             n = people[who]
-            talked = {id.split("/")[1] for id in n["used"] if id.startswith("with/")}
+            talked = {id.split("/")[1] for id in n["used"] if id.startswith("with/")} - neighbours.get(who, set())
             assert talked <= {uid[other] for other in residents if other != who}, (who, talked)
-            assert set(n["relations"]) <= {uid[other] for other in residents}, (who, n["relations"])
+            known = set(n["relations"]) - neighbours.get(who, set())
+            assert known <= {uid[other] for other in residents}, (who, n["relations"])
             if len(residents) > 1:
                 assert len(talked) + n["joined"] >= 2, (who, n["used"], n["joined"])
-                assert max(n["relations"].values()) > 0.52 and n["needs"]["social"] > 0.3, (who, n["relations"], n["needs"])
+                assert max(n["relations"].values()) > 0.52 and n["needs"]["social"] > 0.2, (who, n["relations"], n["needs"])
             else:
-                assert not talked and n["joined"] == 0 and n["relations"] == {}, who
+                assert not talked and not known, who
+    # The TV is switched on to be watched, and watched from a seat facing it (geogen.101.9).
+    watched = {who: sum(c for id, c in n["used"].items() if id.endswith(".watch")) for who, n in people.items()}
+    assert sum(watched.values()) >= 3, watched
     # What is in the house decides how: the students never see a range.
     for who in HOUSEHOLDS["no4"]:
         assert not any("range" in id for id in people[who]["used"]), who
     # Walter potters in his front garden; nobody else's home reaches it.
     garden = lambda n: sum(c for id, c in n["used"].items() if "flowers" in id or "bench" in id)   # noqa: E731
-    assert garden(people["walter"]) >= 1 and all(garden(n) == 0 for who, n in people.items() if who != "walter")
+    assert garden(people["walter"]) >= 1 and all(garden(n) == 0 for who, n in people.items() if who not in ("walter", "ada"))

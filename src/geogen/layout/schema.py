@@ -289,7 +289,7 @@ ASSET_KEYS: dict[str, str] = {
                    "`sets: {interaction: state}`: what doing it needs and does to what the actor carries and to "
                    "this asset's states, the links NPCs plan chains through; "
                    "`uses: {name: {requires, takes, gives, sets, advertises, duration, tags}}`: other things done at "
-                   "the same place, sharing its slots: a chair's `eat`)",
+                   "the same place, sharing its slots: a chair's `eat`; `when`: an expression, false leaves the affordance out)",
     "places": "{name: {box | polygon | around}}: trigger volumes",
     "clearance": "{front, back, left, right}: free space the furnishing solver keeps around it",
     "container": "{capacity, part}: the asset holds items",

@@ -1,0 +1,22 @@
+# A narrow bathroom with no room for a bath (the family house's and the share house's, 2 m wide): the
+# toilet at the far end, out of the way of the door as it opens, and a basin, so three people can get
+# past each other in it.
+
+name: small_bathroom
+finishes: { walls: tile_white, floor: tile_floor_grey }
+
+items:
+  toilet:
+    asset: toilet.yaml
+    against: wall
+    prefer: [far_door, centered]
+    clearance: { front: 0.6, left: 0.3, right: 0.3 }
+  vanity:
+    asset: vanity.yaml
+    against: wall
+    prefer: [near_door]
+  mirror:
+    asset: wall_mirror.yaml
+    mount: wall
+    above: vanity
+    height: 1.2

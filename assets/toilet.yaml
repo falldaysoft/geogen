@@ -8,6 +8,9 @@ origin: bottom_center
 
 size: [0.38, 0.8, 0.7]
 
+params:
+  in_stall: { default: false }      # behind a cubicle's door: nobody is seen to use it
+
 clearance: { front: 0.6, left: 0.2, right: 0.2 }
 
 parts:
@@ -71,6 +74,10 @@ parts:
     offset: [0, "{0.8 / 0.8 - 0.006 / 0.8}", "{-0.265 / 0.7}"]
     material: chrome
     collider: none
+
+affordances:
+  - { type: sit, at: [0, 0.44, 0.14], facing: 0, height: 0.44, approach: [0, 0, 0.46], duration: [12, 25],
+      advertises: { bladder: 1.0 }, tags: [household], when: "{not in_stall}" }
 
 interactions:
   lid:

@@ -11,3 +11,5 @@
 kind: project
 name: dollhouse
 description: A street of four houses whose people cook, eat, wash and sleep by plans nobody wrote
+overrides:
+  - room_types/bathroom.yaml        # always a bath, and elbow room at the toilet

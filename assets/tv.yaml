@@ -9,6 +9,7 @@ params:
   width:  { default: 1.1 }
   height: { default: 0.65 }
   depth:  { default: 0.06 }
+  above_floor: { default: 0.5 }      # how high it stands: where someone stands to work it is on the floor
 
 size: ["{width}", "{height}", "{depth}"]
 
@@ -35,6 +36,15 @@ parts:
     bevel: 0
     material: screen
     collider: none
+  # The picture, just in front of the dark glass: shown while the TV is on.
+  picture:
+    primitive: cube
+    size: ["{(width - 0.05) / width}", "{(height - 0.05) / height}", "{0.002 / depth}"]
+    anchor: bottom_center
+    offset: [0, "{0.025 / height}", "{(depth + 0.004) / depth}"]
+    bevel: 0
+    material: screen_on
+    collider: none
 
 # Where a body touches it (motions, geogen/motion.py): the power button low on the bezel's
 # right as you face it, and the middle of the screen to look at.
@@ -42,7 +52,7 @@ attachments:
   power_button: { anchor: bottom_center, offset: [-0.48, 0.008, "{depth}"], grip: press }
   screen:       { anchor: center, offset: [0, 0, "{depth / 2}"], grip: look }
 
-# Power toggle (no moving parts; runtimes react to the emitted events).
+# Power toggle: the picture shows while it is on.
 interactions:
   power:
     touch: power_button            # where a body works it (motions: press on tv.power)
@@ -51,5 +61,14 @@ interactions:
     states:
       "off": { prompt: Turn on TV, next: "on", emit: tv_off }
       "on":  { prompt: Turn off TV, next: "off", emit: tv_on }
-    motions: []
+    motions:
+      - { parts: [picture], show: ["on"] }
+
+# Someone at home switches it on to watch it from a seat facing it (sofa.yaml's `watch`), and
+# off again when nobody is counting on it.
+affordances:
+  - { type: stand, action: stand, at: [0, "{-above_floor}", 0.7], approach: [0, 0, 0], facing: 180, duration: [2, 3],
+      requires: { state: { power: "off" } }, sets: { power: "on" }, tags: [household] }
+  - { type: stand, action: stand, at: [0, "{-above_floor}", 0.7], approach: [0, 0, 0], facing: 180, duration: [2, 3],
+      requires: { state: { power: "on" } }, sets: { power: "off" }, advertises: { order: 0.1 }, tags: [household] }
 

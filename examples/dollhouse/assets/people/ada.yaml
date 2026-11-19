@@ -10,6 +10,7 @@ body:
 needs:
   hunger:    { initial: 0.55, decay: 0.0014, urgent: 0.35 }
   curiosity: { initial: 0.4, decay: 0.006 }
+  fun:       { initial: 0.9, decay: 0 }       # she would sooner be out of the house
 routine:
   - { name: night, from: "23:30", to: "08:00", only: [bed], hold: true }
 skips: [sowing]                # the seeds are Walter's

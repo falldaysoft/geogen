@@ -21,6 +21,8 @@ needs:
   curiosity: { initial: 0.6, decay: 0.004 }
   order:     { initial: 0.9, decay: 0.0005 }
   social:    { initial: 0.6, decay: 0.0012, urgent: 0.25 }
+  fun:       { initial: 0.6, decay: 0.0016 }
+  bladder:   { initial: 0.5, decay: 0.0009, urgent: 0.3 }
 
 # What the others at home can do with them (geogen.101.6): whoever wants company walks over, and
 # both get it. `relations`: those of the same `household:` know each other, and more as they talk.

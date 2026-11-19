@@ -23,7 +23,7 @@
 | `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
 | `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
-| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`, `sets: {interaction: state}`: what doing it needs and does to what the actor carries and to this asset's states, the links NPCs plan chains through; `uses: {name: {requires, takes, gives, sets, advertises, duration, tags}}`: other things done at the same place, sharing its slots: a chair's `eat`) |
+| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`, `sets: {interaction: state}`: what doing it needs and does to what the actor carries and to this asset's states, the links NPCs plan chains through; `uses: {name: {requires, takes, gives, sets, advertises, duration, tags}}`: other things done at the same place, sharing its slots: a chair's `eat`; `when`: an expression, false leaves the affordance out) |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes |
 | `clearance` | {front, back, left, right}: free space the furnishing solver keeps around it |
 | `container` | {capacity, part}: the asset holds items |
@@ -609,6 +609,7 @@ A floor-plan room's `type:`; `furnish: true` fills the room from it.
 | `rug` | cut_pile_carpet |
 | `sand` | dirt |
 | `screen` | painted_wall |
+| `screen_on` | painted_wall |
 | `signal_amber` | painted_wall |
 | `signal_green` | painted_wall |
 | `signal_red` | painted_wall |

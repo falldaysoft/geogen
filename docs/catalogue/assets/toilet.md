@@ -10,8 +10,14 @@ Close-coupled toilet: pedestal, oval bowl (hollow), seat, lid that lifts
 
 ```yaml
 place:
-  toilet: {asset: toilet.yaml, state: open}
+  toilet: {asset: toilet.yaml, params: {in_stall: False}, state: open}
 ```
+
+## Params
+
+| Param | Default | Choices | Notes |
+| --- | --- | --- | --- |
+| `in_stall` | `false` |  | behind a cubicle's door: nobody is seen to use it |
 
 ## Size
 
@@ -24,6 +30,10 @@ place:
 ## Interactions
 
 lid: closed* -> open, open -> closed (* initial; rotates lid)
+
+## Affordances
+
+sit at (0, 0.44, 0.14) height 0.44 [household]
 
 ## Clearance
 

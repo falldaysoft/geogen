@@ -1,0 +1,15 @@
+# A TV showing a picture: a soft cool glow (the dark glass is screen.yaml).
+name: screen_on
+texture:
+  type: painted_wall
+  params:
+    base_color: [96, 128, 168]
+    seed: 153
+size: [64, 64]
+tile_size: 1.0  # metres per texture repeat
+pbr:
+  roughness: 0.3
+  metallic: 0.0
+  normal_strength: 0.0
+  ao_strength: 0.0
+  emissive: [0.38, 0.52, 0.72]

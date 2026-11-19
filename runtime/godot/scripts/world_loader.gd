@@ -1203,6 +1203,33 @@ func _sync_trains() -> void:
 
 
 ## How many NPCs other than ``npc`` hold affordance ``id``.
+## The stable ID of the thing affordance ``a``'s `requires.near` is about: the nearest with its tag
+## and interactions, in front of the place and within reach of it; "" for none. Things don't move
+## house, so it is looked for once.
+func near_thing(a: Dictionary) -> String:
+    if a.has("near_uid"):
+        return a["near_uid"]
+    var near: Dictionary = a.get("requires", {}).get("near", {})
+    var at: Vector3 = a["position"]
+    var ahead: Vector3 = Basis(Vector3.UP, deg_to_rad(float(a.get("npc_yaw_deg", 0.0)))) * Vector3.BACK
+    var best := ""
+    var nearest := float(near.get("within", 5.0))
+    for key in interactions_by_key:
+        var it = interactions_by_key[key]
+        if not it is GeogenInteraction or not near.get("state", {}).has((it as GeogenInteraction).interaction_name):
+            continue
+        var node: Node3D = (it as GeogenInteraction).asset
+        if not is_instance_valid(node) or not str(near["tag"]) in geogen_extras(node).get("tags", []):
+            continue
+        var to := node.global_position - at
+        to.y = 0.0
+        if to.length() < nearest and to.normalized().dot(ahead) > 0.5:
+            nearest = to.length()
+            best = uid_of(node)
+    a["near_uid"] = best
+    return best
+
+
 func npc_reserved(id: String, npc: Node) -> int:
     id = _shares.get(id, id)
     var holders: Array = _reservations.get(id, []).filter(func(n): return is_instance_valid(n) and n != npc)

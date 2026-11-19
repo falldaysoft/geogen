@@ -18,7 +18,7 @@ floorplan:
     - { name: front_door, room: living, side: south, at: 0.25, width: 1.0, height: 2.0 }
     - { between: [living, kitchen], at: 0.5, width: 1.6, style: archway }
     - { between: [living, bedroom], at: 0.8, width: 0.9 }
-    - { between: [bedroom, bathroom], at: 0.25, width: 0.9 }
+    - { between: [bedroom, bathroom], at: 0.75, width: 0.9 }     # far from the other door: its open leaf blocks the way between them
   windows:
     - { room: living, side: west, at: 0.5, width: 1.4, height: 1.1, sill: 0.9 }
     - { room: kitchen, side: east, at: 0.5, width: 1.3, height: 0.9, sill: 1.25 }

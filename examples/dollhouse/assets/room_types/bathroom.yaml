@@ -1,0 +1,25 @@
+# A bathroom on Lark Lane: always a bath, and the toilet in the middle of its wall, with room
+# for elbows on both sides of whoever sits on it.
+
+name: bathroom
+finishes: { walls: tile_white, floor: tile_floor_grey }
+
+items:
+  bathtub:
+    asset: bathtub.yaml
+    against: wall
+    prefer: [far_door, longest_wall]
+  toilet:
+    asset: toilet.yaml
+    against: wall
+    prefer: [no_door_wall, centered]
+    clearance: { front: 0.6, left: 0.3, right: 0.3 }
+  vanity:
+    asset: vanity.yaml
+    against: wall
+    prefer: [near_door]
+  mirror:
+    asset: wall_mirror.yaml
+    mount: wall
+    above: vanity
+    height: 1.2

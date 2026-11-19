@@ -17,10 +17,12 @@ items:
     optional: true
   toilet:
     asset: toilet.yaml
+    params: { in_stall: true }
     under: stall
     offset: -0.28
   toilet_2:
     asset: toilet.yaml
+    params: { in_stall: true }
     under: stall_2
     offset: -0.28
     optional: true

@@ -19,6 +19,7 @@ place:
 | `width` | `1.1` |  |  |
 | `height` | `0.65` |  |  |
 | `depth` | `0.06` |  |  |
+| `above_floor` | `0.5` |  | how high it stands: where someone stands to work it is on the floor |
 
 ## Size
 
@@ -26,7 +27,7 @@ place:
 
 ## Parts
 
-`body` (cube), `bracket` (cube), `screen` (cube)
+`body` (cube), `bracket` (cube), `screen` (cube), `picture` (cube)
 
 ## Attachments
 
@@ -37,4 +38,9 @@ place:
 
 ## Interactions
 
-power: off* -> on, on -> off (* initial)
+power: off* -> on, on -> off (* initial; shows/hides picture)
+
+## Affordances
+
+- stand at (0, -0.5, 0.7) [household]
+- stand at (0, -0.5, 0.7) [household]

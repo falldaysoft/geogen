@@ -226,7 +226,7 @@ class LayoutLoader:
 
                     root.meta["rig"]["root_poses"] = root_poses_extras(root.meta["poses"])
             if data.get("affordances"):
-                root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"]]
+                root.meta["affordances"] = [_affordance(a, root) for a in data["affordances"] if _affordance_on(a)]
             return root
         if "building" in data:
             from ..generators.building import build_building
@@ -852,7 +852,7 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
                    "advertises", "tags", "slots", "interaction", "depth", "body", "requires", "takes", "gives", "sets",
-                   "uses"}
+                   "uses", "when"}
 # Other things done at the same place (`uses: {name: {...}}`): each with its own of these, the rest
 # (where, the action, its slots) shared with the affordance. A chair is a seat, and with a meal in
 # hand somewhere to eat it.
@@ -863,6 +863,8 @@ AFFORDANCE_REQUIRES = {
     "holding": "an item the actor must carry: an id, \"[tag=<tag>]\", or a list (any of them)",
     "state": "{<interaction>: <state>} (or just <state>, of the affordance's own `interaction`): this asset's "
              "interaction must show that state",
+    "near": "{tag, state: {<interaction>: <state>}, within}: the nearest thing with that tag in front of this place "
+            "(within `within` m, default 5) must show that state: a sofa's `watch` needs the TV on",
 }
 
 
@@ -1150,6 +1152,13 @@ def _affordance_chain(spec: dict[str, Any], root: SceneNode, out: dict[str, Any]
             if not isinstance(state, dict) or not state:
                 raise ValueError(f"affordance requires.state is {{<interaction>: <state>}}, got {state!r}")
             need["state"] = check_states(state, "requires.state")
+        if "near" in requires:
+            near = requires["near"]
+            if not isinstance(near, dict) or set(near) - {"tag", "state", "within"} or not near.get("tag") \
+                    or not isinstance(near.get("state"), dict) or not near["state"]:
+                raise ValueError(f"affordance requires.near is {{tag, state: {{<interaction>: <state>}}, within}}, got {near!r}")
+            need["near"] = {"tag": str(near["tag"]), "state": {str(k): str(v) for k, v in near["state"].items()},
+                            "within": float(near.get("within", 5.0))}
         out["requires"] = need
     if spec.get("takes") is not None:
         out["takes"] = resolve_items(spec["takes"], "affordance takes")
@@ -1484,8 +1493,13 @@ def _meta_clearance(root: SceneNode, clearance: Any, parts: dict[str, SceneNode]
     root.meta["clearance"] = {k: float(v) for k, v in clearance.items()}
 
 
+def _affordance_on(spec: dict[str, Any]) -> bool:
+    """An affordance's ``when:`` (usually a ``{param}`` expression): false leaves it out."""
+    return enabled(spec.get("when", True))
+
+
 def _meta_affordances(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:
-    root.meta["affordances"] = [_affordance(a, root) for a in spec]
+    root.meta["affordances"] = [_affordance(a, root) for a in spec if _affordance_on(a)]
 
 
 def _meta_poses(root: SceneNode, spec: Any, parts: dict[str, SceneNode], name: str) -> None:

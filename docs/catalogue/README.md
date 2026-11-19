@@ -88,7 +88,7 @@ place:
 | [table](assets/table.md) | Dining table: rounded tabletop, apron frame and turned legs. | `width`, `height`, `depth`, `top_thickness`, `apron_height`, `leg_width`, `leg_inset` |
 | [table_lamp](assets/table_lamp.md) | Bedside table lamp: turned ceramic base and a tapered linen shade. | `height`, `shade` |
 | [table_setting](assets/table_setting.md) | Places laid on a four-seat table (table.yaml, 1.2 x 0.8 m): a plate at each seat, glasses and cutlery at the long sides. |  |
-| [tv](assets/tv.md) | Wall-mounted flat TV. | `width`, `height`, `depth` |
+| [tv](assets/tv.md) | Wall-mounted flat TV. | `width`, `height`, `depth`, `above_floor` |
 | [tv_console](assets/tv_console.md) | Low media console with two push doors and an open shelf. | `width`, `height`, `depth` |
 | [wall_mirror](assets/wall_mirror.md) | Framed wall mirror. | `width`, `height`, `frame` |
 | [wardrobe](assets/wardrobe.md) | Two-door wardrobe on a plinth with bar handles; the doors swing out (interaction 'doors'). | `width`, `height`, `depth`, `board`, `plinth`, `door_t` |
@@ -114,7 +114,7 @@ place:
 | [bathtub](assets/bathtub.md) | Built-in bathtub: ceramic tub with a rounded, sloped-in cavity and a chrome filler at the tap end (-X). | `length`, `width`, `height`, `rim` |
 | [hand_dryer](assets/hand_dryer.md) | A wall-mounted hand dryer (brushed steel). |  |
 | [shower](assets/shower.md) | Shower: low ceramic tray, fixed glass screen on part of the front, chrome riser rail with a rain head and mixer on the back wall. | `width`, `depth`, `height` |
-| [toilet](assets/toilet.md) | Close-coupled toilet: pedestal, oval bowl (hollow), seat, lid that lifts (interaction 'lid') and cistern with a flush button. |  |
+| [toilet](assets/toilet.md) | Close-coupled toilet: pedestal, oval bowl (hollow), seat, lid that lifts (interaction 'lid') and cistern with a flush button. | `in_stall` |
 | [toilet_stall](assets/toilet_stall.md) | A toilet cubicle: painted side partitions raised off the floor, a front pilaster and a door that swings out on its left side (press E). | `width`, `depth` |
 | [towel_rail](assets/towel_rail.md) | Wall-mounted chrome towel rail with a folded towel over the bar. | `width` |
 | [vanity](assets/vanity.md) | Bathroom vanity: two-door cabinet, marble top, vessel basin and a chrome mixer tap. | `width`, `depth`, `top` |
