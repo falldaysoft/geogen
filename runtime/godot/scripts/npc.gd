@@ -1184,6 +1184,8 @@ func choices(thing: String) -> Array:
         var uid := WorldLoader.uid_of(a["node"])
         if not _under(uid, [thing]):
             continue
+        if a.get("type", "") == "perch" and not definition.has("jump"):
+            continue                    # up on it is for a body that jumps (a cat)
         if a.get("requires", {}).has("near") and world.near_thing(a) == "":
             continue                    # a seat with no TV to watch has no watching to offer
         var why := ""

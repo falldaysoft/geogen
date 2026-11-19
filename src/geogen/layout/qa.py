@@ -398,6 +398,8 @@ def _approach_points(item: _Item, room: _Room) -> list[tuple[dict, np.ndarray]]:
     out = []
     m = room.frame @ item.node.world_transform()
     for a in item.node.meta.get("affordances") or []:
+        if a["type"] == "perch":
+            continue          # jumped up to, not walked to
         p = m @ np.r_[np.asarray(a["approach"], dtype=float), 1.0]
         out.append((a, p[[0, 2]]))
     return out
