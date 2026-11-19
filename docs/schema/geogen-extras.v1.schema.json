@@ -845,11 +845,12 @@
                 "hearing": { "type": "object", "additionalProperties": false, "properties": { "range": { "type": "number" }, "muffled": { "type": "number" } } },
                 "sight": { "type": "object", "additionalProperties": false, "properties": { "range": { "type": "number" }, "cone": { "type": "number" } } } } },
             "reacts": {
-              "description": "The stimuli it reacts to (assets/npcs/stimuli.yaml, inlined), by name. A stimulus is a bus 'event' (impact: a physics prop hit something; changed: an interaction went to another state), from a subject tagged 'of' if given, heard as far as 'loudness' of the hearing range. Noticing one (never its own doing), the head turns to it for 'look' s, and with 'interrupt' an interruptible action is cut short so it decides again.",
+              "description": "The stimuli it reacts to (assets/npcs/stimuli.yaml, inlined), by name. A stimulus is a bus 'event' (impact: a physics prop hit something; changed: an interaction went to another state), from a subject tagged 'of' if given, heard as far as 'loudness' of the hearing range. Noticing one (never its own doing), the head turns to it for 'look' s, and with 'interrupt' an interruptible action is cut short so it decides again. 'action' (geogen.99.5): an action run on top of what it is doing, facing the stimulus, when on its feet with empty hands (a start); 'go': an action that goes to see where something only heard came from, at its next decision.",
               "type": "object",
               "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["event", "loudness", "look", "interrupt"],
                 "properties": { "event": { "enum": ["impact", "changed"] }, "of": { "type": "string" }, "loudness": { "type": "number", "minimum": 0 },
-                  "look": { "$ref": "#/$defs/range" }, "interrupt": { "type": "boolean" } } } },
+                  "look": { "$ref": "#/$defs/range" }, "interrupt": { "type": "boolean" },
+                  "action": { "type": "string" }, "go": { "type": "string" } } } },
             "memory": {
               "description": "With memory, its wants about props know only the props it has seen (where, and what they rested on) or heard land (a stimulus it reacts to: where the noise was), each for 'forget' s after it last perceived it; it looks round every 'every' s, and forgets a remembered thing it can see is no longer where it was. One only heard of, or not where it was, it first goes to look for with the 'search' action.",
               "type": "object", "additionalProperties": false, "required": ["forget", "every", "search"],
