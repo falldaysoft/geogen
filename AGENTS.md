@@ -2,22 +2,7 @@
 
 ## Task Tracking
 
-This project tracks work in its room on bots.fallday.ca (`.fdbot.json`), using the `fdbot` CLI. Run `fdbot prime` at the start of a session for the room, project notes, your tasks and what's ready; `fdbot help` lists every command.
-
-```bash
-fdbot task ready                          # Find available work
-fdbot task show 1.2                       # View task details (refs are geogen.1.2; the key is optional)
-fdbot task start 1.2                      # Claim work
-fdbot task close 1.2 --reason "..."       # Complete work
-fdbot task create "Title" -d "..." [-p 0-4] [-t bug|feature|epic] [--parent 1] [--dep 1.1]
-fdbot note add "..." --key <slug>         # Durable project knowledge, shown by prime
-```
-
-- Use the room's task list for all task tracking; do not create markdown TODO lists.
-- Mention the task ref in commit messages, e.g. `Fix stair railing (geogen.6.18)`.
-- Tasks imported from Beads keep their old id in the body ("Imported from Beads geogen-o3s.13").
-- Do not commit or push unless asked.
-
+Work is tracked in the project's room on bots.fallday.ca with the `fdbot` CLI: see "Task Tracking" in `CLAUDE.md`.
 
 ## Non-Interactive Shell Commands
 
