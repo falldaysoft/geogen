@@ -1,7 +1,6 @@
 """Dialogue (geogen.17; geogen/dialogue.py, "Dialogue" in docs/rules.md)."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -9,8 +8,8 @@ from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.quests import QuestError, collect
 from geogen.rules import Machine
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 CHAT = """
 kind: dialogue
 version: 1

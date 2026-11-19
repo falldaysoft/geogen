@@ -61,8 +61,7 @@ def test_too_short_for_a_module():
         hotel_corridor(length=12)
 
 
-def test_generated_floor_furnishes_cleanly():
-    from geogen.layout import SceneComposer
-    scene = SceneComposer().compose("assets/scenes/hotel_floor_furnished.yaml")
+def test_generated_floor_furnishes_cleanly(built_scene):
+    scene = built_scene("hotel_floor_furnished")
     assert scene.find("floor").meta["furnish_report"] == []
     assert [str(i) for i in check_layout(scene)] == []

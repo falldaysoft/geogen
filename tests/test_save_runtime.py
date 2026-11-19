@@ -10,9 +10,7 @@ from geogen.runtime_client import step
 
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
-from test_state import GATE, LAMP, LEVER
-from test_wiring import PLATE, QUEST, SCENE
-from helpers import schema_validate
+from helpers import GATE, LAMP, LEVER, PLATE, QUEST, SCENE, schema_validate
 
 pytestmark = pytest.mark.xdist_group("test_save_runtime")
 

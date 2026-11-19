@@ -5,7 +5,7 @@ import pytest
 
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
-from test_places import PLATE
+from helpers import PLACES_PLATE
 
 pytestmark = pytest.mark.xdist_group("test_events_runtime")
 
@@ -61,7 +61,7 @@ places:
 def rt(tmp_path_factory, godot_runtime):
     out = tmp_path_factory.mktemp("generated_events")
     (out / "lever.yaml").write_text(LEVER)
-    (out / "plate.yaml").write_text(PLATE)
+    (out / "plate.yaml").write_text(PLACES_PLATE)
     yard = YARD.replace("LEVER_FILE", str(out / "lever.yaml")).replace("PLATE_FILE", str(out / "plate.yaml"))
     export_scene(SceneComposer().compose_string(yard), out / "yard.glb")
     client = godot_runtime("yard", out)

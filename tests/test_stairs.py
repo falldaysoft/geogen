@@ -7,6 +7,7 @@ from geogen.core import meshops
 from geogen.generators.stairs import StairsGenerator
 from geogen.layout import LayoutLoader
 from geogen.player import load_player_spec
+from helpers import ASSETS
 
 
 @pytest.mark.parametrize("style", ["straight", "l", "spiral"])
@@ -47,7 +48,7 @@ def test_l_turns_to_the_requested_side():
 
 
 def test_yaml_staircase_and_bad_style():
-    root = LayoutLoader().load("assets/staircase.yaml", params={"rise": 2.4})
+    root = LayoutLoader().load(ASSETS / "staircase.yaml", params={"rise": 2.4})
     stairs = root.find("stairs")
     assert stairs.tags == ["architecture.stairs"] and stairs.meta["walkable"]
     pts = (stairs.world_transform() @ np.c_[stairs.mesh.vertices, np.ones(len(stairs.mesh.vertices))].T)[1]

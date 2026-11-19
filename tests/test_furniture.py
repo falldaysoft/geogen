@@ -1,11 +1,11 @@
 """Furniture library: metadata, and the hand-furnished hotel room keeps clear."""
 
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-from geogen.layout import LayoutLoader, SceneComposer
+from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
 FLOOR_FURNITURE = ["bed", "nightstand", "wardrobe", "desk", "desk_chair", "armchair", "floor_lamp",
                    "tv_console", "luggage_rack", "toilet", "vanity", "shower", "bathtub", "bookshelf"]
@@ -14,20 +14,20 @@ WALL_ITEMS = ["tv", "wall_mirror", "wall_art", "curtains", "towel_rail"]
 
 @pytest.mark.parametrize("name", FLOOR_FURNITURE + WALL_ITEMS + ["table_lamp", "rug"])
 def test_asset_is_tagged(name):
-    root = LayoutLoader().load(f"assets/{name}.yaml")
+    root = LayoutLoader().load(ASSETS / f"{name}.yaml")
     assert root.tags and all("." in t for t in root.tags), root.tags
 
 
 @pytest.mark.parametrize("name", FLOOR_FURNITURE)
 def test_floor_furniture_declares_footprint_and_clearance(name):
-    root = LayoutLoader().load(f"assets/{name}.yaml")
+    root = LayoutLoader().load(ASSETS / f"{name}.yaml")
     assert root.meta["footprint"] == pytest.approx([root.size[0], root.size[2]])
     assert root.meta["clearance"]
 
 
 @pytest.mark.parametrize("name", WALL_ITEMS)
 def test_wall_items_sit_in_front_of_the_wall(name):
-    root = LayoutLoader().load(f"assets/{name}.yaml")
+    root = LayoutLoader().load(ASSETS / f"{name}.yaml")
     zs = np.concatenate([
         (n.world_transform() @ np.c_[n.mesh.vertices, np.ones(len(n.mesh.vertices))].T)[2]
         for n in root.iter_nodes() if n.mesh is not None])
@@ -41,8 +41,8 @@ def _footprint(node):
     return pts.min(axis=0), pts.max(axis=0)
 
 
-def test_hotel_room_furniture_does_not_overlap_or_block_doors():
-    scene = SceneComposer().compose(Path("assets/scenes/hotel_room.yaml"))
+def test_hotel_room_furniture_does_not_overlap_or_block_doors(built_scene):
+    scene = built_scene("hotel_room")
     names = ["bed", "nightstand_south", "nightstand_north", "tv_console", "wardrobe",
              "floor_lamp", "shower", "toilet", "vanity"]
     boxes = {n: _footprint(scene.find(n)) for n in names}

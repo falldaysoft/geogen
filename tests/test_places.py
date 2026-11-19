@@ -14,8 +14,8 @@ from geogen.layout.loader import LayoutLoader
 from geogen.places import places_summary
 from geogen.runtime_client import step
 from geogen.state import StateError, collect
+from helpers import ASSETS, PLACES_PLATE
 
-ASSETS = Path(__file__).parent.parent / "assets"
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json"
 FAST = ("--fixed-fps", "60")
 
@@ -42,21 +42,6 @@ places:
   corner: {box: [2, 2, 2], anchor: bottom_front_left, offset: [1, 0, -1], yaw: 30}
   by_bench: {around: bench, margin: 1}
 """
-
-PLATE = """
-name: plate
-origin: bottom_center
-size: [1, 1, 1]
-bounds: geometry
-parts:
-  slab: {primitive: cube, size: [1.2, 0.05, 1.2], anchor: bottom_center, bevel: 0}
-places:
-  top: {around: slab, headroom: 2}
-signals:
-  occupied: {enter: top}
-  vacated:  {leave: top}
-"""
-
 
 def compose(text: str = YARD):
     return SceneComposer(ASSETS).compose_string(text)
@@ -101,7 +86,7 @@ def test_a_moved_scene_takes_its_places_with_it():
 
 
 def test_asset_places_sit_round_parts_and_feed_signals():
-    plate = LayoutLoader().load_string(PLATE)
+    plate = LayoutLoader().load_string(PLACES_PLATE)
     top = refs.resolve(plate, "top")
     assert top.meta["place"]["size"] == pytest.approx([1.2, 2.05, 1.2])
     assert top.transform.translation == pytest.approx([0, 0, 0])
@@ -109,7 +94,7 @@ def test_asset_places_sit_round_parts_and_feed_signals():
     from geogen.state import declare_asset
     from geogen.layout.yaml_utils import safe_load
 
-    declare_asset(plate, safe_load(PLATE), "plate.yaml")
+    declare_asset(plate, safe_load(PLACES_PLATE), "plate.yaml")
     root = compose("name: hall\nsize: [4, 3, 4]\nplace: {}\n")
     plate.name = "plate"
     root.add_child(plate)
@@ -119,7 +104,7 @@ def test_asset_places_sit_round_parts_and_feed_signals():
 
 
 def test_signals_only_enter_places_and_rooms():
-    text = PLATE.replace("enter: top", "enter: slab").replace("slab: {", "slab: {tags: [decor.slab], ")
+    text = PLACES_PLATE.replace("enter: top", "enter: slab").replace("slab: {", "slab: {tags: [decor.slab], ")
     plate = LayoutLoader().load_string(text)
     from geogen.state import declare_asset
     from geogen.layout.yaml_utils import safe_load
@@ -148,9 +133,9 @@ def test_bad_places_say_what_is_wrong(places, message):
 
 def test_asset_places_have_no_scene_anchor():
     with pytest.raises(ValueError, match="plate: place 'top': unknown keys \\['anchor'\\]"):
-        LayoutLoader().load_string(PLATE.replace("around: slab", "box: [1, 1, 1], anchor: center"))
+        LayoutLoader().load_string(PLACES_PLATE.replace("around: slab", "box: [1, 1, 1], anchor: center"))
     with pytest.raises(ValueError, match="place 'top': around: .*slab"):
-        LayoutLoader().load_string(PLATE.replace("around: slab", "around: slob"))
+        LayoutLoader().load_string(PLACES_PLATE.replace("around: slab", "around: slob"))
 
 
 def test_export_writes_extras_and_manifest(tmp_path):

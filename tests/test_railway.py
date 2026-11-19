@@ -1,6 +1,5 @@
 """Railways, level crossings and trains (geogen/railway.py, geogen/trains.py)."""
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -8,7 +7,6 @@ import pytest
 from geogen.core import meshops
 from geogen.trains import DT, check_spacing, closures, simulate_run
 
-ASSETS = Path(__file__).parent.parent / "assets"
 
 
 @pytest.fixture(scope="module")

@@ -1,7 +1,6 @@
 """Things actors carry (geogen.18; geogen/inventory.py, "Items" in docs/rules.md)."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -9,8 +8,8 @@ from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.quests import collect
 from geogen.rules import Machine
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 YARD = """
 name: pickup_yard
 size: [6, 2, 6]

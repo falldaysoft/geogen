@@ -15,6 +15,7 @@ import pytest
 from geogen.export import export_scene
 from geogen.player import load_player_spec
 from geogen.runtime_client import step
+from helpers import ASSETS, SMALL, STRIP
 
 RADIUS = load_player_spec().radius
 
@@ -224,7 +225,7 @@ def test_editor_import_plugin_builds_gameplay_nodes(run_godot, auto_room_dir, tm
 
 def test_player_climbs_stairs(godot_script, tmp_path):
     from geogen.layout import LayoutLoader
-    export_scene(LayoutLoader().load("assets/staircase.yaml"), tmp_path / "staircase.glb")
+    export_scene(LayoutLoader().load(ASSETS / "staircase.yaml"), tmp_path / "staircase.glb")
     run = godot_script([step("player.teleport", pos=[0, 0, 3.2], yaw=0), step("player.move", seconds=1.4)],
                        "--scene=staircase", f"--generated={tmp_path}")
     end = run["player.move"]
@@ -233,7 +234,6 @@ def test_player_climbs_stairs(godot_script, tmp_path):
 
 def test_player_climbs_building_stairs_to_next_storey(godot_script, tmp_path):
     from geogen.layout import LayoutLoader
-    from test_building import SMALL
     building = LayoutLoader().load_string(SMALL)
     stairs = building.find("storey_0").find("stair_west").find("stairs").world_transform()
     forward = -stairs[:3, 2]                    # stairs climb along their local -Z
@@ -266,7 +266,6 @@ def test_playtest_furnished_suite(run_godot, auto_room_dir):
 
 def test_playtest_building_from_entrance(run_godot, tmp_path):
     from geogen.layout import LayoutLoader
-    from test_building import SMALL
     export_scene(LayoutLoader().load_string(SMALL), tmp_path / "small_building.glb")
     code, report = _playtest(run_godot, tmp_path, "small_building", walks=6)
     assert report["ok"] and code == 0, report
@@ -304,7 +303,6 @@ def test_m2_hotel_playtest_from_street(run_godot, built_scene, tmp_path):
 
 def test_ride_lift_and_gates(godot_script, tmp_path):
     from geogen.layout import LayoutLoader
-    from test_building import SMALL
     building = LayoutLoader().load_string(SMALL)
     car = [float(v) for v in building.find("lift_lift_shaft").world_transform()[:3, 3]]
     export_scene(building, tmp_path / "small_building.glb")
@@ -418,7 +416,6 @@ def interaction_events(run) -> list[dict]:
 @pytest.fixture(scope="module")
 def small_building_dir(tmp_path_factory):
     from geogen.layout import LayoutLoader
-    from test_building import SMALL
     out = tmp_path_factory.mktemp("generated_small")
     export_scene(LayoutLoader().load_string(SMALL), out / "small_building.glb")
     return out
@@ -525,22 +522,6 @@ def test_m4_interactive_hotel_room(godot_script, built_scene, auto_room_dir):
     run = godot_script([*stand([-1.9, 0, -1.55], 180, -50), step("player.use", retry=2), step("wait", frames=20),
                         step("player.status")], *base)
     assert (run["player.status"]["pose"], run["player.status"]["pose_asset"]) == ("lie", "bed")
-
-
-STRIP = """
-name: strip
-city:
-  seed: 3
-  blocks: [5, 1]
-  block_size: [30, 32]
-  avenues: { ew: [0] }
-  lot_width: [11, 14]
-  buildings:
-    residential: [{ recipe: detached_house, storeys: 1, interior: full }]
-    commercial: [{ recipe: shop_row, storeys: 2, interior: lobby }]
-spawns:
-  start: { position: [-75, 0, -20], facing: east }
-"""
 
 
 @pytest.fixture(scope="module")

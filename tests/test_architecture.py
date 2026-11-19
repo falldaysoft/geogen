@@ -7,11 +7,7 @@ from geogen.core import csg, meshops, uvmap
 from geogen.generators.architecture import ROOF_STYLES, PrismGenerator, RoofGenerator
 from geogen.generators.primitives import CubeGenerator, CylinderGenerator
 from geogen.layout import LayoutLoader, SceneComposer
-
-
-def _volume(mesh):
-    v = mesh.vertices[mesh.faces]
-    return np.einsum("ij,ij->i", v[:, 0], np.cross(v[:, 1], v[:, 2])).sum() / 6
+from helpers import ASSETS, mesh_volume
 
 
 def test_difference_removes_volume_and_stays_closed():
@@ -20,7 +16,7 @@ def test_difference_removes_volume_and_stays_closed():
     result = csg.difference(wall, hole)
     report = meshops.validate(result)
     assert report.watertight and report.ok, report.issues
-    assert _volume(result) == pytest.approx(4 * 3 * 0.3 - 1 * 1 * 0.3, rel=1e-4)
+    assert mesh_volume(result) == pytest.approx(4 * 3 * 0.3 - 1 * 1 * 0.3, rel=1e-4)
     assert uvmap.texel_density(result) == pytest.approx(1.0, rel=0.01)
 
 
@@ -28,8 +24,8 @@ def test_union_and_intersection():
     a = CubeGenerator(bevel=0).generate()
     b = CubeGenerator(bevel=0).generate().transform(np.array(
         [[1, 0, 0, 0.5], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1.0]]))
-    assert _volume(csg.union(a, b)) == pytest.approx(1.5, rel=1e-4)
-    assert _volume(csg.intersection(a, b)) == pytest.approx(0.5, rel=1e-4)
+    assert mesh_volume(csg.union(a, b)) == pytest.approx(1.5, rel=1e-4)
+    assert mesh_volume(csg.intersection(a, b)) == pytest.approx(0.5, rel=1e-4)
 
 
 def test_csg_rejects_open_mesh():
@@ -91,7 +87,7 @@ parts:
     assert "hole" not in names
     body = root.find("body")
     assert meshops.validate(body.mesh).watertight
-    assert _volume(body.mesh) < 8.0 - 0.9  # a ~1 m^3 cylinder was removed
+    assert mesh_volume(body.mesh) < 8.0 - 0.9  # a ~1 m^3 cylinder was removed
 
 
 def test_window_cuts_opening_into_host_wall():
@@ -113,7 +109,7 @@ place:
     walls_before = plain.find("walls").mesh
     walls_after = with_window.find("walls").mesh
     assert meshops.validate(walls_after).watertight
-    removed = _volume(walls_before) - _volume(walls_after)
+    removed = mesh_volume(walls_before) - mesh_volume(walls_after)
     assert removed == pytest.approx(1.0 * 1.3 * 0.3, rel=0.02)  # window opening through a 0.3 m wall
     assert "opening" not in [n.name for n in with_window.iter_nodes()]
 
@@ -121,12 +117,12 @@ place:
     lining_before = plain.find("lining").mesh
     lining_after = with_window.find("lining").mesh
     assert meshops.validate(lining_after).watertight
-    removed = _volume(lining_before) - _volume(lining_after)
+    removed = mesh_volume(lining_before) - mesh_volume(lining_after)
     assert removed == pytest.approx(1.0 * 1.3 * 0.015, rel=0.05)
 
 
 def test_house_has_interior_finish():
-    house = LayoutLoader().load("assets/house_peaked.yaml")
+    house = LayoutLoader().load(ASSETS / "house_peaked.yaml")
     materials = {n.name: n.mesh.material.name for n in house.iter_nodes() if n.mesh is not None and n.mesh.material}
     assert materials["floor"] == "hardwood_floor"
     assert materials["lining"] == "wall_plaster"

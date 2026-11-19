@@ -9,69 +9,15 @@ import pytest
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.runtime_client import ApiError
-from test_state import GATE, LEVER
-from test_wiring import PLATE
+from helpers import GATE, HUD_CAMP, HUD_ERRAND, HUD_LEVERS, HUD_LONG_TITLE, LEVER, PLATE
 
 pytestmark = pytest.mark.xdist_group("test_hud_runtime")
-
-# Three levers, a gate and a plate. `levers` starts with the game and counts the levers pulled;
-# `errand` is given by using the first lever and fails when the alarm goes.
-CAMP = """
-name: camp
-size: [12, 3, 12]
-state:
-  alarm: {scope: world, type: bool, default: false}
-quests: [quests/levers.yaml, quests/errand.yaml]
-slots:
-  a: {position: [-3, 0, 0]}
-  b: {position: [0, 0, 0]}
-  c: {position: [3, 0, 0]}
-  d: {position: [0, 0, -3]}
-  e: {position: [3, 0, 3]}
-place:
-  lever:   {asset: lever.yaml, slot: a, tags: [lever]}
-  lever_2: {asset: lever.yaml, slot: b, tags: [lever]}
-  lever_3: {asset: lever.yaml, slot: c, tags: [lever]}
-  gate:    {asset: gate.yaml, slot: d}
-  plate:   {asset: plate.yaml, slot: e}
-wire:
-  - {from: lever_3.released, to: gate.open}
-rules:
-  - id: give_errand
-    on: {use: lever, actor: player}
-    do: [{start_quest: errand}]
-spawns:
-  start: {position: [0, 0, 5], facing: south}
-"""
-
-LEVERS = """
-kind: quest
-version: 1
-title: Throw the switches
-start: auto
-objectives:
-  - {id: all, text: Pull every lever, done: 'all("[tag=lever]", it.pull == "down")'}
-  - {id: gate, text: Open the gate, after: all, done: 'gate.gate == "open"'}
-  - {id: plate, text: Stand on the plate, optional: true, done: {enter: plate/top}}
-"""
-
-ERRAND = """
-kind: quest
-version: 1
-title: An errand with a title long enough that it has to wrap in the tracker
-fail: "world.alarm"
-objectives:
-  - {id: stand, text: Stand on the pressure plate in the far corner of the camp, done: {enter: plate/top}}
-"""
-
-LONG_TITLE = "An errand with a title long enough that it has to wrap in the tracker"
-
 
 @pytest.fixture(scope="module")
 def camp_dir(tmp_path_factory):
     assets = tmp_path_factory.mktemp("camp_assets")
-    for name, text in (("lever", LEVER), ("gate", GATE), ("plate", PLATE), ("camp", CAMP),
-                       ("quests/levers", LEVERS), ("quests/errand", ERRAND)):
+    for name, text in (("lever", LEVER), ("gate", GATE), ("plate", PLATE), ("camp", HUD_CAMP),
+                       ("quests/levers", HUD_LEVERS), ("quests/errand", HUD_ERRAND)):
         path = assets / f"{name}.yaml"
         path.parent.mkdir(exist_ok=True)
         path.write_text(text)
@@ -150,7 +96,7 @@ def test_a_key_cycles_the_tracked_quest(rt):
 
     rt.call("input.key", key="Q")
     hud = shown(rt, lambda h: h["tracked"] == "errand")
-    assert hud["title"] == LONG_TITLE and hud["note"] == "2 of 2    Q: next quest"
+    assert hud["title"] == HUD_LONG_TITLE and hud["note"] == "2 of 2    Q: next quest"
     assert lines(hud) == [("stand", "open", "")]
     rt.call("input.key", key="Q")
     assert shown(rt, lambda h: h["tracked"] == "levers")["tracked"] == "levers"         # wraps
@@ -300,7 +246,7 @@ def test_a_quest_given_and_failed_is_announced_bottom_left(fresh, size):
     rt.call("player.use", asset="lever")                      # the scene's rule gives the errand
     hud = toasts(rt, lambda h: len(h["showing"]) == 1)
     assert kinds(hud["showing"]) == [("started", "errand")]
-    assert (hud["showing"][0]["heading"], hud["showing"][0]["text"]) == ("Quest started", LONG_TITLE)
+    assert (hud["showing"][0]["heading"], hud["showing"][0]["text"]) == ("Quest started", HUD_LONG_TITLE)
     rt.call("state.set", key="world:camp.alarm", value=True)
     hud = toasts(rt, lambda h: len(h["showing"]) == 2 and h["viewport"] == [width, height]
                  and h["rect"][1] + h["rect"][3] == height - 12 and h["rect"][3] > 2 * 52)

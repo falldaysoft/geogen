@@ -5,17 +5,7 @@ import pytest
 
 from geogen.core import meshops
 from geogen.layout import LayoutLoader
-
-SMALL = """
-name: small_building
-building:
-  storeys:
-    - floorplan: { generate: hotel_lobby, length: 30, depth: 15, wall_height: 3.6, finishes: false }
-    - floorplan: { generate: hotel_corridor, length: 30, depth: 15, finishes: false }
-      repeat: 2
-  roof: { parapet: 1.0 }
-"""
-
+from helpers import SMALL
 
 @pytest.fixture(scope="module")
 def building():

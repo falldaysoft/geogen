@@ -6,13 +6,14 @@ import pytest
 from geogen.layout.composer import SceneComposer
 from geogen.quests import collect
 from geogen.rules import Machine
+from helpers import ASSETS
 
 PLOT = "plot_test:plot"
 
 
 @pytest.fixture
-def plot_machine():
-    root = SceneComposer(assets_dir="assets").compose("assets/scenes/plot_test.yaml")
+def plot_machine(built_scene):
+    root = built_scene("plot_test")
     program = collect(root, "plot_test").program()
     assert program["interactions"][f"{PLOT}#crop"]["states"]["wheat_planted"]["after"] == {"minutes": 360.0}
     machine = Machine(program, {"player": {"kind": "player"}})
@@ -97,7 +98,7 @@ place:
 def test_the_counter_buys_crops_for_gold(tmp_path):
     path = tmp_path / "stall.yaml"
     path.write_text(STALL)
-    found = collect(SceneComposer(assets_dir="assets").compose(path), "stall")
+    found = collect(SceneComposer(assets_dir=ASSETS).compose(path), "stall")
     m = Machine(found.program(), {"player": {"kind": "player"}})
     m.set("actor:stall.item_carrot", 2, "player")
     sell = lambda crop: m.use(f"stall:counter#sell_{crop}", "player")         # noqa: E731

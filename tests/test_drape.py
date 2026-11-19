@@ -8,8 +8,9 @@ from geogen.core.skin import pose_clips
 from geogen.generators import drape
 from geogen.generators.ringloft import _roll
 from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
-HUMANOID = "assets/characters/humanoid.yaml"
+HUMANOID = ASSETS / "characters/humanoid.yaml"
 
 
 @pytest.fixture(scope="module")

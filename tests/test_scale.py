@@ -13,7 +13,7 @@ from geogen.core.transform import Transform
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.layout.loader import LayoutLoader
-from helpers import gltf_json
+from helpers import ASSETS, gltf_json
 
 TOWN = """
 name: mini_town
@@ -38,7 +38,7 @@ def town():
 
 
 def test_instance_shares_meshes_and_remaps_interactions():
-    shop = LayoutLoader().load("assets/shop.yaml")
+    shop = LayoutLoader().load(ASSETS / "shop.yaml")
     copy = shop.instance()
     originals = {id(n.mesh) for n in shop.iter_nodes() if n.mesh is not None}
     assert {id(n.mesh) for n in copy.iter_nodes() if n.mesh is not None} == originals
@@ -52,8 +52,8 @@ def test_instance_shares_meshes_and_remaps_interactions():
 
 def test_repeated_loads_share_meshes():
     loader = LayoutLoader()
-    a, b = loader.load("assets/bed.yaml"), loader.load("assets/bed.yaml")
-    c = loader.load("assets/bed.yaml", params={"width": 1.4})
+    a, b = loader.load(ASSETS / "bed.yaml"), loader.load(ASSETS / "bed.yaml")
+    c = loader.load(ASSETS / "bed.yaml", params={"width": 1.4})
     mesh = lambda n: next(x.mesh for x in n.iter_nodes() if x.mesh is not None)  # noqa: E731
     assert a is not b and mesh(a) is mesh(b)
     assert mesh(c) is not mesh(a)

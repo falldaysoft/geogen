@@ -6,6 +6,7 @@ import pytest
 from geogen.core import meshops
 from geogen.generators.floorplan import FloorPlan
 from geogen.layout import LayoutLoader, SceneComposer
+from helpers import ASSETS
 
 SUITE = {
     "rooms": {
@@ -102,7 +103,7 @@ place:
     on: suite.bedroom.west_exterior
     at: { u: 0.5, v: { abs: 1.0 } }
 """)
-    plain = LayoutLoader().load("assets/hotel_suite.yaml")
+    plain = LayoutLoader().load(ASSETS / "hotel_suite.yaml")
     walls = scene.find("walls").mesh
     assert meshops.validate(walls).watertight
     removed = _volume(plain.find("walls").mesh) - _volume(walls)

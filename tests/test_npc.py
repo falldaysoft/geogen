@@ -257,14 +257,13 @@ place:
 
 
 
-def test_a_scattered_group_is_people_beside_their_leader():
+def test_a_scattered_group_is_people_beside_their_leader(built_scene):
     # geogen.87.3: each scatter copy is a leader and the rest of its group on the same ground.
     from geogen import refs
     from geogen.export import exported_extras
-    from geogen.layout.composer import SceneComposer
     from geogen.layout.qa import Solids, npc_body
 
-    root = SceneComposer(assets_dir=ASSETS_DIR).compose(ASSETS_DIR / "scenes/group_test/scene.yaml")
+    root = built_scene("group_test")
     refs.assign_ids(root, "group_test")
     people = {n.name: n for n in root.children if n.meta.get("type") == "npc"}
     assert sorted(people) == ["visitors_1", "visitors_1_2", "visitors_1_3", "visitors_2", "visitors_2_2", "visitors_2_3"]

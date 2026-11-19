@@ -7,6 +7,7 @@ import pytest
 from geogen.quests import collect
 from geogen.rules import Machine
 from geogen.runtime_client import step
+from helpers import ASSETS
 
 pytestmark = pytest.mark.xdist_group("test_quest_yard")
 
@@ -112,7 +113,7 @@ def test_a_machine_sells_what_its_params_say_for_gold(tmp_path):
 
     path = tmp_path / "seed_shop.yaml"
     path.write_text(SEED_SHOP)
-    root = SceneComposer(assets_dir="assets").compose(path)
+    root = SceneComposer(assets_dir=ASSETS).compose(path)
     found = collect(root, "seed_shop")
     sources = {r.name: r.meta["flows"]["source"]["items"] for r in root.iter_nodes()
                if "source" in r.meta.get("flows", {})}

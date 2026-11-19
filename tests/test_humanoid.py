@@ -7,8 +7,9 @@ from geogen.core import meshops
 from geogen.export import export_scene, read_gltf
 from geogen.generators.humanoid import closed_body
 from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
-HUMANOID = "assets/characters/humanoid.yaml"
+HUMANOID = ASSETS / "characters/humanoid.yaml"
 
 
 @pytest.fixture(scope="module")

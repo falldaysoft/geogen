@@ -9,21 +9,7 @@ from geogen.export import gameplay_summary, node_extras
 from geogen.layout.composer import SceneComposer
 from geogen.runtime_client import step
 from geogen.travel import apply_travel, check_travel, parse_travel
-
-# A freestanding arch: two posts, a lintel, and a walk-in trigger between them.
-PORTAL = """
-name: portal_test
-origin: bottom_center
-size: [1, 1, 1]
-bounds: geometry
-travel: {on: enter, prompt: Step through}
-parts:
-  left_post:  {primitive: cube, size: [0.2, 2.4, 0.3], anchor: bottom_center, offset: [-0.7, 0, 0]}
-  right_post: {primitive: cube, size: [0.2, 2.4, 0.3], anchor: bottom_center, offset: [0.7, 0, 0]}
-  lintel:     {primitive: cube, size: [1.6, 0.2, 0.3], anchor: bottom_center, offset: [0, 2.4, 0]}
-  travel_volume: {primitive: cube, size: [1.2, 2.2, 0.3], anchor: bottom_center}
-"""
-
+from helpers import PORTAL
 
 def scene_a(portal: str) -> str:
     return f"""

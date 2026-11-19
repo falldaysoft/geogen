@@ -1,14 +1,13 @@
 """Furnishing solver: rooms get furnished from archetypes, cleanly and repeatably."""
 
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-from geogen.layout import LayoutLoader, SceneComposer
+from geogen.layout import LayoutLoader
 from geogen.layout.furnish import furnish_plan
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 FLOOR_ONLY = {"rug", "curtains"}  # placed on the floor but not obstacles
 
 
@@ -101,8 +100,8 @@ def test_unsatisfiable_rules_are_reported(tmp_path):
     assert plan.meta["furnish_report"] == ["closet: bed: placed 0 of 1"]
 
 
-def test_scene_placement_furnishes_plan():
-    scene = SceneComposer().compose(ASSETS / "scenes/hotel_room_auto.yaml")
+def test_scene_placement_furnishes_plan(built_scene):
+    scene = built_scene("hotel_room_auto")
     assert scene.find("suite").find("bed") is not None
 
 

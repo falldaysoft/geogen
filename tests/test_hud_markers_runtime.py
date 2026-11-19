@@ -11,8 +11,7 @@ import pytest
 
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
-from test_travel import PORTAL
-from test_wiring import PLATE
+from helpers import PLATE, PORTAL
 
 pytestmark = pytest.mark.xdist_group("test_hud_markers_runtime")
 

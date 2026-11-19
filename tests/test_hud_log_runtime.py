@@ -9,9 +9,7 @@ import pytest
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.runtime_client import ApiError
-from test_hud_runtime import CAMP, ERRAND, LEVERS, LONG_TITLE
-from test_state import GATE, LEVER
-from test_wiring import PLATE
+from helpers import GATE, HUD_CAMP, HUD_ERRAND, HUD_LEVERS, HUD_LONG_TITLE, LEVER, PLATE
 
 pytestmark = pytest.mark.xdist_group("test_hud_log_runtime")
 
@@ -42,8 +40,8 @@ objectives:
 @pytest.fixture(scope="module")
 def rt(tmp_path_factory, godot_runtime):
     assets = tmp_path_factory.mktemp("log_assets")
-    for name, text in (("lever", LEVER), ("gate", GATE), ("plate", PLATE), ("camp", CAMP), ("annex", ANNEX),
-                       ("quests/levers", LEVERS), ("quests/errand", ERRAND), ("quests/stroll", STROLL)):
+    for name, text in (("lever", LEVER), ("gate", GATE), ("plate", PLATE), ("camp", HUD_CAMP), ("annex", ANNEX),
+                       ("quests/levers", HUD_LEVERS), ("quests/errand", HUD_ERRAND), ("quests/stroll", STROLL)):
         path = assets / f"{name}.yaml"
         path.parent.mkdir(exist_ok=True)
         path.write_text(text)
@@ -106,7 +104,7 @@ def test_the_log_opens_mid_quest_and_picks_the_tracked_quest(rt):
     # down to the errand; Enter makes the tracker follow it
     rt.call("input.key", key="Down")
     hud = log(rt, lambda h: h["selected"]["id"] == "errand")
-    assert hud["selected"]["title"] == LONG_TITLE and hud["selected"]["can_track"]
+    assert hud["selected"]["title"] == HUD_LONG_TITLE and hud["selected"]["can_track"]
     assert hud["hint"] == "Up / Down: select    Enter: track    J / Esc: close"
     assert objectives(hud) == [("stand", "open", "")]
     rt.call("input.key", key="Down")                           # the end of the list: stays

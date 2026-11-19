@@ -9,7 +9,7 @@ import pytest
 from geogen.export import export_scene
 from geogen.layout import LayoutLoader
 from geogen.layout.interactions import apply_state
-from helpers import gltf_json, schema_validate
+from helpers import ASSETS, gltf_json, schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-extras.v1.schema.json"
 
@@ -20,7 +20,7 @@ def _world_points(node):
 
 
 def test_door_swing_parses_and_opens_inward_about_hinge():
-    door = LayoutLoader().load("assets/door.yaml")
+    door = LayoutLoader().load(ASSETS / "door.yaml")
     (swing,) = door.interactions
     assert swing.name == "swing" and swing.initial == "closed"
     assert [n.name for n in swing.targets] == ["leaf", "knob", "knob_inside"]
@@ -44,9 +44,9 @@ def test_door_swing_parses_and_opens_inward_about_hinge():
 
 
 def test_initial_state_poses_parts():
-    yaml = Path("assets/door.yaml").read_text().replace("initial: closed", "initial: open")
+    yaml = (ASSETS / "door.yaml").read_text().replace("initial: closed", "initial: open")
     open_door = LayoutLoader().load_string(yaml)
-    closed_door = LayoutLoader().load("assets/door.yaml")
+    closed_door = LayoutLoader().load(ASSETS / "door.yaml")
     assert _world_points(open_door.find("leaf"))[:, 2].min() < _world_points(closed_door.find("leaf"))[:, 2].min() - 0.7
 
 
@@ -94,7 +94,7 @@ def test_interactions_exported_with_node_names(scene_export):
 
 
 def test_floorplan_doors_get_swing_interactions(tmp_path):
-    root = LayoutLoader().load("assets/hotel_suite.yaml")
+    root = LayoutLoader().load(ASSETS / "hotel_suite.yaml")
     entry = root.find("entry")
     (swing,) = entry.interactions
     assert swing.initial == "closed" and swing.lock == {"key": "key_suite", "locked": True}
@@ -173,7 +173,7 @@ interactions:
 
 
 def test_motionless_usable_interaction():
-    tv = LayoutLoader().load("assets/tv.yaml")
+    tv = LayoutLoader().load(ASSETS / "tv.yaml")
     (power,) = tv.interactions
     assert power.motions == [] and power.initial == "off"
     assert [t.name for t in power.targets] == ["screen", "body"]
@@ -181,7 +181,7 @@ def test_motionless_usable_interaction():
 
 
 def test_generated_guest_doors_lock_and_close_themselves():
-    floor = LayoutLoader().load("assets/hotel_floor.yaml")
+    floor = LayoutLoader().load(ASSETS / "hotel_floor.yaml")
     (swing,) = floor.find("door_room_101").interactions
     assert swing.lock == {"key": "key_room_101", "locked": True}
     assert swing.states["open"].after == 6.0
@@ -192,7 +192,7 @@ def test_affordances_and_containers_export(tmp_path):
     from geogen.core.node import SceneNode
     root = SceneNode("r")
     for name in ("bed", "armchair", "nightstand", "tv"):
-        root.add_child(LayoutLoader().load(f"assets/{name}.yaml"))
+        root.add_child(LayoutLoader().load(ASSETS / f"{name}.yaml"))
     gltf = gltf_json(export_scene(root, tmp_path / "f.glb"))
     by_name = {n["name"]: n.get("extras", {}).get("geogen", {}) for n in gltf["nodes"]}
     assert [a["type"] for a in by_name["bed"]["affordances"]] == ["lie", "lie", "sit"]

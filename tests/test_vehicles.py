@@ -1,7 +1,6 @@
 """Vehicle assets and the vehicle: block (geogen/vehicles.py)."""
 
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -10,8 +9,8 @@ from geogen.core import meshops
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
 from geogen.layout.loader import LayoutLoader
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 VEHICLES = sorted((ASSETS / "vehicles").glob("*.yaml"))
 
 

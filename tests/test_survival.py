@@ -13,6 +13,7 @@ import pytest
 from geogen import roots
 from geogen.quests import collect
 from geogen.rules import Machine
+from helpers import ASSETS
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "survival"
 SCENE = "castaway"
@@ -297,7 +298,7 @@ def test_an_item_without_a_use_cannot_be_used(tmp_path):
     try:
         roots.use(EXAMPLE)
         with pytest.raises(QuestError, match="declares no use"):
-            collect(SceneComposer(assets_dir="assets").compose(path), "pebbles")
+            collect(SceneComposer(assets_dir=ASSETS).compose(path), "pebbles")
     finally:
         roots.use()
 

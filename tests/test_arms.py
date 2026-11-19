@@ -1,11 +1,10 @@
 """Arms that keep clear of the body and its clothes (generators/arms.py, geogen.11.5.5)."""
 
-from pathlib import Path
 
 import numpy as np
 import pytest
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 
 
 def _load(preset, outfit):

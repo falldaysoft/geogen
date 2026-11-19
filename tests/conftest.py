@@ -345,12 +345,13 @@ def project_export(project_scene):
     return get
 
 
-# Module fixtures that build or export something expensive, mapped to the
-# xdist group their tests share (default: one group per module + fixture).
-# The town district joins the town scene's QA tests so town is built once.
+# What makes a test module's own fixture worth pinning its tests to one worker: it depends on one
+# of these, so it builds, exports or launches something (see _shared_fixture_groups).
+BUILD_FIXTURES = {"tmp_path_factory", "built_scene", "scene_export", "plain_cottage", "project_scene",
+                  "project_export", "run_godot", "godot_runtime", "godot_script"}
+# A group a fixture joins instead of its own: the town district shares the town scene's build.
 SHARED_FIXTURE_GROUPS = {"district": "scene:town"}
-SHARED_FIXTURES = ("cottage_dir", "auto_room_dir", "suite_dir", "small_building_dir", "strip_dir", "district")
-SCENE_PARAM_MODULES = ("test_asset_quality.py", "test_scenes.py", "test_describe.py")
+SCENE_PARAMS = ("scene", "scene_name", "name")      # what a test parametrized over scenes calls its scene
 
 
 # The exhaustive tier (``pytest --all``): scenes that are compositions of things the default
@@ -418,6 +419,60 @@ def _deselect_slow(config, items) -> None:
         config.hook.pytest_deselected(items=slow)
 
 
+def _scene_group(item) -> str | None:
+    """``scene:<name>`` for a test parametrized over the scenes it builds."""
+    params = getattr(item, "callspec", None)
+    if params is None or "built_scene" not in item.fixturenames:
+        return None
+    name = next((params.params[p] for p in SCENE_PARAMS if p in params.params), None)
+    return f"scene:{name}" if isinstance(name, str) else None
+
+
+def _builds(name: str, defs: dict, seen: set) -> bool:
+    """Whether the fixture ``name`` reaches one of BUILD_FIXTURES."""
+    if name in BUILD_FIXTURES:
+        return True
+    if name in seen or name not in defs:
+        return False
+    seen.add(name)
+    return any(_builds(arg, defs, seen) for arg in defs[name][-1].argnames)
+
+
+def _shared_fixture_groups(items) -> dict:
+    """``{(module path, fixture): xdist group}`` for the fixtures a module's tests share a build through.
+
+    A module or session fixture defined in a test module that builds something is made once per
+    worker, so the tests using it belong on one worker. Fixtures used together by a test join one
+    group, since a test can only be on one worker. A parametrized fixture is left out: its tests
+    build different things."""
+    parent: dict = {}
+
+    def find(key):
+        parent.setdefault(key, key)
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    for item in items:
+        defs = item._fixtureinfo.name2fixturedefs
+        shared = [(item.path, name) for name in item.fixturenames if name in defs
+                  and defs[name][-1].scope in ("module", "session") and defs[name][-1].params is None
+                  and getattr(defs[name][-1].func, "__module__", None) == item.module.__name__
+                  and _builds(name, defs, set())]
+        for key in shared:
+            parent[find(key)] = find(shared[0])
+    members: dict = {}
+    for key in parent:
+        members.setdefault(find(key), []).append(key)
+    groups = {}
+    for keys in members.values():
+        names = sorted(name for _, name in keys)
+        chosen = next((SHARED_FIXTURE_GROUPS[n] for n in names if n in SHARED_FIXTURE_GROUPS), None)
+        groups.update({key: chosen or f"{key[0].stem}:{names[0]}" for key in keys})
+    return groups
+
+
 @pytest.hookimpl(tryfirst=True)   # before xdist reads the xdist_group marks
 def pytest_collection_modifyitems(config, items):
     """Mark Godot tests, pin tests sharing a build to one xdist worker, and drop
@@ -428,20 +483,14 @@ def pytest_collection_modifyitems(config, items):
     rather than once per worker that happens to get one of its tests. A group's
     cost is what its tests took together: the first one pays for the build.
     """
+    fixture_groups = _shared_fixture_groups(items)
     for item in items:
         if "run_godot" in item.fixturenames:
             item.add_marker(pytest.mark.godot)
-        group = None
-        params = getattr(item, "callspec", None)
-        if item.path.name in SCENE_PARAM_MODULES and params is not None:
-            name = params.params.get("scene", params.params.get("scene_name", params.params.get("name")))
-            if isinstance(name, str):
-                group = f"scene:{name}"
-        for fixture in SHARED_FIXTURES:
-            if fixture in item.fixturenames:
-                group = SHARED_FIXTURE_GROUPS.get(fixture, f"{item.path.stem}:{fixture}")
-                break
-        if group:
+        group = _scene_group(item)
+        for fixture in item.fixturenames:
+            group = fixture_groups.get((item.path, fixture), group)
+        if group and not item.get_closest_marker("xdist_group"):    # a module may have chosen its own
             item.add_marker(pytest.mark.xdist_group(group))
         if group and group.removeprefix("scene:") in EXHAUSTIVE_SCENES:
             item.add_marker(pytest.mark.exhaustive)

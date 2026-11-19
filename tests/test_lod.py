@@ -6,12 +6,12 @@ import pytest
 from geogen.core import meshops
 from geogen.export import export_scene
 from geogen.layout import LayoutLoader
-from helpers import gltf_json
+from helpers import ASSETS, gltf_json
 
 
 @pytest.mark.parametrize("ratio", [0.5, 0.25])
 def test_decimate_hits_ratio_and_stays_closed(ratio):
-    mesh = LayoutLoader().load("assets/table_lamp.yaml").find("base").mesh
+    mesh = LayoutLoader().load(ASSETS / "table_lamp.yaml").find("base").mesh
     reduced = meshops.decimate(mesh, ratio)
     assert len(reduced.faces) == pytest.approx(len(mesh.faces) * ratio, rel=0.15)
     assert meshops.validate(reduced).watertight and reduced.uvs is not None
@@ -24,7 +24,7 @@ def test_decimate_leaves_open_or_tiny_meshes():
 
 
 def test_msft_lod_export(tmp_path):
-    gltf = gltf_json(export_scene(LayoutLoader().load("assets/table_lamp.yaml"), tmp_path / "l.glb", lods=[0.5, 0.25]))
+    gltf = gltf_json(export_scene(LayoutLoader().load(ASSETS / "table_lamp.yaml"), tmp_path / "l.glb", lods=[0.5, 0.25]))
     assert "MSFT_lod" in gltf["extensionsUsed"]
     nodes = gltf["nodes"]
     base = next(n for n in nodes if n["name"] == "base")
@@ -38,7 +38,7 @@ def test_msft_lod_export(tmp_path):
 
 
 def test_parametric_detail():
-    coarse = LayoutLoader(detail=0.5).load("assets/table_lamp.yaml").find("base").mesh
-    fine = LayoutLoader().load("assets/table_lamp.yaml").find("base").mesh
+    coarse = LayoutLoader(detail=0.5).load(ASSETS / "table_lamp.yaml").find("base").mesh
+    fine = LayoutLoader().load(ASSETS / "table_lamp.yaml").find("base").mesh
     assert len(coarse.faces) < len(fine.faces) * 0.6
     assert meshops.validate(coarse).watertight

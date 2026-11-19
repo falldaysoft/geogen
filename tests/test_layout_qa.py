@@ -4,22 +4,23 @@ import numpy as np
 import pytest
 
 from geogen.core.transform import Transform
-from geogen.layout import LayoutLoader, SceneComposer
+from geogen.layout import LayoutLoader
 from geogen.layout.qa import check_layout
 from geogen.player import PlayerSpec
+from helpers import ASSETS
 
 
 @pytest.mark.parametrize("scene", ["hotel_room", "hotel_room_auto"])
-def test_hotel_rooms_pass_qa(scene):
-    assert [str(i) for i in check_layout(SceneComposer().compose(f"assets/scenes/{scene}.yaml"))] == []
+def test_hotel_rooms_pass_qa(scene, built_scene):
+    assert [str(i) for i in check_layout(built_scene(scene))] == []
 
 
 def _suite_with(*items):
     """Hotel suite plan with items (asset, room-local x, z, yaw degrees) in the bedroom."""
-    root = LayoutLoader().load("assets/hotel_suite.yaml")
+    root = LayoutLoader().load(ASSETS / "hotel_suite.yaml")
     bedroom = root.find("bedroom")
     for i, (asset, x, z, yaw) in enumerate(items):
-        node = LayoutLoader().load(f"assets/{asset}")
+        node = LayoutLoader().load(ASSETS / f"{asset}")
         node.name = f"{asset.removesuffix('.yaml')}_{i}"
         node.transform = Transform(translation=np.array([x, 0.0, z]), rotation=np.array([0, np.radians(yaw), 0]))
         bedroom.add_child(node)
@@ -62,7 +63,7 @@ def test_detects_unreachable_items():
 
 
 def test_narrow_doors_use_player_spec():
-    root = LayoutLoader().load("assets/hotel_suite.yaml")
+    root = LayoutLoader().load(ASSETS / "hotel_suite.yaml")
     wide_player = PlayerSpec(radius=0.5, door_min_width=1.2, corridor_min_width=1.2)
     assert "narrow_door" in _kinds(root, wide_player)
     assert "narrow_door" not in _kinds(root)
@@ -107,11 +108,11 @@ def _shop(doors, rooms=None, counter=True, items=()):
             "doors": [{"between": ["shop", "stock"], "at": 0.8, "width": 0.9}, *doors]}
     root = FloorPlan.from_spec(spec).build()
     if counter:
-        till = LayoutLoader().load("assets/till_counter.yaml", params={"width": 3.7})
+        till = LayoutLoader().load(ASSETS / "till_counter.yaml", params={"width": 3.7})
         till.name = "till"
         root.find("shop").add_child(till)
     for room in items:
-        node = LayoutLoader().load("assets/nightstand.yaml")
+        node = LayoutLoader().load(ASSETS / "nightstand.yaml")
         node.name = f"{room}_item"
         root.find(room).add_child(node)
     return root

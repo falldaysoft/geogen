@@ -8,75 +8,7 @@ from geogen.export import export_scene, manifest_path
 from geogen.layout.composer import SceneComposer
 from geogen.quests import QuestError, collect
 from geogen.rules import Machine, check_program
-from test_state import GATE, LAMP, LEVER
-from helpers import schema_validate
-
-# A pressure plate that counts who stands on it: its own rules, relative to itself.
-PLATE = """
-name: plate
-origin: bottom_center
-size: [1, 1, 1]
-bounds: geometry
-state:
-  occupants: {type: number, default: 0}
-parts:
-  slab: {primitive: cube, size: [1.2, 0.05, 1.2], anchor: bottom_center, bevel: 0}
-places:
-  top: {around: slab, headroom: 2}
-rules:
-  - on: {enter: top}
-    do: [{set: self.occupants, to: "self.occupants + 1"}]
-  - id: step_off
-    on: {leave: top}
-    do: [{set: self.occupants, to: "max(self.occupants - 1, 0)"}]
-"""
-
-SCENE = """
-name: yard
-size: [12, 3, 12]
-state:
-  power:  {scope: world, type: bool, default: true}
-  pulls:  {scope: actor, type: number, default: 0}
-  dark:   {scope: world, type: bool, default: false}
-quests: [quests/stand.yaml]
-slots:
-  a: {position: [-3, 0, 0]}
-  b: {position: [0, 0, 0]}
-  c: {position: [3, 0, 0]}
-  d: {position: [3, 0, 3]}
-  e: {position: [-3, 0, 3]}
-place:
-  lever:   {asset: lever.yaml, slot: a}
-  gate:    {asset: gate.yaml, slot: b}
-  lamp:    {asset: lamp.yaml, slot: c}
-  plate:   {asset: plate.yaml, slot: d}
-  plate_2: {asset: plate.yaml, slot: e}
-wire:
-  - {from: lever.pulled, to: gate.open}
-  - {from: lever.released, to: gate.close, after: 1}
-bind:
-  lamp.lit: "plate.occupants > 0 and world.power"
-rules:
-  - id: count_pulls
-    on: {use: lever, actor: player}
-    do: [{set: actor.pulls, to: "actor.pulls + 1"}, {start_quest: stand}]
-  - id: nightfall
-    on: {clock: night}
-    do: [{set: world.dark, to: true}]
-  - id: crowded
-    when: "plate.occupants >= 2"
-    do: [{emit: crowded, of: plate}, {input: gate.lock}]
-    once: true
-"""
-
-QUEST = """
-kind: quest
-version: 1
-title: Stand in the light
-objectives:
-  - {id: lit, text: Light the lamp, done: "lamp.lit"}
-  - {id: open, text: Open the gate, done: 'gate.gate == "open"'}
-"""
+from helpers import GATE, LAMP, LEVER, PLATE, QUEST, SCENE, schema_validate
 
 ACTORS = {"player": {"kind": "player"}, "npc:ann": {"kind": "npc"}}
 

@@ -1,6 +1,5 @@
 """Character archetypes: seeded, declarative people (geogen/characters.py)."""
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -8,8 +7,8 @@ import pytest
 from geogen.characters import draw, load_archetype, resolve_character
 from geogen.layout.composer import SceneComposer
 from geogen.layout.yaml_utils import safe_load
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 ARCHETYPES = ASSETS / "characters" / "archetypes"
 
 

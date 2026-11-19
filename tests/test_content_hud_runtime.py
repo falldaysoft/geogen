@@ -5,14 +5,13 @@ next step, and a scene without a program has no package."""
 import time
 
 import pytest
+from helpers import CONTENT_CAMP, PORTAL, deploy, write_assets
 
-from test_content import CAMP, deploy, write_assets
-from test_travel import PORTAL
 
 pytestmark = pytest.mark.xdist_group("test_content_hud_runtime")
 
 # The camp of test_content, with a portal to the annex.
-CAMP_PORTAL = CAMP.replace("place:\n", "  p: {position: [-3, 0, -2]}\nplace:\n  to_annex:\n"
+CAMP_PORTAL = CONTENT_CAMP.replace("place:\n", "  p: {position: [-3, 0, -2]}\nplace:\n  to_annex:\n"
                            "    asset: portal_test.yaml\n    slot: p\n    travel: {scene: annex, spawn: start}\n")
 
 

@@ -5,6 +5,7 @@ import pytest
 
 from geogen import flows
 from geogen.layout.loader import LayoutLoader
+from helpers import ASSETS
 
 SCENE = "flow_test"
 
@@ -23,7 +24,7 @@ def test_a_track_is_resampled_and_checked():
 
 
 def test_a_conveyor_carries_its_track_on_its_top():
-    belt = LayoutLoader().load("assets/conveyor.yaml", params={"length": 2, "height": 0.9})
+    belt = LayoutLoader().load(ASSETS / "conveyor.yaml", params={"length": 2, "height": 0.9})
     track = belt.meta["flows"]["track"]
     assert track["points"][0] == pytest.approx([0, 0.9, -1]) and track["points"][-1] == pytest.approx([0, 0.9, 1])
 
@@ -74,11 +75,11 @@ def test_waves_go_out_in_turn_and_the_turret_stops_raiders(built_scene):
 
 def test_effectors_are_checked():
     with pytest.raises(flows.FlowError, match="effect is"):
-        LayoutLoader().load_string(open("assets/turret.yaml").read().replace('effect: {damage: "{damage}"}', "effect: {heal: 1}"))
+        LayoutLoader().load_string((ASSETS / "turret.yaml").read_text().replace('effect: {damage: "{damage}"}', "effect: {heal: 1}"))
     with pytest.raises(flows.FlowError, match="targets is one of"):
-        LayoutLoader().load("assets/turret.yaml", params={"targets": "weakest"})
+        LayoutLoader().load(ASSETS / "turret.yaml", params={"targets": "weakest"})
     with pytest.raises(flows.FlowError, match="no part 'gun'"):
-        LayoutLoader().load_string(open("assets/turret.yaml").read().replace("yaw: head", "yaw: gun"))
+        LayoutLoader().load_string((ASSETS / "turret.yaml").read_text().replace("yaw: head", "yaw: gun"))
 
 
 def test_bad_track_networks_are_reported(tmp_path):
@@ -86,8 +87,8 @@ def test_bad_track_networks_are_reported(tmp_path):
 
     (tmp_path / "items").mkdir()
     (tmp_path / "items/parcel.yaml").write_text("kind: item\nbody: parcel.yaml\nmode: belt\n")
-    (tmp_path / "parcel.yaml").write_text(open("assets/parcel.yaml").read())
-    (tmp_path / "spawner.yaml").write_text(open("assets/spawner.yaml").read())
+    (tmp_path / "parcel.yaml").write_text((ASSETS / "parcel.yaml").read_text())
+    (tmp_path / "spawner.yaml").write_text((ASSETS / "spawner.yaml").read_text())
     (tmp_path / "yard.yaml").write_text("name: yard\nsize: [4, 2, 4]\nplace:\n  s: {asset: spawner.yaml}\n")
     found = flows.check_network(SceneComposer(assets_dir=tmp_path).compose(tmp_path / "yard.yaml"))
     assert found and "need a track that starts within 0.5 m" in found[0]

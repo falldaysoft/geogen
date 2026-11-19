@@ -5,8 +5,9 @@ import pytest
 
 from geogen.core import meshops
 from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
-HUMANOID = "assets/characters/humanoid.yaml"
+HUMANOID = ASSETS / "characters/humanoid.yaml"
 OUTFITS = ["none", "casual", "jeans_tee", "smart", "dress", "skirt_sweater", "shorts_tee", "casual_f"]
 
 

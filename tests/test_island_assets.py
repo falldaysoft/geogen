@@ -13,10 +13,11 @@ from geogen.generators.stairs import StairsGenerator
 from geogen.layout.expressions import evaluate
 from geogen.layout.loader import LayoutLoader
 from geogen.runtime_client import step
+from helpers import ASSETS
 
 
 def _load(name: str, **params):
-    return LayoutLoader().load(f"assets/{name}.yaml", params=params or None)
+    return LayoutLoader().load(ASSETS / f"{name}.yaml", params=params or None)
 
 
 def test_array_parts_repeat_and_subtract_all_copies():

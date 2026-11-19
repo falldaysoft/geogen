@@ -7,7 +7,7 @@ import time
 import pytest
 
 from geogen.runtime_client import ApiError, step
-from test_content import deploy, write_assets
+from helpers import deploy, write_assets
 
 pytestmark = pytest.mark.xdist_group("test_content_runtime")
 

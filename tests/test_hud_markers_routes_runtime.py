@@ -7,9 +7,7 @@ import pytest
 
 from geogen.export import export_scene
 from geogen.layout.composer import SceneComposer
-from test_state import LEVER
-from test_travel import PORTAL
-from test_wiring import PLATE
+from helpers import LEVER, PLATE, PORTAL, STRIP
 
 pytestmark = pytest.mark.xdist_group("test_hud_markers_routes_runtime")
 
@@ -145,7 +143,6 @@ def test_a_streamed_scene_marks_subjects_in_chunks_that_arent_loaded(tmp_path, g
     while the blocks between are only LOD stand-ins."""
     from geogen import roots
     from geogen.chunks import export_chunks
-    from test_godot_runtime import STRIP
 
     project = tmp_path / "project"
     (project / "assets" / "quests").mkdir(parents=True)

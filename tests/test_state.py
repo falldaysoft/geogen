@@ -11,80 +11,9 @@ from geogen.export import export_scene, manifest_path
 from geogen.layout.composer import SceneComposer
 from geogen.rules import Machine
 from geogen.state import Declarations, StateError, collect
-from helpers import schema_validate
+from helpers import GATE, LAMP, LEVER, schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-state.v1.schema.json"
-
-# A lever: instance state is its `pull` interaction; it offers two signals.
-LEVER = """
-name: lever
-origin: bottom_center
-size: [1, 1, 1]
-bounds: geometry
-parts:
-  base:   {primitive: cube, size: [0.3, 0.1, 0.3], anchor: bottom_center}
-  handle: {primitive: cube, size: [0.05, 0.6, 0.05], anchor: bottom_center, offset: [0, 0.1, 0]}
-interactions:
-  pull:
-    duration: 0.5
-    states:
-      up:   {next: down, emit: released}
-      down: {next: up, emit: pulled}
-    motions:
-      - {parts: [handle], rotate: x, pivot: [0, 0.1, 0], values: {down: 60}}
-signals:
-  pulled:   {emit: pulled}
-  released: {emit: released}
-"""
-
-# A gate only rules can move, with inputs to open and close it.
-GATE = """
-name: gate
-origin: bottom_center
-size: [1, 1, 1]
-bounds: geometry
-parts:
-  leaf: {primitive: cube, size: [2, 2, 0.1], anchor: bottom_center}
-interactions:
-  gate:
-    targets: [leaf]
-    duration: 2
-    lock: {key: gate_key, locked: false}
-    states:
-      closed: {}
-      open:   {emit: opened}
-    motions:
-      - {parts: [leaf], translate: y, values: {open: 2}}
-signals:
-  opened: {emit: opened}
-  moved:  {changed: gate}
-inputs:
-  open:   {set: gate, to: open}
-  close:  {set: gate, to: closed}
-  lock:   {set: gate_locked, to: true}
-"""
-
-# A lamp with declared instance state, a signal off it and an input that takes a value.
-LAMP = """
-name: lamp
-origin: bottom_center
-size: [1, 1, 1]
-bounds: geometry
-params:
-  lit: {default: 0}
-state:
-  lit:    {type: bool, default: false}
-  colour: {type: choice, choices: [warm, cool]}
-  level:  {type: number, default: "{lit + 2}"}
-  label:  {type: text, default: lamp}
-parts:
-  post: {primitive: cube, size: [0.1, 2, 0.1], anchor: bottom_center}
-signals:
-  switched_on: {changed: lit, to: true}
-inputs:
-  light:  {set: lit}
-  colour: {set: colour}
-"""
 
 SCENE = """
 name: wiring

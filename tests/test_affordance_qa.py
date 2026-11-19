@@ -1,6 +1,5 @@
 """Affordance QA (layout/affordance_qa.py): posed actors, approach reachability, pose clashes."""
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -10,8 +9,8 @@ from geogen.core.transform import Transform
 from geogen.generators.primitives import CubeGenerator
 from geogen.layout.affordance_qa import affordance_spots, check_affordances, stage_actors
 from geogen.layout.loader import LayoutLoader
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 
 
 @pytest.fixture(scope="module")

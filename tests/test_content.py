@@ -6,103 +6,16 @@ from pathlib import Path
 import pytest
 
 from geogen import content
-from geogen.catalogue import Catalogue, CatalogueEntry, export_catalogue, load_catalogue, write_index
+from geogen.catalogue import load_catalogue, write_index
 from geogen.conditions import compile_condition
 from geogen.content import ContentError, Scene, compile_package, export_packages
 from geogen.layout.composer import SceneComposer
 from geogen.rules import Machine, check_program
-from test_state import GATE, LAMP, LEVER
-from test_wiring import PLATE
-from helpers import schema_validate
+from helpers import CONTENT_ERRAND, CONTENT_QUEST, deploy, schema_validate, write_assets
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-content.v1.schema.json"
 
-# Two scenes that know nothing of each other: a lever in one, a gate, a lamp and a plate in the other.
-CAMP = """
-name: camp
-size: [8, 3, 8]
-state:
-  fire: {scope: world, type: bool, default: true}
-slots:
-  a: {position: [0, 0, 2]}
-place:
-  lever: {asset: lever.yaml, slot: a}
-spawns:
-  start: {position: [0, 0, 3.2], facing: north}
-"""
-
-ANNEX = """
-name: annex
-size: [10, 3, 10]
-slots:
-  a: {position: [0, 0, -3]}
-  b: {position: [3, 0, 0]}
-  c: {position: [-3, 0, 0]}
-place:
-  gate:  {asset: gate.yaml, slot: a}
-  lamp:  {asset: lamp.yaml, slot: b}
-  plate: {asset: plate.yaml, slot: c}
-spawns:
-  start: {position: [0, 0, 3], facing: south}
-"""
-
-# The package: pulling the camp's lever is remembered, and opens the annex's gate and lights its lamp.
-ERRAND = """
-kind: package
-version: 1
-title: The errand
-description: Pull the lever at camp, then stand on the plate in the annex.
-scenes: [camp, annex]
-state:
-  lever_pulled: {scope: world, type: bool, default: false}
-  pulls:        {scope: actor, type: number, default: 0}
-rules:
-  - id: note_pull
-    on: {signal: "camp:lever.pulled"}
-    do: [{set: world.lever_pulled, to: true}]
-  - id: count_pull
-    on: {use: "camp:lever", actor: player}
-    when: 'world("camp").fire'
-    do: [{set: actor.pulls, to: "actor.pulls + 1"}]
-  - id: open_gate
-    when: "world.lever_pulled"
-    do: [{input: "annex:gate.open"}]
-bind:
-  'ref("annex:lamp").lit': "world.lever_pulled"
-quests: [quests/errand.yaml]
-"""
-
-QUEST = """
-kind: quest
-version: 1
-title: Run the errand
-start: auto
-ordered: true
-objectives:
-  - {id: pull, text: Pull the lever at camp, done: {signal: "camp:lever.pulled"}}
-  - {id: plate, text: Stand on the plate in the annex, done: {enter: "annex:plate/top"}}
-"""
-
-FILES = (("lever", LEVER), ("gate", GATE), ("lamp", LAMP), ("plate", PLATE), ("camp", CAMP), ("annex", ANNEX),
-         ("packages/errand", ERRAND), ("quests/errand", QUEST))
 ACTORS = {"player": {"kind": "player"}}
-
-
-def write_assets(assets):
-    for name, text in FILES:
-        path = assets / f"{name}.yaml"
-        path.parent.mkdir(exist_ok=True)
-        path.write_text(text)
-    return assets
-
-
-def deploy(assets, out, packages=("errand",)):
-    """Export both scenes and the packages into ``out``, as --export-catalogue does."""
-    catalogue = Catalogue("camp", {"camp": CatalogueEntry("camp"), "annex": CatalogueEntry("annex")},
-                          {name: assets / "packages" / f"{name}.yaml" for name in packages})
-    export_catalogue(catalogue, lambda name: SceneComposer(assets_dir=assets).compose(assets / f"{name}.yaml"),
-                     out, log=lambda *_: None)
-    return catalogue
 
 
 @pytest.fixture(scope="module")
@@ -231,7 +144,7 @@ def test_state_set_in_one_scene_is_read_in_another(deployed):
         {**program_of(out, "camp")}
 
 
-def edited(old, new, text=ERRAND):
+def edited(old, new, text=CONTENT_ERRAND):
     assert old in text
     return text.replace(old, new)
 
@@ -278,7 +191,7 @@ def test_a_bad_reference_fails_the_export_and_the_package_is_not_deployed(deploy
     assets, _, _ = deployed
     mine = write_assets(tmp_path / "assets")
     (mine / "packages" / "errand.yaml").write_text(edited("camp:lever.pulled", "camp:levr.pulled"))
-    (mine / "quests" / "errand.yaml").write_text(QUEST.replace("annex:plate/top", "annex:plate/tap"))
+    (mine / "quests" / "errand.yaml").write_text(CONTENT_QUEST.replace("annex:plate/top", "annex:plate/tap"))
     out = tmp_path / "out"
     (out).mkdir()
     (out / "errand.content.json").write_text("{}")          # an older export of it

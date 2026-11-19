@@ -6,6 +6,7 @@ import pytest
 from geogen.core import meshops
 from geogen.generators.crops import KINDS, CropGenerator
 from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
 
 @pytest.mark.parametrize("kind", KINDS)
@@ -47,5 +48,5 @@ def test_seed_varies_and_bad_params_raise():
 
 
 def test_crop_patch_asset_loads():
-    patch = LayoutLoader().load("assets/crop_patch.yaml", params={"kind": "pumpkin", "growth": 0.9})
+    patch = LayoutLoader().load(ASSETS / "crop_patch.yaml", params={"kind": "pumpkin", "growth": 0.9})
     assert patch.find("crop").mesh is not None

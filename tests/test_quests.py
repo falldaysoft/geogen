@@ -11,11 +11,9 @@ from geogen.layout.composer import SceneComposer
 from geogen.quests import STATES, QuestError, collect, compile_quests, load_quest
 from geogen.rules import Machine, check_program
 from geogen.state import Declarations
-from test_state import GATE, LAMP, LEVER
-from helpers import schema_validate
+from helpers import ASSETS, GATE, LAMP, LEVER, schema_validate
 
 SCHEMA = Path(__file__).parent.parent / "docs/schema/geogen-quests.v1.schema.json"
-ASSETS = Path(__file__).parent.parent / "assets"
 STATE_SCHEMA = SCHEMA.with_name("geogen-state.v1.schema.json")
 ACTORS = {"player": {"kind": "player"}, "npc:ann": {"kind": "npc"}}
 SWITCH = {"initial": "on", "duration": 0.2, "states": {"on": {"next": "off"}, "off": {"next": "on"}}}

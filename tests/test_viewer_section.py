@@ -7,12 +7,12 @@ pytest.importorskip("PyQt6")
 
 from geogen.layout import LayoutLoader
 from geogen.viewer.qt_viewer import _copy_with_interactions, describe_node
-from test_building import SMALL
+from helpers import ASSETS, SMALL
 
 
 def test_copy_with_interactions_moves_only_the_copy():
     from geogen.layout.interactions import apply_state
-    original = LayoutLoader().load("assets/nightstand.yaml")
+    original = LayoutLoader().load(ASSETS / "nightstand.yaml")
     before = original.find("drawer_front").world_transform().copy()
     copy = _copy_with_interactions(original)
     apply_state(copy, copy.interactions[0], "open")
@@ -21,7 +21,7 @@ def test_copy_with_interactions_moves_only_the_copy():
 
 
 def test_inspector_lists_tags_rooms_and_interactions():
-    text = describe_node(LayoutLoader().load("assets/nightstand.yaml"))
+    text = describe_node(LayoutLoader().load(ASSETS / "nightstand.yaml"))
     assert "Tags      furniture.nightstand" in text
     assert "Interact  drawer: closed -> open" in text
     building = LayoutLoader().load_string(SMALL)

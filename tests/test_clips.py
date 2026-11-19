@@ -7,8 +7,9 @@ from geogen.core import meshops
 from geogen.core.ik import aim, two_bone
 from geogen.generators.humanoid import CLOSED_BODY
 from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
-HUMANOID = "assets/characters/humanoid.yaml"
+HUMANOID = ASSETS / "characters/humanoid.yaml"
 
 
 @pytest.fixture(scope="module", params=["feminine", "masculine"])

@@ -9,9 +9,8 @@ import pytest
 from geogen.layout.composer import SceneComposer
 from geogen.traffic import (PEDESTRIAN_SPEED, build_traffic, check_clearance, check_graph, pedestrian_state,
                             route_lanes, signal_state)
-from helpers import schema_validate
+from helpers import ASSETS, schema_validate
 
-ASSETS = Path(__file__).parent.parent / "assets"
 SCHEMA = json.loads((Path(__file__).parent.parent / "docs/schema/geogen-traffic.v1.schema.json").read_text())
 
 GRID = """

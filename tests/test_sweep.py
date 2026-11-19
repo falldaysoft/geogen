@@ -7,6 +7,7 @@ from geogen.core import meshops
 from geogen.core.profile import Shape, circle, rect
 from geogen.generators.sweep import SweepGenerator
 from geogen.layout import LayoutLoader
+from helpers import ASSETS
 
 SQUARE = Shape(rect(0.1, 0.2, center=(0.05, 0.1)))  # 10 cm wide, 20 cm tall, to the right of the path
 
@@ -75,7 +76,7 @@ def test_twist_and_scale():
 
 
 def test_yaml_sweep_part_with_spline_path():
-    root = LayoutLoader().load("assets/handrail.yaml")
+    root = LayoutLoader().load(ASSETS / "handrail.yaml")
     rail = root.find("rail")
     assert meshops.validate(rail.mesh).watertight
     pts = (rail.world_transform() @ np.c_[rail.mesh.vertices, np.ones(len(rail.mesh.vertices))].T).T

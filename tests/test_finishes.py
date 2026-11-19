@@ -122,9 +122,8 @@ def test_finishes_can_be_turned_off():
     assert bedroom.find("cornice") is None and bedroom.find("skirting") is not None
 
 
-def test_furnished_items_stand_clear_of_skirting():
-    from geogen.layout import SceneComposer
-    scene = SceneComposer().compose("assets/scenes/hotel_room_auto.yaml")
+def test_furnished_items_stand_clear_of_skirting(built_scene):
+    scene = built_scene("hotel_room_auto")
     bedroom = scene.find("suite").find("bedroom")
     half = bedroom.size[[0, 2]] / 2
     for item in ("bed", "wardrobe", "tv_console"):

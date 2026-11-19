@@ -15,8 +15,8 @@ import json
 from pathlib import Path
 
 import pytest
+from helpers import ASSETS
 
-ASSETS = Path(__file__).parent.parent / "assets"
 BASELINE = Path(__file__).parent / "data" / "clipping_baseline.json"
 PRESETS = [["feminine"], ["masculine"], ["feminine", "hourglass"], ["masculine", "heavy"], ["feminine", "petite"]]
 OUTFITS = ["casual_f", "dress", "jeans_tee", "smart"]

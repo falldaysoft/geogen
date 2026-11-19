@@ -7,9 +7,8 @@ import pytest
 
 from geogen.export import export_scene, manifest_path
 from geogen.layout.composer import SceneComposer
-from test_state import GATE, LAMP, LEVER
-from test_wiring import PLATE, QUEST, SCENE
 from geogen.runtime_client import step
+from helpers import GATE, LAMP, LEVER, PLATE, QUEST, SCENE
 
 pytestmark = pytest.mark.xdist_group("test_quests_runtime")
 

@@ -4,13 +4,13 @@ import numpy as np
 import pytest
 
 from geogen.layout import SceneComposer
+from helpers import mesh_volume
 
-from test_architecture import _volume
 
 
 def _cut_volume(yaml: str) -> float:
     scene = SceneComposer().compose_string(yaml)
-    return _volume(scene.find("walls").mesh)
+    return mesh_volume(scene.find("walls").mesh)
 
 
 BASE = """

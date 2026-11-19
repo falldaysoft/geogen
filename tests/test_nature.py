@@ -6,6 +6,7 @@ import pytest
 from geogen.core import meshops, uvmap
 from geogen.generators.nature import RockGenerator, TreeGenerator
 from geogen.layout.loader import LayoutLoader
+from helpers import ASSETS
 
 
 @pytest.mark.parametrize("style", ["deciduous", "conifer"])
@@ -53,12 +54,12 @@ def test_conifer_crown_tapers_and_deciduous_is_round():
 
 
 def test_tree_asset_uses_bark_everywhere():
-    tree = LayoutLoader().load("assets/maple_tree.yaml")
+    tree = LayoutLoader().load(ASSETS / "maple_tree.yaml")
     part = next(n for n in tree.iter_nodes() if n.name == "tree")
     assert part.mesh.material.name == "bark"
     assert part.find("branches").mesh.material.name == "bark"
     assert part.find("foliage").mesh.material.name == "foliage_green"
-    pine = LayoutLoader().load("assets/pine_tree.yaml")
+    pine = LayoutLoader().load(ASSETS / "pine_tree.yaml")
     assert next(n for n in pine.iter_nodes() if n.name == "foliage").mesh.material.name == "foliage_pine"
 
 
