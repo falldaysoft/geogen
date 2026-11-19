@@ -1,7 +1,9 @@
 """Motion review (geogen.103.1): scripted scenarios recorded for people to look at.
 
 A scenario (``kind: motion_scenario``, ``assets/motions/scenarios/*.yaml``) is a small scene, one
-person placed in it, and a script of what happens when (motions started, interrupted). Running it
+person placed in it, and a script of what happens when (motions started, interrupted, and
+stimuli the person reacts to: ``{at, stimulus: thud, from: lamp}`` with the scenario's
+``reacts:``, see ``_Stimuli``). Running it
 steps ``motion.MotionRig`` at a fixed rate, so it plays the same every time and can be watched at
 any speed. Each run writes, under ``<out>/<scenario>/``:
 
@@ -56,7 +58,9 @@ from .fields import known_keys
 
 SCENARIO_KIND = "motion_scenario"
 SCENARIOS_DIR = "motions/scenarios"
-SCENARIO_KEYS = {"kind", "name", "description", "scene", "actor", "partners", "script", "duration", "until", "camera", "fps"}
+SCENARIO_KEYS = {"kind", "name", "description", "scene", "actor", "partners", "script", "duration", "until", "camera", "fps",
+                 "reacts"}
+REACT_KEYS = {"look", "interrupt", "motion"}       # a scenario's reacts: {<stimulus>: {look, interrupt, motion}}
 POP_SPEED = 900.0        # deg/s a joint turning faster than reads as a pop
 SETTLE_SPEED = 60.0      # deg/s: settled
 COLORS = ["#4e79a7", "#f28e2b", "#59a14f", "#e15759", "#b07aa1", "#76b7b2", "#edc948", "#9c755f"]
@@ -70,6 +74,7 @@ class Result:
     frames: list = field(default_factory=list)      # rendered PIL images (when recording)
     scenario: dict = field(default_factory=dict)
     partners: dict = field(default_factory=dict)    # name -> the MotionRig of each other person (partners:)
+    script: list = field(default_factory=list)      # what was done when, stimuli resolved (the runtime replays it)
 
 
 # --- scenarios -----------------------------------------------------------------------------------
@@ -285,6 +290,7 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
                          [r.actor for r in partners.values()]) if record else None
     cloth = _ClothProbe.of(actor)
     origins = _origins(scene, script)
+    stimuli = _Stimuli(spec.get("reacts"), assets_dir, rigs)
     frames = []
     if recorder:
         frames.append(recorder.frame(rig, partners))
@@ -296,7 +302,12 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
             by = entry.pop("by", "actor")
             if by not in rigs:
                 raise MotionError(f"script entry {entry!r}: by '{by}' is not the actor or one of the partners")
-            _do(rigs[by], {k: rigs.get(v, v) if isinstance(v, str) else v for k, v in entry.items()}, origins)
+            if by == "actor":
+                stimuli.entry(rig, entry, origins)
+            else:
+                stimuli.done.append({**entry, "at": round(rig.time, 6), "by": by})
+                _do(rigs[by], {k: rigs.get(v, v) if isinstance(v, str) else v for k, v in entry.items()}, origins)
+        stimuli.step(rig, origins)
         for each in rigs.values():
             each.step()
         if cloth is not None:
@@ -305,9 +316,9 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
             probe(rig)
         if recorder:
             frames.append(recorder.frame(rig, partners))
-        if until == "idle" and not script and not any(r.running() for r in rigs.values()):
+        if until == "idle" and not script and not stimuli.busy() and not any(r.running() for r in rigs.values()):
             break
-    result = Result(spec["name"], rig, metrics(rig), frames, spec, partners)
+    result = Result(spec["name"], rig, metrics(rig), frames, spec, partners, stimuli.done)
     for pname, prig in partners.items():
         result.metrics.setdefault("partners", {})[pname] = metrics(prig)
     return result
@@ -388,6 +399,8 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     assets_dir = Path(assets_dir or roots.CORE)
     spec = load_scenario(name, assets_dir)
     script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
+    if any("stimulus" in e for e in script):
+        script = run_scenario(spec, assets_dir).script     # what the stimuli came to, as plain entries
     motions = {}
     for entry in script:
         name_ = entry.get("start") or (entry["break"] if isinstance(entry.get("break"), str) else None)
@@ -501,6 +514,79 @@ def _origins(scene: SceneNode, script: list[dict]) -> dict:
             if isinstance(value, str) and value.endswith("@start") and value not in out:
                 out[value] = Target(None, refs.resolve(scene, value[: -len("@start")]).world_transform().copy(), value)
     return out
+
+
+class _Stimuli:
+    """Stimuli in a scenario script (geogen.99.6), reacted to as the NPC runtime's perception does
+    (npc.gd ``_on_event``, docs/dev/gameplay.md "Perception") but with motions, not actions:
+    ``{at, stimulus: <name>, from: <thing>}`` and the scenario's ``reacts: {<name>: {look,
+    interrupt, motion}}`` (the actor's). ``look: S`` glances at ``from`` for S seconds;
+    ``interrupt: true`` cuts short what is running, newest first and one at a time (the next once
+    the one before has ended, so a hand comes down before the body rises); ``motion: <name>``
+    starts that motion (bound to ``from`` when it has a ``target`` role), after what was cut
+    short has ended (so it takes up a body that is free, as an NPC's reaction action does). A stimulus the actor
+    doesn't react to does nothing. What is done is plain script entries at the times they were
+    done (``done``): a conformance trace and the runtime recording replay those."""
+
+    def __init__(self, reacts: dict | None, assets_dir: Path, rigs: dict | None = None):
+        self.rigs = rigs or {}                # role values naming a body bind its rig
+        self.reacts = {}
+        for name, spec in (reacts or {}).items():
+            spec = {} if spec in (None, True) else spec
+            if not isinstance(spec, dict) or set(spec) - REACT_KEYS:
+                raise MotionError(f"reacts.{name}: keys are {sorted(REACT_KEYS)}, got {spec!r}")
+            self.reacts[str(name)] = spec
+        self.assets_dir = assets_dir
+        self.pending: list[str] = []          # runs still to be cut short, in order
+        self.waiting: str | None = None       # ...once this one has ended
+        self.then: dict | None = None         # the reaction's motion, once all of them have
+        self.done: list[dict] = []
+
+    def entry(self, rig: MotionRig, entry: dict, origins: dict) -> None:
+        """Do a script entry: a stimulus is reacted to; anything else is done as it is."""
+        if "stimulus" not in entry:
+            self._do(rig, dict(entry), origins)
+            return
+        r = self.reacts.get(str(entry["stimulus"]))
+        if r is None:
+            return
+        source = entry.get("from")
+        if r.get("look") and source is not None:
+            self._do(rig, {"start": "glance", "target": source, "duration": float(r["look"])}, origins)
+        then = None
+        if r.get("motion"):
+            motion = load_motion(str(r["motion"]), self.assets_dir)
+            extra = {"target": source} if "target" in (motion.get("roles") or {}) and source is not None else {}
+            then = {"start": motion["name"], **extra}
+        if r.get("interrupt"):
+            running = [run.name for run in sorted(rig.running(), key=lambda run: -run.order) if run.name != "glance"]
+            self.pending, self.waiting, self.then = running, None, then
+            self.step(rig, origins)
+        elif then is not None:
+            self._do(rig, then, origins)
+
+    def step(self, rig: MotionRig, origins: dict) -> None:
+        """Cut the next one short once the one before has ended."""
+        if self.waiting is not None and rig.running(self.waiting):
+            return
+        while self.pending:
+            name = self.pending.pop(0)
+            if rig.running(name):
+                self._do(rig, {"interrupt": name}, origins)
+                self.waiting = name
+                return
+        self.waiting = None
+        if self.then is not None:
+            then, self.then = self.then, None
+            self._do(rig, then, origins)
+
+    def busy(self) -> bool:
+        return bool(self.pending) or self.waiting is not None or self.then is not None
+
+    def _do(self, rig: MotionRig, entry: dict, origins: dict) -> None:
+        entry.pop("at", None)
+        self.done.append({"at": round(rig.time, 6), **entry})
+        _do(rig, {k: self.rigs.get(v, v) if isinstance(v, str) else v for k, v in entry.items()}, origins)
 
 
 def _do(rig: MotionRig, entry: dict, origins: dict | None = None) -> None:
@@ -826,7 +912,7 @@ def record_runtime(result: Result, folder: Path, assets_dir: Path | None = None,
     spec = result.scenario
     scene = _scene(spec["scene"], assets_dir)
     actor = _actor(spec.get("actor") or {}, scene, assets_dir)
-    script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
+    script = result.script or sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
     origins = _origins(scene, script)
     # The camera the reference's video looks from (its frame, view and field of view).
     camera = spec.get("camera") or {}

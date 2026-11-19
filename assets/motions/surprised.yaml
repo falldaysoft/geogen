@@ -17,8 +17,8 @@ beats:
                   fingers: [0.1, 1, 0.2], palm: [0, 0, 1] }
       mirror: true
     plant: feet
-    over: 0.3
-    ease: settle
+    over: 0.35
+    ease: smooth              # (settle's quick start turns the hands faster than reads as a pop)
     after: 0.6
     interrupt: finish
     then: relax

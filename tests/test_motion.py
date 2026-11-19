@@ -41,7 +41,7 @@ def test_scenarios_load():
     names = scenario_names(roots.CORE)
     assert {"sit_on_chair", "sit_interrupted", "press_tv", "sit_watch_tv", "take_carry_set_down",
             "watch_tv", "eat_glance", "eat_interrupted", "eat_wave", "squat_shoved", "bow_wave",
-            "eat_watch_tv", "watch_by_turns"} <= set(names)
+            "eat_watch_tv", "watch_by_turns", "startled"} <= set(names)
     for name in names:
         load_scenario(name, roots.CORE)
 
@@ -313,10 +313,33 @@ def test_an_interrupted_meal_finishes_the_bite_and_puts_the_hand_down(runs):
     assert ("emit", "eat", "bite") in _events(r, "emit"), "the bite in progress was taken"
     rest_end = next(e["t"] for e in r.rig.trace if e["event"] == "end" and e["motion"] == "eat")
     rise = next(e["t"] for e in r.rig.trace if e["event"] == "beat" and e["beat"] == "rise")
-    assert rise > rest_end, "she gets up once the hand is down"
+    assert rise >= rest_end, "she gets up once the hand is down"
     assert r.rig.posture == "stand" and abs(r.rig.root[1, 3]) < 1e-6
     _smooth(m)
     assert m["cloth_mm"]["mm"] < 2
+
+
+def test_a_stimulus_in_a_script_is_reacted_to_as_the_scenario_says(runs):
+    """(geogen.99.6) `stimulus:` entries and the scenario's `reacts:`: a look is a glance at where
+    it came from; an interrupt cuts what runs short newest first, the next once the one before has
+    ended; a motion starts once they have; a stimulus not reacted to is nothing. What was done is
+    plain entries (`Result.script`), which traces and the runtime recording replay."""
+    done = [{k: v for k, v in e.items() if k != "at"} for e in _run(runs, "eat_glance").script]
+    assert done[-1] == {"start": "glance", "target": "lamp", "duration": 2.0}
+    r = _run(runs, "eat_interrupted")
+    script = [(e["at"], {k: v for k, v in e.items() if k != "at"}) for e in r.script]
+    assert script[2:4] == [(2.8, {"start": "glance", "target": "lamp", "duration": 3.0}), (2.8, {"interrupt": "eat"})]
+    eat_end = next(e["t"] for e in r.rig.trace if e["event"] == "end" and e["motion"] == "eat")
+    assert script[4][1] == {"interrupt": "sit"} and script[4][0] == pytest.approx(eat_end, abs=0.04)
+    r = _run(runs, "startled")
+    script = [{k: v for k, v in e.items() if k != "at"} for e in r.script]
+    assert script == [{"start": "check_watch", "read": 3}, {"start": "glance", "target": "lamp", "duration": 2.0},
+                      {"interrupt": "check_watch"}, {"start": "surprised"}]           # (creak: not reacted to)
+    watch_end = next(e["t"] for e in r.rig.trace if e["event"] == "end" and e["motion"] == "check_watch")
+    assert r.script[-1]["at"] == pytest.approx(watch_end, abs=0.04)
+    assert r.metrics["pops"] == 0
+    with pytest.raises(MotionError, match="keys are"):
+        run_scenario({**load_scenario("startled"), "reacts": {"thud": {"jump": True}}})
 
 
 def test_a_wave_pauses_the_meal_and_it_resumes_where_it_was(runs):

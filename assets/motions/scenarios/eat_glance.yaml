@@ -1,5 +1,6 @@
-# Eating at the table when something falls in the hall, look only (the design's `thud: {look: 2}`):
-# the glance takes the shared gaze for two seconds and the meal never notices.
+# Eating at the table when something falls in the hall, look only (geogen.99.6: a stimulus she
+# reacts to, `thud: {look: 2}`): the glance takes the shared gaze for two seconds and the meal
+# never notices.
 kind: motion_scenario
 description: Eat seated; a glance at the doorway for two seconds; the meal carries on.
 scene: &table_for_one
@@ -16,5 +17,7 @@ actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, 
 script:
   - { at: 0, start: sit, seat: chair, approach_z: 0.2, duration: 9 }
   - { at: 1.5, start: eat, food: plate, bites: 3 }
-  - { at: 3.6, start: glance, target: lamp, duration: 2 }
+  - { at: 3.6, stimulus: thud, from: lamp }
+reacts:
+  thud: { look: 2 }
 camera: { view: iso_back, frame: [table, chair], margin: 0.2 }

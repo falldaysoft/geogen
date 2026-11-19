@@ -1,6 +1,7 @@
-# Eating at the table when something falls in the hall, with an interrupt (the design's
-# `thud: {look: 2, interrupt: true}`): the glance takes the gaze, eat finishes the bite on its way
-# up and puts the hand down (its exit), and sit gets up through `rise` once it is down.
+# Eating at the table when something falls in the hall, with an interrupt (geogen.99.6: a stimulus
+# she reacts to, `thud: {look, interrupt: true}`): the glance takes the gaze, eat finishes the bite
+# on its way up and puts the hand down (its exit), and sit gets up through `rise` once it is down
+# (what is running is cut short newest first, each once the one before has ended).
 kind: motion_scenario
 description: Eat seated; a noise mid-bite; the bite finishes, the hand goes down, she stands.
 scene:
@@ -17,7 +18,7 @@ actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: chair, 
 script:
   - { at: 0, start: sit, seat: chair, approach_z: 0.2, duration: 20 }
   - { at: 1.5, start: eat, food: plate, bites: 4 }
-  - { at: 2.8, start: glance, target: lamp, duration: 3 }
-  - { at: 2.8, interrupt: eat }                      # mid-bite: it finishes, then its exit
-  - { at: 4.1, interrupt: sit }                      # once the hand is down: up through rise
+  - { at: 2.8, stimulus: thud, from: lamp }          # mid-bite: it finishes, then its exit; then up through rise
+reacts:
+  thud: { look: 3, interrupt: true }
 camera: { view: iso_back, frame: [table, chair], margin: 0.2 }

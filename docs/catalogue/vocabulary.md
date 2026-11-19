@@ -338,7 +338,7 @@ A scripted motion run (stage, person, timed starts and interruptions, camera) re
 
 Use: `python -m geogen.motion_review sit_on_chair -o /tmp/review`
 
-Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `partners`, `scene`, `script`, `until`
+Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `partners`, `reacts`, `scene`, `script`, `until`
 
 | File | What it is |
 | --- | --- |
@@ -346,8 +346,8 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `partners`, `
 | [motions/scenarios/bite_apple_left.yaml](../../assets/motions/scenarios/bite_apple_left.yaml) | The apple in the left hand (geogen.103.6): bite is written for the right hand and borrows the hand that holds the apple, so it runs mirrored. |
 | [motions/scenarios/bow_wave.yaml](../../assets/motions/scenarios/bow_wave.yaml) | A bow; a wave borrows the right hand from it (geogen.103.5): the bow pauses, and picks up from. |
 | [motions/scenarios/drink.yaml](../../assets/motions/scenarios/drink.yaml) | Take a mug from the table in front, drink, put it back (geogen.103.17): the cup sits near the table's edge at the right hand, its handle turned to it. |
-| [motions/scenarios/eat_glance.yaml](../../assets/motions/scenarios/eat_glance.yaml) | Eating at the table when something falls in the hall, look only (the design's `thud: {look: 2}`). |
-| [motions/scenarios/eat_interrupted.yaml](../../assets/motions/scenarios/eat_interrupted.yaml) | Eating at the table when something falls in the hall, with an interrupt (the design's. |
+| [motions/scenarios/eat_glance.yaml](../../assets/motions/scenarios/eat_glance.yaml) | Eating at the table when something falls in the hall, look only (geogen.99.6: a stimulus she reacts to, `thud: {look: 2}`): the glance takes the shared gaze for two seconds and the meal never notices. |
+| [motions/scenarios/eat_interrupted.yaml](../../assets/motions/scenarios/eat_interrupted.yaml) | Eating at the table when something falls in the hall, with an interrupt (geogen.99.6: a stimulus she reacts to, `thud: {look, interrupt: true}`): the glance takes the gaze, eat finishes the bite on its way up and puts the hand down (its exit), and sit gets up through `rise` once it is down (what is running is cut short newest first, each once the one before has ended). |
 | [motions/scenarios/eat_watch_tv.yaml](../../assets/motions/scenarios/eat_watch_tv.yaml) | Eat at the table with the TV on beside it (geogen.103.6): eat and watch both share the gaze, so the eyes go between the plate and the screen by turns (the screen for longer: watch's weight is 1.5, eat's 1) while the hand keeps eating. |
 | [motions/scenarios/eat_wave.yaml](../../assets/motions/scenarios/eat_wave.yaml) | A wave mid-meal (geogen.103.5): the wave borrows the right hand, eat waits where it was, and picks up when the hand comes back (chewing: chew on, its `resume`), not from the first bite. |
 | [motions/scenarios/emotes.yaml](../../assets/motions/scenarios/emotes.yaml) | Emotes in a row (geogen.103.17): a clap with a nod over it (the nod only takes the gaze), a cheer, a shrug, a thumbs up, and down onto the floor and back up. |
@@ -362,6 +362,7 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `partners`, `
 | [motions/scenarios/sit_watch_tv.yaml](../../assets/motions/scenarios/sit_watch_tv.yaml) | Two motions at once: sitting holds the body, a glance at the TV holds only the gaze. |
 | [motions/scenarios/squat.yaml](../../assets/motions/scenarios/squat.yaml) | Squats on a rug (geogen.103.12): a body-only motion, three repetitions. |
 | [motions/scenarios/squat_shoved.yaml](../../assets/motions/scenarios/squat_shoved.yaml) | A shove mid-squat (geogen.103.5): a break drops the squat with no exit and the body inertializes into a stagger, then stands. |
+| [motions/scenarios/startled.yaml](../../assets/motions/scenarios/startled.yaml) | Startled while checking the time (geogen.99.6): a thud behind her, reacted to as an NPC does (`reacts:`, docs/dev/gameplay.md "Perception"): what she was doing is cut short, she starts (`surprised`), and then looks at where it came from. |
 | [motions/scenarios/take_carry_set_down.yaml](../../assets/motions/scenarios/take_carry_set_down.yaml) | Take a plate from the near edge of a table, carry it for a moment, set it down in the middle (geogen.103.4): three motions in turn on the right hand, the plate going with it from the grasp to the release. |
 | [motions/scenarios/watch_by_turns.yaml](../../assets/motions/scenarios/watch_by_turns.yaml) | Two things to watch at once (geogen.103.6): two `watch` runs share the gaze and take turns at it, three seconds each (SHARE_TURN x watch's weight), and a glance (a claim) still takes it outright. |
 | [motions/scenarios/watch_tv.yaml](../../assets/motions/scenarios/watch_tv.yaml) | Sit and watch the TV; a glance at the lamp takes the gaze for a moment and gives it back (watch only prefers the gaze; glance claims it). |

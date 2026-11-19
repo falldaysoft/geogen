@@ -1,0 +1,19 @@
+# Startled while checking the time (geogen.99.6): a thud behind her, reacted to as an NPC does
+# (`reacts:`, docs/dev/gameplay.md "Perception"): what she was doing is cut short, she starts
+# (`surprised`), and then looks at where it came from.
+kind: motion_scenario
+description: Checking a watch; a thud by the lamp; the arm comes down, a start, a look its way.
+scene:
+  slots:
+    lamp: { position: [-1.6, 0, 1.2], facing: east }
+  place:
+    rug:  { asset: rug.yaml }
+    lamp: { asset: floor_lamp.yaml, slot: lamp }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, facing: 0 }
+script:
+  - { at: 0.3, start: check_watch, read: 3 }
+  - { at: 1.4, stimulus: thud, from: lamp }
+  - { at: 1.4, stimulus: creak, from: lamp }         # (one she doesn't react to: nothing)
+reacts:
+  thud: { look: 2, interrupt: true, motion: surprised }
+camera: { view: iso, frame: [actor, lamp], margin: 0.3 }
