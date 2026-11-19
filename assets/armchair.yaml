@@ -22,9 +22,9 @@ clearance: { front: 0.6 }
 parts:
   base:
     primitive: cube
-    size: [1, "{base / height}", "{(depth - back + 0.02) / depth}"]
+    size: ["{(width - 0.006) / width}", "{base / height}", "{(depth - back + 0.017) / depth}"]   # 3 mm inside the arms' faces
     anchor: bottom_center
-    offset: [0, "{leg / height}", "{(back - 0.02) / 2 / depth}"]
+    offset: [0, "{leg / height}", "{(back - 0.023) / 2 / depth}"]
     bevel: 0.03
     material: fabric_velvet
 

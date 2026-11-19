@@ -34,7 +34,7 @@ spawns:
   start: { position: [1, 0.05, -9], facing: south }
 
 place:
-  ground: { asset: ground.yaml, params: { width: 56, depth: 30 }, slot: ground }
+  ground: { asset: ground.yaml, params: { width: 56.006, depth: 30 }, slot: ground }   # 3 mm past the road's ends
   road:   { asset: road.yaml, params: { length: 56 }, slot: road }
   walk:   { asset: sidewalk.yaml, params: { length: 56 }, slot: walk }
 

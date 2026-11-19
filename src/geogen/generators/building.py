@@ -193,10 +193,11 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
         car.add_child(part("car_floor", [-cw / 2, -0.12, -cd / 2], [cw / 2, 0.004, cd / 2], steel))
         car.add_child(part("car_ceiling", [-cw / 2, CAR_HEIGHT, -cd / 2], [cw / 2, CAR_HEIGHT + 0.06, cd / 2], steel))
         # Three walls; the open side faces the doorway.
-        walls = {"north": ([-cw / 2, 0, cd / 2 - 0.04], [cw / 2, CAR_HEIGHT, cd / 2]),
-                 "south": ([-cw / 2, 0, -cd / 2], [cw / 2, CAR_HEIGHT, -cd / 2 + 0.04]),
-                 "east": ([cw / 2 - 0.04, 0, -cd / 2], [cw / 2, CAR_HEIGHT, cd / 2]),
-                 "west": ([-cw / 2, 0, -cd / 2], [-cw / 2 + 0.04, CAR_HEIGHT, cd / 2])}
+        # Each stops 3 mm inside the one it meets, so the corners' outer faces don't z-fight.
+        walls = {"north": ([-cw / 2 + 0.003, 0, cd / 2 - 0.04], [cw / 2 - 0.003, CAR_HEIGHT, cd / 2]),
+                 "south": ([-cw / 2 + 0.003, 0, -cd / 2], [cw / 2 - 0.003, CAR_HEIGHT, -cd / 2 + 0.04]),
+                 "east": ([cw / 2 - 0.04, 0, -cd / 2 + 0.003], [cw / 2, CAR_HEIGHT, cd / 2 - 0.003]),
+                 "west": ([-cw / 2, 0, -cd / 2 + 0.003], [-cw / 2 + 0.04, CAR_HEIGHT, cd / 2 - 0.003])}
         for side, (lo, hi) in walls.items():
             if side != front:
                 car.add_child(part(f"car_wall_{side}", lo, hi, panel_mat))

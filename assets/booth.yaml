@@ -50,9 +50,9 @@ parts:
     offset: [0.94, 0, 0]
   end_panel:
     primitive: cube
-    size: [2.02, 1.15, 0.06]
+    size: [2.014, 1.15, 0.06]
     anchor: bottom_center
-    offset: [0, 0, -0.62]          # within the benches' length: the booth is symmetric about z = 0
+    offset: [0, 0, -0.617]         # 3 mm inside the benches' ends: the booth is symmetric about z = 0
     bevel: 0.01
     material: wood_dark
 

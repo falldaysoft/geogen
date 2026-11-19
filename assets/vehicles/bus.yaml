@@ -63,9 +63,9 @@ parts:
 
   window_band:
     primitive: cube
-    size: ["{width - 0.08}", "{band}", "{length - 0.1}"]
+    size: ["{width - 0.08}", "{band + 0.006}", "{length - 0.1}"]   # 3 mm into the body and the roof
     anchor: bottom_center
-    offset: [0, "{belt}", 0]
+    offset: [0, "{belt - 0.003}", 0]
     bevel: 0.04
     material: car_glass
     collider: none
@@ -98,7 +98,7 @@ parts:
   pillar_5: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 4 * pane}"] }
   pillar_6: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 5 * pane}"] }
   pillar_7: { <<: *pillar, offset: [0, "{belt + 0.003}", "{lh - 1.2 - 6 * pane}"] }
-  pillar_rear: { <<: *pillar, size: ["{width - 0.02}", "{band - 0.006}", 0.5], offset: [0, "{belt + 0.003}", "{-(lh - 0.3)}"] }
+  pillar_rear: { <<: *pillar, size: ["{width - 0.02}", "{band - 0.006}", 0.503], offset: [0, "{belt + 0.003}", "{-(lh - 0.3) - 0.0015}"] }
 
   # Doors on the kerb side (-X): glazed panels from the step to the window top.
   door_front: &door

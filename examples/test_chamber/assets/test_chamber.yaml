@@ -114,17 +114,17 @@ parts:
     walkable: true
   hall_n_floor:
     primitive: cube
-    size: ["{hall_width}", 0.3, "{hall_length}"]
+    size: ["{hall_width}", 0.3, "{hall_length + 0.003}"]     # 3 mm past the wall's inner face
     anchor: bottom_center
-    offset: [0, "{-0.3 + exit_height}", "{depth / 2 + hall_length / 2}"]
+    offset: [0, "{-0.3 + exit_height}", "{depth / 2 + hall_length / 2 - 0.0015}"]
     bevel: 0
     material: panel_dark
     walkable: true
   hall_s_floor:
     primitive: cube
-    size: ["{hall_width}", 0.3, "{hall_length}"]
+    size: ["{hall_width}", 0.3, "{hall_length + 0.003}"]     # 3 mm past the wall's inner face
     anchor: bottom_center
-    offset: [0, -0.3, "{-(depth / 2 + hall_length / 2)}"]
+    offset: [0, -0.3, "{-(depth / 2 + hall_length / 2 - 0.0015)}"]
     bevel: 0
     material: panel_dark
     walkable: true
@@ -215,9 +215,9 @@ parts:
   # The booth's glazing, set back in the window from the chamber.
   glazing:
     primitive: cube
-    size: [0.03, 1.6, 4.0]
+    size: [0.03, 1.606, 4.006]                                # 3 mm into the window's reveals
     anchor: bottom_center
-    offset: ["{width / 2 + wall * 0.6}", 4.4, 0]
+    offset: ["{width / 2 + wall * 0.6}", 4.397, 0]
     bevel: 0
     material: glass
   window_frame:
@@ -237,18 +237,18 @@ parts:
   # hall's floor, with a dark band at its foot like the chamber's.
   landing_block:
     primitive: cube
-    size: [4.8, "{exit_height}", "{landing}"]
+    size: [4.8, "{exit_height}", "{landing - 0.01}"]          # its back inside the kick band
     anchor: bottom_center
-    offset: [0, 0, "{depth / 2 - landing / 2}"]
+    offset: [0, 0, "{depth / 2 - landing / 2 - 0.005}"]
     bevel: 0
     material: panel_white
     walkable: true
     when: "{exit_height > 0}"
   landing_kick:
     primitive: cube
-    size: [4.84, "{min(kick - 0.01, exit_height - 0.1)}", "{landing + 0.02}"]
+    size: [4.84, "{min(kick - 0.01, exit_height - 0.1)}", "{landing + 0.01}"]   # stops inside the wall's kick band
     anchor: bottom_center
-    offset: [0, 0, "{depth / 2 - landing / 2 - 0.01}"]
+    offset: [0, 0, "{depth / 2 - landing / 2 - 0.015}"]
     bevel: 0
     material: panel_dark
     collider: none
@@ -256,9 +256,9 @@ parts:
     subtract: [landing_kick_void]
   landing_kick_void:
     primitive: cube
-    size: [4.8, "{kick + 1}", "{landing - 0.04}"]
+    size: [4.8, "{kick + 1}", "{landing + 0.08}"]             # open at the back: the wall's kick band is there
     anchor: bottom_center
-    offset: [0, -0.5, "{depth / 2 - landing / 2}"]
+    offset: [0, -0.5, "{depth / 2 - landing / 2 + 0.06}"]
     bevel: 0
     cutter: true
     when: "{exit_height > 0}"

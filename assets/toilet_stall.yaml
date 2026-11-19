@@ -28,9 +28,9 @@ parts:
     offset: ["{width / 2 - 0.015}", 0.15, 0]
   pilaster:
     primitive: cube
-    size: ["{width - 0.66}", 1.95, 0.03]
+    size: ["{width - 0.666}", 1.95, 0.03]
     anchor: bottom_center
-    offset: ["{width / 2 - (width - 0.66) / 2}", 0, "{depth / 2 - 0.015}"]
+    offset: ["{width / 2 - 0.003 - (width - 0.666) / 2}", 0, "{depth / 2 - 0.018}"]   # 3 mm inside the side's faces
     bevel: 0.006
     material: paint_sage
   head_rail:

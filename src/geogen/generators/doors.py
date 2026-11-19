@@ -131,14 +131,16 @@ class DoorGenerator(CompositeGenerator):
         root.add_child(part("lining", _u_frame(w, h, w - 2 * self.lining, h - self.lining, t, 0.0),
                             frame_mat))
         outer_w, outer_h = w + 2 * self.casing, h + self.casing
-        zc = t / 2 + self.casing_depth / 2
-        # Casings lap 3 mm over the lining's edge: flush, their faces z-fight with it.
+        # Casings run 3 mm into the wall (their backs level with the wall's face would z-fight with
+        # a room's lining) and lap 3 mm over the lining's edge: flush, their faces z-fight with it.
+        depth = self.casing_depth + 0.003
+        zc = t / 2 + self.casing_depth - depth / 2
         inner_w, inner_h = w - 0.006, h - 0.003
         root.add_child(part("architrave_front",
-                            _u_frame(outer_w, outer_h, inner_w, inner_h, self.casing_depth, zc, bevel=0.004),
+                            _u_frame(outer_w, outer_h, inner_w, inner_h, depth, zc, bevel=0.004),
                             frame_mat))
         root.add_child(part("architrave_back",
-                            _u_frame(outer_w, outer_h, inner_w, inner_h, self.casing_depth, -zc, bevel=0.004),
+                            _u_frame(outer_w, outer_h, inner_w, inner_h, depth, -zc, bevel=0.004),
                             frame_mat))
 
         if self.style == "door":

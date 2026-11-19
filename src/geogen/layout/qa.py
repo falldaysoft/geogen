@@ -449,55 +449,188 @@ def room_reachability(room_node: SceneNode, player=None) -> list[str]:
 # --- z-fighting --------------------------------------------------------------------------------
 
 ZFIGHT_MIN_AREA = 0.01      # m²: smaller coplanar overlaps aren't visible
+_ZFIGHT_GRID = 1e-5         # m: snapping for the 2D overlays (nearly coincident edges break GEOS otherwise)
+
+
+@dataclass(eq=False)
+class _PlaneFaces:
+    """One mesh's triangles in one axis-aligned plane, facing one way (2D, in that plane)."""
+
+    node: SceneNode
+    axis: int
+    plane: float
+    sign: int
+    transparent: bool
+    tris: np.ndarray
+    _shape: object = None
+
+    @property
+    def bounds(self) -> tuple[float, float, float, float]:
+        low, high = self.tris.reshape(-1, 2).min(axis=0), self.tris.reshape(-1, 2).max(axis=0)
+        return float(low[0]), float(low[1]), float(high[0]), float(high[1])
+
+    @property
+    def shape(self):
+        if self._shape is None:
+            import shapely
+
+            rings = np.concatenate([self.tris, self.tris[:, :1]], axis=1)
+            self._shape = shapely.union_all(shapely.polygons(rings), grid_size=_ZFIGHT_GRID)
+        return self._shape
+
+
+def _plane_faces(node: SceneNode, mesh, min_area: float) -> list[_PlaneFaces]:
+    """``mesh``'s (world-space) faces grouped by axis-aligned plane (1 mm) and facing."""
+    if not len(mesh.faces):
+        return []
+    tri = mesh.vertices[mesh.faces]
+    normals = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    twice_area = np.linalg.norm(normals, axis=1)
+    transparent = mesh.material is not None and mesh.material.transparent
+    out = []
+    for axis in range(3):
+        # Level to the plane's own 1 mm: a long face turned a degree (a train on a curve) isn't in one plane.
+        sel = (np.abs(normals[:, axis]) > 0.999 * twice_area) & (twice_area > 2e-9) \
+            & (np.ptp(tri[:, :, axis], axis=1) <= 0.001)
+        if not sel.any():
+            continue
+        faces = tri[sel]
+        keys, group = np.unique(np.c_[np.round(faces[:, :, axis].mean(axis=1), 3), np.sign(normals[sel, axis])],
+                                axis=0, return_inverse=True)
+        group = group.ravel()
+        area = np.bincount(group, twice_area[sel] / 2)
+        in_plane = [i for i in range(3) if i != axis]
+        for k in np.flatnonzero(area >= min_area):
+            out.append(_PlaneFaces(node, axis, float(keys[k, 0]), int(keys[k, 1]), transparent,
+                                   faces[group == k][:, :, in_plane]))
+    return out
+
+
+class _PlaneIndex:
+    """Faces by plane, to find the ones whose bounds overlap a given face."""
+
+    def __init__(self, faces: list[_PlaneFaces]):
+        self.planes: dict[tuple[int, float], list[_PlaneFaces]] = {}
+        for f in faces:
+            self.planes.setdefault((f.axis, f.plane), []).append(f)
+        self.trees: dict[tuple[int, float], object] = {}
+
+    def near(self, face: _PlaneFaces) -> list[_PlaneFaces]:
+        import shapely
+
+        key = (face.axis, face.plane)
+        items = self.planes.get(key)
+        if not items:
+            return []
+        if key not in self.trees:
+            self.trees[key] = shapely.STRtree([shapely.box(*f.bounds) for f in items])
+        return [items[i] for i in self.trees[key].query(shapely.box(*face.bounds))]
+
+
+def _zfight_area(a: _PlaneFaces, b: _PlaneFaces, min_area: float) -> float:
+    """How much of ``a`` and ``b`` (same plane) fight, 0 if they can't.
+
+    Opaque faces are culled from behind, so only faces turned the same way fight; transparent
+    materials export double-sided, so for them opposite facings do too. Undersides on or below
+    the ground plane (y = 0, where scenes are authored) can't be seen.
+    """
+    if a.node is b.node or (a.sign != b.sign and not (a.transparent or b.transparent)):
+        return 0.0
+    if a.axis == 1 and a.sign < 0 and b.sign < 0 and a.plane <= 0.005:
+        return 0.0
+    ab, bb = a.bounds, b.bounds
+    if (min(ab[2], bb[2]) - max(ab[0], bb[0])) * (min(ab[3], bb[3]) - max(ab[1], bb[1])) < min_area:
+        return 0.0
+    import shapely
+
+    return float(shapely.area(shapely.intersection(a.shape, b.shape, grid_size=_ZFIGHT_GRID)))
+
+
+def _zfight_issue(a: _PlaneFaces, b: _PlaneFaces, area: float, when: str = "") -> Issue:
+    axis = "xyz"[a.axis]
+    if a.sign != b.sign:
+        facing = "opposite-facing, transparent"
+    elif a.axis == 1:
+        facing = "up-facing" if a.sign > 0 else "down-facing"
+    else:
+        facing = f"{'+' if a.sign > 0 else '-'}{axis}-facing"
+    return Issue("zfight", a.node.name, (a.node.name, b.node.name),
+                 f"{a.node.name} and {b.node.name} are coplanar at {axis}={a.plane:.3f}{when}"
+                 f" ({facing}, {area:.2f} m² overlap)")
+
+
+def _changed_parts(interaction, state: str) -> list[SceneNode]:
+    """The parts ``interaction`` poses differently in ``state`` than in its initial state."""
+    parts: list[SceneNode] = []
+    for motion in interaction.motions:
+        if motion.kind in ("rotate", "translate", "visible") \
+                and interaction.value(motion, state) != interaction.value(motion, interaction.initial):
+            parts += [p for p in motion.parts if p not in parts]
+    return parts
+
+
+def _shown(node: SceneNode) -> bool:
+    while node is not None:
+        if node.hidden:
+            return False
+        node = node.parent
+    return True
 
 
 def coplanar_overlaps(scene: SceneNode, min_area: float = ZFIGHT_MIN_AREA) -> list[Issue]:
-    """Horizontal faces of different meshes that lie in the same plane, face the same way
-    and overlap: they z-fight in every renderer (e.g. a floor on top of a lot slab).
+    """Faces of different meshes that lie in the same axis-aligned plane and overlap: they
+    z-fight in every renderer (a floor on top of a lot slab, a door seam level with its leaf).
 
-    Faces are grouped by height (1 mm) and facing; overlaps are measured in plan with shapely.
-    Returns ``zfight`` issues naming both nodes and the overlap area.
+    Faces are grouped by plane (x, y or z, to 1 mm) and facing; a transparent mesh also fights
+    faces turned the other way (see :func:`_zfight_area`). Every state of every interaction is
+    posed in turn, the others staying in their initial state, so a button cap that only sinks
+    level with its base when pressed is found too; the scene is left as it was. Returns
+    ``zfight`` issues naming both nodes, the overlap area and the state.
     """
-    from collections import defaultdict
+    from .interactions import apply_state
 
-    from shapely import STRtree
-    from shapely.geometry import Polygon
-    from shapely.ops import unary_union
+    faces = [f for node, mesh in scene.iter_meshes() for f in _plane_faces(node, mesh, min_area)]
+    index = _PlaneIndex(faces)
+    issues: list[Issue] = []
+    reported: set[tuple] = set()
 
-    groups: dict[tuple[float, int], list[tuple[SceneNode, object]]] = defaultdict(list)
-    for node, mesh in scene.iter_meshes():
-        if not len(mesh.faces) or node.meta.get("type") == "collider":
-            continue
-        tri = mesh.vertices[mesh.faces]
-        n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
-        length = np.linalg.norm(n, axis=1)
-        ny = np.divide(n[:, 1], length, out=np.zeros(len(n)), where=length > 1e-12)
-        for sign in (1, -1):
-            sel = ny * sign > 0.999
-            if not sel.any():
-                continue
-            heights = np.round(tri[sel][:, :, 1].mean(axis=1), 3)
-            for h in np.unique(heights):
-                polys = [Polygon(t[:, [0, 2]]) for t in tri[sel][heights == h]]
-                shape = unary_union([p for p in polys if p.area > 1e-9])
-                if shape.area >= min_area:
-                    groups[(float(h), sign)].append((node, shape))
-    # Undersides on or below the ground plane (y = 0, where scenes are authored) can't be seen.
-    issues = []
-    for (h, sign), items in groups.items():
-        if len(items) < 2 or (sign < 0 and h <= 0.005):
-            continue
-        tree = STRtree([shape for _, shape in items])
-        for i, (node, shape) in enumerate(items):
-            for j in tree.query(shape):
-                if j <= i or items[j][0] is node:
+    def report(moved: list[_PlaneFaces], against: _PlaneIndex, skip: set[int], when: str = "") -> None:
+        for a in moved:
+            for b in against.near(a):
+                if id(b.node) in skip:
                     continue
-                area = shape.intersection(items[j][1]).area
+                pair = tuple(sorted((id(a.node), id(b.node))))
+                key = (pair, a.axis, a.plane, tuple(sorted((a.sign, b.sign))))
+                if key in reported:
+                    continue
+                area = _zfight_area(a, b, min_area)
                 if area >= min_area:
-                    other = items[j][0]
-                    issues.append(Issue("zfight", node.name, (node.name, other.name),
-                                        f"{node.name} and {other.name} are coplanar at y={h:.3f}"
-                                        f" ({'up' if sign > 0 else 'down'}-facing, {area:.2f} m² overlap)"))
+                    reported.add(key)
+                    issues.append(_zfight_issue(a, b, area, when))
+
+    report(faces, index, set())
+    for owner in scene.iter_nodes():
+        for interaction in owner.interactions:
+            for state in interaction.states:
+                parts = _changed_parts(interaction, state)
+                if state == interaction.initial or not parts:
+                    continue
+                posed = [(p, p.transform, p.hidden) for m in interaction.motions for p in m.parts]
+                applied = [m.applied for m in interaction.motions]
+                try:
+                    apply_state(owner, interaction, state)
+                    nodes = {id(n): n for p in parts for n in p.iter_nodes()}
+                    moved = [f for n in nodes.values()
+                             if n.mesh is not None and n.meta.get("type") != "collider" and _shown(n)
+                             for f in _plane_faces(n, n.world_mesh(), min_area)]
+                    when = f" when {interaction.name} is {state}"
+                    report(moved, index, set(nodes), when)   # against what stayed put
+                    report(moved, _PlaneIndex(moved), set(), when)   # parts moving differently
+                finally:
+                    for part, transform, hidden in posed:
+                        part.transform, part.hidden = transform, hidden
+                    for motion, value in zip(interaction.motions, applied):
+                        motion.applied = value
     return issues
 
 

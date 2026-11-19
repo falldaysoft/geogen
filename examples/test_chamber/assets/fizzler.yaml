@@ -47,7 +47,7 @@ parts:
     offset: ["{width / 2 - 0.015}", 0.05, 0]
   field:
     primitive: cube
-    size: ["{width - 0.06}", "{height - gap - 0.06}", 0.02]
+    size: ["{width - 0.054}", "{height - gap - 0.06}", 0.02]   # 3 mm into each emitter
     anchor: bottom_center
     offset: [0, "{gap + 0.03}", 0]
     bevel: 0

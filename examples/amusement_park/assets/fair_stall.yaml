@@ -106,9 +106,9 @@ parts:
     collider: none
   jar:
     primitive: cylinder
-    size: [0.24, 0.3, 0.24]
+    size: [0.24, 0.303, 0.24]
     anchor: bottom_center
-    offset: [0.2, 1.05, -0.5]
+    offset: [0.2, 1.047, -0.5]          # 3 mm into the counter: glass is drawn from both sides
     material: glass
     collider: none
   cups:

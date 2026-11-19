@@ -95,20 +95,20 @@ parts:
     offset: [0, 8.7, 0]
     rotation: [90, 0, 0]
     material: paint_red
-  spoke_a:
+  spoke_a:                            # from inside the hub out, so no two share a face at the centre
     primitive: cube
-    size: [0.1, "{2 * radius}", 0.1]
+    size: [0.1, "{radius - 0.3}", 0.1]
     anchor: center
-    offset: [0, 8.7, 0.55]
-    array: {count: 8, turn: 22.5, axis: z, about: [0, 9.2, 0]}
+    offset: [0, "{8.7 + (radius + 0.3) / 2}", 0.56]   # 1 cm outside the gondolas' sides
+    array: {count: 16, turn: 22.5, axis: z, about: [0, 9.2, 0]}
     bevel: 0
     material: steel
   spoke_b:
     primitive: cube
-    size: [0.1, "{2 * radius}", 0.1]
+    size: [0.1, "{radius - 0.3}", 0.1]
     anchor: center
-    offset: [0, 8.7, -0.55]
-    array: {count: 8, turn: 22.5, axis: z, about: [0, 9.2, 0]}
+    offset: [0, "{8.7 + (radius + 0.3) / 2}", -0.56]
+    array: {count: 16, turn: 22.5, axis: z, about: [0, 9.2, 0]}
     bevel: 0
     material: steel
   rim_a:
@@ -155,7 +155,7 @@ parts:
     material: steel
   arm_l: &arm
     primitive: cube
-    size: [0.05, 1.85, 0.05]
+    size: [0.056, 1.85, 0.05]         # 3 mm proud of the side panel it runs up
     anchor: bottom_center
     offset: [-0.775, 0.45, 0]
     array: {count: 8, turn: 45, axis: z, about: [0, 9.2, 0], upright: [0, "{9.2 - radius}", 0]}

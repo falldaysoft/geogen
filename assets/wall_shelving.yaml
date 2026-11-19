@@ -15,7 +15,7 @@ clearance: { front: 0.9 }
 parts:
   back:
     primitive: cube
-    size: ["{width}", 2.0, 0.03]
+    size: ["{width - 0.054}", 2.0, 0.03]      # between the sides, 3 mm into each
     anchor: bottom_center
     offset: [0, 0, -0.2]
     bevel: 0.004

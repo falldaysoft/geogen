@@ -87,7 +87,7 @@ parts:
     primitive: cube
     size: [0.05, 0.65, 0.5]
     anchor: bottom_center
-    offset: [0.975, 0.973, 0]            # 3 mm off the seat's underside (coplanar QA)
+    offset: [0.972, 0.973, 0]            # 3 mm off the seat's underside and its back edge (coplanar QA)
     array: {count: 8, turn: 45}
     bevel: 0.01
     material: paint_red

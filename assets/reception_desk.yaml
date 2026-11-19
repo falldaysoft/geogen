@@ -17,7 +17,7 @@ clearance: { front: 1.0, back: 0.9 }
 parts:
   front_panel:
     primitive: cube
-    size: [1, "{1.05 / 1.1}", "{0.06 / depth}"]
+    size: ["{(width - 0.006) / width}", "{1.05 / 1.1}", "{0.06 / depth}"]   # 3 mm inside the end panels' faces
     anchor: bottom_center
     offset: [0, 0, "{(depth / 2 - 0.1) / depth}"]
     bevel: 0.01

@@ -46,7 +46,7 @@ place:
   south_walk: { asset: sidewalk.yaml, slot: south_walk, params: { width: 4.0, length: 32, thickness: 0.12 } }
   west_walk:  { asset: sidewalk.yaml, slot: west_walk, params: { width: 4.0, length: 18.8, thickness: 0.12 } }
   south_road: { asset: road.yaml, slot: south_road, params: { width: 6.6, length: 31, thickness: 0.02 } }
-  west_road:  { asset: road.yaml, slot: west_road, params: { width: 6.5, length: 22.4, thickness: 0.02 } }
+  west_road:  { asset: road.yaml, slot: west_road, params: { width: 6.5, length: 22.406, thickness: 0.023 } }
 
   hub_portal:
     asset: portal.yaml

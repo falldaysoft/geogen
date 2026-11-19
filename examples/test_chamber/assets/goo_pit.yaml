@@ -48,8 +48,8 @@ parts:
     cutter: true
   goo:
     primitive: water
-    shape: { rect: ["{width}", "{depth}"] }
-    size: ["{width}", 0.02, "{depth}"]
+    shape: { rect: ["{width + 0.006}", "{depth + 0.006}"] }   # 3 mm into the basin's walls
+    size: ["{width + 0.006}", 0.02, "{depth + 0.006}"]
     anchor: bottom_center
     offset: [0, "{-surface - 0.02}", 0]
     shallow_color: [0.55, 0.95, 0.15]

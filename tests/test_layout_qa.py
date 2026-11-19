@@ -77,17 +77,96 @@ def test_coplanar_overlaps_finds_z_fighting_floors():
     from geogen.generators.primitives import CubeGenerator
     from geogen.layout.qa import coplanar_overlaps
 
-    def slab(name, y0, y1, x=0.0):
-        mesh = CubeGenerator(size_x=2, size_y=y1 - y0, size_z=2, bevel=0).generate()
+    def slab(name, y0, y1, x=0.0, depth=2.0):
+        mesh = CubeGenerator(size_x=2, size_y=y1 - y0, size_z=depth, bevel=0).generate()
         return SceneNode(name, mesh=mesh, transform=Transform(translation=np.array([x, (y0 + y1) / 2, 0.0])))
 
     root = SceneNode("root")
     root.add_child(slab("lot", 0.0, 0.15))
-    root.add_child(slab("floor", 0.10, 0.15, x=0.5))       # top level with the lot's: z-fights
+    root.add_child(slab("floor", 0.10, 0.15, x=0.5, depth=1.5))       # top level with the lot's: z-fights
     issues = coplanar_overlaps(root)
     assert [i.items for i in issues] == [("lot", "floor")] and "y=0.150" in issues[0].message
     root.children[1].transform.translation[1] += 0.003     # 3 mm proud: fine
     assert coplanar_overlaps(root) == []
+
+
+def _box(name, size, at, material=None):
+    import numpy as np
+
+    from geogen.core.node import SceneNode
+    from geogen.core.transform import Transform
+    from geogen.generators.primitives import CubeGenerator
+
+    mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
+    mesh.material = material
+    return SceneNode(name, mesh=mesh, transform=Transform(translation=np.array(at, float)))
+
+
+def test_coplanar_overlaps_finds_vertical_faces():
+    from geogen.core.node import SceneNode
+    from geogen.layout.qa import coplanar_overlaps
+
+    root = SceneNode("root")
+    root.add_child(_box("leaf", [1, 2, 0.1], [0, 1, 0]))
+    root.add_child(_box("seam", [0.2, 1.5, 0.1], [0.2, 1, 0.5]))    # apart in z: nothing level
+    assert coplanar_overlaps(root) == []
+    root.children[1].transform.translation[2] = 0.02                # 2 cm off: faces don't line up
+    assert coplanar_overlaps(root) == []
+    root.children[1].transform.translation[2] = 0.0                 # both faces level with the leaf's
+    issues = coplanar_overlaps(root)
+    assert {i.message.split(" are coplanar at ")[1][:1] for i in issues} == {"z"}
+    assert any("+z-facing" in i.message for i in issues) and any("-z-facing" in i.message for i in issues)
+
+
+def test_coplanar_overlaps_ignores_a_slightly_turned_face():
+    import numpy as np
+
+    from geogen.core.node import SceneNode
+    from geogen.layout.qa import coplanar_overlaps
+
+    root = SceneNode("root")
+    root.add_child(_box("body", [0.1, 2, 20], [0, 1, 0]))
+    root.add_child(_box("stripe", [0.124, 0.2, 19], [0, 1, 0]))     # 12 mm proud of the body's sides
+    for child in root.children:
+        child.transform.rotation = np.array([0.0, np.radians(1.0), 0.0])
+    assert coplanar_overlaps(root) == []
+
+
+def test_coplanar_overlaps_pairs_opposite_facings_of_glass():
+    from types import SimpleNamespace
+
+    from geogen.core.node import SceneNode
+    from geogen.layout.qa import coplanar_overlaps
+
+    def scene(material):
+        root = SceneNode("root")
+        root.add_child(_box("counter", [1, 1, 1], [0, 0.5, 0]))
+        root.add_child(_box("case", [0.5, 0.5, 0.5], [0, 1.25, 0], material))   # stands on the counter
+        return root
+
+    assert coplanar_overlaps(scene(None)) == []                     # opaque: its underside is culled
+    issues = coplanar_overlaps(scene(SimpleNamespace(transparent=True)))
+    assert [i.items for i in issues] == [("counter", "case")] and "opposite-facing" in issues[0].message
+
+
+def test_coplanar_overlaps_poses_every_interaction_state():
+    import numpy as np
+
+    from geogen.core.node import SceneNode
+    from geogen.layout.interactions import Interaction, Motion, State
+    from geogen.layout.qa import coplanar_overlaps
+
+    root = SceneNode("root")
+    root.add_child(_box("base", [0.4, 0.1, 0.4], [0, 0.05, 0]))
+    cap = root.add_child(_box("cap", [0.2, 0.1, 0.2], [0, 0.12, 0]))
+    press = Motion([cap], "translate", np.array([0.0, -1.0, 0.0]), np.zeros(3), {"pressed": 0.07})
+    root.interactions = [Interaction("button", {"up": State(next="pressed"), "pressed": State(next="up")},
+                                     [press], initial="up")]
+    before = cap.world_transform().copy()
+    issues = coplanar_overlaps(root)
+    assert [set(i.items) for i in issues] == [{"cap", "base"}]
+    assert "when button is pressed" in issues[0].message and "y=0.100" in issues[0].message
+    assert np.array_equal(cap.world_transform(), before) and press.applied == 0.0    # left as it was
 
 
 # --- ways in: dead-end rooms aren't entrances (geogen.23) ----------------------------------------

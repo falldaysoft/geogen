@@ -29,7 +29,7 @@ rules:
     do: [{ skip: { hours: 24 } }, { skip: { to: "09:00" } }]
 
 place:
-  ground: { asset: ground.yaml, params: { width: 34, depth: 30 }, slot: ground }
+  ground: { asset: ground.yaml, params: { width: 34.006, depth: 30 }, slot: ground }   # 3 mm past the road's ends
   road:   { asset: road.yaml, params: { length: 34 }, slot: road }
   walk:   { asset: sidewalk.yaml, params: { length: 34 }, slot: walk }
   path1:  { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path1 }

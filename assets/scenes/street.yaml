@@ -83,6 +83,7 @@ slots:
 place:
   ground_plane:
     asset: ground.yaml
+    params: { depth: 24.006 }     # 3 mm past the road's and sidewalks' ends
     slot: ground
 
   road:

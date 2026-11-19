@@ -72,7 +72,7 @@ parts:
     primitive: cube
     size: [0.14, 0.015, 0.03]
     anchor: bottom_front_center
-    offset: [-0.28, 0.29, 0.015]
+    offset: [-0.28, 0.29, 0.0155]
     bevel: 0
     material: concrete
 
@@ -90,7 +90,7 @@ parts:
     primitive: cube
     size: [0.14, 0.015, 0.03]
     anchor: bottom_front_center
-    offset: [0.28, 0.29, 0.015]
+    offset: [0.28, 0.29, 0.0155]
     bevel: 0
     material: concrete
 

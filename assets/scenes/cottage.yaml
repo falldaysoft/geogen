@@ -135,9 +135,9 @@ place:
   bath_wall_west:
     when: "{lived_in}"
     asset: partition_wall.yaml
-    params: { length: 2.05 }
+    params: { length: 2.04 }      # stops inside the house's lining, not level with its back
     on: house.floor
-    at: { u: { abs: 4.4 }, v: { abs: 1.025 } }
+    at: { u: { abs: 4.4 }, v: { abs: 1.03 } }
     facing: west
   bath_wall_south:
     when: "{lived_in}"
@@ -201,9 +201,9 @@ place:
   bed_divider:
     when: "{lived_in}"
     asset: partition_wall.yaml
-    params: { length: 3.9 }
+    params: { length: 3.89 }      # stops inside the house's lining, not level with its back
     on: house.floor
-    at: { u: { abs: 9.45 }, v: { abs: 3.05 } }
+    at: { u: { abs: 9.445 }, v: { abs: 3.05 } }
     facing: north
   bedroom_door_a:
     when: "{lived_in}"

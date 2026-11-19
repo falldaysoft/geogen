@@ -76,9 +76,9 @@ parts:
     collider: none
   strip:                            # lit while a wave is coming
     primitive: cube
-    size: [2.4, 0.12, 0.04]
+    size: [2.394, 0.114, 0.04]      # 3 mm inside the dark strip's edges
     anchor: bottom_center
-    offset: [0, 3.24, 0.51]
+    offset: [0, 3.243, 0.51]
     bevel: 0
     material: signal_red
     collider: none

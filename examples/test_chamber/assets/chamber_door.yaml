@@ -72,13 +72,13 @@ parts:
   frame:
     primitive: extrude
     shape:
-      polygon: [["{-width / 2 - 0.25}", 0], ["{-width / 2}", 0], ["{-width / 2}", "{height}"], ["{width / 2}", "{height}"],
-                ["{width / 2}", 0], ["{width / 2 + 0.25}", 0], ["{width / 2 + 0.25}", "{height + 0.25}"], ["{-width / 2 - 0.25}", "{height + 0.25}"]]
+      polygon: [["{-width / 2 - 0.253}", 0], ["{-width / 2 + 0.003}", 0], ["{-width / 2 + 0.003}", "{height - 0.003}"], ["{width / 2 - 0.003}", "{height - 0.003}"],
+                ["{width / 2 - 0.003}", 0], ["{width / 2 + 0.253}", 0], ["{width / 2 + 0.253}", "{height + 0.253}"], ["{-width / 2 - 0.253}", "{height + 0.253}"]]
     fit: none
     axis: z
-    size: ["{width + 0.5}", "{height + 0.25}", 0.08]
+    size: ["{width + 0.506}", "{height + 0.253}", 0.083]     # 3 mm past the kick band's cut and into the wall
     anchor: bottom_center
-    offset: [0, 0, 0.04]
+    offset: [0, 0, 0.0385]
     bevel: 0.01
     material: lab_dark
   lamp_off: &lamp

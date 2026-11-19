@@ -55,7 +55,7 @@ interactions:
       none: { emit: taken }
     motions:
       - { parts: [slice_2], translate: z, values: { one: -0.07, none: -0.07 } }
-      - { parts: [slice_1], translate: z, values: { none: -0.055 } }
+      - { parts: [slice_1], translate: z, values: { none: -0.04 } }    # clear of slice_2, in there too
 
 signals:
   taken: { emit: taken }

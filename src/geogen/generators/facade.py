@@ -91,8 +91,10 @@ def _window_parts(width: float, height: float, style: FacadeStyle, storefront: b
         y = height * 0.65
         parts["frame"].append(box_between([-width / 2 + FRAME, y - 0.02, z_frame - 0.03],
                                    [width / 2 - FRAME, y + 0.02, z_frame + 0.03]))
-    parts["glass"].append(box_between([-width / 2 + FRAME, FRAME, z_frame - 0.006], [width / 2 - FRAME, height - FRAME,
-                                                                               z_frame + 0.006]))
+    # The glass runs 3 mm into the frame: double-sided, its edges would z-fight with the frame's inner faces.
+    parts["glass"].append(box_between([-width / 2 + FRAME - COPLANAR_GAP, FRAME - COPLANAR_GAP, z_frame - 0.006],
+                                      [width / 2 - FRAME + COPLANAR_GAP, height - FRAME + COPLANAR_GAP,
+                                       z_frame + 0.006]))
     # The sill's top and the lintel's underside stand off the opening's own faces (else they z-fight).
     if style.sills and not storefront:
         parts["trim"].append(box_between([-width / 2 - 0.06, -0.06, -WINDOW_RECESS - 0.02],
@@ -153,7 +155,7 @@ def build_facade(building: SceneNode, storeys: list[tuple[SceneNode, Any]], spec
                         groups["rail"] += [_oriented(mesh, face + np.array([0.0, o["sill"], 0.0]), along, out)
                                            for mesh in _juliet_rail(width)]
                 elif o["kind"] == "door" and index == 0:
-                    y = o["top"] + 0.35
+                    y = o["top"] + 0.35 + COPLANAR_GAP   # its underside clear of a string course's
                     # From 2 cm inside the wall: no face of it on the wall's.
                     canopy = box_between([-width / 2 - 0.6, y, -0.02], [width / 2 + 0.6, y + 0.15, 1.6])
                     groups["canopy"].append(_oriented(canopy, face, along, out))

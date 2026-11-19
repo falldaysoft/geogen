@@ -8,7 +8,7 @@ size: [1, 1, 1]
 bounds: geometry
 
 parts:
-  back:   { primitive: cube, size: [1.0, 1.87, 0.02], anchor: bottom_center, offset: [0, 0, 0.01], bevel: 0, material: wood }
+  back:   { primitive: cube, size: [0.946, 1.87, 0.017], anchor: bottom_center, offset: [0, 0, 0.0115], bevel: 0, material: wood }
   left:   { primitive: cube, size: [0.03, 1.87, 0.42], anchor: bottom_center, offset: [-0.485, 0, 0.21], bevel: 0, material: wood }
   right:  { primitive: cube, size: [0.03, 1.87, 0.42], anchor: bottom_center, offset: [0.485, 0, 0.21], bevel: 0, material: wood }
   top:    { primitive: cube, size: [1.0, 0.03, 0.42], anchor: bottom_center, offset: [0, 1.87, 0.21], bevel: 0, material: wood }
