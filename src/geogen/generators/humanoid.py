@@ -49,10 +49,11 @@ import numpy as np
 
 from .. import roots as content_roots
 from ..core import csg, meshops, uvmap
+from ..core.geometry import smoothstep
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
-from ..core.skin import Clip, Skin, normalize_weights
+from ..core.skin import Clip, Skin, dense_weights, dominant_joints, normalize_weights
 from .hair import build_sculpted_hair
 from .hand import build_hand
 from .head import SHAPE_DEFAULTS, HeadShape, build_head, sdf_normals
@@ -219,16 +220,9 @@ def apply_face(mesh: Mesh, box, material, min_normal: float = 0.25) -> Mesh:
     used = np.unique(mesh.faces[region])
     remap = np.full(len(mesh.vertices), -1)
     remap[used] = len(mesh.vertices) + np.arange(len(used))
-    out = mesh.copy()
-    out.vertices = np.vstack([mesh.vertices, mesh.vertices[used]])
-    if mesh.normals is not None:
-        out.normals = np.vstack([mesh.normals, mesh.normals[used]])
+    out = mesh.take(np.concatenate([np.arange(len(mesh.vertices)), used]))
     planar = np.column_stack([(mesh.vertices[used, 0] - x0) / (x1 - x0), (mesh.vertices[used, 1] - y0) / (y1 - y0)])
     out.uvs = np.vstack([mesh.uvs, planar])
-    for attr in ("joints", "weights", "colors"):
-        values = getattr(mesh, attr)
-        if values is not None:
-            setattr(out, attr, np.vstack([values, values[used]]))
     out.faces = mesh.faces.copy()
     out.faces[region] = remap[mesh.faces[region]]
     slots, materials = mesh.effective_face_materials()
@@ -278,7 +272,7 @@ def build_sole(mesh: Mesh, skeleton: Skeleton, height: float) -> Mesh | None:
 
     names = skeleton.names
     foot = [names.index("LeftFoot"), names.index("LeftToes")]
-    dominant = mesh.joints[np.arange(len(mesh.vertices)), np.argmax(mesh.weights, axis=1)]
+    dominant = dominant_joints(mesh)
     v = mesh.vertices
     pick = np.isin(dominant, foot) & (v[:, 0] > 0) & (v[:, 1] < height + 0.01)
     if pick.sum() < 8:
@@ -324,11 +318,7 @@ def split_by_slot(mesh: Mesh, slot_colors: list, slots_out: list | None = None) 
     key = np.column_stack([mesh.faces.reshape(-1), corner_slot])
     uniq, inverse = np.unique(key, axis=0, return_inverse=True)
     src = uniq[:, 0]
-    out = Mesh(mesh.vertices[src], inverse.reshape(-1, 3),
-               normals=mesh.normals[src] if mesh.normals is not None else None,
-               uvs=mesh.uvs[src] if mesh.uvs is not None else None)
-    if mesh.joints is not None:
-        out.joints, out.weights = mesh.joints[src], mesh.weights[src]
+    out = mesh.take(src, faces=inverse.reshape(-1, 3))
     out.colors = np.array([[*slot_colors[k][0], 1.0] for k in uniq[:, 1]])
     if slots_out is not None:
         slots_out.append(uniq[:, 1].copy())
@@ -353,12 +343,7 @@ HEM_SMOOTH = 0.003            # m a waist hem vertex may stand above or below th
 
 def dominant_bones(mesh: Mesh, names) -> np.ndarray:
     """Each vertex's heaviest bone, by name (``names``: the skin's joint names)."""
-    return np.asarray(names)[mesh.joints[np.arange(len(mesh.vertices)), np.argmax(mesh.weights, axis=1)]]
-
-
-def _welded(mesh: Mesh) -> np.ndarray:
-    """An index per distinct vertex position (slots and creases have their own vertices)."""
-    return np.unique(np.round(mesh.vertices / 1e-5).astype(np.int64), axis=0, return_inverse=True)[1].ravel()
+    return np.asarray(names)[dominant_joints(mesh)]
 
 
 def waist_hem(mesh: Mesh, mine: np.ndarray, dominant: np.ndarray) -> np.ndarray:
@@ -369,11 +354,11 @@ def waist_hem(mesh: Mesh, mine: np.ndarray, dominant: np.ndarray) -> np.ndarray:
     faces = mesh.faces[mine]
     if not len(faces):
         return np.empty((0, 2), dtype=np.int64)
-    canon = _welded(mesh)
+    canon = meshops.position_ids(mesh.vertices, 1e-5)      # slots and creases have their own vertices
     rep = np.full(int(canon.max()) + 1, -1)
     rep[canon[faces.ravel()]] = faces.ravel()          # one of the top's vertices stands for each position
     f = canon[faces]
-    edges = np.sort(np.concatenate([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]), axis=1)
+    edges = np.sort(meshops.edges(f), axis=1)
     uniq, count = np.unique(edges, axis=0, return_counts=True)
     edges = rep[uniq[count == 1]]
     waist = np.isin(dominant, WAIST_BONES)
@@ -411,7 +396,7 @@ def _level_hem(mesh: Mesh, slot: int, names, passes: int = 24) -> None:
     faces whole) and takes their weights."""
     from ..core.skin import normalize_weights
 
-    canon = _welded(mesh)
+    canon = meshops.position_ids(mesh.vertices, 1e-5)      # slots and creases have their own vertices
     count = int(mesh.joints.max()) + 1
 
     def normals(faces):
@@ -464,8 +449,7 @@ def _level_hem(mesh: Mesh, slot: int, names, passes: int = 24) -> None:
             else:
                 mesh.vertices[group] = old
                 continue
-            dense = np.zeros((2, count))
-            np.put_along_axis(dense, mesh.joints[[a, b]], mesh.weights[[a, b]], axis=1)
+            dense = dense_weights(mesh, count, [a, b])
             joints, weights = normalize_weights(np.arange(count)[None], dense.mean(axis=0)[None])
             mesh.joints[group], mesh.weights[group] = joints[0], weights[0]
             moved = True
@@ -492,8 +476,7 @@ def smooth_hem(mesh: Mesh, slot: int, names) -> None:
         return
     lip = np.flatnonzero(cKDTree(mesh.vertices[np.unique(edges)]).query(mesh.vertices)[0] < HEM_LIP)
     trunk = np.isin(np.asarray(names), HEM_BONES)
-    dense = np.zeros((len(lip), len(names)))
-    np.put_along_axis(dense, mesh.joints[lip], mesh.weights[lip], axis=1)
+    dense = dense_weights(mesh, len(names), lip)
     dense[:, ~trunk] = 0.0
     dense[dense.sum(axis=1) < 1e-6, list(names).index("Hips")] = 1.0
     mesh.joints[lip], mesh.weights[lip] = normalize_weights(
@@ -559,13 +542,12 @@ def transfer_weights(shell: Mesh, body: Mesh, neighbours: int = 12, smooth: int 
     from ..core.skin import normalize_weights
 
     joints = int(max(body.joints.max(), 0)) + 1
-    dense_body = np.zeros((len(body.vertices), joints))
-    np.put_along_axis(dense_body, body.joints, body.weights, axis=1)
+    dense_body = dense_weights(body, joints)
     dist, idx = cKDTree(body.vertices).query(shell.vertices, k=neighbours)
     w = 1.0 / np.maximum(dist, 1e-4) ** 2
     dense = np.einsum("vk,vkj->vj", w, dense_body[idx]) / w.sum(axis=1, keepdims=True)
     # Smooth over the shell's own edges so the garment doesn't crease where its neighbours differ.
-    edges = np.vstack([shell.faces[:, [0, 1]], shell.faces[:, [1, 2]], shell.faces[:, [2, 0]]])
+    edges = meshops.edges(shell.faces)
     for _ in range(smooth):
         acc = dense.copy()
         count = np.ones(len(dense))
@@ -631,7 +613,7 @@ def _fan_centres(shell: Mesh, radius: np.ndarray) -> np.ndarray:
     shell's caps. Their way out is arbitrary (a few mm off the line), so pushing one out to the
     body can land it on a ring vertex and collapse two of the cap's faces (geogen.91); a buried
     cap is left a shallow cone inside the body instead."""
-    edges = np.concatenate([shell.faces[:, [0, 1]], shell.faces[:, [1, 2]], shell.faces[:, [2, 0]]])
+    edges = meshops.edges(shell.faces)
     total = np.zeros(len(radius))
     count = np.zeros(len(radius))
     np.add.at(total, edges[:, 0], radius[edges[:, 1]])
@@ -714,12 +696,10 @@ def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise:
         if len(top):
             rise = max(rise, float((top[:, 2] - hip[2]).max()) + 0.02)
     y = shell.vertices[:, 1]
-    t = np.clip((hip_y + rise - y) / (rise + fall), 0.0, 1.0)
-    thigh = t * t * (3 - 2 * t)
+    thigh = smoothstep((hip_y + rise - y) / (rise + fall))
     dense = np.zeros((len(y), len(names)))
     dense[:, names.index("Hips")] = 1 - thigh
-    u = np.clip((shell.vertices[:, 0] + seam) / (2 * seam), 0.0, 1.0)
-    left = 0.5 + split * (2 * u * u * (3 - 2 * u) - 1)
+    left = 0.5 + split * (2 * smoothstep((shell.vertices[:, 0] + seam) / (2 * seam)) - 1)
     dense[:, names.index("LeftUpperLeg")] = thigh * left
     dense[:, names.index("RightUpperLeg")] = thigh * (1 - left)
     if body is not None and cap is not None and shell.uvs is not None:
@@ -727,8 +707,7 @@ def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise:
         # and legs (bent forward, the spine would take the skin out through a cap on the Hips).
         under = Mesh(shell.vertices.copy(), shell.faces)
         transfer_weights(under, body, neighbours=4, smooth=0)      # (the skin right under it: smoothed, the pelvis leaks in)
-        body_dense = np.zeros_like(dense)
-        np.put_along_axis(body_dense, under.joints, under.weights, axis=1)
+        body_dense = dense_weights(under, dense.shape[1])
         share = 1.0 - body_dense[:, [names.index(n) for n in ("Hips", "LeftUpperLeg", "RightUpperLeg")]].sum(axis=1)
         share = np.clip(share, 0.0, 1.0) * np.clip((cap - shell.uvs[:, 1]) / CAP_EASE, 0.0, 1.0)
         dense = (1 - share[:, None]) * dense + share[:, None] * body_dense
@@ -857,8 +836,7 @@ def head_weights(mesh: Mesh, skeleton: Skeleton, blend: float, shift: float) -> 
     Neck over ``blend`` metres, as the torso chain's head did."""
     names = skeleton.names
     joint = float(skeleton["Head"].head[1]) + shift
-    share = np.clip((mesh.vertices[:, 1] - (joint - blend)) / (2 * blend), 0.0, 1.0)
-    share = share * share * (3 - 2 * share)
+    share = smoothstep((mesh.vertices[:, 1] - (joint - blend)) / (2 * blend))
     dense = np.zeros((len(mesh.vertices), len(names)))
     dense[:, names.index("Head")] = share
     dense[:, names.index("Neck")] = 1 - share

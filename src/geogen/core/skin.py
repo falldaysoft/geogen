@@ -62,13 +62,35 @@ class Skin:
         return to_mesh @ np.array([world(j) for j in self.joints]) @ self.inverse_bind
 
 
+def blended_matrices(mesh: Mesh, matrices: NDArray[np.float64], rows=slice(None)) -> NDArray[np.float64]:
+    """Each of vertices ``rows``' skinning matrix: sum_k w_k M_{j_k}."""
+    return np.einsum("vk,vkij->vij", mesh.weights[rows], matrices[mesh.joints[rows]])
+
+
+def apply_blended(blended: NDArray[np.float64], points: NDArray[np.float64]) -> NDArray[np.float64]:
+    """``points`` (one per vertex) moved by their ``blended_matrices``."""
+    return np.einsum("vij,vj->vi", blended[:, :3, :3], points) + blended[:, :3, 3]
+
+
+def dominant_joints(mesh: Mesh) -> NDArray[np.int64]:
+    """Each vertex's heaviest joint."""
+    return mesh.joints[np.arange(len(mesh.vertices)), np.argmax(mesh.weights, axis=1)]
+
+
+def dense_weights(mesh: Mesh, count: int, rows=slice(None)) -> NDArray[np.float64]:
+    """Vertices ``rows``' weights as one column per joint (``count`` joints)."""
+    joints = mesh.joints[rows]
+    dense = np.zeros((len(joints), count))
+    np.put_along_axis(dense, joints, mesh.weights[rows], axis=1)
+    return dense
+
+
 def skin_mesh(mesh: Mesh, matrices: NDArray[np.float64]) -> Mesh:
     """Linear blend skinning: ``mesh`` deformed by per-joint ``matrices`` (see ``Skin.matrices``)."""
     if mesh.joints is None or mesh.weights is None:
         return mesh
-    # Blend the matrices per vertex, then apply: sum_k w_k M_{j_k}.
-    blended = np.einsum("vk,vkij->vij", mesh.weights, matrices[mesh.joints])
-    vertices = np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.vertices) + blended[:, :3, 3]
+    blended = blended_matrices(mesh, matrices)
+    vertices = apply_blended(blended, mesh.vertices)
     normals = None
     if mesh.normals is not None:
         normals = np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.normals)

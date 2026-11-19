@@ -37,6 +37,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..core import csg, meshops
+from ..core.geometry import smoothstep
 from ..core.mesh import Mesh
 from ..core.skeleton import Skeleton
 from ..core.skin import normalize_weights
@@ -97,11 +98,6 @@ class Chain:
     root: str | None = None
     # Extra resampled rings at (bone, t) positions: where the tube has to bend (a skirt over the seat).
     samples: list[tuple[str, float]] = field(default_factory=list)
-
-
-def _smoothstep(x: NDArray) -> NDArray:
-    x = np.clip(x, 0.0, 1.0)
-    return x * x * (3 - 2 * x)
 
 
 class ChainPath:
@@ -318,9 +314,9 @@ def chain_weights(path: ChainPath, chain: Chain, s: NDArray, bone_index: dict[st
     raw = np.zeros((len(s), n))
     for i in range(n):
         lo = (np.ones(len(s)) if i == 0
-              else _smoothstep((s - joints[i - 1] + widths[i - 1]) / (2 * widths[i - 1])))
+              else smoothstep((s - joints[i - 1] + widths[i - 1]) / (2 * widths[i - 1])))
         hi = (np.ones(len(s)) if i == n - 1
-              else 1 - _smoothstep((s - joints[i] + widths[i]) / (2 * widths[i])))
+              else 1 - smoothstep((s - joints[i] + widths[i]) / (2 * widths[i])))
         raw[:, i] = lo * hi
     dense = np.zeros((len(s), len(bone_index)))
     for i, bone in enumerate(chain.bones):
@@ -331,7 +327,7 @@ def chain_weights(path: ChainPath, chain: Chain, s: NDArray, bone_index: dict[st
         first = chain.bones[0]
         width = chain.joint_blend.get(first, chain.blend)
         joint = path.starts[0] + chain.weight_shift.get(first, 0.0)
-        share = 1 - _smoothstep((s - joint + width) / (2 * width))
+        share = 1 - smoothstep((s - joint + width) / (2 * width))
         dense *= (1 - share)[:, None]
         dense[:, bone_index[chain.root]] += share
     return dense / np.maximum(dense.sum(axis=1, keepdims=True), 1e-12)

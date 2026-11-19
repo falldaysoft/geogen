@@ -22,11 +22,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .mesh import Mesh
-from .meshops import _position_ids, face_normals
+from .meshops import face_normals, position_ids
 
 
 def _weld_positions(mesh: Mesh, tol: float = 1e-6, with_keep: bool = False):
-    ids = _position_ids(mesh.vertices, tol)
+    ids = position_ids(mesh.vertices, tol)
     n = int(ids.max()) + 1 if len(ids) else 0
     verts = np.zeros((n, 3))
     verts[ids] = mesh.vertices

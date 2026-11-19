@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..core.meshops import boundary_loops, closest_on_triangles, dot as _dot, position_ids
 from ..core.node import SceneNode
+from ..core.skin import apply_blended, blended_matrices
 from ..core.transform import matrix_from_quat, quat_axis_angle, quat_from_matrix
 
 SIDES = {"Left": 1.0, "Right": -1.0}                    # and which way along the body's X is out
@@ -59,7 +61,7 @@ class _Surface:
             self.neutral[:len(faces)] = neutral
         # Each face's neighbours: the faces it shares a vertex with (vertices doubled along a UV seam are one).
         points = np.concatenate([rest, [rest[loop].mean(axis=0) for loop in self.loops]]) if fans else rest
-        same = np.unique(np.round(points, 6), axis=0, return_inverse=True)[1].ravel()[self.faces]
+        same = position_ids(points, 1e-6)[self.faces]
         at: dict[int, list[int]] = {}
         for f, corners in enumerate(same.tolist()):
             for v in corners:
@@ -108,7 +110,7 @@ class _Obstacle:
 
     def _nearest(self, points: np.ndarray, faces: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Of ``faces`` (points, k) the nearest to each point: (signed depth, the face)."""
-        offset = points[:, None, :] - _closest(points[:, None, :], self.tris[faces])
+        offset = points[:, None, :] - closest_on_triangles(points[:, None, :], self.tris[faces])
         distance = np.sqrt(_dot(offset, offset))
         side = _dot(offset, self.normals[faces])
         # Of the triangles as near as the nearest, the one the point is most squarely off.
@@ -205,61 +207,13 @@ class _Tube:
         return depth, normal
 
 
-def _cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:           # (np.cross is several times slower)
-    out = np.empty(np.broadcast_shapes(a.shape, b.shape))
-    out[..., 0] = a[..., 1] * b[..., 2] - a[..., 2] * b[..., 1]
-    out[..., 1] = a[..., 2] * b[..., 0] - a[..., 0] * b[..., 2]
-    out[..., 2] = a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
-    return out
-
-
-def _dot(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return a[..., 0] * b[..., 0] + a[..., 1] * b[..., 1] + a[..., 2] * b[..., 2]
-
-
-def _closest(p: np.ndarray, tris: np.ndarray) -> np.ndarray:
-    """The point of each triangle (..., 3, 3) nearest ``p`` (broadcast against it)."""
-    a, b, c = tris[..., 0, :], tris[..., 1, :], tris[..., 2, :]
-    ab, ac, bc = b - a, c - a, c - b
-    n = _cross(ab, ac)
-    # In the triangle's plane, if that falls inside it; otherwise on the nearest edge.
-    plane = p - n * (_dot(p - a, n) / np.maximum(_dot(n, n), 1e-30))[..., None]
-    inside = np.ones(plane.shape[:-1], bool)
-    for start, edge in ((a, ab), (b, bc), (c, -ac)):
-        inside &= _dot(_cross(edge, plane - start), n) >= 0
-    best = np.where(inside[..., None], plane, np.inf)
-    best_d = np.where(inside, _dot(p - plane, p - plane), np.inf)
-    for start, edge in ((a, ab), (b, bc), (a, ac)):
-        t = np.clip(_dot(p - start, edge) / np.maximum(_dot(edge, edge), 1e-30), 0.0, 1.0)
-        q = start + edge * t[..., None]
-        d = _dot(p - q, p - q)
-        closer = d < best_d
-        best, best_d = np.where(closer[..., None], q, best), np.where(closer, d, best_d)
-    return best
-
-
 def _fans(faces: np.ndarray, vertices: np.ndarray) -> list[tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """The openings of ``faces`` (with ``vertices`` at rest), each a loop of open edges: (starts,
     ends, the loop's vertices), directed as the faces run."""
     # (vertices doubled along a UV seam are one: the seam is no opening)
-    _, first, same = np.unique(np.round(vertices, 6), axis=0, return_index=True, return_inverse=True)
-    faces = first[same.ravel()][faces]
-    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
-    have = {tuple(e) for e in edges.tolist()}
-    open_ = [(a, b) for a, b in edges.tolist() if (b, a) not in have]
-    group: dict[int, int] = {}
-
-    def find(x: int) -> int:
-        while group.setdefault(x, x) != x:
-            x = group[x]
-        return x
-
-    for a, b in open_:
-        group[find(a)] = find(b)
-    loops: dict[int, list] = {}
-    for a, b in open_:
-        loops.setdefault(find(a), []).append((a, b))
-    return [(np.array(loop)[:, 0], np.array(loop)[:, 1], np.unique(np.array(loop))) for loop in loops.values()]
+    same = position_ids(vertices, 1e-6)
+    first = np.unique(same, return_index=True)[1]
+    return [(loop[:, 0], loop[:, 1], np.unique(loop)) for loop in boundary_loops(first[same][faces])]
 
 
 def _rotation(axis: np.ndarray, angle: float) -> np.ndarray:
@@ -444,9 +398,9 @@ class ArmSpace:
         for name, delta in (cm.morphs or {}).items():
             if node.morph_weights.get(name, 0.0):
                 rest += node.morph_weights[name] * delta[rows]
-        m = np.einsum("vk,vkij->vij", cm.weights[rows], node.skin.matrices(node)[cm.joints[rows]])
+        m = blended_matrices(cm, node.skin.matrices(node), rows)
         world = node.world_transform()
-        return (np.einsum("vij,vj->vi", m[:, :3, :3], rest) + m[:, :3, 3]) @ world[:3, :3].T + world[:3, 3]
+        return apply_blended(m, rest) @ world[:3, :3].T + world[:3, 3]
 
     def posed(self, cloth: np.ndarray | None = None) -> tuple[np.ndarray, list]:
         """The body's vertices as the actor is posed now (rows ``wanted``; the rest zero) and the
@@ -454,10 +408,9 @@ class ArmSpace:
         morphed ones (a drape not baked yet)."""
         mesh, nodes, wanted = self.mesh, self.nodes, self.wanted
         to_world = nodes["body"].world_transform()
-        blended = np.einsum("vk,vkij->vij", mesh.weights[wanted], nodes["body"].skin.matrices(nodes["body"])[mesh.joints[wanted]])
+        blended = blended_matrices(mesh, nodes["body"].skin.matrices(nodes["body"]), wanted)
         posed = np.zeros_like(mesh.vertices)
-        posed[wanted] = (np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.vertices[wanted]) + blended[:, :3, 3]) \
-            @ to_world[:3, :3].T + to_world[:3, 3]
+        posed[wanted] = apply_blended(blended, mesh.vertices[wanted]) @ to_world[:3, :3].T + to_world[:3, 3]
         obstacles = [self.surface.at(posed)]
         if self.cm is not None:
             x = cloth

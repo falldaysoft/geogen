@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..core.geometry import smoothstep
 from ..core import ik
 from ..core.skeleton import Pose, Skeleton
 from ..core.skin import Clip, Track
@@ -61,8 +62,7 @@ def _rz(a: float) -> np.ndarray:
 
 
 def _smooth(x: float) -> float:
-    x = min(max(x, 0.0), 1.0)
-    return x * x * (3 - 2 * x)
+    return float(smoothstep(x))
 
 
 def tracks_from_poses(skeleton: Skeleton, poses: list[Pose], times: np.ndarray) -> dict[str, Track]:

@@ -32,10 +32,70 @@ def _quantize(values: NDArray[np.float64], tol: float) -> NDArray[np.int64]:
     return np.round(values / tol).astype(np.int64)
 
 
-def _position_ids(vertices: NDArray[np.float64], tol: float) -> NDArray[np.int64]:
-    """Map each vertex to an id shared by all vertices at the same position."""
+def position_ids(vertices: NDArray[np.float64], tol: float = 1e-6) -> NDArray[np.int64]:
+    """Map each vertex to an id shared by all vertices at the same position (within ``tol``)."""
     _, inverse = np.unique(_quantize(vertices, tol), axis=0, return_inverse=True)
     return inverse.reshape(-1)
+
+
+def edges(faces: NDArray[np.int64]) -> NDArray[np.int64]:
+    """Every face's directed edges, (3F, 2): all the first edges, then the second, then the third."""
+    return np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+
+
+def boundary_loops(faces: NDArray[np.int64]) -> list[NDArray[np.int64]]:
+    """The openings of ``faces``: for each connected run of open edges (a -> b with no b -> a),
+    its directed edges (n, 2), as the faces run."""
+    directed = edges(faces).tolist()
+    have = {tuple(e) for e in directed}
+    boundary = [(a, b) for a, b in directed if (b, a) not in have]
+    parent: dict[int, int] = {}
+
+    def find(x: int) -> int:
+        while parent.setdefault(x, x) != x:
+            x = parent[x]
+        return x
+
+    for a, b in boundary:
+        parent[find(a)] = find(b)
+    loops: dict[int, list[tuple[int, int]]] = {}
+    for a, b in boundary:
+        loops.setdefault(find(a), []).append((a, b))
+    return [np.array(loop) for loop in loops.values()]
+
+
+def _cross(a: NDArray, b: NDArray) -> NDArray:           # (np.cross is several times slower)
+    out = np.empty(np.broadcast_shapes(a.shape, b.shape))
+    out[..., 0] = a[..., 1] * b[..., 2] - a[..., 2] * b[..., 1]
+    out[..., 1] = a[..., 2] * b[..., 0] - a[..., 0] * b[..., 2]
+    out[..., 2] = a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+    return out
+
+
+def dot(a: NDArray, b: NDArray) -> NDArray:
+    """Dot products over the last axis (broadcast; faster than ``np.einsum`` on small vectors)."""
+    return a[..., 0] * b[..., 0] + a[..., 1] * b[..., 1] + a[..., 2] * b[..., 2]
+
+
+def closest_on_triangles(p: NDArray, tris: NDArray) -> NDArray:
+    """The point of each triangle (..., 3, 3) nearest ``p`` (broadcast against it)."""
+    a, b, c = tris[..., 0, :], tris[..., 1, :], tris[..., 2, :]
+    ab, ac, bc = b - a, c - a, c - b
+    n = _cross(ab, ac)
+    # In the triangle's plane, if that falls inside it; otherwise on the nearest edge.
+    plane = p - n * (dot(p - a, n) / np.maximum(dot(n, n), 1e-30))[..., None]
+    inside = np.ones(plane.shape[:-1], bool)
+    for start, edge in ((a, ab), (b, bc), (c, -ac)):
+        inside &= dot(_cross(edge, plane - start), n) >= 0
+    best = np.where(inside[..., None], plane, np.inf)
+    best_d = np.where(inside, dot(p - plane, p - plane), np.inf)
+    for start, edge in ((a, ab), (b, bc), (a, ac)):
+        t = np.clip(dot(p - start, edge) / np.maximum(dot(edge, edge), 1e-30), 0.0, 1.0)
+        q = start + edge * t[..., None]
+        d = dot(p - q, p - q)
+        closer = d < best_d
+        best, best_d = np.where(closer[..., None], q, best), np.where(closer, d, best_d)
+    return best
 
 
 def weld_vertices(mesh: Mesh, tol: float = 1e-6) -> Mesh:
@@ -76,13 +136,13 @@ def collapse_short_edges(mesh: Mesh, tol: float = 1e-5) -> Mesh:
     Works on positions, so vertices split for normals/UVs move together
     and a closed mesh stays closed; faces that collapse are dropped.
     """
-    pid = _position_ids(mesh.vertices, 1e-9)
+    pid = position_ids(mesh.vertices, 1e-9)
     n = int(pid.max()) + 1 if len(pid) else 0
     positions = np.zeros((n, 3))
     positions[pid] = mesh.vertices
     corners = pid[mesh.faces]
-    edges = np.concatenate([corners[:, [0, 1]], corners[:, [1, 2]], corners[:, [2, 0]]])
-    short = edges[np.linalg.norm(positions[edges[:, 0]] - positions[edges[:, 1]], axis=1) < tol]
+    sides = edges(corners)
+    short = sides[np.linalg.norm(positions[sides[:, 0]] - positions[sides[:, 1]], axis=1) < tol]
     short = short[short[:, 0] != short[:, 1]]
     if not len(short):
         return mesh
@@ -129,7 +189,7 @@ def compute_normals(
     weighted = fn * area[:, None]
 
     # CSR incidence: welded position id -> incident faces.
-    pos_id = _position_ids(verts, tol)
+    pos_id = position_ids(verts, tol)
     corner_pos = pos_id[faces].reshape(-1)  # (3F,)
     corner_face = np.repeat(np.arange(n_faces), 3)
     order = np.argsort(corner_pos, kind="stable")
@@ -181,7 +241,7 @@ def morph_normal_deltas(mesh: Mesh, delta: NDArray[np.float64], tol: float = 1e-
     difference is what a glTF target's NORMAL holds. Without it a renderer keeps the rest normals,
     and cloth a morph lays flat across a lap is lit as though it still hung down."""
     verts, faces = mesh.vertices, mesh.faces
-    keys = [_position_ids(verts, tol)[:, None]]
+    keys = [position_ids(verts, tol)[:, None]]
     if mesh.normals is not None:
         keys.append(_quantize(mesh.normals, 1e-3))
     _, group = np.unique(np.hstack(keys), axis=0, return_inverse=True)
@@ -300,9 +360,9 @@ def validate(mesh: Mesh, tol: float = 1e-6, area_eps: float = 1e-12) -> MeshRepo
         report.degenerate_faces = int(np.count_nonzero(area <= area_eps))
         report.unused_vertices = len(v) - len(np.unique(f))
 
-        pid = _position_ids(v, tol)
+        pid = position_ids(v, tol)
         pf = pid[f]
-        directed = np.concatenate([pf[:, [0, 1]], pf[:, [1, 2]], pf[:, [2, 0]]])
+        directed = edges(pf)
         directed = directed[directed[:, 0] != directed[:, 1]]
         undirected = np.sort(directed, axis=1)
         uniq, inverse, counts = np.unique(undirected, axis=0, return_inverse=True, return_counts=True)

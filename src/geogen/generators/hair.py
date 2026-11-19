@@ -23,6 +23,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from ..core.geometry import smoothstep
 from ..core.mesh import Mesh
 from .head import HeadShape, _capsule, _ellipsoid, _smax, _smin, build_head, sdf_normals
 
@@ -87,9 +88,7 @@ class HairShape:
             taper, dive = float(c.get("taper", 0.025)), float(c.get("dive", 0.005))
             # Over the taper the hair thins to nothing and then dives under the skin, so the hairline
             # is where the two surfaces cross at an angle: no film edge, nothing coplanar.
-            reach = np.clip((p[:, 1] - line) / taper, -0.5, 1)
-            reach = (reach + 0.5) / 1.5
-            reach = reach * reach * (3 - 2 * reach)
+            reach = smoothstep(((p[:, 1] - line) / taper + 0.5) / 1.5)
             grown = head - (-dive + (thick + dive) * reach)
             below = line - 0.5 * taper - 0.01 - p[:, 1]                # clipped deep under the skin
             d = np.maximum(grown, below)
@@ -145,8 +144,7 @@ def build_sculpted_hair(head: HeadShape, origin, spec: dict, skeleton, color) ->
     share = np.ones(len(local))
     if spec.get("weights", "head") == "back":
         neck_y = float(skeleton["Neck"].head[1]) - float(origin[1])
-        share = np.clip((local[:, 1] - (neck_y - 0.06)) / 0.08, 0, 1)
-        share = share * share * (3 - 2 * share)
+        share = smoothstep((local[:, 1] - (neck_y - 0.06)) / 0.08)
         dense[:, names.index("UpperChest")] = 1 - share
     dense[:, names.index("Head")] = share
     mesh.joints, mesh.weights = normalize_weights(np.tile(np.arange(len(names)), (len(local), 1)), dense)

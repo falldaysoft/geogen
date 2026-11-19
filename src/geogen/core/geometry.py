@@ -13,6 +13,12 @@ import numpy as np
 from numpy.typing import NDArray
 
 
+def smoothstep(x):
+    """Hermite ease of ``x`` clamped to 0..1: flat at both ends (a number or an array)."""
+    x = np.clip(x, 0.0, 1.0)
+    return x * x * (3 - 2 * x)
+
+
 def compute_triangle_normal(
     v0: NDArray[np.float64],
     v1: NDArray[np.float64],

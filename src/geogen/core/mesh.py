@@ -106,6 +106,22 @@ class Mesh:
                 self.morphs = {k: v[vertex_index] for k, v in source.morphs.items()}
         return self
 
+    def take(self, vertex_index: Any, faces: NDArray[np.int64] | None = None, face_keep: Any = None) -> Mesh:
+        """A mesh of the vertices ``vertex_index``, every per-vertex attribute following them.
+
+        ``faces`` are in the new numbering (none by default); ``face_keep`` says which of this
+        mesh's faces they are, in order, so their material slots follow too.
+        """
+        pick = lambda values: values[vertex_index] if values is not None else None  # noqa: E731
+        out = Mesh(vertices=self.vertices[vertex_index],
+                   faces=np.empty((0, 3), dtype=np.int64) if faces is None else faces,
+                   normals=pick(self.normals), uvs=pick(self.uvs), material=self.material, colors=pick(self.colors),
+                   joints=pick(self.joints), weights=pick(self.weights),
+                   morphs={k: v[vertex_index] for k, v in self.morphs.items()} if self.morphs else None)
+        if face_keep is not None and self.face_materials is not None:
+            out.face_materials, out.materials = self.face_materials[face_keep], self.materials
+        return out
+
     def groups(self) -> list[tuple[Material | None, Mesh]]:
         """One (material, sub-mesh) per material slot in use (vertices compacted)."""
         if not self.multi_material:
@@ -114,14 +130,8 @@ class Mesh:
         for slot in np.unique(self.face_materials):
             faces = self.faces[self.face_materials == slot]
             used, remap = np.unique(faces, return_inverse=True)
-            sub = Mesh(vertices=self.vertices[used], faces=remap.reshape(-1, 3),
-                       normals=self.normals[used] if self.normals is not None else None,
-                       uvs=self.uvs[used] if self.uvs is not None else None,
-                       material=self.face_material(int(slot)),
-                       colors=self.colors[used] if self.colors is not None else None,
-                       joints=self.joints[used] if self.joints is not None else None,
-                       weights=self.weights[used] if self.weights is not None else None,
-                       morphs={k: v[used] for k, v in self.morphs.items()} if self.morphs else None)
+            sub = self.take(used, faces=remap.reshape(-1, 3))
+            sub.material = self.face_material(int(slot))
             out.append((sub.material, sub))
         return out
 
@@ -216,8 +226,11 @@ class Mesh:
             normals=new_normals,
             uvs=self.uvs.copy() if self.uvs is not None else None,
             material=self.material,  # Material is preserved through transform
-            face_materials=self.face_materials, materials=self.materials, colors=self.colors,
-            joints=self.joints, weights=self.weights,
+            face_materials=self.face_materials.copy() if self.face_materials is not None else None,
+            materials=self.materials,
+            colors=self.colors.copy() if self.colors is not None else None,
+            joints=self.joints.copy() if self.joints is not None else None,
+            weights=self.weights.copy() if self.weights is not None else None,
             morphs={k: v @ matrix[:3, :3].T for k, v in self.morphs.items()} if self.morphs else None,
         )
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from ..core import meshops
 from ..core.mesh import Mesh
 
 # Feature shape params (1 = the neutral face) and their defaults.
@@ -273,7 +274,7 @@ def relax(sdf, vertices: NDArray, faces: NDArray, iterations: int = 8, rate: flo
     its tangent plane, then back onto the surface. Topology (and so where the simplifier spent
     its triangles) is kept; the triangles get rounder, which is what smooth shading needs. A
     vertex whose move would turn one of its faces over (or nearly) stays where it was."""
-    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    edges = meshops.edges(faces)
     n = len(vertices)
     degree = np.bincount(edges[:, 0], minlength=n).astype(np.float64)
     v = vertices.copy()

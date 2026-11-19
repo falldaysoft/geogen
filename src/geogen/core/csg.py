@@ -52,7 +52,7 @@ def _sparse_weights(vertices: np.ndarray, dense: np.ndarray, columns: np.ndarray
         dense[empty] = dense[~empty][nearest]
     # Vertices at one position (split by UV seams or material) came from different operands and
     # may carry different weights; they must move together or posing tears the surface open.
-    _, group = np.unique(np.round(vertices / 1e-6).astype(np.int64), axis=0, return_inverse=True)
+    group = meshops.position_ids(vertices, 1e-6)
     group = group.reshape(-1)
     sums = np.zeros((group.max() + 1, dense.shape[1]))
     np.add.at(sums, group, dense / np.maximum(dense.sum(axis=1, keepdims=True), 1e-12))

@@ -36,8 +36,11 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from ..core.geometry import smoothstep
 from ..core.mesh import Mesh
+from ..core.meshops import position_ids
 from ..core.node import SceneNode
+from ..core.skin import apply_blended, blended_matrices
 
 CLEARANCE = 0.01          # m the outer wall keeps off the skin (the lining is a cloth thickness inside it)
 SEAT_EDGE = 0.02          # m before a seat's front over which the cloth on it eases off
@@ -110,7 +113,7 @@ def _rings(mesh: Mesh, wall: np.ndarray) -> tuple[list[np.ndarray], list[float]]
     rings, ring_s = [], []
     for s in np.unique(np.round(s_all[wall], 5)):
         idx = np.flatnonzero(wall & (np.abs(s_all - s) < 2e-5))
-        _, first = np.unique(np.round(mesh.vertices[idx], 5), axis=0, return_index=True)
+        first = np.unique(position_ids(mesh.vertices[idx], 1e-5), return_index=True)[1]
         idx = idx[np.sort(first)]
         rings.append(idx[np.argsort(mesh.uvs[idx, 0], kind="stable")])
         ring_s.append(float(s))
@@ -143,8 +146,7 @@ def _plane(points: np.ndarray, toward: np.ndarray | None) -> tuple[np.ndarray, n
 
 def _fade(x: np.ndarray, start: float, end: float) -> np.ndarray:
     """1 up to ``start``, easing to 0 at ``end``."""
-    t = np.clip((x - start) / (end - start), 0.0, 1.0)
-    return 1.0 - t * t * (3 - 2 * t)
+    return 1.0 - smoothstep((x - start) / (end - start))
 
 
 def _section(tris: np.ndarray, centre, normal, e1, e2, reach: float) -> np.ndarray:
@@ -274,8 +276,7 @@ def drape_frame(grid: ShellGrid, shell: np.ndarray, tris: tuple[np.ndarray, np.n
         # top lies on it (a lap) and little stands out at the sides.
         lift = rays @ up
         tilt = float(np.linalg.norm(up - (up @ posed["normal"]) * posed["normal"]))
-        t = np.clip((0.3 - lift) / 0.9, 0.0, 1.0)
-        hang = 1.0 - tilt * (1.0 - t * t * (3 - 2 * t))
+        hang = 1.0 - tilt * (1.0 - smoothstep((0.3 - lift) / 0.9))
         floor = posed["hull"] + rest["clear"] + np.minimum(np.abs(posed["hull"] - rest["hull"]), MARGIN) + bulge
         # What the skinned ring has to spare over the body: legs that move under it use it up.
         loose = hang * np.maximum(posed["r"] - floor, 0.0)
@@ -358,8 +359,8 @@ def _skinned(node: SceneNode, rows: np.ndarray | slice = slice(None)) -> tuple[n
     """World positions of ``rows`` of a skinned node's vertices as posed, and their blended
     skinning matrices (3x3)."""
     mesh, world = node.mesh, node.world_transform()
-    blended = np.einsum("vk,vkij->vij", mesh.weights[rows], node.skin.matrices(node)[mesh.joints[rows]])
-    local = np.einsum("vij,vj->vi", blended[:, :3, :3], mesh.vertices[rows]) + blended[:, :3, 3]
+    blended = blended_matrices(mesh, node.skin.matrices(node), rows)
+    local = apply_blended(blended, mesh.vertices[rows])
     return local @ world[:3, :3].T + world[:3, 3], blended[:, :3, :3]
 
 

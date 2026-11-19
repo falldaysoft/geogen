@@ -27,6 +27,7 @@ from typing import Any
 import numpy as np
 
 from . import roots
+from .core.meshops import boundary_loops, closest_on_triangles, dot
 from .core.node import SceneNode
 from .core.transform import transform_points
 
@@ -62,35 +63,10 @@ def distance(points: np.ndarray, tris: np.ndarray, chunk: int = 256) -> np.ndarr
     out = np.full(len(points), np.inf)
     if not len(points) or not len(tris):
         return out
-    a, b, c = tris[:, 0], tris[:, 1], tris[:, 2]
-    ab, ac = b - a, c - a
     for i in range(0, len(points), chunk):
         p = points[i:i + chunk][:, None, :]
-        ap = p - a
-        d1, d2 = (ap * ab).sum(-1), (ap * ac).sum(-1)
-        bp = p - b
-        d3, d4 = (bp * ab).sum(-1), (bp * ac).sum(-1)
-        cp = p - c
-        d5, d6 = (cp * ab).sum(-1), (cp * ac).sum(-1)
-        va = d3 * d6 - d5 * d4
-        vb = d5 * d2 - d1 * d6
-        vc = d1 * d4 - d3 * d2
-        denom = np.where(np.abs(va + vb + vc) < 1e-20, 1e-20, va + vb + vc)
-        v = vb / denom
-        w = vc / denom
-        q = a + ab * v[..., None] + ac * w[..., None]         # inside the face
-        # Edges and vertices (Ericson, Real-Time Collision Detection 5.1.5).
-        t_ab = np.clip(d1 / np.maximum(d1 - d3, 1e-20), 0, 1)
-        t_ac = np.clip(d2 / np.maximum(d2 - d6, 1e-20), 0, 1)
-        t_bc = np.clip((d4 - d3) / np.maximum((d4 - d3) + (d5 - d6), 1e-20), 0, 1)
-        e_ab = a + ab * t_ab[..., None]
-        e_ac = a + ac * t_ac[..., None]
-        e_bc = b + (c - b) * t_bc[..., None]
-        inside = (va >= 0) & (vb >= 0) & (vc >= 0)
-        cand = np.stack([q, e_ab, e_ac, e_bc], axis=0)
-        dist = np.linalg.norm(cand - p[None], axis=-1)
-        dist[0] = np.where(inside, dist[0], np.inf)
-        out[i:i + chunk] = dist.min(axis=0).min(axis=1)
+        offset = p - closest_on_triangles(p, tris)
+        out[i:i + chunk] = np.sqrt(dot(offset, offset)).min(axis=1)
     return out
 
 
@@ -109,26 +85,10 @@ def _solid(mesh, caps: bool = False):
     if not inner.any():
         return (mesh.vertices[mesh.faces], np.empty((0, 3, 3))) if caps else mesh.vertices[mesh.faces]
     outer = mesh.faces[~inner]
-    # Directed boundary edges of the outer wall: a -> b with no b -> a.
-    edges = np.concatenate([outer[:, [0, 1]], outer[:, [1, 2]], outer[:, [2, 0]]])
-    have = {tuple(e) for e in edges.tolist()}
-    boundary = [(a, b) for a, b in edges.tolist() if (b, a) not in have]
-    # Group into loops (connected components) and fan each from its centroid.
-    parent = {}
-
-    def find(x):
-        while parent.setdefault(x, x) != x:
-            x = parent[x]
-        return x
-
-    for a, b in boundary:
-        parent[find(a)] = find(b)
-    loops: dict[int, list] = {}
-    for a, b in boundary:
-        loops.setdefault(find(a), []).append((a, b))
+    # Fan each opening of the outer wall from its centroid.
     tris = [mesh.vertices[outer]]
-    for loop in loops.values():
-        centre = mesh.vertices[np.unique(np.array(loop))].mean(axis=0)
+    for loop in boundary_loops(outer):
+        centre = mesh.vertices[np.unique(loop)].mean(axis=0)
         fan = np.array([[mesh.vertices[b], mesh.vertices[a], centre] for a, b in loop])
         tris.append(fan)
     if caps:

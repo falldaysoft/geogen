@@ -45,6 +45,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..core.geometry import smoothstep
 from ..core import meshops, uvmap
 from ..core.mesh import Mesh
 from ..core.subdiv import fractal_noise3
@@ -112,7 +113,7 @@ class TerrainGenerator(MeshGenerator):
         hill = self.height * np.clip(0.03 + 0.97 * inland + 0.35 * (n - 0.5) * np.sqrt(inland), 0.0, 1.2)
         land = self.sea_level + 0.4 + hill
         floor = self.sea_level - self.depth
-        return floor + (land - floor) * (mask * mask * (3 - 2 * mask))
+        return floor + (land - floor) * smoothstep(mask)
 
     def height_at(self, x, z) -> np.ndarray:
         x = np.atleast_1d(np.asarray(x, dtype=np.float64))
@@ -123,8 +124,7 @@ class TerrainGenerator(MeshGenerator):
             level = float(pad["height"]) if "height" in pad else float(self._raw(np.array([cx]), np.array([cz]))[0])
             r, blend = float(pad.get("radius", 5.0)), float(pad.get("blend", 4.0))
             d = np.hypot(x - cx, z - cz)
-            w = np.clip(1.0 - (d - r) / max(blend, 1e-6), 0.0, 1.0)
-            w = w * w * (3 - 2 * w)
+            w = smoothstep(1.0 - (d - r) / max(blend, 1e-6))
             h = h + (level - h) * w
         return h
 
