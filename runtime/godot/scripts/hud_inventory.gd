@@ -24,8 +24,8 @@ const PAD := 6.0
 const TITLE_SIZE := 16
 const GLYPH_SIZE := 20
 const COUNT_SIZE := 13
-const COLORS := {"back": Color(0.05, 0.06, 0.08, 0.62), "slot": Color(0.12, 0.13, 0.16, 0.85),
-    "edge": Color(0.3, 0.32, 0.36, 0.9), "selected": Color(1.0, 0.82, 0.4, 0.95),      # the tracker's gold
+const COLORS := {"back": GeogenHudUi.BACK, "slot": Color(0.12, 0.13, 0.16, 0.85),
+    "edge": Color(0.3, 0.32, 0.36, 0.9), "selected": Color(GeogenHudUi.AMBER, 0.95),
     "glyph": Color(0.8, 0.82, 0.86), "count": Color(1, 1, 1), "shade": Color(0, 0, 0, 0.6),
     "title": Color(0.95, 0.8, 0.5), "use": Color(0.75, 0.9, 0.75), "digit": Color(0.55, 0.58, 0.62)}
 

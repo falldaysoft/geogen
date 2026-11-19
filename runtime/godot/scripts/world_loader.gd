@@ -97,6 +97,8 @@ var traffic_graph := {}
 var _traffic_offset := Vector3.ZERO
 ## Traffic controllers (traffic.gd), one per exported traffic node.
 var traffic: Array[GeogenTraffic] = []
+var _crossings := []                # signalled_crossings(), for _crossings_graph
+var _crossings_graph = null
 ## Trains (train.gd), one per exported train node.
 var trains: Array[GeogenTrain] = []
 ## Level crossings: id -> true while the barriers are down (trains set it, traffic reads it).
@@ -1637,3 +1639,24 @@ func _add_debug_mesh(body: Node) -> void:
         debug.visible = show_colliders
         debug.add_to_group("geogen_collider_debug")
         body.add_child(debug)
+
+
+## The signalled pedestrian crossings of the traffic graph: [[Rect2 (plan x, z), signal id, walked
+## along x?]], built once per graph. NPCs (npc_streets.gd) and the HUD (hud_crossing.gd) read them.
+func signalled_crossings() -> Array:
+    if not is_same(_crossings_graph, traffic_graph):
+        _crossings_graph = traffic_graph
+        _crossings = []
+        for sig in traffic_graph.get("pedestrian_signals", []):
+            var r: Array = sig["crosswalk"]
+            var rect := Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1]))
+            _crossings.append([rect, str(sig["id"]), rect.size.x > rect.size.y])
+    return _crossings
+
+
+## The walk signal of a pedestrian crossing ("" where nothing runs the signals: no traffic).
+func pedestrian_state(id: String) -> String:
+    for t in traffic:
+        if is_instance_valid(t):
+            return t.pedestrian_state(id)
+    return ""

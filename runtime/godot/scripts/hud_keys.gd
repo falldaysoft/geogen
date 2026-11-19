@@ -22,11 +22,11 @@ const TEXT_SIZE := 14
 ## Two columns of groups from this width up, one below it.
 const TWO_COLUMNS_FROM := 560.0
 const COLORS := {
-    "title": Color(1.0, 0.86, 0.55),
-    "head": Color(0.72, 0.74, 0.78),
-    "key": Color(1.0, 0.86, 0.55),
-    "text": Color(0.96, 0.96, 0.96),
-    "note": Color(0.72, 0.74, 0.78),
+    "title": GeogenHudUi.GOLD,
+    "head": GeogenHudUi.NOTE,
+    "key": GeogenHudUi.GOLD,
+    "text": GeogenHudUi.TEXT,
+    "note": GeogenHudUi.NOTE,
 }
 
 ## The game's own groups, in the order shown: [{title, keys: [[key, does], ...]}]. main.gd sets them.
@@ -46,30 +46,8 @@ func _init() -> void:
     visible = false
     z_index = 1                 # over the crosshair and the E prompt
     mouse_filter = Control.MOUSE_FILTER_STOP
-    var dim := ColorRect.new()
-    dim.color = Color(0, 0, 0, 0.5)
-    dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-    add_child(dim)
-    var center := CenterContainer.new()
-    center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    center.set_anchors_preset(Control.PRESET_FULL_RECT)
-    add_child(center)
-    _frame = PanelContainer.new()
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.06, 0.07, 0.09, 0.97)
-    style.set_corner_radius_all(8)
-    style.border_width_top = 3
-    style.border_color = COLORS["title"]
-    style.content_margin_left = 18
-    style.content_margin_right = 18
-    style.content_margin_top = 12
-    style.content_margin_bottom = 12
-    _frame.add_theme_stylebox_override("panel", style)
-    center.add_child(_frame)
-    var box := VBoxContainer.new()
-    box.add_theme_constant_override("separation", 10)
-    _frame.add_child(box)
+    _frame = GeogenHudUi.modal(self)
+    var box: VBoxContainer = _frame.get_child(0)
 
     var head := HBoxContainer.new()
     box.add_child(head)
@@ -210,24 +188,11 @@ func _draw_group(column: VBoxContainer, group: Dictionary) -> void:
 
 
 static func _label(text: String, font_size: int, color: Color) -> Label:
-    var label := Label.new()
-    label.text = text
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    label.max_lines_visible = 2
-    label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    label.add_theme_font_size_override("font_size", font_size)
-    label.add_theme_color_override("font_color", color)
-    return label
+    return GeogenHudUi.wrapped(GeogenHudUi.label(text, font_size, color))
 
 
 static func _rule() -> ColorRect:
-    var line := ColorRect.new()
-    line.color = Color(1, 1, 1, 0.12)
-    line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    line.custom_minimum_size = Vector2(1, 1)
-    line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    return line
+    return GeogenHudUi.rule()
 
 
 ## What is on screen: {open, groups: [{title, keys: [[key, does]]}] (listed whether open or not),

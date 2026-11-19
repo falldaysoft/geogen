@@ -381,3 +381,53 @@ def deploy(assets, out, packages=("errand",)):
     export_catalogue(catalogue, lambda name: SceneComposer(assets_dir=assets).compose(assets / f"{name}.yaml"),
                      out, log=lambda *_: None)
     return catalogue
+
+
+# --- conformance traces replayed in Godot (--trace=PATH: trace_runner.gd) ---------------------
+
+def trace_results(output: str) -> dict[str, list[str]]:
+    """The ``trace: {...}`` lines of a Godot run, as trace name -> problems."""
+    found = {}
+    for line in output.splitlines():
+        if line.startswith("trace: "):
+            result = json.loads(line.removeprefix("trace: "))
+            found[result["name"]] = result["problems"]
+    return found
+
+
+def replayed_fixture(traces):
+    """A module fixture replaying ``traces`` through one headless Godot (which loads no world for
+    them): name -> problems. Assign it in the test module (``replayed = replayed_fixture(TRACES)``);
+    it counts as that module's own fixture, so its tests share one worker and one run."""
+    import inspect
+
+    import pytest
+
+    def replayed(run_godot) -> dict[str, list[str]]:
+        return trace_results(run_godot(*(f"--trace={path}" for path in traces)))
+
+    replayed.__module__ = inspect.currentframe().f_back.f_globals["__name__"]
+    return pytest.fixture(scope="module")(replayed)
+
+
+def assert_trace_conforms(replayed: dict, path) -> None:
+    """The trace at ``path`` was replayed and met every expectation."""
+    name = json.loads(Path(path).read_text())["name"]
+    assert name in replayed, f"no result for {name}: got {sorted(replayed)}"
+    assert replayed[name] == []
+
+
+def replay_traces(*paths, timeout: float = 240):
+    """Replay traces in a headless Godot whatever its exit code (``run_godot`` insists on 0, and a
+    wrong trace must fail): the CompletedProcess. Skips without Godot; a test calling it asks for
+    ``run_godot`` too, which builds Godot's import cache first."""
+    import subprocess
+
+    import pytest
+    from conftest import GODOT_PROJECT, _godot_binary
+
+    godot = _godot_binary()
+    if not godot:
+        pytest.skip("Godot not installed (set $GODOT)")
+    return subprocess.run([godot, "--headless", "--path", str(GODOT_PROJECT), "--", *(f"--trace={p}" for p in paths)],
+                          capture_output=True, text=True, timeout=timeout)

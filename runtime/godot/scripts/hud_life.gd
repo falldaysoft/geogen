@@ -22,16 +22,7 @@ func _init() -> void:
     visible = false
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     custom_minimum_size.x = WIDTH
-    var style := StyleBoxFlat.new()
-    style.bg_color = COLORS["back"]
-    style.set_corner_radius_all(6)
-    style.border_width_left = 3
-    style.border_color = COLORS["edge"]
-    style.content_margin_left = 14
-    style.content_margin_right = 14
-    style.content_margin_top = 10
-    style.content_margin_bottom = 11
-    add_theme_stylebox_override("panel", style)
+    add_theme_stylebox_override("panel", GeogenHudUi.panel(COLORS["back"], 6, [14, 14, 10, 11], "left", COLORS["edge"]))
     _rows.add_theme_constant_override("separation", 5)
     add_child(_rows)
 
@@ -74,13 +65,8 @@ func show_person(npc: GeogenNpc) -> void:
 
 
 func _line(text: String, color: Color, size_px: int) -> void:
-    var label := Label.new()
-    label.text = text
-    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    var label := GeogenHudUi.wrapped(GeogenHudUi.label(text, size_px, color), 0)
     label.custom_minimum_size.x = WIDTH - 32.0
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    label.add_theme_font_size_override("font_size", size_px)
-    label.add_theme_color_override("font_color", color)
     _rows.add_child(label)
 
 

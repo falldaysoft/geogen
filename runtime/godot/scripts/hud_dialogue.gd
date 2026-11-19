@@ -35,14 +35,7 @@ func _init() -> void:
     _back.anchor_top = 0.7               # below the face of whoever is talking
     _back.anchor_bottom = 0.7
     _back.grow_vertical = Control.GROW_DIRECTION_END
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.04, 0.05, 0.07, 0.85)
-    style.set_corner_radius_all(8)
-    style.border_width_top = 3
-    style.border_color = COLORS["choice"]
-    for side in ["left", "right", "top", "bottom"]:
-        style.set("content_margin_" + side, 16)
-    _back.add_theme_stylebox_override("panel", style)
+    _back.add_theme_stylebox_override("panel", GeogenHudUi.panel(Color(0.04, 0.05, 0.07, 0.85), 8, 16, "top", COLORS["choice"]))
     add_child(_back)
     var column := VBoxContainer.new()
     column.add_theme_constant_override("separation", 8)

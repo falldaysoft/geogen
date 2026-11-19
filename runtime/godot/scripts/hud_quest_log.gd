@@ -30,14 +30,14 @@ const TITLE_SIZE := 20
 const HEAD_SIZE := 12
 const TEXT_SIZE := 14
 const COLORS := {
-    "title": Color(1.0, 0.86, 0.55),
-    "text": Color(0.96, 0.96, 0.96),
-    "note": Color(0.72, 0.74, 0.78),
+    "title": GeogenHudUi.GOLD,
+    "text": GeogenHudUi.TEXT,
+    "note": GeogenHudUi.NOTE,
     "dim": Color(0.55, 0.57, 0.62),
-    "active": Color(1.0, 0.86, 0.55),
-    "complete": Color(0.6, 0.9, 0.6),
-    "failed": Color(0.95, 0.5, 0.45),
-    "done": Color(0.62, 0.78, 0.62),
+    "active": GeogenHudUi.GOLD,
+    "complete": GeogenHudUi.COMPLETE,
+    "failed": GeogenHudUi.FAILED,
+    "done": GeogenHudUi.DONE,
 }
 const STATUS_TEXT := {"active": "Active", "complete": "Completed", "failed": "Failed"}
 
@@ -63,30 +63,8 @@ func _init() -> void:
     visible = false
     z_index = 1                 # over the crosshair and the E prompt
     mouse_filter = Control.MOUSE_FILTER_STOP
-    var dim := ColorRect.new()
-    dim.color = Color(0, 0, 0, 0.5)
-    dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-    add_child(dim)
-    var center := CenterContainer.new()
-    center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    center.set_anchors_preset(Control.PRESET_FULL_RECT)
-    add_child(center)
-    _frame = PanelContainer.new()
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.06, 0.07, 0.09, 0.97)
-    style.set_corner_radius_all(8)
-    style.border_width_top = 3
-    style.border_color = COLORS["title"]
-    style.content_margin_left = 18
-    style.content_margin_right = 18
-    style.content_margin_top = 12
-    style.content_margin_bottom = 12
-    _frame.add_theme_stylebox_override("panel", style)
-    center.add_child(_frame)
-    var box := VBoxContainer.new()
-    box.add_theme_constant_override("separation", 10)
-    _frame.add_child(box)
+    _frame = GeogenHudUi.modal(self)
+    var box: VBoxContainer = _frame.get_child(0)
 
     var head := HBoxContainer.new()
     box.add_child(head)
@@ -439,35 +417,16 @@ func _on_row_clicked(key: String, twice: bool) -> void:
 
 
 static func _label(text: String, font_size: int, color: Color) -> Label:
-    var label := Label.new()
-    label.text = text
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    label.max_lines_visible = 2
-    label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    label.add_theme_font_size_override("font_size", font_size)
-    label.add_theme_color_override("font_color", color)
-    return label
+    return GeogenHudUi.wrapped(GeogenHudUi.label(text, font_size, color))
 
 
 ## A label that is never wrapped or trimmed (counts, headings): the text beside it gives way.
 static func _fixed(label: Label) -> Label:
-    label.autowrap_mode = TextServer.AUTOWRAP_OFF
-    label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-    label.max_lines_visible = -1
-    return label
+    return GeogenHudUi.fixed(label)
 
 
 static func _rule(vertical: bool) -> ColorRect:
-    var line := ColorRect.new()
-    line.color = Color(1, 1, 1, 0.12)
-    line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    line.custom_minimum_size = Vector2(1, 1)
-    if vertical:
-        line.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    else:
-        line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    return line
+    return GeogenHudUi.rule(vertical)
 
 
 ## What the log holds: {open, quests: [{key: "<package>/<id>", package, id, title, status:
@@ -524,16 +483,8 @@ class Row extends PanelContainer:
         key = entry["key"]
         mouse_filter = Control.MOUSE_FILTER_STOP
         mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color(1.0, 0.86, 0.55, 0.16) if selected else Color(1, 1, 1, 0.0)
-        style.set_corner_radius_all(5)
-        style.border_width_left = 3
-        style.border_color = COLORS["title"] if selected else Color(0, 0, 0, 0)
-        style.content_margin_left = 8
-        style.content_margin_right = 8
-        style.content_margin_top = 5
-        style.content_margin_bottom = 5
-        add_theme_stylebox_override("panel", style)
+        add_theme_stylebox_override("panel", GeogenHudUi.panel(Color(GeogenHudUi.GOLD, 0.16) if selected else Color(1, 1, 1, 0.0), 5,
+                [8, 8, 5, 5], "left", COLORS["title"] if selected else Color(0, 0, 0, 0)))
         var row := HBoxContainer.new()
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
         row.add_theme_constant_override("separation", 8)

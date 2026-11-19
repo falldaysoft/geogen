@@ -86,6 +86,11 @@ var _cost_max_usec := 0
 var _cost_frames := 0
 
 
+## Add one to a counter in `stats` (missing counters start at 0).
+func _count(key: String) -> void:
+    stats[key] = int(stats.get(key, 0)) + 1
+
+
 ## Build the controller for a traffic node; its vehicle children move under the controller.
 static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary, graph: Dictionary,
         offset := Vector3.ZERO) -> GeogenTraffic:
@@ -411,7 +416,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
             if 2.0 * v["half"] >= LONG_VEHICLE and not lanes[nxt]["sweeps"].is_empty():
                 _sweeping[nxt] = true
             stats["claims"] += 1
-            stats["signal_%s" % sig] = int(stats.get("signal_%s" % sig, 0)) + 1
+            _count("signal_%s" % sig)
         if not v["claimed"]:
             var line_gap := to_line + float(driving.get("gap", 2.5)) - 0.2
             if line_gap < gap:
@@ -432,7 +437,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
                     trace({"t": snappedf(clock, 0.01), "replan": String(v["node"].name), "to": lanes[v["next"]]["id"]})
                 if sig == "red" and not v.get("red_seen", false):
                     v["red_seen"] = true
-                    stats["red_stops"] = int(stats.get("red_stops", 0)) + 1
+                    _count("red_stops")
     elif nxt >= 0 and lanes[nxt]["x"] != "" and not v["claimed"]:
         var to_line: float = remaining - v["half"] - 0.3 - swing
         # As a standing "leader" the IDM would stop `gap` short of it: fold that in so the
@@ -488,7 +493,7 @@ func _drive(v: Dictionary, dt: float, people: Array) -> void:
                 v["blocked_by"] = "crossing"
             var occupying: float = base + float(rs["stop"]) + 2.0 * 4.5
             if base + float(rs["stop"]) < v["half"] and occupying > -v["half"] and which == v["lane"]:
-                stats["crossing_violations"] = int(stats.get("crossing_violations", 0)) + 1
+                _count("crossing_violations")
     # People in the way (or on a crosswalk just ahead).
     var person_gap := _person_gap(v, people)
     if person_gap < gap:
@@ -844,10 +849,10 @@ func _watch_crossings() -> void:
     for id in _crossings:
         var state := pedestrian_state(id)
         if state != "dont" and signal_state(_crossings[id]["x"], 1 - int(_crossings[id]["phase"])) != "red":
-            stats["walk_conflicts"] = int(stats.get("walk_conflicts", 0)) + 1
+            _count("walk_conflicts")
         if state != _crossing_shown.get(id, ""):
             _crossing_shown[id] = state
-            stats["shown_%s" % state] = int(stats.get("shown_%s" % state, 0)) + 1
+            _count("shown_%s" % state)
 
 
 func _lane_signal(lane: int) -> String:

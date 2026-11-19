@@ -31,12 +31,12 @@ const HEAD_SIZE := 12
 const TEXT_SIZE := 14
 const LOOP_GAP := 0.6               # s between the end of a looped motion and its next start
 const COLORS := {
-    "title": Color(1.0, 0.86, 0.55),
-    "text": Color(0.96, 0.96, 0.96),
-    "note": Color(0.72, 0.74, 0.78),
+    "title": GeogenHudUi.GOLD,
+    "text": GeogenHudUi.TEXT,
+    "note": GeogenHudUi.NOTE,
     "dim": Color(0.5, 0.52, 0.56),
     "head": Color(0.55, 0.78, 1.0),
-    "chosen": Color(1.0, 0.86, 0.55),
+    "chosen": GeogenHudUi.GOLD,
 }
 const CATEGORY_TITLES := {"idle": "Idles", "emote": "Emotes", "dance": "Dances", "exercise": "Exercise",
     "action": "With things", "reaction": "Reactions"}
@@ -71,16 +71,8 @@ func _init() -> void:
     z_index = 1
     mouse_filter = Control.MOUSE_FILTER_IGNORE      # the scene shows through beside the list
     _frame = PanelContainer.new()
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.06, 0.07, 0.09, 0.9)
-    style.set_corner_radius_all(8)
-    style.border_width_top = 3
-    style.border_color = COLORS["title"]
-    style.content_margin_left = 14
-    style.content_margin_right = 14
-    style.content_margin_top = 10
-    style.content_margin_bottom = 10
-    _frame.add_theme_stylebox_override("panel", style)
+    _frame.add_theme_stylebox_override("panel", GeogenHudUi.panel(Color(GeogenHudUi.MODAL_BACK, 0.9), 8, [14, 14, 10, 10], "top",
+            COLORS["title"]))
     _frame.mouse_filter = Control.MOUSE_FILTER_STOP
     add_child(_frame)
     var column := VBoxContainer.new()
@@ -524,11 +516,7 @@ static func _number(v) -> String:
 
 
 func _label(text: String, size_: int, color: Color) -> Label:
-    var l := Label.new()
-    l.text = text
-    l.add_theme_font_size_override("font_size", size_)
-    l.add_theme_color_override("font_color", color)
-    return l
+    return GeogenHudUi.label(text, size_, color)
 
 
 ## What it shows: open, the motions (and which play here), who performs, what plays.

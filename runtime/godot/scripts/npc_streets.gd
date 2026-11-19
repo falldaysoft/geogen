@@ -5,7 +5,6 @@ extends RefCounted
 
 var world: WorldLoader
 var _crossing_ends := []   # [[end a, end b]] of the painted crossings, on the pavement (world)
-var _signal_rects = null   # [[Rect2 (plan), signal id, walked along x?]] of the signalled crossings
 var _crossing_bounds := AABB()
 
 
@@ -53,22 +52,13 @@ func crosswalk_route(map: RID, path: PackedVector3Array, from: Vector3, to: Vect
 
 ## The walk signal of a pedestrian crossing ("" where nothing runs the signals: no traffic).
 func pedestrian_state(id: String) -> String:
-    for t in world.traffic:
-        if is_instance_valid(t):
-            return t.pedestrian_state(id)
-    return ""
+    return world.pedestrian_state(id)
 
 
 ## The signalled crossing whose road `to` is on, reached from `from` on one of its kerbs (beyond
 ## an end of its long side; the other two sides are road); "" if none.
 func crossing_from_kerb(from: Vector2, to: Vector2) -> String:
-    if _signal_rects == null:
-        _signal_rects = []
-        for sig in world.traffic_graph.get("pedestrian_signals", []):
-            var r: Array = sig["crosswalk"]
-            var rect := Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1]))
-            _signal_rects.append([rect, str(sig["id"]), rect.size.x > rect.size.y])
-    for entry in _signal_rects:
+    for entry in world.signalled_crossings():
         var rect: Rect2 = entry[0]
         if not rect.has_point(to) or rect.has_point(from):
             continue

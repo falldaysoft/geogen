@@ -420,14 +420,7 @@ func _handle(entry: Dictionary, line: String) -> void:
         return
     var id = msg.get("id")
     var cmd := str(msg.get("cmd", ""))
-    var args = msg.get("args", {})
-    if not args is Dictionary:
-        _send(entry, {"id": id, "ok": false, "error": "args must be an object"})
-        return
-    if not COMMANDS.has(cmd):
-        _send(entry, {"id": id, "ok": false, "error": "unknown command '%s' (try help)" % cmd})
-        return
-    var result = await _run(entry, cmd, args)
+    var result = await _call(entry, cmd, msg.get("args", {}))
     if result is Dictionary and result.has("__error"):
         _send(entry, {"id": id, "ok": false, "error": result["__error"]})
     else:
@@ -477,6 +470,25 @@ static func _err(message: String) -> Dictionary:
     return {"__error": message}
 
 
+## The stable ID of the first physics prop whose ID matches `pattern` (a glob) or whose node is
+## named it; "" if none.
+func _prop_uid(pattern: String) -> String:
+    for b in main.world.props.report():
+        if b["uid"].match(pattern) or b["node"] == pattern:
+            return b["uid"]
+    return ""
+
+
+## Run a command from a client, a batch or a script, once it is known (and not `refused`) and its
+## args are an object: its result, or an _err.
+func _call(entry: Dictionary, cmd: String, args, refused: Array = []):
+    if not COMMANDS.has(cmd) or cmd in refused:
+        return _err("unknown command '%s' (try help)" % cmd)
+    if not args is Dictionary:
+        return _err("args must be an object")
+    return await _run(entry, cmd, args)
+
+
 ## [x, y, z] (or [x, z] on the ground) -> Vector3, or null.
 static func _vec(value):
     if value is Array and value.size() == 3:
@@ -504,13 +516,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             for c in args.get("commands", []):
                 var sub := str(c.get("cmd", "")) if c is Dictionary else ""
                 var sub_args = c.get("args", {}) if c is Dictionary else {}
-                var r
-                if not COMMANDS.has(sub) or sub in ["batch", "quit"]:
-                    r = _err("unknown command '%s'" % sub)
-                elif not sub_args is Dictionary:
-                    r = _err("args must be an object")
-                else:
-                    r = await _run(entry, sub, sub_args)
+                var r = await _call(entry, sub, sub_args, ["batch", "quit"])
                 var failed: bool = r is Dictionary and r.has("__error")
                 results.append({"cmd": sub, "ok": not failed, "error": r["__error"]} if failed \
                     else {"cmd": sub, "ok": true, "result": r})
@@ -603,10 +609,9 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 main.focus.update()
                 want = main.focus.prop
             else:
-                for b in world.props.report():
-                    if b["uid"].match(want) or b["node"] == want:
-                        want = b["uid"]
-                        break
+                var found := _prop_uid(want)
+                if found != "":
+                    want = found
             var ok: bool = want != "" and world.props.pick(want, player, main.focus.hold_point)
             return {"ok": ok, "held": world.props.held}
         "player.drop":
@@ -890,10 +895,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if npc == null:
                 return _err("no NPC named '%s'" % args.get("npc", ""))
             if cmd == "npcs.places":
-                var which := ""
-                for b in world.props.report():
-                    if b["uid"].match(str(args.get("prop", ""))) or b["node"] == str(args.get("prop", "")):
-                        which = b["uid"]
+                var which := _prop_uid(str(args.get("prop", "")))
                 if which == "":
                     return _err("no physics prop '%s'" % args.get("prop", ""))
                 if not (npc.definition.get("wants", {}) as Dictionary).has(str(args.get("want", ""))):
@@ -920,10 +922,8 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             if cmd == "npcs.do":
                 var extra := {}
                 if args.has("subject"):
-                    for b in world.props.report():
-                        if b["uid"].match(str(args["subject"])) or b["node"] == str(args["subject"]):
-                            extra["subject"] = b["uid"]
-                    if not extra.has("subject"):
+                    extra["subject"] = _prop_uid(str(args["subject"]))
+                    if extra["subject"] == "":
                         return _err("no physics prop '%s'" % args["subject"])
                 if args.has("place"):
                     var spot: Vector3 = _vec(args["place"])
@@ -1723,22 +1723,17 @@ func _run_script() -> void:
         var line := {"step": index, "cmd": cmd}
         if step is Dictionary and step.has("id"):
             line["id"] = step["id"]
+        # retry: a step that fails is tried again each physics frame for up to that many seconds
+        # of world time (the aimed thing isn't in view yet, an NPC can't be greeted yet).
+        var retry := float(step.get("retry", 0.0))
+        var waited := 0.0
         var r
-        if not COMMANDS.has(cmd):
-            r = _err("unknown command '%s' (try help)" % cmd)
-        elif not args is Dictionary:
-            r = _err("args must be an object")
-        else:
-            # retry: a step that fails is tried again each physics frame for up to that many
-            # seconds of world time (the aimed thing isn't in view yet, an NPC can't be greeted yet).
-            var retry := float(step.get("retry", 0.0))
-            var waited := 0.0
-            while true:
-                r = await _run(_script_entry, cmd, args)
-                if not (r is Dictionary and r.has("__error")) or waited >= retry:
-                    break
-                await get_tree().physics_frame
-                waited += get_physics_process_delta_time()
+        while true:
+            r = await _call(_script_entry, cmd, args)
+            if not (r is Dictionary and r.has("__error")) or waited >= retry:
+                break
+            await get_tree().physics_frame
+            waited += get_physics_process_delta_time()
         var ok: bool = not (r is Dictionary and r.has("__error"))
         line["ok"] = ok
         if ok:

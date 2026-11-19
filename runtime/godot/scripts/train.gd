@@ -42,6 +42,11 @@ var _lamp_materials := {}
 var _parts := {}                         # car -> {info, shapes, bogies, wheels, engine} (see _car_parts)
 
 
+## Add one to a counter in `stats` (missing counters start at 0).
+func _count(key: String) -> void:
+    stats[key] = int(stats.get(key, 0)) + 1
+
+
 static func spawn(world_: WorldLoader, node: Node3D, data_: Dictionary, railway_: Dictionary,
         offset := Vector3.ZERO) -> GeogenTrain:
     var t := GeogenTrain.new()
@@ -216,7 +221,7 @@ func _sound_horns() -> void:
     for k in _set_of:
         var lead: Node3D = _sets[_set_of[k]][0]
         if GeogenSound.horn(lead, WorldLoader.geogen_extras(lead).get("vehicle", {})):
-            stats["horns"] = int(stats.get("horns", 0)) + 1
+            _count("horns")
 
 
 func _clone_set() -> Array:

@@ -13,7 +13,7 @@ const LABEL_SIZE := 14
 const VALUE_SIZE := 20
 const COLORS := {
     "label": Color(0.78, 0.8, 0.84),
-    "value": Color(1.0, 0.86, 0.55),
+    "value": GeogenHudUi.GOLD,
 }
 
 var _hud: GeogenHud
@@ -25,16 +25,7 @@ func _init() -> void:
     name = "stats"
     visible = false
     mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.05, 0.06, 0.08, 0.62)
-    style.set_corner_radius_all(6)
-    style.border_width_left = 3
-    style.border_color = COLORS["value"]
-    style.content_margin_left = 12
-    style.content_margin_right = 12
-    style.content_margin_top = 6
-    style.content_margin_bottom = 7
-    add_theme_stylebox_override("panel", style)
+    add_theme_stylebox_override("panel", GeogenHudUi.panel(GeogenHudUi.BACK, 6, [12, 12, 6, 7], "left", COLORS["value"]))
     _rows = GridContainer.new()
     _rows.columns = 2
     _rows.add_theme_constant_override("h_separation", 14)
@@ -86,14 +77,7 @@ static func shown(value: Variant) -> String:
 
 
 static func _label(text: String, font_size: int, color: Color) -> Label:
-    var label := Label.new()
-    label.text = text
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    label.add_theme_font_size_override("font_size", font_size)
-    label.add_theme_color_override("font_color", color)
-    label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
-    label.add_theme_constant_override("shadow_offset_x", 1)
-    label.add_theme_constant_override("shadow_offset_y", 1)
+    var label := GeogenHudUi.shadowed(GeogenHudUi.label(text, font_size, color))
     label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     return label
 

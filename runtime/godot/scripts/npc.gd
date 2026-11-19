@@ -229,6 +229,11 @@ const KERB_STEP := 0.7            # wait for the walk signal when the road of a 
 const VANISH_DISTANCE := 12.0     # don't vanish in front of the player: wait until they're this far
 
 
+## Add one to a counter in `stats` (missing counters start at 0).
+func count_stat(key: String) -> void:
+    stats[key] = int(stats.get(key, 0)) + 1
+
+
 ## Build an NPC from an exported npc node (its body child moves under the NPC).
 static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> GeogenNpc:
     var npc := GeogenNpc.new()
@@ -366,7 +371,7 @@ func _reappear() -> void:
     visible = true
     _solid_after_move()
     add_to_group(CHARACTER_GROUP)
-    stats["returns"] = int(stats.get("returns", 0)) + 1
+    count_stat("returns")
     _trace({"event": "return", "pos": GeogenUtil.cm(global_position)})
 
 
@@ -787,7 +792,7 @@ func _decide() -> void:
     var goal := quest_option() if _forced == "" else {}
     if not goal.is_empty():
         stats["decisions"] += 1
-        stats["quest_goals"] = int(stats.get("quest_goals", 0)) + 1
+        count_stat("quest_goals")
         _option = goal
         _trace({"event": "decide", "chosen": goal["id"], "quest": goal["quest"]})
         _push(goal["action"], goal["ctx"])
@@ -863,7 +868,7 @@ func _run_out() -> bool:
         _drop_plan("%s ran out" % need)
         _option = {"id": "need/%s" % need, "action": str(zero["action"]), "advertises": {need: float(zero["recover"])}}
         stats["decisions"] += 1
-        stats["ran_out"] = int(stats.get("ran_out", 0)) + 1
+        count_stat("ran_out")
         _trace({"event": "decide", "chosen": _option["id"], "reason": "ran out"})
         _push(_option["action"], {"anchor": global_position, "yaw_deg": rad_to_deg(_yaw()), "approach": global_position})
         return true
@@ -911,7 +916,7 @@ func _next_planned(ranked: Array[Dictionary]) -> Dictionary:
         if o.has("affordance") and (i == 0 or o["affordance"].has("sets")):
             world.npc_reserve(o["id"], self)
     _chain = {"goal": found["goal"], "steps": steps, "index": 0, "cost": found["cost"], "score": found["score"]}
-    stats["plans"] = int(stats.get("plans", 0)) + 1
+    count_stat("plans")
     _trace({"event": "plan", "goal": found["goal"], "steps": found["steps"], "cost": found["cost"],
         "score": found["score"], "fills": found["fills"], "goals": found["goals"]})
     return steps[0]
@@ -1050,7 +1055,7 @@ func _drop_plan(reason: String) -> void:
         return
     for o in _chain["steps"]:
         world.npc_release(o["id"], self)
-    stats["replans"] = int(stats.get("replans", 0)) + 1
+    count_stat("replans")
     _trace({"event": "replan", "goal": _chain["goal"], "at": int(_chain["index"]), "reason": reason})
     _chain = {}
 
@@ -1107,7 +1112,7 @@ func _finish_option(ok: bool, reason := "") -> void:
         GeogenWants.finish(self, _option, ok)
     if _option.has("person"):
         if ok and is_instance_valid(_partner):
-            _partner.stats["joined"] = int(_partner.stats.get("joined", 0)) + 1
+            _partner.count_stat("joined")
         _part()
     if not _chain.is_empty() and _chain["steps"][_chain["index"]]["id"] == id:
         if not ok:
@@ -1115,7 +1120,7 @@ func _finish_option(ok: bool, reason := "") -> void:
         else:
             _chain["index"] += 1
             if _chain["index"] >= (_chain["steps"] as Array).size():
-                stats["plans_done"] = int(stats.get("plans_done", 0)) + 1
+                count_stat("plans_done")
                 _chain = {}
     _option = {}
     if _ordered:                        # the order it was on: over when it failed, or its last step is done
@@ -1305,7 +1310,7 @@ func _take_order() -> bool:
                 if o.has("affordance"):
                     world.npc_reserve(o["id"], self)
             _chain = {"goal": id, "steps": steps, "index": 0, "cost": found["cost"], "score": 0.0, "ordered": true}
-            stats["plans"] = int(stats.get("plans", 0)) + 1
+            count_stat("plans")
             _trace({"event": "plan", "goal": id, "steps": found["steps"], "cost": found["cost"], "ordered": true})
         _option = steps[0]
     _ordered = true
@@ -1319,7 +1324,7 @@ func _order_done(ok: bool, reason: String) -> void:
         return
     _order_since = -1.0
     _order_last = {"option": str(_orders.pop_front()), "ok": ok, "reason": reason}
-    stats["orders_done" if ok else "orders_failed"] = int(stats.get("orders_done" if ok else "orders_failed", 0)) + 1
+    count_stat("orders_done" if ok else "orders_failed")
     _trace({"event": "order_done", "option": _order_last["option"], "ok": ok, "reason": reason})
 
 
@@ -1392,9 +1397,9 @@ func _physics_process(delta: float) -> void:
         animator.player.active = rate < SLEEP_EVERY
     if rate > 1 and (Engine.get_physics_frames() + _phase) % rate != 0:
         _skipped += delta
-        stats["throttled"] = int(stats.get("throttled", 0)) + 1
+        count_stat("throttled")
         if rate == SLEEP_EVERY:
-            stats["slept"] = int(stats.get("slept", 0)) + 1
+            count_stat("slept")
     else:
         _step(delta + _skipped)
         _skipped = 0.0
@@ -1513,7 +1518,7 @@ func _unstick(wedged: bool) -> void:
             global_position = q + Vector3.UP * 0.02
         else:
             global_position += -global_basis.z * 0.3   # on the navmesh but snagged: back off
-        stats["unstuck"] = int(stats.get("unstuck", 0)) + 1
+        count_stat("unstuck")
         _trace({"event": "unstuck", "pos": GeogenUtil.cm(global_position)})
         _stuck_at = null
         return
@@ -1666,7 +1671,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         var err: String = world.rules.use_item(id, WorldLoader.actor_id(self))
         if err != "":
             return err
-        stats["items_used"] = int(stats.get("items_used", 0)) + 1
+        count_stat("items_used")
         _trace({"event": "use_item", "item": id, "pos": GeogenUtil.cm(global_position)})
         return ""
     if step.has("use"):
@@ -1751,7 +1756,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         velocity = Vector3.ZERO
         _shape.set_deferred("disabled", true)
         remove_from_group(CHARACTER_GROUP)
-        stats["aways"] = int(stats.get("aways", 0)) + 1
+        count_stat("aways")
         _trace({"event": "away", "pos": GeogenUtil.cm(global_position)})
         return "done"
     if step.has("find") or step.has("set_out") or step.has("show"):
@@ -1770,7 +1775,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
                     var had := _emitted.has("taken")
                     _let_go()
                     return "holding nothing (taken out of its hand)" if had else "can't take it (gone, or in someone's hands)"
-                stats["picked_up"] = int(stats.get("picked_up", 0)) + 1
+                count_stat("picked_up")
                 stats["take_gap"] = _take_gap()
                 GeogenWants.note_handled(self, taken)
                 _trace({"event": "pick_up", "prop": taken, "pos": GeogenUtil.cm(global_position)})
@@ -1780,7 +1785,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
                 _let_go()                         # the motion was cut off: it lets go where it is
             _carry_run = null
             _carry_on = {}
-            stats["put_down"] = int(stats.get("put_down", 0)) + 1
+            count_stat("put_down")
             _trace({"event": "put_down", "prop": was, "at": GeogenUtil.cm(ctx["place"]["position"])})
             return "done"
         _timer -= delta
@@ -1790,7 +1795,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
             var uid := str(ctx.get("subject", ""))
             if not world.props.take(uid, self, _prop_point.bind(uid)):
                 return "can't take it (gone, or in someone's hands)"
-            stats["picked_up"] = int(stats.get("picked_up", 0)) + 1
+            count_stat("picked_up")
             GeogenWants.note_handled(self, uid)
             _trace({"event": "pick_up", "prop": uid, "pos": GeogenUtil.cm(global_position)})
             return "done"
@@ -1805,7 +1810,7 @@ func _tick(step: Dictionary, ctx: Dictionary, delta: float) -> String:
         var origin: Vector3 = place["position"] + Vector3.UP * (size.y / 2.0 + PUT_GAP) - basis * centre
         world.props.release(held_uid, Transform3D(basis, origin))
         _carry_on = {}
-        stats["put_down"] = int(stats.get("put_down", 0)) + 1
+        count_stat("put_down")
         _trace({"event": "put_down", "prop": held_uid, "at": GeogenUtil.cm(place["position"])})
         return "done"
     if step.has("use_item"):
@@ -1930,7 +1935,7 @@ func _press(it: GeogenInteraction) -> bool:
     _run = _motions.start(spec, {"button": button})
     _pressing = _run != null
     if _pressing:
-        stats["presses"] = int(stats.get("presses", 0)) + 1
+        count_stat("presses")
     return _pressing
 
 
@@ -2090,7 +2095,7 @@ func _turn_handle(handle: Dictionary) -> bool:
     _run = player.start(spec, {"handle": _handle_at})
     _pressing = _run != null
     if _pressing:
-        stats["handles"] = int(stats.get("handles", 0)) + 1
+        count_stat("handles")
     return _pressing
 
 
@@ -2932,7 +2937,7 @@ func _plan(target: Vector3) -> String:
     var over := _streets.crosswalk_route(map, _path, from, to)
     if not over.is_empty():
         _path = over
-        stats["crosswalks"] = int(stats.get("crosswalks", 0)) + 1
+        count_stat("crosswalks")
     # A navigation link on the way (a spiral stair) is two points, a straight line through the
     # stair: walk its way round instead. Last, so the reroute above sees the navmesh's own path.
     _path = GeogenWalker.along_links(_path, get_tree(), _stairs)
@@ -2960,7 +2965,7 @@ func _close_in(end: Vector3, target: Vector3) -> void:
     var free := get_world_3d().direct_space_state.cast_motion(query)
     if free.size() == 2 and float(free[0]) >= 1.0:
         _path.append(end + gap)
-        stats["close_ins"] = int(stats.get("close_ins", 0)) + 1
+        count_stat("close_ins")
 
 
 # Stairs are walked in single file. A spiral stair's navigation link is one body wide, and two
@@ -3057,7 +3062,7 @@ func _wait_for_walk(delta: float) -> bool:
         _signal_wait = 0.0
         return false
     if _signal_wait == 0.0:
-        stats["signal_waits"] = int(stats.get("signal_waits", 0)) + 1
+        count_stat("signal_waits")
         _trace({"event": "signal_wait", "crossing": id, "state": state})
     _signal_wait += delta
     stats["signal_wait"] = maxf(float(stats.get("signal_wait", 0.0)), _signal_wait)
@@ -3082,7 +3087,7 @@ func _watch_crossing() -> void:
         return
     var state := _streets.pedestrian_state(id)
     var key := "signal_violations" if state == "dont" else "signal_crossings"
-    stats[key] = int(stats.get(key, 0)) + 1
+    count_stat(key)
     _trace({"event": "signal_step", "crossing": id, "state": state, "position": GeogenUtil.cm(global_position)})
 
 
@@ -3433,7 +3438,7 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String, hold := "") -> vo
         var target := Transform3D(basis.scaled_local(Vector3(s[0], s[1], s[2])), Vector3(o[0], o[1], o[2]))
         if animator.change_pose(was, pose_name, global_transform.affine_inverse() * before, target, self):
             _timer = POSE_SECONDS             # no extra hold once it has played
-            stats["transitions"] = int(stats.get("transitions", 0)) + 1
+            count_stat("transitions")
 
 
 # --- attention (the player) ---------------------------------------------------
@@ -3506,7 +3511,7 @@ func _on_event(event: Dictionary) -> void:
         var by := _perceives(point, float(r["loudness"]) * float(data.get("strength", 1.0)))
         if by == "":
             continue
-        stats["noticed"] = int(stats.get("noticed", 0)) + 1
+        count_stat("noticed")
         _noticed = {"stimulus": stimulus, "subject": str(event.get("subject", "")), "at": GeogenUtil.cm(point), "by": by,
             "clock": snappedf(clock, 0.01)}
         var look: Array = r["look"]
@@ -3589,7 +3594,7 @@ func _cut_short() -> bool:
     _stop_motions()
     frame["index"] = to
     frame["started"] = false
-    stats["cut_short"] = int(stats.get("cut_short", 0)) + 1
+    count_stat("cut_short")
     _trace({"event": "cut_short", "option": _option["id"], "for": _noticed.get("stimulus", "")})
     return true
 
@@ -3735,7 +3740,7 @@ func _attend(delta: float) -> void:
     var map := get_world_3d().navigation_map
     aside = NavigationServer3D.map_get_closest_point(map, aside)
     _yielded_at = clock
-    stats["yields"] = int(stats.get("yields", 0)) + 1
+    count_stat("yields")
     _trace({"event": "yield", "to": GeogenUtil.cm(aside)})
     _react(str(yield_spec["action"]), {"aside": aside})
 
@@ -3817,7 +3822,7 @@ func greet(by := "player") -> bool:
     if not can_greet() or clock - _greeted_at < float(spec.get("debounce", 0.5)):
         return false
     _greeted_at = clock
-    stats["greets"] = int(stats.get("greets", 0)) + 1
+    count_stat("greets")
     _attend_until = clock + float(spec.get("acknowledge", 3.0))
     var response := "none"
     var action := str(spec["action"])
@@ -3838,7 +3843,7 @@ func greet(by := "player") -> bool:
             bob.tween_property(body, "position", rest, 0.18)
     if response != "none":
         _waved_at = clock
-        stats["waves"] = int(stats.get("waves", 0)) + 1
+        count_stat("waves")
     _trace({"event": "greet", "pos": GeogenUtil.cm(global_position), "pose": _pose, "response": response})
     var signal_name := str(spec.get("signal", ""))
     if signal_name != "":

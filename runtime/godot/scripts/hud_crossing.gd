@@ -21,8 +21,6 @@ var _hud: GeogenHud
 var _back: PanelContainer
 var _title: Label
 var _line: Label
-var _rects := []                # [Rect2, id, long side along x], from the loaded graph
-var _graph: Dictionary = {}     # the graph _rects were made from
 var _poll := 0.0
 var _shown := {}                # {crossing, where, state, text, line}, or {} when hidden
 
@@ -37,14 +35,7 @@ func _init() -> void:
     _back.anchor_top = 0.74
     _back.anchor_bottom = 0.74
     _back.grow_horizontal = Control.GROW_DIRECTION_BOTH
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.03, 0.04, 0.06, 0.66)
-    style.set_corner_radius_all(6)
-    style.content_margin_left = 18
-    style.content_margin_right = 18
-    style.content_margin_top = 8
-    style.content_margin_bottom = 8
-    _back.add_theme_stylebox_override("panel", style)
+    _back.add_theme_stylebox_override("panel", GeogenHudUi.panel(GeogenHudUi.STRIP_BACK, 6, [18, 18, 8, 8]))
     add_child(_back)
     var column := VBoxContainer.new()
     column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -85,7 +76,7 @@ func _update() -> void:
     var player = _hud.player() if _hud != null else null
     if player is Node3D:
         var at := crossing_at(Vector2(player.global_position.x, player.global_position.z))
-        var state := "" if at.is_empty() else _state(at["crossing"])
+        var state := "" if at.is_empty() else _hud.world.pedestrian_state(at["crossing"])
         if state != "":
             var shown: Array = SHOWN[state]
             var line: String = ON_CROSSING.get(state, "") if at["where"] == "crossing" else shown[1]
@@ -100,15 +91,9 @@ func _update() -> void:
 
 ## The signalled crossing at `p` (plan x, z): {crossing, where: "kerb" | "crossing"}, or {}.
 func crossing_at(p: Vector2) -> Dictionary:
-    var graph: Dictionary = _hud.world.traffic_graph if _hud != null else {}
-    if graph != _graph:
-        _graph = graph
-        _rects = []
-        for sig in graph.get("pedestrian_signals", []):
-            var r: Array = sig["crosswalk"]
-            var rect := Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1]))
-            _rects.append([rect, str(sig["id"]), rect.size.x > rect.size.y])
-    for entry in _rects:
+    if _hud == null:
+        return {}
+    for entry in _hud.world.signalled_crossings():
         var rect: Rect2 = entry[0]
         if rect.has_point(p):
             return {"crossing": entry[1], "where": "crossing"}
@@ -122,13 +107,6 @@ func crossing_at(p: Vector2) -> Dictionary:
         if side >= s_lo and side <= s_hi and ((along < lo and along > lo - KERB) or (along > hi and along < hi + KERB)):
             return {"crossing": entry[1], "where": "kerb"}
     return {}
-
-
-func _state(id: String) -> String:
-    for t in _hud.world.traffic:
-        if is_instance_valid(t):
-            return t.pedestrian_state(id)
-    return ""
 
 
 ## What is on screen: {visible, crossing?, where?, state?, text?, line?}.

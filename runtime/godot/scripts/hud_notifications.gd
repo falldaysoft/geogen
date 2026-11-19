@@ -251,16 +251,7 @@ func hud_report() -> Dictionary:
 class Toast extends PanelContainer:
     func _init(note: Dictionary, color: Color) -> void:
         mouse_filter = Control.MOUSE_FILTER_IGNORE
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color(0.05, 0.06, 0.08, 0.72)
-        style.set_corner_radius_all(6)
-        style.border_width_left = 3
-        style.border_color = color
-        style.content_margin_left = 10
-        style.content_margin_right = 10
-        style.content_margin_top = 6
-        style.content_margin_bottom = 7
-        add_theme_stylebox_override("panel", style)
+        add_theme_stylebox_override("panel", GeogenHudUi.panel(Color(GeogenHudUi.BACK, 0.72), 6, [10, 10, 6, 7], "left", color))
         var row := HBoxContainer.new()
         row.add_theme_constant_override("separation", 8)
         add_child(row)
@@ -274,23 +265,12 @@ class Toast extends PanelContainer:
         row.add_child(box)
         if note["heading"] != "":
             box.add_child(_label(note["heading"].to_upper(), HEAD_SIZE, color))
-        box.add_child(_label(note["text"], TEXT_SIZE, Color(0.96, 0.96, 0.96)))
+        box.add_child(_label(note["text"], TEXT_SIZE, GeogenHudUi.TEXT))
         if note.has("done"):
             box.add_child(_label("\u2713 " + note["done"], HEAD_SIZE + 1, Color(color, 0.9)))
 
     static func _label(text: String, font_size: int, color: Color) -> Label:
-        var label := Label.new()
-        label.text = text
-        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        label.max_lines_visible = 2
-        label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        label.add_theme_font_size_override("font_size", font_size)
-        label.add_theme_color_override("font_color", color)
-        label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
-        label.add_theme_constant_override("shadow_offset_x", 1)
-        label.add_theme_constant_override("shadow_offset_y", 1)
-        return label
+        return GeogenHudUi.shadowed(GeogenHudUi.wrapped(GeogenHudUi.label(text, font_size, color)))
 
 
 ## A toast's mark: a ring with a dot (started), a tick (objective), a tick in a disc

@@ -24,12 +24,12 @@ const CYCLE_KEY := KEY_Q
 const TITLE_SIZE := 16
 const TEXT_SIZE := 14
 const COLORS := {
-    "title": Color(1.0, 0.86, 0.55),
-    "open": Color(0.96, 0.96, 0.96),
-    "done": Color(0.62, 0.78, 0.62),
-    "note": Color(0.72, 0.74, 0.78),
-    "complete": Color(0.6, 0.9, 0.6),
-    "failed": Color(0.95, 0.5, 0.45),
+    "title": GeogenHudUi.GOLD,
+    "open": GeogenHudUi.TEXT,
+    "done": GeogenHudUi.DONE,
+    "note": GeogenHudUi.NOTE,
+    "complete": GeogenHudUi.COMPLETE,
+    "failed": GeogenHudUi.FAILED,
 }
 
 ## Seconds a finished quest stays up before the next one replaces it.
@@ -59,16 +59,7 @@ func _init() -> void:
     name = "quests"
     visible = false
     mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.05, 0.06, 0.08, 0.62)
-    style.set_corner_radius_all(6)
-    style.border_width_left = 3
-    style.border_color = COLORS["title"]
-    style.content_margin_left = 12
-    style.content_margin_right = 10
-    style.content_margin_top = 8
-    style.content_margin_bottom = 9
-    add_theme_stylebox_override("panel", style)
+    add_theme_stylebox_override("panel", GeogenHudUi.panel(GeogenHudUi.BACK, 6, [12, 10, 8, 9], "left", COLORS["title"]))
     # The column clips when it is taller than the screen allows: a ScrollContainer with no bars.
     _scroll = ScrollContainer.new()
     _scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -340,18 +331,7 @@ func _row(line: Dictionary) -> Control:
 
 
 static func _label(text: String, font_size: int, color: Color) -> Label:
-    var label := Label.new()
-    label.text = text
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    label.max_lines_visible = 2
-    label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    label.add_theme_font_size_override("font_size", font_size)
-    label.add_theme_color_override("font_color", color)
-    label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
-    label.add_theme_constant_override("shadow_offset_x", 1)
-    label.add_theme_constant_override("shadow_offset_y", 1)
-    return label
+    return GeogenHudUi.shadowed(GeogenHudUi.wrapped(GeogenHudUi.label(text, font_size, color)))
 
 
 ## What is on screen: {visible, tracked, package, title, status, note, active: [ids],

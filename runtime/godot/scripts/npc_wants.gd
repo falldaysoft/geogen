@@ -154,7 +154,7 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
         option["advertises"] = {}
         option["search"] = true
         npc.world.npc_reserve(_subject_key(option["subject"]), npc)
-        npc.stats["searches"] = int(npc.stats.get("searches", 0)) + 1
+        npc.count_stat("searches")
         npc._want_doing = {"want": option["want"], "subject": option["subject"], "search": true,
             "at": GeogenUtil.cm(entry["at"]), "by": entry["by"]}
         var looking := {"event": "want"}
@@ -189,12 +189,12 @@ static func finish(npc: GeogenNpc, option: Dictionary, ok: bool) -> void:
         return
     if ok and option.has("thing"):
         note_handled(npc, str(option["subject"]))     # worked it: once more, and it tires of this one
-        npc.stats["wants"] = int(npc.stats.get("wants", 0)) + 1
+        npc.count_stat("wants")
     if ok and option.has("place"):
         var tried: Array = npc._tried.get(option["subject"], [])
         tried.append(option["place"]["position"])
         npc._tried[option["subject"]] = tried.slice(-8)
-        npc.stats["wants"] = int(npc.stats.get("wants", 0)) + 1
+        npc.count_stat("wants")
 
 
 ## The places ``npc`` could put prop ``uid`` for its want ``want_name``, best first: the spots that

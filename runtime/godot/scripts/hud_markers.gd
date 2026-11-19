@@ -35,9 +35,9 @@ const RING_POINTS := 48
 const ICON := 11.0
 const TEXT_SIZE := 15
 const COLORS := {
-    "point": Color(1.0, 0.82, 0.4),             # the tracker's gold
-    "area": Color(1.0, 0.82, 0.4),
-    "portal": Color(1.0, 0.82, 0.4),            # told apart by its arch
+    "point": GeogenHudUi.AMBER,
+    "area": GeogenHudUi.AMBER,
+    "portal": GeogenHudUi.AMBER,            # told apart by its arch
 }
 const TEXT := Color(1.0, 0.96, 0.84)
 const FADE_FROM := 40.0

@@ -84,16 +84,7 @@ func _setup_one(asset: Node3D) -> void:
         body.collision_mask = 1 | 2      # not Player.LAYER: the player stands on and rides a body it can't block
         body.continuous_cd = true
         body.can_sleep = false
-        var material := PhysicsMaterial.new()
-        material.friction = float(spec.get("friction", 0.8))
-        material.bounce = float(spec.get("bounce", 0.0))
-        body.physics_material_override = material
-        var damping: Dictionary = spec.get("damping", {})
-        if not damping.is_empty():
-            body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
-            body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
-            body.linear_damp = float(damping.get("linear", 0.0))
-            body.angular_damp = float(damping.get("angular", 0.0))
+        GeogenUtil.body_surface(body, spec)
         parent.add_child(body)
         body.global_transform = frame
         var shapes := 0

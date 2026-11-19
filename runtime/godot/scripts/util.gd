@@ -1,7 +1,7 @@
 class_name GeogenUtil
 extends RefCounted
 ## Helpers the runtime's scripts share: vectors to and from JSON lists, at the precisions the
-## reports use; the bounds of a subtree's meshes; and load-phase timings.
+## reports use; the bounds of a subtree's meshes; load-phase timings; and rigid bodies' surfaces.
 
 
 ## [x, y, z] to the millimetre: positions in reports and traces.
@@ -46,3 +46,19 @@ static func lap(timings: Dictionary, phase: String, since: int) -> int:
     var now := Time.get_ticks_usec()
     timings[phase] = snappedf(float(timings.get(phase, 0.0)) + (now - since) / 1000.0, 0.1)
     return now
+
+
+## A rigid body's friction and bounce (a PhysicsMaterial) and its damping, from a physics prop's
+## or a mechanism body's extras: {friction?, bounce?, damping?: {linear?, angular?}}. Damping
+## given replaces the project's default; none leaves it.
+static func body_surface(body: RigidBody3D, data: Dictionary) -> void:
+    var material := PhysicsMaterial.new()
+    material.friction = float(data.get("friction", 0.8))
+    material.bounce = float(data.get("bounce", 0.0))
+    body.physics_material_override = material
+    var damping: Dictionary = data.get("damping", {})
+    if not damping.is_empty():
+        body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+        body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+        body.linear_damp = float(damping.get("linear", 0.0))
+        body.angular_damp = float(damping.get("angular", 0.0))

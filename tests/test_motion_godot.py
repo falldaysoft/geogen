@@ -3,50 +3,32 @@ conformance traces the reference rig wrote (tests/data/motion, geogen.motion_rev
 and motion_player.gd runs motion files on the bodies of an export through the control API."""
 
 import json
-import subprocess
 from pathlib import Path
 
 import numpy as np
 import pytest
 from geogen.runtime_client import step
+from helpers import assert_trace_conforms, replay_traces, replayed_fixture, trace_results
 
 TRACES = sorted((Path(__file__).parent / "data" / "motion").glob("*.json"))
 
 
-def _results(output: str) -> dict[str, list[str]]:
-    found = {}
-    for line in output.splitlines():
-        if line.startswith("trace: "):
-            result = json.loads(line.removeprefix("trace: "))
-            found[result["name"]] = result["problems"]
-    return found
-
-
-@pytest.fixture(scope="module")
-def replayed(run_godot) -> dict[str, list[str]]:
-    return _results(run_godot(*(f"--trace={path}" for path in TRACES)))
+replayed = replayed_fixture(TRACES)
 
 
 @pytest.mark.parametrize("path", TRACES, ids=lambda p: p.stem)
 def test_motion_trace_conforms_in_godot(replayed, path):
-    name = json.loads(path.read_text())["name"]
-    assert name in replayed, f"no result for {name}: got {sorted(replayed)}"
-    assert replayed[name] == []
+    assert_trace_conforms(replayed, path)
 
 
-def test_a_wrong_motion_trace_is_reported(tmp_path):
-    from conftest import GODOT_PROJECT, _godot_binary
-
-    if not _godot_binary():
-        pytest.skip("no Godot")
+def test_a_wrong_motion_trace_is_reported(run_godot, tmp_path):
     trace = json.loads(next(p for p in TRACES if p.stem == "squat").read_text())
     trace["expect"]["positions"][3]["positions"]["LeftHand"][1] += 0.01
     path = tmp_path / "wrong.json"
     path.write_text(json.dumps(trace))
-    result = subprocess.run([_godot_binary(), "--headless", "--path", str(GODOT_PROJECT), "--", f"--trace={path}"],
-                            capture_output=True, text=True, timeout=120)
+    result = replay_traces(path, timeout=120)
     assert result.returncode == 1
-    assert any("10.0 mm" in problem for problem in _results(result.stdout)["squat"])
+    assert any("10.0 mm" in problem for problem in trace_results(result.stdout)["squat"])
 
 
 def test_motion_files_run_on_bodies_in_the_runtime(godot_script, scene_export):

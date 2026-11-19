@@ -28,11 +28,7 @@ func _init() -> void:
     _back.anchor_top = 0.32
     _back.anchor_bottom = 0.32
     _back.grow_vertical = Control.GROW_DIRECTION_BOTH
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.03, 0.04, 0.06, 0.66)
-    style.content_margin_top = 14
-    style.content_margin_bottom = 14
-    _back.add_theme_stylebox_override("panel", style)
+    _back.add_theme_stylebox_override("panel", GeogenHudUi.panel(GeogenHudUi.STRIP_BACK, 0, [-1, -1, 14, 14]))
     add_child(_back)
     _text = Label.new()
     _text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

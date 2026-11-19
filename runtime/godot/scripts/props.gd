@@ -129,16 +129,7 @@ func _make_body(node: Node3D, data: Dictionary, uid: String) -> RigidBody3D:
     body.collision_mask = 1 | 2 | Player.LAYER
     body.continuous_cd = true
     body.can_sleep = false        # resting on a hatch that swings away, it must notice
-    var material := PhysicsMaterial.new()
-    material.friction = float(data.get("friction", 0.8))
-    material.bounce = float(data.get("bounce", 0.0))
-    body.physics_material_override = material
-    var damping: Dictionary = data.get("damping", {})
-    if not damping.is_empty():
-        body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
-        body.angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
-        body.linear_damp = float(damping.get("linear", 0.0))
-        body.angular_damp = float(damping.get("angular", 0.0))
+    GeogenUtil.body_surface(body, data)
     var shape := CollisionShape3D.new()
     shape.shape = make_shape(data)
     shape.position = GeogenUtil.vec(data.get("center", [0, 0.25, 0]))

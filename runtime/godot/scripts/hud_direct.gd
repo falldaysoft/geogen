@@ -29,7 +29,7 @@ const PICK_PIXELS := 70.0       # a click picks the nearest thing within this ma
 const PERSON_PIXELS := 45.0     # ...and a person this near the click before any thing
 const REFRESH := 0.25           # s between redraws while directing (needs, what they are doing)
 const WIDTH := 330.0
-const COLORS := {"back": Color(0.05, 0.06, 0.08, 0.72), "name": Color(1.0, 0.82, 0.4), "text": Color(0.9, 0.91, 0.93),
+const COLORS := {"back": Color(GeogenHudUi.BACK, 0.72), "name": GeogenHudUi.AMBER, "text": Color(0.9, 0.91, 0.93),
     "dim": Color(0.6, 0.63, 0.68), "bar": Color(0.45, 0.75, 0.5), "low": Color(0.9, 0.45, 0.35),
     "trough": Color(0.16, 0.17, 0.2, 0.9), "ring": Color(1.0, 0.82, 0.3)}
 
@@ -59,11 +59,7 @@ func _init() -> void:
     visible = false
     mouse_filter = Control.MOUSE_FILTER_STOP        # a click on the panel isn't a click on the world behind it
     custom_minimum_size = Vector2(WIDTH, 0)
-    var box := StyleBoxFlat.new()
-    box.bg_color = COLORS["back"]
-    box.set_corner_radius_all(6)
-    box.set_content_margin_all(10)
-    add_theme_stylebox_override("panel", box)
+    add_theme_stylebox_override("panel", GeogenHudUi.panel(COLORS["back"], 6, 10))
     _rows.add_theme_constant_override("separation", 3)
     add_child(_rows)
 
@@ -432,19 +428,11 @@ func _place_ring() -> void:
 
 
 static func _flat(color: Color) -> StyleBoxFlat:
-    var box := StyleBoxFlat.new()
-    box.bg_color = color
-    box.set_corner_radius_all(3)
-    return box
+    return GeogenHudUi.panel(color, 3)
 
 
 static func _label(text: String, font_size: int, color: Color) -> Label:
-    var label := Label.new()
-    label.text = text
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    label.add_theme_font_size_override("font_size", font_size)
-    label.add_theme_color_override("font_color", color)
-    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    var label := GeogenHudUi.wrapped(GeogenHudUi.label(text, font_size, color), 0)
     label.custom_minimum_size = Vector2(WIDTH - 20, 0)
     return label
 

@@ -878,32 +878,40 @@ func _unhandled_input(event: InputEvent) -> void:
     if direct != null and direct.active and _direct_input(event):
         get_viewport().set_input_as_handled()
         return
-    if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F6:
-        _open_menu()
-    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_F7, KEY_F8]:
-        _step_scene(-1 if event.physical_keycode == KEY_F7 else 1)
-    elif event.is_action_pressed("geogen_toggle_overlay"):
+    if event.is_action_pressed("geogen_toggle_overlay"):
         overlay.visible = not overlay.visible
         hud.overlay_shown = overlay.visible
-    elif event.is_action_pressed("geogen_toggle_colliders"):
+        return
+    if event.is_action_pressed("geogen_toggle_colliders"):
         world.show_colliders = not world.show_colliders
-    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E:
-        focus.press()
-    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
-        if focus.interaction != null:
-            focus.interaction.toggle_lock(held_keys(), "player")
-    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F5:
-        _npc_labels = not _npc_labels
-        _show_npc_labels()
-    elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
-        _cutaway = not _cutaway
-        _apply_cutaway()
-        _frame_overview(_overview_aabb)
-    elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_F4:
+        return
+    if not (event is InputEventKey and event.pressed):
+        return
+    if event.physical_keycode == KEY_F4:        # repeats while held
         if overview.current:
             player.camera.make_current()
         else:
             overview.make_current()
+        return
+    if event.echo:
+        return
+    match event.physical_keycode:
+        KEY_F6:
+            _open_menu()
+        KEY_F7, KEY_F8:
+            _step_scene(-1 if event.physical_keycode == KEY_F7 else 1)
+        KEY_E:
+            focus.press()
+        KEY_L:
+            if focus.interaction != null:
+                focus.interaction.toggle_lock(held_keys(), "player")
+        KEY_F5:
+            _npc_labels = not _npc_labels
+            _show_npc_labels()
+        KEY_F9:
+            _cutaway = not _cutaway
+            _apply_cutaway()
+            _frame_overview(_overview_aabb)
 
 
 func _physics_process(_delta: float) -> void:
