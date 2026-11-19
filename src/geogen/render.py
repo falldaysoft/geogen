@@ -19,25 +19,13 @@ from .core import meshops
 from .core.mesh import Mesh
 from .core.node import SceneNode
 from .materials.material import Material
+from .views import DEFAULT_COLOR, SUN_DIRECTION, VIEWS, fit_distance, ground_quad, look_at, view_direction
 
 # pyrender 0.1.45 (latest release) still references np.infty, removed in NumPy 2.
 if not hasattr(np, "infty"):
     np.infty = np.inf
 
-DEFAULT_COLOR = (0.7, 0.7, 0.75, 1.0)
 BACKGROUND = (0.55, 0.7, 0.85, 1.0)
-
-# View name -> (azimuth degrees around +Y from +Z, elevation degrees)
-VIEWS: dict[str, tuple[float, float]] = {
-    "iso": (35.0, 25.0),
-    "front": (0.0, 5.0),
-    "front_high": (0.0, 30.0),
-    "side": (90.0, 5.0),
-    "back": (180.0, 5.0),
-    "top": (0.0, 89.0),
-    "iso_back": (215.0, 25.0),
-}
-
 
 @dataclass
 class RenderOptions:
@@ -191,14 +179,7 @@ def frame_bounds(root: SceneNode, pattern: str) -> np.ndarray | None:
 
 
 def _ground_mesh(bounds: np.ndarray) -> pyrender.Mesh:
-    center = bounds.mean(axis=0)
-    extent = max(float(np.max(bounds[1] - bounds[0])), 1.0) * 10
-    y = bounds[0][1] - 1e-3
-    h = extent / 2
-    verts = np.array([
-        [center[0] - h, y, center[2] - h], [center[0] + h, y, center[2] - h],
-        [center[0] + h, y, center[2] + h], [center[0] - h, y, center[2] + h],
-    ], dtype=np.float32)
+    verts = ground_quad(bounds, max(float(np.max(bounds[1] - bounds[0])), 1.0) * 5).astype(np.float32)
     mat = pyrender.MetallicRoughnessMaterial(
         baseColorFactor=(0.62, 0.62, 0.6, 1.0), metallicFactor=0.0, roughnessFactor=0.9
     )
@@ -209,24 +190,6 @@ def _ground_mesh(bounds: np.ndarray) -> pyrender.Mesh:
         material=mat,
     )
     return pyrender.Mesh([prim])
-
-
-def look_at(eye: np.ndarray, target: np.ndarray, up=(0.0, 1.0, 0.0)) -> np.ndarray:
-    """Camera-to-world pose looking from ``eye`` at ``target`` (camera looks down -Z)."""
-    forward = target - eye
-    forward = forward / np.linalg.norm(forward)
-    up = np.asarray(up, dtype=np.float64)
-    if abs(float(np.dot(forward, up))) > 0.999:
-        up = np.array([0.0, 0.0, -1.0])
-    right = np.cross(forward, up)
-    right /= np.linalg.norm(right)
-    true_up = np.cross(right, forward)
-    pose = np.eye(4)
-    pose[:3, 0] = right
-    pose[:3, 1] = true_up
-    pose[:3, 2] = -forward
-    pose[:3, 3] = eye
-    return pose
 
 
 def _direction_pose(direction) -> np.ndarray:
@@ -271,7 +234,7 @@ class SceneRenderer:
         # Warm sun casting shadows plus a cool, weaker sky fill from the opposite side.
         self.scene.add(
             pyrender.DirectionalLight(color=[1.0, 0.96, 0.9], intensity=3.5),
-            pose=_direction_pose([-0.45, -1.0, -0.6]),
+            pose=_direction_pose(SUN_DIRECTION),
         )
         self._fill = pyrender.DirectionalLight(color=[0.8, 0.87, 1.0], intensity=1.2)
         self._fill_node = self.scene.add(self._fill, pose=np.eye(4))
@@ -287,13 +250,11 @@ class SceneRenderer:
         if opts.camera is not None:
             return look_at(np.asarray(opts.camera, dtype=np.float64), target)
         azimuth, elevation = VIEWS[view]
-        az, el = np.radians(azimuth), np.radians(elevation)
-        direction = np.array([np.sin(az) * np.cos(el), np.sin(el), np.cos(az) * np.cos(el)])
+        direction = view_direction(azimuth, elevation)
         radius = float(np.linalg.norm(self.framed[1] - self.framed[0])) / 2
         half_fov = np.radians(opts.fov) / 2
         aspect = opts.width / opts.height
-        fit = min(np.tan(half_fov), np.tan(half_fov) * aspect)
-        distance = radius / np.sin(np.arctan(fit)) * 1.02 / opts.zoom
+        distance = fit_distance(radius, opts.fov, aspect) / opts.zoom
         up = (0.0, 0.0, -1.0) if elevation > 80 else (0.0, 1.0, 0.0)
         if self.framed is not self.bounds:
             # A framed box (a row of heads) fits by its corners, not its bounding sphere.

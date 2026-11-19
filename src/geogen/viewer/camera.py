@@ -6,15 +6,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-# Named presets: (yaw degrees around +Y from +Z, pitch degrees above horizon)
-PRESETS: dict[str, tuple[float, float]] = {
-    "front": (0.0, 0.0),
-    "back": (180.0, 0.0),
-    "right": (90.0, 0.0),
-    "left": (-90.0, 0.0),
-    "top": (0.0, 89.9),
-    "iso": (35.0, 25.0),
-}
+from ..views import VIEWS, fit_distance, view_direction
+
+PRESETS = VIEWS     # named (yaw, pitch), shared with the offscreen renderer
 
 
 @dataclass
@@ -30,13 +24,7 @@ class OrbitCamera:
     scene_radius: float = 1.0
 
     def eye(self) -> np.ndarray:
-        yaw, pitch = np.radians(self.yaw), np.radians(self.pitch)
-        direction = np.array([
-            np.sin(yaw) * np.cos(pitch),
-            np.sin(pitch),
-            np.cos(yaw) * np.cos(pitch),
-        ])
-        return self.target + direction * self.distance
+        return self.target + view_direction(self.yaw, self.pitch) * self.distance
 
     def basis(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return (right, up, forward) unit vectors in world space."""
@@ -102,9 +90,7 @@ class OrbitCamera:
         bounds = np.asarray(bounds, dtype=np.float64)
         self.target = bounds.mean(axis=0)
         radius = max(float(np.linalg.norm(bounds[1] - bounds[0])) / 2, 1e-3)
-        half_fov = np.radians(self.fov) / 2
-        fit = min(np.tan(half_fov), np.tan(half_fov) * self.aspect)
-        self.distance = radius / np.sin(np.arctan(fit)) * 1.05
+        self.distance = fit_distance(radius, self.fov, self.aspect)
         if not keep_angles:
             self.yaw, self.pitch = PRESETS["iso"]
 

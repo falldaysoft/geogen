@@ -406,7 +406,7 @@ def main() -> None:
             scenes=registry.scenes,
             default_scene=args.scene,
             screenshot=args.viewer_screenshot,
-            view=None if args.view == "iso" else {"side": "right"}.get(args.view, args.view),
+            view=None if args.view == "iso" else args.view,
             display_mode=["lit", "clay", "normals", "uv"].index(args.display),
             cutaway=args.cutaway,
             storey=args.storey,

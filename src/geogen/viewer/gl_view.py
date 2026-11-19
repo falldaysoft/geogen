@@ -15,12 +15,12 @@ from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..lighting import DirectionalLight, SceneLighting
 from ..materials.material import Material
+from ..views import DEFAULT_COLOR, ground_quad, look_at
 from .camera import OrbitCamera, ray_mesh_intersect
 
 DISPLAY_MODES = ["Lit", "Clay", "Normals", "UV checker"]
 SHADOW_SIZE = 4096
 SELECTION_COLOR = (1.0, 0.6, 0.1)
-DEFAULT_COLOR = (0.7, 0.7, 0.75, 1.0)
 
 
 @dataclass
@@ -54,19 +54,6 @@ def _ortho(left, right, bottom, top, near, far) -> np.ndarray:
     m[1, 3] = -(top + bottom) / (top - bottom)
     m[2, 3] = -(far + near) / (far - near)
     return m
-
-
-def _look_at_view(eye: np.ndarray, target: np.ndarray) -> np.ndarray:
-    forward = target - eye
-    forward /= np.linalg.norm(forward)
-    up = np.array([0.0, 1.0, 0.0]) if abs(forward[1]) < 0.99 else np.array([0.0, 0.0, 1.0])
-    right = np.cross(forward, up)
-    right /= np.linalg.norm(right)
-    up = np.cross(right, forward)
-    view = np.eye(4)
-    view[0, :3], view[1, :3], view[2, :3] = right, up, -forward
-    view[:3, 3] = -view[:3, :3] @ eye
-    return view
 
 
 MAX_SHADER_LIGHTS = 16      # matches MAX_LIGHTS in scene.frag
@@ -248,11 +235,7 @@ class GLView(QOpenGLWidget):
         if self._ground is not None:
             GL.glDeleteVertexArrays(1, [self._ground.vao])
             GL.glDeleteBuffers(len(self._ground.buffers), self._ground.buffers)
-        radius = max(self.camera.scene_radius, 0.5) * 6
-        c = self._bounds.mean(axis=0)
-        y = float(self._bounds[0][1]) - 2e-3
-        v = np.array([[c[0] - radius, y, c[2] - radius], [c[0] + radius, y, c[2] - radius],
-                      [c[0] + radius, y, c[2] + radius], [c[0] - radius, y, c[2] + radius]])
+        v = ground_quad(self._bounds, max(self.camera.scene_radius, 0.5) * 6)
         mesh = Mesh(v, np.array([[0, 2, 1], [0, 3, 2]]), normals=np.tile([0.0, 1.0, 0.0], (4, 1)))
         self._ground = _GpuMesh(node=None, vertices=v, faces=mesh.faces, bounds=np.array([v.min(0), v.max(0)]),
                                 material=None)
@@ -412,7 +395,7 @@ class GLView(QOpenGLWidget):
             return
         center = self._bounds.mean(axis=0)
         radius = max(self.camera.scene_radius, 0.1) * 1.05
-        view = _look_at_view(center - direction * radius * 2, center)
+        view = np.linalg.inv(look_at(center - direction * radius * 2, center))
         self._light_space = _ortho(-radius, radius, -radius, radius, 0.01, radius * 4) @ view
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self._shadow_fbo)
