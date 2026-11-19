@@ -1,0 +1,39 @@
+# An apple, taken by its top (motions take, bite).
+# Origin: the middle of its base.
+
+name: apple
+tags: [decor.food, prop.apple]
+origin: bottom_center
+size: [1, 1, 1]
+bounds: geometry
+
+params:
+  colour: { default: maroon, type: text }
+
+physics: { mass: 0.18, friction: 0.6, bounce: 0.2, carry: true }
+
+parts:
+  fruit:
+    primitive: lathe
+    profile: [[0, 0.008], [0.013, 0.0034], [0.022, 0.0037], [0.0291, 0.0077], [0.0345, 0.0132], [0.0381, 0.0198], [0.0399, 0.0272], [0.04, 0.035], [0.0385, 0.0428], [0.0355, 0.0502], [0.0312, 0.0568], [0.0257, 0.0623], [0.019, 0.0659], [0.0111, 0.0657], [0, 0.062]]
+    fit: none
+    segments: 20
+    size: [0.08, 0.07, 0.08]
+    anchor: bottom_center
+    material: ceramic_white
+    tint: "{colour}"
+  stem:
+    primitive: cylinder
+    size: [0.005, 0.018, 0.005]
+    anchor: bottom_center
+    offset: [0, 0.06, 0]
+    material: wood
+    tint: charcoal
+    collider: none
+
+attachments:
+  # Where a hand takes it: the fingertips on its shoulder, the stem clear of them.
+  top:
+    anchor: bottom_center
+    offset: [0, 0.07, 0]
+    grip: pinch

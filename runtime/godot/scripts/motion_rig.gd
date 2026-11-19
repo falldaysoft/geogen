@@ -502,6 +502,9 @@ func start(motion: Dictionary, values := {}) -> Run:
                 return null
     var spec := motion.duplicate()
     spec["beats"] = beats
+    spec = _borrow_hand(spec, bound)
+    if spec.is_empty():
+        return null
     if posture == "stand" and owners.get("root") == null:
         floor_y = body_world.origin.y
     _order += 1
@@ -518,6 +521,114 @@ func start(motion: Dictionary, values := {}) -> Run:
     _event("start", run, {})
     _enter(run, str(spec.get("initial", beats.keys()[0])))
     return run
+
+
+## `spec` for the hand that holds its `held` roles' things: as written, or mirrored when it is
+## written for the other hand; {} when no hand holds one (motion.MotionRig._borrow_hand).
+func _borrow_hand(spec: Dictionary, bound: Dictionary) -> Dictionary:
+    var roles: Dictionary = spec.get("roles", {})
+    for role in roles:
+        if not (roles[role] is Dictionary and roles[role].get("held", false)) or not bound.has(role):
+            continue
+        var end := held_by((bound[role] as Target).thing)
+        if end == "":
+            push_error("motion '%s': role '%s' is held, and no hand holds it" % [spec.get("name", "motion"), role])
+            return {}
+        var hand := "right_hand" if end == "RightHand" else "left_hand"
+        var other := "left_hand" if end == "RightHand" else "right_hand"
+        var claimed := []
+        for kind in STRENGTHS:
+            claimed.append_array(spec.get("holds", {}).get(kind, []))
+        if other in claimed and not hand in claimed:
+            return mirror_motion(spec)
+    return spec
+
+
+## The hand holding `thing` ("" for none).
+func held_by(thing: Thing) -> String:
+    for role in attached_:
+        if attached_[role]["thing"] == thing:
+            return attached_[role]["end"]
+    return ""
+
+
+## What the running motions' `while` make of `activity`: each share, multiplied.
+func coupling(activity := "walk") -> Dictionary:
+    var out_ := {"speed": 1.0, "arm_swing": 1.0}
+    for run in running_runs():
+        var effect = run.motion.get("while", {}).get(activity, {})
+        for key in effect:
+            out_[key] = float(out_.get(key, 1.0)) * float(effect[key])
+    return out_
+
+
+func running_runs() -> Array:
+    return runs.filter(func(r): return not r.done)
+
+
+## `spec` for the other side of the body, its `{expr}` resolved (motion.mirror_motion).
+static func mirror_motion(spec: Dictionary) -> Dictionary:
+    var across := func(v: Array) -> Array: return [-float(v[0]), v[1], v[2]]
+    var beats := {}
+    for name in spec["beats"]:
+        var beat: Dictionary = spec["beats"][name].duplicate()
+        if beat.get("ik") is Dictionary:
+            var ik := {}
+            for end in beat["ik"]:
+                if end == "mirror":
+                    ik[end] = beat["ik"][end]
+                    continue
+                var entry: Dictionary = beat["ik"][end].duplicate()
+                var target = entry.get("target")
+                var on_body: bool = target is Array or (target is String and target.begins_with("self."))
+                if target is Array:
+                    entry["target"] = across.call(target)
+                for key in ["pole", "fingers", "palm"] + (["offset"] if on_body else []):
+                    if entry.has(key):
+                        entry[key] = across.call(entry[key])
+                ik[_side(end)] = entry
+            beat["ik"] = ik
+        if beat.get("bones") is Dictionary:
+            var bones := {}
+            for bone in beat["bones"]:
+                var d: Array = beat["bones"][bone]
+                bones[_side(bone)] = [d[0], -float(d[1]), -float(d[2])]
+            beat["bones"] = bones
+        if beat.get("hips") is Array:
+            beat["hips"] = across.call(beat["hips"])
+        if beat.get("attach") is Dictionary:
+            var attach := {}
+            for role in beat["attach"]:
+                var how = beat["attach"][role]
+                if how is Dictionary:
+                    how = how.duplicate()
+                    how["hand"] = _side(str(how.get("hand", "hand")))
+                else:
+                    how = _side(str(how))
+                attach[role] = how
+            beat["attach"] = attach
+        beats[name] = beat
+    var holds := {}
+    var given: Dictionary = spec.get("holds", {})
+    for kind in given:
+        if given[kind] is Dictionary:
+            holds[kind] = {}
+            for c in given[kind]:
+                holds[kind][_side(c)] = given[kind][c]
+        else:
+            holds[kind] = given[kind].map(func(c): return _side(c))
+    var out_ := spec.duplicate()
+    out_["beats"] = beats
+    out_["holds"] = holds
+    return out_
+
+
+static func _side(name: String) -> String:
+    var swap := {"hand": "left", "left": "right", "right": "left", "left_hand": "right_hand", "right_hand": "left_hand"}
+    if swap.has(name):
+        return swap[name]
+    var twin := _mirror_name(name)
+    return twin if twin != "" else name
 
 
 ## Ask the running motion `name` (the latest started) to stop: `yield` follows its beat's
@@ -682,7 +793,12 @@ func _arrive(run: Run) -> void:
         var rel := Transform3D(thing.basis, thing.origin - hand.origin) if level else hand.affine_inverse() * thing
         target.thing.xform = target.thing.world()
         target.thing.held = true
-        attached_[role] = {"thing": target.thing, "end": end, "rel": rel, "level": level}
+        # A thing already in a hand is re-gripped where it is, under the role that took it.
+        var key: String = role
+        for k in attached_:
+            if attached_[k]["thing"] == target.thing:
+                key = k
+        attached_[key] = {"thing": target.thing, "end": end, "rel": rel, "level": level}
         _event("attach", run, {"role": role, "hand": end})
         attached.emit(target.thing, end)
     var release = spec.get("release")

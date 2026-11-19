@@ -21,7 +21,9 @@ params:
   carry_y: { default: 0.58 }
   carry_z: { default: 0.68 }
 holds:
-  prefer: [right_hand]            # under whatever uses the hand (take, set_down), back when they end
+  prefer: [right_hand]            # under whatever uses the hand (take, set_down, bite), back when they end
+while:
+  walk: { arm_swing: 0.5 }        # the carrying arm is held still; the free one swings less
 initial: held
 beats:
   held:

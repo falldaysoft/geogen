@@ -1,0 +1,14 @@
+# The apple in the left hand (geogen.103.6): bite is written for the right hand and borrows the
+# hand that holds the apple, so it runs mirrored.
+kind: motion_scenario
+description: Take an apple in the left hand and bite it with that hand.
+scene:
+  place:
+    table: { asset: table.yaml, params: { width: 1.0, depth: 0.5 } }
+    apple: { asset: apple.yaml, on: table.top, at: { u: 0.75, v: 0.8 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: apple, grip: pinch, offset: [0.2, 0, 0.36], facing: toward }
+script:
+  - { at: 0.2, start: take_left, item: apple }
+  - { at: 0.2, start: carry_left, item: apple, duration: 6 }
+  - { at: 2.6, start: bite, item: apple, bites: 1, between: 0.5 }
+camera: { view: iso_back, frame: [table, actor], margin: 0.15 }

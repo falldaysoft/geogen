@@ -20,12 +20,12 @@ beats, owners, emits and interruptions; ``samples`` the per-frame numbers review
 
 A run that loses a claimed channel to an overlay pauses and picks up from its beat's ``resume``;
 ``break_`` drops everything into a reaction (geogen.103.5). Runs that ``share`` a channel (the
-gaze) take turns at it by weight (geogen.103.6). runtime/godot/scripts/motion_rig.gd is the
-runtime's port (geogen.103.7).
+gaze) take turns at it by weight; a motion's ``while`` says what it does to a walk, and a role
+that is ``held`` borrows the hand already holding its thing (geogen.103.6).
+runtime/godot/scripts/motion_rig.gd is the runtime's port (geogen.103.7).
 
-Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``while``/``layer``,
-borrowing the hand that holds a role's thing, and locomotion between places (the body slides
-onto ``root`` targets).
+Not yet (later geogen.103 tasks): ``when``/``until``/``do``/``bend``/``layer``, and locomotion
+between places (the body slides onto ``root`` targets).
 """
 
 from __future__ import annotations
@@ -58,15 +58,19 @@ MOTION_KEYS = {
     "demo": "[{at, start: <motion>, <role>: <role> | <role>@start, ...}]: how a demonstration shows it when it needs "
             "others around it (take, carry and set_down: take it, carry it, put it back where it stood); roles name "
             "this motion's staged props, `@start` where one stood when the demonstration began",
-    "roles": "{role: {grip, optional}}: the things it acts on, bound by whoever runs it",
+    "roles": "{role: {grip, optional, held}}: the things it acts on, bound by whoever runs it; `held: true`: a hand must "
+             "already hold the thing and the motion borrows that hand (written for the right hand, it runs mirrored "
+             "when the left has it); its `attach` re-grips the thing where it is, its `release` lets go for good",
     "params": "{name: {default}}: build-time values for {expr} in its beats",
     "holds": "{require: [channels], claim: [...], prefer: [...], share: {channel: weight}}",
     "posture": "{from, to}: its edge in the posture graph (stand -> sit)",
-    "while": "{motion: {...}}: what it does to other motions while it runs (not yet)",
+    "while": "{walk: {speed: 0..1, arm_swing: 0..1}}: what it does to the body's walk while it runs, as shares of "
+             "the walk's own (eating slows it; several motions multiply)",
     "layer": "true: it outlives the action that started it (carry; not yet)",
     "initial": "the first beat (default: the first listed)",
     "beats": "{name: beat}: its named moments",
     "extends": "another motion whose keys this one starts from",
+    "mirror": "true: the motion for the other side of the body (with `extends`: take_left from take)",
     "priority": "breaks ties between equal claims (default 0; reactions higher)",
 }
 
@@ -106,6 +110,7 @@ BEAT_KEYS = {
 NOT_YET = {"when", "until", "do", "bend"}
 INTERRUPTS = ("yield", "finish", "hold", "drop")
 STRENGTHS = {"prefer": 1, "claim": 2, "require": 3}
+COUPLINGS = {"walk": ("speed", "arm_swing")}      # what a motion's `while` can change, and of what
 EASES = ("smooth", "settle", "linear", "spring")
 
 FPS = 30
@@ -153,7 +158,7 @@ def load_motion(name: str | Path, assets_dir: Path | None = None) -> dict:
         spec = merged
     spec.setdefault("name", path.stem)
     validate_motion(spec, str(path))
-    return spec
+    return mirror_motion(spec) if spec.pop("mirror", False) else spec
 
 
 MOTIONS_FILE = "motions.json"
@@ -241,6 +246,11 @@ def validate_motion(spec: dict, where: str = "motion") -> None:
     for role in (spec.get("props") or {}):
         if role not in (spec.get("roles") or {}):
             raise MotionError(f"{where}: props.{role} is not one of its roles")
+    for activity, effect in (spec.get("while") or {}).items():
+        if activity not in COUPLINGS or not isinstance(effect, dict) or set(effect) - set(COUPLINGS[activity]):
+            raise MotionError(f"{where}: while.{activity}: expected one of {COUPLINGS}")
+        if not all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in effect.values()) or effect.get("speed", 1) == 0:
+            raise MotionError(f"{where}: while.{activity}: shares are 0..1 (a speed above 0)")
     beats = spec.get("beats") or {}
     if not beats:
         raise MotionError(f"{where}: no beats")
@@ -664,6 +674,7 @@ class MotionRig:
             if isinstance(v, str) and v.startswith("{"):
                 values[k] = params[k] = resolve_value(v, values)
         spec = {**spec, "beats": resolve_value(spec["beats"], values)}
+        spec = self._borrow_hand(spec, resolved)
         self._order += 1
         run = Run(spec, resolved, self._order, params)
         run.origins = {role: t.node.world_transform().copy() for role, t in resolved.items() if t.node is not None}
@@ -671,6 +682,30 @@ class MotionRig:
         self._event("start", run)
         self._enter(run, spec.get("initial", next(iter(spec["beats"]))))
         return run
+
+    def _borrow_hand(self, spec: dict, bound: dict[str, Target]) -> dict:
+        """``spec`` for the hand that holds its ``held`` roles' things: as written, or mirrored when
+        it is written for the other hand."""
+        for role, entry in (spec.get("roles") or {}).items():
+            if not (entry or {}).get("held") or role not in bound:
+                continue
+            held = next((h for h in self.attached.values() if h.node is bound[role].node), None)
+            if held is None:
+                raise MotionError(f"motion '{spec['name']}': role '{role}' is held, and no hand holds it")
+            hand, other = (f"{side}_hand" for side in (("right", "left") if held.end == "RightHand" else ("left", "right")))
+            holds = spec.get("holds") or {}
+            claimed = {c for kind in STRENGTHS for c in holds.get(kind) or []}
+            if other in claimed and hand not in claimed:
+                return mirror_motion(spec)
+        return spec
+
+    def coupling(self, activity: str = "walk") -> dict[str, float]:
+        """What the running motions' ``while`` make of ``activity``: each share, multiplied."""
+        out = dict.fromkeys(COUPLINGS[activity], 1.0)
+        for run in self.running():
+            for key, share in ((run.motion.get("while") or {}).get(activity) or {}).items():
+                out[key] *= float(share)
+        return out
 
     def interrupt(self, run: Run | str, how: str = "yield") -> str:
         """Ask a running motion to stop: ``yield`` follows its current beat's policy, ``drop``
@@ -783,7 +818,9 @@ class MotionRig:
                 rel[:3, 3] = heading[:3, :3].T @ (thing[:3, 3] - hand_world[:3, 3])
             else:
                 rel = np.linalg.inv(hand_world) @ thing
-            self.attached[role] = Held(target.node, end, rel, bool(how.get("level")))
+            # A thing already in a hand is re-gripped where it is, under the role that took it.
+            key = next((k for k, h in self.attached.items() if h.node is target.node), role)
+            self.attached[key] = Held(target.node, end, rel, bool(how.get("level")))
             self._event("attach", run, role=role, hand=end)
         release = spec.get("release")
         for role in ([release] if isinstance(release, str) else release or []):
@@ -1503,6 +1540,51 @@ class MotionRig:
             entry["beat"] = run.beat or None
         entry.update(data)
         self.trace.append(entry)
+
+
+def mirror_motion(spec: dict) -> dict:
+    """``spec`` for the other side of the body: hands, bones, body-frame points and turns swap
+    across the body. A point on a thing stays where it is."""
+    from .core.skeleton import mirror_name
+
+    def across(v) -> list:
+        x = v[0]
+        return [f"{{-({x.strip('{}')})}}" if isinstance(x, str) else -float(x), *v[1:]]
+
+    def side(name: str) -> str:
+        swap = {"hand": "left", "left": "right", "right": "left", "left_hand": "right_hand", "right_hand": "left_hand"}
+        return swap.get(name) or mirror_name(name) or name
+
+    beats = {}
+    for name, beat in spec["beats"].items():
+        beat = dict(beat or {})
+        ik = {}
+        for end, entry in (beat.get("ik") or {}).items():
+            if end == "mirror":
+                ik[end] = entry
+                continue
+            entry = dict(entry)
+            target = entry.get("target")
+            on_body = isinstance(target, (list, tuple)) or (isinstance(target, str) and target.startswith("self."))
+            if isinstance(target, (list, tuple)):
+                entry["target"] = across(target)
+            for key in ("pole", "fingers", "palm", *(("offset",) if on_body else ())):
+                if key in entry:
+                    entry[key] = across(entry[key])
+            ik[side(end)] = entry
+        if ik:
+            beat["ik"] = ik
+        if beat.get("bones"):
+            beat["bones"] = {side(b): [d[0], -float(d[1]), -float(d[2])] for b, d in beat["bones"].items()}
+        if beat.get("hips") is not None:
+            beat["hips"] = across(beat["hips"])
+        if beat.get("attach"):
+            beat["attach"] = {role: {**how, "hand": side(how.get("hand", "hand"))} if isinstance(how, dict) else side(how)
+                              for role, how in beat["attach"].items()}
+        beats[name] = beat
+    holds = {kind: ({side(c): w for c, w in v.items()} if isinstance(v, dict) else [side(c) for c in v])
+             for kind, v in (spec.get("holds") or {}).items()}
+    return {**spec, "beats": beats, "holds": holds}
 
 
 def _hand_turn(end: str, entry: dict) -> NDArray[np.float64] | None:

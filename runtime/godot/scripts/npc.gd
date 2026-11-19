@@ -1413,6 +1413,8 @@ func _step(delta: float) -> void:
     if animator != null:
         animator.advance(delta)
         animator.locomote(Vector2(velocity.x, velocity.z).length(), _pose == "stand", _playing)
+        if _motions != null:
+            _motions.walking = _pose == "stand" and Vector2(velocity.x, velocity.z).length() > GeogenNpcAnimator.WALK_THRESHOLD
     _attend(delta)
     if GeogenMemory.has(self):
         GeogenMemory.step(self)
@@ -1866,6 +1868,10 @@ func _begin_do(step: Dictionary, ctx: Dictionary) -> String:
         if bound == null:
             return "motion '%s': nothing to be its %s (%s)" % [name, role, roles[role]]
         values[role] = bound
+        var entry = spec.get("roles", {}).get(role)
+        if entry is Dictionary and entry.get("held", false) and bound is Node3D \
+                and player.rig.held_by(player.thing_of(bound)) == "":
+            return ""                      # taken some other way: no hand of the rig's to borrow
     var run := player.start(spec, values)
     if run == null:
         return "motion '%s' can't run on this body" % name
@@ -3126,6 +3132,8 @@ func _walk(delta: float) -> String:
     var to := target - global_position
     var flat := Vector2(to.x, to.z)
     var speed := float(definition.get("speed", 1.2))
+    if _motions != null:
+        speed *= float(_motions.rig.coupling("walk")["speed"])    # a motion's `while`: eating slows the walk
     # (On its own level: a waypoint a turn of a spiral stair above isn't reached from below.)
     # Stepping up to a counter (`close`), the last waypoint is the spot itself.
     var radius := CLOSE_RADIUS if _close and _waypoint == _path.size() - 1 else WAYPOINT_RADIUS
@@ -3941,6 +3949,7 @@ func report() -> Dictionary:
         "outside": snappedf(stats["outside"], 0.01), "passes": stats["passes"], "pose": _pose, "clip": animator.current() if animator != null else "",
         "hands": _hands.report() if _hands != null else {},
         "feet": _feet.report() if _feet != null else {},
+        "motions": _motions.rig.running() if _motions != null else [],
         "position": _v(p), "head": _v(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away, "absent": absent,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),

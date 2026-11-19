@@ -35,6 +35,7 @@ var _active := false              # writing bones (a motion runs, or one just en
 var _things := {}                 # node -> its GeogenMotionRig.Thing
 var _shapes := {}                 # "node:target" -> [MeshInstance3D, blend shape index]
 var layered := false              # write only what motions hold, over the body's animation
+var walking := false              # layered: the body is walking (a motion's `while` can quiet its free arms)
 var holder: Node3D = null         # who holds what the hands take (GeogenProps.take); null: the body
 var _weights := PackedFloat32Array()   # layered: how much of each rig bone is the rig's, 0..1
 
@@ -275,10 +276,14 @@ func _physics_process(delta: float) -> void:
 ## Each bone's share toward 1 while a motion holds its channel, else toward 0; whether all are off.
 func _ease_layers(delta: float) -> bool:
     var off := true
+    var swing := float(rig.coupling("walk")["arm_swing"])
     for i in _weights.size():
         var channel = rig.channel_of.get(rig.names[i])
         var held: bool = channel != null and rig.owners.get(channel) != null
-        _weights[i] = move_toward(_weights[i], 1.0 if held else 0.0, delta / LAYER_EASE)
+        var goal := 1.0 if held else 0.0
+        if not held and walking and channel in ["left_hand", "right_hand"]:
+            goal = 1.0 - swing               # towards the rig's hanging arm: the walk's swing, less
+        _weights[i] = move_toward(_weights[i], goal, delta / LAYER_EASE)
         off = off and _weights[i] <= 0.0
     return off
 

@@ -619,3 +619,44 @@ def test_every_motion_has_a_stage():
                 assert spec["actor"]["at"] == spec["script"][0][role] and spec["actor"]["offset"][2] == prop["behind"]
             else:
                 assert staged["on"] == "table.top"
+
+
+def _bite(name):
+    """The scenario up to the end of its bites, the thing still carried."""
+    spec = load_scenario(name)
+    spec["script"] = [{k: v for k, v in e.items() if k != "duration"} for e in spec["script"] if e["start"] != "set_down"]
+    return run_scenario(spec)
+
+
+@pytest.mark.parametrize("name, hand", [("bite_apple", "RightHand"), ("bite_apple_left", "LeftHand")])
+def test_bite_borrows_the_hand_that_holds_the_apple(name, hand):
+    rig = _bite(name).rig
+    attaches = [e for e in rig.trace if e["event"] == "attach"]
+    assert {e["hand"] for e in attaches} == {hand}                  # mirrored for the left hand, not re-taken
+    assert list(rig.attached) == ["item"] and rig.attached["item"].end == hand   # still held, by the role that took it
+    assert [r.name for r in rig.running()] == [f"carry{'_left' if hand == 'LeftHand' else ''}"]   # carry has the hand back
+    assert sum(e["event"] == "emit" and e.get("emit") == "bite" for e in rig.trace) >= 1
+
+
+def test_a_held_role_needs_a_hand_holding_the_thing():
+    rig = _bite("bite_apple").rig
+    from geogen import refs
+
+    table = refs.resolve(rig.scene, "table")
+    with pytest.raises(MotionError, match="no hand holds it"):
+        rig.start("bite", item=table)
+
+
+def test_while_couples_motions_to_the_walk():
+    rig = _bite("bite_apple").rig
+    assert rig.coupling("walk") == {"speed": 1.0, "arm_swing": 0.5}   # carry alone
+    rig.start("bite", item=rig.attached["item"].node)
+    assert rig.coupling("walk") == pytest.approx({"speed": 0.8, "arm_swing": 0.3})
+
+
+def test_while_only_takes_shares_of_what_it_knows():
+    spec = {"kind": "motion", "name": "x", "beats": {"a": {}}, "while": {"walk": {"speed": 2}}}
+    with pytest.raises(MotionError):
+        validate_motion(spec)
+    with pytest.raises(MotionError):
+        validate_motion({**spec, "while": {"swim": {"speed": 0.5}}})

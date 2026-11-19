@@ -261,6 +261,18 @@ actions:
       - go_to: place
       - put_down: place
 
+  eat_on_the_way:                # take the subject and eat it while walking to the place (the walk slows: bite's `while`)
+    steps:
+      - go_to: subject
+        close: true
+        look: subject
+      - pick_up: subject
+      - do: bite
+        roles: { item: subject }
+        keep: true
+      - go_to: place
+      - put_down: place
+
   # A prop's own affordance (a book's): the subject is the prop and the place is where it lay
   # when the NPC chose it, so it ends up back there (geogen.104).
   read:                          # take the book to a seat or a bed, read it there, put it back

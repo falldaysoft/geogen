@@ -263,3 +263,22 @@ def test_a_seat_with_something_on_it_is_not_sat_on(rt):
     assert "chair#0" not in offered()
     to_the_floor(rt, "pumpkin")                                            # cleared, the chair is a seat again
     assert "chair#0" in offered()
+
+
+def test_eating_on_the_way_slows_the_walk(rt):
+    """bite borrows the hand carrying the can while the legs walk, and its `while` slows them."""
+    place = rt.call("npcs.places", npc="resident", want="tidy", prop="can")["places"][0]
+    rt.call("npcs.do", npc="resident", action="eat_on_the_way", subject="can", place=place["position"])
+    speeds, was = [], None
+    for _ in range(600):
+        rt.call("time.advance", seconds=0.2, scale=1)
+        npc = resident(rt)
+        if "bite" in npc["motions"] and was is not None:
+            speeds.append(math.dist(npc["position"][::2], was) / 0.2)
+        was = npc["position"][::2] if "bite" in npc["motions"] else None
+        if speeds and "bite" not in npc["motions"]:
+            break
+    walking = [v for v in speeds if v > 0.3]
+    assert walking, "it never walked while biting"
+    assert max(walking) == pytest.approx(1.2 * 0.8, abs=0.08)              # bite's `while`: 0.8 of its 1.2 m/s
+    run_until(rt, lambda: resident(rt)["prop"] == "")

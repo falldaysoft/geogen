@@ -265,16 +265,18 @@ An NPC interaction animation: beats (poses, IK onto object contacts, gaze, root)
 
 Use: `MotionRig(actor, scene).start('sit', seat='chair'); review: python -m geogen.motion_review`
 
-Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name`, `params`, `posture`, `priority`, `props`, `roles`, `summary`, `while`
+Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `mirror`, `name`, `params`, `posture`, `priority`, `props`, `roles`, `summary`, `while`
 
 | File | What it is |
 | --- | --- |
 | [motions/angry.yaml](../../assets/motions/angry.yaml) | Angry (geogen.103.17): fists clenched at the sides, leaning in, then the right fist raised and shaken `shakes` times. |
 | [motions/arms_crossed.yaml](../../assets/motions/arms_crossed.yaml) | Arms crossed (geogen.103.17): an idle. |
 | [motions/beckon.yaml](../../assets/motions/beckon.yaml) | Beckon (geogen.103.17): "come here". |
+| [motions/bite.yaml](../../assets/motions/bite.yaml) | Bite something already in the hand (geogen.103.6): the role is `held`, so this borrows the hand that carries it (mirrored when that is the left) and nothing else: the legs go on walking and the eyes on where they are going. |
 | [motions/bow.yaml](../../assets/motions/bow.yaml) | A bow with the right hand on the chest (geogen.103.5). |
 | [motions/carry.yaml](../../assets/motions/carry.yaml) | Hold a taken thing where it is carried (geogen.103.4): the hand stays put in front of the hip, shaped by the thing's grip, whenever nothing else uses the hand (it only prefers it: start it with take and it holds on from the lift). |
 | [motions/carry_both.yaml](../../assets/motions/carry_both.yaml) | Hold a bulky thing in both hands in front of the body (geogen.103.8). |
+| [motions/carry_left.yaml](../../assets/motions/carry_left.yaml) | carry in the left hand (geogen.103.6). |
 | [motions/celebrate_jump.yaml](../../assets/motions/celebrate_jump.yaml) | Celebrate (geogen.103.17): a crouch, then a jump with both fists flung up, and a landing that bends the knees. |
 | [motions/check_watch.yaml](../../assets/motions/check_watch.yaml) | Check the time (geogen.103.17): an idle. |
 | [motions/cheer.yaml](../../assets/motions/cheer.yaml) | Cheer (geogen.103.17): both fists punched up overhead, pumped `pumps` times, with a bounce at the knees. |
@@ -315,6 +317,7 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `name
 | [motions/surprised.yaml](../../assets/motions/surprised.yaml) | Surprised (geogen.103.17): a start: the hands fly up in front of the chest, palms out, the body rocking back; then it relaxes. |
 | [motions/take.yaml](../../assets/motions/take.yaml) | Take a thing in one hand (geogen.103.4; the design's worked example 2): reach over it with the hand open, close the hand on the grip the thing offers (a plate's rim: rim), lift it to where it is carried. |
 | [motions/take_both.yaml](../../assets/motions/take_both.yaml) | Take a bulky thing in both hands (geogen.103.8): a hand on each side of it, lifted to in front of the body. |
+| [motions/take_left.yaml](../../assets/motions/take_left.yaml) | take with the left hand (geogen.103.6). |
 | [motions/take_low.yaml](../../assets/motions/take_low.yaml) | Take a thing from low down (geogen.103.8): `take`, with the knees bent to get the hand to it. |
 | [motions/tap_foot.yaml](../../assets/motions/tap_foot.yaml) | Tap the foot (geogen.103.17): an idle, impatient. |
 | [motions/think.yaml](../../assets/motions/think.yaml) | Think (geogen.103.17): the right hand to the chin, the left forearm across the waist under the right elbow, the head tipped and the eyes up; hold, then both arms down. |
@@ -335,6 +338,8 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `scr
 
 | File | What it is |
 | --- | --- |
+| [motions/scenarios/bite_apple.yaml](../../assets/motions/scenarios/bite_apple.yaml) | Take an apple from a table and eat it out of the hand (geogen.103.6): bite borrows the hand that carry holds it in, and carry has the hand back between bites and after them. |
+| [motions/scenarios/bite_apple_left.yaml](../../assets/motions/scenarios/bite_apple_left.yaml) | The apple in the left hand (geogen.103.6): bite is written for the right hand and borrows the hand that holds the apple, so it runs mirrored. |
 | [motions/scenarios/bow_wave.yaml](../../assets/motions/scenarios/bow_wave.yaml) | A bow; a wave borrows the right hand from it (geogen.103.5): the bow pauses, and picks up from. |
 | [motions/scenarios/drink.yaml](../../assets/motions/scenarios/drink.yaml) | Take a mug from the table in front, drink, put it back (geogen.103.17): the cup sits near the table's edge at the right hand, its handle turned to it. |
 | [motions/scenarios/eat_glance.yaml](../../assets/motions/scenarios/eat_glance.yaml) | Eating at the table when something falls in the hall, look only (the design's `thud: {look: 2}`). |

@@ -1,0 +1,70 @@
+# Bite something already in the hand (geogen.103.6): the role is `held`, so this borrows the hand
+# that carries it (mirrored when that is the left) and nothing else: the legs go on walking and the
+# eyes on where they are going. The thing is gripped firmly on the way up (`attach` re-grips what is
+# already held, so it turns with the hand), carried level again on the way down, and it stays in the
+# hand when this ends: `carry` has the hand back.
+kind: motion
+name: bite
+category: action
+summary: Bite what the hand holds.
+roles:
+  item: { grip: any, held: true }
+props:
+  item: { asset: apple.yaml, at: { u: 0.83, v: 0.7 } }
+demo:
+  - { at: 0, start: take, item: item }
+  - { at: 0, start: carry, item: item }
+  - { at: 2.0, start: bite, item: item, bites: 2 }
+params:
+  bites: { default: 3 }
+  between: { default: 2.5 }       # s the hand stays down between bites
+  carry_x: { default: -0.45 }     # as carry's, so the hand comes down to where carry holds it
+  carry_y: { default: 0.58 }
+  carry_z: { default: 0.68 }
+holds:
+  claim: [right_hand]
+while:
+  walk: { speed: 0.8, arm_swing: 0.6 }   # slower while there is food at the mouth
+initial: firm
+beats:
+  firm:                                    # the same place, the thing now turning with the hand
+    ik:
+      RightHand: &carried
+        target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        pole: [-0.4, -1, 0]
+        grip: item
+        fingers: [0.35, -0.1, 1]
+        palm: [0, -1, 0]
+    over: 0.1
+    attach: { item: { hand: right } }
+    interrupt: drop
+    then: raise
+  raise:                                   # up to the mouth, the fingers upward and the palm to the face
+    ik:
+      RightHand: &mouth { target: self.Head, tip: index, offset: [-0.01, -0.05, 0.21], pole: [-0.5, -1, -0.2], grip: item, fingers: [0.15, 1, 0.1], palm: [0.1, 0, -1] }
+    over: 0.7
+    interrupt: yield
+    exit: lower
+    resume: firm
+    then: bite
+  bite:
+    ik:
+      RightHand: *mouth
+    over: 0.1
+    after: 0.35
+    emit: bite
+    interrupt: finish                      # the bite is taken, then the hand goes down
+    exit: lower
+    resume: lower
+    then: lower
+  lower:                                   # back to where it is carried, level again
+    ik:
+      RightHand: *carried
+    over: 0.7
+    attach: { item: { hand: right, level: true } }
+    after: "{between}"
+    interrupt: finish
+    exit: done
+    resume: lower
+    loop: { to: firm, times: "{bites}" }
+    then: done

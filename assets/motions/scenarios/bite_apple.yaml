@@ -1,0 +1,15 @@
+# Take an apple from a table and eat it out of the hand (geogen.103.6): bite borrows the hand that
+# carry holds it in, and carry has the hand back between bites and after them.
+kind: motion_scenario
+description: Take an apple, bite it twice with the carrying hand, put it back on the table.
+scene:
+  place:
+    table: { asset: table.yaml, params: { width: 1.0, depth: 0.5 } }
+    apple: { asset: apple.yaml, on: table.top, at: { u: 0.75, v: 0.8 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, at: apple, grip: pinch, offset: [-0.2, 0, 0.36], facing: toward }
+script:
+  - { at: 0.2, start: take, item: apple }
+  - { at: 0.2, start: carry, item: apple }
+  - { at: 2.6, start: bite, item: apple, bites: 2, between: 1.0 }
+  - { at: 9.0, start: set_down, item: apple, place: table.top }
+camera: { view: iso_back, frame: [table, actor], margin: 0.15 }

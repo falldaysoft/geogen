@@ -1,0 +1,9 @@
+# carry in the left hand (geogen.103.6).
+kind: motion
+extends: carry
+mirror: true
+name: carry_left
+summary: carry, left-handed.
+demo:
+  - { at: 0, start: take_left, item: item }
+  - { at: 0, start: carry_left, item: item }

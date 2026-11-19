@@ -1,0 +1,9 @@
+# take with the left hand (geogen.103.6).
+kind: motion
+extends: take
+mirror: true
+name: take_left
+summary: take, left-handed.
+demo:
+  - { at: 0, start: take_left, item: item }
+  - { at: 0, start: carry_left, item: item }
