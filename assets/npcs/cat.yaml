@@ -16,6 +16,7 @@ body: { asset: characters/cat.yaml }
 speed: 0.45               # a cat's walk, m/s (its walk clip's speed)
 radius: 0.12
 jump: { up: 1.0, down: 1.6, across: 1.0 }   # m: onto a table from the floor, off it again
+climb: { speed: 0.4 }                      # m/s up a cat tree's post (a perch's `climb` way)
 reach: { distance: 0.5, heights: [0, 0.45], stand: 0.22 }   # what its mouth gets to, from where it stands
 carry: { mass: 0.3, size: 0.15, two_hands: 1.0 }            # small things, in its mouth (the body's carry point)
 turn_speed: 300

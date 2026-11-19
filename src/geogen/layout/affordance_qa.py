@@ -404,7 +404,7 @@ def _users(scene: SceneNode) -> list[tuple[list[str], SceneNode, bool]]:
         if key in seen or sum(1 for t, _, _ in out if t == tags) >= 3:
             continue
         seen.add(key)
-        out.append((tags, body, "jump" in node.meta["npc"] or "fly" in node.meta["npc"]))
+        out.append((tags, body, any(k in node.meta["npc"] for k in ("jump", "fly", "climb"))))
     return out
 
 

@@ -954,6 +954,11 @@ func _collect_affordances(root: Node) -> void:
                 entry["prop"] = uid_of(node)
             if a.has("depth"):
                 entry["depth"] = float(a["depth"])     # seat front edge ahead of the anchor
+            if a.has("climb"):                           # a perch's way up for bodies that climb
+                var way := PackedVector3Array()
+                for q in a["climb"]:
+                    way.append(xform * Vector3(q[0], q[1], q[2]))
+                entry["climb"] = way
             for key in ["requires", "takes", "gives", "sets"]:     # what doing it needs and does (geogen.101.1)
                 if a.has(key):
                     entry[key] = a[key]

@@ -33,8 +33,8 @@ place:
 
 ## Poses
 
-lie, stand
+climb, lie, stand
 
 ## Clips
 
-idle, jump_down, jump_up, pose_lie, pose_stand, take, walk
+climb, idle, jump_down, jump_up, pose_climb, pose_lie, pose_stand, take, walk

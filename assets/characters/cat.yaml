@@ -169,6 +169,21 @@ body:
         Tail1: [-45, 35, 0]
         Tail2: [-10, 40, 0]
         Tail3: [0, 40, 0]
+    # Climbing a post: the body up it nose first, belly to it, legs wrapped round.
+    climb:
+      bones:
+        Hips:               [-82, 0, 0]
+        LeftFrontUpperLeg:  [-50, 0, -14]
+        RightFrontUpperLeg: [-50, 0, 14]
+        LeftFrontLowerLeg:  [-30, 0, 0]
+        RightFrontLowerLeg: [-30, 0, 0]
+        LeftHindUpperLeg:   [-40, 0, -14]
+        RightHindUpperLeg:  [-40, 0, 14]
+        LeftHindLowerLeg:   [50, 0, 0]
+        RightHindLowerLeg:  [50, 0, 0]
+        Neck:               [30, 0, 0]
+        Head:               [20, 0, 0]
+        Tail1:              [40, 0, 0]
   pose: stand
   # Motions, bone by bone (generators/clips.cycle_clip): closed paths of [x, y, z] degrees about
   # the cat's own axes (a negative x swings a leg forward), keys evenly spaced round the loop.
@@ -222,6 +237,19 @@ body:
         RightFrontLowerLeg: { path: [[0, 0, 0], [-10, 0, 0], [-12, 0, 0], [-10, 0, 0], [0, 0, 0]] }
         Tail1:              { path: [[0, 0, 0], [-10, 6, 0], [-12, 0, 0], [-10, -6, 0], [0, 0, 0]] }
       hips: { path: [[0, 0, 0], [0, 0, 0.01], [0, 0, 0.012], [0, 0, 0.01], [0, 0, 0]] }
+    # Climbing: forepaws reaching up the post in turn, the hind legs pushing after them.
+    climb:
+      generator: cycle
+      pose: climb
+      duration: 0.7
+      speed: 0.4
+      bones:
+        LeftFrontUpperLeg:  { path: [[-25, 0, 0], [15, 0, 0]] }
+        RightFrontUpperLeg: { path: [[15, 0, 0], [-25, 0, 0]] }
+        LeftHindUpperLeg:   { path: [[15, 0, 0], [-20, 0, 0]] }
+        RightHindUpperLeg:  { path: [[-20, 0, 0], [15, 0, 0]] }
+        Tail1:              { path: [[0, 10, 0], [0, -10, 0]] }
+      hips: { path: [[0, 0.01, 0], [0, -0.01, 0]], cycles: 2 }
     # Jumps (one-shots, once: true): keys spread evenly from the start to the end. A jump's `leap`
     # is the body's way from where it takes off to where it lands (shares of the way across and
     # of the climb, and metres over that line); the runtime moves the body along it while the
@@ -275,3 +303,4 @@ body:
 poses:
   stand: {}
   lie: {}
+  climb: {}

@@ -268,6 +268,7 @@
               "position": { "$ref": "#/$defs/vec3" },
               "yaw": { "type": "number" }, "height": { "type": "number" }, "prompt": { "type": "string" },
               "depth": { "description": "sit: how far in front of 'position' the seat's front edge is, metres. With the body pose's 'reach' it keeps the sitter's calves clear of the seat.", "type": "number" },
+              "climb": { "description": "perch: a way up to it for a body that climbs (an NPC's 'climb'), points in the asset frame from the ground up a trunk or a post to beside the perch; climbed in order going up, the other way coming down.", "type": "array", "items": { "$ref": "#/$defs/vec3" }, "minItems": 2 },
               "action": { "type": "string" },
               "approach": { "$ref": "#/$defs/vec3" },
               "duration": { "$ref": "#/$defs/range" },
@@ -863,6 +864,10 @@
               "description": "What its body can jump (geogen.100.6), m: 'up' onto something at most this much higher, 'down' off something at most this much higher, 'across' as far as this level. Spots off the navmesh (perches) are reached by a jump from a navmesh point within reach, and left by a jump down; the body plays its 'jump_up' / 'jump_down' clip and follows the clip's 'leap'. Absent: it doesn't jump.",
               "type": "object", "additionalProperties": false,
               "properties": { "up": { "type": "number" }, "down": { "type": "number" }, "across": { "type": "number" } } },
+            "climb": {
+              "description": "That it climbs (geogen.100.7): up and down a perch's 'climb' way at 'speed' m/s, playing its body's 'climb' clip, when the perch is out of its jumping reach. Absent: it doesn't climb.",
+              "type": "object", "additionalProperties": false,
+              "properties": { "speed": { "type": "number" } } },
             "fly": {
               "description": "What it does on the wing (geogen.100.5): 'speed' m/s, 'cruise' m over the higher end of a flight (twice and three times that when something is in the way), and 'over': a walk longer than this many metres is flown. It flies to perches and off them (and out of the air), playing its body's 'fly' clip. Absent: it doesn't fly.",
               "type": "object", "additionalProperties": false,

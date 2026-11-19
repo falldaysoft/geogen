@@ -169,10 +169,11 @@ A cat in a room: the test scene for four-legged bodies (geogen.100).
 
 Two cats (npcs/cat.yaml; Smokey is people/smokey.yaml, smaller and grey) wander
 the room and stand about, nap on the sofa (jumping up to it) and carry a
-toy mouse about in their mouths. Their body, walk and idle are all declared in
+toy mouse about in their mouths, and climb the cat tree's post to nap on its
+top. Their body, walk and idle are all declared in
 characters/cat.yaml.
 
-**Places**: `room: {asset: room.yaml}`; `sofa: {asset: sofa.yaml}`; `cat: {npc: npcs/cat.yaml}`; `smokey: {character: people/smokey.yaml}`; `toy: {asset: toy_mouse.yaml}`
+**Places**: `room: {asset: room.yaml}`; `sofa: {asset: sofa.yaml}`; `cat: {npc: npcs/cat.yaml}`; `smokey: {character: people/smokey.yaml}`; `cat_tree: {asset: cat_tree.yaml}`; `toy: {asset: toy_mouse.yaml}`
 
 **Spawns**: start
 

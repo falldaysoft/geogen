@@ -176,7 +176,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `fly`, `home`, `home_margin`, `household`, `jump`, `life`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `climb`, `flags`, `fly`, `home`, `home_margin`, `household`, `jump`, `life`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -373,7 +373,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `fly`, `home_margin`, `jump`, `life`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `climb`, `flags`, `fly`, `home_margin`, `jump`, `life`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |

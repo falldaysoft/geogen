@@ -230,6 +230,8 @@ var _perch_goal := false          # the go_to in hand is to a perch: jump up to 
 var _leap_out := {}               # a jump off the perch down to the navmesh, before the path: {from, to}
 var _leap_in := {}                # a jump from the path's end up to the target: {from, to}
 var _leap := {}                   # the jump under way: {from, to, clip, t, length, turned}
+var _climb_way := PackedVector3Array()   # the go_to's perch's way up (`climb`), for a body that climbs
+var _climbed_down := PackedVector3Array()   # the way down from the perch it is on, when it climbed up
 var _looping := false             # the `play:` step loops its clip: busy at work, it only glances up
 var _glance_at := 0.0             # clock of the next glance up while busy
 var _glance_until := -INF         # clock the glance up ends
@@ -412,7 +414,7 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
             continue
         if a.has("follow") and not a.get("boardable", true):
             continue    # a ride's seat, away from the ground or moving
-        if a.get("type", "") == "perch" and not (definition.has("jump") or definition.has("fly")):
+        if a.get("type", "") == "perch" and not (definition.has("jump") or definition.has("fly") or definition.has("climb")):
             continue    # up on something, for a body that jumps (a cat on the sofa's seat)
         if a.has("prop"):
             a = _prop_affordance(a)
@@ -871,7 +873,8 @@ func _start(ranked: Array[Dictionary]) -> void:
     elif not a.is_empty():
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
-            "held": _held_on(a), "ride": a if a.has("follow") else {}, "perch": a.get("type", "") == "perch"}
+            "held": _held_on(a), "ride": a if a.has("follow") else {}, "perch": a.get("type", "") == "perch",
+            "climb": a.get("climb", PackedVector3Array())}
         if a.has("prop"):
             # The prop's own affordance: it is what the action takes, and where it lies is where
             # `put_down: place` puts it back.
@@ -1469,7 +1472,7 @@ func _step(delta: float) -> void:
     if _stack.is_empty():
         var map := get_world_3d().navigation_map
         if NavigationServer3D.map_get_iteration_id(map) > 0 \
-                and NavigationServer3D.map_get_closest_point(map, global_position).distance_to(global_position) < 1.0:
+                and (_perched or NavigationServer3D.map_get_closest_point(map, global_position).distance_to(global_position) < 1.0):
             if _away_block() and definition.get("actions", {}).has("leave"):
                 _option = {"id": "self/leave", "action": "leave", "advertises": {}}
                 _trace({"event": "decide", "chosen": "self/leave", "reason": "routine"})
@@ -1565,6 +1568,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
         _replans = 0
         _close = bool(step.get("close", false))
         _perch_goal = step["go_to"] == "anchor" and bool(ctx.get("perch", false))
+        _climb_way = ctx.get("climb", PackedVector3Array()) if _perch_goal else PackedVector3Array()
         return _plan(target)
     if step.has("face"):
         var dir: Vector3
@@ -3010,22 +3014,37 @@ func _plan(target: Vector3) -> String:
         _leap_out = {"from": global_position, "to": target, "route": flight, "perch": _perch_goal}
         from = target
         to = target
-    elif definition.has("jump"):
-        # On a perch (or in the air): jump down to the navmesh first. To a perch: walk to where
-        # it can be jumped up to from, then jump.
+    elif definition.has("jump") or definition.has("climb"):
+        # On a perch (or in the air): jump (or climb) down to the navmesh first. To a perch: walk
+        # to where it can be jumped up to from and jump, or failing that to the foot of its way up
+        # and climb.
         if _perched or global_position.y - from.y > LEAP_OFF:
-            var down = _leap_ground(global_position, target, false)
-            if down == null:
-                return "no way down from %s" % str(GeogenUtil.cm(global_position))
-            _leap_out = {"from": global_position, "to": down}
-            from = down
+            if _climbed_down.size() >= 2:
+                var foot := NavigationServer3D.map_get_closest_point(map, _climbed_down[_climbed_down.size() - 1])
+                _leap_out = {"from": global_position, "to": foot, "route": _climbed_down, "climb": true, "perch": false}
+                from = foot
+            else:
+                var down = _leap_ground(global_position, target, false) if definition.has("jump") else null
+                if down == null:
+                    return "no way down from %s" % str(GeogenUtil.cm(global_position))
+                _leap_out = {"from": global_position, "to": down}
+                from = down
         if _perch_goal:
-            var up = _leap_ground(target, from, true)
-            if up == null:
+            var up = _leap_ground(target, from, true) if definition.has("jump") else null
+            if up != null:
+                _leap_in = {"from": up, "to": target}
+                to = up
+                target = up
+            elif definition.has("climb") and _climb_way.size() >= 2:
+                var foot := NavigationServer3D.map_get_closest_point(map, _climb_way[0])
+                var way := PackedVector3Array([foot])
+                way.append_array(_climb_way)
+                way.append(target)
+                _leap_in = {"from": foot, "to": target, "route": way, "climb": true, "perch": true}
+                to = foot
+                target = foot
+            else:
                 return "out of jumping reach (%s)" % str(GeogenUtil.cm(target))
-            _leap_in = {"from": up, "to": target}
-            to = up
-            target = up
     _path = GeogenWalker.find_path(map, from, to)
     _stairs = []
     _stair = null
@@ -3400,16 +3419,31 @@ func _start_leap(spec: Dictionary) -> void:
         var length := 0.0
         for i in range(1, route.size()):
             length += route[i - 1].distance_to(route[i])
+        var climbing := bool(spec.get("climb", false))
+        var speed := float(definition["climb"]["speed"] if climbing else definition["fly"]["speed"])
         _leap = {"from": from, "to": to, "route": route, "length": length, "d": 0.0, "perch": spec["perch"],
-            "turned": true}
+            "turned": true, "speed": speed, "climb": climbing}
+        # Climbing, it faces the trunk all the way, up and (backwards, head up, as cats do) down:
+        # the way across from the foot to the perch.
+        if climbing:
+            var across := NpcGeometry.flat(route[route.size() - 1] - route[0])
+            if not spec["perch"]:
+                across = -across
+            if across.length() > 1e-3:
+                rotation.y = atan2(across.x, across.z) - _parent_yaw()
+            _climbed_down = PackedVector3Array()
+            if spec["perch"]:
+                _climbed_down = route.duplicate()
+                _climbed_down.reverse()
         velocity = Vector3.ZERO
         _perched = false
         _playing = true
         _shape.set_deferred("disabled", true)
-        if animator != null and animator.player != null and animator.has("fly"):
-            animator.play_loop("fly")
-        count_stat("flights")
-        _trace({"event": "fly", "from": GeogenUtil.cm(from), "to": GeogenUtil.cm(to)})
+        var clip := "climb" if climbing else "fly"
+        if animator != null and animator.player != null and animator.has(clip):
+            animator.play_loop(clip)
+        count_stat("climbs" if climbing else "flights")
+        _trace({"event": clip, "from": GeogenUtil.cm(from), "to": GeogenUtil.cm(to)})
         return
     var clip := "jump_up" if to.y > from.y else "jump_down"
     _leap = {"from": from, "to": to, "clip": clip, "t": 0.0, "turned": false,
@@ -3428,7 +3462,7 @@ func _leaping(delta: float) -> String:
     var to: Vector3 = _leap["to"]
     if _leap.has("route"):
         var route: PackedVector3Array = _leap["route"]
-        _leap["d"] += float(definition["fly"]["speed"]) * delta
+        _leap["d"] += float(_leap["speed"]) * delta
         var left: float = _leap["d"]
         var at := route[route.size() - 1]
         for i in range(1, route.size()):
@@ -3438,7 +3472,7 @@ func _leaping(delta: float) -> String:
                 break
             left -= seg
         var way := NpcGeometry.flat(at - global_position)
-        if way.length() > 1e-4:
+        if way.length() > 1e-4 and not _leap["climb"]:
             var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
             rotation.y += clampf(wrapf(atan2(way.x, way.z) - _yaw(), -PI, PI), -turn, turn)
         global_position = at
@@ -3446,6 +3480,8 @@ func _leaping(delta: float) -> String:
             return "running"
         global_position = to
         _perched = bool(_leap["perch"])
+        if not _perched:
+            _climbed_down = PackedVector3Array()
         _leap = {}
         _playing = false
         _solid_after_move()
@@ -3474,6 +3510,7 @@ func _leaping(delta: float) -> String:
         return "running"
     global_position = to
     _perched = to.y > from.y              # up onto a perch; down is onto the navmesh
+    _climbed_down = PackedVector3Array()
     _leap = {}
     _playing = false
     _solid_after_move()
@@ -4295,7 +4332,7 @@ func report() -> Dictionary:
         "position": GeogenUtil.cm(p), "head": GeogenUtil.cm(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away, "absent": absent,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
-        "close_ins": int(stats.get("close_ins", 0)), "leaps": int(stats.get("leaps", 0)), "flights": int(stats.get("flights", 0)), "perched": _perched,
+        "close_ins": int(stats.get("close_ins", 0)), "leaps": int(stats.get("leaps", 0)), "flights": int(stats.get("flights", 0)), "climbs": int(stats.get("climbs", 0)), "perched": _perched,
         "flying": _leap.has("route"),
         # Signalled crossings: waits on the kerb for walk (and the longest, s), steps onto one, and
         # steps onto one showing a steady don't-walk.

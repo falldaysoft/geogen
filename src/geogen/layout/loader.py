@@ -823,7 +823,7 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
 AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look", "perch")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
                    "advertises", "tags", "slots", "interaction", "depth", "body", "requires", "takes", "gives", "sets",
-                   "uses", "when"}
+                   "uses", "when", "climb"}
 # Other things done at the same place (`uses: {name: {...}}`): each with its own of these, the rest
 # (where, the action, its slots) shared with the affordance. A chair is a seat, and with a meal in
 # hand somewhere to eat it.
@@ -1044,6 +1044,15 @@ def _affordance(spec: dict[str, Any], root: SceneNode) -> dict[str, Any]:
         out["advertises"] = {str(k): float(v) for k, v in spec["advertises"].items()}
     if spec.get("tags"):
         out["tags"] = [str(t) for t in spec["tags"]]
+    if spec.get("climb") is not None:
+        # A perch's way up for a body that climbs (geogen.100.7): points in the asset frame from
+        # the ground up a trunk or a post to beside the perch.
+        climb = spec["climb"]
+        if kind != "perch" or not isinstance(climb, list) or len(climb) < 2 or \
+                not all(isinstance(p, (list, tuple)) and len(p) == 3 for p in climb):
+            raise ValueError(f"affordance climb is a perch's way up, [[x, y, z], ...] from the ground (2 or "
+                             f"more points), got {climb!r} on a {kind}")
+        out["climb"] = [[round(float(v), 4) for v in p] for p in climb]
     out["slots"] = int(spec.get("slots", 1))
     if "interaction" in spec:
         name = str(spec["interaction"])

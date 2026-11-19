@@ -123,8 +123,8 @@ def test_cats_walk_about_as_npcs(scene_export, godot_runtime):
             last[n["npc"]] = n["position"]
             clips[n["npc"]].add(n["clip"])
             if n["perched"]:
-                # Up on the sofa's seat (0.5 m), lying there or about to.
-                assert n["position"][1] == pytest.approx(0.5, abs=0.05) and n["position"][0] < -1.0, n
+                # Up on the sofa's seat (0.5 m) or the cat tree's platforms (0.55 m, 1.3 m).
+                assert any(abs(n["position"][1] - h) < 0.04 for h in (0.5, 0.55, 1.3)), n
                 perched[n["npc"]] = True
     now = {n["npc"]: n for n in rt.call("npcs.list")}
     # The toy mouse went about in a mouth, and was dropped again (geogen.100.8).
@@ -167,3 +167,29 @@ def test_birds_fly_to_perches_and_about_the_lawn(scene_export, godot_runtime):
     assert perched == birds and flying == birds and on_ground, (perched, flying, on_ground)
     for n in now.values():
         assert n["flights"] >= 2 and not n["failures"], n
+
+
+@pytest.mark.godot
+@pytest.mark.xdist_group("test_animals_runtime")
+def test_a_cat_climbs_the_cat_tree_to_its_top_and_back_down(scene_export, godot_runtime):
+    rt = godot_runtime("cat_test", scene_export("cat_test"))
+    rt.call("wait_ready")
+    rt.call("time.pause")
+    # The top is out of its jumping reach (1.3 m): it climbs the post (geogen.100.7).
+    rt.call("npcs.force", npc="cat_npc", option="cat_tree#1")
+    top = None
+    for _ in range(120):
+        rt.call("time.advance", seconds=0.5, scale=4)
+        cat = next(n for n in rt.call("npcs.list") if n["npc"] == "cat_npc")
+        if cat["perched"] and cat["position"][1] > 1.2:
+            top = cat
+            break
+    assert top is not None and top["climbs"] == 1 and top["leaps"] == 0, top
+    # Rested and curious, it comes down the way it went up and goes about the room.
+    rt.call("npcs.needs", npc="cat_npc", needs={"rest": 1.0, "curiosity": 0.0})
+    for _ in range(200):
+        rt.call("time.advance", seconds=1.0, scale=8)
+        cat = next(n for n in rt.call("npcs.list") if n["npc"] == "cat_npc")
+        if not cat["perched"] and cat["position"][1] < 0.1:
+            break
+    assert cat["climbs"] == 2 and not cat["perched"] and cat["position"][1] < 0.1, cat

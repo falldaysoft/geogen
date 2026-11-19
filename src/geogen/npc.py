@@ -106,13 +106,16 @@ JUMP_DEFAULTS = {"up": 0.8, "down": 1.4, "across": 1.0}
 # end of a flight (more if something is in the way), and `over`: a walk (a hop) longer than this
 # many metres is flown instead. It flies to perches and off them; its body plays `fly`.
 FLY_DEFAULTS = {"speed": 3.0, "cruise": 1.2, "over": 4.0}
+# That a body climbs (geogen.100.7): a perch out of its jumping reach with a `climb:` way up (a
+# cat tree's post) is climbed at `speed` m/s, its body playing `climb`.
+CLIMB_DEFAULTS = {"speed": 0.5}
 ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
 FACE_TARGETS = {"anchor", "portal", "player", "partner"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "jump", "fly", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips", "life"}
+            "reach", "carry", "jump", "fly", "climb", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips", "life"}
 # A need (geogen.101.2): 0 (desperate) .. 1 (satisfied).
 NEED_KEYS = {
     "initial": "where it starts, 0..1 (default 0.5)",
@@ -669,6 +672,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "carry": _limits(data.get("carry"), CARRY_DEFAULTS, f"{path}: carry"),
         **({"jump": _limits(data["jump"], JUMP_DEFAULTS, f"{path}: jump")} if data.get("jump") is not None else {}),
         **({"fly": _limits(data["fly"], FLY_DEFAULTS, f"{path}: fly")} if data.get("fly") is not None else {}),
+        **({"climb": _limits(data["climb"], CLIMB_DEFAULTS, f"{path}: climb")} if data.get("climb") is not None else {}),
         "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
         **parse_senses(data.get("senses"), data.get("reacts"), str(path), actions),
         **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),

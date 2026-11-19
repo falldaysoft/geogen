@@ -30,32 +30,33 @@ place:
 <tr>
 <td align="center"><a href="assets/bookshelf.md"><img src="img/bookshelf.png" width="150" alt="bookshelf"><br>bookshelf</a></td>
 <td align="center"><a href="assets/booth.md"><img src="img/booth.png" width="150" alt="booth"><br>booth</a></td>
+<td align="center"><a href="assets/cat_tree.md"><img src="img/cat_tree.png" width="150" alt="cat_tree"><br>cat_tree</a></td>
 <td align="center"><a href="assets/chair.md"><img src="img/chair.png" width="150" alt="chair"><br>chair</a></td>
 <td align="center"><a href="assets/coffee_table.md"><img src="img/coffee_table.png" width="150" alt="coffee_table"><br>coffee_table</a></td>
-<td align="center"><a href="assets/curtains.md"><img src="img/curtains.png" width="150" alt="curtains"><br>curtains</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/curtains.md"><img src="img/curtains.png" width="150" alt="curtains"><br>curtains</a></td>
 <td align="center"><a href="assets/desk.md"><img src="img/desk.png" width="150" alt="desk"><br>desk</a></td>
 <td align="center"><a href="assets/desk_chair.md"><img src="img/desk_chair.png" width="150" alt="desk_chair"><br>desk_chair</a></td>
 <td align="center"><a href="assets/fireplace.md"><img src="img/fireplace.png" width="150" alt="fireplace"><br>fireplace</a></td>
 <td align="center"><a href="assets/floor_lamp.md"><img src="img/floor_lamp.png" width="150" alt="floor_lamp"><br>floor_lamp</a></td>
-<td align="center"><a href="assets/host_stand.md"><img src="img/host_stand.png" width="150" alt="host_stand"><br>host_stand</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/host_stand.md"><img src="img/host_stand.png" width="150" alt="host_stand"><br>host_stand</a></td>
 <td align="center"><a href="assets/luggage_rack.md"><img src="img/luggage_rack.png" width="150" alt="luggage_rack"><br>luggage_rack</a></td>
 <td align="center"><a href="assets/nightstand.md"><img src="img/nightstand.png" width="150" alt="nightstand"><br>nightstand</a></td>
 <td align="center"><a href="assets/ornament_cupboard.md"><img src="img/ornament_cupboard.png" width="150" alt="ornament_cupboard"><br>ornament_cupboard</a></td>
 <td align="center"><a href="assets/reception_desk.md"><img src="img/reception_desk.png" width="150" alt="reception_desk"><br>reception_desk</a></td>
-<td align="center"><a href="assets/rug.md"><img src="img/rug.png" width="150" alt="rug"><br>rug</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/rug.md"><img src="img/rug.png" width="150" alt="rug"><br>rug</a></td>
 <td align="center"><a href="assets/sofa.md"><img src="img/sofa.png" width="150" alt="sofa"><br>sofa</a></td>
 <td align="center"><a href="assets/table.md"><img src="img/table.png" width="150" alt="table"><br>table</a></td>
 <td align="center"><a href="assets/table_lamp.md"><img src="img/table_lamp.png" width="150" alt="table_lamp"><br>table_lamp</a></td>
 <td align="center"><a href="assets/table_setting.md"><img src="img/table_setting.png" width="150" alt="table_setting"><br>table_setting</a></td>
-<td align="center"><a href="assets/tv.md"><img src="img/tv.png" width="150" alt="tv"><br>tv</a></td>
 </tr>
 <tr>
+<td align="center"><a href="assets/tv.md"><img src="img/tv.png" width="150" alt="tv"><br>tv</a></td>
 <td align="center"><a href="assets/tv_console.md"><img src="img/tv_console.png" width="150" alt="tv_console"><br>tv_console</a></td>
 <td align="center"><a href="assets/wall_mirror.md"><img src="img/wall_mirror.png" width="150" alt="wall_mirror"><br>wall_mirror</a></td>
 <td align="center"><a href="assets/wardrobe.md"><img src="img/wardrobe.png" width="150" alt="wardrobe"><br>wardrobe</a></td>
@@ -71,6 +72,7 @@ place:
 | [bed](assets/bed.md) | Hotel double bed: upholstered headboard, base on short legs, mattress, duvet folded back at the head, and two pillows. | `width`, `length`, `headboard`, `leg`, `base`, `mattress`, `duvet_lift`, `hb_depth` |
 | [bookshelf](assets/bookshelf.md) | Open bookshelf: wooden carcass with back panel, four shelves and rows of books (fixed: one extrusion a row; loose books are book.yaml placed on the shelf_N surfaces, room left beside the rows). | `width`, `height`, `depth`, `board`, `plinth` |
 | [booth](assets/booth.md) | A restaurant booth: a table between two high-backed upholstered benches. |  |
+| [cat_tree](assets/cat_tree.md) | A cat tree: a sisal-wrapped post on a base board, a platform half-way up to one side and a top platform over the post. | `height`, `low`, `post` |
 | [chair](assets/chair.md) | Dining chair: filleted seat, turned front legs, back posts with rails and spindles, and side stretchers. | `width`, `height`, `depth`, `seat_height`, `seat_thickness`, `leg_width`, `leg_inset`, `at_table`, `approach_x`, `approach_z` |
 | [coffee_table](assets/coffee_table.md) | Low coffee table: rounded top on four square legs with a lower shelf. | `width`, `depth`, `height` |
 | [curtains](assets/curtains.md) | Pair of pleated curtains on a chrome rod, drawn open to the sides. | `width`, `height`, `panel` |
