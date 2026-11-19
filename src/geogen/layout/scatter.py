@@ -42,9 +42,9 @@ import numpy as np
 
 from ..core.node import SceneNode
 from ..core.transform import Transform
+from .schema import SCATTER_KEYS
 
-KNOWN = {"seed", "rect", "path", "on", "on_tag", "count", "spacing", "avoid", "margin", "yaw", "scale", "jitter",
-         "offset", "radius", "on_terrain", "height", "slope", "facing"}
+KNOWN = set(SCATTER_KEYS)
 FACINGS = ("along", "back", "left", "right", "center", "outward")
 
 

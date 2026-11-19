@@ -59,6 +59,45 @@ PART_KEYS: dict[str, Key] = {
                  "shorthand for a closed/open interaction named after the part"),
 }
 
+# A part's `joint:` shorthand.
+JOINT_KEYS: dict[str, str] = {
+    "type": "hinge (default) | slide",
+    "pivot": "an anchor on the part (left, right, top, bottom, front, back, center) or [x, y, z] in the asset frame",
+    "axis": "what it turns or slides along (default: a hinge swings out toward +Z; a slide runs along z)",
+    "limits": "a hinge's [closed, open] degrees (default [0, 90])",
+    "range": "a slide's [closed, open] metres (default [0, 0.3])",
+    "with": "other parts that move with it",
+    "name": "the interaction's name (default: the part's)",
+    "initial": "closed (default) | open",
+    "duration": "seconds to move (default 0.8 a hinge, 0.4 a slide)",
+    "open_prompt": "what the player is offered when closed (default Open)",
+    "close_prompt": "what the player is offered when open (default Close)",
+    "auto_close": "seconds after which it closes by itself",
+    "lock": "the interaction's lock",
+}
+
+# A placement's `scatter:` block (layout/scatter.py).
+SCATTER_KEYS: dict[str, str] = {
+    "seed": "random seed: the same seed gives the same copies",
+    "rect": "[x0, z0, x1, z1] in the scene frame (with on_terrain: narrows it)",
+    "path": "[[x, z], ...]: copies along a line, `spacing` apart",
+    "on": "<object>.<surface>: a surface of a placed object",
+    "on_tag": "the tops of every mesh with this tag",
+    "on_terrain": "a placed object's terrain part (never on its paths)",
+    "count": "at most this many copies",
+    "spacing": "minimum distance between copies (Poisson disk); along a path, the step",
+    "avoid": "references to keep off (selectors included)",
+    "margin": "extra clearance round avoided objects",
+    "yaw": "random heading range in degrees, or a number",
+    "scale": "random uniform scale range, or a number",
+    "jitter": "along a path: random shift of each copy",
+    "offset": "along a path: sideways metres",
+    "radius": "each copy's keep-out radius against other scatters (default: spacing / 2; 0.75 along paths)",
+    "height": "on_terrain: [lo, hi] metres above the terrain's sea level",
+    "slope": "on_terrain: [lo, hi] degrees",
+    "facing": "along | back | left | right (a path's direction) | center | outward | degrees; `yaw` then jitters it",
+}
+
 _BEVEL_SEGMENTS = Key("int", "arc steps of the bevel")
 _CREASE = Key("deg", "edges sharper than this stay hard", 40.0)
 _FIT = Key("stretch | none", "scale the profile to the part size, or take it in metres", "stretch")

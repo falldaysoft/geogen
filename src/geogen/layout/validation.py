@@ -69,7 +69,7 @@ def validate_asset_yaml(data: dict[str, Any]) -> list[str]:
             msg = f"Unknown primitive '{prim_type}' in part '{part_name}'.{suggest(prim_type, KNOWN_PRIMITIVES)}"
             raise ValidationError(msg)
 
-        if "size" not in part_def and prim_type not in ("sweep", "stairs", "text", "paths", "fence", "terrain"):
+        if "size" not in part_def and PRIMITIVES[prim_type].size == "required":
             raise ValidationError(f"Part '{part_name}' requires 'size' field")
 
         for key in part_def:

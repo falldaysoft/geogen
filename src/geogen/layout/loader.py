@@ -34,6 +34,7 @@ from ..materials.loader import MaterialLoader
 from .anchors import resolve_anchor
 from .attachments import parse_attachment
 from .expressions import enabled, resolve_document
+from .schema import JOINT_KEYS
 from .validation import suggest, validate_asset_yaml, pre_validate_asset_references
 from .yaml_utils import safe_load, safe_load_path
 from ..core.transform import transform_points
@@ -46,33 +47,6 @@ _IN_ASSET_FRAME = ("paths", "fence", "terrain")
 
 # Collision shapes a part can request (``collider:``); see export.py.
 COLLIDER_TYPES = {"auto", "none", "box", "hull", "mesh"}
-
-# Registry of available primitive generators
-PRIMITIVE_REGISTRY = {
-    "cube": CubeGenerator,
-    "cylinder": CylinderGenerator,
-    "sphere": SphereGenerator,
-    "cone": ConeGenerator,
-    "plane": PlaneGenerator,
-    "ellipsoid": EllipsoidGenerator,
-    "extrude": ExtrudeGenerator,
-    "lathe": LatheGenerator,
-    "roof": RoofGenerator,
-    "prism": PrismGenerator,
-    "sweep": SweepGenerator,
-    "stairs": StairsGenerator,
-    "torus": TorusGenerator,
-    "capsule": CapsuleGenerator,
-    "tree": TreeGenerator,
-    "crop": CropGenerator,
-    "rock": RockGenerator,
-    "text": TextGenerator,
-    "paths": PathsGenerator,
-    "fence": FenceGenerator,
-    "terrain": TerrainGenerator,
-    "water": ExtrudeGenerator,
-}
-
 
 class LayoutLoader:
     """Loads composite object definitions from YAML files.
@@ -757,10 +731,6 @@ class LayoutLoader:
         r = Rotation.from_euler('xyz', rotation)
         return r.apply(point)
 
-JOINT_KEYS = {"type", "pivot", "axis", "limits", "range", "with", "name", "initial", "duration",
-              "open_prompt", "close_prompt", "auto_close", "lock"}
-
-
 def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
     """Expand part ``joint:`` shorthands into interactions.
 
@@ -779,11 +749,11 @@ def _joint_interactions(parts: dict[str, Any]) -> dict[str, Any]:
         joint = part.get("joint") if isinstance(part, dict) else None
         if not joint:
             continue
-        unknown = sorted(set(joint) - JOINT_KEYS) if isinstance(joint, dict) else None
+        unknown = sorted(set(joint) - set(JOINT_KEYS)) if isinstance(joint, dict) else None
         if unknown is None:
             raise ValueError(f"Part '{name}' joint must be a mapping, e.g. {{type: hinge, pivot: left}}")
         if unknown:
-            raise ValueError(f"Part '{name}' joint: unknown key '{unknown[0]}'.{suggest(unknown[0], JOINT_KEYS)}"
+            raise ValueError(f"Part '{name}' joint: unknown key '{unknown[0]}'.{suggest(unknown[0], list(JOINT_KEYS))}"
                              f" Keys: {', '.join(sorted(JOINT_KEYS))}")
         kind = joint.get("type", "hinge")
         if kind not in ("hinge", "slide"):
@@ -1322,9 +1292,8 @@ def _build_plane(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any])
 
 
 def _build_paths(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
-    return PathsGenerator(paths=list(config.get("paths") or []), width=float(config.get("width", 1.8)),
-                          thickness=float(config.get("thickness", 0.04)),
-                          bevel=float(config.get("bevel", 0.01)), detail=loader.detail)
+    return PathsGenerator(paths=list(config.get("paths") or []), detail=loader.detail,
+                          **_cast(config, {"width": float, "thickness": float, "bevel": float}))
 
 
 def _build_water(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
@@ -1334,12 +1303,10 @@ def _build_water(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any])
 def _build_terrain(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
     extent = config.get("extent") or [size[0], size[2]]
     return TerrainGenerator(
-        size=(float(extent[0]), float(extent[1])), resolution=float(config.get("resolution", 1.0)),
-        height=float(config.get("height", 12.0)), sea_level=float(config.get("sea_level", 0.0)),
-        depth=float(config.get("depth", 4.0)), seed=int(config.get("seed", 0)),
-        scale=float(config.get("scale", 40.0)), octaves=int(config.get("octaves", 4)),
-        falloff=dict(config.get("falloff") or {}), pads=list(config.get("pads") or []),
-        island=bool(config.get("island", True)), paths=list(config.get("paths") or []))
+        size=(float(extent[0]), float(extent[1])), falloff=dict(config.get("falloff") or {}),
+        pads=list(config.get("pads") or []), paths=list(config.get("paths") or []),
+        **_cast(config, {"resolution": float, "height": float, "sea_level": float, "depth": float, "seed": int,
+                         "scale": float, "octaves": int, "island": bool}))
 
 
 def _cast(config: dict[str, Any], keys: dict[str, Any]) -> dict[str, Any]:
@@ -1358,13 +1325,9 @@ def _build_text(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
     text = config.get("text", "")
     if isinstance(text, float) and text.is_integer():
         text = int(text)            # "{floor}" resolves to a number
-    return TextGenerator(
-        text=str(text), font=str(config.get("font", "sans")),
-        height=float(config.get("height", 0.2)), depth=float(config.get("depth", 0.02)),
-        align=str(config.get("align", "center")), line_spacing=float(config.get("line_spacing", 1.0)),
-        tracking=float(config.get("tracking", 0.0)), bevel=float(config.get("bevel", 0.0)),
-        detail=loader.detail,
-    )
+    return TextGenerator(text=str(text), detail=loader.detail, **_cast(config, {
+        "font": str, "height": float, "depth": float, "align": str, "line_spacing": float, "tracking": float,
+        "bevel": float}))
 
 
 def _build_stairs(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
@@ -1375,9 +1338,8 @@ def _build_stairs(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]
 
 
 def _build_roof(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
-    return RoofGenerator(width=size[0], height=size[1], depth=size[2], style=config.get("style", "gable"),
-                         overhang=float(config.get("overhang", 0.35)), thickness=float(config.get("thickness", 0.12)),
-                         ridge_axis=config.get("ridge_axis", "auto"), ridge_cap=bool(config.get("ridge_cap", True)))
+    return RoofGenerator(width=size[0], height=size[1], depth=size[2], **_cast(config, {
+        "style": lambda v: v, "overhang": float, "thickness": float, "ridge_axis": lambda v: v, "ridge_cap": bool}))
 
 
 def _seed_of(config: dict[str, Any]) -> int:
@@ -1401,33 +1363,38 @@ def _build_rock(loader: LayoutLoader, size: np.ndarray, config: dict[str, Any]):
     return RockGenerator(width=size[0], height=size[1], depth=size[2], seed=_seed_of(config), **args)
 
 
-_BUILDERS: dict[str, Any] = {
-    "cube": _build_cube,
-    "cylinder": _build_cylinder,
+# Each primitive once: its generator class (what --describe documents) and how a part builds it.
+_PRIMITIVES: dict[str, tuple[type, Any]] = {
+    "cube": (CubeGenerator, _build_cube),
+    "cylinder": (CylinderGenerator, _build_cylinder),
     # The sphere keeps the smallest side as its radius; scaling the node stretches it.
-    "sphere": lambda loader, size, config: SphereGenerator(radius=min(size) / 2),
-    "cone": lambda loader, size, config: ConeGenerator(radius=min(size[0], size[2]) / 2, height=size[1]),
-    "plane": _build_plane,
-    "ellipsoid": lambda loader, size, config: EllipsoidGenerator(size_x=size[0], size_y=size[1], size_z=size[2]),
-    "extrude": lambda loader, size, config: loader._create_extrude_generator(size, config),
-    "lathe": lambda loader, size, config: loader._create_lathe_generator(size, config),
-    "sweep": lambda loader, size, config: loader._create_sweep_generator(config),
-    "paths": _build_paths,
-    "water": _build_water,
-    "terrain": _build_terrain,
-    "fence": _build_fence,
-    "text": _build_text,
-    "torus": lambda loader, size, config: TorusGenerator(size_x=size[0], size_y=size[1], size_z=size[2],
-                                                         tube=float(config.get("tube", 0.0))),
-    "capsule": lambda loader, size, config: CapsuleGenerator(size_x=size[0], size_y=size[1], size_z=size[2]),
-    "stairs": _build_stairs,
-    "roof": _build_roof,
-    "tree": _build_tree,
-    "crop": _build_crop,
-    "rock": _build_rock,
-    "prism": lambda loader, size, config: PrismGenerator(width=size[0], height=size[1], depth=size[2],
-                                                         apex=config.get("apex", "center")),
+    "sphere": (SphereGenerator, lambda loader, size, config: SphereGenerator(radius=min(size) / 2)),
+    "cone": (ConeGenerator, lambda loader, size, config: ConeGenerator(radius=min(size[0], size[2]) / 2, height=size[1])),
+    "plane": (PlaneGenerator, _build_plane),
+    "ellipsoid": (EllipsoidGenerator,
+                  lambda loader, size, config: EllipsoidGenerator(size_x=size[0], size_y=size[1], size_z=size[2])),
+    "extrude": (ExtrudeGenerator, lambda loader, size, config: loader._create_extrude_generator(size, config)),
+    "lathe": (LatheGenerator, lambda loader, size, config: loader._create_lathe_generator(size, config)),
+    "sweep": (SweepGenerator, lambda loader, size, config: loader._create_sweep_generator(config)),
+    "paths": (PathsGenerator, _build_paths),
+    "water": (ExtrudeGenerator, _build_water),
+    "terrain": (TerrainGenerator, _build_terrain),
+    "fence": (FenceGenerator, _build_fence),
+    "text": (TextGenerator, _build_text),
+    "torus": (TorusGenerator, lambda loader, size, config: TorusGenerator(size_x=size[0], size_y=size[1], size_z=size[2],
+                                                                          tube=float(config.get("tube", 0.0)))),
+    "capsule": (CapsuleGenerator,
+                lambda loader, size, config: CapsuleGenerator(size_x=size[0], size_y=size[1], size_z=size[2])),
+    "stairs": (StairsGenerator, _build_stairs),
+    "roof": (RoofGenerator, _build_roof),
+    "tree": (TreeGenerator, _build_tree),
+    "crop": (CropGenerator, _build_crop),
+    "rock": (RockGenerator, _build_rock),
+    "prism": (PrismGenerator, lambda loader, size, config: PrismGenerator(width=size[0], height=size[1], depth=size[2],
+                                                                          apex=config.get("apex", "center"))),
 }
+PRIMITIVE_REGISTRY = {name: generator for name, (generator, _) in _PRIMITIVES.items()}
+_BUILDERS = {name: build for name, (_, build) in _PRIMITIVES.items()}
 
 
 # --- per-primitive work after the generator builds the node ----------------------------------
