@@ -171,9 +171,11 @@ def export_chunks(root: SceneNode, out_dir: str | Path, name: str | None = None,
     name = name or root.name
     from . import refs
 
+    from .flows import stamp_network
     from .quests import collect
 
     refs.assign_ids(root, name)       # before the tree is split: IDs are paths in the whole scene
+    stamp_network(root)               # and the flows network is the whole scene's
     compiled = collect(root, name)    # bad declarations and quests fail the export before anything is written
     units = find_units(root)
     chunks = []

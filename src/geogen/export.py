@@ -184,6 +184,11 @@ def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda
             by_name.setdefault(n.name, n)
         aim = {k: (name_of(by_name[v]) if k in ("yaw", "pitch") and v in by_name else v) for k, v in effector["aim"].items()}
         extras["geogen"]["flows"] = {**extras["geogen"]["flows"], "effector": {**effector, "aim": aim}}
+    joined = node.meta.get("flows_joined")
+    if isinstance(joined, dict) and isinstance(extras.get("geogen", {}).get("flows"), dict):
+        flows = extras["geogen"]["flows"]
+        extras["geogen"]["flows"] = {**flows, **{role: {**flows[role], **extra} for role, extra in joined.items()
+                                                 if isinstance(flows.get(role), dict)}}
     mechanism = extras.get("geogen", {}).get("mechanism")
     if isinstance(mechanism, dict):
         from .mechanism import exported_mechanism
@@ -929,11 +934,13 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     package = package or path.stem
     compiled = None
     if manifest and suffix != ".obj":
+        from .flows import stamp_network
         from .inventory import detach_icons
         from .quests import collect
 
         detach_icons(root)                  # an earlier export's: they aren't part of the world
         refs.assign_ids(root, package)
+        stamp_network(root)
         compiled = collect(root, package)   # bad declarations and quests fail the export before anything is written
         if compiled.items:
             from .inventory import attach_icons

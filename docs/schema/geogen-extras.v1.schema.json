@@ -436,6 +436,8 @@
                 "spread": { "type": "number", "minimum": 0 },
                 "at": { "$ref": "#/$defs/vec3" },
                 "velocity": { "$ref": "#/$defs/vec3" },
+                "order": { "type": "integer", "minimum": 0, "description": "Its place among the scene's sources (by position: the order they are stepped in)." },
+                "track": { "type": "integer", "minimum": 0, "description": "The order of the track whose start is within 0.5 m of 'at': it puts its items on it (absent: none)." },
                 "waves": {
                   "description": "Instead of items at a rate: while running, wave by wave. A wave starts 'delay' s after the source runs; its groups go out in order, 'count' items of 'name' each 'gap' s apart; when all of the wave's items are gone it is cleared (signal wave_cleared {wave}), and the source stops (running false) unless 'auto'. After the last, all_cleared. State 'wave' counts them. A file name: the asset was built alone (no waves read).",
                   "anyOf": [
@@ -515,6 +517,7 @@
                             "properties": { "damage": { "type": "number" }, "take": { "const": true } } },
                 "enabled": { "type": "boolean" },
                 "at": { "$ref": "#/$defs/vec3" },
+                "order": { "type": "integer", "minimum": 0, "description": "Its place among the scene's effectors (by position: the order they act in)." },
                 "aim": { "type": "object", "additionalProperties": false,
                          "properties": { "yaw": { "type": "string" }, "pitch": { "type": "string" }, "turn_rate": { "type": "number" } } },
                 "projectile": { "type": "object", "required": ["kind", "speed", "color"], "additionalProperties": false,
@@ -536,7 +539,9 @@
                 "damping": { "type": "number", "minimum": 0 },
                 "loop": { "type": "boolean" },
                 "end": { "enum": ["auto", "sink", "stop", "drop"] },
-                "accepts": { "type": "array", "items": { "type": "string" } }
+                "accepts": { "type": "array", "items": { "type": "string" } },
+                "order": { "type": "integer", "minimum": 0, "description": "Its place among the scene's tracks (by position: the order they are stepped in), from the whole scene's network (geogen/flows.py network)." },
+                "next": { "type": "integer", "minimum": 0, "description": "'end: auto': the order of the track whose start is within 0.5 m of this end (absent: none, it is a sink)." }
               }
             }
           }

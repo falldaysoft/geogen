@@ -18,8 +18,8 @@ extends Node
 ## item has rested `stuck` seconds, or when it falls out of the world.
 ##
 ## Tracks (extras.geogen.flows.track) carry belt and walk items. A source whose spawn point is
-## within JOIN m of a track's start puts its items there (one a frame, when the start is clear);
-## each frame every running track moves its items, leaders first: belt items at the track's
+## within 0.5 m of a track's start (the export's `track`) puts its items there (one a frame, when
+## the start is clear); each frame every running track moves its items, leaders first: belt items at the track's
 ## speed, walk items at their own, none closer to the one ahead than the gap (`spacing`, or
 ## the two radii). At the end an item goes on to the track starting there (`end: auto`), is
 ## taken in (a sink: the track's `received`, signal `received {item, ...data}`), waits
@@ -47,7 +47,6 @@ const STILL_SPEED := 0.05       ## m/s: slower than this, a physics item is at r
 ## Physics frames sources wait after the world loads: bodies (the player's) sit at the origin
 ## for a frame or two before they go where they start.
 const SETTLE_FRAMES := 5
-const JOIN := 0.5                ## m: a source or track end this close to a track's start feeds it
 const ROLL_GRAVITY := 9.81 * 5.0 / 7.0   ## a solid ball rolling without slipping: (5/7) g sin(slope)
 
 var world: WorldLoader
@@ -94,7 +93,7 @@ func setup(root: Node) -> void:
             var points := PackedVector3Array()
             var cum := PackedFloat64Array([0.0])
             for p in track["points"]:
-                points.append(node.global_transform * _vec(p))
+                points.append(node.global_transform * GeogenUtil.vec(p))
                 if points.size() > 1:
                     cum.append(cum[cum.size() - 1] + points[points.size() - 2].distance_to(points[points.size() - 1]))
             tracks.append({"uid": WorldLoader.uid_of(node), "node": node, "data": track, "points": points,
@@ -103,7 +102,7 @@ func setup(root: Node) -> void:
         var effector: Variant = (WorldLoader.geogen_extras(node).get("flows", {}) as Dictionary).get("effector")
         if effector is Dictionary:
             var entry := {"uid": WorldLoader.uid_of(node), "node": node, "data": effector, "cool": 0.0, "taken": 0,
-                "target": -1, "at": node.global_transform * _vec(effector.get("at", [0, 0, 0]))}
+                "target": -1, "at": node.global_transform * GeogenUtil.vec(effector.get("at", [0, 0, 0]))}
             var aim: Dictionary = effector.get("aim", {})
             for key in ["yaw", "pitch"]:
                 if aim.has(key):
@@ -115,7 +114,7 @@ func setup(root: Node) -> void:
             var sound := AudioStreamPlayer3D.new()
             sound.stream = GeogenSound.chime_stream("shot")
             sound.unit_size = 6.0
-            sound.position = _vec(effector.get("at", [0, 0, 0]))
+            sound.position = GeogenUtil.vec(effector.get("at", [0, 0, 0]))
             node.add_child(sound)
             entry["sound"] = sound
             effectors.append(entry)
@@ -131,53 +130,37 @@ func setup(root: Node) -> void:
                 child.get_parent().remove_child(child)
                 child.visible = true
                 entry["templates"][str(item["name"])] = child
-        entry["at"] = node.global_transform * _vec(data.get("at", [0, 0, 0]))
+        entry["at"] = node.global_transform * GeogenUtil.vec(data.get("at", [0, 0, 0]))
         entry.merge({"killed": 0, "wave": 0, "phase": "idle", "timer": 0.0, "group": 0, "left": 0, "restarts": 0})
         sources[uid] = entry
     _join()
 
 
-## Order tracks and sources by position (as geogen/flows.py `network` does) and join them:
-## a track's end to the track starting within JOIN of it, a source to the track its spawn
-## point starts.
+## Put tracks, sources and effectors in the order the export gives them (geogen/flows.py
+## `network`: by position) and join them as it did: a track's `next`, a source's `track` (that
+## track's `order`) to the loaded track with that order. A streamed world joins again as chunks come.
 func _join() -> void:
     for track in tracks:
         track.erase("ref")
-    tracks.sort_custom(func(a, b): return _before(a["points"][0], b["points"][0]))
-    effectors.sort_custom(func(a, b): return _before(a["at"], b["at"]))
+    tracks.sort_custom(func(a, b): return _order(a) < _order(b))
+    effectors.sort_custom(func(a, b): return _order(a) < _order(b))
+    var index_of := {}           # order -> index among the loaded tracks
     for k in tracks.size():
         tracks[k]["index"] = k
+        index_of[_order(tracks[k])] = k
     for track in tracks:
-        track["next"] = -1
-        if track["data"].get("loop", false) or track["data"].get("end", "auto") != "auto":
-            continue
-        var end: Vector3 = track["points"][track["points"].size() - 1]
-        var best := -1
-        for other in tracks:
-            if other != track and other["points"][0].distance_to(end) <= JOIN and (best < 0 or
-                    other["points"][0].distance_to(end) < tracks[best]["points"][0].distance_to(end)):
-                best = other["index"]
-        track["next"] = best
+        track["next"] = index_of.get(int(track["data"].get("next", -1)), -1)
     var ordered: Array = sources.values()
-    ordered.sort_custom(func(a, b): return _before(a["at"], b["at"]))
-    var by_position := {}
+    ordered.sort_custom(func(a, b): return _order(a) < _order(b))
+    var in_order := {}
     for entry in ordered:
-        entry["track"] = -1
-        for track in tracks:
-            if track["points"][0].distance_to(entry["at"]) <= JOIN and (entry["track"] < 0 or
-                    track["points"][0].distance_to(entry["at"]) < tracks[entry["track"]]["points"][0].distance_to(entry["at"])):
-                entry["track"] = track["index"]
-        by_position[entry["uid"]] = entry
-    sources = by_position
+        entry["track"] = index_of.get(int(entry["data"].get("track", -1)), -1)
+        in_order[entry["uid"]] = entry
+    sources = in_order
 
 
-static func _before(a: Vector3, b: Vector3) -> bool:
-    for k in 3:
-        var x := snappedf(a[k], 0.001)
-        var y := snappedf(b[k], 0.001)
-        if x != y:
-            return x < y
-    return false
+static func _order(entry: Dictionary) -> int:
+    return int(entry["data"].get("order", 0))
 
 
 ## Forget sources under ``root`` and take their items away (it is being unloaded).
@@ -749,12 +732,12 @@ func _clear(entry: Dictionary) -> bool:
     var at: Node3D = last["body"] if last["body"] != null else last["node"]
     if not is_instance_valid(at):
         return true
-    var spawn_point: Vector3 = entry["node"].global_transform * _vec(entry["data"].get("at", [0, 0, 0]))
+    var spawn_point: Vector3 = entry["node"].global_transform * GeogenUtil.vec(entry["data"].get("at", [0, 0, 0]))
     var centre := at.global_position
     if last["body"] != null:
-        centre = at.global_transform * _vec(WorldLoader.geogen_extras(entry["templates"][last["item"]]).get("physics", {})
+        centre = at.global_transform * GeogenUtil.vec(WorldLoader.geogen_extras(entry["templates"][last["item"]]).get("physics", {})
             .get("center", [0, 0, 0]))
-        spawn_point += entry["node"].global_transform.basis * _vec(WorldLoader.geogen_extras(
+        spawn_point += entry["node"].global_transform.basis * GeogenUtil.vec(WorldLoader.geogen_extras(
             entry["templates"][last["item"]]).get("physics", {}).get("center", [0, 0, 0]))
     return centre.distance_to(spawn_point) > 2.0 * float(last["def"].get("radius", 0.25)) + 0.01
 
@@ -769,7 +752,7 @@ func spawn(entry: Dictionary, item_name := "") -> int:
     if template == null or not is_instance_valid(entry["node"]):
         return -1
     var def: Dictionary = WorldLoader.geogen_extras(template)["item"]
-    var at: Vector3 = _vec(data.get("at", [0, 0, 0]))
+    var at: Vector3 = GeogenUtil.vec(data.get("at", [0, 0, 0]))
     var spread := float(data.get("spread", 0.0))
     if spread > 0.0:
         var angle: float = entry["rng"].randf() * TAU
@@ -791,7 +774,7 @@ func spawn(entry: Dictionary, item_name := "") -> int:
     elif item["mode"] == "physics":
         var physics: Dictionary = WorldLoader.geogen_extras(template).get("physics", {})
         item["prop"] = "flow#%d" % id
-        var velocity := source_xform.basis.orthonormalized() * _vec(data.get("velocity", [0, 0, 0]))
+        var velocity := source_xform.basis.orthonormalized() * GeogenUtil.vec(data.get("velocity", [0, 0, 0]))
         item["body"] = world.props.add_clone(copy, physics, item["prop"], _layer, xform, velocity)
     else:
         _layer.add_child(copy)
@@ -928,9 +911,9 @@ func save() -> Dictionary:
                 kept["v"] = it["v"]
         elif it["body"] != null and is_instance_valid(it["body"]):
             var body: RigidBody3D = it["body"]
-            kept["position"] = _arr(body.global_position)
-            kept["rotation"] = _arr(body.global_rotation_degrees)
-            kept["velocity"] = _arr(body.linear_velocity)
+            kept["position"] = GeogenUtil.fine(body.global_position)
+            kept["rotation"] = GeogenUtil.fine(body.global_rotation_degrees)
+            kept["velocity"] = GeogenUtil.fine(body.linear_velocity)
         else:
             continue
         out["items"].append(kept)
@@ -988,10 +971,10 @@ func restore(data: Dictionary) -> void:
         elif kept.has("position") and item["mode"] == "physics":
             var physics: Dictionary = WorldLoader.geogen_extras(template).get("physics", {})
             item["prop"] = "flow#%d" % item["id"]
-            var xform := Transform3D(Basis.from_euler(_vec(kept.get("rotation", [0, 0, 0])) * (PI / 180.0)),
-                _vec(kept["position"]))
+            var xform := Transform3D(Basis.from_euler(GeogenUtil.vec(kept.get("rotation", [0, 0, 0])) * (PI / 180.0)),
+                GeogenUtil.vec(kept["position"]))
             item["body"] = world.props.add_clone(item["node"], physics, item["prop"], _layer, xform,
-                _vec(kept.get("velocity", [0, 0, 0])))
+                GeogenUtil.vec(kept.get("velocity", [0, 0, 0])))
         else:
             item["node"].free()
             continue
@@ -1000,10 +983,6 @@ func restore(data: Dictionary) -> void:
             _health(item)
     for uid in sources:
         _write(uid, "alive", alive(uid))
-
-
-static func _arr(v: Vector3) -> Array:
-    return [snappedf(v.x, 0.0001), snappedf(v.y, 0.0001), snappedf(v.z, 0.0001)]
 
 
 ## {sources: [{uid, running, queued, emitted, alive, items: [names]}], items: [{id, source, item,
@@ -1045,5 +1024,3 @@ func report() -> Dictionary:
     return out
 
 
-static func _vec(a) -> Vector3:
-    return Vector3(float(a[0]), float(a[1]), float(a[2]))
