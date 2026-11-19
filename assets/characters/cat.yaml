@@ -145,6 +145,28 @@ body:
         - [LeftEye, 0.7, "{0.008 * k}", "{0.010 * k}"]
   poses:
     stand: {}
+    # Lying like a sphinx: the belly on the floor, the forepaws out in front, the hind legs
+    # folded under at the sides, the tail round along the floor.
+    lie:
+      hips: [0, -0.112, 0.0]
+      bones:
+        LeftFrontUpperLeg:  [-78, 0, 0]
+        LeftFrontLowerLeg:  [-6, 0, 0]
+        LeftFrontFoot:      [70, 0, 0]
+        RightFrontUpperLeg: [-78, 0, 0]
+        RightFrontLowerLeg: [-6, 0, 0]
+        RightFrontFoot:     [70, 0, 0]
+        LeftHindUpperLeg:   [-62, 0, 22]
+        LeftHindLowerLeg:   [150, 0, 0]
+        LeftHindFoot:       [-70, 0, 0]
+        RightHindUpperLeg:  [-62, 0, -22]
+        RightHindLowerLeg:  [150, 0, 0]
+        RightHindFoot:      [-70, 0, 0]
+        Neck:  [-12, 0, 0]
+        Head:  [14, 0, 0]
+        Tail1: [-45, 35, 0]
+        Tail2: [-10, 40, 0]
+        Tail3: [0, 40, 0]
   pose: stand
   # Motions, bone by bone (generators/clips.cycle_clip): closed paths of [x, y, z] degrees about
   # the cat's own axes (a negative x swings a leg forward), keys evenly spaced round the loop.
@@ -185,6 +207,56 @@ body:
         Tail3:   { path: [[0, -16, 0], [0, 16, 0]] }
         Head:    { path: [[0, 0, 0], [0, 10, 0], [3, 0, 0], [0, -8, 0]] }
         LeftEar: { path: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, -18], [0, 0, 0], [0, 0, 0]] }
+    # Jumps (one-shots, once: true): keys spread evenly from the start to the end. A jump's `leap`
+    # is the body's way from where it takes off to where it lands (shares of the way across and
+    # of the climb, and metres over that line); the runtime moves the body along it while the
+    # clip plays. Keys: [set, crouch, spring, flight, reach down, land, settle].
+    jump_up:
+      generator: cycle
+      once: true
+      duration: 0.9
+      bones:
+        Hips:               { path: [[0, 0, 0], [6, 0, 0], [-34, 0, 0], [-16, 0, 0], [10, 0, 0], [4, 0, 0], [0, 0, 0]] }
+        LeftFrontUpperLeg:  { path: [[0, 0, 0], [-10, 0, 0], [-70, 0, 0], [-50, 0, 0], [-10, 0, 0], [0, 0, 0], [0, 0, 0]] }
+        RightFrontUpperLeg: { path: [[0, 0, 0], [-10, 0, 0], [-76, 0, 0], [-54, 0, 0], [-12, 0, 0], [0, 0, 0], [0, 0, 0]] }
+        LeftFrontLowerLeg:  { path: [[0, 0, 0], [-20, 0, 0], [20, 0, 0], [-30, 0, 0], [0, 0, 0], [-14, 0, 0], [0, 0, 0]] }
+        RightFrontLowerLeg: { path: [[0, 0, 0], [-20, 0, 0], [20, 0, 0], [-34, 0, 0], [0, 0, 0], [-14, 0, 0], [0, 0, 0]] }
+        LeftHindUpperLeg:   { path: [[0, 0, 0], [-40, 0, 0], [30, 0, 0], [40, 0, 0], [-10, 0, 0], [-24, 0, 0], [0, 0, 0]] }
+        RightHindUpperLeg:  { path: [[0, 0, 0], [-40, 0, 0], [34, 0, 0], [44, 0, 0], [-10, 0, 0], [-24, 0, 0], [0, 0, 0]] }
+        LeftHindLowerLeg:   { path: [[0, 0, 0], [60, 0, 0], [-10, 0, 0], [0, 0, 0], [40, 0, 0], [40, 0, 0], [0, 0, 0]] }
+        RightHindLowerLeg:  { path: [[0, 0, 0], [60, 0, 0], [-10, 0, 0], [0, 0, 0], [40, 0, 0], [40, 0, 0], [0, 0, 0]] }
+        LeftHindFoot:       { path: [[0, 0, 0], [-30, 0, 0], [30, 0, 0], [20, 0, 0], [-30, 0, 0], [-20, 0, 0], [0, 0, 0]] }
+        RightHindFoot:      { path: [[0, 0, 0], [-30, 0, 0], [30, 0, 0], [20, 0, 0], [-30, 0, 0], [-20, 0, 0], [0, 0, 0]] }
+        Neck:               { path: [[0, 0, 0], [8, 0, 0], [10, 0, 0], [16, 0, 0], [6, 0, 0], [0, 0, 0], [0, 0, 0]] }
+        Tail1:              { path: [[0, 0, 0], [10, 0, 0], [30, 0, 0], [20, 0, 0], [-10, 0, 0], [0, 0, 0], [0, 0, 0]] }
+      hips: { path: [[0, 0, 0], [0, -0.05, 0], [0, 0.0, 0], [0, 0.01, 0], [0, -0.01, 0], [0, -0.03, 0], [0, 0, 0]] }
+      leap:
+        run:  [0, 0, 0.12, 0.6, 0.94, 1, 1]
+        rise: [0, 0, 0.25, 0.95, 1.0, 1, 1]
+        lift: [0, 0, 0.04, 0.09, 0.03, 0, 0]
+    # Down: a step off the edge, the forepaws reaching for the floor, landing on them first.
+    jump_down:
+      generator: cycle
+      once: true
+      duration: 0.8
+      bones:
+        Hips:               { path: [[0, 0, 0], [8, 0, 0], [24, 0, 0], [18, 0, 0], [-6, 0, 0], [0, 0, 0]] }
+        LeftFrontUpperLeg:  { path: [[0, 0, 0], [-10, 0, 0], [-40, 0, 0], [-30, 0, 0], [6, 0, 0], [0, 0, 0]] }
+        RightFrontUpperLeg: { path: [[0, 0, 0], [-6, 0, 0], [-44, 0, 0], [-34, 0, 0], [6, 0, 0], [0, 0, 0]] }
+        LeftFrontLowerLeg:  { path: [[0, 0, 0], [-10, 0, 0], [6, 0, 0], [0, 0, 0], [-20, 0, 0], [0, 0, 0]] }
+        RightFrontLowerLeg: { path: [[0, 0, 0], [-10, 0, 0], [6, 0, 0], [0, 0, 0], [-20, 0, 0], [0, 0, 0]] }
+        LeftHindUpperLeg:   { path: [[0, 0, 0], [-24, 0, 0], [20, 0, 0], [10, 0, 0], [-20, 0, 0], [0, 0, 0]] }
+        RightHindUpperLeg:  { path: [[0, 0, 0], [-24, 0, 0], [24, 0, 0], [12, 0, 0], [-20, 0, 0], [0, 0, 0]] }
+        LeftHindLowerLeg:   { path: [[0, 0, 0], [40, 0, 0], [0, 0, 0], [10, 0, 0], [30, 0, 0], [0, 0, 0]] }
+        RightHindLowerLeg:  { path: [[0, 0, 0], [40, 0, 0], [0, 0, 0], [10, 0, 0], [30, 0, 0], [0, 0, 0]] }
+        Neck:               { path: [[0, 0, 0], [16, 0, 0], [6, 0, 0], [-6, 0, 0], [-4, 0, 0], [0, 0, 0]] }
+        Tail1:              { path: [[0, 0, 0], [0, 0, 0], [-20, 0, 0], [-24, 0, 0], [0, 0, 0], [0, 0, 0]] }
+      hips: { path: [[0, 0, 0], [0, -0.03, 0], [0, 0, 0], [0, 0, 0], [0, -0.04, 0], [0, 0, 0]] }
+      leap:
+        run:  [0, 0, 0.3, 0.8, 1, 1]
+        rise: [0, 0, 0.1, 0.75, 1, 1]
+        lift: [0, 0, 0.05, 0.02, 0, 0]
 
 poses:
   stand: {}
+  lie: {}

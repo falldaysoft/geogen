@@ -97,13 +97,18 @@ GO_TO_TARGETS = {"approach", "anchor", "random", "nearby", "near", "far", "exit"
 # smaller one in one hand, at the side.
 REACH_DEFAULTS = {"distance": 1.0, "heights": [0.0, 1.5], "stand": 0.5}
 CARRY_DEFAULTS = {"mass": 10.0, "size": 0.6, "two_hands": 0.2}
+# What a body can jump (geogen.100.6), m: `up` onto something at most this much higher, `down` off
+# something at most this much higher, `across` as far as this level. An NPC with `jump:` reaches
+# spots off the navmesh (perches: a sofa's seat) by a jump from where it can walk to, and jumps
+# down off them again; its body plays `jump_up` / `jump_down` (one-shot clips with a `leap`).
+JUMP_DEFAULTS = {"up": 0.8, "down": 1.4, "across": 1.0}
 ITEM_SELECTOR = re.compile(r"^\[tag=([A-Za-z_][\w.]*)\]$")   # use_item: "[tag=food]": the first such item carried
 FACE_TARGETS = {"anchor", "portal", "player", "partner"}
 POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips", "life"}
+            "reach", "carry", "jump", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips", "life"}
 # A need (geogen.101.2): 0 (desperate) .. 1 (satisfied).
 NEED_KEYS = {
     "initial": "where it starts, 0..1 (default 0.5)",
@@ -657,6 +662,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "attention": attention,
         "reach": _limits(data.get("reach"), REACH_DEFAULTS, f"{path}: reach"),
         "carry": _limits(data.get("carry"), CARRY_DEFAULTS, f"{path}: carry"),
+        **({"jump": _limits(data["jump"], JUMP_DEFAULTS, f"{path}: jump")} if data.get("jump") is not None else {}),
         "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
         **parse_senses(data.get("senses"), data.get("reacts"), str(path), actions),
         **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),

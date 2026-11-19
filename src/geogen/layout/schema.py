@@ -323,7 +323,7 @@ ASSET_KEYS: dict[str, str] = {
     "wire": "[{from: self | <part>.<signal>, to: self | <part>.<input>, value, when, after, if}]: a signal drives "
             "an input",
     "bind": "{<state>: <expression>}: standing relations; a bound variable is never set or saved",
-    "affordances": "[{type: sit | lie | use | stand | look, at, facing, body, ...}]: what actors can do here "
+    "affordances": "[{type: sit | lie | use | stand | look | perch, at, facing, body, ...}]: what actors can do here "
                    "(`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`, "
                    "`sets: {interaction: state}`: what doing it needs and does to what the actor carries and to "
                    "this asset's states, the links NPCs plan chains through; "

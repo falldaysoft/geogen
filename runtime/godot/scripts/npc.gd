@@ -102,6 +102,10 @@ const CARRY_PALM := 0.02          # m off its side the hand bone is (the palm is
 const STAND_SLACK := 0.2          # m short of its reach a spot must be from where it will stand (walks end a little off)
 const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor it is baked from
 const PUT_GAP := 0.01             # m above the spot a prop is let go at
+const LEAP_OFF := 0.25            # m: a spot this far above (or 0.3 m beside) the navmesh is off it: jumped to
+const LEAP_STEPS := [0.3, 0.55, 0.8, 1.05]   # m out from a perch where a jump down may land (up to `jump.across`)
+const LEAP_SECONDS := 0.6         # a jump with no clip of its own takes this long, on a plain arc
+const LEAP_ARC := 0.12            # ...this high over the line
 const HELD_EVERY := 0.25          # s between looking at what the NPC carries (geogen.87.2)        # s between looking up the groupmates (chunks stream NPCs in and out)
 
 var world: WorldLoader
@@ -218,6 +222,11 @@ var _emitted := {}                 # what the body's motions have emitted since 
 var _feet: GeogenFeet = null       # standing feet onto the ground that is really there (feet.gd)
 var _playing := false             # a `play:` step holds the body's animation
 var _close := false               # the walk's last bit goes off the navmesh, up to the target (`close`)
+var _perched := false             # it stands (or lies) on a perch it jumped up to, off the navmesh (`jump:`)
+var _perch_goal := false          # the go_to in hand is to a perch: jump up to it from the navmesh
+var _leap_out := {}               # a jump off the perch down to the navmesh, before the path: {from, to}
+var _leap_in := {}                # a jump from the path's end up to the target: {from, to}
+var _leap := {}                   # the jump under way: {from, to, clip, t, length, turned}
 var _looping := false             # the `play:` step loops its clip: busy at work, it only glances up
 var _glance_at := 0.0             # clock of the next glance up while busy
 var _glance_until := -INF         # clock the glance up ends
@@ -400,6 +409,8 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
             continue
         if a.has("follow") and not a.get("boardable", true):
             continue    # a ride's seat, away from the ground or moving
+        if a.get("type", "") == "perch" and not definition.has("jump"):
+            continue    # up on something, for a body that jumps (a cat on the sofa's seat)
         if a.has("prop"):
             a = _prop_affordance(a)
             if a.is_empty():
@@ -857,7 +868,7 @@ func _start(ranked: Array[Dictionary]) -> void:
     elif not a.is_empty():
         ctx = {"anchor": a["position"], "yaw_deg": a["npc_yaw_deg"], "approach": a["approach"],
             "interaction": a.get("interaction"), "duration": a.get("duration"), "depth": a.get("depth"),
-            "held": _held_on(a), "ride": a if a.has("follow") else {}}
+            "held": _held_on(a), "ride": a if a.has("follow") else {}, "perch": a.get("type", "") == "perch"}
         if a.has("prop"):
             # The prop's own affordance: it is what the action takes, and where it lies is where
             # `put_down: place` puts it back.
@@ -1548,6 +1559,7 @@ func _begin(step: Dictionary, ctx: Dictionary) -> String:
             return "no %s point" % step["go_to"]
         _replans = 0
         _close = bool(step.get("close", false))
+        _perch_goal = step["go_to"] == "anchor" and bool(ctx.get("perch", false))
         return _plan(target)
     if step.has("face"):
         var dir: Vector3
@@ -2936,6 +2948,28 @@ func _plan(target: Vector3) -> String:
     var map := get_world_3d().navigation_map
     var from := NavigationServer3D.map_get_closest_point(map, global_position)
     var to := NavigationServer3D.map_get_closest_point(map, target)
+    _leap_out = {}
+    _leap_in = {}
+    if not _leap.is_empty():              # planned again in mid-air: on from where it is
+        _leap = {}
+        _playing = false
+        _solid_after_move()
+    if definition.has("jump"):
+        # On a perch: jump down to the navmesh first. To a perch (or a spot off the navmesh):
+        # walk to where it can be jumped up to from, then jump.
+        if _perched or _off_mesh(global_position, from):
+            var down = _leap_ground(global_position, target, false)
+            if down == null:
+                return "no way down from %s" % str(GeogenUtil.cm(global_position))
+            _leap_out = {"from": global_position, "to": down}
+            from = down
+        if _perch_goal or _off_mesh(target, to):
+            var up = _leap_ground(target, from, true)
+            if up == null:
+                return "out of jumping reach (%s)" % str(GeogenUtil.cm(target))
+            _leap_in = {"from": up, "to": target}
+            to = up
+            target = up
     _path = GeogenWalker.find_path(map, from, to)
     _stairs = []
     _stair = null
@@ -3111,6 +3145,16 @@ func _watch_crossing() -> void:
 
 
 func _walk(delta: float) -> String:
+    if not _leap.is_empty():
+        return _leaping(delta)
+    if not _leap_out.is_empty():
+        _start_leap(_leap_out)
+        _leap_out = {}
+        return "running"
+    if _waypoint >= _path.size() and not _leap_in.is_empty():
+        _start_leap(_leap_in)
+        _leap_in = {}
+        return "running"
     if _waypoint >= _path.size():
         velocity.x = 0.0
         velocity.z = 0.0
@@ -3195,6 +3239,96 @@ func _walk(delta: float) -> String:
         if _stall > STALL_SECONDS and _sidestep <= 0.0 and fmod(_stall, STALL_SECONDS * 2.0) < delta * 1.5:
             _sidestep = SIDESTEP_SECONDS
             _sidestep_dir = -_sidestep_dir
+    return "running"
+
+
+## A spot off the navmesh: higher than the navmesh point nearest it, or well beside it.
+func _off_mesh(spot: Vector3, nearest: Vector3) -> bool:
+    return spot.y - nearest.y > LEAP_OFF or NpcGeometry.flat(spot - nearest).length() > 0.3
+
+
+## Where to jump between ``perch`` (off the navmesh) and the navmesh: a navmesh point on the ground
+## beside and below it within the body's `jump:` reach (`up` for a jump up to it, else `down`), with
+## nothing solid in the way, the nearest ``toward``. null: there is none.
+func _leap_ground(perch: Vector3, toward: Vector3, up: bool) -> Variant:
+    var jump: Dictionary = definition["jump"]
+    var across := float(jump["across"])
+    var limit := float(jump["up"] if up else jump["down"])
+    var map := get_world_3d().navigation_map
+    var space := get_world_3d().direct_space_state
+    var best = null
+    var best_score := INF
+    for k in 16:
+        var dir := Vector3(sin(TAU * k / 16.0), 0.0, cos(TAU * k / 16.0))
+        for d in LEAP_STEPS:
+            if d > across:
+                break
+            var p := perch + dir * float(d)
+            var ray := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 0.2, p + Vector3.DOWN * (limit + 0.3), 1)
+            var hit := space.intersect_ray(ray)
+            if hit.is_empty() or perch.y - float(hit["position"].y) < LEAP_OFF:
+                continue                  # nothing under it, or still the perch's own surface
+            var ground: Vector3 = hit["position"]
+            var q := NavigationServer3D.map_get_closest_point(map, ground)
+            if q.distance_to(ground) > 0.15 or perch.y - q.y > limit or NpcGeometry.flat(q - perch).length() > across:
+                continue
+            # Nothing in the way of the body's middle: level with the perch out over the spot, then down.
+            var lift := Vector3.UP * 0.12
+            var over := Vector3(q.x, perch.y, q.z) + lift
+            if not space.intersect_ray(PhysicsRayQueryParameters3D.create(perch + lift, over, 1)).is_empty() \
+                    or not space.intersect_ray(PhysicsRayQueryParameters3D.create(over, q + lift, 1)).is_empty():
+                continue
+            var score := q.distance_to(toward) + NpcGeometry.flat(q - perch).length()
+            if score < best_score:
+                best_score = score
+                best = q
+    return best
+
+
+func _start_leap(spec: Dictionary) -> void:
+    var from: Vector3 = spec["from"]
+    var to: Vector3 = spec["to"]
+    var clip := "jump_up" if to.y > from.y else "jump_down"
+    _leap = {"from": from, "to": to, "clip": clip, "t": 0.0, "turned": false,
+        "length": LEAP_SECONDS, "data": {}}
+    velocity = Vector3.ZERO
+    _perched = false                      # in the air: on a perch again only once it lands on one
+    _shape.set_deferred("disabled", true)
+    count_stat("leaps")
+    _trace({"event": "leap", "from": GeogenUtil.cm(from), "to": GeogenUtil.cm(to)})
+
+
+## Turn to face the way, then jump: the body follows the clip's `leap` (or a plain arc).
+func _leaping(delta: float) -> String:
+    var from: Vector3 = _leap["from"]
+    var to: Vector3 = _leap["to"]
+    if not _leap["turned"]:
+        var way := NpcGeometry.flat(to - from)
+        var diff := wrapf(atan2(way.x, way.z) - _yaw(), -PI, PI) if way.length() > 0.02 else 0.0
+        var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
+        rotation.y += clampf(diff, -turn, turn)
+        if absf(diff) > turn:
+            return "running"
+        _leap["turned"] = true
+        _playing = true
+        if animator != null and animator.player != null and animator.leaps.has(_leap["clip"]):
+            _leap["data"] = animator.leaps[_leap["clip"]]
+            _leap["length"] = animator.play_once(_leap["clip"])
+    _leap["t"] += delta
+    var t: float = _leap["t"]
+    var data: Dictionary = _leap["data"]
+    if data.is_empty():
+        var u := clampf(t / LEAP_SECONDS, 0.0, 1.0)
+        global_position = from.lerp(to, u) + Vector3.UP * LEAP_ARC * 4.0 * u * (1.0 - u)
+    else:
+        global_position = GeogenNpcAnimator.leap_at(data, from, to, t)
+    if t < float(_leap["length"]):
+        return "running"
+    global_position = to
+    _perched = _off_mesh(to, NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, to))
+    _leap = {}
+    _playing = false
+    _solid_after_move()
     return "running"
 
 
@@ -3425,7 +3559,7 @@ func _set_pose(pose_name: String, ctx: Dictionary, at: String, hold := "") -> vo
         yaw = deg_to_rad(float(ride["npc_yaw_deg"]))
     var was := _pose
     var before := body.global_transform if body != null else Transform3D.IDENTITY
-    if pose_name == "stand":
+    if pose_name == "stand" and not (_perched and at == "anchor"):
         var map := get_world_3d().navigation_map
         place = NavigationServer3D.map_get_closest_point(map, place)
     global_position = place
@@ -4010,7 +4144,7 @@ func report() -> Dictionary:
         "position": GeogenUtil.cm(p), "head": GeogenUtil.cm(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away, "absent": absent,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
-        "close_ins": int(stats.get("close_ins", 0)),
+        "close_ins": int(stats.get("close_ins", 0)), "leaps": int(stats.get("leaps", 0)), "perched": _perched,
         # Signalled crossings: waits on the kerb for walk (and the longest, s), steps onto one, and
         # steps onto one showing a steady don't-walk.
         "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),

@@ -110,6 +110,18 @@
               "speed": { "description": "Locomotion clips: the ground speed (m/s) the cycle was made for; scale playback by actual speed / this.", "type": "number" },
               "stride": { "type": "number" },
               "rests": { "description": "Pose clips: the hands (IK end bones) resting on a support in this pose, a table top or a sill, made for a default height: a runtime may move them onto the support that is really there.", "type": "array", "items": { "type": "string" } },
+              "leap": {
+                "description": "Jump clips (one-shots): the body's way from where it takes off to where it lands while the clip plays, sampled at 'times' (s): across by 'run' (share) of the level way between the two, up by 'rise' (share) of the climb or drop and 'lift' m more. Interpolate linearly between samples.",
+                "type": "object",
+                "required": ["times", "run", "rise", "lift"],
+                "additionalProperties": false,
+                "properties": {
+                  "times": { "type": "array", "items": { "type": "number" } },
+                  "run": { "type": "array", "items": { "type": "number" } },
+                  "rise": { "type": "array", "items": { "type": "number" } },
+                  "lift": { "type": "array", "items": { "type": "number" } }
+                }
+              },
               "from": { "description": "Transition clips (sit_down, stand_up, ...): the pose the clip starts in.", "type": "string" },
               "to": { "description": "Transition clips: the pose the clip ends in. Play the clip when changing pose from 'from' to 'to'.", "type": "string" },
               "root": {
@@ -252,7 +264,7 @@
             "type": "object", "required": ["type", "position", "yaw"],
             "additionalProperties": false,
             "properties": {
-              "type": { "enum": ["sit", "lie", "use", "stand", "look"] },
+              "type": { "enum": ["sit", "lie", "use", "stand", "look", "perch"] },
               "position": { "$ref": "#/$defs/vec3" },
               "yaw": { "type": "number" }, "height": { "type": "number" }, "prompt": { "type": "string" },
               "depth": { "description": "sit: how far in front of 'position' the seat's front edge is, metres. With the body pose's 'reach' it keeps the sitter's calves clear of the seat.", "type": "number" },
@@ -844,6 +856,10 @@
               "type": "object", "additionalProperties": false,
               "properties": { "distance": { "type": "number" }, "stand": { "type": "number" },
                 "heights": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 } } },
+            "jump": {
+              "description": "What its body can jump (geogen.100.6), m: 'up' onto something at most this much higher, 'down' off something at most this much higher, 'across' as far as this level. Spots off the navmesh (perches) are reached by a jump from a navmesh point within reach, and left by a jump down; the body plays its 'jump_up' / 'jump_down' clip and follows the clip's 'leap'. Absent: it doesn't jump.",
+              "type": "object", "additionalProperties": false,
+              "properties": { "up": { "type": "number" }, "down": { "type": "number" }, "across": { "type": "number" } } },
             "carry": {
               "description": "The physics props it can carry: at most 'mass' kg and 'size' m on the longest side. One over 'two_hands' m on its longest side is carried in front of the body in both hands, a smaller one in one hand.",
               "type": "object", "additionalProperties": false,

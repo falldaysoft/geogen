@@ -190,6 +190,8 @@ def stage_actors(scene: SceneNode, body=None, loader=None, assets_dir: Path | No
     world = _Floors(_obstacle_meshes(staged))
     group = SceneNode("affordance_actors")
     for spot in affordance_spots(staged):
+        if spot.affordance["type"] == "perch" and body is None:
+            continue          # an animal's spot: the default body is a person
         floor = _floor_y(world, spot.approach[0], spot.approach[2], spot.approach[1] + 1.0)
         group.add_child(pose_actor(body_node, spot, floor))
     staged.add_child(group)
@@ -357,6 +359,8 @@ def check_affordances(scene: SceneNode, player=None, body=None, loader=None,
     # One grid per floor level the approach points stand on.
     levels: dict[float, list[tuple[Spot, float]]] = {}
     for spot in spots:
+        if spot.affordance["type"] == "perch":
+            continue          # reached by a jump or on the wing, not by walking up to it
         floor = _floor_y(world, spot.approach[0], spot.approach[2], spot.approach[1] + 1.0)
         levels.setdefault(round(floor, 1), []).append((spot, floor))
     for level, items in levels.items():
@@ -385,8 +389,8 @@ def check_affordances(scene: SceneNode, player=None, body=None, loader=None,
     return issues
 
 
-def _users(scene: SceneNode) -> list[tuple[list[str], SceneNode]]:
-    """(affordance_tags, body) of the scene's NPCs, one per distinct body (up to 3 unrestricted
+def _users(scene: SceneNode) -> list[tuple[list[str], SceneNode, bool]]:
+    """(affordance_tags, body, whether it jumps) of the scene's NPCs, one per distinct body (up to 3 unrestricted
     and 3 per tag filter): whoever might actually use an affordance."""
     out, seen = [], set()
     for node in scene.iter_nodes():
@@ -397,10 +401,10 @@ def _users(scene: SceneNode) -> list[tuple[list[str], SceneNode]]:
             continue
         key = frozenset(id(n.mesh) for n in body.iter_nodes() if n.mesh is not None)
         tags = list(node.meta["npc"].get("affordance_tags") or [])
-        if key in seen or sum(1 for t, _ in out if t == tags) >= 3:
+        if key in seen or sum(1 for t, _, _ in out if t == tags) >= 3:
             continue
         seen.add(key)
-        out.append((tags, body))
+        out.append((tags, body, "jump" in node.meta["npc"]))
     return out
 
 
@@ -418,7 +422,10 @@ def _pose_clashes(scene, spots, meshes, body, loader, assets_dir) -> list[Issue]
     issues = []
     for spot in posed:
         tags = spot.affordance.get("tags") or []
-        bodies = [b for t, b in users if not t or set(t) & set(tags)]
+        perch = spot.affordance["type"] == "perch"     # only bodies that jump get there
+        bodies = [b for t, b, jumps in users if (not t or set(t) & set(tags)) and (jumps or not perch)]
+        if not bodies and perch:
+            continue
         if not bodies:
             fallback = fallback or _load_body(None, loader, assets_dir)
             bodies = [fallback]

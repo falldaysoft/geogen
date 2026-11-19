@@ -23,7 +23,7 @@
 | `rules` | [{id, on: <event>, when: <condition>, do: [effects], after, once, if}]: what happens when (geogen.wiring); `if: "{expr}"` leaves the rule out of the build when 0 |
 | `wire` | [{from: self \| <part>.<signal>, to: self \| <part>.<input>, value, when, after, if}]: a signal drives an input |
 | `bind` | {<state>: <expression>}: standing relations; a bound variable is never set or saved |
-| `affordances` | [{type: sit \| lie \| use \| stand \| look, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`, `sets: {interaction: state}`: what doing it needs and does to what the actor carries and to this asset's states, the links NPCs plan chains through; `uses: {name: {requires, takes, gives, sets, advertises, duration, tags}}`: other things done at the same place, sharing its slots: a chair's `eat`; `when`: an expression, false leaves the affordance out) |
+| `affordances` | [{type: sit \| lie \| use \| stand \| look \| perch, at, facing, body, ...}]: what actors can do here (`body`: a mechanism body the seat rides on; `requires: {holding, state}`, `takes`, `gives`, `sets: {interaction: state}`: what doing it needs and does to what the actor carries and to this asset's states, the links NPCs plan chains through; `uses: {name: {requires, takes, gives, sets, advertises, duration, tags}}`: other things done at the same place, sharing its slots: a chair's `eat`; `when`: an expression, false leaves the affordance out) |
 | `places` | {name: {box \| polygon \| around}}: trigger volumes |
 | `clearance` | {front, back, left, right}: free space the furnishing solver keeps around it |
 | `container` | {capacity, part}: the asset holds items |
@@ -176,7 +176,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `household`, `life`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `household`, `jump`, `life`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -373,7 +373,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `life`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `jump`, `life`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |

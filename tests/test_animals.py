@@ -39,6 +39,30 @@ def test_a_hierarchy_must_be_whole(tmp_path):
         load_skeleton(bad)
 
 
+def test_one_shot_clips_carry_the_way_a_jump_goes():
+    from geogen.core.skeleton import Pose
+    from geogen.generators.clips import cycle_clip, leap_at
+
+    skeleton = load_skeleton(ASSETS_DIR / "skeletons" / "quadruped.yaml")
+    clip = cycle_clip(skeleton, Pose(), "jump_up", once=True, duration=0.5,
+                      bones={"Hips": {"path": [[0, 0, 0], [-30, 0, 0], [0, 0, 0]]}},
+                      leap={"run": [0, 0.5, 1], "rise": [0, 1, 1], "lift": [0, 0.1, 0]})
+    assert not clip.loop and clip.duration == pytest.approx(0.5)
+    leap = clip.meta["leap"]
+    assert len(leap["times"]) == len(leap["run"]) == len(leap["lift"])
+    start, end = np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.5, 0.8])
+    assert np.allclose(leap_at(leap, start, end, 0.0), start) and np.allclose(leap_at(leap, start, end, 0.5), end)
+    mid = leap_at(leap, start, end, 0.25)
+    assert mid[2] == pytest.approx(0.4, abs=0.02) and mid[1] == pytest.approx(0.6, abs=0.02)   # risen, and lifted
+    # The pitch keys spread over the clip: the start and the end are the pose, the middle not.
+    q = clip.tracks["Hips"].rotations
+    assert np.allclose(np.abs(q[0]), np.abs(q[-1])) and not np.allclose(np.abs(q[0]), np.abs(q[len(q) // 2]))
+    with pytest.raises(ValueError, match="one-shot"):
+        cycle_clip(skeleton, Pose(), "bad", leap={"run": [0, 1]})
+    with pytest.raises(ValueError, match="no cycles"):
+        cycle_clip(skeleton, Pose(), "bad", once=True, bones={"Hips": {"path": [[0, 0, 0]], "cycles": 2}})
+
+
 def test_the_cat_is_one_closed_skinned_body_with_its_motions(built_scene):
     root = built_scene("cat")
     body = next(n for n in root.iter_nodes() if n.mesh is not None)
@@ -49,8 +73,9 @@ def test_the_cat_is_one_closed_skinned_body_with_its_motions(built_scene):
     assert len(body.mesh.faces) < 3000
     assert len({tuple(np.round(c, 2)) for c in body.mesh.colors[:, :3]}) >= 3      # coat, eyes, nose
     clips = {c.name: c for n in root.iter_nodes() for c in getattr(n, "clips", None) or []}
-    assert {"walk", "idle"} <= set(clips)
+    assert {"walk", "idle", "jump_up", "jump_down", "pose_lie"} <= set(clips)
     assert clips["walk"].meta["speed"] == 0.45 and clips["walk"].loop
+    assert not clips["jump_up"].loop and set(clips["jump_up"].meta["leap"]) == {"times", "run", "rise", "lift"}
     # The walk moves all four legs.
     assert {"LeftHindUpperLeg", "LeftFrontUpperLeg", "RightHindUpperLeg", "RightFrontUpperLeg"} <= set(clips["walk"].tracks)
 
@@ -66,16 +91,23 @@ def test_cats_walk_about_as_npcs(scene_export, godot_runtime):
     walked = dict.fromkeys(start, 0.0)
     clips = {name: set() for name in start}
     last = {name: n["position"] for name, n in start.items()}
-    for _ in range(80):
-        rt.call("time.advance", seconds=0.5, scale=4)
+    perched = dict.fromkeys(start, False)
+    for _ in range(150):
+        rt.call("time.advance", seconds=2.0, scale=8)
         for n in rt.call("npcs.list"):
             walked[n["npc"]] += math.dist(n["position"], last[n["npc"]])
             last[n["npc"]] = n["position"]
             clips[n["npc"]].add(n["clip"])
+            if n["perched"]:
+                # Up on the sofa's seat (0.5 m), lying there or about to.
+                assert n["position"][1] == pytest.approx(0.5, abs=0.05) and n["position"][0] < -1.0, n
+                perched[n["npc"]] = True
     now = {n["npc"]: n for n in rt.call("npcs.list")}
     for name, n in now.items():
         assert walked[name] > 1.0, (name, walked)                          # it got about
-        assert {"walk", "idle"} <= clips[name], clips                      # on its own walk and idle
+        assert {"walk", "idle", "pose_lie"} <= clips[name], clips          # on its own walk and idle; napped
+        # It jumped up onto the sofa and down again (geogen.100.6).
+        assert perched[name] and n["leaps"] >= 2, (name, n["leaps"])
         # (Where it meant to wander may be where the other cat or the player stands: that is all that fails.)
         assert all("destination occupied" in f for f in n["failures"]) and n["distinct"] >= 2
         assert abs(n["position"][0]) < 2.0 and abs(n["position"][2]) < 2.0     # in the room

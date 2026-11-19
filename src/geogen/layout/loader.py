@@ -818,7 +818,9 @@ def light_spec(spec: dict[str, Any]) -> dict[str, Any]:
     return light
 
 
-AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look")
+# perch: a spot on top of something (a sofa's seat, a fence, a branch) an animal gets to by
+# jumping or flying, not by walking: its `at` is on the surface (geogen.100).
+AFFORDANCE_TYPES = ("sit", "lie", "use", "stand", "look", "perch")
 AFFORDANCE_KEYS = {"type", "at", "facing", "height", "prompt", "action", "approach", "duration",
                    "advertises", "tags", "slots", "interaction", "depth", "body", "requires", "takes", "gives", "sets",
                    "uses", "when"}

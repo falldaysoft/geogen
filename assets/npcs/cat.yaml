@@ -5,15 +5,16 @@
 # Place in a scene with:
 #   cat: { npc: npcs/cat.yaml, on: house.floor, at: {u: 0.5, v: 0.5}, home: house.floor }
 #
-# It takes only affordances tagged for animals (none yet: seats are for people),
-# so for now it has its own activities. Animal wants (a warm, high place to
-# nap) come with geogen.100.3.
+# It takes only affordances tagged for animals: perches it naps on (a sofa's
+# seat), which it jumps up to and down from (`jump:`, geogen.100.6).
 
 kind: npc
 version: 1
 
 body: { asset: characters/cat.yaml }
 speed: 0.45               # a cat's walk, m/s (its walk clip's speed)
+radius: 0.12
+jump: { up: 1.0, down: 1.6, across: 1.0 }   # m: onto a table from the floor, off it again
 turn_speed: 300
 
 needs:

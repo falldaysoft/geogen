@@ -14,6 +14,7 @@ var body: Node3D
 var player: AnimationPlayer = null  # null: a body without clips (a capsule)
 var clip_speed := {}                # clip name -> ground speed it was authored for (m/s)
 var transitions := {}               # "<from>><to>" -> {clip, times, positions, rotations}
+var leaps := {}                     # one-shot clip name -> its `leap` (times, run, rise, lift): a jump's way
 var transition := {}                # the one playing: {move, t, start, target, pose}
 var _clips := {}                    # clip name -> Animation, until attach()
 var _tween: Tween = null
@@ -30,6 +31,8 @@ static func load(body_: Node3D) -> GeogenNpcAnimator:
     for clip in WorldLoader.geogen_extras(body_).get("clips", []):
         if clip.has("speed"):
             out.clip_speed[clip["name"]] = float(clip["speed"])
+        if clip.has("leap") and out._clips.has(clip["name"]):
+            out.leaps[clip["name"]] = clip["leap"]
         if clip.has("root") and out._clips.has(clip["name"]):
             var root: Dictionary = clip["root"]
             var move := {"clip": clip["name"], "times": PackedFloat32Array(root["times"]),
@@ -81,6 +84,24 @@ func play_once(clip_name: String) -> float:
     player.speed_scale = 1.0
     player.play(clip_name, LOCOMOTION_BLEND)
     return player.get_animation(clip_name).length
+
+
+## Where a leaping body is ``t`` s into a jump clip whose ``leap`` this is, going from ``start`` to
+## ``end``: across by ``run`` of the level way, up by ``rise`` of the climb and ``lift`` m more.
+## The port of geogen.generators.clips.leap_at (linear between the sampled frames).
+static func leap_at(leap: Dictionary, start: Vector3, end: Vector3, t: float) -> Vector3:
+    var times: Array = leap["times"]
+    var last := times.size() - 1
+    t = clampf(t, float(times[0]), float(times[last]))
+    var i := 0
+    while i < last - 1 and float(times[i + 1]) <= t:
+        i += 1
+    var f := (t - float(times[i])) / maxf(float(times[i + 1]) - float(times[i]), 1e-9)
+    var run := lerpf(float(leap["run"][i]), float(leap["run"][i + 1]), f)
+    var rise := lerpf(float(leap["rise"][i]), float(leap["rise"][i + 1]), f)
+    var lift := lerpf(float(leap["lift"][i]), float(leap["lift"][i + 1]), f)
+    var d := end - start
+    return start + Vector3(d.x * run, d.y * rise + lift, d.z * run)
 
 
 ## Play ``clip_name`` from standing over and over (a looping clip: work at a counter) until the

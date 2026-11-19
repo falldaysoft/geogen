@@ -40,6 +40,8 @@ place:
 - sit at (-0.56, 0.5, 0.1) height 0.5 [seat, comfy]
 - sit at (0, 0.5, 0.1) height 0.5 [seat, comfy]
 - sit at (0.56, 0.5, 0.1) height 0.5 [seat, comfy]
+- perch at (-0.56, 0.5, 0.05) [animal, comfy]
+- perch at (0.56, 0.5, 0.05) [animal, comfy]
 
 ## Clearance
 

@@ -404,6 +404,23 @@ def loop_path(keys, u: float, cycles: int = 1) -> np.ndarray:
                   + (3 * p1 - p0 - 3 * p2 + p3) * f ** 3)
 
 
+def open_path(keys, u: float) -> np.ndarray:
+    """An open path through ``keys`` (evenly spaced, the first at ``u`` = 0, the last at 1) at ``u``:
+    Catmull-Rom with the ends held, for one-shot motions (a jump, a take-off). No keys: zeros."""
+    keys = np.asarray(keys, dtype=float)
+    if keys.size == 0:
+        return np.zeros(3)
+    n = len(keys)
+    if n == 1:
+        return keys[0].copy()
+    x = float(np.clip(u, 0.0, 1.0)) * (n - 1)
+    i = min(int(np.floor(x)), n - 2)
+    f = x - i
+    p0, p1, p2, p3 = keys[max(i - 1, 0)], keys[i], keys[i + 1], keys[min(i + 2, n - 1)]
+    return 0.5 * (2 * p1 + (p2 - p0) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f
+                  + (3 * p1 - p0 - 3 * p2 + p3) * f ** 3)
+
+
 def gesture_clip(skeleton: Skeleton, base: Pose, name: str = "gesture", *, poses: dict | None = None,
                  **params) -> Clip:
     """A looping piece of work over one of the body's IK poses (``pose``: ``work_counter``, standing
@@ -472,7 +489,9 @@ def gesture_clip(skeleton: Skeleton, base: Pose, name: str = "gesture", *, poses
                 samples=GESTURE_SAMPLES)
 
 
-CYCLE_DEFAULTS = {"pose": None, "duration": 1.0, "speed": None, "bones": {}, "hips": None, "fps": 20}
+CYCLE_DEFAULTS = {"pose": None, "duration": 1.0, "speed": None, "bones": {}, "hips": None, "fps": 20,
+                  "once": False, "leap": None}
+LEAP_KEYS = ("run", "rise", "lift")
 
 
 def cycle_clip(skeleton: Skeleton, base: Pose, name: str = "cycle", *, poses: dict | None = None,
@@ -486,6 +505,13 @@ def cycle_clip(skeleton: Skeleton, base: Pose, name: str = "cycle", *, poses: di
     - ``hips: {path, cycles}``: [x, y, z] m the hips move by (a bob, a sway).
     - ``pose``: the body pose it plays over (default: the one the body is built in).
     - ``speed``: m/s the motion suits; a runtime plays a ``walk`` faster or slower by it.
+    - ``once: true``: a one-shot (a jump, a take-off): each path's keys are spread from the start
+      to the end (``open_path``) instead of round a loop, and ``cycles`` is not taken.
+    - ``leap: {run, rise, lift}`` (one-shots): the body's way from where it takes off to where it
+      lands, for a runtime to move it along while the clip plays: ``run`` and ``rise`` are shares
+      of the way across and of the climb (or drop), ``lift`` metres above that line, each a list
+      of evenly spaced keys. Exported sampled at the clip's frames (``meta.leap``: ``times``,
+      ``run``, ``rise``, ``lift``); ``leap_at`` is where the body is at a time.
     """
     p = {**CYCLE_DEFAULTS, **params}
     unknown = set(params) - set(CYCLE_DEFAULTS)
@@ -498,6 +524,21 @@ def cycle_clip(skeleton: Skeleton, base: Pose, name: str = "cycle", *, poses: di
     for bone, b in {**(p["bones"] or {}), **paths}.items():
         if (bone != "hips" and bone not in skeleton.bones) or not isinstance(b, dict) or set(b) - GESTURE_BONE_KEYS:
             raise ValueError(f"cycle clip '{name}': {bone} is {{path, cycles}} on a skeleton bone (or hips)")
+    once = bool(p["once"])
+    if p["leap"] is not None:
+        leap = p["leap"]
+        if not once or not isinstance(leap, dict) or set(leap) - set(LEAP_KEYS) or \
+                not all(isinstance(v, list) and v for v in leap.values()):
+            raise ValueError(f"cycle clip '{name}': leap is {{run, rise, lift}} (lists of keys) on a "
+                             f"one-shot (once: true), got {leap!r}")
+    if once and any(isinstance(b, dict) and "cycles" in b for b in [*(p["bones"] or {}).values(), p["hips"] or {}]):
+        raise ValueError(f"cycle clip '{name}': a one-shot (once: true) takes no cycles")
+
+    def along(b: dict, u: float) -> np.ndarray:
+        if once:
+            return open_path(b.get("path") or [], u)
+        return loop_path(b.get("path") or [], u, int(b.get("cycles", 1)))
+
     duration = float(p["duration"])
     frames = max(8, int(round(duration * p["fps"])))
     times = np.linspace(0.0, duration, frames + 1)
@@ -506,16 +547,36 @@ def cycle_clip(skeleton: Skeleton, base: Pose, name: str = "cycle", *, poses: di
         u = t / duration
         pose = held.copy()
         for bone, b in (p["bones"] or {}).items():
-            degrees = np.radians(loop_path(b.get("path") or [], u, int(b.get("cycles", 1))))
+            degrees = np.radians(along(b, u))
             extra = skeleton.body_quat(bone, Transform(rotation=degrees).to_matrix()[:3, :3])
             q = pose.rotations.get(bone, np.array([0.0, 0.0, 0.0, 1.0]))
             pose.rotations[bone] = quat_from_matrix(matrix_from_quat(q) @ matrix_from_quat(extra))
         if p["hips"]:
-            move = loop_path(p["hips"].get("path") or [], u, int(p["hips"].get("cycles", 1)))
+            move = along(p["hips"], u)
             pose.offsets["Hips"] = pose.offsets.get("Hips", np.zeros(3)) + move
         out.append(pose)
     meta = {"speed": round(float(p["speed"]), 4)} if p["speed"] is not None else {}
-    return Clip(name, tracks_from_poses(skeleton, out, times), loop=True, meta=meta, samples=GESTURE_SAMPLES)
+    if p["leap"] is not None:
+        meta["leap"] = {"times": [round(float(t), 4) for t in times]}
+        for key in LEAP_KEYS:
+            keys = [[float(v)] for v in p["leap"].get(key) or [1.0 if key != "lift" else 0.0]]
+            meta["leap"][key] = [round(float(open_path(keys, t / duration)[0]), 4) for t in times]
+    return Clip(name, tracks_from_poses(skeleton, out, times), loop=not once, meta=meta, samples=GESTURE_SAMPLES)
+
+
+def leap_at(leap: dict, start, end, t: float) -> np.ndarray:
+    """Where a leaping body is ``t`` seconds into a clip with ``meta.leap``, going from ``start`` to
+    ``end`` (world positions of its root): across by ``run`` of the level way between them, up by
+    ``rise`` of the climb and ``lift`` m more. Linear between the sampled frames; the runtime's
+    port is ``GeogenNpcAnimator.leap_at``."""
+    times = np.asarray(leap["times"], dtype=float)
+    t = float(np.clip(t, times[0], times[-1]))
+    i = int(np.clip(np.searchsorted(times, t, side="right") - 1, 0, len(times) - 2))
+    f = (t - times[i]) / max(times[i + 1] - times[i], 1e-9)
+    run, rise, lift = ((1 - f) * leap[k][i] + f * leap[k][i + 1] for k in LEAP_KEYS)
+    start, end = np.asarray(start, dtype=float), np.asarray(end, dtype=float)
+    d = end - start
+    return start + np.array([d[0] * run, d[1] * rise + lift, d[2] * run])
 
 
 GENERATORS = {"walk": walk_clip, "idle": idle_clip, "wave": wave_clip, "transition": transition_clip,
