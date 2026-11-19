@@ -181,7 +181,7 @@ func load_package(name_: String, manifest: Dictionary) -> void:
             _holding[key] = true
     # The world's time before anyone is there: the machine starts at noon, and a quest that
     # opens at a clock time would open at once.
-    _sync_clock()
+    sync_clock()
     for actor in actors:
         machine.add_actor(actor, actors[actor]["kind"])
         # A fresh package: its watches fire for them (no rule's event: it settles the watches).
@@ -448,11 +448,11 @@ func _physics_process(delta: float) -> void:
         var minute := clock.day * 1440 + int(clock.hours * 60.0)
         if minute != _minute:
             _minute = minute
-            _sync_clock()
+            sync_clock()
     _report_errors()
 
 
-func _sync_clock() -> void:
+func sync_clock() -> void:
     var clock: GeogenClock = world.clock
     if machine == null or clock == null:
         return
@@ -540,7 +540,7 @@ func _on_event(event: Dictionary) -> void:
         return
     match event["type"]:
         "clock":
-            _sync_clock()        # the machine raises its own night / day from its clock
+            sync_clock()        # the machine raises its own night / day from its clock
         "changed":
             var waiting: Array = _expected.get(event.get("key", ""), [])
             var at := waiting.find(event["data"].get("to"))

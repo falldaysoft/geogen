@@ -1893,7 +1893,7 @@
         "time.scale": "{scale} world speed",
         "time.clock": "{time? 'HH:MM', day?, day_length?} get or set the world clock",
         "time.skip": "{until? | minutes? | hours? | days?} move the world clock forward (until 'HH:MM': the next time it shows that); the rules' clock-time waits that come due on the way run in order",
-        "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
+        "capture.screenshot": "{path?, from?, at?, node? | uid? | node_path? | bounds?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
         "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
         "capture.camera": "{mode: player|overview|follow|fixed, npc?, from?, at?, fov?} which camera shows the world; fixed: the overview camera held at `from` looking at `at` (a recording's viewpoint)",
         "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: `events` is the whole bus (events.gd), narrowed to these types and subject IDs",
@@ -2727,10 +2727,20 @@
           "uid": {
             "type": "string"
           },
+          "node_path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
           "motion": {
             "type": "string"
           },
           "params": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "roles": {
             "type": "object",
             "additionalProperties": {}
           }
@@ -2744,6 +2754,12 @@
             "type": "string"
           },
           "uid": {
+            "type": "string"
+          },
+          "node_path": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "motion": {
@@ -2767,6 +2783,12 @@
           "uid": {
             "type": "string"
           },
+          "node_path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
           "reaction": {
             "type": "string"
           },
@@ -2784,6 +2806,12 @@
             "type": "string"
           },
           "uid": {
+            "type": "string"
+          },
+          "node_path": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           }
         }
@@ -2907,6 +2935,26 @@
           "node": {
             "type": "string"
           },
+          "uid": {
+            "type": "string"
+          },
+          "node_path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bounds": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "$ref": "#/$defs/point"
+              },
+              "max": {
+                "$ref": "#/$defs/point"
+              }
+            }
+          },
           "view": {
             "type": "string"
           },
@@ -2934,7 +2982,13 @@
           "node": {
             "type": "string"
           },
+          "uid": {
+            "type": "string"
+          },
           "node_path": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "bounds": {
@@ -2948,6 +3002,12 @@
               }
             }
           },
+          "from": {
+            "$ref": "#/$defs/point"
+          },
+          "at": {
+            "$ref": "#/$defs/point"
+          },
           "views": {
             "type": "array",
             "items": {
@@ -2958,6 +3018,17 @@
             "type": "number"
           },
           "isolate": {},
+          "fov": {
+            "type": "number"
+          },
+          "size": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
           "path": {
             "type": "string"
           }
@@ -2971,7 +3042,8 @@
             "enum": [
               "player",
               "overview",
-              "follow"
+              "follow",
+              "fixed"
             ]
           },
           "npc": {

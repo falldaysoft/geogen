@@ -1,77 +1,46 @@
-"""Write docs/schema/geogen-control.v1.schema.json from runtime/godot/scripts/api.gd's COMMANDS (descriptions
-and argument names) and the argument types below. Run from the repository root after adding or changing a
-command: python docs/schema/make_control_schema.py (tests/test_control_schema.py checks they agree)."""
+"""Write docs/schema/geogen-control.v1.schema.json from runtime/godot/scripts/api.gd's COMMANDS: one record
+per command, its description and its arguments' types (TYPES below says what each type name means). Run from
+the repository root after adding or changing a command: python docs/schema/make_control_schema.py
+(tests/test_control_schema.py checks they agree, and that api.gd handles and declares what it reads)."""
 
-import json, re
+import json
 from pathlib import Path
-s = Path("runtime/godot/scripts/api.gd").read_text()
-block = s[s.index("const COMMANDS := {"):s.index("\n}\n", s.index("const COMMANDS := {"))]
-entries = re.findall(r'^\s+"([a-z_.]+)":\s*((?:"(?:[^"\\]|\\.)*"\s*(?:\+\s*)?\n?\s*)+),?\s*$', block, re.M)
 
-VEC = {"$ref": "#/$defs/point"}
-NUM, INT, BOOL, STR = {"type": "number"}, {"type": "integer"}, {"type": "boolean"}, {"type": "string"}
-STRS = {"type": "array", "items": STR}
-TYPES = {
-    "pos": VEC, "from": VEC, "to": VEC, "at": VEC,
-    "yaw": NUM, "pitch": NUM, "seconds": NUM, "timeout": NUM, "scale": NUM, "forward": NUM, "strafe": NUM,
-    "linger": NUM, "hold": NUM, "gap": NUM, "zoom": NUM, "fov": NUM, "day_length": NUM,
-    "minutes": NUM, "hours": NUM, "days": NUM, "day": {"type": "integer", "minimum": 0},
-    "until": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
-    "frames": INT, "limit": INT, "index": INT, "choose": INT, "cancel": INT, "since": INT, "count": INT,
-    "instant": BOOL, "free_will": BOOL, "keep_player": BOOL, "interactive": BOOL, "locked": BOOL, "open": BOOL, "enabled": BOOL,
-    "muted": BOOL, "clear": BOOL, "close": BOOL, "stop_on_error": BOOL, "double": BOOL, "visible": BOOL,
-    "button": {"enum": ["left", "right", "middle"]},
-    "asset": STR, "interaction": STR, "scene": STR, "spawn": STR, "name": STR, "uid": STR, "node_path": STR,
-    "node": STR, "tag": STR, "type": STR, "room": STR, "key": STR, "item": STR, "actor": STR, "npc": STR,
-    "option": STR, "thing": STR, "path": STR, "prop": STR, "time": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
-    "view": STR, "mode": {"enum": ["player", "overview", "follow"]}, "choice": STR, "select": STR,
-    "value": {}, "keys": STRS, "types": STRS, "subjects": STRS,
+s = Path("runtime/godot/scripts/api.gd").read_text()
+start = s.index("const COMMANDS := {") + len("const COMMANDS := ")
+# The table is a GDScript literal of strings, dicts and lists joined with +: a Python expression too.
+COMMANDS = eval(s[start:s.index("\n}\n", start) + 2], {"__builtins__": {}})
+
+POINT = {"$ref": "#/$defs/point"}
+NUM, INT, STR = {"type": "number"}, {"type": "integer"}, {"type": "string"}
+TYPES = {   # api.gd's argument types
+    "point": POINT, "number": NUM, "integer": INT, "day": {"type": "integer", "minimum": 0},
+    "bool": {"type": "boolean"}, "string": STR, "strings": {"type": "array", "items": STR}, "any": {},
+    "clock": {"type": "string", "pattern": "^[0-9]{1,2}:[0-9]{2}$"},
+    "pixel": {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},
+    "size": {"type": "array", "items": INT, "minItems": 2, "maxItems": 2},
+    "save": {"$ref": "geogen-save.v1.schema.json"},
+    "box": {"type": "object", "properties": {"min": POINT, "max": POINT}},
+    "commands": {"type": "array", "items": {"$ref": "#/$defs/command"}},
     "streams": {"type": "array", "items": {"enum": ["events", "quest", "interaction", "npc", "room", "place", "travel",
                                                     "traffic"]}},
-    "size": {"type": "array", "items": INT, "minItems": 2, "maxItems": 2},
-    "views": STRS, "bounds": {"type": "object", "properties": {"min": VEC, "max": VEC}}, "isolate": {},
-    "commands": {"type": "array", "items": {"$ref": "#/$defs/command"}},
+    "needs": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+    "params": {"type": "object", "additionalProperties": {}},
 }
-OVERRIDES = {   # (command, arg): type, where an argument means different things
-    ("npcs.greet", "wait"): NUM, ("interactions.set", "wait"): BOOL, ("interactions.use", "wait"): BOOL,
-    ("interactions.set", "state"): STR, ("state.load", "state"): {"$ref": "geogen-save.v1.schema.json"},
-    ("hud.quests", "track"): STR, ("hud.log", "track"): BOOL,
-    ("hud.gallery", "performer"): STR, ("hud.gallery", "loop"): BOOL, ("hud.gallery", "play"): BOOL,
-    ("npcs.places", "want"): STR, ("npcs.do", "action"): STR, ("npcs.do", "subject"): STR, ("npcs.do", "place"): VEC,
-    ("npcs.needs", "needs"): {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
-    ("input.mouse", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},   # viewport pixels
-    ("hud.direct", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},
-    ("motion.start", "motion"): STR, ("motion.stop", "motion"): STR, ("motion.break", "reaction"): STR, ("motion.stop", "how"): {"enum": ["yield", "drop"]},
-    ("motion.start", "params"): {"type": "object", "additionalProperties": {}},
-    ("motion.break", "params"): {"type": "object", "additionalProperties": {}},
-}
-EXTRA = {   # arguments the code reads that the one-line descriptions leave out
-    "interactions.set": ["actor"], "interactions.use": ["actor"], "interactions.lock": ["actor"],
-    "player.look": ["at"], "world.node": ["node"], "capture.views": ["node", "path"],
-    "batch": ["stop_on_error"], "dialogue.choose": ["choice", "close"],
-}
-commands, args_defs = {}, {}
-for name, body in entries:
-    desc = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', body)).replace('\\"', '"')
-    m = re.match(r"\{([^}]*)\}", desc)
-    names = []
-    if m:
-        sig = re.sub(r"\[[^\]]*\]", "", m.group(1))           # drop [w, h], [events, ...]
-        for part in sig.split(","):
-            alternatives = [part] if ":" in part or "(" in part else part.split("|")
-            for alt in alternatives:
-                word = re.match(r"\s*([a-z_]+)", alt)
-                if word and word.group(1) not in names and word.group(1) not in ("cmd", "args"):
-                    names.append(word.group(1))
-    names += [n for n in EXTRA.get(name, []) if n not in names]
-    props = {}
-    for n in names:
-        t = OVERRIDES.get((name, n), TYPES.get(n))
-        if t is None:
-            raise SystemExit(f"no type for {name}.{n}")
-        props[n] = t
-    commands[name] = desc
-    args_defs[name] = {"type": "object", "additionalProperties": False, "properties": props}
+
+
+def arg_type(command, name, t):
+    if isinstance(t, list):
+        return {"enum": t}
+    if t not in TYPES:
+        raise SystemExit(f"{command}.{name}: unknown type {t!r} (one of {', '.join(TYPES)} or a list)")
+    return TYPES[t]
+
+
+commands = {name: record["doc"] for name, record in COMMANDS.items()}
+args_defs = {name: {"type": "object", "additionalProperties": False,
+                    "properties": {a: arg_type(name, a, t) for a, t in record["args"].items()}}
+             for name, record in COMMANDS.items()}
 
 schema = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

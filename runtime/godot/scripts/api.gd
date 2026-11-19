@@ -17,153 +17,287 @@ extends Node
 ##
 ## Points are [x, y, z] in world metres, angles in degrees. Commands are thin wrappers over
 ## WorldLoader / Player / GeogenNpc / GeogenInteraction; the list is in COMMANDS (and `help`).
+
+## One record per command: what it does (`help`) and its arguments' types, from which
+## docs/schema/make_control_schema.py writes the protocol schema. Each has an arm in _run's match
+## (tests/test_control_schema.py checks both ways, and that every argument an arm reads is declared).
+## Types: point, number, integer, day (integer >= 0), bool, string, strings, clock ("HH:MM"),
+## pixel ([x, y] viewport), size ([w, h]), box ({min, max}), save (a geogen-save), commands, streams,
+## needs ({need: 0..1}), params ({name: value}), any; or a list of the allowed strings.
 ## Python client: geogen/runtime_client.py.
 
 const COMMANDS := {
-    "help": "list commands",
-    "ping": "liveness check",
-    "wait": "{seconds? | frames?} let the world run that much physics time (or that many physics frames)",
-    "batch": "{commands: [{cmd, args}], stop_on_error?} run commands in order, one reply",
-    "quit": "stop the runtime",
-    "wait_ready": "{timeout?} wait until the world is loaded and the navmesh answers queries",
-    "world.info": "scene, bounds, spawns, rooms, npc names, player spec, clock",
-    "world.scenes": "the scene catalogue",
-    "world.query": "{tag?, type?, name? (glob), uid? (glob), room?, interactive?, limit?} nodes carrying extras.geogen",
-    "world.room_at": "{pos} room id at a point",
-    "world.raycast": "{from, to} first hit: position, normal, node, room, interaction",
-    "world.nav_path": "{from, to} navmesh path: points, length, reached",
-    "world.switch": "{scene, spawn?} load another exported scene",
-    "world.reload": "{keep_player?} re-read the current scene's export (after a re-export)",
-    "world.node": "{name | uid | node_path} one node: transform, world bounds, extras, colliders, children, interactions",
-    "world.lights": "the light fixtures: {fixtures: {name: {visible, energy, range, y}}, total, light3d}",
-    "world.emitters": "parts giving off particles or sound, by stable ID: {emitting, amount, position, sounding, range}",
-    "world.skeletons": "skeletons (bone positions, skinned mesh bounds in the current pose) and animations",
-    "world.stats": "engine object counts: nodes, orphans, objects, resources, nav_regions, bodies, world_children",
-    "player.status": "position, yaw, pitch, eye, room, scene, pose, focus, keys, on_floor, walking; stream (chunked worlds)",
-    "player.teleport": "{pos, yaw?} put the player's feet at pos",
-    "player.look": "{yaw?, pitch?} or {at: point}",
-    "player.move": "{forward?, strafe?, seconds} walk with the controls (until a travel point, then where it lands)",
-    "player.walk_to": "{pos, timeout?} follow the navmesh there with the real body, opening closed doors on the way "
-        + "(a held key unlocks one) -> status: arrived | stuck | timeout | locked | refused, doors",
-    "player.use": "{asset?, interaction?} use the aimed thing, or a named asset's interactions",
-    "player.lock": "lock or unlock the aimed interaction with the keys the player holds -> {asset, interaction, ok, locked}",
-    "player.sit": "{asset?} take the nearest (or the asset's) sit/lie affordance",
-    "player.stand": "leave a sit/lie pose",
-    "player.carry": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere: "
-        + "-> {ok, held}",
-    "player.drop": "let go of what the player carries -> {dropped}",
-    "world.bodies": "every physics prop: uid, node, position, center (of its box), yaw_deg, live, held, sleeping, speed; "
-        + "then every mechanism body (uid <asset>/<body>): position (centre of mass), yaw_deg, tilt_deg, speed, angular_speed, motor {on, speed}",
-    "flows.list": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], "
-        + "items: [{id, source, item, mode, position, data, age}]}",
-    "player.keys": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries",
-    "window.size": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)",
-    "input.key": "{key} press and release a keyboard key by name (Q, F5, E), as the player would",
-    "input.mouse": "{at: [x, y] (viewport pixels), button?: left | right | middle, double?: bool} click there, as the "
-        + "player would (a double click is a second press marked double)",
-    "interactions.list": "{asset?} interactions with states",
-    "interactions.states": "every interaction's saved state, by stable id (<uid>#<interaction>)",
-    "interactions.set": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts arrive, returning their bounds",
-    "interactions.use": "{asset, interaction?, wait?} advance to the next state (honours locks)",
-    "interactions.lock": "{asset, interaction?, locked} lock or unlock without a key",
-    "state.save": "{path?} -> the game as a geogen-save (docs/schema/geogen-save.v1.schema.json): world and actor "
-        + "sections, clock, timers; interactions are instance state in world. path: also write it there",
-    "state.get": "{key, actor?} a variable's value (world:pkg.name, actor:pkg.name, <uid>#<state>); actor: player",
-    "state.set": "{key, value, actor?} set one, as a console would: rules and bindings react",
-    "state.list": "-> {world, actors}: every stored value that differs from its default",
-    "quests.list": "{actor?} every quest's state for an actor (default player): status, objectives "
-        + "(done | open | waiting, progress, markers)",
-    "state.load": "{state | path} restore a save (one from before the format still loads); -> the save now",
-    "hud.aim": "the crosshair: {visible, active (E would do something), focus}",
-    "hud.stats": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value, of?, text}]}, "
-        + "banner: {visible, text?, tone?}}",
-    "dialogue.show": "the open conversation as shown: {open, dialogue?, anchor?, passage?, title?, text?, choices?: [{id, text}], selected?}",
-    "dialogue.choose": "{index? (from 0) | choice? (id) | close?: true} choose one of what is shown, or close it; -> dialogue.show",
-    "hud.inventory": "what the HUD's inventory hotbar shows: {visible, items: [{id, title, count, tags?, use?}], selected "
-        + "(the slot's item id), slots: [{id, rect, icon}]}",
-    "inventory.list": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: {title, tags?, opens?}}}",
-    "inventory.give": "{item, count?, actor?} give (negative count: take) items as a give / take effect would",
-    "inventory.use": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event",
-    "hud.direct": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, cancel?: n, free_will?: bool} "
-        + "the HUD's panel for telling people what to do (G): open turns directing on or off, select picks who, thing "
-        + "(or a click at a point of the screen) lists what they could do with it, choose tells them to do line n of that "
-        + "list (from 0), cancel takes back order n of their queue (-1: the last) -> {active, selected, name, doing, "
-        + "needs, orders: [{option, label}], thing, menu: [{option, label, available, why, plan, cost}], message, "
-        + "camera: overview | player}",
-    "hud.crossing": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): "
-        + "{visible, crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}",
-    "hud.quests": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: "
-        + "visible, tracked, title, status, note, active, lines [{id, text, state, optional, progress, "
-        + "progress_text}], waiting, clipped, rect, viewport; track picks the quest first, linger sets how "
-        + "long a finished quest stays up",
-    "hud.log": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest log: "
-        + "{open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint, rect}; "
-        + "track makes the tracker follow the selected quest",
-    "hud.keys": "{open?: bool} the HUD's keys panel (? opens it): {open, groups: [{title, keys: [[key, does]]}], "
-        + "columns, hint, rect, viewport}; the groups are the game's keys and every panel's hud_keys()",
-    "hud.gallery": "{open?: bool, select?: motion | 'next' | 'previous', performer?: name | 'all', loop?: bool, play?: bool} "
-        + "the HUD's motion gallery (M; motion_gallery opens it): {open, selected, playing, loop, performer, performers, "
-        + "motions: [{name, category, plays}], rect}",
-    "hud.overlay": "{visible?: bool} show or hide the F1 debug overlay (frame rate, clock, position, keys): {visible}; "
-        + "hide it to record clean footage (--write-movie)",
-    "hud.markers": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: "
-        + "{visible, tracked, markers: [{quest, objective, subject, kind: point | area | portal, position, screen, "
-        + "distance, on_screen, clamped, behind, radius?, inside?, scene?}]}",
-    "hud.notifications": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's toasts: "
-        + "visible, showing [{seq, kind: started | objective_done | complete | failed | notice, package, quest, "
-        + "objective, heading, text, age}], queued (waiting their turn, oldest first), raised, chimes, "
-        + "sounds (what rules played), hold, "
-        + "gap, limit, rect, viewport; hold sets how long a toast stays, gap the time between two appearing, "
-        + "limit how many are up at once; clear drops them all",
-    "npcs.list": "every NPC's report (doing, needs, position, ...)",
-    "npcs.options": "{npc} the NPC's scored options now",
-    "npcs.force": "{npc, option} make its next decision take that option",
-    "npcs.needs": "{npc, needs?: {need: 0..1}} set some of its needs (the ones it has), and return them all",
-    "npcs.places": "{npc, want, prop} where the NPC's want could put that physics prop, best first: "
-        + "[{position, approach, uid, tags, height, score, qualities: {high, enclosed, hidden, warm, soft, ...}}]; and what the prop rests on",
-    "npcs.do": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): subject is a "
-        + "physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the spot for put_down",
-    "npcs.greet": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}",
-    "npcs.choices": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's "
-        + "name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}",
-    "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, "
-        + "ahead of anything of its own -> {npc, orders}",
-    "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
-    "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion "
-        + "file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things "
-        + "in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; sit: {seat: chair}, which moves "
-        + "the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood) "
-        + "-> {node, motion, running}",
-    "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) "
-        + "-> {node, motion, result}",
-    "motion.break": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion "
-        + "drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> {node, running}",
-    "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, root: world [x, y, z], "
-        + "events: [{t, event, motion, beat}], "
-        + "bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}, "
-        + "things: {node: {position: world [x, y, z], held}} (what its motions have bound)}",
-    "npcs.pause": "{npc?} freeze one NPC (or all)",
-    "npcs.resume": "{npc?}",
-    "time.pause": "freeze the world (the API keeps serving)",
-    "time.resume": "",
-    "time.step": "{frames} run N physics frames, then pause",
-    "time.advance": "{seconds, scale?} run S s of world time (at scale, default 8), return NPC reports",
-    "time.simulate": "{seconds} run S s of world time at the current speed and report what it cost: "
-        + "{npcs, cost: {npcs, script_us, process_ms, physics_ms, physics_p95_ms, frame_ms, frame_p95_ms, "
-        + "frame_max_ms, draw_calls, primitives, objects}, traffic, trains}",
-    "time.scale": "{scale} world speed",
-    "time.clock": "{time? 'HH:MM', day?, day_length?} get or set the world clock",
-    "time.skip": "{until? | minutes? | hours? | days?} move the world clock forward (until 'HH:MM': the next time it "
-        + "shows that); the rules' clock-time waits that come due on the way run in order",
-    "capture.screenshot": "{path?, from?, at?, node?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose (from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path",
-    "capture.views": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a node or box",
-    "capture.camera": "{mode: player|overview|follow|fixed, npc?, from?, at?, fov?} which camera shows the world; fixed: "
-        + "the overview camera held at `from` looking at `at` (a recording's viewpoint)",
-    "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: "
-        + "`events` is the whole bus (events.gd), narrowed to these types and subject IDs",
-    "events.history": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; "
-        + "since: only those after that number)",
-    "events.unsubscribe": "{streams?}",
+    "help": {"args": {},
+        "doc": "list commands"},
+    "ping": {"args": {},
+        "doc": "liveness check"},
+    "wait": {"args": {"seconds": "number", "frames": "integer"},
+        "doc": "{seconds? | frames?} let the world run that much physics time (or that many physics frames)"},
+    "batch": {"args": {"commands": "commands", "stop_on_error": "bool"},
+        "doc": "{commands: [{cmd, args}], stop_on_error?} run commands in order, one reply"},
+    "quit": {"args": {},
+        "doc": "stop the runtime"},
+    "wait_ready": {"args": {"timeout": "number"},
+        "doc": "{timeout?} wait until the world is loaded and the navmesh answers queries"},
+    "world.info": {"args": {},
+        "doc": "scene, bounds, spawns, rooms, npc names, player spec, clock"},
+    "world.scenes": {"args": {},
+        "doc": "the scene catalogue"},
+    "world.query": {
+        "args": {"tag": "string", "type": "string", "name": "string", "uid": "string", "room": "string",
+            "interactive": "bool", "limit": "integer"},
+        "doc": "{tag?, type?, name? (glob), uid? (glob), room?, interactive?, limit?} nodes carrying extras.geogen"},
+    "world.room_at": {"args": {"pos": "point"},
+        "doc": "{pos} room id at a point"},
+    "world.raycast": {"args": {"from": "point", "to": "point"},
+        "doc": "{from, to} first hit: position, normal, node, room, interaction"},
+    "world.nav_path": {"args": {"from": "point", "to": "point"},
+        "doc": "{from, to} navmesh path: points, length, reached"},
+    "world.switch": {"args": {"scene": "string", "spawn": "string"},
+        "doc": "{scene, spawn?} load another exported scene"},
+    "world.reload": {"args": {"keep_player": "bool"},
+        "doc": "{keep_player?} re-read the current scene's export (after a re-export)"},
+    "world.node": {"args": {"name": "string", "uid": "string", "node_path": "string", "node": "string"},
+        "doc": "{name | uid | node_path} one node: transform, world bounds, extras, colliders, children, "
+            + "interactions"},
+    "world.lights": {"args": {},
+        "doc": "the light fixtures: {fixtures: {name: {visible, energy, range, y}}, total, light3d}"},
+    "world.emitters": {"args": {},
+        "doc": "parts giving off particles or sound, by stable ID: {emitting, amount, position, sounding, range}"},
+    "world.skeletons": {"args": {},
+        "doc": "skeletons (bone positions, skinned mesh bounds in the current pose) and animations"},
+    "world.stats": {"args": {},
+        "doc": "engine object counts: nodes, orphans, objects, resources, nav_regions, bodies, world_children"},
+    "player.status": {"args": {},
+        "doc": "position, yaw, pitch, eye, room, scene, pose, focus, keys, on_floor, walking; stream (chunked "
+            + "worlds)"},
+    "player.teleport": {"args": {"pos": "point", "yaw": "number"},
+        "doc": "{pos, yaw?} put the player's feet at pos"},
+    "player.look": {"args": {"yaw": "number", "pitch": "number", "at": "point"},
+        "doc": "{yaw?, pitch?} or {at: point}"},
+    "player.move": {"args": {"forward": "number", "strafe": "number", "seconds": "number"},
+        "doc": "{forward?, strafe?, seconds} walk with the controls (until a travel point, then where it lands)"},
+    "player.walk_to": {"args": {"pos": "point", "timeout": "number"},
+        "doc": "{pos, timeout?} follow the navmesh there with the real body, opening closed doors on the way (a held"
+            + " key unlocks one) -> status: arrived | stuck | timeout | locked | refused, doors"},
+    "player.use": {"args": {"asset": "string", "interaction": "string"},
+        "doc": "{asset?, interaction?} use the aimed thing, or a named asset's interactions"},
+    "player.lock": {"args": {},
+        "doc": "lock or unlock the aimed interaction with the keys the player holds -> {asset, interaction, ok, "
+            + "locked}"},
+    "player.sit": {"args": {"asset": "string"},
+        "doc": "{asset?} take the nearest (or the asset's) sit/lie affordance"},
+    "player.stand": {"args": {},
+        "doc": "leave a sit/lie pose"},
+    "player.carry": {"args": {"prop": "string"},
+        "doc": "{prop?} pick up the aimed physics prop, or the one with that uid (glob) or node name, from anywhere:"
+            + " -> {ok, held}"},
+    "player.drop": {"args": {},
+        "doc": "let go of what the player carries -> {dropped}"},
+    "world.bodies": {"args": {},
+        "doc": "every physics prop: uid, node, position, center (of its box), yaw_deg, live, held, sleeping, speed; "
+            + "then every mechanism body (uid <asset>/<body>): position (centre of mass), yaw_deg, tilt_deg, speed,"
+            + " angular_speed, motor {on, speed}"},
+    "flows.list": {"args": {},
+        "doc": "spawned items (geogen/flows.py): {sources: [{uid, running, queued, emitted, alive, items}], items: "
+            + "[{id, source, item, mode, position, data, age}]}"},
+    "player.keys": {"args": {"keys": "strings"},
+        "doc": "{keys?} set (or get) the keys given by --keys; held: those plus what the player carries"},
+    "window.size": {"args": {"size": "size"},
+        "doc": "{size?: [w, h]} get or set the window size (headless runs too: layouts follow it)"},
+    "input.key": {"args": {"key": "string"},
+        "doc": "{key} press and release a keyboard key by name (Q, F5, E), as the player would"},
+    "input.mouse": {"args": {"at": "pixel", "button": ["left", "right", "middle"], "double": "bool"},
+        "doc": "{at: [x, y] (viewport pixels), button?: left | right | middle, double?: bool} click there, as the "
+            + "player would (a double click is a second press marked double)"},
+    "interactions.list": {"args": {"asset": "string"},
+        "doc": "{asset?} interactions with states"},
+    "interactions.states": {"args": {},
+        "doc": "every interaction's saved state, by stable id (<uid>#<interaction>)"},
+    "interactions.set": {
+        "args": {"asset": "string", "interaction": "string", "state": "string", "instant": "bool", "wait": "bool",
+            "actor": "string"},
+        "doc": "{asset, interaction?, state, instant?, wait?} jump or animate to a state; wait: until the parts "
+            + "arrive, returning their bounds"},
+    "interactions.use": {"args": {"asset": "string", "interaction": "string", "wait": "bool", "actor": "string"},
+        "doc": "{asset, interaction?, wait?} advance to the next state (honours locks)"},
+    "interactions.lock": {"args": {"asset": "string", "interaction": "string", "locked": "bool", "actor": "string"},
+        "doc": "{asset, interaction?, locked} lock or unlock without a key"},
+    "state.save": {"args": {"path": "string"},
+        "doc": "{path?} -> the game as a geogen-save (docs/schema/geogen-save.v1.schema.json): world and actor "
+            + "sections, clock, timers; interactions are instance state in world. path: also write it there"},
+    "state.get": {"args": {"key": "string", "actor": "string"},
+        "doc": "{key, actor?} a variable's value (world:pkg.name, actor:pkg.name, <uid>#<state>); actor: player"},
+    "state.set": {"args": {"key": "string", "value": "any", "actor": "string"},
+        "doc": "{key, value, actor?} set one, as a console would: rules and bindings react"},
+    "state.list": {"args": {},
+        "doc": "-> {world, actors}: every stored value that differs from its default"},
+    "quests.list": {"args": {"actor": "string"},
+        "doc": "{actor?} every quest's state for an actor (default player): status, objectives (done | open | "
+            + "waiting, progress, markers)"},
+    "state.load": {"args": {"state": "save", "path": "string"},
+        "doc": "{state | path} restore a save (one from before the format still loads); -> the save now"},
+    "hud.aim": {"args": {},
+        "doc": "the crosshair: {visible, active (E would do something), focus}"},
+    "hud.stats": {"args": {},
+        "doc": "what the scene's HUD stats and banner show (geogen/hud.py): {stats: {visible, stats: [{label, value,"
+            + " of?, text}]}, banner: {visible, text?, tone?}}"},
+    "dialogue.show": {"args": {},
+        "doc": "the open conversation as shown: {open, dialogue?, anchor?, passage?, title?, text?, choices?: [{id, "
+            + "text}], selected?}"},
+    "dialogue.choose": {"args": {"index": "integer", "choice": "string", "close": "bool"},
+        "doc": "{index? (from 0) | choice? (id) | close?: true} choose one of what is shown, or close it; -> "
+            + "dialogue.show"},
+    "hud.inventory": {"args": {},
+        "doc": "what the HUD's inventory hotbar shows: {visible, items: [{id, title, count, tags?, use?}], selected "
+            + "(the slot's item id), slots: [{id, rect, icon}]}"},
+    "inventory.list": {"args": {"actor": "string"},
+        "doc": "{actor?} what an actor carries (default player): {items: [{id, title, count, tags?}], known: {id: "
+            + "{title, tags?, opens?}}}"},
+    "inventory.give": {"args": {"item": "string", "count": "integer", "actor": "string"},
+        "doc": "{item, count?, actor?} give (negative count: take) items as a give / take effect would"},
+    "inventory.use": {"args": {"item": "string", "actor": "string"},
+        "doc": "{item, actor?} use an item the actor carries, as the inventory's F does: the rules' use_item event"},
+    "hud.direct": {
+        "args": {"open": "bool", "select": "string", "thing": "string", "at": "pixel", "choose": "integer",
+            "cancel": "integer", "free_will": "bool"},
+        "doc": "{open?: bool, select?: npc, thing?: stable ID or its end, at?: [x, y] viewport pixels, choose?: n, "
+            + "cancel?: n, free_will?: bool} the HUD's panel for telling people what to do (G): open turns "
+            + "directing on or off, select picks who, thing (or a click at a point of the screen) lists what they "
+            + "could do with it, choose tells them to do line n of that list (from 0), cancel takes back order n of"
+            + " their queue (-1: the last) -> {active, selected, name, doing, needs, orders: [{option, label}], "
+            + "thing, menu: [{option, label, available, why, plan, cost}], message, camera: overview | player}"},
+    "hud.crossing": {"args": {},
+        "doc": "the pedestrian signal the player is at (on the kerb of a signalled crossing, or on it): {visible, "
+            + "crossing?, where?: kerb | crossing, state?: walk | flash | dont, text?, line?}"},
+    "hud.quests": {"args": {"track": "string", "linger": "number"},
+        "doc": "{track?: quest id | 'next' | 'previous', linger?: s} what the HUD's quest tracker displays: visible,"
+            + " tracked, title, status, note, active, lines [{id, text, state, optional, progress, progress_text}],"
+            + " waiting, clipped, rect, viewport; track picks the quest first, linger sets how long a finished "
+            + "quest stays up"},
+    "hud.log": {"args": {"open": "bool", "select": "string", "track": "bool"},
+        "doc": "{open?: bool, select?: quest id | package/id | 'next' | 'previous', track?: bool} the HUD's quest "
+            + "log: {open, quests, sections: {active, complete, failed}, selected: {.., objectives}, tracked, hint,"
+            + " rect}; track makes the tracker follow the selected quest"},
+    "hud.keys": {"args": {"open": "bool"},
+        "doc": "{open?: bool} the HUD's keys panel (? opens it): {open, groups: [{title, keys: [[key, does]]}], "
+            + "columns, hint, rect, viewport}; the groups are the game's keys and every panel's hud_keys()"},
+    "hud.gallery": {
+        "args": {"open": "bool", "select": "string", "performer": "string", "loop": "bool", "play": "bool"},
+        "doc": "{open?: bool, select?: motion | 'next' | 'previous', performer?: name | 'all', loop?: bool, play?: "
+            + "bool} the HUD's motion gallery (M; motion_gallery opens it): {open, selected, playing, loop, "
+            + "performer, performers, motions: [{name, category, plays}], rect}"},
+    "hud.overlay": {"args": {"visible": "bool"},
+        "doc": "{visible?: bool} show or hide the F1 debug overlay (frame rate, clock, position, keys): {visible}; "
+            + "hide it to record clean footage (--write-movie)"},
+    "hud.markers": {"args": {"enabled": "bool"},
+        "doc": "{enabled?: bool} the HUD's world markers for the tracked quest's open objectives: {visible, tracked,"
+            + " markers: [{quest, objective, subject, kind: point | area | portal, position, screen, distance, "
+            + "on_screen, clamped, behind, radius?, inside?, scene?}]}"},
+    "hud.notifications": {
+        "args": {"hold": "number", "gap": "number", "limit": "integer", "muted": "bool", "clear": "bool"},
+        "doc": "{hold?: s, gap?: s, limit?: n, muted?: bool, clear?: bool} the HUD's toasts: visible, showing [{seq,"
+            + " kind: started | objective_done | complete | failed | notice, package, quest, objective, heading, "
+            + "text, age}], queued (waiting their turn, oldest first), raised, chimes, sounds (what rules played), "
+            + "hold, gap, limit, rect, viewport; hold sets how long a toast stays, gap the time between two "
+            + "appearing, limit how many are up at once; clear drops them all"},
+    "npcs.list": {"args": {},
+        "doc": "every NPC's report (doing, needs, position, ...)"},
+    "npcs.options": {"args": {"npc": "string"},
+        "doc": "{npc} the NPC's scored options now"},
+    "npcs.force": {"args": {"npc": "string", "option": "string"},
+        "doc": "{npc, option} make its next decision take that option"},
+    "npcs.needs": {"args": {"npc": "string", "needs": "needs"},
+        "doc": "{npc, needs?: {need: 0..1}} set some of its needs (the ones it has), and return them all"},
+    "npcs.places": {"args": {"npc": "string", "want": "string", "prop": "string"},
+        "doc": "{npc, want, prop} where the NPC's want could put that physics prop, best first: [{position, "
+            + "approach, uid, tags, height, score, qualities: {high, enclosed, hidden, warm, soft, ...}}]; and what"
+            + " the prop rests on"},
+    "npcs.do": {"args": {"npc": "string", "action": "string", "subject": "string", "place": "point"},
+        "doc": "{npc, action, subject?, place?} run an action as its next decision (once what it is doing is done): "
+            + "subject is a physics prop (uid glob or node name) for pick_up / go_to: subject, place [x, y, z] the "
+            + "spot for put_down"},
+    "npcs.greet": {"args": {"npc": "string", "wait": "number"},
+        "doc": "{npc, wait?: s} greet it (wait: until it can be greeted, up to that long) -> {npc, ok}"},
+    "npcs.choices": {"args": {"npc": "string", "thing": "string"},
+        "doc": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's "
+            + "name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}"},
+    "npcs.direct": {"args": {"npc": "string", "option": "string"},
+        "doc": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already "
+            + "told, ahead of anything of its own -> {npc, orders}"},
+    "npcs.cancel": {"args": {"npc": "string", "index": "integer"},
+        "doc": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}"},
+    "motion.start": {
+        "args": {"node": "string", "uid": "string", "node_path": "string", "name": "string", "motion": "string",
+            "params": "params", "roles": "params"},
+        "doc": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a "
+            + "motion file (motions.json: assets/motions/) on a character body with the runtime motion rig, its "
+            + "roles bound to things in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; "
+            + "sit: {seat: chair}, which moves the body), or to a fixed place ({transform: 12 numbers, a 3x4 world "
+            + "matrix row by row}: where a thing stood) -> {node, motion, running}"},
+    "motion.stop": {
+        "args": {"node": "string", "uid": "string", "node_path": "string", "name": "string", "motion": "string",
+            "how": ["yield", "drop"]},
+        "doc": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's "
+            + "policy) -> {node, motion, result}"},
+    "motion.break": {
+        "args": {"node": "string", "uid": "string", "node_path": "string", "name": "string", "reaction": "string",
+            "params": "params"},
+        "doc": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion "
+            + "drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> "
+            + "{node, running}"},
+    "motion.status": {"args": {"node": "string", "uid": "string", "node_path": "string", "name": "string"},
+        "doc": "{node | uid} the body's motions -> {node, running, time, posture, root: world [x, y, z], events: "
+            + "[{t, event, motion, beat}], bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, "
+            + "y, z]}, things: {node: {position: world [x, y, z], held}} (what its motions have bound)}"},
+    "npcs.pause": {"args": {"npc": "string"},
+        "doc": "{npc?} freeze one NPC (or all)"},
+    "npcs.resume": {"args": {"npc": "string"},
+        "doc": "{npc?}"},
+    "time.pause": {"args": {},
+        "doc": "freeze the world (the API keeps serving)"},
+    "time.resume": {"args": {},
+        "doc": ""},
+    "time.step": {"args": {"frames": "integer"},
+        "doc": "{frames} run N physics frames, then pause"},
+    "time.advance": {"args": {"seconds": "number", "scale": "number"},
+        "doc": "{seconds, scale?} run S s of world time (at scale, default 8), return NPC reports"},
+    "time.simulate": {"args": {"seconds": "number"},
+        "doc": "{seconds} run S s of world time at the current speed and report what it cost: {npcs, cost: {npcs, "
+            + "script_us, process_ms, physics_ms, physics_p95_ms, frame_ms, frame_p95_ms, frame_max_ms, draw_calls,"
+            + " primitives, objects}, traffic, trains}"},
+    "time.scale": {"args": {"scale": "number"},
+        "doc": "{scale} world speed"},
+    "time.clock": {"args": {"time": "clock", "day": "day", "day_length": "number"},
+        "doc": "{time? 'HH:MM', day?, day_length?} get or set the world clock"},
+    "time.skip": {"args": {"until": "clock", "minutes": "number", "hours": "number", "days": "number"},
+        "doc": "{until? | minutes? | hours? | days?} move the world clock forward (until 'HH:MM': the next time it "
+            + "shows that); the rules' clock-time waits that come due on the way run in order"},
+    "capture.screenshot": {
+        "args": {"path": "string", "from": "point", "at": "point", "node": "string", "uid": "string",
+            "node_path": "string", "name": "string", "bounds": "box", "view": "string", "zoom": "number",
+            "isolate": "any", "fov": "number", "size": "size"},
+        "doc": "{path?, from?, at?, node? | uid? | node_path? | bounds?, view?, zoom?, isolate?, fov?, size?} PNG from the current camera, a pose "
+            + "(from/at) or framed on a node from a view (iso, front, back, left, right, top); base64 without path"},
+    "capture.views": {
+        "args": {"node": "string", "uid": "string", "node_path": "string", "name": "string", "bounds": "box",
+            "from": "point", "at": "point", "views": "strings", "zoom": "number", "isolate": "any", "fov": "number",
+            "size": "size", "path": "string"},
+        "doc": "{node? | node_path? | bounds?, views?, zoom?, isolate?, path?} contact sheet of views framed on a "
+            + "node or box"},
+    "capture.camera": {
+        "args": {"mode": ["player", "overview", "follow", "fixed"], "npc": "string", "from": "point", "at": "point",
+            "fov": "number"},
+        "doc": "{mode: player|overview|follow|fixed, npc?, from?, at?, fov?} which camera shows the world; fixed: "
+            + "the overview camera held at `from` looking at `at` (a recording's viewpoint)"},
+    "events.subscribe": {"args": {"streams": "streams", "types": "strings", "subjects": "strings"},
+        "doc": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: `events` is "
+            + "the whole bus (events.gd), narrowed to these types and subject IDs"},
+    "events.history": {"args": {"since": "integer", "types": "strings", "subjects": "strings"},
+        "doc": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; since: only "
+            + "those after that number)"},
+    "events.unsubscribe": {"args": {"streams": "streams"},
+        "doc": "{streams?}"},
 }
 ## extras.geogen keys every mesh part may carry; a node with only these isn't listed by world.query.
 const PART_KEYS := ["version", "collider", "walkable"]
@@ -360,7 +494,10 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
     var player: Player = main.player
     match cmd:
         "help":
-            return COMMANDS
+            var docs := {}
+            for name in COMMANDS:
+                docs[name] = COMMANDS[name]["doc"]
+            return docs
         "ping":
             return {"pong": true, "frame": _world_frames}
         "wait":
@@ -865,7 +1002,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
             for npc in main.world.npcs:
                 if is_instance_valid(npc):
                     GeogenLife.days_passed(npc, from_day, clock.day)
-            main.world.rules._sync_clock()
+            main.world.rules.sync_clock()
             return _time()
         "capture.screenshot":
             return await _screenshot(args)
