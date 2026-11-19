@@ -1,0 +1,181 @@
+# A small bird: a sparrow by default, other small birds from its params. Wings,
+# legs and tail are ring-lofted chains on the bird skeleton
+# (assets/skeletons/bird.yaml), like the cat's body; one closed skinned mesh.
+# It stands, pecks, hops and flies, all declared below. Faces +Z; origin on the
+# ground under its feet.
+#
+# Ring frames (front: [0, 1, 0]): the trunk, tail and wings have rx across them
+# (a wing's rx is its chord) and rz up (a wing's thickness).
+
+name: sparrow
+tags: [npc.body, animal.bird]
+
+params:
+  size:    { default: 1.0 }           # 1: a sparrow (15 cm); a pigeon is about 2
+  plumage: { default: sparrow, choices: [sparrow, robin, tit, pigeon, blackbird] }
+
+derived:
+  k: "{size}"
+
+body:
+  skeleton: skeletons/bird.yaml
+  skeleton_params:
+    size: "{k}"
+  material: fur
+  color: "{plumage}"
+  colors:
+    sparrow: [0.32, 0.18, 0.08]
+    robin: [0.3, 0.2, 0.1]
+    tit: [0.3, 0.42, 0.12]
+    pigeon: [0.32, 0.33, 0.38]
+    blackbird: [0.02, 0.02, 0.02]
+    wing: [0.18, 0.1, 0.05]
+    beak: [0.3, 0.25, 0.18]
+    eye: [0.01, 0.01, 0.01]
+    leg: [0.4, 0.28, 0.22]
+  markings:
+    - { chain: eye, color: eye }
+    - { chain: trunk, from: [Beak, 0.0], color: beak }
+    - { chain: wing, color: wing }
+    - { chain: leg, color: leg }
+  crease_angle: 80
+  chains:
+    trunk:
+      bones: [Hips, Chest, Neck, Head, Beak]
+      end: BeakTip
+      front: [0, 1, 0]
+      sides: 10
+      spacing: 0.01
+      blend: 0.008
+      joint_rings: false
+      cap_rings: 2
+      rings:
+        - [Hips, -0.5, "{0.011 * k}", "{0.011 * k}"]
+        - [Hips, 0.2, "{0.018 * k}", "{0.019 * k}", { offset: [0, -0.003] }]
+        - [Chest, 0.1, "{0.02 * k}", "{0.021 * k}", { offset: [0, -0.004] }]
+        - [Chest, 0.8, "{0.016 * k}", "{0.016 * k}", { offset: [0, -0.002] }]
+        - [Neck, 0.5, "{0.012 * k}", "{0.012 * k}"]
+        - [Head, 0.1, "{0.012 * k}", "{0.012 * k}"]
+        - [Head, 0.5, "{0.0125 * k}", "{0.012 * k}"]
+        - [Head, 0.95, "{0.007 * k}", "{0.006 * k}", { offset: [0, -0.002] }]
+        - [Beak, 0.02, "{0.005 * k}", "{0.004 * k}", { offset: [0, -0.002] }]     # the beak, from here on
+        - [Beak, 0.7, "{0.0025 * k}", "{0.002 * k}", { offset: [0, -0.001] }]
+    tail:
+      bones: [Tail]
+      end: TailTip
+      root: Hips
+      front: [0, 1, 0]
+      sides: 8
+      spacing: 0.02
+      blend: 0.006
+      cap_rings: 1
+      rings:
+        - [Tail, 0.0, "{0.007 * k}", "{0.004 * k}"]
+        - [Tail, 0.5, "{0.013 * k}", "{0.002 * k}"]
+        - [Tail, 0.95, "{0.016 * k}", "{0.0015 * k}"]
+    wing:
+      bones: [LeftWing1, LeftWing2, LeftWing3]
+      end: LeftWingTip
+      root: Chest
+      mirror: true
+      front: [0, 1, 0]
+      sides: 8
+      spacing: 0.012
+      blend: 0.006
+      joint_rings: false
+      cap_rings: 1
+      rings:
+        - [LeftWing1, 0.0, "{0.014 * k}", "{0.004 * k}"]
+        - [LeftWing1, 0.6, "{0.02 * k}", "{0.003 * k}"]
+        - [LeftWing2, 0.5, "{0.022 * k}", "{0.0025 * k}"]
+        - [LeftWing3, 0.3, "{0.02 * k}", "{0.002 * k}"]
+        - [LeftWing3, 0.9, "{0.008 * k}", "{0.0015 * k}"]
+    leg:
+      bones: [LeftLowerLeg, LeftFoot]
+      end: LeftToes
+      root: Hips
+      mirror: true
+      sides: 6
+      spacing: 0.01
+      blend: 0.004
+      joint_rings: [LeftFoot]
+      cap_rings: 1
+      rings:
+        - [LeftLowerLeg, -0.3, "{0.004 * k}", "{0.004 * k}"]
+        - [LeftLowerLeg, 0.4, "{0.0018 * k}", "{0.0018 * k}"]
+        - [LeftFoot, 0.2, "{0.0016 * k}", "{0.0016 * k}"]
+        - [LeftFoot, 0.9, "{0.0025 * k}", "{0.0012 * k}"]
+    eye:
+      bones: [LeftEye]
+      end: LeftEyeFront
+      root: Head
+      mirror: true
+      sides: 8
+      spacing: 0.01
+      blend: 0.003
+      joint_rings: false
+      cap_rings: 1
+      rings:
+        - [LeftEye, 0.1, "{0.0028 * k}", "{0.003 * k}"]
+        - [LeftEye, 0.7, "{0.0028 * k}", "{0.003 * k}"]
+  poses:
+    # Standing, the wings folded back along the sides.
+    stand: &folded
+      bones:
+        LeftWing1:  [-82, 84, 0]
+        RightWing1: [-82, -84, 0]
+        LeftWing2:  [0, 8, 0]
+        RightWing2: [0, -8, 0]
+        LeftWing3:  [0, 4, 0]
+        RightWing3: [0, -4, 0]
+    # On the wing: wings out, legs tucked up, the tail spread a little.
+    fly:
+      hips: [0, 0.02, 0]
+      bones:
+        Hips:         [-6, 0, 0]
+        LeftLowerLeg:  [115, 0, 0]
+        RightLowerLeg: [115, 0, 0]
+        LeftFoot:      [50, 0, 0]
+        RightFoot:     [50, 0, 0]
+        Neck:          [10, 0, 0]
+  pose: stand
+  clips:
+    # Standing: breathing, quick looks round, a peck at the ground, a tail flick.
+    idle:
+      generator: cycle
+      duration: 3
+      bones:
+        Chest: { path: [[-2, 0, 0], [2, 0, 0]], cycles: 3 }
+        Neck:  { path: [[0, 0, 0], [0, 0, 0], [0, 30, 0], [0, 30, 0], [0, -25, 0], [0, -25, 0], [0, 0, 0], [50, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]] }
+        Head:  { path: [[0, 0, 0], [0, 0, 0], [0, 0, 10], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [30, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]] }
+        Tail:  { path: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [-25, 0, 0], [0, 0, 0], [0, 0, 0]] }
+    # Hopping along the ground: both feet push off together, the body goes up and on (the
+    # runtime moves it at `speed`), the legs fold under it in the air and reach for the landing.
+    walk:
+      generator: cycle
+      duration: 0.32
+      speed: 0.35
+      bones:
+        LeftLowerLeg:  { path: [[0, 0, 0], [-20, 0, 0], [40, 0, 0], [10, 0, 0]] }
+        RightLowerLeg: { path: [[0, 0, 0], [-20, 0, 0], [40, 0, 0], [10, 0, 0]] }
+        LeftFoot:      { path: [[0, 0, 0], [20, 0, 0], [30, 0, 0], [0, 0, 0]] }
+        RightFoot:     { path: [[0, 0, 0], [20, 0, 0], [30, 0, 0], [0, 0, 0]] }
+        Tail:          { path: [[0, 0, 0], [10, 0, 0], [-10, 0, 0], [0, 0, 0]] }
+        Hips:          { path: [[4, 0, 0], [-6, 0, 0], [0, 0, 0], [2, 0, 0]] }
+      hips: { path: [[0, -0.003, 0], [0, 0.012, 0], [0, 0.022, 0], [0, 0.008, 0]] }
+    # Flying: the wings beat (down, then up and back) over the fly pose.
+    fly:
+      generator: cycle
+      pose: fly
+      duration: 0.16
+      speed: 3.0
+      bones:
+        LeftWing1:  { path: [[0, 0, 45], [0, -10, 0], [0, 0, -40], [0, 20, -10]] }
+        RightWing1: { path: [[0, 0, -45], [0, 10, 0], [0, 0, 40], [0, -20, 10]] }
+        LeftWing3:  { path: [[0, 0, 0], [0, 0, 10], [0, 0, 0], [0, 0, 25]] }
+        RightWing3: { path: [[0, 0, 0], [0, 0, -10], [0, 0, 0], [0, 0, -25]] }
+      hips: { path: [[0, 0.004, 0], [0, -0.004, 0]] }
+
+poses:
+  stand: {}
+  fly: {}

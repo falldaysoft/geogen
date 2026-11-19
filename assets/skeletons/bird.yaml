@@ -1,0 +1,62 @@
+# A small bird's skeleton: a body from the hips to the head and beak, two
+# legs, a tail and two wings. Its bones are its own (`hierarchy`). Rest = wings
+# spread out to the sides (like a person's T pose; poses fold them), standing,
+# facing +Z, the bird's left at +X, Root on the ground under its legs.
+#
+# bones: world rest head positions ([x, y, z], {expr} over params + derived).
+# Left* bones are mirrored to Right*. A bone rests pointing at its first child.
+kind: skeleton
+name: bird
+
+params:
+  size: { default: 1.0 }     # 1: a sparrow, 15 cm beak to tail
+  span: { default: 1.0 }     # wing length, a share of the sparrow's
+  legs: { default: 0.8 }     # leg length, a share of the sparrow's
+
+derived:
+  s: "{size}"
+  w: "{size * span}"
+  l: "{size * legs}"
+  hy: "{0.034 * l + 0.02 * s}"        # the hips over the ground
+
+bones:
+  Root: [0, 0, 0]
+  Hips: [0, "{hy}", "{-0.022 * s}"]
+  Chest: [0, "{hy + 0.012 * s}", "{0.02 * s}"]
+  Neck: [0, "{hy + 0.026 * s}", "{0.036 * s}"]
+  Head: [0, "{hy + 0.042 * s}", "{0.044 * s}"]
+  Beak: [0, "{hy + 0.043 * s}", "{0.066 * s}"]
+  BeakTip: [0, "{hy + 0.04 * s}", "{0.08 * s}"]
+  LeftEye: ["{0.0085 * s}", "{hy + 0.047 * s}", "{0.054 * s}"]
+  LeftEyeFront: ["{0.0105 * s}", "{hy + 0.048 * s}", "{0.058 * s}"]
+  Tail: [0, "{hy - 0.002 * s}", "{-0.042 * s}"]
+  TailTip: [0, "{hy - 0.01 * s}", "{-0.1 * s}"]
+  LeftUpperLeg: ["{0.01 * s}", "{hy - 0.006 * s}", "{-0.004 * s}"]
+  LeftLowerLeg: ["{0.012 * s}", "{0.03 * l}", "{-0.008 * s}"]
+  LeftFoot: ["{0.012 * s}", "{0.004 * l}", "{-0.006 * s}"]
+  LeftToes: ["{0.012 * s}", "{0.002 * l}", "{0.016 * s}"]
+  LeftWing1: ["{0.016 * s}", "{hy + 0.022 * s}", "{0.022 * s}"]
+  LeftWing2: ["{0.016 * s + 0.03 * w}", "{hy + 0.022 * s}", "{0.016 * s}"]
+  LeftWing3: ["{0.016 * s + 0.062 * w}", "{hy + 0.022 * s}", "{0.012 * s}"]
+  LeftWingTip: ["{0.016 * s + 0.11 * w}", "{hy + 0.022 * s}", "{0.0}"]
+
+hierarchy:
+  Root: null
+  Hips: Root
+  Chest: Hips
+  Neck: Chest
+  Head: Neck
+  Beak: Head
+  BeakTip: Beak
+  LeftEye: Head
+  LeftEyeFront: LeftEye
+  Tail: Hips
+  TailTip: Tail
+  LeftUpperLeg: Hips
+  LeftLowerLeg: LeftUpperLeg
+  LeftFoot: LeftLowerLeg
+  LeftToes: LeftFoot
+  LeftWing1: Chest
+  LeftWing2: LeftWing1
+  LeftWing3: LeftWing2
+  LeftWingTip: LeftWing3

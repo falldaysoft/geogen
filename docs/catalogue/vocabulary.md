@@ -474,10 +474,11 @@ The humanoid skeleton: params, bone heads, landmarks and body channels.
 
 Use: `body: {skeleton: skeletons/humanoid.yaml}`
 
-Keys: `bones`, `channels`, `derived`, `group_scale`, `hand_shapes`, `landmarks`, `name`, `params`, `profile`
+Keys: `bones`, `derived`, `hierarchy`, `name`, `params`
 
 | File | What it is |
 | --- | --- |
+| [skeletons/bird.yaml](../../assets/skeletons/bird.yaml) | A small bird's skeleton: a body from the hips to the head and beak, two legs, a tail and two wings. |
 | [skeletons/humanoid.yaml](../../assets/skeletons/humanoid.yaml) | Humanoid skeleton: Godot SkeletonProfileHumanoid bones (humanoid_profile.json), placed by body proportions. |
 | [skeletons/quadruped.yaml](../../assets/skeletons/quadruped.yaml) | Four-legged skeleton: a spine from the hips forward to the head, a leg at each corner, a tail, two ears and two eyes. |
 

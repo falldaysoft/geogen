@@ -86,6 +86,24 @@ def test_the_cat_is_one_closed_skinned_body_with_its_motions(built_scene):
     assert {"LeftHindUpperLeg", "LeftFrontUpperLeg", "RightHindUpperLeg", "RightFrontUpperLeg"} <= set(clips["walk"].tracks)
 
 
+def test_a_bird_is_a_winged_body_that_hops_and_flies(built_scene):
+    root = built_scene("sparrow")
+    body = next(n for n in root.iter_nodes() if n.mesh is not None)
+    assert meshops.validate(body.mesh).ok
+    lo, hi = body.mesh.vertices.min(axis=0), body.mesh.vertices.max(axis=0)
+    assert lo[1] == pytest.approx(0.0, abs=0.006)                          # feet on the ground
+    assert 0.08 < hi[1] < 0.12 and 0.12 < hi[2] - lo[2] < 0.2              # a sparrow's size
+    assert hi[0] - lo[0] > 0.2                                             # built with its wings out ...
+    assert body_root(root).size[0] < 0.07                                 # ... standing with them folded
+    clips = {c.name: c for n in root.iter_nodes() for c in getattr(n, "clips", None) or []}
+    assert {"idle", "walk", "fly", "pose_fly"} <= set(clips)
+    assert clips["fly"].meta["speed"] > clips["walk"].meta["speed"] > 0
+    assert {"LeftWing1", "RightWing1"} <= set(clips["fly"].tracks)
+    skeleton = load_skeleton(ASSETS_DIR / "skeletons" / "bird.yaml", {"size": 2.0})   # a pigeon's
+    span = skeleton["LeftWingTip"].head[0] - skeleton["RightWingTip"].head[0]
+    assert 0.4 < span < 0.6
+
+
 @pytest.mark.godot
 @pytest.mark.xdist_group("test_animals_runtime")
 def test_cats_walk_about_as_npcs(scene_export, godot_runtime):
