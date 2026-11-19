@@ -50,6 +50,7 @@ var actor := "player"
 var input_blocked := Callable()
 
 var _panels := {}           # name -> Control, in the order added
+var _player: Node3D = null  # see player()
 var _slots := {}            # slot -> VBoxContainer
 ## The aim point in the middle of the screen (hud_crosshair.gd); main sets it with the focus.
 var crosshair := GeogenHudCrosshair.new()
@@ -124,6 +125,13 @@ func add_panel(panel: Control, slot := "top_right") -> void:
     else:
         _slots[slot].add_child(panel)
     queue_refresh()
+
+
+## The player's body (main.gd's "Player" node), looked up once and again after it is freed.
+func player() -> Node3D:
+    if not is_instance_valid(_player):
+        _player = get_tree().root.find_child("Player", true, false) as Node3D
+    return _player
 
 
 func panel(panel_name: String) -> Control:

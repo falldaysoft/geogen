@@ -442,15 +442,7 @@ func world_aabb() -> AABB:
 
 
 static func _aabb(root: Node) -> AABB:
-    var aabb := AABB()
-    var first := true
-    for mi in root.find_children("*", "MeshInstance3D", true, false):
-        if mi.is_in_group("geogen_collider_debug"):
-            continue
-        var box: AABB = mi.global_transform * mi.get_aabb()
-        aabb = box if first else aabb.merge(box)
-        first = false
-    return aabb
+    return GeogenUtil.mesh_bounds(root)
 
 
 func _process(delta: float) -> void:
@@ -643,18 +635,8 @@ func _render_item_icon(id: String) -> void:
 
 ## The bounds of every drawn mesh under ``node`` (global space; colliders left out).
 static func _subtree_aabb(node: Node3D) -> AABB:
-    var out := AABB()
-    var first := true
-    var meshes: Array[Node] = node.find_children("*", "MeshInstance3D", true, false)
-    if node is MeshInstance3D:
-        meshes.append(node)
-    for mi: MeshInstance3D in meshes:
-        if _is_collider(mi) or not mi.visible or mi.mesh == null:
-            continue
-        var box: AABB = mi.global_transform * mi.get_aabb()
-        out = box if first else out.merge(box)
-        first = false
-    return out
+    return GeogenUtil.mesh_bounds(node, func(mi: MeshInstance3D): return not _is_collider(mi) and mi.visible \
+        and mi.mesh != null)
 
 
 ## A scene's ``physics: {ticks}``: step physics at least that often while it is loaded (Jolt
@@ -816,9 +798,7 @@ func setup_root(root: Node) -> Dictionary:
 
 ## Add the time since ``since`` (Time usec) to phase ``phase`` of load_timings; returns now.
 func _lap(phase: String, since: int) -> int:
-    var now := Time.get_ticks_usec()
-    load_timings[phase] = snappedf(float(load_timings.get(phase, 0.0)) + (now - since) / 1000.0, 0.1)
-    return now
+    return GeogenUtil.lap(load_timings, phase, since)
 
 
 ## --timings: print the phases of the last load (ms).

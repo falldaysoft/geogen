@@ -37,7 +37,7 @@ static func step(npc: GeogenNpc) -> void:
             npc._memory.erase(uid)
         elif not seen.has(uid) and npc._sees(entry["at"], [npc.world.props.props[uid]["body"].get_rid()]):
             npc._memory.erase(uid)              # it can see the spot, and the thing isn't there
-            npc._trace({"event": "forget", "subject": uid, "at": GeogenNpc._v(entry["at"])})
+            npc._trace({"event": "forget", "subject": uid, "at": GeogenUtil.cm(entry["at"])})
 
 
 ## What prop ``uid`` rests on, as far as one looking at it can tell.
@@ -54,7 +54,7 @@ static func remember(npc: GeogenNpc, uid: String, at: Vector3, by: String, resti
     var was: Dictionary = npc._memory.get(uid, {})
     npc._memory[uid] = {"at": at, "clock": npc.clock, "by": by, "resting": resting}
     if was.is_empty():
-        npc._trace({"event": "remember", "subject": uid, "by": by, "at": GeogenNpc._v(at), "resting": resting})
+        npc._trace({"event": "remember", "subject": uid, "by": by, "at": GeogenUtil.cm(at), "resting": resting})
 
 
 ## A stimulus it noticed (npc.gd `_on_event`) whose subject is a prop: heard, it knows only where
@@ -90,7 +90,7 @@ static func searched(npc: GeogenNpc, uid: String) -> void:
     var entry: Dictionary = npc._memory.get(uid, {})
     if not entry.is_empty() and npc.world.props.props.has(uid) and needs_look(npc, uid, entry):
         npc._memory.erase(uid)
-        npc._trace({"event": "forget", "subject": uid, "at": GeogenNpc._v(entry["at"])})
+        npc._trace({"event": "forget", "subject": uid, "at": GeogenUtil.cm(entry["at"])})
 
 
 ## The report's `memory`: {uid: {at, by, resting, age}}.
@@ -98,6 +98,6 @@ static func report(npc: GeogenNpc) -> Dictionary:
     var out := {}
     for uid in npc._memory:
         var entry: Dictionary = npc._memory[uid]
-        out[uid] = {"at": GeogenNpc._v(entry["at"]), "by": entry["by"], "resting": entry["resting"],
+        out[uid] = {"at": GeogenUtil.cm(entry["at"]), "by": entry["by"], "resting": entry["resting"],
             "age": snappedf(npc.clock - float(entry["clock"]), 0.1)}
     return out

@@ -109,9 +109,7 @@ func _process(delta: float) -> void:
 
 
 func _lap(phase: String, since: int) -> int:
-    var now := Time.get_ticks_usec()
-    _cost[phase] = snappedf(float(_cost.get(phase, 0.0)) + (now - since) / 1000.0, 0.1)
-    return now
+    return GeogenUtil.lap(_cost, phase, since)
 
 
 func _step() -> void:

@@ -141,7 +141,7 @@ func _make_body(node: Node3D, data: Dictionary, uid: String) -> RigidBody3D:
         body.angular_damp = float(damping.get("angular", 0.0))
     var shape := CollisionShape3D.new()
     shape.shape = make_shape(data)
-    shape.position = _vec(data.get("center", [0, 0.25, 0]))
+    shape.position = GeogenUtil.vec(data.get("center", [0, 0.25, 0]))
     body.add_child(shape)
     body.set_meta("geogen_prop", uid)
     return body
@@ -160,7 +160,7 @@ static func make_shape(data: Dictionary) -> Shape3D:
             capsule.height = float(data.get("height", 1.0))
             return capsule
     var box := BoxShape3D.new()
-    box.size = _vec(data.get("size", [0.5, 0.5, 0.5]))
+    box.size = GeogenUtil.vec(data.get("size", [0.5, 0.5, 0.5]))
     return box
 
 
@@ -259,7 +259,7 @@ func holder_of(uid: String) -> Node3D:
 ## The prop's box (extras `size` and `center`, in its own frame): {size, center}.
 func box_of(uid: String) -> Dictionary:
     var data: Dictionary = props.get(uid, {}).get("data", {})
-    return {"size": _vec(data.get("size", [0.2, 0.2, 0.2])), "center": _vec(data.get("center", [0, 0, 0]))}
+    return {"size": GeogenUtil.vec(data.get("size", [0.2, 0.2, 0.2])), "center": GeogenUtil.vec(data.get("center", [0, 0, 0]))}
 
 
 func can_carry(uid: String) -> bool:
@@ -360,7 +360,7 @@ func _carry(delta: float) -> void:
         return
     var body: RigidBody3D = entry["body"]
     var goal: Vector3 = _hold_point.call()
-    var centre := body.global_transform * _vec(entry["data"].get("center", [0, 0, 0]))
+    var centre := body.global_transform * GeogenUtil.vec(entry["data"].get("center", [0, 0, 0]))
     var gap := goal - centre
     _snagged = _snagged + delta if gap.length() > DROP_DISTANCE else 0.0
     if _snagged > SNAG_SECONDS:
@@ -399,7 +399,7 @@ func _spawn_state(entry: Dictionary, state: String, force := false) -> void:
     var body: RigidBody3D = entry["body"]
     var shape := body.get_child(0) as CollisionShape3D
     if state == "live":
-        var at := _vec(entry["data"]["spawn_at"])
+        var at := GeogenUtil.vec(entry["data"]["spawn_at"])
         var home: Transform3D = entry["home"]
         _place(entry, Transform3D(home.basis, home * at))
         body.freeze = false
@@ -447,8 +447,8 @@ func save() -> Dictionary:
         var body: RigidBody3D = entry["body"]
         if not is_instance_valid(body) or not _live(entry) or entry.get("clone", false):
             continue
-        out[uid] = {"position": _arr(body.global_position), "rotation": _arr(body.global_rotation_degrees),
-            "velocity": _arr(body.linear_velocity)}
+        out[uid] = {"position": GeogenUtil.fine(body.global_position), "rotation": GeogenUtil.fine(body.global_rotation_degrees),
+            "velocity": GeogenUtil.fine(body.linear_velocity)}
     return out
 
 
@@ -464,13 +464,9 @@ func restore(bodies: Dictionary) -> void:
         var saved = bodies[uid]
         if entry.is_empty() or not saved is Dictionary or not _live(entry):
             continue
-        var rotation := Basis.from_euler(_vec(saved.get("rotation", [0, 0, 0])) * (PI / 180.0))
-        _place(entry, Transform3D(rotation, _vec(saved.get("position", [0, 0, 0]))))
-        (entry["body"] as RigidBody3D).linear_velocity = _vec(saved.get("velocity", [0, 0, 0]))
-
-
-static func _arr(v: Vector3) -> Array:
-    return [snappedf(v.x, 0.0001), snappedf(v.y, 0.0001), snappedf(v.z, 0.0001)]
+        var rotation := Basis.from_euler(GeogenUtil.vec(saved.get("rotation", [0, 0, 0])) * (PI / 180.0))
+        _place(entry, Transform3D(rotation, GeogenUtil.vec(saved.get("position", [0, 0, 0]))))
+        (entry["body"] as RigidBody3D).linear_velocity = GeogenUtil.vec(saved.get("velocity", [0, 0, 0]))
 
 
 ## Where every prop is (the control API's world.bodies, saves).
@@ -482,7 +478,7 @@ func report() -> Array:
         if not is_instance_valid(body):
             continue
         var p := body.global_position
-        var c := body.global_transform * _vec(entry["data"].get("center", [0, 0, 0]))
+        var c := body.global_transform * GeogenUtil.vec(entry["data"].get("center", [0, 0, 0]))
         out.append({"uid": uid, "node": String(entry["node"].name), "position": [snappedf(p.x, 0.001),
             snappedf(p.y, 0.001), snappedf(p.z, 0.001)], "center": [snappedf(c.x, 0.001), snappedf(c.y, 0.001),
             snappedf(c.z, 0.001)], "yaw_deg": snappedf(rad_to_deg(body.global_rotation.y), 0.1),
@@ -491,10 +487,6 @@ func report() -> Array:
             "sleeping": body.sleeping,
             "speed": snappedf(body.linear_velocity.length(), 0.01)})
     return out
-
-
-static func _vec(a) -> Vector3:
-    return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
 
 static func _holder_id(holder: Node3D) -> String:

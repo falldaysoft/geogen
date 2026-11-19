@@ -405,7 +405,7 @@ func _physics_process(delta: float) -> void:
         return
     var room: String = main.world.room_at(main.player.global_position + Vector3(0, 0.5, 0))
     if room != _room:
-        _emit("room", {"from": _room, "to": room, "position": _v(main.player.global_position)})
+        _emit("room", {"from": _room, "to": room, "position": GeogenUtil.mm(main.player.global_position)})
         _room = room
     if _walker != null and not get_tree().paused:
         _walker.step(delta)
@@ -477,10 +477,6 @@ static func _err(message: String) -> Dictionary:
     return {"__error": message}
 
 
-static func _v(p: Vector3) -> Array:
-    return [snappedf(p.x, 0.001), snappedf(p.y, 0.001), snappedf(p.z, 0.001)]
-
-
 ## [x, y, z] (or [x, z] on the ground) -> Vector3, or null.
 static func _vec(value):
     if value is Array and value.size() == 3:
@@ -537,7 +533,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
         "world.raycast":
             return _raycast(args)
         "world.nav_path":
-            var a = _vec(args.get("from", _v(player.global_position)))
+            var a = _vec(args.get("from", GeogenUtil.mm(player.global_position)))
             var b = _vec(args.get("to"))
             if a == null or b == null:
                 return _err("from/to: [x, y, z]")
@@ -904,7 +900,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     return _err("the NPC has no want '%s'" % args.get("want", ""))
                 return {"resting_on": GeogenPlaceSearch.resting_on(world, which).get("kind", "none"),
                     "places": GeogenWants.places(npc, str(args["want"]), which, true).map(func(p): return {
-                        "position": _v(p["position"]), "approach": _v(p["approach"]), "uid": p["uid"], "tags": p["tags"],
+                        "position": GeogenUtil.mm(p["position"]), "approach": GeogenUtil.mm(p["approach"]), "uid": p["uid"], "tags": p["tags"],
                         "height": snappedf(p["height"], 0.001), "score": snappedf(p["score"], 0.001), "qualities": p["qualities"]})}
             if cmd == "npcs.choices":
                 var thing: String = world.thing_named(str(args.get("thing", "")))
@@ -936,7 +932,7 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                 return _err(why) if why != "" else {"npc": String(npc.name), "action": args.get("action")}
             if cmd == "npcs.options":
                 return npc.options().map(func(o): return {"id": o["id"], "action": o["action"],
-                    "score": snappedf(o["score"], 0.001), "at": _v(o["at"])})
+                    "score": snappedf(o["score"], 0.001), "at": GeogenUtil.mm(o["at"])})
             if cmd == "npcs.greet":
                 var waited := 0.0       # wait: until it can be greeted (not mid-greeting, in reach of nothing else)
                 while not npc.can_greet() and waited < float(args.get("wait", 0.0)):
@@ -1045,13 +1041,13 @@ func _info() -> Dictionary:
     var world: WorldLoader = main.world
     var aabb := world.world_aabb()
     return {"scene": world.scene_name, "loading": world.loading,
-        "bounds": {"min": _v(aabb.position), "max": _v(aabb.end)},
-        "spawns": world.spawns.map(func(s): return {"name": s.get("name", ""), "position": _v(s["position"]),
+        "bounds": {"min": GeogenUtil.mm(aabb.position), "max": GeogenUtil.mm(aabb.end)},
+        "spawns": world.spawns.map(func(s): return {"name": s.get("name", ""), "position": GeogenUtil.mm(s["position"]),
             "yaw": s["yaw_deg"]}),
         "rooms": world.rooms.map(func(r): return {"id": r["id"], "type": r["type"],
-            "center": _v((r["xform"] as Transform3D).origin), "size": _v(r["size"])}),
+            "center": GeogenUtil.mm((r["xform"] as Transform3D).origin), "size": GeogenUtil.mm(r["size"])}),
         "places": world.places.filter(func(p): return p["kind"] == "place").map(func(p): return {"id": p["id"],
-            "uid": p["uid"], "position": _v((p["node"] as Node3D).global_position), "actors": p["actors"].keys()}),
+            "uid": p["uid"], "position": GeogenUtil.mm((p["node"] as Node3D).global_position), "actors": p["actors"].keys()}),
         "npcs": world.npcs.filter(func(n): return is_instance_valid(n)).map(func(n): return String(n.name)),
         "interactions": world.interactions.size(), "affordances": world.affordances.size(),
         "player_spec": main.player_spec.to_dict(), "time": _time(), "stream": world.stream_report()}
@@ -1126,7 +1122,7 @@ func _query(args: Dictionary) -> Array:
         var pos := node.global_position
         if room != "" and world.room_at(pos + Vector3(0, 0.3, 0)) != room:
             continue
-        out.append({"name": String(node.name), "uid": str(g.get("uid", "")), "node_path": String(world.get_path_to(node)), "position": _v(pos),
+        out.append({"name": String(node.name), "uid": str(g.get("uid", "")), "node_path": String(world.get_path_to(node)), "position": GeogenUtil.mm(pos),
             "yaw": snappedf(rad_to_deg(node.global_rotation.y), 0.1), "room": world.room_at(pos + Vector3(0, 0.3, 0)),
             "extras": g})
         if out.size() >= limit:
@@ -1146,7 +1142,7 @@ func _raycast(args: Dictionary):
         return {"hit": false}
     var collider: Node = hit["collider"]
     var it: GeogenInteraction = main.world.interaction_for(collider)
-    return {"hit": true, "position": _v(hit["position"]), "normal": _v(hit["normal"]),
+    return {"hit": true, "position": GeogenUtil.mm(hit["position"]), "normal": GeogenUtil.mm(hit["normal"]),
         "distance": snappedf((hit["position"] as Vector3).distance_to(from), 0.001),
         "node": String(collider.name), "node_path": String(main.world.get_path_to(collider)) if main.world.is_ancestor_of(collider) else String(collider.get_path()),
         "asset": _asset_of(collider), "room": main.world.room_at(hit["position"] + Vector3(0, 0.05, 0)),
@@ -1178,7 +1174,7 @@ func _nav_path(a: Vector3, b: Vector3) -> Dictionary:
         length += path[i].distance_to(path[i - 1])
     return {"length": snappedf(length, 0.001), "reached": path.size() > 0 and path[-1].distance_to(to) < 0.05,
         "start_gap": snappedf(from.distance_to(a), 0.001), "end_gap": snappedf(to.distance_to(b), 0.001),
-        "points": Array(path).map(func(p): return _v(p))}
+        "points": Array(path).map(func(p): return GeogenUtil.mm(p))}
 
 
 # --- player -------------------------------------------------------------------
@@ -1187,9 +1183,9 @@ func _status() -> Dictionary:
     var player: Player = main.player
     var p := player.global_position
     main.focus.update()
-    var out := {"position": _v(p), "yaw": snappedf(rad_to_deg(wrapf(player.rotation.y, -PI, PI)), 0.1),
+    var out := {"position": GeogenUtil.mm(p), "yaw": snappedf(rad_to_deg(wrapf(player.rotation.y, -PI, PI)), 0.1),
         "pitch": snappedf(rad_to_deg(player.head.rotation.x), 0.1),
-        "eye": _v(player.camera.global_position), "on_floor": player.is_on_floor(), "flying": player.flying,
+        "eye": GeogenUtil.mm(player.camera.global_position), "on_floor": player.is_on_floor(), "flying": player.flying,
         "room": main.world.room_at(p + Vector3(0, 0.5, 0)), "scene": main.world.scene_name,
         "pose": player.pose.get("type", "stand"), "pose_asset": player.pose.get("asset", ""),
         "focus": main.focus.info(), "keys": main.held_keys(),
@@ -1219,7 +1215,7 @@ func _move(args: Dictionary) -> Dictionary:
     var seconds := float(args.get("seconds", 1.0))
     var start := player.global_position
     player.scripted_move = Vector2(float(args.get("strafe", 0.0)), float(args.get("forward", 1.0)))
-    var motion := {"trace": [_v(start)], "blocked_by": null, "elapsed": 0.0, "next_sample": TRACE_SECONDS}
+    var motion := {"trace": [GeogenUtil.mm(start)], "blocked_by": null, "elapsed": 0.0, "next_sample": TRACE_SECONDS}
     while motion["elapsed"] < seconds and not main.is_switching():
         await get_tree().physics_frame
         _track(motion)
@@ -1244,7 +1240,7 @@ func _walk_to(args: Dictionary):
     var route := _nav_path(player.global_position, target)
     var walker := _walk_along(route)
     var timeout := float(args.get("timeout", 30.0))
-    var motion := {"trace": [_v(player.global_position)], "blocked_by": null, "elapsed": 0.0,
+    var motion := {"trace": [GeogenUtil.mm(player.global_position)], "blocked_by": null, "elapsed": 0.0,
         "next_sample": TRACE_SECONDS}
     var doors := []           # the doors it opened on the way
     var status := ""
@@ -1269,7 +1265,7 @@ func _walk_to(args: Dictionary):
         elif it.target != door["portal"]["open"] and not it.use("player"):
             status = "refused"
         if status != "":
-            motion["blocked_by"] = {"node": String(it.asset.name), "asset": String(it.asset.name), "point": _v(door["hit"]),
+            motion["blocked_by"] = {"node": String(it.asset.name), "asset": String(it.asset.name), "point": GeogenUtil.mm(door["hit"]),
                 "interaction": {"name": it.interaction_name, "state": it.state, "asset": String(it.asset.name)}}
             break
         var waited := 0.0
@@ -1323,7 +1319,7 @@ func _track(motion: Dictionary) -> void:
     motion["elapsed"] += get_physics_process_delta_time()
     if motion["elapsed"] >= motion["next_sample"]:
         motion["next_sample"] += TRACE_SECONDS
-        motion["trace"].append(_v(player.global_position))
+        motion["trace"].append(GeogenUtil.mm(player.global_position))
     for i in player.get_slide_collision_count():
         var hit := player.get_slide_collision(i)
         if hit.get_normal().y > 0.7:
@@ -1333,7 +1329,7 @@ func _track(motion: Dictionary) -> void:
             continue
         var it: GeogenInteraction = main.world.interaction_for(collider)
         motion["blocked_by"] = {"node": String(collider.name), "asset": _asset_of(collider),
-            "point": _v(hit.get_position()), "normal": _v(hit.get_normal()),
+            "point": GeogenUtil.mm(hit.get_position()), "normal": GeogenUtil.mm(hit.get_normal()),
             "interaction": {"name": it.interaction_name, "state": it.state, "asset": String(it.asset.name)}
                 if it != null else null}
 
@@ -1395,7 +1391,7 @@ func _interactions(args: Dictionary) -> Array[GeogenInteraction]:
 func _interaction(it: GeogenInteraction, parts := false) -> Dictionary:
     var info := {"asset": String(it.asset.name), "interaction": it.interaction_name, "state": it.state,
         "target": it.target, "moving": it.state != it.target, "locked": it.locked, "lock_key": it.lock_key,
-        "states": it.states.keys(), "prompt": it.prompt(main.keys), "refused": it.refusal(), "position": _v(it.asset.global_position),
+        "states": it.states.keys(), "prompt": it.prompt(main.keys), "refused": it.refusal(), "position": GeogenUtil.mm(it.asset.global_position),
         "room": main.world.room_at(it.asset.global_position + Vector3(0, 0.3, 0))}
     if parts:
         # Where the moving parts are now (e.g. does an open leaf clear the wardrobe beside it?).
@@ -1652,24 +1648,14 @@ func _find_node(args: Dictionary) -> Node3D:
 
 ## World bounds of the visible meshes under (and at) a node.
 static func _bounds(node: Node) -> AABB:
-    var box := AABB()
-    var first := true
-    var meshes: Array = node.find_children("*", "MeshInstance3D", true, false)
-    if node is MeshInstance3D:
-        meshes.append(node)
-    for mi: MeshInstance3D in meshes:
-        if mi.is_in_group("geogen_collider_debug") or not mi.is_visible_in_tree():
-            continue
-        var b: AABB = mi.global_transform * mi.get_aabb()
-        box = b if first else box.merge(b)
-        first = false
-    if first and node is Node3D:
+    var box := GeogenUtil.mesh_bounds(node, func(mi: MeshInstance3D): return mi.is_visible_in_tree())
+    if box == AABB() and node is Node3D:       # nothing drawn: the node's own point
         box = AABB((node as Node3D).global_position, Vector3.ZERO)
     return box
 
 
 static func _box(box: AABB) -> Dictionary:
-    return {"min": _v(box.position), "max": _v(box.end), "size": _v(box.size), "center": _v(box.get_center())}
+    return {"min": GeogenUtil.mm(box.position), "max": GeogenUtil.mm(box.end), "size": GeogenUtil.mm(box.size), "center": GeogenUtil.mm(box.get_center())}
 
 
 func _node_info(node: Node3D) -> Dictionary:
@@ -1689,8 +1675,8 @@ func _node_info(node: Node3D) -> Dictionary:
                 "object": _is_object(WorldLoader.geogen_extras(child))})
     return {"name": String(node.name), "uid": WorldLoader.uid_of(node),
         "node_path": String(world.get_path_to(node)), "type": node.get_class(),
-        "position": _v(xform.origin), "rotation_deg": _v(xform.basis.get_euler() * (180.0 / PI)),
-        "scale": _v(xform.basis.get_scale()), "visible": node.is_visible_in_tree(),
+        "position": GeogenUtil.mm(xform.origin), "rotation_deg": GeogenUtil.mm(xform.basis.get_euler() * (180.0 / PI)),
+        "scale": GeogenUtil.mm(xform.basis.get_scale()), "visible": node.is_visible_in_tree(),
         "bounds": _box(_bounds(node)), "room": world.room_at(xform.origin + Vector3(0, 0.3, 0)),
         "asset": _asset_of(node), "extras": WorldLoader.geogen_extras(node),
         "interactions": world.interactions_of(String(node.name)).map(func(it): return _interaction(it, true)),

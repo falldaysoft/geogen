@@ -39,6 +39,7 @@ var _sets: Array = []                    # [[car nodes]] consist copies
 var _set_of := {}                        # departure k -> set index
 var _crossings := {}                     # id -> {closed, barriers: [names]}
 var _lamp_materials := {}
+var _parts := {}                         # car -> {info, shapes, bogies, wheels, engine} (see _car_parts)
 
 
 static func spawn(world_: WorldLoader, node: Node3D, data_: Dictionary, railway_: Dictionary,
@@ -94,22 +95,11 @@ func _prepare(car: Node3D) -> void:
         "offset": 0.0})
     car.set_meta("geogen_speed", 0.0)
     GeogenSound.add_engine(car, info)
-    for kind in info.get("lamps", {}):
-        for part_name in info["lamps"][kind]:
-            var part := car.find_child(str(part_name), true, false)
-            if part == null:
-                continue
-            for mi: MeshInstance3D in ([part] if part is MeshInstance3D else []) + part.find_children("*", "MeshInstance3D", true, false):
-                for i in mi.mesh.get_surface_count() if mi.mesh else 0:
-                    var mat := mi.get_active_material(i) as BaseMaterial3D
-                    if mat != null and mat.emission_enabled and not _lamp_materials.has(mat):
-                        _lamp_materials[mat] = [mat.emission_energy_multiplier, kind]
+    GeogenVehicles.collect_lamps(car, info, _lamp_materials)
 
 
 func set_night(on: bool) -> void:
-    for mat in _lamp_materials:
-        var boost := 5.0 if _lamp_materials[mat][1] == "head" else 3.0
-        (mat as BaseMaterial3D).emission_energy_multiplier = _lamp_materials[mat][0] * (boost if on else 1.0)
+    GeogenVehicles.light_lamps(_lamp_materials, on)
 
 
 func trace(event: Dictionary) -> void:
@@ -120,9 +110,7 @@ func trace(event: Dictionary) -> void:
 
 ## Seconds of world time: the clock's position in its (compressed) day, else time since load.
 func world_time() -> float:
-    if world != null and world.clock != null and world.clock.day_length > 0.0:
-        return world.clock.hours / 24.0 * world.clock.day_length
-    return clock
+    return GeogenVehicles.world_time(world, clock)
 
 
 func _point(d: float) -> Vector3:
@@ -179,10 +167,11 @@ func _physics_process(delta: float) -> void:
         stats["departures"][str(k)] = true
         trace({"t": snappedf(t, 0.1), "depart": k})
     for i in _sets.size():
-        for car in _sets[i]:
-            car.visible = used.has(i)
-            for shape: CollisionShape3D in car.find_children("*", "CollisionShape3D", true, false):
-                shape.disabled = not used.has(i)
+        for car: Node3D in _sets[i]:
+            if car.visible != used.has(i) or not _parts.has(car):
+                car.visible = used.has(i)
+                for shape: CollisionShape3D in _car_parts(car)["shapes"]:
+                    shape.disabled = not used.has(i)
     for k in active:
         _place(_sets[_set_of[k]], active[k], delta)
     # Stations: a train stands at one from its arrival there to its departure.
@@ -258,22 +247,37 @@ func _place(cars: Array, tau: float, delta: float) -> void:
         var pitch := -atan2(dir.y, Vector2(dir.x, dir.z).length())
         car.global_transform = Transform3D(Basis.from_euler(Vector3(pitch, yaw, 0.0)), (front + rear) / 2.0)
         car.set_meta("geogen_speed", speed)
-        GeogenSound.set_speed(car.get_node_or_null("Engine") as AudioStreamPlayer3D, speed)
+        var parts := _car_parts(car)
+        GeogenSound.set_speed(parts["engine"], speed)
         # Bogies turn to the rails under them; wheels spin.
-        var info: Dictionary = WorldLoader.geogen_extras(car).get("vehicle", {})
-        var names: Array = info.get("bogies", [])
-        for b in names.size():
-            var bogie := car.find_child(str(names[b]), true, false) as Node3D
+        var named: Array = parts["bogies"]
+        for b in named.size():
+            var bogie: Node3D = named[b]
             if bogie == null:
                 continue
             var at := centre + float(bogies[mini(b, bogies.size() - 1)])
             var tangent := _point(at + 1.0) - _point(at - 1.0)
             bogie.rotation.y = wrapf(atan2(tangent.x, tangent.z) - yaw, -PI, PI)
         var step := speed * delta
-        for w in info.get("wheels", []):
-            var wheel := car.find_child(str(w["part"]), true, false) as Node3D
-            if wheel != null:
-                wheel.rotate(Vector3.RIGHT, step / maxf(float(w["radius"]), 0.1))
+        for w in parts["wheels"]:
+            (w[0] as Node3D).rotate(Vector3.RIGHT, step / w[1])
+
+
+## A car's moving parts, looked up once (per copy: a clone's are its own nodes).
+func _car_parts(car: Node3D) -> Dictionary:
+    if _parts.has(car):
+        return _parts[car]
+    var info: Dictionary = WorldLoader.geogen_extras(car).get("vehicle", {})
+    var wheels := []
+    for w in info.get("wheels", []):
+        var wheel := car.find_child(str(w["part"]), true, false) as Node3D
+        if wheel != null:
+            wheels.append([wheel, maxf(float(w["radius"]), 0.1)])
+    var parts := {"info": info, "shapes": car.find_children("*", "CollisionShape3D", true, false),
+        "bogies": info.get("bogies", []).map(func(n): return car.find_child(str(n), true, false) as Node3D),
+        "wheels": wheels, "engine": car.get_node_or_null("Engine") as AudioStreamPlayer3D}
+    _parts[car] = parts
+    return parts
 
 
 func report() -> Dictionary:

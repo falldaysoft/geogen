@@ -141,7 +141,7 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
         var about: Dictionary = npc.definition["wants"][option["want"]]
         npc.world.npc_reserve(_subject_key(option["subject"]), npc)
         npc._want_doing = {"want": option["want"], "subject": option["subject"], "to": about["to"],
-            "at": GeogenNpc._v(option["thing"]["anchor"]),
+            "at": GeogenUtil.cm(option["thing"]["anchor"]),
             "reluctance": snappedf(reluctance(npc, about, str(option["subject"])), 0.001)}
         var thing_event := {"event": "want"}
         thing_event.merge(npc._want_doing)
@@ -156,7 +156,7 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
         npc.world.npc_reserve(_subject_key(option["subject"]), npc)
         npc.stats["searches"] = int(npc.stats.get("searches", 0)) + 1
         npc._want_doing = {"want": option["want"], "subject": option["subject"], "search": true,
-            "at": GeogenNpc._v(entry["at"]), "by": entry["by"]}
+            "at": GeogenUtil.cm(entry["at"]), "by": entry["by"]}
         var looking := {"event": "want"}
         looking.merge(npc._want_doing)
         npc._trace(looking)
@@ -169,7 +169,7 @@ static func begin(npc: GeogenNpc, option: Dictionary) -> Dictionary:
     npc.world.npc_reserve(_subject_key(option["subject"]), npc)
     var want: Dictionary = npc.definition["wants"][option["want"]]
     npc._want_doing = {"want": option["want"], "subject": option["subject"], "place": place["uid"],
-        "at": GeogenNpc._v(place["position"]), "score": snappedf(place["score"], 0.001), "of": ranked.size(),
+        "at": GeogenUtil.cm(place["position"]), "score": snappedf(place["score"], 0.001), "of": ranked.size(),
         "reluctance": snappedf(reluctance(npc, want, str(option["subject"])), 0.001)}
     var event := {"event": "want"}
     event.merge(npc._want_doing)

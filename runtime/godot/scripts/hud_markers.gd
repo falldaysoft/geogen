@@ -108,7 +108,7 @@ func hud_refresh() -> void:
                 # One ring for the objective: round the middle of its subjects, shifted off it.
                 var middle := Vector3.ZERO
                 for point in points:
-                    middle += _vec(point["position"]) / points.size()
+                    middle += GeogenUtil.vec(point["position"]) / points.size()
                 var radius := float(objective["area"])
                 var turn := float(hash(str(points[0]["subject"])) % 3600) / 3600.0 * TAU
                 var entry := base.duplicate()
@@ -118,7 +118,7 @@ func hud_refresh() -> void:
             else:
                 for point in points:
                     var entry := base.duplicate()
-                    entry.merge({"kind": "point", "subject": point["subject"], "at": _vec(point["position"]) + offset})
+                    entry.merge({"kind": "point", "subject": point["subject"], "at": GeogenUtil.vec(point["position"]) + offset})
                     _markers.append(entry)
     _add_portals(rules, tracker)
     _travel_points = world.travel_points.size()
@@ -256,10 +256,6 @@ func _model_offset() -> Vector3:
     return Vector3.ZERO
 
 
-static func _vec(values: Array) -> Vector3:
-    return Vector3(float(values[0]), float(values[1]), float(values[2]))
-
-
 # -- where it is on screen -----------------------------------------------------------------------
 
 ## How far in from the screen's edge a clamped indicator sits.
@@ -320,7 +316,7 @@ func _occlusion() -> void:
     var space := _hud.world.get_world_3d().direct_space_state
     var eye := camera.global_position
     var exclude: Array[RID] = []
-    var player = get_tree().root.find_child("Player", true, false)
+    var player = _hud.player()
     if player is CollisionObject3D:
         exclude.append((player as CollisionObject3D).get_rid())
     for i in _markers.size():
