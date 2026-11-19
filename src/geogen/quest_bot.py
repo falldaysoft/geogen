@@ -44,6 +44,8 @@ TRIES = 3                # attempts at one goal before calling it a problem
 NEAR_MARKER = 2.5        # m: a usable thing this near a marked spot is what the objective is about
 MAX_ASKED = 6            # people the bot greets to be given an available quest
 MARKER_WAIT = 180.0      # s of world time to wait at a marked spot for the objective (a train due)
+NPC_WAITS = 12           # times to let someone in the way move on before a walk counts as stuck
+NPC_WAIT = 3.0           # s of world time each of those
 ACCEPT = ("accept", "yes", "agree", "ok", "sure", "help")
 
 
@@ -250,11 +252,26 @@ def _inside(node: dict[str, Any]) -> list[float]:
 
 def _walk_up(rt, stand: list[float], seconds: float = 120.0) -> dict[str, Any]:
     """player.walk_to ``stand``, giving up after ``seconds`` of world time. (Sent, not ``call``ed:
-    the client's own ``timeout`` is how long it waits for the reply.)"""
-    reply = rt.send("player.walk_to", pos=stand, timeout=seconds).get(timeout=seconds * 4 + 60)
-    if not reply.get("ok"):
-        return {"status": "error", "error": reply.get("error"), "doors": []}
-    return reply["result"]
+    the client's own ``timeout`` is how long it waits for the reply.) Someone standing in a narrow
+    hall is no fault of the scene's: as a player would, the bot waits for them to move on and
+    walks again, NPC_WAITS times."""
+    doors: list = []
+    for _ in range(NPC_WAITS):
+        reply = rt.send("player.walk_to", pos=stand, timeout=seconds).get(timeout=seconds * 4 + 60)
+        if not reply.get("ok"):
+            return {"status": "error", "error": reply.get("error"), "doors": doors}
+        walked = reply["result"]
+        doors += walked.get("doors", [])
+        if walked["status"] != "stuck" or not _blocked_by_npc(rt, walked):
+            break
+        rt.call("time.advance", seconds=NPC_WAIT)
+    return {**walked, "doors": doors}
+
+
+def _blocked_by_npc(rt, walked: dict[str, Any]) -> bool:
+    """Whether what stopped this walk is one of the scene's NPCs."""
+    node = (walked.get("blocked_by") or {}).get("node")
+    return node is not None and any(n.get("npc") == node for n in rt.call("npcs.list"))
 
 
 def _use(rt, goal: dict[str, Any], node: dict[str, Any]) -> dict[str, Any]:

@@ -923,8 +923,10 @@ def export_scene(root: SceneNode, path: str | Path, player: PlayerSpec | None = 
     package = package or path.stem
     compiled = None
     if manifest and suffix != ".obj":
+        from .inventory import detach_icons
         from .quests import collect
 
+        detach_icons(root)                  # an earlier export's: they aren't part of the world
         refs.assign_ids(root, package)
         compiled = collect(root, package)   # bad declarations and quests fail the export before anything is written
         if compiled.items:

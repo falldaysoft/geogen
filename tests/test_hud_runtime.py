@@ -302,7 +302,7 @@ def test_the_keys_panel_lists_every_key_and_takes_the_keyboard_while_open(fresh)
     assert not hud["open"] and hud["rect"] == [] and hud["hint"] == "" and hud["columns"] == 0
     groups = {g["title"]: dict(g["keys"]) for g in hud["groups"]}      # listed while closed too
     assert list(groups) == ["Moving", "Playing", "Scenes and debugging", "Quests", "Directing people", "Inventory", "Quest log",
-                            "Talking"]
+                            "Talking", "Motion gallery"]
     assert groups["Playing"]["E"] == "use what you aim at" and groups["Playing"]["?"] == "this list"
     assert "Q" in groups["Quests"] and "J" in groups["Quest log"] and set(groups["Inventory"]) == {"I", "1-9", "F"}
 

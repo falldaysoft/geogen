@@ -25,6 +25,8 @@ place:
 | `leg_width` | `0.038` |  |  |
 | `leg_inset` | `0.035` |  | leg centre distance from the seat edge |
 | `at_table` | `1` |  | NPCs sit with their forearms on the table (sit_at_table); 0: hands in the lap |
+| `approach_x` | `0.6` |  | where an actor stands before sitting: beside the chair... |
+| `approach_z` | `0.15` |  | ...a little ahead of it (chairs side by side: stand behind, z -0.6) |
 
 ## Size
 

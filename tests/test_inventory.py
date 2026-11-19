@@ -37,7 +37,7 @@ def test_a_pickup_gives_its_item_to_whoever_takes_it(yard):
     pickup = next(i for i in key.interactions if i.name == "pickup")
     assert pickup.initial == "here" and pickup.states["here"].prompt == "Take the room key"
     found = collect(yard, "pickup_yard")
-    assert found.items == {"room_key": {"title": "Room key", "tags": ["key"]}, "parcel": {"title": "Parcel"}}
+    assert found.items == {"room_key": {"title": "Room key", "tags": ["key"], "opens": ["key_suite"]}, "parcel": {"title": "Parcel"}}
     machine = Machine(found.program(), {"player": {"kind": "player"}, "pickup_yard:npc": {"kind": "npc"}})
     assert machine.use("pickup_yard:key#pickup", "player")
     machine.advance(0.5)

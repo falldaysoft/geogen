@@ -123,13 +123,20 @@ ICON_META = "item_icon"
 ICONS_NODE = "item_icons"
 
 
+def detach_icons(root: SceneNode) -> None:
+    """Take off the ``item_icons`` an earlier export attached, so that exporting the same tree
+    again gives the same file: they get no stable IDs and their pickups are no rules' state."""
+    for child in [c for c in root.children if c.name == ICONS_NODE]:
+        root.remove_child(child)
+
+
 def attach_icons(root: SceneNode, items: dict[str, Any], assets_dir: str | Path | None = None) -> list[str]:
     """Give ``root`` a hidden child ``item_icons`` holding each item's body (``items/<id>.yaml``
     ``body``), named ``<id>_icon`` with ``meta.item_icon = {item: id, held?}``, so a runtime can
     draw the items an actor carries (the Godot HUD's hotbar renders them) and show one with
     ``held`` in its hand (geogen.87.2). Not part of the world:
     the runtime takes the node out on load, as it does flow templates. Done once per export
-    (a second call finds the node and adds nothing); an item with no file gets no icon, and a
+    (a second call finds the node and adds nothing; ``detach_icons`` starts over); an item with no file gets no icon, and a
     body that won't load fails the export, as a flow template's does. Returns the ids given one."""
     from .layout import LayoutLoader
     from .flows import load_item

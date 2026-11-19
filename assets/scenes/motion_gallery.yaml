@@ -26,6 +26,7 @@ slots:
   d_table: { position: [3.2, 0, 0.55], facing: south }
   e_table: { position: [4.2, 0, 0.55], facing: south }
   # A chair behind each person for sit (its `props`: seat, 0.33 m behind), shown while it plays.
+  # The row is too tight to stand between the chairs, so anyone walking to one comes from behind.
   a_chair: { position: [0.2, 0, -0.33], facing: north }
   b_chair: { position: [1.2, 0, -0.33], facing: north }
   c_chair: { position: [2.2, 0, -0.33], facing: north }
@@ -57,11 +58,11 @@ place:
   priya_table: { asset: table.yaml, slot: e_table, params: { width: 0.9, depth: 0.5 } }
   priya_mug:   { asset: mug.yaml, on: priya_table.top, at: { u: 0.4, v: 0.75 } }
   priya_plate: { asset: plate.yaml, on: priya_table.top, at: { u: 0.83, v: 0.7 } }
-  ines_chair:   { asset: chair.yaml, slot: a_chair }
-  tomas_chair:  { asset: chair.yaml, slot: b_chair }
-  ruth_chair:   { asset: chair.yaml, slot: c_chair }
-  walter_chair: { asset: chair.yaml, slot: d_chair }
-  priya_chair:  { asset: chair.yaml, slot: e_chair }
+  ines_chair:   { asset: chair.yaml, slot: a_chair, params: { approach_x: 0, approach_z: -0.6 } }
+  tomas_chair:  { asset: chair.yaml, slot: b_chair, params: { approach_x: 0, approach_z: -0.6 } }
+  ruth_chair:   { asset: chair.yaml, slot: c_chair, params: { approach_x: 0, approach_z: -0.6 } }
+  walter_chair: { asset: chair.yaml, slot: d_chair, params: { approach_x: 0, approach_z: -0.6 } }
+  priya_chair:  { asset: chair.yaml, slot: e_chair, params: { approach_x: 0, approach_z: -0.6 } }
   hub_portal:
     asset: portal.yaml
     slot: hub_portal

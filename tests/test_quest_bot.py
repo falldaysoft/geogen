@@ -75,3 +75,35 @@ def test_an_objective_without_goals_is_reported():
     riddle = report["quests"]["riddle"]
     assert riddle["status"] == "active" and riddle["objectives"] == {"answer": "open"}
     assert "no goal the bot can work on" in riddle["problem"]
+
+
+class _Hall:
+    """A walk that someone stands in the way of ``blocked`` times, then one that gets there."""
+
+    def __init__(self, blocked, by="ana_npc"):
+        self.blocked, self.by, self.waited = blocked, by, 0.0
+
+    def send(self, cmd, **args):
+        result = {"status": "arrived", "doors": ["hall_door"], "blocked_by": None}
+        if self.blocked:
+            self.blocked -= 1
+            result = {"status": "stuck", "doors": [], "blocked_by": {"node": self.by}}
+        return type("Reply", (), {"get": lambda _, timeout=None: {"ok": True, "result": result}})()
+
+    def call(self, cmd, **args):
+        if cmd == "time.advance":
+            self.waited += args["seconds"]
+        return [{"npc": "ana_npc", "name": "Ana"}] if cmd == "npcs.list" else {}
+
+
+def test_a_walk_waits_for_someone_in_the_way():
+    hall = _Hall(blocked=2)
+    walked = quest_bot._walk_up(hall, [0, 0, 0])
+    assert walked["status"] == "arrived" and walked["doors"] == ["hall_door"]
+    assert hall.waited == 2 * quest_bot.NPC_WAIT
+
+
+def test_a_walk_stuck_on_a_thing_or_for_good_is_reported():
+    wall = _Hall(blocked=1, by="wall")
+    assert quest_bot._walk_up(wall, [0, 0, 0])["status"] == "stuck" and wall.waited == 0
+    assert quest_bot._walk_up(_Hall(blocked=99), [0, 0, 0])["status"] == "stuck"
