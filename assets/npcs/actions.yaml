@@ -15,8 +15,9 @@
 #                                everything) step straight up to it, if it is near and clear:
 #                                a worktop is worked at from closer than that
 #       (partner: up to the NPC whose offer this action takes up, a pace short of them)
-#       (a body with `jump:` jumps down first when it stands on a perch, and jumps up to a perch or
-#       any spot off the navmesh from where it can walk to)
+#       (a body with `jump:` jumps down first when it stands on a perch, and jumps up to a perch
+#       from where it can walk to; one with `fly:` flies there instead, and flies any walk longer
+#       than its `fly.over`)
 #   vanish: true                 leave the world (routines bring the NPC back later)
 #   face: anchor | portal | player | partner  turn toward the anchor's heading / through the
 #                                portal / toward the player / toward the partner
@@ -116,6 +117,14 @@ actions:
       - wait: duration
       - pose: stand
         at: approach
+
+  perch:                         # a bird on a perch (a bench's back): there on the wing, a while looking about
+    approach: [0, 0, 0]
+    duration: [8, 30]
+    steps:
+      - go_to: anchor
+      - face: anchor
+      - wait: duration
 
   nap:                           # an animal on a perch (a sofa's seat): there (jumping up), lie down a while
     approach: [0, 0, 0]

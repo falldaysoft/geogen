@@ -104,6 +104,8 @@ const REACH_SLACK := 0.15         # m: the navmesh lies a little above the floor
 const PUT_GAP := 0.01             # m above the spot a prop is let go at
 const LEAP_OFF := 0.25            # m above the navmesh: up on something (or in the air), jumped down from
 const LEAP_STEPS := [0.3, 0.55, 0.8, 1.05]   # m out from a perch where a jump down may land (up to `jump.across`)
+const FLIGHT_TRIES := 3           # cruise heights tried (1, 2, 3 x `fly.cruise` over the higher end) before giving up
+const FLIGHT_STEPS := 24          # points a flight's smoothed way is sampled at
 const LEAP_SECONDS := 0.6         # a jump with no clip of its own takes this long, on a plain arc
 const LEAP_ARC := 0.12            # ...this high over the line
 const HELD_EVERY := 0.25          # s between looking at what the NPC carries (geogen.87.2)        # s between looking up the groupmates (chunks stream NPCs in and out)
@@ -410,7 +412,7 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
             continue
         if a.has("follow") and not a.get("boardable", true):
             continue    # a ride's seat, away from the ground or moving
-        if a.get("type", "") == "perch" and not definition.has("jump"):
+        if a.get("type", "") == "perch" and not (definition.has("jump") or definition.has("fly")):
             continue    # up on something, for a body that jumps (a cat on the sofa's seat)
         if a.has("prop"):
             a = _prop_affordance(a)
@@ -1184,7 +1186,7 @@ func choices(thing: String) -> Array:
         var uid := WorldLoader.uid_of(a["node"])
         if not _under(uid, [thing]):
             continue
-        if a.get("type", "") == "perch" and not definition.has("jump"):
+        if a.get("type", "") == "perch" and not (definition.has("jump") or definition.has("fly")):
             continue                    # up on it is for a body that jumps (a cat)
         if a.get("requires", {}).has("near") and world.near_thing(a) == "":
             continue                    # a seat with no TV to watch has no watching to offer
@@ -2998,7 +3000,17 @@ func _plan(target: Vector3) -> String:
         _leap = {}
         _playing = false
         _solid_after_move()
-    if definition.has("jump"):
+    var flight := PackedVector3Array()
+    if definition.has("fly") and _should_fly(from, to, target):
+        flight = _flight_route(global_position, target)
+        if flight.is_empty() and (_perch_goal or _perched):
+            return "no clear way to fly to %s" % str(GeogenUtil.cm(target))
+    if not flight.is_empty():
+        # On the wing all the way: the "path" is just where it lands.
+        _leap_out = {"from": global_position, "to": target, "route": flight, "perch": _perch_goal}
+        from = target
+        to = target
+    elif definition.has("jump"):
         # On a perch (or in the air): jump down to the navmesh first. To a perch: walk to where
         # it can be jumped up to from, then jump.
         if _perched or global_position.y - from.y > LEAP_OFF:
@@ -3027,6 +3039,9 @@ func _plan(target: Vector3) -> String:
     _best = INF
     _stall = 0.0
     _sidestep = 0.0
+    if not flight.is_empty():
+        _path = PackedVector3Array([target, target])
+        return ""
     if _path.is_empty():
         return "no path"
     if Vector2(to.x - target.x, to.z - target.z).length() > 0.8:
@@ -3324,9 +3339,78 @@ func _leap_ground(perch: Vector3, toward: Vector3, up: bool) -> Variant:
     return best
 
 
+## Whether a body with `fly:` goes on the wing rather than hopping along the navmesh: to a perch,
+## off one (or out of the air), when the walk is further than `fly.over` m, or there is no walk.
+func _should_fly(from: Vector3, to: Vector3, target: Vector3) -> bool:
+    if _perch_goal or _perched or global_position.y - from.y > LEAP_OFF:
+        return true
+    if NpcGeometry.flat(to - target).length() > 0.5:
+        return true                       # nowhere on the ground near it
+    var map := get_world_3d().navigation_map
+    var walk := GeogenWalker.find_path(map, from, to)
+    if walk.size() < 2:
+        return true
+    var length := 0.0
+    for i in range(1, walk.size()):
+        length += walk[i - 1].distance_to(walk[i])
+    return length > float(definition["fly"]["over"])
+
+
+## The way through the air from ``a`` to ``b``: up from ``a`` at a slant to a cruise height
+## (`fly.cruise` m over the higher end, then twice and three times that if something is in the
+## way), across, and down to ``b``, smoothed; empty when every height is blocked (a ceiling).
+func _flight_route(a: Vector3, b: Vector3) -> PackedVector3Array:
+    var cruise := float(definition["fly"]["cruise"])
+    var space := get_world_3d().direct_space_state
+    var flat := NpcGeometry.flat(b - a)
+    var dir := flat.normalized() if flat.length() > 1e-3 else Vector3.FORWARD
+    var lift := Vector3.UP * 0.04
+    for k in FLIGHT_TRIES:
+        var h := maxf(a.y, b.y) + cruise * (k + 1)
+        # Climb and descend at about 45 degrees, meeting in the middle on a short hop.
+        var out := minf(h - a.y, flat.length() * 0.45)
+        var back := minf(h - b.y, flat.length() * 0.45)
+        var keys := PackedVector3Array([a, Vector3(a.x, h, a.z) + dir * out, Vector3(b.x, h, b.z) - dir * back, b])
+        var clear := true
+        for i in range(1, keys.size()):
+            var ray := PhysicsRayQueryParameters3D.create(keys[i - 1] + lift, keys[i] + lift, 1)
+            ray.exclude = [get_rid()]
+            if not space.intersect_ray(ray).is_empty():
+                clear = false
+                break
+        if not clear:
+            continue
+        var route := PackedVector3Array()
+        for i in FLIGHT_STEPS + 1:
+            var u := float(i) / FLIGHT_STEPS * (keys.size() - 1)
+            var j := mini(int(u), keys.size() - 2)
+            var f := u - j
+            var p0 := keys[maxi(j - 1, 0)]
+            var p3 := keys[mini(j + 2, keys.size() - 1)]
+            route.append(keys[j].cubic_interpolate(keys[j + 1], p0, p3, f))
+        return route
+    return PackedVector3Array()
+
+
 func _start_leap(spec: Dictionary) -> void:
     var from: Vector3 = spec["from"]
     var to: Vector3 = spec["to"]
+    if spec.has("route"):
+        var route: PackedVector3Array = spec["route"]
+        var length := 0.0
+        for i in range(1, route.size()):
+            length += route[i - 1].distance_to(route[i])
+        _leap = {"from": from, "to": to, "route": route, "length": length, "d": 0.0, "perch": spec["perch"],
+            "turned": true}
+        velocity = Vector3.ZERO
+        _perched = false
+        _playing = true
+        _shape.set_deferred("disabled", true)
+        if animator != null and animator.player != null and animator.has("fly"):
+            animator.play_loop("fly")
+        count_stat("flights")
+        _trace({"event": "fly", "from": GeogenUtil.cm(from), "to": GeogenUtil.cm(to)})
+        return
     var clip := "jump_up" if to.y > from.y else "jump_down"
     _leap = {"from": from, "to": to, "clip": clip, "t": 0.0, "turned": false,
         "length": LEAP_SECONDS, "data": {}}
@@ -3337,10 +3421,35 @@ func _start_leap(spec: Dictionary) -> void:
     _trace({"event": "leap", "from": GeogenUtil.cm(from), "to": GeogenUtil.cm(to)})
 
 
-## Turn to face the way, then jump: the body follows the clip's `leap` (or a plain arc).
+## Turn to face the way, then jump: the body follows the clip's `leap` (or a plain arc). A flight
+## follows its route at `fly.speed`, facing the way it goes.
 func _leaping(delta: float) -> String:
     var from: Vector3 = _leap["from"]
     var to: Vector3 = _leap["to"]
+    if _leap.has("route"):
+        var route: PackedVector3Array = _leap["route"]
+        _leap["d"] += float(definition["fly"]["speed"]) * delta
+        var left: float = _leap["d"]
+        var at := route[route.size() - 1]
+        for i in range(1, route.size()):
+            var seg := route[i - 1].distance_to(route[i])
+            if left <= seg:
+                at = route[i - 1].lerp(route[i], left / maxf(seg, 1e-6))
+                break
+            left -= seg
+        var way := NpcGeometry.flat(at - global_position)
+        if way.length() > 1e-4:
+            var turn := deg_to_rad(float(definition.get("turn_speed", 360.0))) * delta
+            rotation.y += clampf(wrapf(atan2(way.x, way.z) - _yaw(), -PI, PI), -turn, turn)
+        global_position = at
+        if float(_leap["d"]) < float(_leap["length"]):
+            return "running"
+        global_position = to
+        _perched = bool(_leap["perch"])
+        _leap = {}
+        _playing = false
+        _solid_after_move()
+        return "running"
     if not _leap["turned"]:
         var way := NpcGeometry.flat(to - from)
         var diff := wrapf(atan2(way.x, way.z) - _yaw(), -PI, PI) if way.length() > 0.02 else 0.0
@@ -3515,6 +3624,9 @@ func _avoid(dir: Vector3) -> Vector3:
 
 
 func _move(delta: float) -> void:
+    if _perched:
+        velocity = Vector3.ZERO           # held where it landed (a bird on a bench's back)
+        return
     if is_on_floor():
         velocity.y = 0.0
         if Player.step_up(self, Vector3(velocity.x, 0, velocity.z) * delta, step_height):
@@ -4183,7 +4295,8 @@ func report() -> Dictionary:
         "position": GeogenUtil.cm(p), "head": GeogenUtil.cm(head_point()), "needs": _rounded_needs(), "doing": _status(), "away": away, "absent": absent,
         "aways": int(stats.get("aways", 0)), "returns": int(stats.get("returns", 0)),
         "crosswalks": int(stats.get("crosswalks", 0)), "greets": int(stats.get("greets", 0)),
-        "close_ins": int(stats.get("close_ins", 0)), "leaps": int(stats.get("leaps", 0)), "perched": _perched,
+        "close_ins": int(stats.get("close_ins", 0)), "leaps": int(stats.get("leaps", 0)), "flights": int(stats.get("flights", 0)), "perched": _perched,
+        "flying": _leap.has("route"),
         # Signalled crossings: waits on the kerb for walk (and the longest, s), steps onto one, and
         # steps onto one showing a steady don't-walk.
         "signal_waits": int(stats.get("signal_waits", 0)), "signal_wait": snappedf(float(stats.get("signal_wait", 0.0)), 0.1),

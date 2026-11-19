@@ -137,3 +137,33 @@ def test_cats_walk_about_as_npcs(scene_export, godot_runtime):
         # (Where it meant to wander may be where the other cat or the player stands: that is all that fails.)
         assert all("destination occupied" in f for f in n["failures"]) and n["distinct"] >= 2
         assert abs(n["position"][0]) < 2.0 and abs(n["position"][2]) < 2.0     # in the room
+
+
+@pytest.mark.godot
+@pytest.mark.xdist_group("test_animals_birds")
+def test_birds_fly_to_perches_and_about_the_lawn(scene_export, godot_runtime):
+    rt = godot_runtime("bird_test", scene_export("bird_test"))
+    rt.call("wait_ready")
+    rt.call("time.pause")
+    birds = {n["npc"] for n in rt.call("npcs.list")}
+    assert len(birds) == 3
+    perched, flying, on_ground = set(), set(), set()
+    for _ in range(90):
+        rt.call("time.advance", seconds=1.0, scale=8)
+        for n in rt.call("npcs.list"):
+            x, y, z = n["position"]
+            if n["perched"]:
+                # On a bench's top back slat (0.71 m), not on the seat or the ground.
+                assert y == pytest.approx(0.71, abs=0.04) and abs(x) > 2.0, n
+                perched.add(n["npc"])
+            elif n["flying"]:
+                assert 0.0 < y < 4.5, n                                    # under the cruise heights tried
+                flying.add(n["npc"])
+            else:
+                assert y < 0.2, n                                          # hopping about the grass
+                on_ground.add(n["npc"])
+            assert abs(x) < 5.5 and abs(z) < 5.5, n                        # in its home
+    now = {n["npc"]: n for n in rt.call("npcs.list")}
+    assert perched == birds and flying == birds and on_ground, (perched, flying, on_ground)
+    for n in now.values():
+        assert n["flights"] >= 2 and not n["failures"], n

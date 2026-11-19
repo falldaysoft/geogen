@@ -34,3 +34,5 @@ place:
 
 - sit at (-0.3, 0.408, 0.05) height 0.408 [seat, outside]
 - sit at (0.3, 0.408, 0.05) height 0.408 [seat, outside]
+- perch at (-0.36, 0.714, -0.175) [bird]
+- perch at (0.3, 0.714, -0.175) [bird]

@@ -165,3 +165,6 @@ affordances:
   # Seated on the slats' top (0.48 of the height).
   - { type: sit, at: [-0.3, "{0.48 * height}", 0.05], facing: 0, height: "{0.48 * height}", advertises: { rest: 0.3 }, tags: [seat, outside] }
   - { type: sit, at: [0.3, "{0.48 * height}", 0.05], facing: 0, height: "{0.48 * height}", advertises: { rest: 0.3 }, tags: [seat, outside] }
+  # Birds perch on the top back slat (perch: flown to, geogen.100.5).
+  - { type: perch, action: perch, at: ["{-0.3 * length}", "{0.84 * height}", "{-0.27 * depth}"], facing: 0, advertises: { rest: 0.3 }, tags: [bird] }
+  - { type: perch, action: perch, at: ["{0.25 * length}", "{0.84 * height}", "{-0.27 * depth}"], facing: 180, advertises: { rest: 0.3 }, tags: [bird] }

@@ -1,0 +1,29 @@
+# Birds on a lawn: the test scene for flying and perching (geogen.100.5).
+#
+# Sparrows (npcs/sparrow.yaml) hop about the grass pecking, fly up to the
+# benches' backs and sit there a while, and fly across when somewhere is too far
+# to hop. Their body and clips are characters/sparrow.yaml.
+
+name: bird_test
+tags: [test.npc]
+size: [12, 5, 12]
+
+spawns:
+  start: { position: [0, 0.05, -4.5], facing: north }
+
+slots:
+  ground: { position: [0, -0.02, 0], facing: north }
+  bench_w: { position: [-2.5, 0, 1.5], facing: east }
+  bench_e: { position: [2.5, 0, 0.5], facing: west }
+  maple: { position: [0, 0, 4], facing: north }
+
+place:
+  ground_plane: { asset: ground.yaml, slot: ground }
+  bench_w: { asset: bench.yaml, slot: bench_w }
+  bench_e: { asset: bench.yaml, slot: bench_e }
+  maple: { asset: maple_tree.yaml, slot: maple }
+
+  birds:
+    npc: npcs/sparrow.yaml
+    home: { rect: [-5.0, -5.0, 5.0, 5.0] }
+    scatter: { rect: [-2, -3, 2, 0], count: 3, spacing: 0.8, seed: 5 }

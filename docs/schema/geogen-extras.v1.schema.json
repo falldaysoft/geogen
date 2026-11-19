@@ -863,6 +863,10 @@
               "description": "What its body can jump (geogen.100.6), m: 'up' onto something at most this much higher, 'down' off something at most this much higher, 'across' as far as this level. Spots off the navmesh (perches) are reached by a jump from a navmesh point within reach, and left by a jump down; the body plays its 'jump_up' / 'jump_down' clip and follows the clip's 'leap'. Absent: it doesn't jump.",
               "type": "object", "additionalProperties": false,
               "properties": { "up": { "type": "number" }, "down": { "type": "number" }, "across": { "type": "number" } } },
+            "fly": {
+              "description": "What it does on the wing (geogen.100.5): 'speed' m/s, 'cruise' m over the higher end of a flight (twice and three times that when something is in the way), and 'over': a walk longer than this many metres is flown. It flies to perches and off them (and out of the air), playing its body's 'fly' clip. Absent: it doesn't fly.",
+              "type": "object", "additionalProperties": false,
+              "properties": { "speed": { "type": "number" }, "cruise": { "type": "number" }, "over": { "type": "number" } } },
             "carry": {
               "description": "The physics props it can carry: at most 'mass' kg and 'size' m on the longest side. One over 'two_hands' m on its longest side is carried in front of the body in both hands, a smaller one in one hand.",
               "type": "object", "additionalProperties": false,

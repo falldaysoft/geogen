@@ -1,0 +1,33 @@
+# A small bird: it hops about the ground pecking, and flies to perches (a
+# bench's back) and between places too far to hop to (`fly:`, geogen.100.5).
+# The body is characters/sparrow.yaml (wings, from YAML).
+#
+# Place in a scene with:
+#   birds: { npc: npcs/sparrow.yaml, home: { rect: [-6, -6, 6, 6] }, scatter: {...} }
+
+kind: npc
+version: 1
+
+body: { asset: characters/sparrow.yaml }
+speed: 0.35               # its hop, m/s (its walk clip's speed)
+turn_speed: 600
+radius: 0.04
+fly: { speed: 3.0, cruise: 1.2, over: 3.0 }
+
+needs:
+  curiosity: { initial: 0.5, decay: 0.03 }
+  rest:      { initial: 0.6, decay: 0.02 }
+
+activities:
+  wander: { action: wander, advertises: { curiosity: 0.12 } }
+  idle:   { action: idle, advertises: { rest: 0.06 } }
+
+scoring: { distance: 0.01, recency: 0.3, memory: 30, noise: 0.1, retry: 10 }
+
+# Bird spots only: perches on benches (and later fences, branches, roofs).
+affordance_tags: [bird]
+
+attention:
+  look: { range: 2.5, cone: 220, yaw: 70, pitch: 40, speed: 8 }
+  greet: false
+  yield: false

@@ -176,7 +176,7 @@ A named person: an NPC role (`npc:`) with its own name, look and defaults.
 
 Use: `place: {marco: {character: people/marco.yaml}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home`, `home_margin`, `household`, `jump`, `life`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `fly`, `home`, `home_margin`, `household`, `jump`, `life`, `memory`, `name`, `needs`, `npc`, `offers`, `owns`, `planner`, `preferences`, `prefers`, `quests`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `visits`, `wander`, `wants`, `work`
 
 | File | What it is |
 | --- | --- |
@@ -373,7 +373,7 @@ An NPC: body, needs, preferences, activities and daily routine; the runtime inte
 
 Use: `place: {resident: {npc: npcs/resident.yaml, on: house.floor, home: house.floor, seed: 1}}`
 
-Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `home_margin`, `jump`, `life`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `wander`, `wants`
+Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `fly`, `home_margin`, `jump`, `life`, `memory`, `needs`, `offers`, `planner`, `preferences`, `radius`, `reach`, `reacts`, `relations`, `routine`, `scoring`, `seed`, `senses`, `skips`, `speed`, `turn_speed`, `wander`, `wants`
 
 | File | What it is |
 | --- | --- |
@@ -386,6 +386,7 @@ Keys: `activities`, `affordance_tags`, `attention`, `body`, `carry`, `flags`, `h
 | [npcs/park_visitor.yaml](../../assets/npcs/park_visitor.yaml) | Someone spending time in the park: walks the gravel paths, sits on benches and at the picnic tables, stops on the bandstand to look around. |
 | [npcs/pedestrian.yaml](../../assets/npcs/pedestrian.yaml) | Somebody out and about: strolls the sidewalks, stops to look around, rests on benches. |
 | [npcs/resident.yaml](../../assets/npcs/resident.yaml) | A person who lives in a house: rests in chairs, looks out of the windows, browses the shelves and steps out of the front door now and then. |
+| [npcs/sparrow.yaml](../../assets/npcs/sparrow.yaml) | A small bird: it hops about the ground pecking, and flies to perches (a bench's back) and between places too far to hop to (`fly:`, geogen.100.5). |
 
 ### npc_actions
 

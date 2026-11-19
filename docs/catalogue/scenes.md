@@ -8,6 +8,7 @@ Composed scenes: view one with `python -m geogen.main -s NAME`, nest one with `s
 | [vending_machine](#vending_machine) | A vending machine to play with. |  |
 | [archetype_gallery](#archetype_gallery) | Character archetypes (assets/characters/archetypes/): one row per archetype, eight seeded people each (a path scatter draws a seed per copy). |  |
 | [bedtime](#bedtime) | A hotel guest goes to bed at 23:00 and sleeps there until 07:00. |  |
+| [bird_test](#bird_test) | Birds on a lawn: the test scene for flying and perching (geogen.100.5). |  |
 | [cat_test](#cat_test) | A cat in a room: the test scene for four-legged bodies (geogen.100). |  |
 | [city](#city) | The busy city showcase: a 5 x 4 grid with avenues through the middle, the hotel, an apartment block and an office tower as landmarks, two parks, shops along the avenues and houses on the side streets. | showcase |
 | [clothing_fit](#clothing_fit) | Clothing-fit stress test: the exaggerated `hourglass` body (big bust, wide hips, narrow waist) in every outfit. |  |
@@ -141,6 +142,22 @@ there (npcs/hotel_guest.yaml's night block: only: [bed], hold: true). Run it
 from 22:58 with a short day to watch the guest turn in and get up again.
 
 **Places**: `room: {scene: scenes/hotel_room.yaml}`; `guest: {npc: npcs/hotel_guest.yaml}`
+
+**Spawns**: start
+
+## bird_test
+
+`scene: scenes/bird_test.yaml` · [source](../../assets/scenes/bird_test.yaml)
+
+Birds on a lawn: the test scene for flying and perching (geogen.100.5).
+
+Sparrows (npcs/sparrow.yaml) hop about the grass pecking, fly up to the
+benches' backs and sit there a while, and fly across when somewhere is too far
+to hop. Their body and clips are characters/sparrow.yaml.
+
+**Places**: `ground_plane: {asset: ground.yaml}`; `bench_w: {asset: bench.yaml}`; `bench_e: {asset: bench.yaml}`; `maple: {asset: maple_tree.yaml}`; `birds: {npc: npcs/sparrow.yaml}`
+
+**Slots**: bench_e, bench_w, ground, maple
 
 **Spawns**: start
 
