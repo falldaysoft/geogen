@@ -122,6 +122,7 @@
             "dialogue.choose",
             "dialogue.show",
             "events.history",
+            "events.post",
             "events.subscribe",
             "events.unsubscribe",
             "flows.list",
@@ -324,6 +325,22 @@
             "properties": {
               "args": {
                 "$ref": "#/$defs/args/events.history"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmd": {
+                "const": "events.post"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/events.post"
               }
             }
           }
@@ -1898,6 +1915,7 @@
         "capture.camera": "{mode: player|overview|follow|fixed, npc?, from?, at?, fov?} which camera shows the world; fixed: the overview camera held at `from` looking at `at` (a recording's viewpoint)",
         "events.subscribe": "{streams: [events, interaction, npc, room, place, travel, traffic], types?, subjects?}: `events` is the whole bus (events.gd), narrowed to these types and subject IDs",
         "events.history": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; since: only those after that number)",
+        "events.post": "{type, at, strength?, subject?, actor?} post a runtime event on the bus as the world would (impact: something hit something at `at`, strength 0..1, default 1): a stimulus without physics (geogen.99.5)",
         "events.unsubscribe": "{streams?}"
       }
     },
@@ -3111,6 +3129,29 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "events.post": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "impact"
+            ]
+          },
+          "at": {
+            "$ref": "#/$defs/point"
+          },
+          "strength": {
+            "type": "number"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
           }
         }
       },

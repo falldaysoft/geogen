@@ -78,7 +78,8 @@ def can_id(rt):
 def test_the_definition_has_her_senses_and_what_she_reacts_to(built_scene):
     npc = next(n for n in built_scene("wants_house").iter_nodes() if n.name == "hana").meta["npc"]
     assert npc["senses"] == {"hearing": {"range": 10.0, "muffled": 0.3}, "sight": {"range": 8.0, "cone": 150.0}}
-    assert npc["reacts"]["thud"] == {"event": "impact", "loudness": 1.0, "look": [0.8, 1.5], "interrupt": True}
+    assert npc["reacts"]["thud"] == {"event": "impact", "loudness": 1.0, "look": [0.8, 1.5], "interrupt": True,
+                                     "action": "startle", "go": "look_into"}
     assert npc["reacts"]["door"]["of"] == "door" and not npc["reacts"]["door"]["interrupt"]
     assert npc["actions"]["sit"]["interruptible"] and "interruptible" not in npc["actions"]["put_away"]
     assert npc["memory"] == {"forget": 300.0, "every": 0.5, "search": "look_for"}
@@ -223,3 +224,31 @@ def test_a_save_keeps_what_she_remembers(rt):
     assert back["by"] == "seen" and back["resting"] == knew["resting"] and back["at"] == knew["at"], (back, knew)
     assert back["age"] >= entry["age"]
     rt.call("npcs.resume", npc="hana")
+
+
+def test_a_bang_she_only_heard_she_goes_to_see_and_one_on_her_feet_startles_her(rt):
+    """(geogen.99.5) A thud that is nothing she remembers (no prop: events.post), heard behind her,
+    has her leave her chair and go and see where it was; another while she is on her feet has her
+    start (the `startle` reaction), and the same again so soon doesn't send her off a second time."""
+    fetch_the_can(rt)                                  # (the can out of the way, in the player's hands)
+    was = seated(rt)
+    bang = [-2.45, 0.1, 1.9]                                               # beside and behind her chair
+    rt.call("player.teleport", pos=[-1.5, 0.05, -1.5], yaw=90)
+    rt.call("events.post", type="impact", at=bang, strength=0.8)
+    rt.call("time.advance", seconds=0.2, scale=1)
+    heard = hana(rt)
+    assert heard["noticed"] == was["noticed"] + 1 and heard["notice"]["by"] == "heard" and heard["notice"]["subject"] == ""
+    going = run_until(rt, lambda: hana(rt)["went_to_see"] > was["went_to_see"] and hana(rt), seconds=8)
+    assert going["doing"].startswith("notice/thud"), going["doing"]
+    def near(r):
+        return ((r["position"][0] - bang[0]) ** 2 + (r["position"][2] - bang[2]) ** 2) ** 0.5
+
+    there = run_until(rt, lambda: (r := hana(rt))["doing"].startswith("notice/thud") and near(r) < 1.2 and r, seconds=20)
+    assert there["pose"] == "stand" and there["failures"] == was["failures"]
+    # On her feet: another bang has her start, and she doesn't go to see about the same thing again.
+    rt.call("events.post", type="impact", at=bang, strength=0.8)
+    rt.call("time.advance", seconds=0.3, scale=1)
+    now = hana(rt)
+    assert now["startled"] == there["startled"] + 1, now["doing"]
+    rt.call("time.advance", seconds=8, scale=4)
+    assert hana(rt)["went_to_see"] == there["went_to_see"]

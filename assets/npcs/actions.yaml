@@ -237,6 +237,16 @@ actions:
         look: anchor
       - wait: [0.8, 1.5]
 
+  look_into:                     # perception (a reaction's `go`): go and see where a noise it couldn't see came from
+    interruptible: true
+    steps:
+      - go_to: approach
+        look: anchor
+      - face: anchor
+        look: anchor
+      - wait: [1.5, 3.0]
+        look: anchor
+
   quest_go:                      # a quest goal: go into a place or room
     steps:
       - go_to: anchor
@@ -399,14 +409,19 @@ actions:
       - go_to: exit
       - vanish: true
 
-  # Reactions to the player (the NPC's `attention:`), pushed on top of whatever it is doing;
-  # it carries on afterwards.
+  # Reactions, to the player (the NPC's `attention:`) or to something it noticed (`reacts:`
+  # `action`), pushed on top of whatever it is doing; it carries on afterwards.
   greet:                         # the player pressed E on the NPC
     duration: [0.4, 0.8]
     steps:
       - face: player
       - do: wave
       - wait: duration
+
+  startle:                       # perception (a reaction's `action`): a start, turned toward what it noticed
+    steps:
+      - face: anchor
+      - do: surprised
 
   step_aside:                    # standing in the player's way
     steps:

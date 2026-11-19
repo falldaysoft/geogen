@@ -493,6 +493,14 @@ def test_senses_and_reacts_are_validated():
                                     ({"sight": {"zoom": 2}}, None, "senses.sight")):
         with pytest.raises(ValueError, match=message):
             parse_senses(senses, reacts, "t")
+    # A reaction may run an action, and go and see (true: look_into) (geogen.99.5).
+    acts = load_actions()
+    got = parse_senses(True, {"thud": {"action": "startle", "go": True}, "door": {"go": "look_for"}}, "t", acts)
+    assert got["reacts"]["thud"]["action"] == "startle" and got["reacts"]["thud"]["go"] == "look_into"
+    assert got["reacts"]["door"]["go"] == "look_for" and "action" not in got["reacts"]["door"]
+    for reacts, message in (({"thud": {"action": "juggle"}}, "unknown action"), ({"thud": {"go": 3}}, "action name or true")):
+        with pytest.raises(ValueError, match=message):
+            parse_senses(True, reacts, "t", acts)
     with pytest.raises(ValueError, match="event is one of"):
         parse_stimuli({"kind": "npc_stimuli", "version": 1, "stimuli": {"x": {"event": "smell"}}})
     assert load_definition(ASSETS_DIR / "npcs" / "resident.yaml").get("senses") is None

@@ -297,6 +297,9 @@ const COMMANDS := {
     "events.history": {"args": {"since": "integer", "types": "strings", "subjects": "strings"},
         "doc": "{since?, types?, subjects?} -> {count, events}: the bus's last events (numbered from 1; since: only "
             + "those after that number)"},
+    "events.post": {"args": {"type": ["impact"], "at": "point", "strength": "number", "subject": "string", "actor": "string"},
+        "doc": "{type, at, strength?, subject?, actor?} post a runtime event on the bus as the world would (impact: "
+            + "something hit something at `at`, strength 0..1, default 1): a stimulus without physics (geogen.99.5)"},
     "events.unsubscribe": {"args": {"streams": "streams"},
         "doc": "{streams?}"},
 }
@@ -1023,6 +1026,16 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                         func(event: Dictionary): _send(entry, {"event": "events", "data": event}),
                         args.get("types", []), args.get("subjects", []))
             return {"streams": entry["streams"].keys()}
+        "events.post":
+            var at = _vec(args.get("at"))
+            if at == null:
+                return _err("at: [x, y, z]")
+            if str(args.get("type", "")) != "impact":
+                return _err("type: impact")
+            var v: Vector3 = at
+            main.world.events.post("impact", str(args.get("subject", "")), "", str(args.get("actor", "")),
+                {"at": [v.x, v.y, v.z], "strength": clampf(float(args.get("strength", 1.0)), 0.0, 1.0)})
+            return {"count": main.world.events.count}
         "events.history":
             var bus: GeogenEvents = main.world.events
             var first := bus.count - bus.history.size() + 1          # the number of history[0]

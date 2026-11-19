@@ -87,6 +87,8 @@ const PARTNER_GAP := 0.9          # m from the one it goes to talk to (`go_to: p
 const PARTNER_FAR := 3.0          # m: further off than this when it gets there, they have gone
 const PARTNER_WAIT := 90.0        # s the one who offers waits for the other at most (`wait: partner`)
 const PICK_SECONDS := 0.7         # s to take hold of a prop, or to set one down
+const GO_STALE := 6.0             # s a reaction's `go` waits for the next decision before it lapses
+const GO_AGAIN := 30.0            # s before it goes to see about the same stimulus and subject again
 const CUT_PATIENCE := 3.0         # s an interrupt waits for the body to be ready (mid sit-down), then lapses
 const SEEN_NEAR := 0.4            # m: a ray toward a thing may stop this short of it (it hits the thing itself)
 const ON_SEAT := 0.35             # m (flat) from a seat's anchor a loose prop is on the seat
@@ -124,6 +126,8 @@ var _noticed := {}                # report: the last stimulus it noticed {stimul
 var _notice_point := Vector3.ZERO # ...where the head turns
 var _notice_until := -INF         # ...until then
 var _cut_until := -INF            # an interrupt is wanted until then (it waits for a pose to settle)
+var _going := {}                  # a reaction's `go`: {id, action, until, stimulus, ctx}, taken at the next decision
+var _went := {}                   # "<stimulus>/<subject>" -> clock it last went to see about it
 var _handled := {}                # prop uid -> the clock times it picked it up (reluctance, npc_wants.gd)
 var _wants_seen := []             # report: the want options at its last decision [{id, score}]
 var _wants_left := []             # report: want options it has had enough of (reluctance), at the last look
@@ -778,6 +782,16 @@ func _decide() -> void:
         return
     if _run_out():
         return
+    if not _going.is_empty():
+        var going := _going
+        _going = {}
+        if clock <= float(going["until"]) and _orders.is_empty():
+            _option = {"id": going["id"], "action": going["action"], "advertises": {}}
+            stats["decisions"] += 1
+            count_stat("went_to_see")
+            _trace({"event": "decide", "chosen": going["id"], "reason": "noticed", "at": GeogenUtil.cm(going["ctx"]["anchor"])})
+            _push(going["action"], going["ctx"])
+            return
     if _partner != null and _answering != "":
         _answer()                   # got up while the one who came to talk is still at it
         return
@@ -2153,6 +2167,7 @@ func save_state() -> Dictionary:
 ## it was on: it walks the last step and sits again), with the needs and memory it had.
 func restore_state(data: Dictionary) -> void:
     _drop_everything()
+    _going = {}
     take_needs(data.get("needs", {}))
     relations = (data.get("relations", {}) as Dictionary).duplicate()
     GeogenLife.load_save(self, data.get("life", {}))
@@ -3528,7 +3543,42 @@ func _on_event(event: Dictionary) -> void:
         var traced_event := {"event": "notice"}
         traced_event.merge(_noticed)
         _trace(traced_event)
+        if r.has("action"):
+            _startle(str(r["action"]), point)
+        if r.has("go") and by == "heard":
+            _go_see(str(stimulus), str(r["go"]), str(event.get("subject", "")), point)
         return
+
+
+## A reaction's `action` (a start): run on top of what it is doing, facing where the stimulus was,
+## when it is on its feet with empty hands and not already at it; seated or lying the look is all.
+func _startle(action: String, point: Vector3) -> void:
+    if _pose != "stand" or _moving_pose() or prop_in_hand() != "" or not _ride.is_empty() or _partner != null \
+            or (not _stack.is_empty() and _stack.back()["action"] == action) or not definition["actions"].has(action):
+        return
+    var dir := NpcGeometry.flat(point - global_position)
+    var yaw := _yaw() if dir.length() < 1e-3 else atan2(dir.x, dir.z)
+    count_stat("startled")
+    _trace({"event": "startle", "action": action, "at": GeogenUtil.cm(point)})
+    _react(action, {"anchor": point, "yaw_deg": rad_to_deg(yaw)})
+
+
+## A reaction's `go`: it heard something it couldn't see, and goes to see where it came from at its
+## next decision (if that comes within GO_STALE s; an `interrupt` makes it now). Not for a prop it
+## remembers (memory's search goes and looks), nor for one stimulus and subject twice in GO_AGAIN s.
+func _go_see(stimulus: String, action: String, subject: String, point: Vector3) -> void:
+    var key := "%s/%s" % [stimulus, subject]
+    if not free_will or not definition["actions"].has(action) or clock < float(_went.get(key, -INF)) + GO_AGAIN:
+        return
+    if GeogenMemory.has(self) and _memory.has(subject):
+        return
+    _went[key] = clock
+    var stand = stand_for(point)
+    if stand == null:
+        stand = NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, point)
+    var dir := NpcGeometry.flat(point - (stand as Vector3))
+    _going = {"id": "notice/%s" % stimulus, "action": action, "until": clock + GO_STALE, "stimulus": stimulus,
+        "ctx": {"anchor": point, "approach": stand, "yaw_deg": rad_to_deg(atan2(dir.x, dir.z) if dir.length() > 1e-3 else _yaw())}}
 
 
 ## How this NPC perceives something at ``point`` that carries ``loud`` of its hearing range:
@@ -3989,6 +4039,8 @@ func report() -> Dictionary:
         # Perception: stimuli it has noticed, the last one ({stimulus, subject, at, by: heard | seen, clock}) and
         # the times that cut short what it was doing.
         "noticed": int(stats.get("noticed", 0)), "notice": _noticed, "cut_short": int(stats.get("cut_short", 0)),
+        # ...the reactions (`action`) it ran for one, and how often it went to see about one it heard (`go`).
+        "startled": int(stats.get("startled", 0)), "went_to_see": int(stats.get("went_to_see", 0)),
         # Memory: the props it knows of ({uid: {at, by: seen | heard, resting, age}}) and its searches for them.
         "memory": GeogenMemory.report(self), "searches": int(stats.get("searches", 0)),
         "want": GeogenWants.report(self), "looking_at": _intent if _intent_point() != null else "",

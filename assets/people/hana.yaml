@@ -30,10 +30,11 @@ wants:
 
 # She notices what happens around her (geogen/npc.py SENSES_DEFAULTS; the
 # stimuli are npcs/stimuli.yaml): a thing hitting the floor has her look up and
-# leave her chair to see to it.
+# leave her chair to see to it, start if she is on her feet, and go and see
+# where a bang she couldn't see came from.
 senses: true
 reacts:
-  thud: { interrupt: true }
+  thud: { interrupt: true, action: startle, go: true }
   door: {}
 
 # What she knows of the things in her flat is what she has seen or heard

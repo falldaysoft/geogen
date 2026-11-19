@@ -49,7 +49,13 @@ REACT_KEYS = {
     "look": "seconds (or [lo, hi]) the head turns to where it came from (default [0.8, 1.5])",
     "interrupt": "true: cut short what it is doing, if that action is `interruptible` (actions.yaml), and "
                  "decide again, so a want about what happened is seen to now",
+    "action": "an action (actions.yaml) run on top of what it is doing when it notices, on its feet with empty "
+              "hands, facing where it came from (its `anchor`): a start (`startle`); seated or lying, just the look",
+    "go": "true (the `look_into` action) or an action: go and see where something it only heard came from, at its "
+          "next decision if that comes within a few seconds (with `interrupt`, now); not for a prop it remembers "
+          "(memory's search sees to that), and once per stimulus and subject in GO_AGAIN s",
 }
+GO_DEFAULT = "look_into"
 # Memory (geogen.99.2): with `memory:`, an NPC knows of the props it has seen (where, and what they
 # rested on then) or heard land (a stimulus it reacts to: only where), each kept `forget` s from
 # when it last perceived it; it looks round every `every` s. Its wants about props are then about
@@ -407,9 +413,9 @@ def load_stimuli(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
     return _layered((Path(path),) if path is not None else _layers("stimuli.yaml"), parse_stimuli)
 
 
-def parse_senses(senses: Any, reacts: Any, where: str) -> dict[str, Any]:
+def parse_senses(senses: Any, reacts: Any, where: str, actions: dict | None = None) -> dict[str, Any]:
     """``senses:`` and ``reacts:`` -> {senses: {hearing, sight}, reacts: {stimulus: {event, loudness,
-    of?, look, interrupt}}}, or {} without either. ``senses: true`` is the defaults; ``reacts``
+    of?, look, interrupt, action?, go?}}}, or {} without either. ``senses: true`` is the defaults; ``reacts``
     names stimuli from npcs/stimuli.yaml (inlined, like actions) and needs senses."""
     if senses in (None, False) and not reacts:
         return {}
@@ -442,6 +448,17 @@ def parse_senses(senses: Any, reacts: Any, where: str) -> dict[str, Any]:
             raise ValueError(f"{at}: interrupt is true or false")
         out_reacts[str(name)] = {**stimuli[name], "look": _range(spec.get("look", [0.8, 1.5]), f"{at}: look"),
                                  "interrupt": bool(spec.get("interrupt", False))}
+        for key in ("action", "go"):
+            value = spec.get(key)
+            if value in (None, False):
+                continue
+            if key == "go" and value is True:
+                value = GO_DEFAULT
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"{at}: {key} is an action name{' or true' if key == 'go' else ''}, got {value!r}")
+            if actions is not None and value not in actions:
+                raise ValueError(f"{at}: {key}: unknown action {value!r}")
+            out_reacts[str(name)][key] = value
     return {"senses": out_senses, "reacts": out_reacts}
 
 
@@ -641,7 +658,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         "reach": _limits(data.get("reach"), REACH_DEFAULTS, f"{path}: reach"),
         "carry": _limits(data.get("carry"), CARRY_DEFAULTS, f"{path}: carry"),
         "wants": parse_wants(data.get("wants"), actions, needs, f"{path}: wants"),
-        **parse_senses(data.get("senses"), data.get("reacts"), str(path)),
+        **parse_senses(data.get("senses"), data.get("reacts"), str(path), actions),
         **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),
         **_planner(data.get("planner"), f"{path}: planner"),
         **_social(data.get("offers"), data.get("relations"), actions, needs, str(path)),
