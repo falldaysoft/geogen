@@ -289,9 +289,11 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `mirr
 | [motions/eat.yaml](../../assets/motions/eat.yaml) | Eat from a plate, seated (geogen.103.5; the design's interruption example): bring food from the plate to the mouth (the hand pinched round an unseen fork), `bites` times. |
 | [motions/facepalm.yaml](../../assets/motions/facepalm.yaml) | Facepalm (geogen.103.17): the head drops into the right palm, which covers the eyes; a slow shake of the head in it, then the hand goes down. |
 | [motions/fist_pump.yaml](../../assets/motions/fist_pump.yaml) | Fist pump (geogen.103.17): "yes!" The right fist comes up beside the shoulder and is pulled down hard to the hip, with a dip at the knees. |
+| [motions/give.yaml](../../assets/motions/give.yaml) | Hand a carried thing to someone (geogen.103.10): a two-person motion, the giver's half of a hand-over. |
 | [motions/glance.yaml](../../assets/motions/glance.yaml) | Look at something for a while, then look back (geogen.103.4). |
 | [motions/hands_behind_back.yaml](../../assets/motions/hands_behind_back.yaml) | Hands behind the back (geogen.103.17): an idle, standing at ease. |
 | [motions/hands_on_hips.yaml](../../assets/motions/hands_on_hips.yaml) | Hands on the hips (geogen.103.17): an idle. |
+| [motions/hug.yaml](../../assets/motions/hug.yaml) | A hug (geogen.103.10): a two-person motion both people run, each with the other as `partner`. |
 | [motions/inspect.yaml](../../assets/motions/inspect.yaml) | Inspect (geogen.103.17): take a thing from the table in front, hold it up and turn it over in the hand, looking at it, then put it back where it stood. |
 | [motions/jumping_jack.yaml](../../assets/motions/jumping_jack.yaml) | Jumping jacks (geogen.103.12): hop out to a star, arms overhead, and back, `reps` times. |
 | [motions/laugh.yaml](../../assets/motions/laugh.yaml) | Laugh (geogen.103.17): the head goes back and the chest shakes with it, a hand on the belly,. |
@@ -300,6 +302,7 @@ Keys: `beats`, `category`, `demo`, `extends`, `holds`, `initial`, `layer`, `mirr
 | [motions/place_ornament.yaml](../../assets/motions/place_ornament.yaml) | Put what is in the hand on a spot in front (geogen.110): the arm goes out to it and stays there until the thing is on. |
 | [motions/point.yaml](../../assets/motions/point.yaml) | Point (geogen.103.17): the right arm out ahead, index finger pointing, the head turned along it; hold, then down. |
 | [motions/press.yaml](../../assets/motions/press.yaml) | Press a button: reach a fingertip to it, push, take the hand back (geogen.103.4). |
+| [motions/receive.yaml](../../assets/motions/receive.yaml) | Take a thing someone holds out (geogen.103.10): the taker's half of a hand-over, with `give` on the other body (`partner`). |
 | [motions/rub_hands.yaml](../../assets/motions/rub_hands.yaml) | Rub the hands (geogen.103.17): an idle fidget. |
 | [motions/salute.yaml](../../assets/motions/salute.yaml) | Salute (geogen.103.17): the right hand comes up flat, fingertips to the brow; hold, then it snaps down. |
 | [motions/scratch_head.yaml](../../assets/motions/scratch_head.yaml) | Scratch the head (geogen.103.17): an idle, a puzzled moment. |
@@ -335,7 +338,7 @@ A scripted motion run (stage, person, timed starts and interruptions, camera) re
 
 Use: `python -m geogen.motion_review sit_on_chair -o /tmp/review`
 
-Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `script`, `until`
+Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `partners`, `scene`, `script`, `until`
 
 | File | What it is |
 | --- | --- |
@@ -348,6 +351,8 @@ Keys: `actor`, `camera`, `description`, `duration`, `fps`, `name`, `scene`, `scr
 | [motions/scenarios/eat_watch_tv.yaml](../../assets/motions/scenarios/eat_watch_tv.yaml) | Eat at the table with the TV on beside it (geogen.103.6): eat and watch both share the gaze, so the eyes go between the plate and the screen by turns (the screen for longer: watch's weight is 1.5, eat's 1) while the hand keeps eating. |
 | [motions/scenarios/eat_wave.yaml](../../assets/motions/scenarios/eat_wave.yaml) | A wave mid-meal (geogen.103.5): the wave borrows the right hand, eat waits where it was, and picks up when the hand comes back (chewing: chew on, its `resume`), not from the first bite. |
 | [motions/scenarios/emotes.yaml](../../assets/motions/scenarios/emotes.yaml) | Emotes in a row (geogen.103.17): a clap with a nod over it (the nod only takes the gaze), a cheer, a shrug, a thumbs up, and down onto the floor and back up. |
+| [motions/scenarios/hand_over.yaml](../../assets/motions/scenarios/hand_over.yaml) | Hand a plate over (geogen.103.10): the actor takes a plate from a side table and holds it out to the person facing them, who takes it (give / receive, meeting at the beats `offered` and `taken`). |
+| [motions/scenarios/hug.yaml](../../assets/motions/scenarios/hug.yaml) | A hug (geogen.103.10): two people facing each other close up run `hug`, each with the other as its partner; they open their arms together and let go together (sync beats). |
 | [motions/scenarios/idles.yaml](../../assets/motions/scenarios/idles.yaml) | Idles together (geogen.103.17): arms crossed while looking around (the look only takes the gaze), then a foot tapping with the hands on the hips, then the weight shifting. |
 | [motions/scenarios/inspect.yaml](../../assets/motions/scenarios/inspect.yaml) | Pick up a mug from the table in front, look it over, put it back (geogen.103.17). |
 | [motions/scenarios/jumping_jacks.yaml](../../assets/motions/scenarios/jumping_jacks.yaml) | Jumping jacks on a rug (geogen.103.12): a body-only motion, four repetitions. |

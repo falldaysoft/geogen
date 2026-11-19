@@ -56,7 +56,7 @@ from .fields import known_keys
 
 SCENARIO_KIND = "motion_scenario"
 SCENARIOS_DIR = "motions/scenarios"
-SCENARIO_KEYS = {"kind", "name", "description", "scene", "actor", "script", "duration", "until", "camera", "fps"}
+SCENARIO_KEYS = {"kind", "name", "description", "scene", "actor", "partners", "script", "duration", "until", "camera", "fps"}
 POP_SPEED = 900.0        # deg/s a joint turning faster than reads as a pop
 SETTLE_SPEED = 60.0      # deg/s: settled
 COLORS = ["#4e79a7", "#f28e2b", "#59a14f", "#e15759", "#b07aa1", "#76b7b2", "#edc948", "#9c755f"]
@@ -69,6 +69,7 @@ class Result:
     metrics: dict
     frames: list = field(default_factory=list)      # rendered PIL images (when recording)
     scenario: dict = field(default_factory=dict)
+    partners: dict = field(default_factory=dict)    # name -> the MotionRig of each other person (partners:)
 
 
 # --- scenarios -----------------------------------------------------------------------------------
@@ -102,6 +103,9 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
     spec = load_motion(motion, assets_dir)
     props = spec.get("props") or {}
     roles = spec.get("roles") or {}
+    bodies = {r: (e or {}) for r, e in roles.items() if (e or {}).get("body")}
+    if bodies:
+        return _pair_demo(spec, archetype, seed, bodies)
     missing = [r for r, e in roles.items() if r not in props and not (e or {}).get("optional")]
     if missing and not spec.get("demo"):
         raise MotionError(f"motion '{spec['name']}': no props to stage for its roles {missing}")
@@ -144,6 +148,81 @@ def demo_scenario(motion: str, archetype: str = DEMO_ARCHETYPE, assets_dir: Path
             "camera": {"view": "iso_back" if on_table else "side" if behind else "iso",
                        "frame": ["table", "actor"] if on_table else [*(f"prop_{r}" for r in behind), "actor"],
                        "margin": 0.25}}
+
+
+PARTNER_ARCHETYPES = ("young_man", "young_woman")   # who the other person in a two-person demonstration is
+
+
+def _pair_demo(spec: dict, archetype: str, seed: int, bodies: dict) -> dict:
+    """A two-person motion's demonstration: the actor at the origin, each other person (a body
+    role, named as the role) where the role's `place` stands them, a side table at the right
+    hand of whoever a prop is `by` (the actor unless it names a body role) with the prop on it;
+    the motion's `demo` script (entries `by: <role>` for the others), else the motion on the
+    actor and on each other person the motion its role `runs`, with this body as theirs."""
+    props = spec.get("props") or {}
+    partner_archetype = next(a for a in PARTNER_ARCHETYPES if a != archetype)
+    actor = {"archetype": f"characters/archetypes/{archetype}.yaml", "seed": seed, "facing": 0}
+    partners, frames = {}, {"actor": (np.zeros(3), 0.0)}
+    for role, entry in bodies.items():
+        place = entry.get("place") or {}
+        offset = [float(v) for v in place.get("offset", [0, 0, 1.0])]
+        facing = place.get("facing", "toward")
+        turn = 0.0 if facing == "away" else math.pi if facing == "toward" else math.radians(float(facing))
+        partners[role] = {"archetype": f"characters/archetypes/{partner_archetype}.yaml", "seed": 2,
+                          "at": "actor", "offset": offset, "facing": facing}
+        frames[role] = (np.array(offset), turn)
+    slots, place_spec, tables = {}, {}, {}
+    for role, prop in props.items():
+        holder = prop.get("by", "actor")
+        if holder not in frames:
+            raise MotionError(f"motion '{spec['name']}': props.{role}: by '{holder}' is not a body role")
+        if holder not in tables:
+            # At the holder's right hand, a little ahead (x is to their left).
+            origin, yaw = frames[holder]
+            c, s_ = math.cos(yaw), math.sin(yaw)
+            local = np.array([-0.45, 0.0, 0.5])
+            at = origin + np.array([c * local[0] + s_ * local[2], 0.0, -s_ * local[0] + c * local[2]])
+            tables[holder] = name = "table" if holder == "actor" else f"table_{holder}"
+            # Turned so its things' grips (a plate's rim) face the holder, as they do the actor's.
+            from .layout.attachments import CARDINAL_YAW
+
+            want = CARDINAL_YAW["east"] + yaw           # (east: the actor's table, its plate's rim toward them)
+            facing = min(CARDINAL_YAW, key=lambda k: abs(math.remainder(CARDINAL_YAW[k] - want, 2 * math.pi)))
+            slots[name] = {"position": [round(float(v), 4) for v in at], "facing": facing}
+            place_spec[name] = {"asset": "table.yaml", "slot": name, "params": {"width": 0.6, "depth": 0.45}}
+        place_spec[f"prop_{role}"] = {"asset": prop["asset"], "on": f"{tables[holder]}.top",
+                                      "at": prop.get("at", {"u": 0.5, "v": 0.5}),
+                                      **({"params": prop["params"]} if "params" in prop else {})}
+    if not place_spec:
+        place_spec["rug"] = {"asset": "rug.yaml"}
+
+    def staged(value):
+        if not isinstance(value, str):
+            return value
+        base = value.removesuffix("@start")
+        return f"prop_{base}{value[len(base):]}" if base in props else value
+
+    if spec.get("demo"):
+        script = [{**{k: staged(v) for k, v in e.items() if k != "at"}, "at": 0.2 + float(e.get("at", 0))}
+                  for e in spec["demo"]]
+    else:
+        start: dict = {"at": 0.2, "start": spec["name"], **{r: r for r in bodies}, **{r: staged(r) for r in props}}
+        if "duration" in (spec.get("params") or {}):
+            start.setdefault("duration", 2.0)
+        script = [start]
+        for role, entry in bodies.items():
+            if not entry.get("runs"):
+                continue
+            theirs = load_motion(entry["runs"])
+            values = {r: ("actor" if (e or {}).get("body") else staged(r)) for r, e in (theirs.get("roles") or {}).items()
+                      if (e or {}).get("body") or r in props}
+            script.append({"at": 0.2, "by": role, "start": theirs["name"], **values,
+                           **({"duration": start["duration"]} if "duration" in start and "duration" in (theirs.get("params") or {}) else {})})
+    name = f"{spec['name']}__{archetype}" if archetype != DEMO_ARCHETYPE else spec["name"]
+    return {"kind": "motion_scenario", "name": name, "description": spec.get("summary", ""),
+            "scene": {**({"slots": slots} if slots else {}), "place": place_spec},
+            "actor": actor, "partners": partners, "script": script, "duration": 40.0,
+            "camera": {"view": "side", "frame": ["actor", *partners], "margin": 0.25}}
 
 
 def _scene(spec, assets_dir: Path) -> SceneNode:
@@ -193,31 +272,47 @@ def run_scenario(name: str | Path | dict, assets_dir: Path | None = None, record
     scene = _scene(spec["scene"], assets_dir)
     actor = _actor(actor_spec, scene, assets_dir)
     rig = MotionRig(actor, scene, fps=int(spec.get("fps", 30)), assets_dir=assets_dir)
+    # Other people (two-person motions): each a body of its own, placed after the actor (so one
+    # can stand `at: actor`), its script entries marked `by: <name>`.
+    partners = {}
+    for pname, pspec in (spec.get("partners") or {}).items():
+        body = _actor({**pspec, "name": pname}, scene, assets_dir)
+        partners[pname] = MotionRig(body, scene, fps=int(spec.get("fps", 30)), assets_dir=assets_dir)
+    rigs = {"actor": rig, **partners}
     script = sorted((dict(e) for e in spec.get("script") or []), key=lambda e: float(e.get("at", 0)))
     limit = float(spec.get("duration", 20.0))
     until = spec.get("until", "idle")
     recorder = _Recorder(scene, actor, spec.get("camera") or {}, resolution,
-                         _carried(scene, script, assets_dir)) if record else None
+                         _carried(scene, script, assets_dir),
+                         [r.actor for r in partners.values()]) if record else None
     cloth = _ClothProbe.of(actor)
     origins = _origins(scene, script)
     frames = []
     if recorder:
-        frames.append(recorder.frame(rig))
+        frames.append(recorder.frame(rig, partners))
     if probe is not None:
         probe(rig)
     while rig.time < limit - 1e-9:
         while script and float(script[0].get("at", 0)) <= rig.time + 1e-9:
-            _do(rig, script.pop(0), origins)
-        rig.step()
+            entry = script.pop(0)
+            by = entry.pop("by", "actor")
+            if by not in rigs:
+                raise MotionError(f"script entry {entry!r}: by '{by}' is not the actor or one of the partners")
+            _do(rigs[by], {k: rigs.get(v, v) if isinstance(v, str) else v for k, v in entry.items()}, origins)
+        for each in rigs.values():
+            each.step()
         if cloth is not None:
             rig.samples[-1]["cloth"] = cloth.depth()
         if probe is not None:
             probe(rig)
         if recorder:
-            frames.append(recorder.frame(rig))
-        if until == "idle" and not script and not rig.running():
+            frames.append(recorder.frame(rig, partners))
+        if until == "idle" and not script and not any(r.running() for r in rigs.values()):
             break
-    return Result(spec["name"], rig, metrics(rig), frames, spec)
+    result = Result(spec["name"], rig, metrics(rig), frames, spec, partners)
+    for pname, prig in partners.items():
+        result.metrics.setdefault("partners", {})[pname] = metrics(prig)
+    return result
 
 
 def _carried(scene: SceneNode, script: list[dict], assets_dir: Path) -> list[SceneNode]:
@@ -231,6 +326,7 @@ def _carried(scene: SceneNode, script: list[dict], assets_dir: Path) -> list[Sce
             continue
         motion = load_motion(entry["start"], assets_dir)
         roles = {r for beat in motion["beats"].values() for r in ((beat or {}).get("attach") or {})}
+        roles -= {r for r, e in (motion.get("roles") or {}).items() if (e or {}).get("body")}
         for role in roles:
             if isinstance(entry.get(role), str) and not entry[role].endswith("@start"):
                 node = refs.resolve(scene, entry[role])
@@ -285,7 +381,10 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     frame, where the body is (``root``, against where it started), its drape correctives
     (``morphs``, with transitions) and where the things are, and the event sequence. A runtime rig
     replays the script on the same data and must match (runtime/godot/scripts/motion_rig.gd
-    ``run_trace``)."""
+    ``run_trace``). A two-person scenario's other bodies (``partners``) come as ``partners``: each
+    one's rig extras, where it stands (``root``, in the actor's frame) and its own ``expect``; its
+    script entries keep their ``by``, and a role's value naming a body (``actor``, a partner) binds
+    that body's rig."""
     from .motion import grip_points, load_motion, rig_extras, transition_data
 
     assets_dir = Path(assets_dir or roots.CORE)
@@ -301,6 +400,10 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     actor = _actor(spec.get("actor") or {}, scene, assets_dir)
     fps = int(spec.get("fps", 30))
     rig = MotionRig(actor, scene, fps=fps, assets_dir=assets_dir)
+    partners = {}
+    for pname, pspec in (spec.get("partners") or {}).items():
+        partners[pname] = MotionRig(_actor({**pspec, "name": pname}, scene, assets_dir), scene, fps=fps, assets_dir=assets_dir)
+    rigs = {"actor": rig, **partners}
     things = _trace_things(scene, script, motions)
     body = np.linalg.inv(rig.root)
 
@@ -317,12 +420,23 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
     postures = {p for m in motions.values() for p in (m.get("posture") or {}).values()}
     origins = _origins(scene, script)
     limit, pending, frames = float(spec.get("duration", 20.0)), list(script), []
+    partner_frames: dict[str, list] = {n: [] for n in partners}
+    partner_roots = {n: [round(float(v), 6) for v in (body @ r.root)[:3, :].ravel()] for n, r in partners.items()}
     s = rig.skeleton
     while rig.time < limit - 1e-9:
         while pending and float(pending[0].get("at", 0)) <= rig.time + 1e-9:
-            _do(rig, pending.pop(0), origins)
-        rig.step()
+            entry = dict(pending.pop(0))
+            by = entry.pop("by", "actor")
+            _do(rigs[by], {k: rigs.get(v, v) if isinstance(v, str) else v for k, v in entry.items()}, origins)
+        for each in rigs.values():
+            each.step()
         if len(rig.samples) % TRACE_EVERY == 0:
+            for pname, prig in partners.items():
+                pfk = prig.skeleton.fk(prig.out)
+                partner_frames[pname].append({
+                    "frame": len(rig.samples),
+                    "positions": {b: [round(float(v), 5) for v in pfk[b][:3, 3]] for b in prig.skeleton.names},
+                    "root": [round(float(v), 6) for v in (body @ prig.root)[:3, :].ravel()]})
             fk = s.fk(rig.out)
             frame = {"frame": len(rig.samples), "positions": {b: [round(float(v), 5) for v in fk[b][:3, 3]]
                                                               for b in s.names}}
@@ -332,9 +446,15 @@ def motion_trace(name: str, assets_dir: Path | None = None) -> dict:
             if things:
                 frame["things"] = {key: frame_of(node) for key, node in things.items()}
             frames.append(frame)
-        if not pending and not rig.running():
+        if not pending and not any(r.running() for r in rigs.values()):
             break
-    return {"kind": "motion_trace", "name": name, "fps": fps, "frames": len(rig.samples),
+    extra = {"partners": {pname: {"rig": rig_extras(prig.actor),
+                                  "root": partner_roots[pname],
+                                  "expect": {"positions": partner_frames[pname],
+                                             "events": [[e["event"], e["motion"], e.get("beat")] for e in prig.trace
+                                                        if e["event"] in TRACE_EVENTS]}}
+                         for pname, prig in partners.items()}} if partners else {}
+    return {"kind": "motion_trace", "name": name, "fps": fps, "frames": len(rig.samples), **extra,
             "tolerance": TRACE_TOLERANCE, "rig": rig_extras(actor),
             **(transition_data(actor, postures) if postures else {}),
             "motions": motions, "script": script,
@@ -356,7 +476,9 @@ def _trace_things(scene: SceneNode, script: list[dict], motions: dict) -> dict[s
     found: dict[str, SceneNode] = {}
     for entry in script:
         motion = motions.get(entry.get("start") or entry.get("break") or "")
-        for role in ((motion or {}).get("roles") or {}):
+        for role, spec in ((motion or {}).get("roles") or {}).items():
+            if (spec or {}).get("body"):
+                continue                     # another person: a body, not a thing
             value = entry.get(role)
             if not isinstance(value, str):
                 continue
@@ -468,11 +590,11 @@ class _Recorder:
     fixed camera."""
 
     def __init__(self, scene: SceneNode, actor: SceneNode, camera: dict, resolution: tuple[int, int],
-                 carried: list[SceneNode] = ()) -> None:
+                 carried: list[SceneNode] = (), others: list[SceneNode] = ()) -> None:
         from .render import RenderOptions, SceneRenderer, _MaterialCache, frame_bounds, scene_bounds
 
         self.actor = actor
-        self.moving = [actor, *carried]
+        self.moving = [actor, *others, *carried]
         parents = [(node, node.parent) for node in self.moving]
         for node, parent in parents:
             parent.remove_child(node)
@@ -482,7 +604,7 @@ class _Recorder:
         for node, parent in parents:
             parent.add_child(node)
         # Frame what the camera names (things and the person where they start), else the whole scene.
-        boxes = [scene_bounds(actor)]
+        boxes = [scene_bounds(actor), *(scene_bounds(o) for o in others)]
         for ref in camera.get("frame") or []:
             from . import refs
 
@@ -496,7 +618,7 @@ class _Recorder:
         self.materials = _MaterialCache()
         self._frame_bounds = frame_bounds
 
-    def frame(self, rig: MotionRig):
+    def frame(self, rig: MotionRig, others: dict | None = None):
         import pyrender
         from PIL import ImageDraw
 
@@ -510,8 +632,9 @@ class _Recorder:
             mesh = node.world_mesh()
             added.append(scene.add(_pyrender_mesh(mesh, self.materials)))
         last = rig.samples[-1] if rig.samples else None
+        aims = [(k, v) for r in [rig, *(others or {}).values()] if r.samples for k, v in r.samples[-1]["aims"].items()]
         if last:
-            for key, point in last["aims"].items():
+            for key, point in aims:
                 if "@" in key:
                     continue
                 color = [0.2, 0.5, 1.0, 1.0] if key == "gaze" else [1.0, 0.55, 0.1, 1.0]
@@ -524,6 +647,9 @@ class _Recorder:
         draw = ImageDraw.Draw(image)
         lines = [f"t {rig.time:5.2f} s"]
         lines += [f"{name}: {beat}" for name, beat in (last["beats"].items() if last else [])]
+        for pname, prig in (others or {}).items():
+            plast = prig.samples[-1] if prig.samples else None
+            lines += [f"{pname}  {name}: {beat}" for name, beat in (plast["beats"].items() if plast else [])]
         owners = {}
         for channel, owner in (last["owners"].items() if last else []):
             owners.setdefault(owner or "-", []).append(channel)

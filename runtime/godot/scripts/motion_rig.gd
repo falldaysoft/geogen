@@ -14,8 +14,9 @@ extends RefCounted
 ## channel arbitration, pausing under an overlay and `resume`, a break into a reaction (what the
 ## hands hold goes to physics), inertialization, the reach bend, free arms hanging under a bent
 ## spine, root targets (moving the body: sit), a posture change playing the body's transition
-## clip (sit_down: `add_transitions`) with its root path and drape correctives (`morphs`), and the
-## trace. The rig works in the body's frame; `body_world` is where the body is, which a run that
+## clip (sit_down: `add_transitions`) with its root path and drape correctives (`morphs`), two-person
+## motions (a `body: true` role bound to the other body's rig: its bones as targets, `sync` beats
+## shared with it, a thing handed over from its hand), and the trace. The rig works in the body's frame; `body_world` is where the body is, which a run that
 ## holds the root moves (GeogenMotionPlayer puts the body's node there). Things are read and moved
 ## in the world.
 
@@ -42,6 +43,7 @@ const NOT_PORTED := ["when", "until", "do", "bend"]
 const MORPH_HALF_LIFE := 0.12    # s: drape correctives settle onto a new owner's pose
 const ROOT_LEAD := 0.7           # over planted feet the root arrives by this fraction of the beat
 const SHARE_TURN := 2.0          # s a sharer of weight 1 keeps a shared channel before passing it on
+const SYNC_WAIT := 5.0           # s a shared beat (`sync`) waits for its partners before giving up
 ## Grips that are not a hand holding the thing: `grip: any` on a role takes the first other one.
 const NOT_HELD := ["sit", "lie", "stand", "use", "look", "press", "put", "rest"]
 const HANDS := {"hand": "RightHand", "right": "RightHand", "left": "LeftHand",
@@ -89,9 +91,16 @@ class Thing:
     var grips := {}                      # attachment -> {"grip": String, "local": Transform3D}
     var affordances := []                # its extras' affordances: [{type, position, yaw}] (a chair's sit)
     var held := false
+    var body = null                      # another body's GeogenMotionRig: the thing is that body (a partner)
 
     func world() -> Transform3D:
+        if body != null:
+            return body.body_world
         return node.global_transform if node != null and not held and is_instance_valid(node) else xform
+
+    ## Whether this and `other` are the same thing (each body's player has its own Thing of a node).
+    func same(other: Thing) -> bool:
+        return other == self or (other != null and node != null and other.node == node)
 
     ## The thing `node` is, with the grips its extras give ([tx, ty, tz, qx, qy, qz, qw] each).
     static func of(node_: Node3D, grips_: Dictionary, affordances_ := []) -> Thing:
@@ -166,6 +175,10 @@ class Run:
     var start_morphs := {}
     var bindings := {}               # role -> Target
     var origins := {}                # role -> its thing's world transform when the run started
+    var partners := {}               # body role -> the other body's GeogenMotionRig
+    var clocks := {}                 # body role -> its clock less this one's when the run started
+    var began := 0.0                 # this rig's time it started (a partner's sync counts from here)
+    var waited := 0.0                # s this beat has waited for its partners (sync)
 
     func spec() -> Dictionary:
         var b = motion["beats"].get(beat)
@@ -230,6 +243,7 @@ var _root_offset = null          # [Transform3D, age, half-life]
 var _share_t := {}               # channel -> how long its sharer has had this turn
 var _share_looked := {}          # "channel/order" -> that run's time with the channel
 var attached_ := {}              # role -> {thing, end, rel: Transform3D, level}: what the hands hold
+var reached := {}                # sync name -> this rig's time a beat with it last arrived
 ## (name) -> Thing or null: a scene reference a motion or a binding names ("cup", "table").
 var resolver := Callable()
 
@@ -456,6 +470,7 @@ func start(motion: Dictionary, values := {}) -> Run:
     var name := str(motion.get("name", "motion"))
     var roles: Dictionary = motion.get("roles", {})
     var bound := {}
+    var partners := {}
     for role in roles:
         var entry = roles[role] if roles[role] is Dictionary else {}
         var value = values.get(role)
@@ -463,6 +478,17 @@ func start(motion: Dictionary, values := {}) -> Run:
             if not entry.get("optional", false):
                 push_error("motion '%s': role '%s' is not bound" % [name, role])
                 return null
+            continue
+        if entry.get("body", false):
+            # Another person: their rig, which runs its own motion with this body in a role.
+            if not value is GeogenMotionRig or value == self:
+                push_error("motion '%s': role '%s' is another body: bind it to that body's rig" % [name, role])
+                return null
+            var them := Thing.new()
+            them.name = role
+            them.body = value
+            partners[role] = value
+            bound[role] = Target.make(them, Transform3D.IDENTITY, role)
             continue
         var target := _bind(value, entry.get("grip"))
         if target == null:
@@ -514,6 +540,10 @@ func start(motion: Dictionary, values := {}) -> Run:
     run.params = given
     run.order = _order
     run.bindings = bound
+    run.partners = partners
+    run.began = time
+    for role in partners:
+        run.clocks[role] = (partners[role] as GeogenMotionRig).time - time
     for role in bound:
         if (bound[role] as Target).thing != null:
             run.origins[role] = (bound[role] as Target).thing.world()
@@ -747,6 +777,8 @@ func _advance(run: Run) -> void:
     var guard := 0
     while not run.done and run.t >= run.over + run.dwell and guard < 16:
         guard += 1
+        if run.spec().has("sync") and not run.pending_exit and not _synced(run):
+            return
         var spill := run.t - (run.over + run.dwell)
         var nxt = run.spec().get("exit") if run.pending_exit else _next(run)
         run.pending_exit = false
@@ -756,6 +788,63 @@ func _advance(run: Run) -> void:
         _enter(run, nxt)
         run.t = spill
         _arrive(run)
+
+
+## Whether a shared beat may go on: every partner reached a beat with its sync since their run
+## with this body began, and this one too, before this step (whoever steps first and whoever
+## arrives last, both go on in the same step).
+## Waiting holds the beat's clock where it arrived; after SYNC_WAIT it leaves through its exit
+## (motion.MotionRig._synced).
+func _synced(run: Run) -> bool:
+    var sync_name := str(run.spec()["sync"])
+    var waiting := []
+    for role in run.partners:
+        var partner: GeogenMotionRig = run.partners[role]
+        var lag := float(run.clocks.get(role, 0.0))
+        var since := INF
+        for r in partner.runs:
+            if not r.done and r.partners.values().has(self):
+                since = minf(since, r.began - lag)
+        if since == INF:
+            since = run.began                    # (one that ended counts from this run's start)
+        var at = partner.reached.get(sync_name)
+        if at != null and since - 1e-9 <= float(at) - lag and float(at) - lag < time - 1e-9:
+            continue
+        waiting.append(role)
+    # Nor in the step it arrived itself: whichever arrives last, both go on in the step after.
+    if waiting.is_empty() and float(reached.get(sync_name, -1.0)) < time - 1e-9:
+        if run.waited > 0.0:
+            _event("synced", run, {"sync": sync_name, "waited": snappedf(run.waited, 0.001)})
+        run.waited = 0.0
+        return true
+    run.waited += dt
+    run.t = run.over + run.dwell
+    if run.waited >= SYNC_WAIT:
+        _event("sync_failed", run, {"sync": sync_name, "partners": waiting})
+        run.waited = 0.0
+        var exit_beat = run.spec().get("exit")
+        if exit_beat == null or exit_beat == "done":
+            _end(run)
+        else:
+            _mark(_owned(run))
+            _enter(run, str(exit_beat))
+    return false
+
+
+## `to` took `thing` out of this body's hand: let go of it (not to physics: it is in their hand
+## now), and end what held it here (a carry), but not the motion handing it over.
+func _hand_over(thing: Thing, to: GeogenMotionRig) -> void:
+    for role in attached_.keys():
+        var h: Dictionary = attached_[role]
+        if not (h["thing"] as Thing).same(thing):
+            continue
+        attached_.erase(role)
+        (h["thing"] as Thing).held = false
+        _event("release", null, {"role": role, "to": "partner"})
+        for other in runs:
+            if not other.done and other.bindings.values().any(func(b): return (b as Target).thing != null and (b as Target).thing.same(thing)) \
+                    and not other.partners.values().has(to):
+                _end(other)
 
 
 func _next(run: Run) -> String:
@@ -775,6 +864,8 @@ func _arrive(run: Run) -> void:
         return
     run.arrived = true
     var spec := run.spec()
+    if spec.has("sync"):
+        reached[str(spec["sync"])] = time
     var attach: Dictionary = spec.get("attach", {}) if spec.get("attach") is Dictionary else {}
     for role in attach:
         var target: Target = run.bindings.get(role)
@@ -791,6 +882,9 @@ func _arrive(run: Run) -> void:
         var level := bool(how.get("level", false))
         # Level: kept as it is against the body's heading, carried along by the hand's position.
         var rel := Transform3D(thing.basis, thing.origin - hand.origin) if level else hand.affine_inverse() * thing
+        # A thing in a partner's hand is handed over: they let go of it as this hand takes it.
+        for partner in run.partners.values():
+            (partner as GeogenMotionRig)._hand_over(target.thing, self)
         target.thing.xform = target.thing.world()
         target.thing.held = true
         # A thing already in a hand is re-gripped where it is, under the role that took it.
@@ -831,6 +925,7 @@ func _arrive(run: Run) -> void:
 func _enter(run: Run, beat: String) -> void:
     run.beat = beat
     run.t = 0.0
+    run.waited = 0.0
     run.arrived = false
     var start := out.copy()
     for i in _prelook:
@@ -1148,6 +1243,11 @@ func _compose() -> Pose:
     var point = null
     if look != null:
         point = _point(gaze, look.get("at") if look is Dictionary else look)
+        if look is Dictionary and look.get("offset") != null:
+            var target = _ref(gaze, look.get("at"))
+            if target is Target:
+                var o: Array = look["offset"]
+                point = _body(target.world()) * Vector3(float(o[0]), float(o[1]), float(o[2]))
         if point != null:
             point = body_world * (point as Vector3)      # followed in the world: the body may move
     # A look that ended eases off over LOOK_OUT, under whatever look comes next.
@@ -1363,7 +1463,11 @@ func _ik_target(run: Run, e: String, entry: Dictionary):
     var point := Vector3.ZERO
     if target is Target:
         var o: Array = entry.get("offset", [0, 0, 0])
-        point = _body(target.world()) * Vector3(float(o[0]), float(o[1]), float(o[2]))
+        var offset := Vector3(float(o[0]), float(o[1]), float(o[2]))
+        if entry.get("offset_frame") == "body":
+            point = _body(target.world()).origin + offset    # ahead / up / left of this body from it
+        else:
+            point = _body(target.world()) * offset
     else:
         point = target
     if entry.get("holding") != null:
@@ -1414,6 +1518,16 @@ func _ref(run: Run, ref):
         return run.bindings[ref]
     var dot: int = ref.find(".")
     var head: String = ref if dot < 0 else ref.substr(0, dot)
+    if run.partners.has(head):
+        # A bone of the partner where their body has it now, in their frame (an offset is ahead
+        # of / above / to the left of them).
+        var partner: GeogenMotionRig = run.partners[head]
+        var bone: String = ref.substr(dot + 1)
+        if not partner.index.has(bone):
+            push_error("motion '%s': '%s' has no bone '%s'" % [run.name, head, bone])
+            return null
+        var at: Vector3 = partner.body_world * (partner._fk(partner.out)[partner.index[bone]] as Transform3D).origin
+        return Target.make(null, _placement(at, _yaw_of(partner.body_world)), ref)
     if run.bindings.has(head):
         var bound: Target = run.bindings[head]
         return contact(bound.thing, null, ref.substr(dot + 1)) if bound.thing != null else null
@@ -1733,6 +1847,14 @@ static func run_trace(trace: Dictionary) -> Array[String]:
         var spec: Dictionary = trace["things"][k]
         things[k] = Thing.fixed(k, _xform12(spec["world"]), spec.get("grips", {}), spec.get("affordances", []))
     rig.resolver = func(name: String): return things.get(name)
+    # Two-person traces: the other bodies, where they stand in the actor's frame, stepped after it.
+    var rigs := {"actor": rig}
+    for pname in trace.get("partners", {}):
+        var pspec: Dictionary = trace["partners"][pname]
+        var other := GeogenMotionRig.from_extras(pspec["rig"], int(trace.get("fps", 30)))
+        other.body_world = _xform12(pspec["root"])
+        other.resolver = rig.resolver
+        rigs[pname] = other
     var motions: Dictionary = trace.get("motions", {})
     var pending: Array = (trace.get("script", []) as Array).duplicate()
     var expected := {}
@@ -1762,17 +1884,21 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                 if v is String and v.ends_with("@start") and things.has(v.substr(0, v.length() - 6)):
                     var base: String = v.substr(0, v.length() - 6)
                     v = Thing.fixed(v, _xform12(trace["things"][base]["world"]))
+                elif v is String and k != "by" and rigs.has(v):
+                    v = rigs[v]                  # another body (a two-person motion's partner)
                 values[k] = v
-            for k in ["at", "start", "break", "interrupt", "how"]:
+            for k in ["at", "start", "break", "interrupt", "how", "by"]:
                 values.erase(k)
+            var who: GeogenMotionRig = rigs.get(str(entry.get("by", "actor")))
             if entry.has("start"):
-                if rig.start(motions[entry["start"]], values) == null:
+                if who.start(motions[entry["start"]], values) == null:
                     problems.append("frame %d: %s didn't start" % [frame, entry["start"]])
             elif entry.has("interrupt"):
-                rig.interrupt(entry["interrupt"], str(entry.get("how", "yield")))
+                who.interrupt(entry["interrupt"], str(entry.get("how", "yield")))
             elif entry.has("break"):
-                rig.break_(motions.get(entry["break"]) if entry["break"] is String else null, values)
-        rig.step()
+                who.break_(motions.get(entry["break"]) if entry["break"] is String else null, values)
+        for each in rigs.values():
+            (each as GeogenMotionRig).step()
         if expected.has(frame):
             var w := rig.world()
             var want: Dictionary = expected[frame]
@@ -1805,8 +1931,35 @@ static func run_trace(trace: Dictionary) -> Array[String]:
                     if d > worst:
                         worst = d
                         where = "%s at frame %d" % [k, frame]
+        for pname in trace.get("partners", {}):
+            for f in trace["partners"][pname]["expect"]["positions"]:
+                if int(f["frame"]) != frame:
+                    continue
+                var other: GeogenMotionRig = rigs[pname]
+                var w := other.world()
+                for bone in f["positions"]:
+                    var p: Array = f["positions"][bone]
+                    var d: float = w[other.index[bone]].origin.distance_to(Vector3(p[0], p[1], p[2]))
+                    if d > worst:
+                        worst = d
+                        where = "%s's %s at frame %d" % [pname, bone, frame]
+                var want_root: Transform3D = _xform12(f["root"])
+                for probe in [Vector3.ZERO, Vector3(0.1, 0, 0), Vector3(0, 0.1, 0), Vector3(0, 0, 0.1)]:
+                    var d: float = (other.body_world * probe).distance_to(want_root * probe)
+                    if d > worst:
+                        worst = d
+                        where = "%s's root at frame %d" % [pname, frame]
     if worst > tolerance:
         problems.append("bones off the reference by up to %.1f mm (%s; tolerance %.1f mm)" % [worst * 1000.0, where, tolerance * 1000.0])
+    for pname in trace.get("partners", {}):
+        var other: GeogenMotionRig = rigs[pname]
+        var theirs := other.trace.filter(func(e): return e["event"] in TRACE_EVENTS) \
+            .map(func(e): return [e["event"], e["motion"], e.get("beat")])
+        var want: Array = trace["partners"][pname]["expect"]["events"]
+        if JSON.stringify(theirs) != JSON.stringify(want):
+            problems.append("%s's events %s, expected %s" % [pname, JSON.stringify(theirs), JSON.stringify(want)])
+        if not other.running().is_empty():
+            problems.append("%s still running after %d frames: %s" % [pname, frames, other.running()])
     if worst_morph > MORPH_TOLERANCE:
         problems.append("drape correctives off the reference by up to %.4f (%s)" % [worst_morph, where_morph])
     var events := rig.trace.filter(func(e): return e["event"] in TRACE_EVENTS) \

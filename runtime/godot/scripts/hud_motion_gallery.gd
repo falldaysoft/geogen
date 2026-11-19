@@ -296,6 +296,8 @@ func _run_demo() -> String:
 
 ## Why the gallery can't play a catalogue entry here ("" when it can).
 func _why_not(entry: Dictionary) -> String:
+    if not (entry.get("partners", {}) as Dictionary).is_empty():
+        return "'%s' takes two people facing each other, which the gallery doesn't stage" % entry["name"]
     if entry.get("body_only", false):
         return ""
     var props: Dictionary = entry.get("props", {})

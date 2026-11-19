@@ -132,7 +132,8 @@ const COMMANDS := {
     "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion "
         + "file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things "
         + "in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; sit: {seat: chair}, which moves "
-        + "the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood) "
+        + "the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood); "
+        + "a two-person motion's other person by their node name (hug: {partner: ben}; start theirs on them too) "
         + "-> {node, motion, running}",
     "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) "
         + "-> {node, motion, result}",
@@ -1468,8 +1469,19 @@ func _motion(cmd: String, args: Dictionary) -> Variant:
         return _err("no motion '%s' in motions.json (it has %s)" % [name, motions.keys()])
     var values: Dictionary = (args.get("params", {}) as Dictionary).duplicate()
     var roles: Dictionary = args.get("roles", {})
+    var spec_roles: Dictionary = motions[name].get("roles", {})
     for role in roles:
         var v = roles[role]
+        var entry = spec_roles.get(role)
+        if entry is Dictionary and entry.get("body", false):
+            # Another person (a two-person motion: hug, give): that body's rig, which runs its own
+            # motion with this body in a role of its own.
+            var other_node := _find_node({"node": str(v)})
+            var other := GeogenMotionPlayer.on(other_node) if other_node != null else null
+            if other == null or other_node == node:
+                return _err("role '%s': '%s' is not another body a motion can run on" % [role, v])
+            values[role] = other.rig
+            continue
         if v is Dictionary and v.get("transform") is Array:      # a fixed place (where a thing stood)
             v = GeogenMotionRig.Thing.fixed(str(role), GeogenMotionRig._xform12(v["transform"]))
         values[role] = v

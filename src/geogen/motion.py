@@ -55,13 +55,19 @@ MOTION_KEYS = {
     "name": "the motion's name (defaults to the file's)",
     "category": "where a catalogue lists it: idle | emote | dance | exercise | action | reaction (motion_catalogue)",
     "summary": "one line on what it looks like, for catalogues and galleries",
-    "props": "{role: {asset, on, at} | {asset, behind}}: what a demonstration stages for its roles (a cup on a table in front; a seat `behind` m behind the person, facing the way they do)",
+    "props": "{role: {asset, on, at} | {asset, behind}}: what a demonstration stages for its roles (a cup on a table in front; a seat `behind` m behind the person, facing the way they do); "
+             "in a two-person motion on a side table at someone's right hand (`by: <body role>`, else this body's)",
     "demo": "[{at, start: <motion>, <role>: <role> | <role>@start, ...}]: how a demonstration shows it when it needs "
             "others around it (take, carry and set_down: take it, carry it, put it back where it stood); roles name "
-            "this motion's staged props, `@start` where one stood when the demonstration began",
-    "roles": "{role: {grip, optional, held}}: the things it acts on, bound by whoever runs it; `held: true`: a hand must "
+            "this motion's staged props, `@start` where one stood when the demonstration began; `by: <body role>` "
+            "runs an entry on that other person (a two-person motion), `actor` names this body",
+    "roles": "{role: {grip, optional, held, body, place, runs}}: the things it acts on, bound by whoever runs it; `held: true`: a hand must "
              "already hold the thing and the motion borrows that hand (written for the right hand, it runs mirrored "
-             "when the left has it); its `attach` re-grips the thing where it is, its `release` lets go for good",
+             "when the left has it); its `attach` re-grips the thing where it is, its `release` lets go for good; "
+             "`body: true`: another person, who runs their own motion with this body in a role of theirs (a hug, "
+             "handing a plate over): beats aim at their bones (`<role>.<Bone>`, offsets in their frame) and `sync` "
+             "with them; `place: {offset: [x, y, z], facing}`: where they stand from this body for it to work "
+             "(a demonstration stages them there); `runs: <motion>`: what they run meanwhile (receive for give)",
     "params": "{name: {default}}: build-time values for {expr} in its beats",
     "holds": "{require: [channels], claim: [...], prefer: [...], share: {channel: weight}}",
     "posture": "{from, to}: its edge in the posture graph (stand -> sit)",
@@ -84,9 +90,11 @@ BEAT_KEYS = {
           "`holding: <role>` puts the held thing on the target; `fingers: [x, y, z]` and `palm: [x, y, z]` "
           "turn the hand (body-frame directions the fingers point and the palm faces; mirrored with the target; "
           "`frame: target` gives them in the target's frame instead: into a button's face; `tip: index` puts "
-          "that fingertip on the target rather than the wrist; `arc: m` lifts the way there by m, a third of the way along)",
+          "that fingertip on the target rather than the wrist; `arc: m` lifts the way there by m, a third of the way along; "
+          "`offset_frame: body` gives `offset` in this body's frame instead of the target's: the near side of a "
+          "plate someone holds out)",
     "root": "{at: <ref>, offset: [x, y, z], facing: away | toward | <deg>, posture: <pose>}: where the body stands",
-    "look": "<ref> | {at: <ref>, weight}: where the head turns",
+    "look": "<ref> | {at: <ref>, weight, offset}: where the head turns (`offset` in the target's frame)",
     "plant": "feet: the feet stay where they are on the floor (legs by IK)",
     "lean": "{by: deg, at: 0..1}: a forward lean of the spine that peaks at `at` of the beat and is gone by its end",
     "attach": "{role: hand | {hand, level: true}}: the thing goes with that hand (`level`: kept flat)",
@@ -107,6 +115,10 @@ BEAT_KEYS = {
             "planted feet bend the knees to keep up)",
     "loop": "{to: <beat>, times: n}: once this beat is done, go back to `to` until the stretch from "
             "there to here has run `times` times, then on to `then` (repetitions of an exercise)",
+    "sync": "<name>: a moment shared with the motion's partners (its `body: true` roles): once arrived (and "
+            "dwelt) the beat waits until each partner has reached a beat of theirs with the same sync since "
+            "their run began, so both go on together; after SYNC_WAIT s without them it leaves through its "
+            "`exit` (else ends)",
 }
 NOT_YET = {"when", "until", "do", "bend"}
 INTERRUPTS = ("yield", "finish", "hold", "drop")
@@ -132,6 +144,7 @@ LOOK_FOLLOW = 0.1          # s: half-life of the look point following a change o
 MORPH_HALF_LIFE = 0.12     # s: drape correctives settle onto a new owner's pose
 ROOT_LEAD = 0.7            # over planted feet the root arrives by this fraction of the beat
 SHARE_TURN = 2.0           # s a sharer of weight 1 keeps a shared channel before passing it on
+SYNC_WAIT = 5.0            # s a shared beat (`sync`) waits for its partners before giving up
 YAW_LIMIT, PITCH_LIMIT, NECK_SHARE = math.radians(70), math.radians(35), 0.4
 
 
@@ -204,6 +217,8 @@ def motion_catalogue(assets_dir: Path | None = None) -> list[dict]:
             "props": spec.get("props") or {},
             "holds": spec.get("holds") or {},
             "body_only": body_only(spec),
+            # Two-person motions: each other body role and the motion it runs (with this body as theirs).
+            "partners": {r: (e or {}).get("runs") for r, e in (spec.get("roles") or {}).items() if (e or {}).get("body")},
             "moves_body": any("root" in (beat or {}) for beat in spec["beats"].values()),
             "demo": spec.get("demo") or [],
             "beats": list(spec["beats"]),
@@ -242,6 +257,12 @@ def validate_motion(spec: dict, where: str = "motion") -> None:
     for i, entry in enumerate(spec.get("demo") or []):
         if not isinstance(entry, dict) or not isinstance(entry.get("start"), str):
             raise MotionError(f"{where}: demo[{i}]: expected {{at, start: <motion>, <role>: ...}}")
+    for role, entry in (spec.get("roles") or {}).items():
+        for key in ("place", "runs"):
+            if (entry or {}).get(key) is not None and not (entry or {}).get("body"):
+                raise MotionError(f"{where}: roles.{role}: `{key}` is for a body role (body: true)")
+        if (entry or {}).get("body") and ((entry or {}).get("grip") or (entry or {}).get("held")):
+            raise MotionError(f"{where}: roles.{role}: a body role has no grip and is not held")
     for role in (spec.get("props") or {}):
         if role not in (spec.get("roles") or {}):
             raise MotionError(f"{where}: props.{role} is not one of its roles")
@@ -541,6 +562,10 @@ class Run:
     paused: str | None = None            # the beat an overlay took a channel in (time stands still)
     resume_to: str | None = None         # asked to yield while paused: its exit, not its resume
     origins: dict = field(default_factory=dict)  # role -> its thing's world transform at the start
+    partners: dict = field(default_factory=dict)  # body role -> the partner's MotionRig
+    began: float = 0.0                   # rig time it started (a partner's sync counts from here)
+    waited: float = 0.0                  # s this beat has waited for its partners (sync)
+    clocks: dict = field(default_factory=dict)    # body role -> the partner's clock less this one's
 
     @property
     def name(self) -> str:
@@ -612,6 +637,7 @@ class MotionRig:
         self.look_fade: tuple | None = None   # (point, weight, t): a look that ended, easing off
         self.share_t: dict[str, float] = {}           # channel -> how long its sharer has had this turn
         self.share_looked: dict[tuple[str, int], float] = {}   # (channel, run order) -> its time with it
+        self.reached: dict[str, float] = {}           # sync name -> when a beat with it last arrived
         self._apply()
 
     # The pose library: each pose_<name> clip (as the build left it: arms cleared, seats fitted).
@@ -649,12 +675,19 @@ class MotionRig:
         spec = load_motion(motion, self.assets_dir) if not isinstance(motion, dict) else motion
         params = {k: (v.get("default") if isinstance(v, dict) else v) for k, v in (spec.get("params") or {}).items()}
         params.update({k: bindings.pop(k) for k in list(bindings) if k in params or k == "duration"})
-        resolved = {}
+        resolved, partners = {}, {}
         for role, entry in (spec.get("roles") or {}).items():
             value = bindings.pop(role, None)
             if value is None:
                 if not (entry or {}).get("optional"):
                     raise MotionError(f"motion '{spec['name']}': role '{role}' is not bound")
+                continue
+            if (entry or {}).get("body"):
+                # Another person: their rig, which runs its own motion with this body in a role.
+                if not isinstance(value, MotionRig) or value is self:
+                    raise MotionError(f"motion '{spec['name']}': role '{role}' is another body: bind it to that body's rig")
+                partners[role] = value
+                resolved[role] = Target(value.actor, np.eye(4), role)
                 continue
             resolved[role] = self._bind(value, (entry or {}).get("grip"))
         if bindings:
@@ -673,7 +706,8 @@ class MotionRig:
         spec = {**spec, "beats": resolve_value(spec["beats"], values)}
         spec = self._borrow_hand(spec, resolved)
         self._order += 1
-        run = Run(spec, resolved, self._order, params)
+        run = Run(spec, resolved, self._order, params, partners=partners, began=self.time,
+                  clocks={role: rig.time - self.time for role, rig in partners.items()})
         run.origins = {role: t.node.world_transform().copy() for role, t in resolved.items() if t.node is not None}
         self.runs.append(run)
         self._event("start", run)
@@ -770,6 +804,8 @@ class MotionRig:
         self._arrive(run)
         while not run.done and run.t >= run.over + run.dwell and guard < 16:
             guard += 1
+            if run.spec.get("sync") and not run.pending_exit and not self._synced(run):
+                return
             spill = run.t - (run.over + run.dwell)
             nxt = run.spec.get("exit") if run.pending_exit else self._next(run)
             run.pending_exit = False
@@ -779,6 +815,43 @@ class MotionRig:
             self._enter(run, nxt)
             run.t = spill
             self._arrive(run)
+
+    def _synced(self, run: Run) -> bool:
+        """Whether a shared beat may go on: every partner reached a beat with its sync since their
+        run with this body began, and this one too, before this step (so whoever steps first and
+        whoever arrives last, both go on in the same step). Waiting holds the beat's clock where it arrived; after SYNC_WAIT (a partner that
+        never came, or stopped) it leaves through its exit."""
+        name = run.spec["sync"]
+        waiting = []
+        for role, partner in run.partners.items():
+            # Their clock against this one (the same in lockstep; two bodies a runtime steps on
+            # their own may differ by a step).
+            lag = run.clocks.get(role, 0.0)
+            theirs = [r.began - lag for r in partner.runs if not r.done and any(p is self for p in r.partners.values())]
+            since = min(theirs) if theirs else run.began     # (one that ended counts from this run's start)
+            at = partner.reached.get(name)
+            if at is not None and since - 1e-9 <= at - lag < self.time - 1e-9:
+                continue
+            waiting.append(role)
+        # Nor in the step it arrived itself: whichever arrives last, both go on in the step after.
+        if not waiting and self.reached.get(name, -1.0) < self.time - 1e-9:
+            if run.waited:
+                self._event("synced", run, sync=name, waited=round(run.waited, 3))
+            run.waited = 0.0
+            return True
+        run.waited += self.dt
+        run.t = run.over + run.dwell
+        if run.waited >= SYNC_WAIT:
+            self._event("sync_failed", run, sync=name, partners=waiting)
+            run.waited = 0.0
+            exit_beat = run.spec.get("exit")
+            if exit_beat in (None, "done"):
+                self._end(run)
+            else:
+                self._changed |= self._owned(run)
+                self._enter(run, exit_beat)
+            return False
+        return False
 
     def _next(self, run: Run) -> str:
         """The beat after this one: back round its ``loop`` while repetitions are left, else ``then``."""
@@ -798,6 +871,8 @@ class MotionRig:
             return
         run.start["arrived"] = True
         spec = run.spec
+        if spec.get("sync"):
+            self.reached[spec["sync"]] = self.time
         for role, how in (spec.get("attach") or {}).items():
             target = run.bindings.get(role)
             if target is None or target.node is None:
@@ -815,6 +890,9 @@ class MotionRig:
                 rel[:3, 3] = heading[:3, :3].T @ (thing[:3, 3] - hand_world[:3, 3])
             else:
                 rel = np.linalg.inv(hand_world) @ thing
+            # A thing in a partner's hand is handed over: they let go of it as this hand takes it.
+            for partner in run.partners.values():
+                partner._hand_over(target.node, self)
             # A thing already in a hand is re-gripped where it is, under the role that took it.
             key = next((k for k, h in self.attached.items() if h.node is target.node), role)
             self.attached[key] = Held(target.node, end, rel, bool(how.get("level")))
@@ -835,8 +913,21 @@ class MotionRig:
             self.posture = spec["pose"]           # the body is now in this pose (sit, stand)
             self._changed |= {c for c, r in self.owners.items() if r is None}
             self._event("posture", run, posture=self.posture)
+    def _hand_over(self, node: SceneNode, to: "MotionRig") -> None:
+        """``to`` took ``node`` out of this body's hand: let go of it, and end what held it here (a
+        carry), but not the motion handing it over, which runs on with the other body."""
+        for role, held in list(self.attached.items()):
+            if held.node is not node:
+                continue
+            del self.attached[role]
+            self._event("release", None, role=role, to=to.actor.name)
+            for other in self.running():
+                if any(b.node is node for b in other.bindings.values()) and \
+                        not any(p is to for p in other.partners.values()):
+                    self._end(other)
+
     def _enter(self, run: Run, beat: str) -> None:
-        run.beat, run.t = beat, 0.0
+        run.beat, run.t, run.waited = beat, 0.0, 0.0
         spec = run.spec
         if spec.get(k := next((k for k in NOT_YET if k in spec), "")):
             raise MotionError(f"motion '{run.name}' beat '{beat}': '{k}' is not supported by the rig yet")
@@ -933,6 +1024,15 @@ class MotionRig:
         if ref in run.bindings:
             return run.bindings[ref]
         head, _, tail = ref.partition(".")
+        if head in run.partners:
+            # A bone of the partner where their body has it now, in their frame: an offset is ahead
+            # of / above / to the left of them (a hand on their back is behind them).
+            partner = run.partners[head]
+            if tail not in partner.skeleton.bones:
+                raise MotionError(f"motion '{run.name}': '{head}' has no bone '{tail}'")
+            m = _placement(np.zeros(3), _yaw_of(partner.root))
+            m[:3, 3] = (partner.root @ partner.skeleton.fk(partner.out)[tail])[:3, 3]
+            return Target(None, m, ref)
         if head in run.bindings:
             bound = run.bindings[head]
             return contact(bound.node, name=tail) if bound.node is not None else None
@@ -1189,6 +1289,8 @@ class MotionRig:
         if target is None:
             return pose, root, aims
         point = target.world()[:3, 3] if isinstance(target, Target) else np.asarray(target, dtype=float)
+        if isinstance(look, dict) and look.get("offset") is not None and isinstance(target, Target):
+            point = (target.world() @ np.r_[np.asarray(look["offset"], dtype=float), 1.0])[:3]
         aims["gaze"] = point
         # One look runs on across beats: the turn eases in once, and a new point to look at is
         # followed (the head travels to it) instead of the turn starting again from straight ahead.
@@ -1356,7 +1458,12 @@ class MotionRig:
         if isinstance(target, Target):
             m = target.world()
             offset = np.asarray(entry.get("offset", [0, 0, 0]), dtype=float)
-            target = (m @ np.r_[offset, 1.0])[:3]
+            if entry.get("offset_frame") == "body":
+                # Ahead / up / left of this body from the target (the near side of a plate held out
+                # by someone facing it, whichever way the plate turned).
+                target = m[:3, 3] + self.root[:3, :3] @ offset
+            else:
+                target = (m @ np.r_[offset, 1.0])[:3]
         if entry.get("holding") is not None:
             # The thing in that hand goes onto the target: the hand goes where that puts it, by the
             # hand-to-thing offset as the beat found it.

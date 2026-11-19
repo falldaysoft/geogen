@@ -160,7 +160,8 @@ HAND_PARTS = ("Hand", "Thumb", "Index", "Middle", "Ring", "Little")
 
 class _Props:
     """How deep the person goes into the scene's other meshes: body, clothes and hair vertices
-    inside a prop (winding number), leaving out what the rig holds and the person themself.
+    inside a prop (winding number), leaving out what the rig holds, the person themself and other
+    people.
     ``props_hands`` is the hands (a finger on a button or a table top), ``props`` the rest (a
     thigh in a table, a seat). ``where``: ``<bone or part> in <prop node>`` at the deepest."""
 
@@ -170,6 +171,12 @@ class _Props:
         actor = rig.actor
         mine = {id(n) for n in actor.iter_nodes()}
         root = rig.scene
+        # Other people (a two-person motion's partner) aren't props: their meshes are at rest, not
+        # posed by their rig, and a hug touches them on purpose.
+        if root is not None:
+            for body in root.iter_nodes():
+                if (body.meta.get("humanoid") or {}).get("rig") is not None:
+                    mine |= {id(n) for n in body.iter_nodes()}
         self.props = [n for n in root.iter_nodes() if n.mesh is not None and len(n.mesh.faces)
                       and id(n) not in mine and not n.meta.get("build_only")] if root is not None else []
         body = next((n for n in actor.iter_nodes() if n.name == "body" and n.skin is not None), None)

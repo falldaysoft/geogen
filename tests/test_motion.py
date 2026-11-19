@@ -605,6 +605,11 @@ def test_every_motion_has_a_stage():
     from geogen.motion_review import demo_scenario
 
     for e in motion_catalogue():
+        if e["partners"]:
+            # Two-person: the other person where its role places them, its props at someone's side.
+            spec = demo_scenario(e["name"])
+            assert set(spec["partners"]) == set(e["partners"]), e["name"]
+            continue
         if e["roles"] and not e["props"]:
             with pytest.raises(MotionError, match="no props"):
                 demo_scenario(e["name"])
@@ -660,3 +665,89 @@ def test_while_only_takes_shares_of_what_it_knows():
         validate_motion(spec)
     with pytest.raises(MotionError):
         validate_motion({**spec, "while": {"swim": {"speed": 0.5}}})
+
+
+# --- two-person motions (geogen.103.10) ---
+
+def _beats(rig, motion):
+    return [(e["t"], e["beat"]) for e in rig.trace if e["event"] == "beat" and e["motion"] == motion]
+
+
+def test_a_plate_is_handed_over(runs):
+    """give / receive: the giver holds the plate out, the taker's grasp takes it out of the giver's
+    hand (no drop: the giver's carry ends, give runs on), and both go on from each shared beat in
+    the same step."""
+    r = _run(runs, "hand_over")
+    giver, taker = r.rig, r.partners["taker"]
+    assert not giver.running() and not taker.running()
+    assert list(taker.attached) == ["item"] and not giver.attached and not giver.falling
+    released = [e for e in giver.trace if e["event"] == "release"]
+    assert released == [{"t": released[0]["t"], "event": "release", "motion": None, "role": "item", "to": "taker"}]
+    ended = {e["motion"]: e["t"] for e in giver.trace if e["event"] == "end"}
+    assert ended["carry"] == released[0]["t"], "its carry ended at the hand-over"
+    assert [e["emit"] for e in taker.trace if e["event"] == "emit"] == ["received"]
+    give, receive = dict((b, t) for t, b in _beats(giver, "give")), dict((b, t) for t, b in _beats(taker, "receive"))
+    assert give["hold"] == receive["reach"], "offered: both go on together"
+    assert give["let_go"] == receive["lift"], "taken: the giver lets go as the taker lifts"
+    for m in (r.metrics, r.metrics["partners"]["taker"]):
+        assert m["pops"] == 0 and m["contact_error_mm"] < 5 and m["foot_slide_mm"] < 1
+
+
+def test_a_hug_opens_and_parts_together(runs):
+    """hug on both bodies, each the other's partner: the same beats at the same times, the hands
+    round the other's back (behind their chest, seen from in front) while they hold on."""
+    r = _run(runs, "hug")
+    a, b = r.rig, r.partners["friend"]
+    assert _beats(a, "hug") == _beats(b, "hug")
+    assert [x for _, x in _beats(a, "hug")] == ["open", "embrace", "part", "back"]
+    held = next(t for t, x in _beats(a, "hug") if x == "embrace") + 1.0
+    for me, them in ((a, b), (b, a)):
+        s = next(s for s in me.samples if s["t"] >= held)
+        theirs = next(x for x in them.samples if x["t"] >= held)
+        ahead = theirs["root"][:3, 3] - s["root"][:3, 3]
+        ahead[1] = 0
+        ahead /= np.linalg.norm(ahead)
+        chest = (theirs["root"] @ them.skeleton.fk(them.out)["Chest"])[:3, 3]   # (they hold still while hugging)
+        for hand in ("LeftHand", "RightHand"):
+            assert (s["ends"][hand] - chest) @ ahead > 0.0, (me.actor.name, hand)
+    assert r.metrics["pops"] == 0 and r.metrics["partners"]["friend"]["pops"] == 0
+
+
+def test_a_shared_beat_gives_up_on_a_partner_that_never_comes():
+    """give with a partner who runs nothing: the offer waits SYNC_WAIT at its shared beat, then
+    leaves through its exit (back to carrying the plate)."""
+    from geogen.motion import SYNC_WAIT, MotionRig
+    from geogen.motion_review import _actor, _scene
+
+    scene = _scene({"place": {"plate": {"asset": "plate.yaml"}}}, roots.CORE)
+    giver = MotionRig(_actor({"archetype": "characters/archetypes/young_woman.yaml", "seed": 1}, scene, roots.CORE), scene)
+    other = MotionRig(_actor({"archetype": "characters/archetypes/young_man.yaml", "seed": 2, "name": "other",
+                              "offset": [0, 0, 1.0], "facing": "toward"}, scene, roots.CORE), scene)
+    giver.start("take", item="plate")
+    giver.start("carry", item="plate")
+    while giver.running("take"):
+        giver.step()
+        other.step()
+    giver.start("give", item="plate", partner=other)
+    for _ in range(int((SYNC_WAIT + 3) * 30)):
+        giver.step()
+        other.step()
+    failed = [e for e in giver.trace if e["event"] == "sync_failed"]
+    assert len(failed) == 1 and failed[0]["sync"] == "offered" and failed[0]["partners"] == ["partner"]
+    assert [b for _, b in _beats(giver, "give")] == ["offer", "keep"]
+    assert list(giver.attached) == ["item"] and [r.name for r in giver.running()] == ["carry"]
+
+
+def test_a_body_role_binds_a_rig():
+    from geogen.motion import MotionRig
+    from geogen.motion_review import _actor, _scene
+
+    scene = _scene({"place": {}}, roots.CORE)
+    rig = MotionRig(_actor({"archetype": "characters/archetypes/young_woman.yaml", "seed": 1}, scene, roots.CORE), scene)
+    with pytest.raises(MotionError, match="another body"):
+        rig.start("hug", partner="actor")
+    with pytest.raises(MotionError, match="another body"):
+        rig.start("hug", partner=rig)
+    with pytest.raises(MotionError, match="body role"):
+        validate_motion({"kind": "motion", "name": "x", "roles": {"thing": {"place": {"offset": [0, 0, 1]}}},
+                         "beats": {"a": {}}})

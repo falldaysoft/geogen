@@ -1,0 +1,20 @@
+# Hand a plate over (geogen.103.10): the actor takes a plate from a side table and holds it out to
+# the person facing them, who takes it (give / receive, meeting at the beats `offered` and `taken`).
+kind: motion_scenario
+description: Take a plate from a side table and hand it to the person in front.
+scene:
+  slots:
+    side: { position: [-0.45, 0, 0.5], facing: east }
+  place:
+    table: { asset: table.yaml, slot: side, params: { width: 0.6, depth: 0.45 } }
+    plate: { asset: plate.yaml, on: table.top, at: { u: 0.5, v: 0.5 } }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, facing: 0 }
+partners:
+  taker: { archetype: characters/archetypes/young_man.yaml, seed: 2, at: actor, offset: [0, 0, 1.0], facing: toward }
+script:
+  - { at: 0.2, start: take, item: plate }
+  - { at: 0.2, start: carry, item: plate }
+  - { at: 2.6, start: give, item: plate, partner: taker }
+  - { at: 2.6, by: taker, start: receive, item: plate, partner: actor }
+  - { at: 2.6, by: taker, start: carry, item: plate, duration: 3.0 }
+camera: { view: side, frame: [actor, taker], margin: 0.15 }

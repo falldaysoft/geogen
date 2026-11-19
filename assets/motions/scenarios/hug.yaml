@@ -1,0 +1,14 @@
+# A hug (geogen.103.10): two people facing each other close up run `hug`, each with the other as
+# its partner; they open their arms together and let go together (sync beats).
+kind: motion_scenario
+description: Two people hug and let go.
+scene:
+  place:
+    rug: { asset: rug.yaml }
+actor: { archetype: characters/archetypes/young_woman.yaml, seed: 1, facing: 0 }
+partners:
+  friend: { archetype: characters/archetypes/young_man.yaml, seed: 2, at: actor, offset: [0.12, 0, 0.32], facing: toward }
+script:
+  - { at: 0.2, start: hug, partner: friend }
+  - { at: 0.2, by: friend, start: hug, partner: actor }
+camera: { view: iso, frame: [actor, friend], margin: 0.2 }

@@ -1879,7 +1879,7 @@
         "npcs.choices": "{npc, thing} what the NPC could be told to do with a thing (a stable ID or the end of one; an NPC's name: their offers) -> {thing, choices: [{option, label, available, why, plan: [option ids], cost}]}",
         "npcs.direct": "{npc, option} tell it to do that (an option of npcs.choices): queued behind what it was already told, ahead of anything of its own -> {npc, orders}",
         "npcs.cancel": "{npc, index?} take back what it was told: one order of its queue, or all -> {npc, cancelled, orders}",
-        "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; sit: {seat: chair}, which moves the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood) -> {node, motion, running}",
+        "motion.start": "{node | uid, motion, params?: {name: value}, roles?: {role: node name | name.grip_point}} run a motion file (motions.json: assets/motions/) on a character body with the runtime motion rig, its roles bound to things in the world (drink: {cup: mug}; set_down: {item: plate, place: table.top}; sit: {seat: chair}, which moves the body), or to a fixed place ({transform: 12 numbers, a 3x4 world matrix row by row}: where a thing stood); a two-person motion's other person by their node name (hug: {partner: ben}; start theirs on them too) -> {node, motion, running}",
         "motion.stop": "{node | uid, motion, how?: yield | drop} interrupt a running motion (yield follows its beat's policy) -> {node, motion, result}",
         "motion.break": "{node | uid, reaction?, params?: {name: value}} a break (a shove, a fall): every running motion drops with no exits and the body inertializes into the reaction motion if one is named (stagger) -> {node, running}",
         "motion.status": "{node | uid} the body's motions -> {node, running, time, posture, root: world [x, y, z], events: [{t, event, motion, beat}], bones: {Hips, Head, LeftHand, RightHand, LeftFoot, RightFoot: world [x, y, z]}, things: {node: {position: world [x, y, z], held}} (what its motions have bound)}",
@@ -2731,6 +2731,10 @@
             "type": "string"
           },
           "params": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "roles": {
             "type": "object",
             "additionalProperties": {}
           }

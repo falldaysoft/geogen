@@ -1,0 +1,69 @@
+# Take a thing someone holds out (geogen.103.10): the taker's half of a hand-over, with `give`
+# on the other body (`partner`). It waits for the thing to be held out (`offered`), reaches for
+# the near side of it with the hand open, closes on its rim (`taken`: it leaves the giver's hand
+# for this one) and brings it in to where it is carried. Start `carry` with it to keep holding it.
+kind: motion
+name: receive
+category: action
+summary: Take a thing someone facing you holds out, and bring it in to carry.
+roles:
+  item: { grip: any }
+  partner: { body: true, place: { offset: [0, 0, 1.0], facing: toward }, runs: give }
+props:
+  item: { asset: plate.yaml, by: partner }  # a demonstration's plate, on a side table at the giver's right hand
+demo:                                     # the other person takes it from their table and hands it over
+  - { at: 0, by: partner, start: take, item: item }
+  - { at: 0, by: partner, start: carry, item: item }
+  - { at: 2.4, by: partner, start: give, item: item, partner: actor }
+  - { at: 2.4, start: receive, item: item, partner: partner }
+  - { at: 2.4, start: carry, item: item, duration: 3.0 }
+params:
+  carry_x: { default: -0.45 }     # as take's carry point
+  carry_y: { default: 0.58 }
+  carry_z: { default: 0.68 }
+holds:
+  claim: [right_hand, gaze]
+  prefer: [spine]
+initial: wait
+beats:
+  wait:                                    # until it is held out
+    look: partner.Head
+    sync: offered
+    interrupt: drop
+    then: reach
+  reach:                                   # to its near side, the hand open above the rim
+    ik:
+      RightHand: { target: item, offset_frame: body, offset: [0, 0.06, -0.15], tip: index, grip: open,
+                   fingers: [0.35, -0.1, 1], palm: [0, -1, 0], pole: [-0.4, -1, 0] }
+    look: item
+    over: 0.6
+    interrupt: yield
+    exit: back
+    then: grasp
+  grasp:                                   # the fingertip onto the rim, the hand closing: it is this hand's now
+    ik:
+      RightHand: { target: item, offset_frame: body, offset: [0, 0.016, -0.128], tip: index, grip: item,
+                   fingers: [0.35, -0.1, 1], palm: [0, -1, 0], pole: [-0.4, -1, 0] }
+    look: item
+    over: 0.3
+    attach: { item: { hand: right, level: true } }
+    emit: received
+    sync: taken                            # the giver lets go as it closes
+    interrupt: finish
+    then: lift
+  lift:                                    # in to where it is carried
+    ik:
+      RightHand:
+        target: ["{shoulder_width * carry_x}", "{height * carry_y}", "{height * arm_ratio * carry_z}"]
+        pole: [-0.4, -1, 0]
+        grip: item
+        fingers: [0.35, -0.1, 1]
+        palm: [0, -1, 0]
+    look: partner.Head
+    over: 0.8
+    interrupt: finish
+    then: done
+  back:
+    over: 0.5
+    interrupt: drop
+    then: done

@@ -1,0 +1,62 @@
+# Hand a carried thing to someone (geogen.103.10): a two-person motion, the giver's half of a
+# hand-over. The other person (`partner`, a body) runs `receive` with this body as theirs; the
+# two meet at shared beats (`sync`): the plate held out between them (`offered`), then the
+# taker's fingers on it (`taken`), when it leaves this hand for theirs. Written for the right
+# hand; it borrows whichever hand holds the thing (held: true).
+kind: motion
+name: give
+category: action
+summary: Hold out a carried thing to someone facing you and let go once they have it.
+roles:
+  item: { grip: any, held: true }
+  partner: { body: true, place: { offset: [0, 0, 1.0], facing: toward }, runs: receive }   # a metre ahead
+props:
+  item: { asset: plate.yaml }             # a demonstration's plate, on a side table at this body's right hand
+demo:                                     # taken from the table, carried a moment, handed over
+  - { at: 0, start: take, item: item }
+  - { at: 0, start: carry, item: item }
+  - { at: 2.4, start: give, item: item, partner: partner }
+  - { at: 2.4, by: partner, start: receive, item: item, partner: actor }
+  - { at: 2.4, by: partner, start: carry, item: item, duration: 3.0 }
+params:
+  spacing: { default: 1.0 }       # m between the two: the thing is held out halfway
+  offer_y: { default: 0.6 }       # of the height: a little above the waist
+holds:
+  claim: [right_hand, gaze]
+  prefer: [spine]
+initial: offer
+beats:
+  offer:                                   # the thing out between them, still level
+    ik:
+      RightHand: &out { target: [0, "{height * offer_y}", "{spacing * 0.5}"], holding: item, grip: item,
+                        pole: [-0.4, -1, 0], fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
+    look: partner.Head
+    over: 0.9
+    sync: offered                          # both there: they reach for it
+    interrupt: yield
+    exit: keep
+    then: hold
+  hold:                                    # held out until their hand is on it
+    ik: { RightHand: *out }
+    look: item
+    sync: taken                            # their grasp takes it out of this hand
+    interrupt: yield
+    exit: keep
+    then: let_go
+  let_go:                                  # the hand opens and draws back, empty
+    ik:
+      RightHand: { target: [0, "{height * offer_y + 0.03}", "{spacing * 0.5 - 0.22}"], grip: open,
+                   pole: [-0.4, -1, 0], fingers: [0.35, -0.1, 1], palm: [0, -1, 0] }
+    look: partner.Head
+    over: 0.4
+    interrupt: finish
+    then: back
+  back:
+    look: partner.Head
+    over: 0.7
+    interrupt: drop
+    then: done
+  keep:                                    # no one took it: back to carrying it
+    over: 0.6
+    interrupt: drop
+    then: done

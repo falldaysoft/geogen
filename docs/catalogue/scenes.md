@@ -583,11 +583,12 @@ list on the left of the screen. A showcase: the hub's Motions portal lands in fr
 
 Motions in the runtime (geogen.103.12): two people on rugs for motion files (assets/motions/) run
 by the runtime's motion rig: `motion.start` through the control API, or `--motion` at launch.
-Facing +Z, toward the default camera.
+Facing +Z, toward the default camera. Behind them a pair at hugging distance for two-person
+motions (hug: each with the other as `partner`), facing each other, as hug's role places them.
 
-**Places**: `left_rug: {asset: rug.yaml}`; `right_rug: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`
+**Places**: `left_rug: {asset: rug.yaml}`; `right_rug: {asset: rug.yaml}`; `ines: {archetype: characters/archetypes/young_woman.yaml}`; `tomas: {archetype: characters/archetypes/young_man.yaml}`; `ana: {archetype: characters/archetypes/older_woman.yaml}`; `ben: {archetype: characters/archetypes/older_man.yaml}`
 
-**Slots**: left, right
+**Slots**: left, pair_a, pair_b, right
 
 ## park
 

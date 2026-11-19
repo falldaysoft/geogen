@@ -6,6 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import numpy as np
 import pytest
 from geogen.runtime_client import step
 
@@ -200,3 +201,36 @@ def test_people_take_things_from_the_table_use_them_and_put_them_back(godot_scri
     assert all(abs(a - b) < 0.005 for a, b in zip(plate_after["position"], plate_before["position"])), \
         "the plate is back where it stood"
     assert not table["visible"], "and go away for one without"
+
+
+def test_two_people_hug_through_the_control_api(godot_script, scene_export):
+    """A two-person motion (geogen.103.10) in the runtime: ana and ben each run `hug` with the
+    other as `partner` (a role naming a body binds that body's rig), open their arms and let go
+    together (shared `sync` beats), each hand round the other's back while they hold on."""
+    run = godot_script([
+        step("time.pause"),
+        step("motion.start", node="ana", motion="hug", roles={"partner": "ben"}),
+        step("motion.start", node="ben", motion="hug", roles={"partner": "ana"}),
+        step("time.resume"),
+        step("wait", seconds=2.0),
+        step("motion.status", node="ana"),
+        step("motion.status", node="ben"),
+        step("wait", seconds=2.6),
+        step("motion.status", node="ana"),
+        step("motion.status", node="ben"),
+        step("motion.start", node="ana", motion="hug", roles={"partner": "ana"}),
+    ], "--scene=motion_test", f"--generated={scene_export('motion_test')}", check=False)
+    ana, ben, ana_after, ben_after = (e["result"] for e in run.steps if e["cmd"] == "motion.status")
+    assert ana["running"] == ["hug"] and ben["running"] == ["hug"]
+    for me, them in ((ana, ben), (ben, ana)):
+        # Each hand is behind the other's back: past the middle of their body, seen from mine.
+        mine, chest, theirs = (np.array(p) for p in (me["root"], them["bones"]["Hips"], them["root"]))
+        ahead = (theirs - mine) / np.linalg.norm(theirs - mine)
+        assert (np.array(me["bones"]["RightHand"]) - chest) @ ahead > 0.03, me["node"]
+        assert (np.array(me["bones"]["LeftHand"]) - chest) @ ahead > 0.0, me["node"]
+    beats = lambda s: [(e["t"], e["beat"]) for e in s["events"] if e["event"] == "beat"]
+    assert [b for _, b in beats(ana_after)] == ["open", "embrace", "part", "back"] == [b for _, b in beats(ben_after)]
+    # They go on from each shared beat in the same step.
+    assert beats(ana_after) == beats(ben_after)
+    assert ana_after["running"] == [] and ben_after["running"] == []
+    assert not run.steps[-1]["ok"] and "not another body" in run.steps[-1]["error"]

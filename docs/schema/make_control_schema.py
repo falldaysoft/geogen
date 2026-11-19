@@ -43,12 +43,14 @@ OVERRIDES = {   # (command, arg): type, where an argument means different things
     ("hud.direct", "at"): {"type": "array", "items": NUM, "minItems": 2, "maxItems": 2},
     ("motion.start", "motion"): STR, ("motion.stop", "motion"): STR, ("motion.break", "reaction"): STR, ("motion.stop", "how"): {"enum": ["yield", "drop"]},
     ("motion.start", "params"): {"type": "object", "additionalProperties": {}},
+    ("motion.start", "roles"): {"type": "object", "additionalProperties": {}},   # a name, or {transform}
     ("motion.break", "params"): {"type": "object", "additionalProperties": {}},
 }
 EXTRA = {   # arguments the code reads that the one-line descriptions leave out
     "interactions.set": ["actor"], "interactions.use": ["actor"], "interactions.lock": ["actor"],
     "player.look": ["at"], "world.node": ["node"], "capture.views": ["node", "path"],
     "batch": ["stop_on_error"], "dialogue.choose": ["choice", "close"],
+    "motion.start": ["roles"],              # (after params' braces, which end the signature's match)
 }
 commands, args_defs = {}, {}
 for name, body in entries:

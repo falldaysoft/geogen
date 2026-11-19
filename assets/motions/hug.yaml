@@ -1,0 +1,57 @@
+# A hug (geogen.103.10): a two-person motion both people run, each with the other as `partner`.
+# Arms open together (`open`), then each wraps the right arm high over the other's left shoulder
+# and the left low round their waist (both do the same, so the arms interleave: each high arm
+# goes over the other's low one), heads past each other's right ear, held a moment
+# (`embraced`, so neither lets go first), then they part. The hands aim at the partner's bones
+# as their body is now, offsets in the partner's frame (behind their back is -z).
+kind: motion
+name: hug
+category: emote
+summary: Hug someone facing you, close up, and let go together.
+roles:
+  partner: { body: true, place: { offset: [0.12, 0, 0.32], facing: toward }, runs: hug }   # close, a little to the left: the feet miss
+params:
+  duration: { default: 1.6 }      # s held
+holds:
+  claim: [left_hand, right_hand, gaze]
+initial: open
+beats:
+  open:                                    # both arms out to the sides of them, the right one higher
+    ik:
+      RightHand: { target: ["{-shoulder_width * 1.15}", "{height * 0.74}", 0.12], grip: relaxed, pole: [-1, -0.4, -0.3],
+                   fingers: [0.3, 0.2, 1], palm: [0.6, 0, 0.2] }
+      LeftHand:  { target: ["{shoulder_width * 1.15}", "{height * 0.57}", 0.12], grip: relaxed, pole: [1, -0.6, -0.3],
+                   fingers: [-0.3, 0, 1], palm: [-0.6, 0, 0.2] }
+    look: partner.Head
+    over: 0.6
+    sync: open
+    interrupt: yield
+    exit: back
+    then: embrace
+  embrace:                                 # round them: right high on their left shoulder blade, left low on their back
+    ik:
+      RightHand: &high { target: partner.UpperChest, offset: [0.07, 0.02, -0.09], grip: relaxed, pole: [-1, -0.2, -0.4],
+                         fingers: [1, 0.1, -0.1], palm: [0, 0, -1] }
+      LeftHand:  &low  { target: partner.Chest, offset: [-0.06, -0.06, -0.09], grip: relaxed, pole: [1, -0.5, -0.4],
+                         fingers: [-1, -0.1, -0.1], palm: [0, 0, -1] }
+    look: { at: partner.Head, offset: [-0.3, -0.05, -0.25] }   # past their right ear
+    over: 0.7
+    after: duration
+    sync: embraced                         # held until both have held on
+    interrupt: finish
+    then: part
+  part:                                    # arms off them, back out in front
+    ik:
+      RightHand: { target: ["{-shoulder_width * 1.0}", "{height * 0.66}", 0.12], grip: relaxed, pole: [-1, -0.4, -0.3],
+                   fingers: [0.3, 0, 1], palm: [0.6, 0, 0.2] }
+      LeftHand:  { target: ["{shoulder_width * 1.0}", "{height * 0.58}", 0.12], grip: relaxed, pole: [1, -0.6, -0.3],
+                   fingers: [-0.3, 0, 1], palm: [-0.6, 0, 0.2] }
+    look: partner.Head
+    over: 0.6
+    interrupt: finish
+    then: back
+  back:                                    # arms down
+    look: partner.Head
+    over: 0.7
+    interrupt: drop
+    then: done
