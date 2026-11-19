@@ -52,13 +52,6 @@ render -s town --export-godot --stream
 # The amusement park example: a group of fairgoers with what they bought in their hands.
 "$PY" docs/make_fair_shot.py "$OUT/godot_fairgoers.png" > /dev/null
 
-# Retina captures come out at 2x; keep the repo images modest.
-"$PY" - <<'PYEOF'
-from PIL import Image
-for name, width in [("geogen_cottage_views", 1400), ("geogen_viewer", 900)]:
-    path = f"docs/images/{name}.png"
-    im = Image.open(path)
-    im.thumbnail((width, width * 2))
-    im.save(path, optimize=True)
-PYEOF
+# Retina captures come out at 2x, and every image stays in the history: keep them modest.
+"$PY" docs/shrink_screenshots.py
 echo "Screenshots written to $OUT"
