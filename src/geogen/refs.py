@@ -116,7 +116,7 @@ def parse(text: Any, member: bool = False) -> Ref:
             if not eq or not value:
                 raise RefError(f"'{text}': filter '{item.strip()}' should be key=value", text)
             if key not in FILTER_KEYS:
-                raise RefError(f"'{text}': unknown filter '{key}'{_near(key, FILTER_KEYS)} "
+                raise RefError(f"'{text}': unknown filter '{key}'{near(key, FILTER_KEYS)} "
                                f"(filters: {', '.join(FILTER_KEYS)})", text)
             filters[key] = value
         ref.steps.append(Step(name, filters))
@@ -285,12 +285,23 @@ def resolve(root: SceneNode, ref: str | Ref, package: str | None = None,
     return nodes[0]
 
 
-def _near(name: str, known: Iterable[str]) -> str:
+NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")       # a name state, quests and packages are read by
+
+
+def stable_id(node: SceneNode, package: str, root: SceneNode) -> str:
+    """``node``'s ID in ``package``: the one it was given, or its path below ``root``."""
+    known = node.meta.get("uid")
+    return known if isinstance(known, str) and known.startswith(package + ":") else node_id(node, package, root)
+
+
+def near(name: str, known: Iterable[str]) -> str:
+    """" Did you mean 'x'?" for the closest of ``known``, or nothing."""
     close = difflib.get_close_matches(name, sorted(set(known)), n=1, cutoff=0.5)
     return f" Did you mean '{close[0]}'?" if close else ""
 
 
-def _listed(names: Iterable[str], limit: int = 12) -> str:
+def listed(names: Iterable[str], limit: int = 12) -> str:
+    """``names`` for an error message, sorted and cut off after ``limit``."""
     names = sorted(set(names))
     return ", ".join(names[:limit]) + (f", ... ({len(names)} in all)" if len(names) > limit else "") or "nothing"
 
@@ -304,25 +315,25 @@ def _missing(ref: Ref, index: int, nodes: list[SceneNode], root: SceneNode, labe
         at = f"the {len(nodes)} matches of '{'/'.join(str(s) for s in ref.steps[:index])}'"
     if step.name is None:
         tags = {t for n in nodes for d in n.iter_nodes(include_self=False) for t in d.tags}
-        hint = _near(step.filters["tag"], tags) if "tag" in step.filters else ""
+        hint = near(step.filters["tag"], tags) if "tag" in step.filters else ""
         return f"'{ref.text}': nothing under {at} matches [{str(step)[1:-1]}].{hint}"
     members = [(key, n) for node in nodes for key, n in _scope_members(node)]
     names = {key for key, _ in members}
     if any(key == step.name for key, _ in members):
         return f"'{ref.text}': '{step.name}' under {at} doesn't match [{', '.join(f'{k}={v}' for k, v in step.filters.items())}]"
     deeper = [path_of(n, here) for n in here.iter_nodes(include_self=False) if n.name == step.name]
-    hint = _near(step.name, names)
+    hint = near(step.name, names)
     if deeper and not hint:
         hint = f" There is one at '{deeper[0]}'." if len(deeper) == 1 else f" There are {len(deeper)} deeper, e.g. '{deeper[0]}'."
-    return f"'{ref.text}': no '{step.name}' in {at}.{hint} It has: {_listed(names)}"
+    return f"'{ref.text}': no '{step.name}' in {at}.{hint} It has: {listed(names)}"
 
 
 def surface_of(node: SceneNode, name: str, ref: str = ""):
     """``node``'s surface ``name``; RefError naming the near ones if it has none."""
     surface = node.surfaces.get(name)
     if surface is None:
-        raise RefError(f"'{node.name}' has no surface '{name}'.{_near(name, node.surfaces)} "
-                       f"Surfaces: {_listed(node.surfaces, 20)}", ref or name)
+        raise RefError(f"'{node.name}' has no surface '{name}'.{near(name, node.surfaces)} "
+                       f"Surfaces: {listed(node.surfaces, 20)}", ref or name)
     return surface
 
 

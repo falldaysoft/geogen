@@ -152,7 +152,7 @@ def check_travel(catalogue, out_dir: str | Path) -> list[str]:
             target = point.get("scene", name)
             where = point.get("source") or f"{name}: travel point '{point.get('uid') or point.get('node')}'"
             if target not in catalogue.entries:
-                near = refs._near(target, catalogue.entries)
+                near = refs.near(target, catalogue.entries)
                 problems.append(f"{where}: goes to '{target}', which isn't in the catalogue.{near}")
                 continue
             spawn = point.get("spawn")
@@ -185,6 +185,6 @@ def _check_spawn(target: str, spawn: str, manifest: dict, tree: SceneNode | None
         if found:
             return (f"spawn '{spawn}' matches {len(found)} spawns in '{target}': "
                     + ", ".join(sorted(str(n.meta["uid"]).partition(":")[2] for n in found)[:6]))
-        return f"'{spawn}' in '{target}' isn't a spawn. Spawns: {refs._listed(paths or names)}"
-    return (f"goes to spawn '{spawn}' in '{target}', which has {refs._listed(paths or names, 20) if names else 'no spawns'}."
-            f"{refs._near(spawn, [*names, *paths])}")
+        return f"'{spawn}' in '{target}' isn't a spawn. Spawns: {refs.listed(paths or names)}"
+    return (f"goes to spawn '{spawn}' in '{target}', which has {refs.listed(paths or names, 20) if names else 'no spawns'}."
+            f"{refs.near(spawn, [*names, *paths])}")

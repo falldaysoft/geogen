@@ -37,7 +37,6 @@ Exports put ``Quests.to_json()`` in the manifest and chunk index as ``quests``
 
 from __future__ import annotations
 
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,7 +46,7 @@ from . import conditions, refs, roots
 from .compiler import (EFFECTS, EVENT_KEYS, EVENT_SOURCES, Compiler, ContentError, Context, Tree, _shown)  # noqa: F401
 from .core.node import SceneNode
 from .rules import reads, term_keys
-from .state import Declarations, StateError
+from .state import LOCKED, Declarations, StateError
 
 KIND = "quest"
 FORMAT = "geogen-quests"
@@ -69,7 +68,6 @@ QUEST_KEYS = {"kind", "version", "id", "title", "description", "holder", "start"
 OBJECTIVE_KEYS = {"id", "text", "after", "done", "optional", "marker"}
 MARKER_KEYS = {"at", "area"}
 
-_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _KIND_OF_ACTOR = {"get": "actor", "name": "kind"}
 
 
@@ -118,36 +116,17 @@ def declare_scene(root: SceneNode, data: dict[str, Any], source: Any, assets_dir
 
     An entry may be ``{file: quests/name.yaml, if: "{param}"}``: the scene only contributes
     the quest when the expression isn't 0 (a scene that is also nested in bigger ones)."""
-    from .layout.yaml_utils import source_of
-    from .wiring import built
+    from .wiring import scene_files
 
-    listed = data.get("quests")
-    if not listed:
-        return
-    if not isinstance(listed, list) or not all(
-            isinstance(item, str) or isinstance(item, dict) and isinstance(item.get("file"), str)
-            and not set(item) - {"file", "if"} for item in listed):
-        raise QuestError(f"{source_of(source, ['quests'])}: quests is a list of quest files (quests/name.yaml, "
-                         f"or {{file: quests/name.yaml, if: <param expression>}})")
-    found = []
-    for index, name in enumerate(listed):
-        if isinstance(name, dict):
-            if not built(name):
-                continue
-            name = name["file"]
-        path = roots.find(name, assets_dir)
-        if not path.is_file():
-            known = [roots.relative(p, assets_dir) for p in roots.glob("quests/*.yaml", assets_dir)]
-            raise QuestError(f"{source_of(source, ['quests', index])}: no quest file '{name}'."
-                             f"{refs._near(name, known)}")
-        found.append({"source": str(path), "spec": load_quest(path)})
+    found = scene_files(data, "quests", "quest", "quest files (quests/name.yaml, or {file: quests/name.yaml, "
+                        "if: <param expression>})", source, assets_dir, load_quest, QuestError)
     if found:
         root.meta[META] = found
 
 
 def _parse(spec: Any, source: Any, node: SceneNode | None, problems: list[str]) -> _Quest | None:
     """The shape of one quest: keys, ids, ``after``. Conditions are compiled later."""
-    if not isinstance(spec, dict) or not _NAME.match(str(spec.get("id", ""))):
+    if not isinstance(spec, dict) or not refs.NAME.match(str(spec.get("id", ""))):
         problems.append(f"{source or 'quest'}: a quest needs an id of letters, digits and '_' "
                         f"(got {spec.get('id') if isinstance(spec, dict) else spec!r})")
         return None
@@ -158,7 +137,7 @@ def _parse(spec: Any, source: Any, node: SceneNode | None, problems: list[str]) 
 
     for key in spec:
         if key not in QUEST_KEYS:
-            bad(f"unknown key '{key}'.{refs._near(str(key), QUEST_KEYS)} Keys: {', '.join(sorted(QUEST_KEYS))}", key)
+            bad(f"unknown key '{key}'.{refs.near(str(key), QUEST_KEYS)} Keys: {', '.join(sorted(QUEST_KEYS))}", key)
     if not isinstance(spec.get("title"), str) or not spec["title"].strip():
         bad("a quest needs a title", "title")
     for key, known in (("holder", HOLDERS), ("start", STARTS)):
@@ -171,7 +150,7 @@ def _parse(spec: Any, source: Any, node: SceneNode | None, problems: list[str]) 
     previous: str | None = None
     for index, entry in enumerate(objectives):
         at = ("objectives", index)
-        if not isinstance(entry, dict) or not _NAME.match(str(entry.get("id", ""))):
+        if not isinstance(entry, dict) or not refs.NAME.match(str(entry.get("id", ""))):
             bad("an objective needs an id of letters, digits and '_'", *at)
             continue
         name = str(entry["id"])
@@ -180,7 +159,7 @@ def _parse(spec: Any, source: Any, node: SceneNode | None, problems: list[str]) 
             continue
         for key in entry:
             if key not in OBJECTIVE_KEYS:
-                bad(f"unknown key '{key}'.{refs._near(str(key), OBJECTIVE_KEYS)} "
+                bad(f"unknown key '{key}'.{refs.near(str(key), OBJECTIVE_KEYS)} "
                     f"Keys: {', '.join(sorted(OBJECTIVE_KEYS))}", *at, key)
         if not isinstance(entry.get("text"), str) or not entry["text"].strip():
             bad("an objective needs text (what the player is told)", *at, "text")
@@ -199,7 +178,7 @@ def _parse(spec: Any, source: Any, node: SceneNode | None, problems: list[str]) 
     for objective in quest.objectives:
         for other in objective.after:
             if other not in known:
-                bad(f"after '{other}': this quest has no objective '{other}'.{refs._near(other, known)} "
+                bad(f"after '{other}': this quest has no objective '{other}'.{refs.near(other, known)} "
                     f"It has: {', '.join(known)}", "objectives", objective.index, "after")
         objective.after = [a for a in objective.after if a in known]
     if not any(not o.optional for o in quest.objectives):
@@ -279,8 +258,8 @@ class Quests:
 
     def _quest(self, quest: str) -> dict[str, Any]:
         if quest not in self.quests:
-            raise QuestError(f"no quest '{quest}'.{refs._near(quest, self.quests)} "
-                             + (f"Quests: {refs._listed(self.quests)}" if self.quests else "There are none"))
+            raise QuestError(f"no quest '{quest}'.{refs.near(quest, self.quests)} "
+                             + (f"Quests: {refs.listed(self.quests)}" if self.quests else "There are none"))
         return self.quests[quest]
 
     def _holds(self, quest: dict[str, Any]) -> Tree:
@@ -317,7 +296,7 @@ class Quests:
             entry = next((o for o in quest["objectives"] if o["id"] == objective), None)
             if entry is None:
                 known = [o["id"] for o in quest["objectives"]]
-                raise QuestError(f"quest '{name}' has no objective '{objective}'.{refs._near(objective, known)} "
+                raise QuestError(f"quest '{name}' has no objective '{objective}'.{refs.near(objective, known)} "
                                  f"It has: {', '.join(known)} (write {name}.<objective>)")
             latches = {o["id"]: o["done"] for o in quest["objectives"]}
             opened = _all(_is(quest["status"], "active"), *(_term(latches[a]) for a in entry["after"]))
@@ -429,8 +408,7 @@ class _Compiler(Compiler):
             if on.get("type") == "enter" and on.get("subject"):
                 return [{"subject": on["subject"], "enter": True}]
             if on.get("type") == "use" and on.get("subject"):
-                names = [on["name"]] if on.get("name") else [k.rpartition("#")[2] for k in self.decls.interactions
-                                                              if k.rpartition("#")[0] == on["subject"]][:1]
+                names = [on["name"]] if on.get("name") else list(self.decls.interactions_of(on["subject"]))[:1]
                 return [{"subject": on["subject"], "interaction": n} for n in names]
             if on.get("type") == "signal" and on.get("subject") and on.get("name") == "greeted":
                 return [{"subject": on["subject"], "greet": True}]
@@ -606,7 +584,7 @@ class _Compiler(Compiler):
 
         def reachable(key: str) -> set[Any] | None:
             """The values a variable can take (None: any of its type)."""
-            if key.endswith("_locked"):                 # locks are the player's to turn
+            if key.endswith(LOCKED):                 # locks are the player's to turn
                 return None
             sets = settable.get(key, set())
             if sets is None:
@@ -670,20 +648,15 @@ class _Compiler(Compiler):
                     on = objective.on
                     if on["type"] == "signal":
                         thing, name = on["subject"], on["name"]
-                        emits = {state["emit"] for key, machine in self.decls.interactions.items()
-                                 if key.rpartition("#")[0] == thing
-                                 for state in machine["states"].values() if state.get("emit")}
-                        declared = {s["name"] for s in self.decls.signals.values() if s["subject"] == thing}
-                        raised = emits | declared | {n for s, n in emitted if s == thing}
+                        raised = self.decls.raised(thing) | {n for s, n in emitted if s == thing}
                         if name not in raised:
                             self.bad(where, f"objective '{objective.id}' can't be done: '{thing}' never raises "
-                                            f"'{name}'.{refs._near(name, raised)} "
-                                            + (f"It raises: {refs._listed(raised)}" if raised else "It raises nothing"))
+                                            f"'{name}'.{refs.near(name, raised)} "
+                                            + (f"It raises: {refs.listed(raised)}" if raised else "It raises nothing"))
                     elif on["type"] == "use":
                         usable = any(state.get("next") is not None
-                                     for key, machine in self.decls.interactions.items()
-                                     if key.rpartition("#")[0] == on["subject"]
-                                     and on.get("name") in (None, key.rpartition("#")[2])
+                                     for name, machine in self.decls.interactions_of(on["subject"]).items()
+                                     if on.get("name") in (None, name)
                                      for state in machine["states"].values())
                         if not usable:
                             self.bad(where, f"objective '{objective.id}' can't be done: '{on['subject']}' can't be "
@@ -819,8 +792,7 @@ def collect(root: SceneNode, package: str, rules: Iterable[dict[str, Any]] = ())
     specs, wiring = [], sources(root)
 
     def uid(node: SceneNode) -> str:
-        known = node.meta.get("uid")
-        return known if isinstance(known, str) and known.startswith(package + ":") else refs.node_id(node, package, root)
+        return refs.stable_id(node, package, root)
 
     files: set[str] = set()
     for node in root.iter_nodes():

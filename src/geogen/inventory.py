@@ -68,7 +68,7 @@ def resolve_items(spec: Any, where: str) -> list[str]:
         else:
             from . import refs
 
-            raise ValueError(f"{where}: no item '{one}'.{refs._near(one, list(known))} "
+            raise ValueError(f"{where}: no item '{one}'.{refs.near(one, list(known))} "
                              f"Items: {', '.join(sorted(known)) or 'none'}")
     return out
 

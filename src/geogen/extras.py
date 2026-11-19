@@ -87,7 +87,11 @@ BUILD_ONLY: dict[str, str] = {
 
 
 class ExtrasError(ValueError):
-    """A node carries a meta key that is neither declared for export nor build-only."""
+    """A node carries a meta key (``key``) that is neither declared for export nor build-only."""
+
+    def __init__(self, message: str, key: str) -> None:
+        super().__init__(message)
+        self.key = key
 
 
 @lru_cache(maxsize=1)
@@ -124,7 +128,8 @@ def exported_meta(node: SceneNode) -> dict:
         elif key not in BUILD_ONLY:
             raise ExtrasError(
                 f"node '{_path(node)}': meta key '{key}' is not part of the extras contract. Declare it in "
-                f"{SCHEMA} if a runtime reads it, or add it to geogen.extras.BUILD_ONLY if it stays in the generator.")
+                f"{SCHEMA} if a runtime reads it, or add it to geogen.extras.BUILD_ONLY if it stays in the generator.",
+                key)
     return out
 
 
@@ -158,7 +163,7 @@ def scene_problems(root: SceneNode, package: str = "scene") -> list[str]:
             try:
                 extras = exported_extras(node)
             except ExtrasError as exc:
-                problems.setdefault(("key", str(exc).split("': meta key ", 1)[-1]), str(exc))
+                problems.setdefault(("key", exc.key), str(exc))
                 continue
             if not extras:
                 continue

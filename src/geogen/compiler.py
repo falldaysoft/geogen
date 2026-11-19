@@ -117,8 +117,7 @@ class Compiler:
         known = node.meta.get("uid")
         if self.trees is not None and isinstance(known, str):
             return known                         # another package's thing, by the ID its export gave it
-        return (known if isinstance(known, str) and known.startswith(self.package + ":")
-                else refs.node_id(node, self.package, node.root))
+        return refs.stable_id(node, self.package, node.root)
 
     def scene_of(self, text: str) -> SceneNode:
         """The tree a content package's reference is in: it must say which scene (``island:jetty``)."""
@@ -126,10 +125,10 @@ class Compiler:
         ref = refs.parse(text)
         if ref.package is None:
             raise ContentError(f"'{text}': say which scene it is in, e.g. '{next(iter(trees), 'scene')}:{text}' "
-                             f"(this package's scenes: {refs._listed(trees)})")
+                             f"(this package's scenes: {refs.listed(trees)})")
         if ref.package not in trees:
             raise ContentError(f"'{text}': '{ref.package}' isn't one of this package's scenes."
-                             f"{refs._near(ref.package, trees)} Its scenes: {refs._listed(trees)}")
+                             f"{refs.near(ref.package, trees)} Its scenes: {refs.listed(trees)}")
         return trees[ref.package]
 
     def area(self, node: SceneNode) -> bool:
@@ -234,7 +233,7 @@ class Compiler:
                     spec = self.decls.spec(key) or {}
                     for value in (a for a in args if isinstance(a, str)):
                         if spec.get("type") == "choice" and value not in spec["choices"]:
-                            raise ContentError(f"'{_shown(key)}' is never '{value}'.{refs._near(value, spec['choices'])} "
+                            raise ContentError(f"'{_shown(key)}' is never '{value}'.{refs.near(value, spec['choices'])} "
                                              f"It is one of: {', '.join(spec['choices'])}")
         return tree
 
@@ -248,7 +247,7 @@ class Compiler:
             path = roots.find(f"items/{item}.yaml")
             if not path.is_file():
                 known = [p.stem for p in roots.glob("items/*.yaml")]
-                raise ContentError(f"no item '{item}'.{refs._near(item, known)} "
+                raise ContentError(f"no item '{item}'.{refs.near(item, known)} "
                                  + (f"Items: {', '.join(known)}" if known else "There are no items/*.yaml"))
             try:
                 self.out.items[item] = carried(path)
@@ -273,7 +272,7 @@ class Compiler:
         for key in done:
             if key not in keys:
                 hint = (" The clock is state, not an event: write a condition (clock.night)"
-                        if key == "clock" else refs._near(str(key), keys))
+                        if key == "clock" else refs.near(str(key), keys))
                 raise ContentError(f"unknown key '{key}'.{hint} Events: {', '.join(sources)}")
         found = [k for k in sources if k in done]
         if len(found) != 1:
@@ -294,7 +293,7 @@ class Compiler:
             if node is not None and not self.area(node):
                 here = [n.name for n in node.root.iter_nodes() if n.meta.get("type") == "place"]
                 raise ContentError(f"'{done[kind]}' is not a place or a room. "
-                                 + (f"Places here: {refs._listed(here)}" if here else "Declare one under places:"))
+                                 + (f"Places here: {refs.listed(here)}" if here else "Declare one under places:"))
             return {"type": kind, "subject": subject}
         if kind == "start":
             return {"type": "start"}
@@ -311,10 +310,10 @@ class Compiler:
             return {"type": "signal", "subject": subject, "name": name}
         if kind == "use":
             subject, _, name = self.thing(quest, done[kind], member=True)
-            known = [k.rpartition("#")[2] for k in self.decls.interactions if k.rpartition("#")[0] == subject]
+            known = list(self.decls.interactions_of(subject))
             if name is not None and name not in known or not known:
                 raise ContentError(f"'{subject}' has no interaction{'' if name is None else f' {name!r}'} to use."
-                                 f"{refs._near(name or '', known)} "
+                                 f"{refs.near(name or '', known)} "
                                  + (f"It has: {', '.join(known)}" if known else "It has none"))
             return {"type": "use", "subject": subject, **({"name": name} if name else {})}
         if kind == "use_item":
@@ -418,7 +417,7 @@ class Compiler:
                         raise ContentError(str(exc)) from None
                 elif kind == "play":
                     if effect["play"] not in SOUNDS:
-                        raise ContentError(f"play: no sound {effect['play']!r}.{refs._near(str(effect['play']), SOUNDS)} "
+                        raise ContentError(f"play: no sound {effect['play']!r}.{refs.near(str(effect['play']), SOUNDS)} "
                                          f"Sounds: {', '.join(SOUNDS)}")
                     out.append({"play": effect["play"]})
                 else:
@@ -437,8 +436,8 @@ class Compiler:
         key = f"{on['subject']}#{on['name']}"
         declared = self.decls.signals.get(key)
         if declared is None:
-            emits = any(state.get("emit") == on["name"] for k, m in self.decls.interactions.items()
-                        if k.rpartition("#")[0] == on["subject"] for state in m["states"].values())
+            emits = any(state.get("emit") == on["name"] for m in self.decls.interactions_of(on["subject"]).values()
+                        for state in m["states"].values())
             if emits or on["name"] == "locked":
                 return set()
             fields = {f for rule in (*self.out.wiring, *self.out.rules, *self.other_rules) for e in rule.get("do", [])
@@ -464,15 +463,12 @@ class Compiler:
             if carried is not None and name not in carried:
                 self.bad(where, f"event.{name}: a {on['type']} event here carries "
                                 + (f"{', '.join(sorted(carried))}" if carried else "no data")
-                                + refs._near(name, carried))
+                                + refs.near(name, carried))
 
     def raised(self, thing: str) -> set[str]:
         """The signals a thing can raise: its interactions' emits (and ``locked``), what it or
         an NPC definition declares, and what rules emit from it."""
-        machines = [m for key, m in self.decls.interactions.items() if key.rpartition("#")[0] == thing]
-        out = {state["emit"] for machine in machines for state in machine["states"].values() if state.get("emit")}
-        out |= {"locked"} if machines else set()
-        out |= {s["name"] for s in self.decls.signals.values() if s["subject"] == thing}
+        out = self.decls.raised(thing) | ({"locked"} if self.decls.interactions_of(thing) else set())
         for rule in (*self.out.wiring, *self.out.rules, *self.other_rules):
             out |= {e["emit"] for e in rule.get("do", []) if e.get("emit") and e.get("subject") == thing}
         return out
@@ -482,5 +478,5 @@ class Compiler:
         for where, on in self.listening:
             raised = self.raised(on["subject"])
             if on["name"] not in raised:
-                self.bad(where, f"'{on['subject']}' never raises '{on['name']}'.{refs._near(on['name'], raised)} "
-                                + (f"It raises: {refs._listed(raised)}" if raised else "It raises nothing"))
+                self.bad(where, f"'{on['subject']}' never raises '{on['name']}'.{refs.near(on['name'], raised)} "
+                                + (f"It raises: {refs.listed(raised)}" if raised else "It raises nothing"))

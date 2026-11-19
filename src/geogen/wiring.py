@@ -209,6 +209,34 @@ def compile_wiring(compiler: Compiler, entries: list[Source]) -> tuple[list[dict
     return rules, bindings
 
 
+def scene_files(data: dict[str, Any], key: str, kind: str, shape: str, source: Any, assets_dir: Any, load: Any,
+                error: type[Exception]) -> list[dict[str, Any]]:
+    """A scene's ``key: [file | {file, if}]`` (quests, dialogues) loaded with ``load``: {source, spec} of
+    each file whose ``if`` holds. ``shape`` says what the list is, for the error."""
+    from . import refs, roots
+    from .layout.yaml_utils import source_of
+
+    listed = data.get(key)
+    if not listed:
+        return []
+    if not isinstance(listed, list) or not all(
+            isinstance(item, str) or isinstance(item, dict) and isinstance(item.get("file"), str)
+            and not set(item) - {"file", "if"} for item in listed):
+        raise error(f"{source_of(source, [key])}: {key} is a list of {shape}")
+    found = []
+    for index, name in enumerate(listed):
+        if isinstance(name, dict):
+            if not built(name):
+                continue
+            name = name["file"]
+        path = roots.find(name, assets_dir)
+        if not path.is_file():
+            known = [roots.relative(p, assets_dir) for p in roots.glob(f"{key}/*.yaml", assets_dir)]
+            raise error(f"{source_of(source, [key, index])}: no {kind} file '{name}'.{refs.near(name, known)}")
+        found.append({"source": str(path), "spec": load(path)})
+    return found
+
+
 def built(entry: dict[str, Any]) -> bool:
     """Whether a rule, wire or ``quests:`` entry is part of this build: its ``if:`` (a param
     expression, resolved when the file was loaded) isn't 0, false or ""."""
@@ -235,10 +263,8 @@ def _signal(compiler: Compiler, src: Any, text: Any) -> dict[str, Any]:
     from . import refs
     on = compiler.event(src, {"signal": text}, RULE_EVENTS, EVENT_KEYS)
     thing, name, decls = on["subject"], on["name"], compiler.decls
-    offered = {s["name"] for s in decls.signals.values() if s["subject"] == thing}
-    offered |= {state["emit"] for key, machine in decls.interactions.items() if key.rpartition("#")[0] == thing
-                for state in machine["states"].values() if state.get("emit")}
+    offered = decls.raised(thing)
     if name not in offered:
-        raise ContentError(f"'{thing}' has no signal '{name}'.{refs._near(name, offered)} "
-                         + (f"Its signals: {refs._listed(offered)}" if offered else "It declares none"))
+        raise ContentError(f"'{thing}' has no signal '{name}'.{refs.near(name, offered)} "
+                         + (f"Its signals: {refs.listed(offered)}" if offered else "It declares none"))
     return on

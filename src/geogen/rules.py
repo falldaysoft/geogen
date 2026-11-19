@@ -117,6 +117,12 @@ def skip_effect(value: Any, where: str = "skip") -> dict[str, Any]:
     return {"skip": duration(value if isinstance(value, dict) else None, where)}
 
 
+def _clock_parts(text: str) -> tuple[int, int]:
+    """"HH:MM" as (hours, minutes)."""
+    hours, minutes = text.split(":")
+    return int(hours), int(minutes)
+
+
 def _is_time(text: Any) -> bool:
     if not isinstance(text, str) or text.count(":") != 1:
         return False
@@ -503,8 +509,8 @@ class Machine:
         was_night = self.clock["night"]
         self.clock.update(values)
         if "time" in values:
-            hours, minutes = values["time"].split(":")
-            self.clock["hour"] = int(hours) + int(minutes) / 60.0
+            hours, minutes = _clock_parts(values["time"])
+            self.clock["hour"] = hours + minutes / 60.0
         queue = []
         if self.clock["night"] != was_night:
             queue.append({"type": "clock", "name": "night" if self.clock["night"] else "day", "depth": 0})
@@ -570,9 +576,9 @@ class Machine:
         """Move the clock forward (a skip effect); what comes due on the way runs after this input."""
         start = self.clock_minute()
         if "to" in skip:
-            hours, minutes = skip["to"].split(":")
+            hours, minutes = _clock_parts(skip["to"])
             day_start = start - start % 1440
-            target = day_start + int(hours) * 60 + int(minutes)
+            target = day_start + hours * 60 + minutes
             if target <= start + 1e-6:
                 target += 1440
         else:

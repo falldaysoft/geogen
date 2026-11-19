@@ -35,8 +35,6 @@ from .core.node import SceneNode
 from .layout.yaml_utils import load_kind, safe_load_path
 
 ASSETS_DIR = roots.CORE
-ACTIONS_PATH = ASSETS_DIR / "npcs" / "actions.yaml"
-STIMULI_PATH = ASSETS_DIR / "npcs" / "stimuli.yaml"
 STIMULI_KIND = "npc_stimuli"
 # Perception (geogen.99): what an NPC notices of the stimuli around it (npcs/stimuli.yaml), and
 # what it does then. Opt-in: a definition without `senses:` notices nothing and costs nothing.
@@ -395,9 +393,19 @@ def parse_memory(memory: Any, senses: Any, actions: dict, where: str) -> dict[st
     return {"memory": out}
 
 
-@lru_cache(maxsize=4)
-def load_stimuli(path: str | Path = STIMULI_PATH) -> dict[str, dict[str, Any]]:
-    return parse_stimuli(safe_load_path(path) or {})
+def _layers(name: str) -> tuple[Path, ...]:
+    """Every content root's ``npcs/<name>``, the core's first: a project adds to the core's, and
+    what it names again replaces the core's."""
+    return tuple(root / "npcs" / name for root in reversed(roots.roots()) if (root / "npcs" / name).is_file())
+
+
+@lru_cache(maxsize=8)
+def _layered(paths: tuple[Path, ...], parse: Any) -> dict[str, dict[str, Any]]:
+    return {name: entry for path in paths for name, entry in parse(safe_load_path(path) or {}).items()}
+
+
+def load_stimuli(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
+    return _layered((Path(path),) if path is not None else _layers("stimuli.yaml"), parse_stimuli)
 
 
 def parse_senses(senses: Any, reacts: Any, where: str) -> dict[str, Any]:
@@ -438,9 +446,8 @@ def parse_senses(senses: Any, reacts: Any, where: str) -> dict[str, Any]:
     return {"senses": out_senses, "reacts": out_reacts}
 
 
-@lru_cache(maxsize=4)
-def load_actions(path: str | Path = ACTIONS_PATH) -> dict[str, dict[str, Any]]:
-    return parse_actions(safe_load_path(path) or {})
+def load_actions(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
+    return _layered((Path(path),) if path is not None else _layers("actions.yaml"), parse_actions)
 
 
 def parse_poses(spec: dict[str, Any]) -> dict[str, dict[str, list[float]]]:

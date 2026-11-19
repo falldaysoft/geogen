@@ -43,7 +43,6 @@ Nothing about the rules semantics changes (``docs/rules.md``).
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -60,7 +59,6 @@ PACKAGE_KEYS = {"kind", "version", "id", "title", "description", "scenes", "stat
 # Names a key's or latch's owner is read from ('world:<pkg>.x', 'once:<rule id>'), so no package has them.
 RESERVED = ("world", "actor", "once", "watch", "quest", "signal", "player")
 
-_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class ContentError(ValueError):
@@ -158,12 +156,12 @@ def compile_package(spec: dict[str, Any], scenes: dict[str, Scene], source: Any 
     def fail() -> ContentError:
         return ContentError("\n".join(problems))
 
-    if not isinstance(spec, dict) or not _NAME.match(name) or name in RESERVED:
+    if not isinstance(spec, dict) or not refs.NAME.match(name) or name in RESERVED:
         raise ContentError(f"{source or 'package'}: a package needs an id of letters, digits and '_' that isn't "
                            f"one of {', '.join(RESERVED)} (got {name!r})")
     for key in spec:
         if key not in PACKAGE_KEYS:
-            problems[f"{where(key)}: unknown key '{key}'.{refs._near(str(key), PACKAGE_KEYS)} "
+            problems[f"{where(key)}: unknown key '{key}'.{refs.near(str(key), PACKAGE_KEYS)} "
                      f"Keys: {', '.join(sorted(PACKAGE_KEYS))}"] = None
     listed = spec.get("scenes")
     if not isinstance(listed, list) or not listed or not all(isinstance(s, str) for s in listed):
@@ -175,8 +173,8 @@ def compile_package(spec: dict[str, Any], scenes: dict[str, Scene], source: Any 
             problems[f"{where('id')}: '{name}' is also a scene: a scene's own state and rules are its package, "
                      f"so a content package needs another name"] = None
         elif scene not in scenes:
-            problems[f"{where('scenes', index)}: no exported scene '{scene}'.{refs._near(scene, scenes)} "
-                     f"Exported: {refs._listed(scenes)}"] = None
+            problems[f"{where('scenes', index)}: no exported scene '{scene}'.{refs.near(scene, scenes)} "
+                     f"Exported: {refs.listed(scenes)}"] = None
     if problems:
         raise fail()
 
@@ -216,7 +214,7 @@ def compile_package(spec: dict[str, Any], scenes: dict[str, Scene], source: Any 
         path = roots.find(file, assets_dir)
         if not path.is_file():
             known = [roots.relative(p, assets_dir) for p in roots.glob("quests/*.yaml", assets_dir)]
-            problems[f"{where('quests', index)}: no quest file '{file}'.{refs._near(file, known)}"] = None
+            problems[f"{where('quests', index)}: no quest file '{file}'.{refs.near(file, known)}"] = None
             continue
         try:
             quest = load_quest(path)
@@ -298,7 +296,7 @@ def export_packages(catalogue: Any, out_dir: str | Path, log: Callable[[str], No
             unknown = [s for s in listed if s not in catalogue.entries]
             if unknown:
                 raise ContentError("\n".join(
-                    f"{path}: scenes: '{s}' isn't in the catalogue.{refs._near(s, catalogue.entries)}" for s in unknown))
+                    f"{path}: scenes: '{s}' isn't in the catalogue.{refs.near(s, catalogue.entries)}" for s in unknown))
             if name in catalogue.entries:
                 raise ContentError(f"{path}: '{name}' is also a scene of the catalogue: a content package needs "
                                    f"another name")

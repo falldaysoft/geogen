@@ -262,7 +262,7 @@ def resolve(tree: Tree, root: SceneNode, package: str, self_node: SceneNode | No
     def check(node: SceneNode, name: str, shown: str) -> None:
         known = list(states(node))
         if name not in known:
-            raise ConditionError(f"'{shown}.{name}': '{shown}' has no state '{name}'{refs._near(name, known)} "
+            raise ConditionError(f"'{shown}.{name}': '{shown}' has no state '{name}'{refs.near(name, known)} "
                                  f"({'it has ' + ', '.join(known) if known else 'it has none'})")
 
     def visit(t: Tree, members: list[SceneNode] | None, select: str) -> Tree:

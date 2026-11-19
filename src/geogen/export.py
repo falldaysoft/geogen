@@ -55,6 +55,10 @@ MIN_COLLIDER_SIZE = 0.03
 COLLIDER_SUFFIX = {"box": "-convcolonly", "hull": "-convcolonly", "mesh": "-colonly"}
 
 
+class NotExported(KeyError):
+    """A node something refers to isn't part of this export (a chunk split)."""
+
+
 def _pbr_material(material: Material, cache: dict[int, trimesh.visual.material.PBRMaterial]):
     key = id(material)
     if key not in cache:
@@ -189,7 +193,7 @@ def exported_extras(node: SceneNode, collider: str | None = None, name_of=lambda
         for interaction in node.interactions:
             try:
                 exported[interaction.name] = interaction.to_extras(name_of)
-            except KeyError:   # drives nodes outside this export (a chunk split); runtime can't use it
+            except NotExported:   # drives nodes outside this export (a chunk split); runtime can't use it
                 logger.warning("Skipping interaction '%s' on '%s': its nodes aren't all in this export",
                                interaction.name, node.name)
         if exported:
@@ -234,6 +238,8 @@ def to_trimesh_scene(root: SceneNode, colliders: bool = True, lods: list[float] 
     names: dict[int, str] = {id(n): unique(n.name) for n in root.iter_nodes()}
 
     def name_of(node: SceneNode) -> str:
+        if id(node) not in names:
+            raise NotExported(node.name)
         return names[id(node)]
 
     def add(key: tuple, build, node_name: str, parent: str, matrix=None, metadata=None) -> None:

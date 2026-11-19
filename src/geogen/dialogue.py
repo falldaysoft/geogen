@@ -36,9 +36,10 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-from . import refs, roots
+from . import refs
 from .compiler import Compiler, ContentError, Context
 from .core.node import SceneNode
+from .state import StateError
 
 KIND = "dialogue"
 VERSION = 1
@@ -64,29 +65,10 @@ def load_dialogue(path: str | Path) -> dict[str, Any]:
 
 def declare_scene(root: SceneNode, data: dict[str, Any], source: Any, assets_dir: Path) -> None:
     """Record a scene's ``dialogues: [file | {file, if}]`` on its root (``meta.dialogues``)."""
-    from .layout.yaml_utils import source_of
-    from .wiring import built
+    from .wiring import scene_files
 
-    listed = data.get("dialogues")
-    if not listed:
-        return
-    if not isinstance(listed, list) or not all(
-            isinstance(item, str) or isinstance(item, dict) and isinstance(item.get("file"), str)
-            and not set(item) - {"file", "if"} for item in listed):
-        raise DialogueError(f"{source_of(source, ['dialogues'])}: dialogues is a list of dialogue files "
-                            f"(dialogues/name.yaml, or {{file, if: <param expression>}})")
-    found = []
-    for index, name in enumerate(listed):
-        if isinstance(name, dict):
-            if not built(name):
-                continue
-            name = name["file"]
-        path = roots.find(name, assets_dir)
-        if not path.is_file():
-            known = [roots.relative(p, assets_dir) for p in roots.glob("dialogues/*.yaml", assets_dir)]
-            raise DialogueError(f"{source_of(source, ['dialogues', index])}: no dialogue file '{name}'."
-                                f"{refs._near(name, known)}")
-        found.append({"source": str(path), "spec": load_dialogue(path)})
+    found = scene_files(data, "dialogues", "dialogue", "dialogue files (dialogues/name.yaml, or {file, "
+                        "if: <param expression>})", source, assets_dir, load_dialogue, DialogueError)
     if found:
         root.meta[META] = found
 
@@ -131,7 +113,7 @@ def _compile(compiler: Compiler, spec: dict[str, Any], source: Any, node: SceneN
     state = f"actor:{compiler.package}.dialogue_{did}"
     try:
         compiler.decls.declare(state, {"type": "text", "default": ""})
-    except Exception:
+    except StateError:
         bad(["id"], f"dialogue state 'dialogue_{did}' is already declared")
         return None
     compiler.decls.signals[f"{anchor}#{SIGNAL}"] = {"subject": anchor, "name": SIGNAL,
@@ -156,7 +138,7 @@ def _compile(compiler: Compiler, spec: dict[str, Any], source: Any, node: SceneN
         passage = item.get("passage") if isinstance(item, dict) else item
         if passage not in passages:
             bad(["start", index] if isinstance(start, list) else ["start"],
-                f"no passage '{passage}'.{refs._near(str(passage), passages)}")
+                f"no passage '{passage}'.{refs.near(str(passage), passages)}")
             continue
         when = condition(item["when"], "start", index, "when") if isinstance(item, dict) and "when" in item else None
         opening = passage if when is None else {"op": "if", "args": [when, passage, opening]}
@@ -187,7 +169,7 @@ def _compile(compiler: Compiler, spec: dict[str, Any], source: Any, node: SceneN
             cid = str(choice.get("id", index + 1))
             goto = choice.get("goto", "")
             if goto and goto not in passages:
-                bad((*where, "goto"), f"no passage '{goto}'.{refs._near(str(goto), passages)}")
+                bad((*where, "goto"), f"no passage '{goto}'.{refs.near(str(goto), passages)}")
                 continue
             if goto:
                 reached.add(goto)

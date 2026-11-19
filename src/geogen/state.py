@@ -50,7 +50,6 @@ those of a rules program (``geogen.rules``), so ``program()`` is one.
 
 from __future__ import annotations
 
-import re
 from typing import Any, Callable, Iterable
 
 from . import refs
@@ -79,7 +78,6 @@ VARIABLE_KEYS = {"type", "default", "choices", "scope"}
 INPUT_KEYS = {"set", "to", "of"}
 LOCKED = "_locked"                # <interaction>_locked is that interaction's lock, a bool
 
-_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ALIASES = {"string": "text", "str": "text", "boolean": "bool", "int": "number", "float": "number",
             "integer": "number", "enum": "choice"}
 
@@ -119,7 +117,7 @@ def _mapping(spec: Any, source: Any, key: str, form: str) -> dict[str, Any]:
         raise StateError(f"{_where(source, [key])}: {key} is a mapping of name -> {form}")
     for name, entry in spec.items():
         where = _where(source, [key, name])
-        if not _NAME.match(str(name)):
+        if not refs.NAME.match(str(name)):
             raise StateError(f"{where}: names are letters, digits and '_' (they are read as thing.{name})")
         if not isinstance(entry, dict):
             raise StateError(f"{where}: write {form}, got {entry!r}")
@@ -129,7 +127,7 @@ def _mapping(spec: Any, source: Any, key: str, form: str) -> dict[str, Any]:
 def _known(entry: dict[str, Any], known: Iterable[str], where: str) -> None:
     for key in entry:
         if key not in known:
-            raise StateError(f"{where}: unknown key '{key}'.{refs._near(str(key), known)} Keys: {', '.join(sorted(known))}")
+            raise StateError(f"{where}: unknown key '{key}'.{refs.near(str(key), known)} Keys: {', '.join(sorted(known))}")
 
 
 def parse_variables(spec: Any, source: Any = None, scoped: bool = False) -> dict[str, dict[str, Any]]:
@@ -268,6 +266,8 @@ class Declarations:
         self.signals: dict[str, dict[str, Any]] = {}        # <thing>#<name> -> {subject, name, from?}
         self.inputs: dict[str, dict[str, Any]] = {}         # <thing>#<name> -> {set, to?}
         self._names: dict[str, list[str]] | None = None
+        self._by_thing: dict[str, dict[str, dict[str, Any]]] = {}
+        self._by_thing_size = -1
 
     def __bool__(self) -> bool:
         return bool(self.variables or self.interactions or self.signals or self.inputs)
@@ -291,6 +291,21 @@ class Declarations:
         if key.endswith(LOCKED) and key[:-len(LOCKED)] in self.interactions:
             return {"type": "bool", "default": bool(self.interactions[key[:-len(LOCKED)]].get("locked", False))}
         return None
+
+    def interactions_of(self, thing: str) -> dict[str, dict[str, Any]]:
+        """One thing's interactions (by ID): {name: machine}, in the order they were declared."""
+        if self._by_thing_size != len(self.interactions):
+            self._by_thing, self._by_thing_size = {}, len(self.interactions)
+            for key, machine in self.interactions.items():
+                owner, _, name = key.rpartition("#")
+                self._by_thing.setdefault(owner, {})[name] = machine
+        return self._by_thing.get(thing, {})
+
+    def raised(self, thing: str) -> set[str]:
+        """The signals a thing declares or its interactions emit."""
+        return ({state["emit"] for machine in self.interactions_of(thing).values()
+                 for state in machine["states"].values() if state.get("emit")}
+                | {s["name"] for s in self.signals.values() if s["subject"] == thing})
 
     def names(self, thing: str) -> list[str]:
         """The state names of one thing (by ID)."""
@@ -318,16 +333,16 @@ class Declarations:
         thing, sep, name = key.rpartition("#")
         if sep:
             known = self.names(thing)
-            return (f"'{thing}' has no state '{name}'.{refs._near(name, known)} "
-                    + (f"It has: {refs._listed(known)}" if known else "It has none"))
+            return (f"'{thing}' has no state '{name}'.{refs.near(name, known)} "
+                    + (f"It has: {refs.listed(known)}" if known else "It has none"))
         scope, _, rest = key.partition(":")
         package, _, name = rest.partition(".")
         for other in SCOPES:
             if other != scope and name in self.scoped(other, package):
                 return f"'{name}' is {other} state, not {scope} state: write {other}.{name}"
         known = self.scoped(scope, package)
-        return (f"no {scope} state '{name}' is declared in '{package}'.{refs._near(name, known)} "
-                + (f"Declared: {refs._listed(known)}" if known else f"It declares no {scope} state"))
+        return (f"no {scope} state '{name}' is declared in '{package}'.{refs.near(name, known)} "
+                + (f"Declared: {refs.listed(known)}" if known else f"It declares no {scope} state"))
 
     def check_condition(self, tree: Any) -> list[str]:
         """What a resolved condition (``geogen.conditions``) reads that isn't declared."""
@@ -347,8 +362,8 @@ class Declarations:
         entry = table.get(f"{thing}#{name}")
         if entry is None:
             known = [k.rpartition("#")[2] for k in table if k.rpartition("#")[0] == thing]
-            raise StateError(f"'{thing}' has no {kind} '{name}'.{refs._near(name, known)} "
-                             + (f"Its {kind}s: {refs._listed(known)}" if known else f"It declares no {kind}s"))
+            raise StateError(f"'{thing}' has no {kind} '{name}'.{refs.near(name, known)} "
+                             + (f"Its {kind}s: {refs.listed(known)}" if known else f"It declares no {kind}s"))
         return entry
 
     def signal_rules(self) -> list[dict[str, Any]]:
@@ -479,7 +494,7 @@ def train_state(node: SceneNode) -> dict[str, dict[str, Any]]:
         return {}
     names = dict.fromkeys(str(stop["station"]) for stop in train.get("stops", []))
     return {f"at_{name}": {"type": "bool", "default": False, "driven": "train"}
-            for name in names if _NAME.match(name)}
+            for name in names if refs.NAME.match(name)}
 
 
 def collect(root: SceneNode, package: str) -> Declarations:
@@ -495,8 +510,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
     offering: list[tuple[SceneNode, str, dict[str, Any]]] = []
 
     def uid(node: SceneNode) -> str:
-        known = node.meta.get("uid")
-        return known if isinstance(known, str) and known.startswith(package + ":") else refs.node_id(node, package, root)
+        return refs.stable_id(node, package, root)
 
     fields = item_fields(root)                  # what a sink's `received` carries
     for node in root.iter_nodes():
@@ -579,8 +593,8 @@ def collect(root: SceneNode, package: str) -> Declarations:
                 known = out.names(owner)
                 scoped = next((s for s in SCOPES if name in out.scoped(s)), None)
                 raise StateError(
-                    f"{where}: {shown} has no state '{name}'.{refs._near(name, known)} "
-                    + (f"It has: {refs._listed(known)}" if known else "It has none")
+                    f"{where}: {shown} has no state '{name}'.{refs.near(name, known)} "
+                    + (f"It has: {refs.listed(known)}" if known else "It has none")
                     + (f". '{name}' is {scoped} state, which belongs to the scene, not an instance" if scoped else ""))
             if given and not fits(spec, value):
                 raise StateError(f"{where}: '{name}' is {_described(spec)}: can't be {value!r}")
@@ -595,8 +609,8 @@ def collect(root: SceneNode, package: str) -> Declarations:
                     emits = [s.emit for i in found.interactions for s in i.states.values() if s.emit]
                     if signal["emit"] not in emits:
                         raise StateError(f"{where}: no interaction of {shown} emits '{signal['emit']}'."
-                                         f"{refs._near(signal['emit'], emits)} "
-                                         + (f"It emits: {refs._listed(emits)}" if emits else "It emits nothing"))
+                                         f"{refs.near(signal['emit'], emits)} "
+                                         + (f"It emits: {refs.listed(emits)}" if emits else "It emits nothing"))
                     if found is not node or signal["emit"] != name:     # else the interaction raises it already
                         entry["from"] = {"type": "signal", "subject": owner, "name": signal["emit"]}
                 elif "changed" in signal:
@@ -610,7 +624,7 @@ def collect(root: SceneNode, package: str) -> Declarations:
                             and not isinstance(found.meta.get("room"), dict):
                         here = [n.name for n in node.iter_nodes() if n.meta.get("type") == "place"]
                         raise StateError(f"{where}: {shown} is not a place or a room. "
-                                         + (f"Places here: {refs._listed(here)}" if here
+                                         + (f"Places here: {refs.listed(here)}" if here
                                             else "Declare one under places:"))
                     entry["from"] = {"type": kind, "subject": owner}
                 out.signals[f"{thing}#{name}"] = entry
