@@ -1,0 +1,5 @@
+# A handful of seeds from the tin (seed_tin.yaml), used up sowing a flower bed.
+kind: item
+title: Seeds
+tags: [seeds]
+body: seed_packet.yaml

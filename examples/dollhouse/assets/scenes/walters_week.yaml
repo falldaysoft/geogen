@@ -1,0 +1,49 @@
+# Walter's week (geogen.111): number 1 and the family next door, and you, walking in as a neighbour.
+# His seed tin is on the high shelf where he can't get at it. Lift it down, or don't, and use the
+# letterbox to come back a couple of days later: what has happened to him since is up to what
+# you did. Greet him to hear how he is.
+
+name: walters_week
+tags: [level.street]
+
+slots:
+  ground: { position: [-8, -0.07, -4] }
+  road:   { position: [-8, -0.07, -15], facing: east }
+  walk:   { position: [-8, -0.07, -10.5], facing: east }
+  no1:    { position: [-18.0, 0, 0] }
+  no2:    { position: [-5.5, 0, 0] }
+  path1:  { position: [-21.7, -0.07, -6.9] }
+  path2:  { position: [-9.3, -0.07, -6.9] }
+  bench:  { position: [-17.6, -0.02, -5.2], facing: north }
+  bed_w:  { position: [-19.4, -0.02, -7.6], facing: south }
+  bed_e:  { position: [-15.6, -0.02, -7.6], facing: south }
+  shelf:  { position: [-14.6, -0.02, -4.75], facing: north }
+  box:    { position: [-13.0, -0.02, -9.3], facing: north }
+
+spawns:
+  start: { position: [-13.5, 0.05, -10.2], facing: south }
+
+rules:
+  - id: back_in_a_couple_of_days
+    on: { signal: letterbox.left }
+    do: [{ skip: { hours: 24 } }, { skip: { to: "09:00" } }]
+
+place:
+  ground: { asset: ground.yaml, params: { width: 34, depth: 30 }, slot: ground }
+  road:   { asset: road.yaml, params: { length: 34 }, slot: road }
+  walk:   { asset: sidewalk.yaml, params: { length: 34 }, slot: walk }
+  path1:  { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path1 }
+  path2:  { asset: sidewalk.yaml, params: { width: 1.2, length: 5.2 }, slot: path2 }
+
+  bench:        { asset: bench.yaml, slot: bench }
+  flowers_west: { asset: flower_bed.yaml, params: { planted: bare }, slot: bed_w }
+  flowers_east: { asset: flower_bed.yaml, params: { planted: bare }, slot: bed_e }
+  shelf:        { asset: potting_shelf.yaml, slot: shelf }
+  tin:          { asset: seed_tin.yaml, on: shelf.high }
+  letterbox:    { asset: letterbox.yaml, slot: box }
+
+  no1: { asset: bungalow.yaml, furnish: 1, slot: no1 }
+  no2: { asset: family_house.yaml, furnish: 2, slot: no2 }
+
+  walter: { character: people/walter.yaml, household: no1, on: no1.living.floor, at: { u: 0.45, v: 0.2 }, home: { rect: [-22.7, -8.6, -13.3, 4.0] }, owns: [no1/bedroom/bed] }
+  ada:    { character: people/ada.yaml, household: no2, on: no2.bedroom2.floor, at: { u: 0.5, v: 0.2 }, home: { rect: [-10.3, -4.0, -0.7, 4.0] }, owns: [no2/bedroom2/bed] }

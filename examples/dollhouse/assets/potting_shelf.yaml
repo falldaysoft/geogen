@@ -1,0 +1,47 @@
+# A tall garden shelf against the house: a low shelf anyone can use and a high one that takes
+# someone with a good reach. Open front faces +Z.
+
+name: potting_shelf
+tags: [furniture.shelf, garden.shelf]
+origin: bottom_center
+
+params:
+  width:  { default: 1.1 }
+  height: { default: 1.95 }
+  depth:  { default: 0.4 }
+
+size: ["{width}", "{height}", "{depth}"]
+
+parts:
+  post_left:
+    primitive: cube
+    size: ["{0.05 / width}", 1, 1]
+    anchor: bottom_center
+    offset: ["{(0.025 - width / 2) / width}", 0, 0]
+    bevel: 0.005
+    material: wood_dark
+  post_right:
+    primitive: cube
+    size: ["{0.05 / width}", 1, 1]
+    anchor: bottom_center
+    offset: ["{(width / 2 - 0.025) / width}", 0, 0]
+    bevel: 0.005
+    material: wood_dark
+  low:
+    primitive: cube
+    size: ["{(width - 0.1) / width}", "{0.03 / height}", 1]
+    anchor: bottom_center
+    offset: [0, "{0.85 / height}", 0]
+    bevel: 0
+    material: wood
+  high:
+    primitive: cube
+    size: ["{(width - 0.1) / width}", "{0.03 / height}", 1]
+    anchor: bottom_center
+    offset: [0, "{1.8 / height}", 0]
+    bevel: 0
+    material: wood
+
+surfaces:
+  low:  { from: low.top }
+  high: { from: high.top }

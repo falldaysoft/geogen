@@ -16,3 +16,33 @@ needs:
 preferences: { outside: 2.0, garden: 2.0, window: 1.4 }
 routine:
   - { name: night, from: "21:30", to: "05:30", only: [bed], hold: true }
+# His life (geogen.111): the seed tin is on the high shelf, out of his reach. Everything after
+# someone lifts it down follows from what he then does, and what that does to him.
+life:
+  practice:
+    gardening: { from: [sowing], per_use: 0.05 }
+  chapters:
+    - name: keeping_to_himself
+      hopes: get the beds growing again, if he could only reach the seed tin
+      pursues: { sowing: 0.7 }
+      until: { practice: { gardening: 0.14 } }
+    - name: first_shoots
+      story: There are shoots in the beds. He keeps going out to look at them.
+      hopes: see the beds in flower
+      pursues: { sowing: 0.5 }
+      tends: { bloom: shoots }
+      until: { practice: { gardening: 0.58 } }
+    - name: the_garden_again
+      story: The beds are in flower, and he has noticed that he wants someone to show them to.
+      hopes: get to know the girl next door
+      tends: { bloom: blooming }
+      becomes:
+        preferences: { outside: 3.0, garden: 3.0 }
+        needs: { social: { decay: 0.0025, urgent: 0.45 } }
+      until: { knows: { ada: 0.34 } }
+    - name: a_neighbour
+      story: Ada came round again today. He has started keeping the bench free for her.
+      hopes: have someone to tell about his day
+      becomes:
+        needs: { social: { decay: 0.0018, urgent: 0.35 } }
+relations: { grow: 0.08 }

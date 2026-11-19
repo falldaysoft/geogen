@@ -146,6 +146,8 @@ var _option := {}
 var _recent := {}                    # option id -> clock when last finished
 var _retry_at := {}                  # failed option id -> clock when it may be tried again
 var _forced := ""                    # option id the next decision takes (force_option)
+var life := {}                       # how far its life has got (`life:`, npc_life.gd)
+var _life_base := {}                 # the numbers its life started from
 var relations := {}                  # how well it knows the NPCs it has done things with: stable ID -> 0..1 (`relations:`)
 var _partner: GeogenNpc = null       # who it is doing something with (an offer taken up: either side)
 var _answering := ""                 # ...as the one who offers: the action it runs meanwhile on its feet
@@ -265,6 +267,7 @@ static func spawn(world_: WorldLoader, node: Node3D, data: Dictionary) -> Geogen
         var w := xform * Vector3(p[0], 0.0, p[1])
         npc.home.append(Vector2(w.x, w.z))
     npc.home_y = (xform * Vector3(0, float(h.get("y", 0.0)), 0)).y
+    GeogenLife.begin(npc)
     var spots: Dictionary = data.get("visits", {})
     for name in spots:
         var poly := PackedVector2Array()
@@ -451,7 +454,8 @@ func options(restricted := true, chains := false, told := false) -> Array[Dictio
     var lead = _group_lead()
     var lead_at: Vector3 = _heading_for(lead) if lead != null else Vector3.ZERO
     for o in result:
-        var utility := float(o.get("base", 0.0))
+        o["base"] = float(o.get("base", 0.0)) + GeogenLife.worth(self, o)    # what its life is about now
+        var utility := float(o["base"])
         var plain := 0.0
         for need in o["advertises"]:
             if needs.has(need):
@@ -1035,6 +1039,7 @@ func _finish_option(ok: bool, reason := "") -> void:
             _carry_out(_option["affordance"])
         _give(1.0 - _fill)              # what its duration hasn't given already (cut short, it still counts as done)
         stats["used"][id] = int(stats["used"].get(id, 0)) + 1
+        GeogenLife.did(self, _option)
         if _option.has("activity") and _option["activity"].has("cooldown"):
             _retry_at[id] = clock + float(_option["activity"]["cooldown"])
         _trace({"event": "done", "option": id, "needs": _rounded_needs()})
@@ -2062,6 +2067,8 @@ func save_state() -> Dictionary:
         "yaw": snappedf(rad_to_deg(_yaw()), 0.1)}
     if not relations.is_empty():
         out["relations"] = _rounded_relations()
+    if GeogenLife.has(self):
+        out["life"] = GeogenLife.save(self)
     if not _orders.is_empty():
         out["orders"] = _orders.duplicate()
     if not free_will:
@@ -2082,6 +2089,7 @@ func restore_state(data: Dictionary) -> void:
     _drop_everything()
     take_needs(data.get("needs", {}))
     relations = (data.get("relations", {}) as Dictionary).duplicate()
+    GeogenLife.load_save(self, data.get("life", {}))
     _orders = (data.get("orders", []) as Array).duplicate()
     free_will = bool(data.get("free_will", true))
     _recent = {}
@@ -3869,7 +3877,7 @@ func _plan_report() -> Dictionary:
 
 func report() -> Dictionary:
     var p := global_position
-    return {"npc": String(name), "uid": WorldLoader.npc_uid(self), "actor": WorldLoader.actor_id(self), "name": person_name(),
+    return {"life": GeogenLife.report(self) if GeogenLife.has(self) else {}, "npc": String(name), "uid": WorldLoader.npc_uid(self), "actor": WorldLoader.actor_id(self), "name": person_name(),
         "character": str(definition.get("character", "")), "used": stats["used"], "distinct": stats["used"].size(),
         "decisions": stats["decisions"], "failures": stats["failures"], "max_stall": snappedf(stats["max_stall"], 0.01),
         "unstuck": int(stats.get("unstuck", 0)), "throttled": int(stats.get("throttled", 0)), "slept": int(stats.get("slept", 0)),

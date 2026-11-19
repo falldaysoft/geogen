@@ -466,9 +466,13 @@ func _on_clock(moved: Dictionary) -> void:
     var clock: GeogenClock = world.clock
     if clock == null:
         return
+    var from_day := clock.day
     clock.day = int(moved.get("day", clock.day))
     clock.hours = fposmod(float(moved.get("hour", clock.hours)), 24.0)
     clock.apply()
+    for npc in world.npcs:
+        if is_instance_valid(npc):
+            GeogenLife.days_passed(npc, from_day, clock.day)
     _minute = clock.day * 1440 + int(clock.hours * 60.0)
     print("clock: ", JSON.stringify({"time": clock.label(), "day": clock.day, "skipped": true}))
 

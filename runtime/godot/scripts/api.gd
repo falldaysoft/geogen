@@ -858,9 +858,13 @@ func _run(entry: Dictionary, cmd: String, args: Dictionary):
                     target += 1440.0
             if target <= start:
                 return _err("time.skip needs until, minutes, hours or days ahead")
+            var from_day := clock.day
             clock.day = int(target / 1440.0)
             clock.hours = fmod(target, 1440.0) / 60.0
             clock.apply()
+            for npc in main.world.npcs:
+                if is_instance_valid(npc):
+                    GeogenLife.days_passed(npc, from_day, clock.day)
             main.world.rules._sync_clock()
             return _time()
         "capture.screenshot":

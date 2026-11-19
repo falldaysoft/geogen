@@ -138,13 +138,18 @@ func restore_npc(npc: GeogenNpc) -> void:
     var person: Dictionary = characters.get(WorldLoader.actor_id(npc), {})
     if not person.is_empty():
         npc.take_needs(person.get("needs", {}))     # newer than a scene's: last seen elsewhere
+        if person.has("life"):
+            GeogenLife.load_save(npc, person["life"])   # who they have become goes with them
 
 
 ## Note the named people here as they are now (on saving, and on leaving the scene).
 func note_characters() -> void:
     for npc in world.npcs:
         if is_instance_valid(npc) and npc.definition.get("character", "") != "":
-            characters[WorldLoader.actor_id(npc)] = {"needs": npc.save_state()["needs"]}
+            var saved := npc.save_state()
+            characters[WorldLoader.actor_id(npc)] = {"needs": saved["needs"]}
+            if saved.has("life"):
+                characters[WorldLoader.actor_id(npc)]["life"] = saved["life"]
 
 
 ## Restore a save: whatever it doesn't mention goes back to how it started. Entries for

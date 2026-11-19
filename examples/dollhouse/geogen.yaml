@@ -6,6 +6,8 @@
 # thing lists what they can do with it, and left alone everyone sees to themselves (F5 names;
 # --walk-through to walk about as a player instead):
 #   godot --path runtime/godot -- --generated=$PWD/examples/dollhouse/generated
+# Walter's week (-- --scene walters_week) is played on foot, as a neighbour: help him once, leave by the
+# letterbox, and come back to see what has become of him.
 kind: project
 name: dollhouse
 description: A street of four houses whose people cook, eat, wash and sleep by plans nobody wrote

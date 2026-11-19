@@ -374,6 +374,7 @@ func _ready() -> void:
     hud.input_blocked = func(): return _menu.visible
     hud.add_panel(GeogenHudStats.new(), "top_left")
     hud.add_panel(GeogenHudQuestTracker.new(), "top_right")
+    hud.add_panel(GeogenHudLife.new(), "top_left")
     direct = GeogenHudDirect.new()                  # (before the inventory: while directing, the digits are its menu's)
     direct.mode_changed.connect(_direct_mode)
     direct.selected_changed.connect(_direct_look_at)

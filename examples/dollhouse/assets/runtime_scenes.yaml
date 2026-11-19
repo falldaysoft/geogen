@@ -5,6 +5,9 @@ scenes:
   lark_lane:
     group: showcase
     description: Four houses and the nine people who live in them, by needs and plans nobody wrote
+  walters_week:
+    group: showcase
+    description: Help one old man next door, come back a few days later, and see what became of him
   one_house:
     group: test
     description: One furnished bungalow and the person who lives in it

@@ -1,0 +1,44 @@
+# The letterbox at the end of the path. Leaving by it is how a visit ends: the scene's rule moves
+# the clock on, and whoever lives here has carried on without you.
+
+name: letterbox
+tags: [garden.letterbox]
+origin: bottom_center
+size: [0.3, 1.2, 0.26]
+
+parts:
+  post:
+    primitive: cube
+    size: [0.28, 0.82, 0.3]
+    anchor: bottom_center
+    bevel: 0.005
+    material: wood_dark
+  box:
+    primitive: cube
+    size: [1, 0.3, 1]
+    anchor: bottom_center
+    offset: [0, 0.8, 0]
+    bevel: 0.01
+    material: red_metal
+  flag:
+    primitive: cube
+    size: [0.08, 0.14, 0.5]
+    anchor: bottom_center
+    offset: [0.52, 0.9, 0]
+    bevel: 0
+    material: paint_white
+    collider: none
+
+interactions:
+  visit:
+    targets: [box, flag]
+    initial: here
+    duration: 0.2
+    states:
+      here:    { prompt: "Come back in a couple of days", next: leaving }
+      leaving: { then: here, after: 0.4, emit: left }
+    motions:
+      - { parts: [flag], rotate: x, pivot: [0, 0.95, 0], values: { here: 0, leaving: -60 } }
+
+signals:
+  left: { emit: left }

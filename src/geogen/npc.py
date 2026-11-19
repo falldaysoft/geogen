@@ -98,7 +98,7 @@ POSE_AT = {"anchor", "approach"}
 
 NPC_KEYS = {"kind", "version", "body", "speed", "turn_speed", "radius", "needs", "preferences",
             "activities", "scoring", "home_margin", "flags", "seed", "affordance_tags", "wander", "routine", "attention",
-            "reach", "carry", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips"}
+            "reach", "carry", "wants", "senses", "reacts", "memory", "planner", "offers", "relations", "skips", "life"}
 # A need (geogen.101.2): 0 (desperate) .. 1 (satisfied).
 NEED_KEYS = {
     "initial": "where it starts, 0..1 (default 0.5)",
@@ -109,6 +109,26 @@ NEED_KEYS = {
     "at_zero": "{action, recover}: what happens when it runs out: the action is run where the NPC stands "
                "(collapse: it sleeps on the floor) and then gives `recover` (default 0.3) of the need back",
 }
+# `life:` (geogen.111): what stays changed about a person. `practice` grows by what they finish doing;
+# `chapters` are the stretches of their life, in order, each left when its `until` holds.
+LIFE_KEYS = {"practice", "chapters"}
+PRACTICE_KEYS = {
+    "from": "the tags of the things that count as doing this",
+    "per_use": "how much each one finished adds, of 1 (default 0.05)",
+}
+CHAPTER_KEYS = {
+    "name": "what this stretch of their life is called",
+    "story": "the line written in their story on entering this chapter",
+    "hopes": "what they are hoping for during it, in words",
+    "pursues": "{tag: worth}: things with the tag are worth this much to them whatever their needs",
+    "until": "{practice: {name: level}, knows: {person: level}, world: {interaction: state}}: all of these hold, "
+             "and the next chapter starts",
+    "becomes": "{preferences, needs: {need: {keys}}, home: {rects: [[x0, z0, x1, z1], ...]}}: how they change on "
+               "entering, for good (each rect, in world metres, joins their home and must touch it)",
+    "tends": "{interaction: state}: every interaction of that name goes to that state on entering",
+}
+LIFE_UNTIL = {"practice", "knows", "world"}
+LIFE_BECOMES = {"preferences", "needs", "home"}
 # `planner:` (geogen.101.4; true for these): the NPC decides by plans, chains of affordances found
 # through what they require, take and give (geogen/planner.py), instead of one affordance at a time.
 PLANNER_DEFAULTS = {"depth": 5.0, "patience": 60.0, "nodes": 2000.0}
@@ -625,6 +645,7 @@ def _definition(data: dict[str, Any], path: str | Path) -> dict[str, Any]:
         **parse_memory(data.get("memory"), data.get("senses"), actions, str(path)),
         **_planner(data.get("planner"), f"{path}: planner"),
         **_social(data.get("offers"), data.get("relations"), actions, needs, str(path)),
+        **_life(data.get("life"), needs, f"{path}: life"),
     }
 
 
@@ -652,6 +673,64 @@ def _need(spec: dict[str, Any], actions: dict, where: str) -> dict[str, Any]:
         if not 0.0 < need["at_zero"]["recover"] <= 1.0:
             raise ValueError(f"{where}: at_zero.recover is in 0..1 (and more than 0, or it never ends)")
     return need
+
+
+def _life(spec: Any, needs: dict, where: str) -> dict[str, Any]:
+    """``life:`` (geogen.111), checked and with its numbers as floats; {} without one."""
+    if spec is None:
+        return {}
+    if not isinstance(spec, dict) or set(spec) - LIFE_KEYS or not spec.get("chapters"):
+        raise ValueError(f"{where}: life is {{practice, chapters}} with at least one chapter, got {spec!r}")
+    practice = {}
+    for name, entry in (spec.get("practice") or {}).items():
+        if not isinstance(entry, dict) or set(entry) - set(PRACTICE_KEYS) or not entry.get("from"):
+            raise ValueError(f"{where}: practice {name}: keys are {sorted(PRACTICE_KEYS)}, with `from`, got {entry!r}")
+        practice[str(name)] = {"from": [str(t) for t in entry["from"]], "per_use": float(entry.get("per_use", 0.05))}
+    chapters = []
+    for i, chapter in enumerate(spec["chapters"]):
+        at = f"{where}: chapter {i}"
+        if not isinstance(chapter, dict) or set(chapter) - set(CHAPTER_KEYS) or "name" not in chapter:
+            raise ValueError(f"{at}: keys are {sorted(CHAPTER_KEYS)}, with `name`, got {chapter!r}")
+        out: dict[str, Any] = {"name": str(chapter["name"])}
+        for key in ("story", "hopes"):
+            if key in chapter:
+                out[key] = str(chapter[key])
+        if chapter.get("pursues"):
+            out["pursues"] = {str(k): float(v) for k, v in chapter["pursues"].items()}
+        until = chapter.get("until") or {}
+        if set(until) - LIFE_UNTIL:
+            raise ValueError(f"{at}: until keys are {sorted(LIFE_UNTIL)}, got {sorted(until)}")
+        for name in until.get("practice") or {}:
+            if name not in practice:
+                raise ValueError(f"{at}: until practice {name!r} isn't one of {sorted(practice)}")
+        if until:
+            out["until"] = {
+                **{k: {str(n): float(v) for n, v in until[k].items()} for k in ("practice", "knows") if k in until},
+                **({"world": {str(n): str(v) for n, v in until["world"].items()}} if "world" in until else {}),
+            }
+        becomes = chapter.get("becomes") or {}
+        if set(becomes) - LIFE_BECOMES:
+            raise ValueError(f"{at}: becomes keys are {sorted(LIFE_BECOMES)}, got {sorted(becomes)}")
+        changed: dict[str, Any] = {}
+        if "preferences" in becomes:
+            changed["preferences"] = {str(k): float(v) for k, v in becomes["preferences"].items()}
+        if "needs" in becomes:
+            changed["needs"] = {}
+            for need, keys in becomes["needs"].items():
+                if need not in needs:
+                    raise ValueError(f"{at}: becomes needs {need!r}: they have no such need")
+                changed["needs"][str(need)] = {k: v for k, v in _need(keys, {}, f"{at}: {need}").items() if k in keys}
+        if "home" in becomes:
+            rects = becomes["home"].get("rects") if isinstance(becomes["home"], dict) else None
+            if not isinstance(rects, list) or not rects or any(not isinstance(r, list) or len(r) != 4 for r in rects):
+                raise ValueError(f"{at}: becomes home is {{rects: [[x0, z0, x1, z1], ...]}}, got {becomes['home']!r}")
+            changed["home"] = {"rects": [[float(v) for v in r] for r in rects]}
+        if changed:
+            out["becomes"] = changed
+        if chapter.get("tends"):
+            out["tends"] = {str(k): str(v) for k, v in chapter["tends"].items()}
+        chapters.append(out)
+    return {"life": {"practice": practice, "chapters": chapters}}
 
 
 def _planner(spec: Any, where: str) -> dict[str, Any]:

@@ -1,0 +1,40 @@
+# An old seed tin. Wherever it lies, someone who can reach it can take a handful of seeds from
+# it (the affordance goes with the prop), so where it has been left decides who can garden.
+
+name: seed_tin
+tags: [prop.seeds, garden.tin]
+origin: bottom_center
+size: [0.2, 0.13, 0.14]
+bounds: geometry
+
+physics: { mass: 0.5, friction: 0.8, bounce: 0.05, carry: true }
+
+parts:
+  body:
+    primitive: cube
+    size: [1, 0.82, 1]
+    anchor: bottom_center
+    bevel: 0.006
+    bevel_segments: 1
+    material: paint_navy
+  lid:
+    primitive: cube
+    size: [1.05, 0.2, 1.05]
+    anchor: bottom_center
+    offset: [0, 0.8, 0]
+    bevel: 0.005
+    bevel_segments: 1
+    material: metal
+    collider: none
+  label:
+    primitive: cube
+    size: [0.6, 0.4, 0.02]
+    anchor: bottom_center
+    offset: [0, 0.2, 0.5]
+    bevel: 0
+    material: paint_white
+    collider: none
+
+affordances:
+  - { type: use, action: attend, at: [0, 0.07, 0], facing: 180, approach: 0.5, duration: [3, 5],
+      gives: garden_seeds, tags: [garden] }

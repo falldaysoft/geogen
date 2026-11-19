@@ -725,6 +725,25 @@
             "relations": { "description": "How well it knows the others, 0..1 each: it starts at 'household' for NPCs with its 'household' and 'stranger' for the rest, and doing an offer together adds 'grow'. An offer's score is multiplied by 0.5 + how well it knows the one offering; a seat beside one it knows 'friend' or better is liked as one beside a groupmate.",
               "type": "object", "required": ["household", "stranger", "grow", "friend"], "additionalProperties": false,
               "properties": { "household": { "type": "number" }, "stranger": { "type": "number" }, "grow": { "type": "number" }, "friend": { "type": "number" } } },
+            "life": { "description": "What stays changed about a person (geogen.111). 'practice' grows by what they finish doing (the tags in 'from', 'per_use' each); 'chapters' are the stretches of their life in order: entering one applies its 'becomes' for good (preferences, need keys, 'home' rects in world metres joined to their home), moves every interaction named in 'tends' to that state and writes 'story' in their story; 'pursues' makes things with a tag worth that much to them; when everything in 'until' holds (practice levels, how well they know someone, an interaction's state) the next chapter starts.",
+              "type": "object", "required": ["practice", "chapters"], "additionalProperties": false,
+              "x-godot": {"by": "`scripts/npc_life.gd`", "for": "`GeogenLife`"},
+              "properties": {
+                "practice": { "type": "object", "additionalProperties": { "type": "object", "required": ["from", "per_use"], "additionalProperties": false,
+                  "properties": { "from": { "type": "array", "items": { "type": "string" } }, "per_use": { "type": "number" } } } },
+                "chapters": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["name"], "additionalProperties": false,
+                  "properties": {
+                    "name": { "type": "string" }, "story": { "type": "string" }, "hopes": { "type": "string" },
+                    "pursues": { "type": "object", "additionalProperties": { "type": "number" } },
+                    "until": { "type": "object", "additionalProperties": false, "properties": {
+                      "practice": { "type": "object", "additionalProperties": { "type": "number" } },
+                      "knows": { "type": "object", "additionalProperties": { "type": "number" } },
+                      "world": { "type": "object", "additionalProperties": { "type": "string" } } } },
+                    "becomes": { "type": "object", "additionalProperties": false, "properties": {
+                      "preferences": { "type": "object", "additionalProperties": { "type": "number" } },
+                      "needs": { "type": "object", "additionalProperties": { "type": "object" } },
+                      "home": { "type": "object", "required": ["rects"], "additionalProperties": false, "properties": { "rects": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 } } } } } },
+                    "tends": { "type": "object", "additionalProperties": { "type": "string" } } } } } } },
             "household": { "description": "The people it lives with: NPCs with the same name know each other from the start ('relations').", "type": "string" },
             "preferences": { "type": "object", "additionalProperties": { "type": "number" } },
             "activities": { "type": "object", "additionalProperties": {

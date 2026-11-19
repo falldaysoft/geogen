@@ -12,3 +12,16 @@ needs:
   curiosity: { initial: 0.4, decay: 0.006 }
 routine:
   - { name: night, from: "23:30", to: "08:00", only: [bed], hold: true }
+skips: [sowing]                # the seeds are Walter's
+relations: { grow: 0.08 }
+# Her life (geogen.111): flowers next door are what bring her out of the house.
+life:
+  chapters:
+    - name: next_door
+      until: { world: { bloom: blooming } }
+    - name: over_the_fence
+      story: She keeps stopping at the old man's flower beds on her way out.
+      hopes: learn the names of Mr Finch's flowers
+      becomes:
+        preferences: { flowers: 2.5 }
+        home: { rects: [[-10.3, -9.0, -0.7, -3.9], [-17.5, -9.0, -10.3, -6.2]] }   # her front garden, and along to his beds

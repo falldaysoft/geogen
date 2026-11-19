@@ -1,5 +1,7 @@
 # A raised flower bed: a timber frame of soil with a row of small shrubs. Somewhere to
 # potter: tending it settles the wish for things to be in order and is a little interesting.
+# Sown with seeds (items/garden_seeds.yaml) it can come up (`bloom`: bare, shoots, blooming), and
+# in bloom it is worth a neighbour's while to come and look.
 
 name: flower_bed
 tags: [garden.bed, decor.planter]
@@ -7,6 +9,7 @@ origin: bottom_center
 
 params:
   width: { default: 1.8 }
+  planted: { default: blooming, type: text }   # how it starts: bare | shoots | blooming
 
 size: ["{width}", 0.62, 0.6]
 
@@ -39,7 +42,48 @@ parts:
   shrub_c:
     <<: *shrub
     offset: [0.3, "{0.26 / 0.62}", -0.02]
+  shoot_a: &shoot
+    primitive: ellipsoid
+    size: ["{0.07 / width}", "{0.12 / 0.62}", "{0.07 / 0.6}"]
+    anchor: bottom_center
+    offset: [-0.42, "{0.27 / 0.62}", 0.3]
+    material: foliage_green
+    collider: none
+  shoot_b: { <<: *shoot, offset: [-0.14, "{0.27 / 0.62}", -0.32] }
+  shoot_c: { <<: *shoot, offset: [0.14, "{0.27 / 0.62}", 0.33] }
+  shoot_d: { <<: *shoot, offset: [0.42, "{0.27 / 0.62}", -0.3] }
+  bloom_a: &bloom
+    primitive: sphere
+    size: ["{0.13 / width}", "{0.13 / 0.62}", "{0.13 / 0.6}"]
+    anchor: bottom_center
+    offset: [-0.3, "{0.555 / 0.62}", 0.0]
+    material: paint_terracotta
+    collider: none
+  bloom_b: { <<: *bloom, offset: [-0.389, "{0.480 / 0.62}", 0.217], material: paint_white, tint: [0.95, 0.75, 0.2] }
+  bloom_c: { <<: *bloom, offset: [-0.211, "{0.480 / 0.62}", 0.217], material: paint_white }
+  bloom_d: { <<: *bloom, offset: [0.0, "{0.495 / 0.62}", 0.02], material: paint_terracotta }
+  bloom_e: { <<: *bloom, offset: [-0.089, "{0.450 / 0.62}", 0.237], material: paint_white, tint: [0.95, 0.75, 0.2] }
+  bloom_f: { <<: *bloom, offset: [0.089, "{0.450 / 0.62}", 0.237], material: paint_white }
+  bloom_g: { <<: *bloom, offset: [0.3, "{0.555 / 0.62}", -0.02], material: paint_terracotta }
+  bloom_h: { <<: *bloom, offset: [0.211, "{0.480 / 0.62}", 0.197], material: paint_white, tint: [0.95, 0.75, 0.2] }
+  bloom_i: { <<: *bloom, offset: [0.389, "{0.480 / 0.62}", 0.197], material: paint_white }
+
+interactions:
+  bloom:
+    initial: "{planted}"
+    states:
+      bare: {}
+      shoots: {}
+      blooming: {}
+    motions:
+      - { parts: [shoot_a, shoot_b, shoot_c, shoot_d], show: [shoots] }
+      - { parts: [shrub_a, shrub_b, shrub_c, bloom_a, bloom_b, bloom_c, bloom_d, bloom_e, bloom_f, bloom_g, bloom_h, bloom_i], show: [blooming] }
 
 affordances:
   - { type: stand, action: attend, at: [0, 0, 0.75], approach: [0, 0, 0], facing: 180, duration: [10, 18],
-      advertises: { order: 0.3, curiosity: 0.3 }, tags: [garden, outside] }
+      advertises: { order: 0.3, curiosity: 0.3 }, tags: [garden, outside],
+      uses: {
+        sow: { takes: garden_seeds, requires: { holding: garden_seeds }, duration: [14, 22],
+               advertises: { order: 0.1 }, tags: [sowing, garden, outside] },
+        admire: { requires: { state: { bloom: blooming } }, duration: [14, 24],
+                  advertises: { curiosity: 0.55 }, tags: [garden, outside, flowers] } } }
