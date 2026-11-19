@@ -602,6 +602,31 @@ def network(root: SceneNode) -> dict[str, Any]:
     return {"tracks": tracks, "sources": sources, "effectors": effectors}
 
 
+JOINED_META = "flows_joined"
+
+
+def stamp_network(root: SceneNode) -> None:
+    """Write the whole scene's network on its nodes (``meta.flows_joined``) for the export, so a runtime
+    doesn't join tracks by geometry itself: each track, source and effector gets its ``order``, a track
+    the ``next`` track's order, a source the order of the ``track`` it feeds. Before a streamed export
+    splits the tree, so chunks agree."""
+    for node in root.iter_nodes():
+        node.meta.pop(JOINED_META, None)
+    net = network(root)
+    joined: dict[int, dict[str, dict[str, int]]] = {}
+    for order, track in enumerate(net["tracks"]):
+        joined.setdefault(id(track["node"]), {})["track"] = {
+            "order": order, **({"next": track["next"]} if track["next"] is not None else {})}
+    for order, source in enumerate(net["sources"]):
+        joined.setdefault(id(source["node"]), {})["source"] = {
+            "order": order, **({"track": source["track"]} if source["track"] is not None else {})}
+    for order, effector in enumerate(net["effectors"]):
+        joined.setdefault(id(effector["node"]), {})["effector"] = {"order": order}
+    for node in root.iter_nodes():
+        if id(node) in joined:
+            node.meta[JOINED_META] = joined[id(node)]
+
+
 def check_network(root: SceneNode) -> list[str]:
     """What is wrong with the scene's items, sources and tracks (an ``--inspect`` check)."""
     net = network(root)
