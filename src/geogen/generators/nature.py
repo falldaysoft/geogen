@@ -27,6 +27,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ..core import meshops
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from .base import MeshGenerator, box_attachment_points
@@ -267,18 +268,17 @@ class TreeGenerator(MeshGenerator):
         trunk, branches, nodes, parents, radii = self._bark()
         # Centre on the trunk base (the skeleton grows from the origin): the part frame
         # puts the bounding box's centre at the origin, so shift down by half the height.
-        shift = np.eye(4)
-        shift[1, 3] = -self.height / 2 - 0.02    # trunk base 2 cm into the ground (no coplanar base cap)
-        node = SceneNode(name=name or "tree", mesh=trunk.transform(shift), tags=["vegetation.trunk"])
+        shift = (0.0, -self.height / 2 - 0.02, 0.0)  # trunk base 2 cm into the ground (no coplanar base cap)
+        node = SceneNode(name=name or "tree", mesh=trunk.translated(shift), tags=["vegetation.trunk"])
         node.meta["tree"] = {"style": self.style, "seed": self.seed, "branches": int(len(nodes))}
         node.meta["collider"] = "hull"        # the trunk; branches and leaves don't block
         if branches is not None:
-            limbs = SceneNode(name="branches", mesh=branches.transform(shift), tags=["vegetation.branches"])
+            limbs = SceneNode(name="branches", mesh=branches.translated(shift), tags=["vegetation.branches"])
             limbs.meta["collider"] = "none"
             node.add_child(limbs)
         foliage = self._foliage(nodes, parents, radii)
         if foliage is not None:
-            foliage = foliage.transform(shift)
+            foliage = foliage.translated(shift)
             name_ = self.foliage_material or ("foliage_pine" if self.style == "conifer" else "foliage_green")
             foliage.material = MaterialLoader().load(name_)
             leaves = SceneNode(name="foliage", mesh=foliage, tags=["vegetation.foliage"])
@@ -320,22 +320,19 @@ class TreeGenerator(MeshGenerator):
         nuts = []
         for k in range(3):
             a = lean_dir + 2 * np.pi * k / 3 + rng.uniform(-0.3, 0.3)
-            m = np.eye(4)
-            m[:3, 3] = top + np.array([np.sin(a), 0.0, np.cos(a)]) * self.trunk_radius * 0.9 \
-                - np.array([0.0, self.trunk_radius * 0.9, 0.0])
-            nuts.append(nut.transform(m))
+            nuts.append(nut.translated(top + np.array([np.sin(a), 0.0, np.cos(a)]) * self.trunk_radius * 0.9
+                                       - np.array([0.0, self.trunk_radius * 0.9, 0.0])))
 
-        shift = np.eye(4)
-        shift[1, 3] = -self.height / 2 - 0.02
+        shift = (0.0, -self.height / 2 - 0.02, 0.0)
         loader = MaterialLoader()
-        node = SceneNode(name=name or "tree", mesh=trunk.transform(shift), tags=["vegetation.trunk"])
+        node = SceneNode(name=name or "tree", mesh=trunk.translated(shift), tags=["vegetation.trunk"])
         node.meta["tree"] = {"style": "palm", "seed": self.seed, "fronds": self.fronds}
         node.meta["collider"] = "hull"
         crown = Mesh.merge([leaves, meshops.compute_normals(uvmap.box_project(Mesh.merge(nuts)), 60.0)])
         crown.materials = [loader.load(self.foliage_material or "foliage_palm"), loader.load("bark")]
         crown.face_materials = np.r_[np.zeros(len(leaves.faces), dtype=np.int64),
                                      np.ones(len(crown.faces) - len(leaves.faces), dtype=np.int64)]
-        foliage = SceneNode(name="foliage", mesh=crown.transform(shift), tags=["vegetation.foliage"])
+        foliage = SceneNode(name="foliage", mesh=crown.translated(shift), tags=["vegetation.foliage"])
         foliage.meta["collider"] = "none"
         node.add_child(foliage)
         return node
@@ -374,15 +371,12 @@ class TreeGenerator(MeshGenerator):
         last = (n - 1) * 4
         faces += [[last, last + 2, last + 1], [last, last + 3, last + 2]]
         mesh = Mesh(verts, np.array(faces, dtype=np.int64))
-        if mesh.to_trimesh().volume < 0:          # wound inside out: flip every face
+        if meshops.signed_volume(mesh) < 0:          # wound inside out: flip every face
             mesh = Mesh(verts, mesh.faces[:, [0, 2, 1]])
         return mesh
 
     def get_attachment_points(self, size: np.ndarray):
         return box_attachment_points(size)
-
-    def get_surfaces(self, size: np.ndarray):
-        return {}
 
 
 @dataclass
@@ -439,6 +433,3 @@ class RockGenerator(MeshGenerator):
 
     def get_attachment_points(self, size: np.ndarray):
         return box_attachment_points(size)
-
-    def get_surfaces(self, size: np.ndarray):
-        return {}

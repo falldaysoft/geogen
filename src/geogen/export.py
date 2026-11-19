@@ -489,8 +489,7 @@ def interaction_animations(root: SceneNode, names: dict[int, str]) -> list[dict]
                             poses.append((tr.translation, _quat(tr.to_matrix()[:3, :3] / tr.scale[None, :])))
                         channels[id(part)] = {"node": names[id(part)], "times": times,
                                               "translation": np.array([p[0] for p in poses]),
-                                              "rotation": np.array([p[1] for p in poses]),
-                                              "scale": part.transform.scale}
+                                              "rotation": np.array([p[1] for p in poses])}
                 if channels:
                     animations.append({"name": f"{names[id(owner)]}/{it.name}/{a}->{b}",
                                        "channels": list(channels.values())})
@@ -612,7 +611,7 @@ def add_animations(glb: Glb, animations: list[dict]) -> None:
                 samplers.append({"input": time, "output": accessor(flat, "SCALAR"), "interpolation": "LINEAR"})
                 channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": "weights"}})
                 continue
-            _to_trs(glb.nodes[node], ch["scale"])
+            _to_trs(glb.nodes[node])
             time = accessor(ch["times"], "SCALAR", with_bounds=True)
             for path, values, kind in (("translation", ch["translation"], "VEC3"),
                                        ("rotation", ch["rotation"], "VEC4")):
@@ -623,7 +622,7 @@ def add_animations(glb: Glb, animations: list[dict]) -> None:
     glb.bin_changed = True      # (the buffer is rewritten even when nothing was added, as before)
 
 
-def _to_trs(node: dict, scale: np.ndarray) -> None:
+def _to_trs(node: dict) -> None:
     """Replace a glTF node's ``matrix`` with translation/rotation/scale."""
     if "matrix" not in node:
         return
@@ -733,7 +732,7 @@ def clip_animations(root: SceneNode, names: dict[int, str]) -> list[dict]:
                 translation = track.translations if track.translations is not None else np.tile(
                     joint.transform.translation, (count, 1))
                 channels.append({"node": names[id(joint)], "times": track.times, "rotation": rotation,
-                                 "translation": translation, "scale": joint.transform.scale})
+                                 "translation": translation})
             for node_name, morph in clip.morphs.items():
                 node = by_name.get(node_name)
                 if node is None or id(node) not in names or node.mesh is None or not node.mesh.morphs:

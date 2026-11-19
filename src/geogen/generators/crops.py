@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ..core import meshops
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from .base import MeshGenerator, box_attachment_points
@@ -155,9 +156,7 @@ class CropGenerator(MeshGenerator):
             radius = 0.04 + 0.12 * (self.growth - 0.45) / 0.55
             fruit = _pumpkin_fruit(radius, rng.integers(8, 11))
             spot = vine[-1]                              # at the vine's end, clear of the leaves
-            m = np.eye(4)
-            m[:3, 3] = [spot[0], 0.0, spot[2]]
-            out["pumpkin" if self.growth >= RIPE else "leaf"].append(fruit.transform(m))
+            out["pumpkin" if self.growth >= RIPE else "leaf"].append(fruit.translated([spot[0], 0.0, spot[2]]))
 
     # --- the node -----------------------------------------------------------------------------
 
@@ -165,32 +164,26 @@ class CropGenerator(MeshGenerator):
         from ..core import meshops, uvmap
 
         meshes = [m for role in self.pieces().values() for m in role]
-        shift = np.eye(4)
-        shift[1, 3] = -self.height / 2
-        return meshops.compute_normals(uvmap.box_project(Mesh.merge(meshes)), 50.0).transform(shift)
+        return meshops.compute_normals(uvmap.box_project(Mesh.merge(meshes)), 50.0).translated((0.0, -self.height / 2, 0.0))
 
     def to_node(self, name: str | None = None) -> SceneNode:
         from ..core import meshops, uvmap
         from ..materials.loader import MaterialLoader
 
         loader = MaterialLoader()
-        shift = np.eye(4)
-        shift[1, 3] = -self.height / 2          # the plants stand on the box's bottom
+        shift = (0.0, -self.height / 2, 0.0)      # the plants stand on the box's bottom
         groups = []
         for role, meshes in self.pieces().items():
             if meshes:
                 mesh = meshops.compute_normals(uvmap.box_project(Mesh.merge(meshes)), 50.0)
                 mesh.material = loader.load(MATERIALS[role])
                 groups.append(mesh)
-        node = SceneNode(name=name or "crop", mesh=Mesh.merge(groups).transform(shift), tags=["vegetation.crop"])
+        node = SceneNode(name=name or "crop", mesh=Mesh.merge(groups).translated(shift), tags=["vegetation.crop"])
         node.meta["collider"] = "none"           # walk through it, aim past it
         return node
 
     def get_attachment_points(self, size: np.ndarray):
         return box_attachment_points(size)
-
-    def get_surfaces(self, size: np.ndarray):
-        return {}
 
 
 def _near(base: np.ndarray, azimuth: float) -> np.ndarray:
@@ -230,7 +223,7 @@ def _pumpkin_fruit(radius: float, ribs: int, rings: int = 7) -> Mesh:
         j2 = (j + 1) % sides
         faces += [[lo, j2, j], [hi, last + j, last + j2]]
     mesh = Mesh(np.array(verts), np.array(faces, dtype=np.int64))
-    if mesh.to_trimesh().volume < 0:
+    if meshops.signed_volume(mesh) < 0:
         mesh = Mesh(mesh.vertices, mesh.faces[:, [0, 2, 1]])
     stalk = _TUBES._tube(np.array([[0.0, top[1], 0.0], [0.0, top[1] + radius * 0.25, 0.0],
                                    [radius * 0.08, top[1] + radius * 0.35, 0.0]]),

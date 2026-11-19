@@ -45,7 +45,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..core.geometry import smoothstep
+from ..core.transform import smoothstep
 from ..core import meshops, uvmap
 from ..core.mesh import Mesh
 from ..core.subdiv import fractal_noise3
@@ -200,7 +200,7 @@ class TerrainGenerator(MeshGenerator):
             q = np.vstack(quads)
             faces = np.vstack([q[:, [0, 1, 2]], q[:, [0, 2, 3]]]).astype(np.int64)
             slab = Mesh(verts, faces)
-            if slab.to_trimesh().volume < 0:
+            if meshops.signed_volume(slab) < 0:
                 slab = Mesh(verts, faces[:, [0, 2, 1]])
             slabs.append(slab)
         if not slabs:

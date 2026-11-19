@@ -126,29 +126,6 @@ def describe_node(node: SceneNode) -> str:
     return "\n".join(lines)
 
 
-def _copy_with_interactions(root: SceneNode) -> SceneNode:
-    """Deep copy whose interactions move the copied parts (not the originals)."""
-    import copy as _copy
-
-    shown = root.copy(deep=True)
-    mapping = {id(a): b for a, b in zip(root.iter_nodes(), shown.iter_nodes())}
-    for node in shown.iter_nodes():
-        if not node.interactions:
-            continue
-        remapped = []
-        for interaction in node.interactions:
-            clone = _copy.copy(interaction)
-            clone.targets = [mapping.get(id(t), t) for t in interaction.targets]
-            clone.motions = []
-            for motion in interaction.motions:
-                m = _copy.copy(motion)
-                m.parts = [mapping.get(id(p), p) for p in motion.parts]
-                clone.motions.append(m)
-            remapped.append(clone)
-        node.interactions = remapped
-    return shown
-
-
 class ViewerWindow(QMainWindow):
     """Main viewer window."""
 
@@ -302,7 +279,7 @@ class ViewerWindow(QMainWindow):
         state = self._state_combo.currentData() if self._state_combo.count() else None
         if not self._cutaway_act.isChecked() and storey is None and state is None:
             return root
-        shown = _copy_with_interactions(root)
+        shown = root.instance()      # its interactions move the copied parts; meshes are shared, never edited
         if storey is not None:
             for node in list(shown.iter_nodes()):
                 info = node.meta.get("storey")

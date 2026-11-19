@@ -131,9 +131,7 @@ def _ring(lo, hi, width: float, radius: float, height: float) -> Mesh:
     outer = rect(size[0], size[1], radius, segments=6)
     inner = rect(size[0] - 2 * width, size[1] - 2 * width)
     mesh = ExtrudeGenerator(shape=Shape(outer, [inner]), depth=height, axis="y", crease_angle=30.0).generate()
-    m = np.eye(4)
-    m[:3, 3] = [centre[0], height / 2, centre[1]]
-    return mesh.transform(m)
+    return mesh.translated([centre[0], height / 2, centre[1]])
 
 
 class CityBuilder:

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from . import roots
-from .layout.yaml_utils import safe_load_path
+from .layout.yaml_utils import load_kind
 from .fields import known_keys
 
 CATALOGUE_PATH = roots.CORE / "runtime_scenes.yaml"
@@ -83,12 +83,7 @@ def load_catalogue(path: str | Path | None = None) -> Catalogue:
         if path is None:
             raise ValueError("this project has no runtime catalogue: add runtime_scenes.yaml "
                              "(kind: scene_catalogue) to its assets directory")
-    data = safe_load_path(path) or {}
-    if data.get("kind") != "scene_catalogue":
-        raise ValueError(f"{path}: expected kind: scene_catalogue")
-    unknown_top = set(data) - {"kind", "default", "scenes", "packages"}
-    if unknown_top:
-        raise ValueError(f"{path}: unknown keys {sorted(unknown_top)}")
+    data = load_kind(path, "scene_catalogue", None, keys=("default", "scenes", "packages"))
     entries = {}
     for name, spec in (data.get("scenes") or {}).items():
         spec = spec or {}

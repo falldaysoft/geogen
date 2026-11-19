@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from ..core.geometry import smoothstep
+from ..core.transform import smoothstep
 from ..core.mesh import Mesh
 from .head import HeadShape, _capsule, _ellipsoid, _smax, _smin, build_head, sdf_normals
 from ..fields import known_keys
@@ -146,5 +146,5 @@ def build_sculpted_hair(head: HeadShape, origin, spec: dict, skeleton, color) ->
         share = smoothstep((local[:, 1] - (neck_y - 0.06)) / 0.08)
         dense[:, names.index("UpperChest")] = 1 - share
     dense[:, names.index("Head")] = share
-    mesh.joints, mesh.weights = normalize_weights(np.tile(np.arange(len(names)), (len(local), 1)), dense)
+    mesh.joints, mesh.weights = normalize_weights(None, dense)
     return mesh

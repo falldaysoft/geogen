@@ -47,9 +47,7 @@ def _u_frame(outer_w: float, outer_h: float, inner_w: float, inner_h: float, dep
     outline = np.array([[-ow, 0], [-iw, 0], [-iw, inner_h], [iw, inner_h], [iw, 0], [ow, 0],
                         [ow, outer_h], [-ow, outer_h]])
     mesh = ExtrudeGenerator(shape=Shape(outline), depth=depth, axis="z", bevel=bevel).generate()
-    move = np.eye(4)
-    move[2, 3] = z_center
-    return mesh.transform(move)
+    return mesh.translated((0.0, 0.0, z_center))
 
 
 @dataclass

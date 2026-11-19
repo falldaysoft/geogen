@@ -180,7 +180,5 @@ class SweepGenerator(MeshGenerator):
         mesh = Mesh(verts, np.vstack(faces).astype(np.int64), uvs=uvs)
         if self.center:
             lo, hi = verts.min(axis=0), verts.max(axis=0)
-            move = np.eye(4)
-            move[:3, 3] = -(lo + hi) / 2
-            mesh = mesh.transform(move)
+            mesh = mesh.translated(-(lo + hi) / 2)
         return meshops.compute_normals(mesh, self.crease_angle)

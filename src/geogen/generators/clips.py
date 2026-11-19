@@ -28,11 +28,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..core.geometry import smoothstep
 from ..core import ik
 from ..core.skeleton import Pose, Skeleton
 from ..core.skin import Clip, Track
-from ..core.transform import Transform, matrix_from_quat, quat_from_matrix, quats_from_matrices, slerp
+from ..core.transform import Transform, matrix_from_quat, quat_from_matrix, quats_from_matrices, slerp, smoothstep
 
 _IDENTITY = np.array([0.0, 0.0, 0.0, 1.0])
 WALK_DEFAULTS = {"speed": 1.2, "duty": 0.6, "knee_drop": 0.03, "bob": 0.026, "hip_sway": 0.02,

@@ -77,6 +77,13 @@ def dot(a: NDArray, b: NDArray) -> NDArray:
     return a[..., 0] * b[..., 0] + a[..., 1] * b[..., 1] + a[..., 2] * b[..., 2]
 
 
+def signed_volume(mesh: Mesh) -> float:
+    """The volume a closed mesh encloses: negative when it is wound inside out (clockwise seen
+    from outside). Cheaper than ``mesh.to_trimesh().volume`` for checking the winding."""
+    tris = mesh.vertices[mesh.faces]
+    return float(dot(tris[:, 0], _cross(tris[:, 1], tris[:, 2])).sum() / 6.0)
+
+
 def closest_on_triangles(p: NDArray, tris: NDArray) -> NDArray:
     """The point of each triangle (..., 3, 3) nearest ``p`` (broadcast against it)."""
     a, b, c = tris[..., 0, :], tris[..., 1, :], tris[..., 2, :]

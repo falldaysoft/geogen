@@ -412,7 +412,7 @@ class LayoutLoader:
 
             # Uncentred sweeps and path networks keep their points in the asset's own frame.
             if (part_def["primitive"] == "sweep" and part_def.get("center") is False) \
-                    or part_def["primitive"] in ("paths", "fence", "terrain"):
+                    or part_def["primitive"] in _IN_ASSET_FRAME:
                 position = offset_world
 
             node.transform.translation = position

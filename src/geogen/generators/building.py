@@ -143,7 +143,6 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
     """
     from ..core import uvmap
     from ..layout.interactions import Interaction, Motion, State, apply_state
-    from .primitives import CubeGenerator
 
     for shaft_id in sorted(set().union(*(_shaft_rooms(s).keys() for s in storeys))):
         column = [(s, _shaft_rooms(s).get(shaft_id)) for s in storeys]
@@ -179,11 +178,7 @@ def _add_lifts(root: SceneNode, storeys: list[SceneNode], material_loader) -> No
         panel_mat = material_loader.load("wood_dark")
 
         def part(name: str, lo, hi, material, collider: str = "box") -> SceneNode:
-            lo, hi = np.asarray(lo, float), np.asarray(hi, float)
-            mesh = CubeGenerator(size_x=hi[0] - lo[0], size_y=hi[1] - lo[1], size_z=hi[2] - lo[2], bevel=0).generate()
-            move = np.eye(4)
-            move[:3, 3] = (lo + hi) / 2
-            mesh = uvmap.box_project(mesh.transform(move))
+            mesh = uvmap.box_project(box_between(lo, hi))
             mesh.material = material
             node = SceneNode(name=name, mesh=mesh)
             node.meta["collider"] = collider
@@ -406,9 +401,7 @@ def _pitched_roof(top: SceneNode, plan: FloorPlan, roof: dict[str, Any], style: 
     rise = float(roof.get("rise", 0.35 * min(size[0], size[2])))
     gen = RoofGenerator(width=size[0], height=rise, depth=size[2], style=style,
                         overhang=float(roof.get("overhang", 0.4)), thickness=float(roof.get("thickness", 0.15)))
-    m = np.eye(4)
-    m[1, 3] = y + rise / 2          # the generator's wall-top plane is at -rise / 2
-    mesh = gen.generate().transform(m)
+    mesh = gen.generate().translated((0.0, y + rise / 2, 0.0))     # its wall-top plane is at -rise / 2
     mesh.material = material_loader.load(roof.get("material", "roof_shingle"))
     node = SceneNode(name="roof", mesh=mesh, tags=["roof", f"roof.{style}"])
     if style in ("gable", "shed"):

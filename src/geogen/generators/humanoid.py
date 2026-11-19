@@ -49,7 +49,7 @@ import numpy as np
 
 from .. import roots as content_roots
 from ..core import csg, meshops, uvmap
-from ..core.geometry import smoothstep
+from ..core.transform import smoothstep
 from ..core.mesh import Mesh
 from ..core.node import SceneNode
 from ..core.skeleton import Pose, Skeleton, load_skeleton
@@ -445,7 +445,7 @@ def _level_hem(mesh: Mesh, slot: int, names, passes: int = 24) -> None:
                 mesh.vertices[group] = old
                 continue
             dense = dense_weights(mesh, count, [a, b])
-            joints, weights = normalize_weights(np.arange(count)[None], dense.mean(axis=0)[None])
+            joints, weights = normalize_weights(None, dense.mean(axis=0)[None])
             mesh.joints[group], mesh.weights[group] = joints[0], weights[0]
             moved = True
         if not moved:
@@ -474,8 +474,7 @@ def smooth_hem(mesh: Mesh, slot: int, names) -> None:
     dense = dense_weights(mesh, len(names), lip)
     dense[:, ~trunk] = 0.0
     dense[dense.sum(axis=1) < 1e-6, list(names).index("Hips")] = 1.0
-    mesh.joints[lip], mesh.weights[lip] = normalize_weights(
-        np.tile(np.arange(len(names)), (len(lip), 1)), dense / dense.sum(axis=1, keepdims=True))
+    mesh.joints[lip], mesh.weights[lip] = normalize_weights(None, dense / dense.sum(axis=1, keepdims=True))
 
 
 WAIST_OVERLAP = 0.03          # m a top and a bottom overlap at the waist, at least
@@ -549,8 +548,7 @@ def transfer_weights(shell: Mesh, body: Mesh, neighbours: int = 12, smooth: int 
         np.add.at(acc, edges[:, 0], dense[edges[:, 1]])
         np.add.at(count, edges[:, 0], 1)
         dense = acc / count[:, None]
-    index = np.tile(np.arange(joints), (len(dense), 1))
-    shell.joints, shell.weights = normalize_weights(index, dense)
+    shell.joints, shell.weights = normalize_weights(None, dense)
 
 
 HUG_BONES = ("Hips", "Spine", "Chest", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg")
@@ -706,7 +704,7 @@ def leg_weights(shell: Mesh, skeleton: Skeleton, body: Mesh | None = None, rise:
         share = 1.0 - body_dense[:, [names.index(n) for n in ("Hips", "LeftUpperLeg", "RightUpperLeg")]].sum(axis=1)
         share = np.clip(share, 0.0, 1.0) * np.clip((cap - shell.uvs[:, 1]) / CAP_EASE, 0.0, 1.0)
         dense = (1 - share[:, None]) * dense + share[:, None] * body_dense
-    shell.joints, shell.weights = normalize_weights(np.tile(np.arange(len(names)), (len(y), 1)), dense)
+    shell.joints, shell.weights = normalize_weights(None, dense)
 
 
 def _key_range(garment: dict, skeleton: Skeleton) -> tuple[float, float] | None:
@@ -835,7 +833,7 @@ def head_weights(mesh: Mesh, skeleton: Skeleton, blend: float, shift: float) -> 
     dense = np.zeros((len(mesh.vertices), len(names)))
     dense[:, names.index("Head")] = share
     dense[:, names.index("Neck")] = 1 - share
-    return normalize_weights(np.tile(np.arange(len(names)), (len(mesh.vertices), 1)), dense)
+    return normalize_weights(None, dense)
 
 
 def build_humanoid(spec: dict, name: str, material_loader, assets_dir: Path, params: dict | None = None,

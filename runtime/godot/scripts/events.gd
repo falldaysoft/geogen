@@ -82,24 +82,6 @@ func unlisten(id: int) -> void:
     _listeners.erase(id)
 
 
-## Whether `event` is one a rule's or signal's `on` asks for (docs/rules.md "Rules").
-static func matches(on: Dictionary, event: Dictionary) -> bool:
-    if on.get("type") != event["type"]:
-        return false
-    if on.has("subject"):
-        var wanted = on["subject"]
-        if not (wanted is Array and event["subject"] in wanted) and not (wanted is String and wanted == event["subject"]):
-            return false
-    for field in ["name", "key"]:
-        if on.has(field) and on[field] != event.get(field):
-            return false
-    if on.has("to"):
-        var to = event["data"].get("to")
-        if typeof(to) != typeof(on["to"]) or to != on["to"]:
-            return false
-    return true
-
-
 func _deliver(event: Dictionary) -> void:
     count += 1
     history.append(event)

@@ -35,6 +35,7 @@ import numpy as np
 
 from . import roots
 from .core.node import SceneNode
+from .core.profile import arc_lengths
 from .core.transform import transform_points
 from .fields import known_keys
 
@@ -138,10 +139,6 @@ def max_curvature(points: np.ndarray) -> float:
 def capped_speed(points: np.ndarray, limit: float) -> float:
     k = max_curvature(points)
     return min(limit, float(np.sqrt(LATERAL_ACCEL / k))) if k > 1e-6 else limit
-
-
-def _cumulative(points: np.ndarray) -> np.ndarray:
-    return np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))]
 
 
 def pedestrian_timing(length: float, cycle: dict[str, float]) -> tuple[float, float]:
@@ -379,7 +376,7 @@ def _city_lanes(builder, spec: dict[str, Any]) -> list[Lane]:
 
 def _zone_ranges(points: np.ndarray, zones) -> list[list[float]]:
     """s-ranges of ``points`` inside any of the (lo, hi) plan rectangles."""
-    s = _cumulative(points)
+    s = arc_lengths(points)
     p = points[:, [0, 2]]
     inside = np.zeros(len(p), dtype=bool)
     for lo, hi in zones:
@@ -467,7 +464,7 @@ def _conflicts(lanes: list[Lane]) -> list[dict[str, Any]]:
                 close = d < CONFLICT_GAP
                 if not close.any():
                     continue
-                sa, sb = _cumulative(a.points), _cumulative(b.points)
+                sa, sb = arc_lengths(a.points), arc_lengths(b.points)
                 ka = np.where(close)[0]
                 kb = idx[close]
                 out.append({"a": a.id, "b": b.id,
@@ -510,10 +507,10 @@ def _sweeps(lanes: list[Lane]) -> list[dict[str, Any]]:
         if src is None or dst is None:
             continue
         # The path from 12 m before the connector to 12 m past it, s = 0 at its start.
-        before = src.points[_cumulative(src.points) >= src.length - 12.0]
-        after = dst.points[_cumulative(dst.points) <= 12.0]
+        before = src.points[arc_lengths(src.points) >= src.length - 12.0]
+        after = dst.points[arc_lengths(dst.points) <= 12.0]
         path = np.vstack([before[:-1], c.points, after[1:]])
-        cum = _cumulative(path) - (_cumulative(before)[-1] if len(before) > 1 else 0.0)
+        cum = arc_lengths(path) - (arc_lengths(before)[-1] if len(before) > 1 else 0.0)
         poses = []
         for sc in np.arange(0.0, c.length + 1e-6, 0.5):
             rear, front = at(path, cum, sc - base / 2), at(path, cum, sc + base / 2)
@@ -522,7 +519,7 @@ def _sweeps(lanes: list[Lane]) -> list[dict[str, Any]]:
         for lane in into.get(c.intersection, []):
             if lane.id == src.id:
                 continue
-            lc = _cumulative(lane.points)
+            lc = arc_lengths(lane.points)
             hold = 0.0
             for f in np.arange(lane.length, max(lane.length - 20.0, SWEEP_WAITING[0]), -0.5):
                 a, b = at(lane.points, lc, f), at(lane.points, lc, f - SWEEP_WAITING[0])
@@ -852,7 +849,7 @@ def load_fleet(path) -> dict[str, Any]:
 def _pose_on_lane(points: np.ndarray, s: float, half_base: float) -> tuple[np.ndarray, float]:
     """Position (midway between axles) and yaw of a vehicle at ``s`` on a lane: the axles sit
     on the curve ``half_base`` behind and ahead (clamped to the lane)."""
-    cum = _cumulative(points)
+    cum = arc_lengths(points)
 
     def at(t: float) -> np.ndarray:
         t = min(max(t, 0.0), cum[-1])

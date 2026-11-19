@@ -58,8 +58,7 @@ def chain_weights(heights: np.ndarray, bone_length: float, joints: int, blend: f
         lo = 1.0 if j == 0 else np.clip((heights - (start - blend)) / (2 * blend), 0, 1)
         hi = 1.0 if j == joints - 1 else 1 - np.clip((heights - (start + bone_length - blend)) / (2 * blend), 0, 1)
         raw[:, j] = lo * hi
-    index = np.tile(np.arange(joints), (len(heights), 1))
-    return normalize_weights(index, raw)
+    return normalize_weights(None, raw)
 
 
 def sway_clip(duration: float = 2.0, keys: int = 17, amplitude_deg: float = 30.0) -> Clip:

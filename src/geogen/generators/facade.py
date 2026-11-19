@@ -79,9 +79,7 @@ def _window_parts(width: float, height: float, style: FacadeStyle, storefront: b
                     [np.array([[-width / 2 + FRAME, FRAME], [-width / 2 + FRAME, height - FRAME],
                                [width / 2 - FRAME, height - FRAME], [width / 2 - FRAME, FRAME]])])
     frame = ExtrudeGenerator(shape=outline, depth=0.07, axis="z", crease_angle=30.0).generate()
-    m = np.eye(4)
-    m[2, 3] = z_frame
-    parts["frame"].append(frame.transform(m))
+    parts["frame"].append(frame.translated((0.0, 0.0, z_frame)))
     # Glazing bars: one per ~1.2 m of width (storefronts get slimmer, more frequent mullions).
     bays = max(1, int(round(width / (1.5 if storefront else 1.2))))
     for i in range(1, bays):

@@ -20,13 +20,11 @@ class AsphaltTextureGenerator(NoiseTextureGenerator):
         color_base: Base asphalt color as (R, G, B) tuple, 0-255
         color_dark: Dark variation as (R, G, B) tuple
         aggregate_scale: Scale of the aggregate/gravel pattern
-        surface_roughness: Overall surface roughness variation
     """
 
     color_base: tuple[int, int, int] = (65, 65, 68)
     color_dark: tuple[int, int, int] = (35, 35, 38)
     aggregate_scale: float = 25.0
-    surface_roughness: float = 0.5
 
     def __post_init__(self) -> None:
         self.color_a = self.color_dark

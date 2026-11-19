@@ -37,7 +37,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..core import csg, meshops
-from ..core.geometry import smoothstep
+from ..core.transform import smoothstep
 from ..core.mesh import Mesh
 from ..core.skeleton import Skeleton
 from ..core.skin import normalize_weights
@@ -409,7 +409,7 @@ def loft_chain(skeleton: Skeleton, chain: Chain) -> Mesh:
         mesh.faces = mesh.faces[:, ::-1].copy()
     bone_index = {name: i for i, name in enumerate(skeleton.names)}
     dense = chain_weights(path, chain, all_s, bone_index)
-    mesh.joints, mesh.weights = normalize_weights(np.tile(np.arange(len(bone_index)), (len(all_s), 1)), dense)
+    mesh.joints, mesh.weights = normalize_weights(None, dense)
     return mesh
 
 

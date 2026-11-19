@@ -54,7 +54,8 @@ Tree = Any
 
 
 class ContentError(ValueError):
-    """Authored content that is malformed, or that the scene it is in can't support."""
+    """Authored content (a quest, dialogue, wiring, HUD, content package, ...) that is malformed,
+    or that the scenes it is in or names can't support."""
 
 
 @dataclass

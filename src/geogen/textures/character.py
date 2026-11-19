@@ -47,12 +47,6 @@ class SkinTextureGenerator(TextureGenerator):
         return None
 
 
-def _ellipse(u, v, cu, cv, ru, rv, soft=0.012):
-    """Anti-aliased filled ellipse coverage (0..1)."""
-    d = np.sqrt(((u - cu) / ru) ** 2 + ((v - cv) / rv) ** 2)
-    return np.clip((1.0 - d) / (soft / min(ru, rv)) + 0.5, 0.0, 1.0)
-
-
 def _stroke(u, v, points, width, soft=0.01):
     """Anti-aliased polyline coverage, ``width`` in u units (tapered by an optional 3rd coordinate)."""
     cover = np.zeros_like(u)

@@ -146,39 +146,8 @@ class SphereGenerator(MeshGenerator):
     rings: int = 16
 
     def get_attachment_points(self, size: np.ndarray) -> dict[str, AttachmentPoint]:
-        """Generate attachment points at poles and equator."""
-        from ..layout.attachments import AttachmentPoint
-
-        radius_x = size[0] / 2
-        radius_y = size[1] / 2
-        radius_z = size[2] / 2
-
-        return {
-            "top": AttachmentPoint(
-                name="top", anchor="center",
-                offset=np.array([0, radius_y, 0]), facing="north",
-            ),
-            "bottom": AttachmentPoint(
-                name="bottom", anchor="center",
-                offset=np.array([0, -radius_y, 0]), facing="north",
-            ),
-            "left": AttachmentPoint(
-                name="left", anchor="center",
-                offset=np.array([-radius_x, 0, 0]), facing="west",
-            ),
-            "right": AttachmentPoint(
-                name="right", anchor="center",
-                offset=np.array([radius_x, 0, 0]), facing="east",
-            ),
-            "front": AttachmentPoint(
-                name="front", anchor="center",
-                offset=np.array([0, 0, radius_z]), facing="south",
-            ),
-            "back": AttachmentPoint(
-                name="back", anchor="center",
-                offset=np.array([0, 0, -radius_z]), facing="north",
-            ),
-        }
+        """At the poles and on the equator."""
+        return box_attachment_points(size)
 
     def generate(self) -> Mesh:
         """Generate a UV sphere mesh centered at the origin with UV coordinates."""

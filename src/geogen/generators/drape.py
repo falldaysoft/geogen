@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ..core.geometry import smoothstep
+from ..core.transform import smoothstep
 from ..core.mesh import Mesh
 from ..core.meshops import position_ids
 from ..core.node import SceneNode

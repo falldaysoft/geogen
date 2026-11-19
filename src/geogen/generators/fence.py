@@ -63,9 +63,6 @@ class FenceGenerator(MeshGenerator):
     def get_surfaces(self, size: np.ndarray) -> dict[str, Surface]:
         return box_surfaces(size)
 
-    def _open(self, s: float) -> bool:
-        return any(a <= s <= b for a, b in self.gaps)
-
     def generate(self) -> Mesh:
         pts = path_points(self.path)
         if self.closed:

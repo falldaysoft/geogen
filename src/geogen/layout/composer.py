@@ -683,15 +683,7 @@ class SceneComposer:
         clipped to the material that was removed from the wall and lining.
         """
         from ..core import csg, uvmap
-        from ..core.mesh import Mesh
-        from ..generators.primitives import CubeGenerator
-
-        def box(lo: np.ndarray, hi: np.ndarray) -> Mesh:
-            size = hi - lo
-            mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
-            move = np.eye(4)
-            move[:3, 3] = (lo + hi) / 2
-            return mesh.transform(move)
+        from ..generators.primitives import box_between as box
 
         t = reveal["thickness"]
         to_owner = np.linalg.inv(owner.world_transform())

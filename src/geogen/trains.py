@@ -31,6 +31,7 @@ import numpy as np
 
 from . import roots
 from .core.node import SceneNode
+from .core.profile import arc_lengths
 from .core.transform import Transform
 from .layout.yaml_utils import load_kind
 
@@ -221,7 +222,7 @@ def place_train(root: SceneNode, name: str, spec: dict[str, Any], load, assets_d
     }
     # Stand departure 0 at its start (renders show it there; the runtime moves it by the timetable).
     pts = np.asarray(railway["points"], dtype=np.float64)
-    cum = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))]
+    cum = arc_lengths(pts)
 
     def at(d: float) -> np.ndarray:
         d = d % cum[-1] if railway["loop"] else min(max(d, 0.0), cum[-1])

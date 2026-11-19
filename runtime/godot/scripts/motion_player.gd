@@ -24,8 +24,7 @@ const FPS := 30
 const LAYER_EASE := 0.15          # s for a channel to come onto, or go off, what the clips are doing
 const TRACE_KEEP := 256           # events a long-lived body keeps of its rig's trace
 
-static var _motions := {}        # generated dir -> {name: spec}
-static var _catalogues := {}     # generated dir -> [catalogue entry] (motion.motion_catalogue)
+static var _files := {}          # generated dir -> its motions.json, parsed once ({} when there is none)
 
 var rig: GeogenMotionRig
 var body: Node3D
@@ -130,30 +129,26 @@ static func transitions_of(body_: Node3D) -> Dictionary:
 
 ## Every motion in `generated`/motions.json by name ({} when there is none).
 static func motions(generated: String) -> Dictionary:
-    if not _motions.has(generated):
-        var found := {}
-        var path := "%s/motions.json" % generated
-        if FileAccess.file_exists(path):
-            var data = JSON.parse_string(FileAccess.get_file_as_string(path))
-            if data is Dictionary and data.get("motions") is Dictionary:
-                found = data["motions"]
-        _motions[generated] = found
-    return _motions[generated]
+    var found = _file(generated).get("motions")
+    return found if found is Dictionary else {}
 
 
 ## The motion catalogue in `generated`/motions.json ([] when there is none): every motion's
 ## name, category, summary, params, roles and whether it needs only the body
 ## (geogen.motion.motion_catalogue), by category then name.
 static func catalogue(generated: String) -> Array:
-    if not _catalogues.has(generated):
-        var found := []
+    var found = _file(generated).get("catalogue")
+    return found if found is Array else []
+
+
+static func _file(generated: String) -> Dictionary:
+    if not _files.has(generated):
+        var data = null
         var path := "%s/motions.json" % generated
         if FileAccess.file_exists(path):
-            var data = JSON.parse_string(FileAccess.get_file_as_string(path))
-            if data is Dictionary and data.get("catalogue") is Array:
-                found = data["catalogue"]
-        _catalogues[generated] = found
-    return _catalogues[generated]
+            data = JSON.parse_string(FileAccess.get_file_as_string(path))
+        _files[generated] = data if data is Dictionary else {}
+    return _files[generated]
 
 
 ## The thing `node` is to a motion (its grip points from its extras), the same one each time.

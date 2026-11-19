@@ -79,15 +79,13 @@ def scenario_names(assets_dir: Path | None = None) -> list[str]:
 
 
 def load_scenario(name: str | Path, assets_dir: Path | None = None) -> dict:
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
     path = Path(name)
     if path.suffix != ".yaml":
         path = roots.find(f"{SCENARIOS_DIR}/{name}.yaml", assets_dir or roots.CORE)
-    spec = safe_load_path(path)
-    if not isinstance(spec, dict) or spec.get("kind") != SCENARIO_KIND:
-        raise MotionError(f"{path}: expected kind: {SCENARIO_KIND}")
-    known_keys(spec, SCENARIO_KEYS, f"{path}", MotionError)
+    spec = load_kind(path, SCENARIO_KIND, None, error=MotionError)
+    known_keys(spec, SCENARIO_KEYS, f"{path}", MotionError)      # with the closest key as a hint
     spec.setdefault("name", path.stem)
     return spec
 
@@ -591,7 +589,7 @@ class _Recorder:
 
     def __init__(self, scene: SceneNode, actor: SceneNode, camera: dict, resolution: tuple[int, int],
                  carried: list[SceneNode] = (), others: list[SceneNode] = ()) -> None:
-        from .render import RenderOptions, SceneRenderer, _MaterialCache, frame_bounds, scene_bounds
+        from .render import RenderOptions, SceneRenderer, _MaterialCache, scene_bounds
 
         self.actor = actor
         self.moving = [actor, *others, *carried]
@@ -616,7 +614,6 @@ class _Recorder:
         self.view = camera.get("view", "iso")
         self.pose = self.renderer.camera_pose(self.view)
         self.materials = _MaterialCache()
-        self._frame_bounds = frame_bounds
 
     def frame(self, rig: MotionRig, others: dict | None = None):
         import pyrender
@@ -641,7 +638,7 @@ class _Recorder:
                 sphere = pyrender.Mesh.from_trimesh(_sphere(0.025), smooth=True,
                                                     material=pyrender.MetallicRoughnessMaterial(baseColorFactor=color))
                 added.append(scene.add(sphere, pose=Transform(translation=np.asarray(point)).to_matrix()))
-        image = self.renderer.render_from(self.pose) if hasattr(self.renderer, "render_from") else self._render()
+        image = self._render()
         for node in added:
             scene.remove_node(node)
         draw = ImageDraw.Draw(image)

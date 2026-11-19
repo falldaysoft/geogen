@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from . import conditions, refs, roots
+from .compiler import ContentError
 from .core.node import SceneNode
 
 KIND = "package"
@@ -59,10 +60,6 @@ PACKAGE_KEYS = {"kind", "version", "id", "title", "description", "scenes", "stat
 # Names a key's or latch's owner is read from ('world:<pkg>.x', 'once:<rule id>'), so no package has them.
 RESERVED = ("world", "actor", "once", "watch", "quest", "signal", "player")
 
-
-
-class ContentError(ValueError):
-    """A content package that is malformed, or that the scenes it names can't support."""
 
 
 @dataclass

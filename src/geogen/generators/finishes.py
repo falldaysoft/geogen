@@ -121,9 +121,7 @@ def add_room_finishes(room: SceneNode, clear_height: float, materials: dict[str,
     if opts["lining"]:
         shape = Shape(rect(2 * hx, 2 * hz), [rect(2 * hx - 2 * LINING, 2 * hz - 2 * LINING)])
         mesh = ExtrudeGenerator(shape=shape, depth=clear_height, axis="y", crease_angle=30.0).generate()
-        move = np.eye(4)
-        move[1, 3] = clear_height / 2
-        mesh = mesh.transform(move)
+        mesh = mesh.translated((0.0, clear_height / 2, 0.0))
         if cutters:
             mesh = csg.difference(mesh, *cutters, crease_angle=30.0)
         room.add_child(_part("lining", mesh, loader.load(materials["walls"]), ["wall.lining"], collider="none"))
@@ -170,9 +168,7 @@ def _pendant(name: str, ceiling: float, loader) -> SceneNode:
     chrome = loader.load("chrome")
 
     def at(mesh: Mesh, y: float) -> Mesh:
-        move = np.eye(4)
-        move[1, 3] = y
-        return mesh.transform(move)
+        return mesh.translated((0.0, y, 0.0))
 
     canopy = at(CylinderGenerator(radius=0.06, height=0.025).generate(), -0.0125)
     stem = at(CylinderGenerator(radius=0.006, height=0.4).generate(), -0.225)

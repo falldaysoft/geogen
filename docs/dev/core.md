@@ -11,9 +11,8 @@ The core data model and the per-module notes for `src/geogen/core/`, `textures/`
   - **Vertex colours:** optional per-vertex RGBA `colors`, which tint the albedo in both renderers and export as `COLOR_0`.
   - **Propagation:** weld, normals, UV projection, subdivision, displacement and CSG/decimation all carry groups (CSG through a manifold vertex property); a difference's cut faces take the target's primary material. Derived meshes copy them with `with_attributes_of`.
 
-- **Transform** (`transform.py`): TRS (Translation-Rotation-Scale) transformation. Rotation uses XYZ Euler angles in radians. Matrix order is Scale -> Rotate -> Translate.
+- **Transform** (`transform.py`): TRS (Translation-Rotation-Scale) transformation. Rotation uses XYZ Euler angles in radians. Matrix order is Scale -> Rotate -> Translate. The module also has the quaternion helpers (`quat_from_matrix`, `slerp`, ...) and `smoothstep`.
 
-- **geometry** (`geometry.py`): Helper functions for face winding and normal computation. Uses CCW winding convention.
 
 - **meshops** (`meshops.py`): `compute_normals(mesh, crease_angle)` (smooth below the angle, split hard edges above; ignores UV seams), `ensure_normals`, `weld_vertices`, `collapse_short_edges` (CSG slivers; hair uses it), `compute_tangents` (glTF-style xyzw), and `validate(mesh) -> MeshReport` (degenerate faces, NaNs, boundary/non-manifold edges, inconsistent winding, and `flipped_area`: faces wound against their own normals, which a mirroring transform causes and renderers show inside out). Use `validate` whenever you touch a generator.
 
@@ -63,4 +62,4 @@ The core data model and the per-module notes for `src/geogen/core/`, `textures/`
 
 ## Shared mesh and skin helpers
 
-Use these rather than re-deriving them: `meshops.edges` (directed edges of faces), `meshops.position_ids` (weld by position), `meshops.boundary_loops` (open edges grouped into loops), `meshops.closest_on_triangles`, `skin.blended_matrices` / `apply_blended` (linear blend skinning), `skin.dominant_joints`, `skin.dense_weights`, `geometry.smoothstep` (clamps to 0..1) and `Mesh.take` (a subset of vertices with every per-vertex attribute, morphs included). Textures share `textures.base.mix`, `shifted` and `unit`; a noise texture's normal map comes from its `_height(layers)` and `normal_strength`, and every random source takes its seed from `_seed_for`.
+Use these rather than re-deriving them: `meshops.edges` (directed edges of faces), `meshops.position_ids` (weld by position), `meshops.boundary_loops` (open edges grouped into loops), `meshops.closest_on_triangles`, `skin.blended_matrices` / `apply_blended` (linear blend skinning), `skin.dominant_joints`, `skin.dense_weights`, `skin.normalize_weights(None, dense)` (dense weights over every joint), `meshops.signed_volume` (negative when wound inside out), `Mesh.translated`, `primitives.box_between`, `profile.arc_lengths`, `transform.smoothstep` (clamps to 0..1) and `Mesh.take` (a subset of vertices with every per-vertex attribute, morphs included). Textures share `textures.base.mix`, `shifted` and `unit`; a noise texture's normal map comes from its `_height(layers)` and `normal_strength`, and every random source takes its seed from `_seed_for`.

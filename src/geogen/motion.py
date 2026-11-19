@@ -33,7 +33,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import numpy as np
 from numpy.typing import NDArray
@@ -157,14 +157,12 @@ class MotionError(ValueError):
 def load_motion(name: str | Path, assets_dir: Path | None = None) -> dict:
     """A motion by name (``motions/<name>.yaml`` through the content roots) or path, validated,
     with ``extends`` merged."""
-    from .layout.yaml_utils import safe_load_path
+    from .layout.yaml_utils import load_kind
 
     path = Path(name)
     if path.suffix != ".yaml":
         path = roots.find(f"{MOTIONS_DIR}/{name}.yaml", assets_dir or roots.CORE)
-    spec = safe_load_path(path)
-    if not isinstance(spec, dict) or spec.get("kind") != MOTION_KIND:
-        raise MotionError(f"{path}: expected kind: {MOTION_KIND}")
+    spec = load_kind(path, MOTION_KIND, None, error=MotionError)       # its keys: validate_motion
     if "extends" in spec:
         base = load_motion(spec["extends"], assets_dir)
         merged = {**base, **{k: v for k, v in spec.items() if k != "extends"}}
@@ -197,16 +195,18 @@ def body_only(spec: dict) -> bool:
     return not spec.get("roles") and not any(k in (beat or {}) for beat in spec["beats"].values() for k in WORLD_KEYS)
 
 
-def motion_catalogue(assets_dir: Path | None = None) -> list[dict]:
+def motion_catalogue(assets_dir: Path | None = None, specs: Iterable[dict] | None = None) -> list[dict]:
     """Every motion as a catalogue entry, by category then name: what a gallery or a tool lists
     (``python -m geogen.motion_review --list``). ``params`` are the defaults, ``roles`` what it
     must be given, ``props`` what a demonstration stages for them (on a table in front),
     ``demo`` the script it plays when it needs other motions around it, ``body_only`` whether it
     needs nothing but the body, ``moves_body`` whether it places the body (``root``: sit; the
-    runtime rig doesn't yet)."""
+    runtime rig doesn't yet). ``specs``: the motions already loaded (``load_motion``), so they
+    aren't read again."""
     entries = []
-    for name in motion_names(assets_dir):
-        spec = load_motion(name, assets_dir)
+    if specs is None:
+        specs = (load_motion(name, assets_dir) for name in motion_names(assets_dir))
+    for spec in specs:
         params = {k: (v.get("default") if isinstance(v, dict) else v) for k, v in (spec.get("params") or {}).items()}
         entries.append({
             "name": spec["name"],
@@ -235,14 +235,12 @@ def write_motions(generated: Path, assets_dir: Path | None = None) -> Path:
 
     generated = Path(generated)
     generated.mkdir(parents=True, exist_ok=True)
-    motions = {}
-    for name in motion_names(assets_dir):
-        spec = load_motion(name, assets_dir)
-        motions[spec.get("name", name)] = spec
+    specs = [load_motion(name, assets_dir) for name in motion_names(assets_dir)]
+    motions = {spec["name"]: spec for spec in specs}
     path = generated / MOTIONS_FILE
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps({"format": MOTIONS_FORMAT, "version": MOTIONS_VERSION, "motions": motions,
-                               "catalogue": motion_catalogue(assets_dir)},
+                               "catalogue": motion_catalogue(specs=specs)},
                               indent=1, sort_keys=True) + "\n")
     tmp.replace(path)
     return path
@@ -1211,9 +1209,8 @@ class MotionRig:
             if lean and "spine" in channels and self._transition(run) is None:   # (a transition clip leans itself)
                 by = float(lean.get("by", 0)) * _bump(u_raw, float(lean.get("at", 0.5)))
                 extra = quat_from_matrix(Transform(rotation=np.radians([by, 0, 0])).to_matrix()[:3, :3])
-                rest = s["Spine"].rotation
                 pose.rotations["Spine"] = _quat_mul(pose.rotations.get("Spine", IDENTITY),
-                                                    quat_from_matrix(rest.T @ matrix_from_quat(extra) @ rest))
+                                                    s.body_quat("Spine", matrix_from_quat(extra)))
             if spec.get("plant") == "feet" and "legs" in channels:
                 for foot, world in run.start["feet"].items():
                     local = (inv_root @ np.r_[world, 1.0])[:3]
@@ -1363,9 +1360,8 @@ class MotionRig:
 
         def bend(degrees: float, at: NDArray[np.float64], within: float) -> bool:
             for bone in BEND_BONES:
-                r = s[bone].rotation
                 extra = Transform(rotation=np.radians([degrees / len(BEND_BONES), 0, 0])).to_matrix()[:3, :3]
-                trial.rotations[bone] = _quat_mul(base[bone], quat_from_matrix(r.T @ extra @ r))
+                trial.rotations[bone] = _quat_mul(base[bone], s.body_quat(bone, extra))
             return np.linalg.norm(at - (root @ s.world(shoulder, trial))[:3, 3]) <= within
 
         def least(at: NDArray[np.float64], within: float) -> float:
@@ -1398,9 +1394,7 @@ class MotionRig:
             pose.offsets["Hips"] = pose.offsets.get("Hips", np.zeros(3)) + np.asarray(spec["hips"], dtype=float)
         for bone, degrees in (spec.get("bones") or {}).items():
             extra = Transform(rotation=np.radians(np.asarray(degrees, dtype=float))).to_matrix()[:3, :3]
-            rest = self.skeleton[bone].rotation
-            pose.rotations[bone] = _quat_mul(pose.rotations.get(bone, IDENTITY),
-                                             quat_from_matrix(rest.T @ extra @ rest))
+            pose.rotations[bone] = _quat_mul(pose.rotations.get(bone, IDENTITY), self.skeleton.body_quat(bone, extra))
         for end, entry in self._ik_entries(run).items():
             shape = self._hand_shape(run, end, entry)
             if shape is None:
@@ -1537,9 +1531,7 @@ class MotionRig:
         # What the pose already does to the head's facing is kept; the turn is split neck / head.
         for bone, share in (("Neck", NECK_SHARE), ("Head", 1.0 - NECK_SHARE)):
             r = Transform(rotation=np.array([pitch * share * weight, yaw * share * weight, 0.0])).to_matrix()[:3, :3]
-            rest = s[bone].rotation
-            pose.rotations[bone] = _quat_mul(pose.rotations.get(bone, IDENTITY),
-                                             quat_from_matrix(rest.T @ r @ rest))
+            pose.rotations[bone] = _quat_mul(pose.rotations.get(bone, IDENTITY), s.body_quat(bone, r))
 
     # --- blending ---
 

@@ -6,15 +6,16 @@ import pytest
 pytest.importorskip("PyQt6")
 
 from geogen.layout import LayoutLoader
-from geogen.viewer.qt_viewer import _copy_with_interactions, describe_node
+from geogen.viewer.qt_viewer import describe_node
 from helpers import ASSETS, SMALL
 
 
-def test_copy_with_interactions_moves_only_the_copy():
+def test_section_copy_moves_only_the_copy():
+    """The section toolbar poses an ``instance()``: its interactions move the copied parts."""
     from geogen.layout.interactions import apply_state
     original = LayoutLoader().load(ASSETS / "nightstand.yaml")
     before = original.find("drawer_front").world_transform().copy()
-    copy = _copy_with_interactions(original)
+    copy = original.instance()
     apply_state(copy, copy.interactions[0], "open")
     assert np.allclose(original.find("drawer_front").world_transform(), before)
     assert copy.find("drawer_front").world_transform()[2, 3] > before[2, 3] + 0.2

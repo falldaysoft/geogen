@@ -130,7 +130,7 @@ class HandShape:
         dense = np.zeros((len(vertices), len(names)))
         for k, bone in enumerate(bones):
             dense[:, names.index(bone)] += w[:, k]
-        return normalize_weights(np.tile(np.arange(len(names)), (len(vertices), 1)), dense)
+        return normalize_weights(None, dense)
 
 
 def build_hand(skeleton: Skeleton, size: float = 1.0, wrist: tuple[float, float] = (0.02, 0.028)) -> tuple[Mesh, HandShape]:

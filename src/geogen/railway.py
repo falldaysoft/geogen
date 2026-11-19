@@ -29,7 +29,7 @@ import numpy as np
 
 from .core.mesh import Mesh
 from .core.node import SceneNode
-from .core.profile import Shape
+from .core.profile import Shape, arc_lengths
 from .core.transform import Transform
 from .places import build_places
 from .fields import known_keys
@@ -105,7 +105,7 @@ def _sleepers(points: np.ndarray, spacing: float, material) -> Mesh:
 
     box = CubeGenerator(size_x=2.5, size_y=SLEEPER, size_z=0.24, bevel=0).generate()
     t, _ = _frames(points)
-    s = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))]
+    s = arc_lengths(points)
     meshes = []
     for d in np.arange(spacing / 2, s[-1], spacing):
         k = min(int(np.searchsorted(s, d)), len(points) - 1)
@@ -157,7 +157,7 @@ def build_railway(name: str, spec: dict[str, Any], materials, load, assets_dir) 
     ground = _path(spec, loop)
     gauge = float(spec.get("gauge", 1.435))
     head = ground + np.array([0.0, RAIL_TOP, 0.0])
-    s = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(ground, axis=0), axis=1))]
+    s = arc_lengths(ground)
     node = SceneNode(f"railway_{name}", tags=["railway"])
     ballast = SceneNode(f"railway_{name}_ballast", mesh=_sweep(
         [[-2.0, -0.05], [2.0, -0.05], [1.7, BED], [-1.7, BED]], ground, loop, materials.load("rock")))
@@ -294,7 +294,7 @@ def level_crossings(root: SceneNode, railway_node: SceneNode, graph: dict[str, A
             if lane["kind"] == "connector":
                 continue           # a barrier on the approach lane covers it
             pts = np.asarray(lane["points"], dtype=np.float64)
-            cum = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))]
+            cum = arc_lengths(pts)
             k = min(int(np.searchsorted(cum, stop + 0.5)), len(pts) - 1)
             p = np.array([np.interp(stop + 0.5, cum, pts[:, j]) for j in range(3)])
             d = pts[min(k + 1, len(pts) - 1)] - pts[max(k - 1, 0)]

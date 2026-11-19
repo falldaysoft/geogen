@@ -329,6 +329,6 @@ class StairsGenerator(MeshGenerator):
             faces += [[j, j + 1, k - 1], [j, k - 1, k]]
             faces += [[last + j, last + k - 1, last + j + 1], [last + j, last + k, last + k - 1]]
         mesh = Mesh(verts, np.array(faces, dtype=np.int64))
-        if mesh.to_trimesh().volume < 0:
+        if meshops.signed_volume(mesh) < 0:
             mesh = Mesh(verts, mesh.faces[:, [0, 2, 1]])
         return _move(mesh, *getattr(self, "_offset", np.zeros(3)))

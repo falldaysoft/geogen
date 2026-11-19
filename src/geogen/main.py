@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .catalogue import CORE_GENERATED
 from .inspection import CHECKS
 from .registry import SceneRegistry
 from .scenes.nature import create_nature_scene
@@ -13,7 +14,6 @@ from .scenes.skin_test import create_skin_test_scene
 from .render import VIEWS, RenderOptions, render_scene, render_views
 from .viewer import run_viewer
 
-GODOT_GENERATED = Path(__file__).parent.parent.parent / "runtime" / "godot" / "generated"
 
 
 def _generated() -> Path:
@@ -143,7 +143,7 @@ def parse_args(registry: SceneRegistry) -> argparse.Namespace:
     parser.add_argument(
         "--export-godot",
         action="store_true",
-        help=f"Export the scene as <scene>.glb + manifest into {GODOT_GENERATED} (a project's own generated/ "
+        help=f"Export the scene as <scene>.glb + manifest into {CORE_GENERATED} (a project's own generated/ "
              f"directory with --project) and quit",
     )
     parser.add_argument(

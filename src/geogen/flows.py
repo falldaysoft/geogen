@@ -42,6 +42,7 @@ from typing import Any
 import numpy as np
 
 from .core.node import SceneNode
+from .core.profile import arc_lengths
 from .fields import integer, known_keys, number
 
 META = "flows"
@@ -101,10 +102,7 @@ class FlowError(ValueError):
 def carried(path: str | Path) -> dict[str, Any]:
     """What an inventory knows of the item file ``path``: ``{title, tags?, opens?}`` (geogen.18).
     The file is checked as ``load_item`` checks it."""
-    from .layout.yaml_utils import safe_load_path
-
-    item = load_item(path)
-    spec = safe_load_path(path) or {}
+    spec, item = _read_item(path)
     out: dict[str, Any] = {"title": str(spec.get("title") or item["name"].replace("_", " ").capitalize())}
     for key in ("tags", "opens"):
         listed = spec.get(key) or []
@@ -122,6 +120,11 @@ def carried(path: str | Path) -> dict[str, Any]:
 
 def load_item(path: str | Path) -> dict[str, Any]:
     """A ``kind: item`` file, normalised (``body`` as ``{asset, params}``)."""
+    return _read_item(path)[1]
+
+
+def _read_item(path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """An item file as written and as ``load_item`` normalises it, from one parse."""
     from .layout.yaml_utils import load_kind
 
     path = Path(path)
@@ -160,7 +163,7 @@ def load_item(path: str | Path) -> dict[str, Any]:
         out["gait"] = {k: float(gait.get(k, default)) for k, default in GAIT_KEYS.items()}
         if out["gait"]["stride"] <= 0:
             raise FlowError(f"{where}: gait stride is more than 0 m")
-    return out
+    return spec, out
 
 
 def _held(spec: Any, where: str) -> dict[str, Any]:
@@ -552,11 +555,6 @@ def scene_tracks(spec: Any, materials: Any) -> list[SceneNode]:
 
 # ---- the network: tracks and sources in world space, as a runtime sees them ---------------------
 
-def _ordered(nodes: list[SceneNode], at: Any) -> list[SceneNode]:
-    """Nodes in a stable order both runtimes share: by the world point ``at(node)`` gives."""
-    return sorted(nodes, key=lambda n: tuple(round(float(v), 3) for v in at(n)))
-
-
 def network(root: SceneNode) -> dict[str, Any]:
     """The scene's tracks and sources in world space, joined by geometry: a track whose end is
     within ``JOIN`` of another's start feeds it (``end: auto``), a source whose spawn point is
@@ -570,7 +568,7 @@ def network(root: SceneNode) -> dict[str, Any]:
         world = node.world_transform()
         points = np.c_[np.asarray(track["points"]), np.ones(len(track["points"]))] @ world.T
         points = points[:, :3]
-        cum = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))]
+        cum = arc_lengths(points)
         tracks.append({**track, "node": node, "world": points, "cum": cum, "length": float(cum[-1])})
     tracks.sort(key=lambda t: tuple(round(float(v), 3) for v in t["world"][0]))
     for t in tracks:

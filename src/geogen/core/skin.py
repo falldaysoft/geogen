@@ -100,11 +100,13 @@ def skin_mesh(mesh: Mesh, matrices: NDArray[np.float64]) -> Mesh:
     return posed
 
 
-def normalize_weights(joints: NDArray[np.int64], weights: NDArray[np.float64],
+def normalize_weights(joints: NDArray[np.int64] | None, weights: NDArray[np.float64],
                       max_influences: int = 4) -> tuple[NDArray[np.int64], NDArray[np.float64]]:
-    """Keep each vertex's strongest ``max_influences`` joints, padded to 4, weights summing to 1."""
+    """Keep each vertex's strongest ``max_influences`` joints, padded to 4, weights summing to 1.
+    ``joints`` names the joint of each column of ``weights`` per vertex; None: column i is joint i
+    (dense weights over every joint)."""
     order = np.argsort(-weights, axis=1)[:, :max_influences]
-    j = np.take_along_axis(joints, order, axis=1)
+    j = order if joints is None else np.take_along_axis(joints, order, axis=1)
     w = np.take_along_axis(weights, order, axis=1)
     if j.shape[1] < 4:
         pad = 4 - j.shape[1]

@@ -46,8 +46,6 @@ class WoodTextureGenerator(NoiseTextureGenerator):
         return [
             NoiseLayer(name="grain_warp", octaves=3, scale=self.grain_scale,
                        seed_offset=0, weight=0.0),
-            NoiseLayer(name="fine", octaves=4, persistence=0.6,
-                       scale=self.ring_scale, seed_offset=200, weight=0.0),
             NoiseLayer(name="fine_stretched", octaves=4, persistence=0.6,
                        scale=self.ring_scale * 0.25, seed_offset=300, weight=0.0),
             NoiseLayer(name="color", octaves=2, scale=2.0,

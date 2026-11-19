@@ -358,9 +358,7 @@ class FloorPlan:
 
             shape = Shape(to_profile(poly.exterior.coords), [to_profile(i.coords) for i in poly.interiors])
             mesh = ExtrudeGenerator(shape=shape, depth=height, axis="y", crease_angle=30.0).generate()
-            shift = np.eye(4)
-            shift[1, 3] = -self.floor_thickness - mesh.vertices[:, 1].min()
-            meshes.append(mesh.transform(shift))
+            meshes.append(mesh.translated((0.0, -self.floor_thickness - mesh.vertices[:, 1].min(), 0.0)))
         return meshes[0] if len(meshes) == 1 else Mesh.merge(meshes)
 
     def _opening_frame(self, o: PlanOpening, segments: list[WallSegment]) -> tuple[WallSegment, float]:
@@ -410,9 +408,7 @@ class FloorPlan:
             size = (depth, o.height, o.width)
             pos = np.array([seg.line, o.sill + o.height / 2, centre])
         mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
-        move = np.eye(4)
-        move[:3, 3] = pos - offset
-        return mesh.transform(move)
+        return mesh.translated(pos - offset)
 
     # ---------------------------------------------------------------- building
 
@@ -479,10 +475,8 @@ class FloorPlan:
             options = self.finishes if isinstance(self.finishes, dict) else {}
             for room in self.rooms.values():
                 node = room_nodes[room.name]
-                to_room = np.eye(4)
-                to_room[:3, 3] = -node.transform.translation
                 add_room_finishes(node, float(node.meta.get("clear_height", self.wall_height)),
-                                  self.room_materials(room), [c.transform(to_room) for c in cutters],
+                                  self.room_materials(room), [c.translated(-node.transform.translation) for c in cutters],
                                   options, loader)
         return root
 
@@ -517,9 +511,7 @@ class FloorPlan:
                 size, pos = (depth, height, o.width), np.array([across, 0.0, centre])
             room_node = room_nodes[room_name]
             mesh = CubeGenerator(size_x=size[0], size_y=size[1], size_z=size[2], bevel=0).generate()
-            move = np.eye(4)
-            move[:3, 3] = pos + np.array([0.0, height / 2 - sink, 0.0]) - offset - room_node.transform.translation
-            mesh = mesh.transform(move)
+            mesh = mesh.translated(pos + np.array([0.0, height / 2 - sink, 0.0]) - offset - room_node.transform.translation)
             mesh.material = loader.load(self.room_materials(self.rooms[room_name])["floor"])
             beyond = next((r for r in rooms if r != room_name), "outside")
             strip = SceneNode(name=f"threshold_{beyond}", mesh=mesh, tags=["threshold"])
@@ -651,9 +643,7 @@ class FloorPlan:
 
         def slab(part: str, height: float, y: float, material: str, tuck: float = 0.0) -> SceneNode:
             mesh = CubeGenerator(size_x=sx + 2 * tuck, size_y=height, size_z=sz + 2 * tuck, bevel=0).generate()
-            move = np.eye(4)
-            move[1, 3] = y + height / 2
-            mesh = mesh.transform(move)
+            mesh = mesh.translated((0.0, y + height / 2, 0.0))
             mesh.material = loader.load(material)
             return SceneNode(name=part, mesh=mesh, tags=[part])
 

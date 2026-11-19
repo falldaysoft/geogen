@@ -189,6 +189,12 @@ def quat_axis_angle(axis, angle: float) -> NDArray[np.float64]:
     return np.array([*(axis * np.sin(angle / 2)), np.cos(angle / 2)])
 
 
+def smoothstep(x):
+    """Hermite ease of ``x`` clamped to 0..1: flat at both ends (a number or an array)."""
+    x = np.clip(x, 0.0, 1.0)
+    return x * x * (3 - 2 * x)
+
+
 def slerp(a: NDArray[np.float64], b: NDArray[np.float64], t: float) -> NDArray[np.float64]:
     """Spherical interpolation between unit quaternions (shortest arc), as glTF LINEAR rotation does."""
     a, b = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
