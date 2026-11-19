@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 # Worlds small enough to download on a visit (a few MB to about 30): rooms, a house, open air.
-SCENES = ("cottage", "hotel_room_auto", "wants_house", "quest_yard", "park")
+SCENES = ("christmas_eve", "cottage", "hotel_room_auto", "wants_house", "quest_yard", "park")
 
 
 def main() -> int:
